@@ -51,6 +51,46 @@ func partyCell(p *taskPartyDTO) string {
 	return output.SafeCell(p.ID)
 }
 
+// reservedNoProjectParent reports whether a parented task's parent is the
+// App's reserved AT0 "No project" project (cli#1320; server#2553,
+// cor:agt:050:01). The handle grammar settles this without another read: the
+// first segment is the project, AT0 is reserved for "no project", and
+// parentage is fixed at creation, so a task parented on the reserved project
+// carries exactly the handle AT0.<n>, one child segment. A real project
+// (AT<n>, n >= 1), a subtask path (AT0.5.3, parented on a task), or a missing
+// or malformed handle is not the reserved parent, and the display keeps the
+// parent line: unknown shapes fail open, never hiding a real parent.
+func reservedNoProjectParent(handle string) bool {
+	rest, ok := strings.CutPrefix(handle, "AT0.")
+	if !ok || rest == "" || strings.Contains(rest, ".") {
+		return false
+	}
+	for i, r := range rest {
+		// The grammar's child segment: [1-9][0-9]*, no leading zero.
+		if r < '0' || r > '9' || (i == 0 && r == '0') {
+			return false
+		}
+	}
+	return true
+}
+
+// refNamesTask reports whether a task ref, as sent, names this task: its id,
+// its bare handle, or its handle qualified as hrn:agenttask:<root>:<slug>:<handle>
+// (typed, or composed from --app).
+func refNamesTask(ref, id, handle string) bool {
+	if ref == id {
+		return true
+	}
+	if handle == "" {
+		return false
+	}
+	if strings.EqualFold(ref, handle) {
+		return true
+	}
+	lower := strings.ToLower(ref)
+	return strings.HasPrefix(lower, "hrn:agenttask:") && strings.HasSuffix(lower, ":"+strings.ToLower(handle))
+}
+
 // ---- get ------------------------------------------------------------------
 
 func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
@@ -202,7 +242,15 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		return err
 	}
 	if task.ParentTaskID != nil {
-		if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
+		if reservedNoProjectParent(task.Handle) {
+			// cli#1320, option A (Holger 2026-11-04): the parent is the
+			// reserved AT0 "No project" project the server parents every
+			// --parent-less task on, not a parent anybody asked for; the
+			// task's own handle AT0.<n> already says "no project".
+			if err := line("  project: none"); err != nil {
+				return err
+			}
+		} else if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
 			return err
 		}
 	}
@@ -289,6 +337,18 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			if err := line("  modelGroupIn=%s modelGroupNotIn=%s", safeTaskRequirementList(task.Requirements.ModelGroupIn), safeTaskRequirementList(task.Requirements.ModelGroupNotIn)); err != nil {
 				return err
 			}
+		}
+	}
+	// cli#2206: the settings the task asks for, and beside them what its run
+	// applied (cor:agt:050:01); both, or neither.
+	if r := task.RunSettings; r != nil && task.AppliedRunSettings != nil {
+		if err := line("  run settings: family=%s model=%s tier=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Tier), settingCell(r.Effort)); err != nil {
+			return err
+		}
+	}
+	if r := task.AppliedRunSettings; r != nil && task.RunSettings != nil {
+		if err := line("  applied: family=%s model=%s effort=%s", settingCell(r.Family), settingCell(r.Model), settingCell(r.Effort)); err != nil {
+			return err
 		}
 	}
 	if task.Result != nil {
@@ -379,7 +439,15 @@ refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
 
 --tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
 tag, not a separator. --source matches the exact value, never a prefix, and so
-does --external-id: the task claiming that outside item (at most one per App).
+does --external-id: the tasks that claim that outside item. An external id is
+held by at most one ACTIVE task (backlog, pending or started) per App; finished
+and cancelled tasks keep it, so the list can hold several, newest first. The
+live holder is the one still active, and one call finds it:
+--external-id <id> --status BACKLOG --status PENDING --status STARTED, against
+the same App as the refused create and with no other narrowing filter. An empty
+list then means no active task matched under these filters (the newest ended
+task is not a holder); any other filter can hide the holder. --unresolved lists
+finished tasks only, so with it the lookup cannot find an active holder.
 --ref <target> lists tasks carrying a typed reference with exactly that target
 (never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
 node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
@@ -410,9 +478,14 @@ Every other filter, and --limit/--offset, is refused with --team (exit 2);
 --tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
-The open-alarm counts come from a complete oldest-first walk of the App's alarm
-events. If that walk stops early (the 100-page bound, or the server reports more
-events without advancing its cursor) the counts are lower bounds and say so:
+The open-alarm counts are each task's alarms IN EFFECT (cor:agt:050:20), the
+server's answer — the same rows ` + "`team events --alarms-in-effect`" + ` returns,
+never worked out here — read by a complete oldest-first walk. An alarm whose
+escalation ended is not counted, even while no one has acknowledged it; the
+end can lag by up to one evaluator pass, and the alarm reads as in effect
+until it is recorded. If that walk
+stops early (the 100-page bound, or the server reports more events without
+advancing its cursor) the counts are lower bounds and say so:
 text prints one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted
 task in the table; --json marks every task openAlarmsIncomplete:true (a missing
 openAlarms then means unknown, not none) and adds alarmCounts {complete:false,
@@ -579,7 +652,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringArrayVar(&tagsAny, "tag-any", nil, "match at least one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringArrayVar(&tagsAll, "tag-all", nil, "match every one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringVar(&source, "source", "", "exact source value (no prefix matching)")
-	cmd.Flags().StringVar(&externalID, "external-id", "", "the task claiming exactly this external id, such as an issue URL (no prefix matching)")
+	cmd.Flags().StringVar(&externalID, "external-id", "", "the tasks claiming exactly this external id, such as an issue URL (no prefix matching); several can match (one ACTIVE holder plus finished or cancelled history, newest first)")
 	cmd.Flags().StringVar(&refTarget, "ref", "", "tasks carrying a reference with exactly this target (the label is ignored)")
 	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
 	cmd.Flags().BoolVar(&unresolved, "unresolved", false, "finished tasks with undisposed findings; false/omitted does not narrow; not with --team")
@@ -907,9 +980,13 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a task's parent/child chain",
 		Long: `Render the task and every task below it — children, their children and so
 on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
-per node. The alarms come from the App's unacknowledged alarm events, joined
-onto the tree client-side — the join is presentation, the alarm facts are the
-server's. To see an alarm in full use ` + "`team events --alarms`" + `; to
+per node. The count is the task's alarms IN EFFECT (cor:agt:050:20): the
+server's answer, the same rows ` + "`team events --alarms-in-effect`" + ` returns,
+joined onto the tree client-side — the join is presentation, the alarm facts
+are the server's, and nothing is worked out here. An alarm whose escalation
+ended is not counted though it may still be unacknowledged; the server can
+take up to one evaluator pass to record the end, and the alarm reads as in
+effect until then. To see an alarm in full use ` + "`team events --alarms`" + `; to
 acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
 or missing root exits 4. Text cells neutralise terminal controls and are bounded;
 --json carries complete, original values.
@@ -975,12 +1052,37 @@ walk is complete.`,
 			// NOTHING at exit 0 — the #470-class sin in this very render).
 			children := map[string][]*taskDTO{}
 			roots := []*taskDTO{}
+			// cli#1320: the reserved AT0 "No project" row is not drawn as a
+			// parent node. A task whose parent is AT0 renders as a root (its
+			// own handle AT0.<n> already says "no project"), unless AT0 is the
+			// root asked for by name (id, handle or qualified handle): then the
+			// row is the requested subject, not an implied parent. An AT0 row
+			// that no returned row names as its parent is not an implied
+			// parent at all, so it renders as a root (#2345 BLIND P2).
+			reservedID, reservedAsked := "", false
 			for i := range tasks {
+				if tasks[i].Handle == "AT0" {
+					reservedID = tasks[i].ID
+					reservedAsked = refNamesTask(rootId, tasks[i].ID, tasks[i].Handle)
+				}
+			}
+			reservedIsParent := false
+			for i := range tasks {
+				if reservedID != "" && tasks[i].ParentTaskID != nil && *tasks[i].ParentTaskID == reservedID {
+					reservedIsParent = true
+					break
+				}
+			}
+			hideReserved := reservedID != "" && reservedIsParent && !reservedAsked
+			for i := range tasks {
+				if hideReserved && tasks[i].ID == reservedID {
+					continue // the implied reserved parent is not drawn
+				}
 				if tasks[i].ParentTaskID == nil {
 					roots = append(roots, &tasks[i])
 					continue
 				}
-				if parent, ok := findByID(tasks, *tasks[i].ParentTaskID); ok {
+				if parent, ok := findByID(tasks, *tasks[i].ParentTaskID); ok && (!hideReserved || parent.ID != reservedID) {
 					children[parent.ID] = append(children[parent.ID], &tasks[i])
 				} else {
 					roots = append(roots, &tasks[i])
@@ -1047,8 +1149,13 @@ func (s *alarmWalkStop) explain() string {
 		s.Reason, output.SafeCell(s.LastEventID), s.Pages)
 }
 
-// openAlarmsByTask counts the App's alarm events not yet acknowledged, keyed
-// by task — `task tree`'s alarm join, shared with `task list --team`. It walks
+// openAlarmsByTask counts the App's alarms IN EFFECT, keyed by task — `task
+// tree`'s alarm join, shared with `task list --team` (cli#2053 F4). "In
+// effect" is the server's answer (the alarmsInEffect filter, the same one
+// `team events --alarms-in-effect` passes through; cor:agt:050:20, V77): every
+// row the server returns is counted and nothing is re-derived here, not even
+// from acknowledgedAt, so the count and the events filter cannot disagree on
+// one alarm. It walks
 // OLDEST-FIRST to the server's page end (hasMore:false): an open alarm can be
 // arbitrarily old, so a newest-end window can never prove "no open alarms",
 // and a full last page is the last page, never "more". A walk that cannot
@@ -1072,7 +1179,7 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
 	}
 	for pages := 1; ; pages++ {
-		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
+		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
 		if err != nil {
 			return nil, nil, mapTaskError(err)
 		}
@@ -1087,7 +1194,9 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 				continue
 			}
 			seen[e.Id] = true
-			if e.Severity != nil && e.AcknowledgedAt == nil && e.TaskId != nil {
+			// Severity says the row is an alarm at all (a type check, not an
+			// in-effect rule); acknowledgedAt is deliberately not read.
+			if e.Severity != nil && e.TaskId != nil {
 				alarmsByTask[*e.TaskId]++
 			}
 		}
@@ -1169,4 +1278,12 @@ func safeTaskRequirementList(values []string) string {
 		return "—"
 	}
 	return safeTaskValues(values, ",")
+}
+
+// settingCell renders one run setting: its value, or - when the task names none.
+func settingCell(v *string) string {
+	if v == nil {
+		return "-"
+	}
+	return output.SafeCell(*v)
 }

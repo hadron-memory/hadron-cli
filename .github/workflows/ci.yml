@@ -10,6 +10,12 @@ on:
     branches: [main]
   pull_request:
 
+# Non-PR runs need unique groups: GitHub replaces pending runs even when
+# cancel-in-progress is false, so grouping main pushes by ref would lose runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
@@ -27,6 +33,15 @@ jobs:
       # platform-only identifier fails the PR, not the release tag.
       - name: Cross-build release targets
         run: make cross-build
+      # #2315: cross-build skips test files. Compile the hostpoller test package
+      # for the non-linux targets so a platform-tag mismatch between a test and
+      # its helper fails the PR (compilation only, not native execution).
+      - name: Cross-compile the hostpoller test package
+        run: make cross-test-build
+      # #2341: vet (which also type-checks test files) every package for the
+      # darwin and windows release targets, so a platform constraint is enforced.
+      - name: Vet the non-linux release targets
+        run: make cross-vet
       - name: Test
         run: go test ./...
       - name: Codegen freshness
@@ -40,6 +55,96 @@ jobs:
       # The coverage matrix makes that an UNCLASSIFIED line the check refuses.
       - name: CLI coverage matrix
         run: make coverage-matrix-check
+
+  # #1325: the key file's owner-only DACL on windows is a security claim, so it
+  # is pinned by tests that read the DACL back through the Windows API. Only
+  # this package runs here: the cost is one runner, and unrelated packages'
+  # windows-only noise stays out. No paths filter, so it can be made required.
+  windows-secretfile:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - name: Test secretfile
+        run: go test -v ./internal/secretfile/...
+      - name: Build all packages
+        run: go build ./...
+
+  windows-binding-lock:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - name: Native intake adapter exec and pipe coverage (1974)
+        run: go test ./internal/intake -run TestNativeAdapter1974 -count=1 -v
+      - name: Windows binding lock verification (2079 only)
+        run: go test ./internal/delivery/ -run 2079 -v
+      - name: Verify both reparse guard mutants are detected
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $path = Join-Path $PWD 'internal/delivery/bindinglock_windows.go'
+          $original = [IO.File]::ReadAllText($path)
+          $utf8 = [Text.UTF8Encoding]::new($false)
+          $binary = Join-Path $env:RUNNER_TEMP 'bindinglock-2079-mutant.test.exe'
+          $mutants = @(
+            @{
+              Name = 'file-open-reparse-flag'
+              Pattern = [regex]::Escape('flags|windows.FILE_FLAG_OPEN_REPARSE_POINT')
+              Replacement = 'flags'
+              Test = '^TestLockBinding2079LockFileReparse$'
+              Failure = 'file reparse point was followed'
+              ShouldFail = $true
+            },
+            @{
+              Name = 'directory-reparse-attributes'
+              Pattern = '(?m)^\tif err := refuseReparse\(dh\); err != nil \{\r?\n\t\treturn nil, err\r?\n\t\}\r?\n'
+              Replacement = ''
+              Test = '^TestLockBinding2079DirectorySwapJunction$'
+              Failure = 'directory reparse point was followed|outside directory changed'
+              ShouldFail = $true
+            },
+            @{
+              Name = 'equivalent-file-reparse-flag'
+              Pattern = [regex]::Escape('flags|windows.FILE_FLAG_OPEN_REPARSE_POINT')
+              Replacement = 'flags|(windows.FILE_FLAG_OPEN_REPARSE_POINT)'
+              Test = '2079'
+              Failure = ''
+              ShouldFail = $false
+            }
+          )
+          foreach ($mutant in $mutants) {
+            try {
+              $regex = [regex]::new($mutant.Pattern)
+              if ($regex.Matches($original).Count -ne 1) { throw "Mutation anchor must occur once: $($mutant.Name)" }
+              [IO.File]::WriteAllText($path, $regex.Replace($original, $mutant.Replacement), $utf8)
+              git diff -- internal/delivery/bindinglock_windows.go
+              go test -c ./internal/delivery/ -o $binary
+              if ($LASTEXITCODE -ne 0) { throw "Mutant did not compile: $($mutant.Name)" }
+              $testArgs = @("-test.run=$($mutant.Test)", "-test.v")
+              $output = & $binary @testArgs 2>&1
+              $result = $LASTEXITCODE
+              $output | Out-Host
+              $text = $output -join "`n"
+              if ($mutant.ShouldFail) {
+                if ($result -eq 0) { throw "Mutant survived: $($mutant.Name)" }
+                if ($text -notmatch '--- FAIL:' -or $text -notmatch $mutant.Failure) { throw "Mutant failed for another reason: $($mutant.Name)" }
+                Write-Host "PASS: compiling mutant $($mutant.Name) killed by $($mutant.Test)"
+              } else {
+                if ($result -ne 0 -or $text -match '--- SKIP:' -or $text -notmatch '--- PASS: TestLockBinding2079PlainDirectoryControl') { throw "Equivalent control did not survive: $($mutant.Name)" }
+                Write-Host "PASS: equivalent mutant $($mutant.Name) survived"
+              }
+            } finally {
+              [IO.File]::WriteAllText($path, $original, $utf8)
+            }
+          }
+          git diff --exit-code -- internal/delivery/bindinglock_windows.go
+          if ($LASTEXITCODE -ne 0) { throw 'Mutation source was not restored' }
 
   lint:
     runs-on: ubuntu-latest

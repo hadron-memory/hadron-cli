@@ -15,24 +15,53 @@ type Terminal struct {
 	AgentIdentity *string `json:"agentIdentity"`
 	Connected     bool    `json:"connected"`
 	Writable      bool    `json:"writable"`
+	// TabID names the tab a terminal pane sits in; a tab's title is shared
+	// by its panes (#2027: empty when Orca says none — tabs cannot then be
+	// counted, and no tab is ever closed). Title is the tab's current
+	// title, as the list reports it (#2017).
+	TabID string `json:"tabId"`
+	Title string `json:"title"`
+	// LastOutputAt is Orca's last-output stamp for the terminal as the list
+	// printed it (a number of milliseconds, kept as its text), "" when the
+	// row has none. Equal stamps mean no new output between two lists
+	// (#2181); a missing one proves nothing.
+	LastOutputAt string `json:"-"`
 }
 
 // UnmarshalJSON reads Orca's row with router.ts's defaults: connected and
 // writable count unless explicitly false.
 func (t *Terminal) UnmarshalJSON(b []byte) error {
 	var raw struct {
-		Handle        string  `json:"handle"`
-		WorktreePath  string  `json:"worktreePath"`
-		AgentIdentity *string `json:"agentIdentity"`
-		Connected     *bool   `json:"connected"`
-		Writable      *bool   `json:"writable"`
+		Handle        string          `json:"handle"`
+		WorktreePath  string          `json:"worktreePath"`
+		AgentIdentity *string         `json:"agentIdentity"`
+		Connected     *bool           `json:"connected"`
+		Writable      *bool           `json:"writable"`
+		TabID         string          `json:"tabId"`
+		Title         string          `json:"title"`
+		LastOutputAt  json.RawMessage `json:"lastOutputAt"`
 	}
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
 	*t = Terminal{Handle: raw.Handle, WorktreePath: raw.WorktreePath, AgentIdentity: raw.AgentIdentity,
-		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable}
+		Connected: raw.Connected == nil || *raw.Connected, Writable: raw.Writable == nil || *raw.Writable,
+		TabID: raw.TabID, Title: raw.Title, LastOutputAt: stampText(raw.LastOutputAt)}
 	return nil
+}
+
+// stampText is a lastOutputAt as text: a JSON number or string, "" for
+// anything else (null, absent, an object), which proves nothing.
+func stampText(raw json.RawMessage) string {
+	var n json.Number
+	if json.Unmarshal(raw, &n) == nil {
+		return n.String()
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		return s
+	}
+	return ""
 }
 
 // Identity is the agent Orca says runs in the terminal, or "".
@@ -73,19 +102,45 @@ type Client struct {
 // NewClient wraps run in Guard.
 func NewClient(run Runner) *Client { return &Client{run: Guard(run)} }
 
+// NewSweepClient wraps run in SweepGuard: the team health sweep's client,
+// whose close verb delivery's Guard refuses on purpose (#2027).
+func NewSweepClient(run Runner) *Client { return &Client{run: SweepGuard(run)} }
+
 // List is every live terminal, looked up fresh: delivery never caches one.
+// The list says when it is not the whole roster (truncated, totalCount): it
+// is then read once more with every row asked for, and a list that is still
+// short fails closed. A truncated list is never a roster, so a terminal it
+// lacks is never "gone" (#2181).
 func (c *Client) List(ctx context.Context) ([]Terminal, error) {
-	env, ok := parse(c.run(ctx, []string{"terminal", "list", "--json"}))
-	if !ok || !env.OK {
+	terms, total, short, err := c.listCall(ctx, nil)
+	if err != nil || !short {
+		return terms, err
+	}
+	terms, _, short, err = c.listCall(ctx, []string{"--limit", strconv.Itoa(max(total, len(terms)))})
+	if err != nil || short {
 		return nil, ErrOrca
+	}
+	return terms, nil
+}
+
+func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal, total int, short bool, err error) {
+	argv := append([]string{"terminal", "list"}, extra...)
+	env, ok := parse(c.run(ctx, append(argv, "--json")))
+	if !ok || !env.OK {
+		return nil, 0, false, ErrOrca
 	}
 	var result struct {
-		Terminals []Terminal `json:"terminals"`
+		Terminals  []Terminal `json:"terminals"`
+		TotalCount int        `json:"totalCount"`
+		Truncated  bool       `json:"truncated"`
 	}
 	if json.Unmarshal(env.Result, &result) != nil {
-		return nil, ErrOrca
+		return nil, 0, false, ErrOrca
 	}
-	return result.Terminals, nil
+	// Short is either signal: Orca says so, or it declares a total it did not
+	// return. A payload with no total (0) is judged by `truncated` alone.
+	short = result.Truncated || (result.TotalCount > 0 && len(result.Terminals) < result.TotalCount)
+	return result.Terminals, result.TotalCount, short, nil
 }
 
 // Screen is one `orca terminal read --screen` result: the rendered tail, the
@@ -130,6 +185,19 @@ func (c *Client) ReadScreen(ctx context.Context, handle string) *Screen {
 		sc.Draft = s
 	}
 	return sc
+}
+
+// CloseTab closes the whole tab the terminal lives in, and waits for Orca's
+// durable persistence (`--tab`). Sweep-only (#2027): the caller has
+// positively classified the tab a bare shell first, and re-read it
+// immediately before, so nothing mid-turn is ever closed. The answer is
+// acceptance only, never screen text.
+func (c *Client) CloseTab(ctx context.Context, handle string) error {
+	env, ok := parse(c.run(ctx, []string{"terminal", "close", "--terminal", handle, "--tab", "--json"}))
+	if !ok || !env.OK {
+		return ErrOrca
+	}
+	return nil
 }
 
 // Receipt is what a send established. It carries Orca's stages and an error
@@ -243,6 +311,51 @@ func findRequestID(node any) string {
 				return id
 			}
 		}
+	}
+	return ""
+}
+
+// RenameTab sets one terminal tab's title through run, which is the raw runner:
+// the delivery Guard allows only the four delivery calls, and a rename is not
+// one of them, so the title pass owns this single extra call. title must be
+// non-empty (an empty title would reset the tab to its automatic one). It is
+// passed as --title=<text> so a name starting with "-" is never read as a flag.
+// The error is a code, never Orca's output.
+func RenameTab(ctx context.Context, run Runner, handle, title string) error {
+	if handle == "" || title == "" {
+		return ErrOrca
+	}
+	env, ok := parse(run(ctx, []string{"terminal", "rename", "--terminal", handle, "--title=" + title, "--json"}))
+	if !ok {
+		return ErrOrca
+	}
+	if !env.OK {
+		if env.Error != nil && env.Error.Code != "" {
+			return &CodeError{Code: env.Error.Code}
+		}
+		return ErrOrca
+	}
+	return nil
+}
+
+// CodeError is a failed `orca` call that answered with an error code. It is
+// ErrOrca to errors.Is and carries Orca's
+// code, an opaque string from another system: callers pass it through, never
+// branch on its value or list the values (cli#2040). Orca's message is never
+// kept, since it may quote input. Compatibility is for errors.Is/errors.As
+// only: a direct err == ErrOrca comparison no longer matches, so callers must
+// use errors.Is (cli#2337: none compares directly; RenameTab's one caller reads
+// the code with ErrorCode).
+type CodeError struct{ Code string }
+
+func (e *CodeError) Error() string { return ErrOrca.Error() }
+func (e *CodeError) Unwrap() error { return ErrOrca }
+
+// ErrorCode is the code Orca answered with, or "" when err carries none.
+func ErrorCode(err error) string {
+	var ce *CodeError
+	if errors.As(err, &ce) {
+		return ce.Code
 	}
 	return ""
 }

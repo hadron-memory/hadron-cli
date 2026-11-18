@@ -30,7 +30,7 @@ SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.m
 # review, Codex P2 + Copilot; the same gap for split MCP modules, #901).
 TOOLS_SOURCES ?= src/mcp src/lib/runner/tools
 
-.PHONY: build cross-build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
+.PHONY: build cross-build cross-test-build cross-vet test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -45,6 +45,27 @@ cross-build:
 	  echo "go build $$t"; \
 	  GOOS=$${t%/*} GOARCH=$${t#*/} go build ./... || exit 1; \
 	done
+
+# cli#2315: cross-build compiles the PACKAGES for every release target, but not
+# their TEST files, so a test file whose platform tag disagrees with its helper
+# (patientKillWait, defined for unix only and called by untagged tests) failed to
+# compile on Windows and nobody noticed. Compile the hostpoller test package for
+# the non-linux release targets, without running it: cross-compilation only, no
+# claim of native execution. One explicit command per target, no loop.
+cross-test-build:
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
+
+# cli#2341: go vet type-checks the test files too. Vet every package for the
+# non-linux release targets so a constraint (a unix-only test helper, a /proc
+# assumption in code that builds for darwin) is enforced, not assumed. One
+# explicit command per target, no loop. Compilation and vet only: no native
+# execution is claimed.
+cross-vet:
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go vet ./...
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go vet ./...
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
 
 test:
 	go test ./...
@@ -175,8 +196,8 @@ help-inventory: build
 
 # Drift detector for the inventory: regenerate from the built binary and fail if
 # the committed tree rows differ (a command added, renamed or removed without a
-# refresh). The pinned commit and version lines are expected to differ from any
-# later build, so they are not compared. Not part of per-PR CI: a PR that adds a
+# refresh). The whole file is compared: it carries no commit or version pin
+# (cli#2310), so two PRs that regenerate it never conflict on one. Not part of per-PR CI: a PR that adds a
 # command would otherwise fail on a file it has no reason to touch. Run it when
 # you pin or re-read the inventory.
 help-inventory-check: build
@@ -184,7 +205,7 @@ help-inventory-check: build
 	tmp=$$(mktemp); trap 'rm -f $$tmp' EXIT; \
 	HADRON_BIN=bin/hadron HELP_INVENTORY_EXISTING=docs/help-inventory.md bash scripts/gen-help-inventory.sh > $$tmp; \
 	[ -s $$tmp ] || { echo "✗ help-inventory: the generator produced nothing"; exit 1; }; \
-	if ! diff -u -I '^Pinned commit: ' -I '^CLI version: ' docs/help-inventory.md $$tmp; then \
+	if ! diff -u docs/help-inventory.md $$tmp; then \
 	  echo "✗ help-inventory drift: the command tree changed — run 'make help-inventory' and commit."; \
 	  exit 1; \
 	fi; \

@@ -7,6 +7,7 @@
 # mcp-tools-ignore.txt. CI's tools-manifest-check fails if this drifts from
 # hadron-server (the drift that let h-* shorthand rot silently — issue #240).
 #
+hadron_agent_boot_prompt
 hadron_agent_processes
 hadron_agent_set_base
 hadron_agent_set_index_refs
@@ -15,6 +16,7 @@ hadron_child_runs
 hadron_create_app_memory
 hadron_create_comment
 hadron_create_edge
+hadron_create_grant
 hadron_create_memory
 hadron_create_node
 hadron_create_object
@@ -32,6 +34,7 @@ hadron_end_session
 hadron_fail
 hadron_find_nodes
 hadron_find_objects
+hadron_get_automation_team_snapshot_grant
 hadron_get_comment
 hadron_get_next_node
 hadron_get_node
@@ -56,6 +59,7 @@ hadron_preview_automation
 hadron_re_adopt_automation
 hadron_read_node
 hadron_read_secret
+hadron_record_content_validation
 hadron_reopen_comment_thread
 hadron_replace_text
 hadron_reply_to_comment
@@ -95,5 +99,7 @@ hadron_update_review
 hadron_update_scope
 hadron_update_task
 hadron_validate
+hadron_web_poll_cancel
+hadron_web_poll_list
 hadron_whoami
 hadron_withdraw_signing_request

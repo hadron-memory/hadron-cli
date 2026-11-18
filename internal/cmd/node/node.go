@@ -168,8 +168,18 @@ type nodeDetailDTO struct {
 	// null is the provider's answer (not shown to you, or not known), never
 	// "nobody", and the key is never omitted.
 	CreatedByUser *cmdutil.Attribution `json:"createdByUser"`
-	OutgoingEdges []edgeRefDTO         `json:"outgoingEdges"`
-	IncomingEdges []edgeRefDTO         `json:"incomingEdges"`
+	// IndexTruncated is the server's index-truncated marker (hadron-cli#1481):
+	// more chunks than the index cap, so the node is searchable only through its
+	// first ones. A POINTER with NO omitempty: null means fully indexed, and the
+	// key is never omitted, so a missing key can never read as "unknown".
+	IndexTruncated *indexTruncatedDTO `json:"indexTruncated"`
+	OutgoingEdges  []edgeRefDTO       `json:"outgoingEdges"`
+	IncomingEdges  []edgeRefDTO       `json:"incomingEdges"`
+}
+
+// indexTruncatedDTO is Node.indexTruncated { omittedChunks }.
+type indexTruncatedDTO struct {
+	OmittedChunks int `json:"omittedChunks"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {

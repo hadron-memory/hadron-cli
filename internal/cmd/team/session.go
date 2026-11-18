@@ -8,9 +8,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/google/uuid"
@@ -21,6 +22,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -42,7 +44,10 @@ no repository): start, resume and shed there keep the binding in a hidden
 .hadron-team/ directory inside that directory, under the same lock. Such a
 directory binds ONE worker: another worker's start there is refused, never
 shared — give each worker its own directory. Only the directory a command
-runs in is looked at, never a parent.
+runs in is looked at, never a parent. Running git init in such a directory
+makes it a worktree: the binding then lives in the git dir and the cache in
+.hadron-team/ is no longer read, so whoami there shows no binding until you
+start or resume again, which creates the worktree's binding.
 
 WHICH COMMAND, IN ORDER:
   am I already bound?          session whoami (--check to test it in a script)
@@ -84,10 +89,12 @@ holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
+	cmd.AddCommand(newCmdSessionRecover(f))
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
+	cmd.AddCommand(newCmdSessionResetContext(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	cmd.AddCommand(newCmdSessionWorkItems(f))
 	cmd.AddCommand(newCmdSessionOutcome(f))
@@ -208,6 +215,10 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 
 const sessionPageSize = 200
 
+// sessionScanRestarts bounds how often a scan that fell short of the total
+// starts over from offset 0 (cli#2030).
+const sessionScanRestarts = 3
+
 // scanSessions pages sessionsPage (cli#1339; ordered startedAt desc; the server
 // has no active filter) and calls visit per session until visit returns false
 // or the list is exhausted. workerRef narrows server-side to one worker's
@@ -216,12 +227,37 @@ const sessionPageSize = 200
 // exist means the list is not advancing (a server ignoring the offset), which
 // fails the read rather than looping or returning a partial list; a row shifted
 // onto the next page by a concurrent insert is skipped as the duplicate it is.
+//
+// An insert between page reads shifts the offsets (cor:api:120:05: offset paging
+// skips or repeats rows on a changing list), so the newest row can land before
+// the offset and the scan ends one short of the total (cli#2030). That is not a
+// server fault: the scan restarts from offset 0, keeping what it has seen so no
+// session is visited twice, up to sessionScanRestarts times. Rows are collected
+// and visited only once the list is complete: a restart finds the concurrent
+// insert after the older rows, so the recovered list is put back in the
+// documented newest-first order (startedAt desc, id desc) before any caller
+// sees it — callers slice and pick "the newest" from that order. It stays
+// fail-closed (cor:api:120:04) — when the restarts run out the read fails and
+// never reports a partial list as complete, or as "unbound".
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
 	return scanSessionsFiltered(ctx, client, repo, workerRef, nil, nil, visit)
 }
 func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, workerRef, customer, typ *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	seen := map[string]bool{}
+	var rows []gen.TeamSessionFields
+	restarts, readAtRestart := 0, -1
+	finish := func() error {
+		if restarts > 0 {
+			sortNewestFirst(rows)
+		}
+		for _, r := range rows {
+			if !visit(r) {
+				return nil
+			}
+		}
+		return nil
+	}
 	for offset := 0; ; {
 		off := offset
 		resp, err := sessionPage1337(ctx, client, repo, workerRef, customer, typ, &limit, &off)
@@ -236,20 +272,72 @@ func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, work
 			}
 			seen[s.Id] = true
 			fresh++
-			if !visit(s.TeamSessionFields) {
-				return nil
-			}
+			rows = append(rows, s.TeamSessionFields)
 		}
 		offset += len(page.Items)
 		if !page.HasMore && len(seen) >= page.Total {
-			return nil
+			return finish()
+		}
+		if fresh == 0 && len(seen) >= page.Total && len(page.Items) > 0 && offset < page.Total {
+			// A restarted pass re-walking pages it has already read: every row the
+			// server counts is in hand, so keep paging to the end. Bounded by the
+			// offset reaching the total, and an empty page still fails below, so a
+			// server that ignores the offset or claims more forever cannot loop.
+			continue
 		}
 		if fresh == 0 {
 			// Nothing new while the total is still unmet is a partial list, whatever
-			// hasMore says: fail rather than return it.
-			return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			// hasMore says. A concurrent insert is the usual cause: start over
+			// (bounded) rather than return it; out of restarts, fail.
+			//
+			// Churn and a stuck server look alike on one page, but not across
+			// passes: churn leaves each restarted pass with a row it had not read,
+			// a stuck server (offset ignored, or a total that never matches) leaves
+			// it exactly where the last pass stopped. Retrying cannot help the
+			// second, so it keeps the "not advancing" diagnosis.
+			if len(seen) == readAtRestart {
+				return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+			}
+			if restarts < sessionScanRestarts {
+				restarts++
+				readAtRestart = len(seen)
+				offset = 0
+				continue
+			}
+			return exitcode.Newf(exitcode.Unavailable, "the session list changed while it was being read (%d of %d sessions read after %d restarts); retry the command", len(seen), page.Total, restarts)
 		}
 	}
+}
+
+// sortNewestFirst restores the server's session order (startedAt desc, id desc)
+// after a restarted scan appended a concurrent insert last (cli#2030).
+//
+// One total order, on one precomputed key per row (cli#2049): rows whose
+// startedAt parses as RFC 3339 come first, by instant descending then id
+// descending; rows whose startedAt does not parse come last, by id descending.
+// An unparsable row's text is never compared, and never mixed with an instant,
+// so the order cannot depend on how the rows were permuted going in.
+func sortNewestFirst(rows []gen.TeamSessionFields) {
+	type key struct {
+		parsed  bool
+		instant time.Time
+		id      string
+	}
+	keys := make(map[string]key, len(rows))
+	for _, r := range rows {
+		t, err := time.Parse(time.RFC3339Nano, r.StartedAt)
+		keys[r.Id] = key{parsed: err == nil, instant: t, id: r.Id}
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := keys[rows[i].Id], keys[rows[j].Id]
+		if a.parsed != b.parsed {
+			return a.parsed
+		}
+		if a.parsed && !a.instant.Equal(b.instant) {
+			return a.instant.After(b.instant)
+		}
+		return a.id > b.id
+	})
 }
 
 // workerActivity reads the worker's most recent session and its most recent
@@ -851,7 +939,11 @@ there when neither --launch-grant nor --as is given. The grant names the
 worker, so --as is not needed with it; --as with --launch-grant has the
 server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
 the variable, so a spent grant left in the environment never gets in the
-way of an ordinary bind later. Redeem
+way of an ordinary bind later. When the host could not apply the run
+settings its start named (an exec-path worker runs its own fixed command), it
+also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
+tells the server (startSettingsApplied: false) so the bind records none of
+those settings as run (hadron-cli#2209). Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
 redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
 used grant). A changed hold or a worker that is already live refuses the
@@ -928,7 +1020,7 @@ ends the recovered session: run start again to pick it up.`,
 			if grant == "" && strings.TrimSpace(as) == "" {
 				// hadron-cli#842: no worker named and no grant is a RESUME.
 				return runSessionResume(cmd, f, resumeFlags{
-					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family),
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family), effort: extra.effortLevel(cmd),
 				})
 			}
 			if cmd.Flags().Changed("session") {
@@ -948,7 +1040,7 @@ ends the recovered session: run start again to pick it up.`,
 			// known after the bind; writeBinding's check under the lock
 			// refuses that one, and the bind is rolled back below.
 			if plainDir && existing != nil && strings.TrimSpace(as) != "" && !namesBoundWorker(existing, as) {
-				return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+				return errDirectoryHeld(heldCachePath(), existing)
 			}
 			// The client opens early only for the plain-directory read below;
 			// everywhere else it opens after the existing-binding check, as
@@ -996,7 +1088,7 @@ ends the recovered session: run start again to pick it up.`,
 				}
 				resolved = true
 				if existing.WorkerID == "" || w.Id != existing.WorkerID {
-					return errDirectoryHeld(filepath.Join(plainDirCacheName, bindingFileName), existing)
+					return errDirectoryHeld(heldCachePath(), existing)
 				}
 			}
 			var lapsedBinding bool
@@ -1217,17 +1309,19 @@ ends the recovered session: run start again to pick it up.`,
 				host, _ = os.Hostname()
 			}
 			input := &gen.SessionInput{
-				Id:             newSessionID(),
-				ReportsTo:      optStr(reportsTo),
-				WorkerRef:      optStr(w.Id),
-				AppRef:         appRefArg,
-				LaunchGrant:    optStr(grant),
-				Repo:           optStr(repo),
-				Branch:         optStr(branch),
-				Host:           optStr(host),
-				Tool:           optStr(tool),
-				TranscriptPath: optStr(transcript),
-				LlmModel:       optStr(model),
+				Id:          newSessionID(),
+				ReportsTo:   optStr(reportsTo),
+				WorkerRef:   optStr(w.Id),
+				AppRef:      appRefArg,
+				LaunchGrant: optStr(grant),
+				// #2209: the host's "settings not applied", only with a grant.
+				StartSettingsApplied: startSettingsNotApplied(grant, os.Getenv(hostpoller.StartSettingsAppliedEnvVar)),
+				Repo:                 optStr(repo),
+				Branch:               optStr(branch),
+				Host:                 optStr(host),
+				Tool:                 optStr(tool),
+				TranscriptPath:       optStr(transcript),
+				LlmModel:             optStr(model),
 			}
 			// #940/#432: the server refuses a taken worker atomically
 			// (WORKER_TAKEN) unless force rides along — the activity check
@@ -1633,6 +1727,26 @@ type whoamiDTO struct {
 	// (#484). Both null on a live session and on an unchecked read.
 	EndedAt       *string `json:"endedAt"`
 	AutoExpiredAt *string `json:"autoExpiredAt"`
+	// Live, LapsesAt and State are the server's own per-session state
+	// (Session.isLive / lapsesAt / state, cor:agt:020:13), additive beside the
+	// keys above and null unless --check ran (State is "unknown", never null,
+	// when --check ran against a server that predates the field). The CLI
+	// derives none of them: no clock, no idle or dormancy policy. Active keeps
+	// its stable meaning (open row), and is NOT replaced by these.
+	Live     *bool   `json:"live"`
+	LapsesAt *string `json:"lapsesAt"`
+	State    *string `json:"state"`
+	// CandidateStates answers the same for every candidate of the server
+	// fallback under --check (several sessions have no single answer above). It
+	// is [] and never null everywhere else, so a consumer can iterate it blind.
+	CandidateStates []candidateStateDTO `json:"candidateStates"`
+}
+
+// setState records the server's state answer on the DTO.
+func (d *whoamiDTO) setState(st sessionStateDTO) {
+	d.Live, d.LapsesAt = st.Live, st.LapsesAt
+	state := st.State
+	d.State = &state
 }
 
 // livenessLine renders --check's answer, and distinguishes the two ways a
@@ -1671,11 +1785,10 @@ type livenessResult struct {
 // clears only the binding of the worktree it ran in. Every other worktree's
 // file keeps describing a session that is gone.
 //
-// It deliberately reports nothing about IDLENESS. An open session not driven
-// for months is correctly open under #1114. Since #791 the server does expose
-// Session.isLive, but this command's stable `active` answer means OPEN, not
-// recently driven. `session start` reads the separate liveness field for its
-// binding guard; `whoami --check` keeps its narrower ended-state contract.
+// This answers only OPEN (endedAt IS NULL), the stable `active` meaning: an
+// open session not driven for months is correctly open under #1114. Liveness is
+// a separate question the server answers as Session.state, which the caller
+// reads through fetchSessionState (cli#815); nothing here derives it.
 func checkSessionLiveness(cmd *cobra.Command, f *cmdutil.Factory, b *binding) (livenessResult, error) {
 	// A binding from another deployment describes a session this server has
 	// never heard of, and "not found" would read as "ended". Refuse with the
@@ -1779,8 +1892,18 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 		// no binding AND the server has none attributed to you.
 		return noOpenWorkerSessionErr(inWorktree)
 	}
-	dto := whoamiDTO{binding: &binding{PRNumbers: []int{}}, Source: "server", Candidates: mine}
+	dto := whoamiDTO{binding: &binding{PRNumbers: []int{}}, Source: "server", Candidates: mine, CandidateStates: []candidateStateDTO{}}
 	if check {
+		// One state read per candidate: --check is the one network path, and
+		// "every listed session" is the acceptance. Sequential and bounded by
+		// the number of open sessions the caller holds.
+		for _, s := range mine {
+			st, serr := fetchSessionState(cmd.Context(), client, s.ID)
+			if serr != nil {
+				return serr
+			}
+			dto.CandidateStates = append(dto.CandidateStates, candidateStateDTO{SessionID: s.ID, Live: st.Live, LapsesAt: st.LapsesAt, State: st.State})
+		}
 		// --check must not be SILENTLY downgraded here (@copilot on PR #626).
 		// Its answer would otherwise depend on whether the local cache happens
 		// to exist, which is the opposite of what the flag is for.
@@ -1796,6 +1919,8 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			// several leaves Active null exactly as it leaves sessionId empty.
 			open := true
 			dto.Active = &open
+			only := dto.CandidateStates[0]
+			dto.setState(sessionStateDTO{Live: only.Live, LapsesAt: only.LapsesAt, State: only.State})
 		}
 	}
 	if len(mine) == 1 {
@@ -1829,15 +1954,26 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 			if r := strOrEmpty(s.Repo); r != "" {
 				fmt.Fprintf(w, "  repo: %s\n", r)
 			}
+			if check {
+				fmt.Fprintf(w, "  server: %s\n", stateLine(dto))
+			}
 		} else {
 			// A TABLE, because several is the ordinary case rather than the
 			// exception — one driver with a worker per worktree had 17 open at
 			// once, measured. Seventeen detail blocks is not a list anyone can
 			// pick from, and picking is the whole purpose here.
 			fmt.Fprintf(w, "%d open worker sessions are yours; none is bound here, so pick one by SESSION.\n\n", len(mine))
-			t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "REPO", "STARTED", "SESSION")
-			for _, s := range mine {
-				t.Row(output.SafeCell(dash(s.WorkerName)), output.SafeCell(dash(s.boundRole())), output.SafeCell(reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown)), output.SafeCell(dash(s.Repo)), output.SafeCell(s.StartedAt), output.SafeCell(s.ID))
+			header := []string{"WORKER", "ROLE", "REPORTS TO", "REPO", "STARTED", "SESSION"}
+			if check {
+				header = append(header, "STATE")
+			}
+			t := output.NewTable(w, header...)
+			for i, s := range mine {
+				row := []string{output.SafeCell(dash(s.WorkerName)), output.SafeCell(dash(s.boundRole())), output.SafeCell(reportsToLabel(s.ReportsTo, s.ReportsToRetired, s.ReportingKnown)), output.SafeCell(dash(s.Repo)), output.SafeCell(s.StartedAt), output.SafeCell(s.ID)}
+				if check {
+					row = append(row, stateCell(dto.CandidateStates[i]))
+				}
+				t.Row(row...)
 			}
 			if err := t.Flush(); err != nil {
 				return err
@@ -1986,7 +2122,7 @@ left a session open with its only local handle gone.
 --json carries "source": "worktree" when the binding answered, "server" when
 the fallback did.
 
---check ASKS THE SERVER whether the bound session is still open (#484). The
+--check ASKS THE SERVER about the bound session (#484). The
 binding identity remains available locally for compaction recovery. The default
 also reads the worker's CURRENT reports-to relation (best effort, at most five
 seconds); failed or masked reads show ? (unavailable), not nobody. It never
@@ -1998,13 +2134,17 @@ a person ending it, says so: endedAt answers WHETHER, autoExpiredAt answers HOW.
 The --json answer is "active" (the endedAt-IS-NULL predicate, as everywhere
 else here), never "live" — an active session is not necessarily a driven one.
 
---check is not a health check for idleness. Since hadron-server#1114 a
-developer session has no inactivity deadline, so an open session that has not
-been driven in months is CORRECTLY open, and nothing here calls it stale. The
-server exposes Session.isLive since hadron-server#1547, but this command deliberately
-answers only whether the bound session is open. Its --json ` + "`active`" + ` key
-keeps that stable meaning; use ` + "`session start`" + ` for the exact liveness
-guard when rebinding.
+--check asks the server about the session and shows its own state, never one
+the CLI works out: "live, lapses at <instant>", "LAPSED at <instant>" (open but
+not live; rebind), "DORMANT" (no agent act resumes it; its human holder must
+rebind) or "ENDED" (also shown when a session has hard-expired but is not yet
+reaped). Since hadron-server#1114 a developer session has no inactivity
+deadline, and an open one not driven for months is open, not stale. --json adds
+` + "`live`, `lapsesAt`, `state` (live|lapsed|dormant|ended|unknown)" + ` and
+` + "`candidateStates`" + `; ` + "`active`" + ` keeps its stable meaning (the row is
+not ended) and is NOT liveness. A server that predates Session.state answers
+state "unknown". Plain whoami (no --check) makes no session-state read (it still
+reads the worker reporting line).
 
 The fallback lists only sessions that are attributed to YOU, worker-bound, and
 still open. The server's session list is deliberately wider than that — it
@@ -2059,7 +2199,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 			if b == nil {
 				return whoamiFromServer(cmd, f, true, check)
 			}
-			result := whoamiDTO{binding: b, BindingPath: path, Source: "worktree", Candidates: []sessionDTO{}}
+			result := whoamiDTO{binding: b, BindingPath: path, Source: "worktree", Candidates: []sessionDTO{}, CandidateStates: []candidateStateDTO{}}
 			if check {
 				live, cerr := checkSessionLiveness(cmd, f, b)
 				if cerr != nil {
@@ -2069,6 +2209,17 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 				result.Active = &live.active
 				result.EndedAt = live.endedAt
 				result.AutoExpiredAt = live.autoExpiredAt
+				// The state read is its own operation (an older server degrades
+				// to "unknown"); the open-row answer above is already in hand.
+				client, cerr := f.GraphQLClient()
+				if cerr != nil {
+					return cerr
+				}
+				st, cerr := fetchSessionState(cmd.Context(), client, b.SessionID)
+				if cerr != nil {
+					return cerr
+				}
+				result.setState(st)
 			}
 			loadReporting(cmd.Context(), f, b, &result)
 			if err := output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -2091,7 +2242,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 					fmt.Fprintf(w, "  prs: %s\n", strings.Join(prs, " "))
 				}
 				if result.Checked {
-					fmt.Fprintf(w, "  server: %s\n", livenessLine(result))
+					fmt.Fprintf(w, "  server: %s\n", stateLine(result))
 				}
 				return nil
 			}); err != nil {
@@ -2108,7 +2259,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open; exits 14 if it has ended")
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server about the bound session: live, lapsed, dormant or ended; exits 14 if it has ended")
 	cmd.Flags().BoolVar(&signature, "signature", false, "print only the bound worker's rendered signature")
 	cmd.Flags().BoolVar(&trailer, "trailer", false, "print only the bound worker's rendered commit trailer")
 	cmd.MarkFlagsMutuallyExclusive("check", "signature", "trailer")
@@ -2395,7 +2546,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			// move the pointer: a refusal now leaves nothing half-applied, and
 			// the reverse partial (row written, pointer refused) is named.
 			touchSession := func(rowWritten bool) error {
-				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil, nil); err != nil {
 					mapped := api.MapError(err)
 					if rowWritten {
 						// Claim "NOT updated" only for a definitive refusal. A

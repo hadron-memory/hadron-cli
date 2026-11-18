@@ -37,6 +37,7 @@ type modelReportDTO struct {
 	SessionID string  `json:"sessionId"`
 	Model     *string `json:"model"`
 	Family    *string `json:"family,omitempty"`
+	Effort    *string `json:"effort,omitempty"`
 	Reported  bool    `json:"reported"`
 }
 
@@ -204,20 +205,20 @@ func sameTree(ctx context.Context, hookCwd string) bool {
 }
 
 func reportModel(ctx context.Context, f *cmdutil.Factory, _ *cobra.Command, client graphql.Client, sessionID, model string, quiet bool) error {
-	return reportSessionModel(ctx, f, client, sessionID, &model, nil, quiet)
+	return reportSessionModel(ctx, f, client, sessionID, &model, nil, nil, quiet)
 }
 
 // reportSessionModel is the one updateSession write for model metadata. Each
 // of model and family is sent only when non-nil: an omitted field preserves
 // the stored value, and nothing here ever sends an explicit null.
-func reportSessionModel(ctx context.Context, f *cmdutil.Factory, client graphql.Client, sessionID string, model, family *string, quiet bool) error {
-	if _, err := gen.UpdateTeamSession(ctx, client, sessionID, nil, nil, model, family); err != nil {
+func reportSessionModel(ctx context.Context, f *cmdutil.Factory, client graphql.Client, sessionID string, model, family *string, effort *gen.EffortLevel, quiet bool) error {
+	if _, err := gen.UpdateTeamSession(ctx, client, sessionID, nil, nil, model, family, effort); err != nil {
 		return api.MapError(err)
 	}
 	if quiet {
 		return nil
 	}
-	return output.Write(f.IOStreams, f.JSON, modelReportDTO{SessionID: sessionID, Model: model, Family: family, Reported: true}, func(w io.Writer) error {
+	return output.Write(f.IOStreams, f.JSON, modelReportDTO{SessionID: sessionID, Model: model, Family: family, Effort: effortString(effort), Reported: true}, func(w io.Writer) error {
 		var parts []string
 		if model != nil {
 			parts = append(parts, "model: "+*model)
@@ -225,8 +226,11 @@ func reportSessionModel(ctx context.Context, f *cmdutil.Factory, client graphql.
 		if family != nil {
 			parts = append(parts, "family: "+*family+" (as sent; the server normalizes it)")
 		}
+		if effort != nil {
+			parts = append(parts, "effort: "+string(*effort)+" (a report of what the session runs at; it changes nothing)")
+		}
 		note := "last arrival wins"
-		if family == nil {
+		if family == nil && model != nil {
 			note += "; the server derives family and tier"
 		}
 		_, err := fmt.Fprintf(w, "reported %s (%s)\n", strings.Join(parts, ", "), note)
@@ -234,15 +238,23 @@ func reportSessionModel(ctx context.Context, f *cmdutil.Factory, client graphql.
 	})
 }
 
+func effortString(e *gen.EffortLevel) *string {
+	if e == nil {
+		return nil
+	}
+	s := string(*e)
+	return &s
+}
+
 func newCmdSessionSetModel(f *cmdutil.Factory) *cobra.Command {
-	var family string
+	var family, effort string
 	cmd := &cobra.Command{
-		Use:   "set-model [<model>] [--family <token>]",
-		Short: "Report the model and/or family this worktree's session is running (manual)",
-		Long: `Report <model> and/or an explicit --family for the worker session bound to this
-worktree, through the same updateSession as ` + "`sync-model`" + `. At least one is
-required; only what you give is sent, so an omitted model or family is
-PRESERVED (never cleared). With a model alone the server derives family and
+		Use:   "set-model [<model>] [--family <token>] [--effort <level>]",
+		Short: "Report the model, family or effort this worktree's session is running (manual)",
+		Long: `Report the model, family or effort of the worker session bound to this
+worktree, through the same updateSession as ` + "`sync-model`" + `. Give at least one of
+<model>, --family or --effort; only what you give is sent, so anything omitted
+is PRESERVED (never cleared). With a model alone the server derives family and
 tier, and never clears family on a model it does not map.
 
 --family is the deliberate way to state a family (hadron-server#1931: an
@@ -250,7 +262,15 @@ explicit family wins over the derivation from the model). The token is passed
 to the server as typed — the CLI normalizes and infers nothing, and a host
 such as claude-code is not a family. The server owns what it accepts; its
 refusal is shown and no success receipt is printed. The receipt names only
-what was sent. ` + "`sync-model`" + ` (the hook) stays model-only and has no --family.
+what was sent. ` + "`sync-model`" + ` (the hook) stays model-only: it has no --family and
+reports no effort, because a hook cannot see the effort really applied and
+never sends a guess.
+
+--effort reports the effort the session actually runs at (LOW, MEDIUM, HIGH,
+XHIGH, MAX, UNSET for the family's default, or NOT_APPLICABLE for a family with
+no effort control). It is a report, never a control: it records what the run
+used and changes nothing. Omitted, the recorded effort is left as it was, and
+nothing here clears one.
 
 The model is an exact string of at most 128 printable characters, and so is
 the family; an empty or blank value is a usage error, not a clear. It uses the
@@ -261,7 +281,8 @@ Last arrival wins: a later report from a hook or another run can overwrite
 this one.`,
 		Example: `  hadron team session set-model claude-opus-5-5
   hadron team session set-model glm-4.6 --family glm
-  hadron team session set-model --family codex`,
+  hadron team session set-model --family codex
+  hadron team session set-model gpt-6 --family codex --effort HIGH`,
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return exitcode.Newf(exitcode.Usage, "set-model takes at most one <model>; got %d", len(args))
@@ -270,8 +291,17 @@ this one.`,
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			familyGiven := cmd.Flags().Changed("family")
-			if len(args) == 0 && !familyGiven {
-				return exitcode.Newf(exitcode.Usage, "give a model, a --family, or both (nothing to report)")
+			effortGiven := cmd.Flags().Changed("effort")
+			if len(args) == 0 && !familyGiven && !effortGiven {
+				return exitcode.Newf(exitcode.Usage, "give a model, a --family, an --effort, or any of them (nothing to report)")
+			}
+			var eff *gen.EffortLevel
+			if effortGiven {
+				if !validEffortLevel(strings.TrimSpace(effort)) {
+					return exitcode.Newf(exitcode.Usage, "--effort must be one of LOW, MEDIUM, HIGH, XHIGH, MAX, UNSET or NOT_APPLICABLE")
+				}
+				e := gen.EffortLevel(strings.TrimSpace(effort))
+				eff = &e
 			}
 			var model, fam *string
 			if len(args) == 1 {
@@ -307,9 +337,10 @@ this one.`,
 			if err != nil || again == nil || again.SessionID != b.SessionID {
 				return exitcode.Newf(exitcode.Conflict, "this worktree's session binding changed while reporting — nothing was sent; rerun")
 			}
-			return reportSessionModel(cmd.Context(), f, client, b.SessionID, model, fam, false)
+			return reportSessionModel(cmd.Context(), f, client, b.SessionID, model, fam, eff, false)
 		},
 	}
 	cmd.Flags().StringVar(&family, "family", "", "state the model family explicitly (passed to the server as typed; wins over its derivation)")
+	cmd.Flags().StringVar(&effort, "effort", "", "report the effort the session runs at: LOW, MEDIUM, HIGH, XHIGH, MAX, UNSET or NOT_APPLICABLE (a report, never a control)")
 	return cmd
 }

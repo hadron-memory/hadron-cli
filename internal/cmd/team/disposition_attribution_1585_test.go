@@ -21,6 +21,7 @@ func TestTaskWritesAuthored1585(t *testing.T) {
 		"AgentTaskClone":          gen.AgentTaskClone_Operation,
 		"AgentTaskCreateBatch":    gen.AgentTaskCreateBatch_Operation,
 		"AgentTaskUpdate":         gen.AgentTaskUpdate_Operation,
+		"TaskLinkDefect":          gen.TaskLinkDefect_Operation,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if !authoredWriteRequest(&graphql.Request{OpName: name, Query: query}) {

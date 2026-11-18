@@ -28,7 +28,7 @@ Help and agentic usage state exactly:
 - Limit 0 returns the total matching and no rows.
 - Offset pages are not a snapshot; grants added or removed between calls can shift later pages.
 
-Offset is still forwarded, including with limit 0. Default20, server cap200
+Offset is still forwarded, including with limit 0. Default 20, server cap 200
 and no automatic page scan remain. The helper rename does not turn a
 signature state into a timestamp or change nil/empty-string behavior.
 
@@ -48,11 +48,11 @@ values even at false/0, and the raw signature state/null. Human assertions
 include a positive USE COUNT and the existing final three decision cells.
 
 Additional root/HTTP controls cover:
-- Empty in-memory credential store: exit3 and no request, independent of a
+- Empty in-memory credential store: exit 3 and no request, independent of a
   host keychain and distinct from a server UNAUTHENTICATED response.
-- Past-end offset99 with total41: success, items[], hasMorefalse,
-  nextOffsetnull; non-progress before total still fails.
-- Explicit limit2/offset7/two rows/total10: nextOffset9, real rows, exact
+- Past-end offset 99 with total 41: success, items [], hasMore false,
+  nextOffset null; non-progress before total still fails.
+- Explicit limit 2/offset 7/two rows/total 10: nextOffset 9, real rows, exact
   footer and unchanged JSON. Existing over-cap/requested-vs-returned pin stays.
 - Bound and unbound private binding caches with explicit other App:
   one MyGrants, no App or worker-session header/variable/resolution/preflight.

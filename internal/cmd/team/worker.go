@@ -71,6 +71,7 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
 	cmd.AddCommand(newCmdWorkerCompile(f))
 	cmd.AddCommand(newCmdWorkerApprove(f))
+	cmd.AddCommand(newCmdWorkerLeaveAlone(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
@@ -808,8 +809,10 @@ an older server that predates them, or an App URN of the old shape — never
 
 LINT (advisory): a lint warning means a template or compiled prompt has a
 defect, for example a signature or trailer without the worker link. Fix the
-template with "team worker update", or recompile the Agent; nothing here
-changes the exit code. Two reads follow the worker, 20 per request to the end,
+template with "team worker update"; nothing here changes the exit code.
+Recompiling can pick up changed sources for a future served prompt; it cannot
+repair the compiled revision recorded for an existing served prompt. Two reads
+follow the worker, 20 per request to the end,
 within one 5-second budget:
   signature lint  the stored signature and trailer
   prompt lint     the compiled prompt recorded for the worker's open session
@@ -817,9 +820,10 @@ within one 5-second budget:
 Text mode prints a "Lint (advisory):" block. It prints nothing when you may not
 see the worker's signature (masked), says "nothing served" when the worker has
 no open session or the session has no record, and prints "unavailable" plus one
-fixed line on stderr when a read failed; an unavailable read says nothing about
-warnings, so rerun the command. A quiet but open session still has a record, so
-its warnings show.
+line on stderr naming the failed lint fields; an unavailable read says nothing about
+warnings. Retry if a page changed while reading or the budget ran out; rerunning
+does not resolve an older server or an unreadable record. A quiet but open
+session still has a record, so its warnings show.
 --json always carries "signatureLint" and "promptLintWarnings":
 {items, total, nextCursor} or null. items [] with total 0 is the one clean
 answer; null is never "no warnings". See cor:agt:040:13.
@@ -828,7 +832,9 @@ THE FIELDS:
   held by        the person whose name it is ("nobody": binding it holds it)
   driven         live (a session drove it recently), or when it last was
   check status   whether it reads its team chat as expected:
-                   NO_SESSION  no live session
+                   NO_SESSION  no live session; server reason: IDLE (open,
+                               quiet, with age since lastActiveAt), ENDED,
+                               or NEVER_BOUND
                    PENDING     not expected to (paused, dormant,
                                or no open task), with the reason
                    OK          has an open task and checked in time
@@ -840,6 +846,15 @@ THE FIELDS:
                  the prompt shape; "—" when never reported or not available to
                  you. --json adds terminal (the whole object, or null). An older
                  server without it reads as null.
+  quiet age      for NO_SESSION IDLE only: time since lastActiveAt, by this
+                 computer's clock, for display only; it never classifies
+                 idleness or availability. It truncates (never rounds) to
+                 "just now" (under a minute, or a time ahead of this clock),
+                 minutes, hours, then whole days from 48h. A missing reason
+                 stays bare NO_SESSION; a missing or invalid lastActiveAt has
+                 no quiet age. --json preserves lastActiveAt and
+                 checkStatus.noSessionReason (nullable), and carries no age.
+                 Requires hadron-server#3084 or newer.
 
 availability   the worker's stored availability record (cor:agt:060:02): its
                  state, the reason only when unavailable, an optional end, and
@@ -968,7 +983,14 @@ and every worker's state in ` + "`team roster`" + `.`,
 			// One fixed stderr class when a lint that should have answered did not.
 			// Masked and nothing-served say nothing: no read, or nothing to lint.
 			if !reads.lintMasked && (reads.signatureLint == nil || reads.promptLint.State == lintwarn.PromptUnavailable) {
-				lintwarn.ReportUnavailable(cmd)
+				fields := []string{}
+				if reads.signatureLint == nil {
+					fields = append(fields, "signature lint")
+				}
+				if reads.promptLint.State == lintwarn.PromptUnavailable {
+					fields = append(fields, "prompt lint")
+				}
+				lintwarn.ReportUnavailable(cmd, fields...)
 			}
 			if preview != nil {
 				dto.Fields = preview.Fields
@@ -1073,7 +1095,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 					fmt.Fprintln(out, "  working state: not visible to you (profile only)")
 				}
 				if !profile || dto.CheckStatus != nil {
-					fmt.Fprintf(out, "  check status: %s\n", channelCheckLabel(dto.CheckStatus))
+					fmt.Fprintf(out, "  check status: %s\n", output.SafeCell(channelCheckActivityLabel(dto.CheckStatus, dto.LastActiveAt, time.Now())))
 					if dto.CheckStatus != nil {
 						last := "never"
 						if dto.CheckStatus.LastCheckedAt != nil {
@@ -1157,17 +1179,17 @@ func writeWorkerLint(out io.Writer, r *workerGetExtras) error {
 	if _, err := fmt.Fprint(out, "\nLint (advisory):\n"); err != nil {
 		return err
 	}
-	if err := lintwarn.WriteSection(out, "  signature lint", "the signature and trailer", r.signatureLint, false); err != nil {
+	if err := lintwarn.WriteSection(out, "signature lint", "the signature and trailer", r.signatureLint, false); err != nil {
 		return err
 	}
 	switch r.promptLint.State {
 	case lintwarn.PromptNothingServed:
-		_, err := fmt.Fprintln(out, "  prompt lint: nothing served to this worker's open session")
+		_, err := fmt.Fprintln(out, "prompt lint: nothing served to this worker's open session")
 		return err
 	case lintwarn.PromptOK:
-		return lintwarn.WriteSection(out, "  prompt lint", lintwarn.PromptSubject("the compiled revision recorded for the open session", r.promptLint.ProvenanceRevSeq), r.promptLint.Page, true)
+		return lintwarn.WriteSection(out, "prompt lint", lintwarn.PromptSubject("the compiled revision recorded for the open session", r.promptLint.ProvenanceRevSeq), r.promptLint.Page, true)
 	}
-	return lintwarn.WriteSection(out, "  prompt lint", "", nil, true)
+	return lintwarn.WriteSection(out, "prompt lint", "", nil, true)
 }
 
 // writeRenderedSigning prints the server-rendered signature and trailer

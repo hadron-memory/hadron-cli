@@ -67,6 +67,10 @@ fragment AgentTaskFields on AgentTask {
   finishedAt
   cancelledAt
   closeSessionWhenDone
+  # cli#2206 (cor:agt:050:01): the settings the task asks for, and beside them
+  # what its run applied; null until the task names or ran under any.
+  runSettings { family model tier effort }
+  appliedRunSettings { family model effort }
   requirements {
     minTier
     role
@@ -107,6 +111,14 @@ fragment AgentTaskFields on AgentTask {
 # Absent unless --external-id is given, so an ordinary create is unchanged and
 # an older server never sees the field.
 # @genqlient(for: "CreateAgentTaskInput.externalId", omitempty: true)
+# cli#2206: a task's run settings (cor:agt:050:01) are create-only and optional:
+# the whole object is omitted without a flag, and each field only when its flag
+# is given, never null.
+# @genqlient(for: "CreateAgentTaskInput.runSettings", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.family", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.model", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.tier", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.effort", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
 # cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
 # refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
@@ -372,6 +384,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
   id
   appId
   taskId
+  taskHandle
   type
   severity
   createdAt
@@ -388,6 +401,7 @@ fragment AgentTeamEventFields on AgentTeamEvent {
     ...AgentTaskPartyFields
   }
   episodeStart
+  escalationEndedAt
   chain
   wakes {
     chainIndex
@@ -402,7 +416,8 @@ fragment AgentTeamEventFields on AgentTeamEvent {
 # Page-aware read of the team event stream (cor:api:120:04, server#3933): the
 # server says whether more rows exist (hasMore) and hands the continuation
 # (nextCursor: `after` oldest-first, `before` with newestFirst). codePrefix,
-# before and newestFirst are sent only when set.
+# before, newestFirst and alarmsInEffect are sent only when set (#3934: the
+# server's own "in effect" filter; the CLI never works it out itself).
 query AgentTeamEventsPage(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -415,6 +430,8 @@ query AgentTeamEventsPage(
   $codePrefix: String
   # @genqlient(omitempty: true)
   $alarmsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $alarmsInEffect: Boolean
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
@@ -431,6 +448,7 @@ query AgentTeamEventsPage(
     newestFirst: $newestFirst
     codePrefix: $codePrefix
     alarmsOnly: $alarmsOnly
+    alarmsInEffect: $alarmsInEffect
     limit: $limit
     since: $since
     taskId: $taskId
@@ -451,8 +469,9 @@ mutation AlarmAcknowledge($eventId: ID!) {
 }
 
 # The server-derived roster (#1707). Rendered, never re-derived client-side;
-# the states are plan-derived (cor:agt:050 Out Of Scope), which the command's
-# help text says out loud.
+# the states are as defined by cor:agt:050:22 (Proposed; NO_FAMILY is served
+# but not yet defined there), in the server's first-that-holds order, which
+# the command's help text says out loud.
 query TeamRoster($appRef: ID!) {
   teamRoster(appRef: $appRef) {
     appId
@@ -683,7 +702,7 @@ query AgentTaskListFiltered(
   $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
-  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # cli#1524 C1 (V46), cli#2264: the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN. It can match several tasks (at most one ACTIVE plus finished or cancelled history, newest first). With status [BACKLOG, PENDING, STARTED] and no other filter, in the App of the refused create, this is the live-holder lookup (empty = no active match under those filters).
   # @genqlient(omitempty: true)
   $externalId: String
   # @genqlient(omitempty: true)
@@ -969,7 +988,7 @@ query AgentTaskListUnresolved(
   $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
-  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # cli#1524 C1 (V46), cli#2264: the exact externalId. It can match several tasks. This variant lists FINISHED tasks with undisposed findings only, so it is not the live-holder lookup and cannot find an active holder.
   # @genqlient(omitempty: true)
   $externalId: String
   # @genqlient(omitempty: true)
@@ -1121,7 +1140,7 @@ query AgentTaskListCreator(
   $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
-  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # cli#1524 C1 (V46), cli#2264: the exact externalId. It can match several tasks. This variant is narrowed to one creator, so it is not the live-holder lookup: another creator's active task is hidden.
   # @genqlient(omitempty: true)
   $externalId: String
   # @genqlient(omitempty: true)
@@ -1170,5 +1189,35 @@ query AgentTaskListCreator(
     text: $text
   ) {
     ...AgentTaskFields
+  }
+}
+
+# Advisory current utilization by family/tier/role (hadron-server#3828, cli#1836
+# slice 1) — `team utilization` renders it. Optional filters carry omitempty so
+# an unset flag is OMITTED (server default), never sent as null.
+query TeamUtilization(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $family: String
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $tier: String
+  # @genqlient(omitempty: true)
+  $windowHours: Int
+) {
+  teamUtilization(appRef: $appRef, family: $family, role: $role, tier: $tier, windowHours: $windowHours) {
+    appId
+    windowHours
+    computedAt
+    combinations {
+      family
+      tier
+      role
+      eligibleWorkers
+      busyWorkers
+      utilization
+      saturated
+    }
   }
 }

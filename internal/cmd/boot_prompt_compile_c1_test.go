@@ -8,12 +8,19 @@ import (
 	"testing"
 )
 
+// The refs the c1Commands compile, named once so the assertions below read
+// them by name, not by argument position (cli#2239 P3-3).
+const (
+	c1AgentRef = "hrn:agent:acme.com:support-bot"
+	c1AppRef   = "hrn:app:acme.com:eng-team"
+)
+
 var c1Commands = []struct {
 	name, op, field string
 	args            []string
 }{
-	{"agent", "CompileAgentBootPrompt", "compileAgentBootPrompt", []string{"agent", "compile", "hrn:agent:acme.com:support-bot"}},
-	{"app", "CompileAppAgentBootPrompt", "compileAppAgentBootPrompt", []string{"app", "agent", "compile", "hrn:app:acme.com:eng-team", "hrn:agent:acme.com:support-bot"}},
+	{"agent", "CompileAgentBootPrompt", "compileAgentBootPrompt", []string{"agent", "compile", c1AgentRef}},
+	{"app", "CompileAppAgentBootPrompt", "compileAppAgentBootPrompt", []string{"app", "agent", "compile", c1AppRef, c1AgentRef}},
 	{"worker", "CompileWorkerBootPrompt", "compileWorkerBootPrompt", []string{"team", "worker", "compile", "hrn:worker:acme.com:eng-team:iris"}},
 }
 
@@ -35,11 +42,11 @@ func TestC1CompileVariablesAndStableJSON(t *testing.T) {
 			call := c2Mutation(t, calls, c.op)
 			switch c.name {
 			case "agent":
-				if call.Vars["agentRef"] != c.args[2] {
+				if call.Vars["agentRef"] != c1AgentRef {
 					t.Fatalf("wrong agent: %s", call.RawVars)
 				}
 			case "app":
-				if call.Vars["appRef"] != c.args[3] || call.Vars["agentRef"] != c.args[4] {
+				if call.Vars["appRef"] != c1AppRef || call.Vars["agentRef"] != c1AgentRef {
 					t.Fatalf("wrong app/agent: %s", call.RawVars)
 				}
 			case "worker":

@@ -38,14 +38,32 @@ type taskRequirementsDTO struct {
 	ExcludeWorkerIds []string `json:"excludeWorkerIds"`
 }
 
+// taskRunSettingsDTO is what a task asks for (cor:agt:050:01), set at creation;
+// every field is omitted when null.
+type taskRunSettingsDTO struct {
+	Family *string `json:"family,omitempty"`
+	Model  *string `json:"model,omitempty"`
+	Tier   *string `json:"tier,omitempty"`
+	Effort *string `json:"effort,omitempty"`
+}
+
+// taskAppliedRunSettingsDTO is what the run applied, beside what was asked: a
+// worker that was already running keeps its session's settings, so the two can
+// differ.
+type taskAppliedRunSettingsDTO struct {
+	Family *string `json:"family,omitempty"`
+	Model  *string `json:"model,omitempty"`
+	Effort *string `json:"effort,omitempty"`
+}
+
 type taskResultDTO struct {
 	Outcome  string  `json:"outcome"`
 	Summary  *string `json:"summary"`
 	Evidence *string `json:"evidence"`
 }
 
-// taskDTO is one task. OpenAlarms is set only by `task tree`, which joins the
-// unacknowledged alarms onto the nodes it renders; omitempty keeps the other
+// taskDTO is one task. OpenAlarms is set only by `task tree` (and `task list
+// --team`), which join the server's alarms in effect onto the tasks they render; omitempty keeps the other
 // commands' shapes identical to the plain task read.
 type taskMatchFailureDTO struct {
 	Reason   string `json:"reason"`
@@ -101,7 +119,11 @@ type taskDTO struct {
 	CancelledAt          *string              `json:"cancelledAt"`
 	CloseSessionWhenDone bool                 `json:"closeSessionWhenDone"`
 	Requirements         *taskRequirementsDTO `json:"requirements"`
-	Result               *taskResultDTO       `json:"result"`
+	// RunSettings and AppliedRunSettings (cli#2206) are shown together or not
+	// at all: absent when the server returns none.
+	RunSettings        *taskRunSettingsDTO        `json:"runSettings,omitempty"`
+	AppliedRunSettings *taskAppliedRunSettingsDTO `json:"appliedRunSettings,omitempty"`
+	Result             *taskResultDTO             `json:"result"`
 	// Properties is the task's OWN optional JSON object (#2420): never
 	// inherited, so a child shows its own value, and null when unset.
 	Properties json.RawMessage `json:"properties"`
@@ -252,6 +274,21 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		Requirements:         taskRequirementsDTOFrom(fields.Requirements),
 		Result:               taskResultDTOFrom(fields.Result),
 	}
+	if r := fields.RunSettings; r != nil {
+		dto.RunSettings = &taskRunSettingsDTO{Family: r.Family, Model: r.Model, Tier: r.Tier, Effort: effortPtr(r.Effort)}
+	}
+	if r := fields.AppliedRunSettings; r != nil {
+		dto.AppliedRunSettings = &taskAppliedRunSettingsDTO{Family: r.Family, Model: r.Model, Effort: effortPtr(r.Effort)}
+	}
+	// Shown together (cor:agt:050:01): when the server returns one, the other
+	// is an empty object, never a missing key, so a reader never sees what was
+	// asked without what ran, nor the reverse.
+	if dto.RunSettings != nil && dto.AppliedRunSettings == nil {
+		dto.AppliedRunSettings = &taskAppliedRunSettingsDTO{}
+	}
+	if dto.AppliedRunSettings != nil && dto.RunSettings == nil {
+		dto.RunSettings = &taskRunSettingsDTO{}
+	}
 	if fields.MatchFailure != nil {
 		dto.MatchFailure = &taskMatchFailureDTO{Reason: fields.MatchFailure.Reason, FailedAt: fields.MatchFailure.FailedAt}
 	}
@@ -280,9 +317,12 @@ type alarmWakeDTO struct {
 }
 
 type teamEventDTO struct {
-	ID             string          `json:"id"`
-	AppID          string          `json:"appId"`
-	TaskID         *string         `json:"taskId"`
+	ID     string  `json:"id"`
+	AppID  string  `json:"appId"`
+	TaskID *string `json:"taskId"`
+	// TaskHandle is the task's stored handle exactly as the server sent it
+	// (cli#2005); null when the event has no task or the task is gone.
+	TaskHandle     *string         `json:"taskHandle"`
 	Type           string          `json:"type"`
 	Severity       *string         `json:"severity"`
 	CreatedAt      string          `json:"createdAt"`
@@ -293,26 +333,32 @@ type teamEventDTO struct {
 	AcknowledgedAt *string         `json:"acknowledgedAt"`
 	AcknowledgedBy *taskPartyDTO   `json:"acknowledgedBy"`
 	EpisodeStart   *string         `json:"episodeStart"`
-	Chain          json.RawMessage `json:"chain"`
-	Wakes          []alarmWakeDTO  `json:"wakes"`
+	// EscalationEndedAt is when the SERVER recorded the end of an alarm's
+	// escalation (#3934, cor:agt:050:20): null while the alarm is in effect and
+	// on every ordinary event. Never derived or filled in here.
+	EscalationEndedAt *string         `json:"escalationEndedAt"`
+	Chain             json.RawMessage `json:"chain"`
+	Wakes             []alarmWakeDTO  `json:"wakes"`
 }
 
 func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 	dto := teamEventDTO{
-		ID:             e.Id,
-		AppID:          e.AppId,
-		TaskID:         e.TaskId,
-		Type:           e.Type,
-		CreatedAt:      e.CreatedAt,
-		Actor:          partyDTO(e.Actor),
-		ActorRunID:     e.ActorRunId,
-		SubjectWorker:  partyDTO(e.SubjectWorker),
-		Payload:        json.RawMessage("null"),
-		AcknowledgedAt: e.AcknowledgedAt,
-		AcknowledgedBy: partyDTO(e.AcknowledgedBy),
-		EpisodeStart:   e.EpisodeStart,
-		Chain:          json.RawMessage("null"),
-		Wakes:          []alarmWakeDTO{},
+		ID:                e.Id,
+		AppID:             e.AppId,
+		TaskID:            e.TaskId,
+		TaskHandle:        e.TaskHandle,
+		Type:              e.Type,
+		CreatedAt:         e.CreatedAt,
+		Actor:             partyDTO(e.Actor),
+		ActorRunID:        e.ActorRunId,
+		SubjectWorker:     partyDTO(e.SubjectWorker),
+		Payload:           json.RawMessage("null"),
+		AcknowledgedAt:    e.AcknowledgedAt,
+		AcknowledgedBy:    partyDTO(e.AcknowledgedBy),
+		EpisodeStart:      e.EpisodeStart,
+		EscalationEndedAt: e.EscalationEndedAt,
+		Chain:             json.RawMessage("null"),
+		Wakes:             []alarmWakeDTO{},
 	}
 	if e.Severity != nil {
 		s := string(*e.Severity)
@@ -461,6 +507,8 @@ func (e safeTaskError) Unwrap() error { return e.err }
 // taskErrorCodes are the public refusal codes shown as the message prefix: every
 // TASK_ code the schema documents on the task mutations, plus BAD_USER_INPUT
 // (#1285). Add a new TASK_ code here when the server documents one.
+// Both task-family wrappers read this list: mapTaskError directly, and
+// mapFindingError (taskfindings.go) through it (hadron-cli#2296).
 var taskErrorCodes = []string{
 	"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER",
 	"TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT",
@@ -469,6 +517,7 @@ var taskErrorCodes = []string{
 	"TASK_OWNER_INVALID", "TASK_ASSIGNEE_INVALID", "TASK_OWNER_REQUIRED", "TASK_ASSIGNEE_REQUIRED", "APP_KEY_SESSION_BOUND", "TASK_STOPPED", "TASK_BATCH_TOO_LARGE", "TASK_MATCH_FAILED",
 	"PROPERTIES_NOT_AN_OBJECT", "PROPERTIES_TOO_LARGE",
 	"PROPERTIES_SCHEMA_VIOLATION", "PROPERTIES_SCHEMA_UNUSABLE",
+	"DEFECT_LINK_FORBIDDEN", "PR_REFERENCE_MISSING", "DEFECT_HEAD_NOT_FROZEN",
 }
 
 // mapTaskError is api.MapError for the task commands: the server owns range,
@@ -518,4 +567,12 @@ func handleCells(any bool, handle string, cells ...string) []string {
 		return append([]string{taskHandleCell(handle)}, cells...)
 	}
 	return cells
+}
+
+func effortPtr(e *gen.EffortLevel) *string {
+	if e == nil {
+		return nil
+	}
+	s := string(*e)
+	return &s
 }

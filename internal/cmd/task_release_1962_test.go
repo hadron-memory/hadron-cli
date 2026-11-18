@@ -20,6 +20,30 @@ func releaseResponses1962() map[string]string {
 	return r
 }
 
+// releaseWithWarnings1962 adds the server's extensions.warnings to the release
+// response by decoding and re-encoding it, so a change to the base response's
+// formatting cannot silently corrupt the fixture. It refuses a base that is not
+// a single JSON object, or that already carries extensions, rather than guess.
+func releaseWithWarnings1962(t *testing.T, base, warnings string) string {
+	t.Helper()
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(base), &doc); err != nil {
+		t.Fatalf("the release response is not one JSON object: %v: %s", err, base)
+	}
+	if _, has := doc["extensions"]; has {
+		t.Fatalf("the release response already carries extensions: %s", base)
+	}
+	if !json.Valid([]byte(warnings)) {
+		t.Fatalf("the warnings are not valid JSON: %s", warnings)
+	}
+	doc["extensions"] = json.RawMessage(`{"warnings":` + warnings + `}`)
+	out, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
 func TestTaskReleaseGivesTheItemBack1962(t *testing.T) {
 	calls, out, err := runTeamTask(t, releaseResponses1962(), "team", "task", "release", "task1")
 	if err != nil {
@@ -51,19 +75,107 @@ func TestTaskReleaseGivesTheItemBack1962(t *testing.T) {
 }
 
 func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
-	_, out, err := runTeamTask(t, releaseResponses1962(), "--json", "team", "task", "release", "task1")
+	r := releaseResponses1962()
+	r["AgentTaskRelease"] = releaseWithWarnings1962(t, r["AgentTaskRelease"], `[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"unmapped","taskLoc":null,"taskUrn":null}}]`)
+	_, out, err := runTeamTask(t, r, "--json", "team", "task", "release", "task1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var dto struct {
-		ReleasedExternalID string   `json:"releasedExternalId"`
-		Warnings           []string `json:"warnings"`
+		ReleasedExternalID string `json:"releasedExternalId"`
+		Warnings           []struct {
+			Code     string `json:"code"`
+			Text     string `json:"text"`
+			Register *struct {
+				State   string  `json:"state"`
+				TaskLoc *string `json:"taskLoc"`
+				TaskURN *string `json:"taskUrn"`
+			} `json:"register"`
+		} `json:"warnings"`
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatalf("%v: %q", err, out)
 	}
-	if dto.ReleasedExternalID != releaseItem1962 || dto.Warnings == nil {
+	if dto.ReleasedExternalID != releaseItem1962 || len(dto.Warnings) != 1 || dto.Warnings[0].Code != "future.release" || dto.Warnings[0].Text != "released with advice" || dto.Warnings[0].Register == nil || dto.Warnings[0].Register.State != "unmapped" || dto.Warnings[0].Register.TaskLoc != nil || dto.Warnings[0].Register.TaskURN != nil {
 		t.Fatalf("got %+v", dto)
+	}
+}
+
+// #2263 pins mapped register values on release (introduced in #1962).
+// future.release is deliberately unknown: warning codes pass through verbatim.
+// The input path routes the warning to this mutation; it is not a JSON DTO field.
+func TestTaskReleaseJSONCarriesMappedWarning2263(t *testing.T) {
+	r := releaseResponses1962()
+	r["AgentTaskRelease"] = releaseWithWarnings1962(t, r["AgentTaskRelease"], `[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"mapped","taskLoc":"tasks:release-advice","taskUrn":"hrn:node:acme.com:runbooks:tasks:release-advice"}}]`)
+	out, stderr, err := runTeamTaskStreams(t, r, "--json", "team", "task", "release", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// In JSON mode the warning rides the DTO; nothing is repeated on stderr.
+	if stderr != "" {
+		t.Errorf("stderr must be silent in JSON mode, got %q", stderr)
+	}
+	var dto struct {
+		ReleasedExternalID string `json:"releasedExternalId"`
+		Warnings           []struct {
+			Code     string `json:"code"`
+			Text     string `json:"text"`
+			Register *struct {
+				State   string  `json:"state"`
+				TaskLoc *string `json:"taskLoc"`
+				TaskURN *string `json:"taskUrn"`
+			} `json:"register"`
+		} `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("%v: %q", err, out)
+	}
+	if dto.ReleasedExternalID != releaseItem1962 {
+		t.Errorf("releasedExternalId: got %q, want %q", dto.ReleasedExternalID, releaseItem1962)
+	}
+	if len(dto.Warnings) != 1 {
+		t.Fatalf("warnings length: got %d, want 1: %s", len(dto.Warnings), out)
+	}
+	warning := dto.Warnings[0]
+	if warning.Code != "future.release" {
+		t.Errorf("warnings[0].code: got %q, want future.release", warning.Code)
+	}
+	if warning.Text != "released with advice" {
+		t.Errorf("warnings[0].text: got %q, want released with advice", warning.Text)
+	}
+	if warning.Register == nil {
+		t.Fatalf("warnings[0].register: got null, want mapped register: %s", out)
+	}
+	if warning.Register.State != "mapped" {
+		t.Errorf("warnings[0].register.state: got %q, want mapped", warning.Register.State)
+	}
+	if warning.Register.TaskLoc == nil {
+		t.Error("warnings[0].register.taskLoc: got null, want tasks:release-advice")
+	} else if *warning.Register.TaskLoc != "tasks:release-advice" {
+		t.Errorf("warnings[0].register.taskLoc: got %q, want tasks:release-advice", *warning.Register.TaskLoc)
+	}
+	if warning.Register.TaskURN == nil {
+		t.Error("warnings[0].register.taskUrn: got null, want hrn:node:acme.com:runbooks:tasks:release-advice")
+	} else if *warning.Register.TaskURN != "hrn:node:acme.com:runbooks:tasks:release-advice" {
+		t.Errorf("warnings[0].register.taskUrn: got %q, want hrn:node:acme.com:runbooks:tasks:release-advice", *warning.Register.TaskURN)
+	}
+}
+
+// Release always emits a warnings array; no server advice is [] rather than null.
+func TestTaskReleaseJSONAbsentWarningsAreEmpty2263(t *testing.T) {
+	out, stderr, err := runTeamTaskStreams(t, releaseResponses1962(), "--json", "team", "task", "release", "task1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("invalid JSON: %v: %s", err, out)
+	}
+	if got := strings.TrimSpace(string(dto["warnings"])); got != "[]" {
+		t.Errorf("warnings: got %q, want []", got)
+	}
+	if stderr != "" {
+		t.Errorf("unexpected stderr: %q", stderr)
 	}
 }
 

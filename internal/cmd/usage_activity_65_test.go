@@ -62,7 +62,8 @@ func TestUsageActivity65OmissionAndScope(t *testing.T) {
 }
 func TestUsageActivity65FlagsBucketsAndRefusal(t *testing.T) {
 	response := `{"data":{"usageActivity":[{"date":"2026-10-01","reads":3,"writes":0},{"date":"2026-10-03","reads":0,"writes":4}]}}`
-	args := []string{"usage", "activity", "--from", "2026-10-01T00:00:00Z", "--to", "2026-10-04T00:00:00Z", "--bucket", "WEEK", "--time-zone", "Asia/Tokyo", "--memory", "m1"}
+	const from, to = "2026-10-01T00:00:00Z", "2026-10-04T00:00:00Z"
+	args := []string{"usage", "activity", "--from", from, "--to", to, "--bucket", "WEEK", "--time-zone", "Asia/Tokyo", "--memory", "m1"}
 	out, stderr, code, calls, n := activity65Run(t, response, append(args, "--json")...)
 	if code != 0 || n != 1 {
 		t.Fatalf("%d %s %s", code, out, stderr)
@@ -73,7 +74,7 @@ func TestUsageActivity65FlagsBucketsAndRefusal(t *testing.T) {
 	}
 	var v map[string]any
 	_ = json.Unmarshal(calls["UsageActivity"], &v)
-	for key, want := range map[string]any{"from": args[3], "to": args[5], "bucket": "WEEK", "timeZone": "Asia/Tokyo"} {
+	for key, want := range map[string]any{"from": from, "to": to, "bucket": "WEEK", "timeZone": "Asia/Tokyo"} {
 		if v[key] != want {
 			t.Fatal(key, v)
 		}
@@ -188,5 +189,70 @@ func TestUsageActivity65LegacyNodeAndServerDate(t *testing.T) {
 	out, _, code, _, _ = activity65Run(t, response, "usage", "activity", "--json")
 	if code != 0 || !strings.Contains(out, `\u001b[31m`) {
 		t.Fatalf("lost JSON original code=%d out=%q", code, out)
+	}
+}
+
+// #1410: the server's bucket order and every count are passed through
+// untouched. A sparse, deliberately out-of-order response with distinct reads
+// and writes in each bucket must come back as the complete array, in the same
+// order, with no zero-fill and no total row. A chronological fixture or a
+// field-by-field spot check would miss an accidental sort or a dropped count.
+func TestUsageActivity1410PreservesOrderAndEveryCount(t *testing.T) {
+	response := `{"data":{"usageActivity":[` +
+		`{"date":"2026-10-09","reads":7,"writes":2},` +
+		`{"date":"2026-10-02","reads":11,"writes":5},` +
+		`{"date":"2026-10-30","reads":1,"writes":13},` +
+		`{"date":"2026-10-16","reads":17,"writes":3}]}}`
+	out, stderr, code, _, n := activity65Run(t, response, "usage", "activity", "--json")
+	if code != 0 || n != 1 {
+		t.Fatalf("%d %d %s %s", code, n, out, stderr)
+	}
+	var got []struct {
+		Date   string `json:"date"`
+		Reads  int    `json:"reads"`
+		Writes int    `json:"writes"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(out, err)
+	}
+	type bucket = struct {
+		Date   string `json:"date"`
+		Reads  int    `json:"reads"`
+		Writes int    `json:"writes"`
+	}
+	want := []bucket{
+		{"2026-10-09", 7, 2},
+		{"2026-10-02", 11, 5},
+		{"2026-10-30", 1, 13},
+		{"2026-10-16", 17, 3},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("want %d buckets (no zero-fill, no total), got %d: %s", len(want), len(got), out)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("bucket %d: want %+v, got %+v (full output %s)", i, want[i], got[i], out)
+		}
+	}
+	// The human table keeps the same order and counts, and adds no total row.
+	text, _, code, _, _ := activity65Run(t, response, "usage", "activity")
+	if code != 0 || strings.Contains(text, "TOTAL") {
+		t.Fatal(code, text)
+	}
+	last := -1
+	for _, w := range want {
+		row := fmt.Sprintf("%s  %d  %d", w.Date, w.Reads, w.Writes)
+		fields := strings.Join(strings.Fields(row), " ")
+		idx := -1
+		for _, line := range strings.Split(text, "\n") {
+			if strings.Join(strings.Fields(line), " ") == fields {
+				idx = strings.Index(text, line)
+				break
+			}
+		}
+		if idx < 0 || idx <= last {
+			t.Fatalf("table row %q missing or out of order (last offset %d, idx %d):\n%s", fields, last, idx, text)
+		}
+		last = idx
 	}
 }

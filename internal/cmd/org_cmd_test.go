@@ -147,7 +147,7 @@ func TestOrgUpdatePreservesUnset(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateOrganization"], &vars)
-	if vars["ref"] != "org1" || vars["name"] != "Acme Inc" {
+	if vars["id"] != "org1" || vars["name"] != "Acme Inc" {
 		t.Errorf("update vars: %v", vars)
 	}
 	for _, k := range []string{"urn", "listedOnMarketplace"} {
@@ -206,8 +206,8 @@ func TestOrgGetJSONKeepsIsVisibleAlias(t *testing.T) {
 }
 
 const publicOrgJSON = `{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":true,
-	"publicMemories":[{"id":"m1","name":"KB","urn":"acme.com::kb","description":"the handbook"}],
-	"publicAgents":[{"id":"a1","name":"Helper","urn":"acme.com::helper","description":null}]}`
+	"publicMemoriesPage":{"items":[{"id":"m1","name":"KB","urn":"acme.com::kb","description":"the handbook"}],"total":1,"hasMore":false},
+	"publicAgentsPage":{"items":[{"id":"a1","name":"Helper","urn":"acme.com::helper","description":null}],"total":1,"hasMore":false}}`
 
 // #270: `org public <ref>` fetches the sanitized discoverable view — org fields
 // plus public memories/agents — and forwards the ref verbatim.
@@ -271,7 +271,7 @@ func TestOrgPublicNotDiscoverable(t *testing.T) {
 // Empty footprint renders [] (not null) — the DTO slices are always initialized.
 func TestOrgPublicEmptyListsRenderArray(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"PublicOrganization": `{"data":{"publicOrganization":{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":false,"publicMemories":[],"publicAgents":[]}}}`,
+		"PublicOrganization": `{"data":{"publicOrganization":{"id":"org1","urn":"acme.com","name":"Acme","listedOnMarketplace":false,"publicMemoriesPage":{"items":[],"total":0,"hasMore":false},"publicAgentsPage":{"items":[],"total":0,"hasMore":false}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -488,7 +488,7 @@ func TestOrgInviteCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateUserInvitation"], &vars)
-	if vars["orgId"] != "org1" || vars["memberRole"] != "CONTRIBUTOR" || vars["email"] != "alice@partner.com" {
+	if vars["orgRef"] != "org1" || vars["memberRole"] != "CONTRIBUTOR" || vars["email"] != "alice@partner.com" {
 		t.Errorf("invite vars: %v", vars)
 	}
 	// unset optionals must be omitted, not sent as null/0.

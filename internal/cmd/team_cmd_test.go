@@ -2460,6 +2460,16 @@ func bindWhoami(t *testing.T, responses map[string]string, args ...string) (*cob
 	return root, out
 }
 
+// whoamiStateJSON is the GetBoundSessionState answer (cli#815): the server's
+// own state, never one the CLI works out.
+func whoamiStateJSON(state string, live bool, lapsesAt string) string {
+	lapses := "null"
+	if lapsesAt != "" {
+		lapses = `"` + lapsesAt + `"`
+	}
+	return fmt.Sprintf(`{"data":{"session":{"id":"s-new","isLive":%v,"lapsesAt":%s,"state":%q}}}`, live, lapses, state)
+}
+
 // #484: --check asks the server whether the BOUND session is still open.
 //
 // The issue's original defect — a reaper killing a session under you — cannot
@@ -2481,6 +2491,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 		// answer with a command's authority. #791 lets a plain start replace
 		// an ended binding, so its remedy must not require --force.
 		wantRemedy string
+		state      string // the GetBoundSessionState answer (cli#815)
 		// wantCode is the process exit (#1835): 0 while the session is open,
 		// exitcode.SessionEnded once the server reports it ended — however it
 		// ended — so a script or boot prompt can branch without parsing text.
@@ -2489,7 +2500,8 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 		{
 			name: "still open", session: whoamiCheckSession("", ""),
 			wantActive: "true", wantEnded: "null", wantExpired: "null",
-			wantInLine: "still open", wantMissing: "ENDED",
+			wantInLine: "live, lapses at 2026-09-20T10:00:00Z", wantMissing: "ENDED",
+			state: whoamiStateJSON("LIVE", true, "2026-09-20T10:00:00Z"),
 		},
 		{
 			// A person ended it — from another worktree, or another machine.
@@ -2497,6 +2509,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: "null",
 			wantInLine: "ENDED", wantMissing: "auto-expired",
 			wantRemedy: "session start --as Iris", wantCode: exitcode.SessionEnded,
+			state: whoamiStateJSON("ENDED", false, ""),
 		},
 		{
 			// The SERVER reaped it. Same endedAt, different cause, and the
@@ -2507,11 +2520,12 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			wantActive: "false", wantEnded: `"2026-09-19T11:00:00Z"`, wantExpired: `"2026-09-19T11:00:00Z"`,
 			wantInLine: "auto-expired", wantMissing: "",
 			wantRemedy: "session start --as Iris", wantCode: exitcode.SessionEnded,
+			state: whoamiStateJSON("ENDED", false, ""),
 		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			root, out := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
+			root, out := bindWhoami(t, map[string]string{"GetTeamSession": c.session, "GetBoundSessionState": c.state},
 				"team", "session", "whoami", "--check")
 			if err := root.Execute(); exitCodeFor(err) != c.wantCode {
 				t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), c.wantCode, err)
@@ -2533,7 +2547,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 			// implementation could return anything (@copilot on PR #626). Go
 			// does not flag an unused struct field the way it flags a
 			// variable, so nothing caught it but a reviewer.
-			jroot, jout := bindWhoami(t, map[string]string{"GetTeamSession": c.session},
+			jroot, jout := bindWhoami(t, map[string]string{"GetTeamSession": c.session, "GetBoundSessionState": c.state},
 				"team", "session", "whoami", "--check", "--json")
 			if err := jroot.Execute(); exitCodeFor(err) != c.wantCode {
 				t.Fatalf("execute --json: exit = %d, want %d: %v", exitCodeFor(err), c.wantCode, err)
@@ -2566,7 +2580,7 @@ func TestTeamSessionWhoamiCheck(t *testing.T) {
 func TestTeamSessionWhoamiCheckExitCodes1835(t *testing.T) {
 	t.Run("open and quiet exits 0", func(t *testing.T) {
 		quiet := whoamiCheckSession("", "")
-		root, _ := bindWhoami(t, map[string]string{"GetTeamSession": quiet}, "team", "session", "whoami", "--check")
+		root, _ := bindWhoami(t, map[string]string{"GetTeamSession": quiet, "GetBoundSessionState": whoamiStateJSON("LIVE", true, "2026-09-20T10:00:00Z")}, "team", "session", "whoami", "--check")
 		if err := root.Execute(); err != nil {
 			t.Fatalf("an open session must exit 0: %v", err)
 		}
@@ -2609,6 +2623,7 @@ func TestTeamSessionWhoamiCheckIsHonouredOnTheServerFallback(t *testing.T) {
 		"AuthContext": whoamiAuthJSON,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
 			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}}`,
+		"GetBoundSessionState": whoamiStateJSON("LIVE", true, "2026-09-20T10:00:00Z"),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2637,6 +2652,7 @@ func TestTeamSessionWhoamiCheckDoesNotAnswerForSeveral(t *testing.T) {
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` +
 			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
 			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}}`,
+		"GetBoundSessionState": whoamiStateJSON("LIVE", true, "2026-09-20T10:00:00Z"),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

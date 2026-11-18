@@ -1,13 +1,34 @@
+# @genqlient(for: "WorkerTerminalReportInput.repairReason", omitempty: true)
 # Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
 # @genqlient(for: "WorkerTerminalReportInput.reason", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.lastTurnAt", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.attempt", omitempty: true)
 # @genqlient(for: "WorkerTerminalReportInput.repair", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.repairReason", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.contextTokens", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.contextMeasuredAt", omitempty: true)
 mutation HealthSweepSetTerminals(
   $input: SetHostWorkerTerminalsInput!
 ) {
   setHostWorkerTerminals(input: $input) {
     stored { id urn }
     refused { worker code }
+  }
+}
+
+# #2027 — the sweep's team-pause check. A pendingReason of TEAM_PAUSED on any
+# of the App's workers means a team pause is in force, and the sweep detects
+# and reports only (gate edge 4). Read with the host key, which shares the
+# worker read's authorization; checkStatus is null where a read gate withholds
+# it, and null is simply not a pause.
+query HealthSweepPause($appRef: ID!) {
+  workers(appRef: $appRef) {
+    items {
+      id
+      checkStatus {
+        status
+        pendingReason
+      }
+    }
   }
 }

@@ -159,6 +159,26 @@ func TestSigningOnAServerWithoutSigningSaysSo(t *testing.T) {
 	}
 }
 
+// cli#2032: a server that has signing but lacks the paged list says so, with
+// its own message (not "no signing", not version skew), exit 2, and the
+// deprecated unpaged read is not tried.
+func TestSigningRequestListOnAServerWithoutThePageFieldSaysSo2032(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeSigningRequests": missingFieldJSON("signingRequestsPage")})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signing-request", "list", nodeURN, "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want 2 (%v)", code, err)
+	}
+	if !strings.Contains(err.Error(), "paged signing-request list") || strings.Contains(err.Error(), "does not offer node signing") {
+		t.Errorf("message = %q", err.Error())
+	}
+	if len(captured) != 2 {
+		t.Errorf("only the node resolve and one list query may be sent, got %v", captured)
+	}
+}
+
 // The records are v3: a v1 record is never locally valid under --check (R80,
 // cli#879), so the server-side exit rows are pinned on v3 records.
 func TestNodeSignaturesCheckExitsOnlyOnACleanCurrentState(t *testing.T) {
@@ -243,7 +263,7 @@ func TestNodeSignaturesJSONShape(t *testing.T) {
 func TestSigningRequestListFilters(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn":          resolveNodeJSON,
-		"NodeSigningRequests": `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequests":[` + signingRequestJSON + `]}}}`,
+		"NodeSigningRequests": `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequestsPage":{"items":[` + signingRequestJSON + `],"hasMore":false,"nextCursor":null}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -277,7 +297,7 @@ func TestSigningRequestListFilters(t *testing.T) {
 	// Unfiltered: neither variable is sent.
 	gql, captured = captureGraphQL(t, map[string]string{
 		"ResolveUrn":          resolveNodeJSON,
-		"NodeSigningRequests": `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequests":[]}}}`,
+		"NodeSigningRequests": `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequestsPage":{"items":[],"hasMore":false,"nextCursor":null}}}}`,
 	})
 	f, out = testFactory(t)
 	root = NewRootCmd(f)
@@ -299,7 +319,7 @@ func TestSigningRequestListFilters(t *testing.T) {
 }
 
 func TestSigningRequestListRefusesBadFiltersBeforeAnyCall(t *testing.T) {
-	for _, args := range [][]string{{"--state", "invalid"}, {"--state", "pending"}, {"--limit", "0"}, {"--limit", "101"}} {
+	for _, args := range [][]string{{"--state", "invalid"}, {"--state", "pending"}, {"--limit", "0"}, {"--limit", "2147483648"}, {"--after", ""}} {
 		gql, captured := captureGraphQL(t, map[string]string{})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)

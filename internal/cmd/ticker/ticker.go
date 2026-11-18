@@ -575,6 +575,8 @@ A grant announcement is best-effort:
 FAILED leaves the subscription change standing; this command never retries it.`}
 	if unsubscribe {
 		c.Short = "Unsubscribe a worker from a ticker"
+	} else {
+		c.Long += "\nA short-lived worker is woken by its tasks, not by tickers. Subscribing it\nrefuses with TICKER_ON_SHORT_LIVED (exit 5); unsubscribing remains allowed."
 	}
 	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	_ = c.MarkFlagRequired("worker")
@@ -679,6 +681,10 @@ func cadenceCell(seconds int) string {
 
 const tickerPageSize = 200
 
+// tickerScanRestarts bounds how often a list that fell short of the total
+// starts over from offset 0 (cli#2030, the twin of the session scan).
+const tickerScanRestarts = 3
+
 // listAllTickers pages tickersPage to exhaustion (cli#1339): the contract of
 // `ticker list` is the whole set. The page's total is the proof of the end; a
 // page that is empty before the total is reached, or that repeats an id, means
@@ -688,6 +694,7 @@ func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]g
 	rows := []gen.TickerFields{}
 	seen := map[string]bool{}
 	limit := tickerPageSize
+	restarts, readAtRestart := 0, -1
 	for offset := 0; ; {
 		off := offset
 		r, err := gen.ListTickersPage(ctx, client, app, &limit, &off)
@@ -711,10 +718,28 @@ func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]g
 		if !page.HasMore && len(rows) >= page.Total {
 			return rows, nil
 		}
+		if fresh == 0 && len(rows) >= page.Total && len(page.Items) > 0 && offset < page.Total {
+			// A restarted pass re-walking pages already read; see scanSessions.
+			continue
+		}
 		if fresh == 0 {
 			// Nothing new while the total is still unmet is a partial list, whatever
-			// hasMore says: fail rather than print it.
-			return nil, exitcode.Newf(exitcode.Unavailable, "the server's ticker list is not advancing: %d of %d read, offset %d", len(rows), page.Total, offset)
+			// hasMore says. A concurrent insert shifts offset pages (cor:api:120:05):
+			// start over, bounded, rather than print a partial census; out of
+			// restarts, fail (cor:api:120:04).
+			//
+			// A restarted pass that reads nothing new means a stuck server, not
+			// churn (see scanSessionsFiltered): retrying cannot help it.
+			if len(rows) == readAtRestart {
+				return nil, exitcode.Newf(exitcode.Unavailable, "the server's ticker list is not advancing: %d of %d read, offset %d", len(rows), page.Total, offset)
+			}
+			if restarts < tickerScanRestarts {
+				restarts++
+				readAtRestart = len(rows)
+				offset = 0
+				continue
+			}
+			return nil, exitcode.Newf(exitcode.Unavailable, "the ticker list changed while it was being read (%d of %d tickers read after %d restarts); retry the command", len(rows), page.Total, restarts)
 		}
 	}
 }

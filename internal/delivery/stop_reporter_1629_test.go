@@ -184,7 +184,7 @@ func TestStopReporterPostsOnceAndRecordsReadBackSeq_1629(t *testing.T) {
 		t.Fatal("no .reported marker")
 	}
 	bodies := f.chat.bodies()
-	if len(bodies) != 1 || bodies[0] != "@ada Gil has not been told to halt and may still be running: its HALT notice (event ev-1) could not be typed into its session (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). The host retries every poll, but this is the only post about it; check Gil's terminal." {
+	if len(bodies) != 1 || bodies[0] != "@ada Gil had not acknowledged a halt notice as of 2026-11-04T12:00:00Z and may still be running: its HALT notice (event ev-1) had no acknowledged typing as of then (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). It may have been typed, before or after then. The host retries every poll and this is the only post about it, so check Gil's terminal." {
 		t.Fatalf("bodies = %q", bodies)
 	}
 	if strings.Contains(bodies[0], "@Gil") || strings.Contains(bodies[0], "@gil") {
@@ -563,7 +563,7 @@ func TestStopDropBodyGlossesHoldCodes_1629(t *testing.T) {
 		"no-terminal": "(no-terminal: it has no terminal on this host, since",
 		"lock":        "(lock, since",
 	} {
-		body := stopDropBody("ada", StopDrop{EventID: "e", Worker: "Gil", Level: "HALT", HoldReason: code, HeldAt: time.Unix(0, 0)})
+		body := stopDropBody("ada", StopDrop{EventID: "e", Worker: "Gil", Level: "HALT", HoldReason: code, HeldAt: time.Unix(0, 0)}, time.Unix(0, 0))
 		if !strings.Contains(body, want) {
 			t.Errorf("%s: body %q lacks %q", code, body, want)
 		}

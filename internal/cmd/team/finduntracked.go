@@ -78,7 +78,9 @@ INTAKE ADAPTER (--adapter <executable>, else $` + adapterEnv + `): the team's ow
 executable that knows its tracker and holds the tracker credential; Hadron
 never calls the tracker. The CLI runs it as ` + "`<executable> <call>`" + ` (describe,
 list-untracked, mark-tracked, untrack, report), a JSON request on stdin and one JSON answer on
-stdout. Its output is untrusted: capped, parsed strictly, printed terminal-safe.
+stdout. Every HADRON_* environment variable is removed before invocation;
+configure the tracker credential under its own name. Its output is untrusted:
+capped, parsed strictly, printed terminal-safe.
 An adapter that speaks another contract version exits 15 before it is asked
 for anything, and before the App or Hadron is read. Its describe answer must
 list the calls it answers (list-untracked, and mark-tracked for --track), else
@@ -92,9 +94,19 @@ create is the claim: if another caller got the item first (TASK_EXTERNAL_ID_TAKE
 you lost it, it does not count, and the next item is tried. A lost race exits 0.
 The winner is told to the adapter (mark-tracked) with the task, the server's
 portal link and the worker. The claim goes to --assignee, else --for, else your
-bound worker; one assigned to you is started, one for another worker stays
-PENDING for them to start (a server with hadron-server#4113 lands your own claim STARTED in the create and no start call is made; an older one answers PENDING and the CLI starts it). A refused create stops the walk after printing what
-was claimed; a failed mark leaves the claim standing and exits 1.
+bound worker. The server starts a caller-own claim atomically in the create;
+the CLI reports the returned state and sends no separate start. Another
+assignee's claim, or an older server's PENDING answer, stays PENDING for its
+assignee to start. A refused create stops the walk after printing what was
+claimed; a failed mark leaves the claim standing and exits 1.
+
+On the adapter path, JSON complete means the list ran out without an error.
+Reaching --limit is a successful stop (exit 0), with complete:false and
+stoppedReason:"limit_reached"; no extra page is fetched. Both list and track
+report stoppedReason: null on exhaustion, "limit_reached" on that successful
+limit stop, otherwise the stage that failed — check_failed, walk_failed and
+reconcile_failed on both list and track; claim_failed and mark_failed only
+under --track.
 
 RECONCILE (every adapter run, before the list). The CLI reads, from the server,
 what changed on the App's tasks that carry an outside item since its cursor, and

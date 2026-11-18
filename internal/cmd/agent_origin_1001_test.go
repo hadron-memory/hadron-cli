@@ -37,9 +37,6 @@ func TestAgentOrigin1001(t *testing.T) {
 				var mu sync.Mutex
 				calls := 0
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					mu.Lock()
-					calls++
-					mu.Unlock()
 					var req struct {
 						OperationName, Query string
 						Variables            map[string]any
@@ -47,6 +44,22 @@ func TestAgentOrigin1001(t *testing.T) {
 					if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 						t.Error(err)
 					}
+					if req.OperationName == "GetAgentLifecycle" {
+						if req.Query != gen.GetAgentLifecycle_Operation || req.Variables["ref"] != "agt1" {
+							t.Errorf("lifecycle projection/ref: %+v", req)
+						}
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(`{"data":{"agent":{"id":"agt1","lifecycle":"LONG_LIVED"}}}`))
+						return
+					}
+					if req.OperationName == "GetAgentContextCap" {
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(`{"data":{"agent":{"id":"agt1","contextCap":null}}}`))
+						return
+					}
+					mu.Lock()
+					calls++
+					mu.Unlock()
 					if req.OperationName != "GetAgent" || req.Query != gen.GetAgent_Operation || req.Variables["ref"] != "unchanged-caller-ref" {
 						t.Errorf("unexpected lookup/mutation/projection/ref: %+v", req)
 					}

@@ -105,6 +105,32 @@ func TestGuardAllowsOnlyTheFourDeliveryCalls(t *testing.T) {
 	}
 }
 
+// #2027: the sweep's guard is its own closed set — the two reads detection
+// needs, the one close that fixes an extra bare-shell tab, and never a send:
+// the sweep never types.
+func TestSweepGuardAllowsListReadCloseAndNeverSend(t *testing.T) {
+	var ran [][]string
+	run := SweepGuard(func(_ context.Context, argv []string) Result {
+		ran = append(ran, argv)
+		return Result{Stdout: `{"ok":true}`}
+	})
+	for _, argv := range [][]string{
+		{"terminal", "send", "--text", "x"}, {"terminal", "wait"}, {"orchestration", "send"}, {"terminal", "create"}, {"terminal"}, {},
+	} {
+		if res := run(context.Background(), argv); res.Code != 1 || res.Stdout != "" {
+			t.Errorf("%v: got %+v, want the refused fail-closed shape", argv, res)
+		}
+	}
+	if len(ran) != 0 {
+		t.Fatalf("refused calls reached the runner: %v", ran)
+	}
+	for _, argv := range [][]string{{"terminal", "list"}, {"terminal", "read"}, {"terminal", "close"}} {
+		if res := run(context.Background(), argv); res.Code != 0 {
+			t.Errorf("%v refused", argv)
+		}
+	}
+}
+
 func TestNoOrchestrationAnywhereInThePackage(t *testing.T) {
 	files, _ := filepath.Glob("*.go")
 	for _, f := range files {
@@ -400,6 +426,34 @@ func TestScreenAgentFamily(t *testing.T) {
 	} {
 		if got := ScreenAgentFamily(&Screen{Source: "screen", Tail: c.tail}); got != c.want {
 			t.Errorf("%q: got %q want %q", c.tail[0], got, c.want)
+		}
+	}
+}
+
+// cli#2058 C3: the launcher's guard admits only create and close; it neither
+// reads nor types, and delivery's and the sweep's guards still refuse create.
+func TestLaunchGuardAllowsOnlyCreateAndClose2058(t *testing.T) {
+	var ran [][]string
+	run := LaunchGuard(func(_ context.Context, argv []string) Result {
+		ran = append(ran, argv)
+		return Result{Stdout: `{"ok":true}`}
+	})
+	for _, argv := range [][]string{{"terminal", "send"}, {"terminal", "read"}, {"terminal", "list"}, {"agent", "launch"}, {"terminal"}, {}} {
+		if res := run(context.Background(), argv); res.Code != 1 || res.Stdout != "" {
+			t.Errorf("%v: got %+v, want refused", argv, res)
+		}
+	}
+	for _, argv := range [][]string{{"terminal", "create", "--json"}, {"terminal", "close", "--terminal", "h"}} {
+		if res := run(context.Background(), argv); res.Code != 0 {
+			t.Errorf("%v refused", argv)
+		}
+	}
+	if len(ran) != 2 {
+		t.Fatalf("ran %v", ran)
+	}
+	for _, g := range []func(Runner) Runner{Guard, SweepGuard} {
+		if res := g(func(context.Context, []string) Result { return Result{} })(context.Background(), []string{"terminal", "create"}); res.Code != 1 {
+			t.Error("a non-launch guard admits terminal create")
 		}
 	}
 }

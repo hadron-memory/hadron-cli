@@ -1646,7 +1646,7 @@ func TestMemorySetCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemory"], &vars)
-	if vars["orgId"] != "acme.com" || vars["name"] != "KB" {
+	if vars["orgRef"] != "acme.com" || vars["name"] != "KB" {
 		t.Errorf("unexpected create vars: %v", vars)
 	}
 	// The create output surfaces the server-assigned class + visibility (#108).
@@ -2122,7 +2122,7 @@ func TestMemorySetUpdate(t *testing.T) {
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
 	// The URN is resolved to the PK via memory(ref:) before updateMemory.
-	if vars["ref"] != "m1" || vars["shortDescription"] != "Project knowledge" {
+	if vars["id"] != "m1" || vars["shortDescription"] != "Project knowledge" {
 		t.Errorf("unexpected update vars: %v", vars)
 	}
 	// Unset optionals must be OMITTED, not sent as explicit nulls —
@@ -2235,7 +2235,7 @@ func TestMemorySetUpdateSlug(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
-	if vars["ref"] != "m1" || vars["urn"] != "project-kb" {
+	if vars["id"] != "m1" || vars["urn"] != "project-kb" {
 		t.Errorf("--slug should send the bare slug as updateMemory urn, got %v", vars)
 	}
 }
@@ -2259,7 +2259,7 @@ func TestMemorySetCreateWithSlug(t *testing.T) {
 	}
 	var uvars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemory"], &uvars)
-	if uvars["ref"] != "m1" || uvars["urn"] != "hadrontool-pdf" {
+	if uvars["id"] != "m1" || uvars["urn"] != "hadrontool-pdf" {
 		t.Errorf("create --slug should rename via updateMemory urn, got %v", uvars)
 	}
 	if s := out.String(); !strings.Contains(s, "acme.com::hadrontool-pdf") {
@@ -2331,7 +2331,7 @@ func TestMemoryRm(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemory"], &vars)
-	if vars["id"] != "acme.com:scratch" {
+	if vars["ref"] != "acme.com:scratch" {
 		t.Errorf("unexpected delete vars: %v", vars)
 	}
 }
@@ -2635,7 +2635,7 @@ const aiConfigsJSON = `{"data":{"resolveAiServiceConfigs":[
 
 func TestAiConfigLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveAiServiceConfigs": aiConfigsJSON,
+		"ResolveAiServiceConfigsWithUrn": aiConfigsJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2656,7 +2656,7 @@ func TestAiConfigLs(t *testing.T) {
 
 	// --app and --agent map to the appRef/agentRef variables (ID or URN, verbatim).
 	var vars map[string]any
-	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigsWithUrn"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:juno-app" || vars["agentRef"] != "acme.com:juno" {
 		t.Errorf("unexpected vars: %v", vars)
 	}
@@ -2664,7 +2664,7 @@ func TestAiConfigLs(t *testing.T) {
 
 func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveAiServiceConfigs": aiConfigsJSON,
+		"ResolveAiServiceConfigsWithUrn": aiConfigsJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2694,7 +2694,7 @@ func TestAiConfigLsJSONOmitsUnsetAgent(t *testing.T) {
 	}
 
 	var vars map[string]any
-	_ = json.Unmarshal(captured["ResolveAiServiceConfigs"], &vars)
+	_ = json.Unmarshal(captured["ResolveAiServiceConfigsWithUrn"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:juno-app" {
 		t.Errorf("appRef should map from --app, got %v", vars["appRef"])
 	}

@@ -26,7 +26,7 @@ func TestTeamHealthSweepHelpStatesOrcaResolution(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(strings.Join(strings.Fields(c.Long), " "), "delivery.orca_bin when set, otherwise PATH") {
+	if !strings.Contains(strings.Join(strings.Fields(c.Long), " "), "delivery.orca_bin when set and it resolves, otherwise PATH") {
 		t.Fatalf("sweep help lost the orca resolution sentence:\n%s", c.Long)
 	}
 }

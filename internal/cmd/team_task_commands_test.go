@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -768,8 +769,9 @@ func TestTeamTaskTreeRendersOpenAlarms(t *testing.T) {
 	if events == nil {
 		t.Fatal("tree did not read events")
 	}
-	if events.Vars["alarmsOnly"] != true {
-		t.Fatalf("alarmsOnly %v", events.Vars["alarmsOnly"])
+	// cli#2053 F4: the count follows the server's in-effect filter.
+	if events.Vars["alarmsInEffect"] != true {
+		t.Fatalf("alarmsInEffect %v", events.Vars["alarmsInEffect"])
 	}
 	if events.Vars["appRef"] != "capp100000000000000000000" {
 		t.Fatalf("appRef %v", events.Vars["appRef"])
@@ -858,17 +860,67 @@ func TestTeamRosterRendersServerStates(t *testing.T) {
 	}
 }
 
-func TestTeamRosterHelpLabelsStatesPlanDerived(t *testing.T) {
-	// The roster's states are plan-derived, not a spec (cor:agt:050 Out Of
-	// Scope) — the help text must say so (#830).
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "roster", "--help"})
-	if err := root.Execute(); err != nil {
+func TestTeamRosterHelpCitesProposedStates2331(t *testing.T) {
+	help := strings.Join(strings.Fields(cmdHelpOut(t, "team", "roster")), " ")
+	for _, want := range []string{
+		"hrn:node:hadronmemory.com:specs:cor:agt:050:22",
+		"the states are Proposed", "NO_FAMILY is served but not yet defined in the spec",
+		"the server's roster order",
+	} {
+		if !strings.Contains(help, want) {
+			t.Errorf("help missing %q: %s", want, help)
+		}
+	}
+	for _, stale := range []string{"not a spec", "keeps them out of", "plan-derived"} {
+		if strings.Contains(help, stale) {
+			t.Errorf("stale roster wording %q", stale)
+		}
+	}
+}
+
+// The agentic guide is what agents read first (#2366): its roster line must
+// carry the same cor:agt:050:22 citation the command help carries, not the
+// retired "plan-derived" phrasing that #2331/#2360 swept out of the help.
+// Scoped to the roster line itself, so prose elsewhere in the document is
+// never falsely flagged.
+func TestAgenticUsageRosterLineCitesProposedStates2366(t *testing.T) {
+	for _, line := range strings.Split(agentic.Doc(), "\n") {
+		if !strings.HasPrefix(line, "hadron team roster ") {
+			continue
+		}
+		for _, want := range []string{
+			"hrn:node:hadronmemory.com:specs:cor:agt:050:22",
+			"Proposed", "NO_FAMILY is served but not yet defined",
+			"the server's first-that-holds order",
+		} {
+			if !strings.Contains(line, want) {
+				t.Errorf("agentic-usage roster line missing %q", want)
+			}
+		}
+		if strings.Contains(line, "plan-derived") {
+			t.Errorf("agentic-usage roster line still says %q", "plan-derived")
+		}
+		return
+	}
+	t.Fatal("agentic-usage doc has no `hadron team roster` line")
+}
+
+func TestTeamRosterHeaderIsTimestampOnly2331(t *testing.T) {
+	_, out, err := runTeamTask(t, taskResponses(), "team", "roster")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "plan-derived") {
-		t.Fatalf("help does not label the states plan-derived:\n%s", out.String())
+	found := false
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "as of ") {
+			found = true
+			if strings.Contains(line, " — ") || strings.Contains(line, "not a spec") {
+				t.Fatalf("header contains old disclaimer: %q", line)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("no timestamp header: %s", out)
 	}
 }
 

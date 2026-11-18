@@ -134,12 +134,12 @@ func TestTeamStopSet911TextReceiptClaimsOnlyStoredState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"sig1", "PAUSE_DISPATCH", "TEAM", "team headed by wkr1", "2026-12-01T08:00:00Z", "stored", "not delivered"} {
+	for _, want := range []string{"sig1", "PAUSE_DISPATCH", "TEAM", "team headed by wkr1", "2026-12-01T08:00:00Z", "Stop signal stored. This is not a delivery or stop acknowledgement."} {
 		if !strings.Contains(out, want) {
 			t.Errorf("receipt missing %q:\n%s", want, out)
 		}
 	}
-	for _, never := range []string{"workers stopped", "interrupted", "in effect"} {
+	for _, never := range []string{"workers stopped", "interrupted", "in effect", "recorded but not delivered"} {
 		if strings.Contains(strings.ToLower(out), never) {
 			t.Errorf("receipt claims %q:\n%s", never, out)
 		}
@@ -311,7 +311,7 @@ func TestTeamStop911RefusalsUseFixedSentences(t *testing.T) {
 		exit int
 		want string
 	}{
-		{"STOP_SIGNAL_UNAVAILABLE", setArgs, exitcode.Conflict, "nothing was set"},
+		{"STOP_SIGNAL_UNAVAILABLE", setArgs, exitcode.Conflict, "setting a stop signal is refused while a required worker stop-notice lane is not freshly served; nothing was set"},
 		{"APP_MANAGER_REQUIRED", setArgs, exitcode.Forbidden, "manages the App"},
 		{"HOST_SCOPE_REQUIRED", setArgs, exitcode.Forbidden, "its own host"},
 		{"STOP_SIGNAL_SCOPE_FORBIDDEN", setArgs, exitcode.Forbidden, "scope"},
@@ -426,18 +426,37 @@ func TestTeamStop911AmbiguousWriteIsSentOnce(t *testing.T) {
 	}
 }
 
-func TestTeamStop911HelpKeepsTheNoUseHoldAndDarkNotices(t *testing.T) {
-	for _, argv := range [][]string{{"team", "stop", "--help"}, {"team", "stop", "set", "--help"}, {"team", "stop", "lift", "--help"}} {
+// cli#2033: all four stop help pages share one truthful account of the notice
+// path. Wrapped lines are normalised so the pins are on the facts, not the wrap.
+func TestTeamStop2033HelpTellsTheTruthAboutNotices(t *testing.T) {
+	want := []string{
+		"The host poller consumes stop notices and types them into a verified-empty worker input without an interrupt key.",
+		"A busy input or an unsent draft can delay delivery.",
+		"A notice asks the worker to act; it does not prove obedience.",
+		"Under pause-dispatch, notices go to coordinators, not the covered workers.",
+		"A manager-only notice with no worker delivery lane is recorded without a delivery path.",
+		"Results show the server's stored signal, not proof that any worker stopped or resumed.",
+		"The server can refuse a set with STOP_SIGNAL_UNAVAILABLE when a required worker lane is not freshly served; this is not an unconditional refusal of every set.",
+		"Listing and lifting do not themselves deliver notices.",
+		"halt (also asks the worker to stop, save work and hand off)",
+	}
+	never := []string{"notice lane is dark", "recorded but not delivered", "refuses every set", "also an interrupt", "hadron-server#2169", "nobody sets or lifts"}
+	for _, argv := range [][]string{{"team", "stop", "--help"}, {"team", "stop", "set", "--help"}, {"team", "stop", "lift", "--help"}, {"team", "stop", "list", "--help"}} {
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(argv)
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		help := out.String()
-		for _, want := range []string{"STOP_SIGNAL_UNAVAILABLE", "hadron-server#2169", "not delivered"} {
-			if !strings.Contains(help, want) {
-				t.Errorf("%v help missing %q", argv, want)
+		help := strings.Join(strings.Fields(out.String()), " ")
+		for _, w := range want {
+			if !strings.Contains(help, w) {
+				t.Errorf("%v help missing %q", argv, w)
+			}
+		}
+		for _, n := range never {
+			if strings.Contains(help, n) {
+				t.Errorf("%v help still says %q", argv, n)
 			}
 		}
 	}
@@ -449,6 +468,36 @@ func TestTeamStop911HelpKeepsTheNoUseHoldAndDarkNotices(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "covering that worker now") {
 		t.Errorf("list --worker must say coverage, not targeting:\n%s", out.String())
+	}
+}
+
+// cli#2033: the agentic contract carries the same facts and none of the
+// retired claims about the stop commands.
+func TestAgenticUsage2033StopLineIsTruthful(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agentic-usage"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var line string
+	for _, l := range strings.Split(out.String(), "\n") {
+		if strings.HasPrefix(l, "hadron team stop list") {
+			line = l
+		}
+	}
+	if line == "" {
+		t.Fatal("agentic-usage lost its team stop line")
+	}
+	for _, w := range []string{"STORED signal", "verified-empty", "without an interrupt key", "not every set", "pause-dispatch notices go to coordinators", "Stop signal stored. This is not a delivery or stop acknowledgement."} {
+		if !strings.Contains(line, w) {
+			t.Errorf("stop line missing %q", w)
+		}
+	}
+	for _, n := range []string{"lane dark", "NOT delivered", "every set currently refused", "hadron-server#2169", "no set/lift before"} {
+		if strings.Contains(line, n) {
+			t.Errorf("stop line still says %q", n)
+		}
 	}
 }
 

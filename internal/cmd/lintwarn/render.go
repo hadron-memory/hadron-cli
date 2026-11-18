@@ -23,7 +23,7 @@ func Line(w Warning, compiled bool) string {
 	case w.WorkerField != nil:
 		locator = output.SafeCell(*w.WorkerField)
 	case compiled:
-		locator = fmt.Sprintf("occurrence #%d", w.Position)
+		locator = fmt.Sprintf("occurrence #%d (0-based)", w.Position)
 	}
 	s := fmt.Sprintf("  %s %s: %s", output.SafeCell(w.Kind), locator, output.SafeCell(w.Text))
 	if w.PinnedRevision != nil && w.NewerRevision != nil {

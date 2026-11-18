@@ -60,6 +60,11 @@ not known" (for example, the node was written before authors were recorded),
 never "nobody". The text form prints a "created by:" line only when there is a
 handle or URN to show. The user behind a node's last edit is not shown here.
 
+--json also carries indexTruncated: {omittedChunks: N} when the node has more
+chunks than the search index holds (only the first ones are searchable), or
+null when it is fully indexed. The text form prints an "index: truncated, N
+chunks not embedded" line only for a truncated node.
+
 Exit codes: 4 when the node is missing or you cannot read it (the server does
 not say which), and also when any ref of several is "unavailable", so a partial
 read is never mistaken for a complete one; 2 for a malformed ref, which fails
@@ -371,6 +376,14 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 	if by := dto.CreatedByUser.Display(256); by != "" {
 		fmt.Fprintf(w, "  created by: %s\n", by)
 	}
+	// hadron-cli#1481: only a truncated node prints; fully indexed prints nothing.
+	if m := dto.IndexTruncated; m != nil {
+		unit := "chunks"
+		if m.OmittedChunks == 1 {
+			unit = "chunk"
+		}
+		fmt.Fprintf(w, "  index: truncated, %d %s not embedded\n", m.OmittedChunks, unit)
+	}
 	if dto.Revision != nil {
 		fmt.Fprintf(w, "  revision: %d\n", *dto.Revision)
 	} else {
@@ -506,6 +519,9 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 	}
 	if u := n.CreatedByUser; u != nil {
 		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
+	}
+	if m := n.IndexTruncated; m != nil {
+		dto.IndexTruncated = &indexTruncatedDTO{OmittedChunks: m.OmittedChunks}
 	}
 	return dto
 }

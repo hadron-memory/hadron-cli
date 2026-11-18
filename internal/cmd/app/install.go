@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"slices"
@@ -25,6 +26,7 @@ func newCmdInstall(f *cmdutil.Factory) *cobra.Command {
 		urn         string
 		appType     string
 		description string
+		policyFile  string
 	)
 	cmd := &cobra.Command{
 		Use:   "install (--org <id> | --owner-me) --agent <ref> --name <n>",
@@ -39,6 +41,14 @@ Only passed settings are sent. Omitted surfaces use the provider default ['chat'
 UI availability (the portal shows chat iff chat is present), not authorization.
 --type does not alter surfaces. Numeric values and policy shape are server
 validated. AI configuration uses ai-config.
+
+--policy-file <path> sets the App's action-policy link, the App layer of the
+standing policy chain (cor:acl:040:02): one JSON value read from the file, for
+example {"allow":["run.execute"]}. The App layer can only narrow what the other
+layers allow; {"allow":[]} allows nothing. An empty file, invalid JSON and a
+bare null are local usage errors and nothing is sent. Leave the flag out for no
+link. Without it the request never mentions policy, so an older server keeps
+working. Change it later with app update --policy-file (or --clear-policy).
 New settings require confirmation, or --yes without a terminal; legacy-only
 installs retain their existing request document and no-prompt path. On every
 path, --type is validated against this CLI's schema enum; an explicit empty or
@@ -65,6 +75,15 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 			prepared, err := settings.prepare(cmd)
 			if err != nil {
 				return err
+			}
+			// cli#1628: the App-layer policy link, read before anything is sent;
+			// every refusal is local (the reader is shared with app update, #1640).
+			var policyJSON json.RawMessage
+			if cmd.Flags().Changed("policy-file") {
+				if policyJSON, err = readPolicyFile(policyFile, false); err != nil {
+					return err
+				}
+				prepared.changed = append(prepared.changed, "policy")
 			}
 			if cmd.Flags().Changed("type") && !slices.Contains(gen.AllAppType, gen.AppType(appType)) {
 				return exitcode.Newf(exitcode.Usage, "invalid --type")
@@ -109,10 +128,23 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 			// omitted orgId as the personal-create signal (an empty string is
 			// rejected), so nil-omitted is exactly right.
 			var dto appDTO
-			if len(prepared.changed) > 0 {
+			if policyJSON != nil {
+				resp, err := gen.CreateAppSettingsPolicy(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional, policyJSON)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateApp == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no App for the install")
+				}
+				a := resp.CreateApp
+				dto = appDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), AgentID: a.AgentId, MemberCount: a.MemberCount, CreatedAt: a.CreatedAt}
+			} else if len(prepared.changed) > 0 {
 				resp, err := gen.CreateAppSettings(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional)
 				if err != nil {
 					return api.MapError(err)
+				}
+				if resp.CreateApp == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no App for the install")
 				}
 				a := resp.CreateApp
 				dto = appDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), AgentID: a.AgentId, MemberCount: a.MemberCount, CreatedAt: a.CreatedAt}
@@ -120,6 +152,9 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 				resp, err := gen.CreateApp(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description))
 				if err != nil {
 					return api.MapError(err)
+				}
+				if resp.CreateApp == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no App for the install")
 				}
 				a := resp.CreateApp
 				dto = appDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), AgentID: a.AgentId, MemberCount: a.MemberCount, CreatedAt: a.CreatedAt}
@@ -136,6 +171,7 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned (personal) App in your own @handle namespace (org-less)")
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID or URN to install (required)")
 	cmd.Flags().StringVar(&name, "name", "", "App name (required)")
+	cmd.Flags().StringVar(&policyFile, "policy-file", "", "JSON file with the App's action-policy link (the App layer; it can only narrow)")
 	cmd.Flags().StringVar(&urn, "urn", "", "App URN slug")
 	cmd.Flags().StringVar(&appType, "type", "", "App type: AGENT|AUTOMATION|CHATBOT|CLOUD|IOT|WORKSTATION")
 	cmd.Flags().StringVar(&description, "description", "", "App description")

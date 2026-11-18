@@ -2,9 +2,9 @@ package team
 
 // `team roster` — the server-derived team roster (#830 over server #1707).
 // The roster is RENDERED here, never re-derived: every state comes from the
-// teamRoster query. The states are plan-derived (design:agent-tasks §7.4,
-// cor:agt:050 Out Of Scope), which the help text says out loud per the
-// CHECKED brief — they describe the plan's model, not platform law.
+// teamRoster query. The states are defined by
+// hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Proposed).
+// The first-that-holds display order comes from the server, not the spec.
 
 import (
 	"fmt"
@@ -29,17 +29,23 @@ func newCmdTeamRoster(f *cmdutil.Factory) *cobra.Command {
 model family, tasks and open alarms — the server's teamRoster query,
 rendered as returned. The CLI derives nothing.
 
-The STATES are plan-derived (design:agent-tasks §7.4), not a spec — they are
-the plan's model of a worker's situation, and cor:agt:050 keeps them out of
-the law corpus on purpose. A worker can be in several at once; it is shown
-in the first that holds (the server's roster order, most actionable
-first): YOUR_MOVE, UNAVAILABLE, WAITING, WORKING, ASSIGNED_NOT_STARTED,
-AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
+The states are defined by
+hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Definition: A worker's roster state;
+the states are Proposed). NO_FAMILY is served but not yet defined in the spec.
+A worker can be in several at once; it is shown in the first that holds
+(the server's roster order, most actionable first): YOUR_MOVE, UNAVAILABLE,
+WAITING, WORKING, ASSIGNED_NOT_STARTED, AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
 
 CHECK is the separate server-derived team-channel checking status:
 NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
 server did not make the result available. This experiment adds no overdue
 alarm, and the CLI does not calculate the status from local time or tasks.
+NO_SESSION carries the server's reason: IDLE reads "open, quiet" with the
+age since lastActiveAt (30h or 3d, for example; whole days from 48h, truncated), ENDED reads "ended", and
+NEVER_BOUND reads "never bound". A missing reason stays bare NO_SESSION.
+Quiet age uses this computer's clock for display only and decides nothing;
+a missing or invalid timestamp has no age. --json preserves lastActiveAt
+and checkStatus.noSessionReason (nullable). Requires hadron-server#3084 or newer.
 
 TERMINAL is the worker's latest terminal report from a host (hadron-server
 #2771): the status (busy, idle, locked or dark), the reason for locked or dark,
@@ -208,7 +214,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckLabel(e.CheckStatus)), output.SafeCell(terminalLabel(e.Terminal, now)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(modelGroupsCell(e.ModelGroups, e.ModelGroupsError)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
+					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckActivityLabel(e.CheckStatus, e.LastActiveAt, now)), output.SafeCell(terminalLabel(e.Terminal, now)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(modelGroupsCell(e.ModelGroups, e.ModelGroupsError)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -221,7 +227,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 				if _, err := fmt.Fprintln(w, capacityLine(dto.Workers)); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(w, "as of %s — states are plan-derived (design:agent-tasks §7.4), not a spec\n", output.SafeCell(dto.AsOf))
+				_, err := fmt.Fprintf(w, "as of %s\n", output.SafeCell(dto.AsOf))
 				return err
 			})
 		},

@@ -75,6 +75,7 @@ import (
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
 	f.WorkerWriteSession = teamcmd.WorkerWriteSession(f)
+	f.NoteApprovingAsPerson = teamcmd.ApprovalAsPersonNote(f)
 	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
 	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
 	begin := teamcmd.BeginInstructedWrite(f)
@@ -430,6 +431,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 			message = text
 		}
 		failure := map[string]any{"code": code, "message": message}
+		superseded, currentSession, currentStarted := api.SupersededSessionEvidence(err)
+		if superseded && currentSession != "" {
+			failure["sessionId"] = currentSession
+			failure["startedAt"] = currentStarted
+		}
 		// cli#898: additive fields for an internal fault; `code` already means
 		// the exit code, so the server's code is a new key.
 		if fault, ok := api.InternalFaultOf(err); ok {
@@ -438,11 +444,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 				failure["requestId"] = fault.RequestID
 			}
 		}
-		// #1306: scripts need the deliberate team-chat refusal's server code
-		// alongside numeric exit 5. Keep this bounded to the two named codes;
+		// Scripts need the deliberate chat/lifecycle refusal's server code
+		// alongside numeric exit 5. Keep this bounded to the named codes;
 		// unrelated refusal envelopes retain their established shape.
 		if code == exitcode.Conflict {
-			for _, serverCode := range []string{"TEAM_CHAT_DUPLICATE", "TEAM_CHAT_POST_RATE_LIMITED"} {
+			for _, serverCode := range []string{"TEAM_CHAT_DUPLICATE", "TEAM_CHAT_POST_RATE_LIMITED", "TICKER_ON_SHORT_LIVED"} {
 				if api.HasErrorCode(err, serverCode) {
 					failure["serverCode"] = serverCode
 					break
@@ -460,6 +466,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var coded interface{ ServerCode() string }
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
+		}
+		// Specific marker wins after every generic/fault/wrapper code writer,
+		// regardless of envelope error order (Wolfgang ruling111707). On a
+		// gateway fault only this marker wins: numeric exit, fault message and
+		// requestId remain untouched; no successor pair or definitive hint.
+		if api.HasErrorCode(err, "SESSION_SUPERSEDED") {
+			failure["serverCode"] = "SESSION_SUPERSEDED"
 		}
 		// #1664: only PR_NOT_READY carries typed failing slots.
 		var readiness interface{ PRReadinessSlots() []api.PRSlotFailure }
@@ -527,6 +540,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
 			message := humanErrorText(err) + api.CloneAgentDetailText(err)
+			if superseded {
+				if currentSession == "" {
+					message = "Session superseded. No current-session details are available. No retry or rebind was attempted."
+				} else {
+					message = fmt.Sprintf("Session superseded. Current open session: %s (started %s). No retry or rebind was attempted.", output.SafeLine(currentSession, len(currentSession)+1), output.SafeLine(currentStarted, len(currentStarted)+1))
+				}
+			}
 			if text, ok := authoredRefusalText(err); ok {
 				message = text
 			}

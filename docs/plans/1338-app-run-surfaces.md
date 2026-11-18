@@ -66,13 +66,13 @@ App identity and an allowlist matching the requested state. A null latest run
 exits 4 without claiming that no hidden run exists. Null myApp is successful.
 
 All server failures use MapErrorKeepingCode. Grant FORBIDDEN and general
-AVAILABILITY_NOT_PERMITTED map to 8, typed NOT_FOUND to 4, BAD_USER_INPUT to2,
-UNAUTHENTICATED to3. These are mapper controls, not a claim that every operation
+AVAILABILITY_NOT_PERMITTED map to 8, typed NOT_FOUND to 4, BAD_USER_INPUT to 2,
+UNAUTHENTICATED to 3. These are mapper controls, not a claim that every operation
 emits every code. The original formatter limitation was fixed by server#2979 at dadc314a.
 cli#1530 now maps shared PERMISSION_DENIED to 8 and concealing NOT_FOUND to 4;
 lookup INTERNAL_SERVER_ERROR remains 1 with requestId. Older providers can still
 send the generic fault. The CLI uses no scoped permission override or prose classification.
-HTTP503 maps to availability7 with unknown-write-outcome guidance. No local role
+HTTP 503 maps to availability 7 with unknown-write-outcome guidance. No local role
 checks reproduce policy.
 
 ## Verification and limits
@@ -80,7 +80,7 @@ checks reproduce policy.
 The first test commit failed on main at runtime because the commands/operations
 were absent. Wire tests check all six operations, canonical refs, optional values,
 metadata/null handling and request counts. Confirmation/empty inputs make no
-requests. Refusal tests preserve server codes and exits; HTTP503 cases send once.
+requests. Refusal tests preserve server codes and exits; HTTP 503 cases send once.
 Additional malformed-response cases prevent false success. The valid variableless
 MyApp query required correcting a test helper that tried to decode empty variables;
 that correction and an input-pointer compile fix are not red-first evidence.
@@ -109,8 +109,8 @@ Each edit was checked for its exact replacement before execution and restored.
 LOCAL formatter finding: the initial source audit stopped at the operation's
 custom error code and missed the GraphQL boundary. Real formatter execution by
 Elena showed INTERNAL_SERVER_ERROR; the combined fix removes the unreachable
-exit8 branch and documents that limit. Tests pin HTTP200/500 fault envelopes
-through the production JSON renderer (exit1, serverCode, requestId, no retry).
+exit 8 branch and documents that limit. Tests pin HTTP 200/500 fault envelopes
+through the production JSON renderer (exit 1, serverCode, requestId, no retry).
 Synthetic raw domain-code tests are explicitly mapper controls. The whoami help
 also clarifies that user credentials return null. Independent earlier receipts
 remain historical until their holders delta-review this fix head.

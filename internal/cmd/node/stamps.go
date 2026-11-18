@@ -42,7 +42,16 @@ type contentValidationDTO struct {
 }
 
 type validationReportDTO struct {
-	Outcome     string   `json:"outcome"`
+	Outcome string `json:"outcome"`
+	// AuthorCheck is a pointer to a pointer so --json can tell three states
+	// apart (historical JSON isolation): omitted (nil outer) when the report
+	// was read through the plain stamp fields (contentValidationFrom: a
+	// history snapshot or a server without the checked projection), which
+	// never asked for the comparison; an explicit null (non-nil outer, nil
+	// inner) when the checked projection or the record receipt answered and
+	// the server named no comparison; and a value (CHECKED, AUTHOR_UNKNOWN or
+	// another server word) when it did. Collapsing them would turn "not asked"
+	// into "none".
 	AuthorCheck **string `json:"authorCheck,omitempty"`
 	// NodeRevision is the revision the report was made for — on a STALE
 	// state, an older one.

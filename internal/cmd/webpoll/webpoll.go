@@ -50,7 +50,7 @@ type webPollDTO struct {
 	NextRunAt           *string `json:"nextRunAt"`
 }
 
-func dtoFromWebPoll(p *gen.WebPollsWebPollsWebPoll) webPollDTO {
+func dtoFromWebPoll(p *gen.WebPollFields) webPollDTO {
 	return webPollDTO{
 		JobID:               p.JobId,
 		AppID:               p.AppId,

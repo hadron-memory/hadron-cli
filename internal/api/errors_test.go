@@ -60,6 +60,9 @@ func TestMapError(t *testing.T) {
 		err  error
 		want int
 	}{
+		// #2308: a worker without a signed schedule.create grant.
+		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
+
 		// #1706 content-validation report refusals.
 		{"validation reporter_unknown", gqlErr("CONTENT_VALIDATION_REPORTER_UNKNOWN"), exitcode.Forbidden},
 		{"validation reporter_is_author", gqlErr("CONTENT_VALIDATION_REPORTER_IS_AUTHOR"), exitcode.Forbidden},
@@ -133,6 +136,10 @@ func TestMapError(t *testing.T) {
 		// platform limit pending a ruling, so no input or state change helps.
 		{"app memory forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
 		{"app memory bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		// cli#2189 (rows as Jake drafted them on jake/2189-link-defect).
+		{"defect link is forbidden", gqlErr("DEFECT_LINK_FORBIDDEN"), exitcode.Forbidden},
+		{"defect link task lacks PR reference", gqlErr("PR_REFERENCE_MISSING"), exitcode.Conflict},
+		{"defect introduction head was not frozen", gqlErr("DEFECT_HEAD_NOT_FROZEN"), exitcode.Conflict},
 		{"app memory agent not installed", gqlErr("AGENT_NOT_INSTALLED"), exitcode.Usage},
 		{"app memory user-owned app", gqlErr("USER_OWNED_APP_UNSUPPORTED"), exitcode.Error},
 		// Manual runs in an App with several installed Agents (cli#1268,
@@ -142,6 +149,7 @@ func TestMapError(t *testing.T) {
 		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
 		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
 		{"ticker settings conflict", gqlErr("TICKER_SETTINGS_CONFLICT"), exitcode.Conflict},
+		{"short-lived ticker subscription", gqlErr("TICKER_ON_SHORT_LIVED"), exitcode.Conflict},
 		{"standby unavailable", gqlErr("DELIVERY_STANDBY_UNAVAILABLE"), exitcode.Conflict},
 		{"ticker consent", gqlErr("TICKER_CADENCE_NEEDS_CONSENT"), exitcode.Forbidden},
 		{"ticker self subscribe", gqlErr("SUBSCRIBE_CADENCE_NEEDS_HOLDER"), exitcode.Forbidden},
@@ -362,6 +370,7 @@ func TestMapError(t *testing.T) {
 		{"task finding missing", gqlErr("TASK_FINDING_NOT_FOUND"), exitcode.NotFound},
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
+		{"worker leave alone not permitted", gqlErr("WORKER_LEAVE_ALONE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
 		// #871: host operations and the host:operate grant.
 		{"host op not permitted", gqlErr("HOST_OPERATION_NOT_PERMITTED"), exitcode.Forbidden},

@@ -264,8 +264,8 @@ func TestMemorySetCreateWithSchema(t *testing.T) {
 	if err := json.Unmarshal(captured["UpdateMemory"], &uvars); err != nil {
 		t.Fatalf("the follow-up updateMemory should carry the schema: %v", err)
 	}
-	if uvars["ref"] != "m1" {
-		t.Errorf("follow-up should target the created memory id, got %v", uvars["ref"])
+	if uvars["id"] != "m1" {
+		t.Errorf("follow-up should target the created memory id, got %v", uvars["id"])
 	}
 	if _, ok := uvars["schema"].(map[string]any); !ok {
 		t.Errorf("follow-up updateMemory should carry the schema, got %v", uvars["schema"])

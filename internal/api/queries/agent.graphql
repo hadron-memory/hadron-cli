@@ -113,7 +113,7 @@ query PublicAgents(
 mutation CreateAgent(
   $name: String!
   # @genqlient(omitempty: true)
-  $orgRef: ID
+  $orgId: ID
   # @genqlient(omitempty: true)
   $description: String
   # @genqlient(omitempty: true)
@@ -121,7 +121,7 @@ mutation CreateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemMemoryRef: ID
+  $systemMemoryId: String
   # @genqlient(omitempty: true)
   $surfaces: [String!]
   # @genqlient(omitempty: true)
@@ -137,11 +137,11 @@ mutation CreateAgent(
 ) {
   createAgent(
     name: $name
-    orgRef: $orgRef
+    orgId: $orgId
     description: $description
     type: $agentType
     visibility: $visibility
-    systemMemoryRef: $systemMemoryRef
+    systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     personaRole: $personaRole
     memberRoles: $memberRoles
@@ -163,7 +163,7 @@ mutation UpdateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemMemoryRef: ID
+  $systemMemoryId: String
   # omitempty: unset (nil) is omitted → preserved. The CLI's --surface
   # (StringArrayVar) only ever yields nil or a NON-empty slice, so the
   # "empty slice gets omitted" case is unreachable here; explicit clear-the-set
@@ -198,7 +198,7 @@ mutation UpdateAgent(
     description: $description
     type: $agentType
     visibility: $visibility
-    systemMemoryRef: $systemMemoryRef
+    systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     urn: $urn
     personaRole: $personaRole
@@ -354,14 +354,14 @@ mutation SetAgentBootPrompt($agentRef: String!, $nodeRef: String) {
 }
 
 # cli#61 first cut: the Agent system-memory draft workflow's snapshot and editor
-# lock. agentId goes to the server verbatim (ID or URN; no pre-resolve).
+# lock. agentRef goes to the server verbatim (ID or URN; no pre-resolve).
 # description is omitempty: unset leaves the server default.
 mutation CreateRevision(
-  $agentId: ID!
+  $agentRef: ID!
   # @genqlient(omitempty: true)
   $description: String
 ) {
-  createRevision(agentId: $agentId, description: $description) {
+  createRevision(agentRef: $agentRef, description: $description) {
     revisionLoc
     label
     published
@@ -371,16 +371,16 @@ mutation CreateRevision(
 
 # Contention is a RESULT (locked:false, lockedBy, expiresAt), not a GraphQL
 # error; expiresAt and lockedBy are nullable and stay as returned.
-mutation AcquireEditorLock($agentId: ID!) {
-  acquireEditorLock(agentId: $agentId) {
+mutation AcquireEditorLock($agentRef: ID!) {
+  acquireEditorLock(agentRef: $agentRef) {
     locked
     lockedBy
     expiresAt
   }
 }
 
-mutation ReleaseEditorLock($agentId: ID!) {
-  releaseEditorLock(agentId: $agentId)
+mutation ReleaseEditorLock($agentRef: ID!) {
+  releaseEditorLock(agentRef: $agentRef)
 }
 
 # cli#58 slice 1: attach / re-role / detach a Memory on an Agent. Refs go to the

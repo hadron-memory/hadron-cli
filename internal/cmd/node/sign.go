@@ -72,6 +72,9 @@ type signingRequestListDTO struct {
 	URN      string              `json:"urn"`
 	Loc      string              `json:"loc"`
 	Requests []signingRequestDTO `json:"requests"`
+	// HasMore and NextCursor are the page facts the server returned (cli#2032).
+	HasMore    bool    `json:"hasMore"`
+	NextCursor *string `json:"nextCursor"`
 }
 
 func signerFrom(handle, urn *string) *revisionEditorDTO {
@@ -129,6 +132,12 @@ var signingFields = []string{
 // CLI or the server) is wrong when the server is current and signing is simply
 // not offered there.
 func mapSigningError(err error) error {
+	// A server that has signing but not the paged list (it predates
+	// hadron-server#4123) is told so: "does not offer node signing" would be
+	// wrong, and there is no fallback to the unpaged read (cli#2032).
+	if api.IsGraphQLValidationFor(err, "signingRequestsPage") {
+		return exitcode.Newf(exitcode.Usage, "this server does not offer the paged signing-request list; upgrade the server (hadron-server#4123)")
+	}
 	for _, name := range signingFields {
 		if api.IsGraphQLValidationFor(err, name) {
 			return exitcode.Newf(exitcode.Usage, "this server does not offer node signing")
@@ -408,17 +417,26 @@ func parseSigningRequestState(v string) (gen.SigningRequestState, bool) {
 }
 
 func newCmdSigningRequestList(f *cmdutil.Factory) *cobra.Command {
-	var memory, state string
+	var memory, state, after string
 	var limit int
 	cmd := &cobra.Command{
-		Use:     "list <node-ref>",
+		Use:     "list <node-ref> [--state <s>] [--limit <n>] [--after <cursor>]",
 		Aliases: []string{"ls"},
-		Short:   "List a node's signing requests, newest first",
-		Long: `List the node's signing requests, newest first, including ended ones.
---state filters on the effective state: an open request past its deadline
-reads EXPIRED. --limit is 1-100 (server default 20).`,
+		Short:   "List one page of a node's signing requests, newest first",
+		Long: `List one page of the node's signing requests, newest first, including ended
+ones. One call shows one page: 20 requests by default, at most 100 (a larger
+--limit is clamped by the server, not refused here). --state filters on the
+effective state: an open request past its deadline reads EXPIRED.
+
+When there are more, the output ends with "has more: true" and a "next cursor"
+line; pass that value to --after to read the next page, exactly as printed
+(--json carries the same value in nextCursor), and give the same --state again.
+Each page is a snapshot at the time of the call; an empty page means no
+requests on that page. --json adds hasMore and nextCursor (null when there is
+no further page) beside requests.`,
 		Example: `  hadron node signing-request list hrn:node:hadronmemory.com:dev:decisions:dk-001
-  hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --json`,
+  hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --json
+  hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --after <next cursor from the previous page>`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var statePtr *gen.SigningRequestState
@@ -433,12 +451,13 @@ reads EXPIRED. --limit is 1-100 (server default 20).`,
 				}
 				statePtr = &s
 			}
-			var first *int
-			if cmd.Flags().Changed("limit") {
-				if limit < 1 || limit > 100 {
-					return exitcode.Newf(exitcode.Usage, "--limit must be between 1 and 100")
-				}
-				first = &limit
+			first, err := cmdutil.PageLimit(cmd, limit)
+			if err != nil {
+				return err
+			}
+			afterPtr, err := cmdutil.PageAfter(cmd, after)
+			if err != nil {
+				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -448,7 +467,7 @@ reads EXPIRED. --limit is 1-100 (server default 20).`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.NodeSigningRequests(cmd.Context(), client, id, statePtr, first)
+			resp, err := gen.NodeSigningRequests(cmd.Context(), client, id, statePtr, first, afterPtr)
 			if err != nil {
 				return mapSigningError(err)
 			}
@@ -456,32 +475,59 @@ reads EXPIRED. --limit is 1-100 (server default 20).`,
 				return exitcode.Newf(exitcode.NotFound, "node %s not found or not readable by you", args[0])
 			}
 			n := resp.Node
-			dto := signingRequestListDTO{NodeID: n.Id, URN: n.Urn, Loc: n.Loc, Requests: []signingRequestDTO{}}
-			for _, r := range n.SigningRequests {
+			if n.SigningRequestsPage == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no signing-request page")
+			}
+			page := n.SigningRequestsPage
+			if err := cmdutil.CheckPage(page.HasMore, page.NextCursor, afterPtr); err != nil {
+				return err
+			}
+			dto := signingRequestListDTO{NodeID: n.Id, URN: n.Urn, Loc: n.Loc, Requests: []signingRequestDTO{}, HasMore: page.HasMore, NextCursor: page.NextCursor}
+			for _, r := range page.Items {
 				if r != nil {
 					dto.Requests = append(dto.Requests, signingRequestFrom(&r.SigningRequestFields))
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Requests) == 0 {
-					fmt.Fprintf(w, "%s: no signing requests\n", dto.URN)
-					return nil
-				}
-				t := output.NewTable(w, "ID", "STATE", "REVISION", "SIGNER", "CREATED", "EXPIRES")
-				for _, r := range dto.Requests {
-					signer := "any writer"
-					if r.NamedSigner != nil {
-						signer = signerLabel(r.NamedSigner)
+					// With --state the message names the filter: an empty filtered
+					// page does not mean no requests exist (cli#2032 ruling).
+					what := "no signing requests"
+					if statePtr != nil {
+						what = "no " + strings.ToLower(string(*statePtr)) + " signing requests"
 					}
-					t.Row(output.SafeCell(r.ID), output.SafeCell(r.State), fmt.Sprint(r.Revision), output.SafeCell(signer), output.SafeCell(r.CreatedAt), output.SafeCell(r.ExpiresAt))
+					if _, err := fmt.Fprintf(w, "%s: %s on this page\n", dto.URN, what); err != nil {
+						return err
+					}
+				} else {
+					t := output.NewTable(w, "ID", "STATE", "REVISION", "SIGNER", "CREATED", "EXPIRES")
+					for _, r := range dto.Requests {
+						signer := "any writer"
+						if r.NamedSigner != nil {
+							signer = signerLabel(r.NamedSigner)
+						}
+						t.Row(output.SafeCell(r.ID), output.SafeCell(r.State), fmt.Sprint(r.Revision), output.SafeCell(signer), output.SafeCell(r.CreatedAt), output.SafeCell(r.ExpiresAt))
+					}
+					if err := t.Flush(); err != nil {
+						return err
+					}
 				}
-				return t.Flush()
+				if _, err := fmt.Fprintf(w, "has more: %t\n", dto.HasMore); err != nil {
+					return err
+				}
+				if dto.NextCursor != nil {
+					if _, err := fmt.Fprintf(w, "next cursor: %s\n", output.SafeCell(*dto.NextCursor)); err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to resolve a bare node loc against")
 	cmd.Flags().StringVar(&state, "state", "", "only requests in this effective state (open, completed, declined, expired, stale, withdrawn)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "maximum requests to return, 1-100 (server default 20)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "requests per page (default 20; the server clamps to 100)")
+	cmd.Flags().StringVar(&after, "after", "", "continue after this cursor, exactly as a previous page printed it")
 	return cmd
 }
 

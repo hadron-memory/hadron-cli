@@ -241,6 +241,15 @@ func TestDueTicksPreviewHintOnlyForKnownRefusal(t *testing.T) {
 		{"mixed-errors", []any{refusal(known, "GRAPHQL_VALIDATION_FAILED"), refusal("Forbidden", "FORBIDDEN")}, false},
 		{"wrong-code", []any{refusal(known, "INTERNAL_SERVER_ERROR")}, false},
 		{"bare-spelling", []any{refusal(`Unknown argument "preview" on field "dueWakes".`, "GRAPHQL_VALIDATION_FAILED")}, true},
+		{"missing-code", []any{map[string]any{"message": known}}, true},
+		// An absent code has three wire spellings — extensions omitted,
+		// present but empty, and null — and all map to the same upgrade
+		// hint: older servers predate the code, and gqlgen's unknown-
+		// argument wording alone is the refusal's identity (#2224). The
+		// bare `dueWakes` spelling pairs with an absent code the same way.
+		{"empty-extensions", []any{map[string]any{"message": known, "extensions": map[string]any{}}}, true},
+		{"null-extensions", []any{map[string]any{"message": known, "extensions": nil}}, true},
+		{"bare-spelling-missing-code", []any{map[string]any{"message": `Unknown argument "preview" on field "dueWakes".`}}, true},
 	} {
 		for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
 			t.Run(tc.name+"/"+http.StatusText(status), func(t *testing.T) {
