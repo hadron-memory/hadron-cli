@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -154,7 +154,7 @@ func TestReadGrantInstruction2446RefusalShownOnceNotRetried(t *testing.T) {
 				if c.Session != "s-new" {
 					t.Errorf("downgraded to the person: %+v", c)
 				}
-				return memberGQLError("refused", "FORBIDDEN")
+				return memberGQLError("refused: not your App", "FORBIDDEN")
 			})
 			writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
 			f, out := testFactory(t)
@@ -168,11 +168,18 @@ func TestReadGrantInstruction2446RefusalShownOnceNotRetried(t *testing.T) {
 			if err == nil || exitCodeFor(err) != exitcode.Forbidden || len(*calls) != 1 || out.Len() != 0 {
 				t.Fatalf("err=%v calls=%+v out=%s", err, *calls, out.String())
 			}
-			// The --json error envelope reads serverCode from the error and the
-			// message from its text: both must survive the refusal.
-			var coded interface{ ServerCode() string }
-			if !errors.As(err, &coded) || coded.ServerCode() != "FORBIDDEN" || !strings.Contains(err.Error(), "refused") {
-				t.Fatalf("refusal lost its serverCode or message: %v", err)
+			// Render the real --json error envelope: the server's code and its
+			// specific refusal text must both reach the caller.
+			renderError(f, err)
+			var env struct {
+				Error struct {
+					Message    string `json:"message"`
+					ServerCode string `json:"serverCode"`
+				} `json:"error"`
+			}
+			rendered := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
+			if jerr := json.Unmarshal([]byte(rendered), &env); jerr != nil || env.Error.ServerCode != "FORBIDDEN" || !strings.Contains(env.Error.Message, "refused: not your App") {
+				t.Fatalf("envelope lost serverCode or message (%v): %s", jerr, rendered)
 			}
 		})
 	}
@@ -184,5 +191,30 @@ func TestReadGrantInstruction2446SetStaysPersonOnly(t *testing.T) {
 	root.SetArgs(readGrantArgs2446("set", autoApp, "--memory", "acme.com:notes", "--trigger-kind", "SCHEDULE", "--trigger-id", "s1", "--yes", "--instruction", "task:one"))
 	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "unknown flag") {
 		t.Fatalf("set must not take --instruction: %v", err)
+	}
+}
+
+// A null element in the grant list is a malformed answer, never a panic: the
+// generated rows are pointers (cli#2446 BLIND delta).
+func TestReadGrantInstruction2446NullRowIsMalformedNotPanic(t *testing.T) {
+	for _, instructed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("instructed=%t", instructed), func(t *testing.T) {
+			teamGitDir(t)
+			srv, _ := snapshotServer1614(t, func(snapshotCall1614) string {
+				return `{"data":{"automationReadGrants":[` + readGrant1566 + `,null]}}`
+			})
+			writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := readGrantArgs2446("list", "--app", autoApp, "--json", "--server", srv.URL)
+			if instructed {
+				args = append(args, "--instruction", "task:one")
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "null read grant") || out.Len() != 0 {
+				t.Fatalf("err=%v out=%s", err, out.String())
+			}
+		})
 	}
 }

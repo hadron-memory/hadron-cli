@@ -233,6 +233,9 @@ not fit prints a note on stderr, an absent binding is silent.`,
 					return exitcode.Newf(exitcode.Error, "the server returned no read grant list")
 				}
 				for _, g := range r.AutomationReadGrants {
+					if g == nil {
+						return exitcode.Newf(exitcode.Error, "the server returned a null read grant")
+					}
 					fields = append(fields, g.AutomationReadGrantFields)
 				}
 			} else {
@@ -249,6 +252,9 @@ not fit prints a note on stderr, an absent binding is silent.`,
 					return exitcode.Newf(exitcode.Error, "the server returned no read grant list")
 				}
 				for _, g := range r.AutomationReadGrants {
+					if g == nil {
+						return exitcode.Newf(exitcode.Error, "the server returned a null read grant")
+					}
 					fields = append(fields, g.AutomationReadGrantFields)
 				}
 			}
