@@ -656,6 +656,18 @@ func launchdLastRun(out string) *LastRun {
 	return lr
 }
 
+// OrcaOrPath is the orca a sweep-side caller runs (cli#2166): the configured
+// delivery.orca_bin when it resolves by ResolveOrca's own test (exists, not a
+// directory, executable), else the bare name "orca", which the exec resolves on
+// PATH. It never consults PATH itself, so the answer does not depend on what
+// the machine has installed. Install stays strict (ResolveOrca refuses).
+func OrcaOrPath(configured string) string {
+	if p, err := ResolveOrca(configured, ""); err == nil {
+		return p
+	}
+	return "orca"
+}
+
 // ResolveOrca returns the orca the sweep will exec, resolved as the host does:
 // delivery.orca_bin when set (it must exist), else orca on path. Neither is a
 // usage refusal, so an entry that could only fail unattended is never written.

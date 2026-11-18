@@ -159,7 +159,8 @@ func TestHealth1181NoCoordinatorAndLegacyVerdictIgnored(t *testing.T) {
 			t.Fatalf("legacy verdict changes output %q != %q", out, first)
 		}
 		var got map[string]any
-		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 7 || got["reports"] == nil || got["refused"] == nil ||
+		if json.Unmarshal([]byte(out), &got) != nil || len(got) != 8 || // cli#2166 added orcaVersion
+			got["reports"] == nil || got["refused"] == nil ||
 			got["renames"] == nil || got["dryRun"] != true || got["fixes"] == nil || got["alerts"] == nil || got["skips"] == nil {
 			t.Fatalf("bad DTO %s", out)
 		}
@@ -222,6 +223,7 @@ func TestHealth1181ExactPayloadAndTextGolden(t *testing.T) {
   ],
   "refused": [],
   "renames": [],
+  "orcaVersion": null,
   "dryRun": true,
   "fixes": [],
   "alerts": [],
