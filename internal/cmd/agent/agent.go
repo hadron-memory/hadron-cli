@@ -444,7 +444,7 @@ type agentGetDTO struct {
 	ContextCap json.RawMessage `json:"contextCap,omitempty"`
 	agentBaseDTO
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
-	// cor:dmo:050:19: null when the caller does not manage the Agent ; null is never read as ready.
+	// cor:dmo:050:19: null when the caller does not manage the Agent (cor:dmo:050:13); null is never read as ready.
 	OfferReadiness *OfferReadinessDTO `json:"offerReadiness"`
 	// Get-only best-effort enrichment; omit on every unavailable answer.
 	SystemMemoryURN *string `json:"systemMemoryUrn,omitempty"`
@@ -1427,9 +1427,9 @@ func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List the tasks the Agent's workers see (own list plus inherited)",
 		Long: `List the tasks the Agent's workers see: the tasks the Agent lists itself plus
 the ones it inherits from its base Agents (the Agents it extends, a chain of up
-to four; see "hadron agent set-base"), with duplicates removed by the server. The Agent lists its own
-tasks in its tasks index, a node in its system memory that you point it at with
-"hadron agent update --tasks-index".
+to four; see "hadron agent set-base"), with duplicates removed by the server.
+The Agent lists its own tasks in its tasks index, a node in its system memory
+that you point it at with "hadron agent update --tasks-index".
 
 Columns: NAME and URN identify the task node. TRIGGER is the name of the entry in
 the tasks index that lists the task (blank when no entry does). INHERITED FROM

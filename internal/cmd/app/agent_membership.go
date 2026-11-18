@@ -51,7 +51,7 @@ this is the command that does it).
 as training data for the Agent's owner. The flag belongs to the App, not to the
 Agent: it applies to every Agent installed in this App, so setting it here
 changes it for all of them. It is only sent when you pass it; if you do not
-want your sessions used as training data, leave it out.
+want the App's sessions used as training data, leave it out.
 
 You need CONTRIBUTOR or higher on the App's owning organization, or to own the
 App if it is user-owned: plain App membership is not enough, because attaching

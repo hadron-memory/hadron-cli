@@ -8,34 +8,42 @@ import (
 
 // cli#1053 slice 1: what an instructed call records is said per act. A revoke page
 // that prints the LIST paragraph is copy-paste drift (audit finding C3), and a
-// list page needs the list one.
+// list page needs the list one. Every app and agent page that carries the shared
+// --instruction help is found by walking the tree and classified by its verb, so a
+// page added later cannot slip through unchecked.
 func TestInstructionRecordParagraphMatchesTheAct1053(t *testing.T) {
-	help := func(path ...string) string {
-		f, out := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs(append(path, "--help"))
-		if err := root.Execute(); err != nil {
-			t.Fatal(err)
+	const marker = "claims, for this call, that the worker's holder"
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	seen := 0
+	for _, page := range collectSlice1Pages(root) {
+		long := flat(page.Long)
+		hasList := strings.Contains(long, "An admitted instructed list is NOT record-free")
+		hasRevoke := strings.Contains(long, "A changing instructed revoke records one app.credential-act event")
+		if !strings.Contains(long, marker) {
+			if hasList || hasRevoke {
+				t.Errorf("%s carries a record paragraph without the --instruction help", page.CommandPath())
+			}
+			continue
 		}
-		return strings.Join(strings.Fields(out.String()), " ")
+		seen++
+		verb := page.Name()
+		switch verb {
+		case "list":
+			if !hasList || hasRevoke {
+				t.Errorf("%s is a list page: want the list paragraph only (list=%v revoke=%v)", page.CommandPath(), hasList, hasRevoke)
+			}
+		case "revoke", "rm":
+			if !hasRevoke || hasList || strings.Contains(long, "every call (each page)") {
+				t.Errorf("%s is a revoke page: want the revoke paragraph only (list=%v revoke=%v)", page.CommandPath(), hasList, hasRevoke)
+			}
+		default:
+			t.Errorf("%s carries the --instruction help but its verb %q is neither list nor revoke: classify it", page.CommandPath(), verb)
+		}
 	}
-	for _, p := range [][]string{{"app", "key", "revoke"}, {"app", "key", "scope", "revoke"}, {"app", "memory-grant", "rm"}} {
-		h := help(p...)
-		if strings.Contains(h, "NOT record-free") || strings.Contains(h, "every call (each page)") {
-			t.Errorf("%v is a revoke page and must not carry the list paragraph", p)
-		}
-		if !strings.Contains(h, "A changing instructed revoke records one app.credential-act event") {
-			t.Errorf("%v lacks the revoke paragraph", p)
-		}
-	}
-	for _, p := range [][]string{{"app", "key", "list"}, {"app", "memory-grant", "list"}} {
-		h := help(p...)
-		if !strings.Contains(h, "An admitted instructed list is NOT record-free") {
-			t.Errorf("%v is a list page and lacks the list paragraph", p)
-		}
-		if strings.Contains(h, "A changing instructed revoke") {
-			t.Errorf("%v is a list page and must not carry the revoke paragraph", p)
-		}
+	if seen < 5 {
+		t.Fatalf("found only %d pages with the --instruction help; the walk or the marker is wrong", seen)
 	}
 }
 
@@ -45,12 +53,13 @@ func TestInstructionRecordParagraphMatchesTheAct1053(t *testing.T) {
 func TestSlice1HelpCrossReferencesResolve1053(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	quoted := regexp.MustCompile("[\"`]hadron ([^\"`\\n]+)[\"`]")
+	quoted := regexp.MustCompile("\"hadron ([^\"]+)\"|`hadron ([^`]+)`")
 	checked := 0
 	for _, page := range collectSlice1Pages(root) {
-		for _, m := range quoted.FindAllStringSubmatch(page.Long, -1) {
+		for _, m := range quoted.FindAllStringSubmatch(strings.Join(strings.Fields(page.Long), " "), -1) {
+			ref := m[1] + m[2] // exactly one alternative matched
 			var words, flags []string
-			for _, tok := range strings.Fields(m[1]) {
+			for _, tok := range strings.Fields(ref) {
 				switch {
 				case strings.HasPrefix(tok, "--"):
 					flags = append(flags, strings.TrimRight(strings.SplitN(tok, "=", 2)[0], ".,;:)"))

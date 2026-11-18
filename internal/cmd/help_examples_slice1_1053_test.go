@@ -14,6 +14,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // cli#1053 slice 1 (app and agent): every example in the help is run through the
@@ -239,10 +241,25 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 							w = "fixture-" + strings.ToLower(w[1:])
 						}
 					}
-					if strings.HasPrefix(w, "/") && !strings.HasPrefix(w, dir) {
-						t.Fatalf("example %q names the absolute path %q, which the harness does not redirect: it must not run", ex, w)
-					}
 					args = append(args, w)
+				}
+				// A path the harness does not redirect must not run: an absolute path outside
+				// the test directory, a home path or a parent path, as a word or as a
+				// --flag=value. The example fails here instead of touching the filesystem.
+				unsafe := ""
+				for _, a := range args {
+					v := a
+					if strings.HasPrefix(a, "--") && strings.Contains(a, "=") {
+						v = a[strings.Index(a, "=")+1:]
+					}
+					if (strings.HasPrefix(v, "/") && !strings.HasPrefix(v, dir)) || strings.HasPrefix(v, "~") || strings.Contains(v, "../") || v == ".." {
+						unsafe = v
+					}
+				}
+				if unsafe != "" {
+					t.Errorf("example %q names the path %q, which the harness does not redirect, so it was not run", ex, unsafe)
+					results = append(results, exampleResult{Page: path, Example: ex, Mode: "not run", Outcome: "BROKEN: names a path the harness does not redirect: " + unsafe, Broken: true})
+					continue
 				}
 				// A user who follows the example has a file where it names one.
 				for _, a := range args {
@@ -328,6 +345,9 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 						switch {
 						case res.Broken:
 							res.Outcome = "BROKEN: " + msg
+						case len(sent) > 0 && exitCodeFor(err) == exitcode.Usage:
+							res.Broken = true
+							res.Outcome = "BROKEN: a usage error after a request was sent: " + msg
 						case len(sent) > 0:
 							// The fixture's empty reply makes the command fail AFTER it reached the
 							// server; that is the wiring being verified.
