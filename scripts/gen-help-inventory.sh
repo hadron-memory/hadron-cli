@@ -99,6 +99,7 @@ if [ -n "$EXISTING" ] && [ -f "$EXISTING" ]; then
     if (NF == 8) { h=""; e=$6; r=$7; f=$8 }
     else if (NF == 9) { h=$6; e=$7; r=$8; f=$9 }
     else { print "gen-help-inventory: unsupported inventory row shape: " $0 > "/dev/stderr"; exit 1 }
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", h)
     sub(/ \|$/,"",f)
     print p "\t" h "\t" e "\t" r "\t" f
   }' "$EXISTING" >"$humans"

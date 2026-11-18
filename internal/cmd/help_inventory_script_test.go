@@ -382,3 +382,22 @@ func TestHelpInventoryShasumFallback1126(t *testing.T) {
 		t.Fatalf("shasum help hash: %q want=%s", row, want)
 	}
 }
+
+func TestHelpInventoryHashCellPaddingDoesNotInvalidate1126(t *testing.T) {
+	f := inventoryStandIn1126(t, fakeHadron)
+	for _, empty := range []bool{false, true} {
+		prior := markInventory1126(t, inventoryOK1126(t, f, ""), "alpha one", "Rae", "pass", "https://example.test/keep")
+		cells := inventoryCells1126(t, prior, "alpha one")
+		old := "| " + strings.Join(cells, " | ") + " |"
+		if empty {
+			cells[5] = "   "
+		} else {
+			cells[5] = "  " + cells[5] + "  "
+		}
+		prior = strings.Replace(prior, old, "| "+strings.Join(cells, " | ")+" |", 1)
+		row := inventoryCells1126(t, inventoryOK1126(t, f, saveInventory1126(t, prior)), "alpha one")
+		if row[6] != "Rae" || row[7] != "pass" || row[8] != "https://example.test/keep" {
+			t.Fatalf("Markdown padding invalidated assessment (empty=%v): %q", empty, row)
+		}
+	}
+}

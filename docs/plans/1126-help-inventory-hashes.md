@@ -8,7 +8,7 @@ The old gate was re-verified before building. Closed #2310 intentionally removed
 
 `path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding`
 
-The generator owns `help-hash`: the first 12 lowercase hex characters of SHA256 of the help captured for that page, including stderr and excluding the trailing newlines Bash command substitution removes. It uses `sha256sum`, or `shasum -a 256` when the former is unavailable. It never reads the binary’s version. The three human columns remain last.
+The generator owns `help-hash`: the first 12 lowercase hex characters of SHA256 of the help captured for that page, including stderr and excluding the trailing newlines Bash command substitution removes. It uses `sha256sum`, or `shasum -a 256` when the former is unavailable. It never reads the binary’s version. The three human columns remain last. Whitespace padding around a stored hash is ignored, so Markdown alignment does not invalidate an assessment.
 
 | Existing row | Refresh result |
 | --- | --- |
@@ -28,6 +28,6 @@ A nested or root help failure, failed digest operation, missing digest tool or m
 
 The first commit `042bf511` adds red-first reset/seeding/hash tests; failure and no-version-dependency fixtures already pass on main. Tests cover changed pass and fail, unchanged assessments, both legacy/empty-hash adoption, exact captured-text hashes, idempotence, root/nested failures, the wrapper, no version reads and the shasum fallback. Existing structure and large-page SIGPIPE tests retain their checks with the new column.
 
-Private-GOCACHE mutations kill disabled reset, seed-as-reset, swallowed help failure, short digest and restored version dependency. Removing only `|| exit 1` is equivalent because `set -e` still propagates failure; disabling `help_of`’s failure return is the semantic negative control. A commuted comparison is another surviving equivalent control. Source hashes, patches and logs are retained in author evidence.
+Private-GOCACHE mutations kill disabled reset, hash-padding normalization, seed-as-reset, swallowed help failure, short digest and restored version dependency. Removing only `|| exit 1` is equivalent because `set -e` still propagates failure; disabling `help_of`’s failure return is the semantic negative control. A commuted comparison is another surviving equivalent control. Source hashes, patches and logs are retained in author evidence.
 
 No help audit assessment is re-authored here; the rubric and child audits remain unchanged. `make help-inventory-check` remains an explicit tooling check, not a new per-PR CI gate. The T1 schedule still requires independent LOCAL, BLIND and QA, including first adoption on a copy of the real inventory.
