@@ -29,6 +29,31 @@ func controlsClient(cmd *cobra.Command, f *cmdutil.Factory) (appScope, graphql.C
 	return s, c, err
 }
 
+// localGrantPromptScope resolves the App before an instructed interactive
+// revocation asks for consent. It makes no request: a legacy memory-only binding
+// needs an explicit/configured App (ruling #116489). The returned scope is also
+// the mutation target; a later binding/config change must not retarget consent.
+func localGrantPromptScope(cmd *cobra.Command, f *cmdutil.Factory) (appScope, error) {
+	ref, err := f.App()
+	if err != nil {
+		return appScope{}, err
+	}
+	if ref != "" {
+		if f.AppFlag != "" {
+			return appScope{Ref: ref, Source: "from --app"}, nil
+		}
+		return appScope{Ref: ref, Source: "from the App context", Ambient: true}, nil
+	}
+	b, _, err := readBindingFile(cmd.Context())
+	if err != nil {
+		return appScope{}, exitcode.Newf(exitcode.Usage, "cannot determine the target App locally; pass --app <ref> or set a configured App: %v", err)
+	}
+	if b != nil && b.AppID != "" {
+		return appScope{Ref: b.AppID, Source: "from the worktree binding", Ambient: true}, nil
+	}
+	return appScope{}, exitcode.Newf(exitcode.Usage, "instructed interactive grant rm needs --app <ref>, a configured App, or a binding with an AppID; a legacy team-memory-only binding cannot resolve the App before consent")
+}
+
 type appGrantDTO struct {
 	ID        string  `json:"id"`
 	AppID     string  `json:"appId"`
@@ -65,7 +90,7 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 	var yes bool
 	c := &cobra.Command{Use: verb + " <worker-ref> <name>", Short: short, Long: appGrantHelp, Example: "  hadron team grant " + verb + " hrn:worker:acme.com:eng:iris WORKERS_STAFF --app acme.com:eng", Args: cobra.ExactArgs(2)}
 	if remove {
-		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes."
+		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes.\nWith --instruction and a prompt, the App is selected once from --app, the\nconfigured App, or the binding AppID; that exact App is confirmed and sent.\nA legacy binding with only teamMemory needs --app or a configured App for\nthis instructed interactive path (exit 2 before any prompt or request).\nThe plain path and instructed --yes path retain their existing scope resolution."
 		c.Flags().BoolVar(&yes, "yes", false, "skip the revocation confirmation")
 		addManagerInstruction(c)
 	}
@@ -93,30 +118,26 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 		if remove && !yes && !f.IOStreams.IsInputTerminal() {
 			return cmdutil.Confirm(f.IOStreams, false, "")
 		}
-		// On the instructed path confirm before the binding-status/App lookups.
-		// Name the action and worker directly; no display-label request is needed.
+		var s appScope
+		var client graphql.Client
+		var err error
 		if remove && claim != nil && !yes {
-			appRef, err := f.App()
+			s, err = localGrantPromptScope(cmd, f)
 			if err != nil {
 				return err
 			}
-			if appRef == "" {
-				b, _, _ := readBindingFile(cmd.Context())
-				if b != nil {
-					appRef = b.AppID
-					if appRef == "" {
-						appRef = "resolved from team memory " + b.TeamMemory
-					}
-				}
-			}
-			if appRef == "" {
-				appRef = "the selected team App"
-			}
-			if err := cmdutil.Confirm(f.IOStreams, false, fmt.Sprintf("Revoke grant %s from worker %s in App %s?", output.SafeCell(args[1]), output.SafeCell(args[0]), output.SafeCell(appRef))); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, false, fmt.Sprintf("Revoke grant %s from worker %s in App %s?", output.SafeCell(args[1]), output.SafeCell(args[0]), output.SafeCell(s.Ref))); err != nil {
 				return err
 			}
+			// Keep the existing post-consent ended-session advisory, but never
+			// use this fresh binding read to resolve the confirmed target again.
+			// Local binding errors belong to the attribution recheck: the known
+			// target still permits the instructedAsPerson fallback.
+			_, _, _ = readBinding(cmd.Context())
+			client, err = f.GraphQLClient()
+		} else {
+			s, client, err = controlsClient(cmd, f)
 		}
-		s, client, err := controlsClient(cmd, f)
 		if err != nil {
 			return err
 		}

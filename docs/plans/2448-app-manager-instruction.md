@@ -30,3 +30,15 @@ and output, malformed flags with zero calls, fallback states, binding changes
 during lookup and confirmation, no retry, and the exact six-command flag scope.
 Independent QA is compiled-CLI fixture execution; this change does not claim
 to validate provider authorization or production event emission.
+
+
+Review fix: instructed interactive grant revocation selects its App once,
+purely locally, before confirmation and sends exactly that selector. Binding
+or configured-App changes during consent cannot retarget the mutation; the
+separate attribution recheck still falls back as the existing helper decides.
+The post-consent ended-session advisory remains, without resolving the App
+again. Per rulings #116456/#116489, a memory-only legacy binding on this one
+path needs --app or a configured App (exit 2 before prompt/request). Plain and
+instructed --yes paths remain unchanged. Red-first pins cover App replacement,
+removed/corrupt bindings, configured-App changes, the legacy refusal, and the
+preserved legacy paths.

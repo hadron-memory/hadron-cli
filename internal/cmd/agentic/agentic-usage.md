@@ -7095,3 +7095,14 @@ records none. A person claim is checked but not recorded as an instruction.
 The MCP tools take no instruction. `--expected-revision` is independent of
 the claim. Model-group clear and grant rm still confirm (or require `--yes`);
 confirmation precedes network requests on the instructed path.
+
+
+For instructed **interactive** `team grant rm`, the target App is selected once
+from --app, the configured App, or the binding's AppID. The prompt shows that
+exact App reference and the mutation sends it unchanged, even if the binding
+or configured App changes while answering. Attribution is still rechecked
+separately and can fall back to the person with the claim retained. A legacy
+binding carrying only teamMemory needs --app or a configured App on this one
+path: exit 2 before any prompt or request, since resolving its App would need
+a request before consent. Plain revocation and instructed --yes retain their
+existing scope resolution. (cli#2448, rulings #116456/#116489.)
