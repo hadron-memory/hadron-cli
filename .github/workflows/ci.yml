@@ -38,6 +38,10 @@ jobs:
       # its helper fails the PR (compilation only, not native execution).
       - name: Cross-compile the hostpoller test package
         run: make cross-test-build
+      # #2341: vet (which also type-checks test files) every package for the
+      # darwin and windows release targets, so a platform constraint is enforced.
+      - name: Vet the non-linux release targets
+        run: make cross-vet
       - name: Test
         run: go test ./...
       - name: Codegen freshness

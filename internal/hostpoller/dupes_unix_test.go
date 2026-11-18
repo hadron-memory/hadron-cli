@@ -16,6 +16,7 @@ import (
 // or under it, never a sibling. A process elsewhere is another worktree's
 // business — stopping it from this worktree's sweep would be the wrong tree.
 func TestScanWorktreeAgentsScopesOnCwd(t *testing.T) {
+	requireProc2341(t)
 	root := t.TempDir()
 	sub := filepath.Join(root, "sub")
 	if err := os.MkdirAll(sub, 0o755); err != nil {
@@ -104,6 +105,7 @@ func TestProcStatCountsAfterTheLastParen(t *testing.T) {
 // first poll that sees only the top process. Both the shim and the leaf carry
 // matched basenames, so the raw census really holds two members to merge.
 func TestScanWorktreeAgentsCollapsesAChainToOneSupervisedAgent(t *testing.T) {
+	requireProc2341(t)
 	root := t.TempDir()
 	ready := filepath.Join(root, "leaf-ready")
 	shim := filepath.Join(root, "claude") // interpreter-wrapped match
@@ -151,6 +153,7 @@ func chainReady(ready string) bool {
 // The ready file waits out the spawn race (#2037 N1) so the single scan sees
 // the whole three-process chain.
 func TestScanWorktreeAgentsMergesANestedOneShotIntoItsAgent(t *testing.T) {
+	requireProc2341(t)
 	root := t.TempDir()
 	ready := filepath.Join(root, "leaf-ready")
 	// The main agent runs its own tool shell; the tool shell runs a nested
@@ -225,6 +228,7 @@ func TestCollapseChainsMergesDescendantsIntoTheOldestMember(t *testing.T) {
 // The scan runs in a re-executed test binary under the fake agent, so the
 // exclusion is exercised against real parentage, not a synthetic set.
 func TestScanWorktreeAgentsExcludesOwnAncestry(t *testing.T) {
+	requireProc2341(t)
 	if os.Getenv("DUPES_OWN_ANCESTRY_CHILD") == "1" {
 		var out struct {
 			Found []WorktreeAgent `json:"found"`

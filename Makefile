@@ -30,7 +30,7 @@ SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.m
 # review, Codex P2 + Copilot; the same gap for split MCP modules, #901).
 TOOLS_SOURCES ?= src/mcp src/lib/runner/tools
 
-.PHONY: build cross-build cross-test-build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
+.PHONY: build cross-build cross-test-build cross-vet test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -56,6 +56,16 @@ cross-test-build:
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
 	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
 	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go test -c -o /dev/null ./internal/hostpoller
+
+# cli#2341: go vet type-checks the test files too. Vet every package for the
+# non-linux release targets so a constraint (a unix-only test helper, a /proc
+# assumption in code that builds for darwin) is enforced, not assumed. One
+# explicit command per target, no loop. Compilation and vet only: no native
+# execution is claimed.
+cross-vet:
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go vet ./...
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go vet ./...
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go vet ./...
 
 test:
 	go test ./...

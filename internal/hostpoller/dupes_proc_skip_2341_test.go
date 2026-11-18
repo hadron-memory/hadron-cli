@@ -12,6 +12,22 @@ import (
 // tests read Linux /proc semantics. On a host without them (darwin) those
 // tests must SKIP, not fail on an empty scan. The gate is a pure function of
 // the proc root so it is testable here without a darwin host.
+// procReadable2341 reports whether root looks like a Linux /proc: its self/cwd
+// entry is a symlink we can read. Darwin has no /proc; a stray directory or a
+// regular file named cwd is not /proc semantics either.
+func procReadable2341(root string) bool {
+	_, err := os.Readlink(filepath.Join(root, "self", "cwd"))
+	return err == nil
+}
+
+// requireProc2341 skips a live test on a host without Linux /proc semantics.
+func requireProc2341(t *testing.T) {
+	t.Helper()
+	if !procReadable2341("/proc") {
+		t.Skip("no readable /proc/self/cwd on this host (not Linux); the live dupes scan needs /proc")
+	}
+}
+
 func TestProcReadableDetectsALinuxProcRoot2341(t *testing.T) {
 	t.Run("absent root", func(t *testing.T) {
 		if procReadable2341(filepath.Join(t.TempDir(), "no-such-proc")) {
