@@ -43,7 +43,7 @@ func runSpecListRole684(t *testing.T, role string, flags []string, failure strin
 				return
 			}
 			nodes := ""
-			if q.Variables.Offset == 0 {
+			if q.Variables.Offset == 0 || q.Variables.Offset == 2 {
 				// Two rows require paging before applying the display window. A fake
 				// role outside spec.* proves the CLI does not reimplement role matching.
 				node := func(loc string) string {
@@ -51,7 +51,10 @@ func runSpecListRole684(t *testing.T, role string, flags []string, failure strin
 					b, _ := json.Marshal(role)
 					return strings.Replace(base, `"updatedAt":`, `"role":`+string(b)+`,"updatedAt":`, 1)
 				}
-				nodes = node("msg:010:01") + "," + node("msg:010:02")
+				nodes = node("msg:010:02") + "," + node("msg:010:01")
+				if q.Variables.Offset == 2 {
+					nodes = node("msg:010:02") + "," + node("msg:010:03") // Repeated ID plus progress.
+				}
 			}
 			_, _ = w.Write([]byte(translateFindNodes("FindNodes", `{"data":{"nodes":[`+nodes+`]}}`)))
 			return
@@ -101,8 +104,8 @@ func TestSpecListRolePassThrough684(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(filters) != 2*tc.streams {
-				t.Fatalf("filters=%v, want page+empty probe per status stream", filters)
+			if len(filters) != 3*tc.streams {
+				t.Fatalf("filters=%v, want two pages+empty probe per status stream", filters)
 			}
 			states := map[string]bool{}
 			for _, f := range filters {
@@ -158,5 +161,21 @@ func TestSpecListRoleEmptyAndNoFallback684(t *testing.T) {
 	}
 	if filters[0]["role"] != "spec.rule" {
 		t.Fatalf("missing role: %v", filters)
+	}
+}
+
+func TestSpecListRoleDeduplicates684(t *testing.T) {
+	for _, flags := range [][]string{nil, {"--approved"}, {"--minted"}, {"--unminted"}, {"--unapproved"}} {
+		out, _, _, err := runSpecListRole684(t, "CUSTOM.Role", flags, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rows []map[string]any
+		if err := json.Unmarshal([]byte(out), &rows); err != nil {
+			t.Fatal(err)
+		}
+		if len(rows) != 3 || rows[0]["citation"] != "msg:010:01" || rows[1]["citation"] != "msg:010:02" || rows[2]["citation"] != "msg:010:03" {
+			t.Fatalf("flags=%v: expected three unique rows in canonical order: %s", flags, out)
+		}
 	}
 }
