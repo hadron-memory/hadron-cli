@@ -438,18 +438,20 @@ func renderTeamTree(w io.Writer, tasks []teamTaskDTO) error {
 	// task parented on it is a root, its own handle AT0.<n> already saying
 	// "no project". The row was selected on its own merits here, so it still
 	// renders as a plain root; only the parent display goes.
-	reservedID := ""
+	// EVERY reserved row counts, not just the first: the team listing reads one
+	// App today (hadron-server#2370, the help says so), and the law gives each
+	// App its own AT0 (cor:agt:050:01), so the render must not depend on that.
+	reserved := map[string]bool{}
 	for _, t := range tasks {
 		if t.Handle == "AT0" {
-			reservedID = t.ID
-			break
+			reserved[t.ID] = true
 		}
 	}
 	children := map[string][]int{}
 	roots := []int{}
 	for i, t := range tasks {
 		if t.ParentTaskID != nil {
-			if _, ok := byID[*t.ParentTaskID]; ok && *t.ParentTaskID != reservedID {
+			if _, ok := byID[*t.ParentTaskID]; ok && !reserved[*t.ParentTaskID] {
 				children[*t.ParentTaskID] = append(children[*t.ParentTaskID], i)
 				continue
 			}
