@@ -465,10 +465,10 @@ The "reset context after task" line (JSON resetContextAfterTask) shows the
 setting recorded by agent update --reset-context-after-task.
 The lifecycle line (JSON lifecycle) shows LONG_LIVED or SHORT_LIVED as
 recorded by agent update --lifecycle; it does not report a running process.
-This is a separate read. A server before #4242 shows unknown (server before
-#4242), JSON lifecycle null, while the original Agent fields still work. Other
-read failures are errors. --lifecycle writes require server #4242; omitting the
-flag keeps the legacy create/update documents unchanged.`,
+This is a separate read. A server from before 2026-11-15 shows unknown, JSON
+lifecycle null, while the original Agent fields still work. Other
+read failures are errors. --lifecycle writes need a server from 2026-11-15 or
+later; omitting the flag keeps the legacy create/update documents unchanged.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

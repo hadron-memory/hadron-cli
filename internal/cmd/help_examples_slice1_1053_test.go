@@ -131,6 +131,60 @@ type exampleResult struct {
 	Broken                       bool
 }
 
+// unsafeExamplePath1053 returns the first argument whose value names a path
+// the harness does not redirect into the test directory: absolute and outside
+// it (a prefix match on the directory itself does not count — a SIBLING
+// directory shares the prefix), a home path, or a parent path. Values are
+// read wherever a path can sit — a bare word, after --flag= or -f=, or after
+// an @file's @ — and cleaned first, so "a/.." and "./.." are judged as the
+// parent paths they resolve to, not as strings unlike "../".
+func unsafeExamplePath1053(args []string, dir string) string {
+	for _, a := range args {
+		v := a
+		if strings.HasPrefix(v, "-") {
+			if i := strings.Index(v, "="); i >= 0 {
+				v = v[i+1:]
+			}
+		}
+		v = strings.TrimPrefix(v, "@")
+		p := filepath.Clean(v)
+		if strings.HasPrefix(v, "~") ||
+			(filepath.IsAbs(p) && p != dir && !strings.HasPrefix(p, dir+string(filepath.Separator))) ||
+			p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
+			return v
+		}
+	}
+	return ""
+}
+
+// The guard itself is pinned (Jonas's BLIND delta N4 on #2499): @values,
+// -o=, a sibling directory that shares the test directory's prefix, and a
+// trailing /.. all escaped the string matching it replaced.
+func TestUnsafeExamplePathGuard1053(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "run")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sibling := dir + "-sibling"
+	safe := []string{"notes.txt", "a/b.json", "a/..", "@data.json", "--file=spec.json", "-o=out.json", dir + "/x", dir}
+	for _, a := range safe {
+		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got != "" {
+			t.Errorf("%q judged unsafe, want safe (reported %q)", a, got)
+		}
+	}
+	unsafe := []string{
+		"/etc/passwd", "~/notes", "~root/x", "..", "../sibling", "./..", "a/../..",
+		"@/etc/passwd", "@/~/x",
+		"--payload-file=/etc/secret", "-o=/home/me/keys",
+		sibling + "/f",
+	}
+	for _, a := range unsafe {
+		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got == "" {
+			t.Errorf("%q judged safe, want unsafe", a)
+		}
+	}
+}
+
 // brokenMarkers are the cobra and flag-parsing refusals that mean the EXAMPLE is
 // wrong: it names a flag or command that does not exist, or the wrong arguments.
 var brokenMarkers = []string{
@@ -244,19 +298,10 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 					args = append(args, w)
 				}
 				// A path the harness does not redirect must not run: an absolute path outside
-				// the test directory, a home path or a parent path, as a word or as a
-				// --flag=value. The example fails here instead of touching the filesystem.
-				unsafe := ""
-				for _, a := range args {
-					v := a
-					if strings.HasPrefix(a, "--") && strings.Contains(a, "=") {
-						v = a[strings.Index(a, "=")+1:]
-					}
-					if (strings.HasPrefix(v, "/") && !strings.HasPrefix(v, dir)) || strings.HasPrefix(v, "~") || strings.Contains(v, "../") || v == ".." {
-						unsafe = v
-					}
-				}
-				if unsafe != "" {
+				// the test directory, a home path or a parent path, wherever it sits — a
+				// bare word, a --flag=value, a -f=value or an @file. The example fails
+				// here instead of touching the filesystem.
+				if unsafe := unsafeExamplePath1053(args, dir); unsafe != "" {
 					t.Errorf("example %q names the path %q, which the harness does not redirect, so it was not run", ex, unsafe)
 					results = append(results, exampleResult{Page: path, Example: ex, Mode: "not run", Outcome: "BROKEN: names a path the harness does not redirect: " + unsafe, Broken: true})
 					continue

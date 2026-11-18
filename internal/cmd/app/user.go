@@ -47,7 +47,7 @@ func newCmdUserCreate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Create or return the user an App knows by its external id (App key only)",
 		Long: `Vouch for a user: the server creates the user the App knows by --external-id,
 or returns the one it already has — the same external id always gives the same
-user id (the identity is the App plus that external id, cor:dmo:040:01).
+user id (the identity is the App plus that external id).
 
 Run this with an App key credential (for example in HADRON_TOKEN). It is for
 App Key callers only: with a personal token the server refuses,
