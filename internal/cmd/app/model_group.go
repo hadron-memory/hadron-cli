@@ -69,9 +69,10 @@ func appPatternsText(patterns []string) string {
 
 const appModelGroupLong = `A model group is a named list of model patterns (lowercase globs: * any run,
 ? one character) matched against a worker session's self-reported model. It is
-a matching input only, never an authorization input. The App's Team Agent
-declares groups (hadron agent model-group); the App may override one by name
-or add its own. Groups resolve live: a change to the Agent's group shows here
+a matching input only, never an authorization input. The App's Team Agent (the
+Agent a team App installs to hold the team's shared definitions, such as its
+roles and its team chat) declares groups ("hadron agent model-group"); the App
+may override one by name or add its own. Groups resolve live: a change to the Agent's group shows here
 at once unless the App overrides it.
 
 Names and patterns are sent exactly as given. The server lowercases them,

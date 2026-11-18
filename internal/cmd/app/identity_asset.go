@@ -65,31 +65,49 @@ type assetUploadDTO struct {
 }
 
 func newCmdAssetUpload(f *cmdutil.Factory) *cobra.Command {
-	parent := &cobra.Command{Use: "asset-upload <command>", Short: "Toggle uploads on an Agent's own backing App", Long: `Enable or disable the asset:upload tool on the App backing an Agent, not an
-arbitrary App that installed it. Pass the Agent's ID or fully qualified URN.
-The server first checks Agent readability, then requires an org admin; a
-user-owned Agent is currently unsupported. It resolves the Agent's own App by
-its URN and org. The CLI performs no role or tenant checks itself.
-This toggles the v1 tool allowlist, not a memory's acceptsUploads setting.`}
+	parent := &cobra.Command{Use: "asset-upload <command>", Short: "Toggle uploads on an Agent's own backing App", Long: `Turn the file-upload tool (asset:upload) on or off for an Agent. Every Agent
+has its own backing App, the App the platform keeps for it. The tool is one of
+the entries on that App's list of tools its Agent may use, and these commands
+add it to or remove it from that list. They do not touch any other App that has
+installed the Agent, and they do not change a memory's own setting for whether
+it accepts uploads.
+
+What it lets people do: with the tool on, the users of that App may upload
+files into memories that accept uploads. A memory's own "accepts uploads"
+setting stays a separate switch that must be on for it: the tool never
+overrides it, nor the read and write access check, nor the malware scan.
+
+Pass the Agent's ID or fully qualified URN. The server checks that you can read
+the Agent, then that you are an administrator of its organization; an Agent
+owned by a user instead of an organization is not supported yet. This CLI adds
+no role check of its own. Both commands ask for confirmation (a script passes
+--yes) and make exactly one change.`}
 	for _, enabled := range []bool{true, false} {
 		name := "disable"
 		if enabled {
 			name = "enable"
 		}
 		var yes bool
-		cmd := &cobra.Command{Use: name + " <agent-ref> [--yes]", Short: name + " asset upload on the Agent's backing App", Long: `Change the Agent's backing App once, after confirmation. Scripts pass --yes.
-No local App context selects the target. Both states are sent explicitly,
-including enabled:false when disabling. The returned App's allowlist confirms
-the result; JSON is {appId,appUrn,agentRef,enabled}. No credential is requested.
-A lost reply is an unknown outcome; this command never retries the mutation.
-Providers containing server#2979 (dadc314a) send typed permission/not-found
-refusals: PERMISSION_DENIED exits 8; missing or unreadable Agent is the same
-concealing NOT_FOUND, exit 4. Lookup outages stay INTERNAL_SERVER_ERROR,
-exit 1 with requestId. Older providers may conceal all three as internal errors;
-the CLI maps only the actual wire code, never message prose.
-INTERNAL_SERVER_ERROR (exit 1) is an unknown outcome: it can be a concealed
-refusal or a real server fault, so do not assume nothing changed, and this
-command does not retry.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		cmd := &cobra.Command{Use: name + " <agent-ref> [--yes]", Short: name + " asset upload on the Agent's backing App", Long: strings.ToUpper(name[:1]) + name[1:] + ` the file-upload tool (asset:upload) on the Agent's own backing App
+(see "hadron app asset-upload --help" for what that App is, what the tool lets
+people do and who may change it).
+It asks for confirmation; a script passes --yes. No App context is used: the
+Agent you name selects the App.
+
+It sets the state you asked for rather than toggling, so running it again is
+harmless. It prints the backing App, the Agent you named and the state the
+server reports ("asset upload enabled: true" or "false"); --json is {appId,
+appUrn, agentRef, enabled}. The command checks that the server's answer matches
+what you asked for and fails if it does not.
+
+Refusals: exit 8 when you are not allowed (you are not an administrator of the
+Agent's organization); exit 4 when there is no such Agent (a missing Agent and
+one you cannot read look the same); exit 1 with a requestId
+(INTERNAL_SERVER_ERROR) when the server failed. An older server may report any
+of the three as that last kind of error. INTERNAL_SERVER_ERROR (exit 1) is an
+unknown outcome: it can be a concealed refusal or a real server fault, so do not
+assume nothing changed, and this command does not retry. A lost reply is the
+same: run the command again to be sure.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
 			if ref == "" {
 				return exitcode.Newf(exitcode.Usage, "pass an Agent ID or fully qualified URN")
@@ -120,7 +138,6 @@ command does not retry.`, Example: "  hadron app asset-upload " + name + " hrn:a
 			})
 		}}
 		cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
-		cmd.Long += "\n\n" + parent.Long
 		parent.AddCommand(cmd)
 	}
 	return parent

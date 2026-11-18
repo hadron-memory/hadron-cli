@@ -51,7 +51,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 boundaries; the portal shows its chat tab when the list contains chat. Updating
 surfaces or Agent tools replaces the whole list; their clear flags send [].
 Changing type does not change surfaces. Legacy AI keys are not exposed here
-(use ai-config for AI configuration).
+(use ai-config for AI configuration). The settings flags (--role,
+--create-user-permission, --identify-user-method, --training-mode and the
+others) mean the same as on "hadron app install", and each flag's help says what
+it sets; --role is the App's own role setting, not a member's role (see "hadron
+app member roles").
 
 --policy-file <path> sets the App's action-policy link, the App layer of the
 chain every run of the App must pass (a run may do an action only if every

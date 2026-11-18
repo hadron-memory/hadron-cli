@@ -65,6 +65,34 @@ func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, st
 		target = "App's install memory for this Agent"
 	}
 	recipe := ""
+	// before is the prerequisite and the steps around a compile, for the Agent and
+	// App-Agent pages (cli#1053 slice 1). The worker page keeps its own recipe below.
+	before := ""
+	switch kind {
+	case "agent":
+		before = `
+BEFORE YOU COMPILE: write the prompt. The source is the node boot:source (role
+boot-prompt) in the Agent's system memory; with no source the server refuses
+(exit 5). Compile turns that source into a compiled node (boot:compiled), and
+that is all it does. Three separate steps:
+  1. write the source          hadron node update ... (loc boot:source)
+  2. hadron agent compile <agent>
+  3. hadron node approve <compiled node>   (a compile alone is not served)
+
+`
+	case "app":
+		before = `
+BEFORE YOU COMPILE: the Agent needs a source prompt: the node boot:source (role
+boot-prompt) in its system memory; with none the server refuses (exit 5). This
+App's own customisation of the Agent lives in the App's install memory ("hadron
+app agent customize" shows it). Compile turns the source the server selects into
+a compiled node in that install memory, and that is all it does. Three separate
+steps: write the source, run this command, then "hadron node approve <compiled
+node>"; a compile alone is not served. The pointer (the setting that names which
+compiled node is served as the boot prompt) is set by a compile by default.
+
+`
+	}
 	if kind == "worker" {
 		use = "compile [<worker>]"
 		example = `  # Every worker whose sources changed since its last compile: a dry run,
@@ -129,6 +157,9 @@ own code.`
 		short = "Compile a worker's boot prompt, or every changed one in the App, without approving it"
 	}
 	pointerHelp := "The pointer is set by default; --no-set-pointer leaves it unchanged."
+	if kind == "agent" {
+		pointerHelp = "The pointer is the setting that names which compiled node is served as the boot\nprompt (\"hadron agent set-boot-prompt\" sets it by hand). A compile sets it by\ndefault; --no-set-pointer leaves it unchanged."
+	}
 	refsHelp := "Agent and App references are ids or fully-qualified URNs."
 	switch kind {
 	case "app":
@@ -141,16 +172,9 @@ unknown/different-server binding cannot select an App for a name: pass --app
 or a fully-qualified worker URN. With --as-worker, the resolved worker's App
 must match the binding's App, even for an explicit id or URN.`
 	}
-	cmd := &cobra.Command{
-		Use: use, Short: short,
-		Long: fmt.Sprintf(`Compile the server-selected source boot prompt into the
-%s.
-
-Each successful compile writes a revision, even if the text is unchanged.
-Sources and output addresses are chosen by the server, not by flags.
-%s
-
-Acts as you by default: sign in as a manager of the target Agent or App, and
+	// The Agent and App-Agent pages carry the revised wording (cli#1053 slice 1);
+	// the worker page keeps its original text byte for byte.
+	actsAs, resultPara := `Acts as you by default: sign in as a manager of the target Agent or App, and
 no worker-session header is sent. With --as-worker it sends this worktree's
 bound worker session instead: the server then admits only a new revision of an
 existing compiled node that a signed bootprompt.compile.approve grant names (to
@@ -164,18 +188,52 @@ does not check the grant; the server's refusals print with their codes (exit 8).
 The grant does not cover signing: where an organisation has switched on
 signing of compiled boot prompts (its own setting, not the passkey switch),
 a person still signs each compiled prompt.
-%s
-
-Compile does not approve or serve a prompt. The result reports the compiled
+`, `Compile does not approve or serve a prompt. The result reports the compiled
 node, revision, content hash, whether the pointer was set and approvalIssued
-(false). It does not report the revision's approval status: use node get.
+(false). It does not report the revision's approval status: use node get.`
+	if kind != "worker" {
+		actsAs = `Acts as you by default: sign in as a manager of the target Agent or App, and
+no worker-session header is sent.
+
+--as-worker is for a worker session acting under a grant a person signed (a
+bootprompt.compile.approve grant), not the usual case. It sends this
+worktree's bound worker session instead of acting as you: the server then
+admits only a new revision of an existing compiled node that the grant names
+(to any worker in the App, not only the bound one), never sets the pointer
+(pointerSet is false whatever --no-set-pointer says) and never creates a node.
+--as-worker never falls back to you: without a usable binding for this server
+and App it refuses (exit 2) without sending a mutation. App/worker identity
+reads may be needed first. An unreadable target App is refused exactly like a
+missing App; credential and transport errors keep their normal exits. The CLI
+does not check the grant; the server's refusals print with their codes (exit 8).
+The grant does not cover signing: where an organisation has switched on
+signing of compiled boot prompts (its own setting, not the passkey switch),
+a person still signs each compiled prompt.
+`
+		resultPara = `Compile does not approve or serve a prompt. The result reports the compiled
+node, revision, content hash, whether the pointer was set and approvalIssued
+(always false here: compile never approves). It does not report the revision's
+approval status: use node get.`
+	}
+	cmd := &cobra.Command{
+		Use: use, Short: short,
+		Long: fmt.Sprintf(`Compile the server-selected source boot prompt into the
+%s.
+
+Each successful compile writes a revision, even if the text is unchanged.
+Sources and output addresses are chosen by the server, not by flags.
+%s%s
+
+%s%s
+
+%s
 
 Exit codes: 2 for malformed or disallowed include/input; 4 for an unavailable
 include (missing and unreadable have one answer); 5 for a retired target,
 missing or invalid source, unavailable include revision or conflict; 8 for
 permission or grant refusals. A lost response is exit 7, naming its cause:
 check the compiled node with node get before compiling again. The command
-sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp, recipe),
+sends the mutation once and never retries it.%s`, target, before, pointerHelp, actsAs, refsHelp, resultPara, recipe),
 		Example: example, Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if kind == "worker" && batch != nil {
