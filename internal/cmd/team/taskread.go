@@ -404,6 +404,25 @@ func strOr(s *string) string {
 
 // ---- list -----------------------------------------------------------------
 
+// taskListScope resolves the App scope a task listing runs against, and the
+// binding behind it when there is one. BOTH list views (the ordinary one and
+// --team) share it so the rationale lives in one place (cli#1289): listing needs
+// an App, not a git worktree or a worker session, so the ABSENCE of a worktree
+// (errNoWorktree) is not an error here, and resolveTeamAppScope names the App
+// remedy when no App is available either. Every other binding error, a corrupt
+// file included, is returned unchanged and is never treated as an absent scope.
+func taskListScope(ctx context.Context, f *cmdutil.Factory) (appScope, *binding, error) {
+	b, err := readBindingOrNilWithApp(ctx, f)
+	if err != nil && !errors.Is(err, errNoWorktree) {
+		return appScope{}, nil, err
+	}
+	scope, err := resolveTeamAppScope(ctx, f, b)
+	if err != nil {
+		return appScope{}, nil, err
+	}
+	return scope, b, nil
+}
+
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
 	var assignee, owner, creator, parent, tag, team, staleOver, text string
@@ -542,11 +561,7 @@ ageFrom; --tree changes text only.`,
 				return err
 			}
 			if cmd.Flags().Changed("team") {
-				b, err := readBindingOrNilWithApp(ctx, f)
-				if err != nil && !errors.Is(err, errNoWorktree) {
-					return err
-				}
-				scope, err := resolveTeamAppScope(ctx, f, b)
+				scope, b, err := taskListScope(ctx, f)
 				if err != nil {
 					return err
 				}
@@ -627,14 +642,7 @@ ageFrom; --tree changes text only.`,
 				}
 				parent = q
 			}
-			// Task listing needs App scope, not a worktree. Let the scope
-			// resolver name the remedies when neither is available; retain
-			// binding errors other than the absence of a worktree.
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil && !errors.Is(err, errNoWorktree) {
-				return err
-			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
+			scope, _, err := taskListScope(ctx, f)
 			if err != nil {
 				return err
 			}
