@@ -56,6 +56,10 @@ query NextNode(
       handle
       urn
     }
+    # hadron-cli#1481: same selection as GetNode (one shared Go type).
+    indexTruncated {
+      omittedChunks
+    }
     updatedAt
     outgoingEdges {
       id

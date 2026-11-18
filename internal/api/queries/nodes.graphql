@@ -225,6 +225,10 @@ query NodeBatch(
         handle
         urn
       }
+      # hadron-cli#1481: more chunks than the index cap leaves the rest unembedded; null when fully indexed. Selected on BOTH GetNode reads (one Go type) and NodeBatch so single and batch `node get` cannot disagree.
+      indexTruncated {
+        omittedChunks
+      }
       updatedAt
       outgoingEdges {
         id
@@ -312,6 +316,10 @@ query GetNode($ref: ID!) {
       handle
       urn
     }
+    # hadron-cli#1481: more chunks than the index cap leaves the rest unembedded; null when fully indexed. Selected on BOTH GetNode reads (one Go type) and NodeBatch so single and batch `node get` cannot disagree.
+    indexTruncated {
+      omittedChunks
+    }
     updatedAt
     outgoingEdges {
       id
@@ -388,6 +396,10 @@ query GetNodeRaw($ref: ID!) {
     createdByUser {
       handle
       urn
+    }
+    # hadron-cli#1481: more chunks than the index cap leaves the rest unembedded; null when fully indexed. Selected on BOTH GetNode reads (one Go type) and NodeBatch so single and batch `node get` cannot disagree.
+    indexTruncated {
+      omittedChunks
     }
     updatedAt
     outgoingEdges {
