@@ -45,6 +45,7 @@ type fakeOrca2017 struct {
 	version     string
 	failVersion bool
 	orcaBin     string
+	onRename    func() // runs inside the first rename, e.g. to remove the binary
 }
 
 func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
@@ -64,6 +65,10 @@ func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
 		raw, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminals": o.terminals}})
 		return orcaterm.Result{Stdout: string(raw)}
 	case "terminal rename":
+		if o.onRename != nil {
+			o.onRename()
+			o.onRename = nil
+		}
 		o.renames = append(o.renames, argv)
 		var handle, title string
 		for i, a := range argv {
@@ -468,8 +473,8 @@ func TestHealthTitlesRunnerReceivesResolvedBin2166(t *testing.T) {
 	if _, _, err := title2017Run(t, o, "Iris", "--dry-run=false"); err != nil {
 		t.Fatal(err)
 	}
-	if len(o.bins) == 0 {
-		t.Fatal("the title pass never built a runner")
+	if len(o.bins) != 1 {
+		t.Fatalf("Orca must be resolved once per sweep, for the renames and the version probe alike: runners %q", o.bins)
 	}
 	for _, b := range o.bins {
 		if b != "orca" {
@@ -574,5 +579,28 @@ func TestHealthTitlesOrcaVersionMustLookLikeOne2166(t *testing.T) {
 		if got != want {
 			t.Errorf("version %q -> %q, want %q", in, got, want)
 		}
+	}
+}
+
+// cli#2166 (BLIND F1): the version is asked of the executable that did the
+// renames. If the configured binary disappears during the pass, a second
+// resolution would fall back to PATH and report another installation; one
+// runner for both keeps the receipt honest.
+func TestHealthTitlesVersionProbeUsesTheTitlePassExecutable2166(t *testing.T) {
+	o := newOrca2017()
+	o.orcaBin = fakeExecutable2166(t)
+	o.onRename = func() { _ = os.Remove(o.orcaBin) }
+	out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(o.bins) != 1 || o.bins[0] != o.orcaBin {
+		t.Fatalf("runners built for %q, want exactly [%q]", o.bins, o.orcaBin)
+	}
+	var r struct {
+		OrcaVersion *string `json:"orcaVersion"`
+	}
+	if e := json.Unmarshal([]byte(out), &r); e != nil || r.OrcaVersion == nil || *r.OrcaVersion != "1.4.247" {
+		t.Fatalf("%v %s", e, out)
 	}
 }

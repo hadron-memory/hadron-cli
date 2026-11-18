@@ -85,8 +85,25 @@ func newHostRig(t *testing.T) *hostRig {
 func TestStatusConfigPicksOrcaBin(t *testing.T) {
 	h := newHostRig(t)
 	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
-	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: /opt/orca/bin/orca\n"))
-	if code != 0 || len(h.bins) != 1 || h.bins[0] != "/opt/orca/bin/orca" {
+	bin := filepath.Join(t.TempDir(), "orca")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+bin+"\n"))
+	if code != 0 || len(h.bins) != 1 || h.bins[0] != bin {
+		t.Fatalf("exit %d bins %v out %s", code, h.bins, out)
+	}
+}
+
+// cli#2166: a configured orca_bin that no longer resolves must not block the
+// health batch before the sweep's own PATH fallback is reached: the status read
+// takes the same fallback.
+func TestStatusConfigStaleOrcaBinFallsBackToPath2166(t *testing.T) {
+	h := newHostRig(t)
+	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
+	gone := filepath.Join(t.TempDir(), "gone", "orca")
+	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+gone+"\n"))
+	if code != 0 || len(h.bins) != 1 || h.bins[0] != "orca" {
 		t.Fatalf("exit %d bins %v out %s", code, h.bins, out)
 	}
 }

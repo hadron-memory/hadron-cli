@@ -177,7 +177,7 @@ way: an otherwise-idle worker then fails closed to locked/unrecognized.
 
 --config <host.yaml> is for an unattended run on the host (cron, systemd): the
 same file as ` + "`team host run --config`" + `. Orca is delivery.orca_bin when set
-(absolute), else orca on PATH. The server is read with the host's App key from
+(absolute) and it resolves, else orca on PATH (a stale path falls back). The server is read with the host's App key from
 key_file (mode 0600 or tighter; never HADRON_TOKEN, the token store or an
 environment variable), with no session. The key is never put in the Orca
 subprocess's argv or environment, and never printed. The App is the file's, so

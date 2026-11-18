@@ -558,12 +558,19 @@ func TestLaunchdReinstallRewritesAnOlderEntry2166(t *testing.T) {
 	if err := os.WriteFile(e.plistPath(), []byte(stale), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	n := len(f.calls)
 	res, err := e.Install(spec)
 	if err != nil || !res.Changed {
 		t.Fatalf("reinstall over an older entry: changed=%v err=%v", res.Changed, err)
 	}
-	if got, _ := os.ReadFile(e.plistPath()); !strings.Contains(string(got), "<string>--dry-run=false</string>") {
-		t.Fatalf("the older plist was not rewritten:\n%s", got)
+	got, err := os.ReadFile(e.plistPath())
+	if err != nil || !strings.Contains(string(got), "<string>--dry-run=false</string>") {
+		t.Fatalf("the older plist was not rewritten: %v\n%s", err, got)
+	}
+	// the job is reloaded, not just the file rewritten: a stale loaded job
+	// would keep running the old arguments.
+	if count(f.calls[n:], "launchctl bootstrap gui/1000 ") != 1 {
+		t.Fatalf("the rewritten job was not reloaded: %q", f.calls[n:])
 	}
 }
 

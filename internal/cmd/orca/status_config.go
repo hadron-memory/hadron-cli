@@ -10,6 +10,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/healthsched"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
@@ -55,10 +56,11 @@ func loadHostMode(f *cmdutil.Factory, env Env, path string, appFlagGiven bool) (
 	if err != nil {
 		return nil, api.MapError(err)
 	}
-	bin := cfg.Delivery.OrcaBin
-	if bin == "" {
-		bin = "orca"
-	}
+	// A configured path that no longer resolves falls back to "orca" on PATH,
+	// the same rule the sweep's title pass applies (cli#2166): a stale
+	// delivery.orca_bin must not block the whole health batch before the
+	// fallback is ever reached.
+	bin := healthsched.OrcaOrPath(cfg.Delivery.OrcaBin)
 	exec := env.OrcaExec
 	if exec == nil {
 		// The Orca child gets the environment minus every credential and any

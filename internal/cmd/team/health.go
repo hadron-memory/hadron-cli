@@ -157,7 +157,7 @@ context reset has not ended, means detect and report only.
 
 Use the same --config host YAML and 0600 key_file as "team host run". The host
 key is never supplied as an argument or environment variable. Orca is resolved
-from delivery.orca_bin when set, otherwise PATH. Paused workers are still reported.
+from delivery.orca_bin when set and it resolves, otherwise PATH. Paused workers are still reported.
 No alarm is computed, and an App without a coordinator is valid. An unresolved,
 ambiguous or missing registered worker report refuses the entire batch before
 writing (exit 1). A missing or non-live host registration is exit 8.
@@ -352,11 +352,17 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 			for name, id := range names {
 				workerNames[id] = name
 			}
-			renames, titleErr := healthTitles(c.Context(), cfg, workerNames, !dryRun)
-			dto.Renames = append(dto.Renames, renames...)
+			var renames []healthRename
+			var titleErr error
 			if len(workerNames) > 0 {
-				dto.OrcaVersion = healthOrcaVersion(c.Context(), cfg)
+				// One resolution of Orca serves the renames and the version
+				// probe (cli#2166), so the receipt names the executable that
+				// did the work.
+				run := orcaRunner(healthOrcaBin(cfg))
+				renames, titleErr = healthTitlesWith(c.Context(), run, workerNames, !dryRun)
+				dto.OrcaVersion = healthOrcaVersion(c.Context(), run)
 			}
+			dto.Renames = append(dto.Renames, renames...)
 			dupes := runHealthDupes(c.Context(), f, cfg, state, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
 			dto.Fixes, dto.Alerts, dto.Skips = dupes.Fixes, dupes.Alerts, dupes.Skips
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

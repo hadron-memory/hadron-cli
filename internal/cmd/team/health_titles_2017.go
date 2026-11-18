@@ -42,16 +42,16 @@ type healthRename struct {
 // falls back to "orca" on PATH, so a stale host config costs one rename pass
 // nothing instead of failing it every run (cli#2166).
 func healthOrcaBin(cfg *hostpoller.Config) string {
-	if p, err := healthsched.ResolveOrca(cfg.Delivery.OrcaBin, ""); err == nil {
-		return p
-	}
-	return "orca"
+	return healthsched.OrcaOrPath(cfg.Delivery.OrcaBin)
 }
 
 // healthOrcaVersionRE is what a version looks like: a digit-led token of at
 // most 64 characters ("1.4.247", "v1.4.247+build.5"). Anything else Orca
 // prints (an error body, a banner, control bytes) is not a version.
-var healthOrcaVersionRE = regexp.MustCompile(`^v?[0-9][0-9A-Za-z.+_-]{0,63}$`)
+var healthOrcaVersionRE = regexp.MustCompile(`^v?[0-9][0-9A-Za-z.+_-]*$`)
+
+// healthOrcaVersionMax bounds the whole token, a leading "v" included.
+const healthOrcaVersionMax = 64
 
 // healthOrcaVersion is `orca --version` for the receipt (cli#2166): the first
 // line when it is version-shaped, else nil (Orca did not answer, or answered
@@ -59,14 +59,18 @@ var healthOrcaVersionRE = regexp.MustCompile(`^v?[0-9][0-9A-Za-z.+_-]{0,63}$`)
 // host and sweep records have fixed shapes (cor:agt:070:01, :09), so the value
 // is never sent anywhere, and a failure here never fails the sweep. Terminal
 // list and rename need Orca 1.4.232 or later.
-func healthOrcaVersion(ctx context.Context, cfg *hostpoller.Config) *string {
-	res := orcaRunner(healthOrcaBin(cfg))(ctx, []string{"--version"})
+//
+// run is the runner the title pass used: the probe asks the very executable
+// that did the renames, never a second resolution that could land on another
+// installation.
+func healthOrcaVersion(ctx context.Context, run orcaterm.Runner) *string {
+	res := run(ctx, []string{"--version"})
 	if res.Code != 0 {
 		return nil
 	}
 	line, _, _ := strings.Cut(res.Stdout, "\n")
 	line = strings.TrimSpace(line)
-	if !healthOrcaVersionRE.MatchString(line) {
+	if len(line) > healthOrcaVersionMax || !healthOrcaVersionRE.MatchString(line) {
 		return nil
 	}
 	return &line
@@ -88,7 +92,16 @@ func healthTitles(ctx context.Context, cfg *hostpoller.Config, workers map[strin
 	if len(workers) == 0 {
 		return []healthRename{}, nil // nothing registered: no Orca call to fail
 	}
-	run := orcaRunner(healthOrcaBin(cfg))
+	return healthTitlesWith(ctx, orcaRunner(healthOrcaBin(cfg)), workers, apply)
+}
+
+// healthTitlesWith is healthTitles on an already-built runner, so the sweep
+// resolves Orca once and the version probe shares the title pass's executable
+// (cli#2166).
+func healthTitlesWith(ctx context.Context, run orcaterm.Runner, workers map[string]string, apply bool) ([]healthRename, error) {
+	if len(workers) == 0 {
+		return []healthRename{}, nil
+	}
 	terminals, err := orcaterm.NewClient(run).List(ctx)
 	if err != nil {
 		return []healthRename{}, exitcode.Newf(exitcode.Error, "tab titles were not checked: the terminal list failed")

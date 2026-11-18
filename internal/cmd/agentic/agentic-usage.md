@@ -4401,7 +4401,7 @@ idle-proof window is `locked`/`unrecognized` too, as delivery treats it.
 
 **`--config <host.yaml>` (cli#1378)** is how the sweep runs unattended under cron or systemd, with a path
 and nothing else. The file is the one `team host run --config` reads. Orca is `delivery.orca_bin` when set
-(it must be absolute, even with delivery off: exit 2), else `orca` on PATH. The server is read with the
+(it must be absolute, even with delivery off: exit 2) and it resolves, else `orca` on PATH (cli#2166: a path that is gone, a directory or not executable falls back). The server is read with the
 host's `host:operate` App key, read only from `key_file` (mode 0600 or tighter) and sent as the bearer on a
 client that carries no session and never `HADRON_TOKEN` or the stored token. The key is never in argv, the
 environment or a file descriptor of the Orca subprocess, nor in any output. The App is the file's: `--app`
@@ -5544,7 +5544,7 @@ hadron chat served-prompts <chat-id> [--limit N] [--offset N] [--provenance-limi
 `hadron team health sweep --config <host.yaml>` runs on the registered Orca host.
 It consumes only `hadron orca terminal status --all --json --config <host.yaml>`
 (the separately gated C1 host-config dependency), without importing or duplicating
-its classifier. That command uses delivery.orca_bin when set, else PATH. Both
+its classifier. That command uses delivery.orca_bin when set and it resolves, else PATH. Both
 commands read only the host's 0600 key_file; no key value in argv, env or logs.
 
 The sweep sends one setHostWorkerTerminals call with status, prompt, closed reason,
@@ -5593,7 +5593,7 @@ pane's title; live-verified on 1.4.247, nothing older tested). The receipt carri
 of at most 64 characters), else null: no registered worker, no answer, or something that
 is not a version. The text receipt shows it as an `orca  <version>` line before the
 titles. It is the operator's evidence only and is never sent to the platform. The pass
-runs `delivery.orca_bin` when that path resolves (exists, not a directory, executable),
+and the status read run `delivery.orca_bin` when that path resolves (exists, not a directory, executable),
 else `orca` on PATH, so a stale host config no longer fails every sweep.
 
 A missing/non-live host registration is exit 8. Unresolved or ambiguous registered
