@@ -76,6 +76,7 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
 	cmd.AddCommand(newCmdWorkerOnboard(f))
+	cmd.AddCommand(newCmdWorkerFindFiltered(f))
 	return cmd
 }
 

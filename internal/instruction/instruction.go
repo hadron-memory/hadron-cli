@@ -98,3 +98,26 @@ Needs server 517eb1db (hadron-server#3308) or later; an older server's
 refusal is passed through, never retried without the flag. Refusals keep
 their codes: FORBIDDEN is exit 8, with serverCode in --json errors.`
 }
+
+// ManagerHelp is shared by the six App-manager writes in cli#2448.
+const ManagerHelp = `--instruction <kind>:<ref> claims, for this one write, that the worker's
+holder told it to make the change. kind is team-chat-message, task or
+live-chat; ref is everything after the first colon, sent unchanged, never
+the instruction's text. A bad kind or blank ref is exit 2 before any prompt
+or request. The claim rides only the mutation; lookups carry no claim or
+worker session. Needs server 4bac6127 or later.
+
+Without the flag this is your ordinary authenticated call, with no worker
+session and no instruction. With it, a complete worktree binding for this
+server and the target App, captured before the first lookup and unchanged
+at send time, supplies its worker session. Otherwise the call goes as the
+signed-in person with the claim still sent; an unusable binding explains
+why on stderr, while an unbound shell is quiet. The server checks a person's
+reference but records no claim for that person. A server refusal is never
+retried as the person or without the claim.
+
+The server decides admission and checks the reference, not whether an
+instruction happened. The holder must manage the App; a host-launched
+session is refused. A changing instructed act records one ids-only instruction event;
+a no-op records none. --expected-revision, where available, is independent
+of the instruction. The MCP tools take no instruction.`

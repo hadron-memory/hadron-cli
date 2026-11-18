@@ -29,6 +29,31 @@ func controlsClient(cmd *cobra.Command, f *cmdutil.Factory) (appScope, graphql.C
 	return s, c, err
 }
 
+// localGrantPromptScope resolves the App before an instructed interactive
+// revocation asks for consent. It makes no request: a legacy memory-only binding
+// needs an explicit/configured App (ruling #116489). The returned scope is also
+// the mutation target; a later binding/config change must not retarget consent.
+func localGrantPromptScope(cmd *cobra.Command, f *cmdutil.Factory) (appScope, error) {
+	ref, err := f.App()
+	if err != nil {
+		return appScope{}, err
+	}
+	if ref != "" {
+		if f.AppFlag != "" {
+			return appScope{Ref: ref, Source: "from --app"}, nil
+		}
+		return appScope{Ref: ref, Source: "from the App context", Ambient: true}, nil
+	}
+	b, _, err := readBindingFile(cmd.Context())
+	if err != nil {
+		return appScope{}, exitcode.Newf(exitcode.Usage, "cannot determine the target App locally; pass --app <ref> or set a configured App: %v", err)
+	}
+	if b != nil && b.AppID != "" {
+		return appScope{Ref: b.AppID, Source: "from the worktree binding", Ambient: true}, nil
+	}
+	return appScope{}, exitcode.Newf(exitcode.Usage, "instructed interactive grant rm needs --app <ref>, a configured App, or a binding with an AppID; a legacy team-memory-only binding cannot resolve the App before consent")
+}
+
 type appGrantDTO struct {
 	ID        string  `json:"id"`
 	AppID     string  `json:"appId"`
@@ -40,8 +65,9 @@ type appGrantDTO struct {
 
 const appGrantHelp = `Manage named App grants, separate from worker action-grant requests and
 organization action grants. The server checks who may manage the App.
-add is person-only; these commands use your ordinary authenticated caller,
-not this worktree's worker session. No instruction is sent.
+add is person-only. Without --instruction, rm also uses your ordinary
+authenticated caller with no worker session. Only rm accepts the holder's
+instruction claim; its help describes binding checks and person fallback.
 
 Names follow the server's closed list:
 TICKER_SUBSCRIBE_WORKERS: subscribe and unsubscribe other workers of the App,
@@ -64,10 +90,20 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 	var yes bool
 	c := &cobra.Command{Use: verb + " <worker-ref> <name>", Short: short, Long: appGrantHelp, Example: "  hadron team grant " + verb + " hrn:worker:acme.com:eng:iris WORKERS_STAFF --app acme.com:eng", Args: cobra.ExactArgs(2)}
 	if remove {
-		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes."
+		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes.\nWith --instruction and a prompt, the App is selected once from --app, the\nconfigured App, or the binding AppID; that exact App is confirmed and sent.\nA legacy binding with only teamMemory needs --app or a configured App for\nthis instructed interactive path (exit 2 before any prompt or request).\nThe plain path and instructed --yes path retain their existing scope resolution."
 		c.Flags().BoolVar(&yes, "yes", false, "skip the revocation confirmation")
+		addManagerInstruction(c)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		var claim *gen.ActInstructionInput
+		var instructed InstructedWrite
+		if remove {
+			var err error
+			claim, instructed, err = managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
+		}
 		if strings.TrimSpace(args[0]) == "" {
 			return exitcode.Newf(exitcode.Usage, "worker reference must not be empty")
 		}
@@ -82,19 +118,42 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 		if remove && !yes && !f.IOStreams.IsInputTerminal() {
 			return cmdutil.Confirm(f.IOStreams, false, "")
 		}
-		s, client, err := controlsClient(cmd, f)
+		var s appScope
+		var client graphql.Client
+		var err error
+		if remove && claim != nil && !yes {
+			s, err = localGrantPromptScope(cmd, f)
+			if err != nil {
+				return err
+			}
+			if err := cmdutil.Confirm(f.IOStreams, false, fmt.Sprintf("Revoke grant %s from worker %s in App %s?", output.SafeCell(args[1]), output.SafeCell(args[0]), output.SafeCell(s.Ref))); err != nil {
+				return err
+			}
+			// Keep the existing post-consent ended-session advisory, but never
+			// use this fresh binding read to resolve the confirmed target again.
+			// Local binding errors belong to the attribution recheck: the known
+			// target still permits the instructedAsPerson fallback.
+			_, _, _ = readBinding(cmd.Context())
+			client, err = f.GraphQLClient()
+		} else {
+			s, client, err = controlsClient(cmd, f)
+		}
 		if err != nil {
 			return err
 		}
 		label := lazyAppLabel(cmd.Context(), f, s)
-		if remove && !yes {
+		if remove && !yes && claim == nil {
 			if e := cmdutil.Confirm(f.IOStreams, false, fmt.Sprintf("Revoke grant %s from worker %s in App %s?", output.SafeCell(args[1]), output.SafeCell(args[0]), label())); e != nil {
 				return e
 			}
 		}
 		var g *gen.TeamAppGrantFields
 		if remove {
-			r, e := gen.TeamAppGrantRm(cmd.Context(), client, s.Ref, args[0], name)
+			ctx, e := managerWriteContext(cmd, s.Ref, claim, instructed)
+			if e != nil {
+				return e
+			}
+			r, e := revokeManagerAppGrant(ctx, client, s.Ref, args[0], name, claim)
 			if e != nil {
 				return api.MapError(e)
 			}
@@ -137,8 +196,10 @@ func newCmdTeamTicker(f *cmdutil.Factory) *cobra.Command {
 	root := &cobra.Command{Use: "ticker <command>", Short: "App ticker controls"}
 	settings := &cobra.Command{Use: "settings <command>", Short: "Show or change the App's ticker settings"}
 	settings.AddCommand(newCmdTeamTickerSettingsGet(f))
-	c := &cobra.Command{Use: "set", Short: "Change only the ticker setting fields supplied", Long: `Change App ticker settings using your ordinary authenticated caller.
-The server checks manager permission; no worker session or instruction is sent.
+	c := &cobra.Command{Use: "set", Short: "Change only the ticker setting fields supplied", Long: `Change App ticker settings. Without --instruction, this uses your ordinary
+authenticated caller with no worker session or instruction. With the flag,
+the verified target-App worker session and holder's claim are used as described
+below; otherwise the claim goes as the person. The server decides admission.
 Omitted fields preserve their values; null is not accepted. The server checks
 bounds and conflicts, never the CLI: minimum cadence floor 60 seconds,
 live cap 1–100, and a nonnegative daily wake budget. The self-subscription
@@ -162,7 +223,12 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 		c.Flags().StringVar(&raw[i], name, "", "whole number; omitted preserves, server checks limits")
 	}
 	c.Flags().BoolVar(&clear, "clear-wake-daily-budget", false, "return to derived budget (=false is the same as omitting it)")
+	addManagerInstruction(c)
 	c.RunE = func(cmd *cobra.Command, _ []string) error {
+		claim, instructed, err := managerInstruction(cmd, f)
+		if err != nil {
+			return err
+		}
 		var vals [4]*int
 		for i, name := range names {
 			if cmd.Flags().Changed(name) {
@@ -194,7 +260,11 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 		if e != nil {
 			return e
 		}
-		r, e := gen.TeamTickerSettingsSet(cmd.Context(), client, s.Ref, vals[0], vals[1], vals[2], vals[3], cp)
+		ctx, e := managerWriteContext(cmd, s.Ref, claim, instructed)
+		if e != nil {
+			return e
+		}
+		r, e := setManagerTickerSettings(ctx, client, s.Ref, vals[0], vals[1], vals[2], vals[3], cp, claim)
 		if e != nil {
 			return api.MapError(e)
 		}

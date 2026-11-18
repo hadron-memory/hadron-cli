@@ -61,7 +61,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 	help := "Any App participant may read these settings.\n\n" + deliverySettingsHelp
 	if set {
 		use, short = "set", "Change the App's delivery settings"
-		help = "Change only the fields you pass; omitted fields keep their values.\nNo null or reset values are accepted.\nWith no field flags, set returns current setting values but still requires\nmanager write permission. Use get for a read.\n\nThe server currently permits only App managers to write settings. These\ncommands use your ordinary authenticated caller, never a bound worker's\nsession or a fallback credential.\n\n" + deliverySettingsHelp
+		help = "Change only the fields you pass; omitted fields keep their values.\nNo null or reset values are accepted.\nWith no field flags, set returns current setting values but still requires\nmanager write permission. Use get for a read.\n\nThe server checks App-manager authority. Without --instruction, the call\nuses your ordinary authenticated caller with no worker session. With the\nflag, the binding and instruction behavior below apply.\n\n" + deliverySettingsHelp
 	}
 	c := &cobra.Command{Use: use, Short: short, Long: help, Args: cobra.NoArgs}
 	var batch, busy, stuck, checkPeriod, failedChecks, darkWindow string
@@ -73,7 +73,19 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 		c.Flags().StringVar(&failedChecks, "failed-checks-to-overdue", "", "Missed check periods before OVERDUE (server minimum 1), plus 5 minutes slack")
 		c.Flags().StringVar(&darkWindow, "dark-alarm-window-seconds", "", "Dark-worker alarm window in whole seconds (server bounds 300–86400)")
 	}
+	if set {
+		addManagerInstruction(c)
+	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		var claim *gen.ActInstructionInput
+		var instructed InstructedWrite
+		if set {
+			var err error
+			claim, instructed, err = managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
+		}
 		input := struct {
 			BatchWindowSeconds, BusyDelaySeconds, StuckWindowSeconds, CheckPeriodSeconds, FailedChecksToOverdue, DarkAlarmWindowSeconds *int
 		}{}
@@ -116,7 +128,11 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 		}
 		var fields *gen.AppDeliverySettingsFields
 		if set {
-			r, e := gen.TeamDeliverySettingsSet(ctx, client, scope.Ref, input.BatchWindowSeconds, input.BusyDelaySeconds, input.StuckWindowSeconds, input.CheckPeriodSeconds, input.DarkAlarmWindowSeconds, input.FailedChecksToOverdue)
+			writeCtx, e := managerWriteContext(cmd, scope.Ref, claim, instructed)
+			if e != nil {
+				return e
+			}
+			r, e := setManagerDeliverySettings(writeCtx, client, scope.Ref, input.BatchWindowSeconds, input.BusyDelaySeconds, input.StuckWindowSeconds, input.CheckPeriodSeconds, input.DarkAlarmWindowSeconds, input.FailedChecksToOverdue, claim)
 			if e != nil {
 				return api.MapError(e)
 			}

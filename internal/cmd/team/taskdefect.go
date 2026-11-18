@@ -25,17 +25,17 @@ type defectLinkDTO struct {
 }
 
 // newCmdTaskLinkDefect is the S12b verb (hadron-cli#2189 over
-// hadron-server#4280, Proposed cor:agt:130:05): a thin client over
+// hadron-server#4280; schema-defined defect-link door): a thin client over
 // linkDefectToPullRequest. The server owns who may link, which task is a PR
 // build task, which heads were frozen and the idempotence; the CLI sends the
-// three arguments once and prints what the server returned.
+// plain arguments once, optionally adding the holder claim, and prints the receipt.
 func newCmdTaskLinkDefect(f *cmdutil.Factory) *cobra.Command {
-	var defect, head string
+	var defect, head, rawInstruction string
 	c := &cobra.Command{
 		Use:   "link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>]",
 		Short: "Link a defect found after merge to the PR build task it escaped from",
 		Long: `Record that a defect found after a pull request merged traces back to that PR
-(Proposed cor:agt:130:05). <pr-build-task> is the PR's build task: a task with
+(server #4280/#4284). <pr-build-task> is the PR's build task: a task with
 a pull_request reference. --defect is the defect's issue URL, stored as given.
 --introduced-at-head names the full 40-hex head, frozen on that PR, that
 introduced the defect; the review-quality report counts the defect against
@@ -46,7 +46,8 @@ a verdict, a seat, readiness or the task. Linking the same defect and task
 again writes nothing, prints the existing link as "already linked" and exits 0.
 
 Who may link: a bound worker whose role is qa-engineer or coordinator, or a
-person who manages the App. The App's key and a run may not.
+person who manages the App; with --instruction, a worker whose holder manages
+the App may also link. The App's key and a run may not.
 
 Refusals, each sent once and never retried:
   exit 8  DEFECT_LINK_FORBIDDEN: you may read the task but may not link.
@@ -61,13 +62,19 @@ Refusals, each sent once and never retried:
 
 --json is {taskId, defect, introducedAtHead, eventId, linkedAt, created};
 introducedAtHead is null when the link names no head, and created is false
-for an existing link.`,
+for an existing link.` + "\n\n" + strings.ReplaceAll(taskInstructionHelp, "ba077810", "696ed50c8") + "\nAn unavailable or changed worktree binding sends as the signed-in person,\nwith the instruction checked but not recorded; it borrows no worker session.",
 		Example: "  hadron team task link-defect AT0.7850 --defect https://github.com/acme/app/issues/77 --introduced-at-head 0123456789abcdef0123456789abcdef01234567",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(defect) == "" {
 				return exitcode.Newf(exitcode.Usage, "pass --defect <issue URL>: the defect's issue")
 			}
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
+			// Snapshot before client creation or any later lookup.
+			instructed := BeginServerTargetInstructedWrite(f)(cmd.Context())
 			ref, err := taskRefArg(f, args)
 			if err != nil {
 				return err
@@ -85,11 +92,31 @@ for an existing link.`,
 			if err != nil {
 				return err
 			}
-			r, err := gen.TaskLinkDefect(cmd.Context(), client, ref, defect, headArg)
-			if err != nil {
-				return mapFindingError(err)
+			var l *gen.TaskLinkDefectLinkDefectToPullRequestDefectLink
+			if claim == nil {
+				r, e := gen.TaskLinkDefect(cmd.Context(), client, ref, defect, headArg)
+				if e != nil {
+					return mapFindingError(e)
+				}
+				if r != nil {
+					l = r.LinkDefectToPullRequest
+				}
+			} else {
+				// Prevent authored-write middleware from borrowing a new binding
+				// after this command's earlier snapshot. The helper alone selects
+				// the verified session; its fallback is the signed-in person.
+				ctx, _, e := instructed(withAsPerson(cmd.Context()))
+				if e != nil {
+					return e
+				}
+				r, e := gen.TaskLinkDefectInstructed(ctx, client, claim, ref, defect, headArg)
+				if e != nil {
+					return mapFindingError(e)
+				}
+				if r != nil {
+					l = (*gen.TaskLinkDefectLinkDefectToPullRequestDefectLink)(r.LinkDefectToPullRequest)
+				}
 			}
-			l := r.LinkDefectToPullRequest
 			if l == nil || l.TaskId == "" || l.EventId == "" {
 				// The ref goes alone on the last line, in full: a ref can be any
 				// length and hold shell metacharacters (cor:urn:010:01), e.g.
@@ -105,6 +132,8 @@ for an existing link.`,
 	}
 	c.Flags().StringVar(&defect, "defect", "", "required: the defect's issue URL")
 	c.Flags().StringVar(&head, "introduced-at-head", "", "the full 40-hex PR head, frozen on the task, that introduced the defect")
+	addTaskInstructionFlag(c, &rawInstruction)
+	c.Flags().Lookup("instruction").Usage = strings.ReplaceAll(taskInstructionFlagUsage, "ba077810", "696ed50c8")
 	return c
 }
 
