@@ -204,3 +204,60 @@ func TestAvailabilityInstruction2450FallbackAndRefusal(t *testing.T) {
 		}
 	}
 }
+
+func TestAvailabilityInstruction2450UnknownOutcome(t *testing.T) {
+	for _, kind := range []string{"worker", "family"} {
+		for _, body := range []string{`{"data":{}}`, `{"data":{"setWorkerAvailability":null,"setModelFamilyAvailability":null}}`} {
+			t.Run(kind+body, func(t *testing.T) {
+				teamGitDir(t)
+				srv, calls := snapshotServer1614(t, func(snapshotCall1614) string { return body })
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs(availabilityArgs2450(kind, "--app", "capp100000000000000000000", "--instruction", "task:one", "--server", srv.URL, "--json"))
+				err := root.Execute()
+				if exitCodeFor(err) != 1 || len(*calls) != 1 || out.Len() != 0 || !strings.Contains(fmt.Sprint(err), "outcome unknown") {
+					t.Fatalf("err=%v calls=%d out=%s", err, len(*calls), out.String())
+				}
+			})
+		}
+	}
+}
+func TestAvailabilityInstruction2450UnboundDirectWorkerNeedsNoApp(t *testing.T) {
+	teamGitDir(t)
+	srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+		if c.Session != "" || c.Variables["instruction"] == nil {
+			t.Errorf("bad attribution %+v", c)
+		}
+		input := c.Variables["input"].(map[string]any)
+		if input["appRef"] != nil {
+			t.Errorf("invented scope %v", input)
+		}
+		return availabilityAnswer2450("worker")
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "availability", "set", "--worker", "hrn:worker:acme.com:eng:iris", "--state", "unavailable", "--reason", "OTHER", "--instruction", "task:one", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 1 {
+		t.Fatal(*calls)
+	}
+}
+
+func TestAvailabilityInstruction2450Help(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "availability", "set", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Without --instruction", "signed-in person", "With --instruction", "App-manager", "server decides", "ba077810", "--instruction"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("missing help %q", want)
+		}
+	}
+	if strings.Contains(out.String(), "always made as the person") || strings.Contains(out.String(), "17ef5905") {
+		t.Fatal("old family advice remains")
+	}
+}

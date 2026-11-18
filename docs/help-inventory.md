@@ -455,7 +455,7 @@ section between the markers.
 | `team attention switchover preview` |  |  | n | #1054 |  | unread |  |
 | `team availability` |  |  | n | #1054 |  | unread |  |
 | `team availability get` |  |  | n | #1054 |  | unread |  |
-| `team availability set` |  |  | n | #1054 |  | unread |  |
+| `team availability set` |  |  | y | #1054 |  | unread |  |
 | `team channel` |  |  | y | #1054 |  | unread |  |
 | `team chat` |  |  | n | #1054 |  | unread |  |
 | `team chat check` |  |  | n | #1054 |  | unread |  |
