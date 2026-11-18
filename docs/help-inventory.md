@@ -188,7 +188,7 @@ section between the markers.
 | `auth` |  |  | n | #1052 | 73006dfbd70f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth grants` |  |  | y | #1052 | 30139a8b48c7 |  | unread |  |
 | `auth impersonate` |  |  | y | #1052 | be7fc58e5e9d | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth login` |  |  | y | #1052 | abf6bc881172 | Cameron | fail | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): wording passes; NOT example-verified. Examples 1-3 (browser OAuth) unrun under the scoped exception (Patrick #51131, accepted by gate owner Xabat #51143); example 4 run. Follow-up #1309 carries the browser leg |
+| `auth login` |  |  | y | #1052 | 61f06a55545e |  | unread |  |
 | `auth logout` |  |  | y | #1052 | 8eb2b8180c4b | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth passkey` |  |  | n | #1052 | 7dd0383eba76 |  | unread |  |
 | `auth passkey list` | ls |  | y | #1052 | d2a0d0c65666 |  | unread |  |
@@ -460,7 +460,7 @@ section between the markers.
 | `team attention switchover preview` |  |  | n | #1054 | bb8c5a97c9d5 |  | unread |  |
 | `team availability` |  |  | n | #1054 | 4ba113cdde0c |  | unread |  |
 | `team availability get` |  |  | n | #1054 | d0b01e0f621b |  | unread |  |
-| `team availability set` |  |  | n | #1054 | 3b7e28ec55bb |  | unread |  |
+| `team availability set` |  |  | y | #1054 | 352870702560 |  | unread |  |
 | `team channel` |  |  | y | #1054 | daf291779858 |  | unread |  |
 | `team chat` |  |  | n | #1054 | 65fec19f03a4 |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
@@ -648,7 +648,7 @@ section between the markers.
 | `scope rm` | delete |  | y | #1055 | 839b02e6cdd5 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `scope set-active` | use |  | y | #1055 | 50f14ae7f193 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `scope update` |  |  | y | #1055 | 1ae41c787be0 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `skill` | skills |  | n | #1055 | 579d7cf926e8 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
+| `skill` | skills |  | n | #1055 | a7403187371a |  | unread |  |
 | `skill export` |  |  | y | #1055 | ea2c19b90e80 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `skill lint` |  |  | y | #1055 | 92217b5f3ec2 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `skill plugin` |  |  | y | #1055 | 768b30355008 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
@@ -693,10 +693,10 @@ section between the markers.
 | `agentic-usage` |  |  | y | #1056 | a77cfb7385c1 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
 | `api` |  |  | y | #1056 | 07f828af4986 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
 | `completion` |  | generated | n | #1056 | 532ef0768ca4 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560): no P1/P2, P3s only; result set at reassessment |
-| `config` |  |  | n | #1056 | a8a1672c6d3d | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
-| `config get` |  |  | y | #1056 | 0e4cea87c34f | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
-| `config list` | ls |  | y | #1056 | 03c1d2c1c710 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
-| `config set` |  |  | y | #1056 | cfcd10566c2a | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `config` |  |  | n | #1056 | b45cd824b251 |  | unread |  |
+| `config get` |  |  | y | #1056 | 226ece8f02be |  | unread |  |
+| `config list` | ls |  | y | #1056 | 7bcde719abdb |  | unread |  |
+| `config set` |  |  | y | #1056 | 56679edca714 |  | unread |  |
 | `help` |  | generated | y | #1056 | c86d29522fe2 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560): no P1/P2, P3s only; result set at reassessment |
 | `server-info` | serverinfo |  | y | #1056 | 874d42459e06 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
 | `version` |  |  | y | #1056 | c8f9fc1b8cc7 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560): no P1/P2, P3s only; result set at reassessment |

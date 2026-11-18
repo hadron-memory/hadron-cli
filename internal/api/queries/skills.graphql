@@ -196,3 +196,13 @@ query SkillExportPlan(
     }
   }
 }
+
+# Login's consent preflight only needs to distinguish disabled declarations
+# from enabled ones. It never requests rendered skill content before consent.
+query LoginSkillAvailability($input: SkillPlanInput!) {
+  skillPlan(input: $input) {
+    entries {
+      class
+    }
+  }
+}

@@ -11,7 +11,7 @@ import (
 
 // #2493: a plain `team availability set` whose mutation answers null or leaves
 // the field out must not panic. The write was sent, so the outcome is unknown:
-// exit 7, no success receipt, and advice to read the current state before
+// exit 1 like the instructed branches, no success receipt, and advice to read the current state before
 // retrying. All four combinations (--worker/--family x null/absent) are pinned.
 func TestTeamAvailabilitySetNullResult2493(t *testing.T) {
 	shapes := map[string]string{"null": `null`, "absent": ``}
@@ -61,11 +61,11 @@ func TestTeamAvailabilitySetNullResult2493(t *testing.T) {
 					if err == nil {
 						t.Fatalf("a missing result must not succeed: stdout=%q", out)
 					}
-					if code := exitCodeFor(err); code != exitcode.Unavailable {
-						t.Fatalf("exit %d, want %d (outcome unknown): %v", code, exitcode.Unavailable, err)
+					if code := exitCodeFor(err); code != exitcode.Error {
+						t.Fatalf("exit %d, want %d (outcome unknown): %v", code, exitcode.Error, err)
 					}
 					msg := err.Error()
-					for _, want := range []string{"outcome is unknown", "hadron team availability get", "before retrying"} {
+					for _, want := range []string{"no availability result", "outcome unknown", "read availability before retrying"} {
 						if !strings.Contains(msg, want) {
 							t.Fatalf("message lacks %q: %q", want, msg)
 						}
@@ -76,13 +76,13 @@ func TestTeamAvailabilitySetNullResult2493(t *testing.T) {
 					if jsonMode {
 						f, jout := testFactory(t)
 						f.JSON = true
-						if code := renderError(f, err); code != exitcode.Unavailable {
+						if code := renderError(f, err); code != exitcode.Error {
 							t.Fatalf("envelope exit %d", code)
 						}
 						var env struct {
 							Error map[string]any `json:"error"`
 						}
-						if e := json.Unmarshal([]byte(jout.String()), &env); e != nil || env.Error["code"] != float64(exitcode.Unavailable) {
+						if e := json.Unmarshal([]byte(jout.String()), &env); e != nil || env.Error["code"] != float64(exitcode.Error) {
 							t.Fatalf("no structured failure: %v %s", e, jout.String())
 						}
 						if out != "" {

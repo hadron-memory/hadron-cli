@@ -67524,6 +67524,52 @@ func (v *ListTickersTickersTicker) __premarshalJSON() (*__premarshalListTickersT
 	return &retval, nil
 }
 
+// LoginSkillAvailabilityResponse is returned by LoginSkillAvailability on success.
+type LoginSkillAvailabilityResponse struct {
+	// #1177 section 3 — the SKILL SEAM: the server judges, the client does I/O.
+	//
+	// One surface serving skill lint, skill status and skill export. The client
+	// sends what it can see of each file on disk; the server returns a drift
+	// CLASS and the lint findings per declared node, plus the rendered body for
+	// anything the client is to write.
+	//
+	// A QUERY, not a mutation, and that is the contract. Nothing here writes to a
+	// node — publishing is one-way, and the only writer in the feature is the
+	// client's own filesystem. So status and lint cannot write by construction
+	// rather than by promise.
+	//
+	// The client cannot name a drift class: the vocabulary is the server's, so it
+	// cannot drift between clients. A node failing lint is never given a rendered
+	// body, so a client cannot write a file the server judged broken.
+	SkillPlan *LoginSkillAvailabilitySkillPlan `json:"skillPlan"`
+}
+
+// GetSkillPlan returns LoginSkillAvailabilityResponse.SkillPlan, and is useful for accessing the field via an interface.
+func (v *LoginSkillAvailabilityResponse) GetSkillPlan() *LoginSkillAvailabilitySkillPlan {
+	return v.SkillPlan
+}
+
+// LoginSkillAvailabilitySkillPlan includes the requested fields of the GraphQL type SkillPlan.
+type LoginSkillAvailabilitySkillPlan struct {
+	Entries []*LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry `json:"entries"`
+}
+
+// GetEntries returns LoginSkillAvailabilitySkillPlan.Entries, and is useful for accessing the field via an interface.
+func (v *LoginSkillAvailabilitySkillPlan) GetEntries() []*LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry {
+	return v.Entries
+}
+
+// LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry includes the requested fields of the GraphQL type SkillPlanEntry.
+type LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry struct {
+	// One of: current, stale, locally-edited, renamed, never-exported, orphaned,
+	// unhashed, collision, unavailable, disabled. Null when the file could not be
+	// parsed — a parse failure is reported as a FAILURE, not as a class.
+	Class *string `json:"class"`
+}
+
+// GetClass returns LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry.Class, and is useful for accessing the field via an interface.
+func (v *LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry) GetClass() *string { return v.Class }
+
 // MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState includes the requested fields of the GraphQL type OwnTeamChatReadState.
 // The GraphQL type's documentation follows.
 //
@@ -71734,6 +71780,161 @@ type MintSpecCorpusResponse struct {
 // GetMintSpecCorpus returns MintSpecCorpusResponse.MintSpecCorpus, and is useful for accessing the field via an interface.
 func (v *MintSpecCorpusResponse) GetMintSpecCorpus() *MintSpecCorpusMintSpecCorpusSpecCorpusMintReport {
 	return v.MintSpecCorpus
+}
+
+// ModelFamilyAvailabilitySetInstructedResponse is returned by ModelFamilyAvailabilitySetInstructed on success.
+type ModelFamilyAvailabilitySetInstructedResponse struct {
+	// #1706 — set a model family's availability for work in an App
+	// (hrn:node:hadronmemory.com:specs:cor:agt:060:09): whoever manages the App only. Writes availability.changed.
+	// Refusals: APP_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, BAD_USER_INPUT,
+	// SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetModelFamilyAvailability *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability `json:"setModelFamilyAvailability"`
+}
+
+// GetSetModelFamilyAvailability returns ModelFamilyAvailabilitySetInstructedResponse.SetModelFamilyAvailability, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedResponse) GetSetModelFamilyAvailability() *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability {
+	return v.SetModelFamilyAvailability
+}
+
+// ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability includes the requested fields of the GraphQL type ModelFamilyAvailability.
+// The GraphQL type's documentation follows.
+//
+// #1706 — one model family's availability for work in one App (hrn:node:hadronmemory.com:specs:cor:agt:060:03). A family with no record is available.
+type ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability struct {
+	AppId string `json:"appId"`
+	// The model family, e.g. claude or codex (hrn:node:hadronmemory.com:specs:cor:agt:060:04).
+	Family string                                                                             `json:"family"`
+	State  AvailabilityState                                                                  `json:"state"`
+	Reason *AvailabilityReason                                                                `json:"reason"`
+	Until  *string                                                                            `json:"until"`
+	SetAt  string                                                                             `json:"setAt"`
+	SetBy  *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty `json:"setBy"`
+	// Unavailable and not lapsed.
+	InEffect bool `json:"inEffect"`
+}
+
+// GetAppId returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.AppId, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetAppId() string {
+	return v.AppId
+}
+
+// GetFamily returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.Family, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetFamily() string {
+	return v.Family
+}
+
+// GetState returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.State, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetState() AvailabilityState {
+	return v.State
+}
+
+// GetReason returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.Reason, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetReason() *AvailabilityReason {
+	return v.Reason
+}
+
+// GetUntil returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.Until, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetUntil() *string {
+	return v.Until
+}
+
+// GetSetAt returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.SetAt, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetSetAt() string {
+	return v.SetAt
+}
+
+// GetSetBy returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetSetBy() *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty {
+	return v.SetBy
+}
+
+// GetInEffect returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability.InEffect, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailability) GetInEffect() bool {
+	return v.InEffect
+}
+
+// ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty struct {
+	AgentTaskPartyFields `json:"-"`
+}
+
+// GetId returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty) GetId() string {
+	return v.AgentTaskPartyFields.Id
+}
+
+// GetKind returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.AgentTaskPartyFields.Kind
+}
+
+// GetName returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty) GetName() *string {
+	return v.AgentTaskPartyFields.Name
+}
+
+// GetUrn returns ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty) GetUrn() *string {
+	return v.AgentTaskPartyFields.Urn
+}
+
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskPartyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty struct {
+	Id string `json:"id"`
+
+	Kind AgentTaskPartyKind `json:"kind"`
+
+	Name *string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty) __premarshalJSON() (*__premarshalModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty, error) {
+	var retval __premarshalModelFamilyAvailabilitySetInstructedSetModelFamilyAvailabilitySetByAgentTaskParty
+
+	retval.Id = v.AgentTaskPartyFields.Id
+	retval.Kind = v.AgentTaskPartyFields.Kind
+	retval.Name = v.AgentTaskPartyFields.Name
+	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
 }
 
 // ModelFamilyAvailabilitySetResponse is returned by ModelFamilyAvailabilitySet on success.
@@ -120644,6 +120845,245 @@ func (v *WithdrawSigningRequestWithdrawSigningRequest) __premarshalJSON() (*__pr
 	return &retval, nil
 }
 
+// WorkerAvailabilitySetInstructedResponse is returned by WorkerAvailabilitySetInstructed on success.
+type WorkerAvailabilitySetInstructedResponse struct {
+	// #1706 — set a worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:08): the worker
+	// itself, acting through its session, and only to UNAVAILABLE; the person
+	// holding its name; or whoever manages the App. A worker another reports to directly may also clear only a
+	// stall-rule unavailable mark (the stall rule must have set it), never set another worker unavailable. Writes availability.changed.
+	// Refusals: WORKER_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, WORKER_RETIRED,
+	// BAD_USER_INPUT, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetWorkerAvailability *WorkerAvailabilitySetInstructedSetWorkerAvailability `json:"setWorkerAvailability"`
+}
+
+// GetSetWorkerAvailability returns WorkerAvailabilitySetInstructedResponse.SetWorkerAvailability, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedResponse) GetSetWorkerAvailability() *WorkerAvailabilitySetInstructedSetWorkerAvailability {
+	return v.SetWorkerAvailability
+}
+
+// WorkerAvailabilitySetInstructedSetWorkerAvailability includes the requested fields of the GraphQL type WorkerAvailability.
+// The GraphQL type's documentation follows.
+//
+// #1706 — one worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:02). A worker with
+// no record is available.
+type WorkerAvailabilitySetInstructedSetWorkerAvailability struct {
+	Worker *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty `json:"worker"`
+	State  AvailabilityState                                                         `json:"state"`
+	// Set exactly when unavailable.
+	Reason *AvailabilityReason `json:"reason"`
+	// When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+	Until *string            `json:"until"`
+	SetAt string             `json:"setAt"`
+	SetBy AvailabilitySetter `json:"setBy"`
+	// Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
+	SetByParty *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty `json:"setByParty"`
+	// Whether this record makes the worker unavailable right now: unavailable,
+	// not lapsed, and (for STALLED) the worker has not acted since it was set
+	// (hrn:node:hadronmemory.com:specs:cor:agt:060:07).
+	InEffect bool `json:"inEffect"`
+}
+
+// GetWorker returns WorkerAvailabilitySetInstructedSetWorkerAvailability.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetWorker() *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// GetState returns WorkerAvailabilitySetInstructedSetWorkerAvailability.State, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetState() AvailabilityState {
+	return v.State
+}
+
+// GetReason returns WorkerAvailabilitySetInstructedSetWorkerAvailability.Reason, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetReason() *AvailabilityReason {
+	return v.Reason
+}
+
+// GetUntil returns WorkerAvailabilitySetInstructedSetWorkerAvailability.Until, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetUntil() *string { return v.Until }
+
+// GetSetAt returns WorkerAvailabilitySetInstructedSetWorkerAvailability.SetAt, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetSetAt() string { return v.SetAt }
+
+// GetSetBy returns WorkerAvailabilitySetInstructedSetWorkerAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetSetBy() AvailabilitySetter {
+	return v.SetBy
+}
+
+// GetSetByParty returns WorkerAvailabilitySetInstructedSetWorkerAvailability.SetByParty, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetSetByParty() *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty {
+	return v.SetByParty
+}
+
+// GetInEffect returns WorkerAvailabilitySetInstructedSetWorkerAvailability.InEffect, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailability) GetInEffect() bool { return v.InEffect }
+
+// WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty struct {
+	AgentTaskPartyFields `json:"-"`
+}
+
+// GetId returns WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty) GetId() string {
+	return v.AgentTaskPartyFields.Id
+}
+
+// GetKind returns WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.AgentTaskPartyFields.Kind
+}
+
+// GetName returns WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty) GetName() *string {
+	return v.AgentTaskPartyFields.Name
+}
+
+// GetUrn returns WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty) GetUrn() *string {
+	return v.AgentTaskPartyFields.Urn
+}
+
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskPartyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty struct {
+	Id string `json:"id"`
+
+	Kind AgentTaskPartyKind `json:"kind"`
+
+	Name *string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty) __premarshalJSON() (*__premarshalWorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty, error) {
+	var retval __premarshalWorkerAvailabilitySetInstructedSetWorkerAvailabilitySetByPartyAgentTaskParty
+
+	retval.Id = v.AgentTaskPartyFields.Id
+	retval.Kind = v.AgentTaskPartyFields.Kind
+	retval.Name = v.AgentTaskPartyFields.Name
+	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
+// WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty struct {
+	AgentTaskPartyFields `json:"-"`
+}
+
+// GetId returns WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty) GetId() string {
+	return v.AgentTaskPartyFields.Id
+}
+
+// GetKind returns WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.AgentTaskPartyFields.Kind
+}
+
+// GetName returns WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty) GetName() *string {
+	return v.AgentTaskPartyFields.Name
+}
+
+// GetUrn returns WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty) GetUrn() *string {
+	return v.AgentTaskPartyFields.Urn
+}
+
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskPartyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty struct {
+	Id string `json:"id"`
+
+	Kind AgentTaskPartyKind `json:"kind"`
+
+	Name *string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty) __premarshalJSON() (*__premarshalWorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty, error) {
+	var retval __premarshalWorkerAvailabilitySetInstructedSetWorkerAvailabilityWorkerAgentTaskParty
+
+	retval.Id = v.AgentTaskPartyFields.Id
+	retval.Kind = v.AgentTaskPartyFields.Kind
+	retval.Name = v.AgentTaskPartyFields.Name
+	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
 // WorkerAvailabilitySetResponse is returned by WorkerAvailabilitySet on success.
 type WorkerAvailabilitySetResponse struct {
 	// #1706 — set a worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:08): the worker
@@ -129751,6 +130191,14 @@ func (v *__ListTickersPageInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __ListTickersPageInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ListTickersPageInput) GetOffset() *int { return v.Offset }
 
+// __LoginSkillAvailabilityInput is used internally by genqlient
+type __LoginSkillAvailabilityInput struct {
+	Input *SkillPlanInput `json:"input,omitempty"`
+}
+
+// GetInput returns __LoginSkillAvailabilityInput.Input, and is useful for accessing the field via an interface.
+func (v *__LoginSkillAvailabilityInput) GetInput() *SkillPlanInput { return v.Input }
+
 // __MarkOwnTeamChatReadInput is used internally by genqlient
 type __MarkOwnTeamChatReadInput struct {
 	AppRef     string `json:"appRef"`
@@ -130063,6 +130511,22 @@ type __ModelFamilyAvailabilitySetInput struct {
 // GetInput returns __ModelFamilyAvailabilitySetInput.Input, and is useful for accessing the field via an interface.
 func (v *__ModelFamilyAvailabilitySetInput) GetInput() *SetModelFamilyAvailabilityInput {
 	return v.Input
+}
+
+// __ModelFamilyAvailabilitySetInstructedInput is used internally by genqlient
+type __ModelFamilyAvailabilitySetInstructedInput struct {
+	Input       *SetModelFamilyAvailabilityInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput             `json:"instruction,omitempty"`
+}
+
+// GetInput returns __ModelFamilyAvailabilitySetInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__ModelFamilyAvailabilitySetInstructedInput) GetInput() *SetModelFamilyAvailabilityInput {
+	return v.Input
+}
+
+// GetInstruction returns __ModelFamilyAvailabilitySetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__ModelFamilyAvailabilitySetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
 }
 
 // __MoveNodeInput is used internally by genqlient
@@ -136090,6 +136554,22 @@ type __WorkerAvailabilitySetInput struct {
 
 // GetInput returns __WorkerAvailabilitySetInput.Input, and is useful for accessing the field via an interface.
 func (v *__WorkerAvailabilitySetInput) GetInput() *SetWorkerAvailabilityInput { return v.Input }
+
+// __WorkerAvailabilitySetInstructedInput is used internally by genqlient
+type __WorkerAvailabilitySetInstructedInput struct {
+	Input       *SetWorkerAvailabilityInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput        `json:"instruction,omitempty"`
+}
+
+// GetInput returns __WorkerAvailabilitySetInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__WorkerAvailabilitySetInstructedInput) GetInput() *SetWorkerAvailabilityInput {
+	return v.Input
+}
+
+// GetInstruction returns __WorkerAvailabilitySetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__WorkerAvailabilitySetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __WorkerBootPointerInput is used internally by genqlient
 type __WorkerBootPointerInput struct {
@@ -161527,6 +162007,44 @@ func ListTickersPage(
 	return data_, err_
 }
 
+// The query executed by LoginSkillAvailability.
+const LoginSkillAvailability_Operation = `
+query LoginSkillAvailability ($input: SkillPlanInput!) {
+	skillPlan(input: $input) {
+		entries {
+			class
+		}
+	}
+}
+`
+
+// Login's consent preflight only needs to distinguish disabled declarations
+// from enabled ones. It never requests rendered skill content before consent.
+func LoginSkillAvailability(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SkillPlanInput,
+) (data_ *LoginSkillAvailabilityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LoginSkillAvailability",
+		Query:  LoginSkillAvailability_Operation,
+		Variables: &__LoginSkillAvailabilityInput{
+			Input: input,
+		},
+	}
+
+	data_ = &LoginSkillAvailabilityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MarkOwnTeamChatRead.
 const MarkOwnTeamChatRead_Operation = `
 mutation MarkOwnTeamChatRead ($appRef: ID!, $sessionRef: ID!, $channelRef: ID!, $seq: Int!) {
@@ -162906,6 +163424,57 @@ func ModelFamilyAvailabilitySet(
 	}
 
 	data_ = &ModelFamilyAvailabilitySetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ModelFamilyAvailabilitySetInstructed.
+const ModelFamilyAvailabilitySetInstructed_Operation = `
+mutation ModelFamilyAvailabilitySetInstructed ($input: SetModelFamilyAvailabilityInput!, $instruction: ActInstructionInput!) {
+	setModelFamilyAvailability(input: $input, instruction: $instruction) {
+		appId
+		family
+		state
+		reason
+		until
+		setAt
+		setBy {
+			... AgentTaskPartyFields
+		}
+		inEffect
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func ModelFamilyAvailabilitySetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetModelFamilyAvailabilityInput,
+	instruction *ActInstructionInput,
+) (data_ *ModelFamilyAvailabilitySetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ModelFamilyAvailabilitySetInstructed",
+		Query:  ModelFamilyAvailabilitySetInstructed_Operation,
+		Variables: &__ModelFamilyAvailabilitySetInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &ModelFamilyAvailabilitySetInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -181973,6 +182542,59 @@ func WorkerAvailabilitySet(
 	}
 
 	data_ = &WorkerAvailabilitySetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by WorkerAvailabilitySetInstructed.
+const WorkerAvailabilitySetInstructed_Operation = `
+mutation WorkerAvailabilitySetInstructed ($input: SetWorkerAvailabilityInput!, $instruction: ActInstructionInput!) {
+	setWorkerAvailability(input: $input, instruction: $instruction) {
+		worker {
+			... AgentTaskPartyFields
+		}
+		state
+		reason
+		until
+		setAt
+		setBy
+		setByParty {
+			... AgentTaskPartyFields
+		}
+		inEffect
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func WorkerAvailabilitySetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetWorkerAvailabilityInput,
+	instruction *ActInstructionInput,
+) (data_ *WorkerAvailabilitySetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkerAvailabilitySetInstructed",
+		Query:  WorkerAvailabilitySetInstructed_Operation,
+		Variables: &__WorkerAvailabilitySetInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &WorkerAvailabilitySetInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
