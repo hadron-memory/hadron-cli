@@ -81014,6 +81014,39 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
 
+// PublishRevisionPublishRevisionRevisionResult includes the requested fields of the GraphQL type RevisionResult.
+type PublishRevisionPublishRevisionRevisionResult struct {
+	RevisionLoc string `json:"revisionLoc"`
+	Label       string `json:"label"`
+	Published   bool   `json:"published"`
+	CreatedAt   string `json:"createdAt"`
+}
+
+// GetRevisionLoc returns PublishRevisionPublishRevisionRevisionResult.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *PublishRevisionPublishRevisionRevisionResult) GetRevisionLoc() string { return v.RevisionLoc }
+
+// GetLabel returns PublishRevisionPublishRevisionRevisionResult.Label, and is useful for accessing the field via an interface.
+func (v *PublishRevisionPublishRevisionRevisionResult) GetLabel() string { return v.Label }
+
+// GetPublished returns PublishRevisionPublishRevisionRevisionResult.Published, and is useful for accessing the field via an interface.
+func (v *PublishRevisionPublishRevisionRevisionResult) GetPublished() bool { return v.Published }
+
+// GetCreatedAt returns PublishRevisionPublishRevisionRevisionResult.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PublishRevisionPublishRevisionRevisionResult) GetCreatedAt() string { return v.CreatedAt }
+
+// PublishRevisionResponse is returned by PublishRevision on success.
+type PublishRevisionResponse struct {
+	// Publish a revision and pin the Agent to it.
+	//
+	// Accepts the entity's ID or URN.
+	PublishRevision *PublishRevisionPublishRevisionRevisionResult `json:"publishRevision"`
+}
+
+// GetPublishRevision returns PublishRevisionResponse.PublishRevision, and is useful for accessing the field via an interface.
+func (v *PublishRevisionResponse) GetPublishRevision() *PublishRevisionPublishRevisionRevisionResult {
+	return v.PublishRevision
+}
+
 // PurgeUnansweredDecisionResponse is returned by PurgeUnansweredDecision on success.
 type PurgeUnansweredDecisionResponse struct {
 	// #1641 — a platform admin hard-deletes a decision that was never answered, recorded on its log (DECISION_ANSWERED otherwise). The code stays consumed.
@@ -86434,6 +86467,39 @@ func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetNodeType() string { retu
 
 // GetUpdatedAt returns RestoreNodeRevisionRestoreNodeRevisionNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *RestoreNodeRevisionRestoreNodeRevisionNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// RestoreRevisionResponse is returned by RestoreRevision on success.
+type RestoreRevisionResponse struct {
+	// Restore an Agent's system memory from a revision (auto-saves first).
+	//
+	// Accepts the entity's ID or URN.
+	RestoreRevision *RestoreRevisionRestoreRevisionRevisionResult `json:"restoreRevision"`
+}
+
+// GetRestoreRevision returns RestoreRevisionResponse.RestoreRevision, and is useful for accessing the field via an interface.
+func (v *RestoreRevisionResponse) GetRestoreRevision() *RestoreRevisionRestoreRevisionRevisionResult {
+	return v.RestoreRevision
+}
+
+// RestoreRevisionRestoreRevisionRevisionResult includes the requested fields of the GraphQL type RevisionResult.
+type RestoreRevisionRestoreRevisionRevisionResult struct {
+	RevisionLoc string `json:"revisionLoc"`
+	Label       string `json:"label"`
+	Published   bool   `json:"published"`
+	CreatedAt   string `json:"createdAt"`
+}
+
+// GetRevisionLoc returns RestoreRevisionRestoreRevisionRevisionResult.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *RestoreRevisionRestoreRevisionRevisionResult) GetRevisionLoc() string { return v.RevisionLoc }
+
+// GetLabel returns RestoreRevisionRestoreRevisionRevisionResult.Label, and is useful for accessing the field via an interface.
+func (v *RestoreRevisionRestoreRevisionRevisionResult) GetLabel() string { return v.Label }
+
+// GetPublished returns RestoreRevisionRestoreRevisionRevisionResult.Published, and is useful for accessing the field via an interface.
+func (v *RestoreRevisionRestoreRevisionRevisionResult) GetPublished() bool { return v.Published }
+
+// GetCreatedAt returns RestoreRevisionRestoreRevisionRevisionResult.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RestoreRevisionRestoreRevisionRevisionResult) GetCreatedAt() string { return v.CreatedAt }
 
 // #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — what resumeSession did. RESUMED: bound to an open
 // session (a shed's claim, or the one live session of the fast path). STARTED:
@@ -132074,6 +132140,22 @@ func (v *__PublicOrganizationInput) GetLimit() int { return v.Limit }
 // GetOffset returns __PublicOrganizationInput.Offset, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetOffset() int { return v.Offset }
 
+// __PublishRevisionInput is used internally by genqlient
+type __PublishRevisionInput struct {
+	AgentId      string  `json:"agentId"`
+	RevisionLoc  string  `json:"revisionLoc"`
+	VersionLabel *string `json:"versionLabel,omitempty"`
+}
+
+// GetAgentId returns __PublishRevisionInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__PublishRevisionInput) GetAgentId() string { return v.AgentId }
+
+// GetRevisionLoc returns __PublishRevisionInput.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *__PublishRevisionInput) GetRevisionLoc() string { return v.RevisionLoc }
+
+// GetVersionLabel returns __PublishRevisionInput.VersionLabel, and is useful for accessing the field via an interface.
+func (v *__PublishRevisionInput) GetVersionLabel() *string { return v.VersionLabel }
+
 // __PurgeUnansweredDecisionInput is used internally by genqlient
 type __PurgeUnansweredDecisionInput struct {
 	Ref    string `json:"ref"`
@@ -132699,6 +132781,18 @@ func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionI
 
 // GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
 func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
+
+// __RestoreRevisionInput is used internally by genqlient
+type __RestoreRevisionInput struct {
+	AgentId     string `json:"agentId"`
+	RevisionLoc string `json:"revisionLoc"`
+}
+
+// GetAgentId returns __RestoreRevisionInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__RestoreRevisionInput) GetAgentId() string { return v.AgentId }
+
+// GetRevisionLoc returns __RestoreRevisionInput.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *__RestoreRevisionInput) GetRevisionLoc() string { return v.RevisionLoc }
 
 // __ResumeTeamSessionInput is used internally by genqlient
 type __ResumeTeamSessionInput struct {
@@ -167637,6 +167731,50 @@ func PublicOrganization(
 	return data_, err_
 }
 
+// The mutation executed by PublishRevision.
+const PublishRevision_Operation = `
+mutation PublishRevision ($agentId: ID!, $revisionLoc: String!, $versionLabel: String) {
+	publishRevision(agentId: $agentId, revisionLoc: $revisionLoc, versionLabel: $versionLabel) {
+		revisionLoc
+		label
+		published
+		createdAt
+	}
+}
+`
+
+// cli#2495: publish and restore join create (the buildable two of the gate's
+// sequenced set; list has no server contract yet). Both refs go verbatim;
+// versionLabel is omitempty: unset leaves the server default.
+func PublishRevision(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+	revisionLoc string,
+	versionLabel *string,
+) (data_ *PublishRevisionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PublishRevision",
+		Query:  PublishRevision_Operation,
+		Variables: &__PublishRevisionInput{
+			AgentId:      agentId,
+			RevisionLoc:  revisionLoc,
+			VersionLabel: versionLabel,
+		},
+	}
+
+	data_ = &PublishRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by PurgeUnansweredDecision.
 const PurgeUnansweredDecision_Operation = `
 mutation PurgeUnansweredDecision ($ref: ID!, $reason: String!) {
@@ -170087,6 +170225,45 @@ func RestoreNodeRevision(
 	}
 
 	data_ = &RestoreNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RestoreRevision.
+const RestoreRevision_Operation = `
+mutation RestoreRevision ($agentId: ID!, $revisionLoc: String!) {
+	restoreRevision(agentId: $agentId, revisionLoc: $revisionLoc) {
+		revisionLoc
+		label
+		published
+		createdAt
+	}
+}
+`
+
+func RestoreRevision(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+	revisionLoc string,
+) (data_ *RestoreRevisionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RestoreRevision",
+		Query:  RestoreRevision_Operation,
+		Variables: &__RestoreRevisionInput{
+			AgentId:     agentId,
+			RevisionLoc: revisionLoc,
+		},
+	}
+
+	data_ = &RestoreRevisionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

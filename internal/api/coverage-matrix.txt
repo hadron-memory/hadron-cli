@@ -265,7 +265,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 357: 303 command, 42 gap, 12 excluded
+[Mutation] 357: 305 command, 40 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -451,7 +451,7 @@ parkAgentTask  command team task park
 planNodeMove  command node move
 processChatResponse  gap #64
 publishAgentImport  gap #58
-publishRevision  gap #61
+publishRevision  command agent revision publish
 purgeUnansweredDecision  command decision purge
 pushMemoryToGit  gap #60
 reAdoptAutomation  command automation re-adopt
@@ -495,7 +495,7 @@ resolveCommentThread  command comment resolve
 restoreAsset  command asset restore
 restoreNode  command node restore
 restoreNodeRevision  command node revision restore
-restoreRevision  gap #61
+restoreRevision  command agent revision restore
 resumeSession  command team session start
 retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
