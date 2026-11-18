@@ -19,8 +19,21 @@ import (
 var (
 	nativeAdapterOnce sync.Once
 	nativeAdapterPath string
+	nativeAdapterDir  string // removed by TestMain: the shared build outlives any one test
 	nativeAdapterErr  error
 )
+
+// The fixture dir cannot be a t.TempDir: the sync.Once build is shared by the
+// package, and the temp dir of the test that happened to build first is reaped
+// when that test ends, yanking the binary from under the rest. TestMain owns
+// the cleanup instead, so no native-adapter-* dir leaks per `go test` run.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if nativeAdapterDir != "" {
+		_ = os.RemoveAll(nativeAdapterDir)
+	}
+	os.Exit(code)
+}
 
 func buildNativeAdapter(t *testing.T) string {
 	t.Helper()
@@ -34,6 +47,7 @@ func buildNativeAdapter(t *testing.T) string {
 			nativeAdapterErr = err
 			return
 		}
+		nativeAdapterDir = dir
 		path := filepath.Join(dir, name)
 		out, err := exec.Command("go", "build", "-o", path, "./testdata/adapter").CombinedOutput()
 		if err != nil {

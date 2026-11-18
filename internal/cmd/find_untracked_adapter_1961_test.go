@@ -823,7 +823,9 @@ func TestAdapterFollowups1974(t *testing.T) {
 		// #2260 F6: decode the DTO instead of pinning the JSON spelling — a
 		// formatting-only change to the encoder must not fail this pin. The
 		// assignee fell back to the server id (wkr1) because the name was
-		// null, and the note names that id, not an empty display name.
+		// null; the note check below asserts exactly that fact — the id
+		// appears, the empty-display-name rendering ("for ,") does not —
+		// not the sentence's wording (stderr prose is not a contract).
 		if err != nil || len(opsOf1961(calls, "IntakeStartTask")) != 0 {
 			t.Fatalf("%v %s starts=%v", err, out, opsOf1961(calls, "IntakeStartTask"))
 		}
@@ -836,8 +838,8 @@ func TestAdapterFollowups1974(t *testing.T) {
 		if umErr := json.Unmarshal([]byte(out), &dto); umErr != nil || len(dto.Tasks) != 1 || dto.Tasks[0].ID != "t1" || dto.Tasks[0].Assignee == nil || *dto.Tasks[0].Assignee != "wkr1" {
 			t.Fatalf("the claimed task t1 must decode with assignee wkr1 (the fallback id): %v %s", umErr, out)
 		}
-		if !strings.Contains(errOut, "is PENDING for wkr1") {
-			t.Fatalf("the pending note must name the fallback id: %q", errOut)
+		if !strings.Contains(errOut, "wkr1") || strings.Contains(errOut, "for ,") {
+			t.Fatalf("the pending note must name the fallback id, not an empty display name: %q", errOut)
 		}
 	})
 }
