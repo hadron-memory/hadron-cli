@@ -62,18 +62,20 @@ func newCmdMember(f *cmdutil.Factory) *cobra.Command {
 		Use:     "member <command>",
 		Aliases: []string{"members"},
 		Short:   "Manage an App's human members",
-		Long: `Add, remove and list the human members of an App.
+		Long: `Add, remove and list the people who are members of an App, and see which roles
+it offers. Each member has one role, chosen from the roles the App offers.
 
-The App is the root --app flag, else the active App (` + "`hadron app use`" + `);
-there is no positional App. --user is passed to the server unchanged — an id,
-email, handle or hrn:user: URN — and is never resolved here.
+These commands act on the App set with the root --app flag, else the active App
+("hadron app set-active"); there is no App argument. --user takes a user's ID,
+email, handle or hrn:user: URN, and is passed to the server unchanged, never
+looked up here.
 
-The roles an App offers are the union of its installed Agents' member
-roles; ` + "`hadron app member roles`" + ` prints them, and
-` + "`hadron agent update <ref> --member-roles …`" + ` changes an Agent's. Roles are
-validated by the server only, so ` + "`add --role`" + ` is never checked locally: an
-invalid role is refused with the server's own message. Authority is the
-server's too: an App member manager, or the member themselves for remove.`,
+The roles an App offers are the roles its installed Agents offer, put together.
+"hadron app member roles" prints them, and "hadron agent update <ref>
+--member-roles …" changes an Agent's. Only the server checks a role: "add
+--role" is never checked locally, and an invalid role is refused with the
+server's own message. The server also decides who may change members: an App
+member manager, or the member themselves when removing.`,
 	}
 	cmd.AddCommand(newCmdMemberList(f))
 	cmd.AddCommand(newCmdMemberRoles(f))
@@ -194,12 +196,14 @@ func newCmdMemberRoles(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "roles",
 		Short: "List the member roles an App offers",
-		Long: `List the member roles the App (--app, else the active App) offers: the union of
-its installed Agents' member roles, primary Agent first. These
-are the values ` + "`app member add --role`" + ` accepts. Change an Agent's roles with
-` + "`hadron agent update <ref> --member-roles …`" + `.
+		Long: `List the member roles the App (--app, else the active App) offers: the roles
+its installed Agents offer, put together, the primary Agent's first. These are
+the values "hadron app member add --role" accepts. To change what an Agent
+offers, use "hadron agent update <ref> --member-roles …".
 
-Text is one role per line; --json is an array of role strings.`,
+Prints one role per line, or "no member roles offered" when there are none;
+--json is an array of role strings. An App that does not exist or that you may
+not see exits 4.`,
 		Example: `  hadron app member roles
   hadron app member roles --app hrn:app:acme.com:eng-team --json`,
 		Args: cobra.NoArgs,
@@ -242,15 +246,21 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add --user <ref> --role <role> [--instruction <kind>:<ref>]",
 		Short: "Add a user to an App, or change their role",
-		Long: `Add a user to the App (--app, else the active App) with the given role.
+		Long: `Add a user to the App (--app, else the active App) with the given role, or
+change the role of a user who is already a member. Run "hadron app member roles"
+first to see the roles the App offers; --role is required, and no default is
+assumed.
 
-This is an idempotent upsert: the same role is a repeat, a different role
-changes the membership. Because the command never reads the list first, EVERY
-add is confirmed — pass --yes to skip the prompt; a non-interactive caller
-without --yes is refused before anything is sent.
+Adding the same role again changes nothing; a different role changes the
+membership. The command never reads the list first, so EVERY add asks for
+confirmation on a terminal: a script passes --yes, and without it a
+non-interactive run is refused before anything is sent. Prints "✓ <user> is a
+member of <App> (from --app) with role <role>" ("from the active App" when you
+did not pass --app); --json is the membership (app, userRef, user, role,
+createdAt, status "member").
 
-If the response is lost or ambiguous the outcome is reported as unknown and the
-write is not retried; check with ` + "`hadron app member list`" + `.`,
+If the answer is lost or unclear, the outcome is reported as unknown (not
+retried): check with "hadron app member list".`,
 		Example: `  hadron app member add --user ada@acme.com --role member --yes
   hadron app member add --app hrn:app:acme.com:eng-team --user hrn:user:ada --role owner`,
 		Args: cobra.NoArgs,
@@ -318,17 +328,17 @@ func newCmdMemberRemove(f *cmdutil.Factory) *cobra.Command {
 		Use:     "remove --user <ref> [--instruction <kind>:<ref>]",
 		Aliases: []string{"rm"},
 		Short:   "Remove a user from an App",
-		Long: `Remove a user from the App (--app, else the active App). Reversible: add the
-user again to restore the membership.
+		Long: `Remove a user from the App (--app, else the active App). You can undo it by
+adding the user again.
 
 The server answers the same whether or not the user was a member, so success
 means "not a member now", not "was removed". An App member manager may remove
 anyone; anyone else may remove only themselves, and every other target gets the
-same refusal — which is printed as-is, so it cannot be used to test whether a
+same refusal, printed as it comes, so it cannot be used to find out whether a
 user exists.
 
-Confirmed first: pass --yes to skip the prompt; a non-interactive caller
-without --yes is refused before anything is sent.`,
+It asks for confirmation on a terminal; a script passes --yes, and without it a
+non-interactive run is refused before anything is sent.`,
 		Example: `  hadron app member remove --user ada@acme.com --yes`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

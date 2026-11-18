@@ -12,22 +12,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const credentialInstructionHelp = `--instruction <kind>:<ref> claims, for this call, that the worker's holder
-instructed it. kind is team-chat-message, task or live-chat; ref is everything
-after the first colon, unchanged, never the instruction's text. The holder
-answers for the claim and must manage the App. The server checks the reference,
-never that an instruction happened. A host-launched session is refused whatever
-it claims; there is no grant arm here. Needs server 2026-11-03 or later.
+const credentialInstructionHelp = `--instruction <kind>:<ref> is for an AI worker acting on its holder's say-so
+(the holder is the person responsible for the worker). It claims that the
+holder told the worker to make this call. kind is team-chat-message, task or
+live-chat; ref points to where they said so (everything after the first colon,
+sent unchanged, never the instruction's text). The holder answers for the claim
+and must manage the App; the server checks the reference, never that an
+instruction happened, and a host-launched session is refused whatever it
+claims.
 
-With the flag, a complete, unchanged worktree binding for this server sends
-its worker session; the server checks the target App and holder authority.
-An unbound, corrupt, incomplete or foreign-server binding refuses locally
-(exit 2), never falling back to the person. No extra lookup, retry or downgrade
-is made. Without the flag, the call acts as you, with no worktree session; its
-document omits instruction and attribution stays as you. Minting, rotating
-and granting remain person-only and have no flag.
-
-`
+Without the flag the call acts as you. With it, the call goes out through the
+worker session of the bound working directory; a missing, incomplete or
+foreign-server binding refuses locally (exit 2) and never falls back to you;
+nothing is retried or downgraded. Needs server 2026-11-03 or later. Minting,
+rotating and granting stay person-only and have no flag. More: "hadron
+agentic-usage", "Instructed credential acts".`
 
 // What an instructed call records, said per act: a LIST paragraph on a revoke page
 // is copy-paste drift (cli#1053 audit, finding C3).
@@ -35,9 +34,9 @@ const (
 	credentialInstructionListRecord = `An admitted instructed list is NOT record-free: every call (each page) records
 one app.credential-act event, with no dedupe. Events name worker, holder, App,
 act kind and instruction, never a key, scope or grant id.`
-	credentialInstructionRevokeRecord = `A changing instructed revoke records one app.credential-act event; an
-already-revoked no-op records none. Events name worker, holder, App, act kind and
-instruction, never a key, scope or grant id.`
+	credentialInstructionRevokeRecord = `A changing instructed revoke records one app.credential-act event; a revoke
+that changes nothing records none. Events name worker, holder, App, act kind
+and instruction, never a key, scope or grant id.`
 )
 
 // addCredentialInstruction adds --instruction to a list page.

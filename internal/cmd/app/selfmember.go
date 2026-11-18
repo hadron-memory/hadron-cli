@@ -44,18 +44,23 @@ func newCmdJoin(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "join <app-ref>",
 		Short: "Join an App as yourself",
-		Long: `Join an App as the signed-in user (joinApp).
+		Long: `Join an App yourself, as the signed-in user, without anyone adding you. Name
+the App by ID, by URN or as org:slug.
 
-Self-join is closed unless the App's primary Agent opts in: the server
-then gives you the role the Agent names, never owner. Every refusal — closed to
-self-join, member limit reached, App not found or uninstalled, no installed
-Agent, invalid role, not signed in — is the server's own error, printed as-is
-with a nonzero exit.
+Joining yourself is closed unless the App's primary Agent opts in by naming the
+role self-joiners get. Then you get that role, never owner. To add someone with
+another role, an App member manager uses "hadron app member add". The server
+refuses, and the CLI prints its message unchanged with a nonzero exit, when
+self-join is closed (or the App has no installed Agent), the App has reached
+its member limit, the App is not found or is uninstalled, the Agent's policy
+does not accept the role, or you are not signed in.
 
-The server returns the existing row when you are already a member, and nothing
-in its answer says whether this call created it, so the command prints the
-member row and makes no "already a member" claim. Joining twice prints the
-same row and exits 0.`,
+If you are already a member you get your existing membership back and nothing
+changes. The server does not say whether this call created it, so the command
+prints your membership and never claims "already a member": joining twice
+prints the same and exits 0. Prints "✓ You are a member of <App> with role
+<role>" and the date you became a member; --json is the membership (app, appId,
+appUrn, appName, user, role, createdAt, isOrgExternal).`,
 		Example: `  hadron app join hrn:app:acme.com:eng-team
   hadron app join hrn:app:acme.com:eng-team --json`,
 		Args: cobra.ExactArgs(1),
@@ -116,20 +121,23 @@ func newCmdLeave(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "leave <app-ref> [--yes] [--instruction <kind>:<ref>]",
 		Short: "Leave an App you are a member of",
-		Long: `Leave an App as the signed-in user (leaveApp).
+		Long: `Leave an App yourself, as the signed-in user. Name the App by ID, by URN or
+as org:slug.
 
-Your personal memory in the App is kept and re-attaches if you can join again.
-Rejoining is subject to self-join policy and capacity.
+Your personal memory in the App is kept and re-attaches if you join again.
+Rejoining is subject to the App's self-join policy and its capacity.
 
-Idempotent: leaving an App you are not a member of is a no-op that exits 0, so
-success means "not a member now", not "was removed". Confirmed first: pass
---yes to skip the prompt; a non-interactive caller without --yes is refused
-before anything is sent.
+Leaving an App you are not a member of changes nothing and exits 0, so success
+means "not a member now", not "was removed". It asks for confirmation on a
+terminal; a script passes --yes, and without it a non-interactive run is
+refused before anything is sent. Prints "✓ You are not a member of <App> now"
+and a note that your personal memory is kept; --json is {"app", "appId",
+"userId", "status": "absent"}.
 
-Authority is the server's. A bound worker session needs an instruction or its
-own app.members grant, and an impersonating session, an App
-run or an unattributable session is refused; each refusal is printed
-unchanged with a nonzero exit.`,
+The server decides who may leave. A worker needs an instruction or its own
+app.members grant (below); a session acting as someone else, an App's own
+automated run, or a session the server cannot tie to one person is refused. Each
+refusal is printed unchanged with a nonzero exit.`,
 		Example: `  hadron app leave hrn:app:acme.com:eng-team --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

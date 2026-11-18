@@ -454,21 +454,34 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <ref>",
 		Short: "Show an agent (by ID or URN)",
-		Long: `Show an agent by ID or URN. A readable clone origin is printed as the
-source's current URN returned by the server. A null origin prints no line:
-non-clone, withheld, deleted and unrecorded origins are indistinguishable.
-JSON includes the nullable clonedFromAgentRef key. No clone-source lookup is made.
-For a system memory ID, one optional memory read adds its server-returned URN
-to text and the JSON systemMemoryUrn key. If unavailable (including older
-servers), output keeps the ID alone and omits that key without a warning.
-The "reset context after task" line (JSON resetContextAfterTask) shows the
-setting recorded by agent update --reset-context-after-task.
-The lifecycle line (JSON lifecycle) shows LONG_LIVED or SHORT_LIVED as
-recorded by agent update --lifecycle; it does not report a running process.
-This is a separate read. A server from before 2026-11-15 shows unknown, JSON
-lifecycle null, while the original Agent fields still work. Other
-read failures are errors. --lifecycle writes need a server from 2026-11-15 or
-later; omitting the flag keeps the legacy create/update documents unchanged.`,
+		Long: `Show one Agent by ID or URN. It only reads; nothing is changed. An Agent that
+does not exist, or that you may not read, exits 4.
+
+The text lists the Agent's name, URN and ID, type and visibility, description,
+its system memory (the Memory holding its prompts and tasks, shown as a URN when
+you may read it and as an ID alone when not), its tasks and processes index, the
+base Agent it extends, its AI provider and model (key: true or false says
+whether an API key is set), and the boot prompt it serves. It also shows how its
+workers run (uses tasks, lifecycle, whether context resets after each task, the
+context cap), whether it is listed on the marketplace, its member roles, and any
+surfaces and persona role. A value the Agent does not have prints "-".
+
+"offer readiness" says whether another organization could subscribe to, install
+and clone this Agent as it stands: ready, or not ready with each blocking reason
+and how many items it blocks. You see it only if you manage the Agent; for
+anyone else it reads "not available to you".
+
+"Cloned from" appears only for a clone whose source you may read, and shows the
+source's current URN. No line does not say why: the Agent may not be a clone, or
+the source may be unreadable or deleted. The lifecycle line is the setting
+recorded by "hadron agent update --lifecycle" (LONG_LIVED or SHORT_LIVED); it
+does not report a running process.
+
+--json prints the same fields, with clonedFromAgentRef (null when there is no
+"Cloned from" line), systemMemoryUrn (left out when the URN cannot be read),
+resetContextAfterTask and lifecycle. A server from before 2026-11-15 cannot
+report the lifecycle: the line says unknown and --json lifecycle is null, while
+every other field still works. Any other read failure is an error.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

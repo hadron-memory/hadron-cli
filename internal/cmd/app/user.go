@@ -45,23 +45,27 @@ func newCmdUserCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --external-id <id> [--handle <h>] [--name <n>]",
 		Short: "Create or return the user an App knows by its external id (App key only)",
-		Long: `Vouch for a user: the server creates the user the App knows by --external-id,
-or returns the one it already has — the same external id always gives the same
-user id (the identity is the App plus that external id).
+		Long: `Create the user your App knows by --external-id, or get back the one the
+server already has. The same external id always gives the same user: a user's
+identity is the App plus that external id, so running this twice never makes a
+second user.
 
-Run this with an App key credential (for example in HADRON_TOKEN). It is for
-App Key callers only: with a personal token the server refuses,
-and that refusal is printed as it comes (typed error, nonzero exit) — the CLI
-does not check the credential first.
+Run this with an App key, for example in HADRON_TOKEN; mint one with "hadron
+app key create". The user belongs to the App that key belongs to; the global
+--app is not used. It is for App key callers only: with a personal token the
+server refuses, and the refusal is printed as it comes (a typed error and a
+nonzero exit). The CLI does not check the credential first, and never prints
+it.
 
 The server's answer does not say whether the user was just created or already
-existed, so this prints only the user (id, handle, name, URN, external id — a field the
-server does not return shows as -), never a "created" or "existing" claim. --handle and --name are optional and left
-unsent when omitted. There is no --email: the server accepts only empty values
-for it, and an address is established through verified sign-in. Starting or
-ending a session for the user is not part of this command.
-
-The credential is never printed.`,
+existed, so this prints only the user (id, handle, name, URN and external id; a
+field the server does not return shows as -), never a "created" or "existing"
+claim. --json has the keys id, handle, name, urn and externalId (null for a
+field the server does not return). --handle and --name are optional and are not
+sent when left out. There
+is no --email: the server accepts only empty values for it, and an address is
+established through verified sign-in. Starting or ending a session for the user
+is not part of this command.`,
 		Example: `  hadron app user create --external-id crm-4411
   hadron app user create --external-id crm-4411 --handle ada --name "Ada L." --json`,
 		Args: cobra.NoArgs,

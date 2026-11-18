@@ -12,7 +12,7 @@ import (
 // --instruction help is found by walking the tree and classified by its verb, so a
 // page added later cannot slip through unchecked.
 func TestInstructionRecordParagraphMatchesTheAct1053(t *testing.T) {
-	const marker = "claims, for this call, that the worker's holder"
+	const marker = "It claims that the holder told the worker to make this call"
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
