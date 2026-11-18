@@ -276,10 +276,10 @@ section between the markers.
 | `agent lock` |  |  | n | #1053 | dfb2e3ae14ed |  | unread |  |
 | `agent lock acquire` |  |  | y | #1053 | 52000696a159 |  | unread |  |
 | `agent lock release` |  |  | y | #1053 | bb8debad9b68 |  | unread |  |
-| `agent memory` |  |  | n | #1053 | d8594cf33b6b |  | unread |  |
-| `agent memory add` |  |  | y | #1053 | bd9efcc930db |  | unread |  |
+| `agent memory` |  |  | n | #1053 | 5321c3705fac |  | unread |  |
+| `agent memory add` |  |  | y | #1053 | 6c427588c8e2 |  | unread |  |
 | `agent memory rm` | remove |  | y | #1053 | a9e619d0a6f5 |  | unread |  |
-| `agent memory set-role` |  |  | y | #1053 | a20a6137ecf6 |  | unread |  |
+| `agent memory set-role` |  |  | y | #1053 | fd1c3cc63f2c |  | unread |  |
 | `agent model-group` | model-groups |  | n | #1053 | 2fdbc7d42a42 |  | unread |  |
 | `agent model-group delete` | rm |  | y | #1053 | 304d8d1a1850 |  | unread |  |
 | `agent model-group list` | ls |  | y | #1053 | fa96d6761924 |  | unread |  |

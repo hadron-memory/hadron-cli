@@ -24,7 +24,12 @@ func newCmdAgentMemory(f *cmdutil.Factory) *cobra.Command {
 		Long: `Manage which Memories an Agent has. Each verb makes one server call and
 passes the agent and memory references exactly as typed (ID, URN or handle);
 the server resolves them, decides who may change an Agent's Memories, and
-validates the role (for example read or read-write).`,
+validates the role.
+
+A Memory's role on an Agent is its access level, and the documented set is
+exactly two values (cor:dmo:050:09): ` + "`read`" + ` (the Agent may read the Memory)
+and ` + "`read-write`" + ` (it may also change it). The CLI does not check the value;
+the server does, and refuses anything else.`,
 	}
 	cmd.AddCommand(newCmdAgentMemoryAdd(f), newCmdAgentMemorySetRole(f), newCmdAgentMemoryRm(f))
 	return cmd
@@ -61,10 +66,11 @@ func emitAgentMemory(f *cmdutil.Factory, a *gen.AgentFields, verb, memoryRef str
 func newCmdAgentMemoryAdd(f *cmdutil.Factory) *cobra.Command {
 	var role string
 	cmd := &cobra.Command{
-		Use:     "add <agent> <memory> [--role <role>]",
-		Short:   "Attach a Memory to an Agent",
-		Example: `  hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read`,
-		Args:    cobra.ExactArgs(2),
+		Use:   "add <agent> <memory> [--role <role>]",
+		Short: "Attach a Memory to an Agent",
+		Example: `  hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read
+  hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read-write`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			agentRef, memoryRef, err := memoryArgs(args)
 			if err != nil {
@@ -89,7 +95,7 @@ func newCmdAgentMemoryAdd(f *cmdutil.Factory) *cobra.Command {
 			return emitAgentMemory(f, a, "✓ attached", memoryRef)
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "the Memory's role on the Agent (omitted: the server default; the server validates)")
+	cmd.Flags().StringVar(&role, "role", "", "the Memory's access level on the Agent: read or read-write (cor:dmo:050:09; omitted: the server default; the server validates)")
 	return cmd
 }
 
@@ -123,7 +129,7 @@ func newCmdAgentMemorySetRole(f *cmdutil.Factory) *cobra.Command {
 			return emitAgentMemory(f, a, "✓ set role of", memoryRef)
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "the new role (required; the server validates)")
+	cmd.Flags().StringVar(&role, "role", "", "the new access level: read or read-write (cor:dmo:050:09; required; the server validates)")
 	return cmd
 }
 
