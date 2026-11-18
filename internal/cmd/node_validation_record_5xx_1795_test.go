@@ -169,9 +169,10 @@ func TestValidationRecord5xxAdviceWithoutRunIDAndDocs1795(t *testing.T) {
 	}
 }
 
-// Jack's BLIND P2-2: the exit-7 error's --json envelope carries the code, the
+// The exit-7 error's --json envelope carries the code, the
 // message the CLI wrote, and for a typed INTERNAL_SERVER_ERROR the server code
-// and request id; never the server's message or extensions.
+// and request id (cor:api:260:01: a 5xx is that code plus a request id); never
+// the server's message or extensions.
 func TestValidationRecord5xxJSONEnvelopeLeaksNothing1795(t *testing.T) {
 	for name, tc := range map[string]struct {
 		body             string
@@ -193,11 +194,20 @@ func TestValidationRecord5xxJSONEnvelopeLeaksNothing1795(t *testing.T) {
 			if code := renderError(f, err); code != exitcode.Unavailable {
 				t.Fatalf("exit %d", code)
 			}
-			var envelope map[string]map[string]any
-			if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+			var raw map[string]json.RawMessage
+			if e := json.Unmarshal([]byte(out.String()), &raw); e != nil {
 				t.Fatalf("%v: %s", e, out.String())
 			}
-			failure := envelope["error"]
+			var failure map[string]any
+			if e := json.Unmarshal(raw["error"], &failure); e != nil || len(failure) == 0 {
+				t.Fatalf("no error envelope: %v %s", e, out.String())
+			}
+			if msg, _ := failure["message"].(string); !strings.Contains(msg, "unknown outcome") || failure["code"] != float64(exitcode.Unavailable) {
+				t.Fatalf("the CLI-written exit-7 message is missing: %v", failure)
+			}
+			if _, ok := failure["requestId"]; ok != tc.wantServerCode {
+				t.Fatalf("requestId present=%v want %v: %v", ok, tc.wantServerCode, failure)
+			}
 			if strings.Contains(out.String(), secretDetail1795) || strings.Contains(out.String(), "shard") || failure["extensions"] != nil {
 				t.Fatalf("server detail in the envelope: %s", out.String())
 			}
@@ -211,7 +221,7 @@ func TestValidationRecord5xxJSONEnvelopeLeaksNothing1795(t *testing.T) {
 	}
 }
 
-// Jack's BLIND P3s: a 502 with a body that is not JSON degrades to the plain
+// Edge cases: a 502 with a body that is not JSON degrades to the plain
 // HTTP status; a 503 keeps the shared mapping (deferred to #2430); an empty
 // --run-id is not "a run id was passed".
 func TestValidationRecord5xxEdges1795(t *testing.T) {
@@ -225,15 +235,16 @@ func TestValidationRecord5xxEdges1795(t *testing.T) {
 	t.Run("503 keeps the shared mapping", func(t *testing.T) {
 		srv, _ := server5xx1795(t, 503, `{"errors":[{"message":"unavailable"}]}`)
 		err := record1795(t, srv)
+		// "unknown outcome" is the marker of the exit-7 guidance text.
 		if err == nil || exitCodeFor(err) != exitcode.Error || strings.Contains(err.Error(), "unknown outcome") {
 			t.Fatalf("503 must keep the shared mapping (#2430): exit=%d %v", exitCodeFor(err), err)
 		}
 	})
-	t.Run("empty --run-id is not a run id", func(t *testing.T) {
-		srv, _ := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
+	t.Run("an empty --run-id is refused locally, nothing sent", func(t *testing.T) {
+		srv, sent := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
 		err := record1795(t, srv, "--run-id", "")
-		if err == nil || !strings.Contains(err.Error(), "no --run-id") {
-			t.Fatalf("empty run id advice: %v", err)
+		if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "--run-id must not be empty") || len(*sent) != 0 {
+			t.Fatalf("empty run id: sent=%d %v", len(*sent), err)
 		}
 	})
 }

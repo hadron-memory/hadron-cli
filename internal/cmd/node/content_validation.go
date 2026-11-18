@@ -124,6 +124,9 @@ conflict; without --run-id it may record a second report. Nothing is retried. Th
 			if outcome != "PASS" && outcome != "FAIL" && outcome != "ERROR" {
 				return exitcode.Newf(exitcode.Usage, "--outcome must be PASS, FAIL or ERROR")
 			}
+			if cmd.Flags().Changed("run-id") && strings.TrimSpace(runID) == "" {
+				return exitcode.Newf(exitcode.Usage, "--run-id must not be empty (1-200 characters); no report sent")
+			}
 			if cmd.Flags().Changed("task") && strings.TrimSpace(taskChoice) == "" {
 				return exitcode.Newf(exitcode.Usage, "--task must name a task in the effective set")
 			}
@@ -183,7 +186,7 @@ conflict; without --run-id it may record a second report. Nothing is retried. Th
 			}
 			response, err := gen.RecordContentValidation(cmd.Context(), client, n.Id, n.Revision, chosen.id, chosen.revision, gen.NodeContentValidationOutcome(outcome), run)
 			if err != nil {
-				return recordMutationError(err, args[0], run != nil && *run != "")
+				return recordMutationError(err, args[0], run != nil)
 			}
 			r := response.RecordNodeContentValidationReport
 			if r == nil || r.Report == nil || r.NodeId != n.Id || r.Report.NodeRevision < 1 || r.Report.ReportedAt == "" || r.Report.Outcome == "" || r.State == "" {
