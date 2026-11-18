@@ -103,13 +103,14 @@ type health2027World struct {
 	lastErr    string
 
 	orcaCloses string // file the fake orca appends closes to
-	// list2Path, when it exists, replaces the listing from the SECOND
-	// `terminal list` call on — the shape the N3 recheck reads.
-	list2Path string
-	// failList2, when it exists, fails the SECOND `terminal list` call.
-	failList2  string
-	agentTerms string // file the fake agents append SIGTERM traps to
-	agents     []*exec.Cmd
+	// recheckListPath, when it exists, is the listing the fake orca answers
+	// to every RECHECK `terminal list` call — the shape the N3 recheck reads.
+	recheckListPath string
+	// failRecheckListPath, when it exists, makes every RECHECK `terminal
+	// list` call fail.
+	failRecheckListPath string
+	agentTerms          string // file the fake agents append SIGTERM traps to
+	agents              []*exec.Cmd
 	// spawns numbers every fixture process launch, keeping ready-file names
 	// unique across spawns of the same name (#2055 item 1).
 	spawns int
@@ -159,38 +160,34 @@ func health2027SetupN(t *testing.T, second bool) *health2027World {
 
 	// The fake orca: list reads a JSON file, read answers a per-handle screen
 	// file, close appends the handle to a record, rename answers ok. The N3
-	// recheck variants — a later listing, a second screen per handle, a
-	// failing recheck list — are opt-in per test through the files the
-	// counters branch on. One sweep Lists three times (the #2017 title pass,
-	// the sweep's own first listing, then the recheck), so the variants arm
-	// from the THIRD list; the title pass reads no screens, so the recheck
-	// stays the SECOND read of a handle.
+	// recheck variants — a later listing, a flipped screen per handle, a
+	// failing recheck list — are opt-in per test through per-purpose marker
+	// files, and the fake arms them causally, never by call count (#2342):
+	// the sweep classifies terminals (`terminal read`) before any fix, and
+	// only the pre-close recheck lists again after that, so a list call that
+	// follows a read IS a recheck. Inserting one orca call anywhere before
+	// the first read therefore cannot re-point the variants.
 	listPath := filepath.Join(dir, "orca-list.json")
-	w.list2Path = filepath.Join(dir, "orca-list-2.json")
-	w.failList2 = filepath.Join(dir, "orca-list-2.fail")
-	counts := filepath.Join(dir, "call-counts")
+	w.recheckListPath = filepath.Join(dir, "orca-list-recheck.json")
+	w.failRecheckListPath = filepath.Join(dir, "orca-list-recheck.fail")
 	w.orcaCloses = filepath.Join(dir, "orca-closes.txt")
 	w.closeFail = filepath.Join(dir, "orca-close.fail")
 	screens := filepath.Join(dir, "screens")
-	for _, d := range []string{counts, screens} {
-		if err := os.MkdirAll(d, 0o755); err != nil {
-			t.Fatal(err)
-		}
-	}
-	orcaBin := filepath.Join(dir, "fake-orca")
-	incr := filepath.Join(dir, "incr")
-	if err := os.WriteFile(incr, []byte("#!/bin/sh\nf=\"$1\"; n=0; [ -f \"$f\" ] && n=$(cat \"$f\"); n=$((n+1)); echo $n > \"$f\"; echo $n\n"), 0o755); err != nil {
+	readSeen := filepath.Join(dir, "read-seen")   // touched by every read
+	recheckOn := filepath.Join(dir, "recheck-on") // touched by the first list that follows a read
+	if err := os.MkdirAll(screens, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	orcaBin := filepath.Join(dir, "fake-orca")
 	script := "#!/bin/sh\ncase \"$1 $2\" in\n" +
 		"  \"terminal list\")\n" +
-		"    n=$(\"" + incr + "\" \"" + counts + "/list\")\n" +
-		"    if [ \"$n\" -ge 3 ] && [ -f \"" + w.failList2 + "\" ]; then exit 1; fi\n" +
-		"    if [ \"$n\" -ge 3 ] && [ -f \"" + w.list2Path + "\" ]; then cat \"" + w.list2Path + "\"; else cat \"" + listPath + "\"; fi;;\n" +
+		"    if [ -f \"" + readSeen + "\" ]; then : > \"" + recheckOn + "\"; fi\n" +
+		"    if [ -f \"" + recheckOn + "\" ] && [ -f \"" + w.failRecheckListPath + "\" ]; then exit 1; fi\n" +
+		"    if [ -f \"" + recheckOn + "\" ] && [ -f \"" + w.recheckListPath + "\" ]; then cat \"" + w.recheckListPath + "\"; else cat \"" + listPath + "\"; fi;;\n" +
 		"  \"terminal read\")\n" +
-		"    n=$(\"" + incr + "\" \"" + counts + "/read-$4\")\n" +
+		"    : > \"" + readSeen + "\"\n" +
 		"    f=\"" + screens + "/$4.json\"\n" +
-		"    if [ \"$n\" -ge 2 ] && [ -f \"" + screens + "/$4.json.2\" ]; then f=\"" + screens + "/$4.json.2\"; fi\n" +
+		"    if [ -f \"" + recheckOn + "\" ] && [ -f \"" + screens + "/$4.json.recheck\" ]; then f=\"" + screens + "/$4.json.recheck\"; fi\n" +
 		"    printf '%s' '{\"ok\":true,\"result\":{\"terminal\":{\"source\":\"screen\",\"tail\":'; cat \"$f\"; printf '%s' ',\"draft\":null}}}';;\n" +
 		"  \"terminal close\") if [ -f \"" + w.closeFail + "\" ]; then exit 1; fi; echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"  \"terminal rename\") printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
@@ -355,7 +352,7 @@ func (w *health2027World) writeList(t *testing.T, path string, terms []health202
 // so the recheck can read it.
 func (w *health2027World) setRecheckList(t *testing.T, terms []health2027Term) {
 	t.Helper()
-	w.writeList(t, w.list2Path, terms)
+	w.writeList(t, w.recheckListPath, terms)
 	for _, tm := range terms {
 		if _, err := os.Stat(filepath.Join(w.dir, "screens", tm.Handle+".json")); err != nil {
 			tail, _ := json.Marshal(tm.Screen)
@@ -370,18 +367,18 @@ func (w *health2027World) setRecheckList(t *testing.T, terms []health2027Term) {
 // the recheck cannot verify the tab and must decline.
 func (w *health2027World) failRecheckList(t *testing.T) {
 	t.Helper()
-	if err := os.WriteFile(w.failList2, []byte(""), 0o600); err != nil {
+	if err := os.WriteFile(w.failRecheckListPath, []byte(""), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// flipRecheckScreen makes the SECOND `terminal read` of handle answer screen
-// instead (#2037 N3): the tab classified bare on the first read and turns
-// before the close.
+// flipRecheckScreen makes every RECHECK `terminal read` of handle answer
+// screen instead (#2037 N3): the tab classified bare on the first read and
+// turns before the close.
 func (w *health2027World) flipRecheckScreen(t *testing.T, handle string, screen []string) {
 	t.Helper()
 	tail, _ := json.Marshal(screen)
-	if err := os.WriteFile(filepath.Join(w.dir, "screens", handle+".json.2"), tail, 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(w.dir, "screens", handle+".json.recheck"), tail, 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
