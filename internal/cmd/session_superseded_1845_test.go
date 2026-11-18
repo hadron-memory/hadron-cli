@@ -138,11 +138,13 @@ func TestSupersededCurrentEvidence1845(t *testing.T) {
 func TestSupersededUncertainAndOtherCodes1845(t *testing.T) {
 	for _, status := range []int{502, 503} {
 		for _, jsonMode := range []bool{false, true} {
-			r := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "session-C", "startedAt": "2026-11-12T16:37:52Z"}, jsonMode)
-			all := r.stdout + r.stderr
-			if r.exit != 1 || strings.Contains(all, "session-C") || strings.Contains(all, "No retry or rebind") || strings.Contains(all, "Current open session:") || strings.Contains(all, "\"startedAt\"") {
-				t.Fatalf("5xx became definitive: %+v", r)
-			}
+			t.Run(jsonInt(status)+map[bool]string{false: "/text", true: "/json"}[jsonMode], func(t *testing.T) {
+				r := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "session-C", "startedAt": "2026-11-12T16:37:52Z"}, jsonMode)
+				all := r.stdout + r.stderr
+				if r.exit != 1 || strings.Contains(all, "session-C") || strings.Contains(all, "No retry or rebind") || strings.Contains(all, "Current open session:") || strings.Contains(all, "\"startedAt\"") {
+					t.Fatalf("5xx became definitive: %+v", r)
+				}
+			})
 		}
 	}
 	for _, tc := range []struct {
@@ -169,20 +171,22 @@ func TestSupersededEscapesAndRawEvidence1845(t *testing.T) {
 	const id = "session-C\n\x1b[31m\u2028tail"
 	const stamp = "2026-11-12T16:37:52Z"
 	for _, status := range []int{200, 409} {
-		machine := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}, true)
-		var doc struct {
-			Error map[string]any `json:"error"`
-		}
-		if err := json.Unmarshal([]byte(machine.stdout), &doc); err != nil {
-			t.Fatal(err)
-		}
-		if doc.Error["sessionId"] != id || doc.Error["startedAt"] != stamp {
-			t.Fatalf("JSON escaped pair not lossless: %s", machine.stdout)
-		}
-		human := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}, false)
-		if strings.Count(human.stderr, "\n") != 1 || strings.ContainsAny(human.stderr, "\x1b\u2028") || !strings.Contains(human.stderr, "No retry or rebind was attempted.") {
-			t.Fatalf("unsafe human hint: %q", human.stderr)
-		}
+		t.Run(jsonInt(status), func(t *testing.T) {
+			machine := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}, true)
+			var doc struct {
+				Error map[string]any `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(machine.stdout), &doc); err != nil {
+				t.Fatal(err)
+			}
+			if doc.Error["sessionId"] != id || doc.Error["startedAt"] != stamp {
+				t.Fatalf("JSON escaped pair not lossless: %s", machine.stdout)
+			}
+			human := runSuperseded1845(t, status, map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": id, "startedAt": stamp}, false)
+			if strings.Count(human.stderr, "\n") != 1 || strings.ContainsAny(human.stderr, "\x1b\u2028") || !strings.Contains(human.stderr, "No retry or rebind was attempted.") {
+				t.Fatalf("unsafe human hint: %q", human.stderr)
+			}
+		})
 	}
 }
 
@@ -236,32 +240,65 @@ func TestSupersededFaultCodePrecedence1845(t *testing.T) {
 
 // Clone details are computed first, then replaced by the definitive superseded
 // hint. Pin the rendering order without changing the wrapped JSON evidence.
+//
+// The pinned contract (cli#2311 item 2): JSON keeps the superseded pair and the
+// wrapped extensions (code, reason) and carries the plain message with no
+// clone-refusal text; text shows only the superseded hint. Each mode leaves the
+// other stream empty.
 func TestSupersededCloneWrapperPrecedence2251(t *testing.T) {
-	for _, jsonMode := range []bool{false, true} {
-		f, out := testFactory(t)
-		var stderr bytes.Buffer
-		f.IOStreams.ErrOut = &stderr
-		f.JSON = jsonMode
-		err := api.MapCloneAgentError(&gqlerror.Error{Message: "Session superseded.", Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z", "reason": "CLONE_DETAIL"}})
-		if api.CloneAgentDetailText(err) == "" {
-			t.Fatal("fixture must actually carry clone detail text")
-		}
-		if code := renderError(f, err); code != 1 {
-			t.Fatalf("exit = %d, want 1", code)
-		}
-		if jsonMode {
-			var doc struct {
-				Error map[string]any `json:"error"`
+	for _, tc := range []struct {
+		name     string
+		jsonMode bool
+	}{{"text", false}, {"json", true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, out := testFactory(t)
+			var stderr bytes.Buffer
+			f.IOStreams.ErrOut = &stderr
+			f.JSON = tc.jsonMode
+			err := api.MapCloneAgentError(&gqlerror.Error{Message: "Session superseded.", Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z", "reason": "CLONE_DETAIL"}})
+			detail := api.CloneAgentDetailText(err)
+			if detail == "" {
+				t.Fatal("fixture must actually carry clone detail text")
 			}
-			if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
-				t.Fatal(err)
+			if code := renderError(f, err); code != 1 {
+				t.Fatalf("exit = %d, want 1", code)
 			}
-			if doc.Error["serverCode"] != "SESSION_SUPERSEDED" || doc.Error["sessionId"] != "A" || doc.Error["startedAt"] != "2026-11-12T16:37:52Z" {
-				t.Fatalf("JSON evidence changed: %s", out.String())
+			if tc.jsonMode {
+				if stderr.Len() != 0 {
+					t.Fatalf("JSON mode wrote to stderr: %q", stderr.String())
+				}
+				var doc struct {
+					Error struct {
+						Code       int            `json:"code"`
+						Message    string         `json:"message"`
+						ServerCode string         `json:"serverCode"`
+						SessionID  string         `json:"sessionId"`
+						StartedAt  string         `json:"startedAt"`
+						Extensions map[string]any `json:"extensions"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
+					t.Fatal(err)
+				}
+				e := doc.Error
+				if e.Message != "Session superseded." || e.ServerCode != "SESSION_SUPERSEDED" || e.SessionID != "A" || e.StartedAt != "2026-11-12T16:37:52Z" {
+					t.Fatalf("JSON evidence changed: %s", out.String())
+				}
+				if len(e.Extensions) != 2 || e.Extensions["code"] != "SESSION_SUPERSEDED" || e.Extensions["reason"] != "CLONE_DETAIL" {
+					t.Fatalf("wrapped clone extensions changed: %v", e.Extensions)
+				}
+				if strings.Contains(out.String(), strings.TrimSpace(detail)) {
+					t.Fatalf("clone refusal text leaked into the JSON answer: %s", out.String())
+				}
+			} else {
+				if out.Len() != 0 {
+					t.Fatalf("text mode wrote to stdout: %q", out.String())
+				}
+				if want := "hadron: Session superseded. Current open session: A (started 2026-11-12T16:37:52Z). No retry or rebind was attempted.\n"; stderr.String() != want {
+					t.Fatalf("human answer = %q, want %q", stderr.String(), want)
+				}
 			}
-		} else if want := "hadron: Session superseded. Current open session: A (started 2026-11-12T16:37:52Z). No retry or rebind was attempted.\n"; stderr.String() != want {
-			t.Fatalf("human answer = %q, want %q", stderr.String(), want)
-		}
+		})
 	}
 }
 
@@ -269,50 +306,77 @@ func TestSupersededCloneWrapperPrecedence2251(t *testing.T) {
 // an authoring code, while SupersededSessionEvidence requires only superseded
 // codes. Reordering the overrides is equivalent for these inputs (Wolfgang
 // ruling #113282). This mixed-code control pins the actual boundary instead.
+//
+// Two independent rules meet here and are pinned separately (cli#2311):
+//   - authored text (cor:agt:020:03, #2302) controls the presentation, and
+//     never discloses the private task detail on either stream;
+//   - the #2243 specific-marker rule keeps serverCode SESSION_SUPERSEDED even
+//     though the mixed codes suppress the successor pair.
+//
+// Each mode leaves the other stream empty.
 func TestSupersededMixedAuthoredControl2251(t *testing.T) {
-	for _, reverse := range []bool{false, true} {
-		for _, jsonMode := range []bool{false, true} {
-			list := gqlerror.List{
-				&gqlerror.Error{Message: "Session superseded.", Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z"}},
-				&gqlerror.Error{Message: "private task detail", Extensions: map[string]any{"code": "AUTHORING_ATTESTATION_MISSING", "taskAccess": "UNAVAILABLE"}},
-			}
-			if reverse {
-				list[0], list[1] = list[1], list[0]
-			}
-			err := api.MapError(list)
-			if definitive, _, _ := api.SupersededSessionEvidence(err); definitive {
-				t.Fatal("mixed codes cannot be a definitive superseded refusal")
-			}
-			if _, ok := authoredRefusalText(err); !ok {
-				t.Fatal("fixture must activate authored text")
-			}
-			f, out := testFactory(t)
-			var stderr bytes.Buffer
-			f.IOStreams.ErrOut = &stderr
-			f.JSON = jsonMode
-			if code := renderError(f, err); code != 1 {
-				t.Fatalf("exit = %d, want 1", code)
-			}
-			const message = "the authoring task is unreadable or unusable; an owner must fix access or the rule"
-			if jsonMode {
-				var doc struct {
-					Error map[string]any `json:"error"`
+	for _, order := range []struct {
+		name    string
+		reverse bool
+	}{{"superseded-first", false}, {"authored-first", true}} {
+		for _, mode := range []struct {
+			name     string
+			jsonMode bool
+		}{{"text", false}, {"json", true}} {
+			t.Run(order.name+"/"+mode.name, func(t *testing.T) {
+				list := gqlerror.List{
+					&gqlerror.Error{Message: "Session superseded.", Extensions: map[string]any{"code": "SESSION_SUPERSEDED", "sessionId": "A", "startedAt": "2026-11-12T16:37:52Z"}},
+					&gqlerror.Error{Message: "private task detail", Extensions: map[string]any{"code": "AUTHORING_ATTESTATION_MISSING", "taskAccess": "UNAVAILABLE"}},
 				}
-				if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
-					t.Fatal(err)
+				if order.reverse {
+					list[0], list[1] = list[1], list[0]
 				}
-				// Intentional independent fields: authored text controls presentation,
-				// while the existing specific-marker rule retains SESSION_SUPERSEDED
-				// even when mixed codes suppress successor evidence (#2243, #113282).
-				if doc.Error["message"] != message || doc.Error["serverCode"] != "SESSION_SUPERSEDED" {
-					t.Fatalf("JSON answer changed: %s", out.String())
+				err := api.MapError(list)
+				if definitive, _, _ := api.SupersededSessionEvidence(err); definitive {
+					t.Fatal("mixed codes cannot be a definitive superseded refusal")
 				}
-				if _, ok := doc.Error["sessionId"]; ok {
-					t.Fatalf("mixed envelope projected pair: %s", out.String())
+				if _, ok := authoredRefusalText(err); !ok {
+					t.Fatal("fixture must activate authored text")
 				}
-			} else if stderr.String() != "hadron: "+message+"\n" {
-				t.Fatalf("human answer = %q", stderr.String())
-			}
+				f, out := testFactory(t)
+				var stderr bytes.Buffer
+				f.IOStreams.ErrOut = &stderr
+				f.JSON = mode.jsonMode
+				if code := renderError(f, err); code != 1 {
+					t.Fatalf("exit = %d, want 1", code)
+				}
+				const message = "the authoring task is unreadable or unusable; an owner must fix access or the rule"
+				if strings.Contains(out.String()+stderr.String(), "private task detail") {
+					t.Fatalf("private task detail disclosed: stdout %q stderr %q", out.String(), stderr.String())
+				}
+				if mode.jsonMode {
+					if stderr.Len() != 0 {
+						t.Fatalf("JSON mode wrote to stderr: %q", stderr.String())
+					}
+					var doc struct {
+						Error map[string]any `json:"error"`
+					}
+					if err := json.Unmarshal([]byte(out.String()), &doc); err != nil {
+						t.Fatal(err)
+					}
+					// Intentional independent fields: authored text controls presentation,
+					// while the existing specific-marker rule (#2243, #113282) retains
+					// SESSION_SUPERSEDED even when mixed codes suppress successor evidence.
+					if doc.Error["message"] != message || doc.Error["serverCode"] != "SESSION_SUPERSEDED" {
+						t.Fatalf("JSON answer changed: %s", out.String())
+					}
+					if _, ok := doc.Error["sessionId"]; ok {
+						t.Fatalf("mixed envelope projected pair: %s", out.String())
+					}
+				} else {
+					if out.Len() != 0 {
+						t.Fatalf("text mode wrote to stdout: %q", out.String())
+					}
+					if stderr.String() != "hadron: "+message+"\n" {
+						t.Fatalf("human answer = %q", stderr.String())
+					}
+				}
+			})
 		}
 	}
 }

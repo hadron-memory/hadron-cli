@@ -1,48 +1,15 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 )
 
 // cli#1495: pointer-refusal classification and the lost-record answer note
-// (follow-ups to #1493). A statusGraphQLServer answers each operation with its own
-// HTTP status and body, which the plain captureGraphQL cannot (it is always 200).
-func statusGraphQLServer(t *testing.T, resp map[string]statusGraphQLResponse, seen func(op string)) *httptest.Server {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"capabilities":[]}`))
-			return
-		}
-		var req struct {
-			OperationName string `json:"operationName"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		seen(req.OperationName)
-		got, ok := resp[req.OperationName]
-		if !ok {
-			t.Errorf("unexpected operation %q", req.OperationName)
-			got.status, got.body = 200, `{"errors":[{"message":"unexpected operation"}]}`
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(got.status)
-		_, _ = w.Write([]byte(got.body))
-	}))
-	t.Cleanup(srv.Close)
-	return srv
-}
-
-type statusGraphQLResponse = struct {
-	status int
-	body   string
-}
+// (follow-ups to #1493). The per-operation status server these tests use is
+// statusGraphQLServer, in status_graphql_helper_test.go.
 
 const recorded1495 = `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 	"tool":"github","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
