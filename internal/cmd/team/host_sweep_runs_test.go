@@ -198,7 +198,7 @@ func TestSweepHistoryEmptyAndMalformed2056(t *testing.T) {
 }
 
 func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
-	for _, scenario := range []string{"valid", "alias", "wrong-host", "missing", "second-app-error", "second-app-wrong-host", "transport", "server-mismatch", "server-trailing-slash"} {
+	for _, scenario := range []string{"valid", "alias", "wrong-host", "missing", "second-app-error", "second-app-wrong-host", "transport", "server-mismatch", "server-trailing-slash", "config-trailing-slash"} {
 		t.Run(scenario, func(t *testing.T) {
 			reads, writes := 0, 0
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +255,13 @@ func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
 				t.Fatal(err)
 			}
 			cfg := filepath.Join(dir, "host.yaml")
-			if err := os.WriteFile(cfg, []byte(fmt.Sprintf("server: %s\napp: app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n", srv.URL, key, dir)), 0600); err != nil {
+			cfgServer := srv.URL
+			if scenario == "config-trailing-slash" {
+				// The config spells the same server with a trailing slash; the guard
+				// trims both sides (cli#2153), so this is not a mismatch.
+				cfgServer += "/"
+			}
+			if err := os.WriteFile(cfg, []byte(fmt.Sprintf("server: %s\napp: app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n", cfgServer, key, dir)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			streams, _, _ := output.Test()
@@ -362,5 +368,29 @@ func TestSweepHistoryRequiresHostBeforeNetwork2295(t *testing.T) {
 				t.Fatalf("host refusal: err=%v code=%d reads=%d requests=%d; want Usage, %q and no HTTP", err, exitcode.FromError(err), reads.Load(), requests.Load(), want)
 			}
 		})
+	}
+}
+
+// cli#2153: the sweep timer's interval is fixed. A different --interval is a
+// usage refusal before any unit is written (cron/launchd refusal is pinned in
+// healthsched, TestSweepRefusesCronAndLaunchdWithoutWrites2153).
+func TestSweepInstallRefusesAnotherIntervalWithoutWrites2153(t *testing.T) {
+	t.Setenv("PATH", "/nonexistent")
+	orca := filepath.Join(t.TempDir(), "orca")
+	if err := os.WriteFile(orca, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_, _, home := healthHarness(t, "systemctl", "logger")
+	cfg := hostConfig(t, orca)
+	io, _, _ := output.Test()
+	c := newCmdTeamHostSweep(&cmdutil.Factory{IOStreams: io})
+	c.SilenceErrors, c.SilenceUsage = true, true
+	c.SetArgs([]string{"install", "--config", cfg, "--bin", "/usr/bin/hadron", "--interval", "5m"})
+	err := c.Execute()
+	if err == nil || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "sweep interval is fixed at 1m") {
+		t.Fatalf("err = %v, want a usage refusal naming the fixed interval", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(home, ".config/systemd/user/hadron-team-sweep.service")); statErr == nil {
+		t.Fatal("a refused install wrote the service unit")
 	}
 }
