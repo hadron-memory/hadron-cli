@@ -3976,6 +3976,7 @@ An explicit --task never overrides a refusal of the task set itself (an empty se
 still exit 2 once --task is named; a BROKEN set is exit 5 and an UNAVAILABLE one exit 8, each without a write).
 An explicit task outside the set exits 2. No client reporter field is sent;
 a READY selection does not waive the mutation's author or access checks.
+An HTTP 500, 502 or 504 answer to the record request exits 7 even when its body is a JSON error: the outcome is unknown, so read the node's latest validation report before recording again (`hadron node get`). A repeat with the same `--run-id` is a replay if the first attempt was recorded; without `--run-id` it may record a second report. The message shows only the HTTP status and, when the envelope says INTERNAL_SERVER_ERROR, that code and its request id; nothing is retried.
 
 `--run-id` is passed through, including on a deliberate retry. JSON is
 `{nodeId,replayed,report:{nodeRevision,validationTaskRef,validationTaskRevision,

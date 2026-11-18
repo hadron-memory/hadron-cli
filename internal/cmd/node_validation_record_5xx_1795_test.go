@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -24,10 +25,9 @@ const (
 
 // server5xx1795 answers the discovery read normally and the record mutation
 // with status and body; it captures every record request's variables.
-func server5xx1795(t *testing.T, status int, body string) (*httptest.Server, *[]map[string]any, *int) {
+func server5xx1795(t *testing.T, status int, body string) (*httptest.Server, *[]map[string]any) {
 	t.Helper()
 	var sent []map[string]any
-	reads := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var q struct {
 			OperationName string
@@ -37,7 +37,6 @@ func server5xx1795(t *testing.T, status int, body string) (*httptest.Server, *[]
 		w.Header().Set("Content-Type", "application/json")
 		switch q.OperationName {
 		case "ContentValidationNode":
-			reads++
 			if status == -1 { // a 5xx on the READ, to prove the read is untouched
 				w.WriteHeader(500)
 				fmt.Fprintf(w, `{"errors":[{"message":%q,"extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-read-1"}}]}`, secretDetail1795)
@@ -53,7 +52,7 @@ func server5xx1795(t *testing.T, status int, body string) (*httptest.Server, *[]
 		}
 	}))
 	t.Cleanup(srv.Close)
-	return srv, &sent, &reads
+	return srv, &sent
 }
 
 func TestValidationRecord5xxEnvelopeIsAnUnknownOutcome1795(t *testing.T) {
@@ -71,7 +70,7 @@ func TestValidationRecord5xxEnvelopeIsAnUnknownOutcome1795(t *testing.T) {
 			"codeless":                    {codeless, false, ""},
 		} {
 			t.Run(fmt.Sprintf("%d %s", status, name), func(t *testing.T) {
-				srv, sent, _ := server5xx1795(t, status, tc.body)
+				srv, sent := server5xx1795(t, status, tc.body)
 				err := record1795(t, srv, "--run-id", "run-9")
 				if exitCodeFor(err) != exitcode.Unavailable || err == nil {
 					t.Fatalf("exit=%d want 7: %v", exitCodeFor(err), err)
@@ -103,20 +102,20 @@ func TestValidationRecord5xxEnvelopeIsAnUnknownOutcome1795(t *testing.T) {
 // READ keep the shared mapping.
 func TestValidationRecord5xxWrapperIsBounded1795(t *testing.T) {
 	t.Run("read 500 stays the internal-fault exit 1", func(t *testing.T) {
-		srv, sent, _ := server5xx1795(t, -1, "")
+		srv, sent := server5xx1795(t, -1, "")
 		err := record1795(t, srv)
 		if exitCodeFor(err) != exitcode.Error || len(*sent) != 0 {
 			t.Fatalf("exit=%d sent=%d: %v", exitCodeFor(err), len(*sent), err)
 		}
 	})
 	t.Run("a 200 refusal envelope keeps its exit", func(t *testing.T) {
-		srv, _, _ := server5xx1795(t, 200, `{"errors":[{"message":"x","extensions":{"code":"CONFLICT"}}]}`)
+		srv, _ := server5xx1795(t, 200, `{"errors":[{"message":"x","extensions":{"code":"CONFLICT"}}]}`)
 		if err := record1795(t, srv); exitCodeFor(err) != exitcode.Conflict {
 			t.Fatalf("exit=%d: %v", exitCodeFor(err), err)
 		}
 	})
 	t.Run("a 400 refusal keeps its exit", func(t *testing.T) {
-		srv, _, _ := server5xx1795(t, 400, `{"errors":[{"message":"x","extensions":{"code":"CONTENT_VALIDATION_WRONG_TASK"}}]}`)
+		srv, _ := server5xx1795(t, 400, `{"errors":[{"message":"x","extensions":{"code":"CONTENT_VALIDATION_WRONG_TASK"}}]}`)
 		if err := record1795(t, srv); exitCodeFor(err) != exitcode.Usage {
 			t.Fatalf("exit=%d: %v", exitCodeFor(err), err)
 		}
@@ -127,16 +126,42 @@ func TestValidationRecord5xxWrapperIsBounded1795(t *testing.T) {
 // with --run-id both requests carry the same run id (and the same node and
 // task revisions); without it no run id is sent at all.
 func TestValidationRecordRepeatSendsTheSameRunID1795(t *testing.T) {
-	srv, sent, _ := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
+	srv, sent := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
 	_ = record1795(t, srv, "--run-id", "run-9")
 	_ = record1795(t, srv, "--run-id", "run-9")
 	if len(*sent) != 2 || (*sent)[0]["runId"] != "run-9" || (*sent)[1]["runId"] != "run-9" ||
 		(*sent)[0]["nodeRevision"] != (*sent)[1]["nodeRevision"] || (*sent)[0]["validationTaskRevision"] != (*sent)[1]["validationTaskRevision"] {
 		t.Fatalf("a repeat with --run-id must send the identical request: %v", *sent)
 	}
-	srv2, sent2, _ := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
+	srv2, sent2 := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
 	_ = record1795(t, srv2)
 	if _, ok := (*sent2)[0]["runId"]; len(*sent2) != 1 || ok {
 		t.Fatalf("without --run-id no idempotency key is sent: %v", *sent2)
+	}
+}
+
+// Without --run-id the advice says a repeat may record a second report; the
+// help and the agent guide say a 500/502/504 answer exits 7 even with a JSON body.
+func TestValidationRecord5xxAdviceWithoutRunIDAndDocs1795(t *testing.T) {
+	srv, _ := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
+	err := record1795(t, srv)
+	if exitCodeFor(err) != exitcode.Unavailable || err == nil || !strings.Contains(err.Error(), "no --run-id") || !strings.Contains(err.Error(), "may record a second report") {
+		t.Fatalf("no-run-id advice: %v", err)
+	}
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "validation", "record", "--help"})
+	if e := root.Execute(); e != nil {
+		t.Fatal(e)
+	}
+	guide, e := os.ReadFile("agentic/agentic-usage.md")
+	if e != nil {
+		t.Fatal(e)
+	}
+	const want = "An HTTP 500, 502 or 504 answer to the record request exits 7 even when its body is a JSON error: the outcome is unknown, so read the node's latest validation report before recording again"
+	for name, text := range map[string]string{"help": flat1471(out.String()), "agentic-usage": flat1471(string(guide))} {
+		if !strings.Contains(text, want) {
+			t.Errorf("%s lacks %q", name, want)
+		}
 	}
 }
