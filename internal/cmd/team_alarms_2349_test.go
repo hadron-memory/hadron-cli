@@ -114,6 +114,31 @@ func TestTeamAlarms2349CyclingCursorStallsWithinTheCycle(t *testing.T) {
 	}
 }
 
+// The count walk's page-limit stop is pinned to the same shape as the alarms
+// walk's — an event id, with the cursor named separately — so a revert to
+// storing the cursor reddens here, not only where the id happens to be
+// non-empty either way.
+func TestTaskList2349PageLimitStopNamesTheEventAndKeepsTheCursor(t *testing.T) {
+	pages := func(i int) string {
+		return page1919([]string{alarmRow1919(fmt.Sprintf("e%03d", i), "t1", false)}, true, fmt.Sprintf("c%03d", i))
+	}
+	out, _, err := list1919(t, pages, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got alarmCounts2349
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	ac := got.AlarmCounts
+	if ac == nil || ac.Reason != "page-limit" || ac.Pages != 100 {
+		t.Fatalf("alarmCounts %+v in %s", ac, out)
+	}
+	if ac.LastEventID != "e099" || ac.ResumeCursor != "c099" {
+		t.Fatalf("lastEventId %q resumeCursor %q — an event id, with the cursor named separately", ac.LastEventID, ac.ResumeCursor)
+	}
+}
+
 func TestTaskList2349CyclingCursorStallsTheCountWalk(t *testing.T) {
 	pages := func(i int) string {
 		cursor := "A"
