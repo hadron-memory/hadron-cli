@@ -40,7 +40,8 @@ type movePlanLinkWarning struct {
 // of warnings; an empty list when the server found none; or null, which the
 // server sends when it withholds them (LinkWarningsWithheld, the caller can't
 // read the destination memory). A null without the withheld flag is passed
-// through as null and the text says the server reported none.
+// through as null and the text says "not reported by the server" (never
+// "none": an empty list is a different answer, "Link warnings: none").
 type movePlanDTO struct {
 	Status               string                `json:"status"` // COMPLETE or TRUNCATED
 	Complete             bool                  `json:"complete"`
@@ -78,10 +79,15 @@ func planMove(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 // may not give: the server bounds --limit (cor:api:190:03), and the CLI does
 // not copy that bound. When the server listed fewer nodes than --limit asked
 // for, that shortfall IS its bound, so the message says a plan cannot list
-// this subtree in full rather than suggesting a rerun that cannot help.
+// this subtree in full rather than suggesting a rerun that cannot help. When
+// it listed exactly --limit nodes the CLI cannot tell whether --limit is at
+// the bound, so the hint is conditional: no firm claim either way (#2290).
 func truncatedPlanError(listed, total int, limit *int) error {
 	if limit != nil && listed < *limit {
 		return fmt.Errorf("TRUNCATED: the plan lists %d of %d nodes, fewer than --limit %d: that is the server's bound, so a plan cannot list this subtree in full", listed, total, *limit)
+	}
+	if limit != nil && listed == *limit {
+		return fmt.Errorf("TRUNCATED: the plan lists %d of %d nodes, as many as --limit %d asked for; rerun with a larger --limit to list more, but if --limit is already at the server's bound, a plan cannot list this subtree in full", listed, total, *limit)
 	}
 	return fmt.Errorf("TRUNCATED: the plan lists %d of %d nodes; rerun with a larger --limit to list more (the server bounds it, so a subtree beyond that bound stays TRUNCATED)", listed, total)
 }
