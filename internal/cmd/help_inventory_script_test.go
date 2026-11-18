@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -60,7 +61,7 @@ func runInventoryScriptAs(t *testing.T, dir, existing, versionPrefix string) str
 }
 
 func TestHelpInventoryGeneratorStructure(t *testing.T) {
-	out := runInventoryScript(t, t.TempDir(), "")
+	out := inventoryWithoutHashes1126(t, runInventoryScript(t, t.TempDir(), ""))
 	for _, unwanted := range []string{"Pinned commit:", "CLI version:"} {
 		if strings.Contains(out, unwanted) {
 			t.Errorf("the generator must not print %q (cli#2310)\n%s", unwanted, out)
@@ -93,16 +94,15 @@ func TestHelpInventoryGeneratorKeepsHumanColumns(t *testing.T) {
 	dir := t.TempDir()
 	existing := filepath.Join(dir, "existing.md")
 	prior := runInventoryScript(t, t.TempDir(), "")
-	edited := strings.Replace(prior,
-		"| `alpha one` | uno, ein |  | y | #7001 |  | unread |  |",
-		"| `alpha one` | STALE | STALE | n | #1 | Rae | pass | https://example.test/a |", 1)
-	if edited == prior {
-		t.Fatal("fixture row not found")
-	}
+	cells := inventoryCells1126(t, prior, "alpha one")
+	old := "| " + strings.Join(cells, " | ") + " |"
+	cells[1], cells[2], cells[3], cells[4] = "STALE", "STALE", "n", "#1"
+	cells[6], cells[7], cells[8] = "Rae", "pass", "https://example.test/a"
+	edited := strings.Replace(prior, old, "| "+strings.Join(cells, " | ")+" |", 1)
 	if err := os.WriteFile(existing, []byte(edited), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	out := runInventoryScript(t, t.TempDir(), existing)
+	out := inventoryWithoutHashes1126(t, runInventoryScript(t, t.TempDir(), existing))
 	// Structure is regenerated; the three human columns survive by path.
 	want := "| `alpha one` | uno, ein |  | y | #7001 | Rae | pass | https://example.test/a |"
 	if !strings.Contains(out, want) {
@@ -251,7 +251,7 @@ func TestHelpInventoryFirstAdoptionSeedsHash(t *testing.T) {
 func TestHelpInventoryHashMatchesCapturedHelp(t *testing.T) {
 	f := inventoryStandIn1126(t, fakeHadron)
 	got := inventoryCells1126(t, inventoryOK1126(t, f, ""), "alpha one")
-	raw, err := exec.Command(f.bin, "alpha", "one", "--help").CombinedOutput()
+	raw, err := exec.Command("bash", f.bin, "alpha", "one", "--help").CombinedOutput()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,11 +282,16 @@ func TestHelpInventoryGeneratorHelpFailure(t *testing.T) {
 func TestHelpInventoryHasNoVersionDependency(t *testing.T) {
 	base := inventoryOK1126(t, inventoryStandIn1126(t, fakeHadron), "")
 	for _, version := range []string{"if [ \"$1\" = \"--version\" ]; then echo 'hadron dev'; exit 0; fi", "if [ \"$1\" = \"--version\" ]; then echo 'version must not be read' >&2; exit 97; fi"} {
+		marker := filepath.Join(t.TempDir(), "version-called")
+		version = strings.Replace(version, "then ", "then printf called >> "+shellQuote1126(marker)+"; ", 1)
 		start := strings.Index(fakeHadron, "if [ \"$1\" = \"--version\" ]")
 		end := start + strings.Index(fakeHadron[start:], "\n")
 		body := fakeHadron[:start] + version + fakeHadron[end:]
 		if got := inventoryOK1126(t, inventoryStandIn1126(t, body), ""); got != base {
 			t.Fatal("version behaviour changed the inventory (cli#2310)")
+		}
+		if _, err := os.Stat(marker); !os.IsNotExist(err) {
+			t.Fatalf("generator read --version: %v", err)
 		}
 	}
 }
@@ -327,5 +332,53 @@ func TestHelpInventoryFailureLeavesCommittedFileUntouched(t *testing.T) {
 				t.Fatalf("staging leftovers: %v %v", leftovers, err)
 			}
 		})
+	}
+}
+
+// Existing structure assertions stay independent of help digests, while every
+// generated row is still required to have a well-formed hash column.
+func inventoryWithoutHashes1126(t *testing.T, doc string) string {
+	t.Helper()
+	lines := strings.Split(doc, "\n")
+	for i, line := range lines {
+		if !strings.HasPrefix(line, "| `") {
+			continue
+		}
+		cells := strings.Split(strings.TrimSuffix(strings.TrimPrefix(line, "| "), " |"), " | ")
+		if len(cells) != 9 {
+			t.Fatalf("generated row must have nine columns: %q", line)
+		}
+		if _, err := hex.DecodeString(cells[5]); len(cells[5]) != 12 || err != nil {
+			t.Fatalf("invalid help hash in %q", line)
+		}
+		legacy := append(append([]string{}, cells[:5]...), cells[6:]...)
+		lines[i] = "| " + strings.Join(legacy, " | ") + " |"
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestHelpInventoryShasumFallback1126(t *testing.T) {
+	f := inventoryStandIn1126(t, fakeHadron)
+	tools := t.TempDir()
+	for _, name := range []string{"bash", "awk", "sed", "tr", "cut", "sort", "mktemp", "rm", "grep", "cat", "shasum"} {
+		actual, err := exec.LookPath(name)
+		if err != nil {
+			t.Skipf("%s not available", name)
+		}
+		if err := os.Symlink(actual, filepath.Join(tools, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Only the fallback digest tool is on PATH. The fixture and generator still
+	// use real shells/readers so this proves the portable branch works end to end.
+	t.Setenv("PATH", tools)
+	row := inventoryCells1126(t, inventoryOK1126(t, f, ""), "alpha one")
+	raw, err := exec.Command("bash", f.bin, "alpha", "one", "--help").CombinedOutput()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("%x", sha256.Sum256(bytes.TrimRight(raw, "\n")))[:12]
+	if len(row) != 9 || row[5] != want {
+		t.Fatalf("shasum help hash: %q want=%s", row, want)
 	}
 }

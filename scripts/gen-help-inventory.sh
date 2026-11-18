@@ -9,7 +9,7 @@
 #   HADRON_BIN                 the binary to walk (default bin/hadron; `make` builds it)
 #   HELP_INVENTORY_EXISTING    the committed inventory, whose HUMAN columns
 #                              (evaluator, result, finding) are carried over by
-#                              path; the generator owns every other column
+#                              path while help is unchanged; the generator owns every other column
 #   HELP_INVENTORY_GROUPS      the group map (default scripts/help-inventory-groups.txt)
 #
 # Page = one command or group, not one flag: a flag is audited inside its page's
@@ -33,6 +33,25 @@ trap 'rm -rf "$cfg" "$rows"' EXIT
 export XDG_CONFIG_HOME="$cfg" HOME="$cfg"
 unset HADRON_TOKEN HADRON_SERVER || :
 
+# Hash the captured help, not structural metadata or the binary's version.
+# macOS provides shasum rather than sha256sum.
+if command -v sha256sum >/dev/null 2>&1; then
+  help_hash_tool=sha256sum
+elif command -v shasum >/dev/null 2>&1; then
+  help_hash_tool=shasum
+else
+  echo "gen-help-inventory: sha256sum or shasum is required" >&2
+  exit 1
+fi
+
+hash_help() {
+  if [ "$help_hash_tool" = sha256sum ]; then
+    printf '%s' "$1" | sha256sum | cut -c1-12
+  else
+    printf '%s' "$1" | shasum -a 256 | cut -c1-12
+  fi
+}
+
 help_of() { # $@ = command path words; empty = root
   "$BIN" "$@" --help 2>&1 || { echo "gen-help-inventory: '$BIN $* --help' failed" >&2; return 1; }
 }
@@ -40,8 +59,9 @@ help_of() { # $@ = command path words; empty = root
 # walk <top-level> <path words...>: append one TSV row, then recurse.
 walk() {
   local top=$1; shift
-  local out name aliases examples generated="" child
+  local out name aliases examples generated="" child help_hash
   out=$(help_of "$@") || exit 1
+  help_hash=$(hash_help "$out") || exit 1
   name="${*:-(root)}"
   aliases=$(printf '%s\n' "$out" | awk '/^Aliases:/ && !seen {getline; print; seen=1}' | sed 's/^ *//' | tr -d '\r')
   # The Aliases line lists the command's own name too; keep only the others.
@@ -56,7 +76,7 @@ walk() {
   if printf '%s\n' "$out" | grep '^Examples:$' >/dev/null; then examples=y; else examples=n; fi
   case "$name" in help|completion) generated=generated ;; esac
   # "-" stands for an empty cell: read with a tab IFS would collapse empty fields.
-  printf '%s\t%s\t%s\t%s\t%s\n' "$top" "$name" "${kept:--}" "${generated:--}" "$examples" >>"$rows"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$top" "$name" "${kept:--}" "${generated:--}" "$examples" "$help_hash" >>"$rows"
   # The root page is one row; its children are walked from their own top level.
   case "$name" in help|completion|"(root)") return 0 ;; esac
   for child in $(printf '%s\n' "$out" | awk '/^Available Commands:/ && !seen {f=1;seen=1;next} f&&/^$/{f=0} f&&/^  [^ ]/{print $1}'); do
@@ -74,7 +94,14 @@ done
 humans=$(mktemp)
 trap 'rm -rf "$cfg" "$rows" "$humans"' EXIT
 if [ -n "$EXISTING" ] && [ -f "$EXISTING" ]; then
-  awk -F' \\| ' '/^\| `/ { p=$1; sub(/^\| `/,"",p); sub(/`$/,"",p); r=$8; sub(/ \|$/,"",r); print p "\t" $6 "\t" $7 "\t" r }' "$EXISTING" >"$humans"
+  awk -F' \\| ' '/^\| `/ {
+    p=$1; sub(/^\| `/,"",p); sub(/`$/,"",p)
+    if (NF == 8) { h=""; e=$6; r=$7; f=$8 }
+    else if (NF == 9) { h=$6; e=$7; r=$8; f=$9 }
+    else { print "gen-help-inventory: unsupported inventory row shape: " $0 > "/dev/stderr"; exit 1 }
+    sub(/ \|$/,"",f)
+    print p "\t" h "\t" e "\t" r "\t" f
+  }' "$EXISTING" >"$humans"
 fi
 
 cat <<HEADER
@@ -99,11 +126,16 @@ Rules for what is a row:
   \`--help\`.
 
 Columns: \`path\`, \`aliases\`, \`generated\`, \`has-examples\`, \`child\` (the audit
-issue that owns the page), then the three HUMAN columns \`evaluator\`, \`result\`
+issue that owns the page), \`help-hash\` (the first 12 hex characters of the
+sha256 of captured help text), then the three HUMAN columns \`evaluator\`, \`result\`
 (\`unread\` | \`pass\` | \`fail\`; \`unread\` is never a pass; \`pass\` needs a named
 evaluator who is not the author of the text) and \`finding\` (a link to the
-assessment). The generator rewrites the other columns and keeps these three by
-path. Do not put a \`|\` in a finding cell. Each child edits only its own
+assessment). The generator keeps these three by path only while the page's
+help-hash is unchanged. A changed hash clears evaluator and finding and resets
+both pass and fail to unread; a child that fixes help must re-assess the row.
+For first adoption, a missing or empty hash is seeded from current help while
+keeping the prior assessment; changes before adoption cannot be detected.
+New pages start unread. Do not put a \`|\` in a finding cell. Each child edits only its own
 section between the markers.
 HEADER
 
@@ -116,20 +148,25 @@ emit_group() { # id title tops...
   body=$(
     for t in "$@"; do
       awk -F'\t' -v top="$t" '$1==top' "$rows"
-    done | LC_ALL=C sort -t$'\t' -k2,2 | while IFS=$'\t' read -r top path aliases generated examples; do
+    done | LC_ALL=C sort -t$'\t' -k2,2 | while IFS=$'\t' read -r top path aliases generated examples help_hash; do
       [ "$aliases" != "-" ] || aliases=""
       [ "$generated" != "-" ] || generated=""
       ev="" res="unread" fin=""
       h=$(awk -F'\t' -v p="$path" '$1==p {print; exit}' "$humans")
       if [ -n "$h" ]; then
-        ev=$(printf '%s' "$h" | cut -f2); res=$(printf '%s' "$h" | cut -f3); fin=$(printf '%s' "$h" | cut -f4)
-        [ -n "$res" ] || res=unread
+        prior_hash=$(printf '%s' "$h" | cut -f2)
+        # A legacy/empty hash seeds today's text without discarding prior
+        # assessments. A present, changed hash invalidates pass AND fail.
+        if [ -z "$prior_hash" ] || [ "$prior_hash" = "$help_hash" ]; then
+          ev=$(printf '%s' "$h" | cut -f3); res=$(printf '%s' "$h" | cut -f4); fin=$(printf '%s' "$h" | cut -f5)
+          [ -n "$res" ] || res=unread
+        fi
       fi
-      printf '| `%s` | %s | %s | %s | %s | %s | %s | %s |\n' "$path" "$aliases" "$generated" "$examples" "$child" "$ev" "$res" "$fin"
+      printf '| `%s` | %s | %s | %s | %s | %s | %s | %s | %s |\n' "$path" "$aliases" "$generated" "$examples" "$child" "$help_hash" "$ev" "$res" "$fin"
     done
   )
   [ -n "$body" ] || return 0
-  printf '\n%s\n\n<!-- group:%s start -->\n| path | aliases | generated | has-examples | child | evaluator | result | finding |\n|---|---|---|---|---|---|---|---|\n%s\n<!-- group:%s end -->\n' "$heading" "$id" "$body" "$id"
+  printf '\n%s\n\n<!-- group:%s start -->\n| path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |\n|---|---|---|---|---|---|---|---|---|\n%s\n<!-- group:%s end -->\n' "$heading" "$id" "$body" "$id"
 }
 
 claimed=" "
