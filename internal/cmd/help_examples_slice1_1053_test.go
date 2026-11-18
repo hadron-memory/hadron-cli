@@ -318,7 +318,7 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 		var b strings.Builder
 		b.WriteString("| page | example | mode | outcome |\n|---|---|---|---|\n")
 		for _, r := range results {
-			b.WriteString(fmt.Sprintf("| `%s` | `%s` | %s | %s |\n", r.Page, strings.ReplaceAll(r.Example, "|", "\\|"), r.Mode, strings.ReplaceAll(r.Outcome, "|", "\\|")))
+			fmt.Fprintf(&b, "| `%s` | `%s` | %s | %s |\n", r.Page, strings.ReplaceAll(r.Example, "|", "\\|"), r.Mode, strings.ReplaceAll(r.Outcome, "|", "\\|"))
 		}
 		if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
 			t.Fatal(err)
