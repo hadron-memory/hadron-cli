@@ -348,17 +348,30 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 				return err
 			}
 			var fields gen.AgentTeamEventFields
-			warnings := []taskWarningDTO{}
+			var warnings []taskWarningDTO
 			if claim == nil {
-				resp, callErr := gen.AlarmAcknowledge(ctx, client, eventId)
+				// #2537 (from #2505 F4): warnings arrive on a plain ack too
+				// (the server files task warnings for acknowledgeAlarm
+				// whatever carried the call), so the plain path reads the same
+				// sink. Text mode prints them below like the instructed path;
+				// plain --json keeps its bare event shape (byte identity).
+				mctx, sink := api.WithWarningSinkForFields(ctx, "acknowledgeAlarm")
+				resp, callErr := gen.AlarmAcknowledge(mctx, client, eventId)
 				if callErr != nil {
 					return api.MapError(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult2505("acknowledgeAlarm", "event")
+					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
+				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
 			} else {
+				// The ServerTarget variant (instruction.go) takes no target:
+				// the server resolves the App this event names. The discarded
+				// bool is whether the worker session was attached — unused
+				// here because admission is the server's either way, and a
+				// fallback-to-person note was already printed if one applied
+				// (#2505 F3).
 				ctx, _, err = finishInstruction(ctx)
 				if err != nil {
 					return err
@@ -369,7 +382,7 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 					return api.MapErrorKeepingCode(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult2505("acknowledgeAlarm", "event")
+					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
