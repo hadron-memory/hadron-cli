@@ -547,7 +547,7 @@ func TestSigningCeremonyURL878ProbeReadsTheCommandServer(t *testing.T) {
 // an old server with signing. The advertised token must decide: exit 2, the
 // bounded old-server message (kills the wiring mutant).
 func TestSigningCeremonyURL878CheckPathCarriesTheProbe(t *testing.T) {
-	withSigningProbe(t, true, nil)
+	probed := withSigningProbe(t, true, nil)
 	responses := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
 	responses["GetSigningRequest"] = missingSigningFieldJSON("ceremonyUrl", "SigningRequest")
 	gql, _ := captureGraphQL(t, responses)
@@ -560,5 +560,33 @@ func TestSigningCeremonyURL878CheckPathCarriesTheProbe(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "hadron-server#3120") {
 		t.Errorf("the check path must give the bounded old-server answer: %q", err.Error())
+	}
+	// The probe must read the command's own --server, exactly as the get path
+	// does: a check run against one server must not consult another's switch.
+	if len(*probed) != 1 || (*probed)[0] != gql.URL {
+		t.Errorf("probe read %v, want exactly [%s]", *probed, gql.URL)
+	}
+}
+
+// The check path's unadvertised leg: a server whose switch is off (or whose
+// discovery failed, which reads the same) gets the signing-off answer, never
+// upgrade text — the same rule the get path already pins.
+func TestSigningCeremonyURL878CheckPathSigningOffNeverSaysUpgrade(t *testing.T) {
+	withSigningProbe(t, false, nil)
+	responses := l879Responses("CURRENT", 0, l879Sig("hadron-signature-v3", 4), l879Request1(l879GoodHash()))
+	responses["GetSigningRequest"] = missingSigningFieldJSON("ceremonyUrl", "SigningRequest")
+	gql, _ := captureGraphQL(t, responses)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signatures", nodeURN, "--check", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want 2 (%v)", code, err)
+	}
+	if !strings.Contains(err.Error(), "does not offer node signing") {
+		t.Errorf("message = %q", err.Error())
+	}
+	if strings.Contains(err.Error(), "upgrade") {
+		t.Errorf("a server that may simply be off must never get upgrade text: %q", err.Error())
 	}
 }
