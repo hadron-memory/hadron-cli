@@ -137950,6 +137950,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
+// The input types are shared with AgentTaskCreate, so the same omit-vs-null
+// directives repeat here: a type is generated once, and a document that lacks
+// them would flip its bindings from one generate run to the next.
 func AgentTaskCreateInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -142229,6 +142232,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
+// Same reason as AgentTaskCreateInstructed above.
 func AgentTaskUpdateInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
