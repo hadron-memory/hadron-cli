@@ -9,9 +9,14 @@ import (
 	"time"
 )
 
+// calls is the fixture's whole call surface: describe's answer and the bare
+// usage line share it, so they cannot drift. Exit 2 covers both a usage error
+// and undecodable stdin here — this is a fixture, not a contract claim.
+var calls = []string{"describe", "list-untracked", "mark-tracked"}
+
 func main() {
 	if len(os.Args) < 2 {
-		_, _ = io.WriteString(os.Stderr, "usage: adapter <call>   call is one of: describe, list-untracked, mark-tracked (request JSON on stdin)\n")
+		_, _ = io.WriteString(os.Stderr, "usage: adapter <call>   call is one of: "+strings.Join(calls, ", ")+" (request JSON on stdin)\n")
 		os.Exit(2)
 	}
 	var req map[string]any
@@ -31,7 +36,7 @@ func main() {
 		// here. That is a fixture choice, not a claim that the contract makes
 		// them optional: their semantics are Proposed in cor:agt:120:04 and
 		// unconsumed by the CLI (#1961 item 10).
-		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"name": "native", "contractVersion": 1, "calls": []string{"describe", "list-untracked", "mark-tracked"}})
+		_ = json.NewEncoder(os.Stdout).Encode(map[string]any{"name": "native", "contractVersion": 1, "calls": calls})
 	case "list-untracked":
 		switch req["for"] {
 		case "invalid-utf8":

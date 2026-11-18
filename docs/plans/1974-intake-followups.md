@@ -25,13 +25,13 @@ explicit scope limits for independent review, not claims those migrations ran.
 This is the author's pass, not either independent review seat. Existing scope
 resolution, GraphQL selections, confirmations and pagination are unchanged.
 
-The Skipped rows state what the #2250 diff actually lacks — it touches only the
-intake adapter runner (`internal/intake/`), the find-untracked adapter path and
-its help, the new native fixture, tests, and these plans; no `.graphql` file,
-schema snapshot, flag registration, confirmation prompt or scope resolution
-changes. Row reasons were rewritten for concreteness and two rows corrected in
-#2260 (F4/F9): the `stoppedReason` compatibility claim and the prose-pointer
-row, whose pointers were each followed to their definitions that time.
+Every row below grades the #2250 diff (the intake follow-ups, merged as
+a69468af): it touched only the intake adapter runner (`internal/intake/`), the
+find-untracked adapter path and its help, the new native fixture, tests, and
+these plans — no `.graphql` file, schema snapshot, flag registration,
+confirmation prompt or scope resolution. #2260 later rewrote the Skipped
+reasons for concreteness and corrected rows in place, each tagged (#2260): the
+`stoppedReason` compatibility claim and the prose-pointer row.
 
 | Review node | Result |
 |---|---|
@@ -39,13 +39,13 @@ row, whose pointers were each followed to their definitions that time.
 | a-gate-can-outlive-its-premise | Skipped: no gate in this diff reads a proxy for an upstream mechanism an expiry, reap or cleanup could retire — the server contract is untouched (no `.graphql` or schema change). |
 | a-matrix-case-states-only-what-its-contract-decides | Skipped: no acceptance-matrix case or contract-cited fixture is added or edited — the new `testdata/adapter` is a runner test double, not a contract artifact. |
 | ambient-scope-must-report-its-source | Skipped: scope resolution (App, memory, org) is unchanged; the adapter path's App resolution predates this diff. |
-| a-mutation-check-can-itself-be-a-no-op | Skipped: no guard's correctness is argued from a mutation run; the pins' redness is the red-first commit against fresh main (mutate-with-the-original-input row). |
+| a-mutation-check-can-itself-be-a-no-op | Pass: each pin names the assertion that goes red on the pre-change code, not just "the test fails" — scrub: the adapter's env log still contains the HADRON_ credential; empty integration: the env-selection path runs instead of the exit-2 refusal; limit completion: `complete` reads true at a limit stop; redundant start: an `IntakeStartTask` operation is sent; null name: `assignee` decodes null; bare invocation (#2260 F7, red re-demonstrated there with valid JSON on stdin): the pre-guard fixture panics on `os.Args[1]` — exit 2 with a panic trace and no usage line. |
 | a-narrowed-rule-turns-expect-none-into-a-tautology | Skipped: nothing in this diff narrows what a rule counts (only enabled, live, owned, in-scope). |
 | an-empty-flag-is-not-an-absent-flag | Pass: Changed integration with empty/whitespace value refuses before adapter/server calls. |
 | an-empty-result-as-a-signal-must-be-unforgeable | Skipped: no empty result is read as a termination signal; the walk ends on the adapter's cursor end, and a limit stop is now explicitly NOT exhaustion. |
 | a-new-meaning-for-an-existing-glyph | Skipped: no unknown value is rendered with a placeholder a neighbouring column already uses for a definite answer. |
-| an-exemption-you-cannot-enumerate-is-a-hiding-place | Skipped: the only exemption-shaped check — the adapter env scrub — moved to the closed, enumerable `HADRON_` prefix; nothing unenumerable is exempted. |
-| a-pointer-must-be-followed-not-reasoned-about | Pass: the prose this diff edits names commands, calls, a file and an exit code — `task release` (internal/cmd/team/task_release.go), the `untrack`/`report` adapter calls (internal/intake/intake.go), `intake-cursors.json` (internal/intake/cursor.go), the second-run exit 5 (internal/cmd/team/reconcile.go) — each followed to its definition, not assumed (#2260 F9). |
+| an-exemption-you-cannot-enumerate-is-a-hiding-place | Skipped: the only exemption-shaped check — the adapter env scrub — DROPS every variable whose upper-cased name carries the `HADRON_` prefix; membership is decidable by prefix (an enumerable rule, replacing the old substring hunt for TOKEN/KEY/SECRET, which missed names that were none of the three). The adapter deliberately KEEPS its own tracker credentials (`GITHUB_TOKEN` and friends) — that is the design, cor:agt:120 D2. |
+| a-pointer-must-be-followed-not-reasoned-about | Pass: #2250's prose edits name commands, calls, a file and an exit code — `task release` (internal/cmd/team/task_release.go), the `untrack`/`report` adapter calls (internal/intake/intake.go), `intake-cursors.json` (internal/intake/cursor.go), the second-run exit 5 (internal/cmd/team/reconcile.go) — each followed to its definition, not assumed (#2260 F9). #2260's own prose edit (the stoppedReason vocabulary in the help) names its six values, defined where they are assigned in internal/cmd/team/finduntracked_adapter.go. |
 | a-recommended-field-must-be-seen-carrying-a-value | Skipped: no fix rests on a schema field or option nothing here has observed carrying a real value — no GraphQL selection changes. |
 | assert-the-query-not-the-capture | Skipped: no test keys on which GraphQL FIELDS an operation requests; the operation-level pin (no `IntakeStartTask` is sent) is covered by mutate-with-the-original-input. |
 | async-wait-command-contract | Skipped: no command polls or waits on server-side async state — the reconcile lock's 2-minute wait is on a local file lock, not server state. |
@@ -74,6 +74,6 @@ row, whose pointers were each followed to their definitions that time.
 | recovery-must-not-block-the-host-loop | Skipped: no recurring registration, collection, delivery or heartbeat loop gains waits, RPCs or recovery jobs. |
 | regenerate-after-graphql-edit | Skipped: no `.graphql` query file or schema snapshot changed. |
 | separate-streams-cannot-test-order | Skipped: no test asserts that one line of output comes before or after another across stdout and stderr. |
-| stable-json-dto | Pass, with the breakage named: explicit DTOs; keys retained (`startError` stays, always null). `stoppedReason` is additive ON LIST ONLY — track already carried it. Track's `stoppedReason` vocabulary CHANGED (`"stopped"` → the failing stage, or `limit_reached`), and on BOTH paths a limit stop now reports `complete:false` + `stoppedReason:"limit_reached"` where it reported `complete:true`: a consumer matching `"stopped"` or `complete:true`-at-limit breaks (#2260 F4/F9). |
+| stable-json-dto | Pass, with the breakage named and disclosed: explicit DTOs; keys retained (`startError` stays, always null). `stoppedReason` is additive ON LIST ONLY — track already carried it. Track's `stoppedReason` vocabulary CHANGED (`"stopped"` → the failing stage, or `limit_reached`), and on BOTH paths a limit stop now reports `complete:false` + `stoppedReason:"limit_reached"` where it reported `complete:true`: a consumer matching `"stopped"` or `complete:true`-at-limit breaks. That break was disclosed to consumers in the contract text that shipped with #2250 — the agent-facing usage entry (`internal/cmd/agentic/agentic-usage.md`, `team task find-untracked`) enumerates the vocabulary, `limit_reached`'s exit-0 meaning, and the error precedence; the repo keeps no CHANGELOG file (release notes are tag-driven) (#2260 F4/F9). |
 | sweep-by-identifier-not-by-prose | Skipped: no flag, subcommand, `--json` key or GraphQL field is removed or renamed. |
 | sweep-the-subject-not-the-removed-rule | Pass: Caller-own start explanations swept across source, tests, help, usage and plan. |

@@ -3,24 +3,54 @@ package intake
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
+// buildNativeAdapter compiles the fixture once for the package (two tests
+// want it; a second `go build` is pure suite latency).
+var (
+	nativeAdapterOnce sync.Once
+	nativeAdapterPath string
+	nativeAdapterErr  error
+)
+
+func buildNativeAdapter(t *testing.T) string {
+	t.Helper()
+	nativeAdapterOnce.Do(func() {
+		name := "adapter"
+		if runtime.GOOS == "windows" {
+			name += ".exe"
+		}
+		dir, err := os.MkdirTemp("", "native-adapter-")
+		if err != nil {
+			nativeAdapterErr = err
+			return
+		}
+		path := filepath.Join(dir, name)
+		out, err := exec.Command("go", "build", "-o", path, "./testdata/adapter").CombinedOutput()
+		if err != nil {
+			nativeAdapterErr = fmt.Errorf("build fixture: %v %s", err, out)
+			return
+		}
+		nativeAdapterPath = path
+	})
+	if nativeAdapterErr != nil {
+		t.Fatal(nativeAdapterErr)
+	}
+	return nativeAdapterPath
+}
+
 // This executes on Windows too, covering the real exec/stdin/stdout/cap path.
 func TestNativeAdapter1974(t *testing.T) {
-	name := "adapter"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	path := filepath.Join(t.TempDir(), name)
-	if out, err := exec.Command("go", "build", "-o", path, "./testdata/adapter").CombinedOutput(); err != nil {
-		t.Fatalf("build fixture: %v %s", err, out)
-	}
+	path := buildNativeAdapter(t)
 	r := &Runner{Path: path, Timeout: 5 * time.Second}
 	if d, err := r.Describe(context.Background()); err != nil || d.Name != "native" {
 		t.Fatalf("describe=%+v err=%v", d, err)
@@ -54,22 +84,21 @@ func TestNativeAdapter1974(t *testing.T) {
 
 // A bare invocation (no call argument) must refuse with a usage line and exit
 // 2, not panic on os.Args[1] (#2260 F7): an operator who runs the fixture
-// directly to see what it is gets a diagnosis, not a stack trace.
+// directly to see what it is gets a diagnosis, not a stack trace. The request
+// is VALID JSON on stdin on purpose: with an empty stdin the pre-guard fixture
+// exits 2 at the JSON decode before it ever touches os.Args[1], which proves
+// nothing about the guard — the guard is only reachable past a decodable
+// request. The deadline is belt: a regression that blocks reading stdin must
+// fail the suite, not hang it.
 func TestNativeAdapterBareInvocationExits2WithUsage(t *testing.T) {
-	name := "adapter"
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-	path := filepath.Join(t.TempDir(), name)
-	if out, err := exec.Command("go", "build", "-o", path, "./testdata/adapter").CombinedOutput(); err != nil {
-		t.Fatalf("build fixture: %v %s", err, out)
-	}
-	var out []byte
-	err := func() (err error) {
-		out, err = exec.Command(path).CombinedOutput()
-		return err
-	}()
-	if ee, ok := err.(*exec.ExitError); !ok || ee.ExitCode() != 2 {
+	path := buildNativeAdapter(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, path)
+	cmd.Stdin = strings.NewReader("{}")
+	out, err := cmd.CombinedOutput()
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() != 2 {
 		t.Fatalf("a bare invocation must exit 2: %v (%s)", err, out)
 	}
 	if !strings.Contains(string(out), "usage") || !strings.Contains(string(out), "call") {

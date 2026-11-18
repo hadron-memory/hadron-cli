@@ -833,8 +833,8 @@ func TestAdapterFollowups1974(t *testing.T) {
 				Assignee *string
 			}
 		}
-		if umErr := json.Unmarshal([]byte(out), &dto); umErr != nil || len(dto.Tasks) != 1 || dto.Tasks[0].Assignee == nil || *dto.Tasks[0].Assignee != "wkr1" {
-			t.Fatalf("assignee must decode to the fallback id wkr1: %v %s", umErr, out)
+		if umErr := json.Unmarshal([]byte(out), &dto); umErr != nil || len(dto.Tasks) != 1 || dto.Tasks[0].ID != "t1" || dto.Tasks[0].Assignee == nil || *dto.Tasks[0].Assignee != "wkr1" {
+			t.Fatalf("the claimed task t1 must decode with assignee wkr1 (the fallback id): %v %s", umErr, out)
 		}
 		if !strings.Contains(errOut, "is PENDING for wkr1") {
 			t.Fatalf("the pending note must name the fallback id: %q", errOut)
