@@ -89,7 +89,7 @@ func TestLoginWithTokenInputCue(t *testing.T) {
 					f.TokenStoreFn = func() store.Store { return store.Keyring{} }
 					cmd := newCmdLogin(f)
 					cmd.SilenceErrors, cmd.SilenceUsage = true, true
-					cmd.SetArgs([]string{"--with-token"})
+					cmd.SetArgs([]string{"--with-token", "--no-install-skills"})
 					err := cmd.Execute()
 					if input.wantErr == "" {
 						if err != nil {

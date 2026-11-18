@@ -169,6 +169,10 @@ JSON is the stored group {name, patterns, updatedAt}, as the server returns it
   hadron app model-group set acme.com:eng-team frontier`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := memberInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ref, err := requiredReadAppRef(args[0])
 			if err != nil {
 				return err
@@ -180,7 +184,11 @@ JSON is the stored group {name, patterns, updatedAt}, as the server returns it
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SetAppModelGroup(cmd.Context(), client, ref, args[1], list)
+			ctx, err := memberWriteContext(cmd, ref, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := setManagerModelGroup(ctx, client, ref, args[1], list, claim)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
@@ -196,6 +204,7 @@ JSON is the stored group {name, patterns, updatedAt}, as the server returns it
 		},
 	}
 	cmd.Flags().StringArrayVar(&patterns, "pattern", nil, "a model glob; repeat for each (omit all for an empty list)")
+	addManagerInstruction(cmd)
 	return cmd
 }
 
@@ -217,6 +226,10 @@ Whoever manages the App may clear. Confirmation is required; scripts pass
 		Example: `  hadron app model-group clear acme.com:eng-team frontier --yes`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := memberInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ref, err := requiredReadAppRef(args[0])
 			if err != nil {
 				return err
@@ -229,7 +242,11 @@ Whoever manages the App may clear. Confirmation is required; scripts pass
 			if err != nil {
 				return err
 			}
-			resp, err := gen.DeleteAppModelGroup(cmd.Context(), client, ref, name)
+			ctx, err := memberWriteContext(cmd, ref, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := clearManagerModelGroup(ctx, client, ref, name, claim)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
@@ -244,5 +261,6 @@ Whoever manages the App may clear. Confirmation is required; scripts pass
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
+	addManagerInstruction(cmd)
 	return cmd
 }

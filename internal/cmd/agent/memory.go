@@ -21,15 +21,15 @@ func newCmdAgentMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "memory",
 		Short: "Attach, re-role or detach a Memory on an Agent",
-		Long: `Manage which Memories an Agent has. Attaching a Memory links it to the Agent
-with a role that says how far the Agent may use it: "read" lets the Agent read
-the Memory, "read-write" lets it also write. Those are the two roles the
-examples use; the server validates the role and refuses one it does not accept,
-and no hadron command lists the full set.
+		Long: `Manage which Memories an Agent has. Each verb makes one server call and
+passes the agent and memory references exactly as typed (ID, URN or handle);
+the server resolves them, decides who may change an Agent's Memories, and
+validates the role.
 
-Each verb makes one server call and passes the agent and memory references
-exactly as typed (ID, URN or handle); the server resolves them and decides who
-may change an Agent's Memories.`,
+A Memory's role on an Agent is its access level, and the documented set is
+exactly two values (cor:dmo:050:09): ` + "`read`" + ` (the Agent may read the Memory)
+and ` + "`read-write`" + ` (it may also change it). The CLI does not check the value;
+the server does, and refuses anything else.`,
 	}
 	cmd.AddCommand(newCmdAgentMemoryAdd(f), newCmdAgentMemorySetRole(f), newCmdAgentMemoryRm(f))
 	return cmd
@@ -78,8 +78,9 @@ Without --role the server picks the default role. Prints "✓ attached <memory> 
 agent <name> (<urn>)"; --json is the Agent as the server returned it. Attaching
 does not copy or move the Memory. To change the role later use "hadron agent
 memory set-role"; to detach it, "hadron agent memory rm".`,
-		Example: `  hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read`,
-		Args:    cobra.ExactArgs(2),
+		Example: `  hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read
+  hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read-write`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			agentRef, memoryRef, err := memoryArgs(args)
 			if err != nil {
@@ -104,7 +105,7 @@ memory set-role"; to detach it, "hadron agent memory rm".`,
 			return emitAgentMemory(f, a, "✓ attached", memoryRef)
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "the Memory's role on the Agent: read or read-write (omitted: the server's default role; the server validates)")
+	cmd.Flags().StringVar(&role, "role", "", "the Memory's access level on the Agent: read or read-write (cor:dmo:050:09; omitted: the server default; the server validates)")
 	return cmd
 }
 
@@ -144,7 +145,7 @@ on agent <name> (<urn>)"; --json is the Agent as the server returned it.`,
 			return emitAgentMemory(f, a, "✓ set role of", memoryRef)
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "the new role: read or read-write (required; the server validates)")
+	cmd.Flags().StringVar(&role, "role", "", "the new access level: read or read-write (cor:dmo:050:09; required; the server validates)")
 	return cmd
 }
 
