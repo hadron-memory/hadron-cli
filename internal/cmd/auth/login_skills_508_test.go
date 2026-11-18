@@ -211,7 +211,7 @@ func TestLogin508PromptAndSilence(t *testing.T) {
 			if got := strings.Count(text, "Install now?"); got != btoi508(c.prompt) {
 				t.Errorf("prompt count %d: %s", got, text)
 			}
-			if c.hint && !strings.Contains(e.errOut.String(), "hadron auth login --install-skills") {
+			if c.hint && (!strings.Contains(e.errOut.String(), "hadron auth login --install-skills") || !strings.Contains(e.errOut.String(), "--server "+e.f.ServerFlag)) {
 				t.Errorf("missing noninteractive command hint: %s", text)
 			}
 			if c.jsonMode && !json.Valid([]byte(e.out.String())) {

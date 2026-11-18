@@ -41,6 +41,10 @@ func detectedLoginHosts(home string) ([]string, []string) {
 	return keys, names
 }
 
+func loginInstallCommand(server string) string {
+	return "hadron auth login --install-skills --server " + cmdutil.ShellQuote(server)
+}
+
 func installLoginSkills(cmd *cobra.Command, f *cmdutil.Factory, server, token string, install, noInstall bool) (*skill.InstallReport, error) {
 	if noInstall {
 		return nil, nil
@@ -67,7 +71,7 @@ func installLoginSkills(cmd *cobra.Command, f *cmdutil.Factory, server, token st
 		return nil, nil
 	}
 	if !install && (f.JSON || !f.IOStreams.IsInputTerminal()) {
-		_, err := fmt.Fprintln(f.IOStreams.ErrOut, "To install skills for detected hosts: hadron auth login --install-skills")
+		_, err := fmt.Fprintln(f.IOStreams.ErrOut, "To install skills for detected hosts: "+loginInstallCommand(server))
 		return nil, err
 	}
 	// Do not ask Factory for a client: HADRON_TOKEN/impersonation can name a
@@ -81,7 +85,7 @@ func installLoginSkills(cmd *cobra.Command, f *cmdutil.Factory, server, token st
 		return nil, err
 	}
 	if !enabled {
-		_, err := fmt.Fprintln(f.IOStreams.ErrOut, "No skills are enabled for you on the detected hosts. Enable task skills in the Hadron portal, then run hadron auth login --install-skills.")
+		_, err := fmt.Fprintln(f.IOStreams.ErrOut, "No skills are enabled for you on the detected hosts. Enable task skills in the Hadron portal, then run "+loginInstallCommand(server)+".")
 		return nil, err
 	}
 	if !install {
@@ -105,7 +109,7 @@ func installLoginSkills(cmd *cobra.Command, f *cmdutil.Factory, server, token st
 func reportLoginSkills(cmd *cobra.Command, f *cmdutil.Factory, server, token string, install, noInstall bool) (*skill.InstallReport, error) {
 	report, err := installLoginSkills(cmd, f, server, token, install, noInstall)
 	if err != nil && !install {
-		if _, writeErr := fmt.Fprintln(f.IOStreams.ErrOut, "note: signed in, but skill installation could not finish; run hadron auth login --install-skills to retry"); writeErr != nil {
+		if _, writeErr := fmt.Fprintln(f.IOStreams.ErrOut, "note: signed in, but skill installation could not finish; run "+loginInstallCommand(server)+" to retry"); writeErr != nil {
 			return report, writeErr
 		}
 		return report, nil
