@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // hadron-cli#1481 — the CLI half of hadron-server#887 slice 2: a node with more
@@ -94,5 +96,37 @@ func TestNodeGetIndexTruncatedHuman1481(t *testing.T) {
 	one := human(`{"omittedChunks":1}`)
 	if !strings.Contains(one, "  index: truncated, 1 chunk not embedded\n") {
 		t.Errorf("singular chunk wording:\n%s", one)
+	}
+}
+
+// `node next` renders through the same detail DTO, so it carries the key too
+// (Jack's BLIND P2, Celine's QA P3): the query must select the field, and the
+// output must show the object when truncated and an explicit null otherwise.
+func TestNodeNextIndexTruncated1481(t *testing.T) {
+	if !strings.Contains(gen.NextNode_Operation, "indexTruncated") {
+		t.Fatal("the NextNode query must select indexTruncated")
+	}
+	for _, tc := range []struct{ name, in, want string }{
+		{"truncated", truncated1481, `{"omittedChunks":44}`},
+		{"fully indexed", "null", "null"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := `{"data":{"nextNode":` + withIndexTruncated(nodeDetailJSON, tc.in) + `}}`
+			out, stderr, code, _ := runNext1009(t, resp, "hrn:node:acme.com:kb:p", "--json")
+			if code != 0 || stderr != "" {
+				t.Fatalf("code %d stderr %q", code, stderr)
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out), &m); err != nil {
+				t.Fatalf("--json: %v\n%s", err, out)
+			}
+			got, ok := m["indexTruncated"]
+			if !ok {
+				t.Fatal("indexTruncated key must always be present")
+			}
+			if cmp(got) != tc.want {
+				t.Errorf("indexTruncated = %s, want %s", got, tc.want)
+			}
+		})
 	}
 }
