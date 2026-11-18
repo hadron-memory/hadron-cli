@@ -30,6 +30,8 @@ func TestHostLoadFailureCodeIsClosedAndTheDefaultIsClientUnavailable2288(t *test
 	}{
 		{"unreadable configuration", exitcode.Newf(exitcode.Usage, "bad yaml"), "HOST_CONFIG_UNREADABLE"},
 		{"absent key", exitcode.Newf(exitcode.AuthRequired, "no key"), "HOST_KEY_UNAVAILABLE"},
+		{"wrapped unreadable configuration", fmt.Errorf("load: %w", exitcode.Newf(exitcode.Usage, "bad yaml")), "HOST_CONFIG_UNREADABLE"},
+		{"wrapped absent key", fmt.Errorf("load: %w", exitcode.Newf(exitcode.AuthRequired, "no key")), "HOST_KEY_UNAVAILABLE"},
 		{"plain error", errors.New("parse \"://bad\": missing protocol scheme"), "HOST_CLIENT_UNAVAILABLE"},
 		{"generic exit", exitcode.Newf(exitcode.Error, "boom"), "HOST_CLIENT_UNAVAILABLE"},
 		{"unavailable exit", exitcode.Newf(exitcode.Unavailable, "down"), "HOST_CLIENT_UNAVAILABLE"},
@@ -48,10 +50,14 @@ func TestHostLoadFailureCodeIsClosedAndTheDefaultIsClientUnavailable2288(t *test
 }
 
 // End to end: a configuration that loads and has its key, but whose server
-// cannot become a client (an unparsable URL), records the default code. The
-// reason is the constant alone: the parse error's text, the URL, the key and
-// the config path never appear in it, and the reconcile result is not touched.
+// cannot become a client, records the default code. The test first proves the
+// premise (client construction itself fails, with an error that is neither a
+// usage nor an auth one), so it cannot pass for the wrong reason. The reason is
+// the constant alone, the run id is kept, and nothing the user sees (the
+// reason, either stream) carries the URL, the key, the config path or the
+// parse error's text.
 func TestSweepRecordClientFailureReadsAsClientUnavailable2288(t *testing.T) {
+	const apply = true
 	for _, server := range []string{"://bad", "not a url"} {
 		t.Run(server, func(t *testing.T) {
 			dir := t.TempDir()
@@ -64,15 +70,24 @@ func TestSweepRecordClientFailureReadsAsClientUnavailable2288(t *testing.T) {
 			if err := os.WriteFile(cfg, []byte(raw), 0600); err != nil {
 				t.Fatal(err)
 			}
-			io, _, _ := output.Test()
+			io, out, errOut := output.Test()
 			f := &cmdutil.Factory{IOStreams: io, ServerFlag: server}
-			got := recordSweepRun(context.Background(), f, cfg, "test-app", "orca1", "run:replay", time.Now(), true, hostup.Result{SweepMode: "APPLY"})
+			// The premise: building the client fails, and not as a usage or auth error.
+			_, _, _, loadErr := loadHostPoller(f, cfg)
+			if loadErr == nil {
+				t.Fatalf("the client was built for %q; this case no longer reaches the default arm", server)
+			}
+			if code := exitcode.FromError(loadErr); code == exitcode.Usage || code == exitcode.AuthRequired {
+				t.Fatalf("%q fails as exit %d (%v), which is not the default arm", server, code, loadErr)
+			}
+			got := recordSweepRun(context.Background(), f, cfg, "test-app", "orca1", "run:replay", time.Now(), apply, hostup.Result{SweepMode: "APPLY"})
 			if got.Recorded || got.Reason != "HOST_CLIENT_UNAVAILABLE" || got.RunID != "run:replay" {
 				t.Fatalf("an unusable client must read as HOST_CLIENT_UNAVAILABLE with the run id kept: %+v", got)
 			}
+			seen := got.Reason + out.String() + errOut.String()
 			for _, leak := range []string{dir, "private-host-key", "missing protocol", "invalid URI", server} {
-				if strings.Contains(got.Reason, leak) {
-					t.Fatalf("the code leaked %q: %q", leak, got.Reason)
+				if strings.Contains(seen, leak) {
+					t.Fatalf("user-visible output leaked %q: %q", leak, seen)
 				}
 			}
 		})
