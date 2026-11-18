@@ -281,8 +281,41 @@ func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	flat := strings.Join(strings.Fields(string(guide)), " ")
+	adviceItem := func(text string) string {
+		lines := strings.Split(text, "\n")
+		for start, line := range lines {
+			if !strings.HasPrefix(line, "- Successful node writes ") {
+				continue
+			}
+			end := start + 1
+			for end < len(lines) && (strings.TrimSpace(lines[end]) == "" || strings.HasPrefix(lines[end], "  ")) {
+				end++
+			}
+			return strings.Join(strings.Fields(strings.Join(lines[start:end], "\n")), " ")
+		}
+		return ""
+	}
 	const open, mid, closeMark = "exactly those that send one of these mutations:", "(generic and kind add/update", "are outside the set"
+	item := "- Successful node writes can carry server advice.\n  " + open + " `createNode` " + mid + "; `updateNodeRevision` " + closeMark + "."
+	later := "\n- A later item repeats " + open + " " + mid + " " + closeMark + "."
+	t.Run("bounded_item", func(t *testing.T) {
+		want := strings.Join(strings.Fields(item), " ")
+		if got := adviceItem("- An earlier item.\n" + item + later); got != want {
+			t.Errorf("advice extraction borrowed text from a neighboring list item: %q", got)
+		}
+	})
+	// The report supplied no failing fixture: rephrase each marker in the real
+	// guide and repeat its original wording in a later synthetic list item.
+	for _, marker := range []string{open, mid, closeMark} {
+		t.Run("rephrased_"+marker, func(t *testing.T) {
+			pattern := regexp.MustCompile(strings.ReplaceAll(regexp.QuoteMeta(marker), " ", `\s+`))
+			rephrased := pattern.ReplaceAllString(string(guide), "rephrased marker")
+			if strings.Contains(adviceItem(rephrased+later), marker) {
+				t.Errorf("a later list item supplied the rephrased marker %q", marker)
+			}
+		})
+	}
+	flat := adviceItem(string(guide))
 	i := strings.Index(flat, open)
 	j := strings.Index(flat, mid)
 	k := strings.Index(flat, closeMark)
