@@ -2035,7 +2035,10 @@ Conventions:
   spec-shape checks; `--strict` retains its warning-to-error policy. Findings
   add `governed`: true/false for a known node, null for memory/corpus or
   unknown-node findings. Repair with `hadron node update <node-urn> --role spec`, which explicitly
-  sets the role. `spec edit` alone preserves a missing role. Other legacy-marker users,
+  sets the role. A tag-only node that already has another governed role (`review`) is
+  refused by that command (one governed kind at a time), so its `not-governed` message
+  says so and that changing the role needs deliberate review, instead of promising the
+  command; null-role and non-governed-role nodes keep the plain hint (#1779). `spec edit` alone preserves a missing role. Other legacy-marker users,
   including `link` and `edit`, remain unchanged. A spec's loc is its citation. **Any
   valid node loc works, at any depth and in any shape (#708)**: `get`, `list`,
   `edit`, `link`, `find`, `grep`, `replace` and `check-tools` check only the
@@ -2192,6 +2195,8 @@ Conventions:
   still made, and each such end gets one warning, on every path (created,
   `--dry-run` and `already linked` alike): text prints, after the result line,
   `warning: <loc> is not governed (the spec tag alone is not law); use hadron node update <urn> --role spec`
+  (for an end with another governed role, `review`, the tail instead says that role is
+  already set, the command is refused, and changing it needs deliberate review)
   (the `<urn>` shell-quoted; text neutralises control characters and cuts a warning
   at 256 characters), and `--json` carries the full text without the `warning: `
   prefix in `warnings`, a list of plain strings (not objects), one per ungoverned

@@ -85,7 +85,10 @@ Names may be human-readable; they need not start with the citation.
 
 Governance requires a "spec" or "spec.*" role. A "spec" tag alone gets only
 warning "not-governed", with no spec-shape checks; JSON adds governed: false.
-Use hadron node update <node-urn> --role spec to enter governance.
+Use hadron node update <node-urn> --role spec to enter governance. A node
+that already has another governed role (review) is refused by that command
+(one governed kind at a time): the warning says so instead, and changing the
+existing role needs deliberate review. Lint never clears it.
 This changes the role; lint itself writes nothing.
 Without --strict this warning leaves the exit code unchanged.
 
@@ -447,7 +450,7 @@ func lintReadNode(n specNode, memURN string) []lintFindingDTO {
 		if ref == "" {
 			ref = specNodeRef(memURN, n.Loc)
 		}
-		return []lintFindingDTO{{Citation: n.Loc, Rule: "not-governed", Severity: sevWarning, Message: "spec tag alone is not governed; use hadron node update " + cmdutil.ShellQuote(ref) + " --role spec"}}
+		return []lintFindingDTO{{Citation: n.Loc, Rule: "not-governed", Severity: sevWarning, Message: "spec tag alone is not governed; " + governanceRemedy(cmdutil.ShellQuote(ref), n.Role)}}
 	}
 	return lintNode(n, memURN)
 }

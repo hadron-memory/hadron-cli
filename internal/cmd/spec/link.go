@@ -205,7 +205,7 @@ func linkWarnings(memURN string, ends ...specLinkEnd) []string {
 		if ref == "" {
 			ref = specNodeRef(memURN, e.loc)
 		}
-		warnings = append(warnings, fmt.Sprintf("%s is not governed (the spec tag alone is not law); use hadron node update %s --role spec", e.loc, cmdutil.ShellQuote(ref)))
+		warnings = append(warnings, fmt.Sprintf("%s is not governed (the spec tag alone is not law); %s", e.loc, governanceRemedy(cmdutil.ShellQuote(ref), e.node.Role)))
 	}
 	return warnings
 }
