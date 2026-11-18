@@ -3892,7 +3892,9 @@ server error fails the command).
     it with `run get <id>`. It's the fourth trigger into the same kernel.
     The default render records content reads and an action-run usage event.
   - `task render <node-ref>` calls only the `renderRunNode` Query, even with App
-    context. Accepts a node ID/fully-qualified URN or a bare loc with `-m`.
+    context. Accepts a node ID/fully-qualified URN or a bare loc with `-m`. A
+    qualified reference supplies its own memory; `-m` composes only a bare loc
+    (a conflicting `-m` is ignored, not refused).
     `--args` is one JSON object inline or from `@file`, parsed before requests;
     omitted args stay omitted, `{}` stays an empty object. Raw stdout is the
     returned string verbatim (no added newline), including empty success;
