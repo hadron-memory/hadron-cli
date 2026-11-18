@@ -2,9 +2,14 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -48,7 +53,10 @@ func TestSnapshotRevokeByIDOneReadNoPages1619(t *testing.T) {
 // Unknown and foreign ids are the same server NOT_FOUND, and the same CLI error
 // as the list lookup's "not found": exit 4, no mutation, no list fallback.
 func TestSnapshotRevokeByIDNotFoundIsToday1619(t *testing.T) {
-	for _, name := range []string{"unknown id", "foreign id"} {
+	// An unknown id and an id in an App the caller may not manage are the SAME
+	// server NOT_FOUND with the same message (server#3381), so one fixture is the
+	// whole contract: nothing may tell them apart.
+	for _, name := range []string{"unknown or foreign id (one indistinguishable server answer)"} {
 		t.Run(name, func(t *testing.T) {
 			r := taskResponses()
 			r["AutomationTeamSnapshotGrantById"] = memberGQLError("Team snapshot grant not found", "NOT_FOUND")
@@ -202,5 +210,84 @@ func TestSnapshotRevokeByIDWrongAppRefusesBeforeThePrompt1619(t *testing.T) {
 	}
 	if strings.Contains(prompt.String(), "Revoke team snapshot grant") || len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 {
 		t.Fatalf("no prompt and no mutation for a grant in another App: %s %+v", prompt, *calls)
+	}
+}
+
+// Only the server's own NOT_FOUND means "the grant is not there". A FORBIDDEN on
+// the by-id read keeps its code (exit 8) and sends no mutation.
+func TestSnapshotRevokeByIDForbiddenKeepsItsExit1619(t *testing.T) {
+	r := taskResponses()
+	r["AutomationTeamSnapshotGrantById"] = memberGQLError("Forbidden", "FORBIDDEN")
+	calls, _, err := runTeamTask(t, r, snapshotArgs1578("revoke", "grant1", "--yes", "--json")...)
+	if err == nil || exitCodeFor(err) != exitcode.Forbidden {
+		t.Fatalf("err=%v", err)
+	}
+	if len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 {
+		t.Fatalf("no mutation after a refused read: %+v", *calls)
+	}
+}
+
+// A bare HTTP 404 (a mistyped --server) is a configuration problem, not "the
+// grant was not found": it must not be flattened into the grant's not-found text.
+func TestSnapshotRevokeByIDBareHTTP404IsNotAGrantNotFound1619(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.NotFound(w, r) }))
+	t.Cleanup(srv.Close)
+	writeTeamBinding(t)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"--server", srv.URL}, snapshotArgs1578("revoke", "grant1", "--yes", "--json")...))
+	err := root.Execute()
+	if err == nil || strings.Contains(err.Error(), "team snapshot grant not found") || out.Len() != 0 {
+		t.Fatalf("a bare 404 must keep its own error, got %v (stdout %q)", err, out.String())
+	}
+}
+
+// --app is validated when given, even though the by-id read needs no App: a
+// malformed ref exits 2 before any request (the docs say so).
+func TestSnapshotRevokeByIDMalformedAppExitsBeforeAnyRequest1619(t *testing.T) {
+	for _, bad := range []string{"   ", "not a ref"} {
+		t.Run(bad, func(t *testing.T) {
+			r := taskResponses()
+			r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+			calls, _, err := runTeamTask(t, r, append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", bad)...)
+			if exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("err=%v", err)
+			}
+			if n := len(callsFor(calls, "AutomationTeamSnapshotGrantById")) + len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")); n != 0 {
+				t.Fatalf("a malformed --app must fail before any request: %+v", *calls)
+			}
+		})
+	}
+}
+
+// The held-worker --instruction revoke still pages the App's history, so a
+// malformed page mid-walk must refuse with no mutation (the by-id change must not
+// have loosened that path).
+func TestSnapshotRevokeInstructionMalformedPageNoWrite1619(t *testing.T) {
+	teamGitDir(t)
+	revokes := 0
+	srv, _ := snapshotServer1614(t, func(c snapshotCall1614) string {
+		switch c.OperationName {
+		case "AutomationTeamSnapshotGrantsInstructed":
+			if c.Variables["offset"] == float64(0) {
+				return grantPage1578(snapshotGrant1578, 2, true)
+			}
+			return `{"data":{"automationTeamSnapshotGrants":null}}`
+		case "RevokeAutomationTeamSnapshotGrantInstructed":
+			revokes++
+			return `{}`
+		default:
+			t.Errorf("unexpected op %s", c.OperationName)
+			return `{}`
+		}
+	})
+	writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(snapshotArgs1578("revoke", "grant1", "--app", autoApp, "--yes", "--instruction", "live-chat:client:7", "--json", "--server", srv.URL))
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "no team snapshot grant page") || revokes != 0 || out.Len() != 0 {
+		t.Fatalf("err=%v revokes=%d out=%q", err, revokes, out.String())
 	}
 }

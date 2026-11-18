@@ -232,11 +232,12 @@ func snapshotAppRef(ref string) (string, error) {
 func lookupSnapshotGrantByID(ctx context.Context, client graphql.Client, id string) (snapshotGrantDTO, error) {
 	r, err := gen.AutomationTeamSnapshotGrantById(ctx, client, id)
 	if err != nil {
-		mapped := api.MapErrorKeepingCode(err)
-		if exitcode.FromError(mapped) == exitcode.NotFound {
+		// Only the server's own NOT_FOUND is "the grant is not there": a bare HTTP 404
+		// (a mistyped --server) keeps its own mapped error, not a false "not found".
+		if api.ServerCodeOf(err) == "NOT_FOUND" {
 			return snapshotGrantDTO{}, exitcode.Newf(exitcode.NotFound, "team snapshot grant not found")
 		}
-		return snapshotGrantDTO{}, mapped
+		return snapshotGrantDTO{}, api.MapErrorKeepingCode(err)
 	}
 	if r == nil || r.AutomationTeamSnapshotGrant == nil {
 		return snapshotGrantDTO{}, exitcode.Newf(exitcode.Error, "the server returned no team snapshot grant for that ID")
@@ -261,11 +262,10 @@ func snapshotGrantInApp(ctx context.Context, client graphql.Client, appRef, gran
 	}
 	r, err := gen.GetAppMetadata(ctx, client, appRef)
 	if err != nil {
-		mapped := api.MapErrorKeepingCode(err)
-		if exitcode.FromError(mapped) == exitcode.NotFound {
+		if api.ServerCodeOf(err) == "NOT_FOUND" {
 			return false, nil
 		}
-		return false, mapped
+		return false, api.MapErrorKeepingCode(err)
 	}
 	if r == nil || r.App == nil {
 		return false, nil
@@ -276,7 +276,7 @@ func snapshotGrantInApp(ctx context.Context, client graphql.Client, appRef, gran
 func newCmdSnapshotRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var instructionRaw string
-	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation team snapshot grant in the target App", Long: `Revoke the exact grant ID from list. A person's revoke reads that one grant
+	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation team snapshot grant by ID", Long: `Revoke the exact grant ID from list. A person's revoke reads that one grant
 by ID (the grant's own App, including an already ended row), then shows the
 returned App ID and trigger kind/ID for confirmation. No App's history is paged
 and no App is needed: without --app the confirmation names the App the server
@@ -297,7 +297,7 @@ active App selected by hadron app use names that App. Confirmation then happens
 BEFORE any request: it names the grant ID and target App, and warns that the
 lookup records one event per page. After consent the entire App history is read,
 then the matching live row is revoked without a second prompt. No matching row
-means no revoke.`, Example: `  hadron automation team-snapshot-grant revoke <grant-id> --app acme.com:ops --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+means no revoke.`, Example: `  hadron automation team-snapshot-grant revoke <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
 		if err != nil {
 			return err
