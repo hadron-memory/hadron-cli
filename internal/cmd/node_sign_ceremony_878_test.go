@@ -164,7 +164,10 @@ func TestSigningWithdraw878EndedRequestHasNoTextLineButJSONCarriesIt(t *testing.
 // line under the table, ended rows none, and --json carries every row's URL.
 func TestSigningRequestList878OpenRowsGetCeremonyLines(t *testing.T) {
 	open := ceremonyRequestJSON("OPEN")
+	// The ended row carries its OWN id, so the id-qualified line can be
+	// checked against the row that printed it (BLIND F7).
 	ended := strings.Replace(ceremonyRequestJSON("COMPLETED"), ceremonyURLSr1, ceremonyURLSr2, 1)
+	ended = strings.Replace(ended, `"id":"sr1"`, `"id":"sr2"`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":          resolveNodeJSON,
 		"NodeSigningRequests": `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequestsPage":{"items":[` + open + `,` + ended + `],"hasMore":false,"nextCursor":null}}}}`,
@@ -178,7 +181,7 @@ func TestSigningRequestList878OpenRowsGetCeremonyLines(t *testing.T) {
 	if want := "sr1 ceremony: " + ceremonyURLSr1; !strings.Contains(out.String(), want) {
 		t.Errorf("the OPEN row must carry its ceremony line:\n%s", out.String())
 	}
-	if strings.Contains(out.String(), ceremonyURLSr2) {
+	if strings.Contains(out.String(), "sr2 ceremony:") || strings.Contains(out.String(), ceremonyURLSr2) {
 		t.Errorf("an ended row must not print its link:\n%s", out.String())
 	}
 
@@ -292,5 +295,154 @@ func TestSigningCeremonyURL878SurfaceRefusalNeverProbes(t *testing.T) {
 	}
 	if calls != 0 {
 		t.Errorf("capability reads = %d, want 0 for a surface-name refusal", calls)
+	}
+}
+
+// BLIND F1: the ceremony line exists to be opened, so a hostile value must
+// not reach the terminal raw. An OSC 8 hyperlink can hide the real target,
+// OSC 52 writes the clipboard, an embedded newline forges lines: none may
+// survive. A clean absolute web address still prints byte for byte (the
+// pins above), and --json keeps the raw value.
+func TestSigningCeremonyURL878HostileValueIsNeutralised(t *testing.T) {
+	hostile := "https://ceremonies.acme.example/\x1b]8;;https://evil.example\x07link\x1b]8;;\x07\nspoofed"
+	// The wire form is JSON-escaped control characters (raw ESC bytes are not
+	// valid JSON), so splice in the marshalled spelling: the decoded value the
+	// CLI receives is still the raw hostile string above.
+	hostileJSON, err := json.Marshal(hostile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetSigningRequest": `{"data":{"signingRequest":` + strings.Replace(ceremonyRequestJSON("OPEN"), ceremonyURLSr1, strings.Trim(string(hostileJSON), `"`), 1) + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signing-request", "get", "sr1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.Contains(got, "\x1b") {
+		t.Errorf("the ceremony line must not emit escape sequences raw:\n%q", got)
+	}
+	if n := strings.Count(got, "\nspoofed"); n != 0 {
+		t.Errorf("an embedded newline must not forge an output line:\n%q", got)
+	}
+	if strings.Count(got, "ceremony:") != 1 {
+		t.Errorf("exactly one ceremony line, got %d:\n%q", strings.Count(got, "ceremony:"), got)
+	}
+}
+
+// BLIND F6: an OPEN request whose server sent an empty URL prints no
+// ceremony line (the != "" guard is load-bearing).
+func TestSigningCeremonyURL878EmptyURLOpenRequestPrintsNoLine(t *testing.T) {
+	noURL := strings.Replace(ceremonyRequestJSON("OPEN"), `"ceremonyUrl":"`+ceremonyURLSr1+`"`, `"ceremonyUrl":""`, 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetSigningRequest": `{"data":{"signingRequest":` + noURL + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signing-request", "get", "sr1", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "ceremony:") {
+		t.Errorf("an empty ceremonyUrl must print no line:\n%s", out.String())
+	}
+}
+
+// BLIND F4: the old-server refusal is every signing command's refusal — the
+// shared fragment carries the field — so each gets the bounded message, not
+// a raw GraphQL error.
+func TestSigningCeremonyURL878OldServerRefusalAcrossCommands(t *testing.T) {
+	withSigningProbe(t, true, nil)
+	refusal := missingSigningFieldJSON("ceremonyUrl", "SigningRequest")
+	cases := []struct {
+		name string
+		ops  map[string]string
+		args []string
+	}{
+		{"sign", map[string]string{
+			"ResolveUrn":           resolveNodeJSON,
+			"RequestNodeSignature": refusal,
+		}, []string{"node", "sign", nodeURN}},
+		{"withdraw", map[string]string{
+			"WithdrawSigningRequest": refusal,
+		}, []string{"node", "signing-request", "withdraw", "sr1"}},
+		{"list", map[string]string{
+			"ResolveUrn":          resolveNodeJSON,
+			"NodeSigningRequests": refusal,
+		}, []string{"node", "signing-request", "list", nodeURN}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, tc.ops)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, tc.args...), "--server", gql.URL))
+			err := root.Execute()
+			if code := exitCodeFor(err); code != exitcode.Usage {
+				t.Fatalf("exit = %d, want 2 (%v)", code, err)
+			}
+			if !strings.Contains(err.Error(), "hadron-server#3120") {
+				t.Errorf("the old-server message must name the server change: %q", err.Error())
+			}
+		})
+	}
+}
+
+// BLIND F4 (ordering): a signingRequestsPage refusal is decided before the
+// ceremony branch — the paged-list message stands and the capability token
+// is never read.
+func TestSigningCeremonyURL878PagedListRefusalWinsAndNeverProbes(t *testing.T) {
+	calls := 0
+	prev := node.SigningCapabilityProbe
+	node.SigningCapabilityProbe = func(ctx context.Context, baseURL string) (bool, error) {
+		calls++
+		return true, nil
+	}
+	t.Cleanup(func() { node.SigningCapabilityProbe = prev })
+
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":          resolveNodeJSON,
+		"NodeSigningRequests": missingSigningFieldJSON("signingRequestsPage", "Node"),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signing-request", "list", nodeURN, "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want 2 (%v)", code, err)
+	}
+	if !strings.Contains(err.Error(), "paged signing-request list") || !strings.Contains(err.Error(), "hadron-server#4123") {
+		t.Errorf("the paged-list refusal must keep its own message: %q", err.Error())
+	}
+	if calls != 0 {
+		t.Errorf("capability reads = %d, want 0", calls)
+	}
+}
+
+// BLIND F5: the probe reads the command's own --server, not a default.
+func TestSigningCeremonyURL878ProbeReadsTheCommandServer(t *testing.T) {
+	var probed []string
+	prev := node.SigningCapabilityProbe
+	node.SigningCapabilityProbe = func(ctx context.Context, baseURL string) (bool, error) {
+		probed = append(probed, baseURL)
+		return true, nil
+	}
+	t.Cleanup(func() { node.SigningCapabilityProbe = prev })
+
+	gql, _ := captureGraphQL(t, map[string]string{
+		"GetSigningRequest": missingSigningFieldJSON("ceremonyUrl", "SigningRequest"),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signing-request", "get", "sr1", "--server", gql.URL})
+	err := root.Execute()
+	if code := exitCodeFor(err); code != exitcode.Usage {
+		t.Fatalf("exit = %d, want 2 (%v)", code, err)
+	}
+	if len(probed) != 1 || probed[0] != gql.URL {
+		t.Errorf("probe read %v, want exactly [%s]", probed, gql.URL)
 	}
 }

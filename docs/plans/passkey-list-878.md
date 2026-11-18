@@ -118,6 +118,8 @@ A fourth guard, `!u.IsAbs()`, was equivalent to the scheme allow-list and was re
 
 The server hosts the ceremony page and returns its link on the request. The CLI copies it verbatim and never composes one — an output URL containing the `--server` host would be a composed one, and the pins hold a fixture host that deliberately differs from the fake server's for exactly that.
 
+**Verbatim is not raw** (BLIND P2 1, cli#2519): the line exists so a person will open it, so a hostile value must not reach a TTY byte for byte. Text mode (`ceremonyText`, `internal/cmd/node/sign.go`) prints the value verbatim only when it parses as an absolute http(s) URL whose runes are all display-neutral-clean — the same classification as a table cell; anything else goes through `output.SafeCell` (an OSC 8 hyperlink can hide the real target, OSC 52 writes the clipboard, an embedded newline forges lines). `--json` keeps the raw value either way.
+
 ### Where the link appears
 
 - **`--json`:** `ceremonyUrl` sits after `state` in the request DTO, for **every** state, OPEN included. The DTO shape is the stable contract; the field is always present (`String!` on the wire).
@@ -133,13 +135,15 @@ The server hosts the ceremony page and returns its link on the request. The CLI 
 - token absent, or discovery failed (which reads as not-advertised): the shipped "this server does not offer node signing" — a server that may simply be off never gets upgrade text;
 - a surface-name refusal never probes: zero capability reads, verified by a call-count pin.
 
-The probe runs only on that one branch — a switched-off server pays no extra round trip — and is injected per command (`newCeremonyTokenProbe`), so `localChecker` (`node signatures --check`) carries it too; a nil probe falls through to the generic mapping rather than guessing.
+The probe runs only on that one branch — a switched-off server pays no extra round trip — and is injected per command (`newCeremonyTokenProbe`), so `localChecker` (`node signatures --check`) carries it too; a nil probe (no factory at hand) is mapped **explicitly** to the generic advice rather than guessing (BLIND P2 2, cli#2519: the bare fall-through used to reach the surface-name loop, whose `SigningRequest` type-position match answered signing-off — the generic mapping this section always claimed). Pinned by unit tests on `mapSigningError` in `internal/cmd/node/sign_ceremony_test.go`.
 
 ### Tests and mutants (`internal/cmd/node_sign_ceremony_878_test.go`)
 
 The repro as pins, red on main first (commit 35a7d938): get/sign/list/withdraw text and `--json`, the ended-state no-line walk over all five states, the list's id-qualified lines, host-differs verbatim pins, and the three refusal pins (old-server, signing-off/never-upgrade, surface-refusal-never-probes). `--json` is indented by contract, so the pins read the field by unmarshalling — never a compact substring.
 
 Named mutants, each killed by its pin: the ended-state ceremony line (M1), the inverted token (off gets upgrade text, M2), the always-probe (surface refusal reads capabilities, M3).
+
+**BLIND delta pins** (Jonas's cli#2519 review, fbffbe79): the hostile-value neutralisation (wire form is JSON-escaped control characters — raw ESC is not valid JSON), the empty-`ceremonyUrl` no-line guard, the old-server refusal across `sign`/`withdraw`/`list` (confirming the hard break is intended, cli#2032 precedent), the paged-list refusal winning over the ceremony branch without a probe, and the probe reading the command's own `--server`.
 
 ### Disclosure
 

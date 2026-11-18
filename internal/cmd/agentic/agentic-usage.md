@@ -1428,10 +1428,12 @@ Conventions:
     requestedBy {userId, appId, workerId, sessionId}, signature). A person
     completes it with their passkey on the server's signing page, whose link
     the server returns (ceremonyUrl, hadron-server#3120): text prints
-    `ceremony: <url>` — copied verbatim, never composed — while the request
-    is OPEN only (an ended request's link only explains that it ended; its
-    URL stays in --json, which carries the field for every state); `list`
-    prints each OPEN row's `id ceremony: <url>` line under the table. It ends exactly once:
+    `ceremony: <url>` — copied verbatim, never composed; a value that is not
+    a clean absolute web address is neutralised rather than echoed raw —
+    while the request is OPEN only (an ended request's link only explains
+    that it ended; its URL stays in --json, which carries the field for
+    every state); `list` prints each OPEN row's `id ceremony: <url>` line
+    under the table. It ends exactly once:
     COMPLETED, DECLINED, WITHDRAWN, EXPIRED or STALE (the title, abstract or
     content changed). `node signing-request get <id>` reads one (exit 4 when
     unknown or unreadable), `list <ref> [--state s] [--limit N] [--after

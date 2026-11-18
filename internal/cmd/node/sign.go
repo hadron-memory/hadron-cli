@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -158,6 +159,25 @@ func requestIsOpen(state string) bool {
 	return state == string(gen.SigningRequestStateOpen)
 }
 
+// ceremonyText renders the ceremony URL for text mode. Verbatim when the
+// value is the web address it must be — an absolute http(s) URL whose runes
+// are all display-neutral-clean (the same classification as table cells);
+// url.Parse itself rejects control characters, but format characters such as
+// bidi overrides parse fine. Anything else is a server string that must not
+// reach the terminal raw (an OSC 8 hyperlink can hide the real target, OSC 52
+// writes the clipboard, an embedded newline forges lines), so it goes through
+// the same neutralisation as a table cell: still readable, never executable.
+// "Copied verbatim, never composed" is about not building the URL; --json
+// carries the raw value either way (BLIND F1).
+func ceremonyText(u string) string {
+	if !strings.ContainsFunc(u, output.Neutralised) {
+		if parsed, err := url.Parse(u); err == nil && api.URLIsSecure(parsed) {
+			return u
+		}
+	}
+	return output.SafeCell(u)
+}
+
 // mapSigningError is api.MapError, except that a server without the signing
 // surface gets its own message: the generic schema-skew advice (upgrade the
 // CLI or the server) is wrong when the server is current and signing is simply
@@ -180,8 +200,12 @@ func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 	// present: the bounded old-server answer. No token, or discovery failed
 	// (which reads as not-advertised): the shipped signing-off answer — a
 	// server that may simply be off never gets upgrade text. A nil probe
-	// (no factory at hand) falls through to the generic mapping.
-	if api.IsFrameworkValidationOnlyFor(err, "ceremonyUrl") && ceremonyToken != nil {
+	// (no factory at hand) gets the generic mapping, never a guess between
+	// the two answers.
+	if api.IsFrameworkValidationOnlyFor(err, "ceremonyUrl") {
+		if ceremonyToken == nil {
+			return api.MapError(err)
+		}
 		if advertised, perr := ceremonyToken(); perr == nil && advertised {
 			return exitcode.Newf(exitcode.Usage, "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)")
 		}
@@ -230,7 +254,7 @@ func renderSigningRequest(w io.Writer, r signingRequestDTO) {
 	// The handoff: the server's own link, verbatim, only while the request
 	// can still be signed (cli#878 part 2).
 	if requestIsOpen(r.State) && r.CeremonyURL != "" {
-		fmt.Fprintf(w, "  ceremony: %s\n", r.CeremonyURL)
+		fmt.Fprintf(w, "  ceremony: %s\n", ceremonyText(r.CeremonyURL))
 	}
 	if r.EndedAt != nil {
 		fmt.Fprintf(w, "  ended: %s\n", *r.EndedAt)
@@ -433,7 +457,9 @@ func newCmdSigningRequestGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show one signing request, named by its id (from node signing-request list or
 the output of node sign): its node and revision, its state (OPEN, COMPLETED,
 DECLINED, WITHDRAWN, EXPIRED or STALE) and, once a person has completed it,
-the signature.`,
+the signature. An OPEN request also prints "ceremony: <url>" — the server's
+own link to the page where a person completes it, printed only while the
+request can still be signed (--json carries ceremonyUrl for every state).`,
 		Example: `  hadron node signing-request get 01a18a0b2c3d7e8f9a0b1c2d3e4f5a6b --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -488,7 +514,9 @@ When there are more, the output ends with "has more: true" and a "next cursor"
 line; pass that value to --after to read the next page, exactly as printed
 (--json carries the same value in nextCursor), and give the same --state again.
 Each page is a snapshot at the time of the call; an empty page means no
-requests on that page. --json adds hasMore and nextCursor (null when there is
+requests on that page. Each OPEN row's ceremony link follows the table as
+"<id> ceremony: <url>" (an ended row prints none); --json adds ceremonyUrl on
+every row, and hasMore and nextCursor (null when there is
 no further page) beside requests.`,
 		Example: `  hadron node signing-request list hrn:node:hadronmemory.com:dev:decisions:dk-001
   hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --json
@@ -572,7 +600,7 @@ no further page) beside requests.`,
 					// none (their link only explains that they ended).
 					for _, r := range dto.Requests {
 						if requestIsOpen(r.State) && r.CeremonyURL != "" {
-							if _, err := fmt.Fprintf(w, "%s ceremony: %s\n", output.SafeCell(r.ID), r.CeremonyURL); err != nil {
+							if _, err := fmt.Fprintf(w, "%s ceremony: %s\n", output.SafeCell(r.ID), ceremonyText(r.CeremonyURL)); err != nil {
 								return err
 							}
 						}
@@ -603,7 +631,9 @@ func newCmdSigningRequestWithdraw(f *cmdutil.Factory) *cobra.Command {
 		Short: "Withdraw an open signing request you made",
 		Long: `Withdraw an open signing request. Only the account that made it may
 withdraw it, from any of its sessions. An already-ended request is refused
-(exit 5) and stays as it ended.`,
+(exit 5) and stays as it ended. The output shows the ended request; no
+ceremony line prints (an ended request's link only explains that it ended),
+and --json carries ceremonyUrl as the server returned it.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
