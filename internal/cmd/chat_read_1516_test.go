@@ -29,6 +29,15 @@ func chatReader1516(t *testing.T, mode, broken string) (*httptest.Server, func()
 	if mode == "baseline" {
 		rows["chat-message"] = nil
 	}
+	return chatRowsReader1516(t, rows, broken)
+}
+
+// chatRowsReader1516 serves the given rows per stream ("legacy" is the
+// unqualified drain, "chat-message" the explicit one), clamping every page to
+// two rows, and records each stream's requested offsets (cli#1519 reuses it
+// for fixtures the three modes above cannot express).
+func chatRowsReader1516(t *testing.T, rows map[string][]string, broken string) (*httptest.Server, func() map[string][]int) {
+	t.Helper()
 	var mu sync.Mutex
 	calls := map[string][]int{}
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -144,9 +153,16 @@ func TestChatReadDualDrain1516(t *testing.T) {
 						if got != string(want) {
 							t.Fatalf("changed transcript/JSON:\nwant %s\ngot %s", want, got)
 						}
+						// cli#1519: the exact offset sequence of each drain, so a
+						// skipped, repeated or drifted offset in EITHER stream
+						// fails. Both drains end on their empty page: today's
+						// five-row unqualified stream asks 0,2,4 and then 5; the
+						// post-exclusion four-row stream asks 0,2,4; the explicit
+						// stream's one row asks 0 and 1.
 						c := calls()
-						if len(c["legacy"]) < 2 || fmt.Sprint(c["chat-message"]) != "[0 1]" {
-							t.Fatalf("did not drain independently: %v", c)
+						wantLegacy := map[string]string{"today": "[0 2 4 5]", "new": "[0 2 4]"}[mode]
+						if fmt.Sprint(c["legacy"]) != wantLegacy || fmt.Sprint(c["chat-message"]) != "[0 1]" {
+							t.Fatalf("did not drain independently: legacy %v (want %s) chat-message %v (want [0 1])", c["legacy"], wantLegacy, c["chat-message"])
 						}
 					})
 				}
