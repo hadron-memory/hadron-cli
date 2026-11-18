@@ -3513,6 +3513,11 @@ server error fails the command).
   `--json` adds `handoff`) only when the worker's continuity is `CURRENT` and names
   this session; otherwise exit stays 0 with one line `handoff saved; URN not read
   back (<reason>)` and no `handoff` key (the end is committed; nothing is retried).
+  **One compatibility exception:** a server without `Worker.continuity` (it
+  refuses the read-back query as a GraphQL validation error) prints no handoff
+  line at all and no `handoff` key, exactly the older output. That does not mean
+  the handoff was lost: it was written before the end, as above, and is only not
+  read back.
   Passing it on a session with no
   worker is refused — there is no sequence to write to. An EXPLICIT empty
   handoff is refused exit 2 (somebody meant to write something); omitting it
