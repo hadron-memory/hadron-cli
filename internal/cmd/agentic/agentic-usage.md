@@ -5635,7 +5635,10 @@ of at most 64 characters), else null: no registered worker, no answer, or someth
 is not a version. The text receipt shows it as an `orca  <version>` line before the
 titles. It is the operator's evidence only and is never sent to the platform. The pass
 and the status read run `delivery.orca_bin` when that path resolves (exists, not a directory, executable),
-else `orca` on PATH, so a stale host config no longer fails every sweep.
+else `orca` on PATH, so a stale host config no longer fails every sweep. A relative
+`delivery.orca_bin` (a bare name or a path with a separator) is refused before any server
+request, status read or Orca exec: exit 2, `delivery.orca_bin must be an absolute path; nothing written`,
+as `orca status --config` refuses it (cli#2369); an unset `orca_bin` and an absolute one are unchanged.
 
 A missing/non-live host registration is exit 8. Unresolved or ambiguous registered
 workers, or a missing status row for any registered worker, refuse the whole
