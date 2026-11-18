@@ -47,7 +47,11 @@ a name, a provider or a model.`,
 				return api.MapError(err)
 			}
 			dto := toolChoiceDTO{ChatID: args[0]}
-			if resp != nil && resp.ChatEffectiveToolChoice != nil {
+			// chatEffectiveToolChoice is nullable: null is the server's "no
+			// effective choice", a normal answer rendered as "not resolved",
+			// so this check stays. resp itself is never nil: the generated
+			// client allocates it before the request (hadron-cli#2282).
+			if resp.ChatEffectiveToolChoice != nil {
 				name, nerr := cmdutil.ToolChoiceName(*resp.ChatEffectiveToolChoice)
 				if nerr != nil {
 					return nerr

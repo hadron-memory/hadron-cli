@@ -8,7 +8,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -43,9 +42,9 @@ change.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no tool choice")
-			}
+			// chatToolChoiceFor is non-null, so there is no "no choice" answer
+			// to handle; resp itself is never nil, because the generated client
+			// allocates it before the request (hadron-cli#2282).
 			name, nerr := cmdutil.ToolChoiceName(resp.ChatToolChoiceFor)
 			if nerr != nil {
 				return nerr
