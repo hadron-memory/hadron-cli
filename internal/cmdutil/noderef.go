@@ -76,13 +76,13 @@ func IsEntityID(ref string) bool {
 // <org>::<memory>::<loc>. It is the same grammar ResolveNodeURN accepts, in
 // predicate form.
 //
-// It exists for commands whose -m/--memory is REQUIRED for another reason (it
-// names where a write lands, say) but which also take a node ref that may point
-// at another memory. ResolveNodeRef treats its ref as a bare loc whenever a
-// memory is supplied, so passing a qualified ref through composes it INTO that
-// memory — `hrn:node:acme.com:kb:hrn:node:other.org:dev:x`, which resolves to
-// nothing, or "" for the legacy spelling. Gate on this and pass an empty memory
-// for qualified refs so they resolve where they actually live.
+// ResolveNodeRef and BatchNodeRef gate on it themselves: a qualified ref passes
+// through unchanged even when a memory is supplied, and only a bare loc is
+// composed into that memory (hadron-cli#2300). Before that, the helpers
+// composed a qualified ref INTO the memory
+// (`hrn:node:acme.com:kb:hrn:node:other.org:dev:x`, resolving to nothing), so
+// some callers still gate on it and pass an empty memory; that is now
+// redundant but harmless.
 //
 // A bare node id is NOT covered here and needs no gate: ResolveNodeRef
 // short-circuits on IsNodeID before -m is considered.
@@ -103,9 +103,10 @@ func EdgeDisplay(name *string, loc string) string {
 
 // ResolveNodeRef resolves a node reference into a node ID. With an empty
 // memory it requires a fully-qualified URN (ResolveNodeURN). With a memory
-// (the `org::memory` form, optionally hrn:/urn:-prefixed) the ref is a bare loc
-// within that memory: a node URN is just <org>::<memory>::<loc>, so the two are
-// joined and resolved. The memory form is the additive convenience; without it
+// (the `org::memory` form, optionally hrn:/urn:-prefixed) a bare-loc ref is a
+// loc within that memory: a node URN is just <org>::<memory>::<loc>, so the two
+// are joined and resolved. An id, an action URN and a qualified node ref
+// (IsQualifiedNodeRef) are never composed: -m does not apply to them. The memory form is the additive convenience; without it
 // the strict-URN behavior is unchanged.
 func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
 	// An action URN names its own agent and register entry, so -m has nothing
@@ -118,6 +119,12 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 	// look up a node that doesn't exist. -m is simply redundant here.
 	if IsNodeID(ref) {
 		return strings.TrimSpace(ref), nil
+	}
+	// A qualified ref names its own memory, so -m has nothing to compose onto
+	// it: it resolves where it lives, as without -m (hadron-cli#2300,
+	// cor:urn:010:02). -m composes only a bare loc.
+	if IsQualifiedNodeRef(ref) {
+		return ResolveNodeURN(cmd, client, ref)
 	}
 	if memory = strings.TrimSpace(memory); memory != "" {
 		loc := strings.TrimSpace(ref)
@@ -160,7 +167,8 @@ func IsActionRef(ref string) bool {
 // PK-or-URN itself, WITHOUT the resolveUrn round trip ResolveNodeRef costs —
 // today nodeBatch(refs:), which accepts both since hadron-server#813. It takes
 // the same inputs ResolveNodeRef does (a fully-qualified URN, or a bare loc
-// with -m/--memory) and applies the same composition, but returns the ref to
+// with -m/--memory) and applies the same composition (a qualified ref is never
+// composed), but returns the ref to
 // send instead of an id. That is what makes a batch of URNs ONE call rather
 // than N resolves plus a batch.
 //
@@ -173,6 +181,11 @@ func BatchNodeRef(memory, ref string) (string, error) {
 	// Same as ResolveNodeRef: an id is unambiguous, so -m can't turn it into a loc.
 	if IsNodeID(ref) {
 		return ref, nil
+	}
+	// Same as ResolveNodeRef: a qualified ref names its own memory, so -m is
+	// not applied to it (hadron-cli#2300).
+	if IsQualifiedNodeRef(ref) {
+		memory = ""
 	}
 	if memory = strings.TrimSpace(memory); memory != "" {
 		if ref == "" {
