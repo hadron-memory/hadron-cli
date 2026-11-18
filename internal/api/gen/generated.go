@@ -60791,41 +60791,6 @@ func (v *InstallTargetInput) GetAgentRef() string { return v.AgentRef }
 // GetAppRef returns InstallTargetInput.AppRef, and is useful for accessing the field via an interface.
 func (v *InstallTargetInput) GetAppRef() string { return v.AppRef }
 
-// IntakeActiveHolderAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
-type IntakeActiveHolderAgentTasksAgentTask struct {
-	Id string `json:"id"`
-}
-
-// GetId returns IntakeActiveHolderAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
-func (v *IntakeActiveHolderAgentTasksAgentTask) GetId() string { return v.Id }
-
-// IntakeActiveHolderResponse is returned by IntakeActiveHolder on success.
-type IntakeActiveHolderResponse struct {
-	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
-	// All tag, source and date filters combine with the other selectors using AND.
-	// owner / assignee / creator name a party of the App (a ref naming nobody matches
-	// nothing; a retired worker is no party to name, so it matches nothing). creator is
-	// the task's creator as createdBy projects it: a worker, or a person for a task they created
-	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
-	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
-	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
-	// without a session binding (#1755).
-	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
-	// absent one.
-	AgentTasks []*IntakeActiveHolderAgentTasksAgentTask `json:"agentTasks"`
-}
-
-// GetAgentTasks returns IntakeActiveHolderResponse.AgentTasks, and is useful for accessing the field via an interface.
-func (v *IntakeActiveHolderResponse) GetAgentTasks() []*IntakeActiveHolderAgentTasksAgentTask {
-	return v.AgentTasks
-}
-
 // IntakeClaimTaskCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -61096,6 +61061,45 @@ type IntakeExternalIdChangesResponse struct {
 // GetAgentTaskExternalIdChanges returns IntakeExternalIdChangesResponse.AgentTaskExternalIdChanges, and is useful for accessing the field via an interface.
 func (v *IntakeExternalIdChangesResponse) GetAgentTaskExternalIdChanges() *IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePage {
 	return v.AgentTaskExternalIdChanges
+}
+
+// IntakeItemHoldersAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type IntakeItemHoldersAgentTasksAgentTask struct {
+	Id     string          `json:"id"`
+	Status AgentTaskStatus `json:"status"`
+}
+
+// GetId returns IntakeItemHoldersAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *IntakeItemHoldersAgentTasksAgentTask) GetId() string { return v.Id }
+
+// GetStatus returns IntakeItemHoldersAgentTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *IntakeItemHoldersAgentTasksAgentTask) GetStatus() AgentTaskStatus { return v.Status }
+
+// IntakeItemHoldersResponse is returned by IntakeItemHolders on success.
+type IntakeItemHoldersResponse struct {
+	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
+	// owner / assignee / creator name a party of the App (a ref naming nobody matches
+	// nothing; a retired worker is no party to name, so it matches nothing). creator is
+	// the task's creator as createdBy projects it: a worker, or a person for a task they created
+	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
+	// without a session binding (#1755).
+	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
+	// absent one.
+	AgentTasks []*IntakeItemHoldersAgentTasksAgentTask `json:"agentTasks"`
+}
+
+// GetAgentTasks returns IntakeItemHoldersResponse.AgentTasks, and is useful for accessing the field via an interface.
+func (v *IntakeItemHoldersResponse) GetAgentTasks() []*IntakeItemHoldersAgentTasksAgentTask {
+	return v.AgentTasks
 }
 
 // IntakeStartTaskResponse is returned by IntakeStartTask on success.
@@ -124535,18 +124539,6 @@ func (v *__InstallMemoryInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __InstallMemoryInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__InstallMemoryInput) GetAgentRef() string { return v.AgentRef }
 
-// __IntakeActiveHolderInput is used internally by genqlient
-type __IntakeActiveHolderInput struct {
-	AppRef     string `json:"appRef"`
-	ExternalId string `json:"externalId"`
-}
-
-// GetAppRef returns __IntakeActiveHolderInput.AppRef, and is useful for accessing the field via an interface.
-func (v *__IntakeActiveHolderInput) GetAppRef() string { return v.AppRef }
-
-// GetExternalId returns __IntakeActiveHolderInput.ExternalId, and is useful for accessing the field via an interface.
-func (v *__IntakeActiveHolderInput) GetExternalId() string { return v.ExternalId }
-
 // __IntakeClaimTaskInput is used internally by genqlient
 type __IntakeClaimTaskInput struct {
 	Input *CreateAgentTaskInput `json:"input,omitempty"`
@@ -124570,6 +124562,18 @@ func (v *__IntakeExternalIdChangesInput) GetAfter() *string { return v.After }
 
 // GetLimit returns __IntakeExternalIdChangesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__IntakeExternalIdChangesInput) GetLimit() *int { return v.Limit }
+
+// __IntakeItemHoldersInput is used internally by genqlient
+type __IntakeItemHoldersInput struct {
+	AppRef     string `json:"appRef"`
+	ExternalId string `json:"externalId"`
+}
+
+// GetAppRef returns __IntakeItemHoldersInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__IntakeItemHoldersInput) GetAppRef() string { return v.AppRef }
+
+// GetExternalId returns __IntakeItemHoldersInput.ExternalId, and is useful for accessing the field via an interface.
+func (v *__IntakeItemHoldersInput) GetExternalId() string { return v.ExternalId }
 
 // __IntakeStartTaskInput is used internally by genqlient
 type __IntakeStartTaskInput struct {
@@ -153802,46 +153806,6 @@ func InstallMemory(
 	return data_, err_
 }
 
-// The query executed by IntakeActiveHolder.
-const IntakeActiveHolder_Operation = `
-query IntakeActiveHolder ($appRef: ID!, $externalId: String!) {
-	agentTasks(appRef: $appRef, externalId: $externalId, status: [BACKLOG,PENDING,STARTED]) {
-		id
-	}
-}
-`
-
-// cli#2265 (hadron-server#4217, cor:agt:120:02): who holds the item NOW. An ended
-// task keeps its external id, so a change for an old task can arrive after a newer
-// ACTIVE task claimed the same item; at most one ACTIVE (backlog, pending or
-// started) task holds an id. Empty = nobody holds it.
-func IntakeActiveHolder(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	appRef string,
-	externalId string,
-) (data_ *IntakeActiveHolderResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "IntakeActiveHolder",
-		Query:  IntakeActiveHolder_Operation,
-		Variables: &__IntakeActiveHolderInput{
-			AppRef:     appRef,
-			ExternalId: externalId,
-		},
-	}
-
-	data_ = &IntakeActiveHolderResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by IntakeClaimTask.
 const IntakeClaimTask_Operation = `
 mutation IntakeClaimTask ($input: CreateAgentTaskInput!) {
@@ -153940,6 +153904,48 @@ func IntakeExternalIdChanges(
 	}
 
 	data_ = &IntakeExternalIdChangesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by IntakeItemHolders.
+const IntakeItemHolders_Operation = `
+query IntakeItemHolders ($appRef: ID!, $externalId: String!) {
+	agentTasks(appRef: $appRef, externalId: $externalId) {
+		id
+		status
+	}
+}
+`
+
+// cli#2265 (hadron-server#4217, cor:agt:120:02): who holds the item NOW. An ended
+// task keeps its external id, so a change for an old task can arrive after a newer
+// ACTIVE task claimed the same item; at most one ACTIVE (backlog, pending or
+// started) task holds an id, newest first, beside any finished or cancelled
+// history. Empty = no task of the App holds it in any state.
+func IntakeItemHolders(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	externalId string,
+) (data_ *IntakeItemHoldersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IntakeItemHolders",
+		Query:  IntakeItemHolders_Operation,
+		Variables: &__IntakeItemHoldersInput{
+			AppRef:     appRef,
+			ExternalId: externalId,
+		},
+	}
+
+	data_ = &IntakeItemHoldersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

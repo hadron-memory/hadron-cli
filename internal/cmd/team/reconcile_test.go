@@ -30,13 +30,14 @@ type feedClient struct {
 	after []string
 	// holders answers IntakeActiveHolder: external id -> the ACTIVE task id that
 	// holds it (absent = nobody). holderErr fails every lookup (cli#2265).
-	holders     map[string]string
+	holders     map[string]string // id -> ACTIVE task
+	finished    map[string]string // id -> a FINISHED task that keeps it
 	holderErr   error
 	holderCalls []string
 }
 
 func (c *feedClient) MakeRequest(_ context.Context, req *graphql.Request, resp *graphql.Response) error {
-	if req.OpName == "IntakeActiveHolder" {
+	if req.OpName == "IntakeItemHolders" {
 		b, _ := json.Marshal(req.Variables)
 		var v struct {
 			ExternalID string `json:"externalId"`
@@ -46,10 +47,14 @@ func (c *feedClient) MakeRequest(_ context.Context, req *graphql.Request, resp *
 		if c.holderErr != nil {
 			return c.holderErr
 		}
-		body := `[]`
+		var rows []string
 		if id, ok := c.holders[v.ExternalID]; ok {
-			body = fmt.Sprintf(`[{"id":%q}]`, id)
+			rows = append(rows, fmt.Sprintf(`{"id":%q,"status":"STARTED"}`, id))
 		}
+		if id, ok := c.finished[v.ExternalID]; ok {
+			rows = append(rows, fmt.Sprintf(`{"id":%q,"status":"FINISHED"}`, id))
+		}
+		body := "[" + strings.Join(rows, ",") + "]"
 		return json.Unmarshal([]byte(`{"agentTasks":`+body+`}`), resp.Data)
 	}
 	b, _ := json.Marshal(req.Variables)
@@ -359,12 +364,15 @@ func TestReconcileSkippedReasonsRemainAdditive1976(t *testing.T) {
 // cli#2265 (server#4217): an ended task keeps its external id, so a change for
 // it can arrive after a NEWER active task claimed the item. The pass checks who
 // holds the item now before telling the adapter anything.
-func heldElsewhereRun(t *testing.T, change string, holders map[string]string) (reconcileDTO, string, error, error) {
+func heldElsewhereRun(t *testing.T, change string, holders map[string]string, finished ...map[string]string) (reconcileDTO, string, error, error) {
 	t.Helper()
 	r, desc, log := scriptAdapter(t, `echo '{}'`)
 	desc.Calls = []string{"describe", "list-untracked", "mark-tracked", "untrack", "report"}
 	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
 	c := &feedClient{pages: []string{page(change)}, holders: holders}
+	if len(finished) > 0 {
+		c.finished = finished[0]
+	}
 	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
 	b, _ := os.ReadFile(log)
 	return d, string(b), aerr, ferr
@@ -427,5 +435,22 @@ func TestReconcileHolderLookupFailureLeavesTheCursorAndActsOnNothing2265(t *test
 	}
 	if got, _ := store.Get("k"); got != "" {
 		t.Fatalf("the cursor moved past an unanswered change: %q", got)
+	}
+}
+
+// The gate's carried amendment: RELEASED untracks only when NO task holds the id
+// in any state, so an item a FINISHED task still holds stays tracked.
+func TestReconcileReleasedDoesNotUntrackWhileAFinishedTaskStillHoldsTheId2265(t *testing.T) {
+	d, log, aerr, ferr := heldElsewhereRun(t, releasedChange("x", "c1"), nil, map[string]string{"x": "A"})
+	if aerr != nil || ferr != nil {
+		t.Fatalf("%v %v", aerr, ferr)
+	}
+	if log != "" || d.Untracked != 0 || d.Skipped != 1 || d.SkippedHeldElsewhere != 1 {
+		t.Fatalf("%+v %q", d, log)
+	}
+	// CANCELLED and REASSIGNED are unchanged: a finished holder alone does not skip them.
+	d, log, _, _ = heldElsewhereRun(t, `{"cursor":"c1","kind":"CANCELLED","externalId":"x","task":{"id":"B","handle":"AT2"}}`, nil, map[string]string{"x": "A"})
+	if d.Reported != 1 || !strings.Contains(log, "report ") {
+		t.Fatalf("%+v %q", d, log)
 	}
 }

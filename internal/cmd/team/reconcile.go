@@ -138,7 +138,7 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 				continue
 			}
 			dto.Read++
-			holder := func(externalID string) (string, error) { return activeHolder(ctx, client, appRef, externalID) }
+			holder := func(externalID string) (itemHolders, error) { return lookupHolders(ctx, client, appRef, externalID) }
 			if ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, holder, &dto); ferr != nil {
 				// The cursor stays after the last answered change, so the
 				// next run retries this one.
@@ -187,7 +187,7 @@ type feedChange = gen.IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTask
 type changeTask = gen.IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask
 
 // reconcileOne maps one change to its adapter call.
-func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, kind gen.AgentTaskExternalIdChangeKind, externalID string, t *changeTask, holder func(string) (string, error), dto *reconcileDTO) error {
+func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, kind gen.AgentTaskExternalIdChangeKind, externalID string, t *changeTask, holder func(string) (itemHolders, error), dto *reconcileDTO) error {
 	switch kind {
 	case gen.AgentTaskExternalIdChangeKindReassigned:
 		// A task now without an assignee names no worker to mark.
@@ -201,7 +201,7 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 			dto.SkippedUndeclared++
 			return nil
 		}
-		if skip, err := heldElsewhere(holder, externalID, t, dto); skip || err != nil {
+		if skip, err := heldElsewhere(holder, kind, externalID, t, dto); skip || err != nil {
 			return err
 		}
 		task := intake.Task{ID: t.Id, Handle: t.Handle}
@@ -228,7 +228,7 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 			dto.SkippedUndeclared++
 			return nil
 		}
-		if skip, err := heldElsewhere(holder, externalID, t, dto); skip || err != nil {
+		if skip, err := heldElsewhere(holder, kind, externalID, t, dto); skip || err != nil {
 			return err
 		}
 		if err := r.Untrack(ctx, externalID); err != nil {
@@ -246,7 +246,7 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 			dto.SkippedUndeclared++
 			return nil
 		}
-		if skip, err := heldElsewhere(holder, externalID, t, dto); skip || err != nil {
+		if skip, err := heldElsewhere(holder, kind, externalID, t, dto); skip || err != nil {
 			return err
 		}
 		task := intake.Task{ID: t.Id, Handle: t.Handle}
@@ -271,33 +271,51 @@ type holderLookupError struct{ err error }
 
 func (e *holderLookupError) Error() string { return e.err.Error() }
 
-// activeHolder is the id of the ACTIVE task (backlog, pending or started) that
-// holds externalID in the App now, "" when nobody does (cor:agt:120:02, #4217:
-// an ended task keeps its id, so the change's task is not necessarily the
-// item's claimant).
-func activeHolder(ctx context.Context, client graphql.Client, appRef, externalID string) (string, error) {
-	resp, err := gen.IntakeActiveHolder(ctx, client, appRef, externalID)
-	if err != nil {
-		return "", &holderLookupError{err: mapTaskError(err)}
-	}
-	for _, t := range resp.AgentTasks {
-		if t != nil {
-			return t.Id, nil
-		}
-	}
-	return "", nil
+// itemHolders is who holds an outside item in the App now: Active is the id of
+// the ACTIVE task (backlog, pending or started) that holds it, "" when none;
+// Any is whether any task holds it in any state (finished and cancelled tasks
+// keep their id, cor:agt:120:02, #4217).
+type itemHolders struct {
+	Active string
+	Any    bool
 }
 
-// heldElsewhere reports (and counts) a change whose item a DIFFERENT active task
-// holds now: telling the adapter would misreport or untrack an item being worked.
-// With no active holder, or the change's own task as holder, the pass acts as it
-// always did.
-func heldElsewhere(holder func(string) (string, error), externalID string, t *changeTask, dto *reconcileDTO) (bool, error) {
-	id, err := holder(externalID)
+func lookupHolders(ctx context.Context, client graphql.Client, appRef, externalID string) (itemHolders, error) {
+	resp, err := gen.IntakeItemHolders(ctx, client, appRef, externalID)
+	if err != nil {
+		return itemHolders{}, &holderLookupError{err: mapTaskError(err)}
+	}
+	var h itemHolders
+	for _, t := range resp.AgentTasks {
+		if t == nil {
+			continue
+		}
+		h.Any = true
+		switch t.Status {
+		case gen.AgentTaskStatusBacklog, gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted:
+			if h.Active == "" {
+				h.Active = t.Id
+			}
+		}
+	}
+	return h, nil
+}
+
+// heldElsewhere reports (and counts) a change the pass must not tell the adapter.
+// CANCELLED and REASSIGNED skip when a DIFFERENT active task holds the item.
+// RELEASED untracks only when no task of the App holds the id in ANY state: an
+// item stays tracked while any task holds its id (Holger's 2026-11-14 "keep
+// today's meaning", cor:agt:120:04; the gate's carried amendment).
+func heldElsewhere(holder func(string) (itemHolders, error), kind gen.AgentTaskExternalIdChangeKind, externalID string, t *changeTask, dto *reconcileDTO) (bool, error) {
+	h, err := holder(externalID)
 	if err != nil {
 		return false, err
 	}
-	if id == "" || (t != nil && t.Id == id) {
+	held := h.Active != "" && (t == nil || t.Id != h.Active)
+	if kind == gen.AgentTaskExternalIdChangeKindReleased {
+		held = h.Any
+	}
+	if !held {
 		return false, nil
 	}
 	dto.Skipped++
