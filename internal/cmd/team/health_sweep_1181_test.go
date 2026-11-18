@@ -53,6 +53,10 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 	return health1181RunFixture(t, wire, statusCode, jsonMode, "", health1181Status, `{"hostId":"own"}`)
 }
 
+// health1383MissingState is the state argument that leaves no state file on
+// disk (an empty string writes an empty one, which #1181 already pins).
+const health1383MissingState = "\x00no-state-file"
+
 const health1181Registrations = `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["iris"]}]}]}}`
 
 // health1181WorkerExtra is extra YAML lines for the fixture worker (tests set and reset it).
@@ -113,6 +117,9 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 	}))
 	defer srv.Close()
 	for n, s := range map[string]string{"key": key, "state.json": state} {
+		if n == "state.json" && state == health1383MissingState {
+			continue // the state file does not exist at all (#1383)
+		}
 		if e := os.WriteFile(filepath.Join(dir, n), []byte(s), 0600); e != nil {
 			t.Fatal(e)
 		}
@@ -293,18 +300,22 @@ func TestHealth1181RegistrationRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		name, registrations, status, state string
 		code                               int
+		diagnostic                         string
 	}{
-		{"worker null", strings.Replace(health1181Registrations, `{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"}`, `null`, 1), health1181Status, `{"hostId":"own"}`, 1},
-		{"worker mismatched", strings.Replace(health1181Registrations, `"id":"w1"`, `"id":"w2"`, 1), health1181Status, `{"hostId":"own"}`, 1},
-		{"missing status", "", `[]`, `{"hostId":"own"}`, 1},
-		{"non-live", strings.Replace(health1181Registrations, `"live":true`, `"live":false`, 1), health1181Status, `{"hostId":"own"}`, 8},
-		{"missing host", "", health1181Status, `{"hostId":"missing"}`, 8},
-		{"empty state", "", health1181Status, ``, 1},
+		{"worker null", strings.Replace(health1181Registrations, `{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"}`, `null`, 1), health1181Status, `{"hostId":"own"}`, 1, "cannot resolve registered worker; nothing written"},
+		{"worker mismatched", strings.Replace(health1181Registrations, `"id":"w1"`, `"id":"w2"`, 1), health1181Status, `{"hostId":"own"}`, 1, "cannot resolve registered worker; nothing written"},
+		{"missing status", "", `[]`, `{"hostId":"own"}`, 1, "terminal status did not report every registered worker; nothing written"},
+		{"non-live", strings.Replace(health1181Registrations, `"live":true`, `"live":false`, 1), health1181Status, `{"hostId":"own"}`, 8, "host registration is not live; nothing written"},
+		{"missing host", "", health1181Status, `{"hostId":"missing"}`, 8, "host registration is not live; nothing written"},
+		{"empty state", "", health1181Status, ``, 1, "cannot read registered host state; nothing written"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, n, _, err := health1181RunFixture(t, ok, 0, true, tc.registrations, tc.status, tc.state)
 			if n != 0 || exitcode.FromError(err) != tc.code {
 				t.Fatalf("writes %d err %v", n, err)
+			}
+			if err == nil || err.Error() != tc.diagnostic {
+				t.Fatalf("diagnostic %v, want %q", err, tc.diagnostic)
 			}
 		})
 	}

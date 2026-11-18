@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,6 +58,14 @@ func (e errHealthStatusTimeout) Error() string {
 	return "terminal status timed out after " + e.after.String()
 }
 
+// errHealthStatusOverflow is the oversized-output class: the child wrote more
+// than the bound and was cancelled. The sweep still reports its own fixed
+// "terminal status command failed" diagnostic for it (exit 1); the class only
+// lets a test tell this cancel from any other early end (#1383).
+type errHealthStatusOverflow struct{}
+
+func (errHealthStatusOverflow) Error() string { return "terminal status output exceeds the limit" }
+
 // The status command's --config boundary is a separately gated dependency
 // of #1181. Only its JSON leaves this subprocess; never inspect its screen or
 // diagnostics, or pass a key value through argv/environment.
@@ -79,15 +88,22 @@ func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []stri
 	}
 	limit := healthStatusTimeout(ctx)
 	parent := ctx
-	ctx, cancel := context.WithTimeout(ctx, limit)
-	defer cancel()
+	ctx, cancelTimeout := context.WithTimeout(ctx, limit)
+	defer cancelTimeout()
+	// The overflow cancel carries its own cause, so a child ended by the
+	// deadline after an overflow was recorded is never named an overflow (#1383).
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 	cmd := exec.CommandContext(ctx, bin, "orca", "terminal", "status", "--all", "--json", "--config", abs)
 	cmd.Env = env
-	out := healthStatusBuffer{onOverflow: cancel}
+	out := healthStatusBuffer{onOverflow: func() { cancel(errHealthStatusOverflow{}) }}
 	cmd.Stdout = &out
 	// stderr is deliberately discarded, including a child's credential, screen
 	// detail or raw upstream diagnostic. The caller reports fixed classes only.
 	if err := cmd.Run(); err != nil {
+		if out.overflowed && errors.As(context.Cause(ctx), new(errHealthStatusOverflow)) {
+			return nil, 1, errHealthStatusOverflow{}
+		}
 		// Only our own deadline (not the caller's cancellation, not an output
 		// overflow) is the timeout class.
 		if isHealthStatusTimeout(ctx.Err(), parent.Err(), out.overflowed) {
@@ -115,6 +131,14 @@ type healthStatusBuffer struct {
 	bytes.Buffer
 	onOverflow func()
 	overflowed bool
+}
+
+// ReadFrom keeps the bound in force. The embedded bytes.Buffer has its own
+// ReadFrom, which io.Copy prefers over Write, so without this the child's
+// output went straight into the buffer past the 8 MiB limit and never
+// cancelled the child (#1383).
+func (b *healthStatusBuffer) ReadFrom(r io.Reader) (int64, error) {
+	return io.Copy(struct{ io.Writer }{b}, r)
 }
 
 func (b *healthStatusBuffer) Write(p []byte) (int, error) {

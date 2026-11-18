@@ -161,6 +161,7 @@ from delivery.orca_bin when set and it resolves, otherwise PATH. Paused workers 
 No alarm is computed, and an App without a coordinator is valid. An unresolved,
 ambiguous or missing registered worker report refuses the entire batch before
 writing (exit 1). A missing or non-live host registration is exit 8.
+A malformed registered worker is exit 1 even when the host registration is also not live: the sweep validates the registered workers before it checks whether the host registration is live.
 Status rows for workers not registered on this host are ignored.
 
 Exit 0 after a successful write, including per-worker refusals (printed, not

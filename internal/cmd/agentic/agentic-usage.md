@@ -668,7 +668,7 @@ hadron schedule preview --app <ref> --entry <node-urn> (--cron '<expr>' | --run-
 hadron schedule create [--scope <id|name>] --app <ref> --name <n> (--cron '<expr>' | --run-at <RFC3339>) [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> [--run-at <RFC3339>] [--scope <id|name|"">] [--agent <ref>] ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
 hadron automation preview <kind> <ref> | re-adopt <kind> <ref> --expected-hash <digest> [--yes] | list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
 hadron automation team-snapshot-grant set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes] | revoke <grant-id> [--yes] [--instruction <kind>:<ref>] | list <app-ref> [--include-revoked] [--limit n] [--offset n] [--instruction <kind>:<ref>]
-hadron automation grant set <app-ref> --memory <ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--prefix <loc>] [--yes] | revoke <grant-id> [--yes] | list [--app <ref>] [--memory <ref>] [--include-revoked]
+hadron automation grant set <app-ref> --memory <ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--prefix <loc>] [--yes] | revoke <grant-id> [--yes] [--instruction <kind>:<ref>] | list [--app <ref>] [--memory <ref>] [--include-revoked] [--instruction <kind>:<ref>]
 hadron webhook create [--scope <id|name>] --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | prices get <id> | balance <org> | ledger <org> [--limit N] [--offset N] | prices set --provider <p> --model <m> --input <n> --output <n> [--tier 1-3] [--markup-bp N] [--effective-at <t>] [--yes] | grant <org> --amount <n> [--source-type <t> --source-id <i>] [--expires-at <t>] [--note <s>] [--yes]   # spec-046 metering (cli#215): READS, then two platform-admin WRITES; <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices get <id>: one row (the id is the ID column of the prices table, or "id" in prices --json), the same DTO as a prices row as one object; a null row exits 4 NotFound "not found or not visible" (the server does not say which); an empty id exits 2 with no request. prices and prices get: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. WRITES (`prices set`, `grant`; platform admin, else FORBIDDEN exit 8): they change money records, so each asks y/N on a terminal and, without one, REFUSES with exit 2 and ZERO requests unless --yes; required flags absent or empty exit 2 with no request. Money flags (--input, --output, --amount) are opaque strings sent byte for byte: the CLI does not parse or range-check them (the server owns positivity/domain and its refusal passes through, exit per error class). Optional flags (--tier, --markup-bp, --effective-at, --expires-at, --note, --source-*) are OMITTED when unset so server defaults apply; an explicit `--markup-bp 0` is a value; an empty string flag exits 2. `grant`: --source-type/--source-id are a pair (both or neither, else exit 2 before any request); a repeated pair makes the server return the EXISTING entry instead of crediting twice, but the response carries no created/reused flag, so the CLI prints the returned entry identically either way and never claims 'already granted'. Without the pair a repeat credits again; the CLI NEVER retries a write. --json prints one DTO (a rate row as in `prices`, or a ledger entry as in `ledger`) with money as strings. --expires-at is recorded, not enforced
@@ -698,7 +698,11 @@ hadron agentic-usage                                 # prints this doc
 ```
 
 Host mixed-wake acknowledgment (cli#1229): `host.yaml` `delivery.ack_mixed`
-is a boolean, default false. Set true only after the operator verifies server
+is a boolean, default false. It must be a real boolean wherever it is written,
+including through a YAML merge (`<<`) or an alias of `delivery`: `null`, `~`,
+`yes` and `on` are refused at config load (exit 2) naming the line, and a
+merged non-boolean is refused even when an explicit `ack_mixed: true` beside it
+would win. The strictness is deliberate (cli#1263); relaxing it needs its own gate. Set true only after the operator verifies server
 A′ (#2072, ad7f1c2) is deployed. It permits tick/task acknowledgment in a mixed
 wake without moving channel delivered-through or worker read marks (R53);
 mention text still needs its own batch. Off retains `ack-held`; mention-only
@@ -1170,8 +1174,17 @@ Conventions:
   errors report already-scoped, cross-org, membership, and install failures.
 - Successful node writes can carry server advice (including `include.pin.unkept`
   for a readable plain revision pin with no recorded approval or signature).
-  Generic/kind writes, import, replacement and restore display it as
-  `warning: [<code>] <text>` on stderr in BOTH text and `--json` modes;
+  The writes that display it are exactly those that send one of these
+  mutations: `createNode`, `createSpecNode`, `createTaskNode`, `createReviewNode`,
+  `updateNode`, `updateSpecNode`, `updateTaskNode`, `updateReviewNode`,
+  `importNode`, `mergeNodes`, `cloneNode`, `moveNode`, `updateNodeData`,
+  `restoreNode`, `restoreNodeRevision`, `searchReplaceInNodes` and
+  `searchReplaceInSpecNodes` (generic and kind add/update, import, merge, clone,
+  move, data writes, restore, revision restore and text replacement).
+  `createAssetReferenceNode` (its content is server-authored and carries no include in
+  normal use; a crafted file name could, and advice is not displayed for it) and
+  `updateNodeRevision` (a label edit) are outside the set. The writes in the set
+  display it as `warning: [<code>] <text>` on stderr in BOTH text and `--json` modes;
   stdout/JSON and the successful exit code stay unchanged. Unknown codes are
   displayed too; malformed entries and warnings for other response keys are
   ignored. Failed commands print no response advice. This is advisory, never a
@@ -3976,7 +3989,7 @@ An explicit --task never overrides a refusal of the task set itself (an empty se
 still exit 2 once --task is named; a BROKEN set is exit 5 and an UNAVAILABLE one exit 8, each without a write).
 An explicit task outside the set exits 2. No client reporter field is sent;
 a READY selection does not waive the mutation's author or access checks.
-An HTTP 500, 502 or 504 answer to the record request exits 7 even when its body is a JSON error: the outcome is unknown, so read the node's latest validation report before recording again (`hadron node get`). A repeat with the same `--run-id` is answered as a replay if the first attempt was recorded and the node and task revisions and your identity are unchanged, otherwise refused as a conflict; without `--run-id` it may record a second report. The message shows only the HTTP status and, when the envelope says INTERNAL_SERVER_ERROR, that code and its request id; nothing is retried.
+An HTTP 5xx answer (any status from 500 to 599) to the record request exits 7 even when its body is a JSON error: the outcome is unknown, so read the node's latest validation report before recording again (`hadron node get`). A repeat with the same `--run-id` is answered as a replay if the first attempt was recorded and the node and task revisions and your identity are unchanged, otherwise refused as a conflict; without `--run-id` it may record a second report. The message shows only the HTTP status and, when the envelope says INTERNAL_SERVER_ERROR, that code and its request id; nothing is retried.
 
 `--run-id` is passed through, including on a deliberate retry. JSON is
 `{nodeId,replayed,report:{nodeRevision,validationTaskRef,validationTaskRevision,
@@ -5505,7 +5518,7 @@ f4db15e0), and naming any other field, even beside those, refuses the whole
 edit TASK_NOT_OWNER (8). Needs a server at or after hadron-server
 e09a1653 (the #2420 contract).
 
-# Task priority and dependencies (cli#1135)
+## Task priority and dependencies (cli#1135)
 `hadron team task create <title> --priority 2 --blocked-by AT1.2 --blocked-by <id>`
 sets optional priority and blockers in the same create mutation. Omitted fields
 stay omitted: the server supplies default priority 1. Priority ranges from 1 to
@@ -5520,10 +5533,16 @@ Get/list and write JSON include priority, blocked, blockedBy and blocks. The two
 relation fields are bounded pages {items:[{id,handle,title,status}],total,hasMore}
 with the first 20 entries, not complete arrays. `task dependencies <task>
 --limit 20 --offset 20 --json` reads later pages in both directions; follow each
-hasMore separately. Text list displays priority, blocked and both summaries;
-text get displays the bounded pages. No local priority sort or dependency policy.
-Refusals preserve the server code/message and mapped exit code, print no task,
-and never retry the mutation.
+hasMore separately. Text `list` displays priority, blocked and both dependency
+summaries; `list --team` displays priority and blocked without the dependency
+summaries (its --json still carries the pages); text get displays the bounded
+pages. A page item that is null or has no id is a malformed answer: the command
+refuses it (exit 1, "server returned a malformed blockedBy|blocks|clones page")
+and prints nothing, instead of dropping the item. No local priority sort or
+dependency policy. Refusals preserve the server code/message and mapped exit
+code, print no task, and never retry the mutation. `set-priority`, `add-blocker`
+and `remove-blocker` show no server warnings (as the simple task mutations);
+create, assign, reassign and finish do.
 
 hadron team task update <task> [--title <t>] [--description <d> | --clear-description] [--tag <t>… | --clear-tags] [--ref <kind>=<target>[|<label>]… | --clear-refs] [--require-role <r>] [--family-in <f,…> | --family-not-in <f,…>] [--model-group <name,...>] [--model-group-not <name,...>] [--exclude-worker <w>…] [--min-tier low|mid|high] [--clear-requirements] [--start-by <rfc3339> | --clear-start-by] [--finish-by <rfc3339> | --clear-finish-by] [--properties <json|@file> | --clear-properties] [--close-session | --no-close-session]
 hadron team task clone <task> [--parent <task> | --no-parent] [--status pending|backlog] [--title <t>] [--description <d>] [--source <s>] [--priority 1..5] [--assignee <party>] [--start-by <RFC3339>] [--finish-by <RFC3339>] [--close-session | --no-close-session] [--tag <t>… | --clear-tags] [--ref <kind>=<target>[|<label>]… | --clear-refs] [--properties <json|@file> | --clear-properties] [requirement flags | --clear-requirements] [--owner <party>] [--project]
@@ -5583,11 +5602,11 @@ hadron chat served-prompts <chat-id> [--limit N] [--offset N] [--provenance-limi
 # Record-only chatServedPrompts query; no myChats scan, conversation, source bodies or live edges.
 # No chat config, ambient App or worktree session. Read as whoever manages the first-record App;
 # only that App's records are visible. No-App chats: platform admin, never impersonation, per current server rule.
-# Server order (newest served time, then ordinal), one page: --limit 0..200 default50, --offset >=0.
+# Server order (newest served time, then ordinal), one page: --limit 0..200 default 50, --offset >=0.
 # Each record has an independent provenance page (--provenance-limit/offset, same bounds); 0 counts only.
 # --json {servedPrompts:{items,total,limit,offset}}, items[] when empty; missing/denied/no-record/serving-off
-# all conceal as an empty page, exit0, never a manufactured refusal. Real provider errors retain mapped exits.
-# Recorded variables may be sensitive. Pages are separate requests, not a snapshot. Requires server6b3f1e15.
+# all conceal as an empty page, exit 0, never a manufactured refusal. Real provider errors retain mapped exits.
+# Recorded variables may be sensitive. Pages are separate requests, not a snapshot. Requires server 6b3f1e15.
 
 
 ### Team health sweep (cli#1181)
@@ -6094,7 +6113,11 @@ Groups resolve live.
   nothing sent).
 - Refusals keep the usual mapping: `AGENT_NOT_FOUND` / `APP_NOT_FOUND` /
   `MODEL_GROUP_NOT_FOUND` exit 4; `FORBIDDEN` / `APP_MANAGER_REQUIRED` exit 8;
-  `BAD_USER_INPUT` exit 2.
+  `BAD_USER_INPUT` exit 2; `MODEL_GROUP_LIMIT_REACHED` (the Agent or App holds
+  the most groups allowed) and `AGENT_OWNERSHIP_CHANGED` (the Agent's owner
+  changed during the write) exit 5, a state conflict a same-call retry can't
+  fix (cli#2428; they exited 1 before). The `--json` error envelope's
+  `serverCode` and the message are the server's, unchanged.
 
 
 ## Task integrations: App properties and task externalId (cli#1524)
@@ -6591,6 +6614,21 @@ without one. The MCP tools take no instruction. Refusals keep their codes:
 FORBIDDEN exit 8, with `serverCode` in `--json` errors, which these five doors
 now carry on the no-flag path too.
 
+
+AUTOMATION READ GRANTS, --instruction (cli#2446, server 7907d93d or later):
+`automation grant list` and `automation grant revoke` accept
+--instruction <kind>:<ref> (the shared parser of the team-snapshot-grant
+commands); `grant set` stays person-only. Without the flag the requests are
+byte-identical to before and no worker session header is sent. With it, the
+one call carries the instruction and this worktree's verified session. `list
+--instruction` REQUIRES --app (usage error, exit 2, nothing sent): an instructed
+list is scoped to the worker's own App, memory-only lists included, and each
+admitted instructed list records one ids-only team event. A bad
+<kind>:<ref> sends nothing. A worktree that cannot carry the call (no binding,
+or one for another server) does not block it, as for the snapshot commands: it
+goes out once as the signed-in person, with a stderr note when a binding did
+not fit, and the server judges it. Revoke is one mutation, never retried; a
+server refusal is shown once (FORBIDDEN exit 8, `serverCode` in `--json`).
 
 AUTOMATION TEAM SNAPSHOT GRANTS (cli#1578, server#3363 ecdde802):
 team-snapshot-grant set/list take an explicit App ID, URN or root:slug.

@@ -12,26 +12,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type snapshotInstruction struct {
-	claim *gen.ActInstructionInput
+type actInstruction struct {
+	input *gen.ActInstructionInput
 	send  func(context.Context) (context.Context, bool, error)
 }
 
-func parseSnapshotInstruction(cmd *cobra.Command, f *cmdutil.Factory, raw string) (snapshotInstruction, error) {
+func parseActInstruction(cmd *cobra.Command, f *cmdutil.Factory, raw string) (actInstruction, error) {
 	if !cmd.Flags().Changed("instruction") {
-		return snapshotInstruction{}, nil
+		return actInstruction{}, nil
 	}
 	claim, err := instruction.Parse(raw)
 	if err != nil {
-		return snapshotInstruction{}, err
+		return actInstruction{}, err
 	}
 	if f.BeginServerTargetInstructedWrite == nil {
-		return snapshotInstruction{}, exitcode.Newf(exitcode.Error, "instruction session helper unavailable")
+		return actInstruction{}, exitcode.Newf(exitcode.Error, "instruction session helper unavailable")
 	}
-	return snapshotInstruction{claim: claim, send: f.BeginServerTargetInstructedWrite(cmd.Context())}, nil
+	return actInstruction{input: claim, send: f.BeginServerTargetInstructedWrite(cmd.Context())}, nil
 }
-func (i snapshotInstruction) context(ctx context.Context) (context.Context, error) {
-	if i.claim == nil {
+func (i actInstruction) context(ctx context.Context) (context.Context, error) {
+	if i.input == nil {
 		return ctx, nil
 	}
 	ctx, _, err := i.send(ctx)
@@ -40,14 +40,14 @@ func (i snapshotInstruction) context(ctx context.Context) (context.Context, erro
 
 // Each page is a separate server-admitted call, including the revoke lookup.
 // Recheck the original binding before every call; never retry a server refusal.
-func (i snapshotInstruction) page(ctx context.Context, client graphql.Client, app string, include *bool, limit, offset int) (snapshotGrantPageDTO, error) {
+func (i actInstruction) page(ctx context.Context, client graphql.Client, app string, include *bool, limit, offset int) (snapshotGrantPageDTO, error) {
 	ctx, err := i.context(ctx)
 	if err != nil {
 		return snapshotGrantPageDTO{}, err
 	}
 	d := snapshotGrantPageDTO{Items: []snapshotGrantDTO{}}
 	var fields []*gen.AutomationTeamSnapshotGrantFields
-	if i.claim == nil {
+	if i.input == nil {
 		r, e := gen.AutomationTeamSnapshotGrants(ctx, client, app, include, limit, offset)
 		if e != nil {
 			return d, api.MapErrorKeepingCode(e)
@@ -66,7 +66,7 @@ func (i snapshotInstruction) page(ctx context.Context, client graphql.Client, ap
 			}
 		}
 	} else {
-		r, e := gen.AutomationTeamSnapshotGrantsInstructed(ctx, client, app, include, limit, offset, i.claim)
+		r, e := gen.AutomationTeamSnapshotGrantsInstructed(ctx, client, app, include, limit, offset, i.input)
 		if e != nil {
 			return d, api.MapErrorKeepingCode(e)
 		}
@@ -96,12 +96,12 @@ func (i snapshotInstruction) page(ctx context.Context, client graphql.Client, ap
 	}
 	return d, nil
 }
-func (i snapshotInstruction) revoke(ctx context.Context, client graphql.Client, id string) (*gen.AutomationTeamSnapshotGrantFields, error) {
+func (i actInstruction) revoke(ctx context.Context, client graphql.Client, id string) (*gen.AutomationTeamSnapshotGrantFields, error) {
 	ctx, err := i.context(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if i.claim == nil {
+	if i.input == nil {
 		r, e := gen.RevokeAutomationTeamSnapshotGrant(ctx, client, id)
 		if e != nil {
 			return nil, mapSnapshotWriteError(e)
@@ -111,7 +111,7 @@ func (i snapshotInstruction) revoke(ctx context.Context, client graphql.Client, 
 		}
 		return &r.RevokeAutomationTeamSnapshotGrant.AutomationTeamSnapshotGrantFields, nil
 	}
-	r, e := gen.RevokeAutomationTeamSnapshotGrantInstructed(ctx, client, id, i.claim)
+	r, e := gen.RevokeAutomationTeamSnapshotGrantInstructed(ctx, client, id, i.input)
 	if e != nil {
 		return nil, mapSnapshotWriteError(e)
 	}

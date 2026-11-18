@@ -74,9 +74,16 @@ func reservedNoProjectParent(handle string) bool {
 	return true
 }
 
-// refNamesTask reports whether a task ref, as sent, names this task: its id,
-// its bare handle, or its handle qualified as hrn:agenttask:<root>:<slug>:<handle>
-// (typed, or composed from --app).
+// refNamesTask reports whether a task ref, as sent, names the task with this id
+// and handle: its id, its bare handle, or its handle qualified as
+// hrn:agenttask:<root>:<slug>:<handle> (typed, or composed from --app; flat or
+// embedded-App form). The ref is parsed (taskRefParts), so a malformed URN or an
+// extra segment does not match on a bare suffix.
+//
+// It compares the HANDLE only, never the App qualifier's text, on purpose: a
+// renamed App's old slug still resolves to the same App (cor:urn:030:01), and
+// the caller's rows are one App's chain, the App the server resolved the ref to,
+// so a qualifier for "another App" cannot reach a row of this one.
 func refNamesTask(ref, id, handle string) bool {
 	if ref == id {
 		return true
@@ -87,8 +94,8 @@ func refNamesTask(ref, id, handle string) bool {
 	if strings.EqualFold(ref, handle) {
 		return true
 	}
-	lower := strings.ToLower(ref)
-	return strings.HasPrefix(lower, "hrn:agenttask:") && strings.HasSuffix(lower, ":"+strings.ToLower(handle))
+	_, _, refHandle, ok := taskRefParts(ref)
+	return ok && strings.EqualFold(refHandle, handle)
 }
 
 // ---- get ------------------------------------------------------------------
@@ -143,13 +150,19 @@ original values.`,
 			if resp.AgentTask == nil {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", taskId)
 			}
-			detail := taskDetailDTO{taskDTO: taskDTOFrom(resp.AgentTask.AgentTaskFields)}
+			base, err := taskDTOFrom(resp.AgentTask.AgentTaskFields)
+			if err != nil {
+				return err
+			}
+			detail := taskDetailDTO{taskDTO: base}
 			if src := resp.AgentTask.ClonedFrom; src != nil {
 				detail.ClonedFrom = &taskDependencyDTO{ID: src.Id, Handle: src.Handle, Title: src.Title, Status: string(src.Status)}
 			}
 			detail.Clones = &taskDependencyPageDTO{Items: []taskDependencyDTO{}}
 			if p := resp.AgentTask.Clones; p != nil {
-				detail.Clones = dependencyPage(p.Total, p.HasMore, p.Items)
+				if detail.Clones, err = dependencyPage("clones", p.Total, p.HasMore, p.Items); err != nil {
+					return err
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, detail, func(w io.Writer) error {
 				if err := renderTaskDetail(w, detail.taskDTO); err != nil {
@@ -397,6 +410,25 @@ func strOr(s *string) string {
 
 // ---- list -----------------------------------------------------------------
 
+// taskListScope resolves the App scope a task listing runs against, and the
+// binding behind it when there is one. BOTH list views (the ordinary one and
+// --team) share it so the rationale lives in one place (cli#1289): listing needs
+// an App, not a git worktree or a worker session, so the ABSENCE of a worktree
+// (errNoWorktree) is not an error here, and resolveTeamAppScope names the App
+// remedy when no App is available either. Every other binding error, a corrupt
+// file included, is returned unchanged and is never treated as an absent scope.
+func taskListScope(ctx context.Context, f *cmdutil.Factory) (appScope, *binding, error) {
+	b, err := readBindingOrNilWithApp(ctx, f)
+	if err != nil && !errors.Is(err, errNoWorktree) {
+		return appScope{}, nil, err
+	}
+	scope, err := resolveTeamAppScope(ctx, f, b)
+	if err != nil {
+		return appScope{}, nil, err
+	}
+	return scope, b, nil
+}
+
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
 	var assignee, owner, creator, parent, tag, team, staleOver, text string
@@ -535,11 +567,7 @@ ageFrom; --tree changes text only.`,
 				return err
 			}
 			if cmd.Flags().Changed("team") {
-				b, err := readBindingOrNilWithApp(ctx, f)
-				if err != nil && !errors.Is(err, errNoWorktree) {
-					return err
-				}
-				scope, err := resolveTeamAppScope(ctx, f, b)
+				scope, b, err := taskListScope(ctx, f)
 				if err != nil {
 					return err
 				}
@@ -620,14 +648,7 @@ ageFrom; --tree changes text only.`,
 				}
 				parent = q
 			}
-			// Task listing needs App scope, not a worktree. Let the scope
-			// resolver name the remedies when neither is available; retain
-			// binding errors other than the absence of a worktree.
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil && !errors.Is(err, errNoWorktree) {
-				return err
-			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
+			scope, _, err := taskListScope(ctx, f)
 			if err != nil {
 				return err
 			}
@@ -740,7 +761,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range r.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(r.AgentTasks), nil
@@ -754,7 +779,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range r.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(r.AgentTasks), nil
@@ -768,7 +797,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range resp.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(resp.AgentTasks), nil
@@ -780,7 +813,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range resp.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(resp.AgentTasks), nil
@@ -791,7 +828,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 	}
 	for _, t := range resp.AgentTasks {
 		if t != nil {
-			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			task, err := taskDTOFrom(t.AgentTaskFields)
+			if err != nil {
+				return nil, 0, err
+			}
+			tasks = append(tasks, task)
 		}
 	}
 	return tasks, len(resp.AgentTasks), nil
@@ -1029,7 +1070,10 @@ walk is complete.`,
 				if t == nil {
 					continue
 				}
-				dto := taskDTOFrom(t.AgentTaskFields)
+				dto, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return err
+				}
 				if n, ok := alarmsByTask[dto.ID]; ok {
 					open := n
 					dto.OpenAlarms = &open
