@@ -1176,14 +1176,14 @@ Conventions:
   for a readable plain revision pin with no recorded approval or signature).
   The writes that display it are exactly those that send one of these
   mutations: `createNode`, `createSpecNode`, `createTaskNode`, `createReviewNode`,
-  `updateNode`, `updateSpecNode`, `updateTaskNode`, `updateReviewNode`,
+  `createAssetReferenceNode`, `updateNode`, `updateSpecNode`, `updateTaskNode`, `updateReviewNode`,
   `importNode`, `mergeNodes`, `cloneNode`, `moveNode`, `updateNodeData`,
   `restoreNode`, `restoreNodeRevision`, `searchReplaceInNodes` and
   `searchReplaceInSpecNodes` (generic and kind add/update, import, merge, clone,
-  move, data writes, restore, revision restore and text replacement).
-  `createAssetReferenceNode` (its content is server-authored and carries no include in
-  normal use; a crafted file name could, and advice is not displayed for it) and
-  `updateNodeRevision` (a label edit) are outside the set. The writes in the set
+  move, data writes, restore, revision restore, text replacement and `asset link`: its
+  reference node embeds the file name, so a name containing include syntax draws
+  advice and an ordinary one none). `updateNodeRevision` (a label edit) and
+  every other write are outside the set. The writes in the set
   display it as `warning: [<code>] <text>` on stderr in BOTH text and `--json` modes;
   stdout/JSON and the successful exit code stay unchanged. Unknown codes are
   displayed too; malformed entries and warnings for other response keys are
