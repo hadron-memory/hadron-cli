@@ -88,10 +88,10 @@ written to and keep the way back, use "hadron app uninstall" instead.
 Name the App by ID, by URN, or as org:slug. A URN names only the installed App
 that holds it at that moment, so to delete an App that is already uninstalled,
 name it by its id: its old URN may by now name a different App, and a delete by
-that URN would delete that one. So after a delete that may have gone through,
-retry by id, never by URN. The server decides who may delete. A missing
-App and a caller without the right get the same refusal (exit 8); a repeat
-delete by ID is refused APP_DELETED (exit 5).
+that URN would delete that one. So if you may need to retry, delete by id from
+the start (find it with "hadron app get"), never by URN. The server decides who
+may delete. A missing App and a caller without the right get the same refusal
+(exit 8); a repeat delete by ID is refused APP_DELETED (exit 5).
 
 Asks for confirmation on a terminal; a script passes --yes. Prints "✓ App
 <ref> is deleted: ..."; --json is {"app": <ref>, "status": "deleted"}.`,
@@ -127,13 +127,13 @@ func newCmdUninstall(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall <app-ref>",
 		Short: "Uninstall an App: kept read-only, handle freed, reversible",
-		Long: `Take an App out of service without deleting it. The App is kept but
-read-only: every write through it is refused (APP_UNINSTALLED). Its handle (the
-App's name as a URN, hrn:app:<org>:<slug>) is freed, so another App may take
-it, and its workers' open dark-worker alarms (raised when a worker leaves a due
-wake unanswered) end. Undo this with "hadron app reinstall". To remove the App for good, use
-"hadron app delete". Uninstall no longer deletes (it did in older releases):
-deleting is "hadron app delete", alias "rm".
+		Long: `Take an App out of service without deleting it. The App is kept but read-only:
+every write through it is refused (APP_UNINSTALLED). Its handle (the App's name
+as a URN, hrn:app:<org>:<slug>) is freed, so another App may take it, and its
+workers' open dark-worker alarms (raised when a worker leaves a wake-up call
+unacknowledged too long) end. Undo this with "hadron app reinstall". To remove
+the App for good, use "hadron app delete". Uninstall no longer deletes (it did
+in older releases): deleting is "hadron app delete", alias "rm".
 
 Name the App by ID, by URN, or as org:slug. A URN names the installed App that
 holds it, else the one uninstalled App that has it. Whoever may delete the App

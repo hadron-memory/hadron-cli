@@ -31,7 +31,7 @@ func TestSlice2PagesSayWhatRound1FoundMissing1053(t *testing.T) {
 		{[]string{"agent", "revision"}, []string{"Listing an Agent's revisions is not available from the CLI yet"}},
 		// facts the shorter text must keep (the BLIND seat's F1 and F2 on #2536)
 		{[]string{"app", "uninstall"}, []string{"open dark-worker alarms", "Uninstall no longer deletes"}},
-		{[]string{"app", "delete"}, []string{"retry by id, never by URN"}},
+		{[]string{"app", "delete"}, []string{"delete by id from the start"}},
 		// the default view of an Agent, not only its edge cases
 		{[]string{"agent", "get"}, []string{"the Agent's name, URN and ID", "offer readiness", "exits 4"}},
 		// roles come from the roles page
@@ -144,6 +144,13 @@ func TestSlice2QuotedReceiptsAreWhatTheCommandsPrint1053(t *testing.T) {
 	if h := flatHelp1053S2(t, "app", "leave"); !strings.Contains(h, `"✓ You are not a member of <App> now" and a note that your personal memory is kept`) {
 		t.Errorf("app leave help does not say what it prints")
 	}
+	_, r = run1625(nil).exec(t, "app", "member", "add", "--user", "ada", "--role", "member", "--yes", "--app", joinApp1625)
+	if r.err != nil || !strings.Contains(r.out, "is a member of "+joinApp1625+" (from --app) with role member") {
+		t.Fatalf("app member add prints %q (%v)", r.out, r.err)
+	}
+	if h := flatHelp1053S2(t, "app", "member", "add"); !strings.Contains(h, `"✓ <user> is a member of <App> (from --app) with role <role>" ("from the active App" when you did not pass --app)`) {
+		t.Errorf("app member add help does not quote its receipt as printed")
+	}
 	_, r = run1625(nil).exec(t, "app", "join", joinApp1625)
 	if r.err != nil || !strings.Contains(r.out, "✓ You are a member of") {
 		t.Fatalf("app join prints %q (%v)", r.out, r.err)
@@ -196,7 +203,13 @@ func TestInstructionBlockParagraphsAreSeparated1053(t *testing.T) {
 	for _, verb := range []string{"list", "rm"} {
 		h := flatHelp1053S2(t, "app", "memory-grant", verb)
 		i, j := strings.Index(h, "Manage the server's memory write grants"), strings.Index(h, "--instruction <kind>:<ref>")
-		if i < 0 || j < 0 || i > j {
+		if i < 0 {
+			t.Errorf("app memory-grant %s: the 'what a grant is' paragraph is missing", verb)
+		}
+		if j < 0 {
+			t.Errorf("app memory-grant %s: the --instruction block is missing", verb)
+		}
+		if i >= 0 && j >= 0 && i > j {
 			t.Errorf("app memory-grant %s: what a grant is must come before the --instruction block (%d, %d)", verb, i, j)
 		}
 	}
