@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/config"
 )
 
 // cli#1105 group C: connection, billing, asset and the app agent roster
@@ -261,8 +263,8 @@ func TestSafeCell1105CConfigList(t *testing.T) {
 			if r, bad := hasHiddenRune1105(text); bad {
 				t.Fatalf("hidden rune %U survived in %q", r, text)
 			}
-			if got := len(strings.Split(strings.TrimRight(text, "\n"), "\n")); got != 6 {
-				t.Fatalf("want one line per config key (6), got %d:\n%q", got, text)
+			if got, want := len(strings.Split(strings.TrimRight(text, "\n"), "\n")), len(config.Keys); got != want {
+				t.Fatalf("want one line per config key (%d), got %d:\n%q", want, got, text)
 			}
 			if name == "long" && (strings.Contains(text, strings.Repeat("日", 256)) || !strings.Contains(text, strings.Repeat("日", 255)+"…")) {
 				t.Fatalf("long value must render in SafeCell's cut form:\n%s", text)
