@@ -18,8 +18,8 @@ func ceremonyRefusal() error {
 	}}
 }
 
-// BLIND F2 (cli#2519): with no capability probe at hand the mapping must not
-// guess between the two signing answers. It is exactly the generic mapping —
+// With no capability probe at hand the mapping must not guess between the
+// two signing answers. It is exactly the generic mapping —
 // never the signing-off answer the signingFields loop would give, and never
 // the ceremony-pages upgrade text.
 func TestMapSigningErrorNilProbeGetsGenericMapping(t *testing.T) {

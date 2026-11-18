@@ -4,9 +4,9 @@ package cmd
 // ceremony page and returns its link on SigningRequest.ceremonyUrl
 // (hadron-server#3120, String!); the CLI copies it verbatim, prints it in text
 // only while the request is OPEN (an ended request's link only explains that it
-// ended), and carries it in --json for every state (Wolfgang's author deltas,
-// gate comment 6982347689). Red first: on main none of this prints, which is
-// exactly Cloe's AT0.7136 reproduction.
+// ended), and carries it in --json for every state (design deltas and gate:
+// issue #878 comment 6982347689). Red first: on main none of this prints,
+// which is the AT0.7136 reproduction.
 
 import (
 	"context"
@@ -165,7 +165,7 @@ func TestSigningWithdraw878EndedRequestHasNoTextLineButJSONCarriesIt(t *testing.
 func TestSigningRequestList878OpenRowsGetCeremonyLines(t *testing.T) {
 	open := ceremonyRequestJSON("OPEN")
 	// The ended row carries its OWN id, so the id-qualified line can be
-	// checked against the row that printed it (BLIND F7).
+	// checked against the row that printed it.
 	ended := strings.Replace(ceremonyRequestJSON("COMPLETED"), ceremonyURLSr1, ceremonyURLSr2, 1)
 	ended = strings.Replace(ended, `"id":"sr1"`, `"id":"sr2"`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
@@ -259,10 +259,10 @@ func TestSigningRequestList878HostileValueIsNeutralised(t *testing.T) {
 	}
 }
 
-// Delta 5, token first (cor:api:020:01): a ceremonyUrl validation refusal
-// alone cannot tell an older server from a switched-off one, so the
-// node-signing capability token decides. Token present: the bounded
-// old-server answer, never a raw GraphQL error, never version sniffing.
+// Token first (cor:api:020:01): a ceremonyUrl validation refusal alone
+// cannot tell an older server from a switched-off one, so the node-signing
+// capability token decides. Token present: the bounded old-server answer,
+// never a raw GraphQL error, never version sniffing.
 func TestSigningCeremonyURL878OldServerSaysUpgrade(t *testing.T) {
 	withSigningProbe(t, true, nil)
 	gql, _ := captureGraphQL(t, map[string]string{
@@ -349,8 +349,8 @@ func TestSigningCeremonyURL878SurfaceRefusalNeverProbes(t *testing.T) {
 	}
 }
 
-// BLIND F1: the ceremony line exists to be opened, so a hostile value must
-// not reach the terminal raw. An OSC 8 hyperlink can hide the real target,
+// The ceremony line exists to be opened, so a hostile value must not reach
+// the terminal raw. An OSC 8 hyperlink can hide the real target,
 // OSC 52 writes the clipboard, an embedded newline forges lines: none may
 // survive. A clean absolute web address still prints byte for byte (the
 // pins above), and --json keeps the raw value.
@@ -426,8 +426,8 @@ func TestSigningCeremonyURL878FormatCharactersAreNeutralised(t *testing.T) {
 	}
 }
 
-// BLIND F6: an OPEN request whose server sent an empty URL prints no
-// ceremony line (the != "" guard is load-bearing).
+// An OPEN request whose server sent an empty URL prints no ceremony line
+// (the != "" guard is load-bearing).
 func TestSigningCeremonyURL878EmptyURLOpenRequestPrintsNoLine(t *testing.T) {
 	noURL := strings.Replace(ceremonyRequestJSON("OPEN"), `"ceremonyUrl":"`+ceremonyURLSr1+`"`, `"ceremonyUrl":""`, 1)
 	gql, _ := captureGraphQL(t, map[string]string{
@@ -444,9 +444,9 @@ func TestSigningCeremonyURL878EmptyURLOpenRequestPrintsNoLine(t *testing.T) {
 	}
 }
 
-// BLIND F4: the old-server refusal is every signing command's refusal — the
-// shared fragment carries the field — so each gets the bounded message, not
-// a raw GraphQL error.
+// The old-server refusal is every signing command's refusal — the shared
+// fragment carries the field — so each gets the bounded message, not a raw
+// GraphQL error.
 func TestSigningCeremonyURL878OldServerRefusalAcrossCommands(t *testing.T) {
 	withSigningProbe(t, true, nil)
 	refusal := missingSigningFieldJSON("ceremonyUrl", "SigningRequest")
@@ -484,9 +484,9 @@ func TestSigningCeremonyURL878OldServerRefusalAcrossCommands(t *testing.T) {
 	}
 }
 
-// BLIND F4 (ordering): a signingRequestsPage refusal is decided before the
-// ceremony branch — the paged-list message stands and the capability token
-// is never read.
+// Ordering: a signingRequestsPage refusal is decided before the ceremony
+// branch — the paged-list message stands and the capability token is never
+// read.
 func TestSigningCeremonyURL878PagedListRefusalWinsAndNeverProbes(t *testing.T) {
 	calls := 0
 	prev := node.SigningCapabilityProbe
@@ -515,7 +515,7 @@ func TestSigningCeremonyURL878PagedListRefusalWinsAndNeverProbes(t *testing.T) {
 	}
 }
 
-// BLIND F5: the probe reads the command's own --server, not a default.
+// The probe reads the command's own --server, not a default.
 func TestSigningCeremonyURL878ProbeReadsTheCommandServer(t *testing.T) {
 	var probed []string
 	prev := node.SigningCapabilityProbe
@@ -540,8 +540,8 @@ func TestSigningCeremonyURL878ProbeReadsTheCommandServer(t *testing.T) {
 	}
 }
 
-// Rodolfo's P3-1 / BLIND F4 remainder: the check path's probe wiring.
-// `node signatures --check` reaches mapSigningError through
+// The check path's probe wiring: `node signatures --check` reaches
+// mapSigningError through
 // localChecker.request, and only the owning command's wiring hands the
 // checker a probe — without it a nil probe would give the generic advice on
 // an old server with signing. The advertised token must decide: exit 2, the
