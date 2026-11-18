@@ -160,7 +160,7 @@ this App; otherwise it is the App's own group. Repeat --pattern once per glob;
 each value is sent as one list item, never split on commas. With no --pattern
 the group is set to an empty list, which matches no one.
 
-Whoever manages the App may set it. One mutation is sent and never retried.
+Whoever manages the App may set it. One change is sent and never retried.
 JSON is the stored group {name, patterns, updatedAt}, as the server returns it
 (lowercased).
 
@@ -220,7 +220,7 @@ declares, the server answers MODEL_GROUP_NOT_FOUND, shown as it comes (exit 4).
 To change the Agent's group, use hadron agent model-group.
 
 Whoever manages the App may clear. Confirmation is required; scripts pass
---yes. One mutation is sent and never retried. JSON is {app, name, cleared}.
+--yes. One change is sent and never retried. JSON is {app, name, cleared}.
 
 ` + appModelGroupLong,
 		Example: `  hadron app model-group clear acme.com:eng-team frontier --yes`,

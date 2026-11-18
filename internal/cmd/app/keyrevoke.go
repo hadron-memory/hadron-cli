@@ -59,10 +59,10 @@ hadron app key list <app-ref>.
 It asks for confirmation on a terminal; scripts and agents pass --yes, and
 without it a non-interactive run exits 2 with nothing sent.
 
-revokeAppKey is never retried. If its answer is lost (timeout, gateway error)
-or is not a definite refusal (an internal server error, an unreadable reply),
-the key may already be revoked: run hadron app key list <app-ref> to see whether
-it is still active.
+The revoke is sent once and never retried. If its answer is lost (timeout,
+gateway error) or is not a definite refusal (an internal server error, an
+unreadable reply), the key may already be revoked: run hadron app key list
+<app-ref> to see whether it is still active.
 
 An App manager may revoke as themselves, or their held worker may revoke with
 --instruction. App keys and impersonation are refused (exit 8).`,

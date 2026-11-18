@@ -13,7 +13,7 @@ func TestAppMemories1286HelpNamesAppMemory(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "APP_MEMORY      the App's own tenant memory") {
+	if !strings.Contains(out.String(), "APP_MEMORY      the memory that belongs to the App itself") {
 		t.Fatalf("help must explain APP_MEMORY in plain words:\n%s", out.String())
 	}
 }

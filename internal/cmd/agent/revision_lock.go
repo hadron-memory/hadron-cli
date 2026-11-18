@@ -33,10 +33,19 @@ func newCmdAgentRevision(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revision",
 		Short: "Create, publish, or restore revisions of an Agent's system memory",
-		Long: `The Agent system-memory draft workflow: create a revision, publish one, or
-restore an earlier one. This is not node history: per-node revisions live under
-'hadron node revision'. Listing revisions is not available from the CLI yet: it
-waits on a server-side list contract.`,
+		Long: `Save, publish and restore versions of an Agent's system memory (the Memory
+holding the Agent's prompts and tasks). A revision is a saved copy of that
+memory, named by its location (a "revision-loc" such as revisions:rev-7).
+
+  create    save the system memory as it is now; prints the new revision's loc
+  publish   make a saved revision the one the Agent serves: new chats load it
+  restore   put an earlier revision back as the Agent's current system memory
+
+Use the loc that "create" prints with the other two. Listing an Agent's
+revisions is not available from the CLI yet, so keep the locs you need. This is
+not node history: a single node's earlier versions live under "hadron node
+revision".
+Each command needs ADMIN on the Agent; the server decides.`,
 	}
 	cmd.AddCommand(newCmdAgentRevisionCreate(f), newCmdAgentRevisionPublish(f), newCmdAgentRevisionRestore(f))
 	return cmd
@@ -104,11 +113,15 @@ func newCmdAgentRevisionPublish(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "publish <agent> <revision-loc> [--version-label <text>]",
 		Short: "Publish a revision of an Agent's system memory",
-		Long: `Publish the named revision of the Agent's system memory and print what the
-server returned. Needs ADMIN on the Agent; the server decides. Publishing pins
-the Agent to that revision: new chats load their system memory from it. An
-unset --version-label leaves the server's default label; an explicit empty one
-is sent as-is and stores an empty label.`,
+		Long: `Publish a saved revision of the Agent's system memory: the Agent then serves
+that revision, so new chats load their system memory from it. Give the
+revision's loc as "hadron agent revision create" printed it. Needs ADMIN on the
+Agent; the server decides.
+
+--version-label names the published version; left out, the server picks a
+label, and an explicit empty label stores an empty one. Prints "✓ published
+revision <loc> (label <label>, published: <true|false>)"; --json is
+{"revisionLoc", "label", "published", "createdAt"}.`,
 		Example: `  hadron agent revision publish hrn:agent:acme.com:bot revisions:rev-7 --version-label launch`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -152,12 +165,17 @@ func newCmdAgentRevisionRestore(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore <agent> <revision-loc>",
 		Short: "Restore an earlier revision of an Agent's system memory",
-		Long: `Restore the named revision as the Agent's current system memory and print what
-the server returned. Needs ADMIN on the Agent; the server decides. Restoring
-replaces the live system memory: the server first saves the current state as a
-new revision of its own, then rebuilds the memory from the named revision. The
-auto-save can be refused when the Agent's revision slots are full
-(REVISION_SLOTS_EXHAUSTED).`,
+		Long: `Put an earlier revision back as the Agent's current system memory. This
+replaces the live system memory: the server first saves its present state as a
+new revision of its own, then rebuilds the memory from the revision you name.
+That automatic save can be refused when the Agent's revision slots are full
+(REVISION_SLOTS_EXHAUSTED); the CLI has no command to list or delete revisions,
+so it cannot free a slot, and the refusal is printed as the server gives it.
+Give the revision's loc as "hadron agent revision create" printed it. Needs
+ADMIN on the Agent; the server decides.
+
+Prints "✓ restored revision <loc> (label <label>, published: <true|false>)";
+--json is {"revisionLoc", "label", "published", "createdAt"}.`,
 		Example: `  hadron agent revision restore hrn:agent:acme.com:bot revisions:rev-5`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

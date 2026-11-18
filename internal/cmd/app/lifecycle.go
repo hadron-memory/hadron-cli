@@ -80,25 +80,20 @@ func newCmdDelete(f *cmdutil.Factory) *cobra.Command {
 		Use:     "delete <app-ref>",
 		Aliases: []string{"rm"},
 		Short:   "Delete an App: it stops serving, with no undelete",
-		Long: `Delete an App. It stops serving and is kept, with its
-install memories, as history; there is no undelete. A new App may later
-reclaim its handle. To keep an App read-only and reversible instead, use
-hadron app uninstall.
+		Long: `Delete an App. It stops serving requests and is kept, with its install
+memories, as history. There is no undelete. Its handle (the App's name as a URN,
+hrn:app:<org>:<slug>) can later be taken by a new App. To stop an App being
+written to and keep the way back, use "hadron app uninstall" instead.
 
-<app-ref> accepts an App id or URN (sent unchanged), or org:slug
-(normalized to hrn:app:org:slug without a lookup). A URN names
-only the installed App holding it, so name an uninstalled App by its id:
-its former URN may now name a different, installed App.
+Name the App by ID, by URN, or as org:slug. A URN names only the installed App
+that holds it at that moment, so to delete an App that is already uninstalled,
+name it by its id: its old URN may by now name a different App, and a delete by
+that URN would delete that one. The server decides who may delete. A missing
+App and a caller without the right get the same refusal (exit 8); a repeat
+delete by ID is refused APP_DELETED (exit 5).
 
-Prints the resulting state; --json is {"app": <ref>, "status": "deleted"}.
-A missing App and a caller without the right get one identical refusal
-(exit 8). A repeat by id is refused APP_DELETED (exit 5). A URN is
-resolved afresh on every call: while no installed App holds it, a repeat
-gets that same refusal (exit 8), but once another App reclaims the handle
-the URN names that App, and a delete by that URN deletes that App.
-Delete and retry by id to keep the target fixed. Asks for confirmation on a
-terminal; a non-interactive caller must pass --yes. This was "app uninstall"
-before deleting moved to its own command; rm still means delete.`,
+Asks for confirmation on a terminal; a script passes --yes. Prints "✓ App
+<ref> is deleted: ..."; --json is {"app": <ref>, "status": "deleted"}.`,
 		Example: `  hadron app delete capp100000000000000000000 --yes
   hadron app rm hrn:app:acme.com:support --yes`,
 		Args: cobra.ExactArgs(1),
@@ -131,22 +126,21 @@ func newCmdUninstall(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall <app-ref>",
 		Short: "Uninstall an App: kept read-only, handle freed, reversible",
-		Long: `Uninstall an App. The App is kept but read-only: every
-write through it is refused (APP_UNINSTALLED). Its handle is freed, so
-another App may take it, and its workers' open dark-worker episodes end.
-Reverse it with hadron app reinstall.
+		Long: `Take an App out of service without deleting it. The App is kept but
+read-only: every write through it is refused (APP_UNINSTALLED). Its handle (the
+App's name as a URN, hrn:app:<org>:<slug>) is freed, so another App may take
+it. Undo this with "hadron app reinstall". To remove the App for good, use
+"hadron app delete". Uninstall no longer deletes (it did in older releases):
+deleting is "hadron app delete", alias "rm".
 
-BREAKING: app uninstall no longer deletes. Deleting is now
-hadron app delete (alias rm, which moved there with it).
+Name the App by ID, by URN, or as org:slug. A URN names the installed App that
+holds it, else the one uninstalled App that has it. Whoever may delete the App
+may uninstall it; anyone else, and an App that does not exist, get the same
+refusal. A deleted App is refused (APP_DELETED).
 
-<app-ref> accepts an App id or URN (sent unchanged), or org:slug
-(normalized to hrn:app:org:slug without a lookup). A URN names
-the installed App holding it, else the one uninstalled App with it. Whoever
-may delete the App may uninstall it; anyone else, and an App that does not
-exist, get one identical refusal. A deleted App is refused (APP_DELETED).
-Prints the resulting state; --json is {"app": <ref>, "status":
-"uninstalled"}, the same for a repeat, which changes nothing. Asks for
-confirmation on a terminal; a non-interactive caller must pass --yes.`,
+Asks for confirmation on a terminal; a script passes --yes. Prints "✓ App
+<ref> is uninstalled: ..."; --json is {"app": <ref>, "status":
+"uninstalled"}. A repeat changes nothing and prints the same.`,
 		Example: `  hadron app uninstall capp100000000000000000000 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -175,22 +169,20 @@ func newCmdReinstall(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "reinstall <app-ref>",
 		Short: "Reinstall an uninstalled App: the same App, nothing new",
-		Long: `Reinstall an uninstalled App: the same App, with its id,
-keys, members and memories, is installed again. Nothing new is created.
+		Long: `Put an uninstalled App back in service: the same App, with its id, keys,
+members and memories, is installed again. Nothing new is created.
 
-Refused APP_URN_IN_USE (exit 5; the --json error's serverCode) while
-another installed App holds the handle. The handle must be free
-first: the App holding it is uninstalled or deleted by whoever manages it.
-A deleted App is refused APP_DELETED (exit 5; there is no undelete).
+It is refused while another installed App holds the App's handle
+(APP_URN_IN_USE, exit 5): ask whoever manages that App to uninstall or delete
+it first. A deleted App is refused (APP_DELETED, exit 5); there is no undelete.
+The same people may reinstall as may uninstall.
 
-Prints the resulting state; --json is {"app": <ref>, "status":
-"installed"}. A repeat on an installed App changes nothing and prints the
-same.
+Name the App by ID, by URN, or as org:slug. A URN names the installed App that
+holds it, else the one uninstalled App that has it; if two or more uninstalled
+Apps have it, name one by ID.
 
-<app-ref> accepts an App id or URN (sent unchanged), or org:slug
-(normalized to hrn:app:org:slug without a lookup). A URN names
-the installed App holding it, else the one uninstalled App with it (two or
-more: name one by id). Same gate as app uninstall.`,
+Prints "✓ App <ref> is installed"; --json is {"app": <ref>, "status":
+"installed"}. A repeat on an installed App changes nothing and prints the same.`,
 		Example: `  hadron app reinstall capp100000000000000000000`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

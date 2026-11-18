@@ -153,10 +153,19 @@ func newCmdKeyScopeRevoke(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revoke <key-id> <scope>",
 		Short: "Take a scope back from an App key",
-		Long: `Take a scope back from an App key. The key's next call that needs it is
-refused. Revoking a scope the key does not hold changes nothing. Revoking
-host:operate frees the key to be granted it for another host.`,
-		Args: cobra.ExactArgs(2),
+		Long: `Take a scope back from an App key, by key id and scope name. A scope is
+something a key may do beyond authenticating as its App: attention:deliver or
+host:operate ("hadron app key scope --help" says what each lets a key do).
+"hadron app key list <app-ref> --scopes" shows which scopes each key holds now.
+
+The key's next call that needs the scope is refused. Revoking a scope the key
+does not hold changes nothing. Revoking host:operate frees the key to be
+granted it for another host. It is sent at once, with no confirmation prompt
+and no --yes. Prints "✓ key <id> no longer holds <scope>" and a table of the
+scopes the key still holds (or "scopes: none"); --json is {"id", "appId",
+"label", "revokedAt", "scopes"}.`,
+		Example: `  hadron app key scope revoke key_123 host:operate`,
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			instr, err := credentialInstruction(cmd, f)
 			if err != nil {

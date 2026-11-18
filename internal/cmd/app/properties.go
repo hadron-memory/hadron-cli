@@ -46,10 +46,10 @@ the outside trackers ` + "`hadron team task find-untracked`" + ` reads; every ot
 key is the team's, stored as written. Never put a secret here.
 
 Whoever may read the App reads them (null for anyone else). Only whoever
-manages the App writes them. Without --instruction, set acts as the person;
-set can carry a held worker's instruction as described in its help. clear
-remains person-only. An App key is refused. Each write replaces the whole object; use --expected-revision with
-the revision ` + "`get --json`" + ` printed to refuse a write over someone else's.`,
+manages the App writes them. Without --instruction, set acts as the person; set
+can carry a held worker's instruction as described in its help. clear remains
+person-only. An App key is refused. Each write replaces the whole object; use
+--expected-revision with the revision ` + "`get --json`" + ` printed to refuse a write over someone else's.`,
 	}
 	cmd.AddCommand(newCmdPropertiesGet(f))
 	cmd.AddCommand(newCmdPropertiesSet(f))
@@ -99,20 +99,28 @@ func newCmdPropertiesSet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set <app-ref> <json|@file|->",
 		Short: "Replace an App's properties object",
-		Long: `Replace the App's whole properties object with the one given, in one call:
+		Long: `Replace the App's whole properties object with the one you give, in one call.
+Properties are one JSON object the App carries for its team: the platform reads
+only its taskIntegrations key and keeps every other key as written (see "hadron
+app properties --help"). A minimal object is {"team": {"note": "hello"}}. Give
 a JSON object, @file to read one from a file, or - to read it from stdin. The
-CLI checks only that it is JSON and not null; whether it is an object, its size
-and the taskIntegrations shape are the server's to judge. An empty object {}
-clears, like ` + "`clear`" + `. Prints the object as stored.
+CLI checks only that it is JSON and not null; whether it is an object, how
+large it is, and the shape of the taskIntegrations key are the server's to
+judge. An empty object {} clears the properties, like "hadron app properties
+clear". Prints the object as stored.
 
+Nothing is merged: whatever you send replaces what is there, so read the
+current object first ("hadron app properties get"), change it and send it back.
 --expected-revision <n> refuses the write (APP_PROPERTIES_CONFLICT, exit 5) when
-the properties changed since revision n; without it the write replaces
-whatever is there. Each change is recorded as an app.properties-changed team
-event naming the changed top-level keys, never their values.
+the properties have changed since revision n; the revision is the one
+"properties get --json" prints. Without it the write replaces whatever is
+there. Each change is recorded as an app.properties-changed team event naming
+the changed top-level keys, never their values.
 
-Refusals: FORBIDDEN (exit 8: you do not manage the App, or you are a worker
-session without an admitted instruction, or an App key); TASK_INTEGRATION_INVALID (exit 2, names the JSON path);
-PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (exit
+Refusals and exit codes: FORBIDDEN (exit 8) when you do not manage the App, or
+you are a worker session without an admitted instruction, or you use an App key;
+TASK_INTEGRATION_INVALID (exit 2), which names the JSON path at fault;
+PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE and PROPERTIES_KEY_RESERVED (exit
 2); APP_PROPERTIES_CONFLICT (exit 5).`,
 		Example: `  hadron app properties set acme.com:eng-team @props.json --expected-revision 3
   hadron app properties get acme.com:eng-team | jq '.team.x = 1' | hadron app properties set acme.com:eng-team -`,
