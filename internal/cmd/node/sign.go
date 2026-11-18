@@ -490,7 +490,13 @@ no further page) beside requests.`,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Requests) == 0 {
-					if _, err := fmt.Fprintf(w, "%s: no signing requests on this page\n", dto.URN); err != nil {
+					// With --state the message names the filter: an empty filtered
+					// page does not mean no requests exist (cli#2032 ruling).
+					what := "no signing requests"
+					if statePtr != nil {
+						what = "no " + strings.ToLower(string(*statePtr)) + " signing requests"
+					}
+					if _, err := fmt.Fprintf(w, "%s: %s on this page\n", dto.URN, what); err != nil {
 						return err
 					}
 				} else {

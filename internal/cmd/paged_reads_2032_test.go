@@ -561,7 +561,7 @@ func TestSigningRequestListHumanPageLines2032(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "no signing requests on this page") || !strings.Contains(out, "has more: false") {
+	if !strings.Contains(out, "no open signing requests on this page") || !strings.Contains(out, "has more: false") {
 		t.Fatalf("past-end page:\n%s", out)
 	}
 }
@@ -704,9 +704,17 @@ func TestPagedListEmptyPageIsPageScoped2032(t *testing.T) {
 	if err != nil || !strings.Contains(out, "no watches on this page\n") {
 		t.Fatalf("web-poll: %v\n%s", err, out)
 	}
-	out, err = run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open")
+	out, err = run2032(t, srv, "node", "signing-request", "list", nodeURN)
 	if err != nil || !strings.Contains(out, ": no signing requests on this page\n") {
 		t.Fatalf("signing: %v\n%s", err, out)
+	}
+	// With --state the message names the filter, first page and later pages.
+	for _, extra := range [][]string{nil, {"--after", cursor2032(5)}} {
+		args := append([]string{"node", "signing-request", "list", nodeURN, "--state", "expired"}, extra...)
+		out, err = run2032(t, srv, args...)
+		if err != nil || !strings.Contains(out, ": no expired signing requests on this page\n") {
+			t.Fatalf("signing --state expired %v: %v\n%s", extra, err, out)
+		}
 	}
 }
 
