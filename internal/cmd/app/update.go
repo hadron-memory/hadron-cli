@@ -139,7 +139,7 @@ before trying again.`,
 			var policyJSON json.RawMessage
 			switch {
 			case fl.Changed("policy-file"):
-				policyJSON, err = readPolicyFile(policyFile, true)
+				policyJSON, err = readPolicyFile(policyFile, adviseClearPolicy)
 				if err != nil {
 					return err
 				}
