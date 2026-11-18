@@ -49,29 +49,26 @@ func TestTaskListOverdueHelpNamesTheFinishByArm2509(t *testing.T) {
 func TestTaskCreateFinishByHelpMentionsOverdue2509(t *testing.T) {
 	help := helpFor2509(t, "team", "task", "create", "--help")
 	// The --finish-by PARAGRAPH must say it, not just the --start-by one
-	// above it (which already names --overdue on main).
-	finishBy := ""
-	rest := help
-	for {
-		i := strings.Index(rest, "--finish-by")
-		if i < 0 {
-			break
-		}
-		para := rest[i:]
-		if j := strings.Index(para, "\n\n"); j >= 0 {
-			para = para[:j]
-		}
-		if strings.HasPrefix(para, "--finish-by") || strings.Contains(para, "sets a deadline to finish") {
-			finishBy = para
-			break
-		}
-		rest = rest[i+len("--finish-by"):]
-	}
-	if finishBy == "" {
+	// above it (which already names --overdue on main, and whose cli#2509
+	// edit also mentions --finish-by — so scope by the paragraph's own
+	// distinctive phrase, not by the flag name).
+	i := strings.Index(help, "sets a deadline to finish")
+	if i < 0 {
 		t.Fatalf("no --finish-by paragraph found:\n%s", help)
 	}
-	if !strings.Contains(finishBy, "overdue") {
-		t.Errorf("the --finish-by help must say a passed finish-by lists the task under task list --overdue:\n%s", finishBy)
+	start := strings.LastIndex(help[:i], "\n\n")
+	if start < 0 {
+		start = 0
+	} else {
+		start += 2
+	}
+	end := len(help)
+	if j := strings.Index(help[i:], "\n\n"); j >= 0 {
+		end = i + j
+	}
+	para := help[start:end]
+	if !strings.Contains(para, "overdue") {
+		t.Errorf("the --finish-by help must say a passed finish-by lists the task under task list --overdue:\n%s", para)
 	}
 	// And the start-by paragraph must not read as the only arm.
 	if strings.Contains(help, "only start-by") {
