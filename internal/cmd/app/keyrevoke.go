@@ -112,7 +112,7 @@ An App manager may revoke as themselves, or their held worker may revoke with
 		},
 	}
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt (required when non-interactive)")
-	addCredentialInstruction(cmd)
+	addCredentialInstructionRevoke(cmd)
 	return cmd
 }
 

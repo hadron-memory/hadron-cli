@@ -11,7 +11,7 @@ import (
 // manager's write (cor:agt:060:09), and the server's actorManagesApp accepts
 // a user actor only. Sent with a bound worktree's worker session, it refused
 // the very manager it was meant for (exit 8 bound, exit 0 unbound). The
-// family write is therefore the person's, never the session's — the same rule
+// no-flag family write is therefore the person's, never the session's — the same rule
 // as `team stall-schedule set` (#866).
 func TestTeamAvailabilitySetFamilyNotAttributedToWorker(t *testing.T) {
 	calls, _, err := runTeamTask(t, taskResponses(),

@@ -92,9 +92,24 @@ func newCmdAgentLock(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock",
 		Short: "Take or give up an Agent's editor lock",
-		Long: `The editor lock for an Agent's system memory. The server owns who may take it
-and how long it lasts; the CLI never retries, forces, renews or releases on
-your behalf.`,
+		Long: `The editor lock for an Agent's system memory: a server-side marker that says
+who is editing it. While someone holds it, anyone else who asks for it is told
+"not acquired", who holds it and until when.
+
+When you need it: only when you want to tell others you are editing this
+Agent's system memory. No other hadron command takes, checks or waits for the
+lock, so editing nodes does not require holding it from this CLI. Whether the
+server refuses an edit from someone who does not hold it is the server's
+decision; this CLI does not enforce it.
+
+A lock does not last forever: "lock acquire" prints the time it runs out
+("until <time>"), asking again while you hold it renews it, and "lock release"
+gives it up early. A lock nobody releases ends at that time.
+
+The usual order is: "hadron agent lock acquire <agent>", make your edits,
+"hadron agent lock release <agent>". The server owns who may take the lock and
+how long it lasts; the CLI never retries, forces, renews or releases on your
+behalf.`,
 	}
 	cmd.AddCommand(newCmdAgentLockAcquire(f), newCmdAgentLockRelease(f))
 	return cmd
@@ -110,9 +125,15 @@ func newCmdAgentLockAcquire(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "acquire <agent>",
 		Short: "Acquire an Agent's editor lock",
-		Long: `Ask for the editor lock. If someone else holds it the server answers "not
-locked" with who holds it and until when (null when unknown): the result is
-printed and the command exits 5 (conflict). It does not retry.`,
+		Long: `Ask for the editor lock. If someone else holds it, the server says the lock
+was not acquired and names who holds it and until when (null when unknown): the
+result is printed and the command exits 5 (conflict). It does not retry.
+Asking for a lock you already hold renews it.
+
+Prints "✓ lock acquired until <time>" on success ("✓ lock acquired" when the
+server gives no expiry), or "✗ lock not acquired (held by <who>) until <time>"
+when someone else has it; --json is {"locked": bool, "lockedBy": <who or null>,
+"expiresAt": <time or null>}.`,
 		Example: `  hadron agent lock acquire hrn:agent:acme.com:bot`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -583,72 +583,73 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --name <n> [--org <id> | --owner-me] [--install-into <app>]",
 		Short: "Create an agent (org-owned, or user-owned with --owner-me)",
-		Long: `Create an agent. Pass --org to create an org-owned agent (you must be an org
-ADMIN). Otherwise the agent is user-owned, in your own @handle namespace (spec
-047) — pass --owner-me to say so explicitly, or just omit --org. A user-owned
-agent is PERSONAL/owner-only in v1: the server derives the @handle:<slug> URN
-and rejects a non-PERSONAL --visibility. --org and --owner-me are mutually
-exclusive.
+		Long: `Create an Agent. Pass --org (an organization ID or URN, for example
+hrn:org:acme.com) to create an organization-owned Agent; you must be an ADMIN of
+that organization. Without --org, or with --owner-me, the Agent is yours: it
+lives in your own handle's namespace (its URN is hrn:agent:<handle>:<slug>), it
+is PERSONAL and visible only to you, and the server refuses any other
+--visibility. --org and --owner-me exclude each other.
 
---lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while
-they hold a runnable task. Omitted takes the server default LONG_LIVED.
-This records desired behaviour; an enabled host sweep acts on it. The flag
-requires server #4242 (schema skew exits 2); omitting it keeps the legacy
-create document unchanged.
+A new Agent has no prompt and is in no App yet:
+  1. Give it a prompt: write boot:source (role boot-prompt) in the Agent's system
+     memory, then use "hadron agent compile" and "hadron node approve".
+  2. Put it in an App so workers can be created from it: --install-into <app>
+     does this in the same run, which is the common case when the Agent is a
+     role Agent for a team you already have:
 
---context-cap <tokens> sets the Agent's context cap: a whole number from 1; a
-long-lived worker whose context grows past it, and whose host reports it idle
-at an empty prompt, is reset (at most once an hour per worker). Omitted means no
-cap. Needs a server with hadron-server#4258 (schema skew exits 2); omitting the
-flag keeps the legacy create document unchanged.
-
-A NEW AGENT IS IN NO APP'S CAST POOL, so it cannot be cast as a worker yet
-(#535). --install-into <app> does that second step in the same run — the
-common case when the agent is a role agent for a team you already have:
-
-  hadron agent create --org acme.com --name "DevOps Engineer" \
+  hadron agent create --org hrn:org:acme.com --name "DevOps Engineer" \
       --persona-role devops-engineer \
       --install-into hrn:app:acme.com:eng-team
 
-It is deliberately NOT spelled --app: that is the persistent App-CONTEXT flag,
-which never acts on an App (see the note ` + "`agent list --app`" + ` prints, #383).
---install-into names a target and has an effect, so it gets its own name.
+--install-into is deliberately not spelled --app: --app is the persistent App
+context flag, which never acts on an App ("hadron agent list --app" explains).
+--install-into names a target and has an effect, so it has its own name.
 
-The two steps are not atomic — nothing on the server side spans them. If the
-install fails the agent still EXISTS, and the failure says so and prints the
-` + "`hadron app agent add`" + ` needed to finish; it is never silently rolled back,
-because deleting an agent you asked to create is the more destructive repair.
+The two steps are not atomic. If the install fails the Agent still exists; the
+failure says so and prints the "hadron app agent add" command that finishes the
+job. The Agent is never rolled back, because deleting an Agent you asked to
+create would be the more destructive repair. A lost connection is reported as
+unknown, not failed (exit 7): the install may have gone through, so check "hadron
+app agent list" instead of retrying blind into a duplicate. Installing needs
+CONTRIBUTOR or higher on the App's owning organization (or ownership of a
+user-owned App), which is stricter than creating the Agent, so it can refuse
+after the create succeeded.
 
-A lost connection is reported as UNKNOWN, not failed (exit 7, #394): the
-install may have committed before the answer went missing, so the remedy is
-to check ` + "`app agent list`" + ` rather than to retry blind into a duplicate.
+Settings, all optional (left out, the server's default stands):
+  --description, --persona-role  free text, and the role the Agent presents as.
+  --surface       a surface the Agent is available on (repeatable).
+  --member-roles  the roles the Agent offers an App's members, comma-separated
+                  (default owner,member; the server validates them).
+  --type          ASSISTANT or CHATBOT.
+  --visibility    ORGANIZATION, PERSONAL or PUBLIC.
+  --lifecycle     LONG_LIVED keeps workers running; SHORT_LIVED runs them only
+                  while they hold a runnable task. Omitted: LONG_LIVED. A host
+                  acts on it when its sweep is enabled.
+  --context-cap   a context size in tokens (a whole number from 1). A
+                  long-lived worker whose context grows past it, and whose host
+                  reports it idle at an empty prompt, is reset, at most once an
+                  hour per worker. Omitted: no cap.
+  --uses-tasks, --reset-context-after-task  whether the Agent's workers use
+                  assigned tasks (default true), and whether they get a fresh
+                  context after each task (default false). An explicit =false
+                  is sent as false. The reset is only a recorded setting: the
+                  program that runs your workers (their host) does it, and only
+                  a host that supports it acts on it. team host run wires the
+                  protocol on Linux when its config explicitly declares
+                  worker.reset-context and supplies reset_context.orca_bin, but
+                  currently refuses new resets without a verifiable
+                  terminal/process binding.
+  --system-memory normally left out: the server gives every new Agent a system
+                  memory. Pass an ID only to name one yourself.
 
-Authorization for the install is CONTRIBUTOR+ on the App's owning org (or
-ownership of a user-owned App) — a stricter gate than creating the agent, so
-it can refuse after the create succeeds.
-
-New Agents start without a prompt. Write boot:source (role boot-prompt) in
-the Agent system memory, then use hadron agent compile and hadron node approve.
-
---uses-tasks and --reset-context-after-task set the two task settings at
-creation. Pass them only to choose a value: left out, the server default stands
-(uses tasks true, reset context after task false); an explicit =false is sent as
-false. --reset-context-after-task records a setting only. The program that
-runs your workers (their host) does the reset, and only a host that supports it
-acts on the setting. team host run wires the protocol on Linux when its config
-explicitly declares worker.reset-context and supplies reset_context.orca_bin,
-but currently refuses new resets: it cannot prove a terminal/process binding.
-The terminal-aware success path belongs to C3 (hadron-cli#2058).
-
-Server compatibility: every agent create now sends a document that takes
-usesTasks and resetContextAfterTask, even when neither flag is named, so it
-needs a server whose createAgent has them (in the schema snapshot from
-hadron-server 53e12896e, 2026-10-26). An older server rejects the create as
-schema skew, exit 2: upgrade that provider first, including self-hosted or
-staging servers.`,
+Server compatibility: every create sends a request that carries the task
+settings, so it needs a server from 2026-10-26 or later. Naming --lifecycle or
+--context-cap needs a still newer server; leaving them out keeps the older
+request. An older server rejects the create as a schema mismatch (exit 2):
+upgrade that server first, including self-hosted or staging ones.`,
 		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
-  hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION
-  hadron agent create --org acme.com --name "DevOps Engineer" --persona-role devops-engineer --install-into hrn:app:acme.com:eng-team`,
+  hadron agent create --org hrn:org:acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION
+  hadron agent create --org hrn:org:acme.com --name "DevOps Engineer" --persona-role devops-engineer --install-into hrn:app:acme.com:eng-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseRetiredPersonaPromptFlags(cmd); err != nil {
@@ -789,18 +790,18 @@ staging servers.`,
 			return installErr
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID); omit (or use --owner-me) for a user-owned agent")
+	cmd.Flags().StringVar(&org, "org", "", "owning organization (ID or URN, for example hrn:org:acme.com); omit (or use --owner-me) for a user-owned agent")
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned agent in your own @handle namespace (org-less; PERSONAL only)")
 	cmd.Flags().StringVar(&name, "name", "", "agent name (required)")
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC (server default when unset)")
-	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
+	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "an existing memory's ID to use as the Agent's system memory; normally left out (the server gives each Agent one)")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
 	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "roles the agent offers an App's members, comma-separated (default owner,member; the server validates them)")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
-	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted uses server default LONG_LIVED; requires S3 server)")
+	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted: LONG_LIVED; needs a newer server)")
 	cmd.Flags().BoolVar(&createUsesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks (server default true when left out; =false is sent as false)")
 	cmd.Flags().IntVar(&createContextCap, "context-cap", 0, contextCapFlagUsage)
 	cmd.Flags().BoolVar(&createReset, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (server default false when left out). Recorded only: it takes effect where the workers' host supports it")
@@ -835,45 +836,63 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <ref>",
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
-		Long: `Update an agent. Only the fields you pass change.
+		Long: `Update an Agent. Only the fields you pass change; <ref> is an Agent ID or URN.
+The flags fall into these groups.
 
---lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them while they
-hold a runnable task. Omitted preserves the server value (default LONG_LIVED).
-The server checks the same permission as --uses-tasks. This records desired
-behaviour; a host sweep must support it and be enabled to act on it. The flag
-requires server #4242 (schema skew exits 2). Without it the legacy update
-document stays unchanged.
+Identity and discovery:
+  --name, --description, --type, --visibility, --surface, --member-roles,
+  --system-memory, --persona-role (metadata: the role this Agent presents as; its
+  prompt is not set here, see below), and
+  --listed-on-marketplace (=false unlists it), which lists the Agent in the
+  marketplace catalogue and governs discovery only: it does not change the
+  Agent's visibility or who can reach it.
+  --urn renames the Agent's slug, the last part of its URN. It works for
+  organization-owned Agents only. Existing workers are not affected, but
+  anything that named the Agent by its old URN must now use the new one; an ID
+  never changes, so use the ID where a reference has to survive a rename.
 
---context-cap <tokens> sets the Agent's context cap: a whole number from 1; a
-long-lived worker whose context grows past it, and whose host reports it idle
-at an empty prompt, is reset (at most once an hour per worker; a busy worker is
-never reset for it). --no-context-cap removes the cap. Omitted keeps the current
-cap. Not both. Needs a server with hadron-server#4258; against an older one the
-write is refused as schema skew, and every other agent command is unaffected.
+The Agent's prompt: edit it by writing the source at boot:source (role
+boot-prompt) in the Agent's system memory, then use "hadron agent compile" and
+"hadron node approve". New Agents start without a prompt.
 
---persona-role is metadata. Write the Agent source at boot:source in its system
-memory, then use hadron agent compile and hadron node approve. New Agents
-start without a prompt.
+How its workers run:
+  --lifecycle LONG_LIVED keeps workers running; SHORT_LIVED runs them only while
+  they hold a runnable task. Omitted keeps the current value (the default is
+  LONG_LIVED). It records desired behaviour; a host acts on it only when its
+  sweep is enabled. The server checks the same permission as --uses-tasks.
+  --context-cap <tokens> sets the context cap: a whole number from 1. A
+  long-lived worker whose context grows past it, and whose host reports it idle
+  at an empty prompt, is reset, at most once an hour per worker; a busy worker is
+  never reset for it. --no-context-cap removes the cap; omitted keeps the
+  current cap; not both.
+  --reset-context-after-task records that the Agent's workers should get a fresh
+  context after each task (default false; "hadron agent get" shows it).
+  It does not reset anything by itself: the program that runs your workers
+  (their host) does the reset, and only a host that supports it acts on the
+  setting. team host run wires the protocol on Linux when its config
+  explicitly declares worker.reset-context and supplies
+  reset_context.orca_bin, but currently refuses new resets without a
+  verifiable terminal/process binding. Turn it off with
+  --reset-context-after-task=false. "hadron agent create" takes the same flag,
+  to set it at creation.
 
---reset-context-after-task records a setting on the Agent (default false);
-hadron agent get shows it. It does not reset anything by itself. The program
-that runs your workers (their host) does the reset, and only a host that
-supports it acts on the setting. team host run wires the protocol on Linux
-when its config explicitly declares worker.reset-context and supplies
-reset_context.orca_bin, but currently refuses new resets without a verifiable
-terminal/process binding. C3 (hadron-cli#2058) owns the success path.
-Turn it off with --reset-context-after-task=false. agent create takes the same
-flag, to set it at creation.
+Where it looks for its tasks and processes:
+  --tasks-index and --processes-index point the Agent at the node that lists its
+  tasks, or its processes ("hadron agent tasks list" and "hadron agent processes
+  list" read them). Each takes a node ref; an explicit empty value clears it.
+  Re-pointing an index changes which tasks or processes the Agent's workers see
+  from then on; it does not edit the nodes themselves.
 
---listed-on-marketplace lists the Agent in the marketplace catalogue (=false
-unlists it). It governs discovery only: it does not change the Agent's
-visibility or who can reach it.
+Register defaults: a register row is how an Agent's workers attend a chat
+channel, and mention-only means they are woken only by messages that mention
+them. --register-mention-only[=false] sets the default an install of this Agent
+starts with; --clear-register-defaults returns the defaults to the platform's.
+Pass at most one of them; left out, the defaults are unchanged. Both together,
+or --clear-register-defaults=false, are refused before anything is sent.
 
---register-mention-only[=false] sets the Agent's register default mentionOnly;
---clear-register-defaults returns the register defaults to the platform
-defaults. Pass at most one of them; left out, the register defaults are
-unchanged. Both together, or --clear-register-defaults=false, are refused
-before anything is sent.`,
+Server compatibility: --lifecycle and --context-cap need a newer server than the
+other flags. Against an older server the write is refused as a schema mismatch
+(exit 2) and every other agent command is unaffected.`,
 		Example: `  hadron agent update hrn:agent:acme.com:support-bot --name "Support Bot v2" --visibility PUBLIC
   hadron agent update agt_123 --description "…"
   hadron agent update agt_123 --reset-context-after-task
@@ -1018,14 +1037,14 @@ before anything is sent.`,
 			return emitAgent(f, dto, "✓ updated")
 		},
 	}
-	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted preserves; requires S3 server)")
+	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted keeps the current value; needs a newer server)")
 	cmd.Flags().StringVar(&name, "name", "", "agent name")
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
-	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
+	cmd.Flags().StringVar(&urn, "urn", "", "rename the Agent's slug (the last part of its URN); organization-owned Agents only")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
 	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "replace the roles the agent offers an App's members, comma-separated (existing members keep theirs; the server validates)")
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
@@ -1074,7 +1093,24 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "rm <ref>",
 		Aliases: []string{"delete"},
-		Short:   "Delete an agent by ID or URN",
+		Short:   "Delete an Agent and its system memory",
+		Long: `Delete an Agent and its system memory. This is a soft delete, and the CLI has
+no command to bring the Agent back. <ref> is an Agent ID or URN.
+
+You need management access to the Agent. The server refuses while the Agent is
+still in use: an App has it installed (see "hadron app uninstall" and "hadron
+app agent remove"), another Agent imports it, or another Agent extends it as its
+base. Memories attached to the Agent ("hadron agent memory add") do not block
+the delete, and only the attachment goes with the Agent. The delete is also
+refused (DECISION_CONTAINED) while the Agent's system memory holds a decision or
+a decision log, and a server that must keep minted content may add its own
+restrictions.
+
+This removes the whole Agent. To detach one Memory from it, use "hadron agent
+memory rm"; to take the Agent out of one App, use "hadron app agent remove".
+
+Asks for confirmation on a terminal; a non-interactive caller must pass --yes.
+Prints the result; --json is {"id": <ref>, "status": "deleted"}.`,
 		Example: `  hadron agent rm hrn:agent:acme.com:support-bot --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1374,7 +1410,7 @@ func triggerCell(t *string) string {
 func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tasks <command>",
-		Short: "The Agent's effective task list",
+		Short: "The tasks the Agent's workers see",
 	}
 	cmd.AddCommand(newCmdAgentTasksList(f))
 	return cmd
@@ -1389,18 +1425,25 @@ func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <agentRef>",
 		Aliases: []string{"ls"},
 		Short:   "List the tasks the Agent's workers see (own list plus inherited)",
-		Long: `List the Agent's effective task list — the tasks its own index
-edge lists plus everything inherited from the base it extends, deduped by
-the server (cor:dmo:050:15). TRIGGER is the index edge that lists the task
-(blank when none does); INHERITED FROM names the base Agent for a task that
-comes through inheritance (blank for the Agent's own).
+		Long: `List the tasks the Agent's workers see: the tasks the Agent lists itself plus
+the ones it inherits from its base Agents (the Agents it extends, a chain of up
+to four; see "hadron agent set-base"), with duplicates removed by the server.
+The Agent lists its own tasks in its tasks index, a node in its system memory
+that you point it at with "hadron agent update --tasks-index".
 
---symptom is experimental (hadron-server#2421): it returns up to 3 tasks from
-the Agent's effective system memory, matched on the abstract, and adds a
-MATCHED BY column (VECTOR, KEYWORD or BOTH). --limit applies only with
---symptom (without it the flag is ignored and the request is unchanged); the
-server owns its rules (default 3, larger values clamp to 3, below 1 is
-refused) and the CLI sends the value as given.`,
+Columns: NAME and URN identify the task node. TRIGGER is the name of the entry in
+the tasks index that lists the task (blank when no entry does). INHERITED FROM
+names the base Agent a task comes from (blank for the Agent's own tasks).
+
+--symptom is experimental and may change: it returns up to 3 tasks from the
+Agent's effective system memory, matched on the abstract against the symptom
+text (the effective memory is the Agent's own plus its base Agents'), and adds
+a MATCHED BY column (VECTOR, KEYWORD or BOTH).
+--limit applies only with --symptom (without it the flag is ignored and the
+request is unchanged); the server owns its rules (default 3, larger values clamp
+to 3, below 1 is refused) and the CLI sends the value as given.`,
+		Example: `  hadron agent tasks list hrn:agent:acme.com:support-bot
+  hadron agent tasks list hrn:agent:acme.com:support-bot --symptom "build fails on windows" --limit 2`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
@@ -1481,7 +1524,7 @@ refused) and the CLI sends the value as given.`,
 func newCmdAgentProcesses(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "processes <command>",
-		Short: "The Agent's effective process list",
+		Short: "The processes the Agent's workers see",
 	}
 	cmd.AddCommand(newCmdAgentProcessesList(f))
 	return cmd
@@ -1492,12 +1535,20 @@ func newCmdAgentProcessesList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <agentRef>",
 		Aliases: []string{"ls"},
 		Short:   "List the processes the Agent's workers see (own list plus inherited)",
-		Long: `List the Agent's effective process list — the processes its own
-index edge lists plus everything inherited from the base it extends, deduped
-by the server (cor:dmo:050:16). KIND is STARTS (the process is listed in the
-Agent's own processes index) or INVOLVED (the process has a stage edge to
-one of the Agent's tasks); TRIGGER is the index edge's name for STARTS rows
-and blank for INVOLVED; INHERITED FROM names the base Agent where it applies.`,
+		Long: `List the processes the Agent's workers see: the processes the Agent starts
+plus the ones it inherits from its base Agent (the Agent it extends; see "hadron
+agent set-base"), with duplicates removed by the server. A process is a
+multi-step workflow written as nodes in a memory; the Agent lists the processes
+it starts in its processes index, a node in its system memory that you point it
+at with "hadron agent update --processes-index".
+
+Columns: KIND says why the process is listed: STARTS (the Agent's processes index
+lists it, so this Agent starts it) or INVOLVED (one of the Agent's tasks is a
+step of the process, though the Agent does not start it). TRIGGER is the name of
+the index entry that lists the process (blank for INVOLVED rows). INHERITED FROM
+names the base Agent a row comes from, where it applies.`,
+		Example: `  hadron agent processes list hrn:agent:acme.com:support-bot
+  hadron agent processes list hrn:agent:acme.com:support-bot --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
@@ -1617,13 +1668,13 @@ func newCmdAgentSetBase(f *cmdutil.Factory) *cobra.Command {
 	var clear bool
 	cmd := &cobra.Command{
 		Use:   "set-base <agent> (<base> | --clear)",
-		Short: "Set or clear the Agent's base (inheritance, cor:dmo:050:14)",
+		Short: "Set or clear the Agent this one builds on (its base)",
 		Long: `Set the base this Agent extends, or clear it with --clear. The base's
 system memory is inherited: its tasks and processes lists, and the nodes its
 workers read, come through the chain (deduped by the server), and a chain may
-hold at most four Agents. Setting a base needs a licence to it — a PUBLIC
+hold at most four Agents. Setting a base needs a license to it — a PUBLIC
 base needs an active subscription, an org-owned one an org grant. Whoever
-manages the Agent may set its base (cor:dmo:050:13).`,
+manages the Agent may set its base.`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])

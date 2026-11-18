@@ -1,0 +1,11 @@
+# cli#2451: separate instructed documents preserve no-flag wire requests.
+mutation AlarmAcknowledgeInstructed($eventId: ID!, $instruction: ActInstructionInput!) {
+  acknowledgeAlarm(eventId: $eventId, instruction: $instruction) {
+    ...AgentTeamEventFields
+  }
+}
+mutation TeamStallScheduleSetInstructed($appRef: ID!, $input: AgentTaskStallScheduleInput!, $instruction: ActInstructionInput!) {
+  setAgentTaskStallSchedule(appRef: $appRef, input: $input, instruction: $instruction) {
+    ...AgentTaskStallScheduleFields
+  }
+}

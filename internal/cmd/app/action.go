@@ -29,22 +29,36 @@ func newCmdAction(f *cmdutil.Factory) *cobra.Command {
 	var task, payload, file string
 	record := &cobra.Command{
 		Use: "record <code>", Short: "Record one App-defined action and print its register answer",
-		Long: `Record an App-defined action in the current App (--app or the active App).
-The code must satisfy the App action grammar and the URN atom shape (at most
-64 bytes): app.<current-slug>.<name>. The server checks the current slug;
-after an App rename old codes are refused. This is the interim rename reading.
+		Long: `Record an App-defined action in the current App (--app or the active App). An
+App-defined action is a named event your App reports (for example
+"app.eng.design.approved"); the server stores it on the App's event log, where
+the App's participants can read it, and answers with what the App's action
+register makes of it.
 
---task accepts the same id, qualified handle or bare handle forms as team task
-get. The server resolves the task and judges the caller; a bare handle may
-need qualification when the caller belongs to several Apps. This command
-makes no person-resolution or authorization promise.
+The code is app.<current-slug>.<name>: lowercase letters, digits and hyphens in
+dot-separated parts, starting with "app." and the App's current slug, ending in a
+letter or digit, at most 64 bytes in all. Anything else is refused before any
+request (exit 2): "app.eng.Design" fails on the capital letter. The server
+checks the current slug, so after an App rename codes with the old slug are
+refused.
+
+--task attaches the action to a task, in the same id, qualified handle or bare
+handle forms as "team task get". The server resolves the task and judges the
+caller; a bare handle may need qualification when you belong to several Apps.
 
 --payload or --payload-file supplies one JSON object of at most 4 KiB.
 Payloads are readable by every participant of the App and by its key: put
-nothing secret in them. Omitted payload is not sent. There is one mutation,
-no retry: after an unknown transport outcome inspect team events before
-recording again. The register answer (MAPPED/UNMAPPED/UNRESOLVED/WITHHELD)
-is returned by the server, never client-side authorization.`,
+nothing secret in them. Omitted payload is not sent. There is one mutation and
+no retry: after an unknown transport outcome inspect "hadron team events"
+before recording again, because each successful call adds a new event.
+
+The register answer is what the server returns, never an authorization check:
+  MAPPED      the App's action register has an entry for this code and a
+              runnable task was found for it (its URN is returned).
+  UNRESOLVED  there is an entry, but no runnable task was found where it points.
+  UNMAPPED    no register entry matches this code; only the code comes back.
+  WITHHELD    you have no Agent to ask as, so the server returns the code only,
+              with no task and no register lookup.`,
 		Example: "  hadron app action record app.eng.design.approved --app acme.com:eng\n  hadron app action record app.eng.design.approved --task AT0.7 --payload '{\"review\":\"done\"}' --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

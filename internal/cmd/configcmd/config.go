@@ -28,6 +28,7 @@ The keys:
   spec_memory  default memory for 'hadron spec' commands
   org          active organization
   scope        default search scope for 'hadron search'
+  skills.installPrompt  offer skill installation after login (default true)
 
 Start with 'hadron config list' to see every key and its current value. To
 remove a saved value, set it to an empty string: hadron config set app ""
@@ -48,10 +49,10 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "get <key>",
 		Short: "Print one saved setting",
 		Long: `Print the current value of one setting: server, app, memory, spec_memory,
-org or scope ('hadron config --help' says what each means).
+org, scope or skills.installPrompt ('hadron config --help' explains each).
 
 A key that was never set prints an empty line, except server, which prints
-the default (https://srv.hadronmemory.com). It prints the saved value only: the
+the default (https://srv.hadronmemory.com), and skills.installPrompt (true). It prints the saved value only: the
 HADRON_SERVER environment variable and the --server flag are not applied. An
 unknown key is refused with the list of known keys (exit 2).`,
 		Example: `  hadron config get server
@@ -82,16 +83,18 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 on this machine uses it until you change it; the --server and --app flags still
 override it for a single command.
 
-<key> is one of server, app, memory, spec_memory, org or scope ('hadron config
---help' says what each means); an unknown key is refused with the list of
-known keys (exit 2). <value> is stored as given: a server URL, an App id or
+<key> is one of server, app, memory, spec_memory, org, scope or
+skills.installPrompt ('hadron config --help' explains each); an unknown key is
+refused with the list of known keys (exit 2). <value> is stored as given: a server URL, an App id or
 hrn:app:<root>:<slug>, a memory id or URN, an organization root, or a scope
-name. Only app is checked for shape; nothing is checked against the server.
+name. skills.installPrompt accepts true or false (false silences the login
+skills offer). App values are checked for shape; nothing is checked against the server.
 The dedicated commands ('app set-active', 'memory set-active', 'org use',
 'scope use', 'spec use') check the value first; prefer them.
 
 To remove a saved value, set it to an empty string (""): the key is dropped
-from the file, and server returns to its default.`,
+from the file, server returns to its default, and skills.installPrompt returns
+to true.`,
 		Example: `  hadron config set server https://hadron.internal.example
   hadron config set app hrn:app:acme.com:support
   hadron config set app ""`,
@@ -126,10 +129,10 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List every setting and its current value",
-		Long: `List every setting (server, app, memory, spec_memory, org, scope) with its
-saved value. A key that was never set shows empty, except server, which shows
-the default. It shows the saved values only: the HADRON_SERVER environment
-variable and the --server flag are not applied.
+		Long: `List every setting (server, app, memory, spec_memory, org, scope and
+skills.installPrompt) with its saved value. A key that was never set shows
+empty, except server (the default URL) and skills.installPrompt (true). It shows
+the saved values only: the HADRON_SERVER environment variable and the --server flag are not applied.
 
 This does not read the sign-in credential store ('hadron auth' keeps that).
 It does show the server URL and the App, memory and org you work with.
