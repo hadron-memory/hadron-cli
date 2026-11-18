@@ -99,3 +99,21 @@ func TestHealthRefusesRelativeOrcaBin2369(t *testing.T) {
 		})
 	}
 }
+
+// The control for the refusals above: an absolute orca_bin passes the guard, so
+// the sweep goes on to the status read; an over-refusing guard fails this.
+func TestHealthAcceptsAbsoluteOrcaBin2369(t *testing.T) {
+	bin := filepath.Join(t.TempDir(), "orca")
+	if e := os.WriteFile(bin, []byte("#!/bin/sh\nexit 0\n"), 0o700); e != nil {
+		t.Fatal(e)
+	}
+	requests, _, _, err := relativeOrcaBin2369(t, bin)
+	if err != nil && strings.Contains(err.Error(), "delivery.orca_bin must be an absolute path") {
+		t.Fatalf("an absolute orca_bin was refused: %v", err)
+	}
+	// Past the guard the sweep checks the host registration, a server request
+	// (the fake answers it not live, so the run ends there, after the guard).
+	if requests == 0 {
+		t.Fatalf("an absolute orca_bin must get past the guard to the registration check; err=%v", err)
+	}
+}
