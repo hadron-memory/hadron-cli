@@ -35,7 +35,7 @@ func TestSanitizeLineNeutralisesLikeSafeLineAndNeverTruncates2371(t *testing.T) 
 		}
 	})
 	t.Run("agrees with SafeLine whenever SafeLine would not truncate", func(t *testing.T) {
-		for _, s := range []string{"a\x1b[31mb\nc", "plain", "x‮y​z", "日本語\t語"} {
+		for _, s := range []string{"a\x1b[31mb\nc", "plain", "x" + string(rune(0x202e)) + "y" + string(rune(0x200b)) + "z", "日本語\t語"} {
 			if a, b := SanitizeLine(s), SafeLine(s, utf8.RuneCountInString(s)); a != b {
 				t.Errorf("SanitizeLine(%q) = %q but SafeLine = %q", s, a, b)
 			}
