@@ -86,7 +86,10 @@ Providers containing server#2979 (dadc314a) send typed permission/not-found
 refusals: PERMISSION_DENIED exits 8; missing or unreadable Agent is the same
 concealing NOT_FOUND, exit 4. Lookup outages stay INTERNAL_SERVER_ERROR,
 exit 1 with requestId. Older providers may conceal all three as internal errors;
-the CLI maps only the actual wire code, never message prose.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+the CLI maps only the actual wire code, never message prose.
+INTERNAL_SERVER_ERROR (exit 1) is an unknown outcome: it can be a concealed
+refusal or a real server fault, so do not assume nothing changed, and this
+command does not retry.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
 			if ref == "" {
 				return exitcode.Newf(exitcode.Usage, "pass an Agent ID or fully qualified URN")

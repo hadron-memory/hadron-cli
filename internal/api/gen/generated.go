@@ -53278,9 +53278,11 @@ type GetNodeNode struct {
 	CreatedAt  string `json:"createdAt"`
 	// #1151 - the User behind this node's creation, as handle and URN only (the same projection as updatedByUser). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), and for nodes written before the column was stamped, which are not backfilled.
 	CreatedByUser *GetNodeNodeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
-	UpdatedAt     string                                      `json:"updatedAt"`
-	OutgoingEdges []*GetNodeNodeOutgoingEdgesEdge             `json:"outgoingEdges"`
-	IncomingEdges []*GetNodeNodeIncomingEdgesEdge             `json:"incomingEdges"`
+	// Passages omitted by the per-node indexing cap; null when not truncated (hrn:node:hadronmemory.com:specs:cor:rag:010:01).
+	IndexTruncated *GetNodeNodeIndexTruncated      `json:"indexTruncated"`
+	UpdatedAt      string                          `json:"updatedAt"`
+	OutgoingEdges  []*GetNodeNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges  []*GetNodeNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns GetNodeNode.Id, and is useful for accessing the field via an interface.
@@ -53350,6 +53352,9 @@ func (v *GetNodeNode) GetCreatedAt() string { return v.CreatedAt }
 func (v *GetNodeNode) GetCreatedByUser() *GetNodeNodeCreatedByUserNodeRevisionEditor {
 	return v.CreatedByUser
 }
+
+// GetIndexTruncated returns GetNodeNode.IndexTruncated, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetIndexTruncated() *GetNodeNodeIndexTruncated { return v.IndexTruncated }
 
 // GetUpdatedAt returns GetNodeNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetUpdatedAt() string { return v.UpdatedAt }
@@ -53432,6 +53437,18 @@ func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetLoc() string { return v.Loc 
 
 // GetMemoryId returns GetNodeNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v.MemoryId }
+
+// GetNodeNodeIndexTruncated includes the requested fields of the GraphQL type IndexTruncated.
+// The GraphQL type's documentation follows.
+//
+// Declared successful partial passage indexing (hrn:node:hadronmemory.com:specs:cor:rag:010:01).
+type GetNodeNodeIndexTruncated struct {
+	// Number of passage chunks not embedded.
+	OmittedChunks int `json:"omittedChunks"`
+}
+
+// GetOmittedChunks returns GetNodeNodeIndexTruncated.OmittedChunks, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIndexTruncated) GetOmittedChunks() int { return v.OmittedChunks }
 
 // GetNodeNodeMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -68770,9 +68787,11 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	CreatedAt string  `json:"createdAt"`
 	// #1151 - the User behind this node's creation, as handle and URN only (the same projection as updatedByUser). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), and for nodes written before the column was stamped, which are not backfilled.
 	CreatedByUser *NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
-	UpdatedAt     string                                                                     `json:"updatedAt"`
-	OutgoingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge             `json:"outgoingEdges"`
-	IncomingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge             `json:"incomingEdges"`
+	// Passages omitted by the per-node indexing cap; null when not truncated (hrn:node:hadronmemory.com:specs:cor:rag:010:01).
+	IndexTruncated *NodeBatchNodeBatchNodeBatchResultNodesNodeIndexTruncated      `json:"indexTruncated"`
+	UpdatedAt      string                                                         `json:"updatedAt"`
+	OutgoingEdges  []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges  []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
 }
 
 // GetId returns NodeBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
@@ -68845,6 +68864,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetCreatedAt() string { ret
 // GetCreatedByUser returns NodeBatchNodeBatchNodeBatchResultNodesNode.CreatedByUser, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetCreatedByUser() *NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor {
 	return v.CreatedByUser
+}
+
+// GetIndexTruncated returns NodeBatchNodeBatchNodeBatchResultNodesNode.IndexTruncated, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIndexTruncated() *NodeBatchNodeBatchNodeBatchResultNodesNodeIndexTruncated {
+	return v.IndexTruncated
 }
 
 // GetUpdatedAt returns NodeBatchNodeBatchNodeBatchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
@@ -68947,6 +68971,20 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) 
 // GetMemoryId returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string {
 	return v.MemoryId
+}
+
+// NodeBatchNodeBatchNodeBatchResultNodesNodeIndexTruncated includes the requested fields of the GraphQL type IndexTruncated.
+// The GraphQL type's documentation follows.
+//
+// Declared successful partial passage indexing (hrn:node:hadronmemory.com:specs:cor:rag:010:01).
+type NodeBatchNodeBatchNodeBatchResultNodesNodeIndexTruncated struct {
+	// Number of passage chunks not embedded.
+	OmittedChunks int `json:"omittedChunks"`
+}
+
+// GetOmittedChunks returns NodeBatchNodeBatchNodeBatchResultNodesNodeIndexTruncated.OmittedChunks, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIndexTruncated) GetOmittedChunks() int {
+	return v.OmittedChunks
 }
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
@@ -151116,6 +151154,9 @@ query GetNode ($ref: ID!) {
 			handle
 			urn
 		}
+		indexTruncated {
+			omittedChunks
+		}
 		updatedAt
 		outgoingEdges {
 			id
@@ -151255,6 +151296,9 @@ query GetNodeRaw ($ref: ID!) {
 		createdByUser {
 			handle
 			urn
+		}
+		indexTruncated {
+			omittedChunks
 		}
 		updatedAt
 		outgoingEdges {
@@ -156812,6 +156856,9 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 			handle
 			urn
 		}
+		indexTruncated {
+			omittedChunks
+		}
 		updatedAt
 		outgoingEdges {
 			id
@@ -156905,6 +156952,9 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 			createdByUser {
 				handle
 				urn
+			}
+			indexTruncated {
+				omittedChunks
 			}
 			updatedAt
 			outgoingEdges {
