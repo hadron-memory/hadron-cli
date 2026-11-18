@@ -10,7 +10,7 @@ import (
 func NewCmdTask(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "task",
-		Short: "Run a task node",
+		Short: "Run or render a task node",
 	}
 	cmd.AddCommand(newCmdRun(f))
 	cmd.AddCommand(newCmdRender(f))

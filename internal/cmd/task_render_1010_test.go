@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -18,15 +19,22 @@ const renderNodeRef1010 = "hrn:node:acme.com:kb:tasks:brief"
 
 // The fixture accepts only the Query: any lookup, legacy renderer or launch is
 // an error. Counting requests also detects fallback/retry on refused answers.
+// The capture is appended under a lock (cli#2267): the handler runs on the
+// server's goroutine, and the tests read the slice only after Execute returns,
+// which is after the reply was fully written, so the capture is quiescent by
+// then. The lock makes that explicit instead of relying on the ordering.
 func renderFixture1010(t *testing.T, reply string) (*httptest.Server, *[]map[string]json.RawMessage) {
 	t.Helper()
 	requests := []map[string]json.RawMessage{}
+	var mu sync.Mutex
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]json.RawMessage
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("request: %v", err)
 		}
+		mu.Lock()
 		requests = append(requests, body)
+		mu.Unlock()
 		var op, query string
 		_ = json.Unmarshal(body["operationName"], &op)
 		_ = json.Unmarshal(body["query"], &query)
@@ -131,6 +139,11 @@ func TestTaskRenderInvalidArgumentsBeforeRequests1010(t *testing.T) {
 	}
 }
 
+// Reference forms (cli#2267, F4). Both spellings are intentionally supported by
+// the shared helpers: the v2 flat form (hrn:node:<root>:<slug>:<loc>) and the
+// preserved legacy qualified spelling (<org>::<memory>::<loc>), which composes
+// to hrn:node:acme.com::kb::tasks:brief. A bare loc with -m composes to the v2
+// form; an ID is unambiguous, so -m cannot turn it into a loc.
 func TestTaskRenderReferenceForms1010(t *testing.T) {
 	for _, tc := range []struct{ ref, memory, want string }{
 		{renderNodeRef1010, "", renderNodeRef1010}, {"0123456789abcdef0123456789abcdef", "", "0123456789abcdef0123456789abcdef"},
