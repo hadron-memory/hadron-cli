@@ -320,9 +320,9 @@ section between the markers.
 | `app agent list` | ls |  | y | #1053 | 040248072463 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app agent remove` | rm, uninstall |  | y | #1053 | 8c777b5d09ad | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app agent set-boot-prompt` |  |  | y | #1053 | e3c9615423e3 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `app asset-upload` |  |  | n | #1053 | 370cabc777cf |  | unread |  |
-| `app asset-upload disable` |  |  | y | #1053 | ce44ce84d69f |  | unread |  |
-| `app asset-upload enable` |  |  | y | #1053 | de98067482c4 |  | unread |  |
+| `app asset-upload` |  |  | n | #1053 | 3e822ec2eb6c |  | unread |  |
+| `app asset-upload disable` |  |  | y | #1053 | 1b249e41ce82 |  | unread |  |
+| `app asset-upload enable` |  |  | y | #1053 | ae70e5c05a74 |  | unread |  |
 | `app chatbot-ai-config` |  |  | n | #1053 | be1d50920da5 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app chatbot-ai-config clear` |  |  | y | #1053 | dc5828ac45fc | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app chatbot-ai-config get` |  |  | y | #1053 | a0f647f655cb | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
