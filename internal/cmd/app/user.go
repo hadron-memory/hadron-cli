@@ -60,7 +60,9 @@ it.
 The server's answer does not say whether the user was just created or already
 existed, so this prints only the user (id, handle, name, URN and external id; a
 field the server does not return shows as -), never a "created" or "existing"
-claim. --handle and --name are optional and are not sent when left out. There
+claim. --json has the keys id, handle, name, urn and externalId (null for a
+field the server does not return). --handle and --name are optional and are not
+sent when left out. There
 is no --email: the server accepts only empty values for it, and an address is
 established through verified sign-in. Starting or ending a session for the user
 is not part of this command.`,

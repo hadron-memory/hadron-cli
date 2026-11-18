@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -152,7 +153,7 @@ func TestSlice2QuotedReceiptsAreWhatTheCommandsPrint1053(t *testing.T) {
 		t.Errorf("app member add help does not quote its receipt as printed")
 	}
 	_, r = run1625(nil).exec(t, "app", "join", joinApp1625)
-	if r.err != nil || !strings.Contains(r.out, "✓ You are a member of") {
+	if r.err != nil || !strings.Contains(r.out, "✓ You are a member of") || !strings.Contains(r.out, "with role member") {
 		t.Fatalf("app join prints %q (%v)", r.out, r.err)
 	}
 	if h := flatHelp1053S2(t, "app", "join"); !strings.Contains(h, `"✓ You are a member of <App> with role <role>"`) {
@@ -212,5 +213,97 @@ func TestInstructionBlockParagraphsAreSeparated1053(t *testing.T) {
 		if i >= 0 && j >= 0 && i > j {
 			t.Errorf("app memory-grant %s: what a grant is must come before the --instruction block (%d, %d)", verb, i, j)
 		}
+	}
+}
+
+// The BLIND seat's P2-6 on #2536: each receipt and --json key set the slice-2
+// help quotes is checked against what the command prints, so the quote cannot
+// drift. text must appear in the output; quote in the flattened help; keys are
+// the --json object keys (all must be present and the help must name them).
+func TestSlice2ReceiptsAndJSONKeysMatchTheHelp1053(t *testing.T) {
+	type tc struct {
+		name  string
+		page  []string
+		args  []string
+		resp  map[string]string
+		text  []string // in the text output
+		quote []string // in the flattened help
+		keys  []string // top-level --json keys (object) the help names
+		array bool     // --json is an array, not an object
+	}
+	rev := func(field, loc string) map[string]string {
+		return map[string]string{map[string]string{"publishRevision": "PublishRevision", "restoreRevision": "RestoreRevision"}[field]: `{"data":{"` + field + `":{"revisionLoc":"` + loc + `","label":"launch","published":true,"createdAt":"2026-11-01T00:00:00Z"}}}`}
+	}
+	cases := []tc{
+		{"revision publish", []string{"agent", "revision", "publish"}, []string{"agent", "revision", "publish", "hrn:agent:acme.com:bot", "revisions:rev-7", "--version-label", "launch"},
+			rev("publishRevision", "revisions:rev-7"), []string{"✓ published revision revisions:rev-7 (label launch, published: true)"},
+			[]string{`"✓ published revision <loc> (label <label>, published: <true|false>)"`}, []string{"revisionLoc", "label", "published", "createdAt"}, false},
+		{"revision restore", []string{"agent", "revision", "restore"}, []string{"agent", "revision", "restore", "hrn:agent:acme.com:bot", "revisions:rev-5"},
+			rev("restoreRevision", "revisions:rev-5"), []string{"✓ restored revision revisions:rev-5 (label launch, published: true)"},
+			[]string{`"✓ restored revision <loc> (label <label>, published: <true|false>)"`}, []string{"revisionLoc", "label", "published", "createdAt"}, false},
+		{"member roles", []string{"app", "member", "roles"}, []string{"app", "member", "roles", "--app", "hrn:app:acme.com:team"},
+			map[string]string{"AppMemberRoles": `{"data":{"app":{"availableMemberRoles":["owner","member"]}}}`}, []string{"owner", "member"},
+			[]string{"Prints one role per line", "--json is an array of role strings"}, nil, true},
+		{"key scope revoke", []string{"app", "key", "scope", "revoke"}, []string{"app", "key", "scope", "revoke", "key1", "host:operate"},
+			map[string]string{"RevokeAppKeyScope": `{"data":{"revokeAppKeyScope":{"id":"key1","appId":"a1","label":null,"revokedAt":null,"scopes":[]}}}`},
+			[]string{"✓ key key1 no longer holds host:operate", "scopes: none"},
+			[]string{`"✓ key <id> no longer holds <scope>"`, `"scopes: none"`}, []string{"id", "appId", "label", "revokedAt", "scopes"}, false},
+		{"key list", []string{"app", "key", "list"}, []string{"app", "key", "list", "acme.com:team"},
+			map[string]string{"AppKeysMetadata": `{"data":{"appKeysPage":{"items":[{"id":"key1","keyPreview":"hk_ab","label":"ci","createdAt":"2026-11-01T00:00:00Z","lastUsedAt":null,"revokedAt":null}],"total":1,"hasMore":false}}}`},
+			[]string{"ID", "PREVIEW", "LABEL", "CREATED", "LAST USED", "REVOKED", "key1", "hk_ab"},
+			[]string{"ID (what \"hadron app key revoke\" takes), PREVIEW", "LAST USED and REVOKED"}, nil, true},
+		{"user create", []string{"app", "user", "create"}, []string{"app", "user", "create", "--external-id", "crm-1"},
+			map[string]string{"CreateAppUser": `{"data":{"createAppUser":{"id":"u1","handle":"ada","name":"Ada","urn":"hrn:user:ada","externalId":"crm-1"}}}`},
+			[]string{"u1", "ada", "crm-1"}, []string{"(id, handle, name, URN and external id"}, []string{"id", "handle", "name", "urn", "externalId"}, false},
+	}
+	run := func(t *testing.T, resp map[string]string, args ...string) (string, error) {
+		gql, _ := captureGraphQL(t, resp)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{}, args...), "--server", gql.URL))
+		err := root.Execute()
+		return out.String(), err
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, err := run(t, c.resp, c.args...)
+			if err != nil {
+				t.Fatalf("%v: %v", c.args, err)
+			}
+			for _, w := range c.text {
+				if !strings.Contains(out, w) {
+					t.Errorf("%v prints %q, lacking %q", c.args, out, w)
+				}
+			}
+			help := flatHelp1053S2(t, c.page...)
+			for _, q := range c.quote {
+				if !strings.Contains(help, q) {
+					t.Errorf("%v help lacks %q", c.page, q)
+				}
+			}
+			jsonOut, err := run(t, c.resp, append(append([]string{}, c.args...), "--json")...)
+			if err != nil {
+				t.Fatalf("%v --json: %v", c.args, err)
+			}
+			if c.array {
+				var arr []any
+				if err := json.Unmarshal([]byte(jsonOut), &arr); err != nil {
+					t.Fatalf("--json is not an array: %v: %s", err, jsonOut)
+				}
+				return
+			}
+			var obj map[string]any
+			if err := json.Unmarshal([]byte(jsonOut), &obj); err != nil {
+				t.Fatalf("--json is not an object: %v: %s", err, jsonOut)
+			}
+			for _, k := range c.keys {
+				if _, ok := obj[k]; !ok {
+					t.Errorf("%v --json lacks key %q: %s", c.args, k, jsonOut)
+				}
+				if !strings.Contains(help, k) {
+					t.Errorf("%v help does not name the --json key %q", c.page, k)
+				}
+			}
+		})
 	}
 }
