@@ -12,9 +12,10 @@ import (
 )
 
 // recordMutationError maps a failure of the content-validation RECORD mutation
-// (#1795 item 1, option A: recorder-only, api.MapError untouched).
+// (#1795 item 1, option A: recorder-only, api.MapError untouched; the whole 5xx
+// class since #2430).
 //
-// A 500, 502 or 504 answer is not proof the report was refused: a gateway can
+// A 5xx answer (500-599) is not proof the report was refused: a gateway can
 // answer after the server committed it, and the shared mapper reads a JSON
 // envelope inside it as a refusal (exit 1, 5 or 8). For the record mutation it
 // is an unknown outcome, exit 7, whatever the envelope says. The text shows
@@ -27,9 +28,9 @@ func recordMutationError(err error, nodeRef string, hasRunID bool) error {
 	if !errors.As(err, &httpErr) {
 		return mapped
 	}
-	switch httpErr.StatusCode {
-	case 500, 502, 504:
-	default:
+	// The whole 5xx class (#2430): a proxy or gateway can answer 503, 501 or 599
+	// after the upstream committed, so none of them proves "not applied".
+	if httpErr.StatusCode < 500 || httpErr.StatusCode > 599 {
 		return mapped
 	}
 	what := fmt.Sprintf("HTTP %d", httpErr.StatusCode)

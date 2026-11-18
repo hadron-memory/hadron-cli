@@ -12,7 +12,8 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// #1795 item 1 (option A, Wolfgang's ruling): a 500/502/504 JSON envelope on the
+// #1795 item 1 (option A, Wolfgang's ruling; widened to the whole 5xx class by
+// #2430): a 5xx JSON envelope on the
 // content-validation RECORD mutation is an unknown outcome (exit 7) with
 // uncertain-write guidance. Recorder-only: api.MapError and the read are
 // untouched. The guidance shows only INTERNAL_SERVER_ERROR and the request id
@@ -59,7 +60,7 @@ func TestValidationRecord5xxEnvelopeIsAnUnknownOutcome1795(t *testing.T) {
 	typed := fmt.Sprintf(`{"errors":[{"message":%q,"extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-abc-123"}}]}`, secretDetail1795)
 	other := fmt.Sprintf(`{"errors":[{"message":%q,"extensions":{"code":"FORBIDDEN"}}]}`, secretDetail1795)
 	codeless := fmt.Sprintf(`{"errors":[{"message":%q}]}`, secretDetail1795)
-	for _, status := range []int{500, 502, 504} {
+	for _, status := range []int{500, 501, 502, 503, 504, 599} {
 		for name, tc := range map[string]struct {
 			body        string
 			wantFault   bool // the guidance carries INTERNAL_SERVER_ERROR and the id
@@ -98,8 +99,8 @@ func TestValidationRecord5xxEnvelopeIsAnUnknownOutcome1795(t *testing.T) {
 	}
 }
 
-// Only the record mutation's 500/502/504 is wrapped: a 503 and a 5xx on the
-// READ keep the shared mapping.
+// Only the record mutation's 5xx answers are wrapped: a 5xx on the READ keeps
+// the shared mapping.
 func TestValidationRecord5xxWrapperIsBounded1795(t *testing.T) {
 	t.Run("read 500 stays the internal-fault exit 1", func(t *testing.T) {
 		srv, sent := server5xx1795(t, -1, "")
@@ -141,7 +142,7 @@ func TestValidationRecordRepeatSendsTheSameRunID1795(t *testing.T) {
 }
 
 // Without --run-id the advice says a repeat may record a second report; the
-// help and the agent guide say a 500/502/504 answer exits 7 even with a JSON body.
+// help and the agent guide say a 5xx answer exits 7 even with a JSON body.
 func TestValidationRecord5xxAdviceWithoutRunIDAndDocs1795(t *testing.T) {
 	srv, _ := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
 	err := record1795(t, srv)
@@ -158,7 +159,7 @@ func TestValidationRecord5xxAdviceWithoutRunIDAndDocs1795(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	const want = "An HTTP 500, 502 or 504 answer to the record request exits 7 even when its body is a JSON error: the outcome is unknown, so read the node's latest validation report before recording again"
+	const want = "An HTTP 5xx answer (any status from 500 to 599) to the record request exits 7 even when its body is a JSON error: the outcome is unknown, so read the node's latest validation report before recording again"
 	for name, text := range map[string]string{"help": flat1471(out.String()), "agentic-usage": flat1471(string(guide))} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%s lacks %q", name, want)
@@ -222,7 +223,7 @@ func TestValidationRecord5xxJSONEnvelopeLeaksNothing1795(t *testing.T) {
 }
 
 // Edge cases: a 502 with a body that is not JSON degrades to the plain
-// HTTP status; a 503 keeps the shared mapping (deferred to #2430); an empty
+// HTTP status; an empty
 // --run-id is not "a run id was passed".
 func TestValidationRecord5xxEdges1795(t *testing.T) {
 	t.Run("HTML body", func(t *testing.T) {
@@ -232,14 +233,6 @@ func TestValidationRecord5xxEdges1795(t *testing.T) {
 			t.Fatalf("html 502: sent=%d %v", len(*sent), err)
 		}
 	})
-	t.Run("503 keeps the shared mapping", func(t *testing.T) {
-		srv, _ := server5xx1795(t, 503, `{"errors":[{"message":"unavailable"}]}`)
-		err := record1795(t, srv)
-		// "unknown outcome" is the marker of the exit-7 guidance text.
-		if err == nil || exitCodeFor(err) != exitcode.Error || strings.Contains(err.Error(), "unknown outcome") {
-			t.Fatalf("503 must keep the shared mapping (#2430): exit=%d %v", exitCodeFor(err), err)
-		}
-	})
 	t.Run("an empty --run-id is refused locally, nothing sent", func(t *testing.T) {
 		srv, sent := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
 		err := record1795(t, srv, "--run-id", "")
@@ -247,4 +240,19 @@ func TestValidationRecord5xxEdges1795(t *testing.T) {
 			t.Fatalf("empty run id: sent=%d %v", len(*sent), err)
 		}
 	})
+}
+
+// #2430: the class is exactly 500-599. 499 and 600 are not 5xx answers and keep
+// the shared mapping, never the exit-7 guidance.
+func TestValidationRecord5xxClassBoundary2430(t *testing.T) {
+	for _, status := range []int{499, 600} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			srv, sent := server5xx1795(t, status, `{"errors":[{"message":"x"}]}`)
+			err := record1795(t, srv)
+			// "unknown outcome" is the marker of the exit-7 guidance text.
+			if err == nil || exitCodeFor(err) == exitcode.Unavailable || strings.Contains(err.Error(), "unknown outcome") || len(*sent) != 1 {
+				t.Fatalf("status %d must keep the shared mapping: sent=%d exit=%d %v", status, len(*sent), exitCodeFor(err), err)
+			}
+		})
+	}
 }
