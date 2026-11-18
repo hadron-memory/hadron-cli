@@ -119,4 +119,4 @@ func refusesAttributes(attrs uint32) error {
 // may be removed only while every user of the lock stays stopped for the whole
 // deletion, since a user that locked the old inode would not exclude one that
 // locks a new file (#2327).
-const LockUsersHint = "every lock user (the hadron team session commands that read or write the binding, and the host poller's stop and relaunch paths) stays stopped for the whole deletion"
+const LockUsersHint = "every lock user (the hadron team session commands, chat reads, watermarks and mark-read that check or write the binding, and the host poller's stop and relaunch paths) stays stopped for the whole deletion"

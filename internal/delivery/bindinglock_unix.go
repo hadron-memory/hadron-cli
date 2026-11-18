@@ -121,7 +121,7 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 		// racing actor could have replaced it and the lock's mutual exclusion
 		// would go with it. The error says how to clear it (cli#2238).
 		_ = unix.Close(fd)
-		return -1, fmt.Errorf("setting the session binding lock mode: %w (remove %s only if every lock user (the hadron team session commands that read or write the binding, and the host poller's stop and relaunch paths) stays stopped for the whole deletion)", err, filepath.Join(dir, name))
+		return -1, fmt.Errorf("setting the session binding lock mode: %w (remove %s only if %s)", err, filepath.Join(dir, name), LockUsersHint)
 	}
 	return fd, nil
 }
@@ -178,7 +178,7 @@ func openLockRetrying(dfd int, name string, flags int) (int, error) {
 		time.Sleep(lockPermRetryEvery)
 	}
 	if errors.Is(err, unix.EACCES) {
-		err = fmt.Errorf("%w (the lock file is not readable and writable by you; an interrupted create can leave it so; remove it only if every lock user (the hadron team session commands that read or write the binding, and the host poller's stop and relaunch paths) stays stopped for the whole deletion)", err)
+		err = fmt.Errorf("%w (the lock file is not readable and writable by you; an interrupted create can leave it so; remove it only if %s)", err, LockUsersHint)
 	}
 	return fd, err
 }
