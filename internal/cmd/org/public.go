@@ -83,18 +83,16 @@ publicAgentsTotal/publicAgentsHasMore.`,
 			dto := publicOrgDTOFrom(resp.PublicOrganization)
 			// The notice echoes the offset that was sent, so it appears whenever
 			// --offset was given (zero included; a negative one is sent as 0).
-			offsetShown := -1
-			if cmd.Flags().Changed("offset") {
-				offsetShown = max(0, offset)
-			}
+			sentOffset := max(0, offset)
+			offsetGiven := cmd.Flags().Changed("offset")
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				listing := "not listed on marketplace"
 				if dto.ListedOnMarketplace {
 					listing = "listed on marketplace"
 				}
 				fmt.Fprintf(w, "%s\n  urn: %s\n  id: %s\n  %s\n", output.SafeCell(dto.Name), output.SafeCell(dto.URN), output.SafeCell(dto.ID), listing)
-				printPublicResources(w, "public memories", dto.PublicMemories, dto.PublicMemoriesTotal, dto.PublicMemoriesHasMore, offsetShown)
-				printPublicResources(w, "public agents", dto.PublicAgents, dto.PublicAgentsTotal, dto.PublicAgentsHasMore, offsetShown)
+				printPublicResources(w, "public memories", dto.PublicMemories, dto.PublicMemoriesTotal, dto.PublicMemoriesHasMore, sentOffset, offsetGiven)
+				printPublicResources(w, "public agents", dto.PublicAgents, dto.PublicAgentsTotal, dto.PublicAgentsHasMore, sentOffset, offsetGiven)
 				return nil
 			})
 		},
@@ -140,19 +138,20 @@ func publicResourceFrom(f gen.PublicResourceRefFields) publicResourceDTO {
 // printPublicResources prints one list. A list is partial when the server says
 // more rows follow OR fewer rows came back than the list holds (a short last
 // page, an offset past the end, counts only): it then says "showing N of
-// TOTAL", with the offset that was sent when --offset was given (offsetShown is
-// -1 when it was not; zero is shown, a negative one is sent as 0), so a partial
-// list never reads as the whole one. "(none)" is printed only when the list holds nothing at all
-// (cli#2248, cor:api:120:04). --json is unaffected.
-func printPublicResources(w io.Writer, label string, rs []publicResourceDTO, total int, hasMore bool, offsetShown int) {
+// TOTAL", with the offset that was sent when --offset was given (offsetGiven;
+// sentOffset is already normalized, so zero is shown and a negative one arrives
+// as 0), so a partial list never reads as the whole one. "(none)" is printed
+// only when the list holds nothing at all (cli#2248, cor:api:120:04). --json is
+// unaffected.
+func printPublicResources(w io.Writer, label string, rs []publicResourceDTO, total int, hasMore bool, sentOffset int, offsetGiven bool) {
 	if total == 0 && len(rs) == 0 && !hasMore {
 		fmt.Fprintf(w, "  %s: (none)\n", label)
 		return
 	}
 	if hasMore || len(rs) < total {
 		suffix := ""
-		if offsetShown >= 0 {
-			suffix = fmt.Sprintf(" (offset %d)", offsetShown)
+		if offsetGiven {
+			suffix = fmt.Sprintf(" (offset %d)", sentOffset)
 		}
 		fmt.Fprintf(w, "  %s: showing %d of %d%s\n", label, len(rs), total, suffix)
 	} else {
