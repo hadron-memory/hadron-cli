@@ -325,9 +325,8 @@ children. --blocked-by <task> makes it wait for another task (see
 ` + "`task list --overdue`" + ` lists the task while it is still pending, whether or
 not it is assigned or blocked; that is a filter, not an alarm (this is the
 start-by arm — a passed --finish-by lists a task under the same filter; see
-below). The not-started
-stall alarm is separate (cor:agt:050:14): it fires only for an assigned,
-unblocked PENDING task, and its clock starts at the assignment, or at the
+below). The not-started stall alarm is separate (cor:agt:050:14): it fires
+only for an assigned, unblocked PENDING task, and its clock starts at the
 release if the task was blocked. The deadline is the start-by when that falls
 after the clock starts; otherwise, and with no --start-by, it is the App's
 not-started window (` + "`team stall-schedule get`" + `) counted from then. So a
@@ -337,9 +336,11 @@ task released or reassigned after its start-by gets a fresh window.
 stall windows do not apply; stall.finish-by is the deadline alarm for an
 unfinished task (a backlog task raises none, a blocked task waits for release).
 Once the finish-by passes, ` + "`task list --overdue`" + ` also lists the task,
-pending or started, until it ends — the same filter, not an alarm. The server
-refuses a past value or one earlier than start-by (BAD_USER_INPUT,
-exit 2); equal times are allowed. It owns the clock and all alarm behavior.
+pending or started, until it ends — the same filter, not an alarm (this arm
+needs a provider containing hadron-server#2654; an older one filters by
+start-by only). The server refuses a past value or one earlier than start-by
+(BAD_USER_INPUT, exit 2); equal times are allowed. It owns the clock and all
+alarm behavior.
 With no flag the key is omitted. Change or clear it with task update.
 Requires a provider containing hadron-server#2648/#3088, including when no
 finish-by flag is given: all task-record reads select this field.

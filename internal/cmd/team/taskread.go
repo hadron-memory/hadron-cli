@@ -483,13 +483,16 @@ finished tasks only, so with it the lookup cannot find an active holder.
 --ref <target> lists tasks carrying a typed reference with exactly that target
 (never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
 node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
---overdue lists tasks overdue on the server clock (the database clock;
-#2654). Two arms: a pending, not-started task whose start-by has passed, or a
-pending or started task whose finish-by has passed and which has not ended. An
-ended (finished or cancelled) task and a backlog task are never overdue, and
-neither is a task with neither time. Blocking is ignored and a person-assigned
-task counts like any other; --overdue=false lists all other tasks. This is a
-filter, not an alarm (stall.finish-by is unchanged). --created-/--started-/
+--overdue lists tasks overdue on the server clock (the database clock).
+Two arms: a pending, not-started task whose start-by has passed, or a
+pending or started task whose finish-by has passed. An ended (finished or
+cancelled) task and a backlog task are never overdue, and neither is a task
+with neither time. Blocking is ignored and a person-assigned task counts
+like any other; --overdue=false lists all other tasks. This is a filter,
+not an alarm (the stall.finish-by deadline alarm is separate and
+unchanged). The finish-by arm requires a provider containing
+hadron-server#2654; an older provider filters by start-by only.
+--created-/--started-/
 --finished-after and -before take RFC 3339 times with Z or an offset and are
 inclusive bounds; a task with no start or finish time never matches a range
 on it. A malformed time is a usage error (exit 2) and nothing is sent. These
@@ -682,7 +685,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
 	cmd.Flags().BoolVar(&unresolved, "unresolved", false, "finished tasks with undisposed findings; false/omitted does not narrow; not with --team")
 	cmd.Flags().BoolVar(&matchFailed, "match-failed", false, "filter marked match failures; false selects unmarked tasks; not with list --team")
-	cmd.Flags().BoolVar(&overdue, "overdue", false, "overdue on the server clock: start-by passed and not started, or finish-by passed and not ended (never backlog, ended, or a task with neither time); --overdue=false lists all other tasks")
+	cmd.Flags().BoolVar(&overdue, "overdue", false, "overdue on the server clock: start-by passed and not started, or finish-by passed and not ended; --overdue=false lists all other tasks")
 	for i, name := range taskTimeFlags {
 		cmd.Flags().StringVar(&times[i], name, "", "RFC 3339 time with Z or an offset; inclusive bound")
 	}
