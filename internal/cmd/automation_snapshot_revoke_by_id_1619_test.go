@@ -182,6 +182,13 @@ func TestSnapshotRevokeByIDExplicitAppScopesTheGrant1619(t *testing.T) {
 			if tc.appReply == "-" && len(callsFor(calls, "GetAppMetadata")) != 0 {
 				t.Fatalf("an App id is compared directly, no lookup: %+v", *calls)
 			}
+			// A URN or root:slug costs exactly ONE app(ref:) read (cli#2436): not
+			// zero (it must learn the id) and not a retry or a re-read.
+			if tc.appReply != "-" {
+				if reads := callsFor(calls, "GetAppMetadata"); len(reads) != 1 || reads[0].Vars["ref"] != tc.app {
+					t.Fatalf("want exactly one app(ref:) read of %q, got %+v", tc.app, reads)
+				}
+			}
 			if tc.proceeds {
 				if err != nil || revokes != 1 {
 					t.Fatalf("the grant is in the named App: err=%v revokes=%d", err, revokes)
@@ -241,6 +248,12 @@ func TestSnapshotRevokeByIDBareHTTP404IsNotAGrantNotFound1619(t *testing.T) {
 	if err == nil || strings.Contains(err.Error(), "team snapshot grant not found") || out.Len() != 0 {
 		t.Fatalf("a bare 404 must keep its own error, got %v (stdout %q)", err, out.String())
 	}
+	// Today the shared error mapping gives an HTTP 404 the not-found exit (4).
+	// That is the mapping's choice, not this command's: pinned so a change to it
+	// is seen, while the MESSAGE above stays distinct from "grant not found".
+	if got := exitCodeFor(err); got != exitcode.NotFound {
+		t.Fatalf("a bare 404 keeps the mapped exit %d, got %d (%v)", exitcode.NotFound, got, err)
+	}
 }
 
 // --app is validated when given, even though the by-id read needs no App: a
@@ -254,7 +267,7 @@ func TestSnapshotRevokeByIDMalformedAppExitsBeforeAnyRequest1619(t *testing.T) {
 			if exitCodeFor(err) != exitcode.Usage {
 				t.Fatalf("err=%v", err)
 			}
-			if n := len(callsFor(calls, "AutomationTeamSnapshotGrantById")) + len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")); n != 0 {
+			if n := len(callsFor(calls, "AutomationTeamSnapshotGrantById")) + len(callsFor(calls, "GetAppMetadata")) + len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")); n != 0 {
 				t.Fatalf("a malformed --app must fail before any request: %+v", *calls)
 			}
 		})
@@ -289,5 +302,26 @@ func TestSnapshotRevokeInstructionMalformedPageNoWrite1619(t *testing.T) {
 	err := root.Execute()
 	if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "no team snapshot grant page") || revokes != 0 || out.Len() != 0 {
 		t.Fatalf("err=%v revokes=%d out=%q", err, revokes, out.String())
+	}
+}
+
+// BLIND F1 on #2423: an App that resolves to null (or whose read is NOT_FOUND) is
+// not the grant's App, but any OTHER error on the app(ref:) read keeps its own
+// mapped error. A FORBIDDEN exits 8, with no mutation and no second read. Treating
+// FORBIDDEN as "not the grant's App" would be a behavior change that needs its own
+// decision (cli#2436), so this pins what the code does today.
+func TestSnapshotRevokeByIDAppReadForbiddenKeepsItsExit2436(t *testing.T) {
+	r := taskResponses()
+	r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+	r["GetAppMetadata"] = memberGQLError("Forbidden", "FORBIDDEN")
+	calls, out, err := runTeamTask(t, r, append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", autoApp)...)
+	if got := exitCodeFor(err); got != exitcode.Forbidden {
+		t.Fatalf("a FORBIDDEN on the app read keeps exit %d, got %d (%v)", exitcode.Forbidden, got, err)
+	}
+	if len(callsFor(calls, "GetAppMetadata")) != 1 || len(callsFor(calls, "AutomationTeamSnapshotGrantById")) != 1 {
+		t.Fatalf("one by-id read and one app read, no retry: %+v", *calls)
+	}
+	if len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 || out != "" {
+		t.Fatalf("no mutation and no output after a refused app read: %+v out=%q", *calls, out)
 	}
 }
