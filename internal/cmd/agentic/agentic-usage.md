@@ -3967,6 +3967,11 @@ UNAVAILABLE or a null projection refuses generically with exit 8 and no mutation
 it does not identify whether access or an unreadable task caused the answer.
 Malformed or unknown states fail closed (exit 1). An older server lacking this
 field returns the existing schema-skew exit 2, without legacy discovery fallback.
+
+Exit 2: the input or the choice is invalid (an unknown --outcome, a --task outside the listed set, an invalid revision or a wrong task).
+Exit 5: no task is configured or the task is broken, the node changed during the call, or the --run-id conflicts.
+An explicit --task never overrides a refusal of the task set itself (an empty set is
+still exit 2 once --task is named; a BROKEN set is exit 5 and an UNAVAILABLE one exit 8, each without a write).
 An explicit task outside the set exits 2. No client reporter field is sent;
 a READY selection does not waive the mutation's author or access checks.
 
