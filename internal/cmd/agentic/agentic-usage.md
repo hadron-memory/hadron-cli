@@ -36,6 +36,21 @@ hadron auth whoami`. The browser login reuses the Hadron session already open
 in the browser, and `auth logout` does not sign that out: to log in as another
 account, sign out of Hadron in the browser or use a private window.
 
+After successful login, a terminal offers enabled task skills for detected Claude
+Code/Codex hosts, default **no**. `--install-skills` accepts without prompting;
+`--no-install-skills` skips the offer and hint. `hadron config set
+skills.installPrompt false` silences automatic offers (the explicit install flag
+wins). Detection uses `.claude`, `.agents`/`.codex` under the user's home or the
+`claude`/`codex` binary on PATH; only those hosts are installed. Non-TTY/`--json`
+prints a command on stderr, without asking. Explicit `--install-skills --json`
+adds the existing export report as `skills` in the single login JSON document;
+a partial installation returns its report plus a nonzero exit. Installation
+uses the token login just stored, never ambient `HADRON_TOKEN` or impersonation.
+It shares `skill export`'s writer and ownership checks, never forces/prunes, and
+prints a restart hint only when files changed. An optional offer's failure keeps
+the login successful; an explicit install failure is reported after storing the
+token. No enabled skills means no prompt; enable task exports in the portal.
+
 Browser `auth login` opens the server's sign-in page, which offers the
 methods that server supports (GitHub, Google or email). If the server
 requires a passkey for email sign-in, its page asks for one before the CLI
@@ -1643,7 +1658,8 @@ Conventions:
   sets `scopeEmpty: true`, lists any generated files it could not judge under
   `unchecked`, and **fails `--strict`**: a gate must not pass on a result
   nothing verified.
-  `skill export` is the ONLY writer of user-level skill files (#621;
+  `skill export` owns the shared writer of user-level skill files (also used
+  by login's optional skill installation) (#621;
   `skill plugin` below builds bundles under an explicit `--out`). By default it
   exports every ENABLED declaration you can read (cor:agt:030:03; `memories`
   is omitted on the wire). Repeat `--node <id-or-fully-qualified-URN>` to

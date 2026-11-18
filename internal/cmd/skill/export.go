@@ -1,8 +1,11 @@
 package skill
 
 import (
+	"context"
+
 	"errors"
 	"fmt"
+	"github.com/Khan/genqlient/graphql"
 	"io"
 	"os"
 	"path/filepath"
@@ -297,83 +300,10 @@ the full report when any item was refused or failed. A run that cannot start
 				forcePtr = &force
 			}
 
-			dto := exportDTO{DryRun: opts.dryRun, Hosts: []exportHostDTO{}, Unrecognized: []exportUnrecognizedDTO{}, OutOfExport: []exportOutOfExportDTO{}}
-			if len(selected) > 0 {
-				dto.SelectedNodes = selected
-				dto.OrphanAssessmentSkipped = true
-				dto.Selections = []exportSelectionDTO{}
+			dto, err := runExport(cmd.Context(), client, home, skilldoc.Hosts, selected, opts, forcePtr)
+			if err != nil {
+				return err
 			}
-			var unrecognized []*gen.SkillExportPlanSkillPlanUnrecognized
-			unavailable := map[string]bool{}
-			ioStarted := false
-			for _, h := range skilldoc.Hosts {
-				var selectionResults []*gen.SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult
-				plan := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanSkillPlan, error) {
-					host := h.Key
-					if len(selected) > 0 {
-						p, results, err := selectedExportPlan(cmd.Context(), client, selected, host, files, forcePtr)
-						selectionResults = results
-						return p, err
-					}
-					ask := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanResponse, error) {
-						return gen.SkillExportPlan(cmd.Context(), client, &gen.SkillPlanInput{
-							Intent: gen.SkillPlanIntentExport,
-							Host:   &host,
-							Files:  files,
-							Force:  forcePtr,
-						})
-					}
-					resp, err := ask(files)
-					if err != nil && hasRevisions(files) && isUnknownRevisionInput(err) {
-						resp, err = ask(withoutRevisions(files))
-					}
-					if err != nil {
-						return nil, err
-					}
-					if resp.SkillPlan == nil {
-						return nil, errors.New("skillPlan returned no result")
-					}
-					return resp.SkillPlan, nil
-				}
-				hd, p, err := exportHost(home, h.Key, plan, opts)
-				if err != nil {
-					// A run that cannot START is not an item failure: before any
-					// host did I/O, an auth or transport error is the run's error.
-					mapped := api.MapError(err)
-					if code := exitcode.FromError(mapped); !ioStarted && (code == exitcode.AuthRequired || code == exitcode.Unavailable) {
-						return mapped
-					}
-					hd.Failure = &exportReasonDTO{Code: reasonPlanRefused, Message: mapped.Error(), Origin: originClient}
-				}
-				ioStarted = true
-				if p != nil && unrecognized == nil {
-					unrecognized = p.Unrecognized
-				}
-				if p != nil {
-					dto.OutOfExport = append(dto.OutOfExport, outOfExportItems(h.Key, p)...)
-				}
-				for _, sr := range selectionResults {
-					if sr == nil {
-						continue
-					}
-					item := exportSelectionDTO{Ref: sr.Ref, NodeID: deref(sr.NodeId), Action: string(sr.Action)}
-					if sr.Reason != nil {
-						item.Reason = exportReasonDTO{Code: sr.Reason.Code, Message: sr.Reason.Message, Origin: originServer}
-					}
-					if sr.NodeId == nil {
-						if unavailable[sr.Ref] {
-							continue
-						}
-						unavailable[sr.Ref] = true
-					} else {
-						item.Host = h.Key
-					}
-					dto.Selections = append(dto.Selections, item)
-				}
-				dto.Hosts = append(dto.Hosts, hd)
-			}
-			dto.Unrecognized = toUnrecognizedDTO(unrecognized)
-
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return renderExport(w, dto)
 			}); err != nil {
@@ -390,6 +320,89 @@ the full report when any item was refused or failed. A run that cannot start
 	cmd.Flags().BoolVar(&opts.prune, "prune", false, "remove orphaned skill files that no enabled declaration claims")
 	cmd.Flags().StringArrayVar(&nodes, "node", nil, "export only these task nodes (repeatable): a node id or fully qualified node URN")
 	return cmd
+}
+
+// runExport is the shared writer for explicit exports and login onboarding.
+// Its caller supplies the client and exact host set; it never resolves a new
+// credential or adds hosts the caller did not select.
+func runExport(ctx context.Context, client graphql.Client, home string, hosts []skilldoc.Host, selected []string, opts exportOpts, forcePtr *bool) (exportDTO, error) {
+	dto := exportDTO{DryRun: opts.dryRun, Hosts: []exportHostDTO{}, Unrecognized: []exportUnrecognizedDTO{}, OutOfExport: []exportOutOfExportDTO{}}
+	if len(selected) > 0 {
+		dto.SelectedNodes = selected
+		dto.OrphanAssessmentSkipped = true
+		dto.Selections = []exportSelectionDTO{}
+	}
+	var unrecognized []*gen.SkillExportPlanSkillPlanUnrecognized
+	unavailable := map[string]bool{}
+	ioStarted := false
+	for _, h := range hosts {
+		var selectionResults []*gen.SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkillSelectionResult
+		plan := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanSkillPlan, error) {
+			host := h.Key
+			if len(selected) > 0 {
+				p, results, err := selectedExportPlan(ctx, client, selected, host, files, forcePtr)
+				selectionResults = results
+				return p, err
+			}
+			ask := func(files []*gen.SkillFileFactsInput) (*gen.SkillExportPlanResponse, error) {
+				return gen.SkillExportPlan(ctx, client, &gen.SkillPlanInput{
+					Intent: gen.SkillPlanIntentExport,
+					Host:   &host,
+					Files:  files,
+					Force:  forcePtr,
+				})
+			}
+			resp, err := ask(files)
+			if err != nil && hasRevisions(files) && isUnknownRevisionInput(err) {
+				resp, err = ask(withoutRevisions(files))
+			}
+			if err != nil {
+				return nil, err
+			}
+			if resp.SkillPlan == nil {
+				return nil, errors.New("skillPlan returned no result")
+			}
+			return resp.SkillPlan, nil
+		}
+		hd, p, err := exportHost(home, h.Key, plan, opts)
+		if err != nil {
+			// A run that cannot START is not an item failure: before any
+			// host did I/O, an auth or transport error is the run's error.
+			mapped := api.MapError(err)
+			if code := exitcode.FromError(mapped); !ioStarted && (code == exitcode.AuthRequired || code == exitcode.Unavailable) {
+				return dto, mapped
+			}
+			hd.Failure = &exportReasonDTO{Code: reasonPlanRefused, Message: mapped.Error(), Origin: originClient}
+		}
+		ioStarted = true
+		if p != nil && unrecognized == nil {
+			unrecognized = p.Unrecognized
+		}
+		if p != nil {
+			dto.OutOfExport = append(dto.OutOfExport, outOfExportItems(h.Key, p)...)
+		}
+		for _, sr := range selectionResults {
+			if sr == nil {
+				continue
+			}
+			item := exportSelectionDTO{Ref: sr.Ref, NodeID: deref(sr.NodeId), Action: string(sr.Action)}
+			if sr.Reason != nil {
+				item.Reason = exportReasonDTO{Code: sr.Reason.Code, Message: sr.Reason.Message, Origin: originServer}
+			}
+			if sr.NodeId == nil {
+				if unavailable[sr.Ref] {
+					continue
+				}
+				unavailable[sr.Ref] = true
+			} else {
+				item.Host = h.Key
+			}
+			dto.Selections = append(dto.Selections, item)
+		}
+		dto.Hosts = append(dto.Hosts, hd)
+	}
+	dto.Unrecognized = toUnrecognizedDTO(unrecognized)
+	return dto, nil
 }
 
 // planFunc asks the server for one host's export plan, given the files found
