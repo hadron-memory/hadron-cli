@@ -116,7 +116,7 @@ func finishTaskWithFindings(ctx context.Context, client graphql.Client, f *cmdut
 	}
 	task, err := taskDTOFrom(returned.AgentTaskFields)
 	if err != nil {
-		return uncertainFindingsFinish(err)
+		return uncertainFindingsFinish(exitcode.Newf(exitcode.FromError(err), "%s (task %s)", err.Error(), writtenTaskRef(returned.Handle, returned.Id)))
 	}
 	warnings := taskWarningsFor(sink, "finishAgentTask")
 	if f.JSON {

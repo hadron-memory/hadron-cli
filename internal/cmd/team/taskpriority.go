@@ -41,6 +41,11 @@ func dependencyPage[E any, P interface {
 	*E
 	taskDependencyGetter
 }](label string, total int, more bool, items []P) (*taskDependencyPageDTO, error) {
+	if items == nil {
+		// null or absent: a decoded empty array is non-nil, so this is never a
+		// legitimate empty page.
+		return nil, exitcode.Newf(exitcode.Error, "server returned a malformed %s page: items is missing or null", label)
+	}
 	d := &taskDependencyPageDTO{Items: []taskDependencyDTO{}, Total: total, HasMore: more}
 	for i, v := range items {
 		if v == nil || v.GetId() == "" {
@@ -147,7 +152,7 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 			if e != nil {
 				return mapTaskError(e)
 			}
-			dto, err := taskDTOFrom(fields)
+			dto, err := taskDTOFromWrite(fields)
 			if err != nil {
 				return err
 			}

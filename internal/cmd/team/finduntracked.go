@@ -400,10 +400,16 @@ func writeClaimResult(f *cmdutil.Factory, r *claimOutcome) error {
 		return exitcode.Newf(exitcode.Error, "the server returned no claim result")
 	}
 	dto := claimResultDTO{Tasks: []taskDTO{}, Complete: r.complete, IncompleteReason: r.incompleteReason, RefusalCode: r.refusalCode}
+	// The claim has already been written when its answer is read: name every task
+	// it returned, so a refused answer can be verified, not blindly retried.
+	claimedRefs := make([]string, 0, len(r.tasks))
+	for _, t := range r.tasks {
+		claimedRefs = append(claimedRefs, writtenTaskRef(t.Handle, t.Id))
+	}
 	for _, t := range r.tasks {
 		task, err := taskDTOFrom(*t)
 		if err != nil {
-			return err
+			return writeAnswerUncertain(err, claimedRefs...)
 		}
 		dto.Tasks = append(dto.Tasks, task)
 	}

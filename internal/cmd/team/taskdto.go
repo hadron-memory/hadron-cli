@@ -242,6 +242,37 @@ func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultD
 	return &taskResultDTO{Outcome: r.Outcome, Summary: r.Summary, Evidence: r.Evidence}
 }
 
+// taskDTOFromWrite is taskDTOFrom for the answer of a command that WROTE. The
+// write has already happened when its answer is read, so a malformed page there
+// must not look like a failed write: a caller who retried a refused create would
+// create a duplicate. The refusal says the write may have taken effect, names the
+// task, and tells the caller to check before retrying (cli#1182 BLIND).
+func taskDTOFromWrite(fields gen.AgentTaskFields) (taskDTO, error) {
+	dto, err := taskDTOFrom(fields)
+	if err != nil {
+		return taskDTO{}, writeAnswerUncertain(err, writtenTaskRef(fields.Handle, fields.Id))
+	}
+	return dto, nil
+}
+
+// writtenTaskRef names a task the way a person would look it up: its handle and
+// its id when both are known.
+func writtenTaskRef(handle, id string) string {
+	switch {
+	case handle != "" && id != "":
+		return output.SafeCell(handle) + " (" + output.SafeCell(id) + ")"
+	case handle != "":
+		return output.SafeCell(handle)
+	}
+	return output.SafeCell(id)
+}
+
+// writeAnswerUncertain wraps a refused answer of a command that already wrote,
+// naming every task the answer carried so the caller can verify each.
+func writeAnswerUncertain(err error, tasks ...string) error {
+	return exitcode.Newf(exitcode.FromError(err), "%s; the write may already have taken effect (task %s): check it with `hadron team task get <task>` before retrying, and do not resend automatically", err.Error(), strings.Join(tasks, ", "))
+}
+
 // taskDTOFrom projects a task's shared fields. It refuses a malformed dependency
 // page (see dependencyPage) instead of returning a task that quietly dropped an
 // item, so every task command fails the same way and prints nothing.

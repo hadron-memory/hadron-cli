@@ -267,10 +267,16 @@ func runTaskBatchCreate(cmd *cobra.Command, f *cmdutil.Factory, path string, dis
 		return mapTaskBatchError(err, len(items))
 	}
 	dto := taskBatchDTO{Tasks: []taskDTO{}, Warnings: taskBatchWarnings(sink)}
+	// The batch has already been written when its answer is read: name every task
+	// the answer carried, so a refused answer can be verified, not blindly retried.
+	created := make([]string, 0, len(resp.CreateAgentTasks))
+	for _, t := range resp.CreateAgentTasks {
+		created = append(created, writtenTaskRef(t.Handle, t.Id))
+	}
 	for _, t := range resp.CreateAgentTasks {
 		task, err := taskDTOFrom(t.AgentTaskFields)
 		if err != nil {
-			return err
+			return writeAnswerUncertain(err, created...)
 		}
 		dto.Tasks = append(dto.Tasks, task)
 	}

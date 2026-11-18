@@ -141,7 +141,14 @@ func TestTaskPriorityRefusalsHaveCodeAndNoOutput1135(t *testing.T) {
 func TestTaskPriorityGetAndListRenderReturnedOrder1135(t *testing.T) {
 	r := taskResponses()
 	r["AgentTaskGet"] = `{"data":{"agentTask":` + priorityTask1135() + `}}`
-	r["AgentTaskList"] = `{"data":{"agentTasks":[` + priorityTask1135() + `,` + strings.Replace(priorityTask1135(), `"id":"task1"`, `"id":"task2"`, 1) + `]}}`
+	// The list rows carry DIFFERENT priorities, in an order a local priority sort
+	// (1 = highest first) would change, so the server order is really pinned.
+	first := strings.Replace(priorityTask1135(), `"priority":2`, `"priority":4`, 1)
+	second := strings.Replace(strings.Replace(priorityTask1135(), `"id":"task1"`, `"id":"task2"`, 1), `"priority":2`, `"priority":1`, 1)
+	if first == priorityTask1135() || second == priorityTask1135() {
+		t.Fatal("fixture priorities were not changed")
+	}
+	r["AgentTaskList"] = `{"data":{"agentTasks":[` + first + `,` + second + `]}}`
 
 	// get, text: the priority, blocked state and both pages are printed exactly,
 	// as consecutive lines (cli#1182: not a substring that a timestamp or a
@@ -176,9 +183,10 @@ func TestTaskPriorityGetAndListRenderReturnedOrder1135(t *testing.T) {
 	if len(rows) != 2 || rows[0][0] != "task1" || rows[1][0] != "task2" {
 		t.Fatalf("server order changed or rows missing: %v\n%s", rows, out)
 	}
-	for _, row := range rows {
-		if got := row[:5]; strings.Join(got, " ") != row[0]+" PENDING 2 true AT1.2" {
-			t.Fatalf("row cells %v, want [id PENDING 2 true AT1.2 ...]", got)
+	for i, row := range rows {
+		want := []string{"4", "1"}[i]
+		if got := row[:5]; strings.Join(got, " ") != row[0]+" PENDING "+want+" true AT1.2" {
+			t.Fatalf("row %d cells %v, want [id PENDING %s true AT1.2 ...]", i, got, want)
 		}
 	}
 
@@ -206,17 +214,25 @@ func TestTaskPriorityGetAndListRenderReturnedOrder1135(t *testing.T) {
 				HasMore bool  `json:"hasMore"`
 			} `json:"blocks"`
 		}
+		wantPriority := 2
 		if cmd == "list" {
 			var tasks []json.RawMessage
 			if err := json.Unmarshal([]byte(out), &tasks); err != nil || len(tasks) != 2 {
 				t.Fatalf("list json: %v\n%s", err, out)
 			}
-			out = string(tasks[0])
+			var ids []struct {
+				ID       string `json:"id"`
+				Priority int    `json:"priority"`
+			}
+			if err := json.Unmarshal([]byte(out), &ids); err != nil || ids[0].ID != "task1" || ids[0].Priority != 4 || ids[1].ID != "task2" || ids[1].Priority != 1 {
+				t.Fatalf("list json order/priorities changed: %+v (%v)", ids, err)
+			}
+			out, wantPriority = string(tasks[0]), 4
 		}
 		if err := json.Unmarshal([]byte(out), &task); err != nil {
 			t.Fatal(err)
 		}
-		if task.Priority != 2 || !task.Blocked || task.BlockedBy.Total != 1 || task.BlockedBy.HasMore || len(task.BlockedBy.Items) != 1 ||
+		if task.Priority != wantPriority || !task.Blocked || task.BlockedBy.Total != 1 || task.BlockedBy.HasMore || len(task.BlockedBy.Items) != 1 ||
 			task.BlockedBy.Items[0]["id"] != "b1" || task.BlockedBy.Items[0]["handle"] != "AT1.2" || task.BlockedBy.Items[0]["title"] != "Dependency" || task.BlockedBy.Items[0]["status"] != "PENDING" ||
 			task.Blocks.Total != 0 || task.Blocks.HasMore || task.Blocks.Items == nil || len(task.Blocks.Items) != 0 {
 			t.Fatalf("%s json fields wrong: %+v\n%s", cmd, task, out)

@@ -292,7 +292,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.
 				}
 				return mapTaskError(err)
 			}
-			task, err := taskDTOFrom(fields)
+			task, err := taskDTOFromWrite(fields)
 			if err != nil {
 				return err
 			}
