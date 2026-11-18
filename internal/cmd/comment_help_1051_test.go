@@ -16,23 +16,23 @@ import (
 func TestCommentHelpWordingFromTheReRead1051(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	find := func(name string) (long, flat string, flags map[string]string) {
+	find := func(name string) (flat string, flags map[string]string) {
 		c, _, err := root.Find([]string{"comment", name})
 		if err != nil || c.Name() != name {
 			t.Fatalf("comment %s: %v", name, err)
 		}
 		flags = map[string]string{}
 		c.Flags().VisitAll(func(fl *pflag.Flag) { flags[fl.Name] = fl.Usage })
-		return c.Long, strings.Join(strings.Fields(c.Long), " "), flags
+		return strings.Join(strings.Fields(c.Long), " "), flags
 	}
-	_, del, delFlags := find("delete")
+	del, delFlags := find("delete")
 	if strings.Contains(del, "memory admin") || strings.Contains(delFlags["thread"], "memory admin") {
 		t.Errorf("comment delete calls the permission both a memory manager and a memory admin: %q / %q", del, delFlags["thread"])
 	}
 	if !strings.Contains(del, "as a memory manager:") || !strings.Contains(delFlags["thread"], "a memory manager") {
 		t.Errorf("comment delete must name the --thread permission a memory manager: %q / %q", del, delFlags["thread"])
 	}
-	_, add, _ := find("add")
+	add, _ := find("add")
 	if !strings.Contains(add, "Needs write access to the memory.") {
 		t.Error("comment add does not say it needs write access to the memory")
 	}
