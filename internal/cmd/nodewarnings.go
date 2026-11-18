@@ -20,8 +20,11 @@ import (
 // in nodewarnings_inventory_1152_test.go, where each root is pinned by name):
 //   - createAssetReferenceNode is left out on purpose. It writes through the same
 //     node write, but the reference node's content is authored by the server (file
-//     name, type, size and asset URN) and holds no include, so no plain-pin advice
-//     is expected; it is not added for symmetry.
+//     name, type, size and asset URN) and carries no include in normal use, so no
+//     plain-pin advice is expected. A file name that itself contains include syntax
+//     could in principle produce advice, which this set does not display: that is
+//     not a guarantee, and whether to add the name is a separate decision (#2470).
+//     It is not added for symmetry.
 //   - updateNodeRevision is left out on purpose: it edits a revision's label only
 //     and writes no content.
 //

@@ -139,7 +139,7 @@ func TestLaterFailedWriteSuppressesEarlierAdvice1152(t *testing.T) {
 var nodeMutationExclusions1152 = map[string]string{
 	// Verified against hadron-server (writeNodeCore, resolvers.mutation.node.ts and
 	// createAssetReferenceNode.ts at origin/main when #1152 was built):
-	"createAssetReferenceNode": "writes a reference node through the shared node write, but its content is server-authored (file name, type, size, asset URN) and holds no include, so no plain-pin advice is expected",
+	"createAssetReferenceNode": "writes a reference node through the shared node write; its content is server-authored (file name, type, size, asset URN) and carries no include in normal use, but a crafted file name could, so this is a documented exclusion, not a guarantee (#2470)",
 	"updateNodeRevision":       "edits a revision's label only; no content is written",
 	// They do not write node content:
 	"approveMemoryNodes":                "records approvals; no content write",
@@ -320,7 +320,7 @@ func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
 		t.Fatal("the exclusion comment moved")
 	}
 	comment := strings.Join(strings.Fields(strings.ReplaceAll(text[a:b], "\n//", "\n")), " ")
-	for _, want := range []string{"createAssetReferenceNode is left out on purpose", "holds no include", "updateNodeRevision is left out on purpose", "edits a revision's label only"} {
+	for _, want := range []string{"createAssetReferenceNode is left out on purpose", "carries no include in normal use", "updateNodeRevision is left out on purpose", "edits a revision's label only"} {
 		if !strings.Contains(comment, want) {
 			t.Errorf("the exclusion comment lacks %q", want)
 		}
