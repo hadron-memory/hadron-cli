@@ -206,3 +206,58 @@ func TestStallInstructionChangedBinding2451(t *testing.T) {
 		t.Fatal("no binding-change diagnostic")
 	}
 }
+
+// The instructed family keeps machine-readable refusal codes; plain calls retain
+// their established envelope. Render the same final envelope as the executable.
+func TestAlarmStallInstructionRefusalCode2451(t *testing.T) {
+	for _, c := range alarmStallCases2451() {
+		for _, instructed := range []bool{false, true} {
+			t.Run(c.name+map[bool]string{false: "/plain", true: "/instructed"}[instructed], func(t *testing.T) {
+				writeTeamBinding(t)
+				r := stallResponses()
+				op := c.plainOp
+				if instructed {
+					op = c.instrOp
+				}
+				r[op] = `{"errors":[{"message":"refused once","extensions":{"code":"FORBIDDEN"}}]}`
+				srv, calls := attnServer(t, r)
+				setTeamBindingServer(t, srv.URL)
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				args := append([]string{"--server", srv.URL, "--json"}, c.args...)
+				if instructed {
+					args = append(args, "--instruction", "live-chat:opaque")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil || exitCodeFor(err) != exitcode.Forbidden || out.Len() != 0 {
+					t.Fatalf("err=%v out=%q", err, out.String())
+				}
+				oneCall2422(t, calls, op)
+				for _, call := range *calls {
+					if call.Op == c.plainOp && instructed {
+						t.Fatal("retried plain")
+					}
+				}
+				renderError(f, err)
+				var envelope struct {
+					Error struct {
+						ServerCode string `json:"serverCode"`
+						Message    string `json:"message"`
+					} `json:"error"`
+				}
+				rendered := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
+				if err := json.Unmarshal([]byte(rendered), &envelope); err != nil {
+					t.Fatal(err)
+				}
+				want := ""
+				if instructed {
+					want = "FORBIDDEN"
+				}
+				if envelope.Error.ServerCode != want || !strings.Contains(envelope.Error.Message, "refused once") {
+					t.Fatalf("lost code/message: %s", rendered)
+				}
+			})
+		}
+	}
+}
