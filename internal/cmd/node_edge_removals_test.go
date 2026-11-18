@@ -241,7 +241,8 @@ func TestNodeEdgeRemovalsUsageErrors(t *testing.T) {
 // cli#1204 — the failure path and the two non-URN reference forms.
 
 // runEdgeRemovalsArgs runs `node edge-removals` with exactly the given
-// reference arguments (runEdgeRemovals always passes the fixed URN).
+// arguments after the server flag: the reference and any flags such as -m
+// (runEdgeRemovals always passes the fixed URN).
 func runEdgeRemovalsArgs(t *testing.T, url string, args ...string) error {
 	t.Helper()
 	f, _ := testFactory(t)
@@ -268,7 +269,7 @@ func TestNodeEdgeRemovalsMappedGraphQLFailure(t *testing.T) {
 				name += "/json"
 			}
 			t.Run(name, func(t *testing.T) {
-				gql, _ := captureGraphQL(t, map[string]string{
+				gql, captured := captureGraphQL(t, map[string]string{
 					"ResolveUrn":       `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
 					"NodeEdgeRemovals": `{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + tc.code + `"}}]}`,
 				})
@@ -277,6 +278,11 @@ func TestNodeEdgeRemovalsMappedGraphQLFailure(t *testing.T) {
 					extra = append(extra, "--json")
 				}
 				out, _, err := runEdgeRemovals(t, gql.URL, extra...)
+				// The refusal must come from the audit read itself, not from
+				// an earlier step that happens to share the exit code.
+				if _, reached := captured["NodeEdgeRemovals"]; !reached {
+					t.Fatalf("%s: NodeEdgeRemovals was never reached", tc.code)
+				}
 				if got := exitCodeFor(err); got != tc.want {
 					t.Errorf("%s: want exit %d, got %d (%v)", tc.code, tc.want, got, err)
 				}
@@ -322,24 +328,29 @@ func TestNodeEdgeRemovalsBareLocWithMemoryReachesQueryResolved(t *testing.T) {
 // reaches NodeEdgeRemovals verbatim — with or without -m.
 func TestNodeEdgeRemovalsNodeIDReachesQueryVerbatim(t *testing.T) {
 	const id = "0123456789abcdef0123456789abcdef"
-	for _, args := range [][]string{{id}, {id, "-m", "hrn:mem:acme.com:kb"}} {
-		gql, captured := captureGraphQL(t, map[string]string{
-			"NodeEdgeRemovals": edgeRemovalsTwoRows,
+	for name, args := range map[string][]string{
+		"id":         {id},
+		"id with -m": {id, "-m", "hrn:mem:acme.com:kb"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"NodeEdgeRemovals": edgeRemovalsTwoRows,
+			})
+			if err := runEdgeRemovalsArgs(t, gql.URL, args...); err != nil {
+				t.Fatalf("node edge-removals %v: %v", args, err)
+			}
+			if _, resolved := captured["ResolveUrn"]; resolved {
+				t.Errorf("%v: a node id must not round-trip through ResolveUrn", args)
+			}
+			var vars struct {
+				NodeRef string `json:"nodeRef"`
+			}
+			if err := json.Unmarshal(captured["NodeEdgeRemovals"], &vars); err != nil {
+				t.Fatalf("%v: variables: %v", args, err)
+			}
+			if vars.NodeRef != id {
+				t.Errorf("%v: nodeRef = %q, want the id %q", args, vars.NodeRef, id)
+			}
 		})
-		if err := runEdgeRemovalsArgs(t, gql.URL, args...); err != nil {
-			t.Fatalf("node edge-removals %v: %v", args, err)
-		}
-		if _, resolved := captured["ResolveUrn"]; resolved {
-			t.Errorf("%v: a node id must not round-trip through ResolveUrn", args)
-		}
-		var vars struct {
-			NodeRef string `json:"nodeRef"`
-		}
-		if err := json.Unmarshal(captured["NodeEdgeRemovals"], &vars); err != nil {
-			t.Fatalf("%v: variables: %v", args, err)
-		}
-		if vars.NodeRef != id {
-			t.Errorf("%v: nodeRef = %q, want the id %q", args, vars.NodeRef, id)
-		}
 	}
 }
