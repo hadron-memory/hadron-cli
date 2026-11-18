@@ -169,3 +169,42 @@ func TestNodeMutationInventoryIsClassified1152(t *testing.T) {
 		t.Errorf("classified names no longer in the typed queries: %v", stale)
 	}
 }
+
+// Item 4: the agent guide names the exact eligible set, so a reader (or agent)
+// can tell which writes display advice; and nodewarnings.go says why the two
+// look-alike roots are not in it (item 2).
+func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
+	guide, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	flat := strings.Join(strings.Fields(string(guide)), " ")
+	i := strings.Index(flat, "Successful node writes can carry server advice")
+	if i < 0 {
+		t.Fatal("the advice paragraph moved")
+	}
+	paragraph := flat[i:]
+	if j := strings.Index(paragraph, "reason to retry a successful write"); j > 0 {
+		paragraph = paragraph[:j]
+	}
+	for _, root := range nodeWriteAdviceRoots1152 {
+		if !strings.Contains(paragraph, "`"+root+"`") {
+			t.Errorf("the agent guide's advice paragraph does not name `%s`", root)
+		}
+	}
+	for _, root := range []string{"createAssetReferenceNode", "updateNodeRevision"} {
+		if !strings.Contains(paragraph, "`"+root+"`") {
+			t.Errorf("the agent guide does not say %s is outside the set", root)
+		}
+	}
+	src, err := os.ReadFile("nodewarnings.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	comment := strings.Join(strings.Fields(strings.ReplaceAll(string(src), "\n//", "\n")), " ")
+	for _, want := range []string{"createAssetReferenceNode", "no include", "updateNodeRevision", "label"} {
+		if !strings.Contains(comment, want) {
+			t.Errorf("nodewarnings.go does not explain the exclusions (missing %q)", want)
+		}
+	}
+}
