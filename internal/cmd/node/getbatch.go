@@ -219,6 +219,9 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 	if u := n.CreatedByUser; u != nil {
 		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
 	}
+	if m := n.IndexTruncated; m != nil {
+		dto.IndexTruncated = &indexTruncatedDTO{OmittedChunks: m.OmittedChunks}
+	}
 	return dto
 }
 
