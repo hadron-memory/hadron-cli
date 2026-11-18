@@ -23,12 +23,29 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --app <ref> --name <n> --entry <node-urn>",
 		Short: "Create a webhook trigger (prints the shown-once secret)",
-		Long: `Create a webhook trigger (D-2026-05-02). A POST to its URL fires the entry node.
+		Long: `Create a webhook: an address that, when something POSTs to it, starts a run of
+the entry task node. Use it to let an outside system (a deploy script, a smart
+home, a CI job) trigger work.
 
-The URL path and platform token are printed ONCE — store them now; the secret is
-never queryable again. --name is lowercase alphanumeric/dash, 1-64 chars, and is
-part of the URL. --args-schema stores a JSON Schema for POST args (enforcement is
-follow-on). --as-self runs on behalf of you (authenticated user only).
+Creating it prints the URL path and a platform token ONCE — store them now; the
+secret is never shown again (lose it and "webhook rotate" issues a new one).
+--name is lowercase alphanumeric/dash, 1-64 chars, and is part of the URL.
+
+CALLING IT: POST to the printed path on your Hadron server's host, with the
+token in the hpt query parameter, and a JSON object as the body; its keys reach
+the entry node as arguments, merged with any --arg values stored here:
+
+  curl -X POST -H 'Content-Type: application/json' -d '{"service":"api"}' \
+    "https://<server-host><path>?hpt=<token>"
+
+A started run answers 202 with its run id; follow it with "hadron run get".
+--args-schema stores a JSON Schema for the body; it is kept but not yet checked
+on each call. --as-self runs on behalf of you (authenticated user only).
+
+--policy narrows what the webhook's runs may do: an allow-list such as
+{"allow":["run.execute","comm.outbound"]} naming actions. Left out, the webhook
+adds no restriction of its own; the org, user and App policy layers still apply.
+See "hadron policy".
 
 --scope sets a readable scope id/name in the App context, snapshotted onto
 each run; omitted means the App's attached memories.
@@ -115,9 +132,9 @@ by the server. Requires a server with trigger budgets.`,
 	cmd.Flags().StringVar(&entry, "entry", "", "fully-qualified entry node URN (required)")
 	cmd.Flags().BoolVar(&asSelf, "as-self", false, "run on behalf of you (authenticated user only)")
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "static template arg key=value (repeatable; JSON or string)")
-	cmd.Flags().StringVar(&policy, "policy", "", "trigger-layer allow-list JSON (cor:acl:040)")
-	cmd.Flags().StringVar(&argsSchema, "args-schema", "", "JSON Schema for POST args (stored; enforcement follow-on)")
-	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the runs (spec-036 walk override)")
+	cmd.Flags().StringVar(&policy, "policy", "", `actions this webhook's runs may do, as JSON, e.g. '{"allow":["comm.outbound"]}' (default: no extra restriction; see "hadron policy")`)
+	cmd.Flags().StringVar(&argsSchema, "args-schema", "", "JSON Schema for the POST body (stored, not yet checked on each call)")
+	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the runs (see \"hadron ai-config\")")
 	cmd.Flags().StringVar(&agent, "agent", "", "specific installed Agent (ID or URN)")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the webhook disabled")
 	cmd.Flags().StringVar(&scope, "scope", "", "readable scope id or name in the App context")

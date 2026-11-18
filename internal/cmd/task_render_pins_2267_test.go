@@ -85,8 +85,8 @@ func TestTaskRenderHelpSentences2267(t *testing.T) {
 		t.Errorf("task run help lacks the complete comparison sentence %q", want)
 	}
 	parent := flatHelp2267(t, "task")
-	if !strings.Contains(parent, "Run or render a task node") {
-		t.Errorf("the task group's Short must name both verbs:\n%s", parent)
+	if !strings.Contains(parent, "Nothing executes unless you pass --app") {
+		t.Errorf("the task group must say that run only prints without --app:\n%s", parent)
 	}
 }
 

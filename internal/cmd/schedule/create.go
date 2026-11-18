@@ -23,15 +23,23 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --app <ref> --name <n> (--cron '<expr>' | --run-at <RFC3339>) --entry <node-urn>",
 		Short: "Create a recurring or one-shot schedule",
-		Long: `Create a recurring or one-shot schedule (cor:agt:010). Give exactly one of
+		Long: `Create a schedule: a trigger that starts a run of a task node, either on a
+recurring cron timetable or once at a set time. Give exactly one of
 --cron (5 fields, evaluated in --tz, default UTC) or --run-at (RFC3339 instant).
 --scope names a readable scope by id or name resolved in the App context;
 omitted means the App's attached memories. The server snapshots it per run.
 
 --as-self runs on behalf of you (reaches your personal memories; authenticated
 user only — an App-key caller gets UNAUTHENTICATED). --arg sets static template
-args merged into each run (repeatable). --policy is a trigger-layer allow-list
-{ "allow": [...] } (cor:acl:040). --ai-config selects a named AI config.
+args merged into each run (repeatable). --ai-config selects a named AI config
+(see "hadron ai-config").
+
+--policy narrows what this schedule's runs may do: an allow-list such as
+{"allow":["run.execute","comm.outbound"]}, where each entry names an action
+(for example comm.outbound lets a run send messages). Left out, the schedule
+adds no restriction of its own; the org, user and App policy layers still
+apply. {"allow":[]} allows nothing. See "hadron policy" for the layers and
+"hadron policy explain" for which one denies an action.
 
 --budget-tokens / --budget-actions cap each run this schedule spawns (positive whole numbers;
 omitted = the platform default). A value above the platform default is refused
@@ -128,8 +136,8 @@ by the server. Requires a server with trigger budgets.`,
 	cmd.Flags().StringVar(&entry, "entry", "", "fully-qualified entry node URN (required)")
 	cmd.Flags().BoolVar(&asSelf, "as-self", false, "run on behalf of you (authenticated user only)")
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "static template arg key=value (repeatable; JSON or string)")
-	cmd.Flags().StringVar(&policy, "policy", "", `trigger-layer allow-list JSON, e.g. '{"allow":["comm.outbound"]}'`)
-	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the runs (spec-036 walk override)")
+	cmd.Flags().StringVar(&policy, "policy", "", `actions this schedule's runs may do, as JSON, e.g. '{"allow":["comm.outbound"]}' (default: no extra restriction; see "hadron policy")`)
+	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the runs (see \"hadron ai-config\")")
 	cmd.Flags().StringVar(&agent, "agent", "", "specific installed Agent (ID or URN)")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the schedule disabled")
 	budget.Add(cmd, false)

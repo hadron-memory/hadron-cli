@@ -24,8 +24,9 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <id>",
 		Short: "Update a schedule",
 		Long: `Update a schedule. Only the fields you pass change; unset fields are preserved.
---enabled / --enabled=false toggles it; --as-self / --as-self=false toggles the
-on-behalf-of-you flag.
+--enabled turns the schedule on and --enabled=false turns it off; --as-self runs
+it on behalf of you and --as-self=false stops that. Leave a flag out to keep
+the schedule's current value.
 
 --run-at switches to one-shot and clears cron; --cron switches to recurring.
 Pass at most one per call. --scope sets a scope id/name in the App context;
@@ -151,10 +152,10 @@ refused by the server. Requires a server with trigger budgets.`,
 	cmd.Flags().StringVar(&tz, "tz", "", "new IANA timezone")
 	cmd.Flags().StringVar(&entry, "entry", "", "new fully-qualified entry node URN")
 	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "new named AI config")
-	cmd.Flags().StringVar(&policy, "policy", "", `new trigger-layer allow-list JSON (--policy "" clears it)`)
+	cmd.Flags().StringVar(&policy, "policy", "", `new allow-list of actions the runs may do, as JSON (--policy "" clears it, so the schedule adds no restriction of its own; see "hadron policy")`)
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "replace static template args (repeatable key=value)")
-	cmd.Flags().Bool("enabled", true, "enable or disable the schedule (--enabled=false to disable)")
-	cmd.Flags().Bool("as-self", false, "toggle the on-behalf-of-you flag")
+	cmd.Flags().Bool("enabled", false, "turn the schedule on; --enabled=false turns it off (left out: unchanged)")
+	cmd.Flags().Bool("as-self", false, "run on behalf of you; --as-self=false stops that (left out: unchanged)")
 	cmd.Flags().StringVar(&runAt, "run-at", "", "switch to one-shot at this RFC3339 instant (not with --cron)")
 	cmd.Flags().StringVar(&scope, "scope", "", "scope id/name; an empty string restores App memories")
 	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent id or URN")
