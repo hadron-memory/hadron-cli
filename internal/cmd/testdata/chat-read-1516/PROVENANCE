@@ -1,0 +1,10 @@
+# cli#1519: the recorded baseline of the chat read goldens (chat_read_1516_test.go).
+# Regenerate only from a checkout whose internal/cmd/chat and internal/api equal the revision below:
+#   UPDATE_1516_GOLDENS=<revision> go test ./internal/cmd -run TestChatReadDualDrain1516
+revision cbe7dd3203a86ccbac893e49c14ca2082b6d19a9
+sha256 985146f064c20ed8ad80fa4292d56a6c48bc5b7f8fbee97544a20e8f7eb8255a  since0-jsonfalse.golden
+sha256 36907fcdd6278a74dfab41149eaa3c1bb371ff6ee12c7e905213a02e43ea28b8  since0-jsontrue.golden
+sha256 f00ef3fe5f4516b662a0c8a1e4afd503a53d5e7e0e5f05168626f8c8d20d3b69  since1-jsonfalse.golden
+sha256 c3e667ae92b1489dc4bb8f0d69b11edc9f3af2eb2b0f9327c3a4e8780f8c4586  since1-jsontrue.golden
+sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  since3-jsonfalse.golden
+sha256 054daaef096bfa39710ba254ec1ed9ac366e6d77f62707e7b809411465685285  since3-jsontrue.golden

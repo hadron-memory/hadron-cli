@@ -1,17 +1,146 @@
 package cmd
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 )
+
+// baseline1516 is the main revision the committed goldens record: the chat
+// reader's behaviour BEFORE the dual-drain change (#1516), captured on
+// cbe7dd32 and replayed independently. They are a baseline, not an expected
+// value to keep current: regenerating them from newer code would replace the
+// baseline with the current behaviour and make every comparison vacuous
+// (cli#1519). Regeneration is therefore refused unless the request names this
+// revision AND the code under test is byte-identical to it.
+const baseline1516 = "cbe7dd3203a86ccbac893e49c14ca2082b6d19a9"
+
+// baselineCodePaths1516 are the paths whose content defines "the code under
+// test" for the comparison; the test files themselves are allowed to differ,
+// as they did when the goldens were first recorded (the test commit sits on
+// top of the baseline revision).
+var baselineCodePaths1516 = []string{"internal/cmd/chat", "internal/api"}
+
+// guardGoldenUpdate1516 decides whether a golden update may write. codeDiffers
+// says the code under test differs from the baseline's (or could not be
+// compared, which refuses too).
+func guardGoldenUpdate1516(requested string, codeDiffers bool, detail string) error {
+	if requested != baseline1516 {
+		return fmt.Errorf("UPDATE_1516_GOLDENS must name the full pinned baseline revision %s (got %q): a bare flag would let any checkout replace the baseline", baseline1516, requested)
+	}
+	if codeDiffers {
+		return fmt.Errorf("this checkout is not the pinned baseline: the code under test (%s) differs from %s, so regenerating would record current behaviour as the baseline (%s)", strings.Join(baselineCodePaths1516, ", "), baseline1516, detail)
+	}
+	return nil
+}
+
+// checkoutDiffersFromBaseline1516 compares the code under test with the
+// baseline revision using the repository this test file lives in. Anything it
+// cannot establish (no git, no such revision in a shallow clone, a trimmed
+// source path) counts as "differs": the guard fails closed.
+func checkoutDiffersFromBaseline1516() (bool, string) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return true, "cannot locate the test source"
+	}
+	dir := filepath.Dir(file)
+	if out, err := exec.Command("git", "-C", dir, "rev-parse", "--verify", "--quiet", baseline1516+"^{commit}").CombinedOutput(); err != nil {
+		return true, "baseline revision not available here: " + strings.TrimSpace(string(out))
+	}
+	// ":(top)" anchors each path at the repository root: -C puts git in this
+	// test's directory, where a bare "internal/api" would match nothing and
+	// read as "no difference".
+	args := []string{"-C", dir, "diff", "--quiet", baseline1516, "HEAD", "--"}
+	for _, path := range baselineCodePaths1516 {
+		args = append(args, ":(top)"+path)
+	}
+	err := exec.Command("git", args...).Run()
+	if err == nil {
+		return false, ""
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return true, "git diff reports changes"
+	}
+	return true, "git diff failed: " + err.Error()
+}
+
+// provenance1516 renders the PROVENANCE file: the pinned revision and the
+// SHA-256 of every golden, so replacing a golden is a visible, reviewable
+// change to a file that names the revision it was recorded from.
+func provenance1516(revision string, goldens map[string][]byte) string {
+	names := make([]string, 0, len(goldens))
+	for name := range goldens {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var b strings.Builder
+	fmt.Fprintf(&b, "# cli#1519: the recorded baseline of the chat read goldens (chat_read_1516_test.go).\n")
+	fmt.Fprintf(&b, "# Regenerate only from a checkout whose internal/cmd/chat and internal/api equal the revision below:\n")
+	fmt.Fprintf(&b, "#   UPDATE_1516_GOLDENS=<revision> go test ./internal/cmd -run TestChatReadDualDrain1516\n")
+	fmt.Fprintf(&b, "revision %s\n", revision)
+	for _, name := range names {
+		sum := sha256.Sum256(goldens[name])
+		fmt.Fprintf(&b, "sha256 %s  %s\n", hex.EncodeToString(sum[:]), name)
+	}
+	return b.String()
+}
+
+func parseProvenance1516(text string) (revision string, sums map[string]string, err error) {
+	sums = map[string]string{}
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "" || strings.HasPrefix(line, "#"):
+		case strings.HasPrefix(line, "revision "):
+			revision = strings.TrimPrefix(line, "revision ")
+		case strings.HasPrefix(line, "sha256 "):
+			f := strings.Fields(strings.TrimPrefix(line, "sha256 "))
+			if len(f) != 2 {
+				return "", nil, fmt.Errorf("bad sum line %q", line)
+			}
+			sums[f[1]] = f[0]
+		default:
+			return "", nil, fmt.Errorf("unrecognised line %q", line)
+		}
+	}
+	if revision == "" {
+		return "", nil, errors.New("no revision line")
+	}
+	return revision, sums, nil
+}
+
+func readGoldens1516(dir string) (map[string][]byte, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	goldens := map[string][]byte{}
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".golden") {
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return nil, err
+		}
+		goldens[e.Name()] = b
+	}
+	return goldens, nil
+}
 
 // Distinct filters have independent offset streams, including on old providers
 // that return platform messages in both streams. Clamp to two rows per page.
@@ -126,7 +255,11 @@ func TestChatReadDualDrain1516(t *testing.T) {
 			name := fmt.Sprintf("since%d-json%v", since, asJSON)
 			t.Run(name, func(t *testing.T) {
 				path := filepath.Join("testdata", "chat-read-1516", name+".golden")
-				if os.Getenv("UPDATE_1516_GOLDENS") == "1" {
+				if request := os.Getenv("UPDATE_1516_GOLDENS"); request != "" {
+					differs, detail := checkoutDiffersFromBaseline1516()
+					if err := guardGoldenUpdate1516(request, differs, detail); err != nil {
+						t.Fatalf("refusing to regenerate the 1516 goldens: %v", err)
+					}
 					s, _ := chatReader1516(t, "baseline", "")
 					out, err := executeChat1516(t, s.URL, since, asJSON)
 					if err != nil {
@@ -136,6 +269,14 @@ func TestChatReadDualDrain1516(t *testing.T) {
 						t.Fatal(err)
 					}
 					if err := os.WriteFile(path, []byte(out), 0644); err != nil {
+						t.Fatal(err)
+					}
+					// The output names the revision it was recorded from.
+					goldens, err := readGoldens1516(filepath.Dir(path))
+					if err != nil {
+						t.Fatal(err)
+					}
+					if err := os.WriteFile(filepath.Join(filepath.Dir(path), "PROVENANCE"), []byte(provenance1516(request, goldens)), 0644); err != nil {
 						t.Fatal(err)
 					}
 				}

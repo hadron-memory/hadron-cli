@@ -223,3 +223,62 @@ func TestChatReadQualifiedOnlyNilSeqRowsAndContainerExclusion1519(t *testing.T) 
 		t.Fatalf("--since 1:\nwant %q\ngot  %q", want, since)
 	}
 }
+
+// The committed baseline is exactly what its PROVENANCE says: it names the
+// pinned revision, lists every golden, and each SHA-256 matches. A golden
+// replaced without a matching, reviewed PROVENANCE change fails here.
+func TestChatReadGoldenBaselineMatchesItsProvenance1519(t *testing.T) {
+	dir := filepath.Join("testdata", "chat-read-1516")
+	raw, err := os.ReadFile(filepath.Join(dir, "PROVENANCE"))
+	if err != nil {
+		t.Fatalf("the baseline has no PROVENANCE: %v", err)
+	}
+	revision, sums, err := parseProvenance1516(string(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if revision != baseline1516 {
+		t.Fatalf("PROVENANCE names %s, the pinned baseline is %s", revision, baseline1516)
+	}
+	goldens, err := readGoldens1516(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(goldens) != 6 || len(sums) != len(goldens) {
+		t.Fatalf("PROVENANCE lists %d goldens, %d on disk (want 6)", len(sums), len(goldens))
+	}
+	if got := provenance1516(revision, goldens); got != string(raw) {
+		t.Fatalf("a golden differs from the recorded baseline; PROVENANCE would read:\n%s\nbut is:\n%s", got, raw)
+	}
+}
+
+// The guard, as a table: only a request that names the full pinned revision,
+// from code identical to it, may write; and a regeneration's PROVENANCE names
+// the revision it was recorded from.
+func TestChatReadGoldenUpdateGuard1519(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		request   string
+		differs   bool
+		wantAllow bool
+	}{
+		{"pinned revision from the baseline code", baseline1516, false, true},
+		{"pinned revision from newer code", baseline1516, true, false},
+		{"bare flag", "1", false, false},
+		{"another revision", "0123456789abcdef0123456789abcdef01234567", false, false},
+		{"short revision", baseline1516[:8], false, false},
+		{"empty", "", false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := guardGoldenUpdate1516(tc.request, tc.differs, "test")
+			if (err == nil) != tc.wantAllow {
+				t.Fatalf("allow=%v, got %v", tc.wantAllow, err)
+			}
+		})
+	}
+	text := provenance1516(baseline1516, map[string][]byte{"a.golden": []byte("x"), "b.golden": []byte("y")})
+	revision, sums, err := parseProvenance1516(text)
+	if err != nil || revision != baseline1516 || len(sums) != 2 || sums["a.golden"] == "" {
+		t.Fatalf("a regeneration's provenance must name its revision and hash each golden: %q %v %v", revision, sums, err)
+	}
+}
