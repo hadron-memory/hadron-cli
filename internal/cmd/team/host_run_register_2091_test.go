@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,6 +17,8 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
 
@@ -144,17 +148,30 @@ func TestRegisterReprobesAPinnedServerAfterTheInterval(t *testing.T) {
 		}
 		return got
 	}
-	reg() // skew, plain, pinned
+	// Each reg() call and the document(s) it sends, in order:
+	steps := []struct {
+		call string
+		docs []string
+	}{
+		{"1: first call, no pin yet: skew, then the plain document, pinned", []string{"RegisterHostWithRefused", "RegisterHost"}},
+		{"2: inside the interval: pinned, plain only", []string{"RegisterHost"}},
+		{"3: interval over: asks the extended again, still old, plain again, re-pinned", []string{"RegisterHostWithRefused", "RegisterHost"}},
+		{"4: same instant: the renewed pin suppresses another extended request", []string{"RegisterHost"}},
+	}
+	var want []string
+	for _, st := range steps {
+		want = append(want, st.docs...)
+	}
+	reg() // 1
 	clock = clock.Add(refusedReprobeEvery - time.Second)
-	if got := reg(); got.RefusedKnown { // still pinned: plain only
+	if got := reg(); got.RefusedKnown { // 2
 		t.Fatalf("inside the interval nothing is re-asked: %+v", got)
 	}
 	clock = clock.Add(2 * time.Second)
-	reg() // interval over: asks again, still old, plain again, re-pinned
-	reg() // same instant: the renewed pin must suppress another extended request
-	want := "RegisterHostWithRefused,RegisterHost,RegisterHost,RegisterHostWithRefused,RegisterHost,RegisterHost"
-	if strings.Join(ops(), ",") != want {
-		t.Fatalf("calls = %v, want %s", ops(), want)
+	reg() // 3
+	reg() // 4
+	if strings.Join(ops(), ",") != strings.Join(want, ",") {
+		t.Fatalf("calls = %v, want %v (steps %+v)", ops(), want, steps)
 	}
 	// The server is upgraded; the next re-probe finds the field and unpins.
 	answers["RegisterHostWithRefused"] = `{"data":{"registerHost":{` + regAnswer2091 + `,"refusedWorkers":[{"worker":"Synthetic","code":"HOST_WORKER_NOT_ASSIGNED"}]}}}`
@@ -182,16 +199,46 @@ func TestRegisterFallbackEdgeCases(t *testing.T) {
 		}
 	})
 	t.Run("transport failure is an error with no second document", func(t *testing.T) {
-		transport := &failingRegistrationTransport2111{}
+		// Deliberately not regServer2091: the failure must come from the
+		// transport itself, so the client is isolated (an unresolvable host and
+		// an injected RoundTripper, no listening server and no DNS or socket)
+		// and the App is explicit.
+		transport := &failingRegistrationTransport2091{}
 		s := &hostServer{
 			client: graphql.NewClient("http://registration.invalid/graphql", &http.Client{Transport: transport}),
 			app:    "hrn:app:acme.com:eng-team",
 		}
-		if _, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30}); err == nil {
-			t.Fatal("a transport failure is an error")
+		_, err := s.Register(context.Background(), hostpoller.Registration{Label: "box1", PollIntervalSeconds: 30})
+		// The returned failure must be THIS transport's. The CLI maps a
+		// transport error to its own diagnostic and does not wrap the cause (a
+		// production choice this test does not change), so the cause is pinned
+		// in two places: the mapped answer is exactly what api.MapError gives
+		// for this transport error, and the transport itself returned the
+		// sentinel. An unrelated later error (a "no registration", a server
+		// refusal) matches neither.
+		want := api.MapError(&url.Error{Op: "Post", URL: "http://registration.invalid/graphql", Err: errSyntheticTransport2091})
+		if err == nil || err.Error() != want.Error() || exitcode.FromError(err) != exitcode.FromError(want) {
+			t.Fatalf("the failure must be the mapped transport failure:\n got %v\nwant %v", err, want)
+		}
+		if !strings.Contains(err.Error(), "could not reach the server") {
+			t.Fatalf("not a transport diagnostic: %v", err)
+		}
+		if got := transport.returned(); len(got) != 1 || !errors.Is(got[0], errSyntheticTransport2091) {
+			t.Fatalf("the transport did not return the sentinel: %v", got)
 		}
 		if got := transport.attempts.Load(); got != 1 {
 			t.Fatalf("transport attempts = %d, want 1 (no retry or fallback)", got)
+		}
+		// The one document sent is the extended one, never the plain one.
+		sent := transport.sentDocuments()
+		if len(sent) != 1 || !strings.Contains(sent[0], `"operationName":"RegisterHostWithRefused"`) || !strings.Contains(sent[0], "refusedWorkers") {
+			t.Fatalf("sent documents = %q, want exactly the extended registration", sent)
+		}
+		// A transport failure is never a refusal and never proves the field
+		// missing: nothing is pinned (cor:agt:070:01: a refusal is the
+		// server's per-worker answer).
+		if s.noRefusedAt.Load() != 0 {
+			t.Fatalf("a transport failure pinned the plain document: noRefusedAt=%d", s.noRefusedAt.Load())
 		}
 	})
 	t.Run("plain failing after skew pins nothing, then recovery pins", func(t *testing.T) {
@@ -253,12 +300,42 @@ func TestRegisterPinsNothingWhenThePlainDocumentFailsWithAServerError(t *testing
 	}
 }
 
-// Count attempts at the failing boundary itself; no DNS or socket is used.
-type failingRegistrationTransport2111 struct {
+// errSyntheticTransport2091 is the failing transport's own cause, so a test
+// can tell that error from any other.
+var errSyntheticTransport2091 = errors.New("synthetic registration transport failure")
+
+// failingRegistrationTransport2091 counts attempts and records the document of
+// each at the failing boundary itself; no DNS or socket is used.
+type failingRegistrationTransport2091 struct {
 	attempts atomic.Int32
+	mu       sync.Mutex
+	sent     []string
+	failures []error
 }
 
-func (t *failingRegistrationTransport2111) RoundTrip(*http.Request) (*http.Response, error) {
+func (t *failingRegistrationTransport2091) returned() []error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]error{}, t.failures...)
+}
+
+func (t *failingRegistrationTransport2091) sentDocuments() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]string{}, t.sent...)
+}
+
+func (t *failingRegistrationTransport2091) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.attempts.Add(1)
-	return nil, errors.New("synthetic registration transport failure")
+	var body []byte
+	if req.Body != nil {
+		body, _ = io.ReadAll(req.Body)
+		// A RoundTripper must close the request body, even on failure.
+		_ = req.Body.Close()
+	}
+	t.mu.Lock()
+	t.sent = append(t.sent, string(body))
+	t.failures = append(t.failures, errSyntheticTransport2091)
+	t.mu.Unlock()
+	return nil, errSyntheticTransport2091
 }
