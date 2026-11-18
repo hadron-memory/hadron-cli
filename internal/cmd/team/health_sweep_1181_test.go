@@ -53,6 +53,10 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 	return health1181RunFixture(t, wire, statusCode, jsonMode, "", health1181Status, `{"hostId":"own"}`)
 }
 
+// health1383MissingState is the state argument that leaves no state file on
+// disk (an empty string writes an empty one, which #1181 already pins).
+const health1383MissingState = "\x00no-state-file"
+
 const health1181Registrations = `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["iris"]}]}]}}`
 
 // health1181WorkerExtra is extra YAML lines for the fixture worker (tests set and reset it).

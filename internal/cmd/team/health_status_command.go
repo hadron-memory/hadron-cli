@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -115,6 +116,14 @@ type healthStatusBuffer struct {
 	bytes.Buffer
 	onOverflow func()
 	overflowed bool
+}
+
+// ReadFrom keeps the bound in force. The embedded bytes.Buffer has its own
+// ReadFrom, which io.Copy prefers over Write, so without this the child's
+// output went straight into the buffer past the 8 MiB limit and never
+// cancelled the child (#1383).
+func (b *healthStatusBuffer) ReadFrom(r io.Reader) (int64, error) {
+	return io.Copy(struct{ io.Writer }{b}, r)
 }
 
 func (b *healthStatusBuffer) Write(p []byte) (int, error) {

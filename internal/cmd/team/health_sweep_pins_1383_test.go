@@ -1,3 +1,5 @@
+//go:build !windows
+
 package team
 
 import (
@@ -17,10 +19,6 @@ import (
 // #1383 (follow-up to #1382's seats): discriminating pins for the health
 // sweep's registered-worker refusals and the joint-refusal precedence. Each
 // refusal asserts the exit code, the fixed diagnostic and ZERO writes.
-
-// health1383MissingState is the state argument that leaves no state file on
-// disk (an empty string writes an empty one, which #1181 already pins).
-const health1383MissingState = "\x00no-state-file"
 
 func health1383Registrations(workers string, live bool) string {
 	l := "true"
