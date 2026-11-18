@@ -181,7 +181,9 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 // the snapshot already holds, and a reset the snapshot holds that recovery has
 // since pruned costs one more server query that finds it ended. Where both name
 // the same reset the fresh record wins. Only the resets are unioned: they are
-// the only part of the state the fixing loop's gate reads.
+// the only part of the state the fixing loop's gate reads. The read narrows the
+// window, it does not close it: a reset recorded after a worker's own read and
+// before its action is still missed by that worker, and the next sweep sees it.
 func freshResetState(path string, snapshot *hostpoller.State) *hostpoller.State {
 	fresh, err := hostpoller.LoadState(path)
 	if err != nil {
@@ -189,6 +191,9 @@ func freshResetState(path string, snapshot *hostpoller.State) *hostpoller.State 
 	}
 	if snapshot == nil {
 		return fresh
+	}
+	if fresh.Resets == nil { // LoadState always initializes it; the union must not depend on that
+		fresh.Resets = map[string]hostpoller.ResetRecord{}
 	}
 	for id, r := range snapshot.Resets {
 		if _, ok := fresh.Resets[id]; !ok {
