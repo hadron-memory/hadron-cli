@@ -95,16 +95,24 @@ func TestStatusConfigPicksOrcaBin(t *testing.T) {
 	}
 }
 
-// cli#2166: a configured orca_bin that no longer resolves must not block the
-// health batch before the sweep's own PATH fallback is reached: the status read
-// takes the same fallback.
+// cli#2166: a configured orca_bin that no longer resolves (gone, a directory,
+// not executable) must not block the health batch before the sweep's own PATH
+// fallback is reached: the status read takes the same fallback.
 func TestStatusConfigStaleOrcaBinFallsBackToPath2166(t *testing.T) {
-	h := newHostRig(t)
-	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
-	gone := filepath.Join(t.TempDir(), "gone", "orca")
-	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+gone+"\n"))
-	if code != 0 || len(h.bins) != 1 || h.bins[0] != "orca" {
-		t.Fatalf("exit %d bins %v out %s", code, h.bins, out)
+	dir := t.TempDir()
+	notExec := filepath.Join(dir, "orca-noexec")
+	if err := os.WriteFile(notExec, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for name, bin := range map[string]string{
+		"missing": filepath.Join(dir, "gone", "orca"), "directory": dir, "not executable": notExec,
+	} {
+		h := newHostRig(t)
+		h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
+		code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+bin+"\n"))
+		if code != 0 || len(h.bins) != 1 || h.bins[0] != "orca" {
+			t.Errorf("%s: exit %d bins %v out %s", name, code, h.bins, out)
+		}
 	}
 }
 

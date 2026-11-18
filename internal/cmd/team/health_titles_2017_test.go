@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -46,11 +47,15 @@ type fakeOrca2017 struct {
 	failVersion bool
 	orcaBin     string
 	onRename    func() // runs inside the first rename, e.g. to remove the binary
+	gone        bool   // set by a rename that removed the binary: later launches fail
 }
 
 func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if o.gone {
+		return orcaterm.Result{Code: 127, Stderr: "no such file"}
+	}
 	if len(argv) == 1 && argv[0] == "--version" {
 		if o.failVersion {
 			return orcaterm.Result{Code: 1, Stderr: "boom"}
@@ -124,21 +129,37 @@ func title2017Run(t *testing.T, o *fakeOrca2017, irisName string, args ...string
 	return title2017RunMode(t, o, irisName, true, args...)
 }
 
+// title2017RunWith is a real sweep with setup run after the harness's defaults,
+// so a test can replace a seam such as healthLookPath.
+func title2017RunWith(t *testing.T, o *fakeOrca2017, irisName string, setup func()) (string, int, error) {
+	t.Helper()
+	seam = setup
+	t.Cleanup(func() { seam = nil })
+	return title2017RunMode(t, o, irisName, true, "--dry-run=false")
+}
+
+// seam is the optional per-test setup title2017RunMode runs after its defaults.
+var seam func()
+
 // title2017RunMode is title2017Run with the output mode chosen: asJSON false
 // drives the human (text) branch of the receipt.
 func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON bool, args ...string) (string, int, error) {
 	t.Helper()
-	oldRunner, oldBound := orcaRunner, healthBoundWorker
+	oldRunner, oldBound, oldLook := orcaRunner, healthBoundWorker, healthLookPath
+	healthLookPath = func(string) (string, error) { return "", exec.ErrNotFound }
 	orcaRunner = func(bin string) orcaterm.Runner {
 		o.mu.Lock()
 		o.bins = append(o.bins, bin)
 		o.mu.Unlock()
 		return o.run
 	}
+	if seam != nil {
+		seam()
+	}
 	healthBoundWorker = func(wt string) string {
 		return map[string]string{"/wt/iris": "w1", "/wt/otto": "w2", "/wt/stranger": "wX"}[wt]
 	}
-	t.Cleanup(func() { orcaRunner, healthBoundWorker = oldRunner, oldBound })
+	t.Cleanup(func() { orcaRunner, healthBoundWorker, healthLookPath = oldRunner, oldBound, oldLook })
 	dir := t.TempDir()
 	key := "SYNTHETIC_HOST_KEY_2017"
 	var mu sync.Mutex
@@ -583,24 +604,54 @@ func TestHealthTitlesOrcaVersionMustLookLikeOne2166(t *testing.T) {
 }
 
 // cli#2166 (BLIND F1): the version is asked of the executable that did the
-// renames. If the configured binary disappears during the pass, a second
-// resolution would fall back to PATH and report another installation; one
-// runner for both keeps the receipt honest.
+// renames. The configured binary disappears during the pass: the same runner is
+// used throughout, so the probe launches the removed file, fails, and the
+// receipt carries no version, rather than switching to another installation
+// found on PATH.
 func TestHealthTitlesVersionProbeUsesTheTitlePassExecutable2166(t *testing.T) {
 	o := newOrca2017()
 	o.orcaBin = fakeExecutable2166(t)
-	o.onRename = func() { _ = os.Remove(o.orcaBin) }
-	out, _, err := title2017Run(t, o, "Iris", "--dry-run=false")
-	if err != nil {
-		t.Fatal(err)
+	o.onRename = func() {
+		if err := os.Remove(o.orcaBin); err != nil {
+			t.Errorf("removing the binary: %v", err)
+		}
+		o.gone = true
 	}
+	out, _, _ := title2017Run(t, o, "Iris", "--dry-run=false")
 	if len(o.bins) != 1 || o.bins[0] != o.orcaBin {
 		t.Fatalf("runners built for %q, want exactly [%q]", o.bins, o.orcaBin)
 	}
 	var r struct {
 		OrcaVersion *string `json:"orcaVersion"`
 	}
-	if e := json.Unmarshal([]byte(out), &r); e != nil || r.OrcaVersion == nil || *r.OrcaVersion != "1.4.247" {
-		t.Fatalf("%v %s", e, out)
+	if e := json.Unmarshal([]byte(out), &r); e != nil || r.OrcaVersion != nil {
+		t.Fatalf("a vanished executable must leave no version (and none from another install): %v %s", e, out)
+	}
+}
+
+// cli#2166 (BLIND P2): a bare "orca" is looked up again by every exec, so the
+// sweep resolves it ONCE and every call, renames and version probe alike, uses
+// that absolute path.
+func TestHealthSweepPinsABareOrcaToOneFile2166(t *testing.T) {
+	o := newOrca2017()
+	pinned := fakeExecutable2166(t)
+	_, _, err := title2017RunWith(t, o, "Iris", func() { healthLookPath = func(string) (string, error) { return pinned, nil } })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(o.bins) != 1 || o.bins[0] != pinned {
+		t.Fatalf("runners built for %q, want exactly [%q]", o.bins, pinned)
+	}
+	// a configured binary that resolves is already absolute and is not looked up
+	o = newOrca2017()
+	o.orcaBin = fakeExecutable2166(t)
+	_, _, err = title2017RunWith(t, o, "Iris", func() {
+		healthLookPath = func(string) (string, error) {
+			t.Error("a configured binary must not be looked up on PATH")
+			return "", nil
+		}
+	})
+	if err != nil || len(o.bins) != 1 || o.bins[0] != o.orcaBin {
+		t.Fatalf("%v runners %q", err, o.bins)
 	}
 }
