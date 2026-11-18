@@ -254,8 +254,11 @@ func lookupSnapshotGrantByID(ctx context.Context, client graphql.Client, id stri
 
 // snapshotGrantInApp reports whether the App named by --app (an id, a URN or
 // root:slug) is the one that holds the grant. An id is compared directly; any
-// other form costs one app(ref:) read to learn its id. An App the caller cannot
-// read is, from here, not the grant's App.
+// other form costs exactly one app(ref:) read to learn its id. An App that
+// resolves to null, or whose read is NOT_FOUND, is not the grant's App. Any OTHER
+// error on that read keeps its own mapped error: a FORBIDDEN exits 8 and sends no
+// mutation. Treating FORBIDDEN as "not the grant's App" too would be a behavior
+// change that needs its own decision (cli#2436).
 func snapshotGrantInApp(ctx context.Context, client graphql.Client, appRef, grantAppID string) (bool, error) {
 	if cmdutil.IsAppID(appRef) {
 		return appRef == grantAppID, nil
@@ -308,7 +311,9 @@ means no revoke.`, Example: `  hadron automation team-snapshot-grant revoke <gra
 		}
 		// The held-worker path pages the target App's history, so it needs an App.
 		// A person's by-id read does not (cli#1619): --app is still validated when
-		// given, so a malformed ref fails before any request, but it selects nothing.
+		// given, so a malformed ref fails before any request. When given, it also
+		// SCOPES the revoke: the grant must belong to that App (snapshotGrantInApp),
+		// else it is not found before the confirmation.
 		var app, source string
 		if claim.claim != nil || cmd.Flags().Changed("app") {
 			var err error
