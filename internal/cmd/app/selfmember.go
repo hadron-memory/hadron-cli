@@ -52,8 +52,8 @@ role self-joiners get. Then you get that role, never owner. To add someone with
 another role, an App member manager uses "hadron app member add". The server
 refuses, and the CLI prints its message unchanged with a nonzero exit, when
 self-join is closed (or the App has no installed Agent), the App has reached
-its member limit, the App is not found or is uninstalled, or you are not signed
-in.
+its member limit, the App is not found or is uninstalled, the Agent's policy
+does not accept the role, or you are not signed in.
 
 If you are already a member you get your existing membership back and nothing
 changes. The server does not say whether this call created it, so the command
@@ -130,8 +130,9 @@ Rejoining is subject to the App's self-join policy and its capacity.
 Leaving an App you are not a member of changes nothing and exits 0, so success
 means "not a member now", not "was removed". It asks for confirmation on a
 terminal; a script passes --yes, and without it a non-interactive run is
-refused before anything is sent. Prints "✓ You are not a member of <App> now";
---json is {"app", "appId", "userId", "status": "absent"}.
+refused before anything is sent. Prints "✓ You are not a member of <App> now"
+and a note that your personal memory is kept; --json is {"app", "appId",
+"userId", "status": "absent"}.
 
 The server decides who may leave. A worker needs an instruction or its own
 app.members grant (below); a session acting as someone else, an App's own

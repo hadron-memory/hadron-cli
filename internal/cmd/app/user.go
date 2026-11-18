@@ -51,10 +51,11 @@ identity is the App plus that external id, so running this twice never makes a
 second user.
 
 Run this with an App key, for example in HADRON_TOKEN; mint one with "hadron
-app key create". The user belongs to the App that key belongs to, so there is
-no --app. It is for App key callers only: with a personal token the server
-refuses, and the refusal is printed as it comes (a typed error and a nonzero
-exit). The CLI does not check the credential first, and never prints it.
+app key create". The user belongs to the App that key belongs to; the global
+--app is not used. It is for App key callers only: with a personal token the
+server refuses, and the refusal is printed as it comes (a typed error and a
+nonzero exit). The CLI does not check the credential first, and never prints
+it.
 
 The server's answer does not say whether the user was just created or already
 existed, so this prints only the user (id, handle, name, URN and external id; a

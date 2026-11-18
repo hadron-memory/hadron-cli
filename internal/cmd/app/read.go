@@ -124,8 +124,8 @@ is a credential a program uses to act as the App. Give the App as an ID,
 hrn:app:<root>:<slug>, or the <root>:<slug> short form. Only whoever manages the
 App may list its keys; the server refuses anyone else.
 
-The table has the columns ID (what "hadron app key revoke" takes), PREVIEW (the
-first characters of the key, so you can tell keys apart), LABEL, CREATED, LAST
+The table has the columns ID (what "hadron app key revoke" takes), PREVIEW (a
+short preview of the key, so you can tell keys apart), LABEL, CREATED, LAST
 USED and REVOKED. The key itself is never returned. Revoked keys are not
 listed, so this is the keys in use, not a history. An empty value shows as - in
 text and null in --json; an empty list is [] (text: "no active App keys

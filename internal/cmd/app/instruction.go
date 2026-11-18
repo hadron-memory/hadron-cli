@@ -23,10 +23,10 @@ claims.
 
 Without the flag the call acts as you. With it, the call goes out through the
 worker session of the bound working directory; a missing, incomplete or
-foreign-server binding refuses locally (exit 2) and never falls back to you.
-Needs server 2026-11-03 or later. Minting, rotating and granting stay
-person-only and have no flag. More: "hadron agentic-usage", "Instructed
-credential acts".`
+foreign-server binding refuses locally (exit 2) and never falls back to you;
+nothing is retried or downgraded. Needs server 2026-11-03 or later. Minting,
+rotating and granting stay person-only and have no flag. More: "hadron
+agentic-usage", "Instructed credential acts".`
 
 // What an instructed call records, said per act: a LIST paragraph on a revoke page
 // is copy-paste drift (cli#1053 audit, finding C3).
@@ -34,8 +34,8 @@ const (
 	credentialInstructionListRecord = `An admitted instructed list is NOT record-free: every call (each page) records
 one app.credential-act event, with no dedupe. Events name worker, holder, App,
 act kind and instruction, never a key, scope or grant id.`
-	credentialInstructionRevokeRecord = `A changing instructed revoke records one app.credential-act event; an
-already-revoked no-op records none. Events name worker, holder, App, act kind
+	credentialInstructionRevokeRecord = `A changing instructed revoke records one app.credential-act event; a revoke
+that changes nothing records none. Events name worker, holder, App, act kind
 and instruction, never a key, scope or grant id.`
 )
 

@@ -101,8 +101,9 @@ func newCmdPropertiesSet(f *cmdutil.Factory) *cobra.Command {
 		Short: "Replace an App's properties object",
 		Long: `Replace the App's whole properties object with the one you give, in one call.
 Properties are one JSON object the App carries for its team: the platform reads
-only its taskIntegrations key and keeps every other key as written (see "hadron
-app properties --help"). A minimal object is {"team": {"note": "hello"}}. Give
+only its taskIntegrations key and keeps every other key as written (it cannot
+store a key named __proto__: PROPERTIES_KEY_RESERVED; see "hadron app properties
+--help"). A minimal object is {"team": {"note": "hello"}}. Give
 a JSON object, @file to read one from a file, or - to read it from stdin. The
 CLI checks only that it is JSON and not null; whether it is an object, how
 large it is, and the shape of the taskIntegrations key are the server's to

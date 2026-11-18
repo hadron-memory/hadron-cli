@@ -255,8 +255,8 @@ Adding the same role again changes nothing; a different role changes the
 membership. The command never reads the list first, so EVERY add asks for
 confirmation on a terminal: a script passes --yes, and without it a
 non-interactive run is refused before anything is sent. Prints "✓ <user> is a
-member of <App> with role <role>"; --json is the membership (app, userRef, user,
-role, createdAt, status "member").
+member of <App> (<where the App came from>) with role <role>"; --json is the
+membership (app, userRef, user, role, createdAt, status "member").
 
 If the answer is lost or unclear, the outcome is reported as unknown (not
 retried): check with "hadron app member list".`,

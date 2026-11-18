@@ -71,7 +71,7 @@ BOOT PROMPT (NEXT BIND) is what a new session would be given if it started now:
 the source level, the compiled node and the served revision, or the reason it
 cannot be served. It is not the prompt of a session already running. Only
 BOOT_PROMPT_NOT_SET means none is set; a blank means not visible to you or
-unknown. Setting a pointer does not approve a prompt.
+unknown. Approval is never inferred from a pointer.
 
 Only Agents you may read are listed. When you may not see the roster, the table
 says "roster withheld (not visible to you)", --json prints null (not []), and

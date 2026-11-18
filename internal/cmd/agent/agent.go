@@ -454,8 +454,8 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <ref>",
 		Short: "Show an agent (by ID or URN)",
-		Long: `Show one Agent by ID or URN. It reads and changes nothing. An Agent that does
-not exist, or that you may not read, exits 4.
+		Long: `Show one Agent by ID or URN. It only reads; nothing is changed. An Agent that
+does not exist, or that you may not read, exits 4.
 
 The text lists the Agent's name, URN and ID, type and visibility, description,
 its system memory (the Memory holding its prompts and tasks, shown as a URN when

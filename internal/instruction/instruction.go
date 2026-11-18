@@ -78,13 +78,14 @@ Without the flag the call is yours, as the signed-in person. With it, the call
 goes out through the worker's session when its binding is complete and for this
 server and App; otherwise it goes out as you, with a note on stderr, and the
 server records no claim. The holder answers for the claim and still needs the
-right to make the change themselves; the server checks the reference, never that
-an instruction really happened. A host-launched session's instruction is
+right to make the change themselves; the server checks the reference, never
+that an instruction really happened. A host-launched session's instruction is
 ignored: it acts only on its own ` + grant + ` grant, which nobody holds by
-default; so does a worker session with no instruction. The MCP tools take no
-instruction. Needs server 2026-11-03 or later; an older server's refusal is
-passed through, and FORBIDDEN is exit 8. More: "hadron agentic-usage",
-"Instructed staffing and member acts".`
+default; a worker session with no instruction needs the same grant. The MCP
+tools take no instruction. Needs server 2026-11-03 or later; an older server's
+refusal is passed through and never retried without the flag; a FORBIDDEN
+refusal is exit 8. More: "hadron agentic-usage", "Instructed staffing and
+member acts".`
 }
 
 // ManagerHelp is shared by the six App-manager writes in cli#2448.
@@ -102,5 +103,6 @@ for this server and App; otherwise it goes out as you with the claim still sent
 the App, and a host-launched session is refused. The server checks the
 reference, never that an instruction really happened. A change made with an
 instruction records one event naming only ids; a call that changes nothing
-records none. The MCP tools take no instruction. Needs server 2026-11-04 or
-later. More: "hadron agentic-usage", "App-manager writes with an instruction".`
+records none. A server refusal is never retried as you or without the claim.
+The MCP tools take no instruction. Needs server 2026-11-04 or later. More:
+"hadron agentic-usage", "App-manager writes with an instruction".`
