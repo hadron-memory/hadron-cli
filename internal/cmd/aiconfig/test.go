@@ -59,36 +59,48 @@ func newCmdTest(f *cmdutil.Factory) *cobra.Command {
 	var chatProbe bool
 	cmd := &cobra.Command{
 		Use: "test <id>", Short: "Test a saved AI config with one small provider call",
-		Long: `Test a saved AI config by id through the server's normal client, endpoint
-and egress guard. The stored key stays on the server. This makes a real provider
-call and may incur cost; every provider-reaching test is metered. It saves no
-configuration. The server applies the same owner permission as update and
-refuses impersonation. NO_API_KEY and KEY_UNREADABLE make no provider call.
+		Long: `Test a saved AI config by id with one small real call to its provider, made
+through the same client and endpoint a run would use. The stored key stays on
+the server and nothing is saved. Every call that reaches the provider is
+metered and may cost money. The server applies the same owner permission as
+update and refuses impersonation. NO_API_KEY (no key stored) and KEY_UNREADABLE
+(the stored key cannot be decrypted) make no provider call.
 
---override-file reads a JSON object with optional provider, model, apiKey,
-endpoint, apiStyle and params. Use a private file, or - for piped JSON, to keep
-keys out of argv. Omission uses the saved field. A null apiStyle or endpoint
-uses the provider default; null params clears the edited params. Params, when
-present and non-null, is an object. The server validates all provider rules.
-The override is never saved or printed. Piped documents are refused at a TTY.
+--override-file tries edited values without saving them: a JSON object with
+optional provider, model, apiKey, endpoint, apiStyle and params. Use a private
+file, or - for piped JSON, to keep keys out of argv. A field you leave out uses
+the saved value; null for apiStyle or endpoint uses the provider default; null
+params clears the edited params; params, when present, is an object. The
+override is never saved or printed, and a piped document is refused at a
+terminal.
 
-Output includes ok, effective provider/model/endpoint/style, latencyMs, reply,
-the server's scrubbed error, value sources (used) and knob results. A completed
-test exits 0 even when ok is false: inspect ok/error.code in --json. A request
-refusal uses the normal CLI exit code. Re-enter a key on KEY_UNREADABLE; retry
-provider failures only when error.transient permits it.
+Output: ok, the provider, model, endpoint and style actually used, latencyMs,
+the model's reply, the error (provider text removed) if any, where each value
+came from (used), and the result of each provider knob in the params. A test that
+completed exits 0 even when ok is false: read ok and error.code in --json. A
+refused request uses the usual CLI exit codes. On KEY_UNREADABLE, store the key
+again with 'hadron ai-config update <id> --api-key -'. Retry a provider failure
+only when error.transient says you may.
 
---chat-probe (off by default) also asks the server to run ONE chat probe: a
-second provider call, metered separately, that counts against the allowance
-when a platform key pays for it. It needs a server with the chatProbe argument;
-an older one refuses it (exit 2) and nothing is retried. Its closed status
-(PASS, FAIL_TEXT_ONLY, FAIL_OTHER_TOOL, FAIL_MULTIPLE_CALLS, FAIL_MALFORMED,
-FAIL_PROVIDER_UNAVAILABLE, UNSUPPORTED_PROVIDER) prints on its own "chat:" line
-and is the "chat" key in --json (null when not requested). The run result and
-the chat status are two outcomes: neither stands for the other. A completed
-test exits 0 whatever ok and the chat status say. Request refusals, invalid
-responses from the server, and other errors (including argument, override-file
-and transport failures) use the normal CLI error exits.`,
+--chat-probe (off by default) adds a second, separately metered provider call
+that checks the model can answer a chat turn the way Hadron needs: by calling
+the chat "respond" tool exactly once. It counts against your allowance when a
+platform key pays for it, and needs a server that supports it (an older server
+refuses it with exit 2). The result prints on its own "chat:" line and is the
+"chat" key in --json (null when not requested). The run result and the chat
+status are two outcomes: neither stands for the other. A test that completed
+exits 0 whatever ok and the chat status say; request refusals, an invalid
+response from the server and other errors (argument, override-file and
+transport failures) use the usual CLI error exits. Statuses:
+  PASS                       the model called respond once; usable for chat
+  FAIL_TEXT_ONLY             it answered in plain text, no tool call
+  FAIL_OTHER_TOOL            it called a tool other than respond
+  FAIL_MULTIPLE_CALLS        it called respond more than once
+  FAIL_MALFORMED             the call's arguments were not valid
+  FAIL_PROVIDER_UNAVAILABLE  the provider call itself failed; retry or fix ok
+  UNSUPPORTED_PROVIDER       the server cannot probe this provider
+After any FAIL, pick a different model or provider ('ai-config tool-choice'
+predicts how chat treats a pair; this probe checks it for real).`,
 		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json\n  hadron ai-config test cfg_123 --chat-probe --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

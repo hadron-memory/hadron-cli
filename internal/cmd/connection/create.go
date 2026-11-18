@@ -24,10 +24,15 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Delegate scoped access on your connection to an App (owner-only)",
 		Long: `Grant an App install scoped access to a connection you own (owner-only).
 
+--connection is the connection's ID. Find it with 'hadron email connections
+--org <org>' (org admin; the ID column); you must be the connection's owner.
+--app is the App that receives access (ID, hrn:app: URN or <org>:<slug>).
 Scopes are drawn from mail.read, mail.send, calendar.freebusy, calendar.read
-(the server validates the set). --app accepts an App PK or URN. --expires-at is
-an optional ISO-8601 timestamp with timezone and must be in the future; omit it
-for a perpetual grant (until revoked).`,
+(the server validates the set); --scopes takes several, comma-separated or
+repeated. --expires-at is an optional ISO-8601 timestamp with timezone and must
+be in the future; omit it for a grant that lasts until revoked. On success it
+prints the scopes, connection, App, grant id and expiry; --json prints the grant.
+To end it early, 'hadron connection grant revoke <grant-id>'.`,
 		Example: `  hadron connection grant create --connection conn_123 --app acme.com:inbox-bot --scopes mail.read
   hadron connection grant create --connection conn_123 --app hrn:app:acme.com:inbox-bot \
     --scopes mail.read,mail.send --expires-at 2027-01-01T00:00:00Z`,
@@ -88,8 +93,8 @@ for a perpetual grant (until revoked).`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&connection, "connection", "", "connection to delegate on (ID or ref; required)")
-	cmd.Flags().StringVar(&app, "app", "", "grantee App (ID or URN; required)")
+	cmd.Flags().StringVar(&connection, "connection", "", "ID of the connection to delegate on (required; from 'hadron email connections --org <org>')")
+	cmd.Flags().StringVar(&app, "app", "", "App that receives access (ID, URN or <org>:<slug>; required)")
 	cmd.Flags().StringSliceVar(&scopes, "scopes", nil, "scope to grant (repeatable or comma-separated; mail.read|mail.send|calendar.freebusy|calendar.read; required)")
 	cmd.Flags().StringVar(&expires, "expires-at", "", "ISO-8601 expiry timestamp with timezone (omit for perpetual)")
 	_ = cmd.MarkFlagRequired("connection")

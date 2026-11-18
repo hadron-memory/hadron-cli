@@ -27,11 +27,17 @@ func NewCmdMcpServer(f *cmdutil.Factory) *cobra.Command {
 		Use:     "mcp-server <command>",
 		Aliases: []string{"mcp-servers"},
 		Short:   "Manage the external MCP server registry",
-		Long: `Manage registered external MCP servers (hadrontool-mcp conduit).
+		Long: `Manage the external MCP servers an organization has registered. An MCP server
+is a separate service (reached at a URL) that offers tools; registering one
+lets Hadron's headless runs (runs with no person at the keyboard) call those
+tools, named mcp__<slug>__<tool>. An author lists the tools a node may use in
+that node's data.tools.
 
-Each row exposes its tools to headless runs as mcp__<slug>__<tool>, which an
-author declares in a node's data.tools. Registration alone grants nothing — a
-run must still be allowed 'tool.mcp__<slug>__<tool>' by the policy chain.`,
+Registration alone grants nothing: a run must also be allowed
+tool.mcp__<slug>__<tool> by the policy rules that apply to it. Creating,
+updating and deleting need org ADMIN or OWNER; 'tools' shows what a registered
+server currently offers. Authentication headers are write-only: reads show only
+whether any are stored, never their values.`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
