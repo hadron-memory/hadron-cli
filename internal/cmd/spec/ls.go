@@ -37,7 +37,9 @@ With --role spec.rule, the server returns that role and its dotted descendants
 (such as spec.rule.detail). The value is passed verbatim; only that
 provider-filtered stream is listed: legacy tag-only specs are not
 included. The CLI does not match roles locally or fall back on older servers.
-Omit --role to keep the normal tag/role union. An empty --role is refused.`,
+The value need not be a spec role: nodes that carry it are listed under the
+same columns, spec or not, and the CLI does not check it. Omit --role to keep
+the normal tag/role union. An empty --role is refused.`,
 		Example: `  hadron spec list -m hrn:mem:micromentor.org:platform-specs
   hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json
   hadron spec list -m hrn:mem:micromentor.org:platform-specs --role spec.rule --approved --json`,
@@ -108,14 +110,26 @@ Omit --role to keep the normal tag/role union. An empty --role is refused.`,
 				}
 				rawNodes, err = scanAllNodesFiltered(cmd.Context(), client, filter)
 				if err == nil && unapproved {
+					// The second partition runs only after the first succeeded, and a
+					// failure in either ends the command with no rows (#2474).
 					state := gen.NodeApprovalStateSuperseded
 					filter.ApprovalState = &state
-					stale, secondErr := scanAllNodesFiltered(cmd.Context(), client, filter)
-					err = secondErr
-					rawNodes = unionNodeResults(rawNodes, stale)
+					var stale []*api.ListNode
+					stale, err = scanAllNodesFiltered(cmd.Context(), client, filter)
+					if err == nil {
+						rawNodes = unionNodeResults(rawNodes, stale)
+					}
+				} else if err == nil {
+					// Canonicalize the single explicit stream before the display window.
+					rawNodes = unionNodeResults(rawNodes, nil)
 				}
-				// Canonicalize every explicit stream before the display window.
-				rawNodes = unionNodeResults(rawNodes, nil)
+				if err != nil && roleFilterUnsupported(err) {
+					// An older server has no role field on its node filter. Refuse
+					// with that said, at the exit code the raw error had; never
+					// fall back to a local match (cor:api:240:01).
+					return exitcode.Newf(exitcode.FromError(api.MapError(err)),
+						"this server does not support --role: its node filter has no role field. Upgrade the server, or omit --role to list the tagged specs. Nothing was listed and no fallback was tried")
+				}
 				err = api.MapError(err)
 			case minted || unminted:
 				rawNodes, err = scanAllSpecNodesWithMint(cmd.Context(), client, memoryArg, prefixArg, minted)

@@ -51,8 +51,10 @@ func runSpecListRole684State(t *testing.T, role string, flags []string, failure,
 			}
 			nodes := ""
 			if q.Variables.Offset == 0 || q.Variables.Offset == 2 {
-				// Two rows require paging before applying the display window. A fake
-				// role outside spec.* proves the CLI does not reimplement role matching.
+				// The fixture serves two pages (the first out of order, the second
+				// repeating msg:010:02 and adding msg:010:03) so the CLI must page and
+				// deduplicate before it applies the display window. A fake role
+				// outside spec.* proves the CLI does not reimplement role matching.
 				node := func(loc string) string {
 					base := specNodeList(loc, `[]`)
 					b, _ := json.Marshal(role)
@@ -111,8 +113,11 @@ func TestSpecListRolePassThrough684(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(filters) != 3*tc.streams {
-				t.Fatalf("filters=%v, want two pages+empty probe per status stream", filters)
+			// Each status stream is paged, so it asks at least once. How many pages
+			// the pager takes is its own contract and is not pinned here (#2474 F8);
+			// which streams ran is, through the per-state check below.
+			if len(filters) < tc.streams {
+				t.Fatalf("filters=%v, want at least one request per status stream (%d)", filters, tc.streams)
 			}
 			states := map[string]bool{}
 			for _, f := range filters {

@@ -2217,7 +2217,7 @@ Conventions:
   forces literal regex matching); `spec list --role <role>` forwards
   the value verbatim to the server role-family filter, with no local role matching,
   legacy-tag stream or fallback on a server without that filter. A supplied blank
-  role is usage error (exit 2), before any request. With no --role, the existing
+  role is a usage error (exit 2), before any request. With no --role, the existing
   paged legacy-spec-tag / spec-role union is unchanged. --role retains memory,
   citation-prefix, approval/mint filters and the display page; --json shape is
   unchanged (cli#684 Slice A). `spec list`/`spec find` run unscoped when no
