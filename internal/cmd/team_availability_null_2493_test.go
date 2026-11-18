@@ -75,6 +75,7 @@ func TestTeamAvailabilitySetNullResult2493(t *testing.T) {
 					}
 					if jsonMode {
 						f, jout := testFactory(t)
+						f.JSON = true
 						if code := renderError(f, err); code != exitcode.Unavailable {
 							t.Fatalf("envelope exit %d", code)
 						}

@@ -202,7 +202,9 @@ manager's write, always made as the person and never as a bound worktree's
 worker (the server never counts a worker as managing the App). --state is
 available or unavailable; --reason (HOST_DOWN, OTHER, OUT_OF_TOKENS, STALLED) is required
 with unavailable and refused with available; --until (RFC 3339, in the
-future) bounds an unavailable record.`,
+future) bounds an unavailable record. If the server returns no record
+the outcome is unknown (exit 7): run "hadron team availability get" to read
+the current state before retrying.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if workerRef == "" && family == "" {
@@ -280,6 +282,9 @@ future) bounds an unavailable record.`,
 				if err != nil {
 					return api.MapError(err)
 				}
+				if resp == nil || resp.SetWorkerAvailability == nil {
+					return availabilityResultMissing()
+				}
 				rec := workerAvailabilityDTOFrom(*resp.SetWorkerAvailability)
 				return output.Write(f.IOStreams, f.JSON, rec, func(w io.Writer) error {
 					return writeAvailabilityReceipt(w, partyCell(&rec.Worker), rec.State, rec.Reason, rec.Until)
@@ -295,6 +300,9 @@ future) bounds an unavailable record.`,
 			resp, err := gen.ModelFamilyAvailabilitySet(ctx, client, &input)
 			if err != nil {
 				return api.MapError(err)
+			}
+			if resp == nil || resp.SetModelFamilyAvailability == nil {
+				return availabilityResultMissing()
 			}
 			r := resp.SetModelFamilyAvailability
 			rec := familyAvailabilityDTO{
@@ -318,6 +326,14 @@ future) bounds an unavailable record.`,
 	cmd.Flags().StringVar(&reason, "reason", "", "HOST_DOWN, OTHER, OUT_OF_TOKENS or STALLED (required with unavailable)")
 	cmd.Flags().StringVar(&until, "until", "", "RFC 3339 time the unavailable record lapses at")
 	return cmd
+}
+
+// availabilityResultMissing is the answer to a write the server accepted at the
+// transport level but returned no record for (a null or absent result, #2493).
+// The request was sent, so whether it was recorded is unknown: never a success
+// receipt, never retried here, and the caller is told to read the state first.
+func availabilityResultMissing() error {
+	return exitcode.Newf(exitcode.Unavailable, "the server returned no availability record; outcome is unknown: run `hadron team availability get` to read the current state before retrying")
 }
 
 func workerAvailabilityDTOFrom(r gen.WorkerAvailabilitySetSetWorkerAvailability) workerAvailabilityDTO {
