@@ -624,7 +624,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 62: 26 gap, 36 excluded
+[Arguments] 60: 24 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
@@ -663,10 +663,8 @@ Mutation.setAppDeliverySettings(instruction)  gap #1617
 Mutation.setAppModelGroup(instruction)  gap #1617
 Mutation.setAppProperties(instruction)  gap #1617
 Mutation.setAppTickerSettings(instruction)  gap #1617
-Mutation.setModelFamilyAvailability(instruction)  gap #1617
 Mutation.setTeamPause(instruction)  gap #1617
 Mutation.setTeamStopSignal(instruction)  gap #1617
-Mutation.setWorkerAvailability(instruction)  gap #1617
 Mutation.setWorkerWakeSettings(instruction)  gap #1617
 Mutation.subscribeWorker(instruction)  gap #1617
 Mutation.unsubscribeWorker(instruction)  gap #1617

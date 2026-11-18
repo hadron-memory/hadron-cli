@@ -24,7 +24,7 @@ import (
 // nodeWriteAdviceRoots1152 is the eligible set, written out independently of
 // nodewarnings.go on purpose.
 var nodeWriteAdviceRoots1152 = []string{
-	"createNode", "createSpecNode", "createTaskNode", "createReviewNode",
+	"createNode", "createSpecNode", "createTaskNode", "createReviewNode", "createAssetReferenceNode",
 	"updateNode", "updateSpecNode", "updateTaskNode", "updateReviewNode",
 	"importNode", "mergeNodes", "cloneNode", "moveNode", "updateNodeData", "restoreNode", "restoreNodeRevision",
 	"searchReplaceInNodes", "searchReplaceInSpecNodes",
@@ -139,8 +139,7 @@ func TestLaterFailedWriteSuppressesEarlierAdvice1152(t *testing.T) {
 var nodeMutationExclusions1152 = map[string]string{
 	// Verified against hadron-server (writeNodeCore, resolvers.mutation.node.ts and
 	// createAssetReferenceNode.ts at origin/main when #1152 was built):
-	"createAssetReferenceNode": "writes a reference node through the shared node write; its content is server-authored (file name, type, size, asset URN) and carries no include in normal use, but a crafted file name could, so this is a documented exclusion, not a guarantee (#2470)",
-	"updateNodeRevision":       "edits a revision's label only; no content is written",
+	"updateNodeRevision": "edits a revision's label only; no content is written",
 	// They do not write node content:
 	"approveMemoryNodes":                "records approvals; no content write",
 	"approveNode":                       "records an approval; no content write",
@@ -337,7 +336,7 @@ func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
 	if !reflect.DeepEqual(documented, want) {
 		t.Errorf("the guide's eligible set differs from the pinned set:\n guide: %v\n pinned: %v", sortedKeys1152(documented), sortedKeys1152(want))
 	}
-	for _, root := range []string{"createAssetReferenceNode", "updateNodeRevision"} {
+	for _, root := range []string{"updateNodeRevision"} {
 		if !outside[root] || documented[root] {
 			t.Errorf("the guide must name %s as outside the set (and not in the list)", root)
 		}
@@ -353,7 +352,7 @@ func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
 		t.Fatal("the exclusion comment moved")
 	}
 	comment := strings.Join(strings.Fields(strings.ReplaceAll(text[a:b], "\n//", "\n")), " ")
-	for _, want := range []string{"createAssetReferenceNode is left out on purpose", "carries no include in normal use", "updateNodeRevision is left out on purpose", "edits a revision's label only"} {
+	for _, want := range []string{"createAssetReferenceNode is in the set", "draws plain-pin advice", "updateNodeRevision is left out on purpose", "edits a revision's label only"} {
 		if !strings.Contains(comment, want) {
 			t.Errorf("the exclusion comment lacks %q", want)
 		}
