@@ -16,6 +16,13 @@ import (
 // deliberately include an untagged role-only node; the provider owns matching.
 func runSpecListRole684(t *testing.T, role string, flags []string, failure string) (string, []map[string]any, int32, error) {
 	t.Helper()
+	return runSpecListRole684State(t, role, flags, failure, "")
+}
+
+// runSpecListRole684State is runSpecListRole684 with the failure confined to the
+// requests whose approvalState is failState (empty: every request fails).
+func runSpecListRole684State(t *testing.T, role string, flags []string, failure, failState string) (string, []map[string]any, int32, error) {
+	t.Helper()
 	var mu sync.Mutex
 	var filters []map[string]any
 	var requests atomic.Int32
@@ -38,7 +45,7 @@ func runSpecListRole684(t *testing.T, role string, flags []string, failure strin
 			mu.Lock()
 			filters = append(filters, q.Variables.Filter)
 			mu.Unlock()
-			if failure != "" {
+			if failure != "" && (failState == "" || q.Variables.Filter["approvalState"] == failState) {
 				_, _ = w.Write([]byte(failure))
 				return
 			}
