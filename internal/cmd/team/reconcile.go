@@ -270,6 +270,7 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 type holderLookupError struct{ err error }
 
 func (e *holderLookupError) Error() string { return e.err.Error() }
+func (e *holderLookupError) Unwrap() error { return e.err }
 
 // itemHolders is who holds an outside item in the App now: Active is the id of
 // the ACTIVE task (backlog, pending or started) that holds it, "" when none;
@@ -278,6 +279,7 @@ func (e *holderLookupError) Error() string { return e.err.Error() }
 type itemHolders struct {
 	Active string
 	Any    bool
+	IDs    map[string]bool // every task the lookup returned
 }
 
 func lookupHolders(ctx context.Context, client graphql.Client, appRef, externalID string) (itemHolders, error) {
@@ -285,12 +287,13 @@ func lookupHolders(ctx context.Context, client graphql.Client, appRef, externalI
 	if err != nil {
 		return itemHolders{}, &holderLookupError{err: mapTaskError(err)}
 	}
-	var h itemHolders
+	h := itemHolders{IDs: map[string]bool{}}
 	for _, t := range resp.AgentTasks {
 		if t == nil {
 			continue
 		}
 		h.Any = true
+		h.IDs[t.Id] = true
 		switch t.Status {
 		case gen.AgentTaskStatusBacklog, gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted:
 			if h.Active == "" {
@@ -313,6 +316,13 @@ func heldElsewhere(holder func(string) (itemHolders, error), kind gen.AgentTaskE
 	}
 	held := h.Active != "" && (t == nil || t.Id != h.Active)
 	if kind == gen.AgentTaskExternalIdChangeKindReleased {
+		// A release clears the task's id, so a read that still lists the RELEASED
+		// task as a holder predates the release: stale, not an answer. The skip
+		// below is irreversible (the cursor moves past it), so end the run
+		// instead; the next one retries (BLIND P2, #2362).
+		if t != nil && h.IDs[t.Id] {
+			return false, &holderLookupError{err: exitcode.Newf(exitcode.Error, "the item's holder read still lists the released task %s: a stale read; nothing was told and the cursor stays", output.SafeCell(t.Id))}
+		}
 		held = h.Any
 	}
 	if !held {

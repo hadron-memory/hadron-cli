@@ -28,10 +28,10 @@ import (
 type feedClient struct {
 	pages []string // JSON "agentTaskExternalIdChanges" bodies, one per call
 	after []string
-	// holders answers IntakeActiveHolder: external id -> the ACTIVE task id that
+	// holders answers IntakeItemHolders: external id -> the ACTIVE task id that
 	// holds it (absent = nobody). holderErr fails every lookup (cli#2265).
-	holders     map[string]string // id -> ACTIVE task
-	finished    map[string]string // id -> a FINISHED task that keeps it
+	holders     map[string]string // external id -> the ACTIVE task that holds it
+	finished    map[string]string // external id -> a FINISHED task that keeps it
 	holderErr   error
 	holderCalls []string
 }
@@ -441,7 +441,7 @@ func TestReconcileHolderLookupFailureLeavesTheCursorAndActsOnNothing2265(t *test
 // The gate's carried amendment: RELEASED untracks only when NO task holds the id
 // in any state, so an item a FINISHED task still holds stays tracked.
 func TestReconcileReleasedDoesNotUntrackWhileAFinishedTaskStillHoldsTheId2265(t *testing.T) {
-	d, log, aerr, ferr := heldElsewhereRun(t, releasedChange("x", "c1"), nil, map[string]string{"x": "A"})
+	d, log, aerr, ferr := heldElsewhereRun(t, releasedChange("x", "c1"), nil, map[string]string{"x": "older-finished"})
 	if aerr != nil || ferr != nil {
 		t.Fatalf("%v %v", aerr, ferr)
 	}
@@ -452,5 +452,27 @@ func TestReconcileReleasedDoesNotUntrackWhileAFinishedTaskStillHoldsTheId2265(t 
 	d, log, _, _ = heldElsewhereRun(t, `{"cursor":"c1","kind":"CANCELLED","externalId":"x","task":{"id":"B","handle":"AT2"}}`, nil, map[string]string{"x": "A"})
 	if d.Reported != 1 || !strings.Contains(log, "report ") {
 		t.Fatalf("%+v %q", d, log)
+	}
+}
+
+// BLIND P2 (#2362): the skip is irreversible (the cursor moves past it), so a
+// lookup that still shows the RELEASED change's OWN task holding the id is a
+// stale read, not an answer: the run ends, the cursor stays, the next run retries.
+func TestReconcileReleasedWhoseOwnTaskStillShowsAsHolderIsAStaleReadError2265(t *testing.T) {
+	r, desc, log := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	c := &feedClient{pages: []string{page(releasedChange("x", "c1"))}, finished: map[string]string{"x": "t"}} // releasedChange's task id is "t"
+	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+	if aerr != nil || ferr == nil {
+		t.Fatalf("want a fatal stale-read error, got %v / %v", aerr, ferr)
+	}
+	if untrackCalls(t, log) != 0 || d.Skipped != 0 || d.Complete || d.Error == nil {
+		t.Fatalf("%+v", d)
+	}
+	if got, _ := store.Get("k"); got != "" {
+		t.Fatalf("the cursor moved past a stale read: %q", got)
+	}
+	if len(c.holderCalls) != 1 {
+		t.Fatalf("holder lookups: %v", c.holderCalls)
 	}
 }

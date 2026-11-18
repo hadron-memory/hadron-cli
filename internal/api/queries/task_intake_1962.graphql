@@ -43,15 +43,3 @@ query IntakeExternalIdChanges(
     }
   }
 }
-
-# cli#2265 (hadron-server#4217, cor:agt:120:02): who holds the item NOW. An ended
-# task keeps its external id, so a change for an old task can arrive after a newer
-# ACTIVE task claimed the same item; at most one ACTIVE (backlog, pending or
-# started) task holds an id, newest first, beside any finished or cancelled
-# history. Empty = no task of the App holds it in any state.
-query IntakeItemHolders($appRef: ID!, $externalId: String!) {
-  agentTasks(appRef: $appRef, externalId: $externalId) {
-    id
-    status
-  }
-}
