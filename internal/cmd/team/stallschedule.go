@@ -229,7 +229,7 @@ Needs server ba077810 or later.
 				}
 				resp, callErr := gen.TeamStallScheduleSetInstructed(ctx, client, scope.Ref, &input, claim)
 				if callErr != nil {
-					return api.MapError(callErr)
+					return api.MapErrorKeepingCode(callErr)
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			}

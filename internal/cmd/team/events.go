@@ -358,7 +358,7 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 				mctx, sink := api.WithWarningSinkForFields(ctx, "acknowledgeAlarm")
 				resp, callErr := gen.AlarmAcknowledgeInstructed(mctx, client, eventId, claim)
 				if callErr != nil {
-					return api.MapError(callErr)
+					return api.MapErrorKeepingCode(callErr)
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
