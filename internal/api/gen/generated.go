@@ -169148,8 +169148,9 @@ fragment WorkerTerminalFields on WorkerTerminal {
 `
 
 // The server-derived roster (#1707). Rendered, never re-derived client-side;
-// the states are plan-derived (cor:agt:050 Out Of Scope), which the command's
-// help text says out loud.
+// the states are as defined by cor:agt:050:22 (Proposed; NO_FAMILY is served
+// but not yet defined there), in the server's first-that-holds order, which
+// the command's help text says out loud.
 func TeamRoster(
 	ctx_ context.Context,
 	client_ graphql.Client,

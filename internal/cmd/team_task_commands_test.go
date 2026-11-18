@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -875,6 +876,33 @@ func TestTeamRosterHelpCitesProposedStates2331(t *testing.T) {
 			t.Errorf("stale roster wording %q", stale)
 		}
 	}
+}
+
+// The agentic guide is what agents read first (#2366): its roster line must
+// carry the same cor:agt:050:22 citation the command help carries, not the
+// retired "plan-derived" phrasing that #2331/#2360 swept out of the help.
+// Scoped to the roster line itself, so prose elsewhere in the document is
+// never falsely flagged.
+func TestAgenticUsageRosterLineCitesProposedStates2366(t *testing.T) {
+	for _, line := range strings.Split(agentic.Doc(), "\n") {
+		if !strings.HasPrefix(line, "hadron team roster ") {
+			continue
+		}
+		for _, want := range []string{
+			"hrn:node:hadronmemory.com:specs:cor:agt:050:22",
+			"Proposed", "NO_FAMILY is served but not yet defined",
+			"the server's first-that-holds order",
+		} {
+			if !strings.Contains(line, want) {
+				t.Errorf("agentic-usage roster line missing %q", want)
+			}
+		}
+		if strings.Contains(line, "plan-derived") {
+			t.Errorf("agentic-usage roster line still says %q", "plan-derived")
+		}
+		return
+	}
+	t.Fatal("agentic-usage doc has no `hadron team roster` line")
 }
 
 func TestTeamRosterHeaderIsTimestampOnly2331(t *testing.T) {
