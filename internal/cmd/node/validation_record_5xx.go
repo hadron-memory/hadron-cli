@@ -40,6 +40,11 @@ func recordMutationError(err error, nodeRef string, hasRunID bool) error {
 		}
 		what += ")"
 	}
+	// Recording never edits the node (the mutation's schema description), so a
+	// retry after a recorded first attempt re-reads the same node revision and
+	// task revision and resends the identical request; the schema documents
+	// that as a replay (replayed: true) for the same reporter and a
+	// CONTENT_VALIDATION_RUN_ID_CONFLICT for any other use of the run id.
 	retry := "Re-running with the same --run-id repeats the same request; if the first attempt was recorded, the server answers it as a replay when the node and task revisions and your identity are unchanged, and otherwise refuses it as a conflict (re-read the node's latest report, as above)."
 	if !hasRunID {
 		retry = "This run sent no --run-id, so a repeat sends no idempotency key and may record a second report; pass --run-id to make a repeat safe to compare."

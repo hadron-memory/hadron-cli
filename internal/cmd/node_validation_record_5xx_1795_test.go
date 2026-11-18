@@ -168,3 +168,72 @@ func TestValidationRecord5xxAdviceWithoutRunIDAndDocs1795(t *testing.T) {
 		}
 	}
 }
+
+// Jack's BLIND P2-2: the exit-7 error's --json envelope carries the code, the
+// message the CLI wrote, and for a typed INTERNAL_SERVER_ERROR the server code
+// and request id; never the server's message or extensions.
+func TestValidationRecord5xxJSONEnvelopeLeaksNothing1795(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body             string
+		wantServerCode   bool
+		wantRequestIDStr string
+	}{
+		"typed":    {fmt.Sprintf(`{"errors":[{"message":%q,"extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-abc-123","secret":%q}}]}`, secretDetail1795, secretDetail1795), true, "req-abc-123"},
+		"codeless": {fmt.Sprintf(`{"errors":[{"message":%q}]}`, secretDetail1795), false, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, _ := server5xx1795(t, 502, tc.body)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "validation", "record", "01a1b494d4b471ac80e3b1f63080b211", "--outcome", "PASS", "--json", "--server", srv.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("succeeded")
+			}
+			if code := renderError(f, err); code != exitcode.Unavailable {
+				t.Fatalf("exit %d", code)
+			}
+			var envelope map[string]map[string]any
+			if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+				t.Fatalf("%v: %s", e, out.String())
+			}
+			failure := envelope["error"]
+			if strings.Contains(out.String(), secretDetail1795) || strings.Contains(out.String(), "shard") || failure["extensions"] != nil {
+				t.Fatalf("server detail in the envelope: %s", out.String())
+			}
+			if _, ok := failure["serverCode"]; ok != tc.wantServerCode {
+				t.Fatalf("serverCode present=%v want %v: %v", ok, tc.wantServerCode, failure)
+			}
+			if tc.wantServerCode && (failure["serverCode"] != "INTERNAL_SERVER_ERROR" || failure["requestId"] != tc.wantRequestIDStr) {
+				t.Fatalf("fault fields: %v", failure)
+			}
+		})
+	}
+}
+
+// Jack's BLIND P3s: a 502 with a body that is not JSON degrades to the plain
+// HTTP status; a 503 keeps the shared mapping (deferred to #2430); an empty
+// --run-id is not "a run id was passed".
+func TestValidationRecord5xxEdges1795(t *testing.T) {
+	t.Run("HTML body", func(t *testing.T) {
+		srv, sent := server5xx1795(t, 502, `<html><body>Bad Gateway</body></html>`)
+		err := record1795(t, srv)
+		if exitCodeFor(err) != exitcode.Unavailable || err == nil || !strings.Contains(err.Error(), "HTTP 502") || strings.Contains(err.Error(), "INTERNAL_SERVER_ERROR") || strings.Contains(err.Error(), "Bad Gateway") || len(*sent) != 1 {
+			t.Fatalf("html 502: sent=%d %v", len(*sent), err)
+		}
+	})
+	t.Run("503 keeps the shared mapping", func(t *testing.T) {
+		srv, _ := server5xx1795(t, 503, `{"errors":[{"message":"unavailable"}]}`)
+		err := record1795(t, srv)
+		if err == nil || exitCodeFor(err) != exitcode.Error || strings.Contains(err.Error(), "unknown outcome") {
+			t.Fatalf("503 must keep the shared mapping (#2430): exit=%d %v", exitCodeFor(err), err)
+		}
+	})
+	t.Run("empty --run-id is not a run id", func(t *testing.T) {
+		srv, _ := server5xx1795(t, 502, `{"errors":[{"message":"gateway"}]}`)
+		err := record1795(t, srv, "--run-id", "")
+		if err == nil || !strings.Contains(err.Error(), "no --run-id") {
+			t.Fatalf("empty run id advice: %v", err)
+		}
+	})
+}

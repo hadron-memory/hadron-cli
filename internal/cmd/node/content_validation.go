@@ -183,7 +183,7 @@ conflict; without --run-id it may record a second report. Nothing is retried. Th
 			}
 			response, err := gen.RecordContentValidation(cmd.Context(), client, n.Id, n.Revision, chosen.id, chosen.revision, gen.NodeContentValidationOutcome(outcome), run)
 			if err != nil {
-				return recordMutationError(err, args[0], run != nil)
+				return recordMutationError(err, args[0], run != nil && *run != "")
 			}
 			r := response.RecordNodeContentValidationReport
 			if r == nil || r.Report == nil || r.NodeId != n.Id || r.Report.NodeRevision < 1 || r.Report.ReportedAt == "" || r.Report.Outcome == "" || r.State == "" {
