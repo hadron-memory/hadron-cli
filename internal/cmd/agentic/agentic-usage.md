@@ -5583,11 +5583,11 @@ hadron chat served-prompts <chat-id> [--limit N] [--offset N] [--provenance-limi
 # Record-only chatServedPrompts query; no myChats scan, conversation, source bodies or live edges.
 # No chat config, ambient App or worktree session. Read as whoever manages the first-record App;
 # only that App's records are visible. No-App chats: platform admin, never impersonation, per current server rule.
-# Server order (newest served time, then ordinal), one page: --limit 0..200 default50, --offset >=0.
+# Server order (newest served time, then ordinal), one page: --limit 0..200 default 50, --offset >=0.
 # Each record has an independent provenance page (--provenance-limit/offset, same bounds); 0 counts only.
 # --json {servedPrompts:{items,total,limit,offset}}, items[] when empty; missing/denied/no-record/serving-off
-# all conceal as an empty page, exit0, never a manufactured refusal. Real provider errors retain mapped exits.
-# Recorded variables may be sensitive. Pages are separate requests, not a snapshot. Requires server6b3f1e15.
+# all conceal as an empty page, exit 0, never a manufactured refusal. Real provider errors retain mapped exits.
+# Recorded variables may be sensitive. Pages are separate requests, not a snapshot. Requires server 6b3f1e15.
 
 
 ### Team health sweep (cli#1181)
