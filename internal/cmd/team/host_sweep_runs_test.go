@@ -382,15 +382,18 @@ func TestSweepInstallRefusesAnotherIntervalWithoutWrites2153(t *testing.T) {
 	}
 	_, _, home := healthHarness(t, "systemctl", "logger")
 	cfg := hostConfig(t, orca)
-	io, _, _ := output.Test()
-	c := newCmdTeamHostSweep(&cmdutil.Factory{IOStreams: io})
+	streams, _, _ := output.Test()
+	c := newCmdTeamHostSweep(&cmdutil.Factory{IOStreams: streams})
 	c.SilenceErrors, c.SilenceUsage = true, true
 	c.SetArgs([]string{"install", "--config", cfg, "--bin", "/usr/bin/hadron", "--interval", "5m"})
 	err := c.Execute()
 	if err == nil || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "sweep interval is fixed at 1m") {
 		t.Fatalf("err = %v, want a usage refusal naming the fixed interval", err)
 	}
-	if _, statErr := os.Stat(filepath.Join(home, ".config/systemd/user/hadron-team-sweep.service")); statErr == nil {
-		t.Fatal("a refused install wrote the service unit")
+	// Glob rather than stat one unit: a regression writing the .timer (or any
+	// other hadron-team-sweep.* file) before refusing must fail too.
+	written, globErr := filepath.Glob(filepath.Join(home, ".config/systemd/user/hadron-team-sweep.*"))
+	if globErr != nil || len(written) != 0 {
+		t.Fatalf("a refused install wrote units %v (glob err %v)", written, globErr)
 	}
 }
