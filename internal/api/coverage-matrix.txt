@@ -624,7 +624,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 65: 29 gap, 36 excluded
+[Arguments] 63: 27 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
@@ -659,7 +659,6 @@ Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userR
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.revokeAppGrant(instruction)  gap #1617
-Mutation.revokeAutomationReadGrant(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
 Mutation.setAppDeliverySettings(instruction)  gap #1617
 Mutation.setAppModelGroup(instruction)  gap #1617
@@ -684,7 +683,6 @@ Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use 
 Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateTicker(instruction)  gap #1617
-Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
