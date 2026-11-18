@@ -390,9 +390,10 @@ func TestSweepInstallRefusesAnotherIntervalWithoutWrites2153(t *testing.T) {
 	if err == nil || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "sweep interval is fixed at 1m") {
 		t.Fatalf("err = %v, want a usage refusal naming the fixed interval", err)
 	}
-	// Glob rather than stat one unit: a regression writing the .timer (or any
-	// other hadron-team-sweep.* file) before refusing must fail too.
-	written, globErr := filepath.Glob(filepath.Join(home, ".config/systemd/user/hadron-team-sweep.*"))
+	// Glob rather than stat one unit: the installer writes .service, .timer and
+	// -failed.service, so hadron-team-sweep* (no dot) catches a regression that
+	// writes any of them before refusing.
+	written, globErr := filepath.Glob(filepath.Join(home, ".config/systemd/user/hadron-team-sweep*"))
 	if globErr != nil || len(written) != 0 {
 		t.Fatalf("a refused install wrote units %v (glob err %v)", written, globErr)
 	}
