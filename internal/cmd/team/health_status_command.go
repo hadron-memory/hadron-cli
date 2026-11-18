@@ -88,16 +88,20 @@ func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []stri
 	}
 	limit := healthStatusTimeout(ctx)
 	parent := ctx
-	ctx, cancel := context.WithTimeout(ctx, limit)
-	defer cancel()
+	ctx, cancelTimeout := context.WithTimeout(ctx, limit)
+	defer cancelTimeout()
+	// The overflow cancel carries its own cause, so a child ended by the
+	// deadline after an overflow was recorded is never named an overflow (#1383).
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
 	cmd := exec.CommandContext(ctx, bin, "orca", "terminal", "status", "--all", "--json", "--config", abs)
 	cmd.Env = env
-	out := healthStatusBuffer{onOverflow: cancel}
+	out := healthStatusBuffer{onOverflow: func() { cancel(errHealthStatusOverflow{}) }}
 	cmd.Stdout = &out
 	// stderr is deliberately discarded, including a child's credential, screen
 	// detail or raw upstream diagnostic. The caller reports fixed classes only.
 	if err := cmd.Run(); err != nil {
-		if out.overflowed {
+		if out.overflowed && errors.As(context.Cause(ctx), new(errHealthStatusOverflow)) {
 			return nil, 1, errHealthStatusOverflow{}
 		}
 		// Only our own deadline (not the caller's cancellation, not an output
