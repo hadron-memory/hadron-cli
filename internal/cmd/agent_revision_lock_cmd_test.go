@@ -131,6 +131,8 @@ func TestAgentRevisionLockRefusalsMapOnEveryVerb(t *testing.T) {
 		op   string
 	}{
 		{[]string{"revision", "create", "agt1"}, "CreateRevision"},
+		{[]string{"revision", "publish", "agt1", "revisions:draft-7"}, "PublishRevision"},
+		{[]string{"revision", "restore", "agt1", "revisions:draft-7"}, "RestoreRevision"},
 		{[]string{"lock", "acquire", "agt1"}, "AcquireEditorLock"},
 		{[]string{"lock", "release", "agt1"}, "ReleaseEditorLock"},
 	} {

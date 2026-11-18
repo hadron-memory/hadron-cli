@@ -14,10 +14,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// cli#61 first cut: `agent revision create` and `agent lock acquire|release`.
-// Each verb is one provider call with the agent reference passed exactly as
-// typed. Nothing follows a result: no retry, force, renewal, publish, restore
-// or listing. Who may act, and how long a lock lives, stay server-owned.
+// cli#61 first cut: `agent revision create` and `agent lock acquire|release`;
+// cli#2495 adds `revision publish` and `revision restore`. Each verb is one
+// provider call with the references passed exactly as typed. Nothing follows a
+// result: no retry, force, renewal or listing (no server list contract exists).
+// Who may act, and how long a lock lives, stay server-owned.
 
 // nonBlankAgentRef refuses a blank reference before any call; the original string
 // (never the trimmed one) is what goes to the server.
@@ -31,12 +32,13 @@ func nonBlankAgentRef(arg string) (string, error) {
 func newCmdAgentRevision(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revision",
-		Short: "Snapshot an Agent's system memory (draft workflow)",
-		Long: `The Agent system-memory draft workflow. This is not node history: per-node
-revisions live under 'hadron node revision'. Only 'create' exists here so far;
-publishing and restoring a revision are not available from the CLI yet.`,
+		Short: "Create, publish, or restore revisions of an Agent's system memory",
+		Long: `The Agent system-memory draft workflow: create a revision, publish one, or
+restore an earlier one. This is not node history: per-node revisions live under
+'hadron node revision'. Listing revisions is not available from the CLI yet
+(cli#2495: it waits on a server-side list contract).`,
 	}
-	cmd.AddCommand(newCmdAgentRevisionCreate(f))
+	cmd.AddCommand(newCmdAgentRevisionCreate(f), newCmdAgentRevisionPublish(f), newCmdAgentRevisionRestore(f))
 	return cmd
 }
 
@@ -85,6 +87,104 @@ func newCmdAgentRevisionCreate(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&description, "description", "", "a description of the revision (omitted: the server default)")
+	return cmd
+}
+
+// nonBlankRevisionLoc refuses a blank loc before any call; the original string
+// (never the trimmed one) is what goes to the server.
+func nonBlankRevisionLoc(arg string) (string, error) {
+	if strings.TrimSpace(arg) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "the revision location is empty")
+	}
+	return arg, nil
+}
+
+func newCmdAgentRevisionPublish(f *cmdutil.Factory) *cobra.Command {
+	var versionLabel string
+	cmd := &cobra.Command{
+		Use:   "publish <agent> <revision-loc> [--version-label <text>]",
+		Short: "Publish a revision of an Agent's system memory",
+		Long: `Publish the named revision of the Agent's system memory and print what the
+server returned. Needs ADMIN on the Agent; the server decides. An unset
+--version-label leaves the server's default label.`,
+		Example: `  hadron agent revision publish hrn:agent:acme.com:bot revisions:draft-7 --version-label launch`,
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := nonBlankAgentRef(args[0])
+			if err != nil {
+				return err
+			}
+			loc, err := nonBlankRevisionLoc(args[1])
+			if err != nil {
+				return err
+			}
+			var label *string
+			if cmd.Flags().Changed("version-label") {
+				label = &versionLabel
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.PublishRevision(cmd.Context(), client, ref, loc, label)
+			if err != nil {
+				return api.MapError(err)
+			}
+			r := resp.PublishRevision
+			if r == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no revision")
+			}
+			dto := agentRevisionDTO{RevisionLoc: r.RevisionLoc, Label: r.Label, Published: r.Published, CreatedAt: r.CreatedAt}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ published revision %s (label %s, published: %t)\n",
+					output.SafeCell(dto.RevisionLoc), output.SafeCell(dto.Label), dto.Published)
+				return err
+			})
+		},
+	}
+	cmd.Flags().StringVar(&versionLabel, "version-label", "", "a version label for the published revision (omitted: the server default)")
+	return cmd
+}
+
+func newCmdAgentRevisionRestore(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "restore <agent> <revision-loc>",
+		Short: "Restore an earlier revision of an Agent's system memory",
+		Long: `Restore the named revision as the Agent's current system memory and print what
+the server returned. Needs ADMIN on the Agent; the server decides what happens
+to the revision that was current. The CLI does not snapshot first: create a
+revision yourself if you want one to return to.`,
+		Example: `  hadron agent revision restore hrn:agent:acme.com:bot revisions:draft-5`,
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := nonBlankAgentRef(args[0])
+			if err != nil {
+				return err
+			}
+			loc, err := nonBlankRevisionLoc(args[1])
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.RestoreRevision(cmd.Context(), client, ref, loc)
+			if err != nil {
+				return api.MapError(err)
+			}
+			r := resp.RestoreRevision
+			if r == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no revision")
+			}
+			dto := agentRevisionDTO{RevisionLoc: r.RevisionLoc, Label: r.Label, Published: r.Published, CreatedAt: r.CreatedAt}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ restored revision %s (label %s, published: %t)\n",
+					output.SafeCell(dto.RevisionLoc), output.SafeCell(dto.Label), dto.Published)
+				return err
+			})
+		},
+	}
 	return cmd
 }
 

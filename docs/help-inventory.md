@@ -266,7 +266,7 @@ section between the markers.
 <!-- group:1053 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `agent` | agents |  | n | #1053 | 9aff0f75d171 |  | unread |  |
+| `agent` | agents |  | n | #1053 | 14c6e04a7ecc |  | unread |  |
 | `agent boot-prompt` |  |  | y | #1053 | 10650306ed8f |  | unread |  |
 | `agent clone` |  |  | n | #1053 | ebd5caccad52 |  | unread |  |
 | `agent compile` |  |  | y | #1053 | 5f11e6651aba |  | unread |  |
@@ -286,8 +286,10 @@ section between the markers.
 | `agent model-group set` |  |  | y | #1053 | cac73ca08815 |  | unread |  |
 | `agent processes` |  |  | n | #1053 | d72277ca37da |  | unread |  |
 | `agent processes list` | ls |  | n | #1053 | 1b18b585ab3b |  | unread |  |
-| `agent revision` |  |  | n | #1053 | adcf723cafed |  | unread |  |
+| `agent revision` |  |  | n | #1053 | d81b1e357a16 |  | unread |  |
 | `agent revision create` |  |  | y | #1053 | 2e20a9e10e23 |  | unread |  |
+| `agent revision publish` |  |  | y | #1053 | b2d5b0d1d9c2 |  | unread |  |
+| `agent revision restore` |  |  | y | #1053 | 99323050da6f |  | unread |  |
 | `agent rm` | delete |  | y | #1053 | 94a1391417c3 |  | unread |  |
 | `agent set-base` |  |  | n | #1053 | 89bfcdad3dba |  | unread |  |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 |  | unread |  |
