@@ -2647,26 +2647,46 @@ func TestTeamSessionWhoamiCheckIsHonouredOnTheServerFallback(t *testing.T) {
 // stays null exactly as sessionId stays empty.
 func TestTeamSessionWhoamiCheckDoesNotAnswerForSeveral(t *testing.T) {
 	teamGitDir(t)
-	gql, _ := captureGraphQL(t, map[string]string{
+	// DISTINCT states keyed by session id (cli#2350): a single response reused
+	// for both rows, or two rows with their states swapped, must not pass.
+	answers := map[string]string{
+		"s-a": whoamiStateJSON("LIVE", true, "2999-01-01T00:00:00Z"),
+		"s-b": whoamiStateJSON("DORMANT", false, "2026-01-01T00:00:00Z"),
+	}
+	fk := newStateFake(t, "", map[string]string{
 		"AuthContext": whoamiAuthJSON,
 		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` +
 			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
 			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}}`,
-		"GetBoundSessionState": whoamiStateJSON("LIVE", true, "2026-09-20T10:00:00Z"),
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "whoami", "--check", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
+	}, func(id string) string { return answers[id] })
+	out, err := runState815(t, fk, "team", "session", "whoami", "--check", "--json")
+	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var raw map[string]json.RawMessage
-	_ = json.Unmarshal([]byte(out.String()), &raw)
+	_ = json.Unmarshal([]byte(out), &raw)
 	if string(raw["checked"]) != "true" {
 		t.Errorf("checked = %s, want true", raw["checked"])
 	}
 	if string(raw["active"]) != "null" {
 		t.Errorf("active = %s, want null — several sessions have no single answer", raw["active"])
+	}
+	var rows []struct {
+		SessionID string `json:"sessionId"`
+		State     string `json:"state"`
+		Live      bool   `json:"live"`
+	}
+	if err := json.Unmarshal(raw["candidateStates"], &rows); err != nil || len(rows) != 2 {
+		t.Fatalf("candidateStates = %s (%v), want one row per candidate", raw["candidateStates"], err)
+	}
+	if rows[0].SessionID != "s-a" || rows[0].State != "live" || !rows[0].Live {
+		t.Errorf("row 0 = %+v, want s-a live", rows[0])
+	}
+	if rows[1].SessionID != "s-b" || rows[1].State != "dormant" || rows[1].Live {
+		t.Errorf("row 1 = %+v, want s-b dormant and not live", rows[1])
+	}
+	if fk.count("GetBoundSessionState") != 2 {
+		t.Errorf("one state read per candidate, got %d", fk.count("GetBoundSessionState"))
 	}
 }
 

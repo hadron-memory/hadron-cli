@@ -74,9 +74,16 @@ func reservedNoProjectParent(handle string) bool {
 	return true
 }
 
-// refNamesTask reports whether a task ref, as sent, names this task: its id,
-// its bare handle, or its handle qualified as hrn:agenttask:<root>:<slug>:<handle>
-// (typed, or composed from --app).
+// refNamesTask reports whether a task ref, as sent, names the task with this id
+// and handle: its id, its bare handle, or its handle qualified as
+// hrn:agenttask:<root>:<slug>:<handle> (typed, or composed from --app; flat or
+// embedded-App form). The ref is parsed (taskRefParts), so a malformed URN or an
+// extra segment does not match on a bare suffix.
+//
+// It compares the HANDLE only, never the App qualifier's text, on purpose: a
+// renamed App's old slug still resolves to the same App (cor:urn:030:01), and
+// the caller's rows are one App's chain, the App the server resolved the ref to,
+// so a qualifier for "another App" cannot reach a row of this one.
 func refNamesTask(ref, id, handle string) bool {
 	if ref == id {
 		return true
@@ -87,8 +94,8 @@ func refNamesTask(ref, id, handle string) bool {
 	if strings.EqualFold(ref, handle) {
 		return true
 	}
-	lower := strings.ToLower(ref)
-	return strings.HasPrefix(lower, "hrn:agenttask:") && strings.HasSuffix(lower, ":"+strings.ToLower(handle))
+	_, _, refHandle, ok := taskRefParts(ref)
+	return ok && strings.EqualFold(refHandle, handle)
 }
 
 // ---- get ------------------------------------------------------------------
