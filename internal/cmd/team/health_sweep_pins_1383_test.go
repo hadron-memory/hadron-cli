@@ -4,6 +4,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -103,7 +104,7 @@ func TestHealthSweepHelpStatesJointRefusal1383(t *testing.T) {
 	if sweep == "" {
 		t.Fatal("no sweep command")
 	}
-	want := "A malformed registered worker is exit 1 even when the host registration is also not live: that check runs first."
+	want := "A malformed registered worker is exit 1 even when the host registration is also not live: the sweep validates the registered workers before it checks whether the host registration is live."
 	if !strings.Contains(strings.Join(strings.Fields(sweep), " "), want) {
 		t.Fatalf("the sweep help does not state the joint case; want %q in:\n%s", want, sweep)
 	}
@@ -122,30 +123,49 @@ func TestHealthSweepHumanNameIsNeutralised1383(t *testing.T) {
 	if strings.ContainsRune(out, 0x1b) {
 		t.Fatalf("raw escape in the text output: %q", out)
 	}
-	if !strings.Contains(out, "Ir") || !strings.Contains(out, "is") {
-		t.Fatalf("the worker's row is missing: %q", out)
+	// SafeCell turns the escape byte into a space and keeps the rest of the
+	// name: the worker's own row starts with exactly that cell.
+	var row string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, "Ir ") {
+			row = line
+		}
+	}
+	if !strings.HasPrefix(row, "Ir [31mis  locked") {
+		t.Fatalf("the worker's row does not start with the sanitized name: %q in %q", row, out)
 	}
 }
 
-// Oversized stdout kills the REAL child: the run returns at once, with a
-// failure, and the child process is gone. (#1181 pins the buffer callback.)
+// Oversized stdout kills the REAL child. The read is given a 6-second deadline
+// and the child sleeps far longer, so the only thing that can end the run early
+// is the overflow cancel: a run that ends in the deadline class (the bound was
+// bypassed and the child ran into the timeout) fails, and so does one that takes
+// the deadline's time. (#1181 pins the buffer callback.)
 func TestHealthStatusOverflowKillsTheChild1383(t *testing.T) {
 	dir := t.TempDir()
-	pidFile := filepath.Join(dir, "pid")
 	bin := filepath.Join(dir, "fake-status")
-	script := "#!/bin/sh\necho $$ > '" + pidFile + "'\nhead -c 9437184 /dev/zero\nexec sleep 30\n"
+	// The pid file sits next to the script, named from $0, so no path is
+	// interpolated into the script text.
+	script := "#!/bin/sh\necho $$ > \"$(dirname \"$0\")/pid\"\nhead -c 9437184 /dev/zero\nexec sleep 120\n"
 	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
+	const deadline = 6 * time.Second
+	ctx := withHealthStatusTimeout(context.Background(), deadline)
 	start := time.Now()
-	raw, code, err := runHealthStatusCommandEnv(context.Background(), bin, filepath.Join(dir, "host.yaml"), hostpoller.ScrubbedEnv(os.Environ(), "SYNTHETIC_KEY_1383"))
+	raw, code, err := runHealthStatusCommandEnv(ctx, bin, filepath.Join(dir, "host.yaml"), hostpoller.ScrubbedEnv(os.Environ(), "SYNTHETIC_KEY_1383"))
+	took := time.Since(start)
+	var timedOut errHealthStatusTimeout
+	if errors.As(err, &timedOut) {
+		t.Fatalf("the read ended in its deadline after %s, not by the overflow cancel: %v", took, err)
+	}
 	if err == nil || raw != nil || code == 0 {
 		t.Fatalf("an oversized read must fail with no output: code %d err %v len %d", code, err, len(raw))
 	}
-	if took := time.Since(start); took > 15*time.Second {
-		t.Fatalf("the child was not cancelled on overflow: the run took %s", took)
+	if took >= deadline-time.Second {
+		t.Fatalf("the child was not cancelled on overflow: the run took %s of a %s deadline", took, deadline)
 	}
-	b, rerr := os.ReadFile(pidFile)
+	b, rerr := os.ReadFile(filepath.Join(dir, "pid"))
 	if rerr != nil {
 		t.Fatal(rerr)
 	}
