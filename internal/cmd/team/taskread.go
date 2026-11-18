@@ -150,13 +150,19 @@ original values.`,
 			if resp.AgentTask == nil {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", taskId)
 			}
-			detail := taskDetailDTO{taskDTO: taskDTOFrom(resp.AgentTask.AgentTaskFields)}
+			base, err := taskDTOFrom(resp.AgentTask.AgentTaskFields)
+			if err != nil {
+				return err
+			}
+			detail := taskDetailDTO{taskDTO: base}
 			if src := resp.AgentTask.ClonedFrom; src != nil {
 				detail.ClonedFrom = &taskDependencyDTO{ID: src.Id, Handle: src.Handle, Title: src.Title, Status: string(src.Status)}
 			}
 			detail.Clones = &taskDependencyPageDTO{Items: []taskDependencyDTO{}}
 			if p := resp.AgentTask.Clones; p != nil {
-				detail.Clones = dependencyPage(p.Total, p.HasMore, p.Items)
+				if detail.Clones, err = dependencyPage("clones", p.Total, p.HasMore, p.Items); err != nil {
+					return err
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, detail, func(w io.Writer) error {
 				if err := renderTaskDetail(w, detail.taskDTO); err != nil {
@@ -755,7 +761,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range r.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(r.AgentTasks), nil
@@ -769,7 +779,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range r.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(r.AgentTasks), nil
@@ -783,7 +797,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range resp.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(resp.AgentTasks), nil
@@ -795,7 +813,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range resp.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(resp.AgentTasks), nil
@@ -806,7 +828,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 	}
 	for _, t := range resp.AgentTasks {
 		if t != nil {
-			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			task, err := taskDTOFrom(t.AgentTaskFields)
+			if err != nil {
+				return nil, 0, err
+			}
+			tasks = append(tasks, task)
 		}
 	}
 	return tasks, len(resp.AgentTasks), nil
@@ -1044,7 +1070,10 @@ walk is complete.`,
 				if t == nil {
 					continue
 				}
-				dto := taskDTOFrom(t.AgentTaskFields)
+				dto, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return err
+				}
 				if n, ok := alarmsByTask[dto.ID]; ok {
 					open := n
 					dto.OpenAlarms = &open

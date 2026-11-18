@@ -290,7 +290,10 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 			if err != nil {
 				return api.WithServerCode(mapTaskError(err), err)
 			}
-			task := taskDTOFrom(resp.CloneAgentTask.AgentTaskFields)
+			task, err := taskDTOFromWrite(resp.CloneAgentTask.AgentTaskFields)
+			if err != nil {
+				return err
+			}
 			return writeTaskMutation(f, task, taskWarningsFor(sink, "cloneAgentTask"), func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ cloned task %s as %s (%s)\n", output.SafeCell(ref), taskRef(task.Handle, task.ID), task.Status); err != nil {
 					return err
