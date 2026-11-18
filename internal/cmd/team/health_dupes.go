@@ -149,9 +149,9 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 				// would be closed unread (#2037 review). The close needs
 				// every terminal of the tab as it is NOW to classify bare,
 				// and a live handle from that same fresh listing. A declined
-				// close leaves its skip row in the receipt (#2037 N3): the
-				// fix stays visible as not applied, why it was declined, and
-				// the next sweep rechecks.
+				// close leaves its skip row in the receipt (#2037 N3) and NO
+				// close-tab fix row (the tests pin that): the skip code says
+				// why it was declined, and the next sweep rechecks.
 				handle, stillBare, decline := tabBareNow(ctx, client, w, fix.Subject)
 				if handle == "" || !stillBare {
 					res.Skips = append(res.Skips, dupeSkip{Worker: fix.Worker, Code: decline})
