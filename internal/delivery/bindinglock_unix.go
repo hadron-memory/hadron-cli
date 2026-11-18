@@ -30,7 +30,7 @@ var lockCreatedHook func(path string)
 func openLockFile(dir, name string, beforeCreate func() error) (*os.File, error) {
 	dfd, err := unix.Open(dir, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return nil, fmt.Errorf("opening the session binding location (a link?): %w", err)
+		return nil, fmt.Errorf("opening the session binding location%s: %w", lockOpenHint(err), err)
 	}
 	defer func() { _ = unix.Close(dfd) }()
 	if afterDirOpenHook != nil {
@@ -49,9 +49,21 @@ func openLockFile(dir, name string, beforeCreate func() error) (*os.File, error)
 		fd, err = createLockExact(dfd, dir, name, flags)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("opening the session binding lock (a link?): %w", err)
+		return nil, fmt.Errorf("opening the session binding lock%s: %w", lockOpenHint(err), err)
 	}
 	return os.NewFile(uintptr(fd), filepath.Join(dir, name)), nil
+}
+
+// lockOpenHint says what an open failure most likely is. EACCES is a
+// permission problem with an owner-side repair (the directory or lock file is
+// not readable and writable by this user), not a link; any other failure keeps
+// the link hint, since O_NOFOLLOW refusals (ELOOP, ENOTDIR) are what it was for
+// (cli#2326).
+func lockOpenHint(err error) string {
+	if errors.Is(err, unix.EACCES) {
+		return " (permission denied: the worktree's owner can repair it by making the binding directory and lock file readable and writable by the user running this command)"
+	}
+	return " (a link?)"
 }
 
 // createLockExact creates the lock WITH ITS FINAL MODE and publishes it under

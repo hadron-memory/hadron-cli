@@ -42,10 +42,11 @@ func LockBinding(worktree string, wait time.Duration) (release func(), err error
 		return func() {}, nil
 	case bindingDirUnusable:
 		return nil, errors.New("the worktree's .git pointer cannot be read")
-	case bindingDirGit:
+	case bindingDirGit, bindingDirPlain:
 		beforeCreate = func() error { return allowBindingCreation(worktree) }
-	case bindingDirPlain:
-		beforeCreate = func() error { return allowBindingCreation(worktree) }
+		if state == bindingDirGit {
+			break
+		}
 		// A plain directory's cache is created by the first bind, under this
 		// same lock. Create it here, owner-only, as that bind does, so the
 		// lock exists for both sides before anyone reads or writes: a bind

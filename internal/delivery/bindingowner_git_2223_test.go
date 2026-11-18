@@ -78,7 +78,10 @@ func TestGitBindingMissingLockOwner2223(t *testing.T) {
 						}
 						return ownerUID2223{info, 1001}, nil
 					})
+					// The lock's mode must not depend on the runner's umask.
+					oldMask := syscall.Umask(0o077)
 					release, err := LockBinding(work, time.Second)
+					syscall.Umask(oldMask)
 					if release != nil {
 						release()
 					}
@@ -89,7 +92,7 @@ func TestGitBindingMissingLockOwner2223(t *testing.T) {
 						}
 						info, err := os.Stat(lock)
 						if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0600 {
-							t.Fatalf("owner lock not created0600: %v %v", info, err)
+							t.Fatalf("owner lock not created with mode 0600: %v %v", info, err)
 						}
 					} else {
 						if err == nil || release != nil || !strings.Contains(err.Error(), "nothing was created") || !strings.Contains(err.Error(), fmt.Sprintf("uid %d", process.uid)) || !strings.Contains(err.Error(), "uid 1001") {
@@ -187,4 +190,26 @@ func TestGitBindingUnprovenOwnerCreatesNothing2223(t *testing.T) {
 			}
 		})
 	}
+}
+
+// cli#2326: the existing-lock rule holds for a plain directory's cache too,
+// not only a git directory: no owner proof is requested.
+func TestPlainBindingExistingLockNeedsNoOwnerProof2326(t *testing.T) {
+	work := t.TempDir()
+	cache := filepath.Join(work, plainCacheName)
+	if err := os.Mkdir(cache, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cache, bindingLockFileName), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bindingIdentity2223(t, 2002, func(string) (os.FileInfo, error) {
+		t.Error("existing plain-cache lock requested owner proof")
+		return nil, os.ErrPermission
+	})
+	release, err := LockBinding(work, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
 }

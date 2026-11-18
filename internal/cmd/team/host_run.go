@@ -315,7 +315,12 @@ reports every outcome. One poller per host or container.
                    not taken within 2s declines the stop (#2068).
                    A plain directory whose binding cache or lock file is
                    missing is declined, not created, when this host runs
-                   as a different user from the worktree's owner.
+                   as a different user from the worktree's owner; the
+                   same refusal applies wherever the host takes that
+                   lock (the stop, a reset relaunch and its cleanup).
+                   An existing lock is opened under ordinary file
+                   permissions, so a user who cannot read and write it
+                   is refused by the OS, not by this rule.
                    TRANSITIONAL: the field goes with host.yaml
                    (Agent.lifecycle replaces it, hadron-server#4224)
   worktree.remove  only the operation's own worker's registered tree;
