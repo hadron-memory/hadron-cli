@@ -38,6 +38,7 @@ type fakeOrca2017 struct {
 	renames   [][]string
 	failList  bool
 	failOn    string
+	failCode  string // when set, the Orca error code a failed rename answers with
 	failBody  string // the rename failure answer; default is a stale-handle code
 	// cli#2166: bins records the binary each runner was built for; version is
 	// what `orca --version` prints (failVersion makes it fail); orcaBin, when
@@ -87,6 +88,10 @@ func (o *fakeOrca2017) run(_ context.Context, argv []string) orcaterm.Result {
 		if strings.Contains(","+o.failOn+",", ","+handle+",") {
 			if o.failBody != "" {
 				return orcaterm.Result{Stdout: o.failBody}
+			}
+			if o.failCode != "" {
+				b, _ := json.Marshal(map[string]any{"ok": false, "error": map[string]string{"code": o.failCode}})
+				return orcaterm.Result{Stdout: string(b)}
 			}
 			return orcaterm.Result{Stdout: `{"ok":false,"error":{"code":"terminal_handle_stale"}}`}
 		}
@@ -461,9 +466,30 @@ func TestHealthTitlesReceiptCarriesOrcaCode2040(t *testing.T) {
 	if ok.OrcaCode != nil {
 		t.Fatalf("a renamed tab has no orcaCode: %+v", ok)
 	}
-	// the wire key is present (null) on every row, never omitted
-	if !strings.Contains(out, `"orcaCode": null`) && !strings.Contains(out, `"orcaCode":null`) {
-		t.Fatalf("orcaCode must render null when absent:\n%s", out)
+	// the wire key is present on EVERY row, never omitted: null on a row with no
+	// code, the code on the failed one. Decoding into healthRename cannot tell
+	// an omitted key from an explicit null, so decode each row as raw keys.
+	var raw struct {
+		Renames []map[string]json.RawMessage `json:"renames"`
+	}
+	if err := json.Unmarshal([]byte(out), &raw); err != nil {
+		t.Fatalf("receipt is not JSON: %v\n%s", err, out)
+	}
+	if len(raw.Renames) != len(r.Renames) || len(raw.Renames) == 0 {
+		t.Fatalf("rows: raw %d decoded %d", len(raw.Renames), len(r.Renames))
+	}
+	for i, row := range raw.Renames {
+		v, present := row["orcaCode"]
+		if !present {
+			t.Fatalf("row %d omits the orcaCode key: %v", i, row)
+		}
+		want := "null"
+		if r.Renames[i].OrcaCode != nil {
+			want = `"` + *r.Renames[i].OrcaCode + `"`
+		}
+		if string(v) != want {
+			t.Errorf("row %d orcaCode=%s want %s", i, v, want)
+		}
 	}
 	// no code from Orca: null, error unchanged
 	o = newOrca2017()
@@ -668,5 +694,43 @@ func TestHealthSweepPinsABareOrcaToOneFile2166(t *testing.T) {
 	})
 	if err != nil || len(o.bins) != 1 || o.bins[0] != o.orcaBin {
 		t.Fatalf("%v runners %q", err, o.bins)
+	}
+}
+
+// cli#2337 item 3: an Orca code is an opaque string from another system, so
+// the text branch must print it as one cell: a newline or a terminal escape in
+// it must never reach the terminal raw or break the row into two lines.
+func TestHealthTitlesTextModeOrcaCodeIsOneSafeCell2337(t *testing.T) {
+	for name, code := range map[string]string{
+		"newline":    "bad\ncode",
+		"carriage":   "bad\rcode",
+		"escape":     "bad\x1b[31mred\x1b[0mcode",
+		"osc-title":  "bad\x1b]0;pwned\x07code",
+		"c1 and nul": "bad\u009bcode\x00x",
+		"bidi":       "bad\u202ecode",
+	} {
+		t.Run(name, func(t *testing.T) {
+			o := newOrca2017()
+			o.failOn = "h1,h1b"
+			o.failCode = code
+			out, _, _ := title2017RunMode(t, o, "Iris", false, "--dry-run=false")
+			if strings.ContainsAny(out, "\x1b\x07\x00\r") || strings.ContainsRune(out, '\u009b') || strings.ContainsRune(out, '\u202e') {
+				t.Fatalf("a control character reached the output: %q", out)
+			}
+			var failed []string
+			for _, l := range strings.Split(out, "\n") {
+				if strings.Contains(l, "rename failed (rename_failed; orca: ") {
+					failed = append(failed, l)
+				}
+			}
+			if len(failed) == 0 {
+				t.Fatalf("no failure line in:\n%s", out)
+			}
+			for _, l := range failed {
+				if !strings.Contains(l, `)  "Iris SHED recovery" -> "Iris"`) {
+					t.Errorf("the code split its row: %q", l)
+				}
+			}
+		})
 	}
 }
