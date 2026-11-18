@@ -698,7 +698,11 @@ hadron agentic-usage                                 # prints this doc
 ```
 
 Host mixed-wake acknowledgment (cli#1229): `host.yaml` `delivery.ack_mixed`
-is a boolean, default false. Set true only after the operator verifies server
+is a boolean, default false. It must be a real boolean wherever it is written,
+including through a YAML merge (`<<`) or an alias of `delivery`: `null`, `~`,
+`yes` and `on` are refused at config load (exit 2) naming the line, and a
+merged non-boolean is refused even when an explicit `ack_mixed: true` beside it
+would win. The strictness is deliberate (cli#1263); relaxing it needs its own gate. Set true only after the operator verifies server
 A′ (#2072, ad7f1c2) is deployed. It permits tick/task acknowledgment in a mixed
 wake without moving channel delivered-through or worker read marks (R53);
 mention text still needs its own batch. Off retains `ack-held`; mention-only
