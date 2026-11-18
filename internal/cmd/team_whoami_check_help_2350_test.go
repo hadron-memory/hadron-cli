@@ -44,3 +44,24 @@ func TestWhoamiCheckHelpDescribesTheFallback2350(t *testing.T) {
 		}
 	}
 }
+
+// The help promises the fallback never exits 14, so the promise is pinned: even
+// when the one candidate's state read says ENDED (a server that lists a session
+// as open yet reports it ended), the fallback prints its answer and exits 0.
+func TestWhoamiCheckFallbackNeverExits142350(t *testing.T) {
+	teamGitDir(t)
+	fk := newStateFake(t, "", map[string]string{
+		"AuthContext": whoamiAuthJSON,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
+			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `]}}}`,
+	}, func(string) string { return whoamiStateJSON("ENDED", false, "") })
+	for _, args := range [][]string{{"team", "session", "whoami", "--check"}, {"team", "session", "whoami", "--check", "--json"}} {
+		out, err := runState815(t, fk, args...)
+		if err != nil {
+			t.Fatalf("%v: the fallback must not fail or exit non-zero (exit %d): %v", args, exitCodeFor(err), err)
+		}
+		if !strings.Contains(strings.ToLower(out), "ended") {
+			t.Errorf("%v: the answer still reports the state: %s", args, out)
+		}
+	}
+}
