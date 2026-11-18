@@ -81,7 +81,14 @@ later execution's prompt.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := renderTaskDTO{Rendered: resp.RenderRunNode}
+			// The server declares renderRunNode String!, so an absent or null field
+			// is a broken reply, not an empty render. Refuse it: no retry and no
+			// fallback (a render records a read, cor:dmo:080:02), and nothing is
+			// printed. A valid "" is a success (cli#2268).
+			if resp == nil || resp.RenderRunNode == nil {
+				return exitcode.Newf(exitcode.Error, "the server's reply had no renderRunNode (missing or null), so nothing was rendered")
+			}
+			dto := renderTaskDTO{Rendered: *resp.RenderRunNode}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { _, err := io.WriteString(w, dto.Rendered); return err })
 		},
 	}

@@ -3891,7 +3891,11 @@ server error fails the command).
     `--args` is one JSON object inline or from `@file`, parsed before requests;
     omitted args stay omitted, `{}` stays an empty object. Raw stdout is the
     returned string verbatim (no added newline), including empty success;
-    `--json` is `{"rendered":"…"}`. The server records content reads for the
+    `--json` is `{"rendered":"…"}`. A successful reply with no `data`, empty
+    `data` or a null `renderRunNode` breaks the server's `String!` contract: it
+    exits 1 (`the server's reply had no renderRunNode …, so nothing was
+    rendered`), prints nothing, and is not retried. A valid `""` is still a
+    success. The server records content reads for the
     source and actually inlined dependencies, but no action-run or run row.
     No LLM call, local assembly/filtering, retry or legacy-renderer fallback.
     Refusals retain shared exit/envelope mapping (concealed missing 4,

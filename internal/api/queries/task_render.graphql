@@ -6,5 +6,8 @@ query RenderRunNode(
   # @genqlient(omitempty: true)
   $args: JSON
 ) {
+  # The server declares String!, but a plain string cannot tell an absent or
+  # null field from a valid empty render, so ask for a pointer (cli#2268).
+  # @genqlient(pointer: true)
   renderRunNode(nodeRef: $nodeRef, args: $args)
 }
