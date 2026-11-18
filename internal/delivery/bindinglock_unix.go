@@ -121,7 +121,7 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 		// racing actor could have replaced it and the lock's mutual exclusion
 		// would go with it. The error says how to clear it (cli#2238).
 		_ = unix.Close(fd)
-		return -1, fmt.Errorf("setting the session binding lock mode: %w (if no bind or poller is running, remove %s)", err, filepath.Join(dir, name))
+		return -1, fmt.Errorf("setting the session binding lock mode: %w (remove %s only if %s)", err, filepath.Join(dir, name), LockUsersHint)
 	}
 	return fd, nil
 }
@@ -130,8 +130,10 @@ func createLockExact(dfd int, dir, name string, flags int) (int, error) {
 // make one (FAT/exFAT, some network mounts, a cross-device or link-limited
 // directory), as opposed to a real fault such as EIO, which must surface.
 // EPERM qualifies because FAT-like filesystems and some kernels report it for
-// link(2) itself; a genuine policy denial then fails the direct create too and
-// that error is the one returned.
+// link(2) itself. EPERM can mean unsupported hard links or an
+// operation-specific denial (a policy may deny link creation yet allow ordinary
+// file creation), so the fallback may succeed in either case; when it too
+// fails, that error is the one returned.
 func linkFallbackApplies(err error) bool {
 	for _, e := range []error{unix.ENOTSUP, unix.EOPNOTSUPP, unix.EPERM, unix.EXDEV, unix.ENOSYS, unix.EMLINK} {
 		if errors.Is(err, e) {
@@ -176,7 +178,7 @@ func openLockRetrying(dfd int, name string, flags int) (int, error) {
 		time.Sleep(lockPermRetryEvery)
 	}
 	if errors.Is(err, unix.EACCES) {
-		err = fmt.Errorf("%w (the lock file is not readable and writable by you; if no bind or poller is running, remove it: an interrupted create can leave it so)", err)
+		err = fmt.Errorf("%w (the lock file is not readable and writable by you; an interrupted create can leave it so; remove it only if %s)", err, LockUsersHint)
 	}
 	return fd, err
 }
