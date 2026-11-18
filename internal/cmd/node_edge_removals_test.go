@@ -237,3 +237,120 @@ func TestNodeEdgeRemovalsUsageErrors(t *testing.T) {
 		t.Errorf("bare loc without -m: want exit %d (usage), got %d (%v)", exitcode.Usage, exitCodeFor(err), err)
 	}
 }
+
+// cli#1204 — the failure path and the two non-URN reference forms.
+
+// runEdgeRemovalsArgs runs `node edge-removals` with exactly the given
+// arguments after the server flag: the reference and any flags such as -m
+// (runEdgeRemovals always passes the fixed URN).
+func runEdgeRemovalsArgs(t *testing.T, url string, args ...string) error {
+	t.Helper()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"node", "edge-removals", "--server", url}, args...))
+	return root.Execute()
+}
+
+// A GraphQL refusal on the audit read maps to its documented exit code
+// (api.MapError) and leaves stdout empty — no rows, and no JSON "[]" a script
+// could mistake for "this node has no removals".
+func TestNodeEdgeRemovalsMappedGraphQLFailure(t *testing.T) {
+	cases := []struct {
+		code string
+		want int
+	}{
+		{"NOT_FOUND", exitcode.NotFound},
+		{"FORBIDDEN", exitcode.Forbidden},
+	}
+	for _, tc := range cases {
+		for _, asJSON := range []bool{false, true} {
+			name := tc.code
+			if asJSON {
+				name += "/json"
+			}
+			t.Run(name, func(t *testing.T) {
+				gql, captured := captureGraphQL(t, map[string]string{
+					"ResolveUrn":       `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
+					"NodeEdgeRemovals": `{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + tc.code + `"}}]}`,
+				})
+				var extra []string
+				if asJSON {
+					extra = append(extra, "--json")
+				}
+				out, _, err := runEdgeRemovals(t, gql.URL, extra...)
+				// The refusal must come from the audit read itself, not from
+				// an earlier step that happens to share the exit code.
+				if _, reached := captured["NodeEdgeRemovals"]; !reached {
+					t.Fatalf("%s: NodeEdgeRemovals was never reached", tc.code)
+				}
+				if got := exitCodeFor(err); got != tc.want {
+					t.Errorf("%s: want exit %d, got %d (%v)", tc.code, tc.want, got, err)
+				}
+				if out.Len() != 0 {
+					t.Errorf("%s: stdout must stay empty on failure, got %q", tc.code, out.String())
+				}
+			})
+		}
+	}
+}
+
+// A bare loc with -m composes onto the memory, resolves through ResolveUrn,
+// and the resolved node PK (not the loc) reaches NodeEdgeRemovals.
+func TestNodeEdgeRemovalsBareLocWithMemoryReachesQueryResolved(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
+		"NodeEdgeRemovals": edgeRemovalsTwoRows,
+	})
+	if err := runEdgeRemovalsArgs(t, gql.URL, "start-here", "-m", "hrn:mem:acme.com:kb"); err != nil {
+		t.Fatalf("node edge-removals <loc> -m: %v", err)
+	}
+	var resolve struct {
+		URN string `json:"urn"`
+	}
+	if err := json.Unmarshal(captured["ResolveUrn"], &resolve); err != nil {
+		t.Fatalf("ResolveUrn variables: %v", err)
+	}
+	if resolve.URN != "hrn:node:acme.com:kb:start-here" {
+		t.Errorf("ResolveUrn urn = %q, want the loc composed onto the memory", resolve.URN)
+	}
+	var vars struct {
+		NodeRef string `json:"nodeRef"`
+	}
+	if err := json.Unmarshal(captured["NodeEdgeRemovals"], &vars); err != nil {
+		t.Fatalf("NodeEdgeRemovals variables: %v", err)
+	}
+	if vars.NodeRef != "n1" {
+		t.Errorf("nodeRef = %q, want the resolved PK %q", vars.NodeRef, "n1")
+	}
+}
+
+// A node id addresses the node directly: no ResolveUrn round-trip, and the id
+// reaches NodeEdgeRemovals verbatim — with or without -m.
+func TestNodeEdgeRemovalsNodeIDReachesQueryVerbatim(t *testing.T) {
+	const id = "0123456789abcdef0123456789abcdef"
+	for name, args := range map[string][]string{
+		"id":         {id},
+		"id with -m": {id, "-m", "hrn:mem:acme.com:kb"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"NodeEdgeRemovals": edgeRemovalsTwoRows,
+			})
+			if err := runEdgeRemovalsArgs(t, gql.URL, args...); err != nil {
+				t.Fatalf("node edge-removals %v: %v", args, err)
+			}
+			if _, resolved := captured["ResolveUrn"]; resolved {
+				t.Errorf("%v: a node id must not round-trip through ResolveUrn", args)
+			}
+			var vars struct {
+				NodeRef string `json:"nodeRef"`
+			}
+			if err := json.Unmarshal(captured["NodeEdgeRemovals"], &vars); err != nil {
+				t.Fatalf("%v: variables: %v", args, err)
+			}
+			if vars.NodeRef != id {
+				t.Errorf("%v: nodeRef = %q, want the id %q", args, vars.NodeRef, id)
+			}
+		})
+	}
+}
