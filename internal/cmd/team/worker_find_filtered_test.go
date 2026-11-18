@@ -217,16 +217,23 @@ func TestFindFilteredTargetScope953(t *testing.T) {
 		want                        int
 		wantErr                     bool
 	}{
-		{"name uses server scope", "Iris", "hrn:app:test.com:team", "null", 1, false},
+		{"name same app", "Iris", "hrn:app:test.com:team", `"hrn:app:test.com:team"`, 1, false},
 		{"explicit ref same app", "hrn:worker:test.com:team:iris", "hrn:app:test.com:team", `"hrn:app:test.com:team"`, 1, false},
 		{"explicit ref legacy app", "hrn:worker:test.com:team:iris", "hrn:app:test.com:team", `"urn:app:test.com::team"`, 1, false},
 		{"explicit ref other app", "hrn:worker:other.com:team:iris", "hrn:app:test.com:team", `"hrn:app:other.com:team"`, 0, false},
+		{"legacy worker ref other app", "urn:worker:other.com:team:iris", "hrn:app:test.com:team", `"hrn:app:other.com:team"`, 0, false},
+		{"name with foreign returned app", "Iris", "hrn:app:test.com:team", `"hrn:app:other.com:team"`, 0, false},
+		{"explicit ref short app", "hrn:worker:test.com:team:iris", "test.com:team", `"hrn:app:test.com:team"`, 1, false},
+		{"explicit ref legacy app input", "hrn:worker:test.com:team:iris", "urn:app:test.com::team", `"hrn:app:test.com:team"`, 1, false},
+		{"name scope unavailable", "Iris", "hrn:app:test.com:team", "null", 0, true},
+		{"explicit ref opaque app", "hrn:worker:test.com:team:iris", "0123456789abcdef0123456789abcdef", "null", 1, false},
+		{"name opaque app", "Iris", "0123456789abcdef0123456789abcdef", "null", 1, false},
 		{"explicit ref scope unavailable", "hrn:worker:test.com:team:iris", "hrn:app:test.com:team", "null", 0, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				_, _ = fmt.Fprintf(w, `{"data":{"worker":{"id":"w1","name":"Iris","appId":"app1","appUrn":%s}}}`, tc.returnedApp)
+				_, _ = fmt.Fprintf(w, `{"data":{"worker":{"id":"w1","name":"Iris","appId":"0123456789abcdef0123456789abcdef","appUrn":%s}}}`, tc.returnedApp)
 			}))
 			defer server.Close()
 			f := cmdutil.NewFactory()
@@ -278,6 +285,85 @@ func TestFindFilteredRosterPagesAndRefusesPartial953(t *testing.T) {
 			}
 			if calls.Load() != 2 {
 				t.Fatal("short first page truncated roster", calls.Load())
+			}
+		})
+	}
+}
+
+func TestFindFilteredSelectedAppSources953(t *testing.T) {
+	t.Setenv("HADRON_TOKEN", "fake953")
+	const appID = "0123456789abcdef0123456789abcdef"
+	for _, mode := range []string{"short flag", "id flag", "configured short", "ambient binding"} {
+		t.Run(mode, func(t *testing.T) {
+			root := t.TempDir()
+			t.Chdir(root)
+			t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
+			wantApp := "hrn:app:test.com:team"
+			if mode == "id flag" || mode == "ambient binding" {
+				wantApp = appID
+			}
+			var calls atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req struct {
+					Variables map[string]any `json:"variables"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Variables["appRef"] != wantApp {
+					t.Error("wrong App query", req, err)
+					w.WriteHeader(400)
+					return
+				}
+				calls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{"data":{"worker":{"id":"w1","name":"Iris","appId":%q,"appUrn":"hrn:app:test.com:team"}}}`, appID)
+			}))
+			defer server.Close()
+			streams, out, _ := output.Test()
+			f := cmdutil.NewFactory()
+			f.IOStreams, f.JSON, f.ServerFlag, f.HTTPClient = streams, true, server.URL, server.Client()
+			switch mode {
+			case "short flag":
+				f.AppFlag = "test.com:team"
+			case "id flag":
+				f.AppFlag = appID
+			case "configured short":
+				dir := filepath.Join(root, "config", "hadron")
+				if err := os.MkdirAll(dir, 0700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("app = \"test.com:team\"\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			case "ambient binding":
+				dir := filepath.Join(root, ".hadron-team")
+				if err := os.Mkdir(dir, 0700); err != nil {
+					t.Fatal(err)
+				}
+				binding, err := json.Marshal(map[string]string{"appId": appID, "workerId": "w1", "server": server.URL})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), binding, 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			source := filterSources{procRoot: t.TempDir(), targets: func(ctx context.Context, app string, args []string) ([]filterreport.Target, error) {
+				if app != wantApp {
+					t.Fatalf("App source %s: got %q, want %q", mode, app, wantApp)
+				}
+				return findFilteredTargets(ctx, f, app, args)
+			}, runner: func() (orcaterm.Runner, bool) {
+				return func(context.Context, []string) orcaterm.Result {
+					return orcaterm.Result{Stdout: `{"ok":true,"result":{"terminals":[]}}`}
+				}, true
+			}}
+			cmd := newCmdWorkerFindFilteredWithSources(f, source)
+			cmd.SetArgs([]string{"urn:worker:test.com:team:iris"})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var rows []filteredWorkerDTO
+			if err := json.Unmarshal(out.Bytes(), &rows); err != nil || len(rows) != 1 || rows[0].Worker != "Iris" || rows[0].Classification != "UNREADABLE" || rows[0].Note != "no_terminal" || calls.Load() != 1 {
+				t.Fatal("selected App did not yield the named member", rows, err, calls.Load())
 			}
 		})
 	}
