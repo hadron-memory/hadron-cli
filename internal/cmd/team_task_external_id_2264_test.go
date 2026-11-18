@@ -168,31 +168,73 @@ func TestTaskExternalIDHelpStatesTheActiveRule2264(t *testing.T) {
 	}
 }
 
-// Jibril's P2s in the shipped reference and the query comments.
+// Jibril's P2s in the shipped reference and the query comments, scoped
+// (cli#2339): the reference is asserted inside the `task create --external-id`
+// paragraph, not anywhere in the file, and each query's qualification is
+// asserted in the comment attached to its own `$externalId` declaration.
+// cor:agt:120:02 holds an outside item per App, by at most one ACTIVE task, so
+// neither narrowed query finds "the live holder".
 func TestTaskExternalIDReferenceAndQueryCommentsAreQualified2264(t *testing.T) {
 	ref, err := os.ReadFile("agentic/agentic-usage.md")
 	if err != nil {
 		t.Fatal(err)
 	}
-	flat := strings.Join(strings.Fields(string(ref)), " ")
-	if strings.Contains(flat, "nobody holds it now") || !strings.Contains(flat, "under these filters") {
-		t.Error("agentic-usage.md still overclaims what an empty external-id lookup means")
+	const head = "- **`task create --external-id <id>`**"
+	doc := string(ref)
+	i := strings.Index(doc, head)
+	if i < 0 {
+		t.Fatalf("the %q paragraph is not in agentic-usage.md", head)
+	}
+	para := doc[i+len(head):]
+	if j := strings.Index(para, "\n- **"); j >= 0 {
+		para = para[:j]
+	}
+	flat := strings.Join(strings.Fields(para), " ")
+	if strings.Contains(flat, "nobody holds it now") {
+		t.Error("the task create --external-id paragraph overclaims what an empty external-id lookup means")
+	}
+	for _, want := range []string{"under these filters", "same App as the refused create", "no other narrowing filter"} {
+		if !strings.Contains(flat, want) {
+			t.Errorf("the task create --external-id paragraph does not say %q", want)
+		}
 	}
 	q, err := os.ReadFile("../api/queries/agenttasks.graphql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"AgentTaskListUnresolved", "AgentTaskListCreator"} {
-		i := strings.Index(string(q), "query "+name+"(")
+	for _, c := range []struct{ name, want string }{
+		{"AgentTaskListUnresolved", "FINISHED tasks"},
+		{"AgentTaskListCreator", "narrowed to one creator"},
+	} {
+		i := strings.Index(string(q), "query "+c.name+"(")
 		if i < 0 {
-			t.Fatalf("query %s not found", name)
+			t.Fatalf("query %s not found", c.name)
 		}
 		block := string(q)[i:]
 		if j := strings.Index(block, "\n}\n"); j > 0 {
 			block = block[:j]
 		}
 		if strings.Contains(block, "finds the live holder") {
-			t.Errorf("%s's comment promises a live-holder lookup its scope cannot give", name)
+			t.Errorf("%s's comment promises a live-holder lookup its scope cannot give", c.name)
+		}
+		// The comment lines directly above the $externalId declaration.
+		lines := strings.Split(block, "\n")
+		decl := -1
+		for k, l := range lines {
+			if strings.HasPrefix(strings.TrimSpace(l), "$externalId:") {
+				decl = k
+			}
+		}
+		if decl < 0 {
+			t.Fatalf("%s has no $externalId declaration", c.name)
+		}
+		var cm []string
+		for k := decl - 1; k >= 0 && strings.HasPrefix(strings.TrimSpace(lines[k]), "#"); k-- {
+			cm = append(cm, lines[k])
+		}
+		comment := strings.Join(strings.Fields(strings.Join(cm, " ")), " ")
+		if !strings.Contains(comment, c.want) || !strings.Contains(comment, "not the live-holder lookup") {
+			t.Errorf("%s: the comment at $externalId must say %q and %q, got: %s", c.name, c.want, "not the live-holder lookup", comment)
 		}
 	}
 }
