@@ -118,7 +118,10 @@ func TestRunGetInitialBudgets(t *testing.T) {
 	}
 }
 
-func TestRunGetNoNewFieldsHumanUnchanged(t *testing.T) {
+// cli#1428 C2: renamed from TestRunGetNoNewFieldsHumanUnchanged. The attempts
+// line now says `cost unknown` for a run without a cost, so "unchanged" no longer
+// described it; what it pins is that no reason or initial-budget line appears.
+func TestRunGetWithoutNewFieldsAddsNoReasonOrInitialLines(t *testing.T) {
 	// A fixture with none of the new fields must not gain reason or initial lines.
 	h := runGetHuman(t, appRunJSON)
 	for _, bad := range []string{"initial", "next step", "who can fix"} {
@@ -161,20 +164,69 @@ func TestRunLsCostAndReasonColumns(t *testing.T) {
 	if len(lines) != 4 || !strings.Contains(lines[0], "COST") || !strings.Contains(lines[0], "REASON") {
 		t.Fatalf("header needs COST and REASON:\n%s", out.String())
 	}
+	// cli#1428 C5: a row the renderer drops must fail here, not pass vacuously.
+	var sawOK, sawBad, sawUnk bool
 	for _, l := range lines[1:] {
 		switch {
 		case strings.HasPrefix(l, "runok"):
+			sawOK = true
 			if !strings.Contains(l, "0.0105") {
 				t.Errorf("cost missing: %s", l)
 			}
 		case strings.HasPrefix(l, "runbad"):
+			sawBad = true
 			if !strings.Contains(l, "OVER_BUDGET") {
 				t.Errorf("reason kind missing: %s", l)
 			}
 		case strings.HasPrefix(l, "rununk"):
+			sawUnk = true
 			if !strings.Contains(l, "unknown") || strings.Contains(l, "$0") {
 				t.Errorf("unknown cost marker: %s", l)
 			}
+		}
+	}
+	if !sawOK || !sawBad || !sawUnk {
+		t.Errorf("every row must be seen (runok=%v runbad=%v rununk=%v):\n%s", sawOK, sawBad, sawUnk, out.String())
+	}
+}
+
+// cli#1428 C3: a cost that is not a digit string is shown sanitized, and says
+// it is not a micro-cent count, so it cannot read as dollars. Digit strings and
+// null keep their wording.
+func TestRunCostNonDigitCarriesAMarker1428(t *testing.T) {
+	const marker = "(unrecognized)"
+	for _, tc := range []struct{ name, cost string }{
+		{"letters", `"12abc"`},
+		{"negative", `"-5"`},
+		{"empty", `""`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := runGetHuman(t, runWith(`"costMicroCents":`+tc.cost))
+			var attempts string
+			for _, l := range strings.Split(h, "\n") {
+				if strings.Contains(l, "attempts") {
+					attempts = l
+				}
+			}
+			if !strings.Contains(attempts, "cost ") || !strings.Contains(attempts, marker) || strings.Contains(attempts, "$") {
+				t.Errorf("get: non-digit cost needs the marker and no dollar sign: %q", attempts)
+			}
+			gql, _ := captureGraphQL(t, map[string]string{"AppRuns": `{"data":{"appRuns":{"total":1,"items":[` + runWith(`"costMicroCents":`+tc.cost) + `]}}}`})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"run", "ls", "--org", "acme.com", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if !strings.Contains(out.String(), marker) {
+				t.Errorf("list: non-digit cost needs the marker:\n%s", out.String())
+			}
+		})
+	}
+	// The digit and null wording is unchanged and carries no marker.
+	for _, cost := range []string{`"1050000"`, `null`} {
+		if h := runGetHuman(t, runWith(`"costMicroCents":`+cost)); strings.Contains(h, marker) {
+			t.Errorf("cost %s must not carry the marker:\n%s", cost, h)
 		}
 	}
 }

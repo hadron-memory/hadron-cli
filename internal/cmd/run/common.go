@@ -181,11 +181,30 @@ func optInt(v *int) string {
 	return fmt.Sprintf("%d", *v)
 }
 
-// formatCost renders a micro-cent count (1e-8 USD, a decimal string) as exact
+// costUnrecognized marks a cost that is not a digit string (cli#1428 C3): it is
+// shown sanitized, and without this it could read as dollars.
+const costUnrecognized = "(unrecognized)"
+
+// isMicroCentCount reports whether the server's cost is a digit string.
+func isMicroCentCount(s string) bool {
+	return s != "" && strings.Trim(s, "0123456789") == ""
+}
+
+// formatCost is formatCostValue plus the marker for a non-digit cost. The
+// sanitizing call stays inside formatCostValue, untouched.
+func formatCost(mc *string) string {
+	c := formatCostValue(mc)
+	if mc == nil || isMicroCentCount(*mc) {
+		return c
+	}
+	return strings.TrimSpace(c + " " + costUnrecognized)
+}
+
+// formatCostValue renders a micro-cent count (1e-8 USD, a decimal string) as exact
 // dollars, e.g. "1050000" -> "$0.0105 (1050000 micro-cents)". Digit-string
 // arithmetic, never a float, so any magnitude stays exact. nil is UNKNOWN and
 // says so — it is never shown as zero.
-func formatCost(mc *string) string {
+func formatCostValue(mc *string) string {
 	if mc == nil {
 		return "unknown"
 	}
@@ -210,8 +229,12 @@ func costCell(r appRunDTO) string {
 		return "unknown"
 	}
 	c := formatCost(r.CostMicroCents)
-	if i := strings.Index(c, " ("); i > 0 {
-		c = c[:i]
+	// Only the digit form carries a " (N micro-cents)" tail to cut; a non-digit
+	// cost keeps its marker (cli#1428 C3).
+	if isMicroCentCount(*r.CostMicroCents) {
+		if i := strings.Index(c, " ("); i > 0 {
+			c = c[:i]
+		}
 	}
 	return c
 }
