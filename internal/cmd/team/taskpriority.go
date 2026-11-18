@@ -31,16 +31,29 @@ type taskDependencyGetter interface {
 	GetStatus() gen.AgentTaskStatus
 }
 
-func dependencyPage[T taskDependencyGetter](total int, more bool, items []T) *taskDependencyPageDTO {
+// dependencyPage copies one provider page into its DTO. The provider declares
+// its items non-null ([AgentTask!]!), so a null item, or one with no id, is a
+// malformed answer: it is refused (exit 1, like every "server returned ..."
+// refusal, naming the page and the item) instead of skipped, which would make
+// len(Items) disagree with the page and hide a bad answer behind a good-looking
+// one (cli#1182). P is constrained to a pointer so the nil check is explicit.
+func dependencyPage[E any, P interface {
+	*E
+	taskDependencyGetter
+}](label string, total int, more bool, items []P) (*taskDependencyPageDTO, error) {
+	if items == nil {
+		// null or absent: a decoded empty array is non-nil, so this is never a
+		// legitimate empty page.
+		return nil, exitcode.Newf(exitcode.Error, "server returned a malformed %s page: items is missing or null", label)
+	}
 	d := &taskDependencyPageDTO{Items: []taskDependencyDTO{}, Total: total, HasMore: more}
-	for _, v := range items {
-		var zero T
-		if any(v) == any(zero) {
-			continue
+	for i, v := range items {
+		if v == nil || v.GetId() == "" {
+			return nil, exitcode.Newf(exitcode.Error, "server returned a malformed %s page: item %d of %d is empty", label, i+1, len(items))
 		}
 		d.Items = append(d.Items, taskDependencyDTO{v.GetId(), v.GetHandle(), v.GetTitle(), string(v.GetStatus())})
 	}
-	return d
+	return d, nil
 }
 
 func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
@@ -54,8 +67,12 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 	} else if verb == "remove-blocker" {
 		short = "Remove a blocker from a task"
 	}
-	cmd := &cobra.Command{Use: verb + " <task> " + arg, Short: short,
-		Long: dependencyWriteLong(verb) + "\n\n" + taskInstructionHelp, Example: dependencyWriteExample(verb), Args: cobra.ExactArgs(2),
+	cmd := &cobra.Command{
+		Use:     verb + " <task> " + arg,
+		Short:   short,
+		Long:    dependencyWriteLong(verb) + "\n\n" + taskInstructionHelp,
+		Example: dependencyWriteExample(verb),
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			claim, err := taskClaim(cmd, rawInstruction)
 			if err != nil {
@@ -135,9 +152,13 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 			if e != nil {
 				return mapTaskError(e)
 			}
-			dto := taskDTOFrom(fields)
+			dto, err := taskDTOFromWrite(fields)
+			if err != nil {
+				return err
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return renderTaskDetail(w, dto) })
-		}}
+		},
+	}
 	addTaskInstructionFlag(cmd, &rawInstruction)
 	return cmd
 }
@@ -219,9 +240,13 @@ func renderDependencyPage(w io.Writer, label string, p *taskDependencyPageDTO) e
 	}
 	return nil
 }
+
 func newCmdTaskDependencies(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
-	c := &cobra.Command{Use: "dependencies <task>", Short: "Read pages of a task's blockers and what it blocks", Long: `Read a task's dependencies in both directions: "blocked by" lists the
+	c := &cobra.Command{
+		Use:   "dependencies <task>",
+		Short: "Read pages of a task's blockers and what it blocks",
+		Long: `Read a task's dependencies in both directions: "blocked by" lists the
 tasks it waits for, "blocks" the tasks waiting for it (see
 ` + "`task add-blocker`" + `). Task get and list show the first 20 of each; this
 command pages both directions together with --limit/--offset and reports each
@@ -230,44 +255,52 @@ a short page. Refs are ids or handles. Sign in first. --app does not qualify
 these references. For an ambiguous bare handle, pass an id or a qualified
 handle such as hrn:agenttask:example.com:team:AT1.2. Text prints each
 direction's page and counts; --json returns id, blockedBy and blocks with
-items/total/hasMore. A hidden or missing task exits 4. Reads write nothing.`, Example: "  hadron team task dependencies AT1.3\n  hadron team task dependencies AT1.3 --limit 20 --offset 20 --json", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
-		if err := checkTaskPage(limit, offset); err != nil {
-			return err
-		}
-		ref, err := taskRefArg(f, a)
-		if err != nil {
-			return err
-		}
-		client, err := f.GraphQLClient()
-		if err != nil {
-			return err
-		}
-		r, err := gen.AgentTaskDependencies(c.Context(), client, ref, limit, offset)
-		if err != nil {
-			return mapTaskError(err)
-		}
-		if r.AgentTask == nil {
-			return exitcode.Newf(exitcode.NotFound, "task not found")
-		}
-		d := struct {
-			ID        string                 `json:"id"`
-			BlockedBy *taskDependencyPageDTO `json:"blockedBy"`
-			Blocks    *taskDependencyPageDTO `json:"blocks"`
-		}{ID: r.AgentTask.Id}
-		if p := r.AgentTask.BlockedBy; p != nil {
-			d.BlockedBy = dependencyPage(p.Total, p.HasMore, p.Items)
-		}
-		if p := r.AgentTask.Blocks; p != nil {
-			d.Blocks = dependencyPage(p.Total, p.HasMore, p.Items)
-		}
-		return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-			if err := renderDependencyPage(w, "blocked by", d.BlockedBy); err != nil {
+items/total/hasMore. A hidden or missing task exits 4. Reads write nothing.`,
+		Example: "  hadron team task dependencies AT1.3\n  hadron team task dependencies AT1.3 --limit 20 --offset 20 --json",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, a []string) error {
+			if err := checkTaskPage(limit, offset); err != nil {
 				return err
 			}
-			return renderDependencyPage(w, "blocks", d.Blocks)
-		})
-	}}
-	c.Flags().IntVar(&limit, "limit", 20, "page size (default 20, cap 200)")
+			ref, err := taskRefArg(f, a)
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			r, err := gen.AgentTaskDependencies(c.Context(), client, ref, limit, offset)
+			if err != nil {
+				return mapTaskError(err)
+			}
+			if r.AgentTask == nil {
+				return exitcode.Newf(exitcode.NotFound, "task not found")
+			}
+			d := struct {
+				ID        string                 `json:"id"`
+				BlockedBy *taskDependencyPageDTO `json:"blockedBy"`
+				Blocks    *taskDependencyPageDTO `json:"blocks"`
+			}{ID: r.AgentTask.Id}
+			if p := r.AgentTask.BlockedBy; p != nil {
+				if d.BlockedBy, err = dependencyPage("blockedBy", p.Total, p.HasMore, p.Items); err != nil {
+					return err
+				}
+			}
+			if p := r.AgentTask.Blocks; p != nil {
+				if d.Blocks, err = dependencyPage("blocks", p.Total, p.HasMore, p.Items); err != nil {
+					return err
+				}
+			}
+			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+				if err := renderDependencyPage(w, "blocked by", d.BlockedBy); err != nil {
+					return err
+				}
+				return renderDependencyPage(w, "blocks", d.Blocks)
+			})
+		},
+	}
+	c.Flags().IntVar(&limit, "limit", 20, "page size (cap 200)")
 	c.Flags().IntVar(&offset, "offset", 0, "offset in both dependency directions")
 	return c
 }

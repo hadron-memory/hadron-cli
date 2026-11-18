@@ -114,7 +114,10 @@ func finishTaskWithFindings(ctx context.Context, client graphql.Client, f *cmdut
 	if len(page.Items) > 20 {
 		return invalid()
 	}
-	task := taskDTOFrom(returned.AgentTaskFields)
+	task, err := taskDTOFrom(returned.AgentTaskFields)
+	if err != nil {
+		return uncertainFindingsFinish(exitcode.Newf(exitcode.FromError(err), "%s (task %s)", err.Error(), writtenTaskRef(returned.Handle, returned.Id)))
+	}
 	warnings := taskWarningsFor(sink, "finishAgentTask")
 	if f.JSON {
 		return output.Write(f.IOStreams, true, taskWithFindingsDTO{task, &resultWithFindingsDTO{*task.Result, page}, warnings}, nil)

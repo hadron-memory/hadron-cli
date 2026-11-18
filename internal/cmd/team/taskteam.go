@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -375,7 +376,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		}
 		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
 		for _, task := range dto.Tasks {
-			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
 				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms, task.OpenAlarmsIncomplete != nil && *task.OpenAlarmsIncomplete)))...)
 		}
 		return t.Flush()

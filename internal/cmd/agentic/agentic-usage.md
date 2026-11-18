@@ -5520,7 +5520,7 @@ f4db15e0), and naming any other field, even beside those, refuses the whole
 edit TASK_NOT_OWNER (8). Needs a server at or after hadron-server
 e09a1653 (the #2420 contract).
 
-# Task priority and dependencies (cli#1135)
+## Task priority and dependencies (cli#1135)
 `hadron team task create <title> --priority 2 --blocked-by AT1.2 --blocked-by <id>`
 sets optional priority and blockers in the same create mutation. Omitted fields
 stay omitted: the server supplies default priority 1. Priority ranges from 1 to
@@ -5535,10 +5535,16 @@ Get/list and write JSON include priority, blocked, blockedBy and blocks. The two
 relation fields are bounded pages {items:[{id,handle,title,status}],total,hasMore}
 with the first 20 entries, not complete arrays. `task dependencies <task>
 --limit 20 --offset 20 --json` reads later pages in both directions; follow each
-hasMore separately. Text list displays priority, blocked and both summaries;
-text get displays the bounded pages. No local priority sort or dependency policy.
-Refusals preserve the server code/message and mapped exit code, print no task,
-and never retry the mutation.
+hasMore separately. Text `list` displays priority, blocked and both dependency
+summaries; `list --team` displays priority and blocked without the dependency
+summaries (its --json still carries the pages); text get displays the bounded
+pages. A page item that is null or has no id is a malformed answer: the command
+refuses it (exit 1, "server returned a malformed blockedBy|blocks|clones page")
+and prints nothing, instead of dropping the item. No local priority sort or
+dependency policy. Refusals preserve the server code/message and mapped exit
+code, print no task, and never retry the mutation. `set-priority`, `add-blocker`
+and `remove-blocker` show no server warnings (as the simple task mutations);
+create, assign, reassign and finish do.
 
 hadron team task update <task> [--title <t>] [--description <d> | --clear-description] [--tag <t>… | --clear-tags] [--ref <kind>=<target>[|<label>]… | --clear-refs] [--require-role <r>] [--family-in <f,…> | --family-not-in <f,…>] [--model-group <name,...>] [--model-group-not <name,...>] [--exclude-worker <w>…] [--min-tier low|mid|high] [--clear-requirements] [--start-by <rfc3339> | --clear-start-by] [--finish-by <rfc3339> | --clear-finish-by] [--properties <json|@file> | --clear-properties] [--close-session | --no-close-session]
 hadron team task clone <task> [--parent <task> | --no-parent] [--status pending|backlog] [--title <t>] [--description <d>] [--source <s>] [--priority 1..5] [--assignee <party>] [--start-by <RFC3339>] [--finish-by <RFC3339>] [--close-session | --no-close-session] [--tag <t>… | --clear-tags] [--ref <kind>=<target>[|<label>]… | --clear-refs] [--properties <json|@file> | --clear-properties] [requirement flags | --clear-requirements] [--owner <party>] [--project]
