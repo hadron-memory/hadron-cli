@@ -127,12 +127,13 @@ func newCmdAgentLockAcquire(f *cmdutil.Factory) *cobra.Command {
 		Short: "Acquire an Agent's editor lock",
 		Long: `Ask for the editor lock. If someone else holds it, the server says the lock
 was not acquired and names who holds it and until when (null when unknown): the
-result is printed and the command exits 5 (conflict). It does not retry. Asking for a lock
-you already hold renews it.
+result is printed and the command exits 5 (conflict). It does not retry.
+Asking for a lock you already hold renews it.
 
-Prints "✓ lock acquired (until <time>)" on success, or "✗ lock not acquired
-(held by <who>) until <time>" when someone else has it; --json is {"locked":
-bool, "lockedBy": <who or null>, "expiresAt": <time or null>}.`,
+Prints "✓ lock acquired until <time>" on success ("✓ lock acquired" when the
+server gives no expiry), or "✗ lock not acquired (held by <who>) until <time>"
+when someone else has it; --json is {"locked": bool, "lockedBy": <who or null>,
+"expiresAt": <time or null>}.`,
 		Example: `  hadron agent lock acquire hrn:agent:acme.com:bot`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

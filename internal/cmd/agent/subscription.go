@@ -38,10 +38,10 @@ anyone else, and for a worker or run, the list is empty. An empty list therefore
 does not prove the organization has no licenses.
 
 The table shows one row per license: AGENT ID, ORG ID, whether it is ACTIVE, and
-when it was CREATED, ACTIVATED, EXPIRES or was REVOKED ("-" when never). Every
+when it was CREATED, ACTIVATED, EXPIRES or was REVOKED ("—" when never). Every
 license the server returns is listed, whether or not it is still active; the
-ACTIVE column and the dates tell them apart. --json is the same rows as an array, with the dates as null when they do
-not apply.
+ACTIVE column and the dates tell them apart. --json is the same rows as an
+array, with the dates as null when they do not apply.
 
 These are organization licenses, not the grants of "hadron grant" and not
 per-user Agent subscriptions. This command only reads: it does not subscribe,

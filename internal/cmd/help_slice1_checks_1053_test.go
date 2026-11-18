@@ -97,3 +97,50 @@ func TestSlice1HelpCrossReferencesResolve1053(t *testing.T) {
 		t.Fatalf("checked only %d cross-references; the pattern or the walk is wrong", checked)
 	}
 }
+
+// QA on #2499: the help quotes the output of two commands, so it is checked
+// against what the commands print. A quoted line that differs from the real one
+// (a parenthesis, a dash) misleads the reader.
+func TestHelpQuotesTheRealOutput1053(t *testing.T) {
+	flatHelp := func(path ...string) string {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(path, "--help"))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(out.String()), " ")
+	}
+	run := func(responses map[string]string, args ...string) string {
+		gql, _ := captureGraphQL(t, responses)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", gql.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return out.String()
+	}
+	t.Run("lock acquire", func(t *testing.T) {
+		out := run(map[string]string{"AcquireEditorLock": `{"data":{"acquireEditorLock":{"locked":true,"lockedBy":null,"expiresAt":"2026-11-02T01:00:00Z"}}}`}, "agent", "lock", "acquire", "hrn:agent:acme.com:bot")
+		if !strings.Contains(out, "✓ lock acquired until 2026-11-02T01:00:00Z") {
+			t.Fatalf("the command's output changed: %q", out)
+		}
+		if h := flatHelp("agent", "lock", "acquire"); !strings.Contains(h, `"✓ lock acquired until <time>"`) {
+			t.Errorf("the help must quote the success line as the command prints it")
+		}
+		out = run(map[string]string{"AcquireEditorLock": `{"data":{"acquireEditorLock":{"locked":true,"lockedBy":null,"expiresAt":null}}}`}, "agent", "lock", "acquire", "hrn:agent:acme.com:bot")
+		if strings.TrimSpace(out) != "✓ lock acquired" {
+			t.Fatalf("with no expiry the command prints %q", out)
+		}
+	})
+	t.Run("subscription list", func(t *testing.T) {
+		out := run(map[string]string{"OrgAgentGrants": `{"data":{"organization":{"agentOrgGrants":[{"agentId":"agent1","orgId":"org1","isActive":true,"createdAt":"2026-01-01T00:00:00Z","activatedAt":null,"expiresAt":null,"revokedAt":null}]}}}`}, "agent", "subscription", "list", "--org", "hrn:org:acme.com")
+		if !strings.Contains(out, "—") {
+			t.Fatalf("a license with no dates prints an em dash in the table: %q", out)
+		}
+		if h := flatHelp("agent", "subscription", "list"); !strings.Contains(h, `("—" when never)`) {
+			t.Errorf("the help must quote the dash the table prints")
+		}
+	})
+}

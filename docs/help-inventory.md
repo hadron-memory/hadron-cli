@@ -274,7 +274,7 @@ section between the markers.
 | `agent get` |  |  | y | #1053 | 4dc59ba7e552 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent list` | ls |  | n | #1053 | cf8a7a7b08c2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent lock` |  |  | n | #1053 | 1984178d701c |  | unread |  |
-| `agent lock acquire` |  |  | y | #1053 | 4308647cc837 |  | unread |  |
+| `agent lock acquire` |  |  | y | #1053 | 5c94841490ed |  | unread |  |
 | `agent lock release` |  |  | y | #1053 | bb8debad9b68 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent memory` |  |  | n | #1053 | 5321c3705fac | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent memory add` |  |  | y | #1053 | 726071c26bc3 |  | unread |  |
@@ -292,7 +292,7 @@ section between the markers.
 | `agent set-base` |  |  | n | #1053 | 262c332aec88 |  | unread |  |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent subscription` |  |  | n | #1053 | 9949cbdfb067 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `agent subscription list` | ls |  | y | #1053 | ab3ad157126b |  | unread |  |
+| `agent subscription list` | ls |  | y | #1053 | 9b122e4c198e |  | unread |  |
 | `agent tasks` |  |  | n | #1053 | 3fc6d1a6e093 |  | unread |  |
 | `agent tasks list` | ls |  | y | #1053 | afe0c812983d |  | unread |  |
 | `agent ticker-templates` | ticker-template |  | n | #1053 | 6fe99803bec1 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
