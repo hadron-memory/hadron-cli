@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -19,6 +20,23 @@ const instructionFlagUsage = instruction.FlagUsage
 const instructionHelp = instruction.Help
 
 var parseInstruction = instruction.Parse
+
+// instructionHelpMinServer is the revision instructionHelp names for the commands
+// that first shipped the flag (cli#1592); instructionHelpFor swaps it for the
+// revision a later command actually needs (cli#2505).
+const instructionHelpMinServer = "17ef5905"
+
+// instructionHelpFor renders the shared instruction help for a command whose
+// instructed path needs server revision serverMin instead of the shared one. It
+// panics when the shared text no longer names instructionHelpMinServer: a silent
+// no-op replace would print the wrong minimum server with no test failing, and
+// the panic fires while the command tree is built, so every test run sees it.
+func instructionHelpFor(serverMin string) string {
+	if !strings.Contains(instructionHelp, instructionHelpMinServer) {
+		panic("instructionHelpFor: the shared instruction help no longer names " + instructionHelpMinServer)
+	}
+	return strings.ReplaceAll(instructionHelp, instructionHelpMinServer, serverMin)
+}
 
 // instructionSnapshot is the worktree binding as it stood before the
 // command's first lookup, for an instructed write.
@@ -219,4 +237,12 @@ func BeginServerTargetInstructedWrite(f *cmdutil.Factory) func(context.Context) 
 			return api.WithSession(ctx, session), true, nil
 		}
 	}
+}
+
+// nullMutationResult2505 is the answer to a write whose success response carries
+// a null result and no errors (cli#2505, the class of cli#2477). It is a
+// malformed answer: exit 1, never a clean refusal, and never a panic. The write
+// may have been recorded, so the message says to inspect before retrying.
+func nullMutationResult2505(field, what string) error {
+	return exitcode.Newf(exitcode.Error, "the server answered %s with no %s and no error, so the outcome is unknown: it may have been recorded; inspect it before retrying", field, what)
 }
