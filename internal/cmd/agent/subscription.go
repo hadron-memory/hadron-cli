@@ -29,18 +29,24 @@ func newCmdSubscription(f *cmdutil.Factory) *cobra.Command {
 	var org string
 	list := &cobra.Command{
 		Use: "list --org <id|urn>", Aliases: []string{"ls"}, Short: "List Agent licenses visible for one organization",
-		Long: `List the organization Agent grants returned to this caller for an explicit
-organization id or URN. The server decides which grants are visible: an empty
-array is not proof that the organization has no grants globally. Run/worker or
-non-admin callers may receive an empty concealed projection.
+		Long: `List the Agent licenses an organization holds. An Agent license lets the
+organization create Apps that use that Agent, and bundle that Agent into Agents
+it owns. --org is the organization's ID or URN (for example hrn:org:acme.com).
 
-This unpaginated provider field returns its visible rows in one request; no
-client completeness or license-eligibility decision is made. Active and revoked
-rows are preserved, with server isActive and nullable lifecycle timestamps.
+You see the licenses only if you are an admin or owner of the organization; for
+anyone else, and for a worker or run, the list is empty. An empty list therefore
+does not prove the organization has no licenses.
 
-These are organization licenses, not principal-action 'hadron grant' records
-or per-user Agent subscriptions. This read does not subscribe, revoke, install
-or clean up user memories. No implicit --mine or --agent scope is supported.`,
+The table shows one row per license: AGENT ID, ORG ID, whether it is ACTIVE, and
+when it was CREATED, ACTIVATED, EXPIRES or was REVOKED ("-" when never). Expired
+and revoked licenses are listed too. --json is the same rows as an array, with
+the dates as null when they do not apply.
+
+These are organization licenses, not the grants of "hadron grant" and not
+per-user Agent subscriptions. This command only reads: it does not subscribe,
+revoke or install anything.`,
+		Example: `  hadron agent subscription list --org hrn:org:acme.com
+  hadron agent subscription list --org hrn:org:acme.com --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if strings.TrimSpace(org) == "" {
