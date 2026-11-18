@@ -353,14 +353,14 @@ section between the markers.
 | `app memory-grant list` | ls |  | y | #1053 | 52fd86bf129c |  | unread |  |
 | `app memory-grant rm` |  |  | y | #1053 | 66efd9257f04 |  | unread |  |
 | `app model-group` | model-groups |  | n | #1053 | d04d91b39f82 |  | unread |  |
-| `app model-group clear` |  |  | y | #1053 | c52a81548023 |  | unread |  |
+| `app model-group clear` |  |  | y | #1053 | 5b739d4befb9 |  | unread |  |
 | `app model-group list` | ls |  | y | #1053 | 093686984c69 |  | unread |  |
-| `app model-group set` |  |  | y | #1053 | fdc12c90a0cc |  | unread |  |
+| `app model-group set` |  |  | y | #1053 | b9d1bfaeb29b |  | unread |  |
 | `app nodes` |  |  | y | #1053 | e9555446cde7 |  | unread |  |
-| `app properties` |  |  | n | #1053 | 99c90f1b03ad |  | unread |  |
+| `app properties` |  |  | n | #1053 | 640a4c11e32f |  | unread |  |
 | `app properties clear` |  |  | y | #1053 | 80d4cf346730 |  | unread |  |
 | `app properties get` |  |  | y | #1053 | 8da394b352a5 |  | unread |  |
-| `app properties set` |  |  | y | #1053 | 1fbfb89d500d |  | unread |  |
+| `app properties set` |  |  | y | #1053 | fad2daf2313b |  | unread |  |
 | `app reinstall` |  |  | y | #1053 | 6e983efee2c8 |  | unread |  |
 | `app set-active` | use |  | y | #1053 | ec8f5a4437c3 |  | unread |  |
 | `app uninstall` |  |  | y | #1053 | 670b7331f021 |  | unread |  |
@@ -472,17 +472,17 @@ section between the markers.
 | `team composition` |  |  | n | #1054 | 56db72727109 |  | unread |  |
 | `team delivery-settings` |  |  | n | #1054 | 738b52dc071b |  | unread |  |
 | `team delivery-settings get` |  |  | n | #1054 | 21c7552c6282 |  | unread |  |
-| `team delivery-settings set` |  |  | n | #1054 | de63231d0a80 |  | unread |  |
+| `team delivery-settings set` |  |  | n | #1054 | 69f1e12f7197 |  | unread |  |
 | `team events` |  |  | n | #1054 | 3530b1366bf5 |  | unread |  |
 | `team grant` |  |  | n | #1054 | f827cf1f14f4 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | d8f3bdf456fd |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 8d8c795a7626 |  | unread |  |
-| `team grant add` |  |  | y | #1054 | e1fccd4c7faa |  | unread |  |
+| `team grant add` |  |  | y | #1054 | f0c3fab13458 |  | unread |  |
 | `team grant get` |  |  | y | #1054 | 8f2d0615ea5e |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 3732cbcdbd95 |  | unread |  |
 | `team grant request` |  |  | y | #1054 | 4eff6b71827b |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | 1999874d6881 |  | unread |  |
-| `team grant rm` |  |  | y | #1054 | 96199eac7145 |  | unread |  |
+| `team grant rm` |  |  | y | #1054 | 621a1e889eab |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 2ac5131f473e |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | fac0e2a26947 |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | 9bb0227faf93 |  | unread |  |
@@ -588,7 +588,7 @@ section between the markers.
 | `team ticker` |  |  | n | #1054 | 5f918e2933a5 |  | unread |  |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | f261ee1df23d |  | unread |  |
-| `team ticker settings set` |  |  | y | #1054 | caab02edcd58 |  | unread |  |
+| `team ticker settings set` |  |  | y | #1054 | 49756664552d |  | unread |  |
 | `team usage` |  |  | y | #1054 | 8d7f8122b307 |  | unread |  |
 | `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 |  | unread |  |
 | `team usage collect` |  |  | y | #1054 | a5848d3e96a5 |  | unread |  |

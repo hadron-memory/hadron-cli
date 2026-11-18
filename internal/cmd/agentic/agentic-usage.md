@@ -6101,8 +6101,8 @@ hadron agent model-group list <agent>
 hadron agent model-group set <agent> <name> [--pattern <glob>]...
 hadron agent model-group delete <agent> <name> [--yes]
 hadron app model-group list <app-ref>
-hadron app model-group set <app-ref> <name> [--pattern <glob>]...
-hadron app model-group clear <app-ref> <name> [--yes]
+hadron app model-group set <app-ref> <name> [--pattern <glob>]... [--instruction <kind>:<ref>]
+hadron app model-group clear <app-ref> <name> [--yes] [--instruction <kind>:<ref>]
 ```
 
 A model group is a named list of model patterns (lowercase globs: `*` any run,
@@ -6113,8 +6113,8 @@ Groups resolve live.
 
 - **Pass-through.** Names and patterns are sent exactly as given (no
   lowercasing, grammar or limit checks); the server normalises, validates and
-  authorizes, and the output prints what it stored. Nothing is read first and
-  no write is retried.
+  authorizes, and the output prints what it stored. App set/clear with
+  --instruction may resolve the App first; no write is retried.
 - **`set` replaces the whole list** (no merge). Repeat `--pattern` once per
   glob; a value is never split on commas. No `--pattern` sends `patterns: []`
   on both Agent and App set: a group that matches no one.
@@ -6153,7 +6153,7 @@ refusals. Nothing here is on MCP.
 
 ```
 hadron app properties get <app-ref>
-hadron app properties set <app-ref> <json|@file|-> [--expected-revision <n>]
+hadron app properties set <app-ref> <json|@file|-> [--expected-revision <n>] [--instruction <kind>:<ref>]
 hadron app properties clear <app-ref> [--expected-revision <n>] --yes
 hadron team task create <title> --external-id <id> …
 hadron team task list --external-id <id>
@@ -6180,14 +6180,15 @@ vocabulary and treat a limit stop as incomplete.
 
 - **`app properties`** is the App's own JSON object; the platform reads only
   its `taskIntegrations` key. Anyone who may read the App reads it (null
-  otherwise). Only whoever manages the App writes, as a person: a worker
-  session or an App key is refused (FORBIDDEN, exit 8).
+  otherwise). The server checks App-manager authority. Without --instruction, writes
+  use the ordinary authenticated caller; set also supports the held-worker
+  instruction path below. clear has no instruction flag.
 - **`get`** prints the object alone, indented. That text is valid JSON (or
   `null`), so `> props.json` round-trips; control and invisible characters
   inside strings are written as `\uXXXX` escapes (the same value). `--json`
   is `{appId, propertiesRevision, properties}`.
 - **`set`** replaces the whole object in one `setAppProperties` call (no read
-  first, no merge, no retry): the value is a JSON object, `@file`, or `-` for
+  first without --instruction, no merge, no retry): the value is a JSON object, `@file`, or `-` for
   stdin (an interactive terminal is refused). The CLI checks only that it is
   JSON and not `null` (exit 2 before any call); `{}` clears. It prints the
   stored object (`--json`: the same DTO).
@@ -6935,7 +6936,8 @@ These verbs make no local worker check. With no worker binding in the worktree t
 `hadron team grant add <worker-id-or-URN> <name>` and
 `team grant rm <worker-id-or-URN> <name> --yes` give/revoke named App grants,
 separate from the existing worker action-grant list/request workflow. Ordinary
-person authentication is used, no worker session/instruction; the server owns
+person authentication is used without --instruction; rm also supports the
+held-worker instruction path below. add has no instruction flag. The server owns
 manager permission. Names: TICKER_SUBSCRIBE_WORKERS (subscribe/unsubscribe other
 workers at any cadence), WORKERS_STAFF (headless casting/retiring/deleting;
 holder's staffing rights still apply), APP_MEMBERS (headless member add/remove;
@@ -6956,7 +6958,8 @@ dailyWakeBudget,dailyWakeBudgetDerived}. Refusals map as everywhere (FORBIDDEN 8
 --wake-daily-budget, --clear-wake-daily-budget. Omitted preserves; null
 is refused. Clear=true returns to a derived budget; =false means "do not clear", the same as
 omitting it, and is not sent. A set that names no field (a lone =false included) is refused
-(usage, exit 2) before any request; no standby flag or instruction.
+(usage, exit 2) before any request; no standby flag. --instruction alone
+does not supply a settings field.
 Server bounds: floor>=60s, self-subscription between floor and 86400s, live cap 1–100,
 budget>=0; server also checks existing ticker/delivery conflicts. The CLI parses
 GraphQL whole-number shape only. JSON: {minCadenceSeconds,liveCap,
@@ -7084,3 +7087,46 @@ Argument coverage follow-up (cli#1833):
   Older-server refusal of either new argument exits 2; no retry broadens the
   heads filter or turns a preview into a spending read. Monitoring preview
   from #1984 is unchanged; this is the public command.
+
+
+## App-manager writes with an instruction (cli#2448)
+
+Exactly these six commands accept `--instruction <kind>:<ref>`:
+`app properties set`, `app model-group set`, `app model-group clear`,
+`team delivery-settings set`, `team ticker settings set`, and `team grant rm`.
+Needs server **4bac6127** or later (delivery/ticker server#3398;
+properties/model groups server#3376; revoke server#3340). Other commands,
+including properties clear and grant add, gain no flag.
+
+Kinds are `team-chat-message`, `task`, `live-chat`; the reference is everything
+after the first colon, sent unchanged, never instruction text. A bad kind or
+blank reference is exit 2 before any prompt or request. The claim rides only
+the mutation; lookups have neither claim nor worker session.
+
+Without the flag, the existing document, variables and JSON output are
+unchanged and no worker session is attached. With it, a complete binding for
+the same server and target App, captured before the first lookup and unchanged
+immediately before sending, supplies its worker session. Otherwise the same
+claim goes as the signed-in person: an unbound shell is quiet, an unusable or
+changed binding explains the fallback on stderr. There is no retry as a
+person or without a claim after a server refusal.
+
+The server owns admission: the holder must manage the App, host-launched
+sessions are refused, and the reference must be readable and in scope. It
+checks the reference, never whether the instruction really happened. An
+admitted changing worker act records one ids-only instruction event; a no-op
+records none. A person claim is checked but not recorded as an instruction.
+The MCP tools take no instruction. `--expected-revision` is independent of
+the claim. Model-group clear and grant rm still confirm (or require `--yes`);
+confirmation precedes network requests on the instructed path.
+
+
+For instructed **interactive** `team grant rm`, the target App is selected once
+from --app, the configured App, or the binding's AppID. The prompt shows that
+exact App reference and the mutation sends it unchanged, even if the binding
+or configured App changes while answering. Attribution is still rechecked
+separately and can fall back to the person with the claim retained. A legacy
+binding carrying only teamMemory needs --app or a configured App on this one
+path: exit 2 before any prompt or request, since resolving its App would need
+a request before consent. Plain revocation and instructed --yes retain their
+existing scope resolution. (cli#2448, rulings #116456/#116489.)
