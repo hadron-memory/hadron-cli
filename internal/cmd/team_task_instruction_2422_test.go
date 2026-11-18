@@ -197,8 +197,8 @@ func TestTaskCreateInstructionRefusesTheBatchPath2422(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit %d (%v), want usage", code, err)
 	}
-	if strings.Contains(err.Error(), "unknown flag") || !strings.Contains(err.Error(), "--instruction") || !strings.Contains(err.Error(), "--batch-file") {
-		t.Fatalf("the refusal must name both flags: %v", err)
+	if strings.Contains(err.Error(), "unknown flag") || !strings.Contains(err.Error(), "--instruction") || !strings.Contains(err.Error(), "--batch-file") || !strings.Contains(err.Error(), "takes no instruction") {
+		t.Fatalf("the refusal must name both flags and say the batch write takes no instruction: %v", err)
 	}
 	if len(*calls) != 0 {
 		t.Fatalf("sent %v", opsOf2422(calls))
