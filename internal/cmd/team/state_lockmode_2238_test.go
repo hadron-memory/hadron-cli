@@ -258,7 +258,7 @@ func TestBindingLockFallbackChmodFailureIsReportedNotRemoved2238(t *testing.T) {
 		_ = f.Close()
 		t.Fatal("a failed mode change was ignored")
 	}
-	if !errors.Is(err, boom) || !strings.Contains(err.Error(), "remove "+filepath.Join(dir, bindingLockFileName)) {
+	if !errors.Is(err, boom) || !strings.Contains(err.Error(), "remove "+filepath.Join(dir, bindingLockFileName)) || !strings.Contains(err.Error(), lockUsersStopped2327) {
 		t.Fatalf("the error does not carry the cause and the remedy: %v", err)
 	}
 	if _, serr := os.Lstat(filepath.Join(dir, bindingLockFileName)); serr != nil {
@@ -317,4 +317,26 @@ func TestBindingLockFallbackPausedCreatorIsWaitedFor2238(t *testing.T) {
 		t.Fatalf("second opener should wait out the creator: %v", err)
 	}
 	_ = second.Close()
+}
+
+// #2327: the manual-delete hint must say every lock user stays stopped for the
+// whole deletion (a point-in-time "none is running" lets a later caller lock a
+// different inode), and the EPERM comment must not claim a policy denial fails
+// the direct create too.
+const lockUsersStopped2327 = "stays stopped for the whole deletion"
+
+func TestLockWordingSources2327(t *testing.T) {
+	for _, f := range []string{"state_linkerr_unix.go"} {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		src := string(b)
+		if strings.Contains(src, "fails the direct create too") {
+			t.Errorf("%s still claims a policy denial fails the direct create too", f)
+		}
+		if !strings.Contains(src, "operation-specific denial") {
+			t.Errorf("%s: the EPERM comment does not say EPERM can be an operation-specific denial", f)
+		}
+	}
 }
