@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -417,5 +418,50 @@ func TestNodeMovePlan741BareLoc(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "COMPLETE") {
 		t.Fatalf("output:\n%s", out.String())
+	}
+}
+
+// #2290 D1: when the server lists exactly --limit nodes of a larger subtree,
+// the CLI cannot tell whether --limit is at the server's bound, so the hint is
+// conditional: no firm claim either way, no bound copied, still TRUNCATED with
+// the listed and total counts (cor:api:240:01, cor:api:190:03).
+func TestNodeMovePlan2290TruncatedAtExactlyTheLimitIsConditional(t *testing.T) {
+	p := &planFake741{plan: plan741(1000, 2500, true, []any{}, false)}
+	out, err := run741(t, p, "--to-urn", "hrn:node:acme.com:archive:x", "--limit", "1000")
+	if got := exitCodeFor(err); got != exitcode.Error || err == nil {
+		t.Fatalf("exit = %d (%v)", got, err)
+	}
+	if v := onlyPlan741(t, p); v["limit"] != float64(1000) {
+		t.Fatalf("--limit must reach the server unchanged: %v", v)
+	}
+	msg := err.Error()
+	for _, want := range []string{"TRUNCATED", "1000 of 2500", "larger --limit", "if --limit is already at the server's bound", "a plan cannot list this subtree in full"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("message lacks %q: %v", want, msg)
+		}
+	}
+	// No firm claim: "that is the server's bound" is for listed < limit only,
+	// and no copied bound value.
+	if strings.Contains(msg, "that is the server's bound") || strings.Contains(msg, "--limit 2500") {
+		t.Errorf("a firm claim at listed == limit: %v", msg)
+	}
+	if !strings.Contains(out, "TRUNCATED") || strings.Contains(out, "COMPLETE") {
+		t.Errorf("the receipt must read TRUNCATED:\n%s", out)
+	}
+}
+
+// #2290 D2: the DTO comment describes what renderMovePlan prints for a null
+// linkWarnings without the withheld flag.
+func TestMovePlanDTOCommentMatchesTheRenderer2290(t *testing.T) {
+	b, err := os.ReadFile("node/move_plan.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := strings.ReplaceAll(string(b), "\n// ", " ")
+	if strings.Contains(src, "the server reported none") {
+		t.Error("the movePlanDTO comment still says the server reported none")
+	}
+	if !strings.Contains(src, `the text says "not reported by the server"`) {
+		t.Error("the movePlanDTO comment does not quote the renderer's wording")
 	}
 }
