@@ -1,9 +1,11 @@
 package instruction
 
 import (
+	"strings"
+
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"strings"
+	"github.com/spf13/cobra"
 )
 
 const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server "
@@ -97,6 +99,18 @@ needs the grant; this flag is the way to make the call from a worktree.
 Needs server 2026-11-03 or later; an older server's
 refusal is passed through, never retried without the flag. Refusals keep
 their codes: FORBIDDEN is exit 8, with serverCode in --json errors.`
+}
+
+// AddManagerFlag registers --instruction and appends ManagerHelp on one of the
+// six App-manager writes (cli#2448). The two doors, `app ...` and `team ...`,
+// share the registration but not the server minimum: each passes its own, so
+// one door's version text never moves with the other's (the same independence
+// FlagUsageForServer documents). The app door's minimum is the dated release
+// ManagerHelp names; the team door pins the server revision its settings and
+// grant mutations landed in.
+func AddManagerFlag(cmd *cobra.Command, minimum string) {
+	cmd.Flags().String("instruction", "", FlagUsageForServer(minimum))
+	cmd.Long += "\n\n" + ManagerHelp
 }
 
 // ManagerHelp is shared by the six App-manager writes in cli#2448.
