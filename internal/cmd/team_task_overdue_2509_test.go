@@ -40,7 +40,7 @@ func TestTaskListOverdueHelpNamesTheFinishByArm2509(t *testing.T) {
 		"server clock",
 		"never overdue",
 		"Blocking is ignored",
-		"requires a provider containing hadron-server#2654",
+		"needs a provider containing hadron-server#2654",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("team task list --help must say %q", want)
