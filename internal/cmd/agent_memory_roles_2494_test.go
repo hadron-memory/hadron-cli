@@ -5,11 +5,11 @@ import (
 	"testing"
 )
 
-// cli#2494: the documented agent-memory access levels are exactly `read` and
-// `read-write` (cor:dmo:050:09), and the help must say so where the user types
+// cli#2494: the documented agent-memory roles are exactly `read` and
+// `read-write`, and the help must say so where the user types
 // --role. The server still validates the value (cli#58: the client forwards
 // it as typed), so these pins are about what the help states, not a client
-// rejection.
+// rejection. The cor:dmo:050:09 citation left the help with the #2508 scrub.
 
 func agentMemoryHelp2494(t *testing.T, verb string) string {
 	t.Helper()
@@ -25,9 +25,13 @@ func agentMemoryHelp2494(t *testing.T, verb string) string {
 }
 
 func TestAgentMemoryRoleHelpNamesTheDocumentedSet2494(t *testing.T) {
-	for _, verb := range []string{"add", "set-role"} {
+	for _, tc := range []struct{ verb, flagLine string }{
+		{"add", "the Memory's role on the Agent: read or read-write"},
+		{"set-role", "the new role: read or read-write"},
+	} {
+		verb := tc.verb
 		help := agentMemoryHelp2494(t, verb)
-		for _, want := range []string{"read-write", "cor:dmo:050:09"} {
+		for _, want := range []string{"read-write", tc.flagLine} {
 			if !strings.Contains(help, want) {
 				t.Errorf("%s --help must name %q:\n%s", verb, want, help)
 			}
@@ -55,7 +59,7 @@ func TestAgentMemoryGroupHelpNamesTheDocumentedSet2494(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"read", "read-write", "cor:dmo:050:09"} {
+	for _, want := range []string{"read", "read-write", "Memory's role on an Agent is"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("agent memory --help must name %q:\n%s", want, out.String())
 		}

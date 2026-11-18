@@ -17,7 +17,7 @@ instructed it. kind is team-chat-message, task or live-chat; ref is everything
 after the first colon, unchanged, never the instruction's text. The holder
 answers for the claim and must manage the App. The server checks the reference,
 never that an instruction happened. A host-launched session is refused whatever
-it claims; there is no grant arm here. Needs server c3ca05b5 or later.
+it claims; there is no grant arm here. Needs server 2026-11-03 or later.
 
 With the flag, a complete, unchanged worktree binding for this server sends
 its worker session; the server checks the target App and holder authority.
@@ -53,7 +53,7 @@ func addCredentialInstructionRevoke(cmd *cobra.Command) {
 // addCredentialInstructionWith is the one place the flag and its help are added;
 // the two acts differ only in what an instructed call records.
 func addCredentialInstructionWith(cmd *cobra.Command, record string) {
-	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("c3ca05b5"))
+	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("2026-11-03"))
 	cmd.Long += "\n\n" + credentialInstructionHelp + "\n\n" + record
 }
 

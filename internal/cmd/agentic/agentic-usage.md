@@ -6594,7 +6594,7 @@ get; an ambiguous handle needs its fully qualified App form.
 
 `--instruction <kind>:<ref>` is available on `app key list` (including --scopes
 and --scopes --host-uses N), `app key revoke`, `app key scope revoke`,
-`app memory-grant list` and `app memory-grant rm`. Needs server c3ca05b5 or
+`app memory-grant list` and `app memory-grant rm`. Needs server 2026-11-03 or
 later. Kinds: team-chat-message, task, live-chat; sent as TEAM_CHAT_MESSAGE,
 TASK, LIVE_CHAT. Split on the first colon, ref bytes unchanged; blank/unknown
 kinds or blank refs exit 2 before any request or confirmation. A ref names the
@@ -6619,7 +6619,7 @@ never a key/scope/grant id. Minting, rotating and granting remain person-only:
 app key create/rotate, app key scope grant and memory-grant add get no flag.
 All three key list queries use TOP-LEVEL appKeysPage, never nested App.keys (which
 still refuses a worker). Scopes and hostUses use holder management at server
-c3ca05b5; they are selected unchanged and a nested refusal fails the command,
+2026-11-03; they are selected unchanged and a nested refusal fails the command,
 never rendered as empty. No raw key is selected. Output DTOs stay unchanged.
 
 ## Instructed staffing and member acts (cli#1594)
@@ -6627,7 +6627,7 @@ never rendered as empty. No raw key is selected. Output DTOs stay unchanged.
 `--instruction <kind>:<ref>` is available on `team worker cast` (and its
 `--dry-run`, `castWorkerPreview`), `team worker retire`, `team worker rm`
 (alias `delete`), `app member add` and `app member remove` (hadron-server#3308,
-rulings 0096/0097, `cor:dmo:050:12`, `cor:agt:080:24`). Needs server 517eb1db
+rulings 0096/0097, `cor:dmo:050:12`, `cor:agt:080:24`). Needs server 2026-11-03
 or later. Kinds and parsing as above: team-chat-message, task, live-chat (sent
 as TEAM_CHAT_MESSAGE, TASK, LIVE_CHAT), split on the first colon, ref bytes
 unchanged; a bad kind or blank ref exits 2 before any prompt or request.
@@ -7132,7 +7132,7 @@ No-flag request documents and JSON shapes remain unchanged.
 Exactly these six commands accept `--instruction <kind>:<ref>`:
 `app properties set`, `app model-group set`, `app model-group clear`,
 `team delivery-settings set`, `team ticker settings set`, and `team grant rm`.
-Needs server **4bac6127** or later (delivery/ticker server#3398;
+Needs server **2026-11-04** or later (delivery/ticker server#3398;
 properties/model groups server#3376; revoke server#3340). Other commands,
 including properties clear and grant add, gain no flag.
 

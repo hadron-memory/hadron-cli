@@ -371,7 +371,7 @@ func TestStaffingInstructionHelp1594(t *testing.T) {
 			t.Fatal(err)
 		}
 		help := strings.Join(strings.Fields(out.String()), " ")
-		for _, want := range []string{"--instruction", "own " + tc.grant + " grant", "host-launched session's instruction is ignored", "517eb1db", "holder answers for the claim", "never that an instruction really happened"} {
+		for _, want := range []string{"--instruction", "own " + tc.grant + " grant", "host-launched session's instruction is ignored", "2026-11-03", "holder answers for the claim", "never that an instruction really happened"} {
 			if !strings.Contains(help, want) {
 				t.Errorf("%v help lacks %q", tc.args[:3], want)
 			}

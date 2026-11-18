@@ -46,7 +46,7 @@ func newCmdJoin(f *cmdutil.Factory) *cobra.Command {
 		Short: "Join an App as yourself",
 		Long: `Join an App as the signed-in user (joinApp).
 
-Self-join is closed unless the App's primary Agent opts in (#1714): the server
+Self-join is closed unless the App's primary Agent opts in: the server
 then gives you the role the Agent names, never owner. Every refusal — closed to
 self-join, member limit reached, App not found or uninstalled, no installed
 Agent, invalid role, not signed in — is the server's own error, printed as-is
@@ -127,7 +127,7 @@ success means "not a member now", not "was removed". Confirmed first: pass
 before anything is sent.
 
 Authority is the server's. A bound worker session needs an instruction or its
-own app.members grant (cor:dmo:050:12), and an impersonating session, an App
+own app.members grant, and an impersonating session, an App
 run or an unattributable session is refused; each refusal is printed
 unchanged with a nonzero exit.`,
 		Example: `  hadron app leave hrn:app:acme.com:eng-team --yes`,

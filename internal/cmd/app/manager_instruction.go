@@ -11,7 +11,7 @@ import (
 )
 
 func addManagerInstruction(cmd *cobra.Command) {
-	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("4bac6127"))
+	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("2026-11-04"))
 	cmd.Long += "\n\n" + instruction.ManagerHelp
 }
 

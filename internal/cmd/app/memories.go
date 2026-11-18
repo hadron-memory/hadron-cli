@@ -105,8 +105,7 @@ set with 'hadron app set-active'. Exit 8 when you may not read the App's
 scope, 4 when the App is not found. Returns ONE page, ordered by memory URN: --limit
 1..%d (default %d) and --offset N. When more rows exist, stderr says how to
 fetch the next page. --json prints the page ({items, total}); each source
-adds agentName and each row adds writeTarget. The rule is in the Hadron specs
-corpus at cor:dmo:050:17.`, memoriesMaxLimit, memoriesDefaultLimit),
+adds agentName and each row adds writeTarget.`, memoriesMaxLimit, memoriesDefaultLimit),
 		Example: `  hadron app memories hrn:app:acme.com:eng-team
   hadron app memories --app hrn:app:acme.com:eng-team --json
   hadron app memories hrn:app:acme.com:eng-team --limit 50 --offset 50`,

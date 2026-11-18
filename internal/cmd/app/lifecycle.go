@@ -80,7 +80,7 @@ func newCmdDelete(f *cmdutil.Factory) *cobra.Command {
 		Use:     "delete <app-ref>",
 		Aliases: []string{"rm"},
 		Short:   "Delete an App: it stops serving, with no undelete",
-		Long: `Delete an App (cor:dmo:050:21). It stops serving and is kept, with its
+		Long: `Delete an App. It stops serving and is kept, with its
 install memories, as history; there is no undelete. A new App may later
 reclaim its handle. To keep an App read-only and reversible instead, use
 hadron app uninstall.
@@ -96,9 +96,9 @@ A missing App and a caller without the right get one identical refusal
 resolved afresh on every call: while no installed App holds it, a repeat
 gets that same refusal (exit 8), but once another App reclaims the handle
 the URN names that App, and a delete by that URN deletes that App.
-Delete and retry by id to keep the target fixed. Asks for confirmation on a terminal; a
-non-interactive caller must pass --yes. Before cli#1917 this was
-"app uninstall"; rm still means delete.`,
+Delete and retry by id to keep the target fixed. Asks for confirmation on a
+terminal; a non-interactive caller must pass --yes. This was "app uninstall"
+before deleting moved to its own command; rm still means delete.`,
 		Example: `  hadron app delete capp100000000000000000000 --yes
   hadron app rm hrn:app:acme.com:support --yes`,
 		Args: cobra.ExactArgs(1),
@@ -131,12 +131,12 @@ func newCmdUninstall(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "uninstall <app-ref>",
 		Short: "Uninstall an App: kept read-only, handle freed, reversible",
-		Long: `Uninstall an App (cor:dmo:050:21). The App is kept but read-only: every
+		Long: `Uninstall an App. The App is kept but read-only: every
 write through it is refused (APP_UNINSTALLED). Its handle is freed, so
 another App may take it, and its workers' open dark-worker episodes end.
 Reverse it with hadron app reinstall.
 
-BREAKING (cli#1917): app uninstall no longer deletes. Deleting is now
+BREAKING: app uninstall no longer deletes. Deleting is now
 hadron app delete (alias rm, which moved there with it).
 
 <app-ref> accepts an App id or URN (sent unchanged), or org:slug
@@ -175,7 +175,7 @@ func newCmdReinstall(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "reinstall <app-ref>",
 		Short: "Reinstall an uninstalled App: the same App, nothing new",
-		Long: `Reinstall an uninstalled App (cor:dmo:050:21): the same App, with its id,
+		Long: `Reinstall an uninstalled App: the same App, with its id,
 keys, members and memories, is installed again. Nothing new is created.
 
 Refused APP_URN_IN_USE (exit 5; the --json error's serverCode) while

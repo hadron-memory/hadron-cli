@@ -50,7 +50,7 @@ func newCmdAgentList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list [<app-ref>]",
 		Aliases: []string{"ls"},
 		Short:   "List the Agents installed in an App",
-		Long: `List an App's installed Agents — the AppAgent join (cor:dmo:050:03), which
+		Long: `List an App's installed Agents — the AppAgent join, which
 is what "which agents does this App run?" actually means.
 
 The App is the positional ref (ID or URN); omit it to use --app or the
@@ -58,10 +58,10 @@ configured App context.
 
 Note that ` + "`hadron agent list --app <a>`" + ` does NOT answer this: --app is the
 persistent App-context flag, not a filter, so it returns every agent you can
-read whichever App you name (#383). This command is the filter.
+read whichever App you name. This command is the filter.
 
 For a team App this is the INSTALL roster — the cast pool. The named staff
-(workers cast from these agents) is ` + "`hadron team worker list`" + ` (#428). The
+(workers cast from these agents) is ` + "`hadron team worker list`" + `. The
 ROLE column is blank for an agent without persona dressing, which is the
 honest answer rather than an empty list.
 
@@ -90,7 +90,7 @@ bootPromptRefusal (null when absent) and an optional bootPromptUrn.
 An exact initial missing-bootPromptServe validation may use one legacy listing;
 other schema, permission, transport or partial errors do not fall back.
 
-Requires a server with AppAgent.installMethod and AppAgent.importer (#3446).
+Requires a server with AppAgent.installMethod and AppAgent.importer.
 Older servers refuse the new fields; no installation method is inferred.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
   hadron app agent list --app hrn:app:acme.com:eng-team --json`,

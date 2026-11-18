@@ -23,13 +23,11 @@ func newCmdAgentMemory(f *cmdutil.Factory) *cobra.Command {
 		Short: "Attach, re-role or detach a Memory on an Agent",
 		Long: `Manage which Memories an Agent has. Each verb makes one server call and
 passes the agent and memory references exactly as typed (ID, URN or handle);
-the server resolves them, decides who may change an Agent's Memories, and
-validates the role.
+the server resolves them and decides who may change an Agent's Memories.
 
-A Memory's role on an Agent is its access level, and the documented set is
-exactly two values (cor:dmo:050:09): ` + "`read`" + ` (the Agent may read the Memory)
-and ` + "`read-write`" + ` (it may also change it). The CLI does not check the value;
-the server does, and refuses anything else.`,
+A Memory's role on an Agent is ` + "`read`" + ` (the Agent may read the Memory) or
+` + "`read-write`" + ` (it may also change it). The CLI sends the role as typed; the
+server refuses a value outside the set.`,
 	}
 	cmd.AddCommand(newCmdAgentMemoryAdd(f), newCmdAgentMemorySetRole(f), newCmdAgentMemoryRm(f))
 	return cmd
@@ -105,7 +103,7 @@ memory set-role"; to detach it, "hadron agent memory rm".`,
 			return emitAgentMemory(f, a, "✓ attached", memoryRef)
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "the Memory's access level on the Agent: read or read-write (cor:dmo:050:09; omitted: the server default; the server validates)")
+	cmd.Flags().StringVar(&role, "role", "", "the Memory's role on the Agent: read or read-write (omitted: the server default; the server validates)")
 	return cmd
 }
 
@@ -145,7 +143,7 @@ on agent <name> (<urn>)"; --json is the Agent as the server returned it.`,
 			return emitAgentMemory(f, a, "✓ set role of", memoryRef)
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "the new access level: read or read-write (cor:dmo:050:09; required; the server validates)")
+	cmd.Flags().StringVar(&role, "role", "", "the new role: read or read-write (required; the server validates)")
 	return cmd
 }
 

@@ -62,14 +62,14 @@ func newCmdMember(f *cmdutil.Factory) *cobra.Command {
 		Use:     "member <command>",
 		Aliases: []string{"members"},
 		Short:   "Manage an App's human members",
-		Long: `Add, remove and list the human members of an App (cor:dmo:050:04).
+		Long: `Add, remove and list the human members of an App.
 
 The App is the root --app flag, else the active App (` + "`hadron app use`" + `);
 there is no positional App. --user is passed to the server unchanged — an id,
 email, handle or hrn:user: URN — and is never resolved here.
 
-The roles an App offers are the union of its installed Agents' member roles
-(cor:dmo:050:04); ` + "`hadron app member roles`" + ` prints them, and
+The roles an App offers are the union of its installed Agents' member
+roles; ` + "`hadron app member roles`" + ` prints them, and
 ` + "`hadron agent update <ref> --member-roles …`" + ` changes an Agent's. Roles are
 validated by the server only, so ` + "`add --role`" + ` is never checked locally: an
 invalid role is refused with the server's own message. Authority is the
@@ -195,7 +195,7 @@ func newCmdMemberRoles(f *cmdutil.Factory) *cobra.Command {
 		Use:   "roles",
 		Short: "List the member roles an App offers",
 		Long: `List the member roles the App (--app, else the active App) offers: the union of
-its installed Agents' member roles, primary Agent first (cor:dmo:050:04). These
+its installed Agents' member roles, primary Agent first. These
 are the values ` + "`app member add --role`" + ` accepts. Change an Agent's roles with
 ` + "`hadron agent update <ref> --member-roles …`" + `.
 

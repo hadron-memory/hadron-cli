@@ -130,8 +130,8 @@ An empty JSON result is []. Access refusals come from the server.
 
 Automatically reads every page, including with --scopes, --host-uses and
 --instruction. A later-page error
-fails the command without a partial inventory. Requires server 27671b4b
-(hadron-server#3189) or later; there is no unpaged fallback.
+fails the command without a partial inventory. Requires server 2026-11-02
+or later; there is no unpaged fallback.
 
 This is not a snapshot: concurrent key changes can shift pages. A changed
 count or repeated ID fails without a partial inventory; equal-count changes

@@ -59,7 +59,7 @@ func Parse(raw string) (*gen.ActInstructionInput, error) {
 
 // StaffingFlagUsage is the flag line for the staffing and member doors
 // (cli#1594), whose minimum server is hadron-server#3308's merge.
-const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server 517eb1db or later"
+const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server 2026-11-03 or later"
 
 // StaffingHelp is the help paragraph `team worker cast|retire|rm` and
 // `app member add|remove` share (cli#1594, hadron-server#3308). grant is the
@@ -94,7 +94,7 @@ this change without an instruction needs that same grant, which nobody holds
 by default. The MCP tools take no instruction, so a worker session there
 needs the grant; this flag is the way to make the call from a worktree.
 
-Needs server 517eb1db (hadron-server#3308) or later; an older server's
+Needs server 2026-11-03 or later; an older server's
 refusal is passed through, never retried without the flag. Refusals keep
 their codes: FORBIDDEN is exit 8, with serverCode in --json errors.`
 }
@@ -105,7 +105,7 @@ holder told it to make the change. kind is team-chat-message, task or
 live-chat; ref is everything after the first colon, sent unchanged, never
 the instruction's text. A bad kind or blank ref is exit 2 before any prompt
 or request. The claim rides only the mutation; lookups carry no claim or
-worker session. Needs server 4bac6127 or later.
+worker session. Needs server 2026-11-04 or later.
 
 Without the flag this is your ordinary authenticated call, with no worker
 session and no instruction. With it, a complete worktree binding for this
