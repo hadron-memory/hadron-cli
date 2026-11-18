@@ -51267,11 +51267,11 @@ func (v *DeleteCommentResponse) GetDeleteComment() *DeleteCommentDeleteComment {
 // DeleteCommentThreadResponse is returned by DeleteCommentThread on success.
 type DeleteCommentThreadResponse struct {
 	// #1606 — a memory admin deletes a whole thread (soft: gone from every read, limit and check; the rows stay for audit, with no revision history, #1721). commentRef may be any comment of it.
-	DeleteCommentThread bool `json:"deleteCommentThread"`
+	DeleteCommentThread *bool `json:"deleteCommentThread"`
 }
 
 // GetDeleteCommentThread returns DeleteCommentThreadResponse.DeleteCommentThread, and is useful for accessing the field via an interface.
-func (v *DeleteCommentThreadResponse) GetDeleteCommentThread() bool { return v.DeleteCommentThread }
+func (v *DeleteCommentThreadResponse) GetDeleteCommentThread() *bool { return v.DeleteCommentThread }
 
 // DeleteEdgeResponse is returned by DeleteEdge on success.
 type DeleteEdgeResponse struct {
@@ -156158,6 +156158,8 @@ mutation DeleteCommentThread ($ref: ID!, $reason: String!) {
 
 // cli#1341 — a memory admin deletes a whole thread (#1606): soft, gone from
 // every read; commentRef may be any comment of it. The server owns the gate.
+// pointer: an absent or null answer decodes to nil, distinct from a real false
+// (#2538 — the outcome is unknown, not "not deleted").
 func DeleteCommentThread(
 	ctx_ context.Context,
 	client_ graphql.Client,
