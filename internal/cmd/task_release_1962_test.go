@@ -20,6 +20,30 @@ func releaseResponses1962() map[string]string {
 	return r
 }
 
+// releaseWithWarnings1962 adds the server's extensions.warnings to the release
+// response by decoding and re-encoding it, so a change to the base response's
+// formatting cannot silently corrupt the fixture. It refuses a base that is not
+// a single JSON object, or that already carries extensions, rather than guess.
+func releaseWithWarnings1962(t *testing.T, base, warnings string) string {
+	t.Helper()
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(base), &doc); err != nil {
+		t.Fatalf("the release response is not one JSON object: %v: %s", err, base)
+	}
+	if _, has := doc["extensions"]; has {
+		t.Fatalf("the release response already carries extensions: %s", base)
+	}
+	if !json.Valid([]byte(warnings)) {
+		t.Fatalf("the warnings are not valid JSON: %s", warnings)
+	}
+	doc["extensions"] = json.RawMessage(`{"warnings":` + warnings + `}`)
+	out, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
 func TestTaskReleaseGivesTheItemBack1962(t *testing.T) {
 	calls, out, err := runTeamTask(t, releaseResponses1962(), "team", "task", "release", "task1")
 	if err != nil {
@@ -52,7 +76,7 @@ func TestTaskReleaseGivesTheItemBack1962(t *testing.T) {
 
 func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
 	r := releaseResponses1962()
-	r["AgentTaskRelease"] = strings.TrimSuffix(r["AgentTaskRelease"], "}") + `,"extensions":{"warnings":[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"unmapped","taskLoc":null,"taskUrn":null}}]}}`
+	r["AgentTaskRelease"] = releaseWithWarnings1962(t, r["AgentTaskRelease"], `[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"unmapped","taskLoc":null,"taskUrn":null}}]`)
 	_, out, err := runTeamTask(t, r, "--json", "team", "task", "release", "task1")
 	if err != nil {
 		t.Fatal(err)
@@ -82,10 +106,14 @@ func TestTaskReleaseJSONCarriesTheReleasedItem1962(t *testing.T) {
 // The input path routes the warning to this mutation; it is not a JSON DTO field.
 func TestTaskReleaseJSONCarriesMappedWarning2263(t *testing.T) {
 	r := releaseResponses1962()
-	r["AgentTaskRelease"] = strings.TrimSuffix(r["AgentTaskRelease"], "}") + `,"extensions":{"warnings":[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"mapped","taskLoc":"tasks:release-advice","taskUrn":"hrn:node:acme.com:runbooks:tasks:release-advice"}}]}}`
-	_, out, err := runTeamTask(t, r, "--json", "team", "task", "release", "task1")
+	r["AgentTaskRelease"] = releaseWithWarnings1962(t, r["AgentTaskRelease"], `[{"path":"releaseAgentTaskExternalId","code":"future.release","text":"released with advice","register":{"state":"mapped","taskLoc":"tasks:release-advice","taskUrn":"hrn:node:acme.com:runbooks:tasks:release-advice"}}]`)
+	out, stderr, err := runTeamTaskStreams(t, r, "--json", "team", "task", "release", "task1")
 	if err != nil {
 		t.Fatal(err)
+	}
+	// In JSON mode the warning rides the DTO; nothing is repeated on stderr.
+	if stderr != "" {
+		t.Errorf("stderr must be silent in JSON mode, got %q", stderr)
 	}
 	var dto struct {
 		ReleasedExternalID string `json:"releasedExternalId"`
