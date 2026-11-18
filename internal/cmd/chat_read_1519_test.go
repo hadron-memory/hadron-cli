@@ -48,8 +48,16 @@ func copyGoldens1519(t *testing.T, dir string) string {
 // spelling of the request is tried; each must leave the (copied) goldens
 // byte-identical, here with a sentinel appended so an overwrite is visible.
 func TestChatReadGoldenUpdateCannotOverwriteTheBaseline1519(t *testing.T) {
-	for _, request := range []string{"1", "true", "cbe7dd3203a86ccbac893e49c14ca2082b6d19a9", "HEAD"} {
+	differs, _ := checkoutDiffersFromBaseline1516()
+	for _, request := range []string{"1", "true", baseline1516, "HEAD"} {
 		t.Run(request, func(t *testing.T) {
+			// The full pinned revision is the one spelling the guard ALLOWS, and
+			// only from a checkout whose production code equals the baseline (the
+			// original recording commit, a bisect step). There a legitimate
+			// regeneration would be authorised, so this control cannot apply.
+			if request == baseline1516 && !differs {
+				t.Skip("this checkout equals the baseline, where the pinned revision is an authorised regeneration")
+			}
 			dir := t.TempDir()
 			goldens := copyGoldens1519(t, dir)
 			target := filepath.Join(goldens, "since0-jsonfalse.golden")
@@ -61,16 +69,31 @@ func TestChatReadGoldenUpdateCannotOverwriteTheBaseline1519(t *testing.T) {
 			if err := os.WriteFile(target, tampered, 0o644); err != nil {
 				t.Fatal(err)
 			}
+			entries, err := os.ReadDir(goldens)
+			if err != nil {
+				t.Fatal(err)
+			}
 			before := map[string][]byte{}
-			entries, _ := os.ReadDir(goldens)
 			for _, e := range entries {
-				b, _ := os.ReadFile(filepath.Join(goldens, e.Name()))
+				b, err := os.ReadFile(filepath.Join(goldens, e.Name()))
+				if err != nil {
+					t.Fatal(err)
+				}
 				before[e.Name()] = b
+			}
+			if len(before) != 7 { // six goldens and PROVENANCE: the comparison below must have something to compare
+				t.Fatalf("expected 7 baseline files in the copy, got %d", len(before))
 			}
 			cmd := exec.Command(os.Args[0], "-test.run=^TestChatReadDualDrain1516$", "-test.count=1")
 			cmd.Dir = dir
-			cmd.Env = append(os.Environ(), "UPDATE_1516_GOLDENS="+request)
-			out, _ := cmd.CombinedOutput() // a refusal exits non-zero; what matters is the bytes
+			// One value for the variable: drop any the parent already exports.
+			for _, kv := range os.Environ() {
+				if !strings.HasPrefix(kv, "UPDATE_1516_GOLDENS=") {
+					cmd.Env = append(cmd.Env, kv)
+				}
+			}
+			cmd.Env = append(cmd.Env, "UPDATE_1516_GOLDENS="+request)
+			out, runErr := cmd.CombinedOutput()
 			for name, want := range before {
 				got, err := os.ReadFile(filepath.Join(goldens, name))
 				if err != nil {
@@ -79,6 +102,11 @@ func TestChatReadGoldenUpdateCannotOverwriteTheBaseline1519(t *testing.T) {
 				if string(got) != string(want) {
 					t.Fatalf("UPDATE_1516_GOLDENS=%s overwrote the baseline %s from a non-baseline checkout\nchild output:\n%s", request, name, out)
 				}
+			}
+			// Unchanged bytes alone could be a child that never ran (a renamed test,
+			// an exec failure): the refusal itself must be observed.
+			if runErr == nil || !strings.Contains(string(out), "refusing to regenerate the 1516 goldens") {
+				t.Fatalf("the child did not refuse the update request %q (err %v):\n%s", request, runErr, out)
 			}
 		})
 	}
@@ -129,8 +157,12 @@ func TestChatReadDuplicateLocKeepsTheUnqualifiedRow1519(t *testing.T) {
 		}
 	}
 	for _, out := range []string{text, raw} {
-		if strings.Contains(out, "qualified body") && !strings.Contains(out, "unqualified body") || strings.Contains(strings.ReplaceAll(out, "unqualified body", ""), "qualified body") || strings.Contains(out, "Qualified") {
-			t.Fatalf("the qualified duplicate reached the output: %s", out)
+		// "unqualified body" contains "qualified body", so strip the winner first.
+		if strings.Contains(strings.ReplaceAll(out, "unqualified body", ""), "qualified body") {
+			t.Fatalf("the qualified duplicate's body reached the output: %s", out)
+		}
+		if strings.Contains(out, "Qualified") {
+			t.Fatalf("the qualified duplicate's author reached the output: %s", out)
 		}
 	}
 	c := calls()
@@ -192,7 +224,11 @@ func TestChatReadQualifiedOnlyNilSeqRowsAndContainerExclusion1519(t *testing.T) 
 	}
 	var locs []string
 	for _, m := range doc.Messages {
-		locs = append(locs, m["loc"].(string))
+		loc, ok := m["loc"].(string)
+		if !ok {
+			t.Fatalf("a message has no string loc: %v", m)
+		}
+		locs = append(locs, loc)
 	}
 	wantLocs := []string{
 		"chats:api:messages:t1-iris", "chats:api:messages:t2-rufus", "chats:api:messages:t3-iris",
@@ -244,6 +280,9 @@ func TestChatReadGoldenBaselineMatchesItsProvenance1519(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Six is a deliberate tripwire: the since {0,1,3} x JSON {false,true} grid of
+	// TestChatReadDualDrain1516. Adding a case means re-recording from the pinned
+	// baseline and updating this number in the same reviewed change.
 	if len(goldens) != 6 || len(sums) != len(goldens) {
 		t.Fatalf("PROVENANCE lists %d goldens, %d on disk (want 6)", len(sums), len(goldens))
 	}
@@ -281,4 +320,109 @@ func TestChatReadGoldenUpdateGuard1519(t *testing.T) {
 	if err != nil || revision != baseline1516 || len(sums) != 2 || sums["a.golden"] == "" {
 		t.Fatalf("a regeneration's provenance must name its revision and hash each golden: %q %v %v", revision, sums, err)
 	}
+}
+
+// The comparison behind the guard sees the WORKING TREE and the whole
+// production tree, in a throwaway repository: committed, uncommitted and
+// untracked changes to production code all count; test files, testdata and
+// docs do not; and anything it cannot establish fails closed.
+func TestChatReadBaselineComparisonSeesTheWorkingTree1519(t *testing.T) {
+	git := func(t *testing.T, dir string, args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", dir, "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false"}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	write := func(t *testing.T, dir, rel, content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, rel), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	newRepo := func(t *testing.T) (dir, baseline string) {
+		t.Helper()
+		dir = t.TempDir()
+		git(t, dir, "init", "-q")
+		write(t, dir, "internal/cmd/chat/read.go", "package chat\n")
+		write(t, dir, "internal/cmd/root.go", "package cmd\n")
+		write(t, dir, "cmd/hadron/main.go", "package main\n")
+		write(t, dir, "go.mod", "module m\n")
+		write(t, dir, "internal/cmd/read_test.go", "package cmd\n")
+		write(t, dir, "internal/cmd/testdata/g.golden", "x\n")
+		write(t, dir, "docs/note.md", "doc\n")
+		git(t, dir, "add", "-A")
+		git(t, dir, "commit", "-q", "-m", "baseline")
+		out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return dir, strings.TrimSpace(string(out))
+	}
+	for _, tc := range []struct {
+		name    string
+		mutate  func(t *testing.T, dir string)
+		differs bool
+	}{
+		{"clean tree", func(*testing.T, string) {}, false},
+		{"only test files, testdata and docs change (committed)", func(t *testing.T, dir string) {
+			write(t, dir, "internal/cmd/read_test.go", "package cmd // changed\n")
+			write(t, dir, "internal/cmd/testdata/g.golden", "y\n")
+			write(t, dir, "docs/note.md", "changed\n")
+			git(t, dir, "commit", "-q", "-am", "tests")
+		}, false},
+		{"an untracked test file or doc", func(t *testing.T, dir string) {
+			write(t, dir, "internal/cmd/new_test.go", "package cmd\n")
+			write(t, dir, "docs/new.md", "doc\n")
+		}, false},
+		{"committed change to the reader", func(t *testing.T, dir string) {
+			write(t, dir, "internal/cmd/chat/read.go", "package chat // changed\n")
+			git(t, dir, "commit", "-q", "-am", "reader")
+		}, true},
+		{"UNCOMMITTED edit to the reader", func(t *testing.T, dir string) {
+			write(t, dir, "internal/cmd/chat/read.go", "package chat // local edit\n")
+		}, true},
+		{"UNTRACKED production file", func(t *testing.T, dir string) {
+			write(t, dir, "internal/cmd/chat/extra.go", "package chat\n")
+		}, true},
+		{"change outside the reader (command wiring)", func(t *testing.T, dir string) {
+			write(t, dir, "internal/cmd/root.go", "package cmd // wiring\n")
+			git(t, dir, "commit", "-q", "-am", "wiring")
+		}, true},
+		{"change to the entry point", func(t *testing.T, dir string) {
+			write(t, dir, "cmd/hadron/main.go", "package main // changed\n")
+		}, true},
+		{"change to go.mod", func(t *testing.T, dir string) {
+			write(t, dir, "go.mod", "module m // changed\n")
+		}, true},
+		{"deleted production file", func(t *testing.T, dir string) {
+			if err := os.Remove(filepath.Join(dir, "internal/cmd/chat/read.go")); err != nil {
+				t.Fatal(err)
+			}
+		}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir, baseline := newRepo(t)
+			tc.mutate(t, dir)
+			got, detail := compareWithBaseline1516(dir, baseline, baselineCodePathspecs1516)
+			if got != tc.differs {
+				t.Fatalf("differs=%v (%s), want %v", got, detail, tc.differs)
+			}
+			if got && !strings.Contains(detail, "HEAD ") {
+				t.Fatalf("a refusal must name the checkout's HEAD: %q", detail)
+			}
+		})
+	}
+	t.Run("fails closed", func(t *testing.T) {
+		dir, _ := newRepo(t)
+		if got, _ := compareWithBaseline1516(dir, "0123456789abcdef0123456789abcdef01234567", baselineCodePathspecs1516); !got {
+			t.Fatal("a missing baseline revision must read as differing")
+		}
+		if got, _ := compareWithBaseline1516(filepath.Join(dir, "nope"), "HEAD", baselineCodePathspecs1516); !got {
+			t.Fatal("an unreadable directory must read as differing")
+		}
+	})
 }

@@ -51,8 +51,11 @@ Follow-up pins (cli#1519). The goldens are a recorded baseline, not a value to
 keep current: `testdata/chat-read-1516/PROVENANCE` names the revision they were
 recorded from (cbe7dd32) and the SHA-256 of each, a test checks the files against
 it, and `UPDATE_1516_GOLDENS` refuses unless it names that full revision AND the
-code under test (`internal/cmd/chat`, `internal/api`) equals it (the original
-recording commit passes; #1518 and later do not). Further pins: a same-loc row
+working tree's production code (`internal/`, `cmd/`, `go.mod`, `go.sum`; test
+files and testdata excluded) equals it, with no uncommitted edit and no untracked
+production file (the original recording commit passes; #1518 and later do not).
+The check fails closed, so a shallow clone without that revision can compare but
+never regenerate. Further pins: a same-loc row
 with different content, envelope and seq in both streams emits the unqualified
 row once; the exact offset sequence of each drain (today `[0 2 4 5]`, after the
 exclusion `[0 2 4]`, explicit `[0 1]`); and qualified-only nil-seq rows plus the

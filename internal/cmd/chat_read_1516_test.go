@@ -28,11 +28,17 @@ import (
 // revision AND the code under test is byte-identical to it.
 const baseline1516 = "cbe7dd3203a86ccbac893e49c14ca2082b6d19a9"
 
-// baselineCodePaths1516 are the paths whose content defines "the code under
-// test" for the comparison; the test files themselves are allowed to differ,
-// as they did when the goldens were first recorded (the test commit sits on
-// top of the baseline revision).
-var baselineCodePaths1516 = []string{"internal/cmd/chat", "internal/api"}
+// baselineCodePathspecs1516 define "the code under test": the whole production
+// tree, not a guess at the reader's dependency closure. The goldens are produced
+// through the real command tree (package cmd drives chat read), so command
+// wiring, rendering, --since handling and the API layer all count; only test
+// files and testdata may differ, as they did when the goldens were first
+// recorded (the test commit sits on top of the baseline revision). ":(top)"
+// anchors each path at the repository root.
+var baselineCodePathspecs1516 = []string{
+	":(top)internal", ":(top)cmd", ":(top)go.mod", ":(top)go.sum",
+	":(top,exclude,glob)**/*_test.go", ":(top,exclude)**/testdata/**",
+}
 
 // guardGoldenUpdate1516 decides whether a golden update may write. codeDiffers
 // says the code under test differs from the baseline's (or could not be
@@ -42,40 +48,53 @@ func guardGoldenUpdate1516(requested string, codeDiffers bool, detail string) er
 		return fmt.Errorf("UPDATE_1516_GOLDENS must name the full pinned baseline revision %s (got %q): a bare flag would let any checkout replace the baseline", baseline1516, requested)
 	}
 	if codeDiffers {
-		return fmt.Errorf("this checkout is not the pinned baseline: the code under test (%s) differs from %s, so regenerating would record current behaviour as the baseline (%s)", strings.Join(baselineCodePaths1516, ", "), baseline1516, detail)
+		return fmt.Errorf("this checkout is not the pinned baseline: its production code (internal/, cmd/, go.mod, go.sum; test files and testdata excluded) differs from %s, so regenerating would record current behaviour as the baseline (%s)", baseline1516, detail)
 	}
 	return nil
 }
 
-// checkoutDiffersFromBaseline1516 compares the code under test with the
-// baseline revision using the repository this test file lives in. Anything it
-// cannot establish (no git, no such revision in a shallow clone, a trimmed
-// source path) counts as "differs": the guard fails closed.
+// checkoutDiffersFromBaseline1516 compares the production code with the
+// baseline revision using the repository this test file lives in.
 func checkoutDiffersFromBaseline1516() (bool, string) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		return true, "cannot locate the test source"
 	}
-	dir := filepath.Dir(file)
-	if out, err := exec.Command("git", "-C", dir, "rev-parse", "--verify", "--quiet", baseline1516+"^{commit}").CombinedOutput(); err != nil {
-		return true, "baseline revision not available here: " + strings.TrimSpace(string(out))
+	return compareWithBaseline1516(filepath.Dir(file), baseline1516, baselineCodePathspecs1516)
+}
+
+// compareWithBaseline1516 reports whether the WORKING TREE under dir differs
+// from the revision, over pathspecs. It compares the tree itself, so uncommitted
+// edits to tracked files count, and it also counts untracked files (a new file
+// can change behaviour without ever being in a diff). Anything it cannot
+// establish (no git, the revision missing from a shallow clone, a failed
+// command) counts as "differs": the guard fails closed. The detail names the
+// checkout's current HEAD so a refusal diagnoses itself.
+func compareWithBaseline1516(dir, revision string, pathspecs []string) (bool, string) {
+	head := "unknown HEAD"
+	if out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output(); err == nil {
+		head = "HEAD " + strings.TrimSpace(string(out))
 	}
-	// ":(top)" anchors each path at the repository root: -C puts git in this
-	// test's directory, where a bare "internal/api" would match nothing and
-	// read as "no difference".
-	args := []string{"-C", dir, "diff", "--quiet", baseline1516, "HEAD", "--"}
-	for _, path := range baselineCodePaths1516 {
-		args = append(args, ":(top)"+path)
+	if out, err := exec.Command("git", "-C", dir, "rev-parse", "--verify", "--quiet", revision+"^{commit}").CombinedOutput(); err != nil {
+		return true, head + "; baseline revision not available here: " + strings.TrimSpace(string(out))
 	}
-	err := exec.Command("git", args...).Run()
-	if err == nil {
-		return false, ""
+	diff := append([]string{"-C", dir, "diff", "--quiet", revision, "--"}, pathspecs...)
+	if err := exec.Command("git", diff...).Run(); err != nil {
+		var exit *exec.ExitError
+		if errors.As(err, &exit) && exit.ExitCode() == 1 {
+			return true, head + "; the working tree differs from the baseline"
+		}
+		return true, head + "; git diff failed: " + err.Error()
 	}
-	var exit *exec.ExitError
-	if errors.As(err, &exit) && exit.ExitCode() == 1 {
-		return true, "git diff reports changes"
+	untracked := append([]string{"-C", dir, "ls-files", "--others", "--exclude-standard", "--"}, pathspecs...)
+	out, err := exec.Command("git", untracked...).Output()
+	if err != nil {
+		return true, head + "; git ls-files failed: " + err.Error()
 	}
-	return true, "git diff failed: " + err.Error()
+	if strings.TrimSpace(string(out)) != "" {
+		return true, head + "; untracked files under the production tree"
+	}
+	return false, ""
 }
 
 // provenance1516 renders the PROVENANCE file: the pinned revision and the
@@ -89,7 +108,7 @@ func provenance1516(revision string, goldens map[string][]byte) string {
 	sort.Strings(names)
 	var b strings.Builder
 	fmt.Fprintf(&b, "# cli#1519: the recorded baseline of the chat read goldens (chat_read_1516_test.go).\n")
-	fmt.Fprintf(&b, "# Regenerate only from a checkout whose internal/cmd/chat and internal/api equal the revision below:\n")
+	fmt.Fprintf(&b, "# Regenerate only from a checkout whose production code (internal/, cmd/, go.mod, go.sum; not *_test.go or testdata) equals the revision below, with a clean tree:\n")
 	fmt.Fprintf(&b, "#   UPDATE_1516_GOLDENS=<revision> go test ./internal/cmd -run TestChatReadDualDrain1516\n")
 	fmt.Fprintf(&b, "revision %s\n", revision)
 	for _, name := range names {
@@ -301,7 +320,10 @@ func TestChatReadDualDrain1516(t *testing.T) {
 						// post-exclusion four-row stream asks 0,2,4; the explicit
 						// stream's one row asks 0 and 1.
 						c := calls()
-						wantLegacy := map[string]string{"today": "[0 2 4 5]", "new": "[0 2 4]"}[mode]
+						wantLegacy, known := map[string]string{"today": "[0 2 4 5]", "new": "[0 2 4]"}[mode]
+						if !known {
+							t.Fatalf("no expected offsets for mode %q: add them", mode)
+						}
 						if fmt.Sprint(c["legacy"]) != wantLegacy || fmt.Sprint(c["chat-message"]) != "[0 1]" {
 							t.Fatalf("did not drain independently: legacy %v (want %s) chat-message %v (want [0 1])", c["legacy"], wantLegacy, c["chat-message"])
 						}
