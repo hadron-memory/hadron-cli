@@ -188,7 +188,8 @@ tools-manifest-check:
 # The help audit's command-tree inventory (#1050): one row per command page,
 # read by walking `hadron <path> --help` on the freshly built binary. The
 # generator keeps the human columns (evaluator, result, finding) by path, so a
-# refresh never erases an assessment. Written through write-if-produced.sh like
+# refresh resets a row only when its help hash changes; legacy rows are seeded
+# without discarding assessments. Written through write-if-produced.sh like
 # the other generated artifacts (#555): a failing walk leaves the file alone.
 help-inventory: export WRITE_IF_PRODUCED_CMD := HADRON_BIN=bin/hadron HELP_INVENTORY_EXISTING=docs/help-inventory.md bash scripts/gen-help-inventory.sh
 help-inventory: build
