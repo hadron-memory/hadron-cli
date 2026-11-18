@@ -6606,10 +6606,13 @@ stays on this history walk.
 Without --instruction (a person), a non-TTY revoke without --yes exits 2 before
 client setup or any lookup, even if the row would be ended or missing. Otherwise
 revoke reads that ONE grant by ID with `automationTeamSnapshotGrant(id:)` (cli#1619):
-no App history is paged, and `--app` and the active App are not needed. `--app`
-is still accepted (a malformed ref still exits 2 before any request) but selects
-nothing: the confirmation names the App the server returned for the grant. A TTY
-without --yes confirms that App ID + trigger kind/ID once. An unknown id, or one in
+no App history is paged, and no App is needed (the active App is not consulted).
+Without `--app`, the confirmation names the App the server returned for the
+grant. With an explicit `--app` (a malformed ref still exits 2 before any
+request), the grant must belong to that App, else it is not found before any
+confirmation and nothing is sent: an App given as an ID is compared directly; a
+URN or root:slug costs one `app(ref:)` read to learn its ID. A TTY without --yes
+confirms the grant's App ID + trigger kind/ID once. An unknown id, or one in
 an App the caller may not manage, is the same server NOT_FOUND and the same CLI
 error: uniformly not found (exit4) and no mutation; an ended row is shown without
 another revoke. set/revoke require --yes without a terminal. Revocation is terminal.

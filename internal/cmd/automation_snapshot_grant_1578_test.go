@@ -149,6 +149,7 @@ func TestSnapshotGrant1578Revoke(t *testing.T) {
 			}
 			r := taskResponses()
 			r["AutomationTeamSnapshotGrantById"] = byIDOrMissing1619(row)
+			r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 			r["RevokeAutomationTeamSnapshotGrant"] = `{"data":{"revokeAutomationTeamSnapshotGrant":` + ended + `}}`
 			calls, out, err := runTeamTask(t, r, append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", autoApp)...)
 			n := 1
@@ -178,6 +179,7 @@ func TestSnapshotGrant1578ConfirmShowsAppAndTrigger(t *testing.T) {
 		t.Run(fmt.Sprint(revoke), func(t *testing.T) {
 			r := taskResponses()
 			r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+			r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 			srv, calls := attnServer(t, r)
 			f, out, prompt := testFactoryTTY(t, "n\n")
 			root := NewRootCmd(f)
@@ -224,6 +226,7 @@ func TestSnapshotGrant1578RootRefusalCode(t *testing.T) {
 				op = "RevokeAutomationTeamSnapshotGrant"
 				args = append(snapshotArgs1578("revoke", "grant1", "--yes"), "--app", autoApp)
 				replies["AutomationTeamSnapshotGrantById"] = fixed(byIDReply1619(snapshotGrant1578))
+				replies["GetAppMetadata"] = fixed(appByRefReply1619(grantApp1619))
 			}
 			replies[op] = fixed(memberGQLError("Forbidden", "FORBIDDEN"))
 			srv := newAutoServer(t, replies)

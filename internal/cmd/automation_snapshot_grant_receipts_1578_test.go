@@ -28,6 +28,7 @@ func TestSnapshotGrant1578BoundHeaderlessAllVerbs(t *testing.T) {
 			r := taskResponses()
 			r["AutomationTeamSnapshotGrants"] = grantPage1578(snapshotGrant1578, 1, false)
 			r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+			r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 			r["SetAutomationTeamSnapshotGrant"] = `{"data":{"setAutomationTeamSnapshotGrant":` + snapshotGrant1578 + `}}`
 			r["RevokeAutomationTeamSnapshotGrant"] = `{"data":{"revokeAutomationTeamSnapshotGrant":` + endedSnapshot1578() + `}}`
 			args := snapshotArgs1578("list", autoApp, "--json")
@@ -91,6 +92,7 @@ func TestSnapshotGrant1578RejectWriteReceipts(t *testing.T) {
 				r := taskResponses()
 				r["AutomationTeamSnapshotGrants"] = grantPage1578(snapshotGrant1578, 1, false)
 				r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+				r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 				r[op] = `{"data":{"` + field + `":` + row + `}}`
 				args := snapshotArgs1578("set", autoApp, "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes", "--json")
 				if verb == "revoke" {
@@ -149,6 +151,7 @@ func TestSnapshotGrant1578RejectMalformedPages(t *testing.T) {
 func TestSnapshotGrant1578ActiveAppPromptAndHumanOutput(t *testing.T) {
 	r := taskResponses()
 	r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+	r["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 	srv, calls := attnServer(t, r)
 	f, out, prompt := testFactoryTTY(t, "n\n")
 	setActiveApp(t, autoApp)

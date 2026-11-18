@@ -251,14 +251,37 @@ func lookupSnapshotGrantByID(ctx context.Context, client graphql.Client, id stri
 	return d, nil
 }
 
+// snapshotGrantInApp reports whether the App named by --app (an id, a URN or
+// root:slug) is the one that holds the grant. An id is compared directly; any
+// other form costs one app(ref:) read to learn its id. An App the caller cannot
+// read is, from here, not the grant's App.
+func snapshotGrantInApp(ctx context.Context, client graphql.Client, appRef, grantAppID string) (bool, error) {
+	if cmdutil.IsAppID(appRef) {
+		return appRef == grantAppID, nil
+	}
+	r, err := gen.GetAppMetadata(ctx, client, appRef)
+	if err != nil {
+		mapped := api.MapErrorKeepingCode(err)
+		if exitcode.FromError(mapped) == exitcode.NotFound {
+			return false, nil
+		}
+		return false, mapped
+	}
+	if r == nil || r.App == nil {
+		return false, nil
+	}
+	return r.App.Id == grantAppID, nil
+}
+
 func newCmdSnapshotRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var instructionRaw string
 	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation team snapshot grant in the target App", Long: `Revoke the exact grant ID from list. A person's revoke reads that one grant
 by ID (the grant's own App, including an already ended row), then shows the
-returned App ID and trigger kind/ID for confirmation. --app is still accepted
-but no longer matters: the lookup does not page any App's history, and the
-confirmation names the App the server returned for that grant. Scripts must pass
+returned App ID and trigger kind/ID for confirmation. No App's history is paged
+and no App is needed: without --app the confirmation names the App the server
+returned for that grant. With --app, the grant must belong to that App, else it
+is not found (before any confirmation) and nothing is sent. Scripts must pass
 --yes before any lookup, even for an ended row. An unknown ID, or one in an App
 you may not manage, is not found and sends no mutation. An already ended row is
 shown without re-sending revocation. Revocation is terminal; a future set
@@ -319,6 +342,17 @@ means no revoke.`, Example: `  hadron automation team-snapshot-grant revoke <gra
 			row, err := lookupSnapshotGrantByID(cmd.Context(), client, id)
 			if err != nil {
 				return err
+			}
+			// An explicit --app is never a silent no-op: the grant must belong to the
+			// App it names, as the paged lookup required before it (cli#1619).
+			if cmd.Flags().Changed("app") {
+				inApp, err := snapshotGrantInApp(cmd.Context(), client, app, row.AppID)
+				if err != nil {
+					return err
+				}
+				if !inApp {
+					return exitcode.Newf(exitcode.NotFound, "team snapshot grant not found")
+				}
 			}
 			selected = &row
 		} else {

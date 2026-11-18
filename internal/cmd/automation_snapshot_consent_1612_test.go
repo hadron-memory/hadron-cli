@@ -21,6 +21,7 @@ func TestSnapshotRevoke1612NonTTYConsentBeforeLookup(t *testing.T) {
 				}
 				replies := taskResponses()
 				replies["AutomationTeamSnapshotGrantById"] = byIDOrMissing1619(row)
+				replies["GetAppMetadata"] = appByRefReply1619(grantApp1619)
 				writeTeamBinding(t)
 				srv, calls := attnServer(t, replies)
 				setTeamBindingServer(t, srv.URL)
