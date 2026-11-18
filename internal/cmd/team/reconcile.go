@@ -50,12 +50,13 @@ type reconcileDTO struct {
 	// Skipped remains the aggregate for output compatibility. The reason
 	// counters partition it; missing task/assignee takes precedence over an
 	// undeclared call when both apply. Null feed elements are not Read.
-	Skipped           int `json:"skipped"`
-	SkippedNull       int `json:"skippedNull"`
-	SkippedUndeclared int `json:"skippedUndeclared"`
-	SkippedKind       int `json:"skippedKind"`
-	SkippedNoAssignee int `json:"skippedNoAssignee"`
-	SkippedNoTask     int `json:"skippedNoTask"`
+	Skipped              int `json:"skipped"`
+	SkippedNull          int `json:"skippedNull"`
+	SkippedUndeclared    int `json:"skippedUndeclared"`
+	SkippedKind          int `json:"skippedKind"`
+	SkippedNoAssignee    int `json:"skippedNoAssignee"`
+	SkippedNoTask        int `json:"skippedNoTask"`
+	SkippedHeldElsewhere int `json:"skippedHeldElsewhere"`
 	// Complete is false when the pass stopped early (an adapter failure, or
 	// the per-run page bound); the next run resumes at the stored cursor.
 	Complete bool `json:"complete"`
@@ -137,7 +138,8 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 				continue
 			}
 			dto.Read++
-			if ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, &dto); ferr != nil {
+			holder := func(externalID string) (string, error) { return activeHolder(ctx, client, appRef, externalID) }
+			if ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, holder, &dto); ferr != nil {
 				// The cursor stays after the last answered change, so the
 				// next run retries this one.
 				if err := store.Set(key, cursor); err != nil {
@@ -145,6 +147,12 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 				}
 				msg := output.SafeLine(ferr.Error(), 300)
 				dto.Error, dto.Complete = &msg, false
+				// Not knowing who holds the item is the server's failure, not the
+				// adapter's: it ends the run (nothing was told).
+				var lerr *holderLookupError
+				if errors.As(ferr, &lerr) {
+					return dto, nil, lerr.err
+				}
 				return dto, adapterErr(ferr), nil
 			}
 			cursor = ch.Cursor // past this change only now that it is answered
@@ -179,7 +187,7 @@ type feedChange = gen.IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTask
 type changeTask = gen.IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangePageChangesAgentTaskExternalIdChangeTaskAgentTask
 
 // reconcileOne maps one change to its adapter call.
-func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, kind gen.AgentTaskExternalIdChangeKind, externalID string, t *changeTask, dto *reconcileDTO) error {
+func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, kind gen.AgentTaskExternalIdChangeKind, externalID string, t *changeTask, holder func(string) (string, error), dto *reconcileDTO) error {
 	switch kind {
 	case gen.AgentTaskExternalIdChangeKindReassigned:
 		// A task now without an assignee names no worker to mark.
@@ -192,6 +200,9 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 			dto.Skipped++
 			dto.SkippedUndeclared++
 			return nil
+		}
+		if skip, err := heldElsewhere(holder, externalID, t, dto); skip || err != nil {
+			return err
 		}
 		task := intake.Task{ID: t.Id, Handle: t.Handle}
 		if t.PortalUrl != nil {
@@ -217,6 +228,9 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 			dto.SkippedUndeclared++
 			return nil
 		}
+		if skip, err := heldElsewhere(holder, externalID, t, dto); skip || err != nil {
+			return err
+		}
 		if err := r.Untrack(ctx, externalID); err != nil {
 			return err
 		}
@@ -232,6 +246,9 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 			dto.SkippedUndeclared++
 			return nil
 		}
+		if skip, err := heldElsewhere(holder, externalID, t, dto); skip || err != nil {
+			return err
+		}
 		task := intake.Task{ID: t.Id, Handle: t.Handle}
 		if t.PortalUrl != nil {
 			task.PortalURL = *t.PortalUrl
@@ -245,6 +262,47 @@ func reconcileOne(ctx context.Context, r *intake.Runner, desc intake.Describe, k
 		dto.SkippedKind++
 	}
 	return nil
+}
+
+// holderLookupError marks a failed "who holds this item now" read, so the pass
+// ends as a server failure (cursor unmoved, nothing told) rather than as an
+// adapter one.
+type holderLookupError struct{ err error }
+
+func (e *holderLookupError) Error() string { return e.err.Error() }
+
+// activeHolder is the id of the ACTIVE task (backlog, pending or started) that
+// holds externalID in the App now, "" when nobody does (cor:agt:120:02, #4217:
+// an ended task keeps its id, so the change's task is not necessarily the
+// item's claimant).
+func activeHolder(ctx context.Context, client graphql.Client, appRef, externalID string) (string, error) {
+	resp, err := gen.IntakeActiveHolder(ctx, client, appRef, externalID)
+	if err != nil {
+		return "", &holderLookupError{err: mapTaskError(err)}
+	}
+	for _, t := range resp.AgentTasks {
+		if t != nil {
+			return t.Id, nil
+		}
+	}
+	return "", nil
+}
+
+// heldElsewhere reports (and counts) a change whose item a DIFFERENT active task
+// holds now: telling the adapter would misreport or untrack an item being worked.
+// With no active holder, or the change's own task as holder, the pass acts as it
+// always did.
+func heldElsewhere(holder func(string) (string, error), externalID string, t *changeTask, dto *reconcileDTO) (bool, error) {
+	id, err := holder(externalID)
+	if err != nil {
+		return false, err
+	}
+	if id == "" || (t != nil && t.Id == id) {
+		return false, nil
+	}
+	dto.Skipped++
+	dto.SkippedHeldElsewhere++
+	return true, nil
 }
 
 // humanReconcile is the text-mode line, shown only when the pass did or said

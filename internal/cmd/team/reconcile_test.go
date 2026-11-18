@@ -28,9 +28,30 @@ import (
 type feedClient struct {
 	pages []string // JSON "agentTaskExternalIdChanges" bodies, one per call
 	after []string
+	// holders answers IntakeActiveHolder: external id -> the ACTIVE task id that
+	// holds it (absent = nobody). holderErr fails every lookup (cli#2265).
+	holders     map[string]string
+	holderErr   error
+	holderCalls []string
 }
 
 func (c *feedClient) MakeRequest(_ context.Context, req *graphql.Request, resp *graphql.Response) error {
+	if req.OpName == "IntakeActiveHolder" {
+		b, _ := json.Marshal(req.Variables)
+		var v struct {
+			ExternalID string `json:"externalId"`
+		}
+		_ = json.Unmarshal(b, &v)
+		c.holderCalls = append(c.holderCalls, v.ExternalID)
+		if c.holderErr != nil {
+			return c.holderErr
+		}
+		body := `[]`
+		if id, ok := c.holders[v.ExternalID]; ok {
+			body = fmt.Sprintf(`[{"id":%q}]`, id)
+		}
+		return json.Unmarshal([]byte(`{"agentTasks":`+body+`}`), resp.Data)
+	}
 	b, _ := json.Marshal(req.Variables)
 	var v struct {
 		After *string `json:"after"`
@@ -332,5 +353,79 @@ func TestReconcileSkippedReasonsRemainAdditive1976(t *testing.T) {
 		if got[key] != want {
 			t.Errorf("%s = %v, want %v; %s", key, got[key], want, b)
 		}
+	}
+}
+
+// cli#2265 (server#4217): an ended task keeps its external id, so a change for
+// it can arrive after a NEWER active task claimed the item. The pass checks who
+// holds the item now before telling the adapter anything.
+func heldElsewhereRun(t *testing.T, change string, holders map[string]string) (reconcileDTO, string, error, error) {
+	t.Helper()
+	r, desc, log := scriptAdapter(t, `echo '{}'`)
+	desc.Calls = []string{"describe", "list-untracked", "mark-tracked", "untrack", "report"}
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	c := &feedClient{pages: []string{page(change)}, holders: holders}
+	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+	b, _ := os.ReadFile(log)
+	return d, string(b), aerr, ferr
+}
+
+func TestReconcileSkipsAChangeWhenADifferentActiveTaskHoldsTheItem2265(t *testing.T) {
+	for name, change := range map[string]string{
+		"CANCELLED":  `{"cursor":"c1","kind":"CANCELLED","externalId":"x","task":{"id":"A","handle":"AT1"}}`,
+		"RELEASED":   `{"cursor":"c1","kind":"RELEASED","externalId":"x","task":{"id":"A","handle":"AT1"}}`,
+		"REASSIGNED": `{"cursor":"c1","kind":"REASSIGNED","externalId":"x","task":{"id":"A","handle":"AT1","assignee":{"id":"w"}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			d, log, aerr, ferr := heldElsewhereRun(t, change, map[string]string{"x": "B"})
+			if aerr != nil || ferr != nil {
+				t.Fatalf("%v %v", aerr, ferr)
+			}
+			if log != "" {
+				t.Fatalf("the adapter was told about an item another task holds: %q", log)
+			}
+			if d.Read != 1 || d.Skipped != 1 || d.SkippedHeldElsewhere != 1 || d.Marked+d.Untracked+d.Reported != 0 {
+				t.Fatalf("%+v", d)
+			}
+		})
+	}
+}
+
+func TestReconcileActsAsBeforeWhenNobodyOrTheChangesTaskHoldsTheItem2265(t *testing.T) {
+	change := `{"cursor":"c1","kind":"REASSIGNED","externalId":"x","task":{"id":"A","handle":"AT1","assignee":{"id":"w"}}}`
+	for name, holders := range map[string]map[string]string{"nobody": {}, "the change's own task": {"x": "A"}} {
+		t.Run(name, func(t *testing.T) {
+			d, log, aerr, ferr := heldElsewhereRun(t, change, holders)
+			if aerr != nil || ferr != nil {
+				t.Fatalf("%v %v", aerr, ferr)
+			}
+			if !strings.Contains(log, "mark-tracked ") || d.Marked != 1 || d.Skipped != 0 {
+				t.Fatalf("%+v %q", d, log)
+			}
+		})
+	}
+	// RELEASED with nobody holding it untracks exactly as before.
+	d, log, _, _ := heldElsewhereRun(t, releasedChange("x", "c1"), nil)
+	if d.Untracked != 1 || !strings.Contains(log, "untrack ") {
+		t.Fatalf("%+v %q", d, log)
+	}
+}
+
+func TestReconcileHolderLookupFailureLeavesTheCursorAndActsOnNothing2265(t *testing.T) {
+	r, desc, log := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	c := &feedClient{pages: []string{page(releasedChange("x", "c1"))}, holderErr: errors.New("boom")}
+	d, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+	if aerr != nil || ferr == nil {
+		t.Fatalf("want a fatal lookup error, got %v / %v", aerr, ferr)
+	}
+	if untrackCalls(t, log) != 0 {
+		t.Fatal("acted without knowing the holder")
+	}
+	if d.Complete || d.Error == nil {
+		t.Fatalf("%+v", d)
+	}
+	if got, _ := store.Get("k"); got != "" {
+		t.Fatalf("the cursor moved past an unanswered change: %q", got)
 	}
 }

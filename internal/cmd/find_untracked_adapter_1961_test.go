@@ -655,6 +655,10 @@ func withEmptyChanges1962(responses map[string]string) map[string]string {
 	if _, ok := responses["IntakeExternalIdChanges"]; !ok {
 		responses["IntakeExternalIdChanges"] = emptyChanges1962
 	}
+	// cli#2265: nobody holds the item now unless a test says so.
+	if _, ok := responses["IntakeActiveHolder"]; !ok {
+		responses["IntakeActiveHolder"] = `{"data":{"agentTasks":[]}}`
+	}
 	return responses
 }
 
