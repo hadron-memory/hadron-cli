@@ -358,9 +358,19 @@ func resetsForWorker(state *hostpoller.State, workerID string) []hostpoller.Rese
 }
 
 // hasResetRecord reports whether the poller state holds any reset for the
-// worker, ended or not.
+// worker, ended or not. It answers a boolean, so it stops at the first match:
+// no slice and no sort (cli#2346). The sorted read of resetsForWorker stays
+// where the order is load-bearing, in workerResetting.
 func hasResetRecord(state *hostpoller.State, workerID string) bool {
-	return len(resetsForWorker(state, workerID)) > 0
+	if state == nil {
+		return false
+	}
+	for _, r := range state.Resets {
+		if r.WorkerID == workerID {
+			return true
+		}
+	}
+	return false
 }
 
 // workerResetting reports whether any of the worker's recorded resets is
