@@ -334,6 +334,9 @@ reference and admission, not whether an instruction really happened.`,
 					if err != nil {
 						return api.MapError(err)
 					}
+					if resp == nil || resp.SetWorkerAvailability == nil {
+						return availabilityResultMissing()
+					}
 					rec = workerAvailabilityDTOFrom(*resp.SetWorkerAvailability)
 				} else {
 					resp, err := gen.WorkerAvailabilitySetInstructed(ctx, client, &input, claim)
@@ -367,6 +370,9 @@ reference and admission, not whether an instruction really happened.`,
 				if err != nil {
 					return api.MapError(err)
 				}
+				if resp == nil || resp.SetModelFamilyAvailability == nil {
+					return availabilityResultMissing()
+				}
 				r := resp.SetModelFamilyAvailability
 				rec = familyAvailabilityDTO{AppID: r.AppId, Family: r.Family, State: string(r.State), Reason: reasonPtr(r.Reason), Until: r.Until, SetAt: r.SetAt, SetBy: partyDTO(r.SetBy), InEffect: r.InEffect}
 			} else {
@@ -392,6 +398,15 @@ reference and admission, not whether an instruction really happened.`,
 	cmd.Flags().StringVar(&until, "until", "", "RFC 3339 time the unavailable record lapses at")
 	cmd.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer("hadron-server#3376"))
 	return cmd
+}
+
+// availabilityResultMissing is the answer to a plain write the server accepted at
+// the transport level but returned no record for (a null or absent result,
+// #2493). The request was sent, so whether it was recorded is unknown: never a
+// success receipt, never retried here. It carries the same exit and wording as
+// the instructed branches (#2450) so one command answers one way.
+func availabilityResultMissing() error {
+	return exitcode.Newf(exitcode.Error, "server returned no availability result; outcome unknown, read availability before retrying")
 }
 
 func workerAvailabilityDTOFrom(r gen.WorkerAvailabilitySetSetWorkerAvailability) workerAvailabilityDTO {
