@@ -32,8 +32,9 @@ var lockUserFiles2327 = map[string]string{
 
 var lockCaller2327 = regexp.MustCompile(`\b(withBindingLock|withBindingLockAt|updateBinding|clearBinding|recordChatWatermark|bindingIsSession|LockBinding|lockBinding)\(|lockBinding:`)
 
-func TestLockUsersHintCoversEveryCallSite2327(t *testing.T) {
-	root := filepath.Join("..", "..")
+// scanLockCallers2327 returns the non-test files under root/internal that call
+// the binding lock, other than the delivery package itself and generated code.
+func scanLockCallers2327(root string) (map[string]bool, error) {
 	found := map[string]bool{}
 	err := filepath.WalkDir(filepath.Join(root, "internal"), func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
@@ -60,6 +61,11 @@ func TestLockUsersHintCoversEveryCallSite2327(t *testing.T) {
 		}
 		return nil
 	})
+	return found, err
+}
+
+func TestLockUsersHintCoversEveryCallSite2327(t *testing.T) {
+	found, err := scanLockCallers2327(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
 	}
