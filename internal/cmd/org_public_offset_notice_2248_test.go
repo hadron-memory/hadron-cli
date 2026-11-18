@@ -93,7 +93,9 @@ func TestOrgPublicOffsetNotice2248(t *testing.T) {
 		// its suffix on a partial list; a negative one is sent, and shown, as 0.
 		{"more follow, explicit zero offset", publicPage2248{rows: 20, total: 45, hasMore: true}, []string{"--offset", "0"}, "  public memories: showing 20 of 45 (offset 0)", 20},
 		{"more follow, negative offset is sent as zero", publicPage2248{rows: 20, total: 45, hasMore: true}, []string{"--offset", "-5"}, "  public memories: showing 20 of 45 (offset 0)", 20},
-		{"short page, explicit zero offset", publicPage2248{rows: 5, total: 45}, []string{"--offset", "0"}, "  public memories: showing 5 of 45 (offset 0)", 5},
+		// A final page the server could return (cor:acl:080:02): hasMore false,
+		// rows < total, at a positive offset, with an explicit limit.
+		{"final page at a positive offset, explicit limit", publicPage2248{rows: 3, total: 43}, []string{"--limit", "20", "--offset", "40"}, "  public memories: showing 3 of 43 (offset 40)", 3},
 		{"counts only, explicit zero offset", publicPage2248{rows: 0, total: 45}, []string{"--limit", "0", "--offset", "0"}, "  public memories: showing 0 of 45 (offset 0)", 0},
 		{"complete list", publicPage2248{rows: 3, total: 3}, nil, "  public memories:", 3},
 		{"complete list, offset zero given", publicPage2248{rows: 3, total: 3}, []string{"--offset", "0"}, "  public memories:", 3},

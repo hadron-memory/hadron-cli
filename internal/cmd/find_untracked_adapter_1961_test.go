@@ -820,8 +820,26 @@ func TestAdapterFollowups1974(t *testing.T) {
 		path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
 		response := strings.Replace(claimed1961("t1", itemA1961, "wkr1", "Iris", "", "PENDING"), `"name":"Iris"`, `"name":null`, 1)
 		calls, out, errOut, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": response, "IntakeStartTask": started1961}, "--track", "--json")
-		if err != nil || len(opsOf1961(calls, "IntakeStartTask")) != 0 || !strings.Contains(out, `"assignee": "wkr1"`) || strings.Contains(errOut, "PENDING for ,") {
-			t.Fatalf("%v %s %s starts=%v", err, out, errOut, opsOf1961(calls, "IntakeStartTask"))
+		// #2260 F6: decode the DTO instead of pinning the JSON spelling — a
+		// formatting-only change to the encoder must not fail this pin. The
+		// assignee fell back to the server id (wkr1) because the name was
+		// null; the note check below asserts exactly that fact — the id
+		// appears, the empty-display-name rendering ("for ,") does not —
+		// not the sentence's wording (stderr prose is not a contract).
+		if err != nil || len(opsOf1961(calls, "IntakeStartTask")) != 0 {
+			t.Fatalf("%v %s starts=%v", err, out, opsOf1961(calls, "IntakeStartTask"))
+		}
+		var dto struct {
+			Tasks []struct {
+				ID       string
+				Assignee *string
+			}
+		}
+		if umErr := json.Unmarshal([]byte(out), &dto); umErr != nil || len(dto.Tasks) != 1 || dto.Tasks[0].ID != "t1" || dto.Tasks[0].Assignee == nil || *dto.Tasks[0].Assignee != "wkr1" {
+			t.Fatalf("the claimed task t1 must decode with assignee wkr1 (the fallback id): %v %s", umErr, out)
+		}
+		if !strings.Contains(errOut, "wkr1") || strings.Contains(errOut, "for ,") {
+			t.Fatalf("the pending note must name the fallback id, not an empty display name: %q", errOut)
 		}
 	})
 }
