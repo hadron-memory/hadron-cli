@@ -107,7 +107,7 @@ func TestValidationRecordExitSplitIsDocumented1795(t *testing.T) {
 	}
 	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
 	const want = "Exit 2: the input or the choice is invalid (an unknown --outcome, a --task outside the listed set, an invalid revision or a wrong task)"
-	const want5 = "Exit 5: no task is configured or the task is broken, the node changed between the read and the write, or the --run-id conflicts"
+	const want5 = "Exit 5: no task is configured or the task is broken, the node changed during the call, or the --run-id conflicts"
 	for name, text := range map[string]string{"help": flat(out.String()), "agentic-usage": flat(string(guide))} {
 		for _, w := range []string{want, want5} {
 			if !strings.Contains(text, w) {
