@@ -203,7 +203,7 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	guarded := verb == "edit" || verb == "delete" || verb == "resolve"
 	if verb == "delete" {
 		cmd.Flags().BoolVar(&yes, "yes", false, "delete without asking (required when not on a terminal)")
-		cmd.Flags().BoolVar(&thread, "thread", false, "delete the whole thread the comment belongs to (a memory admin; needs --reason)")
+		cmd.Flags().BoolVar(&thread, "thread", false, "delete the whole thread the comment belongs to (a memory manager; needs --reason)")
 		cmd.Flags().StringVar(&reason, "reason", "", "with --thread: why the thread is deleted (required; kept for audit)")
 	}
 	if text {

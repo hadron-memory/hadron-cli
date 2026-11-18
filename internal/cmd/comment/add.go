@@ -139,6 +139,7 @@ const addLong = `Leave feedback on a node whether or not you already have an ope
 there. It is the one command for "write this down on the node": use it at the
 end of a task, where comment create would refuse a second comment with
 COMMENT_OPEN_THREAD_EXISTS (exit 5).
+Needs write access to the memory.
 
   started    you had no open thread (including when your earlier one was
              resolved): a new thread is started, as comment create does.
@@ -161,8 +162,7 @@ message and in the --json error (extensions.threadId). A lost answer, timeout,
 5xx or missing result leaves the reply outcome unknown: read that thread
 before retrying, since the reply may already be recorded. Only established
 pre-write refusals are called "failed"; exits and JSON fields stay unchanged.
-If your thread is
-resolved in that same window, the reply is recorded and the thread stays
+If your thread is resolved in that same window, the reply is recorded and the thread stays
 resolved: add guarantees the feedback is recorded on the node, not that it is
 listed as unresolved.
 

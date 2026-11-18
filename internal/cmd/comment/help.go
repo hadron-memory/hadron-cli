@@ -99,7 +99,7 @@ cannot be restored. (y/N)"). Without a terminal (a script or an AI agent) pass
 comment marked "deleted".
 
 --thread --reason <text> deletes the WHOLE thread the comment belongs to, as a
-memory admin: every comment in it disappears from every read. Name any comment
+memory manager: every comment in it disappears from every read. Name any comment
 of the thread. --reason is required and kept with the deletion for audit; no
 --expected-revision is needed. It asks first on a terminal, and needs --yes
 otherwise. Whether you may do it is the server's rule. On success it prints the
