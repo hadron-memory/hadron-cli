@@ -173,7 +173,7 @@ bound worktree. --instruction opens the App-manager's held-worker path; the
 server decides admission. Only set accepts this flag; get stays a read.
 Needs server ba077810 or later.
 
-` + strings.ReplaceAll(instructionHelp, "17ef5905", "ba077810"),
+` + instructionHelpFor("ba077810"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -221,6 +221,9 @@ Needs server ba077810 or later.
 				if callErr != nil {
 					return api.MapError(callErr)
 				}
+				if resp.SetAgentTaskStallSchedule == nil {
+					return nullMutationResult2505("setAgentTaskStallSchedule", "stall schedule")
+				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			} else {
 				ctx, _, err = finishInstruction(ctx, "", scope.Ref)
@@ -230,6 +233,9 @@ Needs server ba077810 or later.
 				resp, callErr := gen.TeamStallScheduleSetInstructed(ctx, client, scope.Ref, &input, claim)
 				if callErr != nil {
 					return api.MapErrorKeepingCode(callErr)
+				}
+				if resp.SetAgentTaskStallSchedule == nil {
+					return nullMutationResult2505("setAgentTaskStallSchedule", "stall schedule")
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			}
