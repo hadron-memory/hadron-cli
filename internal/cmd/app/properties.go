@@ -46,10 +46,10 @@ the outside trackers ` + "`hadron team task find-untracked`" + ` reads; every ot
 key is the team's, stored as written. Never put a secret here.
 
 Whoever may read the App reads them (null for anyone else). Only whoever
-manages the App writes them. Without --instruction, set acts as the person; set
-can carry a held worker's instruction as described in its help. clear remains
-person-only. An App key is refused. Each write replaces the whole object; use
---expected-revision with the revision ` + "`get --json`" + ` printed to refuse a write over someone else's.`,
+manages the App writes them. Without --instruction, set acts as the person;
+set can carry a held worker's instruction as described in its help. clear
+remains person-only. An App key is refused. Each write replaces the whole object; use --expected-revision with
+the revision ` + "`get --json`" + ` printed to refuse a write over someone else's.`,
 	}
 	cmd.AddCommand(newCmdPropertiesGet(f))
 	cmd.AddCommand(newCmdPropertiesSet(f))
