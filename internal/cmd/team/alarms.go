@@ -93,7 +93,10 @@ IN EFFECT is the server's answer (cor:agt:050:20), the same filter as
 recorded. The CLI never works it out itself. --all lists every alarm instead,
 acknowledged or past its escalation end, and adds per task the number of its
 acknowledged alarms (ACKED) and the age of its last recorded activity (IDLE):
-an acknowledgement stops the climb, not the stall.
+an acknowledgement stops the climb, not the stall. ACKED counts only the
+alarms this command's walk read — a lower bound whenever the walk is
+incomplete — and IDLE is absent, not zero, when the task's own timestamp is
+unreadable: an unknown age is not a zero one.
 
 Only alarms on a task appear; task-less alarms (dark-worker, coordinator-cadence)
 are read with ` + "`team events --alarms`" + `. Tasks are PENDING and STARTED unless --status
@@ -107,7 +110,10 @@ roster does not list, or a person, has none.
 --type filters alarm types (e.g. stall.not-started), repeatable or comma
 separated. --since is an RFC 3339 time: only alarms strictly after it. Rows are
 newest alarm first. The walk pages the stream itself to its end; if it cannot
-finish, the output says it is incomplete and --json carries "incomplete".`,
+finish, the output says it is incomplete and --json carries "incomplete": the
+marker names the last event read and, when the server offered one, the cursor
+to resume from (lastEventId/resumeCursor); a cursor the walk has already used,
+repeated immediately or cycling, stops as a stall.`,
 		Example: `  hadron team alarms --team
   hadron team alarms --team=worker:Eden --status STARTED
   hadron team alarms --team --all --type stall.no-progress,stall.owner-unreactive --json`,
@@ -230,7 +236,7 @@ finish, the output says it is incomplete and --json carries "incomplete".`,
 				return err
 			}
 			if stop != nil {
-				dto.Incomplete = &alarmCountsDTO{Complete: false, Reason: stop.Reason, LastEventID: stop.LastEventID, Pages: stop.Pages}
+				dto.Incomplete = &alarmCountsDTO{Complete: false, Reason: stop.Reason, LastEventID: stop.LastEventID, ResumeCursor: stop.ResumeCursor, Pages: stop.Pages}
 			}
 			now := time.Now()
 			ackedByTask := map[string]int{}
@@ -284,7 +290,7 @@ finish, the output says it is incomplete and --json carries "incomplete".`,
 					}
 				}
 				if stop != nil {
-					if _, err := fmt.Fprintf(w, "alarms: the list is INCOMPLETE (paging stopped: %s at %s after %d pages); more alarms may exist\n", stop.Reason, output.SafeCell(stop.LastEventID), stop.Pages); err != nil {
+					if _, err := fmt.Fprintf(w, "alarms: the list is INCOMPLETE (paging stopped: %s %s after %d pages); more alarms may exist\n", stop.Reason, stop.stopPoint(), stop.Pages); err != nil {
 						return err
 					}
 				}
@@ -324,9 +330,12 @@ func walkAlarms(ctx context.Context, client graphql.Client, errOut io.Writer, ap
 	var before *string
 	pageSize := teamEventPageCap
 	seen := map[string]bool{}
-	stop := func(reason, last string, pages int) ([]*gen.AgentTeamEventFields, *alarmWalkStop, error) {
-		fmt.Fprintf(errOut, "note: alarm paging stopped (%s) at %s without exhausting the stream; the list is incomplete\n", reason, output.SafeCell(last))
-		return out, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
+	// Cursors already paged from: a revisit is a stall, not progress.
+	cursors := map[string]bool{}
+	stop := func(reason, lastEventID, resumeCursor string, pages int) ([]*gen.AgentTeamEventFields, *alarmWalkStop, error) {
+		s := &alarmWalkStop{Reason: reason, LastEventID: lastEventID, ResumeCursor: resumeCursor, Pages: pages}
+		fmt.Fprintf(errOut, "note: alarm paging stopped (%s) %s without exhausting the stream; the list is incomplete\n", reason, s.stopPoint())
+		return out, s, nil
 	}
 	for pages := 1; ; pages++ {
 		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, nil, before, boolPtr(true), nil, boolPtr(true), boolPtr(inEffect), &pageSize, optStr(since), nil, types)
@@ -357,12 +366,20 @@ func walkAlarms(ctx context.Context, client graphql.Client, errOut io.Writer, ap
 		if page.NextCursor != nil {
 			next = *page.NextCursor
 		}
-		if next == "" || (before != nil && next == *before) {
-			return stop(alarmStopCursorStalled, last, pages)
+		if next == "" {
+			return stop(alarmStopCursorStalled, last, "", pages)
+		}
+		// A cursor the walk has already paged from — the immediate repeat, or
+		// a longer A→B→A cycle — can only re-read pages it has read (cli#2349:
+		// the old check caught only the immediate repeat and paged a cycle to
+		// the page bound).
+		if cursors[next] {
+			return stop(alarmStopCursorStalled, last, next, pages)
 		}
 		if pages >= alarmPageLimit {
-			return stop(alarmStopPageLimit, next, pages)
+			return stop(alarmStopPageLimit, last, next, pages)
 		}
+		cursors[next] = true
 		before = &next
 	}
 }

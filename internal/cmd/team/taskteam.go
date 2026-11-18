@@ -72,7 +72,11 @@ type alarmCountsDTO struct {
 	Complete    bool   `json:"complete"`
 	Reason      string `json:"reason"`
 	LastEventID string `json:"lastEventId"`
-	Pages       int    `json:"pages"`
+	// ResumeCursor is the page cursor the walk stopped at, present only when
+	// the server offered one (a page-limit stop or a repeated-cursor stall);
+	// lastEventId is always an event id, never a cursor (cli#2349).
+	ResumeCursor string `json:"resumeCursor,omitempty"`
+	Pages        int    `json:"pages"`
 }
 
 type teamTaskQuery struct {
@@ -308,7 +312,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		dto.StaleOverSeconds = &s
 	}
 	if alarmStop != nil {
-		dto.AlarmCounts = &alarmCountsDTO{Complete: false, Reason: alarmStop.Reason, LastEventID: alarmStop.LastEventID, Pages: alarmStop.Pages}
+		dto.AlarmCounts = &alarmCountsDTO{Complete: false, Reason: alarmStop.Reason, LastEventID: alarmStop.LastEventID, ResumeCursor: alarmStop.ResumeCursor, Pages: alarmStop.Pages}
 	}
 	for _, t := range all {
 		how, ok := match[t.ID]

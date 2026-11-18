@@ -1131,10 +1131,16 @@ walk is complete.`,
 // alarmWalkStop says why an open-alarm walk ended before the server's page end
 // (cli#1919, cor:api:120:04). nil means the walk ended on hasMore:false, so
 // the counts are complete. Reason is "page-limit" or "cursor-stalled".
+// LastEventID is always an EVENT id — the last one the walk read, empty when
+// it read none — never a page cursor; ResumeCursor, empty when the server
+// offered no cursor to continue from (a null-cursor stall), is the cursor the
+// walk stopped at (cli#2349: the page-limit stop used to store its cursor in
+// LastEventID, so the marker claimed an id it did not have).
 type alarmWalkStop struct {
-	Reason      string
-	LastEventID string
-	Pages       int
+	Reason       string
+	LastEventID  string
+	ResumeCursor string
+	Pages        int
 }
 
 const (
@@ -1142,11 +1148,21 @@ const (
 	alarmStopCursorStalled = "cursor-stalled"
 )
 
+// stopPoint is where the walk stopped, as every INCOMPLETE line prints it:
+// the last event read, plus the resume cursor when there is one. Both are
+// server text, so both go through SafeCell.
+func (s *alarmWalkStop) stopPoint() string {
+	if s.ResumeCursor == "" {
+		return "at " + output.SafeCell(s.LastEventID)
+	}
+	return "at " + output.SafeCell(s.LastEventID) + " (resume cursor " + output.SafeCell(s.ResumeCursor) + ")"
+}
+
 // explain is the one stdout line both commands print when the counts are
-// lower bounds. The event id is server text, so it goes through SafeCell.
+// lower bounds.
 func (s *alarmWalkStop) explain() string {
-	return fmt.Sprintf("alarms: open-alarm counts are INCOMPLETE (paging stopped: %s at %s after %d pages) — counts are lower bounds; a task with no count may still have open alarms",
-		s.Reason, output.SafeCell(s.LastEventID), s.Pages)
+	return fmt.Sprintf("alarms: open-alarm counts are INCOMPLETE (paging stopped: %s %s after %d pages) — counts are lower bounds; a task with no count may still have open alarms",
+		s.Reason, s.stopPoint(), s.Pages)
 }
 
 // openAlarmsByTask counts the App's alarms IN EFFECT, keyed by task — `task
@@ -1173,10 +1189,13 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 	// Each event id counts once across the walk: a server repeating a page
 	// must not inflate a lower bound (BLIND F1).
 	seen := map[string]bool{}
-	stop := func(reason, last string, pages int) (map[string]int, *alarmWalkStop, error) {
+	// Cursors already paged from: a revisit is a stall, not progress.
+	cursors := map[string]bool{}
+	stop := func(reason, lastEventID, resumeCursor string, pages int) (map[string]int, *alarmWalkStop, error) {
+		s := &alarmWalkStop{Reason: reason, LastEventID: lastEventID, ResumeCursor: resumeCursor, Pages: pages}
 		fmt.Fprintf(errOut,
-			"note: alarm paging stopped (%s) at %s without exhausting the stream; open-alarm counts are incomplete\n", reason, output.SafeCell(last))
-		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
+			"note: alarm paging stopped (%s) %s without exhausting the stream; open-alarm counts are incomplete\n", reason, s.stopPoint())
+		return alarmsByTask, s, nil
 	}
 	for pages := 1; ; pages++ {
 		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
@@ -1208,14 +1227,19 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 			next = *page.NextCursor
 		}
 		if next == "" {
-			return stop(alarmStopCursorStalled, last, pages)
+			return stop(alarmStopCursorStalled, last, "", pages)
 		}
-		if after != nil && next == *after {
-			return stop(alarmStopCursorStalled, next, pages)
+		// A cursor the walk has already paged from — the immediate repeat, or
+		// a longer A→B→A cycle — can only re-read pages it has read (cli#2349:
+		// the old check caught only the immediate repeat and paged a cycle to
+		// the page bound).
+		if cursors[next] {
+			return stop(alarmStopCursorStalled, last, next, pages)
 		}
 		if pages >= alarmPageLimit {
-			return stop(alarmStopPageLimit, next, pages)
+			return stop(alarmStopPageLimit, last, next, pages)
 		}
+		cursors[next] = true
 		after = &next
 	}
 }
