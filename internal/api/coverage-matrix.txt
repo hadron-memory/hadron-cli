@@ -624,7 +624,7 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 63: 27 gap, 36 excluded
+[Arguments] 57: 21 gap, 36 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
@@ -639,7 +639,6 @@ Mutation.createGrant(input.appRef)  gap #1880: a person who manages an App creat
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
-Mutation.deleteAppModelGroup(instruction)  gap #1617
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.deleteMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -658,12 +657,7 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.revokeAppGrant(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
-Mutation.setAppDeliverySettings(instruction)  gap #1617
-Mutation.setAppModelGroup(instruction)  gap #1617
-Mutation.setAppProperties(instruction)  gap #1617
-Mutation.setAppTickerSettings(instruction)  gap #1617
 Mutation.setModelFamilyAvailability(instruction)  gap #1617
 Mutation.setTeamPause(instruction)  gap #1617
 Mutation.setTeamStopSignal(instruction)  gap #1617

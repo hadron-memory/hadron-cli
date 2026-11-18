@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 type managerCase2448 struct {
@@ -47,6 +49,9 @@ func managerRun2448(t *testing.T, c managerCase2448, extra []string, state strin
 	srv, calls := snapshotServer1614(t, func(call snapshotCall1614) string {
 		if hook != nil {
 			hook(call)
+		}
+		if call.OperationName == "GetBoundSessionEnd" {
+			return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`
 		}
 		if call.OperationName == "TeamAppIdentity" {
 			return teamAppIdentityJSON
@@ -90,9 +95,10 @@ func managerWrite2448(t *testing.T, c managerCase2448, calls *[]snapshotCall1614
 	t.Helper()
 	var found []snapshotCall1614
 	for _, call := range *calls {
-		if call.OperationName == op {
+		switch call.OperationName {
+		case op:
 			found = append(found, call)
-		} else if call.OperationName == c.op || call.OperationName == c.op+"Instructed" {
+		case c.op, c.op + "Instructed":
 			t.Fatalf("unexpected alternate mutation: %+v", call)
 		}
 	}
@@ -117,7 +123,11 @@ func TestAppManagerInstructionWire2448(t *testing.T) {
 			if err := json.Unmarshal([]byte(c.vars), &want); err != nil {
 				t.Fatal(err)
 			}
-			if base.Session != "" || !reflect.DeepEqual(base.Variables, want) || len(*plain) != 1 {
+			wantCalls := 1
+			if strings.HasPrefix(c.op, "Team") {
+				wantCalls++
+			}
+			if base.Session != "" || !reflect.DeepEqual(base.Variables, want) || len(*plain) != wantCalls {
 				t.Fatalf("no-flag wire changed: %+v", *plain)
 			}
 			calls, instrOut, _, err := managerRun2448(t, c, []string{"--instruction", "live-chat:client: 42 "}, "", nil, false)
@@ -135,8 +145,13 @@ func TestAppManagerInstructionWire2448(t *testing.T) {
 			if !reflect.DeepEqual(call.Variables["instruction"], claim) {
 				t.Fatalf("claim changed: %#v", call.Variables)
 			}
-			delete(call.Variables, "instruction")
-			if !reflect.DeepEqual(call.Variables, want) || out != instrOut {
+			rest := map[string]any{}
+			for k, v := range call.Variables {
+				if k != "instruction" {
+					rest[k] = v
+				}
+			}
+			if !reflect.DeepEqual(rest, want) || out != instrOut {
 				t.Fatalf("instruction changed other args/output: vars=%v out=%q vs %q", call.Variables, out, instrOut)
 			}
 		})
@@ -201,7 +216,7 @@ func TestAppManagerInstructionBindingChange2448(t *testing.T) {
 				t.Fatalf("must reject successor attribution: changed=%t note=%q call=%+v", changed, note, call)
 			}
 			for _, read := range *calls {
-				if read.OperationName == "TeamAppIdentity" && (read.Session != "" || read.Variables["instruction"] != nil) {
+				if read.OperationName != c.op+"Instructed" && (read.Session != "" || read.Variables["instruction"] != nil) {
 					t.Fatalf("lookup claimed worker authority: %+v", read)
 				}
 			}
@@ -216,9 +231,103 @@ func TestAppManagerInstructionRefusalNoRetry2448(t *testing.T) {
 				t.Fatalf("refusal changed: %v out=%q", err, out)
 			}
 			call := managerWrite2448(t, c, calls, c.op+"Instructed")
-			if call.Session != "s-new" || len(*calls) != 1 {
+			wantCalls := 1
+			if strings.HasPrefix(c.op, "Team") {
+				wantCalls++
+			}
+			if call.Session != "s-new" || len(*calls) != wantCalls {
 				t.Fatalf("refusal retried/downgraded: %+v", *calls)
 			}
 		})
+	}
+}
+
+// A prompt is a local boundary too: no lookup may precede consent, and a
+// binding replaced while the person answers must never attribute the successor.
+type managerPromptReader2448 struct {
+	before func()
+	answer io.Reader
+}
+
+func (r *managerPromptReader2448) Read(p []byte) (int, error) {
+	if r.before != nil {
+		r.before()
+		r.before = nil
+	}
+	return r.answer.Read(p)
+}
+func TestAppManagerInstructionConfirmation2448(t *testing.T) {
+	for _, c := range managerCases2448() {
+		if c.name != "model-clear" && c.name != "grant-rm" {
+			continue
+		}
+		for _, accept := range []bool{false, true} {
+			t.Run(c.name+"/"+map[bool]string{false: "decline", true: "binding-changed"}[accept], func(t *testing.T) {
+				teamGitDir(t)
+				srv, calls := snapshotServer1614(t, func(call snapshotCall1614) string {
+					if call.OperationName == "GetBoundSessionEnd" {
+						return `{"data":{"session":{"id":"successor","endedAt":null,"endReason":null}}}`
+					}
+					if call.OperationName != c.op+"Instructed" {
+						t.Errorf("unexpected lookup %s", call.OperationName)
+					}
+					return `{"data":{"` + c.field + `":` + c.answer + `}}`
+				})
+				writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
+				f, _ := testFactory(t)
+				answer := "n\n"
+				if accept {
+					answer = "y\n"
+				}
+				streams, _, stderr := output.TestTTY(answer)
+				streams.In = &managerPromptReader2448{answer: streams.In, before: func() {
+					if len(*calls) != 0 {
+						t.Fatalf("request before consent: %+v", *calls)
+					}
+					if accept {
+						rewriteBinding1592(t, func(b map[string]any) { b["sessionId"] = "successor" })
+					}
+				}}
+				f.IOStreams = streams
+				root := NewRootCmd(f)
+				args := []string{}
+				for _, arg := range c.args {
+					if arg != "--yes" {
+						args = append(args, arg)
+					}
+				}
+				root.SetArgs(append(args, "--server", srv.URL, "--instruction", "task:one", "--json"))
+				err := root.Execute()
+				if !strings.Contains(stderr.String(), app1594) {
+					t.Fatalf("prompt omits target App: %q", stderr.String())
+				}
+				if !accept {
+					if err == nil || len(*calls) != 0 {
+						t.Fatalf("decline err=%v calls=%+v", err, *calls)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				call := managerWrite2448(t, c, calls, c.op+"Instructed")
+				if call.Session != "" || !strings.Contains(stderr.String(), "changed") {
+					t.Fatalf("successor attributed: %+v stderr=%q", call, stderr.String())
+				}
+			})
+		}
+	}
+}
+func TestAppManagerInstructionScope2448(t *testing.T) {
+	for _, args := range [][]string{{"app", "properties", "clear"}, {"app", "properties", "get"}, {"app", "model-group", "list"}, {"team", "grant", "add"}, {"team", "delivery-settings", "get"}, {"team", "ticker", "settings", "get"}} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		cmd, _, err := root.Find(args)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cmd.Flags().Lookup("instruction") != nil {
+			t.Fatalf("instruction leaked to %v", args)
+		}
 	}
 }
