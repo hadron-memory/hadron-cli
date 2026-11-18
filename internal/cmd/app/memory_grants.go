@@ -69,9 +69,13 @@ func writeMemoryGrant(f *cmdutil.Factory, d memoryGrantDTO) error {
 }
 
 func newCmdMemoryGrant(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "memory-grant <command>", Short: "Manage prefix-scoped writes by an App's userless runs", Long: `Manage the server's memory write grants for an App's userless runs.
-A grant covers one loc prefix and its colon-boundary descendants: reports:team
-covers reports:team:daily, but not reports:teamX. It never grants a whole memory.
+	cmd := &cobra.Command{Use: "memory-grant <command>", Short: "Manage prefix-scoped writes by an App's userless runs", Long: `Manage the server's memory write grants for an App's userless runs: the
+App's automated runs, which have no signed-in user behind them and so have no
+write access of their own. A grant lets those runs write nodes under one prefix
+of one memory. A node's loc is its path inside a memory, in colon-separated
+parts such as reports:team:daily. A grant covers one loc prefix and its
+colon-boundary descendants: reports:team covers reports:team:daily, but not
+reports:teamX. It never grants a whole memory.
 These commands grant no read access and do not change a user's own authority.
 The server checks every write again, including the memory's current class.
 A server-marked not-effective grant authorizes nothing now; the reason is shown
@@ -100,11 +104,15 @@ The CLI does not look up or reproduce these authorization decisions.`}
 func newCmdMemoryGrantAdd(f *cmdutil.Factory) *cobra.Command {
 	var memory, prefix, register string
 	var yes bool
-	cmd := &cobra.Command{Use: "add <app-ref> --memory <ref> --prefix <loc> [--register-node <urn>] [--yes]", Short: "Grant an App's userless runs writes under one memory loc prefix", Long: `Grant prefix-scoped node create/update access. Pass an App ID or qualified
-URN (the root:slug App shorthand also works), a memory ID/URN or root:slug,
-and a nonempty loc prefix. The server validates the prefix and authority.
---register-node is an optional node-URN citation, not evidence that the cited
-line exists; it is omitted unless given. Empty reference flags are refused.
+	cmd := &cobra.Command{Use: "add <app-ref> --memory <ref> --prefix <loc> [--register-node <urn>] [--yes]", Short: "Grant an App's userless runs writes under one memory loc prefix", Long: `Let an App's automated runs create and update nodes under one prefix of one
+memory. Pass an App ID or qualified URN (the root:slug App shorthand also works),
+a memory ID/URN or root:slug, and a nonempty loc prefix, which is the start of
+the node paths the runs may write, for example reports:team (see "hadron app
+memory-grant --help" for how a prefix matches). The server validates the prefix
+and your authority. --register-node is an optional URN of the register node you
+cite as the reason for the grant; it is only recorded, no node is read, and it
+is not evidence that the cited node exists. It is omitted unless given. Empty
+reference flags are refused.
 
 The target App, memory and prefix are confirmed before sending. Scripts need
 --yes. At most one mutation executes. A schema refusal for the new metadata can
@@ -151,8 +159,8 @@ stay null. Human output uses ? for a concealed/null memory and - for other null 
 		return writeMemoryGrant(f, d)
 	}}
 	cmd.Flags().StringVar(&memory, "memory", "", "target memory ID, URN or root:slug (required)")
-	cmd.Flags().StringVar(&prefix, "prefix", "", "loc prefix including its colon-boundary descendants (required)")
-	cmd.Flags().StringVar(&register, "register-node", "", "optional node-URN citation; no node is fetched")
+	cmd.Flags().StringVar(&prefix, "prefix", "", "the loc prefix the App's automated runs may write under, including its colon-boundary descendants, e.g. reports:team (required)")
+	cmd.Flags().StringVar(&register, "register-node", "", "optional: the URN of the register node you cite as the reason for the grant; it is only recorded, nothing is fetched or checked")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("prefix")

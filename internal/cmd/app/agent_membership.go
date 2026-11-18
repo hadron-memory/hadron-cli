@@ -38,23 +38,26 @@ func newCmdAgentAdd(f *cmdutil.Factory) *cobra.Command {
 		Use:     "add <app> <agent>",
 		Aliases: []string{"install"},
 		Short:   "Attach an existing Agent to an existing App",
-		Long: `Install an Agent into an App — a row in the AppAgent join (spec 023 US1,
-cor:dmo:050:03). Both refs take an ID or a URN.
+		Long: `Install an existing Agent into an existing App. Both refs take an ID or a URN.
 
-This is not ` + "`hadron app install`" + `, which creates a NEW App from an Agent.
-This composes the roster of an App you already have: adding a role agent to a
-second team App's cast pool, putting back one uninstalled by mistake, or
-re-attaching an Agent to reach the memories accumulated under it —
-cor:dmo:050:03 keeps those "ready to re-attach if the Agent is installed
-again", and this is the surface that does it.
+This is not ` + "`hadron app install`" + `, which creates a NEW App from an Agent. This
+changes which Agents an App you already have can use: adding a role Agent to a
+second team App, putting back one that was uninstalled by mistake, or
+re-attaching an Agent to reach the memories that built up under it (the
+platform keeps those ready to re-attach if the Agent is installed again, and
+this is the command that does it).
 
---training-mode is PER-APP, not per-Agent (spec 023 FR-001), so setting it
-here changes the flag for every Agent installed in this App. It is omitted
-entirely unless you pass it.
+--training-mode turns on the App's training flag. The flag belongs to the App,
+not to the Agent: it applies to every Agent installed in this App, so setting
+it here changes it for all of them. It is only sent when you pass it. What the
+platform does differently while the flag is on is decided by the server and is
+not described by this CLI; if you do not know that you need it, leave it out.
 
-Authorization is CONTRIBUTOR+ on the App's owning org, or ownership of a
-user-owned App — deliberately NOT plain App membership, since attaching an
-Agent grants read access to its design.`,
+You need CONTRIBUTOR or higher on the App's owning organization, or to own the
+App if it is user-owned: plain App membership is not enough, because attaching
+an Agent lets everyone in the App read the Agent's design. A FORBIDDEN says so.
+Prints "✓ installed <agent> (<urn>) into <app urn>"; --json is the installed
+row.`,
 		Example: `  hadron app agent add hrn:app:acme.com:eng-team hrn:agent:acme.com:iris
   hadron app agent add acme.com:eng-team hrn:agent:acme.com:iris --training-mode`,
 		Args: cobra.ExactArgs(2),
