@@ -359,3 +359,8 @@ func ErrorCode(err error) string {
 	}
 	return ""
 }
+
+// NewReadOnlyClient permits only terminal list/read, for report-only diagnostics.
+func NewReadOnlyClient(run Runner) *Client {
+	return &Client{run: guardFor(map[string]bool{"terminal list": true, "terminal read": true}, run)}
+}
