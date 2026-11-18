@@ -1682,8 +1682,8 @@ func TestMemorySetCreateInApp(t *testing.T) {
 			t.Errorf("%s = %v, want %v (all vars: %v)", key, vars[key], want, vars)
 		}
 	}
-	if _, present := vars["orgId"]; present {
-		t.Errorf("App-scoped create must not send orgId: %v", vars)
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("App-scoped create must not send orgRef: %v", vars)
 	}
 	if _, present := vars["visibility"]; present {
 		t.Errorf("App-scoped create must not send visibility: %v", vars)
@@ -1759,7 +1759,7 @@ func TestMemorySetCreateAppMemory(t *testing.T) {
 			t.Errorf("%s = %v, want %v (all vars: %v)", key, vars[key], want, vars)
 		}
 	}
-	for _, absent := range []string{"description", "agentRef", "memoryClass", "maxRevCount", "visibility", "orgId"} {
+	for _, absent := range []string{"description", "agentRef", "memoryClass", "maxRevCount", "visibility", "orgId", "orgRef"} {
 		if _, present := vars[absent]; present {
 			t.Errorf("%s must be omitted on the createAppMemory route: %v", absent, vars)
 		}
@@ -1934,8 +1934,8 @@ func TestMemorySetCreateOwnerMe(t *testing.T) {
 	// spec 047: the org-less path must OMIT orgId (nil pointer → omitted), not
 	// send it as an explicit null — that is what routes the server to the
 	// user-owned path.
-	if _, present := vars["orgId"]; present {
-		t.Errorf("user-owned create must omit orgId, got: %v", vars)
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("user-owned create must omit orgRef, got: %v", vars)
 	}
 	if vars["memoryClass"] != "personal" || vars["name"] != "Jens" {
 		t.Errorf("unexpected create vars: %v", vars)
@@ -1964,8 +1964,8 @@ func TestMemorySetOwnerMeDefaultsToPersonalClass(t *testing.T) {
 	if vars["memoryClass"] != "personal" {
 		t.Errorf("owner-me without --class must default to personal, got: %v", vars["memoryClass"])
 	}
-	if _, present := vars["orgId"]; present {
-		t.Errorf("user-owned create must omit orgId, got: %v", vars)
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("user-owned create must omit orgRef, got: %v", vars)
 	}
 }
 
