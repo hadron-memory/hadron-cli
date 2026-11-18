@@ -694,7 +694,7 @@ section between the markers.
 |---|---|---|---|---|---|---|---|---|
 | `(root)` |  |  | n | #1056 | 09be93c0f4eb | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
 | `agentic-usage` |  |  | y | #1056 | a77cfb7385c1 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
-| `api` |  |  | y | #1056 | 07f828af4986 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `api` |  |  | y | #1056 | ecff45e61c3a |  | unread |  |
 | `completion` |  | generated | n | #1056 | 532ef0768ca4 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560): no P1/P2, P3s only; result set at reassessment |
 | `config` |  |  | n | #1056 | b45cd824b251 |  | unread |  |
 | `config get` |  |  | y | #1056 | 226ece8f02be |  | unread |  |
