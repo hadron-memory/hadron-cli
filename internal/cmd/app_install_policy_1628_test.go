@@ -189,6 +189,12 @@ func TestAppPolicyFileRefusalAdviceMatchesTheCommand2319(t *testing.T) {
 		"empty": "--policy-file is empty; pass the policy JSON, or --clear-policy to remove the App link",
 		"null":  "--policy-file null would remove the App link; use --clear-policy to do that",
 	}
+	// hadron-cli#2357: each install case pins its own reason, so the empty and
+	// null reasons can't be swapped while the shared advice still matches.
+	installText := map[string]string{
+		"empty": "--policy-file is empty; pass the policy JSON, or leave --policy-file out for no policy link",
+		"null":  "--policy-file null is not a policy; pass the policy JSON, or leave --policy-file out for no policy link",
+	}
 	for name, content := range map[string]string{"empty": "  \n", "null": "null"} {
 		t.Run("install "+name, func(t *testing.T) {
 			srv, calls := appSettingsServer(t)
@@ -198,6 +204,9 @@ func TestAppPolicyFileRefusalAdviceMatchesTheCommand2319(t *testing.T) {
 			}
 			if strings.Contains(err.Error(), "--clear-policy") || !strings.Contains(err.Error(), "leave --policy-file out") {
 				t.Fatalf("install advice = %q", err)
+			}
+			if err.Error() != installText[name] {
+				t.Fatalf("install %s reason = %q, want %q", name, err.Error(), installText[name])
 			}
 		})
 		t.Run("update "+name, func(t *testing.T) {
