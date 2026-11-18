@@ -649,7 +649,7 @@ Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.importNode(input.authoredWith)  gap #684
 Mutation.issueHostOperation(instruction)  gap #1617
 Mutation.liftTeamStopSignal(instruction)  gap #1617
-Mutation.linkDefectToPullRequest(instruction)  gap #1617
+Mutation.linkDefectToPullRequest(instruction)  flag --instruction
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.registerContextResetRecovery(input.checkpointNode)  excluded not-a-capability: the host has the server write the checkpoint (input.checkpoint) and never names an existing node (ruling 0090 A, hadron-cli#1043); the written node comes back as ContextReset.checkpointNode
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
