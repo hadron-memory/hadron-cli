@@ -2,9 +2,9 @@ package team
 
 // `team roster` — the server-derived team roster (#830 over server #1707).
 // The roster is RENDERED here, never re-derived: every state comes from the
-// teamRoster query. The states are plan-derived (design:agent-tasks §7.4,
-// cor:agt:050 Out Of Scope), which the help text says out loud per the
-// CHECKED brief — they describe the plan's model, not platform law.
+// teamRoster query. The states are defined by
+// hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Proposed).
+// The first-that-holds display order comes from the server, not the spec.
 
 import (
 	"fmt"
@@ -29,12 +29,12 @@ func newCmdTeamRoster(f *cmdutil.Factory) *cobra.Command {
 model family, tasks and open alarms — the server's teamRoster query,
 rendered as returned. The CLI derives nothing.
 
-The STATES are plan-derived (design:agent-tasks §7.4), not a spec — they are
-the plan's model of a worker's situation, and cor:agt:050 keeps them out of
-the law corpus on purpose. A worker can be in several at once; it is shown
-in the first that holds (the server's roster order, most actionable
-first): YOUR_MOVE, UNAVAILABLE, WAITING, WORKING, ASSIGNED_NOT_STARTED,
-AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
+The states are defined by
+hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Definition: A worker's roster state;
+the states are Proposed). NO_FAMILY is served but not yet defined in the spec.
+A worker can be in several at once; it is shown in the first that holds
+(the server's roster order, most actionable first): YOUR_MOVE, UNAVAILABLE,
+WAITING, WORKING, ASSIGNED_NOT_STARTED, AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
 
 CHECK is the separate server-derived team-channel checking status:
 NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
@@ -227,7 +227,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 				if _, err := fmt.Fprintln(w, capacityLine(dto.Workers)); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(w, "as of %s — states are plan-derived (design:agent-tasks §7.4), not a spec\n", output.SafeCell(dto.AsOf))
+				_, err := fmt.Fprintf(w, "as of %s\n", output.SafeCell(dto.AsOf))
 				return err
 			})
 		},
