@@ -5528,6 +5528,15 @@ hadron team task update <task> [--title <t>] [--description <d> | --clear-descri
 hadron team task clone <task> [--parent <task> | --no-parent] [--status pending|backlog] [--title <t>] [--description <d>] [--source <s>] [--priority 1..5] [--assignee <party>] [--start-by <RFC3339>] [--finish-by <RFC3339>] [--close-session | --no-close-session] [--tag <t>… | --clear-tags] [--ref <kind>=<target>[|<label>]… | --clear-refs] [--properties <json|@file> | --clear-properties] [requirement flags | --clear-requirements] [--owner <party>] [--project]
 hadron team task create --batch-file <path|-> [--distinct-assignees]
 hadron team task set-priority <task> <priority> | add-blocker|remove-blocker <task> <blocker-task> | dependencies <task> [--limit N] [--offset N]
+  Instructed task writes (cli#2422, cor:dmo:050:12): `--instruction <kind>:<ref>` is accepted by `team task create`, `update`,
+  `set-priority`, `add-blocker`, `remove-blocker`, `assign`, `reassign`, `cancel`, `park`, `ready`, `dispose-finding` and
+  `release`. kind is `team-chat-message`, `task` or `live-chat` and the reference after the first colon is sent as written. It
+  claims that the bound worker's holder told it to make this one change; the claim rides only the write (a lookup before it, such
+  as `release`'s read of the outside item or `create`'s App lookup, carries none), and the worker session attaches as it does
+  without the flag. A malformed instruction exits 2 before any request; `create --instruction` with `--batch-file` exits 2 (the
+  batch write takes no claim). The server decides admission; its refusal is shown once and never retried without the flag. Without
+  the flag, the requests and `--json` are unchanged. Needs server ba077810 or later. `team stall-schedule set` and `team alarm ack`
+  take no instruction yet.
 
 Task priority/blocker fields require server #2726 (cf9bcfece) or later on every
 target deployment before releasing/installing this CLI; old servers reject the

@@ -1,0 +1,103 @@
+# cli#2422 (child of #1617; hadron-server#3323, merged as ba077810 by #3376,
+# cor:dmo:050:12): the twelve task writes carrying a holder's instruction
+# claim. Each is a separate document so the plain one stays byte-for-byte
+# unchanged and a no-flag request is exactly what it was. The selections match
+# the plain documents; the input types' omit-vs-null directives (agenttasks.graphql)
+# apply to the shared input types, so the same bindings are used here.
+
+mutation AgentTaskCreateInstructed(
+  $input: CreateAgentTaskInput!
+  $instruction: ActInstructionInput!
+) {
+  createAgentTask(input: $input, instruction: $instruction) {
+    ...AgentTaskFields
+    matchSkipped { workerId name reasons }
+  }
+}
+
+mutation AgentTaskUpdateInstructed(
+  $taskId: ID!
+  $input: UpdateAgentTaskInput!
+  $instruction: ActInstructionInput!
+) {
+  updateAgentTask(taskId: $taskId, input: $input, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskSetPriorityInstructed($taskRef: ID!, $priority: Int!, $instruction: ActInstructionInput!) {
+  setAgentTaskPriority(taskRef: $taskRef, priority: $priority, instruction: $instruction) { ...AgentTaskFields }
+}
+
+mutation AgentTaskAddBlockerInstructed($taskRef: ID!, $blockerTaskRef: ID!, $instruction: ActInstructionInput!) {
+  addAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef, instruction: $instruction) { ...AgentTaskFields }
+}
+
+mutation AgentTaskRemoveBlockerInstructed($taskRef: ID!, $blockerTaskRef: ID!, $instruction: ActInstructionInput!) {
+  removeAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef, instruction: $instruction) { ...AgentTaskFields }
+}
+
+mutation AgentTaskAssignInstructed(
+  $taskId: ID!
+  $assignee: AgentTaskPartyInput!
+  # @genqlient(omitempty: true)
+  $closeSessionWhenDone: Boolean
+  $instruction: ActInstructionInput!
+) {
+  assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskReassignInstructed(
+  $taskId: ID!
+  $assignee: AgentTaskPartyInput!
+  # @genqlient(omitempty: true)
+  $closeSessionWhenDone: Boolean
+  $instruction: ActInstructionInput!
+) {
+  reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskCancelInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  cancelAgentTask(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskParkInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  parkAgentTask(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskReadyInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  makeAgentTaskReady(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskDisposeFindingInstructed(
+  $taskRef: ID!
+  $findingId: String!
+  $disposition: AgentTaskFindingDispositionCode!
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceInput
+  $instruction: ActInstructionInput!
+) {
+  disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference, instruction: $instruction) {
+    id
+    # Findings are capped at 100 per task; this reads the full latest disposition set.
+    findingDispositions(limit: 200, offset: 0) {
+      items { ...TaskFindingDispositionFields }
+    }
+  }
+}
+
+mutation AgentTaskReleaseInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  releaseAgentTaskExternalId(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}

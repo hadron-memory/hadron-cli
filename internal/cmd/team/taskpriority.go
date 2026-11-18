@@ -44,6 +44,7 @@ func dependencyPage[T taskDependencyGetter](total int, more bool, items []T) *ta
 }
 
 func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
+	var rawInstruction string
 	priority := verb == "set-priority"
 	arg := "<blocker-task>"
 	short := "Add a blocker to a task"
@@ -54,8 +55,12 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 		short = "Remove a blocker from a task"
 	}
 	cmd := &cobra.Command{Use: verb + " <task> " + arg, Short: short,
-		Long: dependencyWriteLong(verb), Example: dependencyWriteExample(verb), Args: cobra.ExactArgs(2),
+		Long: dependencyWriteLong(verb) + "\n\n" + taskInstructionHelp, Example: dependencyWriteExample(verb), Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
 			ref, err := taskRefArg(f, args[:1])
 			if err != nil {
 				return err
@@ -82,38 +87,58 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 				return err
 			}
 			var fields gen.AgentTaskFields
-			switch verb {
-			case "set-priority":
-				r, e := gen.AgentTaskSetPriority(cmd.Context(), client, ref, n)
-				if e != nil {
-					return mapTaskError(e)
-				}
-				if r.SetAgentTaskPriority == nil {
+			var e error
+			switch {
+			case verb == "set-priority" && claim != nil:
+				var r *gen.AgentTaskSetPriorityInstructedResponse
+				if r, e = gen.AgentTaskSetPriorityInstructed(cmd.Context(), client, ref, n, claim); e == nil && r.SetAgentTaskPriority != nil {
+					fields = r.SetAgentTaskPriority.AgentTaskFields
+				} else if e == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no task")
 				}
-				fields = r.SetAgentTaskPriority.AgentTaskFields
-			case "add-blocker":
-				r, e := gen.AgentTaskAddBlocker(cmd.Context(), client, ref, second)
-				if e != nil {
-					return mapTaskError(e)
-				}
-				if r.AddAgentTaskBlocker == nil {
+			case verb == "set-priority":
+				var r *gen.AgentTaskSetPriorityResponse
+				if r, e = gen.AgentTaskSetPriority(cmd.Context(), client, ref, n); e == nil && r.SetAgentTaskPriority != nil {
+					fields = r.SetAgentTaskPriority.AgentTaskFields
+				} else if e == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no task")
 				}
-				fields = r.AddAgentTaskBlocker.AgentTaskFields
-			case "remove-blocker":
-				r, e := gen.AgentTaskRemoveBlocker(cmd.Context(), client, ref, second)
-				if e != nil {
-					return mapTaskError(e)
-				}
-				if r.RemoveAgentTaskBlocker == nil {
+			case verb == "add-blocker" && claim != nil:
+				var r *gen.AgentTaskAddBlockerInstructedResponse
+				if r, e = gen.AgentTaskAddBlockerInstructed(cmd.Context(), client, ref, second, claim); e == nil && r.AddAgentTaskBlocker != nil {
+					fields = r.AddAgentTaskBlocker.AgentTaskFields
+				} else if e == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no task")
 				}
-				fields = r.RemoveAgentTaskBlocker.AgentTaskFields
+			case verb == "add-blocker":
+				var r *gen.AgentTaskAddBlockerResponse
+				if r, e = gen.AgentTaskAddBlocker(cmd.Context(), client, ref, second); e == nil && r.AddAgentTaskBlocker != nil {
+					fields = r.AddAgentTaskBlocker.AgentTaskFields
+				} else if e == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no task")
+				}
+			case claim != nil:
+				var r *gen.AgentTaskRemoveBlockerInstructedResponse
+				if r, e = gen.AgentTaskRemoveBlockerInstructed(cmd.Context(), client, ref, second, claim); e == nil && r.RemoveAgentTaskBlocker != nil {
+					fields = r.RemoveAgentTaskBlocker.AgentTaskFields
+				} else if e == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no task")
+				}
+			default:
+				var r *gen.AgentTaskRemoveBlockerResponse
+				if r, e = gen.AgentTaskRemoveBlocker(cmd.Context(), client, ref, second); e == nil && r.RemoveAgentTaskBlocker != nil {
+					fields = r.RemoveAgentTaskBlocker.AgentTaskFields
+				} else if e == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no task")
+				}
+			}
+			if e != nil {
+				return mapTaskError(e)
 			}
 			dto := taskDTOFrom(fields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return renderTaskDetail(w, dto) })
 		}}
+	addTaskInstructionFlag(cmd, &rawInstruction)
 	return cmd
 }
 

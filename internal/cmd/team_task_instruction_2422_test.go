@@ -237,3 +237,30 @@ func TestTaskInstructionHelpNamesTheFlagOnEveryCommand2422(t *testing.T) {
 		})
 	}
 }
+
+// With no worker-session binding the write is the signed-in person's, as it is
+// without the flag: the claim still goes out (the server checks the reference
+// and records no claim) and no worker session is borrowed. Same as every earlier
+// --instruction door (#1592, #1594, #1614): a person write, never a refusal by
+// the CLI.
+func TestTaskInstructionWithoutABindingIsThePersonsWrite2422(t *testing.T) {
+	for _, c := range taskInstructionCases2422() {
+		t.Run(c.name, func(t *testing.T) {
+			teamGitDir(t) // a worktree with no binding file
+			srv, calls := attnServer(t, c.responses())
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"--server", srv.URL, "--app", "acme.com:eng-team"}, c.argv("--instruction", "task:hrn:agenttask:acme.com:eng:AT0.1")...))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			got := oneCall2422(t, calls, c.instrOp)
+			if got.Session != "" {
+				t.Fatalf("no binding: no worker session may ride, got %q", got.Session)
+			}
+			if got.Vars["instruction"] == nil {
+				t.Fatalf("the claim must still be sent: %v", got.Vars)
+			}
+		})
+	}
+}

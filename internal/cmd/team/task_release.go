@@ -17,7 +17,7 @@ import (
 // cor:agt:120:02): give a task's outside item back. The task keeps everything
 // else; cancel keeps the item too.
 func newCmdTeamTaskRelease(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "release", "releaseAgentTaskExternalId", "Give a task's outside item back",
+	return newInstructableTaskMutation(f, "release", "releaseAgentTaskExternalId", "Give a task's outside item back",
 		`Release the outside item a task claims (its external id, for example an
 issue's URL): the task keeps its status, assignee and history, but no longer
 holds the item, so the next `+"`task create --external-id`"+` naming it, or the
@@ -39,18 +39,28 @@ next `+"`find-untracked`"+` reconcile pass tells the team's tracker adapter
 Success prints the task and the item released; --json returns the task with a
 `+"`releasedExternalId`"+` field and a warnings list ([] when none).`,
 		"  hadron team task release AT0.7",
-		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
+		func(ctx context.Context, client graphql.Client, taskId string, claim *gen.ActInstructionInput) (taskDTO, error) {
 			// Read the item first: the release clears it. A failed read is not
 			// a refusal; the mutation below answers with the server's own.
 			var released string
 			if pre, err := gen.IntakeTaskExternalId(ctx, client, taskId); err == nil && pre.AgentTask != nil && pre.AgentTask.ExternalId != nil {
 				released = *pre.AgentTask.ExternalId
 			}
-			resp, err := gen.AgentTaskRelease(ctx, client, taskId)
-			if err != nil {
-				return taskDTO{}, err
+			var fields gen.AgentTaskFields
+			if claim != nil {
+				resp, err := gen.AgentTaskReleaseInstructed(ctx, client, taskId, claim)
+				if err != nil {
+					return taskDTO{}, err
+				}
+				fields = resp.ReleaseAgentTaskExternalId.AgentTaskFields
+			} else {
+				resp, err := gen.AgentTaskRelease(ctx, client, taskId)
+				if err != nil {
+					return taskDTO{}, err
+				}
+				fields = resp.ReleaseAgentTaskExternalId.AgentTaskFields
 			}
-			dto := taskDTOFrom(resp.ReleaseAgentTaskExternalId.AgentTaskFields)
+			dto := taskDTOFrom(fields)
 			dto.ReleasedExternalID = released
 			return dto, nil
 		},
