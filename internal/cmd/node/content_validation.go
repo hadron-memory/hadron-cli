@@ -112,7 +112,7 @@ missing/unreadable node; 8 means access, reporter or author refusal.
 Exit 2: the input or the choice is invalid (an unknown --outcome, a --task outside the listed set, an invalid revision or a wrong task).
 Exit 5: no task is configured or the task is broken, the node changed during the call, or the --run-id conflicts.
 When no task is configured, exit 5 occurs without a write. Exit 7 means outcome unknown: inspect
-the node before retrying. An HTTP 500, 502 or 504 answer to the record request exits 7 even when
+the node before retrying. An HTTP 5xx answer (any status from 500 to 599) to the record request exits 7 even when
 its body is a JSON error: the outcome is unknown, so read the node's latest validation report
 before recording again (hadron node get). A repeat with the same --run-id is answered as a replay if the first attempt
 was recorded and the node and task revisions and your identity are unchanged, otherwise refused as a
