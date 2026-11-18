@@ -5846,6 +5846,7 @@ PERMISSION_DENIED (shared exit 8) and concealing NOT_FOUND (exit 4 for missing o
 unreadable Agent alike). Lookup INTERNAL_SERVER_ERROR stays exit 1 with requestId.
 Older providers may still conceal domain errors as internal faults. Classify
 only extensions.code, never prose; no scoped override or retry.
+INTERNAL_SERVER_ERROR (exit 1) is an unknown outcome: it can be a concealed refusal or a real server fault, so do not assume nothing changed, and this command does not retry.
 
 ## Resend senders and platform invitations
 
