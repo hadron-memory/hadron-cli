@@ -6103,13 +6103,16 @@ hadron team task find-untracked --adapter <exe> [--for <worker>] [--track] [--as
 
 Adapter reconcile JSON (list and `--track`): `skipped` remains the total. Additive reason counters partition it: `skippedNull` (null feed entry, not counted in `read`), `skippedUndeclared` (adapter does not declare the call), `skippedKind` (no action for this change kind), `skippedNoAssignee` (reassignment without a task/assignee), and `skippedNoTask` (cancellation without a task), and `skippedHeldElsewhere` (a different ACTIVE task holds the item now, or for a release ANY task still holds its id, so the adapter is told nothing; a failed holder read, or a read that still lists a released task as its holder, ends the run with the cursor unmoved). Missing task/assignee takes precedence over an undeclared call. Every counter is present, including zero. A 25-page bound returns `complete:false`, `error:null`; the next run resumes at the saved cursor.
 
-Changed in cli#2250 (`team task find-untracked --adapter` JSON; unreleased —
-every tag through v0.51.0 predates it, so the first tag cut from main ships
-it): reaching `--limit` now reports `complete:false` with
-`stoppedReason:"limit_reached"` where it reported `complete:true`, and the
-`--track` `stoppedReason` is the failing stage (`limit_reached`,
-`claim_failed`, `mark_failed`, …) where it was the literal `"stopped"`. The
-list `--json` gained `stoppedReason` (additive). A consumer matching
+Changed in cli#2250 (`team task find-untracked --adapter` JSON; first shipped
+in the first release after v0.51.0, which predates it): reaching `--limit` now
+reports `complete:false` with `stoppedReason:"limit_reached"` where it reported
+`complete:true` (still exit 0: a limit stop is a success, not a failure), and
+the `--track` `stoppedReason` is `limit_reached`, or the failing stage
+(`claim_failed`, `mark_failed`, …), where it was the literal `"stopped"`.
+`limit_reached` comes only from `--limit`: the list walk's 50-page
+endless-list bound is a refusal (exit 1), and the reconcile's 25-page bound
+reports `reconcile.complete:false`, not a `stoppedReason`. The list `--json`
+gained `stoppedReason` (additive). A consumer matching
 `"stopped"` or reading `complete:true` at a limit must switch to the stage
 vocabulary and treat a limit stop as incomplete.
 
