@@ -6,13 +6,11 @@ import (
 	"testing"
 )
 
-// cli#1051 (replace and comment rows): two pins from the re-read of the comment pages.
+// cli#1051 (replace and comment rows): pins from the re-read of the comment pages (comment add is outside the ten rows and belongs to the newer-pages audit child).
 //   - comment delete named one permission two ways ("a memory manager" for a single
 //     comment, "a memory admin" for --thread). The server gates both on the same
 //     manage access (comment-nodes contract: requireMemoryManageAccess), so the page
 //     says "memory manager" throughout, in the text and in the --thread flag.
-//   - comment add never said it needs write access, which comment create and
-//     comment reply both say.
 func TestCommentHelpWordingFromTheReRead1051(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -42,9 +40,5 @@ func TestCommentHelpWordingFromTheReRead1051(t *testing.T) {
 		if got := flags["expected-revision"]; !strings.HasSuffix(got, "(required)") {
 			t.Errorf("comment %s --expected-revision usage changed: %q", verb, got)
 		}
-	}
-	add, _ := find("add")
-	if !strings.Contains(add, "Needs write access to the memory.") {
-		t.Error("comment add does not say it needs write access to the memory")
 	}
 }
