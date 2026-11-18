@@ -108,8 +108,9 @@ revisions: choose one with --task (ID or the listed URN). A choice outside that
 set exits 2 before any write. --run-id is passed through for server idempotency;
 a replay is success. No refusal or uncertain write is retried automatically.
 The JSON receipt contains nodeId, replayed, report and state. Exit 4 means
-missing/unreadable node; 8 means access, reporter or author refusal; 2 means
-invalid input/task/revision; 5 means configuration or revision/run-ID conflict.
+missing/unreadable node; 8 means access, reporter or author refusal.
+Exit 2: the input or the choice is invalid (an unknown --outcome, a --task outside the listed set, an invalid revision or a wrong task).
+Exit 5: no task is configured or the task is broken, the node changed between the read and the write, or the --run-id conflicts.
 When no task is configured, exit 5 occurs without a write. Exit 7 means outcome unknown: inspect
 the node before retrying. The result is advisory, not approval or independence.`,
 		Example: `  hadron node validation record instructions -m example.com:kb --outcome PASS --run-id check-42
