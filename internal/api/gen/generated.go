@@ -100927,7 +100927,7 @@ func (v *TeamRosterResponse) GetTeamRoster() *TeamRosterTeamRoster { return v.Te
 // #1707 — a worker's derived state on the team roster, as defined by
 // hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Definition: A worker's roster state;
 // the states are Proposed). A worker can be in several at once; it is shown in the
-// first that holds, in this order. NO_FAMILY is served but not yet defined in the spec.
+// first that holds, in this order.
 type TeamRosterState string
 
 const (
@@ -169241,9 +169241,9 @@ fragment WorkerTerminalFields on WorkerTerminal {
 `
 
 // The server-derived roster (#1707). Rendered, never re-derived client-side;
-// the states are as defined by cor:agt:050:22 (Proposed; NO_FAMILY is served
-// but not yet defined there), in the server's first-that-holds order, which
-// the command's help text says out loud.
+// the states are as defined by hrn:node:hadronmemory.com:specs:cor:agt:050:22
+// (Proposed), in the server's first-that-holds order, which the command's
+// help text says out loud.
 func TeamRoster(
 	ctx_ context.Context,
 	client_ graphql.Client,
