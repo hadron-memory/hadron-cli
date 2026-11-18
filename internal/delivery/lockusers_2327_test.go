@@ -1,10 +1,11 @@
 package delivery
 
 import (
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"io/fs"
-	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -30,10 +31,22 @@ var lockUserFiles2327 = map[string]string{
 	"internal/hostpoller/poller.go":              "poller",  // lockBinding: delivery.LockBinding
 }
 
-var lockCaller2327 = regexp.MustCompile(`\b(withBindingLock|withBindingLockAt|updateBinding|clearBinding|recordChatWatermark|bindingIsSession|LockBinding|lockBinding)\(|lockBinding:`)
+// lockNames2327 are the functions whose call takes the binding lock, directly
+// or through a wrapper; lockField2327 is the struct field the poller wires it by.
+var lockNames2327 = map[string]bool{
+	"withBindingLock": true, "withBindingLockAt": true, "updateBinding": true,
+	"clearBinding": true, "recordChatWatermark": true, "bindingIsSession": true,
+	"LockBinding": true, "lockBinding": true,
+}
+
+const lockField2327 = "lockBinding"
 
 // scanLockCallers2327 returns the non-test files under root/internal that call
 // the binding lock, other than the delivery package itself and generated code.
+// It parses each file and looks at call expressions (and the lockBinding field
+// key), so the shape of the line a call sits on (a one-line func declaration,
+// a call after a signature's braces) cannot hide it, and a comment or a bare
+// declaration is never mistaken for a call (#2368).
 func scanLockCallers2327(root string) (map[string]bool, error) {
 	found := map[string]bool{}
 	err := filepath.WalkDir(filepath.Join(root, "internal"), func(p string, d fs.DirEntry, err error) error {
@@ -45,20 +58,30 @@ func scanLockCallers2327(root string) (map[string]bool, error) {
 		if strings.HasPrefix(rel, "internal/delivery/") || strings.HasPrefix(rel, "internal/api/gen/") {
 			return nil
 		}
-		b, rerr := os.ReadFile(p)
-		if rerr != nil {
-			return rerr
+		file, perr := parser.ParseFile(token.NewFileSet(), p, nil, 0)
+		if perr != nil {
+			return perr
 		}
-		for _, line := range strings.Split(string(b), "\n") {
-			l := strings.TrimSpace(line)
-			if strings.HasPrefix(l, "//") || strings.HasPrefix(l, "func ") {
-				continue
+		ast.Inspect(file, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.CallExpr:
+				name := ""
+				switch f := x.Fun.(type) {
+				case *ast.Ident:
+					name = f.Name
+				case *ast.SelectorExpr:
+					name = f.Sel.Name
+				}
+				if lockNames2327[name] {
+					found[rel] = true
+				}
+			case *ast.KeyValueExpr:
+				if k, ok := x.Key.(*ast.Ident); ok && k.Name == lockField2327 {
+					found[rel] = true
+				}
 			}
-			if lockCaller2327.MatchString(l) {
-				found[rel] = true
-				break
-			}
-		}
+			return !found[rel]
+		})
 		return nil
 	})
 	return found, err
