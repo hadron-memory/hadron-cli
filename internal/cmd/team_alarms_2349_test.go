@@ -40,7 +40,9 @@ type alarmCounts2349 struct {
 
 // A page-limit stop must name an EVENT as the last thing read and keep the
 // cursor it stopped at as resumeCursor — not store the cursor in lastEventId
-// (#2349 item 1: the field carried both meanings).
+// (#2349 item 1: the field carried both meanings). The literals 100/e099/c099
+// mirror alarmPageLimit and its per-page fixtures; a limit change fails here
+// for an obvious cause.
 func TestTeamAlarms2349PageLimitStopNamesTheEventAndKeepsTheCursor(t *testing.T) {
 	pages := func(i int) string {
 		return page1919([]string{alarmEvent1829(fmt.Sprintf("e%03d", i), "t1", "stall.no-progress", "2026-11-17T18:00:00Z", "", "", "")}, true, fmt.Sprintf("c%03d", i))
@@ -68,9 +70,67 @@ func TestTeamAlarms2349PageLimitStopNamesTheEventAndKeepsTheCursor(t *testing.T)
 	}
 }
 
-// The count walk's repeated-cursor stop has the same two-meanings bug: the
-// marker claimed an event id and stored the repeated cursor.
-func TestTaskList2349RepeatedCursorStopNamesTheEventAndKeepsTheCursor(t *testing.T) {
+// A stop before any event is read must not dangle an "at" with an empty id,
+// in text or in the carried-across lastEventId (#2349 BLIND/LOCAL follow-ups).
+func TestTeamAlarms2349PageLimitBeforeAnyEvent(t *testing.T) {
+	// Every page empty: no event id exists to name.
+	empty := func(i int) string {
+		return page1919(nil, true, fmt.Sprintf("c%03d", i))
+	}
+	out, _, _, err := runAlarms1829(t, alarmsTasks1829(), empty, "--team=worker:Marco", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inc := decodeAlarms1829(t, out).Incomplete
+	if inc == nil || inc["reason"] != "page-limit" || inc["lastEventId"] != "" || inc["resumeCursor"] != "c099" {
+		t.Fatalf("incomplete %v", inc)
+	}
+	text, _, _, err := runAlarms1829(t, alarmsTasks1829(), empty, "--team=worker:Marco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text, "paging stopped: page-limit before reading any event (resume cursor c099) after 100 pages") {
+		t.Fatalf("an event-less stop must say so, not dangle an at:\n%s", text)
+	}
+	// Events early, empty pages after: the last id read anywhere survives an
+	// empty final page — it is not per-page state.
+	late := func(i int) string {
+		rows := []string{alarmEvent1829("e000", "t1", "stall.no-progress", "2026-11-17T18:00:00Z", "", "", "")}
+		if i > 0 {
+			rows = nil
+		}
+		return page1919(rows, true, fmt.Sprintf("c%03d", i))
+	}
+	out, _, _, err = runAlarms1829(t, alarmsTasks1829(), late, "--team=worker:Marco", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inc := decodeAlarms1829(t, out).Incomplete; inc["lastEventId"] != "e000" {
+		t.Fatalf("an empty final page must not erase the last event read: %v", inc)
+	}
+}
+
+// A null-cursor stall has no cursor to offer, so it carries none (#2349 LOCAL
+// P3: the absence was unpinned).
+func TestTeamAlarms2349StallWithNoCursorCarriesNoResumeCursor(t *testing.T) {
+	page := page1919([]string{alarmEvent1829("a1", "t1", "stall.no-progress", "2026-11-17T18:00:00Z", "", "", "")}, true, "")
+	out, _, _, err := runAlarms1829(t, alarmsTasks1829(), static1919(page), "--team=worker:Marco", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inc := decodeAlarms1829(t, out).Incomplete
+	if inc == nil || inc["reason"] != "cursor-stalled" || inc["lastEventId"] != "a1" {
+		t.Fatalf("incomplete %v", inc)
+	}
+	if _, ok := inc["resumeCursor"]; ok {
+		t.Fatalf("a stall offers no resume cursor — its cursor is known not to progress: %v", inc)
+	}
+}
+
+// The count walk's repeated-cursor stop names the event and offers no cursor:
+// the revisited cursor only re-reads pages, so handing it back as a resume
+// point invites a loop (#2349 BLIND P2).
+func TestTaskList2349RepeatedCursorStopNamesTheEventAndOffersNoCursor(t *testing.T) {
 	page := page1919([]string{alarmRow1919("r1", "t1", false)}, true, "same")
 	out, _, err := list1919(t, static1919(page), "--json")
 	if err != nil {
@@ -84,14 +144,14 @@ func TestTaskList2349RepeatedCursorStopNamesTheEventAndKeepsTheCursor(t *testing
 	if ac == nil || ac.Reason != "cursor-stalled" || ac.Pages != 2 {
 		t.Fatalf("alarmCounts %+v in %s", ac, out)
 	}
-	if ac.LastEventID != "r1" || ac.ResumeCursor != "same" {
-		t.Fatalf("lastEventId %q resumeCursor %q — the event id, with the cursor named separately", ac.LastEventID, ac.ResumeCursor)
+	if ac.LastEventID != "r1" || strings.Contains(out, "resumeCursor") {
+		t.Fatalf("lastEventId %q — the event id, and no resume cursor offered: %s", ac.LastEventID, out)
 	}
 }
 
 // A cursor cycle (A→B→A→…) is a stall the immediate-repeat check cannot see:
 // both walks must stop as cursor-stalled at the revisit, not page to their
-// own page bound (#2349 item 5c).
+// own page bound (#2349 item 5c). The revisited cursor is not offered.
 func TestTeamAlarms2349CyclingCursorStallsWithinTheCycle(t *testing.T) {
 	pages := func(i int) string {
 		cursor := "A"
@@ -108,16 +168,19 @@ func TestTeamAlarms2349CyclingCursorStallsWithinTheCycle(t *testing.T) {
 		t.Fatalf("%d page reads: a revisit must stop the walk", n)
 	}
 	inc := decodeAlarms1829(t, out).Incomplete
-	if inc == nil || inc["reason"] != "cursor-stalled" || inc["pages"] != float64(3) ||
-		inc["lastEventId"] != "e002" || inc["resumeCursor"] != "A" {
+	if inc == nil || inc["reason"] != "cursor-stalled" || inc["pages"] != float64(3) || inc["lastEventId"] != "e002" {
 		t.Fatalf("incomplete %v", inc)
+	}
+	if _, ok := inc["resumeCursor"]; ok {
+		t.Fatalf("a stalled cycle offers no resume cursor: %v", inc)
 	}
 }
 
 // The count walk's page-limit stop is pinned to the same shape as the alarms
 // walk's — an event id, with the cursor named separately — so a revert to
 // storing the cursor reddens here, not only where the id happens to be
-// non-empty either way.
+// non-empty either way. Its INCOMPLETE text line (explain()) is pinned too.
+// The literals mirror alarmPageLimit (see the alarms-walk test above).
 func TestTaskList2349PageLimitStopNamesTheEventAndKeepsTheCursor(t *testing.T) {
 	pages := func(i int) string {
 		return page1919([]string{alarmRow1919(fmt.Sprintf("e%03d", i), "t1", false)}, true, fmt.Sprintf("c%03d", i))
@@ -136,6 +199,13 @@ func TestTaskList2349PageLimitStopNamesTheEventAndKeepsTheCursor(t *testing.T) {
 	}
 	if ac.LastEventID != "e099" || ac.ResumeCursor != "c099" {
 		t.Fatalf("lastEventId %q resumeCursor %q — an event id, with the cursor named separately", ac.LastEventID, ac.ResumeCursor)
+	}
+	text, _, err := list1919(t, pages)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(text, "paging stopped: page-limit at e099 (resume cursor c099) after 100 pages") {
+		t.Fatalf("the count walk's INCOMPLETE line:\n%s", text)
 	}
 }
 
@@ -159,8 +229,8 @@ func TestTaskList2349CyclingCursorStallsTheCountWalk(t *testing.T) {
 	if ac == nil || ac.Reason != "cursor-stalled" || ac.Pages != 3 {
 		t.Fatalf("alarmCounts %+v in %s", ac, out)
 	}
-	if ac.LastEventID != "e2" || ac.ResumeCursor != "A" {
-		t.Fatalf("lastEventId %q resumeCursor %q", ac.LastEventID, ac.ResumeCursor)
+	if ac.LastEventID != "e2" || strings.Contains(out, "resumeCursor") {
+		t.Fatalf("lastEventId %q, and no resume cursor offered: %s", ac.LastEventID, out)
 	}
 }
 
@@ -248,8 +318,10 @@ func TestTeamAlarms2349HostileCoordinatorNameIsSanitised(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "team: ") || strings.ContainsAny(out, "\x1b") {
-		t.Fatalf("the header must sanitise the coordinator's name:\n%q", out)
+	// SafeCell neutralises the control rune to a space and keeps the rest, so
+	// the name is still readable — not dropped — and carries no ESC.
+	if !strings.Contains(out, "team: Mar [31mco") || strings.ContainsAny(out, "\x1b") {
+		t.Fatalf("the header must sanitise the coordinator's name without dropping it:\n%q", out)
 	}
 	jout, _, _, err := pagesServer1919(t, responses, page, "team", "alarms", "--team", "--json")
 	if err != nil {
@@ -292,10 +364,10 @@ func TestTeamAlarms2349AllWithUnreadableTaskTimestampOmitsIDLE(t *testing.T) {
 	}
 }
 
-// ACKED counts the alarms THIS command's walk read — with an incomplete walk
-// it is a lower bound, so the row carries the count and the marker together
-// (#2349 item 4b).
-func TestTeamAlarms2349AckedCountsCoverOnlyTheWalkedSet(t *testing.T) {
+// ACKED is reported as the walked set's count, beside the incomplete marker —
+// under an incomplete walk the two travel together, the count being of what
+// was read, not of the server's total (#2349 item 4b).
+func TestTeamAlarms2349AckedIsTheWalkedSetBesideTheIncompleteMarker(t *testing.T) {
 	page := page1919([]string{
 		alarmEvent1829("open", "t1", "stall.no-progress", "2026-11-17T18:00:00Z", "", "", ""),
 		alarmEvent1829("acked", "t1", "stall.not-started", "2026-11-17T17:00:00Z", "2026-11-17T17:10:00Z", "Marco", ""),

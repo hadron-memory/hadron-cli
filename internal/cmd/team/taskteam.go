@@ -72,9 +72,10 @@ type alarmCountsDTO struct {
 	Complete    bool   `json:"complete"`
 	Reason      string `json:"reason"`
 	LastEventID string `json:"lastEventId"`
-	// ResumeCursor is the page cursor the walk stopped at, present only when
-	// the server offered one (a page-limit stop or a repeated-cursor stall);
-	// lastEventId is always an event id, never a cursor (cli#2349).
+	// ResumeCursor is a page-limit stop's continuation cursor — one the walk
+	// has not paged from; a cursor-stalled stop carries none, its cursor being
+	// known only to re-read pages. lastEventId is always an event id, empty
+	// when the walk read none, never a cursor (cli#2349).
 	ResumeCursor string `json:"resumeCursor,omitempty"`
 	Pages        int    `json:"pages"`
 }
