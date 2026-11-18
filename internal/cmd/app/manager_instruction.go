@@ -10,14 +10,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// managerInstructionMinimum is the app door's server minimum for --instruction.
+const managerInstructionMinimum = "2026-11-04"
+
 func addManagerInstruction(cmd *cobra.Command) {
-	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("2026-11-04"))
-	cmd.Long += "\n\n" + instruction.ManagerHelp
+	instruction.AddManagerFlag(cmd, managerInstructionMinimum)
 }
 
-// Manager writes use the same App-target-bound snapshot/recheck as members.
+// The app manager writes reuse the member-write helpers on purpose: the flag,
+// the parse and the App-target-bound snapshot/recheck are the same contract
+// as `app member add|remove` (cli#1594), so there is no manager-specific copy.
 // memberInstruction is called at entry; memberWriteContext runs after local
 // validation, confirmation and client setup, immediately before the mutation.
+// Its target-id argument is "" because an App write names the App by ref only
+// (the ref is passed as targetAppRef); there is no separate App id to pin.
 func setManagerProperties(ctx context.Context, client graphql.Client, ref string, props *json.RawMessage, revision *int, claim *gen.ActInstructionInput) (*gen.SetAppPropertiesResponse, error) {
 	if claim == nil {
 		return gen.SetAppProperties(ctx, client, ref, props, revision)

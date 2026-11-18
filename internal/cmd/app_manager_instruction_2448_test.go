@@ -32,8 +32,20 @@ func managerCases2448() []managerCase2448 {
 	}
 }
 
-// Literal hashes are captured from fresh main's generated plain documents,
-// before adding the instructed operations. No-flag wire documents must not move.
+// Literal hashes pin the six plain (no-flag) wire documents. They were captured
+// from the generated plain operations on main at 2efc8cb3's parent, before the
+// instructed operations were added: each value is the SHA-256 of that
+// operation's Query as the request carries it, i.e. the text of the
+// gen.<Op>_Operation constant in internal/api/gen/generated.go. To recompute
+// after a deliberate change to a plain document, hash that constant for each
+// of these six operations on the new base and name the base in the commit.
+// No-flag wire documents must not move otherwise.
+//
+// The call recorder (snapshotServer1614) appends from the httptest handler
+// goroutine without a lock. That is safe here only because every test in this
+// file issues its requests strictly one after another and reads the slice
+// after the command returns; introduce parallel requests only together with a
+// mutex around that append.
 var managerPlainHashes2448 = map[string]string{
 	"SetAppProperties":        "4f32f157f9fb5f7b63e0cae3497418d82fd6241cd746147052230a919f76ea6c",
 	"SetAppModelGroup":        "82c77f7c4d337ee9ce020c357cfa8993f5e2f744d5ffc33cb98769894a0fe6a4",
