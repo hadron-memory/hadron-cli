@@ -143,6 +143,13 @@ Pages are separate requests and do not promise one database snapshot.
 					return err
 				}
 				if len(result.Items) == 0 {
+					if limit == 0 && result.Total > 0 {
+						// --limit 0 asked for the count alone: an empty item set
+						// is what was requested, so say that, and nothing about
+						// whether the records are readable (#1294).
+						_, err := fmt.Fprintln(w, "Counts only (--limit 0): no records were requested.")
+						return err
+					}
 					_, err := fmt.Fprintln(w, "No records on this page (empty may also mean unreadable or serving off).")
 					return err
 				}
