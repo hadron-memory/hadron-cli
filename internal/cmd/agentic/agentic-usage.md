@@ -6487,8 +6487,8 @@ or head in the wrong form) exits 2, and an empty `--defect` or
 `--introduced-at-head` is refused with exit 2 before any request. A response
 with no link exits 1: the link may have been recorded, so read the events of
 the task the message names (`hadron team events --task <ref>`) before
-retrying. The message's last line is that task ref alone, in full, so copy it
-as one argument. No retry. `--json` is `{taskId, defect,
+retrying. The message's last line is that task ref alone, in full (control characters in the ref show as spaces), so copy it
+as one argument, and quote the ref when you pass it back to a shell: a ref can hold shell metacharacters. No retry. `--json` is `{taskId, defect,
 introducedAtHead, eventId, linkedAt, created}`; `introducedAtHead` is null when
 the link names no head.
 
