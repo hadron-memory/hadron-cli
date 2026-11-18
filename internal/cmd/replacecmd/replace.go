@@ -87,12 +87,14 @@ a wrong term everywhere it appears.
 
 Choose the nodes with --node (a node URN or id, repeatable), with -m/--memory
 (every node in that memory, repeatable), or both; at least one is required.
+Needs write access to every memory it writes in.
 
 Some nodes are never changed, and are skipped without a warning: comments
 (change them with comment edit), governed nodes such as specs and reviews
 (they have their own commands), compiled boot prompts, and nodes at protected
 addresses. Skipped nodes are not counted in "scanned", and this command does
 not report how many were skipped.
+
 --prefix narrows a --memory to one branch: the node at that loc and
 everything below it (it matches on ':' boundaries, so 'auth' matches 'auth'
 and 'auth:tokens' but not 'authoring').
@@ -109,6 +111,12 @@ terminal (a script or an AI agent) pass --yes, which skips the question but
 still prints the totals to stderr before writing. --max-nodes N refuses the
 whole change if more than N nodes would change: a guard against rewriting a
 memory by mistake (a wrong --memory, a forgotten --prefix).
+
+A refusal before any write exits 2 and changes nothing: no --yes without a
+terminal, more nodes than --max-nodes, an empty <old>, a missing --field,
+--node or --memory, or --prefix without --memory. If nothing matches it
+prints "No matches — nothing to replace." on stderr and writes nothing
+(exit 0).
 
 It prints the totals ("Replaced 3 occurrence(s) across 2 of 40 node(s)
 scanned."), then a table of the changed nodes: LOC, REPLACEMENTS and FIELDS
