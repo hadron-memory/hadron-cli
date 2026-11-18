@@ -490,11 +490,7 @@ no further page) beside requests.`,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Requests) == 0 {
-					msg := "no signing requests on this page"
-					if afterPtr == nil && !dto.HasMore {
-						msg = "no signing requests"
-					}
-					if _, err := fmt.Fprintf(w, "%s: %s\n", dto.URN, msg); err != nil {
+					if _, err := fmt.Fprintf(w, "%s: no signing requests on this page\n", dto.URN); err != nil {
 						return err
 					}
 				} else {

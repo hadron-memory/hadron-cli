@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -127,12 +128,12 @@ func (p *pagedServer2032) serve(t *testing.T) *httptest.Server {
 	return srv
 }
 
-func (p *pagedServer2032) listCalls(prefix string) []pagedCall2032 {
+func (p *pagedServer2032) listCalls(operationName string) []pagedCall2032 {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	var out []pagedCall2032
 	for _, c := range p.calls {
-		if c.name == prefix {
+		if c.name == operationName {
 			out = append(out, c)
 		}
 	}
@@ -596,13 +597,13 @@ func TestPagedListRefusesATerminalPageWithACursor2032(t *testing.T) {
 		pw := &pagedServer2032{reply: func(op string, _ map[string]any) (string, bool) {
 			return `{"data":{"webPollsPage":{"items":[` + row + `],"hasMore":false,"nextCursor":` + cur + `}}}`, op == "WebPollsPage"
 		}}
-		if out, err := run2032(t, pw.serve(t), "web-poll", "list", "--org", "acme.com", "--after", "opaque-7"); exitCodeFor(err) != 1 || strings.Contains(out, "has more") {
+		if out, err := run2032(t, pw.serve(t), "web-poll", "list", "--org", "acme.com", "--after", "opaque-7"); exitCodeFor(err) != 1 || out != "" {
 			t.Fatalf("web-poll %s: exit %d out %q", name, exitCodeFor(err), out)
 		}
 		ps := &pagedServer2032{reply: func(op string, _ map[string]any) (string, bool) {
 			return `{"data":{"node":{"id":"n1","urn":"u","loc":"l","signingRequestsPage":{"items":[` + sr + `],"hasMore":false,"nextCursor":` + cur + `}}}}`, op == "NodeSigningRequests"
 		}}
-		if out, err := run2032(t, ps.serve(t), "node", "signing-request", "list", nodeURN, "--after", "opaque-7"); exitCodeFor(err) != 1 || strings.Contains(out, "has more") {
+		if out, err := run2032(t, ps.serve(t), "node", "signing-request", "list", nodeURN, "--after", "opaque-7"); exitCodeFor(err) != 1 || out != "" {
 			t.Fatalf("signing %s: exit %d out %q", name, exitCodeFor(err), out)
 		}
 	}
@@ -613,10 +614,12 @@ func TestPagedListRefusesATerminalPageWithACursor2032(t *testing.T) {
 type failingWriter2032 struct {
 	b      strings.Builder
 	marker string
+	hit    bool
 }
 
 func (w *failingWriter2032) Write(p []byte) (int, error) {
 	if strings.Contains(string(p), w.marker) {
+		w.hit = true
 		return 0, io.ErrClosedPipe
 	}
 	return w.b.Write(p)
@@ -627,23 +630,28 @@ func (w *failingWriter2032) Write(p []byte) (int, error) {
 func TestPagedListFooterWriteFailureFails2032(t *testing.T) {
 	p := &pagedServer2032{polls: polls2032(25), requests: signingFixture2032()}
 	srv := p.serve(t)
+	empty := (&pagedServer2032{}).serve(t)
 	for _, tc := range []struct {
 		name   string
+		srv    *httptest.Server
 		args   []string
 		marker string
 	}{
-		{"web-poll has more", []string{"web-poll", "list", "--org", "acme.com"}, "has more"},
-		{"web-poll next cursor", []string{"web-poll", "list", "--org", "acme.com"}, "next cursor"},
-		{"signing has more", []string{"node", "signing-request", "list", nodeURN, "--state", "open"}, "has more"},
-		{"signing next cursor", []string{"node", "signing-request", "list", nodeURN, "--state", "open"}, "next cursor"},
+		{"web-poll has more", srv, []string{"web-poll", "list", "--org", "acme.com"}, "has more"},
+		{"web-poll next cursor", srv, []string{"web-poll", "list", "--org", "acme.com"}, "next cursor"},
+		{"web-poll empty page", empty, []string{"web-poll", "list", "--org", "acme.com"}, "on this page"},
+		{"signing has more", srv, []string{"node", "signing-request", "list", nodeURN, "--state", "open"}, "has more"},
+		{"signing next cursor", srv, []string{"node", "signing-request", "list", nodeURN, "--state", "open"}, "next cursor"},
+		{"signing empty page", empty, []string{"node", "signing-request", "list", nodeURN}, "on this page"},
 	} {
 		f, _ := testFactory(t)
 		fw := &failingWriter2032{marker: tc.marker}
 		f.IOStreams.Out = output.Tracked(fw)
 		root := NewRootCmd(f)
-		root.SetArgs(append(append([]string{}, tc.args...), "--server", srv.URL))
-		if err := root.Execute(); err == nil {
-			t.Fatalf("%s: a failed footer write reported success", tc.name)
+		root.SetArgs(append(append([]string{}, tc.args...), "--server", tc.srv.URL))
+		err := root.Execute()
+		if !errors.Is(err, io.ErrClosedPipe) || !fw.hit {
+			t.Fatalf("%s: want the write failure (io.ErrClosedPipe) propagated after reaching %q, got %v (hit %v)", tc.name, tc.marker, err, fw.hit)
 		}
 	}
 }
@@ -686,17 +694,59 @@ func TestPagedListHumanCursorRoundTrips2032(t *testing.T) {
 	}
 }
 
-// UX P3: the very first page of an empty list says there is nothing, not
-// "on this page"; a later empty page still says "on this page".
-func TestPagedListEmptyFirstPageSaysNothingExists2032(t *testing.T) {
+// Gate wording (cli#2032 selection, BLIND delta P2): an empty page says it is
+// empty ON THIS PAGE, first page included, never that nothing exists: with a
+// filter an empty page does not mean no requests exist.
+func TestPagedListEmptyPageIsPageScoped2032(t *testing.T) {
 	p := &pagedServer2032{}
 	srv := p.serve(t)
 	out, err := run2032(t, srv, "web-poll", "list", "--org", "acme.com")
-	if err != nil || !strings.Contains(out, "no watches\n") || strings.Contains(out, "on this page") {
+	if err != nil || !strings.Contains(out, "no watches on this page\n") {
 		t.Fatalf("web-poll: %v\n%s", err, out)
 	}
-	out, err = run2032(t, srv, "node", "signing-request", "list", nodeURN)
-	if err != nil || !strings.Contains(out, ": no signing requests\n") || strings.Contains(out, "on this page") {
+	out, err = run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open")
+	if err != nil || !strings.Contains(out, ": no signing requests on this page\n") {
 		t.Fatalf("signing: %v\n%s", err, out)
+	}
+}
+
+// BLIND delta P3: the signing list round-trips a printed cursor the same way,
+// with the same --state on both calls.
+func TestSigningRequestHumanCursorRoundTrips2032(t *testing.T) {
+	const token = "eyJ2IjoxLCJrIjpbInJvMDIwIl19.sig-_Z9aZ=="
+	row := signingRow2032("ro001", "OPEN")
+	node := func(page string) string {
+		return `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequestsPage":` + page + `}}}`
+	}
+	ps := &pagedServer2032{reply: func(op string, vars map[string]any) (string, bool) {
+		if op != "NodeSigningRequests" {
+			return "", false
+		}
+		if vars["after"] == token {
+			return node(`{"items":[` + row + `],"hasMore":false,"nextCursor":null}`), true
+		}
+		return node(`{"items":[` + row + `],"hasMore":true,"nextCursor":"` + token + `"}`), true
+	}}
+	srv := ps.serve(t)
+	out, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var printed string
+	for _, line := range strings.Split(out, "\n") {
+		if v, ok := strings.CutPrefix(line, "next cursor: "); ok {
+			printed = v
+		}
+	}
+	if printed != token {
+		t.Fatalf("printed %q, want %q\n%s", printed, token, out)
+	}
+	if _, err := run2032(t, srv, "node", "signing-request", "list", nodeURN, "--state", "open", "--after", printed); err != nil {
+		t.Fatal(err)
+	}
+	calls := ps.listCalls("NodeSigningRequests")
+	last := calls[len(calls)-1].vars
+	if last["after"] != token || last["state"] != "OPEN" {
+		t.Fatalf("second call variables %v", last)
 	}
 }

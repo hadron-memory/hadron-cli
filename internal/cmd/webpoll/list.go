@@ -76,11 +76,7 @@ nextCursor null when there is no further page.`,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Items) == 0 {
-					msg := "no watches on this page"
-					if afterPtr == nil && !dto.HasMore {
-						msg = "no watches"
-					}
-					if _, err := fmt.Fprintln(w, msg); err != nil {
+					if _, err := fmt.Fprintln(w, "no watches on this page"); err != nil {
 						return err
 					}
 				} else {
