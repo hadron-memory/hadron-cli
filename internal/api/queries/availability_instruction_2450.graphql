@@ -1,0 +1,34 @@
+# cli#2450: separate instructed documents preserve the existing no-flag wire contract.
+# Selections and input bindings match agenttasks.graphql.
+
+mutation WorkerAvailabilitySetInstructed($input: SetWorkerAvailabilityInput!, $instruction: ActInstructionInput!) {
+  setWorkerAvailability(input: $input, instruction: $instruction) {
+    worker {
+      ...AgentTaskPartyFields
+    }
+    state
+    reason
+    until
+    setAt
+    setBy
+    setByParty {
+      ...AgentTaskPartyFields
+    }
+    inEffect
+  }
+}
+
+mutation ModelFamilyAvailabilitySetInstructed($input: SetModelFamilyAvailabilityInput!, $instruction: ActInstructionInput!) {
+  setModelFamilyAvailability(input: $input, instruction: $instruction) {
+    appId
+    family
+    state
+    reason
+    until
+    setAt
+    setBy {
+      ...AgentTaskPartyFields
+    }
+    inEffect
+  }
+}
