@@ -53,13 +53,20 @@ const signedStatusJSON = `{"data":{"node":{"id":"n1","urn":"` + testNodeURN + `"
 	`{"id":"sig1","state":"CURRENT","revision":7,"verifiedAt":"2026-10-14T10:00:00Z","signer":{"handle":"holger","urn":null},"passkeyLabel":"Yubikey 5C","passkeyRevokedAt":null,"payloadVersion":"1","signingRequestId":"sr1"},` +
 	`{"id":"sig2","state":"PENDING","revision":7,"verifiedAt":"","signer":{"handle":"ada","urn":null},"passkeyLabel":"Backup key","passkeyRevokedAt":null,"payloadVersion":"1","signingRequestId":"sr2"}]}}}}`
 
-func withSigningProbe(t *testing.T, advertised bool, probeErr error) {
+// withSigningProbe replaces the capability probe with a stub that answers as
+// told and records every baseURL it is handed, so a pin can assert the probe
+// read the command's own --server (the recording is the point: a stub that
+// ignores baseURL cannot tell).
+func withSigningProbe(t *testing.T, advertised bool, probeErr error) *[]string {
 	t.Helper()
+	var probed []string
 	prev := node.SigningCapabilityProbe
 	node.SigningCapabilityProbe = func(ctx context.Context, baseURL string) (bool, error) {
+		probed = append(probed, baseURL)
 		return advertised, probeErr
 	}
 	t.Cleanup(func() { node.SigningCapabilityProbe = prev })
+	return &probed
 }
 
 func nodeGetRun(t *testing.T, url string, jsonOut bool, refs ...string) string {

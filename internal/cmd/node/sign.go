@@ -152,6 +152,15 @@ func newCeremonyTokenProbe(ctx context.Context, f *cmdutil.Factory) ceremonyToke
 	}
 }
 
+// The three mapSigningError refusals. Named so the tests assert against the
+// message itself, not a hard-coded copy of its most distinctive fragment:
+// the wording lives here, once.
+const (
+	PagedListRefusal     = "this server does not offer the paged signing-request list; upgrade the server (hadron-server#4123)"
+	CeremonyPagesRefusal = "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)"
+	SigningOffRefusal    = "this server does not offer node signing"
+)
+
 // requestIsOpen reports the one state whose link still leads somewhere: an
 // ended request's link only explains that it ended (the schema's own words),
 // so text prints it while OPEN only.
@@ -160,18 +169,23 @@ func requestIsOpen(state string) bool {
 }
 
 // ceremonyText renders the ceremony URL for text mode. Verbatim when the
-// value is the web address it must be — an absolute http(s) URL whose runes
-// are all display-neutral-clean (the same classification as table cells);
-// url.Parse itself rejects control characters, but format characters such as
-// bidi overrides parse fine. Anything else is a server string that must not
-// reach the terminal raw (an OSC 8 hyperlink can hide the real target, OSC 52
-// writes the clipboard, an embedded newline forges lines), so it goes through
-// the same neutralisation as a table cell: still readable, never executable.
-// "Copied verbatim, never composed" is about not building the URL; --json
-// carries the raw value either way (BLIND F1).
+// value parses as a URL and its runes are all display-neutral-clean (the same
+// classification as table cells); url.Parse itself rejects control characters,
+// but format characters such as bidi overrides parse fine. Anything else is a
+// server string that must not reach the terminal raw (an OSC 8 hyperlink can
+// hide the real target, OSC 52 writes the clipboard, an embedded newline
+// forges lines), so it goes through the same neutralisation as a table cell:
+// still readable, never executable. No scheme test applies here: a clean
+// non-web value (javascript:alert(1), ftp://h/x) is byte-identical through
+// SafeCell, so classifying it would change no output — the scheme gate lives
+// where it acts, on opening a page (auth/passkey_revoke_page.go). One corner
+// differs: a clean value longer than SafeCell's 256-rune bound now prints in
+// full like a long web URL, instead of being truncated. "Copied verbatim,
+// never composed" is about not building the URL; --json carries the raw value
+// either way.
 func ceremonyText(u string) string {
 	if !strings.ContainsFunc(u, output.Neutralised) {
-		if parsed, err := url.Parse(u); err == nil && api.URLIsSecure(parsed) {
+		if _, err := url.Parse(u); err == nil {
 			return u
 		}
 	}
@@ -187,7 +201,7 @@ func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 	// hadron-server#4123) is told so: "does not offer node signing" would be
 	// wrong, and there is no fallback to the unpaged read (cli#2032).
 	if api.IsGraphQLValidationFor(err, "signingRequestsPage") {
-		return exitcode.Newf(exitcode.Usage, "this server does not offer the paged signing-request list; upgrade the server (hadron-server#4123)")
+		return exitcode.Newf(exitcode.Usage, PagedListRefusal)
 	}
 	// SigningRequest.ceremonyUrl is newer than the rest of the surface
 	// (hadron-server#3120), so a server can have signing and still refuse
@@ -207,13 +221,13 @@ func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 			return api.MapError(err)
 		}
 		if advertised, perr := ceremonyToken(); perr == nil && advertised {
-			return exitcode.Newf(exitcode.Usage, "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)")
+			return exitcode.Newf(exitcode.Usage, CeremonyPagesRefusal)
 		}
-		return exitcode.Newf(exitcode.Usage, "this server does not offer node signing")
+		return exitcode.Newf(exitcode.Usage, SigningOffRefusal)
 	}
 	for _, name := range signingFields {
 		if api.IsGraphQLValidationFor(err, name) {
-			return exitcode.Newf(exitcode.Usage, "this server does not offer node signing")
+			return exitcode.Newf(exitcode.Usage, SigningOffRefusal)
 		}
 	}
 	return api.MapError(err)
@@ -516,8 +530,8 @@ line; pass that value to --after to read the next page, exactly as printed
 Each page is a snapshot at the time of the call; an empty page means no
 requests on that page. Each OPEN row's ceremony link follows the table as
 "<id> ceremony: <url>" (an ended row prints none); --json adds ceremonyUrl on
-every row, and hasMore and nextCursor (null when there is
-no further page) beside requests.`,
+every row, and hasMore and nextCursor (null when there is no further
+page) beside requests.`,
 		Example: `  hadron node signing-request list hrn:node:hadronmemory.com:dev:decisions:dk-001
   hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --json
   hadron node signing-request list decisions:dk-001 -m hrn:mem:hadronmemory.com:dev --state open --after <next cursor from the previous page>`,
