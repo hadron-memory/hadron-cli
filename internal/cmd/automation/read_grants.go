@@ -10,6 +10,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -166,18 +167,34 @@ lost, list grants to check before trying again.`,
 }
 
 func newCmdGrantList(f *cmdutil.Factory) *cobra.Command {
-	var memory string
+	var memory, instructionRaw string
 	var revoked bool
-	cmd := &cobra.Command{Use: "list [--app <ref>] [--memory <ref>] [--include-revoked]", Aliases: []string{"ls"},
+	cmd := &cobra.Command{Use: "list [--app <ref>] [--memory <ref>] [--include-revoked] [--instruction <kind>:<ref>]", Aliases: []string{"ls"},
 		Short: "List the read grants you may see",
 		Long: `List automation read grants. The server shows an App's managers that App's
 grants, and a target's manager the grants on what they manage; nobody sees
 more. Pass --app, --memory or both: the server refuses a list with neither
 (exit 2). This does not fall back to the active App. Revoked grants are
-excluded unless --include-revoked. JSON is an array; empty is [].`,
+excluded unless --include-revoked. JSON is an array; empty is [].
+
+Without --instruction, no worker session header is sent even from a bound
+worktree. With --instruction (a held worker acting on its holder's
+instruction), the list uses this worktree's verified session and --app is
+required: an instructed list is scoped to the worker's own App, memory-only
+lists included, and the server refuses another App. Each admitted instructed
+list records one team event (ids only). Instruction needs server 7907d93d or
+later.`,
 		Example: `  hadron automation grant list --app acme.com:ops --json
-  hadron automation grant list --memory acme.com:notes --include-revoked`,
+  hadron automation grant list --memory acme.com:notes --include-revoked
+  hadron automation grant list --app acme.com:ops --instruction task:<task-id>`,
 		Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+			claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
+			if claim.claim != nil && !cmd.Flag("app").Changed {
+				return exitcode.Newf(exitcode.Usage, "--instruction needs --app: an instructed list is scoped to the worker's own App; nothing sent")
+			}
 			var appRef, memRef *string
 			if fl := cmd.Flag("app"); fl != nil && fl.Changed {
 				a, err := snapshotAppRef(f.AppFlag)
@@ -201,18 +218,40 @@ excluded unless --include-revoked. JSON is an array; empty is [].`,
 			if err != nil {
 				return err
 			}
-			r, err := gen.AutomationReadGrants(cmd.Context(), client, appRef, memRef, include)
-			if err != nil {
-				return api.MapError(err)
-			}
-			if r == nil || r.AutomationReadGrants == nil {
-				// The field is non-null in the schema: a missing list is a malformed
-				// answer, never an empty inventory.
-				return exitcode.Newf(exitcode.Error, "the server returned no read grant list")
+			var fields []gen.AutomationReadGrantFields
+			if claim.claim == nil {
+				r, err := gen.AutomationReadGrants(cmd.Context(), client, appRef, memRef, include)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if r == nil || r.AutomationReadGrants == nil {
+					// The field is non-null in the schema: a missing list is a malformed
+					// answer, never an empty inventory.
+					return exitcode.Newf(exitcode.Error, "the server returned no read grant list")
+				}
+				for _, g := range r.AutomationReadGrants {
+					fields = append(fields, g.AutomationReadGrantFields)
+				}
+			} else {
+				// Verify the binding right before the one call; a refusal is shown once.
+				ctx, err := claim.context(cmd.Context())
+				if err != nil {
+					return err
+				}
+				r, err := gen.AutomationReadGrantsInstructed(ctx, client, appRef, memRef, include, claim.claim)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if r == nil || r.AutomationReadGrants == nil {
+					return exitcode.Newf(exitcode.Error, "the server returned no read grant list")
+				}
+				for _, g := range r.AutomationReadGrants {
+					fields = append(fields, g.AutomationReadGrantFields)
+				}
 			}
 			rows := []readGrantDTO{}
-			for _, g := range r.AutomationReadGrants {
-				d, err := readGrantFrom(g.AutomationReadGrantFields)
+			for _, g := range fields {
+				d, err := readGrantFrom(g)
 				if err != nil {
 					return err
 				}
@@ -228,20 +267,34 @@ excluded unless --include-revoked. JSON is an array; empty is [].`,
 			})
 		}}
 	cmd.Flags().StringVar(&memory, "memory", "", "only grants on this memory")
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
 	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include ended grants; false keeps live grants only")
 	return cmd
 }
 
 func newCmdGrantRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
-	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation read grant",
+	var instructionRaw string
+	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes] [--instruction <kind>:<ref>]", Short: "End one automation read grant",
 		Long: `Revoke the exact grant ID from list. The App's managers or the target's
 manager may revoke. Revocation is terminal; a later set creates a new row.
 Scripts must pass --yes. One mutation is sent, never retried: a lost answer is
 an unknown outcome, so list --include-revoked before trying again. JSON
-returns the grant with its revokedAt/revokedBy.`,
-		Example: `  hadron automation grant revoke <grant-id> --yes --json`,
-		Args:    cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+returns the grant with its revokedAt/revokedBy.
+
+Without --instruction, no worker session header is sent even from a bound
+worktree. With --instruction (a held worker acting on its holder's
+instruction), the one revoke mutation uses this worktree's verified session and
+is attributed to the worker and its holder; the server allows it only within the
+worker's own App and shows its refusal as is. Instruction needs server 7907d93d
+or later.`,
+		Example: `  hadron automation grant revoke <grant-id> --yes --json
+  hadron automation grant revoke <grant-id> --yes --instruction task:<task-id>`,
+		Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+			claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
 			id := strings.TrimSpace(args[0])
 			if id == "" {
 				return exitcode.Newf(exitcode.Usage, "pass a nonempty grant ID from list")
@@ -253,14 +306,32 @@ returns the grant with its revokedAt/revokedBy.`,
 			if err != nil {
 				return err
 			}
-			r, err := gen.RevokeAutomationReadGrant(cmd.Context(), client, id)
-			if err != nil {
-				return mapReadGrantWriteError(err, "revoke")
+			var fields gen.AutomationReadGrantFields
+			if claim.claim == nil {
+				r, err := gen.RevokeAutomationReadGrant(cmd.Context(), client, id)
+				if err != nil {
+					return mapReadGrantWriteError(err, "revoke")
+				}
+				if r == nil || r.RevokeAutomationReadGrant == nil {
+					return exitcode.Newf(exitcode.Error, "the server did not confirm revocation; list --include-revoked before retrying")
+				}
+				fields = r.RevokeAutomationReadGrant.AutomationReadGrantFields
+			} else {
+				// Verify the binding right before the one mutation; sent once.
+				ctx, err := claim.context(cmd.Context())
+				if err != nil {
+					return err
+				}
+				r, err := gen.RevokeAutomationReadGrantInstructed(ctx, client, id, claim.claim)
+				if err != nil {
+					return mapReadGrantWriteError(err, "revoke")
+				}
+				if r == nil || r.RevokeAutomationReadGrant == nil {
+					return exitcode.Newf(exitcode.Error, "the server did not confirm revocation; list --include-revoked before retrying")
+				}
+				fields = r.RevokeAutomationReadGrant.AutomationReadGrantFields
 			}
-			if r == nil || r.RevokeAutomationReadGrant == nil {
-				return exitcode.Newf(exitcode.Error, "the server did not confirm revocation; list --include-revoked before retrying")
-			}
-			d, err := readGrantFrom(r.RevokeAutomationReadGrant.AutomationReadGrantFields)
+			d, err := readGrantFrom(fields)
 			if err != nil {
 				return err
 			}
@@ -269,6 +340,7 @@ returns the grant with its revokedAt/revokedBy.`,
 			}
 			return writeReadGrant(f, d)
 		}}
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	return cmd
 }
