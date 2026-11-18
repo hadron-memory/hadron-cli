@@ -2474,11 +2474,17 @@ Conventions:
   whatever `ok` and the chat status say (cli#1959). Request refusals, invalid
   server responses, argument, override-file and transport failures use normal
   CLI error exits. Default requests omit `chatProbe` and select no `chat`, so
-  older servers work unchanged; with the flag an older server is refused (GRAPHQL_VALIDATION_FAILED, exit 2) and nothing is retried.
+  older servers work unchanged; with the flag an older server is refused
+  (GRAPHQL_VALIDATION_FAILED, exit 2) and nothing is retried.
   The submitted override key is redacted locally from request errors and every
   completed-test string value (including reply, knob detail and value sources),
   in literal and string-escaped spellings. This does not change JSON keys/nulls,
   the sent override, the chat-probe wire, or a request refusal's exit code.
+  Masking is by exact value in every rendered string, so an unusually short or
+  common override key can also mask legitimate substrings of the provider,
+  model, value-source, knob and status values. That is a presentation tradeoff
+  of the any-field guarantee, not a defect: there is no length or word-boundary
+  exemption, because one would let the key through on some surface.
   The server must still keep keys out of its responses; this local redaction is
   defence in depth for the submitted override, not a substitute for that rule.
   When a nonempty override key is supplied, every mapped request error is
