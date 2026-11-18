@@ -58758,6 +58758,11 @@ func (v *GetSigningRequestSigningRequest) GetState() SigningRequestState {
 	return v.SigningRequestFields.State
 }
 
+// GetCeremonyUrl returns GetSigningRequestSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *GetSigningRequestSigningRequest) GetCeremonyUrl() string {
+	return v.SigningRequestFields.CeremonyUrl
+}
+
 // GetCreatedAt returns GetSigningRequestSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetSigningRequestSigningRequest) GetCreatedAt() string {
 	return v.SigningRequestFields.CreatedAt
@@ -58826,6 +58831,8 @@ type __premarshalGetSigningRequestSigningRequest struct {
 
 	State SigningRequestState `json:"state"`
 
+	CeremonyUrl string `json:"ceremonyUrl"`
+
 	CreatedAt string `json:"createdAt"`
 
 	ExpiresAt string `json:"expiresAt"`
@@ -58857,6 +58864,7 @@ func (v *GetSigningRequestSigningRequest) __premarshalJSON() (*__premarshalGetSi
 	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
 	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
 	retval.State = v.SigningRequestFields.State
+	retval.CeremonyUrl = v.SigningRequestFields.CeremonyUrl
 	retval.CreatedAt = v.SigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
 	retval.EndedAt = v.SigningRequestFields.EndedAt
@@ -78306,6 +78314,11 @@ func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetState
 	return v.SigningRequestFields.State
 }
 
+// GetCeremonyUrl returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetCeremonyUrl() string {
+	return v.SigningRequestFields.CeremonyUrl
+}
+
 // GetCreatedAt returns NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
 func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) GetCreatedAt() string {
 	return v.SigningRequestFields.CreatedAt
@@ -78376,6 +78389,8 @@ type __premarshalNodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest s
 
 	State SigningRequestState `json:"state"`
 
+	CeremonyUrl string `json:"ceremonyUrl"`
+
 	CreatedAt string `json:"createdAt"`
 
 	ExpiresAt string `json:"expiresAt"`
@@ -78407,6 +78422,7 @@ func (v *NodeSigningRequestsNodeSigningRequestsPageItemsSigningRequest) __premar
 	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
 	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
 	retval.State = v.SigningRequestFields.State
+	retval.CeremonyUrl = v.SigningRequestFields.CeremonyUrl
 	retval.CreatedAt = v.SigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
 	retval.EndedAt = v.SigningRequestFields.EndedAt
@@ -85097,6 +85113,11 @@ func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetState() Sign
 	return v.SigningRequestFields.State
 }
 
+// GetCeremonyUrl returns RequestNodeSignatureRequestNodeSignatureSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetCeremonyUrl() string {
+	return v.SigningRequestFields.CeremonyUrl
+}
+
 // GetCreatedAt returns RequestNodeSignatureRequestNodeSignatureSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
 func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) GetCreatedAt() string {
 	return v.SigningRequestFields.CreatedAt
@@ -85167,6 +85188,8 @@ type __premarshalRequestNodeSignatureRequestNodeSignatureSigningRequest struct {
 
 	State SigningRequestState `json:"state"`
 
+	CeremonyUrl string `json:"ceremonyUrl"`
+
 	CreatedAt string `json:"createdAt"`
 
 	ExpiresAt string `json:"expiresAt"`
@@ -85198,6 +85221,7 @@ func (v *RequestNodeSignatureRequestNodeSignatureSigningRequest) __premarshalJSO
 	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
 	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
 	retval.State = v.SigningRequestFields.State
+	retval.CeremonyUrl = v.SigningRequestFields.CeremonyUrl
 	retval.CreatedAt = v.SigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
 	retval.EndedAt = v.SigningRequestFields.EndedAt
@@ -96110,9 +96134,11 @@ type SigningRequestFields struct {
 	// The signature payload version the signer signs: hadron-signature-v3 (hrn:node:hadronmemory.com:specs:cor:dmo:130:01). A request still open with a v1 pin when v3 deployed ended STALE.
 	PayloadVersion string `json:"payloadVersion"`
 	// The effective state.
-	State     SigningRequestState `json:"state"`
-	CreatedAt string              `json:"createdAt"`
-	ExpiresAt string              `json:"expiresAt"`
+	State SigningRequestState `json:"state"`
+	// The server-hosted ceremony page where the signer signs (hrn:node:hadronmemory.com:specs:cor:dmo:130:08): the server origin plus /signing/<id>, with no token. Copy it verbatim; never compose it. A person signs there with a passkey; no GraphQL or MCP call takes an assertion. An ended request's link only explains that it ended.
+	CeremonyUrl string `json:"ceremonyUrl"`
+	CreatedAt   string `json:"createdAt"`
+	ExpiresAt   string `json:"expiresAt"`
 	// Null while OPEN. EXPIRED ends at expiresAt; every other end at the moment it happened (DB clock).
 	EndedAt *string `json:"endedAt"`
 	// Null: any writer of the node's memory may sign.
@@ -96142,6 +96168,9 @@ func (v *SigningRequestFields) GetPayloadVersion() string { return v.PayloadVers
 
 // GetState returns SigningRequestFields.State, and is useful for accessing the field via an interface.
 func (v *SigningRequestFields) GetState() SigningRequestState { return v.State }
+
+// GetCeremonyUrl returns SigningRequestFields.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *SigningRequestFields) GetCeremonyUrl() string { return v.CeremonyUrl }
 
 // GetCreatedAt returns SigningRequestFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SigningRequestFields) GetCreatedAt() string { return v.CreatedAt }
@@ -121694,6 +121723,11 @@ func (v *WithdrawSigningRequestWithdrawSigningRequest) GetState() SigningRequest
 	return v.SigningRequestFields.State
 }
 
+// GetCeremonyUrl returns WithdrawSigningRequestWithdrawSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
+func (v *WithdrawSigningRequestWithdrawSigningRequest) GetCeremonyUrl() string {
+	return v.SigningRequestFields.CeremonyUrl
+}
+
 // GetCreatedAt returns WithdrawSigningRequestWithdrawSigningRequest.CreatedAt, and is useful for accessing the field via an interface.
 func (v *WithdrawSigningRequestWithdrawSigningRequest) GetCreatedAt() string {
 	return v.SigningRequestFields.CreatedAt
@@ -121764,6 +121798,8 @@ type __premarshalWithdrawSigningRequestWithdrawSigningRequest struct {
 
 	State SigningRequestState `json:"state"`
 
+	CeremonyUrl string `json:"ceremonyUrl"`
+
 	CreatedAt string `json:"createdAt"`
 
 	ExpiresAt string `json:"expiresAt"`
@@ -121795,6 +121831,7 @@ func (v *WithdrawSigningRequestWithdrawSigningRequest) __premarshalJSON() (*__pr
 	retval.ApprovalHash = v.SigningRequestFields.ApprovalHash
 	retval.PayloadVersion = v.SigningRequestFields.PayloadVersion
 	retval.State = v.SigningRequestFields.State
+	retval.CeremonyUrl = v.SigningRequestFields.CeremonyUrl
 	retval.CreatedAt = v.SigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.SigningRequestFields.ExpiresAt
 	retval.EndedAt = v.SigningRequestFields.EndedAt
@@ -159880,6 +159917,7 @@ fragment SigningRequestFields on SigningRequest {
 	approvalHash
 	payloadVersion
 	state
+	ceremonyUrl
 	createdAt
 	expiresAt
 	endedAt
@@ -166690,6 +166728,7 @@ fragment SigningRequestFields on SigningRequest {
 	approvalHash
 	payloadVersion
 	state
+	ceremonyUrl
 	createdAt
 	expiresAt
 	endedAt
@@ -169669,6 +169708,7 @@ fragment SigningRequestFields on SigningRequest {
 	approvalHash
 	payloadVersion
 	state
+	ceremonyUrl
 	createdAt
 	expiresAt
 	endedAt
@@ -184301,6 +184341,7 @@ fragment SigningRequestFields on SigningRequest {
 	approvalHash
 	payloadVersion
 	state
+	ceremonyUrl
 	createdAt
 	expiresAt
 	endedAt
