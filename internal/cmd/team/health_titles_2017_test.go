@@ -634,13 +634,28 @@ func TestHealthTitlesVersionProbeUsesTheTitlePassExecutable2166(t *testing.T) {
 // that absolute path.
 func TestHealthSweepPinsABareOrcaToOneFile2166(t *testing.T) {
 	o := newOrca2017()
-	pinned := fakeExecutable2166(t)
-	_, _, err := title2017RunWith(t, o, "Iris", func() { healthLookPath = func(string) (string, error) { return pinned, nil } })
+	pinned, later := fakeExecutable2166(t), fakeExecutable2166(t)
+	lookups := 0
+	// PATH "changes" between calls: the second answer names another install. The
+	// sweep must look up once and run the renames and the version probe, both,
+	// through the first answer.
+	_, _, err := title2017RunWith(t, o, "Iris", func() {
+		healthLookPath = func(string) (string, error) {
+			lookups++
+			if lookups == 1 {
+				return pinned, nil
+			}
+			return later, nil
+		}
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(o.bins) != 1 || o.bins[0] != pinned {
-		t.Fatalf("runners built for %q, want exactly [%q]", o.bins, pinned)
+	if lookups != 1 || len(o.bins) != 1 || o.bins[0] != pinned {
+		t.Fatalf("lookups %d, runners built for %q, want one lookup and exactly [%q]", lookups, o.bins, pinned)
+	}
+	if len(o.renames) == 0 {
+		t.Fatal("the pass renamed nothing, so the pin proved nothing about the renames")
 	}
 	// a configured binary that resolves is already absolute and is not looked up
 	o = newOrca2017()
