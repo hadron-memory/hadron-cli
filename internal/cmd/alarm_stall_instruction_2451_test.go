@@ -143,7 +143,7 @@ func TestAlarmStallInstructionPersonFallback2451(t *testing.T) {
 	}
 }
 func TestAlarmInstructionWarnings2451(t *testing.T) {
-	c := alarmStallCases2451()[0]
+	c := alarmStallCase2451(t, "ack")
 	r := stallResponses()
 	// The register rides along (#2505 F5b): the warning DTO must round-trip
 	// the task-create warning shape — code, text, register {state, taskLoc,
@@ -201,7 +201,7 @@ func TestAlarmStallUsagePrecedence2451(t *testing.T) {
 func TestStallInstructionChangedBinding2451(t *testing.T) {
 	writeTeamBinding(t)
 	r := stallResponses()
-	r["TeamStallScheduleSetInstructed"] = alarmStallCases2451()[1].response
+	r["TeamStallScheduleSetInstructed"] = alarmStallCase2451(t, "set").response
 	r["TeamAppIdentity"] = `{"data":{"app":{"id":"capp100000000000000000000"}}}`
 	changed := false
 	srv, calls := attnServerHook(t, r, func(op string) {

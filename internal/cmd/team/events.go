@@ -348,7 +348,7 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 				return err
 			}
 			var fields gen.AgentTeamEventFields
-			warnings := []taskWarningDTO{}
+			var warnings []taskWarningDTO
 			if claim == nil {
 				// #2537 (from #2505 F4): warnings arrive on a plain ack too
 				// (the server files task warnings for acknowledgeAlarm
