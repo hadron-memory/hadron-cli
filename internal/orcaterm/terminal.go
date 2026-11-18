@@ -96,7 +96,8 @@ var ErrOrca = errors.New("orca call failed")
 
 // Client makes the four terminal calls through a guarded runner.
 type Client struct {
-	run Runner
+	run                  Runner
+	requireTerminalArray bool
 }
 
 // NewClient wraps run in Guard.
@@ -134,8 +135,15 @@ func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal
 		TotalCount int        `json:"totalCount"`
 		Truncated  bool       `json:"truncated"`
 	}
-	if json.Unmarshal(env.Result, &result) != nil {
+	if json.Unmarshal(env.Result, &result) != nil || (c.requireTerminalArray && result.Terminals == nil) {
 		return nil, 0, false, ErrOrca
+	}
+	if c.requireTerminalArray {
+		for _, t := range result.Terminals {
+			if t.Handle == "" {
+				return nil, 0, false, ErrOrca
+			}
+		}
 	}
 	// Short is either signal: Orca says so, or it declares a total it did not
 	// return. A payload with no total (0) is judged by `truncated` alone.
@@ -362,5 +370,5 @@ func ErrorCode(err error) string {
 
 // NewReadOnlyClient permits only terminal list/read, for report-only diagnostics.
 func NewReadOnlyClient(run Runner) *Client {
-	return &Client{run: guardFor(map[string]bool{"terminal list": true, "terminal read": true}, run)}
+	return &Client{run: guardFor(map[string]bool{"terminal list": true, "terminal read": true}, run), requireTerminalArray: true}
 }

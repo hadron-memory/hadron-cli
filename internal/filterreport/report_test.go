@@ -135,7 +135,7 @@ func TestScanIsReadOnlyAndRedacted953(t *testing.T) {
 				if unreadable {
 					return orcaterm.Result{Code: 1, Stderr: sentinel, Stdout: sentinel}
 				}
-				b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"source": "screen", "tail": []string{"ⓘ This content can’t be shown", "  Apply for Daybreak: https://openai.com/form/", "› "}, "draft": sentinel}}})
+				b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"source": "screen", "tail": []string{"ⓘ This content can’t be shown " + sentinel, "  Apply for Daybreak: https://openai.com/form/", "› "}, "draft": sentinel}}})
 				return orcaterm.Result{Stdout: string(b)}
 			}
 			c := orcaterm.NewReadOnlyClient(runner)
@@ -208,7 +208,7 @@ func TestNoWriteOrSignalCapability953(t *testing.T) {
 func TestBindingPointer953(t *testing.T) {
 	root := t.TempDir()
 	write(t, filepath.Join(root, ".git"), "gitdir: metadata\n")
-	write(t, filepath.Join(root, "metadata", "hadron-team-session.json"), `{"workerId":"w1"}`)
+	write(t, filepath.Join(root, "metadata", "hadron-team-session.json"), `{"workerId":"w1","server":"https://test"}`)
 	b, err := ReadBinding(root)
 	if err != nil || b.WorkerID != "w1" {
 		t.Fatal(b, err)
@@ -217,18 +217,18 @@ func TestBindingPointer953(t *testing.T) {
 
 func TestScanEmptyAndDuplicateTerminals953(t *testing.T) {
 	root := t.TempDir()
-	write(t, filepath.Join(root, ".hadron-team", "hadron-team-session.json"), `{"workerId":"w1"}`)
+	write(t, filepath.Join(root, ".hadron-team", "hadron-team-session.json"), `{"workerId":"w1","server":"https://test"}`)
 	c := orcaterm.NewReadOnlyClient(func(context.Context, []string) orcaterm.Result {
 		t.Fatal("ambiguous/empty report must not pick a screen")
 		return orcaterm.Result{}
 	})
 	targets := []Target{{Name: "Joost", ID: "w1"}}
-	rows, err := Scan(context.Background(), c, nil, targets, "", t.TempDir(), os.Getuid())
+	rows, err := Scan(context.Background(), c, nil, targets, "https://test", t.TempDir(), os.Getuid())
 	if err != nil || rows == nil || len(rows) != 0 {
 		t.Fatal(rows, err)
 	}
 	terms := []orcaterm.Terminal{{Handle: "two", WorktreePath: root}, {Handle: "one", WorktreePath: root}}
-	rows, err = Scan(context.Background(), c, terms, targets, "", t.TempDir(), os.Getuid())
+	rows, err = Scan(context.Background(), c, terms, targets, "https://test", t.TempDir(), os.Getuid())
 	if err != nil || len(rows) != 1 || rows[0].Classification != "AMBIGUOUS" || rows[0].Note != "multiple_terminals" || rows[0].Terminal != "" {
 		t.Fatal(rows, err)
 	}
@@ -280,5 +280,24 @@ func TestOutsideChildIsNotHiddenByInsideChild953(t *testing.T) {
 	all, err := readProcesses(root, os.Getuid())
 	if err != nil || treeState(all, wt) != "cwd_outside_worktree" {
 		t.Fatal(all, err, treeState(all, wt))
+	}
+}
+
+func TestAmbientBindingStopsAtFirstBoundary953(t *testing.T) {
+	root := t.TempDir()
+	write(t, filepath.Join(root, ".hadron-team", "hadron-team-session.json"), `{"workerId":"outer","appId":"app1"}`)
+	child := filepath.Join(root, "child", "nested")
+	if err := os.MkdirAll(child, 0700); err != nil {
+		t.Fatal(err)
+	}
+	b, err := ReadNearestBinding(child)
+	if err != nil || b.WorkerID != "outer" {
+		t.Fatal(b, err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "child", ".hadron-team"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadNearestBinding(child); err == nil {
+		t.Fatal("unreadable nested metadata fell through to outer binding")
 	}
 }

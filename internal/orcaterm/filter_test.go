@@ -48,3 +48,16 @@ func TestReadOnlyClientRejectsMutations953(t *testing.T) {
 		t.Fatal("runner called", calls)
 	}
 }
+
+func TestReadOnlyListRequiresAnExplicitArray953(t *testing.T) {
+	for _, result := range []string{`{}`, `{"terminals":null}`, `{"terminals":[null]}`} {
+		c := NewReadOnlyClient(func(context.Context, []string) Result { return Result{Stdout: `{"ok":true,"result":` + result + `}`} })
+		if _, err := c.List(context.Background()); err == nil {
+			t.Fatal("malformed list accepted", result)
+		}
+	}
+	c := NewReadOnlyClient(func(context.Context, []string) Result { return Result{Stdout: `{"ok":true,"result":{"terminals":[]}}`} })
+	if rows, err := c.List(context.Background()); err != nil || rows == nil || len(rows) != 0 {
+		t.Fatal(rows, err)
+	}
+}

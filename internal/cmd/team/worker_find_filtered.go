@@ -6,11 +6,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/filterreport"
@@ -23,6 +23,17 @@ import (
 var findFilteredProcRoot = "/proc"
 
 const findFilteredHostRefusal = "Orca-hosted workers only: an Orca CLI and reachable server are required; nothing was queued or changed"
+
+// filteredWorkerDTO is the command-owned stable JSON contract, independent of
+// generated API types and the scanner's internal observations.
+type filteredWorkerDTO struct {
+	Worker         string `json:"worker"`
+	Worktree       string `json:"worktree"`
+	Terminal       string `json:"terminal"`
+	Classification string `json:"classification"`
+	AgentTree      string `json:"agent_tree"`
+	Note           string `json:"note"`
+}
 
 type filterSources struct {
 	runner   func() (orcaterm.Runner, bool)
@@ -40,25 +51,7 @@ func newCmdWorkerFindFiltered(f *cmdutil.Factory) *cobra.Command {
 			return orcaterm.Exec(bin, 10*time.Second), true
 		},
 		targets: func(ctx context.Context, app string, args []string) ([]filterreport.Target, error) {
-			gql, err := f.GraphQLClient()
-			if err != nil {
-				return nil, err
-			}
-			workers, err := scanWorkerRoster(ctx, gql, app)
-			if err != nil {
-				return nil, err
-			}
-			targets := []filterreport.Target{}
-			for _, w := range workers {
-				if w.RetiredAt != nil {
-					continue
-				}
-				if len(args) > 0 && !strings.EqualFold(args[0], w.Name) && args[0] != w.Id && (w.Urn == nil || args[0] != *w.Urn) {
-					continue
-				}
-				targets = append(targets, filterreport.Target{Name: w.Name, ID: w.Id})
-			}
-			return targets, nil
+			return findFilteredTargets(ctx, f, app, args)
 		}, procRoot: findFilteredProcRoot,
 	})
 }
@@ -69,12 +62,14 @@ func newCmdWorkerFindFilteredWithSources(f *cmdutil.Factory, source filterSource
 		Long: `Read-only, operator-run, report-only inspection of this team's Orca terminals.
 A full idle provider notice is BLOCKED; incomplete evidence or a running turn
 is AMBIGUOUS. Other screens are NOT_BLOCKED; unreadable screens are UNREADABLE.
+Sign in with a credential that can read the selected team App first.
 No screen or draft text is printed. The agent_tree column is diagnostic context,
 never authority to act. Process checks require /proc and the invoking uid.
 
 Only Orca terminal list/read are used. Nothing is signalled, written, delivered,
 restarted or changed. The team comes from --app, the App context, or this
-worktree's local binding. A named worker must belong to that team. Unbound or
+worktree's local binding. A named worker must belong to that team. A binding identifies a worker, not a live
+session; local terminals of retired workers remain diagnostic rows. Unbound or
 unreadable local worktrees cannot be attributed and are omitted; multiple
 terminals for one worker are AMBIGUOUS. Exit 0 means the scan ran, including
 when BLOCKED rows exist; a non-Orca host refuses with exit 2, a failed scan 1.
@@ -103,7 +98,7 @@ objects, including an empty array when there are no local workers.`,
 				if e != nil {
 					return exitcode.Newf(exitcode.Error, "worktree_unreadable")
 				}
-				b, e := filterreport.ReadBinding(cwd)
+				b, e := filterreport.ReadNearestBinding(cwd)
 				if e != nil || b.AppID == "" {
 					return exitcode.Newf(exitcode.Usage, "no team App; pass --app or run from a bound worktree")
 				}
@@ -127,7 +122,11 @@ objects, including an empty array when there are no local workers.`,
 			if len(args) > 0 && len(rows) == 0 {
 				rows = append(rows, filterreport.Row{Worker: output.SafeLine(targets[0].Name, 256), Classification: "UNREADABLE", AgentTree: "no_wrapper", Note: "no_terminal"})
 			}
-			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
+			dto := []filteredWorkerDTO{}
+			for _, r := range rows {
+				dto = append(dto, filteredWorkerDTO{r.Worker, r.Worktree, r.Terminal, r.Classification, r.AgentTree, r.Note})
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				table := output.NewTable(w, "WORKER", "WORKTREE", "TERMINAL", "CLASSIFICATION", "AGENT TREE", "NOTE")
 				blocked := false
 				for _, r := range rows {
@@ -144,5 +143,75 @@ objects, including an empty array when there are no local workers.`,
 				return nil
 			})
 		},
+	}
+}
+
+// PublicGraphQLClient preserves credentials and transport security without the
+// authored-write snapshot hook (that hook reads the binding through git even
+// for a query). Require authentication here: this is a private team read, not
+// anonymous access. No write operation is called by this reader.
+func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, args []string) ([]filterreport.Target, error) {
+	gql, authenticated, err := f.PublicGraphQLClient()
+	if err != nil {
+		return nil, err
+	}
+	if !authenticated {
+		return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+	}
+	targets := []filterreport.Target{}
+	if len(args) > 0 {
+		response, err := gen.FilteredWorkerTarget953(ctx, gql, app, args[0])
+		if err != nil {
+			return nil, err
+		}
+		w := response.Worker
+		if w == nil {
+			return targets, nil
+		}
+		// A name is scoped by appRef. Explicit ids/URNs need the returned App
+		// identity too, since the server gives explicit references precedence.
+		if w.Id == "" || w.Name == "" || w.AppId == "" {
+			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+		}
+		if directWorkerRef(args[0]) && w.AppId != app {
+			if w.AppUrn == nil || *w.AppUrn == "" {
+				return nil, exitcode.Newf(exitcode.Error, "worker_app_unavailable")
+			}
+			returnedApp, e := cmdutil.CanonicalAppRef("returned App", *w.AppUrn)
+			if e != nil {
+				return nil, exitcode.Newf(exitcode.Error, "worker_app_unavailable")
+			}
+			if returnedApp != app {
+				return targets, nil
+			}
+		}
+		return []filterreport.Target{{Name: w.Name, ID: w.Id}}, nil
+	}
+	seen := map[string]bool{}
+	for offset := 0; ; {
+		response, err := gen.FilteredWorkerRoster953(ctx, gql, app, workerPageSize, offset)
+		if err != nil {
+			return nil, err
+		}
+		page := response.Workers
+		if page == nil || page.Items == nil || page.Total < 0 {
+			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+		}
+		for _, w := range page.Items {
+			if w == nil || w.Id == "" || w.Name == "" {
+				return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+			}
+			if !seen[w.Id] {
+				targets = append(targets, filterreport.Target{Name: w.Name, ID: w.Id})
+				seen[w.Id] = true
+			}
+		}
+		offset += len(page.Items)
+		if offset >= page.Total {
+			return targets, nil
+		}
+		if len(page.Items) == 0 {
+			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+		}
 	}
 }

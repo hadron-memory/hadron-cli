@@ -11,8 +11,13 @@ then use terminal-list availability; do not call `orca status`. The command
 retains onboard's fixed exit-2 refusal. Other scan failures exit 1; a completed
 scan exits 0, including BLOCKED and UNREADABLE rows.
 
-The command pages the existing team worker roster, without prompts, and joins
-its worker IDs to bindings in terminal-listed worktrees. It reads `.git`
+The command uses purpose-built reads containing only worker identity fields.
+A named worker takes one query; a team scan pages 200 id/name pairs at a time
+until the reported total, including retired workers with surviving local bindings.
+Explicit worker IDs must prove membership in the selected App. It joins these
+worker IDs to bindings in terminal-listed worktrees on the same server. Missing
+server metadata and malformed or incomplete terminal lists are not accepted as
+proof of an empty result. It reads `.git`
 pointers itself, or `.hadron-team` for plain directories; it never runs git.
 Unattributable worktrees are omitted. A named team worker without a terminal is
 UNREADABLE/no_terminal. Duplicate terminals produce a single AMBIGUOUS row,
@@ -59,3 +64,9 @@ For that QA build only, the unexported `team.findFilteredProcRoot` string can be
 set by Go `-ldflags -X`; production defaults to `/proc`, with no runtime flag or
 environment override. No real team host is a QA target. UX is waived. Any
 recovery proposal needs its own issue and gate; this PR uses Refs #953.
+
+The generic ambient-scope checklist recommends an extra scope/source line. This
+command follows the gate’s six-field output contract instead; scope is selected
+by explicit/configured App or the nearest binding. Authentication is required.
+The authored-write client hook is intentionally absent from these read queries,
+so reading a roster cannot invoke git for attribution.

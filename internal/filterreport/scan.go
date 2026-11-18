@@ -3,6 +3,7 @@ package filterreport
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -11,12 +12,12 @@ import (
 // Row is the entire public report. No screen, draft, argv or process path is
 // included beyond the terminal's already-known worktree.
 type Row struct {
-	Worker         string `json:"worker"`
-	Worktree       string `json:"worktree"`
-	Terminal       string `json:"terminal"`
-	Classification string `json:"classification"`
-	AgentTree      string `json:"agent_tree"`
-	Note           string `json:"note"`
+	Worker         string
+	Worktree       string
+	Terminal       string
+	Classification string
+	AgentTree      string
+	Note           string
 }
 
 type Target struct{ Name, ID string }
@@ -35,7 +36,7 @@ func Scan(ctx context.Context, c *orcaterm.Client, terms []orcaterm.Terminal, ta
 			continue
 		}
 		b, e := ReadBinding(t.WorktreePath)
-		if e != nil || (b.Server != "" && server != "" && b.Server != server) {
+		if e != nil || (b.Server == "" || server == "" || strings.TrimRight(b.Server, "/") != strings.TrimRight(server, "/")) {
 			continue
 		}
 		candidates[b.WorkerID] = append(candidates[b.WorkerID], t)

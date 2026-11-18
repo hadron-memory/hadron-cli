@@ -67,3 +67,21 @@ func ReadBinding(worktree string) (Binding, error) {
 	}
 	return b, nil
 }
+
+// ReadNearestBinding resolves the ambient binding from inside a worktree, without
+// git. The first metadata boundary wins; an unreadable nested binding never
+// falls through to a different, enclosing worker.
+func ReadNearestBinding(path string) (Binding, error) {
+	for {
+		for _, name := range []string{".git", ".hadron-team"} {
+			if _, err := os.Lstat(filepath.Join(path, name)); err == nil || !os.IsNotExist(err) {
+				return ReadBinding(path)
+			}
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return Binding{}, errors.New("binding_unreadable")
+		}
+		path = parent
+	}
+}
