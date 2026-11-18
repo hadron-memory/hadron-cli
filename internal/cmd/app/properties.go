@@ -112,11 +112,12 @@ clear". Prints the object as stored.
 
 Nothing is merged: whatever you send replaces what is there, so read the
 current object first ("hadron app properties get"), change it and send it back.
---expected-revision <n> refuses the write (APP_PROPERTIES_CONFLICT, exit 5) when
-the properties have changed since revision n; the revision is the one
-"properties get --json" prints. Without it the write replaces whatever is
-there. Each change is recorded as an app.properties-changed team event naming
-the changed top-level keys, never their values.
+--expected-revision <n> refuses the write (APP_PROPERTIES_CONFLICT, exit 5)
+when the properties have changed since revision n; the revision is the one
+"properties get --json" prints. It is independent of --instruction. Without it
+the write replaces whatever is there. Each change is recorded as an
+app.properties-changed team event naming the changed top-level keys, never
+their values.
 
 Refusals and exit codes: FORBIDDEN (exit 8) when you do not manage the App, or
 you are a worker session without an admitted instruction, or you use an App key;

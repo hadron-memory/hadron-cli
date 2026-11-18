@@ -41,6 +41,9 @@ func TestSlice2PagesSayWhatRound1FoundMissing1053(t *testing.T) {
 		// what a scope is, how to see them, and that nothing is asked first
 		{[]string{"app", "key", "scope", "revoke"}, []string{"attention:deliver or host:operate", "--scopes", "no confirmation prompt"}},
 		{[]string{"app", "key", "list"}, []string{"a host is a machine that launches a team App's workers", "PREVIEW"}},
+		// the Agents an App runs, and the column that is a plan not a promise
+		{[]string{"app", "agent", "list"}, []string{"which Agents does this App run?", "BOOT PROMPT (NEXT BIND)", "Approval is never inferred from a pointer"}},
+		{[]string{"app", "memory-grant", "rm"}, []string{"list with --include-revoked to check the outcome before retrying", "userless runs"}},
 		// what a grant is comes before the page's own details
 		{[]string{"app", "memory-grant", "list"}, []string{`"hadron app memory-grant add"`, "REGISTER"}},
 		// what properties hold, with a minimal object

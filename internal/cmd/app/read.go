@@ -127,10 +127,11 @@ App may list its keys; the server refuses anyone else.
 The table has the columns ID (what "hadron app key revoke" takes), PREVIEW (a
 short preview of the key, so you can tell keys apart), LABEL, CREATED, LAST
 USED and REVOKED. The key itself is never returned. Revoked keys are not
-listed, so this is the keys in use, not a history. An empty value shows as - in
-text and null in --json; an empty list is [] (text: "no active App keys
-returned"). Text cells have control and invisible characters replaced by a
-space and are cut at 256 characters; --json keeps every value as it is.
+listed, so REVOKED is normally empty and this is the keys in use, not a
+history. An empty value shows as - in text and null in --json; an empty list is
+[] (text: "no active App keys returned"). Text cells have control and invisible
+characters replaced by a space and are cut at 256 characters; --json keeps
+every value as it is.
 
 --scopes adds what each key may do beyond signing in as the App: its scopes,
 with granted-at and granted-by, and for host:operate the id of the host it acts
