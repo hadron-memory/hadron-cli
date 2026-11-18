@@ -1,0 +1,135 @@
+# cli#2422 (child of #1617; hadron-server#3323, merged as ba077810 by #3376,
+# cor:dmo:050:12): the twelve task writes carrying a holder's instruction
+# claim. Each is a separate document so the plain one stays byte-for-byte
+# unchanged and a no-flag request is exactly what it was. The selections match
+# the plain documents; the input types' omit-vs-null directives (agenttasks.graphql)
+# apply to the shared input types, so the same bindings are used here.
+
+# The input types are shared with AgentTaskCreate, so the same omit-vs-null
+# directives repeat here: a type is generated once, and a document that lacks
+# them would flip its bindings from one generate run to the next.
+# @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.properties", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.externalId", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.runSettings", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.family", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.model", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.tier", omitempty: true)
+# @genqlient(for: "AgentTaskRunSettingsInput.effort", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.match", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.roles", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.team", omitempty: true)
+# @genqlient(for: "AgentTaskReferenceInput.label", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.modelGroupNotIn", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.role", omitempty: true, bind: "encoding/json.RawMessage")
+mutation AgentTaskCreateInstructed(
+  $input: CreateAgentTaskInput!
+  $instruction: ActInstructionInput!
+) {
+  createAgentTask(input: $input, instruction: $instruction) {
+    ...AgentTaskFields
+    matchSkipped { workerId name reasons }
+  }
+}
+
+# Same reason as AgentTaskCreateInstructed above.
+# @genqlient(for: "UpdateAgentTaskInput.title", omitempty: true)
+# @genqlient(for: "UpdateAgentTaskInput.closeSessionWhenDone", omitempty: true)
+# @genqlient(for: "UpdateAgentTaskInput.description", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.tags", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.requirements", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.startBy", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.finishBy", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.references", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.properties", omitempty: true, bind: "encoding/json.RawMessage")
+mutation AgentTaskUpdateInstructed(
+  $taskId: ID!
+  $input: UpdateAgentTaskInput!
+  $instruction: ActInstructionInput!
+) {
+  updateAgentTask(taskId: $taskId, input: $input, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskSetPriorityInstructed($taskRef: ID!, $priority: Int!, $instruction: ActInstructionInput!) {
+  setAgentTaskPriority(taskRef: $taskRef, priority: $priority, instruction: $instruction) { ...AgentTaskFields }
+}
+
+mutation AgentTaskAddBlockerInstructed($taskRef: ID!, $blockerTaskRef: ID!, $instruction: ActInstructionInput!) {
+  addAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef, instruction: $instruction) { ...AgentTaskFields }
+}
+
+mutation AgentTaskRemoveBlockerInstructed($taskRef: ID!, $blockerTaskRef: ID!, $instruction: ActInstructionInput!) {
+  removeAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef, instruction: $instruction) { ...AgentTaskFields }
+}
+
+mutation AgentTaskAssignInstructed(
+  $taskId: ID!
+  $assignee: AgentTaskPartyInput!
+  # @genqlient(omitempty: true)
+  $closeSessionWhenDone: Boolean
+  $instruction: ActInstructionInput!
+) {
+  assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskReassignInstructed(
+  $taskId: ID!
+  $assignee: AgentTaskPartyInput!
+  # @genqlient(omitempty: true)
+  $closeSessionWhenDone: Boolean
+  $instruction: ActInstructionInput!
+) {
+  reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskCancelInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  cancelAgentTask(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskParkInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  parkAgentTask(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskReadyInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  makeAgentTaskReady(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
+
+mutation AgentTaskDisposeFindingInstructed(
+  $taskRef: ID!
+  $findingId: String!
+  $disposition: AgentTaskFindingDispositionCode!
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceInput
+  $instruction: ActInstructionInput!
+) {
+  disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference, instruction: $instruction) {
+    id
+    # Findings are capped at 100 per task; this reads the full latest disposition set.
+    findingDispositions(limit: 200, offset: 0) {
+      items { ...TaskFindingDispositionFields }
+    }
+  }
+}
+
+mutation AgentTaskReleaseInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
+  releaseAgentTaskExternalId(taskId: $taskId, instruction: $instruction) {
+    ...AgentTaskFields
+  }
+}
