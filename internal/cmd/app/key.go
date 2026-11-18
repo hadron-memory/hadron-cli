@@ -183,7 +183,7 @@ host:operate frees the key to be granted it for another host.`,
 			})
 		},
 	}
-	addCredentialInstruction(cmd)
+	addCredentialInstructionRevoke(cmd)
 	return cmd
 }
 

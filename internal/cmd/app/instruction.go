@@ -27,14 +27,29 @@ is made. Without the flag, the call acts as you, with no worktree session; its
 document omits instruction and attribution stays as you. Minting, rotating
 and granting remain person-only and have no flag.
 
-An admitted instructed list is NOT record-free: every call (each page) records
-one app.credential-act event, with no dedupe. A changing instructed revoke
-records one; an already-revoked no-op records none. Events name worker, holder,
-App, act kind and instruction, never a key, scope or grant id.`
+`
 
+// What an instructed call records, said per act: a LIST paragraph on a revoke page
+// is copy-paste drift (cli#1053 audit, finding C3).
+const (
+	credentialInstructionListRecord = `An admitted instructed list is NOT record-free: every call (each page) records
+one app.credential-act event, with no dedupe. Events name worker, holder, App,
+act kind and instruction, never a key, scope or grant id.`
+	credentialInstructionRevokeRecord = `A changing instructed revoke records one app.credential-act event; an
+already-revoked no-op records none. Events name worker, holder, App, act kind and
+instruction, never a key, scope or grant id.`
+)
+
+// addCredentialInstruction adds --instruction to a list page.
 func addCredentialInstruction(cmd *cobra.Command) {
 	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("c3ca05b5"))
-	cmd.Long += "\n\n" + credentialInstructionHelp
+	cmd.Long += "\n\n" + credentialInstructionHelp + "\n\n" + credentialInstructionListRecord
+}
+
+// addCredentialInstructionRevoke adds --instruction to a revoke page.
+func addCredentialInstructionRevoke(cmd *cobra.Command) {
+	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("c3ca05b5"))
+	cmd.Long += "\n\n" + credentialInstructionHelp + "\n\n" + credentialInstructionRevokeRecord
 }
 func credentialInstruction(cmd *cobra.Command, f *cmdutil.Factory) (*gen.ActInstructionInput, error) {
 	if !cmd.Flags().Changed("instruction") {

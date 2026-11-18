@@ -272,6 +272,6 @@ for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --y
 		return writeMemoryGrant(f, d)
 	}}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
-	addCredentialInstruction(cmd)
+	addCredentialInstructionRevoke(cmd)
 	return cmd
 }
