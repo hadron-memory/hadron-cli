@@ -178,7 +178,7 @@ host:operate frees the key to be granted it for another host.`,
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.RevokeAppKeyScope == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no revoke result")
+				return exitcode.Newf(exitcode.Error, "server returned no revocation")
 			}
 			dto := appKeyScopesDTOFrom(&resp.RevokeAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
