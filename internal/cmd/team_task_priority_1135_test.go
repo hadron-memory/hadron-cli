@@ -139,47 +139,96 @@ func TestTaskPriorityRefusalsHaveCodeAndNoOutput1135(t *testing.T) {
 	}
 }
 func TestTaskPriorityGetAndListRenderReturnedOrder1135(t *testing.T) {
-	for _, jsonMode := range []bool{false, true} {
-		for _, cmd := range []string{"get", "list"} {
-			t.Run(cmd+fmt.Sprint(jsonMode), func(t *testing.T) {
-				r := taskResponses()
-				r["AgentTaskGet"] = `{"data":{"agentTask":` + priorityTask1135() + `}}`
-				r["AgentTaskList"] = `{"data":{"agentTasks":[` + priorityTask1135() + `,` + strings.Replace(priorityTask1135(), `"id":"task1"`, `"id":"task2"`, 1) + `]}}`
-				args := []string{"team", "task", cmd}
-				if cmd == "get" {
-					args = append(args, "AT1.4")
-				}
-				if jsonMode {
-					args = append(args, "--json")
-				}
-				_, out, err := runTeamTask(t, r, args...)
-				if err != nil {
-					t.Fatal(err)
-				}
-				for _, w := range []string{"2", "AT1.2"} {
-					if !strings.Contains(out, w) {
-						t.Fatalf("missing%s:%s", w, out)
-					}
-				}
-				if jsonMode {
-					for _, w := range []string{`"priority": 2`, `"blocked": true`, `"items": []`, `"hasMore": false`} {
-						if !strings.Contains(out, w) {
-							t.Fatalf("missing%s:%s", w, out)
-						}
-					}
-				} else if !strings.Contains(strings.ToLower(out), "blocked") {
-					t.Fatal(out)
-				}
-				if cmd == "list" && strings.Index(out, "task1") > strings.Index(out, "task2") {
-					t.Fatalf("server order changed:%s", out)
-				}
-			})
+	r := taskResponses()
+	r["AgentTaskGet"] = `{"data":{"agentTask":` + priorityTask1135() + `}}`
+	r["AgentTaskList"] = `{"data":{"agentTasks":[` + priorityTask1135() + `,` + strings.Replace(priorityTask1135(), `"id":"task1"`, `"id":"task2"`, 1) + `]}}`
+
+	// get, text: the priority, blocked state and both pages are printed exactly,
+	// as consecutive lines (cli#1182: not a substring that a timestamp or a
+	// header would satisfy).
+	_, out, err := runTeamTask(t, r, "team", "task", "get", "AT1.4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "  priority: 2 (1 = highest); blocked: true\n  blocked by: 1 shown of 1 (more: false)\n    AT1.2 (b1) PENDING: Dependency\n  blocks: 0 shown of 0 (more: false)\n"; !strings.Contains(out, want) {
+		t.Fatalf("get text lacks the exact priority/blocked/dependency block %q:\n%s", want, out)
+	}
+
+	// list, text: the header names the columns and each row's own cells carry the
+	// priority, blocked flag and the blocker summary, in the server's order.
+	_, out, err = runTeamTask(t, r, "team", "task", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var header string
+	var rows [][]string
+	for _, line := range strings.Split(out, "\n") {
+		switch f := strings.Fields(line); {
+		case strings.HasPrefix(line, "ID "):
+			header = line
+		case len(f) > 0 && strings.HasPrefix(f[0], "task"):
+			rows = append(rows, f)
+		}
+	}
+	if !strings.Contains(header, "PRIORITY") || !strings.Contains(header, "BLOCKED") || !strings.Contains(header, "BLOCKED BY") || !strings.Contains(header, "BLOCKS") {
+		t.Fatalf("list header lacks the priority/blocked columns: %q", header)
+	}
+	if len(rows) != 2 || rows[0][0] != "task1" || rows[1][0] != "task2" {
+		t.Fatalf("server order changed or rows missing: %v\n%s", rows, out)
+	}
+	for _, row := range rows {
+		if got := row[:5]; strings.Join(got, " ") != row[0]+" PENDING 2 true AT1.2" {
+			t.Fatalf("row cells %v, want [id PENDING 2 true AT1.2 ...]", got)
+		}
+	}
+
+	// --json: the exact values and page shapes.
+	for _, cmd := range []string{"get", "list"} {
+		args := []string{"team", "task", cmd, "--json"}
+		if cmd == "get" {
+			args = []string{"team", "task", "get", "AT1.4", "--json"}
+		}
+		_, out, err := runTeamTask(t, r, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var task struct {
+			Priority  int  `json:"priority"`
+			Blocked   bool `json:"blocked"`
+			BlockedBy struct {
+				Items   []map[string]string `json:"items"`
+				Total   int                 `json:"total"`
+				HasMore bool                `json:"hasMore"`
+			} `json:"blockedBy"`
+			Blocks struct {
+				Items   []any `json:"items"`
+				Total   int   `json:"total"`
+				HasMore bool  `json:"hasMore"`
+			} `json:"blocks"`
+		}
+		if cmd == "list" {
+			var tasks []json.RawMessage
+			if err := json.Unmarshal([]byte(out), &tasks); err != nil || len(tasks) != 2 {
+				t.Fatalf("list json: %v\n%s", err, out)
+			}
+			out = string(tasks[0])
+		}
+		if err := json.Unmarshal([]byte(out), &task); err != nil {
+			t.Fatal(err)
+		}
+		if task.Priority != 2 || !task.Blocked || task.BlockedBy.Total != 1 || task.BlockedBy.HasMore || len(task.BlockedBy.Items) != 1 ||
+			task.BlockedBy.Items[0]["id"] != "b1" || task.BlockedBy.Items[0]["handle"] != "AT1.2" || task.BlockedBy.Items[0]["title"] != "Dependency" || task.BlockedBy.Items[0]["status"] != "PENDING" ||
+			task.Blocks.Total != 0 || task.Blocks.HasMore || task.Blocks.Items == nil || len(task.Blocks.Items) != 0 {
+			t.Fatalf("%s json fields wrong: %+v\n%s", cmd, task, out)
 		}
 	}
 }
+
+// A realistic late page: 21 blockers in all, asked for offset 20 limit 1, so the
+// one item returned is the 21st and nothing more remains.
 func TestTaskDependenciesPageForwarding1135(t *testing.T) {
 	r := taskResponses()
-	r["AgentTaskDependencies"] = `{"data":{"agentTask":{"id":"task1","blockedBy":{"items":[],"total":21,"hasMore":false},"blocks":{"items":[],"total":0,"hasMore":false}}}}`
+	r["AgentTaskDependencies"] = `{"data":{"agentTask":{"id":"task1","blockedBy":{"items":[{"id":"b21","handle":"AT1.22","title":"The last blocker","status":"STARTED"}],"total":21,"hasMore":false},"blocks":{"items":[],"total":0,"hasMore":false}}}}`
 	calls, out, err := runTeamTask(t, r, "team", "task", "dependencies", "AT1.4", "--limit", "1", "--offset", "20", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -188,8 +237,19 @@ func TestTaskDependenciesPageForwarding1135(t *testing.T) {
 	if c.Vars["taskRef"] != "AT1.4" || c.Vars["limit"] != float64(1) || c.Vars["offset"] != float64(20) {
 		t.Fatal(c.Vars)
 	}
-	if !strings.Contains(out, `"total": 21`) || !strings.Contains(out, `"items": []`) {
-		t.Fatal(out)
+	var got struct {
+		ID        string `json:"id"`
+		BlockedBy struct {
+			Items   []map[string]string `json:"items"`
+			Total   int                 `json:"total"`
+			HasMore bool                `json:"hasMore"`
+		} `json:"blockedBy"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.ID != "task1" || got.BlockedBy.Total != 21 || got.BlockedBy.HasMore || len(got.BlockedBy.Items) != 1 || got.BlockedBy.Items[0]["handle"] != "AT1.22" || got.BlockedBy.Items[0]["status"] != "STARTED" {
+		t.Fatalf("the late page was not rendered as returned: %+v\n%s", got, out)
 	}
 }
 
