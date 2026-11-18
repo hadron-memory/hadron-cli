@@ -825,11 +825,11 @@ func TestAdapterFollowups1974(t *testing.T) {
 		response := strings.Replace(claimed1961("t1", itemA1961, "wkr1", "Iris", "", "PENDING"), `"name":"Iris"`, `"name":null`, 1)
 		calls, out, errOut, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961(), "IntakeClaimTask": response, "IntakeStartTask": started1961}, "--track", "--json")
 		// #2260 F6: decode the DTO instead of pinning the JSON spelling — a
-		// formatting-only change to the encoder must not fail this pin. The
-		// assignee fell back to the server id (wkr1) because the name was
-		// null; the note check below asserts exactly that fact — the id
-		// appears, the empty-display-name rendering ("for ,") does not —
-		// not the sentence's wording (stderr prose is not a contract).
+		// formatting-only change to the JSON encoder must not fail this pin.
+		// The assignee fell back to the server id (wkr1) because the name was
+		// null. The stderr note check further down is the opposite on purpose
+		// (#2363 E): it pins that one note line's exact wording, so a change
+		// to its shape or to whom it names fails.
 		if err != nil || len(opsOf1961(calls, "IntakeStartTask")) != 0 {
 			t.Fatalf("%v %s starts=%v", err, out, opsOf1961(calls, "IntakeStartTask"))
 		}
@@ -842,8 +842,17 @@ func TestAdapterFollowups1974(t *testing.T) {
 		if umErr := json.Unmarshal([]byte(out), &dto); umErr != nil || len(dto.Tasks) != 1 || dto.Tasks[0].ID != "t1" || dto.Tasks[0].Assignee == nil || *dto.Tasks[0].Assignee != "wkr1" {
 			t.Fatalf("the claimed task t1 must decode with assignee wkr1 (the fallback id): %v %s", umErr, out)
 		}
-		if !strings.Contains(errOut, "wkr1") || strings.Contains(errOut, "for ,") {
-			t.Fatalf("the pending note must name the fallback id, not an empty display name: %q", errOut)
+		// hadron-cli#2363 E: scoped to the pending-for note line, not anywhere
+		// in stderr (and not the "could not be started; it is PENDING" note).
+		// Exactly one such line, worded exactly, naming the fallback id.
+		var notes []string
+		for _, line := range strings.Split(errOut, "\n") {
+			if strings.HasPrefix(line, "note: ") && strings.Contains(line, " is PENDING for ") {
+				notes = append(notes, line)
+			}
+		}
+		if len(notes) != 1 || !strings.HasSuffix(notes[0], " is PENDING for wkr1, who starts it") {
+			t.Fatalf("want one pending note naming the fallback id wkr1, got %q in %q", notes, errOut)
 		}
 	})
 }
