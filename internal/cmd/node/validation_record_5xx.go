@@ -40,7 +40,7 @@ func recordMutationError(err error, nodeRef string, hasRunID bool) error {
 		}
 		what += ")"
 	}
-	retry := "Re-running with the same --run-id repeats the same request; if the first attempt was recorded, the server answers it as a replay."
+	retry := "Re-running with the same --run-id repeats the same request; if the first attempt was recorded, the server answers it as a replay when the node and task revisions and your identity are unchanged, and otherwise refuses it as a conflict (re-read the node's latest report, as above)."
 	if !hasRunID {
 		retry = "This run sent no --run-id, so a repeat sends no idempotency key and may record a second report; pass --run-id to make a repeat safe to compare."
 	}

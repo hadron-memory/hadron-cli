@@ -114,8 +114,9 @@ Exit 5: no task is configured or the task is broken, the node changed during the
 When no task is configured, exit 5 occurs without a write. Exit 7 means outcome unknown: inspect
 the node before retrying. An HTTP 500, 502 or 504 answer to the record request exits 7 even when
 its body is a JSON error: the outcome is unknown, so read the node's latest validation report
-before recording again (hadron node get). A repeat with the same --run-id is a replay if the
-first attempt was recorded; without --run-id it may record a second report. Nothing is retried. The result is advisory, not approval or independence.`,
+before recording again (hadron node get). A repeat with the same --run-id is answered as a replay if the first attempt
+was recorded and the node and task revisions and your identity are unchanged, otherwise refused as a
+conflict; without --run-id it may record a second report. Nothing is retried. The result is advisory, not approval or independence.`,
 		Example: `  hadron node validation record instructions -m example.com:kb --outcome PASS --run-id check-42
   hadron node validation record hrn:node:example.com:kb:instructions --outcome FAIL --task <task-id> --json`,
 		Args: cobra.ExactArgs(1),

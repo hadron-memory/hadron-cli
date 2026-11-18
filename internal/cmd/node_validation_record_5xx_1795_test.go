@@ -76,7 +76,7 @@ func TestValidationRecord5xxEnvelopeIsAnUnknownOutcome1795(t *testing.T) {
 					t.Fatalf("exit=%d want 7: %v", exitCodeFor(err), err)
 				}
 				msg := err.Error()
-				for _, want := range []string{fmt.Sprintf("HTTP %d", status), "unknown outcome", "may or may not have been recorded", "hadron node get", "same --run-id", "does not retry"} {
+				for _, want := range []string{fmt.Sprintf("HTTP %d", status), "unknown outcome", "may or may not have been recorded", "hadron node get", "same --run-id", "when the node and task revisions and your identity are unchanged", "refuses it as a conflict", "does not retry"} {
 					if !strings.Contains(msg, want) {
 						t.Errorf("guidance lacks %q: %s", want, msg)
 					}
@@ -162,6 +162,9 @@ func TestValidationRecord5xxAdviceWithoutRunIDAndDocs1795(t *testing.T) {
 	for name, text := range map[string]string{"help": flat1471(out.String()), "agentic-usage": flat1471(string(guide))} {
 		if !strings.Contains(text, want) {
 			t.Errorf("%s lacks %q", name, want)
+		}
+		if !strings.Contains(text, "revisions and your identity are unchanged") || !strings.Contains(text, "refused as a conflict") {
+			t.Errorf("%s lacks the replay condition (same node/task revisions and identity, else a conflict)", name)
 		}
 	}
 }
