@@ -71,3 +71,27 @@ func TestAlarmAckPlainPathSurfacesWarnings2537(t *testing.T) {
 		t.Fatalf("plain --json must not carry a warnings key (byte identity): %s", out)
 	}
 }
+
+// cli#2537 (#2505 F5c, test half): a server older than ba077810 rejects the
+// instruction argument itself — schema validation, not a semantic refusal.
+// The CLI passes that refusal through and never retries the call plain; the
+// shared help's sentence ("an older server's refusal is passed through,
+// never retried without it") is pinned in the instructionHelpFor unit test.
+func TestAlarmStallInstructionOldServerRejectsArgument2537(t *testing.T) {
+	for _, c := range alarmStallCases2451() {
+		t.Run(c.name, func(t *testing.T) {
+			r := stallResponses()
+			r[c.instrOp] = `{"errors":[{"message":"Unknown argument 'instruction' on field 'Mutation'."}]}`
+			calls, out, err := runTeamTask(t, r, append(append([]string{}, c.args...), "--instruction", "live-chat:opaque")...)
+			if err == nil || !strings.Contains(err.Error(), "Unknown argument") || out != "" {
+				t.Fatalf("err=%v out=%q", err, out)
+			}
+			oneCall2422(t, calls, c.instrOp)
+			for _, call := range *calls {
+				if call.Op == c.plainOp {
+					t.Fatal("an old server's rejection must not retry plain")
+				}
+			}
+		})
+	}
+}

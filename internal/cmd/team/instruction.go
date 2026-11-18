@@ -27,15 +27,22 @@ var parseInstruction = instruction.Parse
 const instructionHelpMinServer = "17ef5905"
 
 // instructionHelpFor renders the shared instruction help for a command whose
-// instructed path needs server revision serverMin instead of the shared one. It
-// panics when the shared text no longer names instructionHelpMinServer: a silent
-// no-op replace would print the wrong minimum server with no test failing, and
-// the panic fires while the command tree is built, so every test run sees it.
+// instructed path needs server revision serverMin instead of the shared one.
+// The swap is swapMinServer's, whose panic-on-missing-revision contract is
+// pinned in its own test (cli#2537).
 func instructionHelpFor(serverMin string) string {
-	if !strings.Contains(instructionHelp, instructionHelpMinServer) {
-		panic("instructionHelpFor: the shared instruction help no longer names " + instructionHelpMinServer)
+	return swapMinServer(instructionHelp, instructionHelpMinServer, serverMin)
+}
+
+// swapMinServer returns shared with every occurrence of orig replaced by
+// serverMin. It panics when shared no longer names orig: a silent no-op
+// replace would print the wrong minimum server with no test failing, and the
+// panic fires while the command tree is built, so every test run sees it.
+func swapMinServer(shared, orig, serverMin string) string {
+	if !strings.Contains(shared, orig) {
+		panic("instructionHelpFor: the shared instruction help no longer names " + orig)
 	}
-	return strings.ReplaceAll(instructionHelp, instructionHelpMinServer, serverMin)
+	return strings.ReplaceAll(shared, orig, serverMin)
 }
 
 // instructionSnapshot is the worktree binding as it stood before the

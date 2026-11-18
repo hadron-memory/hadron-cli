@@ -124,6 +124,20 @@ func TestAlarmStallInstructionPersonFallback2451(t *testing.T) {
 				if got.Session != "" || got.Vars["instruction"] == nil {
 					t.Fatalf("person fallback: %+v", got)
 				}
+				// The fallback note is per-cause (#2505 F5d): a binding that
+				// is present but unusable says why on stderr; no binding at
+				// all stays silent (the person's call needs no apology).
+				stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+				if mode == "unbound" {
+					if strings.Contains(stderr, "not used") {
+						t.Fatalf("no binding means no fallback note: %q", stderr)
+					}
+				} else {
+					wantWord := map[string]string{"other-server": "belongs to", "incomplete": "incomplete"}[mode]
+					if !strings.Contains(stderr, "not used") || !strings.Contains(stderr, wantWord) {
+						t.Fatalf("fallback note must say %q: %q", wantWord, stderr)
+					}
+				}
 			})
 		}
 	}
@@ -131,7 +145,10 @@ func TestAlarmStallInstructionPersonFallback2451(t *testing.T) {
 func TestAlarmInstructionWarnings2451(t *testing.T) {
 	c := alarmStallCases2451()[0]
 	r := stallResponses()
-	warning := `{"path":"acknowledgeAlarm","code":"alarm.ack.outside-chain","text":"Outside chain.","register":null}`
+	// The register rides along (#2505 F5b): the warning DTO must round-trip
+	// the task-create warning shape — code, text, register {state, taskLoc,
+	// taskUrn} — not just be counted.
+	warning := `{"path":"acknowledgeAlarm","code":"alarm.ack.outside-chain","text":"Outside chain.","register":{"state":"MAPPED","taskLoc":"reviews:blind","taskUrn":null}}`
 	r[c.instrOp] = strings.TrimSuffix(c.response, "}") + `,"extensions":{"warnings":[` + warning + `]}}`
 	args := append(append([]string{}, c.args...), "--instruction", "live-chat:opaque")
 	out, stderr, err := runTeamTaskStreams(t, r, args...)
@@ -159,6 +176,16 @@ func TestAlarmInstructionWarnings2451(t *testing.T) {
 		}
 		if dto.Warnings == nil || len(dto.Warnings) != want {
 			t.Fatalf("warnings=%s", out)
+		}
+		if withWarning {
+			w := dto.Warnings[0]
+			if w["code"] != "alarm.ack.outside-chain" || w["text"] != "Outside chain." {
+				t.Fatalf("warning code/text must round-trip the server's verbatim: %s", out)
+			}
+			reg, ok := w["register"].(map[string]any)
+			if !ok || reg["state"] != "MAPPED" || reg["taskLoc"] != "reviews:blind" || reg["taskUrn"] != nil {
+				t.Fatalf("warning register must round-trip state/taskLoc/taskUrn: %s", out)
+			}
 		}
 	}
 }
