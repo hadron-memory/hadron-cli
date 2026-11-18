@@ -151,6 +151,10 @@ objects, including an empty array when there are no local workers.`,
 // for a query). Require authentication here: this is a private team read, not
 // anonymous access. No write operation is called by this reader.
 func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, args []string) ([]filterreport.Target, error) {
+	app, err := cmdutil.CanonicalAppRef("selected App", app)
+	if err != nil || app == "" {
+		return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+	}
 	gql, authenticated, err := f.PublicGraphQLClient()
 	if err != nil {
 		return nil, err
@@ -168,12 +172,13 @@ func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, ar
 		if w == nil {
 			return targets, nil
 		}
-		// A name is scoped by appRef. Explicit ids/URNs need the returned App
-		// identity too, since the server gives explicit references precedence.
+		// Verify returned App identity for every input spelling. In particular,
+		// legacy worker URNs also override appRef on the server; recognizing a
+		// subset of direct reference shapes must not bypass this scope check.
 		if w.Id == "" || w.Name == "" || w.AppId == "" {
 			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
 		}
-		if directWorkerRef(args[0]) && w.AppId != app {
+		if w.AppId != app {
 			if w.AppUrn == nil || *w.AppUrn == "" {
 				return nil, exitcode.Newf(exitcode.Error, "worker_app_unavailable")
 			}

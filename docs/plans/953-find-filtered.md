@@ -14,7 +14,9 @@ scan exits 0, including BLOCKED and UNREADABLE rows.
 The command uses purpose-built reads containing only worker identity fields.
 A named worker takes one query; a team scan pages 200 id/name pairs at a time
 until the reported total, including retired workers with surviving local bindings.
-Explicit worker IDs must prove membership in the selected App. It joins these
+Every named worker lookup must prove membership in the selected App, regardless
+of worker-reference spelling; selected and returned App URNs are canonicalized,
+while opaque App IDs compare directly. It joins these
 worker IDs to bindings in terminal-listed worktrees on the same server. Missing
 server metadata and malformed or incomplete terminal lists are not accepted as
 proof of an empty result. It reads `.git`
