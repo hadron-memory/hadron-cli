@@ -183,16 +183,19 @@ instruction), the list uses this worktree's verified session and --app is
 required: an instructed list is scoped to the worker's own App, memory-only
 lists included, and the server refuses another App. Each admitted instructed
 list records one team event (ids only). Instruction needs server 7907d93d or
-later.`,
+later. With no usable worker binding (none, another server's, or one that
+changed since the command started) the one call goes out as the signed-in
+person with no worker session and no instruction recorded; a binding that does
+not fit prints a note on stderr, an absent binding is silent.`,
 		Example: `  hadron automation grant list --app acme.com:ops --json
   hadron automation grant list --memory acme.com:notes --include-revoked
   hadron automation grant list --app acme.com:ops --instruction task:<task-id>`,
 		Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-			claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+			claim, err := parseActInstruction(cmd, f, instructionRaw)
 			if err != nil {
 				return err
 			}
-			if claim.claim != nil && !cmd.Flag("app").Changed {
+			if claim.input != nil && !cmd.Flag("app").Changed {
 				return exitcode.Newf(exitcode.Usage, "--instruction needs --app: an instructed list is scoped to the worker's own App; nothing sent")
 			}
 			var appRef, memRef *string
@@ -219,7 +222,7 @@ later.`,
 				return err
 			}
 			var fields []gen.AutomationReadGrantFields
-			if claim.claim == nil {
+			if claim.input == nil {
 				r, err := gen.AutomationReadGrants(cmd.Context(), client, appRef, memRef, include)
 				if err != nil {
 					return api.MapError(err)
@@ -238,9 +241,9 @@ later.`,
 				if err != nil {
 					return err
 				}
-				r, err := gen.AutomationReadGrantsInstructed(ctx, client, appRef, memRef, include, claim.claim)
+				r, err := gen.AutomationReadGrantsInstructed(ctx, client, appRef, memRef, include, claim.input)
 				if err != nil {
-					return api.MapError(err)
+					return api.MapErrorKeepingCode(err)
 				}
 				if r == nil || r.AutomationReadGrants == nil {
 					return exitcode.Newf(exitcode.Error, "the server returned no read grant list")
@@ -287,11 +290,16 @@ worktree. With --instruction (a held worker acting on its holder's
 instruction), the one revoke mutation uses this worktree's verified session and
 is attributed to the worker and its holder; the server allows it only within the
 worker's own App and shows its refusal as is. Instruction needs server 7907d93d
-or later.`,
+or later. With no usable worker binding (none, another server's, or one that
+changed since the command started) the one revoke goes out as the signed-in
+person: it is attributed to that person, not to the worker, and records no
+worker claim. A binding that does not fit prints a note on stderr; an absent
+binding is silent, so check the worktree is bound when worker attribution
+matters.`,
 		Example: `  hadron automation grant revoke <grant-id> --yes --json
   hadron automation grant revoke <grant-id> --yes --instruction task:<task-id>`,
 		Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-			claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+			claim, err := parseActInstruction(cmd, f, instructionRaw)
 			if err != nil {
 				return err
 			}
@@ -307,7 +315,7 @@ or later.`,
 				return err
 			}
 			var fields gen.AutomationReadGrantFields
-			if claim.claim == nil {
+			if claim.input == nil {
 				r, err := gen.RevokeAutomationReadGrant(cmd.Context(), client, id)
 				if err != nil {
 					return mapReadGrantWriteError(err, "revoke")
@@ -322,7 +330,7 @@ or later.`,
 				if err != nil {
 					return err
 				}
-				r, err := gen.RevokeAutomationReadGrantInstructed(ctx, client, id, claim.claim)
+				r, err := gen.RevokeAutomationReadGrantInstructed(ctx, client, id, claim.input)
 				if err != nil {
 					return mapReadGrantWriteError(err, "revoke")
 				}

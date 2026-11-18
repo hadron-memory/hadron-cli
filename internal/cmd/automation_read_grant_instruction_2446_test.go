@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -166,6 +167,12 @@ func TestReadGrantInstruction2446RefusalShownOnceNotRetried(t *testing.T) {
 			err := root.Execute()
 			if err == nil || exitCodeFor(err) != exitcode.Forbidden || len(*calls) != 1 || out.Len() != 0 {
 				t.Fatalf("err=%v calls=%+v out=%s", err, *calls, out.String())
+			}
+			// The --json error envelope reads serverCode from the error and the
+			// message from its text: both must survive the refusal.
+			var coded interface{ ServerCode() string }
+			if !errors.As(err, &coded) || coded.ServerCode() != "FORBIDDEN" || !strings.Contains(err.Error(), "refused") {
+				t.Fatalf("refusal lost its serverCode or message: %v", err)
 			}
 		})
 	}
