@@ -3,6 +3,7 @@ package cmd
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // cli#2234 items 1 and 2: agentic-usage documents the exact-value masking
@@ -25,10 +26,11 @@ func TestAgenticUsageAiConfigMaskingTradeoff2234(t *testing.T) {
 		para = para[:end]
 	}
 	flat := strings.Join(strings.Fields(para), " ")
+	// Only the two clauses that state the contract are pinned: masking reaches
+	// legitimate substrings, and there is no length or word-boundary exemption.
+	// The surrounding wording may be edited freely (cli#2364 F6).
 	for _, want := range []string{
-		"short or common",
 		"legitimate substrings",
-		"presentation tradeoff",
 		"no length or word-boundary exemption",
 	} {
 		if !strings.Contains(flat, want) {
@@ -36,8 +38,9 @@ func TestAgenticUsageAiConfigMaskingTradeoff2234(t *testing.T) {
 		}
 	}
 	for _, line := range strings.Split(doc, "\n") {
-		if strings.Contains(line, "an older server is refused (GRAPHQL_VALIDATION_FAILED") && len(line) > 100 {
-			t.Errorf("old-server chat-probe sentence is not wrapped (%d columns): %q", len(line), line)
+		// Columns are runes, not bytes: a multi-byte character is one column.
+		if cols := utf8.RuneCountInString(line); strings.Contains(line, "an older server is refused (GRAPHQL_VALIDATION_FAILED") && cols > 100 {
+			t.Errorf("old-server chat-probe sentence is not wrapped (%d columns): %q", cols, line)
 		}
 	}
 }
