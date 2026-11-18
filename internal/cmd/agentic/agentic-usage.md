@@ -2214,7 +2214,13 @@ Conventions:
   at 256 characters), and `--json` carries the full text without the `warning: `
   prefix in `warnings`, a list of plain strings (not objects), one per ungoverned
   end, `[]` when both ends are governed (cli#1781); `spec find` is semantic by default (`--match-exactly`
-  forces literal regex matching); `spec list`/`spec find` run unscoped when no
+  forces literal regex matching); `spec list --role <role>` forwards
+  the value verbatim to the server role-family filter, with no local role matching,
+  legacy-tag stream or fallback on a server without that filter. A supplied blank
+  role is usage error (exit 2), before any request. With no --role, the existing
+  paged legacy-spec-tag / spec-role union is unchanged. --role retains memory,
+  citation-prefix, approval/mint filters and the display page; --json shape is
+  unchanged (cli#684 Slice A). `spec list`/`spec find` run unscoped when no
   memory is given (`-m`, `HADRON_SPEC_MEMORY`, `spec use`, then the active
   memory), and since citations and names collide across corpora, results
   spanning more than one memory add a `MEMORY` column — `--json` always carries
