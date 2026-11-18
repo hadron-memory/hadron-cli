@@ -2,6 +2,8 @@ package team
 
 import (
 	"context"
+	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -43,6 +45,27 @@ type healthRename struct {
 // nothing instead of failing it every run (cli#2166).
 func healthOrcaBin(cfg *hostpoller.Config) string {
 	return healthsched.OrcaOrPath(cfg.Delivery.OrcaBin)
+}
+
+// healthLookPath pins a bare "orca" to one file for the whole sweep. It is a
+// variable only so a test can fix the answer.
+var healthLookPath = exec.LookPath
+
+// healthSweepOrcaBin is the binary the sweep's Orca calls run: healthOrcaBin,
+// with the bare fallback name resolved on PATH ONCE to an absolute path
+// (cli#2166). A bare name is looked up again by every exec, so the renames and
+// the version probe could land on different installations if one disappeared
+// mid-pass; an absolute path makes every call ask the same file. A lookup that
+// fails keeps the bare name, and the first call reports Orca unreachable as
+// before.
+func healthSweepOrcaBin(cfg *hostpoller.Config) string {
+	bin := healthOrcaBin(cfg)
+	if bin == "orca" {
+		if p, err := healthLookPath(bin); err == nil && filepath.IsAbs(p) {
+			return p
+		}
+	}
+	return bin
 }
 
 // healthOrcaVersionRE is what a version looks like: a digit-led token of at
@@ -92,13 +115,13 @@ func healthTitles(ctx context.Context, cfg *hostpoller.Config, workers map[strin
 	if len(workers) == 0 {
 		return []healthRename{}, nil // nothing registered: no Orca call to fail
 	}
-	return healthTitlesWith(ctx, orcaRunner(healthOrcaBin(cfg)), workers, apply)
+	return healthTitlesWithRunner(ctx, orcaRunner(healthSweepOrcaBin(cfg)), workers, apply)
 }
 
-// healthTitlesWith is healthTitles on an already-built runner, so the sweep
+// healthTitlesWithRunner is healthTitles on an already-built runner, so the sweep
 // resolves Orca once and the version probe shares the title pass's executable
 // (cli#2166).
-func healthTitlesWith(ctx context.Context, run orcaterm.Runner, workers map[string]string, apply bool) ([]healthRename, error) {
+func healthTitlesWithRunner(ctx context.Context, run orcaterm.Runner, workers map[string]string, apply bool) ([]healthRename, error) {
 	if len(workers) == 0 {
 		return []healthRename{}, nil
 	}

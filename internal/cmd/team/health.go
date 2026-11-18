@@ -358,8 +358,8 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 				// One resolution of Orca serves the renames and the version
 				// probe (cli#2166), so the receipt names the executable that
 				// did the work.
-				run := orcaRunner(healthOrcaBin(cfg))
-				renames, titleErr = healthTitlesWith(c.Context(), run, workerNames, !dryRun)
+				run := orcaRunner(healthSweepOrcaBin(cfg))
+				renames, titleErr = healthTitlesWithRunner(c.Context(), run, workerNames, !dryRun)
 				dto.OrcaVersion = healthOrcaVersion(c.Context(), run)
 			}
 			dto.Renames = append(dto.Renames, renames...)
