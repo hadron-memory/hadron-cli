@@ -45,3 +45,26 @@ query AutomationReadGrants(
     ...AutomationReadGrantFields
   }
 }
+
+# cli#2446 (server 7907d93d): the worker-instructed arm. Separate documents so
+# the uninstructed requests stay byte-identical to the legacy ones on an older
+# server; only an explicit --instruction sends these.
+mutation RevokeAutomationReadGrantInstructed($id: ID!, $instruction: ActInstructionInput!) {
+  revokeAutomationReadGrant(id: $id, instruction: $instruction) {
+    ...AutomationReadGrantFields
+  }
+}
+
+query AutomationReadGrantsInstructed(
+  # @genqlient(omitempty: true)
+  $appRef: String
+  # @genqlient(omitempty: true)
+  $memoryRef: String
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+  $instruction: ActInstructionInput!
+) {
+  automationReadGrants(appRef: $appRef, memoryRef: $memoryRef, includeRevoked: $includeRevoked, instruction: $instruction) {
+    ...AutomationReadGrantFields
+  }
+}
