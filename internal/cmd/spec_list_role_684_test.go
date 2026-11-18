@@ -147,7 +147,7 @@ func TestSpecListRolePassThrough684(t *testing.T) {
 func TestSpecListRoleEmptyAndNoFallback684(t *testing.T) {
 	for _, role := range []string{"", " \t"} {
 		_, _, requests, err := runSpecListRole684(t, role, nil, "")
-		if exitcode.FromError(err) != exitcode.Usage || requests != 0 || !strings.Contains(err.Error(), "--role is blank") {
+		if exitCodeFor(err) != exitcode.Usage || requests != 0 || !strings.Contains(err.Error(), "--role is blank") {
 			t.Fatalf("empty role %q: err=%v requests=%d", role, err, requests)
 		}
 	}

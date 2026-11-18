@@ -2214,7 +2214,7 @@ Conventions:
   at 256 characters), and `--json` carries the full text without the `warning: `
   prefix in `warnings`, a list of plain strings (not objects), one per ungoverned
   end, `[]` when both ends are governed (cli#1781); `spec find` is semantic by default (`--match-exactly`
-  forces literal regex matching); `spec list` / `spec ls --role <role>` forwards
+  forces literal regex matching); `spec list --role <role>` forwards
   the value verbatim to the server role-family filter, with no local role matching,
   legacy-tag stream or fallback on a server without that filter. A supplied blank
   role is usage error (exit 2), before any request. With no --role, the existing

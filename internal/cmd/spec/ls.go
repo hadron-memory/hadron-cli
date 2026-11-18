@@ -40,7 +40,7 @@ included. The CLI does not match roles locally or fall back on older servers.
 Omit --role to keep the normal tag/role union. An empty --role is refused.`,
 		Example: `  hadron spec list -m hrn:mem:micromentor.org:platform-specs
   hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json
-  hadron spec ls -m hrn:mem:micromentor.org:platform-specs --role spec.rule --approved --json`,
+  hadron spec list -m hrn:mem:micromentor.org:platform-specs --role spec.rule --approved --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roleGiven := cmd.Flags().Changed("role")
