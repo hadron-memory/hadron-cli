@@ -80,7 +80,7 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 			// every refusal is local (the reader is shared with app update, #1640).
 			var policyJSON json.RawMessage
 			if cmd.Flags().Changed("policy-file") {
-				if policyJSON, err = readPolicyFile(policyFile); err != nil {
+				if policyJSON, err = readPolicyFile(policyFile, false); err != nil {
 					return err
 				}
 				prepared.changed = append(prepared.changed, "policy")

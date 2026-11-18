@@ -1258,7 +1258,8 @@ Conventions:
   printed. The plan is true when answered and reserves nothing: a change before
   the move can still end it with a conflict (exit 5). The server lists at most
   `--limit` nodes (its default 100; it bounds the value; `--limit` is refused
-  without `--dry-run` and below 1). A plan that does not list every node prints
+  without `--dry-run`, below 1, and above 2147483647, the GraphQL Int range,
+  each with exit 2 before any request). A plan that does not list every node prints
   `TRUNCATED` with the shown and total counts and exits 1; a complete plan exits
   0. When the server lists fewer nodes than `--limit` asked for, that is its
   bound: the error says a plan cannot list this subtree in full, rather than
@@ -1268,7 +1269,10 @@ Conventions:
   pointInTime, nodes: [{id, currentUrn, newUrn}], linkWarnings: [{nodeId,
   nodeLoc, raw, status: MISSING|RETARGETED|AMBIGUOUS, target}] | null,
   linkWarningsWithheld}`; `linkWarnings` is null when withheld and `[]` when
-  there are none. Sends no `moveNode`.
+  there are none. `status`, `complete` and `truncated` always agree:
+  `truncated` is the CLI's verdict (the server flagged the plan, or it lists
+  fewer nodes than it counts), always `!complete`, not a copy of the server's
+  flag (cli#2320). Sends no `moveNode`.
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
   `-m` (which scopes both). By default every mergeable field folds in; restrict
@@ -3510,6 +3514,11 @@ server error fails the command).
   `--json` adds `handoff`) only when the worker's continuity is `CURRENT` and names
   this session; otherwise exit stays 0 with one line `handoff saved; URN not read
   back (<reason>)` and no `handoff` key (the end is committed; nothing is retried).
+  **One compatibility exception:** a server without `Worker.continuity` (it
+  refuses the read-back query as a GraphQL validation error) prints no handoff
+  line at all and no `handoff` key, exactly the older output. That does not mean
+  the handoff was lost: it was written before the end, as above, and is only not
+  read back.
   Passing it on a session with no
   worker is refused — there is no sequence to write to. An EXPLICIT empty
   handoff is refused exit 2 (somebody meant to write something); omitting it
