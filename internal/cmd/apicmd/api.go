@@ -26,8 +26,11 @@ func NewCmdAPI(f *cmdutil.Factory) *cobra.Command {
 		Long: `Send one GraphQL query or mutation to the Hadron server, as you, and print
 the server's JSON response, indented. Use this when no other
 hadron command does what you need. The fields you can ask for are listed in
-the server's GraphQL schema (introspect it with a '__schema' query, or read
-schema/schema.graphql in the hadron-cli repository).
+the server's GraphQL schema. The hosted server (the default) refuses
+introspection, so a '__schema' or '__type' query there fails with exit 2.
+Read the published schema instead:
+https://github.com/hadron-memory/hadron-cli/blob/main/schema/schema.graphql
+(a server newer than that file can have fields it does not list yet).
 
 A query only reads. A MUTATION CHANGES REAL DATA, on the server this command
 talks to (--server, HADRON_SERVER, or 'hadron config get server'), with your
