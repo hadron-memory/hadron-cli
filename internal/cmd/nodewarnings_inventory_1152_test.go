@@ -3,6 +3,8 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -28,35 +30,49 @@ var nodeWriteAdviceRoots1152 = []string{
 	"searchReplaceInNodes", "searchReplaceInSpecNodes",
 }
 
-// Each root is exercised through the real installNodeWriteWarnings path: a stub
-// command sends `mutation { <root> { id } }` and the fake server answers with
-// advice for that root, advice for a foreign root, and (for the failure control)
-// an error. Stdout stays untouched; advice is stderr only.
+// stubRun1152 runs a stub command through the real installNodeWriteWarnings path.
+// It sends each (opName, query) in order against a fake server that answers
+// responses[opName], and returns stderr, stdout and the command's error.
+func stubRun1152(t *testing.T, responses map[string]string, requests [][2]string) (stderr, stdout string, err error) {
+	t.Helper()
+	srv := fakeGraphQL(t, responses)
+	f, out := testFactory(t)
+	errOut := &strings.Builder{}
+	f.IOStreams.ErrOut = errOut
+	stub := &cobra.Command{Use: "stub1152", RunE: func(cmd *cobra.Command, _ []string) error {
+		client, err := f.GraphQLClient()
+		if err != nil {
+			return err
+		}
+		for _, r := range requests {
+			var data map[string]any
+			if err := client.MakeRequest(cmd.Context(), &graphql.Request{Query: r[1], OpName: r[0]}, &graphql.Response{Data: &data}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}}
+	cmdRoot := NewRootCmd(f)
+	cmdRoot.AddCommand(stub)
+	installNodeWriteWarnings(stub, f)
+	cmdRoot.SetArgs([]string{"stub1152", "--server", srv.URL})
+	err = cmdRoot.Execute()
+	return errOut.String(), out.String(), err
+}
+
+// Each root is exercised through the real installNodeWriteWarnings path: the stub
+// sends `mutation { <root> { id } }` and the fake server answers with advice for
+// that root, advice for a foreign root, and (for the failure control) an error.
+// Stdout stays untouched; advice is stderr only.
 func TestNodeWriteAdviceRootsAreEachPinned1152(t *testing.T) {
 	for _, root := range nodeWriteAdviceRoots1152 {
 		t.Run(root, func(t *testing.T) {
-			run := func(query, body string) (stderr string, err error) {
-				srv := fakeGraphQL(t, map[string]string{"M1152": body})
-				f, out := testFactory(t)
-				errOut := &strings.Builder{}
-				f.IOStreams.ErrOut = errOut
-				stub := &cobra.Command{Use: "stub1152", RunE: func(cmd *cobra.Command, _ []string) error {
-					client, err := f.GraphQLClient()
-					if err != nil {
-						return err
-					}
-					var data map[string]any
-					return client.MakeRequest(cmd.Context(), &graphql.Request{Query: query, OpName: "M1152"}, &graphql.Response{Data: &data})
-				}}
-				cmdRoot := NewRootCmd(f)
-				cmdRoot.AddCommand(stub)
-				installNodeWriteWarnings(stub, f)
-				cmdRoot.SetArgs([]string{"stub1152", "--server", srv.URL})
-				err = cmdRoot.Execute()
-				if out.Len() != 0 {
-					t.Fatalf("stdout changed: %q", out.String())
+			run := func(query, body string) (string, error) {
+				stderr, stdout, err := stubRun1152(t, map[string]string{"M1152": body}, [][2]string{{"M1152", query}})
+				if stdout != "" {
+					t.Fatalf("stdout changed: %q", stdout)
 				}
-				return errOut.String(), err
+				return stderr, err
 			}
 			warnings := `[{"path":"` + root + `","code":"include.pin.unkept","text":` + quote1142(pinWarningText) + `},{"path":"wrongRoot1152","code":"wrong.root","text":"must stay silent"}]`
 			stderr, err := run(`mutation M1152 { `+root+` { id } }`, `{"data":{"`+root+`":{"id":"n"}},"extensions":{"warnings":`+warnings+`}}`)
@@ -83,10 +99,44 @@ func TestNodeWriteAdviceRootsAreEachPinned1152(t *testing.T) {
 	}
 }
 
-// Roots whose names mention a node but which carry no plain-pin advice, or which
-// have not been evaluated. A node-named mutation that is in neither this table nor
+// The other direction (George's P2): a root outside the set stays silent even when
+// the server answers with advice under its own response key, so adding one to the
+// production list, against the documented exact set, fails here.
+func TestExcludedNodeRootsStaySilent1152(t *testing.T) {
+	for root := range nodeMutationExclusions1152 {
+		t.Run(root, func(t *testing.T) {
+			body := `{"data":{"` + root + `":{"id":"n"}},"extensions":{"warnings":[{"path":"` + root + `","code":"include.pin.unkept","text":` + quote1142(pinWarningText) + `}]}}`
+			stderr, stdout, err := stubRun1152(t, map[string]string{"M1152": body}, [][2]string{{"M1152", `mutation M1152 { ` + root + ` { id } }`}})
+			if err != nil || stdout != "" || strings.Contains(stderr, "warning:") {
+				t.Fatalf("%s is outside the advice set and must stay silent: err=%v stdout=%q stderr=%q", root, err, stdout, stderr)
+			}
+		})
+	}
+}
+
+// The failed-command contract the comment in nodewarnings.go states: a later
+// failed write suppresses the advice already collected for an earlier committed
+// one (two requests: advice on the first, an error on the second).
+func TestLaterFailedWriteSuppressesEarlierAdvice1152(t *testing.T) {
+	first := `{"data":{"updateNode":{"id":"n"}},"extensions":{"warnings":[{"path":"updateNode","code":"include.pin.unkept","text":"first write advice"}]}}`
+	second := `{"errors":[{"message":"refused"}]}`
+	stderr, stdout, err := stubRun1152(t, map[string]string{"M1152A": first, "M1152B": second},
+		[][2]string{{"M1152A", `mutation M1152A { updateNode { id } }`}, {"M1152B", `mutation M1152B { updateNode { id } }`}})
+	if err == nil || stdout != "" || strings.Contains(stderr, "warning:") {
+		t.Fatalf("a later failure must suppress the earlier write's advice: err=%v stdout=%q stderr=%q", err, stdout, stderr)
+	}
+	// Control: with no later failure the first write's advice shows.
+	stderr, _, err = stubRun1152(t, map[string]string{"M1152A": first, "M1152B": `{"data":{"updateNode":{"id":"n"}}}`},
+		[][2]string{{"M1152A", `mutation M1152A { updateNode { id } }`}, {"M1152B", `mutation M1152B { updateNode { id } }`}})
+	if err != nil || !strings.Contains(stderr, "first write advice") {
+		t.Fatalf("control: err=%v stderr=%q", err, stderr)
+	}
+}
+
+// Roots whose names mention a node but which are not in the advice set. An entry
+// is either verified (a reason) or marked UNVERIFIED (not evaluated). A node-named mutation that is in neither this table nor
 // nodeWriteAdviceRoots1152 fails the inventory test below.
-var nodeMutationsWithoutAdvice1152 = map[string]string{
+var nodeMutationExclusions1152 = map[string]string{
 	// Verified against hadron-server (writeNodeCore, resolvers.mutation.node.ts and
 	// createAssetReferenceNode.ts at origin/main when #1152 was built):
 	"createAssetReferenceNode": "writes a reference node through the shared node write, but its content is server-authored (file name, type, size, asset URN) and holds no include, so no plain-pin advice is expected",
@@ -106,9 +156,67 @@ var nodeMutationsWithoutAdvice1152 = map[string]string{
 	"unlockNodeRoleRule":                "unlocks a role rule; no content write",
 	// Not evaluated in #1152 (its scope is the set above): whether the provider
 	// carries plain-pin advice for these three is its own check.
-	"extractParentNodeToMemory": "not evaluated for advice",
-	"mintMemoryNodes":           "not evaluated for advice",
-	"updateNodeProperties":      "not evaluated for advice (properties, not content)",
+	"extractParentNodeToMemory": "UNVERIFIED: not evaluated for advice",
+	"mintMemoryNodes":           "UNVERIFIED: not evaluated for advice",
+	"updateNodeProperties":      "UNVERIFIED: not evaluated for advice (properties, not content)",
+}
+
+// nodeMutationRoots1152 returns the node-named root fields a document's mutations
+// select, directly, through root-level inline fragments and through named
+// fragment spreads (George's P2: a direct-field walk misses fragment-selected
+// roots).
+func nodeMutationRoots1152(doc *ast.QueryDocument) map[string]bool {
+	roots := map[string]bool{}
+	var walk func(set ast.SelectionSet, seen map[string]bool)
+	walk = func(set ast.SelectionSet, seen map[string]bool) {
+		for _, sel := range set {
+			switch s := sel.(type) {
+			case *ast.Field:
+				if strings.Contains(strings.ToLower(s.Name), "node") {
+					roots[s.Name] = true
+				}
+			case *ast.InlineFragment:
+				walk(s.SelectionSet, seen)
+			case *ast.FragmentSpread:
+				if seen[s.Name] {
+					continue
+				}
+				seen[s.Name] = true
+				if def := doc.Fragments.ForName(s.Name); def != nil {
+					walk(def.SelectionSet, seen)
+				}
+			}
+		}
+	}
+	for _, op := range doc.Operations {
+		if op.Operation == ast.Mutation {
+			walk(op.SelectionSet, map[string]bool{})
+		}
+	}
+	return roots
+}
+
+func TestNodeMutationInventorySeesFragmentSelectedRoots1152(t *testing.T) {
+	doc, err := parser.ParseQuery(&ast.Source{Name: "fixture", Input: `
+mutation A { ...Direct }
+fragment Direct on Mutation { cloneNode(sourceRef: "x") { id } ...Nested }
+fragment Nested on Mutation { moveNode(sourceRef: "x") { id } }
+mutation B { ... on Mutation { mergeNodes(input: {}) { id } } }
+mutation C { updateNodeData(a: 1) { id } plain: createNode(a: 1) { id } }
+mutation D { notRelated { id } }
+`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := nodeMutationRoots1152(doc)
+	for _, want := range []string{"cloneNode", "moveNode", "mergeNodes", "updateNodeData", "createNode"} {
+		if !got[want] {
+			t.Errorf("%s was not found through the document's selections: %v", want, got)
+		}
+	}
+	if got["notRelated"] {
+		t.Errorf("a root with no node in its name was collected: %v", got)
+	}
 }
 
 func TestNodeMutationInventoryIsClassified1152(t *testing.T) {
@@ -126,15 +234,8 @@ func TestNodeMutationInventoryIsClassified1152(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", file, err)
 		}
-		for _, op := range doc.Operations {
-			if op.Operation != ast.Mutation {
-				continue
-			}
-			for _, sel := range op.SelectionSet {
-				if f, ok := sel.(*ast.Field); ok && strings.Contains(strings.ToLower(f.Name), "node") {
-					roots[f.Name] = true
-				}
-			}
+		for r := range nodeMutationRoots1152(doc) {
+			roots[r] = true
 		}
 	}
 	advised := map[string]bool{}
@@ -143,7 +244,7 @@ func TestNodeMutationInventoryIsClassified1152(t *testing.T) {
 	}
 	var unclassified, stale []string
 	for r := range roots {
-		if !advised[r] && nodeMutationsWithoutAdvice1152[r] == "" {
+		if !advised[r] && nodeMutationExclusions1152[r] == "" {
 			unclassified = append(unclassified, r)
 		}
 	}
@@ -152,7 +253,7 @@ func TestNodeMutationInventoryIsClassified1152(t *testing.T) {
 			stale = append(stale, r)
 		}
 	}
-	for r := range nodeMutationsWithoutAdvice1152 {
+	for r := range nodeMutationExclusions1152 {
 		if !roots[r] {
 			stale = append(stale, r)
 		}
@@ -163,7 +264,7 @@ func TestNodeMutationInventoryIsClassified1152(t *testing.T) {
 	sort.Strings(unclassified)
 	sort.Strings(stale)
 	if len(unclassified) > 0 {
-		t.Errorf("node-named mutations with no advice classification (add to installNodeWriteWarnings and nodeWriteAdviceRoots1152, or to nodeMutationsWithoutAdvice1152 with a reason): %v", unclassified)
+		t.Errorf("node-named mutations with no advice classification (add to installNodeWriteWarnings and nodeWriteAdviceRoots1152, or to nodeMutationExclusions1152 with a reason): %v", unclassified)
 	}
 	if len(stale) > 0 {
 		t.Errorf("classified names no longer in the typed queries: %v", stale)
@@ -172,39 +273,65 @@ func TestNodeMutationInventoryIsClassified1152(t *testing.T) {
 
 // Item 4: the agent guide names the exact eligible set, so a reader (or agent)
 // can tell which writes display advice; and nodewarnings.go says why the two
-// look-alike roots are not in it (item 2).
+// look-alike roots are not in it (item 2). The set is compared as a set, from the
+// bounded list sentence, so moving an excluded root into the list (or dropping
+// one) fails.
 func TestNodeWriteAdviceSetIsDocumented1152(t *testing.T) {
 	guide, err := os.ReadFile("agentic/agentic-usage.md")
 	if err != nil {
 		t.Fatal(err)
 	}
 	flat := strings.Join(strings.Fields(string(guide)), " ")
-	i := strings.Index(flat, "Successful node writes can carry server advice")
-	if i < 0 {
-		t.Fatal("the advice paragraph moved")
+	const open, mid, closeMark = "exactly those that send one of these mutations:", "(generic and kind add/update", "are outside the set"
+	i := strings.Index(flat, open)
+	j := strings.Index(flat, mid)
+	k := strings.Index(flat, closeMark)
+	if i < 0 || j < i || k < j {
+		t.Fatal("the agent guide's advice list sentence moved or was rephrased")
 	}
-	paragraph := flat[i:]
-	if j := strings.Index(paragraph, "reason to retry a successful write"); j > 0 {
-		paragraph = paragraph[:j]
-	}
-	for _, root := range nodeWriteAdviceRoots1152 {
-		if !strings.Contains(paragraph, "`"+root+"`") {
-			t.Errorf("the agent guide's advice paragraph does not name `%s`", root)
+	names := func(text string) map[string]bool {
+		out := map[string]bool{}
+		for _, m := range regexp.MustCompile("`(\\w+)`").FindAllStringSubmatch(text, -1) {
+			out[m[1]] = true
 		}
+		return out
+	}
+	documented, outside := names(flat[i+len(open):j]), names(flat[j:k])
+	want := map[string]bool{}
+	for _, r := range nodeWriteAdviceRoots1152 {
+		want[r] = true
+	}
+	if !reflect.DeepEqual(documented, want) {
+		t.Errorf("the guide's eligible set differs from the pinned set:\n guide: %v\n pinned: %v", sortedKeys1152(documented), sortedKeys1152(want))
 	}
 	for _, root := range []string{"createAssetReferenceNode", "updateNodeRevision"} {
-		if !strings.Contains(paragraph, "`"+root+"`") {
-			t.Errorf("the agent guide does not say %s is outside the set", root)
+		if !outside[root] || documented[root] {
+			t.Errorf("the guide must name %s as outside the set (and not in the list)", root)
 		}
 	}
+	// The explanation lives in the comment above installNodeWriteWarnings.
 	src, err := os.ReadFile("nodewarnings.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	comment := strings.Join(strings.Fields(strings.ReplaceAll(string(src), "\n//", "\n")), " ")
-	for _, want := range []string{"createAssetReferenceNode", "no include", "updateNodeRevision", "label"} {
+	text := string(src)
+	a, b := strings.Index(text, "// The set is the mutation roots"), strings.Index(text, "func installNodeWriteWarnings(")
+	if a < 0 || b < a {
+		t.Fatal("the exclusion comment moved")
+	}
+	comment := strings.Join(strings.Fields(strings.ReplaceAll(text[a:b], "\n//", "\n")), " ")
+	for _, want := range []string{"createAssetReferenceNode is left out on purpose", "holds no include", "updateNodeRevision is left out on purpose", "edits a revision's label only"} {
 		if !strings.Contains(comment, want) {
-			t.Errorf("nodewarnings.go does not explain the exclusions (missing %q)", want)
+			t.Errorf("the exclusion comment lacks %q", want)
 		}
 	}
+}
+
+func sortedKeys1152(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
