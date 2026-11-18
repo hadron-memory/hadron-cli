@@ -9,13 +9,14 @@ import (
 
 // cli#2239 (the #2236 review, Jonas P3-2 and D-P3-3): the shared App lookup
 // normalizes a PURE permission refusal to a missing App, and nothing else.
-// A MIXED FORBIDDEN+UNAUTHENTICATED answer, and a failed lookup, keep their
-// ordinary mapped exit and the server's own messages, in the order the server
-// sent them. The exit for a mixed answer is the FIRST error's code (the
-// documented mapping, not a normalization), so it differs by order; what must
-// hold, and is pinned here on every caller of the shared helper, is that it
-// never collapses into the missing-App refusal and is repeatable for the same
-// lookup answer (V58 / cor:agt:050:21, Proposed: a missing App and an
+// A MIXED FORBIDDEN+UNAUTHENTICATED answer keeps the server's own messages, in
+// the order the server sent them, and exits by the FIRST error's code (the
+// documented mapping, not a normalization), so the exit differs by order. A
+// failed lookup keeps its ordinary mapped diagnostic (an internal error is
+// masked to "the server hit an internal error", exit 1), not the server's
+// message. What must hold, and is pinned here on every caller of the shared
+// helper, is that neither collapses into the missing-App refusal and each is
+// repeatable for the same lookup answer (V58 / cor:agt:050:21, Proposed: a missing App and an
 // unreadable one print the same bytes only for the pure refusal).
 
 const (
