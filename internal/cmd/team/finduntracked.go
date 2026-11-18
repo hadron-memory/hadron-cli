@@ -401,7 +401,11 @@ func writeClaimResult(f *cmdutil.Factory, r *claimOutcome) error {
 	}
 	dto := claimResultDTO{Tasks: []taskDTO{}, Complete: r.complete, IncompleteReason: r.incompleteReason, RefusalCode: r.refusalCode}
 	for _, t := range r.tasks {
-		dto.Tasks = append(dto.Tasks, taskDTOFrom(*t))
+		task, err := taskDTOFrom(*t)
+		if err != nil {
+			return err
+		}
+		dto.Tasks = append(dto.Tasks, task)
 	}
 	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if len(dto.Tasks) == 0 {

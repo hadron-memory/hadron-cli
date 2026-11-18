@@ -268,7 +268,11 @@ func runTaskBatchCreate(cmd *cobra.Command, f *cmdutil.Factory, path string, dis
 	}
 	dto := taskBatchDTO{Tasks: []taskDTO{}, Warnings: taskBatchWarnings(sink)}
 	for _, t := range resp.CreateAgentTasks {
-		dto.Tasks = append(dto.Tasks, taskDTOFrom(t.AgentTaskFields))
+		task, err := taskDTOFrom(t.AgentTaskFields)
+		if err != nil {
+			return err
+		}
+		dto.Tasks = append(dto.Tasks, task)
 	}
 	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if _, err := fmt.Fprintf(w, "✓ created %d tasks\n", len(dto.Tasks)); err != nil {

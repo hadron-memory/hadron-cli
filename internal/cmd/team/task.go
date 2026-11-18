@@ -624,7 +624,10 @@ warnings list.` + "\n\n" + taskInstructionHelp + "\n\n--instruction does not com
 				}
 				return mapTaskError(err)
 			}
-			task := taskDTOFrom(fields)
+			task, err := taskDTOFrom(fields)
+			if err != nil {
+				return err
+			}
 			if match {
 				task.MatchSkipped = matchSkippedDTO(skipped)
 			}
@@ -758,26 +761,34 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 				if err != nil {
 					return mapTaskError(err)
 				}
-				task = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields)
+				if task, err = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields); err != nil {
+					return err
+				}
 			case reassign:
 				key = "reassignAgentTask"
 				resp, err := gen.AgentTaskReassign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
 					return mapTaskError(err)
 				}
-				task = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields)
+				if task, err = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields); err != nil {
+					return err
+				}
 			case claim != nil:
 				resp, err := gen.AgentTaskAssignInstructed(mctx, client, taskId, party, closeWhenDone, claim)
 				if err != nil {
 					return mapTaskError(err)
 				}
-				task = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields)
+				if task, err = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields); err != nil {
+					return err
+				}
 			default:
 				resp, err := gen.AgentTaskAssign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
 					return mapTaskError(err)
 				}
-				task = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields)
+				if task, err = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields); err != nil {
+					return err
+				}
 			}
 			return writeTaskMutation(f, task, taskWarningsFor(sink, key), func(w io.Writer) error {
 				if err := writeTaskReceipt(w, verb+"ed", task); err != nil {
@@ -929,7 +940,7 @@ the task with a warnings list, and a server warning also prints on stderr.`,
 			if err != nil {
 				return taskDTO{}, err
 			}
-			return taskDTOFrom(resp.StartAgentTask.AgentTaskFields), nil
+			return taskDTOFrom(resp.StartAgentTask.AgentTaskFields)
 		},
 		func(w io.Writer, task taskDTO) error {
 			return writeTaskReceipt(w, "started", task)
@@ -959,7 +970,7 @@ list, and a server warning also prints on stderr.`,
 			if err != nil {
 				return taskDTO{}, err
 			}
-			return taskDTOFrom(resp.RecordAgentTaskProgress.AgentTaskFields), nil
+			return taskDTOFrom(resp.RecordAgentTaskProgress.AgentTaskFields)
 		},
 		func(w io.Writer, task taskDTO) error {
 			_, err := fmt.Fprintf(w, "✓ recorded progress on task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status)
@@ -994,13 +1005,13 @@ task with a warnings list ([] when none).`,
 				if err != nil {
 					return taskDTO{}, err
 				}
-				return taskDTOFrom(resp.CancelAgentTask.AgentTaskFields), nil
+				return taskDTOFrom(resp.CancelAgentTask.AgentTaskFields)
 			}
 			resp, err := gen.AgentTaskCancel(ctx, client, taskId)
 			if err != nil {
 				return taskDTO{}, err
 			}
-			return taskDTOFrom(resp.CancelAgentTask.AgentTaskFields), nil
+			return taskDTOFrom(resp.CancelAgentTask.AgentTaskFields)
 		},
 		func(w io.Writer, task taskDTO) error {
 			return writeTaskReceipt(w, "cancelled", task)
@@ -1027,13 +1038,13 @@ Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 				if err != nil {
 					return taskDTO{}, err
 				}
-				return taskDTOFrom(resp.ParkAgentTask.AgentTaskFields), nil
+				return taskDTOFrom(resp.ParkAgentTask.AgentTaskFields)
 			}
 			resp, err := gen.AgentTaskPark(ctx, client, taskId)
 			if err != nil {
 				return taskDTO{}, err
 			}
-			return taskDTOFrom(resp.ParkAgentTask.AgentTaskFields), nil
+			return taskDTOFrom(resp.ParkAgentTask.AgentTaskFields)
 		},
 		func(w io.Writer, task taskDTO) error {
 			return writeTaskReceipt(w, "parked", task)
@@ -1057,13 +1068,13 @@ Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 				if err != nil {
 					return taskDTO{}, err
 				}
-				return taskDTOFrom(resp.MakeAgentTaskReady.AgentTaskFields), nil
+				return taskDTOFrom(resp.MakeAgentTaskReady.AgentTaskFields)
 			}
 			resp, err := gen.AgentTaskReady(ctx, client, taskId)
 			if err != nil {
 				return taskDTO{}, err
 			}
-			return taskDTOFrom(resp.MakeAgentTaskReady.AgentTaskFields), nil
+			return taskDTOFrom(resp.MakeAgentTaskReady.AgentTaskFields)
 		},
 		func(w io.Writer, task taskDTO) error {
 			_, err := fmt.Fprintf(w, "✓ made task %s ready (%s)\n", taskRef(task.Handle, task.ID), task.Status)
@@ -1163,7 +1174,10 @@ with its result and a warnings list.`,
 			if err != nil {
 				return mapTaskError(err)
 			}
-			task := taskDTOFrom(resp.FinishAgentTask.AgentTaskFields)
+			task, err := taskDTOFrom(resp.FinishAgentTask.AgentTaskFields)
+			if err != nil {
+				return err
+			}
 			return writeTaskMutation(f, task, taskWarningsFor(sink, "finishAgentTask"), func(w io.Writer) error {
 				out := ""
 				if task.Result != nil {
@@ -1247,7 +1261,10 @@ shows the same line later; handBack is null for a task never handed back.`,
 			if err != nil {
 				return mapTaskError(err)
 			}
-			task := taskDTOFrom(resp.HandBackAgentTask.AgentTaskFields)
+			task, err := taskDTOFrom(resp.HandBackAgentTask.AgentTaskFields)
+			if err != nil {
+				return err
+			}
 			return writeTaskMutation(f, task, taskWarningsFor(sink, "handBackAgentTask"), func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ handed back task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status); err != nil {
 					return err

@@ -292,7 +292,10 @@ a stall alarm. Success prints the task as task get does; --json returns it.
 				}
 				return mapTaskError(err)
 			}
-			task := taskDTOFrom(fields)
+			task, err := taskDTOFrom(fields)
+			if err != nil {
+				return err
+			}
 			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
 				return renderTaskDetail(w, task)
 			})

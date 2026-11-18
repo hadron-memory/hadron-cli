@@ -323,7 +323,7 @@ func TestAgenticUsageTaskPrioritySectionIsASubsection1182(t *testing.T) {
 // behaviour and the sentence from drifting apart. (The --json of both carries
 // the pages.)
 func TestTeamListColumnsMatchTheTaskDocs1182(t *testing.T) {
-	_, out, _, err := run1044(t, roster1044(), [][]task1044{tasks1044()}, "team", "task", "list", "--team")
+	_, out, _, err := run1044(t, roster1044(), [][]task1044{tasks1044()}, "team", "task", "list", "--team=worker:Marco")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,5 +358,126 @@ func TestTeamListColumnsMatchTheTaskDocs1182(t *testing.T) {
 	flat := strings.Join(strings.Fields(section), " ")
 	if !strings.Contains(flat, "list --team") || !strings.Contains(flat, "without the dependency summaries") {
 		t.Fatalf("the docs must say that `list --team` prints priority and blocked without the dependency summaries:\n%s", flat)
+	}
+}
+
+// Every task command projects its answer through the same DTO, and each call
+// site handles the refusal itself, so every verb is pinned: a null blocker item
+// in the answer is refused (exit 1, naming the page), with nothing printed.
+func TestEveryTaskVerbRefusesAMalformedDependencyPage1182(t *testing.T) {
+	bad := withItem1182("blockedBy", `null`)
+	good := priorityTask1135()
+	type verb struct {
+		name string
+		args []string
+		op   string
+		body string // the full GraphQL response
+	}
+	write := func(key string) string { return `{"data":{"` + key + `":` + bad + `}}` }
+	list := func(key string) string { return `{"data":{"` + key + `":[` + good + `,` + bad + `]}}` }
+	verbs := []verb{
+		{"create", []string{"team", "task", "create", "Fix the flaky CI build"}, "AgentTaskCreate", write("createAgentTask")},
+		{"assign", []string{"team", "task", "assign", "task1", "--assignee", "worker:Rufus"}, "AgentTaskAssign", write("assignAgentTask")},
+		{"reassign", []string{"team", "task", "reassign", "task1", "--assignee", "user:holger"}, "AgentTaskReassign", write("reassignAgentTask")},
+		{"start", []string{"team", "task", "start", "task1"}, "AgentTaskStart", write("startAgentTask")},
+		{"progress", []string{"team", "task", "progress", "task1"}, "AgentTaskProgress", write("recordAgentTaskProgress")},
+		{"cancel", []string{"team", "task", "cancel", "task1"}, "AgentTaskCancel", write("cancelAgentTask")},
+		{"park", []string{"team", "task", "park", "task1"}, "AgentTaskPark", write("parkAgentTask")},
+		{"ready", []string{"team", "task", "ready", "task1"}, "AgentTaskReady", write("makeAgentTaskReady")},
+		{"finish", []string{"team", "task", "finish", "task1", "--outcome", "succeeded", "--summary", "s", "--evidence", "https://ci.acme.com/1"}, "AgentTaskFinish", write("finishAgentTask")},
+		{"list", []string{"team", "task", "list"}, "AgentTaskList", list("agentTasks")},
+		{"mine", []string{"team", "task", "mine"}, "AgentTaskList", list("agentTasks")},
+		{"list --text", []string{"team", "task", "list", "--text", "flaky"}, "AgentTaskListText", list("agentTasks")},
+		{"list --created-after", []string{"team", "task", "list", "--created-after", "2026-01-01T00:00:00Z"}, "AgentTaskListFiltered", list("agentTasks")},
+		{"list --unresolved", []string{"team", "task", "list", "--unresolved"}, "AgentTaskListUnresolved", list("agentTasks")},
+		{"list --creator", []string{"team", "task", "list", "--creator", "user:holger"}, "AgentTaskListCreator", list("agentTasks")},
+		{"tree", []string{"team", "task", "tree", "task1"}, "AgentTaskTree", list("agentTaskTree")},
+	}
+	for _, v := range verbs {
+		for _, jsonMode := range []bool{false, true} {
+			name := v.name
+			args := append([]string{}, v.args...)
+			if jsonMode {
+				args = append(args, "--json")
+				name += "/json"
+			}
+			t.Run(name, func(t *testing.T) {
+				r := taskResponses()
+				r[v.op] = v.body
+				_, out, err := runTeamTask(t, r, args...)
+				if err == nil {
+					t.Fatalf("a malformed blockedBy item was accepted:\n%s", out)
+				}
+				if code := exitCodeFor(err); code != exitcode.Error {
+					t.Fatalf("exit %d, want %d (%v)", code, exitcode.Error, err)
+				}
+				if !strings.Contains(err.Error(), "blockedBy") || !strings.Contains(err.Error(), "item 1") {
+					t.Fatalf("the refusal must name the page and the item: %q", err.Error())
+				}
+				if out != "" {
+					t.Fatalf("a refused answer printed partial output:\n%s", out)
+				}
+			})
+		}
+	}
+}
+
+// finish with findings has already written when it reads the answer, so a
+// malformed dependency page there is refused as an UNCERTAIN finish (the same
+// wrapper as every other unusable answer on that path): it says the finish state
+// may have changed and points at the findings read, and prints nothing.
+func TestFinishWithFindingsRefusesAMalformedDependencyPageAsUncertain1182(t *testing.T) {
+	var reply map[string]any
+	if err := json.Unmarshal([]byte(finishReply1550(t, `{"items":[],"total":0,"hasMore":false}`)), &reply); err != nil {
+		t.Fatal(err)
+	}
+	task := reply["data"].(map[string]any)["finishAgentTask"].(map[string]any)
+	task["blockedBy"] = map[string]any{"items": []any{nil}, "total": 1, "hasMore": false}
+	body, err := json.Marshal(reply)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, out, err := runTeamTask(t, map[string]string{"AgentTaskFinishWithFindings": string(body)}, "team", "task", "finish", "AT0.7", "--outcome", "succeeded", "--findings-file", findingsFile1550(t, `[]`))
+	if err == nil || exitCodeFor(err) != exitcode.Error {
+		t.Fatalf("want an exit-1 refusal, got %v", err)
+	}
+	if msg := err.Error(); !strings.Contains(msg, "finish state may have changed") || !strings.Contains(msg, "malformed blockedBy page") {
+		t.Fatalf("the refusal must say the finish state is uncertain and name the page: %q", msg)
+	}
+	if out != "" {
+		t.Fatalf("a refused answer printed output:\n%s", out)
+	}
+}
+
+// clone and update are written separately from the shared verbs, so each is
+// pinned on its own.
+func TestCloneAndUpdateRefuseAMalformedDependencyPage1182(t *testing.T) {
+	bad := withItem1182("blockedBy", `null`)
+	for _, tc := range []struct {
+		name string
+		base func() map[string]string
+		args []string
+		op   string
+		body string
+	}{
+		{"clone", cloneResponses1565, []string{"team", "task", "clone", "AT0.12"}, "AgentTaskClone", `{"data":{"cloneAgentTask":` + bad + `}}`},
+		{"update", taskResponses, []string{"team", "task", "update", "task1", "--title", "renamed"}, "AgentTaskUpdate", `{"data":{"updateAgentTask":` + bad + `}}`},
+	} {
+		for _, jsonMode := range []bool{false, true} {
+			args := append([]string{}, tc.args...)
+			name := tc.name
+			if jsonMode {
+				args = append(args, "--json")
+				name += "/json"
+			}
+			t.Run(name, func(t *testing.T) {
+				r := tc.base()
+				r[tc.op] = tc.body
+				_, out, err := runTeamTask(t, r, args...)
+				if err == nil || exitCodeFor(err) != exitcode.Error || out != "" || !strings.Contains(err.Error(), "blockedBy") {
+					t.Fatalf("want an exit-1 refusal naming blockedBy and no output; got err=%v out=%q", err, out)
+				}
+			})
+		}
 	}
 }

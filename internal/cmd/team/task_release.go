@@ -60,7 +60,10 @@ Success prints the task and the item released; --json returns the task with a
 				}
 				fields = resp.ReleaseAgentTaskExternalId.AgentTaskFields
 			}
-			dto := taskDTOFrom(fields)
+			dto, err := taskDTOFrom(fields)
+			if err != nil {
+				return taskDTO{}, err
+			}
 			dto.ReleasedExternalID = released
 			return dto, nil
 		},

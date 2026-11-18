@@ -136790,6 +136790,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
+// Makes a task wait for another (cli#1135, server#2726 at cf9bcfece). Both refs
+// are passed to the server as given; the server decides cycles and visibility.
 func AgentTaskAddBlocker(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -138179,6 +138181,9 @@ fragment AgentTaskDependencyFields on AgentTask {
 }
 `
 
+// Reads one page of a task's blockers and of the tasks it blocks, with the same
+// limit and offset for both (cli#1135, server#2726 at cf9bcfece). The task ref is
+// passed to the server as given.
 func AgentTaskDependencies(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -141294,6 +141299,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
+// Removes a blocker from a task (cli#1135, server#2726 at cf9bcfece). Both refs
+// are passed to the server as given.
 func AgentTaskRemoveBlocker(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -141630,7 +141637,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
-// #1135, merged server#2726 at cf9bcfece: all task refs are passed to the server.
+// Sets a task's matching priority, 1 to 5 (cli#1135, server#2726 at cf9bcfece).
+// The task ref is passed to the server as given.
 func AgentTaskSetPriority(
 	ctx_ context.Context,
 	client_ graphql.Client,
