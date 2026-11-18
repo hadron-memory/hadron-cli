@@ -76,21 +76,6 @@ func TestSnapshotRevokeByIDRevokedRowNotResent1619(t *testing.T) {
 	}
 }
 
-// --app is still accepted (older scripts pass it) but no longer scopes or
-// supplies anything for a person: the by-id read carries only the id.
-func TestSnapshotRevokeByIDAcceptsAppAndIgnoresIt1619(t *testing.T) {
-	r := taskResponses()
-	r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrantEnded1619)
-	calls, _, err := runTeamTask(t, r, append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", autoApp)...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	reads := callsFor(calls, "AutomationTeamSnapshotGrantById")
-	if len(reads) != 1 || !reflect.DeepEqual(reads[0].Vars, map[string]any{"id": "grant1"}) || len(callsFor(calls, "AutomationTeamSnapshotGrants")) != 0 {
-		t.Fatalf("--app must not change the by-id read: %+v", *calls)
-	}
-}
-
 // The confirmation shows the grant's OWN App and trigger (from the by-id read),
 // not an App the user selected.
 func TestSnapshotRevokeByIDConfirmationShowsTheGrantsApp1619(t *testing.T) {
@@ -142,5 +127,80 @@ func TestSnapshotRevokeByIDMalformedReplyNoWrite1619(t *testing.T) {
 				t.Fatalf("a broken reply sends no mutation and does not fall back to the list: %+v", *calls)
 			}
 		})
+	}
+}
+
+const grantApp1619 = "capp100000000000000000000"
+
+func appByRefReply1619(id string) string {
+	if id == "" {
+		return `{"data":{"app":null}}`
+	}
+	return `{"data":{"app":{"id":"` + id + `","urn":"hrn:app:acme.com:ops","name":"Ops","appType":"CLOUD","description":null}}}`
+}
+
+// Wolfgang's ruling on #2423: an explicit --app is never a silent no-op. For a
+// person, the grant is read by id; if --app is given and the grant belongs to a
+// DIFFERENT App, the revoke refuses as today's "not found" (exit 4) before the
+// confirmation and sends no mutation. An App given as an id is compared
+// directly; a URN or root:slug costs one app(ref:) read to learn its id. With no
+// --app, the grant's own App is simply named in the confirmation.
+func TestSnapshotRevokeByIDExplicitAppScopesTheGrant1619(t *testing.T) {
+	const other = "capp900000000000000000000"
+	for _, tc := range []struct {
+		name     string
+		app      string
+		appReply string // GetAppMetadata reply; "-" means it must not be called
+		proceeds bool
+	}{
+		{"app id of the grant's own App", grantApp1619, "-", true},
+		{"app id of another App", other, "-", false},
+		{"URN resolving to the grant's own App", autoApp, appByRefReply1619(grantApp1619), true},
+		{"URN resolving to another App", autoApp, appByRefReply1619(other), false},
+		{"URN the caller cannot read", autoApp, appByRefReply1619(""), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := taskResponses()
+			r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+			r["RevokeAutomationTeamSnapshotGrant"] = `{"data":{"revokeAutomationTeamSnapshotGrant":` + snapshotGrantEnded1619 + `}}`
+			if tc.appReply != "-" {
+				r["GetAppMetadata"] = tc.appReply
+			}
+			calls, _, err := runTeamTask(t, r, append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", tc.app)...)
+			revokes := len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant"))
+			if len(callsFor(calls, "AutomationTeamSnapshotGrantById")) != 1 || len(callsFor(calls, "AutomationTeamSnapshotGrants")) != 0 {
+				t.Fatalf("one by-id read, no list pages: %+v", *calls)
+			}
+			if tc.appReply == "-" && len(callsFor(calls, "GetAppMetadata")) != 0 {
+				t.Fatalf("an App id is compared directly, no lookup: %+v", *calls)
+			}
+			if tc.proceeds {
+				if err != nil || revokes != 1 {
+					t.Fatalf("the grant is in the named App: err=%v revokes=%d", err, revokes)
+				}
+				return
+			}
+			if exitCodeFor(err) != exitcode.NotFound || err == nil || !strings.Contains(err.Error(), "team snapshot grant not found") || revokes != 0 {
+				t.Fatalf("a grant outside the named App is not found, no mutation: err=%v revokes=%d", err, revokes)
+			}
+		})
+	}
+}
+
+// The refusal comes BEFORE the confirmation: a person on a terminal is never
+// asked to revoke a grant the named App does not hold.
+func TestSnapshotRevokeByIDWrongAppRefusesBeforeThePrompt1619(t *testing.T) {
+	r := taskResponses()
+	r["AutomationTeamSnapshotGrantById"] = byIDReply1619(snapshotGrant1578)
+	srv, calls := attnServer(t, r)
+	f, _, prompt := testFactoryTTY(t, "y\n")
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"--server", srv.URL}, append(snapshotArgs1578("revoke", "grant1"), "--app", "capp900000000000000000000")...))
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("err=%v", err)
+	}
+	if strings.Contains(prompt.String(), "Revoke team snapshot grant") || len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 {
+		t.Fatalf("no prompt and no mutation for a grant in another App: %s %+v", prompt, *calls)
 	}
 }
