@@ -88,6 +88,8 @@ func TestSpecListRolePassThrough684(t *testing.T) {
 	}{
 		{"plain", "spec.rule", nil, nil, nil, 1},
 		{"verbatim", "CUSTOM.Role", nil, nil, nil, 1},
+		{"verbatim-spacing", " spec.rule ", nil, nil, nil, 1},
+		{"unapproved-verbatim", "CUSTOM.Role", []string{"--unapproved"}, nil, nil, 2},
 		{"approved", "spec.rule", []string{"--approved"}, "APPROVED", nil, 1},
 		{"unapproved", "spec.rule", []string{"--unapproved"}, nil, nil, 2},
 		{"minted", "spec.rule", []string{"--minted"}, nil, true, 1},
@@ -123,7 +125,7 @@ func TestSpecListRolePassThrough684(t *testing.T) {
 					states[state] = true
 				}
 			}
-			if tc.name == "unapproved" && (!states["NOT_APPROVED"] || !states["SUPERSEDED"] || len(states) != 2) {
+			if strings.HasPrefix(tc.name, "unapproved") && (!states["NOT_APPROVED"] || !states["SUPERSEDED"] || len(states) != 2) {
 				t.Fatalf("unapproved states=%v", states)
 			}
 			var rows []map[string]any
@@ -143,9 +145,11 @@ func TestSpecListRolePassThrough684(t *testing.T) {
 }
 
 func TestSpecListRoleEmptyAndNoFallback684(t *testing.T) {
-	_, _, requests, err := runSpecListRole684(t, "", nil, "")
-	if exitcode.FromError(err) != exitcode.Usage || requests != 0 || !strings.Contains(err.Error(), "--role is blank") {
-		t.Fatalf("empty role: err=%v requests=%d", err, requests)
+	for _, role := range []string{"", " \t"} {
+		_, _, requests, err := runSpecListRole684(t, role, nil, "")
+		if exitcode.FromError(err) != exitcode.Usage || requests != 0 || !strings.Contains(err.Error(), "--role is blank") {
+			t.Fatalf("empty role %q: err=%v requests=%d", role, err, requests)
+		}
 	}
 	skew := `{"errors":[{"message":"Field \"role\" is not defined by type \"NodeFilter\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 	out, filters, _, err := runSpecListRole684(t, "spec.rule", nil, skew)

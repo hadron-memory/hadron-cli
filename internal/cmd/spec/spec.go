@@ -1260,11 +1260,25 @@ func roleFilterUnsupported(err error) bool {
 }
 
 func unionSpecNodes(first, second []*api.ListNode) []*api.ListNode {
+	var marked []*api.ListNode
+	for _, stream := range [][]*api.ListNode{first, second} {
+		for _, n := range stream {
+			if n != nil && isSpec(n.Tags, n.Role) {
+				marked = append(marked, n)
+			}
+		}
+	}
+	return unionNodeResults(marked, nil)
+}
+
+// unionNodeResults only deduplicates and sorts provider results. Unlike the
+// default marker union it does not apply any local spec/role predicate.
+func unionNodeResults(first, second []*api.ListNode) []*api.ListNode {
 	seen := make(map[string]bool, len(first)+len(second))
 	out := make([]*api.ListNode, 0, len(first)+len(second))
 	for _, stream := range [][]*api.ListNode{first, second} {
 		for _, n := range stream {
-			if n == nil || !isSpec(n.Tags, n.Role) {
+			if n == nil {
 				continue
 			}
 			key := n.Id
