@@ -42,15 +42,21 @@ instruction, never a key, scope or grant id.`
 
 // addCredentialInstruction adds --instruction to a list page.
 func addCredentialInstruction(cmd *cobra.Command) {
-	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("c3ca05b5"))
-	cmd.Long += "\n\n" + credentialInstructionHelp + "\n\n" + credentialInstructionListRecord
+	addCredentialInstructionWith(cmd, credentialInstructionListRecord)
 }
 
 // addCredentialInstructionRevoke adds --instruction to a revoke page.
 func addCredentialInstructionRevoke(cmd *cobra.Command) {
-	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("c3ca05b5"))
-	cmd.Long += "\n\n" + credentialInstructionHelp + "\n\n" + credentialInstructionRevokeRecord
+	addCredentialInstructionWith(cmd, credentialInstructionRevokeRecord)
 }
+
+// addCredentialInstructionWith is the one place the flag and its help are added;
+// the two acts differ only in what an instructed call records.
+func addCredentialInstructionWith(cmd *cobra.Command, record string) {
+	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("c3ca05b5"))
+	cmd.Long += "\n\n" + credentialInstructionHelp + "\n\n" + record
+}
+
 func credentialInstruction(cmd *cobra.Command, f *cmdutil.Factory) (*gen.ActInstructionInput, error) {
 	if !cmd.Flags().Changed("instruction") {
 		return nil, nil

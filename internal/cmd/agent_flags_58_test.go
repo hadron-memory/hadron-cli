@@ -231,7 +231,7 @@ func TestAgentFlagsHelp58(t *testing.T) {
 		t.Fatal("create --uses-tasks missing")
 	}
 	// Every create now sends the two arguments, so the help names the server floor.
-	if !strings.Contains(cr.Long, "Server compatibility") || !strings.Contains(cr.Long, "schema mismatch") || !strings.Contains(cr.Long, "newer than 2026-10-26") {
+	if !strings.Contains(cr.Long, "Server compatibility") || !strings.Contains(cr.Long, "schema mismatch") || !strings.Contains(cr.Long, "2026-10-26 or later") {
 		t.Fatalf("create help lacks the server-compatibility note:\n%s", cr.Long)
 	}
 }

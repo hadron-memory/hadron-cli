@@ -444,7 +444,7 @@ type agentGetDTO struct {
 	ContextCap json.RawMessage `json:"contextCap,omitempty"`
 	agentBaseDTO
 	ClonedFromAgentRef *string `json:"clonedFromAgentRef"`
-	// cor:dmo:050:19: null when the caller does not manage the Agent (cor:dmo:050:13); null is never read as ready.
+	// cor:dmo:050:19: null when the caller does not manage the Agent ; null is never read as ready.
 	OfferReadiness *OfferReadinessDTO `json:"offerReadiness"`
 	// Get-only best-effort enrichment; omit on every unavailable answer.
 	SystemMemoryURN *string `json:"systemMemoryUrn,omitempty"`
@@ -616,6 +616,10 @@ user-owned App), which is stricter than creating the Agent, so it can refuse
 after the create succeeded.
 
 Settings, all optional (left out, the server's default stands):
+  --description, --persona-role  free text, and the role the Agent presents as.
+  --surface       a surface the Agent is available on (repeatable).
+  --member-roles  the roles the Agent offers an App's members, comma-separated
+                  (default owner,member; the server validates them).
   --type          ASSISTANT or CHATBOT.
   --visibility    ORGANIZATION, PERSONAL or PUBLIC.
   --lifecycle     LONG_LIVED keeps workers running; SHORT_LIVED runs them only
@@ -639,10 +643,10 @@ Settings, all optional (left out, the server's default stands):
                   memory. Pass an ID only to name one yourself.
 
 Server compatibility: every create sends a request that carries the task
-settings, so it needs a server newer than 2026-10-26; --lifecycle and
---context-cap need newer servers still. An older server rejects the create as a
-schema mismatch (exit 2): upgrade that server first, including self-hosted or
-staging ones.`,
+settings, so it needs a server from 2026-10-26 or later. Naming --lifecycle or
+--context-cap needs a still newer server; leaving them out keeps the older
+request. An older server rejects the create as a schema mismatch (exit 2):
+upgrade that server first, including self-hosted or staging ones.`,
 		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
   hadron agent create --org hrn:org:acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION
   hadron agent create --org hrn:org:acme.com --name "DevOps Engineer" --persona-role devops-engineer --install-into hrn:app:acme.com:eng-team`,
@@ -833,11 +837,12 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "update <ref>",
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
 		Long: `Update an Agent. Only the fields you pass change; <ref> is an Agent ID or URN.
-The flags fall into four groups.
+The flags fall into these groups.
 
 Identity and discovery:
-  --name, --description, --visibility, --persona-role (metadata: the role this
-  Agent presents as; its prompt is not set here, see below), and
+  --name, --description, --type, --visibility, --surface, --member-roles,
+  --system-memory, --persona-role (metadata: the role this Agent presents as; its
+  prompt is not set here, see below), and
   --listed-on-marketplace (=false unlists it), which lists the Agent in the
   marketplace catalogue and governs discovery only: it does not change the
   Agent's visibility or who can reach it.
@@ -1421,8 +1426,8 @@ func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List the tasks the Agent's workers see (own list plus inherited)",
 		Long: `List the tasks the Agent's workers see: the tasks the Agent lists itself plus
-the ones it inherits from its base Agent (the Agent it extends; see "hadron
-agent set-base"), with duplicates removed by the server. The Agent lists its own
+the ones it inherits from its base Agents (the Agents it extends, a chain of up
+to four; see "hadron agent set-base"), with duplicates removed by the server. The Agent lists its own
 tasks in its tasks index, a node in its system memory that you point it at with
 "hadron agent update --tasks-index".
 
@@ -1432,7 +1437,7 @@ names the base Agent a task comes from (blank for the Agent's own tasks).
 
 --symptom is experimental and may change: it returns up to 3 tasks from the
 Agent's effective system memory, matched on the abstract against the symptom
-text (the effective memory is the Agent's own plus its base Agent's), and adds
+text (the effective memory is the Agent's own plus its base Agents'), and adds
 a MATCHED BY column (VECTOR, KEYWORD or BOTH).
 --limit applies only with --symptom (without it the flag is ignored and the
 request is unchanged); the server owns its rules (default 3, larger values clamp
@@ -1663,13 +1668,13 @@ func newCmdAgentSetBase(f *cmdutil.Factory) *cobra.Command {
 	var clear bool
 	cmd := &cobra.Command{
 		Use:   "set-base <agent> (<base> | --clear)",
-		Short: "Set or clear the Agent's base (inheritance, cor:dmo:050:14)",
+		Short: "Set or clear the Agent this one builds on (its base)",
 		Long: `Set the base this Agent extends, or clear it with --clear. The base's
 system memory is inherited: its tasks and processes lists, and the nodes its
 workers read, come through the chain (deduped by the server), and a chain may
 hold at most four Agents. Setting a base needs a license to it — a PUBLIC
 base needs an active subscription, an org-owned one an org grant. Whoever
-manages the Agent may set its base (cor:dmo:050:13).`,
+manages the Agent may set its base.`,
 		Args: cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])

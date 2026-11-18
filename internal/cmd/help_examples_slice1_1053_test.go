@@ -102,6 +102,21 @@ func exampleLines(block string) []string {
 	return cmds
 }
 
+// minSlice1Pages and minSlice1Examples are floors, not targets: they only guard
+// against a walk or a parser that silently finds almost nothing.
+const (
+	minSlice1Pages    = 80
+	minSlice1Examples = 100
+)
+
+// localOnly1053 are commands that legitimately make no request.
+var localOnly1053 = []string{"hadron app set-active "}
+
+// expectedRefusals1053 are examples whose documented outcome IS a refusal before
+// any request (an example that shows a refusal on purpose). Empty: every other
+// local refusal is a failure, so a broken example cannot hide behind one.
+var expectedRefusals1053 = map[string]string{}
+
 // knownPanics1053 lists the commands (by path) that panic on a reply with no data,
 // each tracked by a follow-up issue (a panic is a defect of the command, not of
 // the help).
@@ -162,7 +177,7 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 
 	f0, _ := testFactory(t)
 	pages := collectSlice1Pages(NewRootCmd(f0))
-	if len(pages) < 80 {
+	if len(pages) < minSlice1Pages {
 		t.Fatalf("found only %d app/agent pages; the walk is wrong", len(pages))
 	}
 
@@ -213,7 +228,7 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 				for _, w := range words[1:] {
 					switch {
 					case strings.HasPrefix(w, "/etc/") || strings.HasPrefix(w, "/home/") || strings.HasPrefix(w, "/var/"):
-						w = filepath.Join(dir, filepath.Base(w)) // never write outside the test directory
+						w = filepath.Join(dir, filepath.Base(w)) // redirected into the test directory
 					case strings.HasPrefix(w, "<") && strings.HasSuffix(w, ">"):
 						w = "fixture-" + strings.Trim(w, "<>") // a placeholder the reader fills in
 					case strings.HasPrefix(w, "$") && len(w) > 1 && strings.Trim(w[1:], "ABCDEFGHIJKLMNOPQRSTUVWXYZ_") == "":
@@ -223,6 +238,9 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 						} else {
 							w = "fixture-" + strings.ToLower(w[1:])
 						}
+					}
+					if strings.HasPrefix(w, "/") && !strings.HasPrefix(w, dir) {
+						t.Fatalf("example %q names the absolute path %q, which the harness does not redirect: it must not run", ex, w)
 					}
 					args = append(args, w)
 				}
@@ -235,15 +253,22 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 					}
 				}
 				for i, a := range args {
-					if i > 0 && (args[i-1] == "--policy-file" || args[i-1] == "--payload-file" || args[i-1] == "--override-file") {
-						if err := os.WriteFile(filepath.Join(dir, a), []byte(`{"allow":[]}`), 0o600); err != nil {
+					file := ""
+					switch {
+					case i > 0 && (args[i-1] == "--policy-file" || args[i-1] == "--payload-file" || args[i-1] == "--override-file"):
+						file = a
+					case strings.HasPrefix(a, "--policy-file=") || strings.HasPrefix(a, "--payload-file=") || strings.HasPrefix(a, "--override-file="):
+						file = a[strings.Index(a, "=")+1:]
+					}
+					if file != "" {
+						if err := os.WriteFile(filepath.Join(dir, file), []byte(`{"allow":[]}`), 0o600); err != nil {
 							t.Fatal(err)
 						}
 					}
 				}
 				t.Run(path+" | "+ex, func(t *testing.T) {
 					t.Chdir(dir)
-					f, out := testFactory(t)
+					f, _ := testFactory(t)
 					setActiveApp(t, "hrn:app:acme.com:eng-team")
 					f.IOStreams.In = strings.NewReader(`{"team":{"x":1}}`) // an example that reads "-" gets a JSON document
 					mu.Lock()
@@ -264,7 +289,6 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 					mu.Lock()
 					sent := append([]string(nil), ops[before:]...)
 					mu.Unlock()
-					_ = out
 					if panicked != "" {
 						// A command that panics on a reply the server never sends (the fixture
 						// answers with an empty data object) is a defect of the command, not of
@@ -281,9 +305,16 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 						results = append(results, res)
 						return
 					}
+					isLocalOnly := false
+					for _, prefix := range localOnly1053 {
+						isLocalOnly = isLocalOnly || strings.HasPrefix(ex+" ", prefix)
+					}
 					switch {
-					case err == nil && len(sent) == 0:
+					case err == nil && len(sent) == 0 && isLocalOnly:
 						res.Outcome = "ran, no request needed"
+					case err == nil && len(sent) == 0:
+						res.Broken = true
+						res.Outcome = "BROKEN: ran without sending any request, and it is not an allowlisted local command"
 					case err == nil:
 						res.Outcome = "ran, sent " + strings.Join(sent, ", ")
 					default:
@@ -293,15 +324,21 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 								res.Broken = true
 							}
 						}
+						_, expected := expectedRefusals1053[ex]
 						switch {
 						case res.Broken:
 							res.Outcome = "BROKEN: " + msg
 						case len(sent) > 0:
+							// The fixture's empty reply makes the command fail AFTER it reached the
+							// server; that is the wiring being verified.
 							res.Outcome = fmt.Sprintf("reached the server (%s); then: %s", strings.Join(sent, ", "), msg)
 						case strings.Contains(msg, "without --yes"):
 							res.Outcome = "asks for confirmation (refused without a terminal, as documented)"
+						case expected:
+							res.Outcome = "refused before any request, as the example documents: " + msg
 						default:
-							res.Outcome = "refused locally before any request: " + msg
+							res.Broken = true
+							res.Outcome = "BROKEN: refused locally before any request: " + msg + " (allowlist it in expectedRefusals1053 only if the help documents it)"
 						}
 					}
 					if res.Broken {
@@ -324,7 +361,7 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if len(results) < 100 {
+	if len(results) < minSlice1Examples {
 		t.Fatalf("only %d examples found across the app and agent pages; expected the ~119 the inventory implies", len(results))
 	}
 }

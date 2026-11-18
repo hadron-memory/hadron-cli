@@ -89,7 +89,7 @@ app agent customize" shows it). Compile turns the source the server selects into
 a compiled node in that install memory, and that is all it does. Three separate
 steps: write the source, run this command, then "hadron node approve <compiled
 node>"; a compile alone is not served. The pointer (the setting that names which
-compiled node is served as the boot prompt) is set by the compile.
+compiled node is served as the boot prompt) is set by a compile by default.
 
 `
 	}

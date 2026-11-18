@@ -266,15 +266,15 @@ section between the markers.
 <!-- group:1053 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `agent` | agents |  | n | #1053 | 157ab448345a |  | unread |  |
+| `agent` | agents |  | n | #1053 | 33f163313c92 |  | unread |  |
 | `agent boot-prompt` |  |  | y | #1053 | 10650306ed8f | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent clone` |  |  | n | #1053 | ebd5caccad52 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent compile` |  |  | y | #1053 | 8a3d148c1a1c |  | unread |  |
-| `agent create` |  |  | y | #1053 | 46f3ec1a4572 |  | unread |  |
+| `agent create` |  |  | y | #1053 | 4b46ea4b5022 |  | unread |  |
 | `agent get` |  |  | y | #1053 | 4dc59ba7e552 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent list` | ls |  | n | #1053 | cf8a7a7b08c2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent lock` |  |  | n | #1053 | 1984178d701c |  | unread |  |
-| `agent lock acquire` |  |  | y | #1053 | 3ed13a2217ef |  | unread |  |
+| `agent lock acquire` |  |  | y | #1053 | cdcc47335ab4 |  | unread |  |
 | `agent lock release` |  |  | y | #1053 | bb8debad9b68 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent memory` |  |  | n | #1053 | 3d54d2a80ad8 |  | unread |  |
 | `agent memory add` |  |  | y | #1053 | 54604f787389 |  | unread |  |
@@ -289,18 +289,18 @@ section between the markers.
 | `agent revision` |  |  | n | #1053 | adcf723cafed | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent revision create` |  |  | y | #1053 | 2e20a9e10e23 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent rm` | delete |  | y | #1053 | 6448fce63f9b |  | unread |  |
-| `agent set-base` |  |  | n | #1053 | d4776758eded |  | unread |  |
+| `agent set-base` |  |  | n | #1053 | 262c332aec88 |  | unread |  |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent subscription` |  |  | n | #1053 | 9949cbdfb067 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `agent subscription list` | ls |  | y | #1053 | 1e4440f6dee6 |  | unread |  |
+| `agent subscription list` | ls |  | y | #1053 | 448b64493894 |  | unread |  |
 | `agent tasks` |  |  | n | #1053 | 3fc6d1a6e093 |  | unread |  |
-| `agent tasks list` | ls |  | y | #1053 | f0d7d07be763 |  | unread |  |
+| `agent tasks list` | ls |  | y | #1053 | e0b3851d7b70 |  | unread |  |
 | `agent ticker-templates` | ticker-template |  | n | #1053 | 6fe99803bec1 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent ticker-templates create` |  |  | y | #1053 | 69974fa4d306 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent ticker-templates delete` |  |  | y | #1053 | 69df5c50fc3d | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent ticker-templates list` | ls |  | y | #1053 | 3eef83d4fc4a | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent ticker-templates update` |  |  | y | #1053 | c124c9d95fc2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `agent update` |  |  | y | #1053 | 959ae605c1ee |  | unread |  |
+| `agent update` |  |  | y | #1053 | 5cce35bc8f7e |  | unread |  |
 | `ai-config` | ai-configs |  | n | #1053 | ce9e4e0113f6 |  | unread |  |
 | `ai-config create` |  |  | y | #1053 | 476f02d84285 |  | unread |  |
 | `ai-config endpoints` |  |  | n | #1053 | 8f473cb3e117 |  | unread |  |
@@ -314,8 +314,8 @@ section between the markers.
 | `app action` |  |  | n | #1053 | 17ad7a4db49e | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app action record` |  |  | y | #1053 | 5c625b46077c |  | unread |  |
 | `app agent` | agents |  | n | #1053 | 3af50fd2fcf9 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `app agent add` | install |  | y | #1053 | 7d4b6c8e348e |  | unread |  |
-| `app agent compile` |  |  | y | #1053 | bb67ffaf1b00 |  | unread |  |
+| `app agent add` | install |  | y | #1053 | f0b71fb228ad |  | unread |  |
+| `app agent compile` |  |  | y | #1053 | 860e2d33f686 |  | unread |  |
 | `app agent customize` |  |  | y | #1053 | a221584c9efb | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app agent list` | ls |  | y | #1053 | 040248072463 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app agent remove` | rm, uninstall |  | y | #1053 | 8c777b5d09ad | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |

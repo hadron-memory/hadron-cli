@@ -47,11 +47,11 @@ re-attaching an Agent to reach the memories that built up under it (the
 platform keeps those ready to re-attach if the Agent is installed again, and
 this is the command that does it).
 
---training-mode turns on the App's training flag. The flag belongs to the App,
-not to the Agent: it applies to every Agent installed in this App, so setting
-it here changes it for all of them. It is only sent when you pass it. What the
-platform does differently while the flag is on is decided by the server and is
-not described by this CLI; if you do not know that you need it, leave it out.
+--training-mode turns on the App's training flag: the App's sessions are marked
+as training data for the Agent's owner. The flag belongs to the App, not to the
+Agent: it applies to every Agent installed in this App, so setting it here
+changes it for all of them. It is only sent when you pass it; if you do not
+want your sessions used as training data, leave it out.
 
 You need CONTRIBUTOR or higher on the App's owning organization, or to own the
 App if it is user-owned: plain App membership is not enough, because attaching

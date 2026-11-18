@@ -126,7 +126,7 @@ func newCmdAgentLockAcquire(f *cmdutil.Factory) *cobra.Command {
 		Use:   "acquire <agent>",
 		Short: "Acquire an Agent's editor lock",
 		Long: `Ask for the editor lock. If someone else holds it the server answers "not
-locked" with who holds it and until when (null when unknown): the result is
+acquired" with who holds it and until when (null when unknown): the result is
 printed and the command exits 5 (conflict). It does not retry. Asking for a lock
 you already hold renews it.
 
