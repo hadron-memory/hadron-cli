@@ -68,14 +68,51 @@ func TestSpecReplaceRelintIncomplete1210(t *testing.T) {
 				if strings.Contains(out.String(), "SECRET") || strings.Contains(out.String(), "re-lint clean") {
 					t.Fatal(out.String())
 				}
-				if jsonMode {
-					var v struct {
-						SpecsChanged int
-						RelintStatus string
-						RelintError  *string
-						Lint         []any
+				// cli#1512 items 1+5: the cap refusal's own message — the
+				// actionable edge-list guidance — must reach BOTH surfaces
+				// (the stderr note and relintError), separately from the
+				// ordinary safe message. The branch picks it through
+				// IsNodeBatchEdgeCapRefusal's errors.As AFTER MapError has
+				// wrapped the refusal, so these end-to-end assertions pin
+				// that wrapper traversal at command level: killing the
+				// message branch, or IsNodeBatchEdgeCapRefusal itself,
+				// degrades the cap subcase to the ordinary message and
+				// reddens here.
+				var v struct {
+					SpecsChanged int
+					RelintStatus string
+					RelintError  *string
+					Lint         []any
+				}
+				if jsonMode && json.Unmarshal([]byte(out.String()), &v) != nil {
+					t.Fatal(out.String())
+				}
+				if capError {
+					for _, m := range []string{"exceeds the nodeBatch selected-edge cap (maximum 2000)", "hadron edge list --source", "hadron edge list --target"} {
+						if !strings.Contains(stderr, m) {
+							t.Fatalf("cap guidance missing from stderr: %q", stderr)
+						}
 					}
-					if json.Unmarshal([]byte(out.String()), &v) != nil || v.SpecsChanged != 2 || v.RelintStatus != "incomplete" || v.RelintError == nil || len(v.Lint) != 0 {
+					for _, raw := range []string{"Read edges in pages", "hadron spec lint"} {
+						if strings.Contains(stderr, raw) {
+							t.Fatalf("raw provider prose or the ordinary message stood in for the cap guidance: %q", stderr)
+						}
+					}
+					if jsonMode {
+						if !strings.Contains(*v.RelintError, "hadron edge list --source") || !strings.Contains(*v.RelintError, "maximum 2000") || strings.Contains(*v.RelintError, "SECRET") {
+							t.Fatalf("relintError must carry the sanitized cap guidance: %q", *v.RelintError)
+						}
+					}
+				} else {
+					// The ordinary transport failure keeps its own fixed
+					// safe message — and must not borrow the cap guidance,
+					// so the two branches are pinned separately.
+					if !strings.Contains(stderr, "verify the rewritten specs with hadron spec lint") || strings.Contains(stderr, "hadron edge list") || strings.Contains(stderr, "selected-edge cap") {
+						t.Fatalf("ordinary-error message changed: %q", stderr)
+					}
+				}
+				if jsonMode {
+					if v.SpecsChanged != 2 || v.RelintStatus != "incomplete" || v.RelintError == nil || len(v.Lint) != 0 {
 						t.Fatal(out.String())
 					}
 				} else if !strings.Contains(out.String(), "Replaced") || !strings.Contains(out.String(), "re-lint incomplete") {
