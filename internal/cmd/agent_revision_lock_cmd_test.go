@@ -155,3 +155,88 @@ func TestAgentRevisionLockBlankRefIsUsageWithNoCall(t *testing.T) {
 		}
 	}
 }
+
+// cli#2495: publish and restore join create. Same thin-call contract: both refs
+// go out verbatim, the result is preserved exactly, no follow-up calls, and
+// unset --version-label is omitted (wire-semantics: omit = server default).
+func TestAgentRevisionPublishForwardsRefsAndLabelVerbatim(t *testing.T) {
+	calls, out, err := runAgentSub(t, map[string]string{
+		"PublishRevision": `{"data":{"publishRevision":{"createdAt":"2026-11-02T02:00:00Z","label":"v2","published":true,"revisionLoc":"revisions:draft-7"}}}`,
+	}, "revision", "publish", " hrn:agent:acme.com:bot ", "revisions:draft-7", "--version-label", "launch", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(calls.ops) != 1 || calls.ops[0] != "PublishRevision" {
+		t.Fatalf("ops=%v (one call, no follow-up)", calls.ops)
+	}
+	v := calls.vars["PublishRevision"]
+	if v["agentId"] != " hrn:agent:acme.com:bot " || v["revisionLoc"] != "revisions:draft-7" || v["versionLabel"] != "launch" {
+		t.Fatalf("vars=%v", v)
+	}
+	var dto map[string]any
+	if e := json.Unmarshal([]byte(out), &dto); e != nil {
+		t.Fatalf("not JSON: %v\n%s", e, out)
+	}
+	if dto["revisionLoc"] != "revisions:draft-7" || dto["label"] != "v2" || dto["published"] != true {
+		t.Fatalf("dto=%v", dto)
+	}
+}
+
+func TestAgentRevisionPublishOmitsUnsetVersionLabel(t *testing.T) {
+	calls, _, err := runAgentSub(t, map[string]string{
+		"PublishRevision": `{"data":{"publishRevision":` + revJSON + `}}`,
+	}, "revision", "publish", "agt1", "revisions:draft-7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, present := calls.vars["PublishRevision"]["versionLabel"]; present {
+		t.Fatalf("unset --version-label must be omitted: %v", calls.vars)
+	}
+}
+
+func TestAgentRevisionRestoreForwardsRefsAndPrintsExactResult(t *testing.T) {
+	calls, out, err := runAgentSub(t, map[string]string{
+		"RestoreRevision": `{"data":{"restoreRevision":{"createdAt":"2026-11-02T00:00:00Z","label":"draft-7","published":true,"revisionLoc":"revisions:draft-7"}}}`,
+	}, "revision", "restore", "hrn:agent:acme.com:bot", " revisions:draft-7 ", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(calls.ops) != 1 || calls.ops[0] != "RestoreRevision" {
+		t.Fatalf("ops=%v (one call, no re-create follow-up)", calls.ops)
+	}
+	v := calls.vars["RestoreRevision"]
+	if v["agentId"] != "hrn:agent:acme.com:bot" || v["revisionLoc"] != " revisions:draft-7 " {
+		t.Fatalf("vars=%v (verbatim)", v)
+	}
+	var dto map[string]any
+	if e := json.Unmarshal([]byte(out), &dto); e != nil || dto["published"] != true || dto["label"] != "draft-7" {
+		t.Fatalf("dto=%v err=%v %s", dto, e, out)
+	}
+}
+
+func TestAgentRevisionPublishRestoreBlankRefIsUsageWithNoCall(t *testing.T) {
+	for _, args := range [][]string{
+		{"revision", "publish", "  ", "revisions:draft-7"},
+		{"revision", "publish", "agt1", " "},
+		{"revision", "restore", "", "revisions:draft-7"},
+		{"revision", "restore", "agt1", "\t"},
+	} {
+		calls, _, err := runAgentSub(t, nil, args...)
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(calls.ops) != 0 {
+			t.Fatalf("%v: err=%v ops=%v", args, err, calls.ops)
+		}
+	}
+}
+
+func TestAgentRevisionPublishRestoreNullResultIsControlledError(t *testing.T) {
+	for _, args := range [][]string{{"revision", "publish", "agt1", "revisions:draft-7"}, {"revision", "restore", "agt1", "revisions:draft-7"}} {
+		op := "PublishRevision"
+		if args[1] == "restore" {
+			op = "RestoreRevision"
+		}
+		_, out, err := runAgentSub(t, map[string]string{op: `{"data":{}}`}, args...)
+		if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
+			t.Fatalf("%v: err=%v out=%q", args, err, out)
+		}
+	}
+}
