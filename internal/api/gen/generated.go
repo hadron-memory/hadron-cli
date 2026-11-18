@@ -55203,6 +55203,123 @@ func (v *ExtractParentNodeToMemoryResponse) GetExtractParentNodeToMemory() *Extr
 	return v.ExtractParentNodeToMemory
 }
 
+// FilteredWorkerRoster953Response is returned by FilteredWorkerRoster953 on success.
+type FilteredWorkerRoster953Response struct {
+	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
+	// AppAgent join is the install roster): the App's castings, oldest first,
+	// as a uniform { items, total } page. Retired castings are hidden unless
+	// includeRetired. Same authorization as worker. appRef accepts the App's
+	// ID or URN.
+	Workers *FilteredWorkerRoster953WorkersWorkersPage `json:"workers"`
+}
+
+// GetWorkers returns FilteredWorkerRoster953Response.Workers, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerRoster953Response) GetWorkers() *FilteredWorkerRoster953WorkersWorkersPage {
+	return v.Workers
+}
+
+// FilteredWorkerRoster953WorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
+type FilteredWorkerRoster953WorkersWorkersPage struct {
+	Total int                                                     `json:"total"`
+	Items []*FilteredWorkerRoster953WorkersWorkersPageItemsWorker `json:"items"`
+}
+
+// GetTotal returns FilteredWorkerRoster953WorkersWorkersPage.Total, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerRoster953WorkersWorkersPage) GetTotal() int { return v.Total }
+
+// GetItems returns FilteredWorkerRoster953WorkersWorkersPage.Items, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerRoster953WorkersWorkersPage) GetItems() []*FilteredWorkerRoster953WorkersWorkersPageItemsWorker {
+	return v.Items
+}
+
+// FilteredWorkerRoster953WorkersWorkersPageItemsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type FilteredWorkerRoster953WorkersWorkersPageItemsWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns FilteredWorkerRoster953WorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerRoster953WorkersWorkersPageItemsWorker) GetId() string { return v.Id }
+
+// GetName returns FilteredWorkerRoster953WorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerRoster953WorkersWorkersPageItemsWorker) GetName() string { return v.Name }
+
+// FilteredWorkerTarget953Response is returned by FilteredWorkerTarget953 on success.
+type FilteredWorkerTarget953Response struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *FilteredWorkerTarget953Worker `json:"worker"`
+}
+
+// GetWorker returns FilteredWorkerTarget953Response.Worker, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerTarget953Response) GetWorker() *FilteredWorkerTarget953Worker { return v.Worker }
+
+// FilteredWorkerTarget953Worker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type FilteredWorkerTarget953Worker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name  string `json:"name"`
+	AppId string `json:"appId"`
+	// The App's canonical URN (the same value App.urn returns, e.g.
+	// hrn:app:acme.com:team), as a scalar identity suitable for cross-App
+	// worker lists. PROFILE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11):
+	// null only for a caller who may not see this worker's profile. This
+	// intentionally does not return the App object, whose nested keys and
+	// members have a narrower read audience.
+	AppUrn *string `json:"appUrn"`
+}
+
+// GetId returns FilteredWorkerTarget953Worker.Id, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerTarget953Worker) GetId() string { return v.Id }
+
+// GetName returns FilteredWorkerTarget953Worker.Name, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerTarget953Worker) GetName() string { return v.Name }
+
+// GetAppId returns FilteredWorkerTarget953Worker.AppId, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerTarget953Worker) GetAppId() string { return v.AppId }
+
+// GetAppUrn returns FilteredWorkerTarget953Worker.AppUrn, and is useful for accessing the field via an interface.
+func (v *FilteredWorkerTarget953Worker) GetAppUrn() *string { return v.AppUrn }
+
 // FindNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -129057,6 +129174,34 @@ func (v *__ExtractParentNodeToMemoryInput) GetTargetUrn() string { return v.Targ
 // GetMove returns __ExtractParentNodeToMemoryInput.Move, and is useful for accessing the field via an interface.
 func (v *__ExtractParentNodeToMemoryInput) GetMove() *bool { return v.Move }
 
+// __FilteredWorkerRoster953Input is used internally by genqlient
+type __FilteredWorkerRoster953Input struct {
+	AppRef string `json:"appRef"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetAppRef returns __FilteredWorkerRoster953Input.AppRef, and is useful for accessing the field via an interface.
+func (v *__FilteredWorkerRoster953Input) GetAppRef() string { return v.AppRef }
+
+// GetLimit returns __FilteredWorkerRoster953Input.Limit, and is useful for accessing the field via an interface.
+func (v *__FilteredWorkerRoster953Input) GetLimit() int { return v.Limit }
+
+// GetOffset returns __FilteredWorkerRoster953Input.Offset, and is useful for accessing the field via an interface.
+func (v *__FilteredWorkerRoster953Input) GetOffset() int { return v.Offset }
+
+// __FilteredWorkerTarget953Input is used internally by genqlient
+type __FilteredWorkerTarget953Input struct {
+	AppRef string `json:"appRef"`
+	Ref    string `json:"ref"`
+}
+
+// GetAppRef returns __FilteredWorkerTarget953Input.AppRef, and is useful for accessing the field via an interface.
+func (v *__FilteredWorkerTarget953Input) GetAppRef() string { return v.AppRef }
+
+// GetRef returns __FilteredWorkerTarget953Input.Ref, and is useful for accessing the field via an interface.
+func (v *__FilteredWorkerTarget953Input) GetRef() string { return v.Ref }
+
 // __FindNodesInput is used internally by genqlient
 type __FindNodesInput struct {
 	Query          *string                    `json:"query,omitempty"`
@@ -156878,6 +157023,90 @@ func ExtractParentNodeToMemory(
 	}
 
 	data_ = &ExtractParentNodeToMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by FilteredWorkerRoster953.
+const FilteredWorkerRoster953_Operation = `
+query FilteredWorkerRoster953 ($appRef: ID!, $limit: Int!, $offset: Int!) {
+	workers(appRef: $appRef, includeRetired: true, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			name
+		}
+	}
+}
+`
+
+// Operator-only filter report: identities, never prompts or session content.
+func FilteredWorkerRoster953(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	limit int,
+	offset int,
+) (data_ *FilteredWorkerRoster953Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "FilteredWorkerRoster953",
+		Query:  FilteredWorkerRoster953_Operation,
+		Variables: &__FilteredWorkerRoster953Input{
+			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &FilteredWorkerRoster953Response{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by FilteredWorkerTarget953.
+const FilteredWorkerTarget953_Operation = `
+query FilteredWorkerTarget953 ($appRef: ID!, $ref: ID!) {
+	worker(appRef: $appRef, ref: $ref) {
+		id
+		name
+		appId
+		appUrn
+	}
+}
+`
+
+// A name is App-scoped by the server; explicit ids/URNs win over appRef, so the
+// reader checks returned App identity before admitting an explicit reference.
+func FilteredWorkerTarget953(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	ref string,
+) (data_ *FilteredWorkerTarget953Response, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "FilteredWorkerTarget953",
+		Query:  FilteredWorkerTarget953_Operation,
+		Variables: &__FilteredWorkerTarget953Input{
+			AppRef: appRef,
+			Ref:    ref,
+		},
+	}
+
+	data_ = &FilteredWorkerTarget953Response{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
