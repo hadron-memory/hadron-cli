@@ -36,6 +36,11 @@ func page1919(rows []string, hasMore bool, next string) string {
 	return fmt.Sprintf(`{"data":{"agentTeamEventsPage":{"events":[%s],"hasMore":%t,"nextCursor":%s}}}`, strings.Join(rows, ","), hasMore, cursor)
 }
 
+// nullPage1919 is a success answer whose selected page is null — the shape
+// walkAlarms already refuses (cli#2335 LOCAL F2): every reader of the query
+// errors, none dereferences (cli#2477).
+const nullPage1919 = `{"data":{"agentTeamEventsPage":null}}`
+
 func rows1919(n int, mk func(i int) string) []string {
 	out := make([]string, n)
 	for i := range out {
@@ -118,6 +123,24 @@ func TestTeamEvents1919EmptyPagePrintsNoContinuation(t *testing.T) {
 	}
 	if strings.Contains(out, "continue with") {
 		t.Fatalf("empty page: %q", out)
+	}
+}
+
+func TestTeamEvents1919NullPageIsACommandErrorNotAPanic(t *testing.T) {
+	// cli#2477: the command family's primary reader shares walkAlarms' guard —
+	// a null selected page is a command error, never a nil dereference.
+	out, _, _, err := pagesServer1919(t, taskResponses(), static1919(nullPage1919), "team", "events")
+	if err == nil {
+		t.Fatal("a null page read as a page")
+	}
+	if exitOf(err) != 1 {
+		t.Fatalf("exit %d: %v", exitOf(err), err)
+	}
+	if !strings.Contains(err.Error(), "the server returned no events page") {
+		t.Fatalf("wrong error: %v", err)
+	}
+	if out != "" {
+		t.Fatalf("stdout on a refused read: %q", out)
 	}
 }
 
@@ -353,6 +376,35 @@ func TestTaskTree1919ReadErrorMidWalkIsFatalWithNoStdout(t *testing.T) {
 	}
 	if out != "" {
 		t.Fatalf("stdout on a failed walk: %q", out)
+	}
+}
+
+func TestAlarmWalk1919NullPageIsACommandErrorNotAPanic(t *testing.T) {
+	// cli#2477: openAlarmsByTask shares walkAlarms' guard, so both of its
+	// readers error on a null page instead of panicking at page.Events.
+	for _, drive := range []struct {
+		name string
+		run  func() (string, error)
+	}{
+		{"task tree", func() (string, error) {
+			out, _, _, err := alarmWalk1919(t, static1919(nullPage1919), "team", "task", "tree", "task1")
+			return out, err
+		}},
+		{"task list --team", func() (string, error) {
+			out, _, err := list1919(t, static1919(nullPage1919))
+			return out, err
+		}},
+	} {
+		out, err := drive.run()
+		if err == nil {
+			t.Fatalf("%s: a null page read as a page", drive.name)
+		}
+		if exitOf(err) != 1 || !strings.Contains(err.Error(), "the server returned no alarm page") {
+			t.Fatalf("%s: exit %d err %v", drive.name, exitOf(err), err)
+		}
+		if out != "" {
+			t.Fatalf("%s: stdout on a failed walk: %q", drive.name, out)
+		}
 	}
 }
 
