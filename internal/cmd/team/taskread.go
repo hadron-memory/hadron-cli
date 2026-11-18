@@ -1228,6 +1228,9 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 			return nil, nil, mapTaskError(err)
 		}
 		page := resp.AgentTeamEventsPage
+		if page == nil {
+			return nil, nil, exitcode.Newf(exitcode.Error, "the server returned no alarm page; the list cannot be trusted")
+		}
 		last := ""
 		for _, e := range page.Events {
 			if e == nil {

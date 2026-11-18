@@ -134,6 +134,11 @@ handle needs a server that carries AgentTeamEvent.taskHandle (hadron-server
 			if err != nil {
 				return api.MapError(err)
 			}
+			// A success answer can still carry a null selected page (cli#2477):
+			// the same guard walkAlarms has — a command error, never a panic.
+			if resp.AgentTeamEventsPage == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no events page; the list cannot be trusted")
+			}
 			page := teamEventsPageDTO{Events: []teamEventDTO{}, HasMore: resp.AgentTeamEventsPage.HasMore, NextCursor: resp.AgentTeamEventsPage.NextCursor}
 			for _, e := range resp.AgentTeamEventsPage.Events {
 				if e != nil {
