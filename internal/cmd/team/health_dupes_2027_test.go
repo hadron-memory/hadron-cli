@@ -85,6 +85,17 @@ type health2027World struct {
 	// unbound removes the worktree's session binding before the run.
 	unbound bool
 
+	// Failure injectors (#2343). pauseFails makes the pause query answer an
+	// error, chatFails the notice post; closeFail is a file whose existence
+	// makes the fake orca's `terminal close` exit 1; beforeFix runs inside the
+	// pause handler, i.e. after the census and before the fix loop. lastErr is
+	// the stderr of the last run.
+	pauseFails bool
+	chatFails  bool
+	closeFail  string
+	beforeFix  func()
+	lastErr    string
+
 	orcaCloses string // file the fake orca appends closes to
 	// list2Path, when it exists, replaces the listing from the SECOND
 	// `terminal list` call on — the shape the N3 recheck reads.
@@ -136,6 +147,7 @@ func health2027Setup(t *testing.T) *health2027World {
 	w.failList2 = filepath.Join(dir, "orca-list-2.fail")
 	counts := filepath.Join(dir, "call-counts")
 	w.orcaCloses = filepath.Join(dir, "orca-closes.txt")
+	w.closeFail = filepath.Join(dir, "orca-close.fail")
 	screens := filepath.Join(dir, "screens")
 	for _, d := range []string{counts, screens} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -157,7 +169,7 @@ func health2027Setup(t *testing.T) *health2027World {
 		"    f=\"" + screens + "/$4.json\"\n" +
 		"    if [ \"$n\" -ge 2 ] && [ -f \"" + screens + "/$4.json.2\" ]; then f=\"" + screens + "/$4.json.2\"; fi\n" +
 		"    printf '%s' '{\"ok\":true,\"result\":{\"terminal\":{\"source\":\"screen\",\"tail\":'; cat \"$f\"; printf '%s' ',\"draft\":null}}}';;\n" +
-		"  \"terminal close\") echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
+		"  \"terminal close\") if [ -f \"" + w.closeFail + "\" ]; then exit 1; fi; echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"  \"terminal rename\") printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"esac\n"
 	if err := os.WriteFile(orcaBin, []byte(script), 0o755); err != nil {
@@ -180,6 +192,13 @@ func health2027Setup(t *testing.T) *health2027World {
 		case "HealthSweepSetTerminals":
 			_, _ = io.WriteString(rw, health2027SetTerminals)
 		case "HealthSweepPause":
+			if w.beforeFix != nil {
+				w.beforeFix()
+			}
+			if w.pauseFails {
+				_, _ = io.WriteString(rw, `{"errors":[{"message":"pause read failed","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`)
+				return
+			}
 			if w.midSweepReset != "" {
 				if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte(w.midSweepReset), 0o600); err != nil {
 					t.Errorf("mid-sweep reset write: %v", err)
@@ -206,6 +225,10 @@ func health2027Setup(t *testing.T) *health2027World {
 			}
 			_, _ = io.WriteString(rw, w.reset)
 		case "CreateTeamChatMessage":
+			if w.chatFails {
+				_, _ = io.WriteString(rw, `{"errors":[{"message":"chat down","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`)
+				return
+			}
 			w.mu.Lock()
 			w.chatBodies = append(w.chatBodies, fmt.Sprint(q.Variables["body"]))
 			if ref, ok := q.Variables["sessionRef"].(string); ok {
@@ -403,6 +426,7 @@ func (w *health2027World) run(t *testing.T, text bool, args ...string) (health20
 	if !text {
 		_ = json.Unmarshal(out.Bytes(), &dto)
 	}
+	w.lastErr = errOut.String()
 	all := out.String() + errOut.String()
 	if strings.Contains(all, "SYNTHETIC_HOST_KEY_2027") {
 		t.Fatalf("key in sink %q", all)
