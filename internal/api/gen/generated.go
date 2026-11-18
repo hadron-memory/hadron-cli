@@ -67524,6 +67524,52 @@ func (v *ListTickersTickersTicker) __premarshalJSON() (*__premarshalListTickersT
 	return &retval, nil
 }
 
+// LoginSkillAvailabilityResponse is returned by LoginSkillAvailability on success.
+type LoginSkillAvailabilityResponse struct {
+	// #1177 section 3 — the SKILL SEAM: the server judges, the client does I/O.
+	//
+	// One surface serving skill lint, skill status and skill export. The client
+	// sends what it can see of each file on disk; the server returns a drift
+	// CLASS and the lint findings per declared node, plus the rendered body for
+	// anything the client is to write.
+	//
+	// A QUERY, not a mutation, and that is the contract. Nothing here writes to a
+	// node — publishing is one-way, and the only writer in the feature is the
+	// client's own filesystem. So status and lint cannot write by construction
+	// rather than by promise.
+	//
+	// The client cannot name a drift class: the vocabulary is the server's, so it
+	// cannot drift between clients. A node failing lint is never given a rendered
+	// body, so a client cannot write a file the server judged broken.
+	SkillPlan *LoginSkillAvailabilitySkillPlan `json:"skillPlan"`
+}
+
+// GetSkillPlan returns LoginSkillAvailabilityResponse.SkillPlan, and is useful for accessing the field via an interface.
+func (v *LoginSkillAvailabilityResponse) GetSkillPlan() *LoginSkillAvailabilitySkillPlan {
+	return v.SkillPlan
+}
+
+// LoginSkillAvailabilitySkillPlan includes the requested fields of the GraphQL type SkillPlan.
+type LoginSkillAvailabilitySkillPlan struct {
+	Entries []*LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry `json:"entries"`
+}
+
+// GetEntries returns LoginSkillAvailabilitySkillPlan.Entries, and is useful for accessing the field via an interface.
+func (v *LoginSkillAvailabilitySkillPlan) GetEntries() []*LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry {
+	return v.Entries
+}
+
+// LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry includes the requested fields of the GraphQL type SkillPlanEntry.
+type LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry struct {
+	// One of: current, stale, locally-edited, renamed, never-exported, orphaned,
+	// unhashed, collision, unavailable, disabled. Null when the file could not be
+	// parsed — a parse failure is reported as a FAILURE, not as a class.
+	Class *string `json:"class"`
+}
+
+// GetClass returns LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry.Class, and is useful for accessing the field via an interface.
+func (v *LoginSkillAvailabilitySkillPlanEntriesSkillPlanEntry) GetClass() *string { return v.Class }
+
 // MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState includes the requested fields of the GraphQL type OwnTeamChatReadState.
 // The GraphQL type's documentation follows.
 //
@@ -130145,6 +130191,14 @@ func (v *__ListTickersPageInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __ListTickersPageInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ListTickersPageInput) GetOffset() *int { return v.Offset }
 
+// __LoginSkillAvailabilityInput is used internally by genqlient
+type __LoginSkillAvailabilityInput struct {
+	Input *SkillPlanInput `json:"input,omitempty"`
+}
+
+// GetInput returns __LoginSkillAvailabilityInput.Input, and is useful for accessing the field via an interface.
+func (v *__LoginSkillAvailabilityInput) GetInput() *SkillPlanInput { return v.Input }
+
 // __MarkOwnTeamChatReadInput is used internally by genqlient
 type __MarkOwnTeamChatReadInput struct {
 	AppRef     string `json:"appRef"`
@@ -161942,6 +161996,44 @@ func ListTickersPage(
 	}
 
 	data_ = &ListTickersPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by LoginSkillAvailability.
+const LoginSkillAvailability_Operation = `
+query LoginSkillAvailability ($input: SkillPlanInput!) {
+	skillPlan(input: $input) {
+		entries {
+			class
+		}
+	}
+}
+`
+
+// Login's consent preflight only needs to distinguish disabled declarations
+// from enabled ones. It never requests rendered skill content before consent.
+func LoginSkillAvailability(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SkillPlanInput,
+) (data_ *LoginSkillAvailabilityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LoginSkillAvailability",
+		Query:  LoginSkillAvailability_Operation,
+		Variables: &__LoginSkillAvailabilityInput{
+			Input: input,
+		},
+	}
+
+	data_ = &LoginSkillAvailabilityResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
