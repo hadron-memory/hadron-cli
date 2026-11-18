@@ -451,7 +451,7 @@ section between the markers.
 | `team` |  |  | n | #1054 | fb3a1dfeae0d |  | unread |  |
 | `team alarm` |  |  | n | #1054 | 2bb11981015a |  | unread |  |
 | `team alarm ack` |  |  | n | #1054 | 10a770fb6b08 |  | unread |  |
-| `team alarms` |  |  | y | #1054 | d8aa8b7b546f |  | unread |  |
+| `team alarms` |  |  | y | #1054 | d6b7b77f1802 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 |  | unread |  |
 | `team app sweep-mode` |  |  | y | #1054 | c6dba76f5908 |  | unread |  |
 | `team attention` |  |  | n | #1054 | ce4dafa9f309 |  | unread |  |
@@ -671,7 +671,7 @@ section between the markers.
 | `spec ledger` |  |  | y | #1055 | 34558358c4e7 |  | unread |  |
 | `spec link` |  |  | y | #1055 | 215656704396 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec lint` | check, validate |  | y | #1055 | a47ed7c798e2 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `spec list` | ls |  | y | #1055 | 904bf38f9fc1 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
+| `spec list` | ls |  | y | #1055 | 66567bbfa750 |  | unread |  |
 | `spec mint` |  |  | y | #1055 | ea9e9556b5df | Cloe | fail | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 : wording passes (Cloe pass2); NOT example-verified: the real mint was blocked, follow-up [#1307](https://github.com/hadron-memory/hadron-cli/issues/1307) carries the end-to-end leg |
 | `spec new` | scaffold |  | y | #1055 | 0177e55239ad | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec register` | reg |  | y | #1055 | 2f690e3f6081 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
