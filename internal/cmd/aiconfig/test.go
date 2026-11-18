@@ -131,7 +131,7 @@ and transport failures) use the normal CLI error exits.`,
 				return exitcode.Newf(exitcode.Error, "server returned no AI config test result or value sources")
 			}
 			dto := testConfigDTO{OK: v.Ok, Provider: v.Provider, Model: v.Model, Endpoint: v.Endpoint, APIStyle: v.APIStyle, LatencyMS: v.LatencyMs, Reply: v.Reply,
-				Used: *v.Used, Knobs: make([]testKnobDTO, 0, len(v.Knobs))}
+				Used: *v.Used, Knobs: knobDTOs(v.Knobs)}
 			if chatProbe {
 				if v.Chat == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no chat probe status though one was requested")
@@ -140,10 +140,6 @@ and transport failures) use the normal CLI error exits.`,
 			}
 			if v.Error != nil {
 				dto.Error = &testErrorDTO{Code: v.Error.Code, Message: v.Error.Message, Transient: v.Error.Transient}
-			}
-			// Both typed adapters filter nil knob entries before this dereference.
-			for _, k := range v.Knobs {
-				dto.Knobs = append(dto.Knobs, *k)
 			}
 			redactTestResult(&dto, submittedKey)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -190,6 +186,21 @@ and transport failures) use the normal CLI error exits.`,
 	cmd.Flags().BoolVar(&chatProbe, "chat-probe", false, "also run one chat probe: a second, separately metered provider call; its status prints apart from the run result")
 	cmd.Flags().StringVar(&overrideFile, "override-file", "", "edited values as JSON; - reads a pipe; never saved or echoed")
 	return cmd
+}
+
+// knobDTOs copies the knob entries into DTOs and skips a nil entry. Both typed
+// adapters already filter nils, so this changes nothing today; it keeps the
+// dereference safe if a future adapter does not (cli#2364 item 4). An empty
+// result is a non-nil slice, so --json renders [] and never null.
+func knobDTOs(knobs []*testKnobDTO) []testKnobDTO {
+	out := make([]testKnobDTO, 0, len(knobs))
+	for _, k := range knobs {
+		if k == nil {
+			continue
+		}
+		out = append(out, *k)
+	}
+	return out
 }
 
 func loadTestOverride(path string, in io.Reader) (*gqltypes.AiServiceConfigTestOverride, error) {
