@@ -120,7 +120,7 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 					unblock, openErr := os.OpenFile(status, os.O_RDWR|unix.O_NONBLOCK, 0)
 					select {
 					case <-finished:
-					case <-time.After(2 * time.Second):
+					case <-time.After(fifoWait2197):
 						t.Error("FIFO cleanup writer did not exit")
 					}
 					if openErr == nil {
@@ -129,7 +129,7 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 				}
 				select {
 				case <-censusFinished:
-				case <-time.After(2 * time.Second):
+				case <-time.After(fifoWait2197):
 					t.Error("FIFO cleanup census did not exit")
 				}
 			})
@@ -143,7 +143,7 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 				}
 				defer func() { _ = f.Close() }()
 				opened <- struct{}{}
-				if os.Getenv("HADRON_TEST_FIFO_STALL_2197") == "1" {
+				if fifoSwitch2197("HADRON_TEST_FIFO_STALL_2197") {
 					<-resumeWriter
 				}
 				if mode == "reused" {
@@ -160,7 +160,7 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 			}()
 			foreignSkipped := 0
 			ctx := context.Background()
-			if os.Getenv("HADRON_TEST_FIFO_EARLY_REFUSAL_2197") == "1" {
+			if fifoSwitch2197("HADRON_TEST_FIFO_EARLY_REFUSAL_2197") {
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithCancel(ctx)
 				cancel()
@@ -179,7 +179,7 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 			}()
 			select {
 			case <-opened:
-			case <-time.After(2 * time.Second):
+			case <-time.After(fifoWait2197):
 				t.Fatal("FIFO writer did not open before deadline")
 			}
 			select {
@@ -187,13 +187,13 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 				if e != nil {
 					t.Fatal(e)
 				}
-			case <-time.After(2 * time.Second):
+			case <-time.After(fifoWait2197):
 				t.Fatal("FIFO writer did not complete before deadline")
 			}
 			var observed censusResult
 			select {
 			case observed = <-result:
-			case <-time.After(2 * time.Second):
+			case <-time.After(fifoWait2197):
 				t.Fatal("FIFO census did not complete before deadline")
 			}
 			got, err := observed.agents, observed.err
@@ -218,6 +218,49 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 	}
 }
 
+// The FIFO subprocess budget (cli#2225, acceptance changed explicitly): one
+// in-child wait, plus headroom for process start and scheduling on a loaded
+// host, under a hard watchdog. The old gate was 2s waits, completion within 3s
+// and a 5s watchdog, which left one second for the child to start. The failure
+// proof stays bounded: the child must still refuse inside the budget, and the
+// watchdog kills a child that does not. TestFIFOBudgetAcceptance2225 pins these.
+const (
+	fifoWait2197        = 2 * time.Second
+	fifoChildBudget2197 = 6 * time.Second
+	fifoWatchdog2197    = 10 * time.Second
+)
+
+// fifoSwitch2197 reports a scenario switch only inside a child started with the
+// child-mode guard, so a stray variable in a parent environment cannot alter
+// the shared ordinary fixture test.
+func fifoSwitch2197(name string) bool {
+	return os.Getenv("HADRON_TEST_FIFO_CHILD_2197") == "1" && os.Getenv(name) == "1"
+}
+
+// runFIFOChild2197 runs the stable fixture in a child with the child-mode guard
+// and exactly one scenario switch; every inherited scenario switch is scrubbed.
+func runFIFOChild2197(t *testing.T, scenario string) ([]byte, error) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), fifoWatchdog2197)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCensusForeignSkipIdentityAndDisappearance2195$/^stable$", "-test.count=1")
+	for _, kv := range os.Environ() {
+		if !strings.HasPrefix(kv, "HADRON_TEST_FIFO_") {
+			cmd.Env = append(cmd.Env, kv)
+		}
+	}
+	cmd.Env = append(cmd.Env, "HADRON_TEST_FIFO_CHILD_2197=1", scenario)
+	began := time.Now()
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		t.Fatalf("FIFO refusal exceeded subprocess watchdog: %v: %s", ctx.Err(), out)
+	}
+	if elapsed := time.Since(began); elapsed > fifoChildBudget2197 {
+		t.Fatalf("FIFO refusal took %s, want within %s: %s", elapsed, fifoChildBudget2197, out)
+	}
+	return out, err
+}
+
 // A subprocess keeps a broken fixture from consuming the package timeout.
 // The child intentionally fails; its bounded refusal and successful cleanup
 // are the expected evidence, rather than a successful census.
@@ -227,20 +270,9 @@ func TestCensusFIFORefusalIsBounded2197(t *testing.T) {
 		{"stalled completion", "HADRON_TEST_FIFO_STALL_2197=1", "FIFO writer did not complete before deadline"},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCensusForeignSkipIdentityAndDisappearance2195$/^stable$", "-test.count=1")
-			cmd.Env = append(os.Environ(), scenario.env)
-			began := time.Now()
-			out, err := cmd.CombinedOutput()
-			if ctx.Err() != nil {
-				t.Fatalf("FIFO refusal exceeded subprocess watchdog: %v: %s", ctx.Err(), out)
-			}
+			out, err := runFIFOChild2197(t, scenario.env)
 			if err == nil {
-				t.Fatal("early refusal child unexpectedly succeeded")
-			}
-			if elapsed := time.Since(began); elapsed > 3*time.Second {
-				t.Fatalf("early refusal took %s, want within 3s: %s", elapsed, out)
+				t.Fatal("refusal child unexpectedly succeeded")
 			}
 			if !strings.Contains(string(out), scenario.want) {
 				t.Fatalf("wrong refusal: %s", out)
