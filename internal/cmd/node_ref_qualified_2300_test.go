@@ -90,3 +90,36 @@ func TestNodeGet2300BatchQualifiedIgnoresMemory(t *testing.T) {
 		t.Fatalf("refs sent %q, want %q", vars.Refs, want)
 	}
 }
+
+// The write side shares the helper: `node update <qualified URN> -m <other>`
+// resolves the URN as given and updates that node, never a composed one.
+func TestNodeUpdate2300QualifiedURNIgnoresMemory(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "update", nodeURN, "-m", "example.test:other", "--name", "renamed", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var sent struct {
+		Urn string `json:"urn"`
+	}
+	if err := json.Unmarshal(captured["ResolveUrn"], &sent); err != nil {
+		t.Fatal(err)
+	}
+	// nodeURN is the legacy spelling, which ResolveNodeURN only prefixes.
+	if want := "hrn:node:" + nodeURN; sent.Urn != want {
+		t.Fatalf("ResolveUrn sent %q, want %q (as without -m)", sent.Urn, want)
+	}
+	var vars struct {
+		Input map[string]any `json:"input"`
+	}
+	_ = json.Unmarshal(captured["UpdateNode"], &vars)
+	if vars.Input["id"] != "n1" {
+		t.Fatalf("update must target the resolved node: %v", vars.Input)
+	}
+}
