@@ -204,8 +204,10 @@ func TestTaskLinkDefect2296EmptyHeadRefusedLocally(t *testing.T) {
 			if got := exitCodeFor(err); got != exitcode.Usage {
 				t.Fatalf("exit = %d, want Usage (%v)", got, err)
 			}
-			if n := len(linkCalls2189(t, calls)); n != 0 {
-				t.Fatalf("an empty --introduced-at-head must be refused before any request, sent %d", n)
+			// hadron-cli#2329 F3: no request of any kind, so a lookup placed
+			// before the guard is caught too.
+			if len(*calls) != 0 {
+				t.Fatalf("an empty --introduced-at-head must be refused before any request, sent %v", *calls)
 			}
 		})
 	}
@@ -237,9 +239,42 @@ func TestTaskLinkDefect2296EmptyResponse(t *testing.T) {
 			if n := len(linkCalls2189(t, calls)); n != 1 {
 				t.Fatalf("want exactly one TaskLinkDefect and no retry, got %d", n)
 			}
-			msg := err.Error()
-			if !strings.Contains(msg, "read the task's events before retrying") || !strings.Contains(msg, "AT1.2") {
-				t.Fatalf("message must say to read the events of AT1.2 before retrying: %q", msg)
+			// hadron-cli#2329 F4: the advice and the ref are one string.
+			if want := recovery2329("AT1.2"); !strings.HasSuffix(err.Error(), want) {
+				t.Fatalf("message must end with %q, got %q", want, err.Error())
+			}
+		})
+	}
+}
+
+// recovery2329 is the no-link recovery advice: the command, then the full task
+// ref alone on the last line, so it needs no shell quoting.
+func recovery2329(ref string) string {
+	return "read the task's events before retrying, with hadron team events --task and this task ref:\n  " + ref
+}
+
+// hadron-cli#2329 F1: the recovery advice names the task ref in full on its
+// own line, however long it is and whatever characters it holds; it is never
+// cut short. Terminal control characters are still neutralised.
+func TestTaskLinkDefect2329RecoveryRefInFull(t *testing.T) {
+	long := "hrn:agenttask:" + strings.Repeat("deep.sub.domain.", 20) + "acme.com:team-app:AT1.2"
+	for name, tc := range map[string]struct{ ref, shown string }{
+		"longer than 200": {long, long},
+		"shell metachars": {"AT1.2;rm -rf $(x) 'q'", "AT1.2;rm -rf $(x) 'q'"},
+		"control chars":   {"AT1.2\x1b[31m\nforged", "AT1.2 [31m forged"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if name == "longer than 200" && len(tc.ref) <= 200 {
+				t.Fatalf("fixture must exceed 200 runes, is %d", len(tc.ref))
+			}
+			r := taskResponses()
+			r["TaskLinkDefect"] = `{"data":{"linkDefectToPullRequest":null}}`
+			_, _, err := runTeamTask(t, r, "team", "task", "link-defect", tc.ref, "--defect", defect2189)
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("exit = %d, want Error (%v)", got, err)
+			}
+			if want := recovery2329(tc.shown); !strings.HasSuffix(err.Error(), want) {
+				t.Fatalf("message must end with %q, got %q", want, err.Error())
 			}
 		})
 	}
