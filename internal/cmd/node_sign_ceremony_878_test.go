@@ -208,6 +208,57 @@ func TestSigningRequestList878OpenRowsGetCeremonyLines(t *testing.T) {
 	}
 }
 
+// The list row's ceremony line goes through the same neutralisation as the
+// get path's: a hostile value in an OPEN row must not reach the terminal raw,
+// while --json keeps it. Without this pin, replacing the list row's
+// ceremonyText with the raw URL leaves the suite green (the get-path pins
+// cover signing-request get only).
+func TestSigningRequestList878HostileValueIsNeutralised(t *testing.T) {
+	hostile := "https://ceremonies.acme.example/\x1b]8;;https://evil.example\x07link\x1b]8;;\x07\nspoofed"
+	hostileJSON, err := json.Marshal(hostile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := strings.Replace(ceremonyRequestJSON("OPEN"), ceremonyURLSr1, strings.Trim(string(hostileJSON), `"`), 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":          resolveNodeJSON,
+		"NodeSigningRequests": `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequestsPage":{"items":[` + open + `],"hasMore":false,"nextCursor":null}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signing-request", "list", nodeURN, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.Contains(got, "\x1b") {
+		t.Errorf("the list ceremony line must not emit escape sequences raw:\n%q", got)
+	}
+	if n := strings.Count(got, "\nspoofed"); n != 0 {
+		t.Errorf("an embedded newline must not forge an output line:\n%q", got)
+	}
+	if n := strings.Count(got, "ceremony:"); n != 1 {
+		t.Errorf("exactly one ceremony line, got %d:\n%q", n, got)
+	}
+	f2, out2 := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"node", "signing-request", "list", nodeURN, "--json", "--server", gql.URL})
+	if err := root2.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var listDTO struct {
+		Requests []struct {
+			CeremonyURL string `json:"ceremonyUrl"`
+		} `json:"requests"`
+	}
+	if err := json.Unmarshal([]byte(out2.String()), &listDTO); err != nil {
+		t.Fatal(err, out2.String())
+	}
+	if len(listDTO.Requests) != 1 || listDTO.Requests[0].CeremonyURL != hostile {
+		t.Errorf("--json must keep the hostile row's raw ceremonyUrl, got %+v", listDTO.Requests)
+	}
+}
+
 // Delta 5, token first (cor:api:020:01): a ceremonyUrl validation refusal
 // alone cannot tell an older server from a switched-off one, so the
 // node-signing capability token decides. Token present: the bounded
@@ -330,6 +381,48 @@ func TestSigningCeremonyURL878HostileValueIsNeutralised(t *testing.T) {
 	}
 	if strings.Count(got, "ceremony:") != 1 {
 		t.Errorf("exactly one ceremony line, got %d:\n%q", strings.Count(got, "ceremony:"), got)
+	}
+}
+
+// The neutralisation guard must catch what url.Parse accepts: format
+// characters (a bidi override reorders the line, a zero-width rune forges
+// look-alike URLs) parse fine, so the parse check alone would print them
+// verbatim. Each becomes a single space, like any table cell.
+func TestSigningCeremonyURL878FormatCharactersAreNeutralised(t *testing.T) {
+	for name, hostile := range map[string]string{
+		"bidi-override": "https://ceremonies.acme.example/signing/\u202Eev1l",
+		"zero-width":    "https://ceremonies.acme.example/signing/sr\u200B1",
+	} {
+		t.Run(name, func(t *testing.T) {
+			hostileJSON, err := json.Marshal(hostile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gql, _ := captureGraphQL(t, map[string]string{
+				"GetSigningRequest": `{"data":{"signingRequest":` + strings.Replace(ceremonyRequestJSON("OPEN"), ceremonyURLSr1, strings.Trim(string(hostileJSON), `"`), 1) + `}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "signing-request", "get", "sr1", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			got := out.String()
+			for _, bad := range []rune{'\u202E', '\u200B'} {
+				if strings.ContainsRune(got, bad) {
+					t.Errorf("the ceremony line must not carry %q raw:\n%q", bad, got)
+				}
+			}
+			want := "ceremony: " + strings.Map(func(r rune) rune {
+				if r == '\u202E' || r == '\u200B' {
+					return ' '
+				}
+				return r
+			}, hostile)
+			if !strings.Contains(got, want) {
+				t.Errorf("the ceremony line must neutralise the format character in place:\nwant: %s\ngot:  %s", want, got)
+			}
+		})
 	}
 }
 
