@@ -6094,7 +6094,11 @@ Groups resolve live.
   nothing sent).
 - Refusals keep the usual mapping: `AGENT_NOT_FOUND` / `APP_NOT_FOUND` /
   `MODEL_GROUP_NOT_FOUND` exit 4; `FORBIDDEN` / `APP_MANAGER_REQUIRED` exit 8;
-  `BAD_USER_INPUT` exit 2.
+  `BAD_USER_INPUT` exit 2; `MODEL_GROUP_LIMIT_REACHED` (the Agent or App holds
+  the most groups allowed) and `AGENT_OWNERSHIP_CHANGED` (the Agent's owner
+  changed during the write) exit 5, a state conflict a same-call retry can't
+  fix (cli#2428; they exited 1 before). The `--json` error envelope's
+  `serverCode` and the message are the server's, unchanged.
 
 
 ## Task integrations: App properties and task externalId (cli#1524)

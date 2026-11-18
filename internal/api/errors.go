@@ -1323,6 +1323,14 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED" || code == "TICKER_TEMPLATE_LIMIT_REACHED":
 		return exitcode.Conflict
+	// Model-group refusals (hadron-cli#2428, ruling on the issue): the Agent or
+	// App already holds the most groups allowed, or the Agent's owner changed
+	// during the write. Both are state, not the argument, and a same-call retry
+	// can't succeed, like TICKER_LIMIT_REACHED and INSTALL_TARGET_CHANGED.
+	// Literal rows: there is no _LIMIT_REACHED or _CHANGED suffix rule, and one
+	// would sweep in codes that don't belong.
+	case code == "MODEL_GROUP_LIMIT_REACHED" || code == "AGENT_OWNERSHIP_CHANGED":
+		return exitcode.Conflict
 	// App member writes (cli#956, cor:dmo:050:04): a role the primary Agent's
 	// policy does not list is an argument the caller fixes; the member cap and
 	// the last-owner guard hold until the App's membership changes.
