@@ -160,12 +160,18 @@ func TestSnapshotRevokeByIDExplicitAppScopesTheGrant1619(t *testing.T) {
 		app      string
 		appReply string // GetAppMetadata reply; "-" means it must not be called
 		proceeds bool
+		wantRef  string // the ref the one app(ref:) read carries; empty means app as given
 	}{
-		{"app id of the grant's own App", grantApp1619, "-", true},
-		{"app id of another App", other, "-", false},
-		{"URN resolving to the grant's own App", autoApp, appByRefReply1619(grantApp1619), true},
-		{"URN resolving to another App", autoApp, appByRefReply1619(other), false},
-		{"URN the caller cannot read", autoApp, appByRefReply1619(""), false},
+		{"app id of the grant's own App", grantApp1619, "-", true, ""},
+		{"app id of another App", other, "-", false, ""},
+		{"URN resolving to the grant's own App", autoApp, appByRefReply1619(grantApp1619), true, ""},
+		{"URN resolving to another App", autoApp, appByRefReply1619(other), false, ""},
+		{"URN the caller cannot read", autoApp, appByRefReply1619(""), false, ""},
+		// root:slug is canonicalised to the URN before the one app(ref:) read, so the
+		// read carries "hrn:app:acme.com:ops", not the slug as typed (cli#2436, READ P2).
+		{"root:slug resolving to the grant's own App", "acme.com:ops", appByRefReply1619(grantApp1619), true, autoApp},
+		{"root:slug resolving to another App", "acme.com:ops", appByRefReply1619(other), false, autoApp},
+		{"root:slug the caller cannot read", "acme.com:ops", appByRefReply1619(""), false, autoApp},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := taskResponses()
@@ -185,8 +191,12 @@ func TestSnapshotRevokeByIDExplicitAppScopesTheGrant1619(t *testing.T) {
 			// A URN or root:slug costs exactly ONE app(ref:) read (cli#2436): not
 			// zero (it must learn the id) and not a retry or a re-read.
 			if tc.appReply != "-" {
-				if reads := callsFor(calls, "GetAppMetadata"); len(reads) != 1 || reads[0].Vars["ref"] != tc.app {
-					t.Fatalf("want exactly one app(ref:) read of %q, got %+v", tc.app, reads)
+				want := tc.wantRef
+				if want == "" {
+					want = tc.app
+				}
+				if reads := callsFor(calls, "GetAppMetadata"); len(reads) != 1 || reads[0].Vars["ref"] != want {
+					t.Fatalf("want exactly one app(ref:) read of %q, got %+v", want, reads)
 				}
 			}
 			if tc.proceeds {
