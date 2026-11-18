@@ -78,6 +78,12 @@ func TestMapErrorKeepingCodeDelegates(t *testing.T) {
 		exitcode.FromError(got) != exitcode.FromError(want) {
 		t.Fatalf("got %v want %v", got, want)
 	}
+	// hadron-cli#1366: text and exit code alone pass for a bare MapError(raw);
+	// the delegate's whole point is that the server's code rides along.
+	var coded interface{ ServerCode() string }
+	if got := MapErrorKeepingCode(raw); !errors.As(got, &coded) || coded.ServerCode() != "FORBIDDEN" {
+		t.Fatalf("the result lost the server code: %v", got)
+	}
 	if MapErrorKeepingCode(nil) != nil {
 		t.Fatal("nil must stay nil")
 	}
