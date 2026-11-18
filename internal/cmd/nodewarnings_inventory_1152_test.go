@@ -83,7 +83,7 @@ func TestNodeWriteAdviceRootsAreEachPinned1152(t *testing.T) {
 				t.Fatalf("%s: advice for its own root must show once, a foreign root's never: %q", root, stderr)
 			}
 			// Response-key ownership: an alias is keyed by the alias, not the field.
-			stderr, err = run(`mutation M1152 { saved: `+root+` { id } }`, `{"data":{"saved":{"id":"n"}},"extensions":{"warnings":[{"path":"saved","code":"include.pin.unkept","text":"aliased advice"},{"path":"`+root+`","code":"wrong.root","text":"keyed by the field, not the alias"}]}}`)
+			stderr, err = run(`mutation M1152 { saved: `+root+` { id } }`, `{"data":{"saved":{"id":"n"}},"extensions":{"warnings":[{"path":"saved","code":"include.pin.unkept","text":`+quote1142("aliased advice")+`},{"path":"`+root+`","code":"wrong.root","text":"keyed by the field, not the alias"}]}}`)
 			if err != nil {
 				t.Fatal(err)
 			}
