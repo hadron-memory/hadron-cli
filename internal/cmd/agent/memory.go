@@ -68,6 +68,16 @@ func newCmdAgentMemoryAdd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <agent> <memory> [--role <role>]",
 		Short: "Attach a Memory to an Agent",
+		Long: `Attach a Memory to an Agent, at a role: "read" (the Agent may read it) or
+"read-write" (it may also write). You need management access to the Agent and
+read access to the Memory. If the Memory belongs to another organization, the
+Agent's organization needs a live subscription that allows the link: a
+READER-level one admits "read", a CONTRIBUTOR-level one "read-write".
+
+Without --role the server picks the default role. Prints "✓ attached <memory> on
+agent <name> (<urn>)"; --json is the Agent as the server returned it. Attaching
+does not copy or move the Memory. To change the role later use "hadron agent
+memory set-role"; to detach it, "hadron agent memory rm".`,
 		Example: `  hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read
   hadron agent memory add hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read-write`,
 		Args: cobra.ExactArgs(2),
@@ -102,8 +112,14 @@ func newCmdAgentMemoryAdd(f *cmdutil.Factory) *cobra.Command {
 func newCmdAgentMemorySetRole(f *cmdutil.Factory) *cobra.Command {
 	var role string
 	cmd := &cobra.Command{
-		Use:     "set-role <agent> <memory> --role <role>",
-		Short:   "Change an attached Memory's role on an Agent",
+		Use:   "set-role <agent> <memory> --role <role>",
+		Short: "Change an attached Memory's role on an Agent",
+		Long: `Change the role of a Memory that is already attached to an Agent: "read" (the
+Agent may read it) or "read-write" (it may also write). The same gates apply as
+on "hadron agent memory add": management access to the Agent and, for a Memory
+from another organization, a live subscription whose level admits the role
+(READER admits "read", CONTRIBUTOR "read-write"). Prints "✓ set role of <memory>
+on agent <name> (<urn>)"; --json is the Agent as the server returned it.`,
 		Example: `  hadron agent memory set-role hrn:agent:acme.com:bot hrn:mem:acme.com:notes --role read-write`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
