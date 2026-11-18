@@ -138,9 +138,10 @@ func TestHealthSweepHumanNameIsNeutralised1383(t *testing.T) {
 
 // Oversized stdout kills the REAL child. The read is given a 6-second deadline
 // and the child sleeps far longer, so the only thing that can end the run early
-// is the overflow cancel: a run that ends in the deadline class (the bound was
-// bypassed and the child ran into the timeout) fails, and so does one that takes
-// the deadline's time. (#1181 pins the buffer callback.)
+// is the overflow cancel. The run must end in the overflow class (a run that
+// ends in the deadline class, because the bound was bypassed and the child ran
+// into the timeout, or in any other error, fails). The deadline is the only time
+// bound. (#1181 pins the buffer callback.)
 func TestHealthStatusOverflowKillsTheChild1383(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "fake-status")
@@ -159,11 +160,9 @@ func TestHealthStatusOverflowKillsTheChild1383(t *testing.T) {
 	if errors.As(err, &timedOut) {
 		t.Fatalf("the read ended in its deadline after %s, not by the overflow cancel: %v", took, err)
 	}
-	if err == nil || raw != nil || code == 0 {
-		t.Fatalf("an oversized read must fail with no output: code %d err %v len %d", code, err, len(raw))
-	}
-	if took >= deadline-time.Second {
-		t.Fatalf("the child was not cancelled on overflow: the run took %s of a %s deadline", took, deadline)
+	var overflow errHealthStatusOverflow
+	if !errors.As(err, &overflow) || raw != nil || code != 1 {
+		t.Fatalf("an oversized read must end in the overflow class with no output: code %d err %v len %d after %s", code, err, len(raw), took)
 	}
 	b, rerr := os.ReadFile(filepath.Join(dir, "pid"))
 	if rerr != nil {

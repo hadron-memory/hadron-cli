@@ -58,6 +58,14 @@ func (e errHealthStatusTimeout) Error() string {
 	return "terminal status timed out after " + e.after.String()
 }
 
+// errHealthStatusOverflow is the oversized-output class: the child wrote more
+// than the bound and was cancelled. The sweep still reports its own fixed
+// "terminal status command failed" diagnostic for it (exit 1); the class only
+// lets a test tell this cancel from any other early end (#1383).
+type errHealthStatusOverflow struct{}
+
+func (errHealthStatusOverflow) Error() string { return "terminal status output exceeds the limit" }
+
 // The status command's --config boundary is a separately gated dependency
 // of #1181. Only its JSON leaves this subprocess; never inspect its screen or
 // diagnostics, or pass a key value through argv/environment.
@@ -89,6 +97,9 @@ func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []stri
 	// stderr is deliberately discarded, including a child's credential, screen
 	// detail or raw upstream diagnostic. The caller reports fixed classes only.
 	if err := cmd.Run(); err != nil {
+		if out.overflowed {
+			return nil, 1, errHealthStatusOverflow{}
+		}
 		// Only our own deadline (not the caller's cancellation, not an output
 		// overflow) is the timeout class.
 		if isHealthStatusTimeout(ctx.Err(), parent.Err(), out.overflowed) {
