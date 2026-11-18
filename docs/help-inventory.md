@@ -353,14 +353,14 @@ section between the markers.
 | `app memory-grant list` | ls |  | y | #1053 | 52fd86bf129c |  | unread |  |
 | `app memory-grant rm` |  |  | y | #1053 | 66efd9257f04 |  | unread |  |
 | `app model-group` | model-groups |  | n | #1053 | d04d91b39f82 |  | unread |  |
-| `app model-group clear` |  |  | y | #1053 | c52a81548023 |  | unread |  |
+| `app model-group clear` |  |  | y | #1053 | 5b739d4befb9 |  | unread |  |
 | `app model-group list` | ls |  | y | #1053 | 093686984c69 |  | unread |  |
-| `app model-group set` |  |  | y | #1053 | fdc12c90a0cc |  | unread |  |
+| `app model-group set` |  |  | y | #1053 | b9d1bfaeb29b |  | unread |  |
 | `app nodes` |  |  | y | #1053 | e9555446cde7 |  | unread |  |
-| `app properties` |  |  | n | #1053 | 99c90f1b03ad |  | unread |  |
+| `app properties` |  |  | n | #1053 | 640a4c11e32f |  | unread |  |
 | `app properties clear` |  |  | y | #1053 | 80d4cf346730 |  | unread |  |
 | `app properties get` |  |  | y | #1053 | 8da394b352a5 |  | unread |  |
-| `app properties set` |  |  | y | #1053 | 1fbfb89d500d |  | unread |  |
+| `app properties set` |  |  | y | #1053 | fad2daf2313b |  | unread |  |
 | `app reinstall` |  |  | y | #1053 | 6e983efee2c8 |  | unread |  |
 | `app set-active` | use |  | y | #1053 | ec8f5a4437c3 |  | unread |  |
 | `app uninstall` |  |  | y | #1053 | 670b7331f021 |  | unread |  |
@@ -451,7 +451,7 @@ section between the markers.
 | `team` |  |  | n | #1054 | fb3a1dfeae0d |  | unread |  |
 | `team alarm` |  |  | n | #1054 | 2bb11981015a |  | unread |  |
 | `team alarm ack` |  |  | n | #1054 | 10a770fb6b08 |  | unread |  |
-| `team alarms` |  |  | y | #1054 | d8aa8b7b546f |  | unread |  |
+| `team alarms` |  |  | y | #1054 | d6b7b77f1802 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 |  | unread |  |
 | `team app sweep-mode` |  |  | y | #1054 | c6dba76f5908 |  | unread |  |
 | `team attention` |  |  | n | #1054 | ce4dafa9f309 |  | unread |  |
@@ -472,24 +472,24 @@ section between the markers.
 | `team composition` |  |  | n | #1054 | 56db72727109 |  | unread |  |
 | `team delivery-settings` |  |  | n | #1054 | 738b52dc071b |  | unread |  |
 | `team delivery-settings get` |  |  | n | #1054 | 21c7552c6282 |  | unread |  |
-| `team delivery-settings set` |  |  | n | #1054 | de63231d0a80 |  | unread |  |
+| `team delivery-settings set` |  |  | n | #1054 | 69f1e12f7197 |  | unread |  |
 | `team events` |  |  | n | #1054 | 3530b1366bf5 |  | unread |  |
 | `team grant` |  |  | n | #1054 | f827cf1f14f4 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | d8f3bdf456fd |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 8d8c795a7626 |  | unread |  |
-| `team grant add` |  |  | y | #1054 | e1fccd4c7faa |  | unread |  |
+| `team grant add` |  |  | y | #1054 | f0c3fab13458 |  | unread |  |
 | `team grant get` |  |  | y | #1054 | 8f2d0615ea5e |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 3732cbcdbd95 |  | unread |  |
 | `team grant request` |  |  | y | #1054 | 4eff6b71827b |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | 1999874d6881 |  | unread |  |
-| `team grant rm` |  |  | y | #1054 | 96199eac7145 |  | unread |  |
+| `team grant rm` |  |  | y | #1054 | 621a1e889eab |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 2ac5131f473e |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | fac0e2a26947 |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | 9bb0227faf93 |  | unread |  |
 | `team health` |  |  | n | #1054 | d1b3825cdd4d |  | unread |  |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f |  | unread |  |
 | `team health status` |  |  | y | #1054 | f1bdb3714169 |  | unread |  |
-| `team health sweep` |  |  | n | #1054 | e8c25a4347d0 |  | unread |  |
+| `team health sweep` |  |  | n | #1054 | 78f5e220548c |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 |  | unread |  |
 | `team host` |  |  | n | #1054 | 307cc3eddb80 |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 200354fa59ac |  | unread |  |
@@ -564,7 +564,7 @@ section between the markers.
 | `team task cancel` |  |  | y | #1054 | 915a6d8ef76a | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task clone` |  |  | y | #1054 | c88f3037c421 |  | unread |  |
 | `team task create` |  |  | y | #1054 | 519fdf01840d | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
-| `team task dependencies` |  |  | y | #1054 | dc76f2a0ab05 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
+| `team task dependencies` |  |  | y | #1054 | 754051154aa6 |  | unread |  |
 | `team task dispose-finding` |  |  | y | #1054 | cd97d0a677ee |  | unread |  |
 | `team task find-untracked` |  |  | y | #1054 | c3bb0eba0c3b |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 9a97d0b7cfc2 |  | unread |  |
@@ -588,7 +588,7 @@ section between the markers.
 | `team ticker` |  |  | n | #1054 | 5f918e2933a5 |  | unread |  |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | f261ee1df23d |  | unread |  |
-| `team ticker settings set` |  |  | y | #1054 | caab02edcd58 |  | unread |  |
+| `team ticker settings set` |  |  | y | #1054 | 49756664552d |  | unread |  |
 | `team usage` |  |  | y | #1054 | 8d7f8122b307 |  | unread |  |
 | `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 |  | unread |  |
 | `team usage collect` |  |  | y | #1054 | a5848d3e96a5 |  | unread |  |
@@ -671,7 +671,7 @@ section between the markers.
 | `spec ledger` |  |  | y | #1055 | 34558358c4e7 |  | unread |  |
 | `spec link` |  |  | y | #1055 | 215656704396 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec lint` | check, validate |  | y | #1055 | a47ed7c798e2 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `spec list` | ls |  | y | #1055 | 904bf38f9fc1 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
+| `spec list` | ls |  | y | #1055 | 66567bbfa750 |  | unread |  |
 | `spec mint` |  |  | y | #1055 | ea9e9556b5df | Cloe | fail | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 : wording passes (Cloe pass2); NOT example-verified: the real mint was blocked, follow-up [#1307](https://github.com/hadron-memory/hadron-cli/issues/1307) carries the end-to-end leg |
 | `spec new` | scaffold |  | y | #1055 | 0177e55239ad | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec register` | reg |  | y | #1055 | 2f690e3f6081 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
@@ -712,8 +712,8 @@ section between the markers.
 | `automation approve` |  |  | y | #1184 | ac2e0f13eb6d | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1202](https://github.com/hadron-memory/hadron-cli/issues/1202) |
 | `automation decline` |  |  | y | #1184 | 31376aae6d30 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `automation grant` |  |  | n | #1184 | 90333d689910 |  | unread |  |
-| `automation grant list` | ls |  | y | #1184 | 6d1978848a07 |  | unread |  |
-| `automation grant revoke` |  |  | y | #1184 | 97beb4cd8a6d |  | unread |  |
+| `automation grant list` | ls |  | y | #1184 | 3f1255801961 |  | unread |  |
+| `automation grant revoke` |  |  | y | #1184 | 885fdcb1e60c |  | unread |  |
 | `automation grant set` |  |  | y | #1184 | 6cc868d323fb |  | unread |  |
 | `automation list` | ls |  | y | #1184 | 624bcb02a438 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `automation preview` |  |  | n | #1184 | bdfe7173d1a5 |  | unread |  |
