@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -64,15 +65,23 @@ A full idle provider notice is BLOCKED; incomplete evidence or a running turn
 is AMBIGUOUS. Other screens are NOT_BLOCKED; unreadable screens are UNREADABLE.
 Sign in with a credential that can read the selected team App first.
 No screen or draft text is printed. The agent_tree column is diagnostic context,
-never authority to act. Process checks require /proc and the invoking uid.
+never authority to act; its codes are conservative — cwd_outside_worktree also
+reports a wrapper working below the worktree root or a wrapper-agent edge
+crossing the worktree boundary, and no_wrapper also reports an agent that is
+not the wrapper's child — and it is empty when no terminal was scanned, as for
+a named worker with no terminal. Process checks require /proc and the invoking
+uid; a symlinked worktree path is compared in resolved form.
 
 Only Orca terminal list/read are used. Nothing is signalled, written, delivered,
 restarted or changed. The team comes from --app, the App context, or this
-worktree's local binding. A named worker must belong to that team. A binding identifies a worker, not a live
-session; local terminals of retired workers remain diagnostic rows. Unbound or
-unreadable local worktrees cannot be attributed and are omitted; multiple
-terminals for one worker are AMBIGUOUS. Exit 0 means the scan ran, including
-when BLOCKED rows exist; a non-Orca host refuses with exit 2, a failed scan 1.
+worktree's local binding. A named worker must belong to that team. A binding
+identifies a worker, not a live session; local terminals of retired workers
+remain diagnostic rows. Unbound or unreadable local worktrees cannot be
+attributed and are omitted; multiple terminals for one worker are AMBIGUOUS,
+and when they sit in more than one worktree neither the worktree nor the tree
+is guessed. Exit 0 means the scan ran, including when BLOCKED rows exist; an
+unreachable or refusing Orca refuses with exit 2, a failed scan 1 — including
+a malformed terminal-list answer.
 --json returns an array of worker/worktree/terminal/classification/agent_tree/note
 objects, including an empty array when there are no local workers.`,
 		Example: "  hadron team worker find-filtered --app acme.com:eng-team\n  hadron team worker find-filtered Iris --json",
@@ -87,6 +96,12 @@ objects, including an empty array when there are no local workers.`,
 			client := orcaterm.NewReadOnlyClient(runner)
 			terms, err := client.List(cmd.Context())
 			if err != nil {
+				// An Orca that answered ok but not with a trustworthy list is
+				// a failed scan, not an absent host (cli#2483 F12); every
+				// other list failure keeps the documented exit-2 refusal.
+				if errors.Is(err, orcaterm.ErrMalformedList) {
+					return exitcode.Newf(exitcode.Error, "terminal_list_malformed")
+				}
 				return exitcode.Newf(exitcode.Usage, findFilteredHostRefusal)
 			}
 			app, err := f.App()
@@ -106,6 +121,13 @@ objects, including an empty array when there are no local workers.`,
 			}
 			targets, err := source.targets(cmd.Context(), app, args)
 			if err != nil {
+				// A coded error already carries its fixed, redacted reason
+				// (unauthenticated, unreachable); anything else collapses to
+				// the unreadable code (cli#2483 F11).
+				var coded *exitcode.CodedError
+				if errors.As(err, &coded) {
+					return err
+				}
 				return exitcode.Newf(exitcode.Error, "team_roster_unreadable")
 			}
 			if len(args) > 0 && len(targets) == 0 {
@@ -120,7 +142,9 @@ objects, including an empty array when there are no local workers.`,
 				return exitcode.Newf(exitcode.Error, "filter_scan_failed")
 			}
 			if len(args) > 0 && len(rows) == 0 {
-				rows = append(rows, filterreport.Row{Worker: output.SafeLine(targets[0].Name, 256), Classification: "UNREADABLE", AgentTree: "no_wrapper", Note: "no_terminal"})
+				// No terminal was scanned, so no tree state is claimed
+				// (cli#2483 F9).
+				rows = append(rows, filterreport.Row{Worker: output.SafeLine(targets[0].Name, 256), Classification: "UNREADABLE", Note: "no_terminal"})
 			}
 			dto := []filteredWorkerDTO{}
 			for _, r := range rows {
@@ -150,6 +174,11 @@ objects, including an empty array when there are no local workers.`,
 // authored-write snapshot hook (that hook reads the binding through git even
 // for a query). Require authentication here: this is a private team read, not
 // anonymous access. No write operation is called by this reader.
+//
+// Failures carry distinct fixed codes, never backend text (cli#2483 F11):
+// team_roster_unauthenticated (no credential), team_roster_unreachable (the
+// call could not be answered) and team_roster_unreadable (an answer that is
+// not a usable roster).
 func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, args []string) ([]filterreport.Target, error) {
 	app, err := cmdutil.CanonicalAppRef("selected App", app)
 	if err != nil || app == "" {
@@ -160,13 +189,13 @@ func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, ar
 		return nil, err
 	}
 	if !authenticated {
-		return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+		return nil, exitcode.Newf(exitcode.Error, "team_roster_unauthenticated")
 	}
 	targets := []filterreport.Target{}
 	if len(args) > 0 {
 		response, err := gen.FilteredWorkerTarget953(ctx, gql, app, args[0])
 		if err != nil {
-			return nil, err
+			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreachable")
 		}
 		w := response.Worker
 		if w == nil {
@@ -193,13 +222,25 @@ func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, ar
 		return []filterreport.Target{{Name: w.Name, ID: w.Id}}, nil
 	}
 	seen := map[string]bool{}
-	for offset := 0; ; {
+	// rosterPageLimit bounds the offset pager (cli#2483 F14): a server that
+	// continually raises its total, or streams duplicates, can never be paged
+	// to exhaustion, and the read fails closed at the budget instead of
+	// looping. 64 pages of workerPageSize rows bound a roster at 12,800.
+	// Concurrent offset paging has its own limit — rows that shift between
+	// pages can duplicate (skipped by id) or be missed (a short page fails
+	// closed) — so the budget is this reader's honesty limit, not a total.
+	const rosterPageLimit = 64
+	for offset, pages := 0, 0; ; {
 		response, err := gen.FilteredWorkerRoster953(ctx, gql, app, workerPageSize, offset)
 		if err != nil {
-			return nil, err
+			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreachable")
 		}
 		page := response.Workers
 		if page == nil || page.Items == nil || page.Total < 0 {
+			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+		}
+		pages++
+		if pages > rosterPageLimit {
 			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreadable")
 		}
 		for _, w := range page.Items {

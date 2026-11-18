@@ -94,6 +94,19 @@ func parse(res Result) (envelope, bool) {
 // Orca's output.
 var ErrOrca = errors.New("orca call failed")
 
+// ErrMalformedList is `orca terminal list` answering ok with a payload the
+// reader cannot trust: an unparsable result, a missing terminal array or a
+// row without a handle. It is ErrOrca to errors.Is, so every existing caller
+// keeps failing closed; the filter report uses it to tell a malformed answer
+// (a failed scan) from an Orca that never answered or refused (the off-Orca
+// refusal, cli#2483 F12).
+var ErrMalformedList = malformedListError{}
+
+type malformedListError struct{}
+
+func (malformedListError) Error() string { return "orca terminal list malformed" }
+func (malformedListError) Unwrap() error { return ErrOrca }
+
 // Client makes the four terminal calls through a guarded runner.
 type Client struct {
 	run                  Runner
@@ -136,12 +149,12 @@ func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal
 		Truncated  bool       `json:"truncated"`
 	}
 	if json.Unmarshal(env.Result, &result) != nil || (c.requireTerminalArray && result.Terminals == nil) {
-		return nil, 0, false, ErrOrca
+		return nil, 0, false, ErrMalformedList
 	}
 	if c.requireTerminalArray {
 		for _, t := range result.Terminals {
 			if t.Handle == "" {
-				return nil, 0, false, ErrOrca
+				return nil, 0, false, ErrMalformedList
 			}
 		}
 	}
