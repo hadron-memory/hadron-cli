@@ -26,13 +26,14 @@ func readDoc(t *testing.T, rel string) string {
 }
 
 type inventoryRow struct {
-	path, aliases, generated, examples, child, evaluator, result, finding string
-	section                                                               string
+	path, aliases, generated, examples, child, helpHash, evaluator, result, finding string
+	section                                                                         string
 }
 
 var (
-	sectionStart = regexp.MustCompile(`^<!-- group:(\S+) start -->$`)
-	sectionEnd   = regexp.MustCompile(`^<!-- group:(\S+) end -->$`)
+	inventoryHash = regexp.MustCompile(`^[0-9a-f]{12}$`)
+	sectionStart  = regexp.MustCompile(`^<!-- group:(\S+) start -->$`)
+	sectionEnd    = regexp.MustCompile(`^<!-- group:(\S+) end -->$`)
 )
 
 func parseInventory(t *testing.T, doc string) []inventoryRow {
@@ -61,15 +62,15 @@ func parseInventory(t *testing.T, doc string) []inventoryRow {
 			t.Fatalf("row outside any group section: %s", line)
 		}
 		cells := strings.Split(strings.TrimSuffix(strings.TrimPrefix(line, "| "), " |"), " | ")
-		if len(cells) != 8 {
-			t.Fatalf("row has %d cells, want 8: %s", len(cells), line)
+		if len(cells) != 9 {
+			t.Fatalf("row has %d cells, want 9: %s", len(cells), line)
 		}
 		for i := range cells {
 			cells[i] = strings.TrimSpace(cells[i])
 		}
 		rows = append(rows, inventoryRow{
 			path: strings.Trim(cells[0], "`"), aliases: cells[1], generated: cells[2], examples: cells[3],
-			child: cells[4], evaluator: cells[5], result: cells[6], finding: cells[7], section: open,
+			child: cells[4], helpHash: cells[5], evaluator: cells[6], result: cells[7], finding: cells[8], section: open,
 		})
 	}
 	if open != "" {
@@ -99,6 +100,9 @@ func TestHelpInventoryFileShape(t *testing.T) {
 			t.Errorf("duplicate inventory row %q", r.path)
 		}
 		seen[r.path] = true
+		if !inventoryHash.MatchString(r.helpHash) {
+			t.Errorf("row %q has invalid help-hash %q", r.path, r.helpHash)
+		}
 		switch r.result {
 		case "unread", "fail":
 		case "pass":

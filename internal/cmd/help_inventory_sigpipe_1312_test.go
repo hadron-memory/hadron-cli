@@ -64,7 +64,7 @@ func TestHelpInventoryLargePageExamplesStable1312(t *testing.T) {
 			"| `alpha` |  |  | y | #7001 |  | unread |  |",
 			"| `beta` |  |  | n | #7001 |  | unread |  |",
 		} {
-			if !strings.Contains(string(out), want) {
+			if !strings.Contains(inventoryWithoutHashes1126(t, string(out)), want) {
 				t.Fatalf("run %d missing %q\n%s", i, want, out)
 			}
 		}
@@ -84,7 +84,7 @@ func TestHelpInventoryLargePageAliasesAndChildren1312(t *testing.T) {
 		"| `alpha` | alphas |  | y | #7001 |  | unread |  |",
 		"| `alpha leaf` |  |  | n | #7001 |  | unread |  |",
 	} {
-		if !strings.Contains(string(out), want) {
+		if !strings.Contains(inventoryWithoutHashes1126(t, string(out)), want) {
 			t.Fatalf("missing %q\n%s", want, out)
 		}
 	}
