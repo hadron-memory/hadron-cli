@@ -231,6 +231,13 @@ Needs server ba077810 or later.
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			} else {
+				// InstructedWrite's contract (instruction.go): targetAppID is
+				// "" because this command holds the App as a ref (scope.Ref),
+				// not an id, and the write resolves it; the discarded bool is
+				// whether the worker session was attached — unused here
+				// because admission is the server's either way, and a
+				// fallback-to-person note was already printed if one applied
+				// (#2505 F3).
 				ctx, _, err = finishInstruction(ctx, "", scope.Ref)
 				if err != nil {
 					return err

@@ -366,6 +366,12 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
 			} else {
+				// The ServerTarget variant (instruction.go) takes no target:
+				// the server resolves the App this event names. The discarded
+				// bool is whether the worker session was attached — unused
+				// here because admission is the server's either way, and a
+				// fallback-to-person note was already printed if one applied
+				// (#2505 F3).
 				ctx, _, err = finishInstruction(ctx)
 				if err != nil {
 					return err
