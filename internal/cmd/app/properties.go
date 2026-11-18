@@ -4,12 +4,12 @@ package app
 // S1, cor:dmo:050:02, cor:dmo:050:20): the App's own JSON object. The platform
 // reads only its taskIntegrations key (cor:agt:120:01); every other key is the
 // team's. The CLI is a thin client: who may read or write, the size bound and
-// the taskIntegrations shape are the server's (cor:api:240:01). It never reads
-// before writing: concurrency is the server's expectedRevision check.
+// the taskIntegrations shape are the server's (cor:api:240:01). Without the flag
+// it never reads before writing: concurrency is the server's expectedRevision check.
 //
 // A dedicated group rather than an `app update` flag (plan A1): the write is
-// its own mutation behind its own gate (whoever manages the App, never a
-// worker session), and one command per mutation keeps each refusal
+// its own mutation behind its own gate (the person who manages the App, or
+// their held worker on an admitted instruction), and one command per mutation keeps each refusal
 // attributable.
 
 import (
@@ -46,8 +46,9 @@ the outside trackers ` + "`hadron team task find-untracked`" + ` reads; every ot
 key is the team's, stored as written. Never put a secret here.
 
 Whoever may read the App reads them (null for anyone else). Only whoever
-manages the App writes them, as a person: a worker session and an App key are
-refused. Each write replaces the whole object; use --expected-revision with
+manages the App writes them. Without --instruction, set acts as the person;
+set can carry a held worker's instruction as described in its help. clear
+remains person-only. An App key is refused. Each write replaces the whole object; use --expected-revision with
 the revision ` + "`get --json`" + ` printed to refuse a write over someone else's.`,
 	}
 	cmd.AddCommand(newCmdPropertiesGet(f))
@@ -110,13 +111,17 @@ whatever is there. Each change is recorded as an app.properties-changed team
 event naming the changed top-level keys, never their values.
 
 Refusals: FORBIDDEN (exit 8: you do not manage the App, or you are a worker
-session or App key); TASK_INTEGRATION_INVALID (exit 2, names the JSON path);
+session without an admitted instruction, or an App key); TASK_INTEGRATION_INVALID (exit 2, names the JSON path);
 PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (exit
 2); APP_PROPERTIES_CONFLICT (exit 5).`,
 		Example: `  hadron app properties set acme.com:eng-team @props.json --expected-revision 3
   hadron app properties get acme.com:eng-team | jq '.team.x = 1' | hadron app properties set acme.com:eng-team -`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := memberInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ref, err := requiredReadAppRef(args[0])
 			if err != nil {
 				return err
@@ -141,10 +146,11 @@ PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (exit
 			if err != nil {
 				return err
 			}
-			return writeSetAppProperties(cmd, f, ref, &props, revisionFlag(cmd, expectedRevision))
+			return writeSetAppProperties(cmd, f, ref, &props, revisionFlag(cmd, expectedRevision), claim, instructed)
 		},
 	}
 	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "refuse the write unless the properties are still at this revision (as get --json shows it)")
+	addManagerInstruction(cmd)
 	return cmd
 }
 
@@ -169,7 +175,7 @@ Prompts on a terminal; non-interactively --yes is required. Takes
 				return err
 			}
 			// A nil value is sent as an explicit null: how the mutation clears.
-			return writeSetAppProperties(cmd, f, ref, nil, revisionFlag(cmd, expectedRevision))
+			return writeSetAppProperties(cmd, f, ref, nil, revisionFlag(cmd, expectedRevision), nil, nil)
 		},
 	}
 	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "refuse the clear unless the properties are still at this revision (as get --json shows it)")
@@ -186,12 +192,16 @@ func revisionFlag(cmd *cobra.Command, n int) *int {
 	return &n
 }
 
-func writeSetAppProperties(cmd *cobra.Command, f *cmdutil.Factory, ref string, props *json.RawMessage, expectedRevision *int) error {
+func writeSetAppProperties(cmd *cobra.Command, f *cmdutil.Factory, ref string, props *json.RawMessage, expectedRevision *int, claim *gen.ActInstructionInput, instructed memberInstructed) error {
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return err
 	}
-	resp, err := gen.SetAppProperties(cmd.Context(), client, ref, props, expectedRevision)
+	ctx, err := memberWriteContext(cmd, ref, claim, instructed)
+	if err != nil {
+		return err
+	}
+	resp, err := setManagerProperties(ctx, client, ref, props, expectedRevision, claim)
 	if err != nil {
 		return api.MapErrorKeepingCode(err)
 	}

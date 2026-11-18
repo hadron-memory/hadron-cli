@@ -1,0 +1,15 @@
+# Operator-only filter report: identities, never prompts or session content.
+query FilteredWorkerRoster953($appRef: ID!, $limit: Int!, $offset: Int!) {
+  workers(appRef: $appRef, includeRetired: true, limit: $limit, offset: $offset) {
+    total
+    items { id name }
+  }
+}
+
+# A name is App-scoped by the server; explicit ids/URNs win over appRef, so the
+# reader checks returned App identity before admitting an explicit reference.
+query FilteredWorkerTarget953($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    id name appId appUrn
+  }
+}

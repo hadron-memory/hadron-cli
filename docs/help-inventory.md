@@ -276,10 +276,10 @@ section between the markers.
 | `agent lock` |  |  | n | #1053 | dfb2e3ae14ed |  | unread |  |
 | `agent lock acquire` |  |  | y | #1053 | 52000696a159 |  | unread |  |
 | `agent lock release` |  |  | y | #1053 | bb8debad9b68 |  | unread |  |
-| `agent memory` |  |  | n | #1053 | d8594cf33b6b |  | unread |  |
-| `agent memory add` |  |  | y | #1053 | bd9efcc930db |  | unread |  |
+| `agent memory` |  |  | n | #1053 | 5321c3705fac |  | unread |  |
+| `agent memory add` |  |  | y | #1053 | 6c427588c8e2 |  | unread |  |
 | `agent memory rm` | remove |  | y | #1053 | a9e619d0a6f5 |  | unread |  |
-| `agent memory set-role` |  |  | y | #1053 | a20a6137ecf6 |  | unread |  |
+| `agent memory set-role` |  |  | y | #1053 | fd1c3cc63f2c |  | unread |  |
 | `agent model-group` | model-groups |  | n | #1053 | 2fdbc7d42a42 |  | unread |  |
 | `agent model-group delete` | rm |  | y | #1053 | 304d8d1a1850 |  | unread |  |
 | `agent model-group list` | ls |  | y | #1053 | fa96d6761924 |  | unread |  |
@@ -353,14 +353,14 @@ section between the markers.
 | `app memory-grant list` | ls |  | y | #1053 | 52fd86bf129c |  | unread |  |
 | `app memory-grant rm` |  |  | y | #1053 | 66efd9257f04 |  | unread |  |
 | `app model-group` | model-groups |  | n | #1053 | d04d91b39f82 |  | unread |  |
-| `app model-group clear` |  |  | y | #1053 | c52a81548023 |  | unread |  |
+| `app model-group clear` |  |  | y | #1053 | 5b739d4befb9 |  | unread |  |
 | `app model-group list` | ls |  | y | #1053 | 093686984c69 |  | unread |  |
-| `app model-group set` |  |  | y | #1053 | fdc12c90a0cc |  | unread |  |
+| `app model-group set` |  |  | y | #1053 | b9d1bfaeb29b |  | unread |  |
 | `app nodes` |  |  | y | #1053 | e9555446cde7 |  | unread |  |
-| `app properties` |  |  | n | #1053 | 99c90f1b03ad |  | unread |  |
+| `app properties` |  |  | n | #1053 | 640a4c11e32f |  | unread |  |
 | `app properties clear` |  |  | y | #1053 | 80d4cf346730 |  | unread |  |
 | `app properties get` |  |  | y | #1053 | 8da394b352a5 |  | unread |  |
-| `app properties set` |  |  | y | #1053 | 1fbfb89d500d |  | unread |  |
+| `app properties set` |  |  | y | #1053 | fad2daf2313b |  | unread |  |
 | `app reinstall` |  |  | y | #1053 | 6e983efee2c8 |  | unread |  |
 | `app set-active` | use |  | y | #1053 | ec8f5a4437c3 |  | unread |  |
 | `app uninstall` |  |  | y | #1053 | 670b7331f021 |  | unread |  |
@@ -472,17 +472,17 @@ section between the markers.
 | `team composition` |  |  | n | #1054 | 56db72727109 |  | unread |  |
 | `team delivery-settings` |  |  | n | #1054 | 738b52dc071b |  | unread |  |
 | `team delivery-settings get` |  |  | n | #1054 | 21c7552c6282 |  | unread |  |
-| `team delivery-settings set` |  |  | n | #1054 | de63231d0a80 |  | unread |  |
+| `team delivery-settings set` |  |  | n | #1054 | 69f1e12f7197 |  | unread |  |
 | `team events` |  |  | n | #1054 | 3530b1366bf5 |  | unread |  |
 | `team grant` |  |  | n | #1054 | f827cf1f14f4 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | d8f3bdf456fd |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 8d8c795a7626 |  | unread |  |
-| `team grant add` |  |  | y | #1054 | e1fccd4c7faa |  | unread |  |
+| `team grant add` |  |  | y | #1054 | f0c3fab13458 |  | unread |  |
 | `team grant get` |  |  | y | #1054 | 8f2d0615ea5e |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 3732cbcdbd95 |  | unread |  |
 | `team grant request` |  |  | y | #1054 | 4eff6b71827b |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | 1999874d6881 |  | unread |  |
-| `team grant rm` |  |  | y | #1054 | 96199eac7145 |  | unread |  |
+| `team grant rm` |  |  | y | #1054 | 621a1e889eab |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 2ac5131f473e |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | fac0e2a26947 |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | 9bb0227faf93 |  | unread |  |
@@ -588,7 +588,7 @@ section between the markers.
 | `team ticker` |  |  | n | #1054 | 5f918e2933a5 |  | unread |  |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | f261ee1df23d |  | unread |  |
-| `team ticker settings set` |  |  | y | #1054 | caab02edcd58 |  | unread |  |
+| `team ticker settings set` |  |  | y | #1054 | 49756664552d |  | unread |  |
 | `team usage` |  |  | y | #1054 | 8d7f8122b307 |  | unread |  |
 | `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 |  | unread |  |
 | `team usage collect` |  |  | y | #1054 | a5848d3e96a5 |  | unread |  |
@@ -604,11 +604,12 @@ section between the markers.
 | `team wakes` |  |  | n | #1054 | 4424ad11c034 |  | unread |  |
 | `team wakes ack` |  |  | y | #1054 | 52bcbefc364f |  | unread |  |
 | `team wakes due` |  |  | y | #1054 | f072cc2fab73 |  | unread |  |
-| `team worker` | workers, staff |  | n | #1054 | 602d0bd39c78 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
+| `team worker` | workers, staff |  | n | #1054 | bb689f4e215f |  | unread |  |
 | `team worker approve` |  |  | y | #1054 | 9fa5927cdf92 |  | unread |  |
 | `team worker cast` |  |  | y | #1054 | d7d3ce6dcf1b | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker change-agent` |  |  | y | #1054 | 0ebabc5d074f |  | unread |  |
 | `team worker compile` |  |  | y | #1054 | 704a14490060 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
+| `team worker find-filtered` |  |  | y | #1054 | ccc0da02d026 |  | unread |  |
 | `team worker get` |  |  | y | #1054 | 80ced7626735 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker held` |  |  | y | #1054 | 59aa7ad5f2ee |  | unread |  |
 | `team worker leave-alone` |  |  | y | #1054 | 555a960c9970 |  | unread |  |
