@@ -339,10 +339,13 @@ func RenameTab(ctx context.Context, run Runner, handle, title string) error {
 }
 
 // CodeError is a failed `orca` call that answered with an error code. It is
-// ErrOrca to errors.Is (every existing check still holds) and carries Orca's
+// ErrOrca to errors.Is and carries Orca's
 // code, an opaque string from another system: callers pass it through, never
 // branch on its value or list the values (cli#2040). Orca's message is never
-// kept, since it may quote input.
+// kept, since it may quote input. Compatibility is for errors.Is/errors.As
+// only: a direct err == ErrOrca comparison no longer matches, so callers must
+// use errors.Is (cli#2337: none compares directly; RenameTab's one caller reads
+// the code with ErrorCode).
 type CodeError struct{ Code string }
 
 func (e *CodeError) Error() string { return ErrOrca.Error() }
