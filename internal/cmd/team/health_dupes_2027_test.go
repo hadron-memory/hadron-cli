@@ -78,6 +78,12 @@ type health2027World struct {
 	// before its fix loop reads the file back (#2037 N2 note: the gate is
 	// not the snapshot).
 	midSweepReset string
+	// second adds a second registered worker (w2, worktree wt2) when set
+	// before health2027Setup returns, see health2027SetupTwo (#2344).
+	second    bool
+	worktree2 string
+	// onReset, when set, runs on every ContextReset read before it answers.
+	onReset func(resetID string)
 	// chatBodies records every CreateTeamChatMessage body that arrived.
 	chatBodies []string
 	chatRefs   []*string
@@ -102,10 +108,17 @@ type health2027World struct {
 }
 
 // health2027Setup builds the host config, worktree, fake orca and fake server.
-func health2027Setup(t *testing.T) *health2027World {
+func health2027Setup(t *testing.T) *health2027World { return health2027SetupN(t, false) }
+
+// health2027SetupTwo is the same host with a second registered worker, Ivy
+// (w2), bound in worktree wt2, for the tests that need a LATER worker in the
+// fixing loop (#2344).
+func health2027SetupTwo(t *testing.T) *health2027World { return health2027SetupN(t, true) }
+
+func health2027SetupN(t *testing.T, second bool) *health2027World {
 	t.Helper()
 	dir := t.TempDir()
-	w := &health2027World{dir: dir, state: `{"hostId":"own"}`}
+	w := &health2027World{dir: dir, state: `{"hostId":"own"}`, second: second}
 	// The sweep reads its notification binding from the process's ambient
 	// worktree: run from a plain directory, not this repo (whose own live
 	// binding would otherwise leak into every test) and not the fixture
@@ -121,6 +134,16 @@ func health2027Setup(t *testing.T) *health2027World {
 	}
 	if err := exec.Command("git", "init", "-q", w.worktree).Run(); err != nil {
 		t.Fatalf("git init: %v", err)
+	}
+
+	if second {
+		w.worktree2 = filepath.Join(dir, "wt-root", "wt2")
+		if err := os.MkdirAll(w.worktree2, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command("git", "init", "-q", w.worktree2).Run(); err != nil {
+			t.Fatalf("git init: %v", err)
+		}
 	}
 
 	// The fake orca: list reads a JSON file, read answers a per-handle screen
@@ -176,8 +199,16 @@ func health2027Setup(t *testing.T) *health2027World {
 		rw.Header().Set("Content-Type", "application/json")
 		switch q.OperationName {
 		case "HostRegistrations":
-			_, _ = io.WriteString(rw, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["wt"]}]}]}}`)
+			workers := `{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["wt"]}`
+			if w.second {
+				workers += `,{"workerId":"w2","worker":{"id":"w2","name":"Ivy","urn":"hrn:worker:test:team:ivy"},"worktrees":["wt2"]}`
+			}
+			_, _ = io.WriteString(rw, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[`+workers+`]}]}}`)
 		case "HealthSweepSetTerminals":
+			if w.second {
+				_, _ = io.WriteString(rw, `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"hrn:worker:test:team:iris"},{"id":"w2","urn":"hrn:worker:test:team:ivy"}],"refused":[]}}}`)
+				break
+			}
 			_, _ = io.WriteString(rw, health2027SetTerminals)
 		case "HealthSweepPause":
 			if w.midSweepReset != "" {
@@ -191,6 +222,9 @@ func health2027Setup(t *testing.T) *health2027World {
 			}
 			_, _ = io.WriteString(rw, w.pause)
 		case "ContextReset":
+			if w.onReset != nil {
+				w.onReset(fmt.Sprint(q.Variables["resetId"]))
+			}
 			if w.resetsByID != nil {
 				body, ok := w.resetsByID[fmt.Sprint(q.Variables["resetId"])]
 				if !ok {
@@ -223,6 +257,12 @@ func health2027Setup(t *testing.T) *health2027World {
 	t.Cleanup(srv.Close)
 	w.srv = srv
 	w.writeBinding(t, "sess-1")
+	if second {
+		b := fmt.Sprintf(`{"sessionId":"sess-2","workerId":"w2","workerName":"Ivy","appId":"hrn:app:test:team","server":%q}`, srv.URL)
+		if err := os.WriteFile(filepath.Join(w.worktree2, ".git", "hadron-team-session.json"), []byte(b), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	w.agentTerms = filepath.Join(dir, "agent-terms.txt")
 	if err := os.WriteFile(w.agentTerms, []byte(""), 0o600); err != nil {
@@ -230,7 +270,11 @@ func health2027Setup(t *testing.T) *health2027World {
 	}
 	w.stateFileWrite(t, w.state)
 
-	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [wt]\ndelivery:\n  orca_bin: %q\n", srv.URL, filepath.Join(dir, "wt-root"), orcaBin)
+	extra := ""
+	if second {
+		extra = "  w2:\n    family: codex\n    launch: [fake]\n    worktrees: [wt2]\n"
+	}
+	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [wt]\n%sdelivery:\n  orca_bin: %q\n", srv.URL, filepath.Join(dir, "wt-root"), extra, orcaBin)
 	path := filepath.Join(dir, "host.yaml")
 	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
@@ -246,6 +290,8 @@ type health2027Term struct {
 	Handle string
 	Tab    string
 	Screen []string
+	// Path is the terminal's worktree; empty means the fixture's first one.
+	Path string
 }
 
 // setTerminals rewrites the fake orca's terminal list and per-handle screens.
@@ -268,7 +314,11 @@ func (w *health2027World) writeList(t *testing.T, path string, terms []health202
 	t.Helper()
 	rows := make([]string, 0, len(terms))
 	for _, tm := range terms {
-		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"title":"Iris","connected":true,"writable":true}`, tm.Handle, w.worktree, tm.Tab))
+		path := tm.Path
+		if path == "" {
+			path = w.worktree
+		}
+		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"title":"Iris","connected":true,"writable":true}`, tm.Handle, path, tm.Tab))
 	}
 	list := `{"ok":true,"result":{"terminals":[` + strings.Join(rows, ",") + `]}}`
 	if err := os.WriteFile(path, []byte(list), 0o600); err != nil {
@@ -395,6 +445,9 @@ func (w *health2027World) run(t *testing.T, text bool, args ...string) (health20
 	f.IOStreams = streams
 	f.JSON = !text
 	c := newCmdTeamHealthWithReader(f, func(context.Context, string, *hostpoller.Config) ([]byte, int, error) {
+		if w.second {
+			return []byte(`[{"contract":"terminal-status@1","worker":"Iris","status":"idle","prompt":"empty","reason":null,"lastTurnAt":null,"checkedAt":"2026-11-14T00:00:00Z"},{"contract":"terminal-status@1","worker":"Ivy","status":"idle","prompt":"empty","reason":null,"lastTurnAt":null,"checkedAt":"2026-11-14T00:00:00Z"}]`), 0, nil
+		}
 		return []byte(health2027Status), 0, nil
 	})
 	c.SetArgs(append([]string{"sweep", "--config", w.cfgPath}, args...))
