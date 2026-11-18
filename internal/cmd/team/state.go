@@ -569,7 +569,7 @@ func (h cacheHandle) openLock() (*os.File, error) {
 			time.Sleep(lockPermRetryEvery)
 		}
 		if errors.Is(err, fs.ErrPermission) {
-			err = fmt.Errorf("%w (the lock file is not readable and writable by you; if no bind or poller is running, remove %s: an interrupted create can leave it so)", err, h.path(bindingLockFileName))
+			err = fmt.Errorf("%w (the lock file is not readable and writable by you; an interrupted create can leave it so; remove %s only if every lock user (the hadron team session commands that read or write the binding, and the host poller's stop and relaunch paths) stays stopped for the whole deletion)", err, h.path(bindingLockFileName))
 		}
 		return f, err
 	}
@@ -652,7 +652,7 @@ func (h cacheHandle) openLock() (*os.File, error) {
 		// racing actor could have replaced it and the lock's mutual exclusion
 		// would go with it. The error says how to clear it (cli#2238).
 		_ = f.Close()
-		return nil, fmt.Errorf("setting the session binding lock mode: %w (if no bind or poller is running, remove %s)", err, h.path(bindingLockFileName))
+		return nil, fmt.Errorf("setting the session binding lock mode: %w (remove %s only if every lock user (the hadron team session commands that read or write the binding, and the host poller's stop and relaunch paths) stays stopped for the whole deletion)", err, h.path(bindingLockFileName))
 	}
 	return f, nil
 }

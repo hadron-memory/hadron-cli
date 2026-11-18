@@ -298,10 +298,10 @@ func TestLockWordingSources2327(t *testing.T) {
 			t.Fatal(err)
 		}
 		src := string(b)
-		if strings.Contains(src, "fails the direct create too") {
+		if strings.Contains(strings.ReplaceAll(src, "\n// ", " "), "fails the direct create too") {
 			t.Errorf("%s still claims a policy denial fails the direct create too", f)
 		}
-		if !strings.Contains(src, "operation-specific denial") {
+		if !strings.Contains(strings.ReplaceAll(src, "\n// ", " "), "operation-specific denial") {
 			t.Errorf("%s: the EPERM comment does not say EPERM can be an operation-specific denial", f)
 		}
 	}
