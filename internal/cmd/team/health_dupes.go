@@ -103,16 +103,13 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 	apply := applying && !paused
 	// A reset recorded since the sweep's initial state read must still gate
 	// the stop (#2037 N2 note: the state is a snapshot, the gate is not): a
-	// reset record is written before its claim is sent, so a fresh read at
-	// fix time sees every reset the server has already accepted, and the
-	// window where a mid-sweep reset goes unseen shrinks to the fixing loop.
-	// A read that fails keeps the older snapshot — every reset it names is
-	// still asked, fail closed.
-	if fresh, err := hostpoller.LoadState(cfg.StateFile); err == nil {
-		state = fresh
-	}
+	// reset record is written before its claim is sent, so a fresh read sees
+	// every reset the server has already accepted. The read is repeated at
+	// each worker's turn (#2344), so a reset recorded while an earlier worker
+	// was being handled is seen by the later ones; see freshResetState.
 	var appliedActions []string
 	for _, w := range sortedPaths(candidates) {
+		state = freshResetState(cfg.StateFile, state)
 		observation := healthfix.Worktree{WorkerID: wt[w].workerID, WorkerName: wt[w].workerName, Path: w, Agents: toFixAgents(census[w]), Tabs: tabs[w]}
 		if apply {
 			observation.Resetting = workerResetting(ctx, server, cfg.App, state, wt[w].workerID)
@@ -174,6 +171,31 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 		postSweepNotice(ctx, f, cfg.App, res.applied, appliedActions, errOut)
 	}
 	return res
+}
+
+// freshResetState re-reads the poller state for the next worker's decision and
+// returns it unioned with the snapshot it replaces (#2344). A read that fails
+// keeps the snapshot (fail closed, #2037): every reset it names is still asked.
+// A read that succeeds adds to the snapshot and never removes from it: an
+// empty successful read (a file rewritten with no resets) must not drop a reset
+// the snapshot already holds, and a reset the snapshot holds that recovery has
+// since pruned costs one more server query that finds it ended. Where both name
+// the same reset the fresh record wins. Only the resets are unioned: they are
+// the only part of the state the fixing loop's gate reads.
+func freshResetState(path string, snapshot *hostpoller.State) *hostpoller.State {
+	fresh, err := hostpoller.LoadState(path)
+	if err != nil {
+		return snapshot
+	}
+	if snapshot == nil {
+		return fresh
+	}
+	for id, r := range snapshot.Resets {
+		if _, ok := fresh.Resets[id]; !ok {
+			fresh.Resets[id] = r
+		}
+	}
+	return fresh
 }
 
 // dupeWorker is one registered worker of this host.
