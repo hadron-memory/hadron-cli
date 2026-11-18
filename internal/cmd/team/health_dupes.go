@@ -343,6 +343,10 @@ func sweepPause(ctx context.Context, server *hostServer, appRef string) (paused,
 // max" shape) every run, not by map luck; descending puts the max id first,
 // the exact reset such a mutant stops at. Every reset is still asked; only
 // the order changes (cor:agt:050:27: unreadable counts as in flight).
+//
+// The worker filter (r.WorkerID == workerID) is the same predicate hasResetRecord
+// applies without building this slice; keep the two in step (the differential
+// test in health_dupes_2346_test.go is the tripwire).
 func resetsForWorker(state *hostpoller.State, workerID string) []hostpoller.ResetRecord {
 	if state == nil {
 		return nil
@@ -358,9 +362,21 @@ func resetsForWorker(state *hostpoller.State, workerID string) []hostpoller.Rese
 }
 
 // hasResetRecord reports whether the poller state holds any reset for the
-// worker, ended or not.
+// worker, ended or not. It answers a boolean, so it stops at the first match:
+// no slice and no sort (cli#2346). The sorted read of resetsForWorker stays
+// where the order is load-bearing, in workerResetting. Its predicate is the one
+// resetsForWorker filters on (WorkerID equality; a record carries no "ended"
+// field, the server's endedAt decides that), so the two answer alike.
 func hasResetRecord(state *hostpoller.State, workerID string) bool {
-	return len(resetsForWorker(state, workerID)) > 0
+	if state == nil {
+		return false
+	}
+	for _, r := range state.Resets {
+		if r.WorkerID == workerID {
+			return true
+		}
+	}
+	return false
 }
 
 // workerResetting reports whether any of the worker's recorded resets is
