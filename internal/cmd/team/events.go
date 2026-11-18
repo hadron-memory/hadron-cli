@@ -350,7 +350,13 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 			var fields gen.AgentTeamEventFields
 			warnings := []taskWarningDTO{}
 			if claim == nil {
-				resp, callErr := gen.AlarmAcknowledge(ctx, client, eventId)
+				// #2537 (from #2505 F4): warnings arrive on a plain ack too
+				// (the server files task warnings for acknowledgeAlarm
+				// whatever carried the call), so the plain path reads the same
+				// sink. Text mode prints them below like the instructed path;
+				// plain --json keeps its bare event shape (byte identity).
+				mctx, sink := api.WithWarningSinkForFields(ctx, "acknowledgeAlarm")
+				resp, callErr := gen.AlarmAcknowledge(mctx, client, eventId)
 				if callErr != nil {
 					return api.MapError(callErr)
 				}
@@ -358,6 +364,7 @@ text prints server warnings on stderr. Needs server ba077810 or later.
 					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
+				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
 			} else {
 				ctx, _, err = finishInstruction(ctx)
 				if err != nil {
