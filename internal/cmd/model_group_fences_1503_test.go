@@ -61,7 +61,10 @@ func mgHeaderServer1503(t *testing.T, responses map[string]string) (string, func
 const mgApp1503 = "hrn:app:acme.com:eng"
 
 // Item 1: none of the six model-group operations sends a worker session
-// (§10 P3-1): an X-Hadron-Session added to any of them fails here.
+// (§10 P3-1): an X-Hadron-Session added to any of them fails here. The
+// worktree is BOUND to the fake server, so a session that rides in only when a
+// binding exists (AuthoredWriteContext, root.go, attaching it to any mutation
+// on its authored-write list) would show too, not just a hard-coded one.
 func TestModelGroup1503NoSessionHeader(t *testing.T) {
 	for _, tc := range []struct {
 		op, resp string
@@ -76,6 +79,8 @@ func TestModelGroup1503NoSessionHeader(t *testing.T) {
 	} {
 		t.Run(tc.op, func(t *testing.T) {
 			url, calls := mgHeaderServer1503(t, map[string]string{tc.op: tc.resp})
+			writeTeamBinding(t)
+			setTeamBindingServer(t, url)
 			if _, err := mgRun(t, url, append(tc.args, "--json")...); err != nil {
 				t.Fatal(err)
 			}
