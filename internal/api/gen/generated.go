@@ -27250,6 +27250,146 @@ func (v *AutomationReadGrantsAutomationReadGrantsAutomationReadGrant) __premarsh
 	return &retval, nil
 }
 
+// AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant includes the requested fields of the GraphQL type AutomationReadGrant.
+// The GraphQL type's documentation follows.
+//
+// #2883: an automation's READ grant on one memory (the whole memory, or one loc prefix), held on the trigger row (a schedule or webhook) a run executes. Read-only: consulted only by the run's own node read, live at each read, never for writes, listing or search, and only for the memory's own run. It carries over an edit and a re-adoption and ends on revoke or when the trigger is deleted. Runs the trigger starts carry it; a manual run does not. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+type AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant struct {
+	AutomationReadGrantFields `json:"-"`
+}
+
+// GetId returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.Id, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetId() string {
+	return v.AutomationReadGrantFields.Id
+}
+
+// GetAppId returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.AppId, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetAppId() string {
+	return v.AutomationReadGrantFields.AppId
+}
+
+// GetMemoryUrn returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetMemoryUrn() *string {
+	return v.AutomationReadGrantFields.MemoryUrn
+}
+
+// GetPrefix returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.Prefix, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetPrefix() *string {
+	return v.AutomationReadGrantFields.Prefix
+}
+
+// GetTriggerId returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetTriggerId() string {
+	return v.AutomationReadGrantFields.TriggerId
+}
+
+// GetTriggerKind returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetTriggerKind() string {
+	return v.AutomationReadGrantFields.TriggerKind
+}
+
+// GetGrantedBy returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetGrantedBy() string {
+	return v.AutomationReadGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetCreatedAt() string {
+	return v.AutomationReadGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetRevokedAt() *string {
+	return v.AutomationReadGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) GetRevokedBy() *string {
+	return v.AutomationReadGrantFields.RevokedBy
+}
+
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationReadGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	MemoryUrn *string `json:"memoryUrn"`
+
+	Prefix *string `json:"prefix"`
+
+	TriggerId string `json:"triggerId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) __premarshalJSON() (*__premarshalAutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant, error) {
+	var retval __premarshalAutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant
+
+	retval.Id = v.AutomationReadGrantFields.Id
+	retval.AppId = v.AutomationReadGrantFields.AppId
+	retval.MemoryUrn = v.AutomationReadGrantFields.MemoryUrn
+	retval.Prefix = v.AutomationReadGrantFields.Prefix
+	retval.TriggerId = v.AutomationReadGrantFields.TriggerId
+	retval.TriggerKind = v.AutomationReadGrantFields.TriggerKind
+	retval.GrantedBy = v.AutomationReadGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationReadGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationReadGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationReadGrantFields.RevokedBy
+	return &retval, nil
+}
+
+// AutomationReadGrantsInstructedResponse is returned by AutomationReadGrantsInstructed on success.
+type AutomationReadGrantsInstructedResponse struct {
+	// #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of. A held worker on a validated instruction is scoped to its own App, including memory-only lists; each admitted instructed list records one ids-only team event. A person supplying instruction must also supply appRef; omit instruction to retain a cross-App memory-only list.
+	AutomationReadGrants []*AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant `json:"automationReadGrants"`
+}
+
+// GetAutomationReadGrants returns AutomationReadGrantsInstructedResponse.AutomationReadGrants, and is useful for accessing the field via an interface.
+func (v *AutomationReadGrantsInstructedResponse) GetAutomationReadGrants() []*AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant {
+	return v.AutomationReadGrants
+}
+
 // AutomationReadGrantsResponse is returned by AutomationReadGrants on success.
 type AutomationReadGrantsResponse struct {
 	// #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of. A held worker on a validated instruction is scoped to its own App, including memory-only lists; each admitted instructed list records one ids-only team event. A person supplying instruction must also supply appRef; omit instruction to retain a cross-App memory-only list.
@@ -87096,6 +87236,146 @@ func (v *RevokeAppMemoryWriteGrantRow1595) __premarshalJSON() (*__premarshalRevo
 	return &retval, nil
 }
 
+// RevokeAutomationReadGrantInstructedResponse is returned by RevokeAutomationReadGrantInstructed on success.
+type RevokeAutomationReadGrantInstructedResponse struct {
+	// #2883: end an automation read grant. The App's managers or the target's manager, as themselves or through a held worker on a validated instruction within its own App. Terminal, with no event on a repeat.
+	RevokeAutomationReadGrant *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant `json:"revokeAutomationReadGrant"`
+}
+
+// GetRevokeAutomationReadGrant returns RevokeAutomationReadGrantInstructedResponse.RevokeAutomationReadGrant, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedResponse) GetRevokeAutomationReadGrant() *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant {
+	return v.RevokeAutomationReadGrant
+}
+
+// RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant includes the requested fields of the GraphQL type AutomationReadGrant.
+// The GraphQL type's documentation follows.
+//
+// #2883: an automation's READ grant on one memory (the whole memory, or one loc prefix), held on the trigger row (a schedule or webhook) a run executes. Read-only: consulted only by the run's own node read, live at each read, never for writes, listing or search, and only for the memory's own run. It carries over an edit and a re-adoption and ends on revoke or when the trigger is deleted. Runs the trigger starts carry it; a manual run does not. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+type RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant struct {
+	AutomationReadGrantFields `json:"-"`
+}
+
+// GetId returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.Id, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetId() string {
+	return v.AutomationReadGrantFields.Id
+}
+
+// GetAppId returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.AppId, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetAppId() string {
+	return v.AutomationReadGrantFields.AppId
+}
+
+// GetMemoryUrn returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetMemoryUrn() *string {
+	return v.AutomationReadGrantFields.MemoryUrn
+}
+
+// GetPrefix returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.Prefix, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetPrefix() *string {
+	return v.AutomationReadGrantFields.Prefix
+}
+
+// GetTriggerId returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetTriggerId() string {
+	return v.AutomationReadGrantFields.TriggerId
+}
+
+// GetTriggerKind returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetTriggerKind() string {
+	return v.AutomationReadGrantFields.TriggerKind
+}
+
+// GetGrantedBy returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetGrantedBy() string {
+	return v.AutomationReadGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetCreatedAt() string {
+	return v.AutomationReadGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetRevokedAt() *string {
+	return v.AutomationReadGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) GetRevokedBy() *string {
+	return v.AutomationReadGrantFields.RevokedBy
+}
+
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationReadGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRevokeAutomationReadGrantInstructedRevokeAutomationReadGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	MemoryUrn *string `json:"memoryUrn"`
+
+	Prefix *string `json:"prefix"`
+
+	TriggerId string `json:"triggerId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) __premarshalJSON() (*__premarshalRevokeAutomationReadGrantInstructedRevokeAutomationReadGrant, error) {
+	var retval __premarshalRevokeAutomationReadGrantInstructedRevokeAutomationReadGrant
+
+	retval.Id = v.AutomationReadGrantFields.Id
+	retval.AppId = v.AutomationReadGrantFields.AppId
+	retval.MemoryUrn = v.AutomationReadGrantFields.MemoryUrn
+	retval.Prefix = v.AutomationReadGrantFields.Prefix
+	retval.TriggerId = v.AutomationReadGrantFields.TriggerId
+	retval.TriggerKind = v.AutomationReadGrantFields.TriggerKind
+	retval.GrantedBy = v.AutomationReadGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationReadGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationReadGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationReadGrantFields.RevokedBy
+	return &retval, nil
+}
+
 // RevokeAutomationReadGrantResponse is returned by RevokeAutomationReadGrant on success.
 type RevokeAutomationReadGrantResponse struct {
 	// #2883: end an automation read grant. The App's managers or the target's manager, as themselves or through a held worker on a validated instruction within its own App. Terminal, with no event on a repeat.
@@ -124893,6 +125173,28 @@ func (v *__AutomationReadGrantsInput) GetMemoryRef() *string { return v.MemoryRe
 // GetIncludeRevoked returns __AutomationReadGrantsInput.IncludeRevoked, and is useful for accessing the field via an interface.
 func (v *__AutomationReadGrantsInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
 
+// __AutomationReadGrantsInstructedInput is used internally by genqlient
+type __AutomationReadGrantsInstructedInput struct {
+	AppRef         *string              `json:"appRef,omitempty"`
+	MemoryRef      *string              `json:"memoryRef,omitempty"`
+	IncludeRevoked *bool                `json:"includeRevoked,omitempty"`
+	Instruction    *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __AutomationReadGrantsInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AutomationReadGrantsInstructedInput) GetAppRef() *string { return v.AppRef }
+
+// GetMemoryRef returns __AutomationReadGrantsInstructedInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__AutomationReadGrantsInstructedInput) GetMemoryRef() *string { return v.MemoryRef }
+
+// GetIncludeRevoked returns __AutomationReadGrantsInstructedInput.IncludeRevoked, and is useful for accessing the field via an interface.
+func (v *__AutomationReadGrantsInstructedInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
+
+// GetInstruction returns __AutomationReadGrantsInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__AutomationReadGrantsInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __AutomationTeamSnapshotGrantByIdInput is used internally by genqlient
 type __AutomationTeamSnapshotGrantByIdInput struct {
 	Id string `json:"id"`
@@ -131118,6 +131420,20 @@ type __RevokeAutomationReadGrantInput struct {
 
 // GetId returns __RevokeAutomationReadGrantInput.Id, and is useful for accessing the field via an interface.
 func (v *__RevokeAutomationReadGrantInput) GetId() string { return v.Id }
+
+// __RevokeAutomationReadGrantInstructedInput is used internally by genqlient
+type __RevokeAutomationReadGrantInstructedInput struct {
+	Id          string               `json:"id"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetId returns __RevokeAutomationReadGrantInstructedInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAutomationReadGrantInstructedInput) GetId() string { return v.Id }
+
+// GetInstruction returns __RevokeAutomationReadGrantInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RevokeAutomationReadGrantInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __RevokeAutomationTeamSnapshotGrantInput is used internally by genqlient
 type __RevokeAutomationTeamSnapshotGrantInput struct {
@@ -145600,6 +145916,58 @@ func AutomationReadGrants(
 	}
 
 	data_ = &AutomationReadGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AutomationReadGrantsInstructed.
+const AutomationReadGrantsInstructed_Operation = `
+query AutomationReadGrantsInstructed ($appRef: String, $memoryRef: String, $includeRevoked: Boolean, $instruction: ActInstructionInput!) {
+	automationReadGrants(appRef: $appRef, memoryRef: $memoryRef, includeRevoked: $includeRevoked, instruction: $instruction) {
+		... AutomationReadGrantFields
+	}
+}
+fragment AutomationReadGrantFields on AutomationReadGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	triggerId
+	triggerKind
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func AutomationReadGrantsInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef *string,
+	memoryRef *string,
+	includeRevoked *bool,
+	instruction *ActInstructionInput,
+) (data_ *AutomationReadGrantsInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AutomationReadGrantsInstructed",
+		Query:  AutomationReadGrantsInstructed_Operation,
+		Variables: &__AutomationReadGrantsInstructedInput{
+			AppRef:         appRef,
+			MemoryRef:      memoryRef,
+			IncludeRevoked: includeRevoked,
+			Instruction:    instruction,
+		},
+	}
+
+	data_ = &AutomationReadGrantsInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -168488,6 +168856,57 @@ func RevokeAutomationReadGrant(
 	}
 
 	data_ = &RevokeAutomationReadGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeAutomationReadGrantInstructed.
+const RevokeAutomationReadGrantInstructed_Operation = `
+mutation RevokeAutomationReadGrantInstructed ($id: ID!, $instruction: ActInstructionInput!) {
+	revokeAutomationReadGrant(id: $id, instruction: $instruction) {
+		... AutomationReadGrantFields
+	}
+}
+fragment AutomationReadGrantFields on AutomationReadGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	triggerId
+	triggerKind
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+// cli#2446 (server 7907d93d): the worker-instructed arm. Separate documents so
+// the uninstructed requests stay byte-identical to the legacy ones on an older
+// server; only an explicit --instruction sends these.
+func RevokeAutomationReadGrantInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	instruction *ActInstructionInput,
+) (data_ *RevokeAutomationReadGrantInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAutomationReadGrantInstructed",
+		Query:  RevokeAutomationReadGrantInstructed_Operation,
+		Variables: &__RevokeAutomationReadGrantInstructedInput{
+			Id:          id,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RevokeAutomationReadGrantInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
