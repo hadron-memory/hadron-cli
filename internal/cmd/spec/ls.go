@@ -114,6 +114,8 @@ Omit --role to keep the normal tag/role union. An empty --role is refused.`,
 					err = secondErr
 					rawNodes = unionNodeResults(rawNodes, stale)
 				}
+				// Canonicalize every explicit stream before the display window.
+				rawNodes = unionNodeResults(rawNodes, nil)
 				err = api.MapError(err)
 			case minted || unminted:
 				rawNodes, err = scanAllSpecNodesWithMint(cmd.Context(), client, memoryArg, prefixArg, minted)
