@@ -25,7 +25,8 @@ row per scope and action, with today's use, the limit and when it resets.
 Needs ADMIN or OWNER in the org (else exit 8). --app must belong to the org
 (else exit 4). Counters that were never used are created with the platform
 defaults the first time they are shown, so the list is never empty for a
-scope that exists.
+scope that exists. For a scope you have not used, the limit shown is the
+platform default.
 
 --json gives an array of id, scopeKind (org or app), scopeId, action, window,
 used, limit and resetAt; an empty list is [].`,
