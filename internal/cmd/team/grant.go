@@ -63,7 +63,8 @@ on that page (nothing here signs); (4) 'team grant signing-request get
 grant, where allows says whether it can be used now. 'list' and 'get' read the
 worker's own grants, so they need a worker session that a person is driving
 (a worktree bound with 'hadron team session start'). Organization action grants
-are managed with 'hadron grant', not here.`}
+are managed with 'hadron grant' ('hadron grant list'), not here; 'hadron auth
+grants' reads the grants you hold personally across Apps.`}
 	var limit, offset int
 	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: workerGrantHelp + `
 

@@ -476,7 +476,7 @@ section between the markers.
 | `team delivery-settings get` |  |  | n | #1054 | 21c7552c6282 |  | unread |  |
 | `team delivery-settings set` |  |  | n | #1054 | 07f78aab5580 |  | unread |  |
 | `team events` |  |  | n | #1054 | 3530b1366bf5 |  | unread |  |
-| `team grant` |  |  | n | #1054 | e520d30254bc |  | unread |  |
+| `team grant` |  |  | n | #1054 | 649d485f92d7 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | 3b2af7379343 |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 8868d30468f0 |  | unread |  |
 | `team grant add` |  |  | y | #1054 | 53665deafa96 |  | unread |  |
