@@ -130,7 +130,7 @@ scope (exit 2). Prints which scope the key now holds, then the key's scopes.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.GrantAppKeyScope == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no grant")
+				return exitcode.Newf(exitcode.Error, "server returned no grant result")
 			}
 			dto := appKeyScopesDTOFrom(&resp.GrantAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -187,7 +187,7 @@ scopes the key still holds (or "scopes: none"); --json is {"id", "appId",
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.RevokeAppKeyScope == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no revocation")
+				return exitcode.Newf(exitcode.Error, "server returned no revocation result")
 			}
 			dto := appKeyScopesDTOFrom(&resp.RevokeAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

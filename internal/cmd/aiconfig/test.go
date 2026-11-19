@@ -71,13 +71,13 @@ optional provider, model, apiKey, endpoint, apiStyle and params. Use a private
 file, or - for piped JSON, to keep keys out of argv. A field you leave out uses
 the saved value; null for apiStyle or endpoint uses the provider default; null
 params clears the edited params; params, when present, is an object. The
-override is never saved or printed, and a piped document is refused at a
-terminal.
+override is never saved or printed, and --override-file - is refused when
+stdin is a terminal, so the command never waits for typed input.
 
 Output: ok, the provider, model, endpoint and style actually used, latencyMs,
 the model's reply, the error (provider text removed) if any, where each value
-came from (used), and the result of each setting you put in params (a "knob", such as temperature). A test that
-completed exits 0 even when ok is false: read ok and error.code in --json. A
+came from (used), and the result of each setting you put in params (a "knob", such as temperature). For a test that
+completed, read ok and error.code in --json. A
 refused request uses the usual CLI exit codes. On KEY_UNREADABLE, store the key
 again with 'hadron ai-config update <id> --api-key -'. Retry a provider failure
 only when error.transient says you may.
@@ -97,10 +97,11 @@ transport failures) use the usual CLI error exits. Statuses:
   FAIL_OTHER_TOOL            it called a tool other than respond
   FAIL_MULTIPLE_CALLS        it called respond more than once
   FAIL_MALFORMED             the call's arguments were not valid
-  FAIL_PROVIDER_UNAVAILABLE  the provider call itself failed; retry or fix ok
+  FAIL_PROVIDER_UNAVAILABLE  the provider call itself failed; retry after it recovers
   UNSUPPORTED_PROVIDER       the server cannot probe this provider
-After any FAIL, pick a different model or provider ('ai-config tool-choice'
-predicts how chat treats a pair; this probe checks it for real).`,
+After a FAIL other than FAIL_PROVIDER_UNAVAILABLE, pick a different model or
+provider ('ai-config tool-choice' predicts how chat treats a pair; this probe
+checks it for real).`,
 		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json\n  hadron ai-config test cfg_123 --chat-probe --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
