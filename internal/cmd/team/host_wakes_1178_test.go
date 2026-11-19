@@ -304,3 +304,38 @@ func TestNotRevisitedBoundaryAndWording1322(t *testing.T) {
 		t.Fatalf("the row asserts a cause the record cannot show: %q", out)
 	}
 }
+
+// cli#2623: a held screen-unknown is shown by `team host status`, with what it
+// can mean, so it is not left to a reader of status.json; other holds do not
+// carry the hint.
+func TestHeldScreenUnknownIsExplainedInHostStatus2623(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &hostpoller.Config{StateFile: filepath.Join(dir, "state.json"), PollIntervalSeconds: 30, Delivery: hostpoller.DeliveryConfig{Enabled: true, OrcaBin: "/bin/true"}}
+	now := time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC)
+	book := delivery.NewStatusBook(cfg.DeliveryStateDir())
+	book.Observe(delivery.Event{Time: now.Add(-10 * time.Second), Worker: "billie", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldScreenUnknown, Wake: true})
+	book.Observe(delivery.Event{Time: now.Add(-10 * time.Second), Worker: "iris", WorkerID: "wkr2", Kind: delivery.Held, Reason: delivery.HoldDraft, Wake: true})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	d := hostDeliveryStatus(cfg, now)
+	var buf strings.Builder
+	writeHostDelivery(&buf, d)
+	var billie, iris string
+	for _, line := range strings.Split(buf.String(), "\n") {
+		switch {
+		case strings.Contains(line, "billie:"):
+			billie = line
+		case strings.Contains(line, "iris:"):
+			iris = line
+		}
+	}
+	for _, want := range []string{"billie: held screen-unknown", "SCREEN UNKNOWN:", "differs from the worker's tui in the config"} {
+		if !strings.Contains(billie, want) {
+			t.Errorf("billie's status line lacks %q: %q", want, billie)
+		}
+	}
+	if strings.Contains(iris, "SCREEN UNKNOWN") {
+		t.Errorf("a draft hold carries the screen-unknown hint: %q", iris)
+	}
+}

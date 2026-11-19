@@ -98,7 +98,7 @@ func TestDeliversToTheRegisteredWorkerInItsRegisteredWorktrees(t *testing.T) {
 	}
 	r := got[0].to
 	if r.WorkerID != "id-iris" || r.Name != "iris" || r.TUI != "claude" ||
-		len(r.Worktrees) != 1 || r.Worktrees[0] != p.cfg.WorktreePath("repo/iris") {
+		len(r.Worktrees) != 1 || r.Worktrees[0] != p.startCfg.WorktreePath("repo/iris") {
 		t.Fatalf("recipient %+v", r)
 	}
 }

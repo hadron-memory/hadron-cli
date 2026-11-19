@@ -33,7 +33,7 @@ func TestWorkerStartCannotBypassRelaunchReservation2060(t *testing.T) {
 	p, srv, host := testPoller(t)
 	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude"})
 	rec := &recordedOrca{}
-	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 	release, err := p.reserveWorktreeLaunch("repo/iris")
 	if err != nil {
 		t.Fatal(err)

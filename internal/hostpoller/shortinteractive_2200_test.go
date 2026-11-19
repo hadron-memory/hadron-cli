@@ -14,7 +14,7 @@ func TestShortRunThatDidNotExitIsStoppedByWorkerEnd2200(t *testing.T) {
 		LauncherProfile{Family: "claude", Mode: ModeShort, Model: "sonnet", Account: "a"}, AccountProfile{Bin: "claude-worker"})
 	withStop(p, StopOnEndAlways)
 	rec := &recordedOrca{}
-	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 	srv.notDone["s1"] = 2
 	srv.batches = [][]Operation{{startOp()}}
 	step(t, p)
