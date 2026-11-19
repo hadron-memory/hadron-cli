@@ -1,6 +1,7 @@
 package team
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -32,7 +33,7 @@ type defectLinkDTO struct {
 func newCmdTaskLinkDefect(f *cmdutil.Factory) *cobra.Command {
 	var defect, head, rawInstruction string
 	c := &cobra.Command{
-		Use:   "link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>]",
+		Use:   "link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>] [--instruction <kind>:<ref>]",
 		Short: "Link a defect found after merge to the PR build task it escaped from",
 		Long: `Record that a defect found after a pull request merged traces back to that PR
 (server #4280/#4284). <pr-build-task> is the PR's build task: a task with
@@ -62,7 +63,7 @@ Refusals, each sent once and never retried:
 
 --json is {taskId, defect, introducedAtHead, eventId, linkedAt, created};
 introducedAtHead is null when the link names no head, and created is false
-for an existing link.` + "\n\n" + strings.ReplaceAll(taskInstructionHelp, "ba077810", "696ed50c8") + "\nAn unavailable or changed worktree binding sends as the signed-in person,\nwith the instruction checked but not recorded; it borrows no worker session.",
+for an existing link.` + "\n\n" + taskInstructionHelpFor("696ed50c8") + "\nAn unavailable or changed worktree binding sends as the signed-in person,\nwith the instruction checked but not recorded; it borrows no worker session.",
 		Example: "  hadron team task link-defect AT0.7850 --defect https://github.com/acme/app/issues/77 --introduced-at-head 0123456789abcdef0123456789abcdef01234567",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -73,8 +74,13 @@ for an existing link.` + "\n\n" + strings.ReplaceAll(taskInstructionHelp, "ba077
 			if err != nil {
 				return err
 			}
-			// Snapshot before client creation or any later lookup.
-			instructed := BeginServerTargetInstructedWrite(f)(cmd.Context())
+			// Snapshot before client creation or any later lookup — but only
+			// when there is a claim to carry: the plain path never consults
+			// it, so it skips the binding read (cli#2504 F4).
+			var instructed func(context.Context) (context.Context, bool, error)
+			if claim != nil {
+				instructed = BeginServerTargetInstructedWrite(f)(cmd.Context())
+			}
 			ref, err := taskRefArg(f, args)
 			if err != nil {
 				return err
@@ -133,7 +139,7 @@ for an existing link.` + "\n\n" + strings.ReplaceAll(taskInstructionHelp, "ba077
 	c.Flags().StringVar(&defect, "defect", "", "required: the defect's issue URL")
 	c.Flags().StringVar(&head, "introduced-at-head", "", "the full 40-hex PR head, frozen on the task, that introduced the defect")
 	addTaskInstructionFlag(c, &rawInstruction)
-	c.Flags().Lookup("instruction").Usage = strings.ReplaceAll(taskInstructionFlagUsage, "ba077810", "696ed50c8")
+	c.Flags().Lookup("instruction").Usage = taskInstructionFlagUsageFor("696ed50c8")
 	return c
 }
 
