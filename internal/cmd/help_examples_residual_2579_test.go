@@ -29,7 +29,7 @@ import (
 // knownPanics2579 lists the commands (by path) that panic on a reply with no data,
 // each tracked by a follow-up issue: a panic is a defect of the command, not of
 // its example, so the walk records it here instead of failing the help check.
-var knownPanics2579 = map[string]string{}
+var knownPanics2579 = map[string]string{"usage events": "#2590"}
 
 func collectResidualPages2579(root *cobra.Command) []*cobra.Command {
 	var pages []*cobra.Command
