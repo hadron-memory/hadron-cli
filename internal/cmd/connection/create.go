@@ -20,9 +20,9 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		scopes                   []string
 	)
 	cmd := &cobra.Command{
-		Use:   "create --connection <ref> --app <ref> --scopes <scope>[,...]",
+		Use:   "create --connection <id> --app <ref> --scopes <scope>[,...]",
 		Short: "Delegate scoped access on your connection to an App (owner-only)",
-		Long: `Grant an App scoped access to a connection you own (owner-only).
+		Long: `Give an App limited access to a connection you own (owner-only).
 
 --connection is the connection's ID. Find it with 'hadron email connections
 --org <org>' (org admin; the ID column); you must be the connection's owner.
@@ -93,9 +93,9 @@ To end it early, 'hadron connection grant revoke <grant-id>'.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&connection, "connection", "", "ID of the connection to delegate on (required; from 'hadron email connections --org <org>')")
+	cmd.Flags().StringVar(&connection, "connection", "", "ID or ref of the connection to delegate on (required; from 'hadron email connections --org <org>')")
 	cmd.Flags().StringVar(&app, "app", "", "App that receives access (ID, URN or <org>:<slug>; required)")
-	cmd.Flags().StringSliceVar(&scopes, "scopes", nil, "scope to grant (repeatable or comma-separated; mail.read|mail.send|calendar.freebusy|calendar.read; required)")
+	cmd.Flags().StringSliceVar(&scopes, "scopes", nil, "scope(s) to grant (repeatable or comma-separated; mail.read|mail.send|calendar.freebusy|calendar.read; required)")
 	cmd.Flags().StringVar(&expires, "expires-at", "", "ISO-8601 expiry timestamp with timezone (omit for perpetual)")
 	_ = cmd.MarkFlagRequired("connection")
 	_ = cmd.MarkFlagRequired("app")

@@ -30,7 +30,8 @@ recurring cron timetable or once at a set time. Give exactly one of
 omitted means the App's attached memories. The server snapshots it per run.
 
 --as-self runs on behalf of you (reaches your personal memories; authenticated
-user only — an App-key caller gets UNAUTHENTICATED). --arg sets static template
+user only — a caller using an App key (hadron app key create) gets
+UNAUTHENTICATED). --arg sets static template
 args merged into each run (repeatable). --ai-config selects a named AI config
 (see "hadron ai-config").
 
@@ -43,7 +44,7 @@ apply. {"allow":[]} allows nothing. See "hadron policy" for the layers and
 
 --budget-tokens / --budget-actions cap each run this schedule spawns (positive whole numbers;
 omitted = the platform default). A value above the platform default is refused
-by the server. Requires a server with trigger budgets.`,
+by the server. Needs a server version that supports budgets.`,
 		Example: `  hadron schedule create --app acme.com:ops --name nightly-digest \
     --cron '0 6 * * *' --tz America/New_York \
     --entry hrn:node:acme.com:ops:tasks:nightly-digest --as-self`,

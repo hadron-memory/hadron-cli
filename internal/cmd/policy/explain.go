@@ -48,7 +48,11 @@ layers, each with layer, present, allowed and allow; allow is null when the
 layer has no link and [] when its link allows nothing.
 
 Per-trigger links (schedule and webhook --policy) are not part of this chain;
-hadron run get shows the policy a finished run actually applied.`,
+hadron run get shows the policy a finished run actually applied.
+
+--action names are strings such as run.execute and comm.outbound. No command
+lists them; the current set is in the hadron-docs reference
+docs/reference/authorization.md (the set today, not a fixed one).`,
 		Example: `  hadron policy explain --action comm.outbound --app hrn:app:acme.com:assistant
   hadron policy explain --action run.execute --app hrn:app:acme.com:assistant --user jane --json`,
 		Args: cobra.NoArgs,

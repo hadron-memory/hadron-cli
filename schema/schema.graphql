@@ -2132,16 +2132,16 @@ type AiServiceConfigsPage {
   total: Int!
 }
 
-input AmendDecisionInput {
-  addParts: [DecisionPartInput!]
-  blocks: [DecisionRefInput!]
+input AmendQuestionInput {
+  addParts: [QuestionPartInput!]
+  blocks: [QuestionRefInput!]
   context: String
-  followUps: [DecisionRefInput!]
-  parts: [DecisionPartPatchInput!]
-  sources: [DecisionRefInput!]
-  tier: DecisionTier
+  followUps: [QuestionRefInput!]
+  parts: [QuestionPartPatchInput!]
+  sources: [QuestionRefInput!]
+  tier: QuestionTier
   title: String
-  urgency: DecisionUrgency
+  urgency: QuestionUrgency
 }
 
 """
@@ -3042,16 +3042,16 @@ type ApproveMemoryNodesResult {
   """#2043 — the first 50 of those, by loc."""
   skippedBootPrompts: [String!]!
 
-  """
-  #1641 — decisions and decision logs in this memory, which bulk approval never approves: a decision is approved individually by one of its deciders.
-  """
-  skippedDecisionCount: Int!
-
-  """#1641 — the first 50 of those, by loc."""
-  skippedDecisions: [String!]!
-
   """Locs of reserved placeholders, which have no spec to approve yet."""
   skippedPlaceholders: [String!]!
+
+  """
+  #1641 — questions and question logs in this memory, which bulk approval never approves: a question is approved individually by one of its deciders.
+  """
+  skippedQuestionCount: Int!
+
+  """#1641 — the first 50 of those, by loc."""
+  skippedQuestions: [String!]!
 
   """
   #1607 — unminted nodes of this memory with open discussion: a warning, never a blocker (hrn:node:hadronmemory.com:specs:cor:dmo:110:07). Ordered by loc.
@@ -3064,28 +3064,28 @@ type AppsPage {
   total: Int!
 }
 
-input AskDecisionInput {
+input AskQuestionInput {
   authorizes: Boolean
-  blocks: [DecisionRefInput!]
+  blocks: [QuestionRefInput!]
   context: String
 
   """
   Narrows the log's default deciders; never widens past its eligible set.
   """
   deciders: [ID!]
-  followUps: [DecisionRefInput!]
+  followUps: [QuestionRefInput!]
 
-  """The authorization a grant decision carries (authorizes: true only)."""
+  """The authorization a grant question carries (authorizes: true only)."""
   grant: JSON
-  parts: [DecisionPartInput!]!
-  sources: [DecisionRefInput!]
+  parts: [QuestionPartInput!]!
+  sources: [QuestionRefInput!]
 
   """
-  Default APPROVED; SIGNED when authorizes is true (APPROVED is then refused: DECISION_TIER_TOO_LOW).
+  Default APPROVED; SIGNED when authorizes is true (APPROVED is then refused: QUESTION_TIER_TOO_LOW).
   """
-  tier: DecisionTier
+  tier: QuestionTier
   title: String!
-  urgency: DecisionUrgency
+  urgency: QuestionUrgency
 }
 
 type Asset {
@@ -5091,7 +5091,7 @@ input CreateNodeInput {
   """
   #1201 — what this node is FOR (open string). NOT 'nodeType' (the
   platform-kind axis) and NOT 'objectType' (the collection discriminator).
-  A GOVERNED family ('review', 'spec', 'decision', including dotted descendants)
+  A GOVERNED family ('review', 'spec', 'question', including dotted descendants)
   requires that kind's own door; generic createNode refuses it.
   """
   role: String
@@ -5306,377 +5306,6 @@ makes that shape unrepresentable, so no client needs to sniff the format.
 Output-only today: date-valued arguments remain String.
 """
 scalar DateTime
-
-"""
-#1641 — a human decision: a governed node (role decision) under a decision log, written only by the
-decision operations. Its content is rendered from this structured payload, so an approval covers
-exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
-"""
-type Decision {
-  """When the last part was answered; null while any part is open."""
-  answeredAt: DateTime
-
-  """Migrated history that is never usable as an authorization."""
-  archival: Boolean!
-  askedAt: DateTime
-  askedBy: DecisionActor!
-  authorizes: Boolean!
-
-  """What is waiting on this decision."""
-  blocks: [DecisionRef!]!
-
-  """Permanent: DA, DB, … issued in sequence by its log, never reused."""
-  code: String!
-  context: String
-  deciderIds: [ID!]!
-  deciders: [CommentActorRef!]!
-  evidence: DecisionEvidence!
-
-  """Spec citations the ruling must reach."""
-  followUps: [DecisionRef!]!
-  id: ID!
-
-  """
-  Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
-  """
-  identityMerges: [DecisionIdentityMerge!]!
-  logId: ID
-  n: Int!
-  node: Node
-  parts: [DecisionPart!]!
-
-  """
-  The decision's own page, where its card renders. Copy it; never build it.
-  """
-  portalUrl: String
-
-  """The node's current revision: the expectedRevision of the next change."""
-  revSeq: Int!
-  sources: [DecisionRef!]!
-
-  """DERIVED on every read. Rely on a ruling only while it is DECIDED."""
-  state: DecisionState!
-  tier: DecisionTier!
-  title: String!
-  urgency: DecisionUrgency!
-  urn: String!
-
-  """
-  True when the caller is a decider, including through an account merged into theirs (#1715).
-  """
-  viewerIsDecider: Boolean!
-  withdrawn: DecisionWithdrawal
-}
-
-"""
-#1641 — an authenticated actor: taken from the principal, never supplied by a client. Public projections only (#552).
-"""
-type DecisionActor {
-  app: CommentActorRef
-  appId: ID
-  user: CommentActorRef
-  userId: ID
-  worker: CommentActorRef
-  workerId: ID
-}
-
-type DecisionAnswer {
-  at: DateTime!
-
-  """The decider whose credential recorded it."""
-  byUserId: ID!
-
-  """
-  An imported answer's recorded speaker (a claim, never rendered as the authenticated answerer).
-  """
-  claimedBy: String
-  freeform: Boolean!
-
-  """The chosen option; null for a free-text answer."""
-  key: String
-  reason: String
-  recordedByUserId: ID
-
-  """Where the answer was given (a claim)."""
-  source: DecisionRef
-  text: String
-  via: DecisionAnswerVia!
-}
-
-"""
-#1641 — where an answer was given, as the answering caller states it (a claim).
-"""
-enum DecisionAnswerVia {
-  CHAT_RECORDED
-  CLI
-  IMPORT
-  MCP
-  PORTAL
-}
-
-type DecisionApprovalEvidence {
-  approvedAt: DateTime!
-  by: CommentActorRef
-
-  """
-  Whether the approver is one of the decision's deciders (only then does it count).
-  """
-  byDecider: Boolean!
-  byUserId: ID
-
-  """
-  INTACT, TAMPERED, SUPERSEDED or NOT_APPROVED: the approval hash checked against the live text.
-  """
-  integrity: String!
-
-  """The revision approved."""
-  revision: Int!
-}
-
-type DecisionEvidence {
-  """The latest approval on record, whoever gave it."""
-  approval: DecisionApprovalEvidence
-}
-
-"""
-#1715 — an account merge that a user id stored in a decision or a log follows.
-Stored ids are never rewritten by mergeUsers, because they are part of the
-authenticated record: the record still names fromUserId, and that account now
-acts as toUserId. A chain of merges is listed link by link, oldest first.
-"""
-type DecisionIdentityMerge {
-  from: CommentActorRef
-  fromUserId: ID!
-  mergedAt: DateTime!
-  to: CommentActorRef
-  toUserId: ID!
-}
-
-"""#1641 — a decision log's settings (never a decision, never approved)."""
-type DecisionLog {
-  defaultDeciderIds: [ID!]!
-
-  """Who decides a decision asked without naming deciders."""
-  defaultDeciders: [CommentActorRef!]!
-  eligibleDeciderIds: [ID!]!
-
-  """
-  Who else a decision may name as a decider. A decision's deciders are narrowed from these, never widened.
-  """
-  eligibleDeciders: [CommentActorRef!]!
-  id: ID!
-
-  """
-  Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
-  """
-  identityMerges: [DecisionIdentityMerge!]!
-
-  """How many codes have been issued (withdrawn and purged ones included)."""
-  lastCode: Int!
-  loc: String!
-  name: String!
-  portalUrl: String
-
-  """Codes are this prefix plus letters: D → DA, DB, …"""
-  prefix: String!
-  purges: [DecisionPurge!]!
-  revSeq: Int!
-  urn: String!
-}
-
-input DecisionNoRecommendationInput {
-  reason: String!
-}
-
-type DecisionOption {
-  cost: String
-
-  """The option id an answer names."""
-  key: String!
-  label: String!
-  meaning: String
-}
-
-input DecisionOptionInput {
-  cost: String
-  key: String!
-  label: String!
-  meaning: String
-}
-
-type DecisionPage {
-  items: [Decision!]!
-
-  """Matching decisions before paging."""
-  total: Int!
-}
-
-type DecisionPart {
-  answer: DecisionAnswer
-
-  """
-  Earlier answers to this part, oldest first: a re-answer appends, never replaces quietly.
-  """
-  answerHistory: [DecisionAnswer!]!
-
-  """The citation of this part, e.g. DU-1."""
-  citation: String!
-
-  """Permanent within the decision; amendments add parts, never renumber."""
-  n: Int!
-  noRecommendationReason: String
-  options: [DecisionOption!]!
-  question: String!
-
-  """
-  Null when the asker deliberately gave none (see noRecommendationReason). Never pre-selected.
-  """
-  recommendation: DecisionRecommendation
-}
-
-"""
-#1641 — one part of a decision. Give options or yesno, and a recommendation or noRecommendation.
-"""
-input DecisionPartInput {
-  noRecommendation: DecisionNoRecommendationInput
-  options: [DecisionOptionInput!]
-  question: String!
-  recommendation: DecisionRecommendationInput
-  yesno: Boolean
-}
-
-"""
-#1641 — a change to an existing part (by its permanent number). Omitted fields are unchanged; answers never change here.
-"""
-input DecisionPartPatchInput {
-  n: Int!
-  noRecommendation: DecisionNoRecommendationInput
-  options: [DecisionOptionInput!]
-  question: String
-  recommendation: DecisionRecommendationInput
-  yesno: Boolean
-}
-
-type DecisionPurge {
-  at: DateTime!
-  by: CommentActorRef
-  byUserId: ID!
-  code: String!
-
-  """sha256 of the purged decision's rendered content."""
-  contentHash: String!
-  reason: String!
-}
-
-type DecisionRecommendation {
-  """A relayed recommendation's original author, as a claim."""
-  attributedTo: String
-
-  """Who recorded the recommendation (authenticated)."""
-  by: DecisionActor!
-  key: String!
-  reason: String
-}
-
-input DecisionRecommendationInput {
-  """Relaying someone else's recommendation: who (recorded as a claim)."""
-  attributedTo: String
-  key: String!
-  reason: String
-}
-
-"""
-#1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
-"""
-type DecisionRef {
-  node: String
-  ref: String
-  spec: String
-}
-
-input DecisionRefInput {
-  node: String
-  ref: String
-  spec: String
-}
-
-"""
-#1641 — list order. PORTAL_DEFAULT: urgent first, then open before answered, then newest ask. CODE: code order.
-"""
-enum DecisionSort {
-  CODE
-  PORTAL_DEFAULT
-}
-
-"""
-#1641 — a decision's derived state (hrn:node:hadronmemory.com:hadron-server:design:decision-nodes §6.3). Computed by the one evaluation on every read, never stored. Precedence: TAMPERED, UNVERIFIABLE, WITHDRAWN, SUPERSEDED, STALE, DECIDED, ANSWERED_UNCONFIRMED, OPEN.
-"""
-enum DecisionState {
-  """
-  Every part is answered; the tier's evidence (a decider's approval, or later a signature) is missing at the current revision.
-  """
-  ANSWERED_UNCONFIRMED
-
-  """
-  Answered, and the tier's evidence by a decider is intact at the current revision. The only state a ruling may be relied on in.
-  """
-  DECIDED
-
-  """Not every part is answered."""
-  OPEN
-
-  """
-  Evidence exists, but for an earlier revision: the decision changed after it was approved.
-  """
-  STALE
-  SUPERSEDED
-
-  """
-  The rendered content, the structured payload and the approval hash disagree: changed outside the decision operations.
-  """
-  TAMPERED
-
-  """
-  Written by a codec or renderer this server does not know, so it cannot be verified (fail closed).
-  """
-  UNVERIFIABLE
-  WITHDRAWN
-}
-
-"""
-#1641 — the assurance a decision's answer needs. APPROVED: a decider's approval. SIGNED: a decider's passkey signature (#1614; not available yet, so a SIGNED decision stays ANSWERED_UNCONFIRMED).
-"""
-enum DecisionTier {
-  APPROVED
-  SIGNED
-}
-
-enum DecisionUrgency {
-  NORMAL
-  URGENT
-}
-
-"""#1641 — verifyDecision: the one evaluation's findings."""
-type DecisionVerification {
-  approvalByDecider: Boolean!
-  approvalIntegrity: String!
-  approvedRevision: Int
-  codec: String
-
-  """
-  NO_BLOCK, BLOCK_INVALID, UNKNOWN_CODEC, UNKNOWN_RENDERER, RENDER_MISMATCH, DATA_MISMATCH, APPROVAL_HASH_MISMATCH.
-  """
-  findings: [String!]!
-  renderer: String
-  revision: Int!
-  state: DecisionState!
-}
-
-type DecisionWithdrawal {
-  at: DateTime!
-  by: DecisionActor!
-  reason: String!
-}
 
 """
 #4280 — a defect linked to the pull request it escaped from (the review.defect-linked event on the PR's build task).
@@ -8659,11 +8288,11 @@ type Mutation {
   allocateSpecNode(after: Int, memoryRef: ID!, name: String, parentLoc: String!): Node!
 
   """
-  #1641 — amend a writable decision. Memory write access is always required; before any answer, any writer; after one, a decider only. Urgency is a
+  #1641 — amend a writable question. Memory write access is always required; before any answer, any writer; after one, a decider only. Urgency is a
   decider's to change; lowering the tier is a decider's, before an answer, never when it authorizes.
-  Refusals: NODE_WRITE_CONFLICT, DECISION_PART_RENUMBER, DECISION_ANSWER_IMMUTABLE, DECISION_NOT_DECIDER.
+  Refusals: NODE_WRITE_CONFLICT, QUESTION_PART_RENUMBER, QUESTION_ANSWER_IMMUTABLE, QUESTION_NOT_DECIDER.
   """
-  amendDecision(expectedRevision: Int!, input: AmendDecisionInput!, reason: String!, ref: ID!): Decision!
+  amendQuestion(expectedRevision: Int!, input: AmendQuestionInput!, reason: String!, ref: ID!): Question!
 
   """
   #2096 — apply the Agent's current ticker templates to ONE existing worker (the repair for workers cast before the
@@ -8742,7 +8371,7 @@ type Mutation {
   if it is still the one you read (REVISION_MISMATCH otherwise). A memory
   writer may approve ordinary nodes, the author included; placed boot prompts
   also require their dedicated manager-as-self gate. Comments and
-  decision-family nodes are refused. Idempotent: an approved
+  question-family nodes are refused. Idempotent: an approved
   revision keeps its existing approval. Refuses NODE_IS_PLACEHOLDER, and
   ENCRYPTED_MEMORY_NOT_APPLICABLE on any encrypted memory, even with a
   cached session key.
@@ -8750,11 +8379,11 @@ type Mutation {
   approveNode(nodeRef: ID!, revision: Int): NodeApprovalReceipt!
 
   """
-  #1641 — ask a decision in a log: the server issues the next code using the log prefix (DA, DB, … with default D) and renders the
-  content. Any writer of the log's memory, agents included, outside impersonation. Refusals: DECISION_INVALID (with JSON
-  pointers), DECISION_RECOMMENDATION_MISSING, DECISION_TIER_TOO_LOW, DECISION_DECIDER_NOT_ELIGIBLE.
+  #1641 — ask a question in a log: the server issues the next code using the log prefix (DA, DB, … with default D) and renders the
+  content. Any writer of the log's memory, agents included, outside impersonation. Refusals: QUESTION_INVALID (with JSON
+  pointers), QUESTION_RECOMMENDATION_MISSING, QUESTION_TIER_TOO_LOW, QUESTION_DECIDER_NOT_ELIGIBLE.
   """
-  askDecision(input: AskDecisionInput!, logRef: ID!): Decision!
+  askQuestion(input: AskQuestionInput!, logRef: ID!): Question!
 
   """
   #1705 — assign a task with no assignee — a queued task (pending) or a BACKLOG task: the
@@ -9095,7 +8724,7 @@ type Mutation {
   display name is derived from the target slug.
   
   Copies the Memory row and its eligible live graph. Comment nodes,
-  compiled boot-prompt nodes and decision-family nodes are excluded;
+  compiled boot-prompt nodes and question-family nodes are excluded;
   derived INCLUDE edges are re-derived rather than copied. References to
   the source memory's URN inside node content/abstract
   (canonical and legacy spellings) are rewritten to the clone's URN.
@@ -9512,15 +9141,6 @@ type Mutation {
   authenticated user.
   """
   createDashboardWidgetPreset(config: JSON!, name: String!, type: DashboardWidgetType!): DashboardWidgetPreset!
-
-  """
-  #1641 — create a decision log at loc in a memory: needs management rights on the memory, or the
-  owner role in its live, installed App for non-personal/non-private memories. Impersonation is refused. Refused
-  in an encrypted memory (DECISION_LOG_ENCRYPTED), a git-mirrored one (DECISION_LOG_MIRRORED), a
-  system memory (DECISION_LOG_SYSTEM_MEMORY), an anonymous one (DECISION_LOG_ANONYMOUS_MEMORY), at a loc occupied by a live or deleted node at or beneath it (DECISION_LOG_EXISTS), or inside a decision's subtree. Deciders are user ids, each able
-  to write the memory (DECISION_DECIDER_NOT_ELIGIBLE; hrn:node:hadronmemory.com:specs:cor:dmo:130:09).
-  """
-  createDecisionLog(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], loc: String!, memoryRef: ID!, name: String, prefix: String): DecisionLog!
   createEdge(condition: JSON, data: JSON, description: String, isRunnable: Boolean, loc: String, name: String, priority: Int, sourceRef: ID!, targetRef: ID!): Edge!
 
   """
@@ -9773,6 +9393,15 @@ type Mutation {
   createPrincipalGrant(actions: [String!]!, expiresAt: String, orgRef: String!, userRef: String!): PrincipalGrant!
 
   """
+  #1641 — create a question log at loc in a memory: needs management rights on the memory, or the
+  owner role in its live, installed App for non-personal/non-private memories. Impersonation is refused. Refused
+  in an encrypted memory (QUESTION_LOG_ENCRYPTED), a git-mirrored one (QUESTION_LOG_MIRRORED), a
+  system memory (QUESTION_LOG_SYSTEM_MEMORY), an anonymous one (QUESTION_LOG_ANONYMOUS_MEMORY), at a loc occupied by a live or deleted node at or beneath it (QUESTION_LOG_EXISTS), or inside a question's subtree. Deciders are user ids, each able
+  to write the memory (QUESTION_DECIDER_NOT_ELIGIBLE; hrn:node:hadronmemory.com:specs:cor:dmo:130:09).
+  """
+  createQuestionLog(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], loc: String!, memoryRef: ID!, name: String, prefix: String): QuestionLog!
+
+  """
   Spec 049 Phase 5 — declare that an attendee takes part in a Channel. Owner:
   an App (org ADMIN / owner of a user-owned App) or an organization
   (CONTRIBUTOR+). attendeeRef: a Worker or an Agent in the owner's context;
@@ -10021,8 +9650,8 @@ type Mutation {
   App install or live parent Agent import references it, or a live Agent
   extends it as its base. AgentMemoryItem attachments do not block deletion.
   
-  Also refused with DECISION_CONTAINED (#1641) while the Agent's system memory holds a decision or a
-  decision log: removing the memory would remove them, so the Agent is kept. Decision protection always applies.
+  Also refused with QUESTION_CONTAINED (#1641) while the Agent's system memory holds a question or a
+  question log: removing the memory would remove them, so the Agent is kept. Question protection always applies.
   If this server requires minted content to be retained, its separate deletion restrictions also apply.
   
   See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
@@ -10878,7 +10507,7 @@ type Mutation {
 
   """
   #1591 — mint the live nodes of a memory in the mint scope, at once,
-  excluding comment nodes and the decision role family. The scope is the
+  excluding comment nodes and the question role family. The scope is the
   unminted nodes plus (#1612) minted nodes whose content changed since their
   minted revision or that have no recorded minted revision; a re-mint keeps
   the first mint's time and minter. Each node is
@@ -10970,9 +10599,9 @@ type Mutation {
   publishRevision(agentRef: ID!, revisionLoc: String!, versionLabel: String): RevisionResult!
 
   """
-  #1641 — a platform admin hard-deletes a decision that was never answered, recorded on its log (DECISION_ANSWERED otherwise). The code stays consumed.
+  #1641 — a platform admin hard-deletes a question that was never answered, recorded on its log (QUESTION_ANSWERED otherwise). The code stays consumed.
   """
-  purgeUnansweredDecision(reason: String!, ref: ID!): Boolean!
+  purgeUnansweredQuestion(reason: String!, ref: ID!): Boolean!
 
   """
   Push all nodes in a memory to its configured git repo.
@@ -11524,22 +11153,21 @@ type Mutation {
   ): AgentSubscription!
 
   """
-  #1747 — revoke a grant. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke records one team event (never the grant id). Takes effect at the grantee next call.
+  #1747 — revoke a grant. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke records one team event (never the grant id). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). Takes effect at the grantee next call.
   """
   revokeAppGrant(appRef: String!, instruction: ActInstructionInput, name: AppGrantName!, workerRef: String!): AppGrant!
 
   """
   Revoke an AppKey. Only whoever manages the App, as themselves, or through their held worker on a validated
   `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
-  hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session,
-  a run or an impersonated request. A worker session that is refused cannot tell a missing key from an existing one.
+  hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). A worker session that is refused cannot tell a missing key from an existing one.
   An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
   AppKey has no URN; the id is raw ID-only.
   """
   revokeAppKey(id: ID!, instruction: ActInstructionInput): Boolean!
 
   """
-  #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id).
+  #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340).
   """
   revokeAppKeyScope(id: ID!, instruction: ActInstructionInput, scope: String!): AppKey!
 
@@ -11817,11 +11445,6 @@ type Mutation {
   setDashboardWidgets(widgets: [DashboardWidgetInput!]!): [DashboardWidget!]!
 
   """
-  #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing decisions keep theirs. Needs management rights on the memory, or the owner role in its App.
-  """
-  setDecisionLogDeciders(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], expectedRevision: Int!, logRef: ID!, reason: String!): DecisionLog!
-
-  """
   #4222 — set who states which workers the App's hosts run: HOST (the default) or SERVER. Whoever manages the App
   (HOST_ASSIGNMENT_NOT_PERMITTED otherwise). Under SERVER, registerHost accepts only the workers assigned to that
   host and reports the rest per row as HOST_WORKER_NOT_ASSIGNED in refusedWorkers, never failing the registration;
@@ -11877,6 +11500,11 @@ type Mutation {
   changes nothing. Turning the switch on does not turn on the deployment's signing: read enforced.
   """
   setOrgBootPromptSigning(org: ID!, previewToken: String, required: Boolean!): OrgBootPromptSigning!
+
+  """
+  #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing questions keep theirs. Needs management rights on the memory, or the owner role in its App.
+  """
+  setQuestionLogDeciders(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], expectedRevision: Int!, logRef: ID!, reason: String!): QuestionLog!
 
   """
   Set the stored (enforced) quota limit for a scope x action (#510) - the operator dial that previously required psql. Org-ADMIN.
@@ -12779,11 +12407,6 @@ type Mutation {
   updateWorker(instruction: ActInstructionInput, signature: String, trailer: String, workerRef: ID!): Worker!
 
   """
-  #1641 — withdraw a decision (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (DECISION_ANSWERED_DECIDED).
-  """
-  withdrawDecision(expectedRevision: Int!, reason: String!, ref: ID!): Decision!
-
-  """
   #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, V57) — withdraw a grant the caller asked for, while it is still pending. Only the recorded requester: a person, or the worker session that asked. It is the grant's one end (revoked_at, with the person as revoker) and one REVOKE event; no new state is named. A withdrawal that loses the race to the signature is refused. Refusals: GRANT_NOT_FOUND (unknown and unreadable alike), GRANT_NOT_REQUESTER, GRANT_NOT_PENDING (activated). A grant already ended is returned as it is.
   """
   withdrawGrant(ref: ID!): Grant!
@@ -12792,6 +12415,11 @@ type Mutation {
   #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers, among the two callers who may read the grant (a bound worker in its own App, or a person who manages the App); a manager who did not ask is refused SIGNING_REQUEST_NOT_REQUESTER. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
   """
   withdrawGrantSigningRequest(id: ID!): GrantSigningRequest!
+
+  """
+  #1641 — withdraw a question (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (QUESTION_ANSWERED_DECIDED).
+  """
+  withdrawQuestion(expectedRevision: Int!, reason: String!, ref: ID!): Question!
 
   """
   #1632 — withdraw an open signing request. Only the requester account, from any of its sessions (#10397). Refusals (hrn:node:hadronmemory.com:specs:cor:dmo:130:03, Holger #10430): SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
@@ -13058,7 +12686,7 @@ type Node {
   
   A GOVERNED family routes the write to that kind's own authoring door, and
   the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-  'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+  'spec.*' and 'question' / 'question.*', alongside the task kind, which is
   gated on 'isRunnable'
   rather than on any label because a label can be omitted and a capability
   cannot. Other roles do not invoke a governed door, but can still be
@@ -14978,7 +14606,7 @@ type Query {
   (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
   as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
   instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
-  never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
+  never a key. Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340).
   
   Accepts the entity's ID or URN.
   """
@@ -15477,23 +15105,6 @@ type Query {
   #772 — the caller's placed dashboard widgets, ordered by position. Empty for a non-user (App-key) caller.
   """
   dashboardWidgets: [DashboardWidget!]!
-
-  """
-  #1641 — one decision by ref (ID or URN), or by code (DU, or a citation DU-1) within logRef. Null when missing or unreadable.
-  """
-  decision(code: String, logRef: ID, ref: ID): Decision
-
-  """
-  #1641 — a decision log's settings by ID or URN; null when missing or unreadable.
-  """
-  decisionLog(ref: ID!): DecisionLog
-
-  """
-  #1641 — the decisions of one log (logRef), or with awaitingMe the OPEN decisions the caller
-  decides across every memory they can read. State is derived for every candidate BEFORE the
-  filters, sort and paging; a list above 5000 candidates refuses (DECISION_LOG_TOO_LARGE_FOR_FILTER).
-  """
-  decisions(authorizes: Boolean, awaitingMe: Boolean, limit: Int = 20, logRef: ID, offset: Int = 0, sort: DecisionSort = PORTAL_DEFAULT, state: [DecisionState!], tier: DecisionTier, urgency: [DecisionUrgency!]): DecisionPage!
 
   """
   #3599: preview deleteWorker without deleting anything: the same act gate and typed refusals
@@ -16419,6 +16030,23 @@ type Query {
   pullRequestReadiness(head: String!, taskRef: ID!): PullRequestReadiness
 
   """
+  #1641 — one question by ref (ID or URN), or by code (DU, or a citation DU-1) within logRef. Null when missing or unreadable.
+  """
+  question(code: String, logRef: ID, ref: ID): Question
+
+  """
+  #1641 — a question log's settings by ID or URN; null when missing or unreadable.
+  """
+  questionLog(ref: ID!): QuestionLog
+
+  """
+  #1641 — the questions of one log (logRef), or with awaitingMe the OPEN questions the caller
+  decides across every memory they can read. State is derived for every candidate BEFORE the
+  filters, sort and paging; a list above 5000 candidates refuses (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
+  """
+  questions(authorizes: Boolean, awaitingMe: Boolean, limit: Int = 20, logRef: ID, offset: Int = 0, sort: QuestionSort = PORTAL_DEFAULT, state: [QuestionState!], tier: QuestionTier, urgency: [QuestionUrgency!]): QuestionPage!
+
+  """
   Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
   """
   quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
@@ -17215,11 +16843,6 @@ type Query {
   validateMemory(limit: Int, memoryRef: ID!): MemoryValidationResult!
 
   """
-  #1641 — re-render a decision from its payload and check it against its content, data and approval: the findings behind its state.
-  """
-  verifyDecision(ref: ID!): DecisionVerification!
-
-  """
   #1591 — the tamper check over every live node of a memory (ID or fully-qualified URN).
   """
   verifyMemoryNodes(memoryRef: String!): MemoryIntegrityReport!
@@ -17228,6 +16851,11 @@ type Query {
   #1591 — the tamper check: recompute the node's approval hash from its current title/abstract/content and compare it with the approval on record. A pure read; an encrypted memory needs its session key (SESSION_EXPIRED otherwise).
   """
   verifyNode(nodeRef: ID!): NodeIntegrityCheck!
+
+  """
+  #1641 — re-render a question from its payload and check it against its content, data and approval: the findings behind its state.
+  """
+  verifyQuestion(ref: ID!): QuestionVerification!
 
   """
   The organization's active page-monitor watches (#1562): what web_poll_list
@@ -17281,6 +16909,377 @@ type Query {
   ID or URN.
   """
   workers(appRef: ID!, includeRetired: Boolean, limit: Int, offset: Int): WorkersPage!
+}
+
+"""
+#1641 — a human question: a governed node (role question) under a question log, written only by the
+question operations. Its content is rendered from this structured payload, so an approval covers
+exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
+"""
+type Question {
+  """When the last part was answered; null while any part is open."""
+  answeredAt: DateTime
+
+  """Migrated history that is never usable as an authorization."""
+  archival: Boolean!
+  askedAt: DateTime
+  askedBy: QuestionActor!
+  authorizes: Boolean!
+
+  """What is waiting on this question."""
+  blocks: [QuestionRef!]!
+
+  """Permanent: DA, DB, … issued in sequence by its log, never reused."""
+  code: String!
+  context: String
+  deciderIds: [ID!]!
+  deciders: [CommentActorRef!]!
+  evidence: QuestionEvidence!
+
+  """Spec citations the ruling must reach."""
+  followUps: [QuestionRef!]!
+  id: ID!
+
+  """
+  Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
+  """
+  identityMerges: [QuestionIdentityMerge!]!
+  logId: ID
+  n: Int!
+  node: Node
+  parts: [QuestionPart!]!
+
+  """
+  The question's own page, where its card renders. Copy it; never build it.
+  """
+  portalUrl: String
+
+  """The node's current revision: the expectedRevision of the next change."""
+  revSeq: Int!
+  sources: [QuestionRef!]!
+
+  """DERIVED on every read. Rely on a ruling only while it is DECIDED."""
+  state: QuestionState!
+  tier: QuestionTier!
+  title: String!
+  urgency: QuestionUrgency!
+  urn: String!
+
+  """
+  True when the caller is a decider, including through an account merged into theirs (#1715).
+  """
+  viewerIsDecider: Boolean!
+  withdrawn: QuestionWithdrawal
+}
+
+"""
+#1641 — an authenticated actor: taken from the principal, never supplied by a client. Public projections only (#552).
+"""
+type QuestionActor {
+  app: CommentActorRef
+  appId: ID
+  user: CommentActorRef
+  userId: ID
+  worker: CommentActorRef
+  workerId: ID
+}
+
+type QuestionAnswer {
+  at: DateTime!
+
+  """The decider whose credential recorded it."""
+  byUserId: ID!
+
+  """
+  An imported answer's recorded speaker (a claim, never rendered as the authenticated answerer).
+  """
+  claimedBy: String
+  freeform: Boolean!
+
+  """The chosen option; null for a free-text answer."""
+  key: String
+  reason: String
+  recordedByUserId: ID
+
+  """Where the answer was given (a claim)."""
+  source: QuestionRef
+  text: String
+  via: QuestionAnswerVia!
+}
+
+"""
+#1641 — where an answer was given, as the answering caller states it (a claim).
+"""
+enum QuestionAnswerVia {
+  CHAT_RECORDED
+  CLI
+  IMPORT
+  MCP
+  PORTAL
+}
+
+type QuestionApprovalEvidence {
+  approvedAt: DateTime!
+  by: CommentActorRef
+
+  """
+  Whether the approver is one of the question's deciders (only then does it count).
+  """
+  byDecider: Boolean!
+  byUserId: ID
+
+  """
+  INTACT, TAMPERED, SUPERSEDED or NOT_APPROVED: the approval hash checked against the live text.
+  """
+  integrity: String!
+
+  """The revision approved."""
+  revision: Int!
+}
+
+type QuestionEvidence {
+  """The latest approval on record, whoever gave it."""
+  approval: QuestionApprovalEvidence
+}
+
+"""
+#1715 — an account merge that a user id stored in a question or a log follows.
+Stored ids are never rewritten by mergeUsers, because they are part of the
+authenticated record: the record still names fromUserId, and that account now
+acts as toUserId. A chain of merges is listed link by link, oldest first.
+"""
+type QuestionIdentityMerge {
+  from: CommentActorRef
+  fromUserId: ID!
+  mergedAt: DateTime!
+  to: CommentActorRef
+  toUserId: ID!
+}
+
+"""#1641 — a question log's settings (never a question, never approved)."""
+type QuestionLog {
+  defaultDeciderIds: [ID!]!
+
+  """Who decides a question asked without naming deciders."""
+  defaultDeciders: [CommentActorRef!]!
+  eligibleDeciderIds: [ID!]!
+
+  """
+  Who else a question may name as a decider. A question's deciders are narrowed from these, never widened.
+  """
+  eligibleDeciders: [CommentActorRef!]!
+  id: ID!
+
+  """
+  Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
+  """
+  identityMerges: [QuestionIdentityMerge!]!
+
+  """How many codes have been issued (withdrawn and purged ones included)."""
+  lastCode: Int!
+  loc: String!
+  name: String!
+  portalUrl: String
+
+  """Codes are this prefix plus letters: D → DA, DB, …"""
+  prefix: String!
+  purges: [QuestionPurge!]!
+  revSeq: Int!
+  urn: String!
+}
+
+input QuestionNoRecommendationInput {
+  reason: String!
+}
+
+type QuestionOption {
+  cost: String
+
+  """The option id an answer names."""
+  key: String!
+  label: String!
+  meaning: String
+}
+
+input QuestionOptionInput {
+  cost: String
+  key: String!
+  label: String!
+  meaning: String
+}
+
+type QuestionPage {
+  items: [Question!]!
+
+  """Matching questions before paging."""
+  total: Int!
+}
+
+type QuestionPart {
+  answer: QuestionAnswer
+
+  """
+  Earlier answers to this part, oldest first: a re-answer appends, never replaces quietly.
+  """
+  answerHistory: [QuestionAnswer!]!
+
+  """The citation of this part, e.g. DU-1."""
+  citation: String!
+
+  """Permanent within the question; amendments add parts, never renumber."""
+  n: Int!
+  noRecommendationReason: String
+  options: [QuestionOption!]!
+  question: String!
+
+  """
+  Null when the asker deliberately gave none (see noRecommendationReason). Never pre-selected.
+  """
+  recommendation: QuestionRecommendation
+}
+
+"""
+#1641 — one part of a question. Give options or yesno, and a recommendation or noRecommendation.
+"""
+input QuestionPartInput {
+  noRecommendation: QuestionNoRecommendationInput
+  options: [QuestionOptionInput!]
+  question: String!
+  recommendation: QuestionRecommendationInput
+  yesno: Boolean
+}
+
+"""
+#1641 — a change to an existing part (by its permanent number). Omitted fields are unchanged; answers never change here.
+"""
+input QuestionPartPatchInput {
+  n: Int!
+  noRecommendation: QuestionNoRecommendationInput
+  options: [QuestionOptionInput!]
+  question: String
+  recommendation: QuestionRecommendationInput
+  yesno: Boolean
+}
+
+type QuestionPurge {
+  at: DateTime!
+  by: CommentActorRef
+  byUserId: ID!
+  code: String!
+
+  """sha256 of the purged question's rendered content."""
+  contentHash: String!
+  reason: String!
+}
+
+type QuestionRecommendation {
+  """A relayed recommendation's original author, as a claim."""
+  attributedTo: String
+
+  """Who recorded the recommendation (authenticated)."""
+  by: QuestionActor!
+  key: String!
+  reason: String
+}
+
+input QuestionRecommendationInput {
+  """Relaying someone else's recommendation: who (recorded as a claim)."""
+  attributedTo: String
+  key: String!
+  reason: String
+}
+
+"""
+#1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
+"""
+type QuestionRef {
+  node: String
+  ref: String
+  spec: String
+}
+
+input QuestionRefInput {
+  node: String
+  ref: String
+  spec: String
+}
+
+"""
+#1641 — list order. PORTAL_DEFAULT: urgent first, then open before answered, then newest ask. CODE: code order.
+"""
+enum QuestionSort {
+  CODE
+  PORTAL_DEFAULT
+}
+
+"""
+#1641 — a question's derived state (hrn:node:hadronmemory.com:hadron-server:design:decision-nodes §6.3). Computed by the one evaluation on every read, never stored. Precedence: TAMPERED, UNVERIFIABLE, WITHDRAWN, SUPERSEDED, STALE, DECIDED, ANSWERED_UNCONFIRMED, OPEN.
+"""
+enum QuestionState {
+  """
+  Every part is answered; the tier's evidence (a decider's approval, or later a signature) is missing at the current revision.
+  """
+  ANSWERED_UNCONFIRMED
+
+  """
+  Answered, and the tier's evidence by a decider is intact at the current revision. The only state a ruling may be relied on in.
+  """
+  DECIDED
+
+  """Not every part is answered."""
+  OPEN
+
+  """
+  Evidence exists, but for an earlier revision: the question changed after it was approved.
+  """
+  STALE
+  SUPERSEDED
+
+  """
+  The rendered content, the structured payload and the approval hash disagree: changed outside the question operations.
+  """
+  TAMPERED
+
+  """
+  Written by a codec or renderer this server does not know, so it cannot be verified (fail closed).
+  """
+  UNVERIFIABLE
+  WITHDRAWN
+}
+
+"""
+#1641 — the assurance a question's answer needs. APPROVED: a decider's approval. SIGNED: a decider's passkey signature (#1614; not available yet, so a SIGNED question stays ANSWERED_UNCONFIRMED).
+"""
+enum QuestionTier {
+  APPROVED
+  SIGNED
+}
+
+enum QuestionUrgency {
+  NORMAL
+  URGENT
+}
+
+"""#1641 — verifyQuestion: the one evaluation's findings."""
+type QuestionVerification {
+  approvalByDecider: Boolean!
+  approvalIntegrity: String!
+  approvedRevision: Int
+  codec: String
+
+  """
+  NO_BLOCK, BLOCK_INVALID, UNKNOWN_CODEC, UNKNOWN_RENDERER, RENDER_MISMATCH, DATA_MISMATCH, APPROVAL_HASH_MISMATCH.
+  """
+  findings: [String!]!
+  renderer: String
+  revision: Int!
+  state: QuestionState!
+}
+
+type QuestionWithdrawal {
+  at: DateTime!
+  by: QuestionActor!
+  reason: String!
 }
 
 """

@@ -33,6 +33,19 @@ is never retried without the flag. The flag needs server ba077810 or later;
 an older server's refusal is passed through. The MCP tools take no
 instruction, so this is the way to make the call from a worktree.`
 
+// taskInstructionHelpShort is the short form for pages where the flag is a side
+// note: what it is, who leaves it out, the minimum server, and where the full
+// rules are. serverMin is the revision the command's instructed path needs.
+func taskInstructionHelpShort(serverMin string) string {
+	return `--instruction <kind>:<ref> is for an AI worker acting on its holder's say-so
+(the holder is the person responsible for the worker). kind is
+team-chat-message, task or live-chat; ref says where the holder gave it (a
+team-chat message URN, a task URN, or a client address), never its text. A
+person, or a worker acting on its own authority, leaves it out. It needs server
+` + serverMin + ` or later; an older server refuses the flag. The full rules are in
+"hadron agentic-usage".`
+}
+
 func addTaskInstructionFlag(cmd *cobra.Command, raw *string) {
 	cmd.Flags().StringVar(raw, "instruction", "", taskInstructionFlagUsage)
 }

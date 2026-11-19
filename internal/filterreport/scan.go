@@ -2,6 +2,7 @@ package filterreport
 
 import (
 	"context"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -36,7 +37,7 @@ func Scan(ctx context.Context, c *orcaterm.Client, terms []orcaterm.Terminal, ta
 			continue
 		}
 		b, e := ReadBinding(t.WorktreePath)
-		if e != nil || (b.Server == "" || server == "" || strings.TrimRight(b.Server, "/") != strings.TrimRight(server, "/")) {
+		if e != nil || !serverOriginEqual(b.Server, server) {
 			continue
 		}
 		candidates[b.WorkerID] = append(candidates[b.WorkerID], t)
@@ -48,16 +49,73 @@ func Scan(ctx context.Context, c *orcaterm.Client, terms []orcaterm.Terminal, ta
 			continue
 		}
 		sort.Slice(local, func(i, j int) bool { return local[i].Handle < local[j].Handle })
-		row := Row{Worker: output.SafeLine(worker.Name, 256), Worktree: output.SafeLine(local[0].WorktreePath, 4096), Terminal: output.SafeLine(local[0].Handle, 256), AgentTree: treeState(processes, local[0].WorktreePath)}
+		row := Row{Worker: output.SafeLine(worker.Name, 256), Worktree: output.SafeLine(local[0].WorktreePath, 4096), Terminal: output.SafeLine(local[0].Handle, 256)}
+		sharedWorktree := true
+		for _, t := range local[1:] {
+			if t.WorktreePath != local[0].WorktreePath {
+				sharedWorktree = false
+				break
+			}
+		}
 		if len(local) > 1 {
 			row.Classification = "AMBIGUOUS"
 			row.Note = "multiple_terminals"
 			row.Terminal = ""
+			// Terminals in more than one worktree: which worktree — and so
+			// which process tree — is as ambiguous as the terminal, and both
+			// stay empty instead of showing the handle-sorted first
+			// (cli#2483 F10). Terminals sharing one worktree keep it: the
+			// worktree, and the tree state derived from it, are shared facts.
+			if sharedWorktree {
+				row.AgentTree = treeState(processes, local[0].WorktreePath)
+			} else {
+				row.Worktree = ""
+			}
 		} else {
+			row.AgentTree = treeState(processes, local[0].WorktreePath)
 			row.Classification, row.Note = orcaterm.FilterProof(c.ReadScreen(ctx, local[0].Handle))
 		}
 		rows = append(rows, row)
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].Worker < rows[j].Worker })
 	return rows, nil
+}
+
+// serverOriginEqual is the conservative binding↔server match: scheme and
+// host compare case-insensitively, the scheme's default port is elided, and
+// trailing slashes are trimmed on both sides. A query or fragment is
+// origin-irrelevant (an origin is scheme, host, port and — as this CLI
+// configures servers — path) and dropped on both sides. Anything else — a
+// different host or port, a path difference, credentials, an empty or
+// unparsable origin — never matches: deployment isolation fails closed, and
+// a mismatch with no safe canonical form stays a mismatch (cli#2483 F15).
+func serverOriginEqual(binding, server string) bool {
+	b, s := canonicalOrigin(binding), canonicalOrigin(server)
+	return b != "" && s != "" && b == s
+}
+
+// canonicalOrigin reduces one server URL to its comparable form, or "" when
+// the URL must not be compared loosely (unparsable, scheme- or hostless, or
+// carrying credentials).
+func canonicalOrigin(raw string) string {
+	raw = strings.TrimRight(raw, "/")
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme == "" || u.Host == "" || u.User != nil {
+		return ""
+	}
+	scheme := strings.ToLower(u.Scheme)
+	// net/url strips the brackets in Hostname(), so an IPv6 literal must be
+	// re-bracketed before the port is appended — otherwise http://[::1]:8080
+	// (host ::1, port 8080) and http://[::1:8080] (the address ::1:8080, no
+	// port) both canonicalize to http://::1:8080 and two different origins
+	// compare equal (a review round of the PR that added this; cli#2483
+	// F15).
+	host := strings.ToLower(u.Hostname())
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	if port := u.Port(); port != "" && (scheme != "https" || port != "443") && (scheme != "http" || port != "80") {
+		host += ":" + port
+	}
+	return scheme + "://" + host + strings.TrimRight(u.EscapedPath(), "/")
 }

@@ -106,8 +106,8 @@ EXCLUSIVE ("strictly after"). Windowing narrows by time only; it does not widen 
 may see. To answer "what happened last week", give both
 bounds and page with --offset.
 
---app-key takes an App key's id, passed to the server unchanged (it is never
-looked up here, and no key secret is ever shown). The result is the server's
+--app-key takes an App key's id: the ID column of hadron app key list <app-ref>.
+It is passed to the server unchanged (it is never looked up here, and no key secret is ever shown). The result is the server's
 rows; events made before keys were recorded, or without a key, are never
 returned by this filter. Rows do not name their key.
 
@@ -206,6 +206,9 @@ Details:
 				if err != nil {
 					return api.MapError(err)
 				}
+				if resp == nil || resp.UsageEventsPage == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no usage events result")
+				}
 				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
 				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {
 					return err
@@ -214,6 +217,9 @@ Details:
 				resp, err := gen.UsageEventsPage(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
 				if err != nil {
 					return api.MapError(err)
+				}
+				if resp == nil || resp.UsageEventsPage == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no usage events result")
 				}
 				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
 				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {
@@ -249,7 +255,7 @@ Details:
 	cmd.Flags().StringVar(&eventType, "type", "", "exact event type to filter")
 	cmd.Flags().StringVar(&since, "since", "", "ISO date-time with Z or an offset; events at or after it (inclusive)")
 	cmd.Flags().StringVar(&until, "until", "", "ISO date-time with Z or an offset; events before it (exclusive)")
-	cmd.Flags().StringVar(&appKey, "app-key", "", "an App key id: that key's events (only for its App's manager or the key itself); passed to the server unchanged")
+	cmd.Flags().StringVar(&appKey, "app-key", "", "an App key id (the ID column of hadron app key list <app-ref>): that key's events (only for its App's manager or the key itself); passed to the server unchanged")
 	cmd.Flags().IntVar(&limit, "limit", 20, "page size (0-200; 0 counts only)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "rows to skip (nonnegative)")
 	return cmd

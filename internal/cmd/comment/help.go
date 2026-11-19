@@ -102,8 +102,17 @@ comment marked "deleted".
 memory manager: every comment in it disappears from every read. Name any comment
 of the thread. --reason is required and kept with the deletion for audit; no
 --expected-revision is needed. It asks first on a terminal, and needs --yes
-otherwise. Whether you may do it is the server's rule. On success it prints the
-comment you named and that its thread was deleted.`,
+otherwise. Whether you may do it is the server's rule. On success (exit 0) it
+prints the comment you named and that its thread was deleted; --json is
+{"thread":"<ref>","deleted":true}, where thread is the comment ref you named.
+
+Two outcomes are not a success and print no receipt on stdout (with --json, the
+standard error envelope):
+exit 1 (outcome unknown): the server's answer carried no result, so the delete
+may or may not have happened; read the thread (comment get) before retrying.
+exit 5 (not deleted): the server answered deleted:false; the thread is still there.
+Refusals keep their usual exits (2 for a missing --reason or --yes, 8 for no
+permission, 4 for a comment that is missing or unreadable).`,
 
 	"resolve": `Mark a thread resolved once its feedback has been dealt with, or reopen it
 with --reopen. Pass the thread's top-level comment (the one comment list

@@ -161,6 +161,6 @@ Find ids with 'hadron ai-config list --json', or list by --owner-type/--owner-id
 	cmd.Flags().StringVar(&apiStyle, "api-style", "", "OpenAI-compatible wire protocol: CHAT_COMPLETIONS or RESPONSES; omit to preserve")
 	cmd.Flags().BoolVar(&clearAPIStyle, "clear-api-style", false, "clear the stored API style to the provider default (sends null)")
 	cmd.Flags().StringArrayVar(&params, "param", nil, "replace params with key=value (repeatable)")
-	cmd.Flags().BoolVar(&enabled, "enabled", true, "enable/disable the config (e.g. --enabled=false)")
+	cmd.Flags().BoolVar(&enabled, "enabled", true, "enable/disable the config; changes it only when passed (e.g. --enabled=false)")
 	return cmd
 }

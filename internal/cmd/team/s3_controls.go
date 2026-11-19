@@ -173,12 +173,24 @@ func newCmdTeamApp(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "sweep-mode [OFF|OBSERVE|APPLY]",
 		Short: "Show or change the App's host sweep mode",
-		Long: `With no argument, read the App's sweep mode. With one, set it as the App
-manager. OFF (the default) acts on no workers. OBSERVE compares and reports
-without repairs. APPLY allows the host sweep to repair what it can. This
-command only records the mode; it does not launch or stop any process.
+		Long: `The sweep mode says what the host sweep may do for this App. The host sweep is
+a pass a host runs about once a minute ('hadron team host sweep'): it compares
+each worker's desired state with what is actually running on the host.
+  OFF      (the default) the sweep acts on no workers of this App
+  OBSERVE  it compares and records what it found, and changes nothing
+  APPLY    it may also repair what it can, such as relaunching a worker session
+           that is proven absent
+Use OBSERVE to see what APPLY would do before turning it on. Read what a host's
+sweeps found with 'hadron team host sweep-runs --host <id>' (newest first: what
+each pass planned, applied, skipped or failed; 'hadron team host list' shows the
+host ids), and any alarms the server raised with 'hadron team events --alarms'.
+This command only records the mode and does not launch or stop any process.
+
+With no argument it reads the App's sweep mode; with one, it sets it as the App
+manager. Example reads and writes are below.
 App scope comes from --app, the App context or the worktree binding.
---json prints {appRef,sweepMode}. --instruction is accepted only for a write.
+--json prints {appRef,sweepMode}. --instruction is accepted only for a write, and
+then needs a mode (a bare --instruction is refused, exit 2).
 A non-manager gets FORBIDDEN (exit 8); ask the App manager to set the mode.
 
 ` + s3InstructionHelp,

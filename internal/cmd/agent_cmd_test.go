@@ -126,8 +126,8 @@ func TestAgentCreateUserOwnedOmitsOrg(t *testing.T) {
 	if vars["name"] != "Personal Bot" {
 		t.Errorf("create name: %v", vars)
 	}
-	if _, present := vars["orgId"]; present {
-		t.Errorf("user-owned create must omit orgId, got %v", vars["orgId"])
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("user-owned create must omit orgRef, got %v", vars["orgRef"])
 	}
 }
 
@@ -145,8 +145,8 @@ func TestAgentCreateOwnerMeOmitsOrg(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateAgent"], &vars)
-	if _, present := vars["orgId"]; present {
-		t.Errorf("--owner-me must omit orgId, got %v", vars["orgId"])
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("--owner-me must omit orgRef, got %v", vars["orgRef"])
 	}
 }
 
@@ -212,8 +212,8 @@ func TestAgentLsPublic(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["PublicAgents"], &vars)
-	if _, present := vars["orgId"]; present {
-		t.Errorf("--public must not send orgId, got %v", vars["orgId"])
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("--public must not send orgRef, got %v", vars["orgRef"])
 	}
 	fl, _ := vars["filter"].(map[string]any)
 	if fl["type"] != "ASSISTANT" {
@@ -340,7 +340,7 @@ func TestAgentUpdate(t *testing.T) {
 		t.Errorf("update vars: %v", vars)
 	}
 	// Unset fields must be omitted (preserve), not sent.
-	for _, k := range []string{"description", "agentType", "systemPrompt", "systemMemoryId", "surfaces", "urn"} {
+	for _, k := range []string{"description", "agentType", "systemPrompt", "systemMemoryRef", "surfaces", "urn"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}

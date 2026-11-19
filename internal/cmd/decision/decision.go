@@ -138,10 +138,10 @@ anonymous Memories.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.CreateDecisionLog == nil {
+			if resp.CreateQuestionLog == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no decision log")
 			}
-			return writeLog(f, decisionLogFrom(&resp.CreateDecisionLog.DecisionLogFields), "✓ created decision log")
+			return writeLog(f, decisionLogFrom(&resp.CreateQuestionLog.DecisionLogFields), "✓ created decision log")
 		},
 	}
 	cmd.Flags().StringVar(&loc, "loc", "", "the log's loc in the Memory (required)")
@@ -171,10 +171,10 @@ func newCmdLogGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.DecisionLog == nil {
+			if resp.QuestionLog == nil {
 				return exitcode.Newf(exitcode.NotFound, "decision log %s not found (or not visible to you)", logRef)
 			}
-			return writeLog(f, decisionLogFrom(&resp.DecisionLog.DecisionLogFields), "")
+			return writeLog(f, decisionLogFrom(&resp.QuestionLog.DecisionLogFields), "")
 		},
 	}
 }
@@ -220,10 +220,10 @@ nothing changes.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.SetDecisionLogDeciders == nil {
+			if resp.SetQuestionLogDeciders == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no decision log")
 			}
-			return writeLog(f, decisionLogFrom(&resp.SetDecisionLogDeciders.DecisionLogFields), "✓ set deciders of")
+			return writeLog(f, decisionLogFrom(&resp.SetQuestionLogDeciders.DecisionLogFields), "✓ set deciders of")
 		},
 	}
 	cmd.Flags().StringSliceVar(&deciders, "decider", nil, "a default decider, by user ID (required; repeat or comma-separate)")
@@ -271,7 +271,7 @@ func (in *inputFlags) decoder(cmd *cobra.Command, f *cmdutil.Factory, target any
 
 // overrides returns a pointer for each field flag that was given, nil
 // otherwise (so an unset flag leaves the file's value, or omits the field).
-func (in *inputFlags) overrides(cmd *cobra.Command) (title, context *string, tier *gen.DecisionTier, urgency *gen.DecisionUrgency) {
+func (in *inputFlags) overrides(cmd *cobra.Command) (title, context *string, tier *gen.QuestionTier, urgency *gen.QuestionUrgency) {
 	fl := cmd.Flags()
 	if fl.Changed("title") {
 		title = &in.title
@@ -280,11 +280,11 @@ func (in *inputFlags) overrides(cmd *cobra.Command) (title, context *string, tie
 		context = &in.context
 	}
 	if fl.Changed("tier") {
-		t := gen.DecisionTier(in.tier)
+		t := gen.QuestionTier(in.tier)
 		tier = &t
 	}
 	if fl.Changed("urgency") {
-		u := gen.DecisionUrgency(in.urgency)
+		u := gen.QuestionUrgency(in.urgency)
 		urgency = &u
 	}
 	return title, context, tier, urgency
@@ -296,21 +296,55 @@ func newCmdAsk(f *cmdutil.Factory) *cobra.Command {
 		Use:   "ask <log> --input-file <path> [--title <t>] [--context <c>] [--tier <tier>] [--urgency <u>]",
 		Short: "Ask a decision in a decision log",
 		Long: `Ask a decision. The server issues its code (the log prefix plus the next
-letters) and renders it. --input-file is a JSON object with the fields of the
-server's AskDecisionInput, passed through unchanged:
+letters) and prints the decision; decision get <code> --log <log> reads it
+back later. --input-file is a JSON object with the fields of the server's
+AskQuestionInput, passed through unchanged:
 
-  title (required), parts (required: each a question, with options or
-  "yesno": true, and a recommendation or noRecommendation), context, tier,
-  urgency, deciders, authorizes, grant, blocks, followUps, sources
+  title (required)  the decision's headline, as the deciders see it
+  parts (required)  the questions to answer, each an object:
+                    {"question": "...", "options": [{"key": "pg",
+                    "label": "Postgres"}, ...], "recommendation":
+                    {"key": "pg", "reason": "we run it already"}} — or
+                    "yesno": true instead of options, and
+                    "noRecommendation": {"reason": "..."} when none is given
+  context           background for the deciders
+  deciders          decider user IDs (hadron user search lists them);
+                    narrows the log's default deciders, never widens past
+                    its eligible set
+  urgency           NORMAL (the default) or URGENT
+  tier              APPROVED (the default) or SIGNED — SIGNED is forced
+                    when authorizes is true, and APPROVED is then refused
+                    (QUESTION_TIER_TOO_LOW). APPROVED: the ruling counts
+                    once a decider has approved the answered decision.
+                    SIGNED: a decider's passkey signature rather than an
+                    approval; passkey signing is not available yet, so a
+                    SIGNED decision stays ANSWERED_UNCONFIRMED
+  authorizes        true when this decision grants an authorization
+  grant             the authorization a grant decision carries, as JSON
+                    (authorizes: true only)
+  blocks            what is waiting on this decision
+  sources           where the question came from
+  followUps         citations and references the ruling must reach
+                    — blocks, sources and followUps are lists of references,
+                    each {"ref": "hadron-server#1640"}, {"node": "<id or
+                    URN>"} or {"spec": "<citation>"}
 
---title, --context, --tier and --urgency override the file's value. The server
-validates the object (DECISION_INVALID names each bad field by JSON pointer)
-and decides who may ask: any writer of the log's Memory.`,
-		Example: `  hadron decision ask hrn:node:acme.com:eng:decisions --input-file ask.json
-  # ask.json:
-  # {"title":"Pick a database","parts":[{"question":"Which one?",
-  #   "options":[{"key":"pg","label":"Postgres"},{"key":"my","label":"MySQL"}],
-  #   "recommendation":{"key":"pg","reason":"we run it already"}}]}`,
+--title, --context, --tier and --urgency override the file's value. Keys are
+exact and case-sensitive, and a key given twice is refused. Every field's
+exact shape is AskQuestionInput in the server's schema, vendored in this repo
+at schema/schema.graphql. The server validates the object (QUESTION_INVALID
+names each bad field by JSON pointer) and decides who may ask: any writer of
+the log's Memory.
+
+On success the decision prints as decision get shows it — code, title,
+state, tier, urgency, revision, deciders and each part — prefixed "✓ asked";
+--json prints the same decision as one object.`,
+		Example: `  cat > ask.json <<'EOF'
+{"title":"Pick a database","parts":[{"question":"Which one?",
+  "options":[{"key":"pg","label":"Postgres"},{"key":"my","label":"MySQL"}],
+  "recommendation":{"key":"pg","reason":"we run it already"}}]}
+EOF
+  hadron decision ask hrn:node:acme.com:eng:decisions --input-file ask.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logRef, err := refArg("log", args[0])
@@ -320,7 +354,7 @@ and decides who may ask: any writer of the log's Memory.`,
 			if err := requireFlag(cmd, "input-file"); err != nil {
 				return err
 			}
-			var input gen.AskDecisionInput
+			var input gen.AskQuestionInput
 			dec, err := in.decoder(cmd, f, &input)
 			if err != nil {
 				return err
@@ -351,10 +385,10 @@ and decides who may ask: any writer of the log's Memory.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.AskDecision == nil {
+			if resp.AskQuestion == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no decision")
 			}
-			return writeDecision(f, decisionFrom(&resp.AskDecision.DecisionFields), "✓ asked")
+			return writeDecision(f, decisionFrom(&resp.AskQuestion.DecisionFields), "✓ asked")
 		},
 	}
 	addInputFlags(cmd, &in)
@@ -370,20 +404,42 @@ func newCmdAmend(f *cmdutil.Factory) *cobra.Command {
 		Short: "Amend a decision",
 		Long: `Amend a decision. Only the fields you give change; the rest stay as they
 are. --input-file is a JSON object with the fields of the server's
-AmendDecisionInput, passed through unchanged:
+AmendQuestionInput, passed through unchanged:
 
-  title, context, tier, urgency, parts (changes to existing parts by "n"),
-  addParts (new parts), blocks, followUps, sources
+  title, context, tier, urgency   as the flags of the same name (what the
+                                  tiers mean: hadron decision ask --help)
+  parts      changes to existing parts, each {"n": <part number>} plus only
+             the fields to change: "question", "options", "yesno",
+             "recommendation", "noRecommendation". Part numbers are
+             permanent; a change that renumbers parts is refused
+             (QUESTION_PART_RENUMBER)
+  addParts   new parts appended at the end, each shaped like ask's parts:
+             exactly one of "recommendation" or "noRecommendation" — a new
+             part with neither is refused (QUESTION_RECOMMENDATION_MISSING)
+  blocks, followUps, sources   replace that whole list; each entry a
+             reference: {"ref": "hadron-server#1640"}, {"node": "<id or
+             URN>"} or {"spec": "<citation>"}
 
 --title, --context, --tier and --urgency set that field (overriding the file).
 An empty blocks, followUps or sources list ([]) clears that list, and
-"context": null clears the context; leaving a key out keeps it. Keys are exact and case-sensitive, and a key given
-twice is refused.
---expected-revision is the revision you read (decision get shows it). The
-server decides who may amend what: before any answer any writer, after one a
-decider only, and urgency and tier are a decider's to change.`,
-		Example: `  hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "clarify" --title "Pick a primary database"`,
-		Args:    cobra.ExactArgs(1),
+"context": null clears the context; leaving a key out keeps it. Keys are exact
+and case-sensitive, and a key given twice is refused.
+--expected-revision is the revision you read (decision get shows it). If the
+decision changed since, the amend is refused (NODE_WRITE_CONFLICT, exit 5):
+read it again and retry with the new revision. The server decides who may
+amend what: before any answer any writer, after one a decider only, and
+urgency and tier are a decider's to change.
+
+On success the decision prints as decision get shows it, prefixed
+"✓ amended".`,
+		Example: `  hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "clarify" --title "Pick a primary database"
+  cat > amend.json <<'EOF'
+{"parts":[{"n":1,"question":"Postgres or MySQL, and why?"}],
+ "addParts":[{"question":"Who owns the migration?","yesno":true,
+   "noRecommendation":{"reason":"outside the asker's remit"}}]}
+EOF
+  hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "sharpen part 1" --input-file amend.json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refArg("decision", args[0])
 			if err != nil {
@@ -395,7 +451,7 @@ decider only, and urgency and tier are a decider's to change.`,
 			if err := requireReason(cmd, reason); err != nil {
 				return err
 			}
-			var input gen.AmendDecisionInput
+			var input gen.AmendQuestionInput
 			dec, err := in.decoder(cmd, f, &input)
 			if err != nil {
 				return err
@@ -432,10 +488,10 @@ decider only, and urgency and tier are a decider's to change.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.AmendDecision == nil {
+			if resp.AmendQuestion == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no decision")
 			}
-			return writeDecision(f, decisionFrom(&resp.AmendDecision.DecisionFields), "✓ amended")
+			return writeDecision(f, decisionFrom(&resp.AmendQuestion.DecisionFields), "✓ amended")
 		},
 	}
 	addInputFlags(cmd, &in)
@@ -478,10 +534,10 @@ within --log.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.Decision == nil {
+			if resp.Question == nil {
 				return exitcode.Newf(exitcode.NotFound, "decision %s not found (or not visible to you)", arg)
 			}
-			return writeDecision(f, decisionFrom(&resp.Decision.DecisionFields), "")
+			return writeDecision(f, decisionFrom(&resp.Question.DecisionFields), "")
 		},
 	}
 	cmd.Flags().StringVar(&logRef, "log", "", "read the argument as a code within this decision log")
@@ -501,7 +557,7 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 decisions you decide across every Memory you can read. One page per call:
 --limit (server default 20) and --offset page through; total counts every
 match. The server derives each state before filtering; a log above 5000
-decisions refuses a filter (DECISION_LOG_TOO_LARGE_FOR_FILTER).
+decisions refuses a filter (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
 
 --state and --urgency take one or more values (repeat or comma-separate).
 --authorizes keeps grant decisions; --authorizes=false keeps the others.`,
@@ -520,22 +576,22 @@ decisions refuses a filter (DECISION_LOG_TOO_LARGE_FOR_FILTER).
 				}
 				logPtr = &logRef
 			}
-			var stateVals []gen.DecisionState
+			var stateVals []gen.QuestionState
 			for _, s := range states {
-				stateVals = append(stateVals, gen.DecisionState(s))
+				stateVals = append(stateVals, gen.QuestionState(s))
 			}
-			var urgencyVals []gen.DecisionUrgency
+			var urgencyVals []gen.QuestionUrgency
 			for _, u := range urgencies {
-				urgencyVals = append(urgencyVals, gen.DecisionUrgency(u))
+				urgencyVals = append(urgencyVals, gen.QuestionUrgency(u))
 			}
-			var tierPtr *gen.DecisionTier
+			var tierPtr *gen.QuestionTier
 			if fl.Changed("tier") {
-				t := gen.DecisionTier(tier)
+				t := gen.QuestionTier(tier)
 				tierPtr = &t
 			}
-			var sortPtr *gen.DecisionSort
+			var sortPtr *gen.QuestionSort
 			if fl.Changed("sort") {
-				s := gen.DecisionSort(sort)
+				s := gen.QuestionSort(sort)
 				sortPtr = &s
 			}
 			var awaitPtr, authPtr *bool
@@ -561,11 +617,11 @@ decisions refuses a filter (DECISION_LOG_TOO_LARGE_FOR_FILTER).
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.Decisions == nil {
+			if resp.Questions == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no decision page")
 			}
-			page := decisionPageDTO{Total: resp.Decisions.Total, Items: []decisionDTO{}}
-			for _, it := range resp.Decisions.Items {
+			page := decisionPageDTO{Total: resp.Questions.Total, Items: []decisionDTO{}}
+			for _, it := range resp.Questions.Items {
 				if it != nil {
 					page.Items = append(page.Items, decisionFrom(&it.DecisionFields))
 				}
@@ -617,10 +673,10 @@ list with state DECIDED is a ruling you may rely on.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.VerifyDecision == nil {
+			if resp.VerifyQuestion == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no verification")
 			}
-			v := resp.VerifyDecision
+			v := resp.VerifyQuestion
 			dto := verificationDTO{
 				State: string(v.State), Revision: v.Revision, ApprovedRevision: v.ApprovedRevision,
 				ApprovalIntegrity: v.ApprovalIntegrity, ApprovalByDecider: v.ApprovalByDecider,
@@ -655,7 +711,7 @@ func newCmdWithdraw(f *cmdutil.Factory) *cobra.Command {
 		Short: "Withdraw a decision (final; its code stays used)",
 		Long: `Withdraw a decision. This is final, and its code is never reused. The
 server decides who may: the asker or a decider, and only a decider once it is
-answered. A DECIDED decision is superseded instead (DECISION_ANSWERED_DECIDED).
+answered. A DECIDED decision is superseded instead (QUESTION_ANSWERED_DECIDED).
 Prompts on a terminal; --yes is required otherwise.`,
 		Example: `  hadron decision withdraw hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "no longer needed" --yes`,
 		Args:    cobra.ExactArgs(1),
@@ -681,10 +737,10 @@ Prompts on a terminal; --yes is required otherwise.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.WithdrawDecision == nil {
+			if resp.WithdrawQuestion == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no decision")
 			}
-			return writeDecision(f, decisionFrom(&resp.WithdrawDecision.DecisionFields), "✓ withdrew")
+			return writeDecision(f, decisionFrom(&resp.WithdrawQuestion.DecisionFields), "✓ withdrew")
 		},
 	}
 	cmd.Flags().IntVar(&expected, "expected-revision", 0, "the decision revision you read (required)")
@@ -701,7 +757,7 @@ func newCmdPurge(f *cmdutil.Factory) *cobra.Command {
 		Short: "Delete a never-answered decision (platform admins)",
 		Long: `Hard-delete a decision that was never answered. The purge is recorded on
 its log and the code stays used. Platform admins only, by server rule; an
-answered decision is refused (DECISION_ANSWERED). Prompts on a terminal;
+answered decision is refused (QUESTION_ANSWERED). Prompts on a terminal;
 --yes is required otherwise.`,
 		Example: `  hadron decision purge hrn:node:acme.com:eng:decisions:DC --reason "test data" --yes`,
 		Args:    cobra.ExactArgs(1),
@@ -724,7 +780,7 @@ answered decision is refused (DECISION_ANSWERED). Prompts on a terminal;
 			if err != nil {
 				return api.MapError(err)
 			}
-			if !resp.PurgeUnansweredDecision {
+			if !resp.PurgeUnansweredQuestion {
 				return exitcode.Newf(exitcode.Error, "the server did not confirm the purge of %s", ref)
 			}
 			dto := purgeDTO{Ref: ref, Purged: true}
@@ -744,7 +800,7 @@ answered decision is refused (DECISION_ANSWERED). Prompts on a terminal;
 // count by PRESENCE, not length: an explicit []
 // clears that list on the server, so {"blocks":[]} is a real change. parts and
 // addParts count by length: an empty change list changes nothing.
-func amendIsEmpty(in *gen.AmendDecisionInput) bool {
+func amendIsEmpty(in *gen.AmendQuestionInput) bool {
 	return in.Title == nil && in.Context == nil && in.Tier == nil && in.Urgency == nil &&
 		len(in.Parts) == 0 && len(in.AddParts) == 0 &&
 		in.Blocks == nil && in.FollowUps == nil && in.Sources == nil

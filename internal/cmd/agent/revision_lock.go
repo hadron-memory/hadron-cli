@@ -85,7 +85,7 @@ func newCmdAgentRevisionCreate(f *cmdutil.Factory) *cobra.Command {
 			}
 			r := resp.CreateRevision
 			if r == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no revision")
+				return exitcode.Newf(exitcode.Error, "server returned no revision result")
 			}
 			dto := agentRevisionDTO{RevisionLoc: r.RevisionLoc, Label: r.Label, Published: r.Published, CreatedAt: r.CreatedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -147,7 +147,7 @@ revision <loc> (label <label>, published: <true|false>)"; --json is
 			}
 			r := resp.PublishRevision
 			if r == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no revision")
+				return exitcode.Newf(exitcode.Error, "server returned no revision result")
 			}
 			dto := agentRevisionDTO{RevisionLoc: r.RevisionLoc, Label: r.Label, Published: r.Published, CreatedAt: r.CreatedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -197,7 +197,7 @@ Prints "✓ restored revision <loc> (label <label>, published: <true|false>)";
 			}
 			r := resp.RestoreRevision
 			if r == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no revision")
+				return exitcode.Newf(exitcode.Error, "server returned no revision result")
 			}
 			dto := agentRevisionDTO{RevisionLoc: r.RevisionLoc, Label: r.Label, Published: r.Published, CreatedAt: r.CreatedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

@@ -21,7 +21,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "create --org <ref> --slug <slug> --name <name> --url <url>",
-		Short: "Register an external MCP server (org ADMIN)",
+		Short: "Register an external MCP server (org ADMIN or OWNER)",
 		Long: `Register an external MCP server (org ADMIN/OWNER). The slug is immutable and
 forms the run-tool prefix mcp__<slug>__<tool> (lowercase [a-z0-9-], unique per
 org). --url is the streamable-HTTP MCP endpoint.
