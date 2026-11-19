@@ -52,10 +52,17 @@ func senderWriteError(err error, secret *string) error {
 }
 
 func newCmdResendSender(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "resend-sender <command>", Short: "Manage an organization's Resend sender (write-only API key)", Long: `Create, inspect, update or delete a Resend sender. The server checks access:
-org members can read sanitized sender details; org ADMIN/OWNER can write.
-Only hasApiKey is returned, never the API key. Creating or updating the
-registry does not send mail. Sender references are sender IDs.
+	cmd := &cobra.Command{Use: "resend-sender <command>", Short: "Manage an organization's Resend sender (write-only API key)", Long: `A Resend sender is the address and Resend API key an organization sends its
+email from. Resend is an outside email-sending service; an organization has at
+most one sender, and its AI agents' runs send mail through it (the
+hadron_send_email tool, when the App's policy allows). A disabled sender stops
+that mail. You need a Resend account with a verified sending domain first.
+
+Create, inspect, update or delete the sender with the commands below. Org
+members can read sanitized sender details; org ADMIN/OWNER can write. Only
+hasApiKey is returned, never the API key. Creating or updating a sender does
+not send mail. Other commands take the sender's ID, which "create" and "list"
+print.
 
 Keys are read from --api-key-file (a path or - for stdin), never argv values.
 For create, omit that flag to read piped stdin or use a masked terminal prompt.
@@ -63,6 +70,35 @@ For update, pass the flag explicitly to rotate the key.`, Example: "  hadron org
 	cmd.AddCommand(newCmdSenderWrite(f, false), newCmdSenderWrite(f, true), newCmdSenderGet(f), newCmdSenderList(f), newCmdSenderRm(f))
 	return cmd
 }
+
+const senderCreateExample = "  hadron org resend-sender create --org acme.com --from 'Robot <robot@example.com>' --api-key-file ./resend.key"
+
+const senderUpdateExample = "  hadron org resend-sender update <sender-id> --enabled=false\n  hadron org resend-sender update <sender-id> --api-key-file ./new-resend.key"
+
+const senderCreateLong = `Create the organization's Resend sender: the address its mail is sent from and
+the Resend API key that sends it. The server checks org ADMIN/OWNER access.
+
+Before you start, in Resend: verify the sending domain (Resend, not Hadron,
+checks it; mail from an unverified domain fails when it is sent, not here) and
+create an API key, ideally one limited to sending from that domain. --from is
+that address, for example Robot <robot@example.com>.
+
+Give the key with --api-key-file (a path, or - for stdin), never inline;
+without the flag, create reads piped stdin or prompts with input hidden. The
+new sender is on unless you pass --enabled=false. Prints the sender: its ID
+(what get, update and rm take), organization, address, enabled, and
+whether a key is stored (hasApiKey), never the key. Creating a sender sends
+no mail.`
+
+const senderUpdateLong = `Change a sender's address, its enabled state or its API key. Anything you do
+not pass keeps its current value; pass at least one of --from, --enabled or
+--api-key-file. The server checks org ADMIN/OWNER access. Find the sender ID
+with "hadron org resend-sender list".
+
+--enabled=false switches the sender off, which stops the organization's mail
+until you pass --enabled again. --api-key-file rotates the key (a path, or -
+for stdin, never inline); omit it and the stored key is kept. Prints the
+sender as it now is (hasApiKey, never the key).`
 
 func newCmdSenderWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 	var org, from, keyFile string
@@ -75,15 +111,13 @@ func newCmdSenderWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 		short = "Update supplied sender fields or rotate its API key"
 		argsCheck = cobra.ExactArgs(1)
 	}
-	cmd := &cobra.Command{Use: use, Short: short, Args: argsCheck, Long: `Write the sender registry; the server enforces org ADMIN/OWNER access.
---from is the fixed sender identity (for example Robot <robot@example.com>).
-Resend must verify its domain. --enabled=false disables this sender.
-
-Create defaults enabled to true on the server. Update changes only supplied
-flags; omission preserves each field. --api-key-file reads a file (or - for
-stdin), never an inline key. Create without it reads piped stdin or prompts
-with input hidden. Update rotates the key only when --api-key-file is given.
-The response shows hasApiKey and sender metadata, never key material.`, Example: "  hadron org resend-sender create --org acme.com --from 'Robot <robot@example.com>' --api-key-file ./resend.key\n  hadron org resend-sender update <sender-id> --enabled=false", RunE: func(cmd *cobra.Command, args []string) error {
+	longText := senderCreateLong
+	example := senderCreateExample
+	if update {
+		longText = senderUpdateLong
+		example = senderUpdateExample
+	}
+	cmd := &cobra.Command{Use: use, Short: short, Args: argsCheck, Long: longText, Example: example, RunE: func(cmd *cobra.Command, args []string) error {
 		changed := cmd.Flags().Changed
 		org = strings.TrimSpace(org)
 		from = strings.TrimSpace(from)
@@ -169,12 +203,16 @@ The response shows hasApiKey and sender metadata, never key material.`, Example:
 		cmd.Flags().StringVar(&org, "org", "", "organization ref: ID, slug or URN (required)")
 		_ = cmd.MarkFlagRequired("org")
 	}
-	cmd.Flags().StringVar(&from, "from", "", "fixed sender identity; required on create")
+	fromUsage, enabledUsage, enabledDefault := "the address mail is sent from, such as 'Robot <robot@example.com>' (required)", "--enabled=false creates the sender switched off", true
+	if update {
+		fromUsage, enabledUsage, enabledDefault = "the sender's new address; leave it out to keep the current one", "turn the sender on; --enabled=false turns it off; leave it out to keep it as it is", false
+	}
+	cmd.Flags().StringVar(&from, "from", "", fromUsage)
 	if !update {
 		_ = cmd.MarkFlagRequired("from")
 	}
 	cmd.Flags().StringVar(&keyFile, "api-key-file", "", "read write-only key from file or - (stdin); never an inline key")
-	cmd.Flags().BoolVar(&enabled, "enabled", true, "enable or disable the sender (update: only when passed)")
+	cmd.Flags().BoolVar(&enabled, "enabled", enabledDefault, enabledUsage)
 	return cmd
 }
 
