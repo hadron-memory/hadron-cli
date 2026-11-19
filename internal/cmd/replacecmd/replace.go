@@ -211,6 +211,16 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 				if err != nil {
 					return replaceResultDTO{}, api.MapError(err)
 				}
+				// A success envelope can still carry a null or absent result
+				// (cli#2527, the class of #2493): a command error, never a panic.
+				if resp == nil || resp.SearchReplaceInNodes == nil {
+					if dry {
+						return replaceResultDTO{}, exitcode.Newf(exitcode.Error,
+							"the server answered searchReplaceInNodes with no result and no error; this was a preview, so nothing was written")
+					}
+					return replaceResultDTO{}, exitcode.Newf(exitcode.Error,
+						"the server answered searchReplaceInNodes with no result and no error, so the outcome is unknown: the replacement may have been applied; read the affected nodes (hadron node revision list <node>) before retrying")
+				}
 				return toDTO(resp.SearchReplaceInNodes), nil
 			}
 
