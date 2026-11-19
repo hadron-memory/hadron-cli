@@ -99,7 +99,7 @@ func TestHelpPagesNameCommandsThatExist2601(t *testing.T) {
 		{[]string{"automation", "preview"}, []string{"hadron automation approval", "hadron automation approve", "hadron schedule list", "hadron webhook list"}},
 		{[]string{"automation", "re-adopt"}, []string{"hadron automation approval", "hadron automation approve", "hadron schedule list", "hadron webhook list"}},
 	} {
-		long, _ := page2579(t, tc.page...)
+		long, _ := pageText2579(t, tc.page...)
 		for _, w := range tc.want {
 			if !strings.Contains(long, w) {
 				t.Errorf("%v no longer names %q", tc.page, w)
@@ -128,7 +128,7 @@ func TestTeamSnapshotGrantTriggerIDFlagPointsAtTheListings2601(t *testing.T) {
 
 // cli#2601 item 8: re-adopt says when you need it, and what a MANUAL trigger is.
 func TestReAdoptSaysWhenYouNeedIt2601(t *testing.T) {
-	long, _ := page2579(t, "automation", "re-adopt")
+	long, _ := pageText2579(t, "automation", "re-adopt")
 	for _, want := range []string{"was refused", "changed since you last approved", "MANUAL"} {
 		if !strings.Contains(long, want) {
 			t.Errorf("re-adopt must say when it is needed (missing %q): %q", want, long)

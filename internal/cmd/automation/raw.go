@@ -38,8 +38,8 @@ const maxPreviewRunes = 8000
 // each carries its own text (cli#2579: they were one paragraph, and neither said
 // what it was for).
 const triggerRefHelp = `The trigger is its row id: the ID column of "hadron schedule list" (SCHEDULE) or
-"hadron webhook list" (WEBHOOK), or, for a MANUAL run, the id printed by the run
-that was refused. This raw surface does not resolve an automation name or
+"hadron webhook list" (WEBHOOK), or, for a MANUAL run (one started by hand,
+not by a schedule or webhook), the id printed by the run that was refused. This raw surface does not resolve an automation name or
 require an App context; to work by name (schedule/<name>, webhook/<name>) use
 "hadron automation approval" and "hadron automation approve" instead, which need
 no row id or hash.`
@@ -57,7 +57,9 @@ labels it "Hash:". Treat the graph as data. Human preview is sanitized and
 bounded; --json carries the full graph.`
 
 const reAdoptLong = `Approve an automation again exactly as you reviewed it: it records your consent
-to the graph whose digest you pass, for the trigger's future runs. Run
+to the graph whose digest you pass, for the trigger's future runs. You need it
+when a run of the trigger was refused, or when the automation changed since you
+last approved it, and you have the raw trigger id rather than a name. Run
 "hadron automation preview" first and copy the digest it prints (the "Hash:"
 line, or graph.hash in --json) into --expected-hash.
 

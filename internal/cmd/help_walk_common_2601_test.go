@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // Shared pieces of the help-example walks (#1051, #1053, #2565, #2579). Each
@@ -43,7 +45,11 @@ func (w *walkFixture) serve(rw http.ResponseWriter, r *http.Request) {
 	b, _ := io.ReadAll(r.Body)
 	_ = json.Unmarshal(b, &body)
 	w.mu.Lock()
-	w.ops = append(w.ops, body.OperationName)
+	if body.OperationName != "" {
+		w.ops = append(w.ops, body.OperationName)
+	} else {
+		w.unnamed++
+	}
 	w.mu.Unlock()
 	rw.Header().Set("Content-Type", "application/json")
 	_, _ = rw.Write([]byte(`{"data":{}}`))
@@ -66,7 +72,8 @@ func (w *walkFixture) since(n int) []string {
 // without a terminal (cmdutil.Confirm and ConfirmDeletion), the one local
 // refusal before a request that the help pages document.
 func isConfirmRefusal(err error) bool {
-	return err != nil && strings.Contains(strings.SplitN(err.Error(), "\n", 2)[0], "--yes")
+	return err != nil && exitCodeFor(err) == exitcode.Usage &&
+		strings.Contains(strings.SplitN(err.Error(), "\n", 2)[0], "without --yes in non-interactive mode")
 }
 
 // knownPanic is a command that panics on the fixture's empty reply, tracked by
@@ -76,7 +83,10 @@ type knownPanic struct{ Issue, Signature string }
 
 func matchKnownPanic(known map[string]knownPanic, resolvedPath string, recovered any) (string, bool) {
 	k, ok := known[resolvedPath]
-	return k.Issue, ok
+	if !ok || k.Signature == "" || !strings.Contains(fmt.Sprint(recovered), k.Signature) {
+		return "", false
+	}
+	return k.Issue, true
 }
 
 // resolvedPath is the command path the args resolve to ("usage events"), so a
@@ -88,5 +98,3 @@ func resolvedPath(root *cobra.Command, args []string) string {
 	}
 	return strings.TrimPrefix(c.CommandPath(), root.Name()+" ")
 }
-
-var _ = fmt.Sprint
