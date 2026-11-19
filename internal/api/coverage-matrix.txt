@@ -265,7 +265,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 357: 305 command, 40 gap, 12 excluded
+[Mutation] 357: 306 command, 39 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -541,7 +541,7 @@ setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12
 setHostSetupSource  command team host setup
 setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
-setMemorySourceToken  gap #60
+setMemorySourceToken  command memory sync set-token
 setModelFamilyAvailability  command team availability set
 setOrgBootPromptSigning  command org signing on
 setQuestionLogDeciders  command decision log set-deciders
