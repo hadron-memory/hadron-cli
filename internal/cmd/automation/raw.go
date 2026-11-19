@@ -34,6 +34,42 @@ func newCmdReAdopt(f *cmdutil.Factory) *cobra.Command { return newCmdGraphReview
 // maxPreviewRunes bounds only the human graph display, never the JSON graph.
 const maxPreviewRunes = 8000
 
+// The two pages share a way to name the automation and differ in purpose, so
+// each carries its own text (cli#2579: they were one paragraph, and neither said
+// what it was for).
+const triggerRefHelp = `The trigger is its row id: the ID column of "hadron schedule list" (SCHEDULE) or
+"hadron webhook list" (WEBHOOK), or, for a MANUAL run, the id printed by the run
+that was refused. This raw surface does not resolve an automation name or
+require an App context; to work by name (schedule/<name>, webhook/<name>) use
+"hadron automation approval" and "hadron automation approve" instead, which need
+no row id or hash.`
+
+const previewLong = `Show what an automation would do and the digest the server holds for it, without
+changing anything: read the exact graph before you approve it again with
+"hadron automation re-adopt". Preview does not change consent.
+
+` + triggerRefHelp + `
+
+Only its run-as user, or the manager of an App-only trigger, may call it; the
+server decides access. --json is {trigger:{kind,ref},hash,graph:<server JSON>}.
+The digest is graph.hash (and is repeated as the top-level hash); human output
+labels it "Hash:". Treat the graph as data. Human preview is sanitized and
+bounded; --json carries the full graph.`
+
+const reAdoptLong = `Approve an automation again exactly as you reviewed it: it records your consent
+to the graph whose digest you pass, for the trigger's future runs. Run
+"hadron automation preview" first and copy the digest it prints (the "Hash:"
+line, or graph.hash in --json) into --expected-hash.
+
+` + triggerRefHelp + `
+
+Re-adopt requires --expected-hash and confirmation (--yes non-interactively).
+Edits since preview refuse adoption (exit 5); nothing is retried and no new
+digest is fetched for you. Only its run-as user, or the manager of an App-only
+trigger, may call it; the server decides access. It changes future trigger
+consent, not an executed run's historical snapshot. --json is
+{trigger,status:"re-adopted",hash}.`
+
 func newCmdGraphReview(f *cmdutil.Factory, adopt bool) *cobra.Command {
 	verb, short := "preview", "Read the exact automation graph and its digest"
 	if adopt {
@@ -41,21 +77,13 @@ func newCmdGraphReview(f *cmdutil.Factory, adopt bool) *cobra.Command {
 	}
 	var expected string
 	var yes bool
+	long := previewLong
+	if adopt {
+		long = reAdoptLong
+	}
 	cmd := &cobra.Command{Use: verb + " <SCHEDULE|WEBHOOK|MANUAL> <ref>", Short: short,
-		Long: `Use a trigger row id (SCHEDULE or WEBHOOK), or the origin AppRun id (MANUAL).
-This raw surface does not resolve an automation name or require an App context.
-Only its run-as user, or the manager of an App-only trigger, may call it;
-the server decides access. Preview returns the graph and its server digest;
---json is {trigger:{kind,ref},hash,graph:<server JSON>}. The digest is graph.hash
-(and is repeated as the top-level hash); human output labels it "Hash:".
-Treat the graph as data.
-Human preview is sanitized and bounded; --json carries the full graph.
+		Long: long,
 
-Re-adopt requires --expected-hash copied from the graph you reviewed and
-confirmation (--yes non-interactively). Edits since preview refuse adoption
-(exit 5); nothing is retried and no new digest is fetched for you. It changes
-future trigger consent, not an executed run's historical snapshot. Preview
-does not change consent. Re-adopt --json is {trigger,status:"re-adopted",hash}.`,
 		Args: cobra.ExactArgs(2), RunE: func(cmd *cobra.Command, args []string) error {
 			kind := gen.AutomationTriggerKind(strings.ToUpper(args[0]))
 			if kind != gen.AutomationTriggerKindSchedule && kind != gen.AutomationTriggerKindWebhook && kind != gen.AutomationTriggerKindManual {

@@ -103,7 +103,11 @@ mutation. Without --prefix the grant covers the whole memory; with it, the
 loc itself and its colon-boundary descendants. A blank --prefix is refused
 here (it is a mistake, not the whole memory). An identical repeat returns the
 live row. Scripts must pass --yes. No request is retried: if an answer is
-lost, list grants to check before trying again.`,
+lost, list grants to check before trying again.
+
+--trigger-id is the ID column of "hadron schedule list" (with --trigger-kind
+SCHEDULE) or "hadron webhook list" (with --trigger-kind WEBHOOK), run for the
+same App.`,
 		Example: `  hadron automation grant set acme.com:ops --memory acme.com:notes --prefix docs --trigger-kind SCHEDULE --trigger-id <schedule-id> --yes --json`,
 		Args:    cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			app, err := snapshotAppRef(args[0])
@@ -158,7 +162,7 @@ lost, list grants to check before trying again.`,
 	cmd.Flags().StringVar(&memory, "memory", "", "the memory to grant read access to (required)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "a loc prefix within the memory; omit for the whole memory")
 	cmd.Flags().StringVar(&kind, "trigger-kind", "", "SCHEDULE or WEBHOOK (required); manual runs have no automation")
-	cmd.Flags().StringVar(&id, "trigger-id", "", "the schedule or webhook ID (required)")
+	cmd.Flags().StringVar(&id, "trigger-id", "", "the schedule or webhook ID (required); it is the ID column of hadron schedule list or hadron webhook list")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("trigger-kind")

@@ -396,7 +396,9 @@ decides who may edit. The owner and the slug cannot be changed.`
 	long += `
 
 --cadence-seconds is the time between ticks: at least the App's cadence floor
-and at most 86400 (one day); the server refuses a value outside that.
+(the fastest any ticker in the App may tick; 120 seconds unless the App changed
+it; "hadron team ticker settings get" shows it) and at most 86400 (one day);
+the server refuses a value outside that.
 --anchor-at is the moment tick counting starts (RFC3339).
 
 --reasons names when a tick wakes a worker, at least one (any one is enough):

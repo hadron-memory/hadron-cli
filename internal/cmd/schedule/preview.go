@@ -67,7 +67,8 @@ preview does not validate policy or scope; create may refuse them even after an 
 --name, --scope and --policy are not preview inputs and are not accepted here.
 
 The other flags mean what they do on "hadron schedule create". --app takes an id
-or URN, defaulting to your App context; --entry is a fully-qualified node URN.
+or URN, defaulting to your App context; --entry is a fully-qualified node URN
+(the legacy org::memory::loc form is also accepted).
 Give exactly one of --cron (five fields, evaluated in --tz, default UTC) or
 --run-at (an RFC3339 instant). --agent selects an installed Agent; left out, the
 server picks it. --as-self previews running on behalf of you (an App key
