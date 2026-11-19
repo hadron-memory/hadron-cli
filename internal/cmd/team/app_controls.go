@@ -70,8 +70,8 @@ manage the App.
 
 add is person-only: the CLI always sends it as the signed-in person, never as a
 worker session, so a worker cannot give itself a grant; the server refuses a
-caller who does not manage the App (FORBIDDEN, exit 8), so ask the App manager or
-the worker's holder to run it. Without --instruction, rm is sent the same way.
+caller who does not manage the App (FORBIDDEN, exit 8), so it must be run by a
+person who manages the App. Without --instruction, rm is sent the same way.
 Only rm accepts the holder's instruction claim; its help describes binding
 checks and the person fallback.
 

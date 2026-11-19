@@ -207,7 +207,8 @@ func newCmdTeamGrantRequest(f *cmdutil.Factory) *cobra.Command {
 role agent (--holder agent), from a bound worker session that a person is
 driving: the server refuses any other caller, so bind first ('hadron team
 session start'). The holder id comes from the binding; --holder-id overrides it
-for the call, but an unbound call still reaches only the server's refusal.
+(and the CLI requires it when there is no binding), but the server still refuses
+a call that does not come from a bound, person-driven worker session.
 
 --action is an action name from 'hadron team grant actions'. --values is the
 JSON object of that action's parameters (or @file): the PARAMETERS column of
