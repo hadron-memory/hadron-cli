@@ -206,6 +206,9 @@ Details:
 				if err != nil {
 					return api.MapError(err)
 				}
+				if resp == nil || resp.UsageEventsPage == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no usage events result")
+				}
 				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
 				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {
 					return err
@@ -214,6 +217,9 @@ Details:
 				resp, err := gen.UsageEventsPage(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
 				if err != nil {
 					return api.MapError(err)
+				}
+				if resp == nil || resp.UsageEventsPage == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no usage events result")
 				}
 				total, hasMore = resp.UsageEventsPage.Total, resp.UsageEventsPage.HasMore
 				if rows, err = toEventDTOs(resp.UsageEventsPage.Items); err != nil {

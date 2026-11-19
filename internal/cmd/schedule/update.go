@@ -36,7 +36,7 @@ Scope is snapshotted onto each new run; existing runs do not change.
 --budget-tokens / --budget-actions set the per-run limits; --clear-budget-tokens /
 --clear-budget-actions clear one back to the platform default (a value and its
 clear flag together is a usage error). A value above the platform default is
-refused by the server. Requires a server with trigger budgets.`,
+refused by the server. Needs a server version that supports budgets.`,
 		Example: `  hadron schedule update sch_123 --cron '0 7 * * *' --enabled=false`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {

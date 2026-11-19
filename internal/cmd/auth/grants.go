@@ -50,20 +50,28 @@ func newCmdGrants(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "grants",
 		Short: "Read personal grants across Apps",
-		Long: `Read one page of grants naming the signed-in person directly as holder,
-across Apps and organizations, in every state, newest first. Grants you only
-issued or requested for someone else are not included.
+		Long: `List the grants made to you personally: each is a standing permission for an
+action, with its limits (such as expiry and maximum uses), given to you as the
+holder in an App or organization. One page, across all your Apps and
+organizations, in every state, newest first. Grants you only issued or
+requested for someone else are not included.
+
+This is not "hadron grant list" (an org's action grants for its members) or
+"hadron team grant list" (the grants a worker holds); use those to see what a
+member or worker may do in an org.
 
 Uses the current credential, never this worktree's worker-session binding.
 The read is not App-scoped. An App key, run or impersonated credential can
 receive an empty page; empty output never proves you have no grants.
 Sign in with hadron auth login; use hadron auth whoami to inspect the
-current credential. Missing credentials exit 3. Servers without myGrants
-report an API compatibility error (exit 2); no fallback claims an empty list.
+current credential. Missing credentials exit 3. An older server that cannot
+list personal grants reports an API compatibility error (exit 2); no fallback
+claims an empty list.
 
-Prints the server's timestamps, allows (a fact about now), and signature
-status as returned. It does not invent a lifecycle label from those fields.
-No signature records, signer identities or manager-only end details are read.
+Prints the server's timestamps, whether the grant allows its action right now,
+and its signature status as returned. It does not invent a lifecycle label from
+those fields. No signature records, signer identities or manager-only end
+details are read.
 --json returns {items:[],total:N,hasMore,nextOffset}; --limit 0 returns {total:N} only.
 The default page size is 20. The server caps pages at 200 rows, rather than
 refusing a larger request. --offset selects the start. Use nextOffset as

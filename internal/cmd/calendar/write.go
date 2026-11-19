@@ -44,6 +44,14 @@ const eventOutHelp = `
 
 const writeHelp = keyedRecoveryHelp + notifyHelp + timeHelp + eventOutHelp
 const deleteHelp = keyedRecoveryHelp + notifyHelp + `
+  A deleted event cannot be brought back with this CLI: there is no restore
+  command, so copy anything you need first ("calendar event get"). The command
+  sends the one event ID you give it and has no option to choose between one
+  occurrence and a whole series. "calendar events" lists each occurrence of a
+  recurring event under its own ID, with a seriesId; which of the two the
+  calendar provider removes for such an ID is the provider's rule, not
+  something this command decides or reports, so read the event with "calendar
+  event get" and check its seriesId before deleting one you did not create.
   The output is {eventId, deleted: true}, printed only when the server confirms
   the delete; --json prints only that JSON.`
 const respondHelp = readbackRecoveryHelp + eventOutHelp
@@ -239,7 +247,7 @@ func create(f *cmdutil.Factory) *cobra.Command {
 
 func update(f *cmdutil.Factory) *cobra.Command {
 	o := &writeOptions{}
-	c := &cobra.Command{Use: "update <eventId>", Short: "Change an event (owner only)", Long: "Change an event: only the flags you pass change; everything else stays as it is.\nA non-empty --attendee list replaces the WHOLE attendee set (repeat the people\nyou keep); --clear-attendees removes every attendee. Name at least one change.\n\n" + connectionHelp + "\n\n" + writeHelp, Example: "  hadron calendar event update <event-id> --connection <connection-id> --title \"Standup (moved)\" \\\n    --from 2026-10-30T10:00:00-07:00 --to 2026-10-30T10:15:00-07:00 --no-notify", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "update <eventId>", Short: "Change an event (owner only)", Long: "Change an event: only the flags you pass change; everything else stays as it is.\nA non-empty --attendee list replaces the WHOLE attendee set (repeat the people\nyou keep); --clear-attendees removes every attendee. Name at least one change.\n\n" + connectionHelp + "\n\n" + writeHelp, Example: "  hadron calendar event update <event-id> --connection <connection-id> --title \"Standup (moved)\" \\\n    --from 2026-10-30T10:00:00-07:00 --to 2026-10-30T10:15:00-07:00 --no-notify\n  hadron calendar event update <event-id> --connection <connection-id> --all-day --from 2026-11-03 --to 2026-11-05", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
@@ -291,6 +299,8 @@ func update(f *cmdutil.Factory) *cobra.Command {
 	o.common(c)
 	o.bodyFlags(c)
 	c.Flags().BoolVar(&o.clearAttendees, "clear-attendees", false, "remove every attendee (cannot be combined with --attendee)")
+	c.Flags().Lookup("from").Usage = "new start: RFC3339 with an offset, a date-time with --tz, or a date with --all-day"
+	c.Flags().Lookup("to").Usage = "new end, same forms as --from"
 	return c
 }
 
@@ -301,7 +311,7 @@ type deletedDTO struct {
 
 func del(f *cmdutil.Factory) *cobra.Command {
 	o := &writeOptions{}
-	c := &cobra.Command{Use: "delete <eventId>", Aliases: []string{"rm"}, Short: "Delete (cancel) an event (owner only)", Long: "Delete an event. Attendees are told it is cancelled unless you pass --no-notify.\nAsks first on a terminal; without one, --yes is required.\n\n" + connectionHelp + "\n\n" + deleteHelp, Example: "  hadron calendar event delete <event-id> --connection <connection-id> --yes", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "delete <eventId>", Aliases: []string{"rm"}, Short: "Delete (cancel) an event (owner only)", Long: "Delete an event for good. Attendees are told it is cancelled unless you pass --no-notify.\nAsks first on a terminal; without one, --yes is required. <eventId> is the ID\nshown by \"calendar events\".\n\n" + connectionHelp + "\n\n" + deleteHelp, Example: "  hadron calendar event delete <event-id> --connection <connection-id> --yes", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}

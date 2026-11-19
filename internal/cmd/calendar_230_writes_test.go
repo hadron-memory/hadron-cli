@@ -258,3 +258,32 @@ func TestCalendar230DeleteCancelledAtThePromptSendsNothing(t *testing.T) {
 		t.Fatal(ops)
 	}
 }
+
+// #1184 (AT0.8528): the update flag table must not claim an offset is
+// mandatory (it contradicts --tz and --all-day), and delete must state its
+// irreversibility and the recurring-event limit.
+func TestCalendar1184UpdateAndDeleteHelp(t *testing.T) {
+	help := func(sub string) string {
+		srv, _ := captureGraphQL(t, map[string]string{})
+		f, out := testFactory(t)
+		r := NewRootCmd(f)
+		r.SetArgs([]string{"calendar", "event", sub, "--help", "--server", srv.URL})
+		_ = r.Execute()
+		return out.String()
+	}
+	upd := help("update")
+	if strings.Contains(upd, "offset required") {
+		t.Fatal("update still says an offset is required")
+	}
+	for _, w := range []string{"a date-time with --tz, or a date with --all-day", "--all-day --from 2026-11-03"} {
+		if !strings.Contains(upd, w) {
+			t.Fatal("update help lacks", w)
+		}
+	}
+	del := help("delete")
+	for _, w := range []string{"cannot be brought back", "seriesId", "occurrence and a whole series", `shown by "calendar events"`} {
+		if !strings.Contains(del, w) {
+			t.Fatal("delete help lacks", w)
+		}
+	}
+}
