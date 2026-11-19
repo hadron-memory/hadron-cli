@@ -3,6 +3,8 @@ package memory
 import (
 	"fmt"
 	"io"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -157,7 +159,105 @@ syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 	}
 	pull.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required without a terminal)")
 	group.AddCommand(pull)
+	group.AddCommand(newCmdSyncSetToken(f))
 	return group
+}
+
+type syncSetTokenDTO struct {
+	Memory    string  `json:"memory"`
+	Operation string  `json:"operation"`
+	TokenSet  bool    `json:"tokenSet"`
+	ExpiresAt *string `json:"expiresAt"`
+}
+
+// newCmdSyncSetToken sets a memory's write-only source token (cli#2511). The
+// token is read from a file or stdin only, never an argument; it is sent as a
+// GraphQL variable and appears in no output, error or DTO.
+func newCmdSyncSetToken(f *cmdutil.Factory) *cobra.Command {
+	var tokenFile, expiresAt string
+	cmd := &cobra.Command{
+		Use: "set-token <memoryRef> [--token-file <path|@path|->] [--expires-at <rfc3339>]", Short: "Set a memory's write-only source token",
+		Long: `Store an encrypted access token for the memory's source repository, for a
+repository that is not reached through the organization's GitHub App. The
+token is write-only: Hadron never shows it again, and there is no command that
+reads it back.
+
+Give the token with --token-file (a path, @path, or - for stdin), never as an
+argument; without the flag, set-token reads piped stdin or prompts with input
+hidden. Setting a token only stores it: it starts no pull and no push. Run
+"hadron memory sync pull" separately.
+
+--expires-at (an RFC 3339 time such as 2027-01-02T03:04:05Z) is passed to the
+server along with the token; leave it out for none. An encrypted memory is
+never synced, so the server may refuse to store a token for one; its answer is
+shown. Setting a token needs write access to the memory, which the server
+checks. The token is never printed: not in the output, --json or an error.
+--json: {memory,operation:"set-token",tokenSet:true,expiresAt}.`,
+		Example: "  printf %s \"$TOKEN\" | hadron memory sync set-token acme.com:kb\n  hadron memory sync set-token acme.com:kb --token-file ./kb.token --expires-at 2027-01-02T03:04:05Z",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateMemoryRef(args[0]); err != nil {
+				return err
+			}
+			ref := cmdutil.CanonicalMemoryRef(args[0])
+			var exp *string
+			if cmd.Flags().Changed("expires-at") {
+				if _, err := time.Parse(time.RFC3339, expiresAt); err != nil {
+					return exitcode.Newf(exitcode.Usage, "--expires-at must be an RFC 3339 time, e.g. 2027-01-02T03:04:05Z")
+				}
+				exp = &expiresAt
+			}
+			if cmd.Flags().Changed("token-file") && tokenFile == "" {
+				return exitcode.Newf(exitcode.Usage, "--token-file requires a path or -")
+			}
+			token, err := cmdutil.ReadSecretInput(f.IOStreams, tokenFile, "token-file", "Source token", "source token")
+			if err != nil {
+				return api.MapError(err)
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.SetMemorySourceToken(cmd.Context(), client, ref, token, exp)
+			if err != nil {
+				return setTokenError(err, token)
+			}
+			// A null field with no error cannot establish that a token is stored.
+			if resp == nil || resp.SetMemorySourceToken == nil {
+				return exitcode.Newf(exitcode.Unavailable, "no usable answer; the token may not be stored; check the memory and set it again")
+			}
+			// Name the memory as the server did; fall back to what was typed.
+			named := ref
+			if u := resp.SetMemorySourceToken.Urn; u != "" {
+				named = strings.ReplaceAll(u, token, "[REDACTED]")
+			}
+			dto := syncSetTokenDTO{Memory: named, Operation: "set-token", TokenSet: true, ExpiresAt: exp}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "source token set for %s\n", quoteCapped(named, 300))
+				return err
+			})
+		},
+	}
+	cmd.Flags().StringVar(&tokenFile, "token-file", "", "read the token from a file (path or @path) or - for stdin; never an inline value")
+	cmd.Flags().StringVar(&expiresAt, "expires-at", "", "token expiry, RFC 3339 (omit for none)")
+	return cmd
+}
+
+// setTokenError maps a refusal without ever carrying the token: the server's
+// own answer is kept (an encrypted memory's refusal must reach the user) with
+// any occurrence of the token redacted, and a server code that reflects the
+// token is dropped.
+func setTokenError(err error, token string) error {
+	mapped := api.MapError(err)
+	if token == "" {
+		return api.MapErrorKeepingCode(err)
+	}
+	msg := output.SafeLine(strings.ReplaceAll(mapped.Error(), token, "[REDACTED]"), 2000)
+	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
+	if strings.Contains(api.ServerCodeOf(err), token) {
+		return safe
+	}
+	return api.WithServerCode(safe, err)
 }
 
 type syncPullFailure struct {
