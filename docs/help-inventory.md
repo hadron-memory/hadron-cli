@@ -515,9 +515,9 @@ section between the markers.
 | `team pause` |  |  | y | #1054 | a7a2e519211d |  | unread |  |
 | `team pr` |  |  | y | #1054 | ba351d8ac713 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | a66755dff8eb |  | unread |  |
-| `team pr readiness` |  |  | y | #1054 | 87ab3f10ca46 |  | unread |  |
+| `team pr readiness` |  |  | y | #1054 | 978dcd7c3526 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | b7026a29bd46 |  | unread |  |
-| `team pr schedule` |  |  | y | #1054 | 75a1a3560975 |  | unread |  |
+| `team pr schedule` |  |  | y | #1054 | e51b4a00796d |  | unread |  |
 | `team pr seat` |  |  | y | #1054 | bf2da05201c3 |  | unread |  |
 | `team pr verdict` |  |  | y | #1054 | b35f943e5866 |  | unread |  |
 | `team push` |  |  | n | #1054 | 6c241890f4dc |  | unread |  |
