@@ -332,3 +332,163 @@ func TestADirectoryHoldingASymlinkOnThePathIsJudged2623(t *testing.T) {
 		t.Fatal("a worker whose program is reached through a writable directory's symlink was applied")
 	}
 }
+
+// A directory in the MIDDLE of a symlink chain is judged too: a/tight/link ->
+// b/open/link2 -> safe/launcher passes through b/open, and whoever can write
+// it can repoint link2.
+func TestADirectoryInTheMiddleOfASymlinkChainIsJudged2623(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	safe := filepath.Join(fx.dir, "safe")
+	tight := filepath.Join(fx.dir, "tight")
+	for _, d := range []string{safe, tight} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	prog := filepath.Join(safe, "launcher")
+	if err := os.WriteFile(prog, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	open := looseDir(t, fx.dir, "open", false)
+	if err := os.Symlink(prog, filepath.Join(open, "link2")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(open, "link2"), filepath.Join(tight, "link")); err != nil {
+		t.Fatal(err)
+	}
+	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + filepath.Join(tight, "link") + "]\n")
+	ev := fx.kinds("config-reload-refused")
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "not sticky") || !strings.Contains(ev[0].Detail, open) {
+		t.Fatalf("want a refusal naming the directory in the middle of the chain, got %+v", ev)
+	}
+}
+
+func TestVisitedDirsFollowsEachComponentLikeTheKernel2623(t *testing.T) {
+	root := trustTempDir(t)
+	a, b := filepath.Join(root, "a"), filepath.Join(root, "b")
+	for _, d := range []string{a, b} {
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(b, "f"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// a/up -> ../b : resolving a/up/f looks in root, a (finds up), then, through
+	// the link, root again and b.
+	if err := os.Symlink("../b", filepath.Join(a, "up")); err != nil {
+		t.Fatal(err)
+	}
+	got, links := visitedDirs(filepath.Join(a, "up", "f"))
+	if len(links) != 1 || links[0] != filepath.Join(a, "up") {
+		t.Errorf("links = %v, want the one symlink followed", links)
+	}
+	for _, want := range []string{"/", root, a, b} {
+		found := false
+		for _, d := range got {
+			if d == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("visited %v lacks %q", got, want)
+		}
+	}
+	// A loop terminates.
+	loop := filepath.Join(root, "loop")
+	if err := os.Symlink(loop, loop); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = visitedDirs(filepath.Join(loop, "x"))
+}
+
+// A symlink in a directory the walk accepts (a sticky one, where anyone may
+// add entries) is judged on its own: its owner chose where it leads. A test
+// cannot create another user's link, so the owner is pinned through the
+// FileInfo it reads.
+func TestASymlinkOwnedByAnotherUserIsRefused2623(t *testing.T) {
+	me := uint32(os.Geteuid())
+	for _, tc := range []struct {
+		name string
+		info ownedInfo
+		bad  bool
+	}{
+		{"own link", ownedInfo{me, os.ModeSymlink | 0o777}, false},
+		{"root's link", ownedInfo{0, os.ModeSymlink | 0o777}, false},
+		{"another user's link", ownedInfo{me + 1, os.ModeSymlink | 0o777}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := trustedLinkInfo(tc.info, "/tmp/tool", "/tmp/tool", "a program")
+			if tc.bad != (err != nil) {
+				t.Fatalf("err = %v, bad = %v", err, tc.bad)
+			}
+			if err != nil && !strings.Contains(err.Error(), "/tmp/tool") {
+				t.Fatalf("the refusal must name the link: %v", err)
+			}
+		})
+	}
+}
+
+// Every symlink followed is judged, whichever directory holds it: a link we
+// own in a sticky directory is accepted, and the walk reports it for judging.
+func TestAnOwnedSymlinkInAStickyDirectoryIsAccepted2623(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	sticky := looseDir(t, fx.dir, "sticky", true)
+	safe := filepath.Join(fx.dir, "safe")
+	if err := os.Mkdir(safe, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prog := filepath.Join(safe, "launcher")
+	if err := os.WriteFile(prog, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(sticky, "tool")
+	if err := os.Symlink(prog, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, links := visitedDirs(link); len(links) != 1 || links[0] != link {
+		t.Fatalf("the walk must report the link it followed: %v", links)
+	}
+	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + link + "]\n")
+	if got := fx.registered(); got != "billie,iris" {
+		t.Fatalf("registration = %q: a link we own in a sticky directory is acceptable", got)
+	}
+}
+
+// The walk itself judges each link it followed: with another user's link
+// reported at the path, the whole check refuses.
+func TestTheWalkRefusesAPathThroughAnotherUsersSymlink2623(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	sticky := looseDir(t, fx.dir, "sticky", true)
+	safe := filepath.Join(fx.dir, "safe")
+	if err := os.Mkdir(safe, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prog := filepath.Join(safe, "launcher")
+	if err := os.WriteFile(prog, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(sticky, "tool")
+	if err := os.Symlink(prog, link); err != nil {
+		t.Fatal(err)
+	}
+	prev := lstatLink
+	lstatLink = func(name string) (os.FileInfo, error) {
+		if name == link {
+			return ownedInfo{uint32(os.Geteuid()) + 1, os.ModeSymlink | 0o777}, nil
+		}
+		return os.Lstat(name)
+	}
+	t.Cleanup(func() { lstatLink = prev })
+	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + link + "]\n")
+	ev := fx.kinds("config-reload-refused")
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "the symlink "+link) || !strings.Contains(ev[0].Detail, "owned by uid") {
+		t.Fatalf("want a refusal naming the foreign link, got %+v", ev)
+	}
+	if _, ok := fx.p.config().Worker("billie"); ok {
+		t.Fatal("a worker reached through another user's symlink was applied")
+	}
+}

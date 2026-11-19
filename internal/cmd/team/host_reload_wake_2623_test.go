@@ -199,7 +199,7 @@ func TestHostRunHelpSaysWhatAReloadAppliesAndWhatNeedsARestart2623(t *testing.T)
 		"config-reloaded", "config-restart-needed", "config-reload-refused",
 		"read once at start", "keeps the configuration it has",
 		"second poll that sees it", "owned by the poller's user", "not writable by group or others",
-		"stops other users and loose modes", "removed-worker-end", "both as the path is written and as it resolves", "every directory above them and above the file", "codex_home, claude_config_dir, disk_tmp", "inside the poller's trust boundary, as it is for a restart",
+		"stops other users and loose modes", "removed-worker-end", "one component at a time, including those a chain of symlinks", "each symlink followed must be owned by the poller's user or root", "every directory above them and above the file", "codex_home, claude_config_dir, disk_tmp", "inside the poller's trust boundary, as it is for a restart",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("team host run help lacks %q", want)

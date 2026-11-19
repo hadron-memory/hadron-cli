@@ -533,9 +533,11 @@ refused too, since that wiring is made at start (restart to apply it). A
 worker removed from the file keeps any live agent: worker.end for it is still
 carried out, with the entry it last had (the poller logs removed-worker-end),
 since ending a session only de-escalates; other operations for it are refused
-as not configured. Directories on the way to a path are judged both as the path
-is written and as it resolves, so a writable directory that holds a symlink to
-a safe place is refused too.
+as not configured. Directories on the way to a path are judged as the kernel
+resolves it, one component at a time, including those a chain of symlinks
+passes through, so a writable directory that holds a symlink to a safe place
+is refused too, and each symlink followed must be owned by the poller's user or
+root (a sticky directory lets anyone add one).
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the

@@ -47,11 +47,14 @@ entries, not replace ours): someone who can write a directory on the way can
 replace what is below it without touching its mode. The config file is judged
 on the one open file its bytes were read from (so it cannot be swapped between
 the read and the check; a symlink is followed once, at the open); named paths
-are resolved through symlinks to the real directories, and the directories on
-the way are judged both as the path is written and as it resolves (a writable
-directory that holds a symlink can repoint it, though the resolved path never
-passes through it); a path that does not exist yet is judged from its nearest
-existing parent. Bare program names are
+are resolved one component at a time, as the kernel does, and every directory
+the resolution touches is judged: each directory a component is looked up in
+and, when a component is a symlink, those its target is resolved through (a
+chain `a/link -> b/link2 -> c/prog` passes through a's, b's and c's directories:
+whoever can write any of them can repoint a link). Each symlink followed must
+itself belong to the poller's user or root, since a sticky directory (which the
+directory rule accepts) lets anyone add one and its owner chose where it
+leads. A path that does not exist yet is judged as far as it does. Bare program names are
 resolved through `PATH` and the program found is judged. Names that do not
 resolve are skipped (starting that worker fails on them as before). Not
 enforced on Windows, where a restart applies a change. A host whose config

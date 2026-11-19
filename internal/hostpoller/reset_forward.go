@@ -85,7 +85,12 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 	// is asked for: the first proof is a whole claim and checkpoint old,
 	// and activity since then refuses process control. Nothing was
 	// stopped, so the reset ends with nothing started.
-	if err := p.resetDeps.Idle(ctx, p.resetIdleTarget(op, ref, token, h.Identity())); err != nil {
+	target, ok := p.resetIdleTarget(op, ref, token, h.Identity())
+	if !ok {
+		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "RELAUNCH_BLOCKED", "the worker is no longer configured on this host, so nothing was stopped")
+		return
+	}
+	if err := p.resetDeps.Idle(ctx, target); err != nil {
 		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "RELAUNCH_BLOCKED", "the agent was not idle after the claim, so nothing was stopped (NOT_IDLE: "+err.Error()+")")
 		return
 	}

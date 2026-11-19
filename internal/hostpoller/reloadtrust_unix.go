@@ -58,51 +58,117 @@ func trustedPath(path, what string) error {
 	return trustedInfo(info, path, what)
 }
 
-// trustedAncestors judges each directory from the path's parent up to the
-// root: someone who can write a directory on the way can replace what is
-// below it, so each must belong to the poller's user or root and not be
-// writable by group or others, unless it is sticky (a sticky directory, like
-// /tmp, lets others add entries but not replace ours). A path that does not
-// exist yet is judged from the nearest directory that does.
+// trustedAncestors judges every directory touched in resolving the path, one
+// component at a time, as the kernel does: each directory a component is
+// looked up in, and, when a component is a symlink, the directories its
+// target is resolved through (a chain a/link -> b/link2 -> c/prog touches a's,
+// b's and c's directories). Someone who can write any of them can repoint a
+// link or replace what is below, so each must belong to the poller's user or
+// root and not be writable by group or others, unless it is sticky (a sticky
+// directory, like /tmp, lets others add entries but not replace ours). A path
+// that does not exist yet is judged as far as it does.
 func trustedAncestors(path, what string) error {
-	// Two walks: the resolved path (where the file really is) and the path as
-	// written (a directory that merely holds a symlink on the way can be
-	// rewritten to point elsewhere, so it is judged even though the resolved
-	// path never passes through it).
-	lexical, err := filepath.Abs(path)
-	if err != nil {
-		lexical = filepath.Clean(path)
+	dirs, links := visitedDirs(path)
+	for _, d := range dirs {
+		info, err := os.Stat(d)
+		if err != nil {
+			continue
+		}
+		if err := trustedDirInfo(info, d, path, what); err != nil {
+			return err
+		}
 	}
-	for _, start := range []string{resolveExisting(path), lexical} {
-		for d := filepath.Dir(start); ; d = filepath.Dir(d) {
-			info, err := os.Stat(d)
-			if err == nil {
-				if err := trustedDirInfo(info, d, path, what); err != nil {
-					return err
-				}
-			}
-			if d == filepath.Dir(d) {
-				break
-			}
+	// A symlink sits in a directory the walk may have accepted (a sticky one,
+	// where anyone may add an entry), so each link followed is judged on its
+	// own: it must belong to the poller's user or root, or its target is
+	// whatever its owner chose.
+	for _, l := range links {
+		info, err := lstatLink(l)
+		if err != nil {
+			continue
+		}
+		if err := trustedLinkInfo(info, l, path, what); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// resolveExisting is path with symlinks resolved as far as it exists, so the
-// ancestors judged are the real ones.
-func resolveExisting(path string) string {
-	path = filepath.Clean(path)
-	rest := ""
-	for p := path; ; p = filepath.Dir(p) {
-		if real, err := filepath.EvalSymlinks(p); err == nil {
-			return filepath.Join(real, rest)
-		}
-		if p == filepath.Dir(p) {
-			return path
-		}
-		rest = filepath.Join(filepath.Base(p), rest)
+// lstatLink reads a followed symlink's own metadata; a variable so a test can
+// show a link another user owns (a test cannot create one).
+var lstatLink = os.Lstat
+
+// trustedLinkInfo judges the owner of a symlink followed on the way to a path.
+// A symlink's own mode carries no meaning, so only its owner is checked.
+func trustedLinkInfo(info os.FileInfo, link, of, what string) error {
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil
 	}
+	if uid := int(st.Uid); uid != os.Geteuid() && uid != 0 {
+		return fmt.Errorf("the symlink %s on the path to %s (%s) is owned by uid %d, not the poller's user or root; whoever owns it chose where it leads, so restart the poller to apply the change", link, of, what, uid)
+	}
+	return nil
+}
+
+// maxSymlinks bounds a resolution, as the kernel does (ELOOP).
+const maxSymlinks = 40
+
+// visitedDirs lists, in order and without repeats, the directories visited
+// resolving path component by component, and the symlinks followed on the
+// way. The final component, when it is not a symlink, is not included (that
+// file or directory is judged by the caller).
+func visitedDirs(path string) (dirs, links []string) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		abs = filepath.Clean(path)
+	}
+	seen := map[string]bool{}
+	add := func(d string) {
+		if !seen[d] {
+			seen[d] = true
+			dirs = append(dirs, d)
+		}
+	}
+	split := func(p string) []string {
+		var parts []string
+		for _, c := range strings.Split(p, "/") {
+			if c != "" && c != "." {
+				parts = append(parts, c)
+			}
+		}
+		return parts
+	}
+	cur, parts, followed := "/", split(abs), 0
+	for len(parts) > 0 {
+		c := parts[0]
+		parts = parts[1:]
+		if c == ".." {
+			cur = filepath.Dir(cur)
+			continue
+		}
+		add(cur)
+		next := filepath.Join(cur, c)
+		fi, err := os.Lstat(next)
+		if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+			cur = next
+			continue
+		}
+		if followed++; followed > maxSymlinks {
+			return dirs, links
+		}
+		links = append(links, next)
+		target, err := os.Readlink(next)
+		if err != nil {
+			cur = next
+			continue
+		}
+		if filepath.IsAbs(target) {
+			cur = "/"
+		}
+		parts = append(split(target), parts...)
+	}
+	return dirs, links
 }
 
 func trustedDirInfo(info os.FileInfo, dir, of, what string) error {
