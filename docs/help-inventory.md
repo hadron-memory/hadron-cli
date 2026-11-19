@@ -186,7 +186,7 @@ section between the markers.
 | `admin impersonation get` |  |  | y | #1052 | 5eea40bec04c |  | unread |  |
 | `admin impersonation list` | ls |  | y | #1052 | 27f6ce54cf08 |  | unread |  |
 | `auth` |  |  | n | #1052 | 73006dfbd70f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth grants` |  |  | y | #1052 | 30139a8b48c7 |  | unread |  |
+| `auth grants` |  |  | y | #1052 | d3d9984a14bc |  | unread |  |
 | `auth impersonate` |  |  | y | #1052 | be7fc58e5e9d | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth login` |  |  | y | #1052 | 61f06a55545e |  | unread |  |
 | `auth logout` |  |  | y | #1052 | 8eb2b8180c4b | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
@@ -222,12 +222,12 @@ section between the markers.
 | `org member rm` | remove |  | y | #1052 | 1a924b42c068 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary success printout could be shown; effects clear; backend2871 separate |
 | `org member set-role` |  |  | y | #1052 | 04ccaf70aa36 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary success printout could be shown; effects clear; backend2871 separate |
 | `org public` | discover |  | y | #1052 | 6415a1af5c98 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: activated/output/not-found exit guidance could be clearer |
-| `org resend-sender` |  |  | y | #1052 | 08539babf82d |  | unread |  |
-| `org resend-sender create` |  |  | y | #1052 | 9a492fd71e0b |  | unread |  |
+| `org resend-sender` |  |  | y | #1052 | 51afafce5131 |  | unread |  |
+| `org resend-sender create` |  |  | y | #1052 | 430c9d690ba2 |  | unread |  |
 | `org resend-sender get` |  |  | y | #1052 | 857ae17df9fa |  | unread |  |
 | `org resend-sender list` | ls |  | y | #1052 | 58ce94f77c20 |  | unread |  |
 | `org resend-sender rm` | delete |  | y | #1052 | 2fb42dfa6bf2 |  | unread |  |
-| `org resend-sender update` |  |  | y | #1052 | d0cfce00ffec |  | unread |  |
+| `org resend-sender update` |  |  | y | #1052 | 96d38f161f64 |  | unread |  |
 | `org rm` | delete |  | y | #1052 | 8b12893abcb4 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `org set-active` | use |  | y | #1052 | 0ec8e4f8d5f8 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: read-back/representative success output would help |
 | `org signing` |  |  | y | #1052 | 4cdc516a19ac |  | unread |  |
