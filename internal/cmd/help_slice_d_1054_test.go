@@ -28,7 +28,7 @@ func TestHelpPagesExplainPRAlarmsAndFindings1054(t *testing.T) {
 			"CARRY says your earlier verdict still holds at this new head", "APPROVE, PASS and CARRY count toward readiness",
 			"REVIEW_SEAT_UNASSIGNED", "a seat counts toward readiness only once finished", "--node names the Hadron node holding your saved review",
 		}, nil},
-		{[]string{"team", "pr", "readiness"}, []string{"A slot counts when its current seat is finished", "NOT READY is a successful read (exit 0)", "the build task's assignee runs \"pr ready\""}, []string{"event-derived"}},
+		{[]string{"team", "pr", "readiness"}, []string{"A slot counts when its current seat is finished", "from someone other than the build task's assignee or the head's freezer", "NOT READY is a successful read (exit 0)", "the build task's assignee runs \"pr ready\""}, []string{"event-derived"}},
 		{[]string{"team", "pr", "ready"}, []string{"it does not merge the PR or check CI", "PR_NOT_READY (exit 5)", "Run \"pr readiness\" first"}, nil},
 		{[]string{"team", "alarm"}, []string{"An alarm is a warning the platform raises when work stalls", "hadron team alarms", "hadron team events --alarms", "hadron team alarm ack <eventId>"}, nil},
 		{[]string{"team", "alarm", "ack"}, []string{
