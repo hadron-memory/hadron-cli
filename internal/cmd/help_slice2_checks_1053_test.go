@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -335,6 +336,9 @@ func TestSlice2ReceiptsAndJSONKeysMatchTheHelp1053(t *testing.T) {
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("%v --json keys = %v, want exactly %v", c.args, got, want)
 			}
+			if c.name == "member add" && obj["status"] != "member" {
+				t.Errorf("member add --json status = %v, want member", obj["status"])
+			}
 			if !strings.Contains(help, c.sent) {
 				t.Errorf("%v help lacks the key sentence %q", c.page, c.sent)
 			}
@@ -346,7 +350,11 @@ func TestSlice2ReceiptsAndJSONKeysMatchTheHelp1053(t *testing.T) {
 // sentence the help quotes in text and [] in --json.
 func TestSlice2KeyListHeaderAndEmptyPage1053(t *testing.T) {
 	page := func(items string) map[string]string {
-		return map[string]string{"AppKeysMetadata": `{"data":{"appKeysPage":{"items":[` + items + `],"total":0,"hasMore":false}}}`}
+		total := 0
+		if items != "" {
+			total = 1
+		}
+		return map[string]string{"AppKeysMetadata": fmt.Sprintf(`{"data":{"appKeysPage":{"items":[%s],"total":%d,"hasMore":false}}}`, items, total)}
 	}
 	exec := func(t *testing.T, resp map[string]string, extra ...string) string {
 		gql, _ := captureGraphQL(t, resp)
@@ -359,7 +367,11 @@ func TestSlice2KeyListHeaderAndEmptyPage1053(t *testing.T) {
 		return out.String()
 	}
 	one := page(`{"id":"key1","keyPreview":"hk_ab","label":"ci","createdAt":"2026-11-01T00:00:00Z","lastUsedAt":null,"revokedAt":null}`)
-	header, _, _ := strings.Cut(exec(t, one), "\n")
+	text := exec(t, one)
+	header, rowLine, _ := strings.Cut(text, "\n")
+	if !strings.Contains(rowLine, "key1") || !strings.Contains(rowLine, "hk_ab") {
+		t.Errorf("app key list row = %q, want the id and preview", rowLine)
+	}
 	if got := strings.Join(strings.Fields(header), " "); got != "ID PREVIEW LABEL CREATED LAST USED REVOKED" {
 		t.Errorf("app key list header = %q", got)
 	}
@@ -369,8 +381,15 @@ func TestSlice2KeyListHeaderAndEmptyPage1053(t *testing.T) {
 	if got := strings.TrimSpace(exec(t, page(""), "--json")); got != "[]" {
 		t.Errorf("empty page --json = %q, want []", got)
 	}
-	if h := flatHelp1053S2(t, "app", "key", "list"); !strings.Contains(h, `an empty list is [] (text: "no active App keys returned")`) {
-		t.Errorf("app key list help does not quote the empty-page sentence")
+	h := flatHelp1053S2(t, "app", "key", "list")
+	for _, q := range []string{
+		`an empty list is [] (text: "no active App keys returned")`,
+		`ID (what "hadron app key revoke" takes), PREVIEW`,
+		"LAST USED and REVOKED",
+	} {
+		if !strings.Contains(h, q) {
+			t.Errorf("app key list help lacks %q", q)
+		}
 	}
 	// The key rows: an array of objects with the documented keys.
 	var rows []map[string]any
