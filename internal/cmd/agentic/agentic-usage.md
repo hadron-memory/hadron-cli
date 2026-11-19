@@ -5623,7 +5623,7 @@ Dark-worker alarms: team delivery-settings get shows darkAlarmWindowSeconds;
 team delivery-settings set --dark-alarm-window-seconds <seconds> changes only
 that field (server bounds 300–86400, default 1800). Omitted preserves.
 team events --alarms names a task-less dark-worker alarm's worker and known
-reason (overdue or wake-unacked). A task-less alarm.coordinator-cadence shows
+reason (overdue or wake-unacked). A task-less alarm.lead-cadence (alarm.coordinator-cadence on events raised before the rename) shows
 coordinator <name>, with no reason suffix or payload evidence; a missing
 subject and other task-less types keep —; a task-less alarm.start-failing (wake handle START: the platform's starts of a long-lived worker keep failing) shows worker <name> the same way, its failure count and window only in --json. The same subject appears on alarm
 ack receipts. Metadata stays in --json exactly as returned and may be withheld.
