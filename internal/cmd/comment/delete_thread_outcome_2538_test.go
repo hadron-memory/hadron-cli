@@ -96,16 +96,16 @@ func TestCommentDeleteThreadOutcome2538(t *testing.T) {
 				if got := exitcode.FromError(err); got != shape.want {
 					t.Fatalf("exit %d, want %d: %v", got, shape.want, err)
 				}
+				// In --json mode the error is the caller's to render once; nothing
+				// extra may reach stderr from the command itself, on success too (cli#2547).
+				if jsonMode && errOut != "" {
+					t.Fatalf("--json writes nothing to stderr: %q", errOut)
+				}
 				if shape.want == 0 {
 					return
 				}
 				if out != "" {
 					t.Fatalf("a delete that did not report success writes no receipt: stdout=%q", out)
-				}
-				// In --json mode the error is the caller's to render once; nothing
-				// extra may reach stderr from the command itself (cli#2547).
-				if jsonMode && errOut != "" {
-					t.Fatalf("--json writes nothing to stderr: %q", errOut)
 				}
 				wants := []string{"no delete-thread result", "outcome unknown", "read the thread"}
 				if shape.name == "false" {
@@ -131,7 +131,7 @@ func (nilService) DeleteThread(context.Context, string, string) (*bool, error) {
 func TestCommentDeleteThreadNilServiceAnswer2547(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		t.Run("json="+strconv.FormatBool(jsonMode), func(t *testing.T) {
-			out, _, err := runDeleteThreadWith(t, jsonMode, func(*cmdutil.Factory) Connect {
+			out, errOut, err := runDeleteThreadWith(t, jsonMode, func(*cmdutil.Factory) Connect {
 				return func(context.Context) (Service, error) { return nilService{}, nil }
 			})
 			if got := exitcode.FromError(err); got != exitcode.Error {
@@ -139,6 +139,9 @@ func TestCommentDeleteThreadNilServiceAnswer2547(t *testing.T) {
 			}
 			if out != "" {
 				t.Fatalf("an unanswered delete writes no receipt: stdout=%q", out)
+			}
+			if jsonMode && errOut != "" {
+				t.Fatalf("--json writes nothing to stderr: %q", errOut)
 			}
 			for _, want := range []string{"no delete-thread result", "outcome unknown", "read the thread"} {
 				if !strings.Contains(err.Error(), want) {
@@ -155,13 +158,16 @@ func TestCommentDeleteThreadNilServiceAnswer2547(t *testing.T) {
 func TestCommentDeleteThreadErrorPaths2547(t *testing.T) {
 	cases := []struct {
 		name   string
+		want   int // the exact exit code, so a regression to another class fails
 		handle func(http.ResponseWriter, *http.Request)
 	}{
-		{"graphql-errors", func(w http.ResponseWriter, _ *http.Request) {
+		{"graphql-errors", exitcode.Error, func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"errors":[{"message":"boom"}],"data":null}`))
 		}},
-		{"transport", func(w http.ResponseWriter, _ *http.Request) {
+		// The connection dropped before an answer: exit 7, whose message already
+		// tells the caller the write may have applied and to verify before retrying.
+		{"transport", exitcode.Unavailable, func(w http.ResponseWriter, _ *http.Request) {
 			conn, _, err := w.(http.Hijacker).Hijack()
 			if err == nil {
 				_ = conn.Close()
@@ -181,8 +187,8 @@ func TestCommentDeleteThreadErrorPaths2547(t *testing.T) {
 				if err == nil {
 					t.Fatal("an error answer must fail the command")
 				}
-				if got := exitcode.FromError(err); got == 0 {
-					t.Fatalf("exit 0 on error: %v", err)
+				if got := exitcode.FromError(err); got != tc.want {
+					t.Fatalf("exit %d, want %d: %v", got, tc.want, err)
 				}
 				if out != "" {
 					t.Fatalf("no receipt on an error answer: stdout=%q", out)
