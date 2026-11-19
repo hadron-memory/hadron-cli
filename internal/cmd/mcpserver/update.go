@@ -23,7 +23,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "update <id> [flags]",
-		Short: "Update a registered MCP server (org ADMIN)",
+		Short: "Update a registered MCP server (org ADMIN or OWNER)",
 		Long: `Update a registered MCP server (org ADMIN/OWNER). The slug is immutable — flow
 nodes reference it in data.tools. Only the fields you pass change.
 
