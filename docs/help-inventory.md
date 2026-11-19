@@ -46,7 +46,7 @@ section between the markers.
 | `asset upload` |  |  | y | #1051 | e5ef654d854b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `asset url` |  |  | y | #1051 | 530e8d261e9f | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `comment` |  |  | y | #1051 | dbb54d56ed07 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
-| `comment add` |  |  | y | #1051 | 276db831c340 |  | unread |  |
+| `comment add` |  |  | y | #1051 | 276db831c340 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `comment create` |  |  | y | #1051 | d1cf5a1d1ed5 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `comment delete` |  |  | y | #1051 | 68d1a86da04a | Gemma | pass | [re-read at 141c2b0b](https://github.com/hadron-memory/hadron-cli/issues/2546#issuecomment-6999435711) |
 | `comment edit` |  |  | y | #1051 | 5d247c71d0b3 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
@@ -54,25 +54,25 @@ section between the markers.
 | `comment list` | ls |  | y | #1051 | 1ad116c0f64c | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `comment reply` |  |  | y | #1051 | 0da311d16aef | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `comment resolve` |  |  | y | #1051 | 6df239fe583a | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
-| `decision` |  |  | n | #1051 | bfb960f2d688 |  | unread |  |
-| `decision amend` |  |  | y | #1051 | 1c316d2ce5bb |  | unread |  |
-| `decision ask` |  |  | y | #1051 | c2d3cbbc2246 |  | unread |  |
-| `decision get` |  |  | y | #1051 | 49e4559f402d |  | unread |  |
-| `decision list` | ls |  | y | #1051 | cc65ab0d50ba |  | unread |  |
-| `decision log` |  |  | n | #1051 | 820bf2703198 |  | unread |  |
-| `decision log create` |  |  | y | #1051 | 34806220f754 |  | unread |  |
-| `decision log get` |  |  | y | #1051 | 3c653b7f3c6b |  | unread |  |
-| `decision log set-deciders` |  |  | y | #1051 | bdc348de7b84 |  | unread |  |
-| `decision purge` |  |  | y | #1051 | f4beea838ccd |  | unread |  |
-| `decision verify` |  |  | y | #1051 | 93a25db725f9 |  | unread |  |
-| `decision withdraw` |  |  | y | #1051 | 3d78af23e44c |  | unread |  |
+| `decision` |  |  | n | #1051 | bfb960f2d688 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision amend` |  |  | y | #1051 | 4b0680f20fdb | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision ask` |  |  | y | #1051 | 7affbc75d84b | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision get` |  |  | y | #1051 | 49e4559f402d | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision list` | ls |  | y | #1051 | cc65ab0d50ba | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision log` |  |  | n | #1051 | 820bf2703198 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision log create` |  |  | y | #1051 | 34806220f754 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision log get` |  |  | y | #1051 | 3c653b7f3c6b | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision log set-deciders` |  |  | y | #1051 | bdc348de7b84 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision purge` |  |  | y | #1051 | f4beea838ccd | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision verify` |  |  | y | #1051 | 93a25db725f9 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `decision withdraw` |  |  | y | #1051 | 3d78af23e44c | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `edge` | edges |  | y | #1051 | edbc0f46a0b7 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge create` | add |  | y | #1051 | b980fc9e94f6 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
-| `edge get` |  |  | y | #1051 | 034f3bf2c48c |  | unread |  |
+| `edge get` |  |  | y | #1051 | 034f3bf2c48c | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `edge list` | ls |  | y | #1051 | 6ae7ef9b5550 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge rm` | delete |  | y | #1051 | 4bb66f0b250d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge update` |  |  | y | #1051 | 5004beafa2aa | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
-| `find` |  |  | y | #1051 | 5539e411b56d |  | unread |  |
+| `find` |  |  | y | #1051 | 5539e411b56d | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `memory` | memories |  | y | #1051 | b2069c4079c0 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory approve-all` |  |  | y | #1051 | ce275ffbf884 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory attach` |  |  | y | #1051 | ad7a8c47ff16 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
@@ -97,13 +97,13 @@ section between the markers.
 | `memory get` |  |  | y | #1051 | 56874e1a1b3f | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory link-user` |  |  | y | #1051 | 086ef8087b7a | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory list` | ls |  | y | #1051 | 6eff16d93dea | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
-| `memory loc-segments` |  |  | y | #1051 | 40d978e6ee28 |  | unread |  |
+| `memory loc-segments` |  |  | y | #1051 | 40d978e6ee28 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `memory member` | members |  | y | #1051 | acfef93ae38b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory member add` |  |  | y | #1051 | d13694c68f5f | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory member list` | ls |  | y | #1051 | 35d8589dd9a2 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory member rm` | remove |  | y | #1051 | 2e46b4ad6304 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory member set-role` |  |  | y | #1051 | faf30e918fea | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
-| `memory merge` |  |  | y | #1051 | 4b20935a8ed8 |  | unread |  |
+| `memory merge` |  |  | y | #1051 | 4b20935a8ed8 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `memory reembed-failed` |  |  | y | #1051 | 9d22e757fb27 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory rm` | delete |  | y | #1051 | fbd39d657997 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory set` | create, new, add |  | y | #1051 | 31173aec5360 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
@@ -118,12 +118,12 @@ section between the markers.
 | `memory subscription list` | ls |  | y | #1051 | 98de880faa3c | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory subscription rm` | delete, unsubscribe |  | y | #1051 | 495c291c5bb7 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory subscription set-role` |  |  | y | #1051 | e277640dcdba | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
-| `memory sync` |  |  | n | #1051 | 85568c690ea5 |  | unread |  |
-| `memory sync pull` |  |  | y | #1051 | ec471dbac84a |  | unread |  |
+| `memory sync` |  |  | n | #1051 | 85568c690ea5 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `memory sync pull` |  |  | y | #1051 | 4084889fd701 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `memory transfer` |  |  | y | #1051 | e6e07c0abb6a | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory usage` |  |  | y | #1051 | 319d077623e8 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory validate` | audit, check |  | y | #1051 | 98706fff53c1 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
-| `memory verify` |  |  | y | #1051 | 3639de818f7a |  | unread |  |
+| `memory verify` |  |  | y | #1051 | 3639de818f7a | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `node` | nodes |  | y | #1051 | e8d31ac90772 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node approve` |  |  | y | #1051 | f19d9bf7c6fd | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node clone` |  |  | y | #1051 | cfc60babbab6 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
@@ -152,13 +152,13 @@ section between the markers.
 | `node revision label` |  |  | y | #1051 | 7f7c1aff220f | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node revision list` | ls |  | y | #1051 | c1850041b82b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node revision restore` |  |  | y | #1051 | 6b274739363b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
-| `node set-properties` |  |  | y | #1051 | d9415c5805a5 |  | unread |  |
-| `node sign` |  |  | y | #1051 | 4391685bcf2e |  | unread |  |
+| `node set-properties` |  |  | y | #1051 | d9415c5805a5 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `node sign` |  |  | y | #1051 | 4391685bcf2e | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `node signatures` |  |  | y | #1051 | 9563d3879939 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node signing-request` | signing-requests |  | n | #1051 | 85d8d57d9c39 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
-| `node signing-request get` |  |  | y | #1051 | 20b85c7f5392 |  | unread |  |
-| `node signing-request list` | ls |  | y | #1051 | 7ba1aeb51525 |  | unread |  |
-| `node signing-request withdraw` |  |  | n | #1051 | 9099edbe9bb1 |  | unread |  |
+| `node signing-request get` |  |  | y | #1051 | 20b85c7f5392 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `node signing-request list` | ls |  | y | #1051 | 7ba1aeb51525 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `node signing-request withdraw` |  |  | n | #1051 | 9099edbe9bb1 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `node update` |  |  | y | #1051 | 3a83d1c7a0df | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node validation` |  |  | n | #1051 | 82fe607e946c | Jane | pass | [author help review](plans/1706-content-validation-report.md#output-and-errors) |
 | `node validation record` |  |  | y | #1051 | 28bde0386282 | Jane | pass | [author help review](plans/1706-content-validation-report.md#output-and-errors) |
@@ -181,32 +181,32 @@ section between the markers.
 |---|---|---|---|---|---|---|---|---|
 | `access` |  |  | y | #1052 | a9eb93618831 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `access check` |  |  | y | #1052 | 55709204535d | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `admin` |  |  | y | #1052 | fc6305fee329 |  | unread |  |
-| `admin impersonation` |  |  | n | #1052 | 0f371264641e |  | unread |  |
-| `admin impersonation get` |  |  | y | #1052 | 5eea40bec04c |  | unread |  |
-| `admin impersonation list` | ls |  | y | #1052 | 27f6ce54cf08 |  | unread |  |
+| `admin` |  |  | y | #1052 | fc6305fee329 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `admin impersonation` |  |  | n | #1052 | 0f371264641e | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `admin impersonation get` |  |  | y | #1052 | 5eea40bec04c | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `admin impersonation list` | ls |  | y | #1052 | 27f6ce54cf08 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth` |  |  | n | #1052 | 73006dfbd70f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth grants` |  |  | y | #1052 | 30139a8b48c7 |  | unread |  |
+| `auth grants` |  |  | y | #1052 | d3d9984a14bc | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth impersonate` |  |  | y | #1052 | be7fc58e5e9d | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth login` |  |  | y | #1052 | 61f06a55545e |  | unread |  |
+| `auth login` |  |  | y | #1052 | 61f06a55545e | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth logout` |  |  | y | #1052 | 8eb2b8180c4b | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth passkey` |  |  | n | #1052 | 7dd0383eba76 |  | unread |  |
-| `auth passkey list` | ls |  | y | #1052 | d2a0d0c65666 |  | unread |  |
-| `auth passkey revoke-page` |  |  | y | #1052 | 519a89800626 |  | unread |  |
+| `auth passkey` |  |  | n | #1052 | 7dd0383eba76 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `auth passkey list` | ls |  | y | #1052 | d2a0d0c65666 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `auth passkey revoke-page` |  |  | y | #1052 | 519a89800626 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth status` |  |  | y | #1052 | 3414213eac2e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth token` |  |  | n | #1052 | 16034700fa8b | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth token create` |  |  | y | #1052 | b0f221586739 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth token delete` |  |  | y | #1052 | 962e80da09cc |  | unread |  |
-| `auth token hide` |  |  | y | #1052 | a9c2830d7b91 |  | unread |  |
+| `auth token delete` |  |  | y | #1052 | 962e80da09cc | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `auth token hide` |  |  | y | #1052 | a9c2830d7b91 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth token list` | ls |  | y | #1052 | 84884b5a9f63 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth token revoke` |  |  | y | #1052 | e876b2b9b37c | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth token unhide` |  |  | y | #1052 | 899ca25aa9f3 |  | unread |  |
+| `auth token unhide` |  |  | y | #1052 | 899ca25aa9f3 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth token validate` |  |  | y | #1052 | e283d066873f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth whoami` |  |  | y | #1052 | 2e1ede499246 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `grant` | grants |  | y | #1052 | 2f3c164b351d | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `grant create` |  |  | y | #1052 | b4c074380186 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `grant get` |  |  | y | #1052 | cb2e7b822557 |  | unread |  |
-| `grant list` | ls |  | y | #1052 | 5708dd084746 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: restate/link accepted --user reference forms |
+| `grant` | grants |  | y | #1052 | 3d7545be94b6 |  | unread |  |
+| `grant create` |  |  | y | #1052 | 82c34461db44 |  | unread |  |
+| `grant get` |  |  | y | #1052 | cb2e7b822557 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `grant list` | ls |  | y | #1052 | 4a404e23c337 |  | unread |  |
 | `grant revoke` | rm |  | y | #1052 | f60e8ad166ca | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `org` | orgs, organization |  | y | #1052 | 4071af2db473 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `org create` |  |  | y | #1052 | dfe70106a5c5 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
@@ -222,40 +222,40 @@ section between the markers.
 | `org member rm` | remove |  | y | #1052 | 1a924b42c068 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary success printout could be shown; effects clear; backend2871 separate |
 | `org member set-role` |  |  | y | #1052 | 04ccaf70aa36 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary success printout could be shown; effects clear; backend2871 separate |
 | `org public` | discover |  | y | #1052 | 6415a1af5c98 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: activated/output/not-found exit guidance could be clearer |
-| `org resend-sender` |  |  | y | #1052 | 08539babf82d |  | unread |  |
-| `org resend-sender create` |  |  | y | #1052 | 9a492fd71e0b |  | unread |  |
-| `org resend-sender get` |  |  | y | #1052 | 857ae17df9fa |  | unread |  |
-| `org resend-sender list` | ls |  | y | #1052 | 58ce94f77c20 |  | unread |  |
-| `org resend-sender rm` | delete |  | y | #1052 | 2fb42dfa6bf2 |  | unread |  |
-| `org resend-sender update` |  |  | y | #1052 | d0cfce00ffec |  | unread |  |
+| `org resend-sender` |  |  | y | #1052 | 51afafce5131 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org resend-sender create` |  |  | y | #1052 | 430c9d690ba2 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org resend-sender get` |  |  | y | #1052 | 857ae17df9fa | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org resend-sender list` | ls |  | y | #1052 | 58ce94f77c20 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org resend-sender rm` | delete |  | y | #1052 | 2fb42dfa6bf2 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org resend-sender update` |  |  | y | #1052 | 96d38f161f64 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `org rm` | delete |  | y | #1052 | 8b12893abcb4 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `org set-active` | use |  | y | #1052 | 0ec8e4f8d5f8 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: read-back/representative success output would help |
-| `org signing` |  |  | y | #1052 | 4cdc516a19ac |  | unread |  |
-| `org signing get` |  |  | y | #1052 | b8c696e6832b |  | unread |  |
-| `org signing off` |  |  | y | #1052 | a056e1a0bc56 |  | unread |  |
-| `org signing on` |  |  | y | #1052 | f7d32bf97101 |  | unread |  |
-| `org signing preview` |  |  | y | #1052 | 62ef1de10d90 |  | unread |  |
+| `org signing` |  |  | y | #1052 | 4cdc516a19ac | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org signing get` |  |  | y | #1052 | b8c696e6832b | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org signing off` |  |  | y | #1052 | a056e1a0bc56 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org signing on` |  |  | y | #1052 | f7d32bf97101 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `org signing preview` |  |  | y | #1052 | 62ef1de10d90 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `org update` |  |  | y | #1052 | 82e65598f8b1 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: empty-field/result guidance could be clearer; rename/authority/effects clear |
-| `policy` |  |  | y | #1052 | 472633275aeb |  | unread |  |
-| `policy explain` |  |  | y | #1052 | 7ed922f626b6 |  | unread |  |
-| `policy set` |  |  | y | #1052 | 5e4bed6c739e |  | unread |  |
+| `policy` |  |  | y | #1052 | 93824e2e82fb |  | unread |  |
+| `policy explain` |  |  | y | #1052 | eef41c7e93e1 |  | unread |  |
+| `policy set` |  |  | y | #1052 | 906a91fc14b5 |  | unread |  |
 | `profile` | me |  | y | #1052 | b85ae5fa148f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `profile set` |  |  | y | #1052 | 8819ddfa5cc6 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary taken-handle recovery could be clearer; legacy-handle server2868 separate |
 | `secret` | secrets |  | y | #1052 | 1d4e9a973dd1 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `secret create` |  |  | y | #1052 | 230d9394ff41 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `secret events` |  |  | y | #1052 | 30602f6775f9 |  | unread |  |
-| `secret get` |  |  | y | #1052 | 3d942cb0742a |  | unread |  |
+| `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `secret get` |  |  | y | #1052 | 3d942cb0742a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret list` | ls |  | y | #1052 | 9bc54e793ad3 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `secret rm` | delete |  | y | #1052 | bde269240977 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `secret set` |  |  | y | #1052 | 1498e8ff1592 |  | unread |  |
-| `secret update` |  |  | y | #1052 | bec0fb3d29b7 |  | unread |  |
-| `secret versions` |  |  | y | #1052 | 88687b5fc254 |  | unread |  |
+| `secret set` |  |  | y | #1052 | 1498e8ff1592 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `secret update` |  |  | y | #1052 | bec0fb3d29b7 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `secret versions` |  |  | y | #1052 | 88687b5fc254 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `ticket` | tickets |  | y | #1052 | 711ad904534e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `ticket list` | ls |  | y | #1052 | e3708e782d3e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `ticket mint` |  |  | y | #1052 | cbd16a7320a9 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: make expiry timezone requirement explicit; count-cap P3 CLOSED |
 | `user` | users |  | y | #1052 | 41487100b810 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `user delete` |  |  | y | #1052 | f27a9b09df4f |  | unread |  |
-| `user invite` |  |  | y | #1052 | cc2918067fc0 |  | unread |  |
+| `user delete` |  |  | y | #1052 | f27a9b09df4f | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `user invite` |  |  | y | #1052 | cc2918067fc0 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `user merge` |  |  | y | #1052 | 632f11d138a1 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: put current CLI consent limitation earlier. Product gap cli1304 explicit; no successful merge attested |
 | `user search` | ls, list |  | y | #1052 | 64beaf629235 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: numeric explicit-page default/bounds delegated to server |
 | `user set-roles` |  |  | y | #1052 | 5dff1f031295 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary confirmation/noninteractive refusal example would help; replacement/authority clear |
@@ -391,30 +391,30 @@ section between the markers.
 | `run latest` |  |  | y | #1053 | f3fae5389764 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run list` | ls |  | y | #1053 | 6fce62da51ea | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run served-prompt` |  |  | y | #1053 | 6fb51dd657ed | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `run trigger` |  |  | y | #1053 | 1ba360d22598 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `run trigger` |  |  | y | #1053 | bbe7549f0252 | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `schedule` |  |  | n | #1053 | e2f36deb543f | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `schedule create` |  |  | y | #1053 | f756718c9a2f | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `schedule create` |  |  | y | #1053 | 813747217bcb | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `schedule list` | ls |  | y | #1053 | 639ef0a96792 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `schedule preview` |  |  | y | #1053 | 697704079c7a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `schedule preview` |  |  | y | #1053 | dc1f367e2c08 | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `schedule rm` | delete |  | y | #1053 | cf15a655d415 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `schedule update` |  |  | y | #1053 | 8707b6c51bcc | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `schedule update` |  |  | y | #1053 | 1f13247df1bf | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `task` |  |  | n | #1053 | f69b42e707a0 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `task render` |  |  | y | #1053 | e987b15a0172 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `task run` |  |  | y | #1053 | a0fd8eb55ebd | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `task run` |  |  | y | #1053 | fec884ed55b4 | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `ticker` |  |  | n | #1053 | 3f5fe3163136 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `ticker apply-templates` |  |  | y | #1053 | 12531a65b0a9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `ticker create` |  |  | y | #1053 | 1c6f91e23671 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `ticker create` |  |  | y | #1053 | dd62f5aada8b | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `ticker delete` |  |  | n | #1053 | a07917cae84a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `ticker get` |  |  | y | #1053 | 74ddbfad3e7b | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `ticker list` | ls |  | y | #1053 | 29e5638ee1e2 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `ticker subscribe` |  |  | y | #1053 | 9c456780db40 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `ticker unsubscribe` |  |  | y | #1053 | b1b4872d272f | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `ticker update` |  |  | y | #1053 | 598afa97d39c | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `ticker update` |  |  | y | #1053 | 08ae11c46716 | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `web-poll` | web-polls |  | n | #1053 | 127d68855fc9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `web-poll cancel` |  |  | y | #1053 | 48a158292e4b | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `web-poll list` | ls |  | y | #1053 | 04c859f036c9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `webhook` |  |  | n | #1053 | 3ff9568eac91 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `webhook create` |  |  | y | #1053 | c17a506e1246 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `webhook` |  |  | n | #1053 | 6c507100c7b9 | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
+| `webhook create` |  |  | y | #1053 | b07038c0fafc | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `webhook list` | ls |  | y | #1053 | ec64d209da41 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `webhook rm` | delete |  | y | #1053 | ceef13519899 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `webhook rotate` |  |  | y | #1053 | b0b39e1353cd | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
@@ -456,13 +456,13 @@ section between the markers.
 | `team alarms` |  |  | y | #1054 | d6b7b77f1802 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 |  | unread |  |
 | `team app sweep-mode` |  |  | y | #1054 | e1e0f9811e2c |  | unread |  |
-| `team attention` |  |  | n | #1054 | ce4dafa9f309 |  | unread |  |
-| `team attention switchover` |  |  | n | #1054 | 29c29b8cc74e |  | unread |  |
-| `team attention switchover apply` |  |  | n | #1054 | 357079115cf2 |  | unread |  |
-| `team attention switchover preview` |  |  | n | #1054 | bb8c5a97c9d5 |  | unread |  |
-| `team availability` |  |  | n | #1054 | 4ba113cdde0c |  | unread |  |
-| `team availability get` |  |  | n | #1054 | d0b01e0f621b |  | unread |  |
-| `team availability set` |  |  | y | #1054 | 352870702560 |  | unread |  |
+| `team attention` |  |  | n | #1054 | ce4dafa9f309 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team attention switchover` |  |  | n | #1054 | 29c29b8cc74e | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team attention switchover apply` |  |  | n | #1054 | 357079115cf2 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team attention switchover preview` |  |  | n | #1054 | bb8c5a97c9d5 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team availability` |  |  | n | #1054 | 4ba113cdde0c | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team availability get` |  |  | n | #1054 | d0b01e0f621b | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team availability set` |  |  | y | #1054 | 352870702560 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team channel` |  |  | y | #1054 | daf291779858 |  | unread |  |
 | `team chat` |  |  | n | #1054 | 65fec19f03a4 |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
@@ -480,19 +480,19 @@ section between the markers.
 | `team grant action` |  |  | y | #1054 | 3b2af7379343 |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 8868d30468f0 |  | unread |  |
 | `team grant add` |  |  | y | #1054 | 53665deafa96 |  | unread |  |
-| `team grant get` |  |  | y | #1054 | e8f396c6524d |  | unread |  |
-| `team grant list` | ls |  | y | #1054 | 7cf16c012c0e |  | unread |  |
+| `team grant get` |  |  | y | #1054 | 77413cc621f0 |  | unread |  |
+| `team grant list` | ls |  | y | #1054 | 46500d89a371 |  | unread |  |
 | `team grant request` |  |  | y | #1054 | 1c6caf4a68e3 |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | 1999874d6881 |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 19bf72fe20ad |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 2ac5131f473e |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | b8872bf7186a |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | 9bb0227faf93 |  | unread |  |
-| `team health` |  |  | n | #1054 | d1b3825cdd4d |  | unread |  |
-| `team health install` |  |  | y | #1054 | 7daf7a368a8f |  | unread |  |
-| `team health status` |  |  | y | #1054 | f1bdb3714169 |  | unread |  |
-| `team health sweep` |  |  | n | #1054 | 78f5e220548c |  | unread |  |
-| `team health uninstall` |  |  | y | #1054 | 0abf43af1049 |  | unread |  |
+| `team health` |  |  | n | #1054 | d1b3825cdd4d | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team health install` |  |  | y | #1054 | 7daf7a368a8f | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team health sweep` |  |  | y | #1054 | 85c2ef9d4cc7 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team health uninstall` |  |  | y | #1054 | 0abf43af1049 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team host` |  |  | n | #1054 | 307cc3eddb80 |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 200354fa59ac |  | unread |  |
 | `team host availability` |  |  | y | #1054 | bedf5aac2fd7 |  | unread |  |
@@ -526,14 +526,14 @@ section between the markers.
 | `team register candidates` |  |  | y | #1054 | 962f057e17f4 |  | unread |  |
 | `team register pick` |  |  | y | #1054 | e50e0bb1318d |  | unread |  |
 | `team resume` |  |  | y | #1054 | b36a736a9a90 |  | unread |  |
-| `team review-stats` |  |  | y | #1054 | 597535b30638 |  | unread |  |
+| `team review-stats` |  |  | y | #1054 | 597535b30638 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team role` | roles |  | n | #1054 | d576db90078e |  | unread |  |
 | `team role create` |  |  | y | #1054 | 77016480c74b |  | unread |  |
 | `team role get` |  |  | y | #1054 | f80ad4194e34 |  | unread |  |
 | `team role list` | ls |  | y | #1054 | b39defe2f2b6 |  | unread |  |
 | `team role rm` | delete |  | y | #1054 | deda9fa6c0c2 |  | unread |  |
 | `team role update` |  |  | y | #1054 | 3a7ff9f6b7c4 |  | unread |  |
-| `team roster` |  |  | n | #1054 | 11d418e87c05 |  | unread |  |
+| `team roster` |  |  | n | #1054 | 11d418e87c05 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team router` |  |  | n | #1054 | 304c731d92e0 |  | unread |  |
 | `team router loop` |  |  | n | #1054 | c100f2806407 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | e233ab165d18 |  | unread |  |
@@ -591,15 +591,15 @@ section between the markers.
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | f261ee1df23d |  | unread |  |
 | `team ticker settings set` |  |  | y | #1054 | b3b2b4bef0b8 |  | unread |  |
-| `team usage` |  |  | y | #1054 | 8d7f8122b307 |  | unread |  |
-| `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 |  | unread |  |
-| `team usage collect` |  |  | y | #1054 | a5848d3e96a5 |  | unread |  |
-| `team usage install` |  |  | y | #1054 | 7bf5d0e56bdc |  | unread |  |
-| `team usage project` |  |  | y | #1054 | 99e654b36799 |  | unread |  |
-| `team usage show` |  |  | y | #1054 | 2fd15ffee8dd |  | unread |  |
-| `team usage status` |  |  | y | #1054 | bf15aac44c75 |  | unread |  |
-| `team usage uninstall` |  |  | y | #1054 | 366acfcd4fad |  | unread |  |
-| `team utilization` |  |  | y | #1054 | 60ff227d0163 |  | unread |  |
+| `team usage` |  |  | y | #1054 | 440d6ac2ce7b | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage collect` |  |  | y | #1054 | a5848d3e96a5 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage install` |  |  | y | #1054 | 7bf5d0e56bdc | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage project` |  |  | y | #1054 | 99e654b36799 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage show` |  |  | y | #1054 | 2fd15ffee8dd | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage status` |  |  | y | #1054 | bf15aac44c75 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage uninstall` |  |  | y | #1054 | 366acfcd4fad | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team utilization` |  |  | y | #1054 | 60ff227d0163 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team wake-settings` |  |  | n | #1054 | 6ba8251ae662 |  | unread |  |
 | `team wake-settings get` |  |  | y | #1054 | d539cc4d9c80 |  | unread |  |
 | `team wake-settings set` |  |  | y | #1054 | 3e8ef52518a1 |  | unread |  |
@@ -714,24 +714,24 @@ section between the markers.
 | `automation approval` |  |  | y | #1184 | adf73edaadda | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1202](https://github.com/hadron-memory/hadron-cli/issues/1202) |
 | `automation approve` |  |  | y | #1184 | ac2e0f13eb6d | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1202](https://github.com/hadron-memory/hadron-cli/issues/1202) |
 | `automation decline` |  |  | y | #1184 | 31376aae6d30 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
-| `automation grant` |  |  | n | #1184 | 90333d689910 |  | unread |  |
-| `automation grant list` | ls |  | y | #1184 | 3f1255801961 |  | unread |  |
-| `automation grant revoke` |  |  | y | #1184 | 885fdcb1e60c |  | unread |  |
-| `automation grant set` |  |  | y | #1184 | 6cc868d323fb |  | unread |  |
+| `automation grant` |  |  | n | #1184 | 90333d689910 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation grant list` | ls |  | y | #1184 | 3f1255801961 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation grant revoke` |  |  | y | #1184 | 885fdcb1e60c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation grant set` |  |  | y | #1184 | 7732e78d3189 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
 | `automation list` | ls |  | y | #1184 | 624bcb02a438 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
-| `automation preview` |  |  | n | #1184 | bdfe7173d1a5 |  | unread |  |
-| `automation re-adopt` |  |  | n | #1184 | 17450ba28a0d |  | unread |  |
-| `automation team-snapshot-grant` |  |  | n | #1184 | 3047b6de9aa2 |  | unread |  |
-| `automation team-snapshot-grant list` | ls |  | y | #1184 | cbf6c52d70c5 |  | unread |  |
-| `automation team-snapshot-grant revoke` |  |  | y | #1184 | ec1ad99d2ba2 |  | unread |  |
-| `automation team-snapshot-grant set` |  |  | y | #1184 | 314fcd981b65 |  | unread |  |
+| `automation preview` |  |  | n | #1184 | 8ec9e9acaa1b | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation re-adopt` |  |  | n | #1184 | 9f9d9495383e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation team-snapshot-grant` |  |  | n | #1184 | 3047b6de9aa2 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation team-snapshot-grant list` | ls |  | y | #1184 | cbf6c52d70c5 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation team-snapshot-grant revoke` |  |  | y | #1184 | ec1ad99d2ba2 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `automation team-snapshot-grant set` |  |  | y | #1184 | df29e3310367 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
 | `billing` |  |  | y | #1184 | 12a97003097a | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `billing balance` |  |  | y | #1184 | cac022de8071 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
-| `billing grant` |  |  | y | #1184 | 16036cb8f1bc |  | unread |  |
+| `billing grant` |  |  | y | #1184 | 16036cb8f1bc | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
 | `billing ledger` |  |  | y | #1184 | 336b31fc1898 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `billing prices` |  |  | y | #1184 | fcc861c9ee24 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
-| `billing prices get` |  |  | y | #1184 | cd5a3250ddf2 |  | unread |  |
-| `billing prices set` |  |  | y | #1184 | 88cdd704df97 |  | unread |  |
+| `billing prices get` |  |  | y | #1184 | cd5a3250ddf2 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `billing prices set` |  |  | y | #1184 | c03b6f7c8c17 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
 | `calendar` |  |  | y | #1184 | c2849191f7cd | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `calendar event` |  |  | n | #1184 | eda97ca71e1c | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `calendar event create` |  |  | y | #1184 | e91f48331fa3 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
@@ -755,17 +755,17 @@ section between the markers.
 | `ha ops` |  |  | y | #1184 | e0ba28e97603 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `ha rm` | delete |  | y | #1184 | 5bb88228f7f2 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
 | `ha update` |  |  | y | #1184 | 579db4d2f329 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
-| `marketplace` |  |  | y | #1184 | e8ed2e50a35b |  | unread |  |
-| `marketplace agents` |  |  | n | #1184 | 07b4ad7ff1be |  | unread |  |
-| `marketplace memories` |  |  | n | #1184 | 6fb8e32dcf51 |  | unread |  |
-| `marketplace orgs` | organizations |  | n | #1184 | 3a741f13f92f |  | unread |  |
-| `quota` | quotas |  | y | #1184 | 10762ec76d2c |  | unread |  |
-| `quota list` | ls |  | y | #1184 | 7e00f2581780 |  | unread |  |
-| `quota set` |  |  | y | #1184 | 561c5f61bc9e |  | unread |  |
-| `usage` |  |  | y | #1184 | 663c38db6164 |  | unread | [prior assessment](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240); help changed in #65; reassessment pending |
-| `usage activity` |  |  | y | #1184 | c3af538e992d |  | unread |  |
-| `usage events` |  |  | y | #1184 | fdc0cc758da5 |  | unread | [prior assessment](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240); help changed in #65; reassessment pending |
-| `usage record` |  |  | y | #1184 | 96eb8932322f |  | unread |  |
+| `marketplace` |  |  | y | #1184 | e8ed2e50a35b | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `marketplace agents` |  |  | n | #1184 | 07b4ad7ff1be | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `marketplace memories` |  |  | n | #1184 | 6fb8e32dcf51 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `marketplace orgs` | organizations |  | n | #1184 | 3a741f13f92f | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `quota` | quotas |  | y | #1184 | 10762ec76d2c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `quota list` | ls |  | y | #1184 | 7e00f2581780 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `quota set` |  |  | y | #1184 | 561c5f61bc9e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `usage` |  |  | y | #1184 | 663c38db6164 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `usage activity` |  |  | y | #1184 | c3af538e992d | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `usage events` |  |  | y | #1184 | fdc0cc758da5 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
+| `usage record` |  |  | y | #1184 | 96eb8932322f | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
 <!-- group:1184 end -->
 
 ## Group: host and chat integration commands (#1396)

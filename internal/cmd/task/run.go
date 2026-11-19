@@ -33,8 +33,8 @@ func newCmdRun(f *cmdutil.Factory) *cobra.Command {
 		Use:   "run <task-urn> | <loc> -m <memory>",
 		Short: "Print a task's prompt, or run it with --app",
 		Long: `Run a task node (a node where isRunnable=true), passing any required
-arguments. Task nodes can define the arguments they accept via Node.data.args,
-enabling discovery and validation of inputs.
+arguments; the arguments a task node declares enable discovery and validation
+of inputs.
 
 Pass the task as a fully-qualified URN (hrn:node:<root>:<slug>:<loc>) or as a bare loc
 with -m/--memory to name a single memory instead.
@@ -47,7 +47,7 @@ memories; authenticated user only). --agent names the installed Agent the run
 is served as (an ID or URN); omitted, the App's single installed Agent serves
 it, and an App with several refuses until you name one.
 
-For the renderRunNode Query without execution, use 'hadron task render'. Both
+To only read the prompt, use 'hadron task render'. Both
 record content read usage; task run's render mode also records an action-run,
 while task render records no action-run and never executes.`,
 		Example: `  # print the prompt with the arguments filled in (nothing is run or sent)

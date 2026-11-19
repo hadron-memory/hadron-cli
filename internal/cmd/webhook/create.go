@@ -27,9 +27,9 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 the entry task node. Use it to let an outside system (a deploy script, a smart
 home, a CI job) trigger work.
 
-Creating it prints the URL path and a platform token ONCE — store them now; the
-secret is never shown again (lose it and "webhook rotate" issues a new one).
---name is lowercase alphanumeric/dash, 1-64 chars, and is part of the URL.
+Creating it prints the secret (the URL path and the token) ONCE — store them
+now; the secret is never shown again (lose it and "webhook rotate" issues a new
+one). --name is lowercase alphanumeric/dash, 1-64 chars, and is part of the URL.
 
 CALLING IT: POST to the printed path on your Hadron server's host, with the
 token in the hpt query parameter, and a JSON object as the body; its keys reach
@@ -45,14 +45,15 @@ on each call. --as-self runs on behalf of you (authenticated user only).
 --policy narrows what the webhook's runs may do: an allow-list such as
 {"allow":["run.execute","comm.outbound"]} naming actions. Left out, the webhook
 adds no restriction of its own; the org, user and App policy layers still apply.
-See "hadron policy".
+{"allow":[]} allows nothing. See "hadron policy" for the layers and
+"hadron policy explain" for which one denies an action.
 
 --scope sets a readable scope id/name in the App context, snapshotted onto
 each run; omitted means the App's attached memories.
 
 --budget-tokens / --budget-actions cap each run this webhook spawns (positive whole numbers;
 omitted = the platform default). A value above the platform default is refused
-by the server. Requires a server with trigger budgets.`,
+by the server. Needs a server version that supports budgets.`,
 		Example: `  hadron webhook create --app acme.com:ops --name deploy-notify \
     --entry hrn:node:acme.com:ops:tasks:on-deploy`,
 		Args: cobra.NoArgs,

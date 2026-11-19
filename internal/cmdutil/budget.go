@@ -21,8 +21,8 @@ type BudgetFlags struct {
 // Add registers --budget-tokens and --budget-actions; withClear also registers
 // --clear-budget-tokens / --clear-budget-actions (update only).
 func (b *BudgetFlags) Add(cmd *cobra.Command, withClear bool) {
-	cmd.Flags().IntVar(&b.Tokens, "budget-tokens", 0, "per-run LLM-token limit, a positive whole number no greater than the platform default (requires a server with trigger budgets)")
-	cmd.Flags().IntVar(&b.Actions, "budget-actions", 0, "per-run action limit, a positive whole number no greater than the platform default (requires a server with trigger budgets)")
+	cmd.Flags().IntVar(&b.Tokens, "budget-tokens", 0, "per-run LLM-token limit, a positive whole number no greater than the platform default (needs a server version that supports budgets)")
+	cmd.Flags().IntVar(&b.Actions, "budget-actions", 0, "per-run action limit, a positive whole number no greater than the platform default (needs a server version that supports budgets)")
 	if withClear {
 		cmd.Flags().BoolVar(&b.ClearTokens, "clear-budget-tokens", false, "clear the stored token limit (back to the platform default)")
 		cmd.Flags().BoolVar(&b.ClearActions, "clear-budget-actions", false, "clear the stored action limit (back to the platform default)")

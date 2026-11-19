@@ -155,7 +155,17 @@ closes extra bare-shell tabs, one notification line posted to the team chat
 from the sweep's own bound session. A team pause in force, or a worker whose
 context reset has not ended, means detect and report only.
 
-Use the same --config host YAML and 0600 key_file as "team host run". The host
+--config is the same host YAML as for "team host run" (see "hadron team host run
+--help" for all its keys). The smallest file that loads (workers is a map keyed
+by worker name; launch is a list, so "launch: claude" is refused):
+  app: hrn:app:acme.com:ops
+  key_file: ./host.key        # holds the host's App key; mode 0600 or tighter
+  worktrees_root: /home/me/work
+  workers:
+    ana:
+      family: claude
+      launch: [claude]
+The sweep also reads server and delivery.orca_bin when set. The host
 key is never supplied as an argument or environment variable. Orca is resolved
 from delivery.orca_bin when set and it resolves, otherwise PATH. Paused workers are still reported.
 No alarm is computed, and an App without a coordinator is valid. An unresolved,
@@ -197,6 +207,13 @@ become alerts and never fail the sweep.
 --json contains the sent reports (including refused items), per-worker
 refusals, dryRun, renames, and the fixes, alerts and skips of the duplicate
 phase; never screen text. A report in this list is not a storage receipt.`,
+		Example: `  # look first: lists what it found and changes no terminal or process (the
+  # status batch is still stored; --dry-run is the default)
+  hadron team health sweep --config ./host.yaml
+
+  # carry it out: stops the unsupervised duplicate agents, closes extra
+  # bare-shell tabs and renames tabs to the worker's name
+  hadron team health sweep --config ./host.yaml --dry-run=false`,
 		RunE: func(c *cobra.Command, _ []string) error {
 			if statusTimeout < 0 {
 				return exitcode.Newf(exitcode.Usage, "--status-timeout must not be negative; nothing written")
@@ -458,7 +475,7 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 	// The dry default is the shared #2017/#2027 posture: a manual sweep
 	// lists what it would do, the scheduled entry (health install) passes
 	// --dry-run=false to do it.
-	c.Flags().BoolVar(&dryRun, "dry-run", true, "list the tab titles the sweep would rename and the duplicate agents it would stop and bare-shell tabs it would close, and do none of them (default; the status batch is still stored; the installed timer passes --dry-run=false)")
+	c.Flags().BoolVar(&dryRun, "dry-run", true, "list the tab titles the sweep would rename and the duplicate agents it would stop and bare-shell tabs it would close, and do none of them (the status batch is still stored; the installed timer passes --dry-run=false)")
 	group.AddCommand(c)
 	group.AddCommand(healthInstallCmds(f)...)
 	return group

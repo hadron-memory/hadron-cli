@@ -47,7 +47,7 @@ you name one.
 
 --budget-tokens / --budget-actions cap this run (positive whole numbers; omitted =
 the platform default). A value above the platform default is refused by the
-server. Requires a server with trigger budgets.`,
+server. Needs a server version that supports budgets.`,
 		Example: `  hadron run trigger --app acme.com:ops --entry hrn:node:acme.com:ops:tasks:nightly-digest
   hadron run trigger --app acme.com:ops --entry hrn:node:acme.com:ops:tasks:brief \
     --arg topic=security --as-self --wait --json`,

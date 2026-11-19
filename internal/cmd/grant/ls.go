@@ -26,6 +26,8 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 
 --user is ignored without --org. Every page is fetched. Revoked grants are not
 listed.
+For a worker's grants use hadron team grant list; for grants held by you
+personally across Apps, hadron auth grants.
 The table shows ID (what grant revoke takes), GRANTEE, ORG, ACTIONS, EXPIRY
 ("perpetual" when none) and CREATED. --json gives an array of id,
 principalType, principalId, principalHandle, organizationId, organizationUrn,

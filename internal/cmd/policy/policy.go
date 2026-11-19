@@ -32,7 +32,11 @@ own link per trigger (--policy on schedule and webhook), which is not part of
 the standing chain.
 
 policy explain shows which layer denies an action; policy set --mine writes
-your own user layer.`,
+your own user layer.
+
+Action names are strings such as run.execute and comm.outbound. No command
+lists them; the current set is in the hadron-docs reference
+docs/reference/authorization.md (the set today, not a fixed one).`,
 		Example: `  hadron policy explain --action comm.outbound --app hrn:app:acme.com:assistant
   hadron policy set --mine '{"allow":["run.execute","comm.outbound"]}'`,
 	}

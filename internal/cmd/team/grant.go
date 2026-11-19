@@ -38,7 +38,8 @@ and not used up. A pending (unsigned) grant allows nothing. No state label is
 printed, only these facts; a dash means the value is unset. --json keeps the
 server values and nulls. list and get only read; to ask for a grant see 'hadron
 team grant request'. Organization action grants are a different thing: see
-'hadron grant'.`
+'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants held
+by you personally across Apps.`
 
 func newCmdTeamGrant(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{Use: "grant <command>", Short: "Worker action grants and named App grants", Long: `Grants let a worker (or its role agent) do something a platform rule otherwise
