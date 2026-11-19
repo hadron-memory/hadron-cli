@@ -180,9 +180,11 @@ each worker's desired state with what is actually running on the host.
   OBSERVE  it compares and records what it found, and changes nothing
   APPLY    it may also repair what it can, such as relaunching a worker session
            that is proven absent
-Use OBSERVE to see what APPLY would do before turning it on. The server keeps the
-sweep's summaries and alarms; this command does not show them. It only records the
-mode and does not launch or stop any process.
+Use OBSERVE to see what APPLY would do before turning it on. Read what a host's
+sweeps found with 'hadron team host sweep-runs --host <id>' (newest first: what
+each pass planned, applied, skipped or failed; 'hadron team host list' shows the
+host ids), and any alarms the server raised with 'hadron team events --alarms'.
+This command only records the mode and does not launch or stop any process.
 
 With no argument it reads the App's sweep mode; with one, it sets it as the App
 manager. Example reads and writes are below.
