@@ -391,7 +391,7 @@ section between the markers.
 | `run latest` |  |  | y | #1053 | f3fae5389764 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run list` | ls |  | y | #1053 | 6fce62da51ea | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run served-prompt` |  |  | y | #1053 | 6fb51dd657ed | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `run trigger` |  |  | y | #1053 | 2f65a5663819 |  | unread |  |
+| `run trigger` |  |  | y | #1053 | bbe7549f0252 |  | unread |  |
 | `schedule` |  |  | n | #1053 | e2f36deb543f | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `schedule create` |  |  | y | #1053 | 813747217bcb |  | unread |  |
 | `schedule list` | ls |  | y | #1053 | 639ef0a96792 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |

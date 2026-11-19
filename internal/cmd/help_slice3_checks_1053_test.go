@@ -102,6 +102,8 @@ func TestSlice3DeferredP3Wording2559(t *testing.T) {
 		{[]string{"schedule", "create"}, []string{"a caller using an App key (hadron app key create) gets UNAUTHENTICATED", "Needs a server version that supports budgets"}},
 		{[]string{"schedule", "update"}, []string{"Needs a server version that supports budgets"}},
 		{[]string{"webhook", "create"}, []string{"Needs a server version that supports budgets"}},
+		// cli#2559 follow-up (Jorge P3 on #2580): run trigger had the phrase left over.
+		{[]string{"run", "trigger"}, []string{"Needs a server version that supports budgets"}},
 		// 4: the legacy URN clause, restored.
 		{[]string{"schedule", "preview"}, []string{"--entry is a fully-qualified node URN (the legacy org::memory::loc form is also accepted)"}},
 		// 5: the cadence floor, defined.
@@ -128,6 +130,7 @@ func TestSlice3DeferredP3Wording2559(t *testing.T) {
 		{[]string{"schedule", "create"}, []string{"trigger budgets"}},
 		{[]string{"schedule", "update"}, []string{"trigger budgets"}},
 		{[]string{"webhook", "create"}, []string{"trigger budgets"}},
+		{[]string{"run", "trigger"}, []string{"trigger budgets"}},
 		{[]string{"task", "run"}, []string{"renderRunNode", "Node.data.args"}},
 	} {
 		help := flatHelp1053S3(t, tc.page...)
