@@ -493,24 +493,24 @@ section between the markers.
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health sweep` |  |  | y | #1054 | 85c2ef9d4cc7 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team host` |  |  | n | #1054 | 307cc3eddb80 |  | unread |  |
-| `team host assign` |  |  | y | #1054 | 200354fa59ac |  | unread |  |
-| `team host availability` |  |  | y | #1054 | bedf5aac2fd7 |  | unread |  |
-| `team host import` |  |  | y | #1054 | 4abf03ff8c36 |  | unread |  |
-| `team host issue` |  |  | y | #1054 | a9c0170cb7f5 |  | unread |  |
+| `team host` |  |  | n | #1054 | 75443525fb36 |  | unread |  |
+| `team host assign` |  |  | y | #1054 | 1fd63557ff82 |  | unread |  |
+| `team host availability` |  |  | y | #1054 | 987010ccfab8 |  | unread |  |
+| `team host import` |  |  | y | #1054 | 569a14ffdba5 |  | unread |  |
+| `team host issue` |  |  | y | #1054 | 22c5303d5e76 |  | unread |  |
 | `team host list` | ls |  | n | #1054 | e8a70f9dadc8 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 3573e30ba157 |  | unread |  |
-| `team host report-stops` |  |  | y | #1054 | 2b8ca0d88edf |  | unread |  |
-| `team host run` |  |  | n | #1054 | 6f823cf190e7 |  | unread |  |
-| `team host setup` |  |  | y | #1054 | bcce1a548620 |  | unread |  |
+| `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 |  | unread |  |
+| `team host run` |  |  | y | #1054 | 59086ec74b14 |  | unread |  |
+| `team host setup` |  |  | y | #1054 | 3d499d7ef2c5 |  | unread |  |
 | `team host status` |  |  | n | #1054 | a9dc32c61602 |  | unread |  |
-| `team host sweep` |  |  | n | #1054 | d5a9799b46a2 |  | unread |  |
+| `team host sweep` |  |  | n | #1054 | 22ee75e32e51 |  | unread |  |
 | `team host sweep install` |  |  | y | #1054 | 963f6f18deb7 |  | unread |  |
 | `team host sweep status` |  |  | y | #1054 | 49f6a1dd42c4 |  | unread |  |
 | `team host sweep uninstall` |  |  | y | #1054 | 5378961914a6 |  | unread |  |
-| `team host sweep-runs` |  |  | n | #1054 | df3c2f71306c |  | unread |  |
-| `team host unassign` |  |  | y | #1054 | 2dcb05e8b45e |  | unread |  |
-| `team host up` |  |  | y | #1054 | fd26d5db8907 |  | unread |  |
+| `team host sweep-runs` |  |  | y | #1054 | 32ee49aff1d3 |  | unread |  |
+| `team host unassign` |  |  | y | #1054 | c6a84d263133 |  | unread |  |
+| `team host up` |  |  | y | #1054 | 84e3789be870 |  | unread |  |
 | `team init` |  |  | y | #1054 | 36b43e94a913 |  | unread |  |
 | `team pause` |  |  | y | #1054 | a7a2e519211d |  | unread |  |
 | `team pr` |  |  | n | #1054 | 902a16053e28 |  | unread |  |
@@ -534,7 +534,7 @@ section between the markers.
 | `team role rm` | delete |  | y | #1054 | 33056ea6fc9b |  | unread |  |
 | `team role update` |  |  | y | #1054 | 3a7ff9f6b7c4 |  | unread |  |
 | `team roster` |  |  | n | #1054 | 11d418e87c05 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team router` |  |  | n | #1054 | 304c731d92e0 |  | unread |  |
+| `team router` |  |  | n | #1054 | 7ed3d6a671bc |  | unread |  |
 | `team router loop` |  |  | n | #1054 | c100f2806407 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | e233ab165d18 |  | unread |  |
 | `team router status` |  |  | n | #1054 | 11cca1decbd2 |  | unread |  |
@@ -587,10 +587,10 @@ section between the markers.
 | `team task start` |  |  | y | #1054 | 5547b58877ee | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task tree` |  |  | y | #1054 | 56cf8d9b42e5 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task update` |  |  | y | #1054 | 391a2d234bd0 |  | unread |  |
-| `team ticker` |  |  | n | #1054 | 5f918e2933a5 |  | unread |  |
+| `team ticker` |  |  | n | #1054 | 94b5026458fd |  | unread |  |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
-| `team ticker settings get` |  |  | y | #1054 | f261ee1df23d |  | unread |  |
-| `team ticker settings set` |  |  | y | #1054 | b3b2b4bef0b8 |  | unread |  |
+| `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 |  | unread |  |
+| `team ticker settings set` |  |  | y | #1054 | 99dc28db9fd6 |  | unread |  |
 | `team usage` |  |  | y | #1054 | 440d6ac2ce7b | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team usage collect` |  |  | y | #1054 | a5848d3e96a5 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
