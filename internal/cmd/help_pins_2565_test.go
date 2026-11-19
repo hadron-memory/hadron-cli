@@ -71,16 +71,17 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 			"hadron memory set <memory> --git-source <owner>/<repo>",
 			`(--git-source "" clears it.)`,
 			"SYNC_NOT_ATTEMPTED",
-			"NO_SOURCE or NO_INSTALLATION",
+			"NO_SOURCE or NO_INSTALLATION, exit",
 			"hadron memory get <memory> --json shows the recorded source",
-			"this command exits 2 without attempting a sync",
+			"as having no source exits 2 with no sync request sent",
 		}},
 		// memory sync pull — F41: what to do about a skipped or held file;
 		// F40: the exit facts stay while the request mechanics go
 		{[]string{"memory", "sync", "pull"}, []string{
 			"Fix what the code names",
-			"resolves by itself on a later pull, once the node it names is present",
-			"exit 7 means the sync may have happened",
+			"a later pull takes it by itself (a README",
+			"name collision recurs until the pair is renamed)",
+			"Exit 7 means the sync may have happened",
 			"clean:false",
 		}},
 	} {

@@ -296,21 +296,53 @@ func newCmdAsk(f *cmdutil.Factory) *cobra.Command {
 		Use:   "ask <log> --input-file <path> [--title <t>] [--context <c>] [--tier <tier>] [--urgency <u>]",
 		Short: "Ask a decision in a decision log",
 		Long: `Ask a decision. The server issues its code (the log prefix plus the next
-letters) and renders it. --input-file is a JSON object with the fields of the
-server's AskDecisionInput, passed through unchanged:
+letters) and prints the decision; decision get <code> --log <log> reads it
+back later. --input-file is a JSON object with the fields of the server's
+AskDecisionInput, passed through unchanged:
 
-  title (required), parts (required: each a question, with options or
-  "yesno": true, and a recommendation or noRecommendation), context, tier,
-  urgency, deciders, authorizes, grant, blocks, followUps, sources
+  title (required)  the question, as the deciders see it
+  parts (required)  the questions to answer, each an object:
+                    {"question": "...", "options": [{"key": "pg",
+                    "label": "Postgres"}, ...], "recommendation":
+                    {"key": "pg", "reason": "we run it already"}} — or
+                    "yesno": true instead of options, and
+                    "noRecommendation": {"reason": "..."} when none is given
+  context           background for the deciders
+  deciders          decider user IDs (hadron user search lists them);
+                    narrows the log's default deciders, never widens past
+                    its eligible set
+  urgency           NORMAL (the default) or URGENT
+  tier              APPROVED (the default) or SIGNED. APPROVED: the ruling
+                    counts once a decider has approved the answered
+                    decision. SIGNED: a decider's passkey signature rather
+                    than an approval — authorizes: true with APPROVED is
+                    refused DECISION_TIER_TOO_LOW
+  authorizes        true when this decision grants an authorization
+  grant             the authorization a grant decision carries, as JSON
+                    (authorizes: true only)
+  blocks            what is waiting on this decision
+  sources           where the question came from
+  followUps         spec citations the ruling must reach
+                    — blocks, sources and followUps are lists of references,
+                    each {"ref": "hadron-server#1640"}, {"node": "<id or
+                    URN>"} or {"spec": "<citation>"}
 
---title, --context, --tier and --urgency override the file's value. The server
-validates the object (DECISION_INVALID names each bad field by JSON pointer)
-and decides who may ask: any writer of the log's Memory.`,
-		Example: `  hadron decision ask hrn:node:acme.com:eng:decisions --input-file ask.json
-  # ask.json:
-  # {"title":"Pick a database","parts":[{"question":"Which one?",
-  #   "options":[{"key":"pg","label":"Postgres"},{"key":"my","label":"MySQL"}],
-  #   "recommendation":{"key":"pg","reason":"we run it already"}}]}`,
+--title, --context, --tier and --urgency override the file's value. Keys are
+exact and case-sensitive, and a key given twice is refused. Every field's
+exact shape is AskDecisionInput in the server's schema (schema.graphql in
+the hadron-cli repo). The server validates the object (DECISION_INVALID
+names each bad field by JSON pointer) and decides who may ask: any writer of
+the log's Memory.
+
+On success the decision prints as decision get shows it — code, title,
+state, tier, urgency, revision, deciders and each part — prefixed "✓ asked";
+--json prints the same decision as one object.`,
+		Example: `  cat > ask.json <<'EOF'
+{"title":"Pick a database","parts":[{"question":"Which one?",
+  "options":[{"key":"pg","label":"Postgres"},{"key":"my","label":"MySQL"}],
+  "recommendation":{"key":"pg","reason":"we run it already"}}]}
+EOF
+  hadron decision ask hrn:node:acme.com:eng:decisions --input-file ask.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logRef, err := refArg("log", args[0])
@@ -372,18 +404,37 @@ func newCmdAmend(f *cmdutil.Factory) *cobra.Command {
 are. --input-file is a JSON object with the fields of the server's
 AmendDecisionInput, passed through unchanged:
 
-  title, context, tier, urgency, parts (changes to existing parts by "n"),
-  addParts (new parts), blocks, followUps, sources
+  title, context, tier, urgency   as the flags of the same name (what the
+                                  tiers mean: hadron decision ask --help)
+  parts      changes to existing parts, each {"n": <part number>} plus only
+             the fields to change: "question", "options", "yesno",
+             "recommendation", "noRecommendation". Part numbers are
+             permanent; a change that renumbers parts is refused
+             (DECISION_PART_RENUMBER)
+  addParts   new parts appended at the end, each shaped like ask's parts
+  blocks, followUps, sources   replace that whole list; each entry a
+             reference: {"ref": "hadron-server#1640"}, {"node": "<id or
+             URN>"} or {"spec": "<citation>"}
 
 --title, --context, --tier and --urgency set that field (overriding the file).
 An empty blocks, followUps or sources list ([]) clears that list, and
-"context": null clears the context; leaving a key out keeps it. Keys are exact and case-sensitive, and a key given
-twice is refused.
---expected-revision is the revision you read (decision get shows it). The
-server decides who may amend what: before any answer any writer, after one a
-decider only, and urgency and tier are a decider's to change.`,
-		Example: `  hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "clarify" --title "Pick a primary database"`,
-		Args:    cobra.ExactArgs(1),
+"context": null clears the context; leaving a key out keeps it. Keys are exact
+and case-sensitive, and a key given twice is refused.
+--expected-revision is the revision you read (decision get shows it). If the
+decision changed since, the amend is refused (NODE_WRITE_CONFLICT, exit 5):
+read it again and retry with the new revision. The server decides who may
+amend what: before any answer any writer, after one a decider only, and
+urgency and tier are a decider's to change.
+
+On success the decision prints as decision get shows it, prefixed
+"✓ amended".`,
+		Example: `  hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "clarify" --title "Pick a primary database"
+  cat > amend.json <<'EOF'
+{"parts":[{"n":1,"question":"Postgres or MySQL, and why?"}],
+ "addParts":[{"question":"Who owns the migration?","yesno":true}]}
+EOF
+  hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "sharpen part 1" --input-file amend.json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refArg("decision", args[0])
 			if err != nil {

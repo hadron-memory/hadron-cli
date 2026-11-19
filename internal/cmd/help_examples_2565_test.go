@@ -95,7 +95,9 @@ var fileArgFlags2565 = map[string]bool{
 func exampleFileBody2565(flag string) string {
 	switch flag {
 	case "--input-file":
-		return `{}`
+		// decision amend refuses an empty input locally ("nothing to amend"),
+		// so the provided file carries one field both ask and amend accept.
+		return `{"title":"Pick a database"}`
 	case "--patch-file":
 		return `{"tier":"enterprise"}`
 	case "--body-file":
