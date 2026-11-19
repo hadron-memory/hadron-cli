@@ -83,7 +83,41 @@ pointer or the latest compile: for those, use ` + "`team worker get`" + ` and
 
 REVISIONS: servedRevSeq is the compiled node's revision number that was served
 (as ` + "`node get`" + ` numbers revisions); provenanceRevSeq is the compile behind it.
-pointerLevel says whose pointer chose it: WORKER, APP_AGENT or AGENT.`
+pointerLevel says whose setting chose which compiled prompt to serve: the
+WORKER's own, the APP_AGENT's (the Agent as installed in the App) or the
+AGENT's.`
+}
+
+// servedIntro says what the command is for, in the words of someone asking
+// "what was this run told?" (cli#1053: the page never said).
+func servedIntro(worker bool) string {
+	if worker {
+		return `Show the boot prompt a worker's session started with: which compiled revision
+was served, its hash and the values filled in. Use it to answer "what was this
+worker told when it began?". A boot prompt is the instruction text an Agent is
+given at the start; "compiled" means it was assembled from the Agent's source
+nodes and saved as one node.
+
+`
+	}
+	return `Show the boot prompt a run started with: which compiled revision was served,
+its hash and the values filled in. Use it to answer "what was this run told?".
+A boot prompt is the instruction text an Agent is given at the start; "compiled"
+means it was assembled from the Agent's source nodes and saved as one node.
+
+`
+}
+
+// refHelp says where the one argument comes from.
+func refHelp(worker bool) string {
+	if worker {
+		return ` The worker must be named by id or fully-qualified
+worker URN; names and ambient App/worktree selection are not used (see
+"hadron team worker get"). The server decides whether you may read it.`
+	}
+	return ` The run is named by its run id, which "hadron run list"
+prints (and "hadron run trigger" prints when it starts one). The server decides
+whether you may read it.`
 }
 
 func servedExample(worker bool) string {
@@ -92,7 +126,8 @@ func servedExample(worker bool) string {
   hadron team worker served-prompt hrn:worker:acme.com:eng-team:iris --limit 0   # counts only
   hadron team worker served-prompt hrn:worker:acme.com:eng-team:iris --all --json`
 	}
-	return ""
+	return `  hadron run served-prompt <run-id>
+  hadron run served-prompt <run-id> --json`
 }
 
 func newCommand(f *cmdutil.Factory, worker bool) *cobra.Command {
@@ -105,19 +140,17 @@ func newCommand(f *cmdutil.Factory, worker bool) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "served-prompt <" + owner + "-ref>",
 		Short: "Show the recorded boot-prompt revision and provenance",
-		Long: `Read the recorded boot-prompt revision, hash, pointer level and filled-in
+		Long: servedIntro(worker) + `Reads the recorded boot-prompt revision, hash, pointer level and filled-in
 variables, with one page of scalar-only provenance. This never reconstructs a
-prompt from current pointers, source bodies or live edges. Revision numbers are
-revSeq, not contentRevSeq. Pruned revisions stay recorded; no replacement text
-is fetched. Variables are the recorded values and may contain sensitive text.
+prompt from what the Agent points at now. Revision numbers count saved versions
+of a node (revSeq), the numbering "node get" uses. Pruned revisions stay
+recorded; no replacement text is fetched. Variables are the recorded values and may contain sensitive text.
 ` + selectionHelp(worker) + `
 
 A null record is unavailable: it may be unrecorded, unreadable or serving may
 be off. Null does not prove which. It is still a successful read: exit 0 with
 {servedPrompt: null}. (node provenance differs: an unavailable compiled
-revision there exits 4.) Worker refs must be ids or fully-qualified
-worker URNs; names and ambient App/worktree selection are not used. Run refs
-are sent to the provider as given. Provider authorization remains authoritative.
+revision there exits 4.)` + refHelp(worker) + `
 
 --limit defaults to 50, caps at 200; 0 reads counts only. --offset selects the
 provenance page. --all buffers every provenance page before output and refuses
@@ -262,7 +295,7 @@ answer, a lint page that changed while reading, or the budget ran out), never
 read prints one advisory line on stderr naming current lint. Retry only if a
 page changed while reading or the budget ran out; rerunning does not resolve an
 older server or an unreadable record. The record, its exit code and its
-provenance paging are unaffected. See cor:agt:040:13.`
+provenance paging are unaffected.`
 }
 
 func addLintFlag(cmd *cobra.Command, v *bool) {
@@ -328,7 +361,7 @@ out. A record is whole or null, never partial and never another record's
 warnings. One advisory line on stderr names current lint when unavailable. Retry
 only if a page changed while reading or the budget ran out; rerunning does not
 resolve an older server or an unreadable record. The history and its exit code
-are unaffected. See cor:agt:040:13.`
+are unaffected.`
 
 // readHistoryLint fills CurrentLint on every shown record: each is whole or null.
 func readHistoryLint(cmd *cobra.Command, budget *lintwarn.Budget, result *historyDTO, offset int, first lintwarn.HistFetch, at lintwarn.HistFetchAt) {

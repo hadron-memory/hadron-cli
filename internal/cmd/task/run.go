@@ -31,7 +31,7 @@ func newCmdRun(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "run <task-urn> | <loc> -m <memory>",
-		Short: "Run a task node",
+		Short: "Print a task's prompt, or run it with --app",
 		Long: `Run a task node (a node where isRunnable=true), passing any required
 arguments. Task nodes can define the arguments they accept via Node.data.args,
 enabling discovery and validation of inputs.
@@ -40,8 +40,8 @@ Pass the task as a fully-qualified URN (hrn:node:<root>:<slug>:<loc>) or as a ba
 with -m/--memory to name a single memory instead.
 
 By default this renders and prints the compiled prompt. With --app <ref> it
-instead EXECUTES the task server-side — minting a headless run under that App
-(a real LLM run, cor:agt:010:02) — and prints the run id; follow it with
+instead EXECUTES the task server-side — starting a run under that App
+(a real LLM run) — and prints the run id; follow it with
 'hadron run get <id>'. --as-self runs on behalf of you (reaches your personal
 memories; authenticated user only). --agent names the installed Agent the run
 is served as (an ID or URN); omitted, the App's single installed Agent serves
@@ -50,8 +50,11 @@ it, and an App with several refuses until you name one.
 For the renderRunNode Query without execution, use 'hadron task render'. Both
 record content read usage; task run's render mode also records an action-run,
 while task render records no action-run and never executes.`,
-		Example: `  hadron task run hrn:node:hadronmemory.com:experiments:email:send --arg to=user@example.com --arg subject="Hello"
-  hadron task run send -m hrn:mem:hadronmemory.com:experiments --arg to=user@example.com
+		Example: `  # print the prompt with the arguments filled in (nothing is run or sent)
+  hadron task run hrn:node:acme.com:ops:tasks:email-send --arg to=user@example.com --arg subject="Hello"
+  hadron task run email-send -m hrn:mem:acme.com:ops --arg to=user@example.com
+
+  # --app starts a real run: this one on behalf of you
   hadron task run hrn:node:acme.com:ops:tasks:brief --app acme.com:ops --arg topic=security --as-self
   hadron task run hrn:node:acme.com:ops:tasks:brief --app acme.com:ops --agent hrn:agent:acme.com:coach`,
 		Args: cobra.ExactArgs(1),

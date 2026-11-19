@@ -49,44 +49,41 @@ func newCmdPreview(f *cmdutil.Factory) *cobra.Command {
 	var args []string
 	var asSelf, disabled bool
 	var budget cmdutil.BudgetFlags
-	cmd := &cobra.Command{Use: "preview --app <ref> --entry <node-urn> (--cron '<expr>' | --run-at <RFC3339>)", Short: "Preview a schedule's automation without creating it", Long: `Preview a schedule before it exists (cor:agt:010:01). This is one read: no
-schedule, adoption or run is created, and there is no automatic create or retry.
-Requires a provider containing hadron-server#3463 (b7cf14b0).
+	cmd := &cobra.Command{Use: "preview --app <ref> --entry <node-urn> (--cron '<expr>' | --run-at <RFC3339>)", Short: "Preview a schedule's automation without creating it", Long: `See what a schedule would be allowed to read and write, before you create it.
+This is one read: nothing is created or run, and nothing is retried.
 
-The result is a snapshot: no reservation and no authority to create. A changed
-automation can change the hash. Scheduling by a worker requires human authorization
-or the applicable grant; the server decides admission.
+The result is a snapshot: no reservation and no authority to create. If the
+automation (the entry node and what it reaches) changes afterwards, the hash
+changes. Scheduling by a worker requires human authorization or the applicable
+grant; the server decides admission.
+
+ADOPTABLE means the server would accept this schedule as it is: the usual next
+step is "hadron schedule create" with the same arguments. The hash identifies
+exactly the automation you saw, and is what "hadron automation" commands take to
+approve a reviewed automation. CANNOT_BE_ADOPTED means it would be refused; the
+reason is MEMORY_UNREADABLE (a memory it needs cannot be read) or OTHER.
 
 preview does not validate policy or scope; create may refuse them even after an ADOPTABLE preview.
 --name, --scope and --policy are not preview inputs and are not accepted here.
 
-App and entry references, timing, budgets and args follow schedule create:
---app takes an id or URN, defaulting to your App context; --entry is a fully-
-qualified node URN (legacy org::memory::loc also accepted). Exactly one of
---cron or --run-at is required. Cron is five fields in --tz (default UTC);
-run-at is an RFC3339 instant. Empty timing flags are refused locally. The
-server validates the expression/instant, permissions, Agent and configuration.
---agent selects an installed Agent; omission lets the server resolve it.
---as-self uses the authenticated person as run principal; an App key cannot.
---arg key=value repeats, parsing JSON values or preserving a string; omitted
-args/config/Agent/timezone/budgets are not sent. Budget values must be positive
-and the server enforces the platform maximum. --disabled previews switched-off
-timing (the default is enabled). There is no prompt or write to confirm.
+The other flags mean what they do on "hadron schedule create". --app takes an id
+or URN, defaulting to your App context; --entry is a fully-qualified node URN.
+Give exactly one of --cron (five fields, evaluated in --tz, default UTC) or
+--run-at (an RFC3339 instant). --agent selects an installed Agent; left out, the
+server picks it. --as-self previews running on behalf of you (an App key
+cannot). --arg key=value repeats and takes JSON or a plain string. Budgets must
+be positive whole numbers. --disabled previews a switched-off schedule.
 
-ADOPTABLE exits 0 with the hash and complete summary: reads, writes, cannot-do,
-tools, flows, schedule and limits. The schedule line is the server's own string,
-not a local timing rewrite. CANNOT_BE_ADOPTED exits 5 with only its closed reason
-(MEMORY_UNREADABLE or OTHER), never an entry/memory identity. --json returns
-{outcome,hash,reason,summary} for these two outcomes; hash/summary are null for
-CANNOT_BE_ADOPTED and reason is null for ADOPTABLE. Summary lists are arrays,
-including when empty. GRANT_REQUIRED (a worker without a signed grant for this
-entry) is a refusal, not a preview: it exits 8, nothing is created, and --json
-returns the error envelope {"error":{"code":8,"message":...}} instead of the
-preview object.
-Text cells are terminal-safe and bounded; --json preserves the server values.
-Malformed/nil replies or unsupported providers fail nonzero with no write
-fallback. Server refusals keep create's mapping (for example 2 bad input,
-3 unauthenticated, 4 not found, 8 forbidden); transport failures exit 7.`, Example: `  hadron schedule preview --app acme.com:ops --entry hrn:node:acme.com:ops:tasks:digest --cron '0 6 * * *' --json`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+On ADOPTABLE it prints, and exits 0: the hash and a summary of what the schedule
+reads, writes, cannot do, the tools and flows it uses, its timing and its limits.
+On CANNOT_BE_ADOPTED it prints only the reason and exits 5. A worker without a
+signed grant for this entry is refused rather than previewed: exit 8. Other
+refusals use create's codes (2 bad input, 3 unauthenticated, 4 not found, 8
+forbidden); a transport failure exits 7. With --json an ADOPTABLE or
+CANNOT_BE_ADOPTED result is {outcome,hash,reason,summary} (hash and summary are
+null for CANNOT_BE_ADOPTED, reason is null for ADOPTABLE; summary lists are
+arrays, empty when empty), and a refusal is the error envelope
+{"error":{"code":8,"message":...}}.`, Example: `  hadron schedule preview --app acme.com:ops --entry hrn:node:acme.com:ops:tasks:digest --cron '0 6 * * *' --json`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		if cmd.Flags().Changed("cron") == cmd.Flags().Changed("run-at") {
 			return exitcode.Newf(exitcode.Usage, "give exactly one of --cron or --run-at")
 		}
