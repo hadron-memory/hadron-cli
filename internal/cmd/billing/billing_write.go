@@ -70,8 +70,8 @@ is valid and says so if it refuses.
 
 Leave --tier, --markup-bp and --effective-at off to take the server's defaults:
 tier 1, the server's default markup, effective now. --tier says which pricing
-tier the row belongs to (1 to 3); leave it off unless you have been told which
-tier to set. --markup-bp is the debit markup for this tier in hundredths of a
+tier the row belongs to (1 to 3). Tiers 2 and 3 can be stored, but nothing reads
+them yet: every charge resolves tier 1 today, so leave --tier off. --markup-bp is the debit markup for this tier in hundredths of a
 percent (2500 = 25%); 0 is a real markup of none, different from leaving it off.
 
 It asks before sending (or pass --yes; without a terminal --yes is required).`,
@@ -132,7 +132,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 	cmd.Flags().StringVar(&model, "model", "", "the model (required)")
 	cmd.Flags().StringVar(&input, "input", "", "input micro-cents per million tokens, a whole number (required)")
 	cmd.Flags().StringVar(&output_, "output", "", "output micro-cents per million tokens, a whole number (required)")
-	cmd.Flags().IntVar(&tier, "tier", 0, "the pricing tier this row belongs to (1-3); leave it off for the server default (1)")
+	cmd.Flags().IntVar(&tier, "tier", 0, "the pricing tier this row belongs to (1-3); leave it off for the server default (1): tiers 2 and 3 are stored but not read yet")
 	cmd.Flags().IntVar(&markupBP, "markup-bp", 0, "debit markup in basis points (2500 = 25%); unset takes the server default")
 	cmd.Flags().StringVar(&effectiveAt, "effective-at", "", "when the row takes effect (ISO-8601); unset means now")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")

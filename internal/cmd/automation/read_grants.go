@@ -162,7 +162,7 @@ same App.`,
 	cmd.Flags().StringVar(&memory, "memory", "", "the memory to grant read access to (required)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "a loc prefix within the memory; omit for the whole memory")
 	cmd.Flags().StringVar(&kind, "trigger-kind", "", "SCHEDULE or WEBHOOK (required); manual runs have no automation")
-	cmd.Flags().StringVar(&id, "trigger-id", "", "the schedule or webhook ID (required): the ID column of `hadron schedule list` or `hadron webhook list`")
+	cmd.Flags().StringVar(&id, "trigger-id", "", "the schedule or webhook ID (required); it is the ID column of hadron schedule list or hadron webhook list")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	_ = cmd.MarkFlagRequired("memory")
 	_ = cmd.MarkFlagRequired("trigger-kind")

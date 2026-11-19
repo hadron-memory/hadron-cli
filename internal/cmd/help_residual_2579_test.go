@@ -10,7 +10,7 @@ import (
 // the way a user reads it, so the checks are on the words the evaluator could
 // not find (where the ID comes from; what preview and re-adopt are for and how
 // they differ; no example that promises behaviour the server does not have).
-func page2579(t *testing.T, path ...string) (long, example string, unused struct{}) {
+func page2579(t *testing.T, path ...string) (long, example string) {
 	t.Helper()
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -18,12 +18,12 @@ func page2579(t *testing.T, path ...string) (long, example string, unused struct
 	if err != nil || c.Name() != path[len(path)-1] {
 		t.Fatalf("%v: %v", path, err)
 	}
-	return strings.Join(strings.Fields(c.Long), " "), c.Example, struct{}{}
+	return strings.Join(strings.Fields(c.Long), " "), c.Example
 }
 
 func TestGrantSetPagesSayWhereTheTriggerIDComesFrom2579(t *testing.T) {
 	for _, path := range [][]string{{"automation", "grant", "set"}, {"automation", "team-snapshot-grant", "set"}} {
-		long, _, _ := page2579(t, path...)
+		long, _ := page2579(t, path...)
 		f, _ := testFactory(t)
 		c, _, _ := NewRootCmd(f).Find(path)
 		usage := c.Flags().Lookup("trigger-id").Usage
@@ -37,8 +37,8 @@ func TestGrantSetPagesSayWhereTheTriggerIDComesFrom2579(t *testing.T) {
 }
 
 func TestPreviewAndReAdoptSayWhatTheyAreFor2579(t *testing.T) {
-	previewLong, _, _ := page2579(t, "automation", "preview")
-	adoptLong, _, _ := page2579(t, "automation", "re-adopt")
+	previewLong, _ := page2579(t, "automation", "preview")
+	adoptLong, _ := page2579(t, "automation", "re-adopt")
 	for name, long := range map[string]string{"preview": previewLong, "re-adopt": adoptLong} {
 		// Both open with their purpose, not mid-thought with the argument.
 		if strings.HasPrefix(long, "Use a trigger row id") {
@@ -65,12 +65,12 @@ func TestPreviewAndReAdoptSayWhatTheyAreFor2579(t *testing.T) {
 }
 
 func TestBillingPricesSetExamplesPromiseNoTier2Behaviour2579(t *testing.T) {
-	_, example, _ := page2579(t, "billing", "prices", "set")
+	_, example := page2579(t, "billing", "prices", "set")
 	if strings.Contains(example, "--tier") {
 		t.Errorf("an example sets --tier, which the page cannot show is applied: %s", example)
 	}
-	long, _, _ := page2579(t, "billing", "prices", "set")
-	if !strings.Contains(long, "leave it off unless") {
-		t.Errorf("the page must tell the reader to leave --tier off unless told otherwise: %q", long)
+	long, _ := page2579(t, "billing", "prices", "set")
+	if !strings.Contains(long, "nothing reads them yet") || !strings.Contains(long, "leave --tier off") {
+		t.Errorf("the page must say tiers 2 and 3 are stored but not read yet and to leave --tier off: %q", long)
 	}
 }
