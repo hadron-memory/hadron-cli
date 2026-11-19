@@ -22,7 +22,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --connection <ref> --app <ref> --scopes <scope>[,...]",
 		Short: "Delegate scoped access on your connection to an App (owner-only)",
-		Long: `Grant an App install scoped access to a connection you own (owner-only).
+		Long: `Grant an App scoped access to a connection you own (owner-only).
 
 --connection is the connection's ID. Find it with 'hadron email connections
 --org <org>' (org admin; the ID column); you must be the connection's owner.

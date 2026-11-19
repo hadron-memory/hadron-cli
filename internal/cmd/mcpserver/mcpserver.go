@@ -33,8 +33,13 @@ lets Hadron's headless runs (runs with no person at the keyboard) call those
 tools, named mcp__<slug>__<tool>. An author lists the tools a node may use in
 that node's data.tools.
 
-Registration alone grants nothing: a run must also be allowed
-tool.mcp__<slug>__<tool> by the policy rules that apply to it. Creating,
+Registration alone grants nothing: a run must also be allowed the action
+tool.mcp__<slug>__<tool> by the action-policy chain (org, user and App
+layers, each absent or an allow-list; an action needs every present layer to
+allow it). Check which layer denies it with 'hadron policy explain --action
+tool.mcp__<slug>__<tool> --app <app>'; an org ADMIN sets the org layer with
+'hadron org update --policy', and each user sets their own with 'hadron policy
+set --mine'. Creating,
 updating and deleting need org ADMIN or OWNER; 'tools' shows what a registered
 server currently offers. Authentication headers are write-only: reads show only
 whether any are stored, never their values.`,

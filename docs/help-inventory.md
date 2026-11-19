@@ -309,9 +309,9 @@ section between the markers.
 | `ai-config get` |  |  | y | #1053 | 69353cebd2cd |  | unread |  |
 | `ai-config list` | ls |  | y | #1053 | 541ce1f03ce9 |  | unread |  |
 | `ai-config rm` | delete |  | y | #1053 | 1e414c3683a6 |  | unread |  |
-| `ai-config test` |  |  | y | #1053 | 6245eecd0ad2 |  | unread |  |
+| `ai-config test` |  |  | y | #1053 | a7cb24ea60c3 |  | unread |  |
 | `ai-config tool-choice` |  |  | y | #1053 | 05c4b8878f32 |  | unread |  |
-| `ai-config update` |  |  | y | #1053 | 5e6cca2ff90f |  | unread |  |
+| `ai-config update` |  |  | y | #1053 | c0ec6d8acfa6 |  | unread |  |
 | `app` | apps |  | n | #1053 | 6f59fa15416f | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app action` |  |  | n | #1053 | 17ad7a4db49e | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app action record` |  |  | y | #1053 | 5c625b46077c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
@@ -374,11 +374,11 @@ section between the markers.
 | `connection connect` |  |  | y | #1053 | 18d56fca060b |  | unread |  |
 | `connection flow` |  |  | y | #1053 | 5646dda63466 |  | unread |  |
 | `connection grant` | grants |  | n | #1053 | eff850f484bc |  | unread |  |
-| `connection grant create` |  |  | y | #1053 | b9bacebeeaeb |  | unread |  |
+| `connection grant create` |  |  | y | #1053 | d4c0af838f2f |  | unread |  |
 | `connection grant get` |  |  | y | #1053 | 20890a6f4d0b |  | unread |  |
 | `connection grant list` | ls |  | y | #1053 | a3f9419ceb13 |  | unread |  |
 | `connection grant revoke` | rm |  | y | #1053 | fd1266b29489 |  | unread |  |
-| `mcp-server` | mcp-servers |  | n | #1053 | 4307cacff817 |  | unread |  |
+| `mcp-server` | mcp-servers |  | n | #1053 | 2a0f080962ef |  | unread |  |
 | `mcp-server create` |  |  | y | #1053 | adf996c8de86 |  | unread |  |
 | `mcp-server delete` | rm |  | y | #1053 | aff7d46bf8c4 |  | unread |  |
 | `mcp-server get` | show |  | y | #1053 | b5de02c07644 |  | unread |  |

@@ -46,7 +46,6 @@ Find ids with 'hadron ai-config list --json', or list by --owner-type/--owner-id
   printf '%s' "$KEY" | hadron ai-config update cfg_123 --api-key -
   hadron ai-config update cfg_123 --enabled=false     # stop using it, keep the key
   hadron ai-config update cfg_123 --endpoint ""     # use provider default
-  hadron ai-config update cfg_123 --enabled=false
   hadron ai-config update cfg_123 --api-style RESPONSES
   hadron ai-config update cfg_123 --clear-api-style`,
 		Args: cobra.ExactArgs(1),

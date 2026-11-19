@@ -76,7 +76,7 @@ terminal.
 
 Output: ok, the provider, model, endpoint and style actually used, latencyMs,
 the model's reply, the error (provider text removed) if any, where each value
-came from (used), and the result of each provider knob in the params. A test that
+came from (used), and the result of each setting you put in params (a "knob", such as temperature). A test that
 completed exits 0 even when ok is false: read ok and error.code in --json. A
 refused request uses the usual CLI exit codes. On KEY_UNREADABLE, store the key
 again with 'hadron ai-config update <id> --api-key -'. Retry a provider failure
@@ -84,7 +84,7 @@ only when error.transient says you may.
 
 --chat-probe (off by default) adds a second, separately metered provider call
 that checks the model can answer a chat turn the way Hadron needs: by calling
-the chat "respond" tool exactly once. It counts against your allowance when a
+the chat "respond" tool exactly once. It counts against your usage allowance when a
 platform key pays for it, and needs a server that supports it (an older server
 refuses it with exit 2). The result prints on its own "chat:" line and is the
 "chat" key in --json (null when not requested). The run result and the chat
