@@ -38,7 +38,7 @@ func itoa2531(n int) string {
 
 // serveSkipped answers the preview (dryRun true) and the applied request
 // (dryRun false) with the same counts.
-func serveSkipped(t *testing.T, scanned, selected, skipped, total int) *httptest.Server {
+func serveSkipped(t *testing.T, selected, skipped, total int) *httptest.Server {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
@@ -51,7 +51,7 @@ func serveSkipped(t *testing.T, scanned, selected, skipped, total int) *httptest
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		dry := body.Variables.Input.DryRun != nil && *body.Variables.Input.DryRun
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(skippedBody(dry, scanned, selected, skipped, total)))
+		_, _ = w.Write([]byte(skippedBody(dry, 3, selected, skipped, total)))
 	}))
 	t.Cleanup(srv.Close)
 	return srv
@@ -81,7 +81,7 @@ func TestReplaceTextShowsSkippedCount2531(t *testing.T) {
 		{"applied", []string{"--yes"}},
 	} {
 		t.Run(c.name+"/text", func(t *testing.T) {
-			out, _ := runReplace2531(t, serveSkipped(t, 3, 5, 2, 4), c.extra...)
+			out, _ := runReplace2531(t, serveSkipped(t, 5, 2, 4), c.extra...)
 			lines := strings.Split(out, "\n")
 			if !strings.Contains(lines[0], totals) {
 				t.Fatalf("the totals line must be unchanged: %q", lines[0])
@@ -91,7 +91,7 @@ func TestReplaceTextShowsSkippedCount2531(t *testing.T) {
 			}
 		})
 		t.Run(c.name+"/json", func(t *testing.T) {
-			out, _ := runReplace2531(t, serveSkipped(t, 3, 5, 2, 4), append([]string{"--json"}, c.extra...)...)
+			out, _ := runReplace2531(t, serveSkipped(t, 5, 2, 4), append([]string{"--json"}, c.extra...)...)
 			var got map[string]any
 			if err := json.Unmarshal([]byte(out), &got); err != nil {
 				t.Fatalf("json: %v\n%s", err, out)
@@ -111,11 +111,11 @@ func TestReplaceTextShowsSkippedCount2531(t *testing.T) {
 // Nothing skipped: no Skipped line in text, but --json still carries both keys (0).
 func TestReplaceTextNothingSkipped2531(t *testing.T) {
 	for _, extra := range [][]string{{"--dry-run"}, {"--yes"}} {
-		out, _ := runReplace2531(t, serveSkipped(t, 3, 3, 0, 4), extra...)
+		out, _ := runReplace2531(t, serveSkipped(t, 3, 0, 4), extra...)
 		if strings.Contains(out, "Skipped") {
 			t.Fatalf("nodesSkipped 0 must print no Skipped line: %q", out)
 		}
-		jout, _ := runReplace2531(t, serveSkipped(t, 3, 3, 0, 4), append([]string{"--json"}, extra...)...)
+		jout, _ := runReplace2531(t, serveSkipped(t, 3, 0, 4), append([]string{"--json"}, extra...)...)
 		var got map[string]any
 		if err := json.Unmarshal([]byte(jout), &got); err != nil {
 			t.Fatal(err)
@@ -132,7 +132,7 @@ func TestReplaceTextNothingSkipped2531(t *testing.T) {
 // The no-match run writes nothing and says so on stderr; the skipped count
 // still shows on stdout when nodes were skipped.
 func TestReplaceTextNoMatchStillShowsSkipped2531(t *testing.T) {
-	out, errOut := runReplace2531(t, serveSkipped(t, 3, 5, 2, 0), "--yes")
+	out, errOut := runReplace2531(t, serveSkipped(t, 5, 2, 0), "--yes")
 	if !strings.Contains(errOut, "No matches") {
 		t.Fatalf("no-match note missing: %q", errOut)
 	}

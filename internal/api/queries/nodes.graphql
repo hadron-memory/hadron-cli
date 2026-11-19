@@ -1089,6 +1089,8 @@ mutation DeleteEdge($edgeId: ID!) {
 mutation SearchReplaceInNodes($input: SearchReplaceInNodesInput!) {
   searchReplaceInNodes(input: $input) {
     nodesScanned
+    nodesSelected
+    nodesSkipped
     nodesChanged
     totalReplacements
     dryRun
