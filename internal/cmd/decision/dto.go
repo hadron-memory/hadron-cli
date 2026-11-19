@@ -46,6 +46,11 @@ type optionDTO struct {
 	Label   string  `json:"label"`
 	Meaning *string `json:"meaning"`
 	Cost    *string `json:"cost"`
+	// WhyChoose, WhyNot and Risks are a newer server's option fields; Meaning
+	// and Cost are an older server's. Each side leaves the other's null.
+	WhyChoose *string `json:"whyChoose"`
+	WhyNot    *string `json:"whyNot"`
+	Risks     *string `json:"risks"`
 }
 
 type recommendationDTO struct {
@@ -56,6 +61,10 @@ type recommendationDTO struct {
 }
 
 type answerDTO struct {
+	// Kind is ANSWER, or RETRACTION: an entry that takes the standing answer
+	// back (a newer server's answer list holds both). An older server has
+	// answers only.
+	Kind             string  `json:"kind"`
 	At               string  `json:"at"`
 	ByUserID         string  `json:"byUserId"`
 	RecordedByUserID *string `json:"recordedByUserId"`
@@ -98,16 +107,24 @@ type approvalDTO struct {
 // --expected-revision of the next amend or withdraw. state is derived by the
 // server on every read; only DECIDED may be relied on as a ruling.
 type decisionDTO struct {
-	ID              string             `json:"id"`
-	URN             string             `json:"urn"`
-	Code            string             `json:"code"`
-	N               int                `json:"n"`
-	LogID           *string            `json:"logId"`
-	Title           string             `json:"title"`
+	ID    string  `json:"id"`
+	URN   string  `json:"urn"`
+	Code  string  `json:"code"`
+	N     int     `json:"n"`
+	LogID *string `json:"logId"`
+	Title string  `json:"title"`
+	// Background and Priority are the names a newer server uses; Context and
+	// Urgency are the older ones. Both pairs are always filled with the same
+	// values, so a reader of either spelling works against either server.
 	Context         *string            `json:"context"`
+	Background      *string            `json:"background"`
+	WhyNow          *string            `json:"whyNow"`
 	State           string             `json:"state"`
 	Tier            string             `json:"tier"`
 	Urgency         string             `json:"urgency"`
+	Priority        string             `json:"priority"`
+	NeededBy        *string            `json:"neededBy"`
+	DefaultAction   *string            `json:"defaultAction"`
 	Authorizes      bool               `json:"authorizes"`
 	Archival        bool               `json:"archival"`
 	Revision        int                `json:"revision"`
@@ -123,8 +140,12 @@ type decisionDTO struct {
 	Blocks          []refDTO           `json:"blocks"`
 	FollowUps       []refDTO           `json:"followUps"`
 	Sources         []refDTO           `json:"sources"`
-	Withdrawn       *withdrawalDTO     `json:"withdrawn"`
-	Approval        *approvalDTO       `json:"approval"`
+	// SpecsTouched and SpecsMustChange are a newer server's; an older one has
+	// neither, so they are [] there.
+	SpecsTouched    []refDTO       `json:"specsTouched"`
+	SpecsMustChange []refDTO       `json:"specsMustChange"`
+	Withdrawn       *withdrawalDTO `json:"withdrawn"`
+	Approval        *approvalDTO   `json:"approval"`
 }
 
 type purgeRecordDTO struct {
@@ -259,7 +280,7 @@ func answer(a *gen.DecisionAnswerFields) *answerDTO {
 		return nil
 	}
 	d := &answerDTO{
-		At: a.At, ByUserID: a.ByUserId, RecordedByUserID: a.RecordedByUserId, ClaimedBy: a.ClaimedBy,
+		Kind: "ANSWER", At: a.At, ByUserID: a.ByUserId, RecordedByUserID: a.RecordedByUserId, ClaimedBy: a.ClaimedBy,
 		Freeform: a.Freeform, Key: a.Key, Text: a.Text, Reason: a.Reason, Via: string(a.Via),
 	}
 	if a.Source != nil {
@@ -305,8 +326,10 @@ func parts(in []*gen.DecisionFieldsPartsQuestionPart) []partDTO {
 
 func decisionFrom(d *gen.DecisionFields) decisionDTO {
 	out := decisionDTO{
-		ID: d.Id, URN: d.Urn, Code: d.Code, N: d.N, LogID: d.LogId, Title: d.Title, Context: d.Context,
-		State: string(d.State), Tier: string(d.Tier), Urgency: string(d.Urgency),
+		ID: d.Id, URN: d.Urn, Code: d.Code, N: d.N, LogID: d.LogId, Title: d.Title,
+		Context: d.Context, Background: d.Context,
+		State: string(d.State), Tier: string(d.Tier), Urgency: string(d.Urgency), Priority: string(d.Urgency),
+		SpecsTouched: []refDTO{}, SpecsMustChange: []refDTO{},
 		Authorizes: d.Authorizes, Archival: d.Archival, Revision: d.RevSeq, PortalURL: d.PortalUrl,
 		ViewerIsDecider: d.ViewerIsDecider, AskedAt: d.AskedAt, AnsweredAt: d.AnsweredAt,
 		DeciderIDs: append([]string{}, d.DeciderIds...),
