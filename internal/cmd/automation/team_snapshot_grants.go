@@ -88,7 +88,11 @@ func newCmdSnapshotSet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes]", Short: "Give one schedule or webhook a team snapshot grant", Long: `Confirm the App, trigger kind and trigger ID, then send one grant mutation.
 An identical repeat returns the live row. Scripts must pass --yes. No request
 is retried: if an answer is lost, list grants to check before trying again.
-The returned grant metadata is printed; this does not run the automation.`, Example: `  hadron automation team-snapshot-grant set acme.com:ops --trigger-kind SCHEDULE --trigger-id <schedule-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+The returned grant metadata is printed; this does not run the automation.
+
+--trigger-id is the ID column of "hadron schedule list" (with --trigger-kind
+SCHEDULE) or "hadron webhook list" (with --trigger-kind WEBHOOK), run for the
+same App.`, Example: `  hadron automation team-snapshot-grant set acme.com:ops --trigger-kind SCHEDULE --trigger-id <schedule-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		app, err := snapshotAppRef(args[0])
 		if err != nil {
 			return err
