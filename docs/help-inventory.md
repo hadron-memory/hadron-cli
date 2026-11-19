@@ -309,7 +309,7 @@ section between the markers.
 | `ai-config get` |  |  | y | #1053 | 69353cebd2cd | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `ai-config list` | ls |  | y | #1053 | 541ce1f03ce9 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `ai-config rm` | delete |  | y | #1053 | c35b831c3c4b |  | unread |  |
-| `ai-config test` |  |  | y | #1053 | 839ed575e07e |  | unread |  |
+| `ai-config test` |  |  | y | #1053 | 03191cc909d8 |  | unread |  |
 | `ai-config tool-choice` |  |  | y | #1053 | 05c4b8878f32 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `ai-config update` |  |  | y | #1053 | ca3e48f7f90f |  | unread |  |
 | `app` | apps |  | n | #1053 | 6f59fa15416f | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
