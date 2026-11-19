@@ -30,7 +30,8 @@ Prints timestamps and allows (a yes/no fact about now), never a derived state la
 --json preserves the server values and nulls. list and get only read. request,
 request-signature and signing-request ask for a grant and for its signing; a
 person signs, and nothing here does. The separate hadron grant group reads and
-manages organization action grants.`
+manages organization action grants (hadron grant list); hadron auth grants
+reads grants held by you personally across Apps.`
 
 func newCmdTeamGrant(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{Use: "grant <command>", Short: "Worker action grants and named App grants", Long: "add/rm manage named App grants. list/get/request manage worker action grants. actions/action read an App's registered grant actions (any App participant, no worker binding needed).\n\n" + workerGrantHelp}

@@ -43,6 +43,10 @@ The server checks the shape ({"allow": [strings]}); anything else exits 2. A
 JSON null is refused here (exit 2): removing the link takes --clear.
 Any signed-in user may set their own; nobody can set another user's.
 
+Action names such as run.execute and comm.outbound are listed by no command;
+the current set is in the hadron-docs reference docs/reference/authorization.md
+(the set today, not a fixed one).
+
 Prints "✓ set user policy for <you>: <link>"; --json gives layer, userId,
 handle and policy (null after --clear).`,
 		Example: `  hadron policy set --mine '{"allow":["run.execute"]}'
