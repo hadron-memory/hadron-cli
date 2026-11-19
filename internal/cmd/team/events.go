@@ -300,9 +300,8 @@ started (stall.not-started), shows no progress (stall.no-progress), whose owner
 has not reacted (stall.owner-unreactive), that cannot be assigned
 (assignment.unassignable) or has passed its finish-by time (stall.finish-by);
 or a dark-worker alarm (a worker that has gone dark), or a coordinator-cadence
-alarm (a coordinator that has missed its cadence). An alarm wakes an owner chain
-until someone acknowledges it: for a task alarm, the task's owner and then the
-owners above.
+alarm (a coordinator that has missed its cadence). An alarm wakes its nearest
+owner first, and the owners above only while it stays unacknowledged.
 
 To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
 alarm) or "hadron team events --alarms" (the raw event stream). Both show each

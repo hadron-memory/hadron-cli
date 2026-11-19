@@ -314,11 +314,11 @@ SHA (git rev-parse HEAD, or the PR page). Reviews and readiness refer to this
 head, so after a push freeze the new one. Only the build task's assignee may.
 
 The build task must carry a pull_request reference (hadron team task update
-<task> --ref pull-request=<PR URL>; --ref replaces the whole list); without it the server refuses with
-PR_REFERENCE_MISSING. A head that already has a negative seat verdict cannot be
-frozen again: answer the finding with a new head. Normally run it after "pr
-schedule" and before "pr seat"; after a push, freeze the new head again. Prints
-the build task and the recorded action.` + prSeeGroup,
+<task> --ref pull-request=<PR URL>; --ref replaces the whole list); without it
+the server refuses with PR_REFERENCE_MISSING. A head that already has a negative
+seat verdict cannot be frozen again: answer the finding with a new head.
+Normally run it after "pr schedule" and before "pr seat". Prints the build task
+and the recorded action.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
 is named for that review. Only the build task's owner chain may.

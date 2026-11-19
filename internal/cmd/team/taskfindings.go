@@ -54,9 +54,9 @@ func renderFindingDispositions(w io.Writer, rows []findingDispositionDTO) error 
 	return t.Flush()
 }
 
-// findingDispositionAccessDoc is the access paragraph both disposition pages share:
-// who may read, how a task is named, and the read refusal.
-const findingDispositionAccessDoc = `Sign in first. The task may be an id, a handle or a URN; it decides the App, so
+// findingDispositionSharedDoc is the paragraph both disposition pages share: who
+// may read, how a task is named, the read refusal, and how output is rendered.
+const findingDispositionSharedDoc = `Sign in first. The task may be an id, a handle or a URN; it decides the App, so
 --app does not qualify an ambiguous handle (use an id, or a qualified handle such
 as hrn:agenttask:example.com:team:AT1.2). A missing or unreadable task exits 4.
 A server without finding dispositions refuses the command.
@@ -98,7 +98,7 @@ empty or short page does not mean the list is complete. --json is {items:
 [{findingId, disposition, reference}], total, hasMore}; an empty list is [],
 reference is null when absent.
 
-` + findingDispositionAccessDoc,
+` + findingDispositionSharedDoc,
 		Example: "  hadron team task finding-dispositions AT1.2 --limit 20 --offset 20 --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, a []string) error {
@@ -164,7 +164,7 @@ finding. The result itself is never changed. It prints the disposition the
 server now holds; --json is {taskId, findingId, disposition, reference}
 (reference null when absent).
 
-` + findingDispositionAccessDoc + `
+` + findingDispositionSharedDoc + `
 
 ` + findingDispositionWrite + `
 

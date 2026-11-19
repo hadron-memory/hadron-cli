@@ -30,7 +30,7 @@ func TestHelpPagesExplainPRAlarmsAndFindings1054(t *testing.T) {
 		}, nil},
 		{[]string{"team", "pr", "readiness"}, []string{"A slot counts when its current seat is finished", "from someone other than the build task's assignee or the head's freezer", "NOT READY is a successful read (exit 0)", "the build task's assignee runs \"pr ready\""}, []string{"event-derived"}},
 		{[]string{"team", "pr", "ready"}, []string{"it does not merge the PR or check CI", "PR_NOT_READY (exit 5)", "Run \"pr readiness\" first"}, nil},
-		{[]string{"team", "alarm"}, []string{"An alarm is a warning the platform raises when work stalls", "hadron team alarms", "hadron team events --alarms", "hadron team alarm ack <eventId>"}, nil},
+		{[]string{"team", "alarm"}, []string{"An alarm is a warning the platform raises when work stalls", "wakes its nearest owner first, and the owners above only while it stays unacknowledged", "hadron team alarms", "hadron team events --alarms", "hadron team alarm ack <eventId>"}, nil},
 		{[]string{"team", "alarm", "ack"}, []string{
 			"<eventId> is the alarm's event id: the ALARM column of \"hadron team alarms\"", "ALARM_ALREADY_ACKNOWLEDGED",
 			"✓ acknowledged alarm", "a task-less alarm names its worker or coordinator", "--instruction opens the App-manager's held-worker path",
@@ -38,7 +38,7 @@ func TestHelpPagesExplainPRAlarmsAndFindings1054(t *testing.T) {
 		}, []string{"The CLI splits on the first colon only"}},
 		{[]string{"team", "task", "create"}, []string{
 			"put it with someone", "--match tries once, right away", "leaving it out keeps ordinary creation",
-			"--model and --tier exclude each other", "refuses even a plain create", "the server decides what it does for a task that has an assignee or is blocked",
+			"--model and --tier exclude each other", "lacks any one of them refuses every task command, even a plain create", "the server decides what it does for a task that has an assignee or is blocked",
 			"The full rules are in \"hadron agentic-usage\"",
 		}, []string{"without an explicit assignee, or a task that is blocked", "matching metadata above needs its provider", "A server that predates a flag refuses it", "The CLI splits on the first colon only"}},
 		{[]string{"team", "task", "dispose-finding"}, []string{

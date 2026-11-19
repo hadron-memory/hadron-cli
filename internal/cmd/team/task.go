@@ -357,8 +357,8 @@ The server owns eligibility, authority and matching; the CLI never selects a
 worker. Every task command reads fields that older servers lack, whichever flags
 you pass: run settings (hadron-server#4295 or later), the finish-by time
 (#2648/#3088), the matching metadata (#3245), the minimum tier (#2983) and the
-model-group records (#3029). A server older than all of them refuses even a
-plain create; there is no fallback.
+model-group records (#3029). A server that lacks any one of them refuses every
+task command, even a plain create; there is no fallback.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
