@@ -3,6 +3,7 @@ package org
 import (
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,8 @@ import (
 //   - The private key is WRITE-ONLY: file or stdin only (cmdutil.ReadSecretInput,
 //     never an inline flag), never in any output, --json, error text or error
 //     chain, and redacted out of any metadata a server erroneously reflects.
+//     It is multi-line PEM: interior newlines travel byte-exact, and the
+//     single-line masked prompt is refused (a pasted PEM would truncate).
 //   - unlink is destructive: it prompts on a terminal and refuses
 //     non-interactively without --yes, before any request.
 //   - No verb looks the org up first: the ref goes to the server as given, and
@@ -80,6 +83,9 @@ func githubAppWriteError(err error, secret *string) error {
 // credential in returned Organization metadata: every string field the DTO
 // carries is scrubbed, so the key can never reach an output stream.
 func redactGithubKey(d *orgGithubDTO, key string) {
+	if key == "" {
+		return // unreachable via ReadSecretInput (empty is refused); ReplaceAll with "" would shred every field
+	}
 	replace := func(s string) string { return strings.ReplaceAll(s, key, "[REDACTED]") }
 	d.ID = replace(d.ID)
 	d.URN = replace(d.URN)
@@ -103,8 +109,10 @@ The CLI does not run the browser-mediated GitHub App installation: installing
 the App on a GitHub account or organization happens on GitHub, and the
 installation id it produces is what ` + "`link`" + ` takes. Setting credentials
 (` + "`set-app`" + `) stores the App id and its private key on the server,
-encrypted at rest; the key is write-only input (a file or stdin, or a masked
-prompt) and is never shown, logged or returned — only whether one is stored.
+encrypted at rest; the key is write-only input (a file or stdin — never an
+inline flag, and never a masked prompt: the key is multi-line PEM, so on a
+terminal the file is required) and is never shown, logged or returned — only
+whether one is stored.
 Removing the link (` + "`unlink`" + `) removes ALL GitHub App config from the
 organization.
 
@@ -151,8 +159,8 @@ hasGithubAppPrivateKey}.`,
 			if org == "" {
 				return exitcode.Newf(exitcode.Usage, "org must not be empty (an id or URN)")
 			}
-			if installationID < 1 {
-				return exitcode.Newf(exitcode.Usage, "--installation-id must be a positive integer")
+			if installationID < 1 || installationID > math.MaxInt32 {
+				return exitcode.Newf(exitcode.Usage, "--installation-id must be a positive integer (a GraphQL Int, at most 2147483647)")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -233,9 +241,11 @@ func newCmdGithubSetApp(f *cmdutil.Factory) *cobra.Command {
 		Short: "Set an organization's GitHub App id and private key",
 		Long: `Set the GitHub App credentials the organization authenticates with: the App
 id and the App's private key. The server stores them encrypted at rest; the
-key is WRITE-ONLY — read from --private-key-file (a path or - for stdin),
-from piped stdin when the flag is omitted, or from a masked prompt on a
-terminal. There is no flag that takes the key as an inline value, and the key
+key is WRITE-ONLY — read from --private-key-file (a path or - for stdin), or
+from piped stdin when the flag is omitted. There is no masked prompt and no
+flag that takes the key as an inline value: the key is multi-line PEM, which
+a single-line prompt would silently truncate, so on a terminal
+--private-key-file is required. The key
 is never shown, logged or returned; only hasGithubAppPrivateKey says one is
 stored. The server checks access (org ADMIN or platform ADMIN).
 
@@ -260,6 +270,13 @@ githubInstallationId and hasGithubAppPrivateKey are printed; --json returns
 			if changed("private-key-file") && keyFile == "" {
 				return exitcode.Newf(exitcode.Usage, "--private-key-file requires a path or -")
 			}
+			// A GitHub App private key is multi-line PEM. The masked prompt is
+			// single-line (term.ReadPassword returns at the first newline), so a
+			// key pasted there would be silently truncated and stored broken:
+			// refuse the mode instead of offering it (#2512 BLIND P2-1).
+			if keyFile == "" && f.IOStreams.IsInputTerminal() {
+				return exitcode.Newf(exitcode.Usage, "--private-key-file is required on a terminal: the private key is multi-line PEM a single-line masked prompt would truncate (a path, or - for stdin)")
+			}
 			key, err := cmdutil.ReadSecretInput(f.IOStreams, keyFile, "private-key-file", "GitHub App private key", "private key")
 			if err != nil {
 				return api.MapError(err)
@@ -273,7 +290,7 @@ githubInstallationId and hasGithubAppPrivateKey are printed; --json returns
 				return githubAppWriteError(err, &key)
 			}
 			if resp == nil || resp.UpdateOrgGithubApp == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no organization; whether the credentials were stored is unknown — check with set-app again or the portal")
+				return exitcode.Newf(exitcode.Error, "server returned no organization; whether the credentials were stored is unknown — check the org in the portal (the CLI has no github read verb)")
 			}
 			dto := orgGithubDTOFrom(resp.UpdateOrgGithubApp.OrgGithubFields)
 			// Defend against an erroneous server reflecting the credential in
@@ -286,6 +303,6 @@ githubInstallationId and hasGithubAppPrivateKey are printed; --json returns
 	}
 	cmd.Flags().StringVar(&appID, "app-id", "", "the GitHub App's numeric id (required)")
 	_ = cmd.MarkFlagRequired("app-id")
-	cmd.Flags().StringVar(&keyFile, "private-key-file", "", "read the write-only private key from a file or - (stdin); omit for piped stdin or a masked prompt")
+	cmd.Flags().StringVar(&keyFile, "private-key-file", "", "read the write-only private key (multi-line PEM) from a file or - (stdin); omit to read piped stdin — on a terminal the file is required (no masked prompt)")
 	return cmd
 }

@@ -211,9 +211,9 @@ section between the markers.
 | `org` | orgs, organization |  | y | #1052 | 962d67667b94 |  | unread |  |
 | `org create` |  |  | y | #1052 | dfe70106a5c5 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `org get` |  |  | y | #1052 | 45d8a4114595 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `org github` |  |  | y | #1052 | d5711757a0d5 |  | unread |  |
+| `org github` |  |  | y | #1052 | a6e2c8b0a06a |  | unread |  |
 | `org github link` |  |  | y | #1052 | 2f927faebfea |  | unread |  |
-| `org github set-app` |  |  | y | #1052 | 04028bd2f30e |  | unread |  |
+| `org github set-app` |  |  | y | #1052 | d9dcc5c8f172 |  | unread |  |
 | `org github unlink` |  |  | y | #1052 | 726a426bfa68 |  | unread |  |
 | `org invite` | invitation, invitations |  | y | #1052 | e247c26eb37a | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: opening says link but workflow delivers a slug/code |
 | `org invite accept` |  |  | y | #1052 | 09ba4c80caae | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
