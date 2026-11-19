@@ -103,7 +103,15 @@ Stalled work raises alarms: a PENDING assigned task not started in time, a
 STARTED task with no progress, an owner who did not react to a finished child,
 a queued task nobody can take. ` + "`team stall-schedule get`" + ` shows the App's
 windows, ` + "`team events --alarms`" + ` lists the alarms and ` + "`team alarm ack`" + `
-acknowledges one.`,
+acknowledges one.
+
+Findings: a review or QA seat records what it found when it finishes, and the
+owner records what became of each one.
+  hadron team task finish <seat-task> --outcome approved --findings-file findings.json
+  hadron team task findings <seat-task>                 # read them (immutable once finished)
+  hadron team task dispose-finding <seat-task> F1 --disposition fixed --ref <kind>=<target>
+  hadron team task finding-dispositions <seat-task>     # list the latest disposition of each
+Each page below says what its command takes.`,
 	}
 	cmd.AddCommand(newCmdTeamTaskCreate(f))
 	cmd.AddCommand(newCmdTeamTaskClone(f))
