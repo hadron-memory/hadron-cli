@@ -20,14 +20,14 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Delete an AI service config",
 		Long: `Delete an AI service config by id. This is permanent: the stored key and
 settings are gone and cannot be restored. Anything that selects this config by
-name stops using it; if a config of the same name exists at an outer owner
-(Agent, Organization or server), that one is used from then on, otherwise the
-chat has no config of that name. The server applies the same owner permission
-as update.
+name stops using it; if a config of the same name exists at an outer level
+(per the precedence on 'hadron ai-config --help'), that one is used from then
+on, otherwise the chat has no config of that name. The server applies the same
+owner permission as update.
 
 Find the id with 'hadron ai-config list --json'. Interactively the command asks
 you to confirm; in a script or other non-interactive run, pass --yes or it
-refuses (exit 2). With --json it prints {"id", "status": "deleted"}.`,
+refuses (exit 2). With --json it prints {"id": <id>, "status": "deleted"}.`,
 		Example: `  hadron ai-config list --owner-type APP --owner-id acme.com:juno-app --json
   hadron ai-config rm cfg_123 --yes`,
 		Args: cobra.ExactArgs(1),

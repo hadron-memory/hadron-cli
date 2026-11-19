@@ -18,7 +18,7 @@ func newCmdDelete(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete <id>",
 		Aliases: []string{"rm"},
-		Short:   "Delete a registered MCP server (org ADMIN)",
+		Short:   "Delete a registered MCP server (org ADMIN or OWNER)",
 		Long: `Hard-delete a registered MCP server (org ADMIN/OWNER). This is irreversible;
 runs referencing its mcp__<slug>__<tool> tools fail loud afterwards.`,
 		Example: `  hadron mcp-server delete mcp_123 --yes`,
