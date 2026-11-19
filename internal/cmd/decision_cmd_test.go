@@ -30,11 +30,14 @@ const decisionLogJSON = `{"id":"l1","urn":"hrn:node:acme.com:kb:decisions","loc"
 "lastCode":1,"revSeq":2,"portalUrl":null,"defaultDeciderIds":["u2"],"defaultDeciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
 "eligibleDeciderIds":[],"eligibleDeciders":[],"identityMerges":[],"purges":[]}`
 
-// shapeLegacy and shapeS2 are the answers the server's one-time shape probe
-// (hadron-cli#2639) gets: an older server has no Question.background.
+// shapeLegacyJSON and shapeS2JSON are the answers the server's one-time shape
+// probe (hadron-cli#2639) gets. The probe selects Question.background through
+// the questions read: an older server refuses it at validation, naming the
+// field; an S2 server runs it. It is not an introspection read: the hosted
+// server refuses those.
 const (
-	shapeLegacyJSON = `{"data":{"__type":{"fields":[{"name":"id"},{"name":"context"},{"name":"urgency"},{"name":"parts"}]}}}`
-	shapeS2JSON     = `{"data":{"__type":{"fields":[{"name":"id"},{"name":"background"},{"name":"priority"},{"name":"options"}]}}}`
+	shapeLegacyJSON = `{"errors":[{"message":"Cannot query field \"background\" on type \"Question\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	shapeS2JSON     = `{"data":{"questions":{"total":0,"items":[]}}}`
 )
 
 type decisionCall struct {

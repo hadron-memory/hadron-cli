@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -142,8 +144,9 @@ func TestDecisionGetByCodeOnS2AndNotFound(t *testing.T) {
 
 func TestDecisionProbeFailureIsAClearError(t *testing.T) {
 	for name, probe := range map[string]string{
-		"graphql error": `{"errors":[{"message":"introspection is disabled"}],"data":null}`,
-		"no type":       `{"data":{"__type":null}}`,
+		// A validation refusal about something other than background says nothing about the shape.
+		"validation failure about another field": `{"errors":[{"message":"Unknown argument \"awaitingMe\" on field \"Query.questions\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		"an empty answer":                        `{"data":null}`,
 	} {
 		c, _, err := runDecision(t, map[string]string{"DecisionShape": probe}, "get", "d1")
 		if err == nil || !strings.Contains(err.Error(), "cannot tell which decision API this server speaks") {
@@ -152,6 +155,161 @@ func TestDecisionProbeFailureIsAClearError(t *testing.T) {
 		if len(c.ops) != 0 {
 			t.Fatalf("%s: no decision operation may run on a guess, got %v", name, c.ops)
 		}
+	}
+}
+
+// shapeServer is a hand-written server for the probe: it answers by what the
+// request says, so it can refuse introspection the way the hosted server does,
+// and answer with HTTP statuses the shared fake does not.
+type shapeServer struct {
+	legacy  bool                        // an older server: it has no Question.background
+	probe   func(w http.ResponseWriter) // overrides the probe's answer when set
+	queries []string
+	got     []string
+}
+
+func (s *shapeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"capabilities":[]}`))
+		return
+	}
+	var body struct {
+		OperationName string `json:"operationName"`
+		Query         string `json:"query"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	s.queries = append(s.queries, body.Query)
+	s.got = append(s.got, body.OperationName)
+	w.Header().Set("Content-Type", "application/json")
+	// The hosted server switches introspection off: HTTP 400, validation failed.
+	if strings.Contains(body.Query, "__type") || strings.Contains(body.Query, "__schema") {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"GraphQL introspection is not allowed by Apollo Server, but the query contained __type.","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`))
+		return
+	}
+	switch body.OperationName {
+	case "DecisionShape":
+		if s.probe != nil {
+			s.probe(w)
+			return
+		}
+		if s.legacy {
+			w.WriteHeader(http.StatusBadRequest) // Apollo answers a validation failure with 400
+			_, _ = w.Write([]byte(shapeLegacyJSON))
+			return
+		}
+		_, _ = w.Write([]byte(shapeS2JSON))
+	case "DecisionS2":
+		_, _ = w.Write([]byte(`{"data":{"question":` + s2DecisionJSON + `}}`))
+	case "Decision":
+		_, _ = w.Write([]byte(`{"data":{"question":` + decisionJSON + `}}`))
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation ` + body.OperationName + `"}]}`))
+	}
+}
+
+func runDecisionAgainst(t *testing.T, srv *shapeServer, args ...string) (string, error) {
+	t.Helper()
+	ts := httptest.NewServer(srv)
+	t.Cleanup(ts.Close)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"decision"}, args...), "--server", ts.URL))
+	err := root.Execute()
+	return out.String(), err
+}
+
+// TestDecisionShapeProbeSurvivesAServerThatRefusesIntrospection pins the P1 of
+// #2647's first head: the hosted server refuses __type and __schema, so a probe
+// that used them made every decision command fail on the server this exists
+// for. The probe must work on both shapes against a server that refuses them,
+// and must never send one.
+func TestDecisionShapeProbeSurvivesAServerThatRefusesIntrospection(t *testing.T) {
+	for name, tc := range map[string]struct {
+		legacy bool
+		op     string
+		want   string
+	}{
+		"S2 server":    {legacy: false, op: "DecisionS2", want: "Which database?"},
+		"older server": {legacy: true, op: "Decision", want: "Pick a db"},
+	} {
+		srv := &shapeServer{legacy: tc.legacy}
+		out, err := runDecisionAgainst(t, srv, "get", "d1")
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !strings.Contains(out, tc.want) {
+			t.Fatalf("%s: out: %s", name, out)
+		}
+		if !reflect.DeepEqual(srv.got, []string{"DecisionShape", tc.op}) {
+			t.Fatalf("%s: one probe, then that shape's read, got %v", name, srv.got)
+		}
+		for _, q := range srv.queries {
+			if strings.Contains(q, "__type") || strings.Contains(q, "__schema") {
+				t.Fatalf("%s: the probe must not use introspection: %s", name, q)
+			}
+		}
+		if !strings.Contains(srv.queries[0], "background") {
+			t.Fatalf("%s: the probe asks for Question.background: %s", name, srv.queries[0])
+		}
+	}
+}
+
+func TestDecisionShapeProbeOnlyReadsValidationFailureAsOlder(t *testing.T) {
+	for name, tc := range map[string]struct {
+		probe   func(w http.ResponseWriter)
+		wantErr bool
+		wantOp  string
+	}{
+		"401 unauthenticated is not older": {wantErr: true, probe: func(w http.ResponseWriter) {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"sign in","extensions":{"code":"UNAUTHENTICATED"}}]}`))
+		}},
+		"a gateway's 502 is not older": {wantErr: true, probe: func(w http.ResponseWriter) {
+			w.WriteHeader(http.StatusBadGateway)
+			_, _ = w.Write([]byte(`<html>bad gateway</html>`))
+		}},
+		"a 400 with no GraphQL error is not older": {wantErr: true, probe: func(w http.ResponseWriter) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{}`))
+		}},
+		"a validation failure about another field is not older": {wantErr: true, probe: func(w http.ResponseWriter) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"Cannot query field \"items\" on type \"QuestionPage\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`))
+		}},
+		"a validation failure beside another error is not older": {wantErr: true, probe: func(w http.ResponseWriter) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"Cannot query field \"background\" on type \"Question\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"x","extensions":{"code":"INTERNAL"}}]}`))
+		}},
+		"an execution error on a 200 validated, so it is S2": {wantOp: "DecisionS2", probe: func(w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"errors":[{"message":"too many","extensions":{"code":"QUESTION_LOG_TOO_LARGE_FOR_FILTER"}}],"data":null}`))
+		}},
+	} {
+		srv := &shapeServer{probe: tc.probe}
+		_, err := runDecisionAgainst(t, srv, "get", "d1")
+		if tc.wantErr {
+			if err == nil || !strings.Contains(err.Error(), "cannot tell which decision API this server speaks") {
+				t.Fatalf("%s: want the probe's own error, got %v", name, err)
+			}
+			if !reflect.DeepEqual(srv.got, []string{"DecisionShape"}) {
+				t.Fatalf("%s: nothing runs after a failed probe, got %v", name, srv.got)
+			}
+			continue
+		}
+		if err != nil || len(srv.got) != 2 || srv.got[1] != tc.wantOp {
+			t.Fatalf("%s: got %v %v", name, err, srv.got)
+		}
+	}
+	// The exit code of the underlying failure is kept: a 401 stays an auth exit.
+	srv := &shapeServer{probe: func(w http.ResponseWriter) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"sign in","extensions":{"code":"UNAUTHENTICATED"}}]}`))
+	}}
+	_, err := runDecisionAgainst(t, srv, "get", "d1")
+	if err == nil || exitCodeFor(err) == exitcode.Error {
+		t.Fatalf("an auth failure keeps its exit code, got %v (%d)", err, exitCodeFor(err))
 	}
 }
 

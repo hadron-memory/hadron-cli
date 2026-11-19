@@ -6418,7 +6418,7 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
   `whyChoose|whyNot|risks`; or `archival`, `followUps`, an option's `meaning|cost`,
   a recommendation's `attributedTo`, an answer's `recordedByUserId|claimedBy`) is
   `null`, `[]` or `false` on the other. If the server cannot say which it is (the
-  probe, one introspection read of `Question`, fails) the command exits with that
+  probe, one validation read that selects `Question.background` (never introspection, which the hosted server refuses; an older server refuses the field at validation), fails or is not a clear answer) the command exits with that
   error and runs nothing else.
 - `log set-deciders`: without `--eligible` the other eligible deciders are kept
   (sent as `null`); `--eligible ""` clears them (sent as `[]`).
