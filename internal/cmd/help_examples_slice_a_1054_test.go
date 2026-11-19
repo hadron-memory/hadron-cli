@@ -30,7 +30,8 @@ import (
 // and outward, so be careful") is honored by three slice-A rules:
 //
 //   - the harness runs SANDBOXED (sandboxSliceA): fake orca/systemctl/
-//     launchctl first on PATH, HOME and XDG_STATE_HOME in temp dirs, and a
+//     launchctl first on PATH, HOME, XDG_STATE_HOME and XDG_CONFIG_HOME in
+//     temp dirs, and a
 //     before/after assertion that the real host trees are untouched — a host
 //     example can never reach this Orca host's real CLI or state (#2578).
 //   - `sweep install`, `sweep uninstall` and `team host run` change the HOST
@@ -170,6 +171,11 @@ func sandboxSliceA(t *testing.T) string {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+	// config.Dir() honours $XDG_CONFIG_HOME before HOME (internal/config/
+	// paths.go), so a host or CI runner that exports it would otherwise
+	// still reach the REAL hadron config dir (Jonas's BLIND delta P2 on
+	// #2578: unset on orca, set elsewhere). Seal it into the temp home too.
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	stubDir := t.TempDir()
 	const stub = "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$0.log\"\nexit 3\n"
 	for _, name := range []string{"orca", "systemctl", "launchctl"} {
@@ -278,7 +284,8 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	// Seal before any example runs (Jonas's BLIND P2s 2/3 on #2578): fake
-	// host tools on PATH, HOME and XDG_STATE_HOME in temp dirs, and a
+	// host tools on PATH, HOME, XDG_STATE_HOME and XDG_CONFIG_HOME in temp
+	// dirs, and a
 	// before/after snapshot of the real trees an unsandboxed host command
 	// would write.
 	realRoots := realHostRootsSliceA()
@@ -566,7 +573,7 @@ func TestSliceAHostTrioNamedInAppManagerInstructionSection1054(t *testing.T) {
 }
 
 // The sandbox itself is pinned (Jonas's BLIND P2s 2/3 on #2578): the stubs
-// shadow the real host tools on PATH and refuse, and HOME/XDG_STATE_HOME
+// shadow the real host tools on PATH and refuse, and HOME/XDG_STATE_HOME/XDG_CONFIG_HOME
 // point into the test's own temp dirs — the sealing the main harness's
 // nothing-outside-the-temp-dirs assertion relies on.
 func TestSliceASandboxSealsHostTools1054(t *testing.T) {
@@ -590,5 +597,15 @@ func TestSliceASandboxSealsHostTools1054(t *testing.T) {
 	}
 	if state := os.Getenv("XDG_STATE_HOME"); !strings.HasPrefix(state, home+string(filepath.Separator)) {
 		t.Errorf("XDG_STATE_HOME %q must sit under the sandbox home %q", state, home)
+	}
+	// XDG_CONFIG_HOME must seal the config dir too (Jonas's BLIND delta P2 on
+	// #2578): config.Dir() honours it before HOME, so assert the resolved dir
+	// sits under the sandbox, not at the real host's config location.
+	cfgDir, err := config.Dir()
+	if err != nil {
+		t.Fatalf("config.Dir(): %v", err)
+	}
+	if !strings.HasPrefix(cfgDir, home+string(filepath.Separator)) {
+		t.Errorf("config dir %q must sit under the sandbox home %q (XDG_CONFIG_HOME must seal config.Dir)", cfgDir, home)
 	}
 }
