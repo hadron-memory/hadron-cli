@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 236: 199 command, 11 gap, 26 excluded
+[Query] 237: 199 command, 12 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -170,6 +170,7 @@ myChats  gap #64
 myChatsPage  gap #64
 myGrants  command auth grants
 myPasskeys  command auth passkey list
+mySecretReadClients  gap #2631: secret read clients
 myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213)
 myUserApiKeysPage  command auth token list
 nextNode  command node next
@@ -265,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 357: 305 command, 40 gap, 12 excluded
+[Mutation] 359: 305 command, 42 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -431,6 +432,7 @@ importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  command user invite
 issueHostOperation  command team host issue
+issueSecretReadClient  gap #2631: secret read clients
 joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
 leaveApp  command app leave
@@ -499,6 +501,7 @@ restoreRevision  command agent revision restore
 resumeSession  command team session start
 retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
+revealSecret  gap #2631: secret read clients
 revokeAgentOrgGrant  gap #890
 revokeAgentSubscription  gap #890
 revokeAppGrant  command team grant rm
