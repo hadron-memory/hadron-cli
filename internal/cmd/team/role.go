@@ -24,29 +24,22 @@ func newCmdRole(f *cmdutil.Factory) *cobra.Command {
 		Use:     "role <command>",
 		Aliases: []string{"roles"},
 		Short:   "The team's role definitions",
-		Long: `A role definition is a roles:<role> node in the Team Agent's system memory:
-a role name and a description. The prompt TEMPLATE lives on the role AGENT
-(its persona dressing — see ` + "`agent get`" + `), not on the role node.
+		Long: `A role is a named job on the team, such as backend-engineer: a role name
+and a short description. Workers are cast into a role ('hadron team worker
+cast'), and the role's agent carries the prompt template they start from (see
+'agent get'). A role definition is stored as a roles:<role> node in the Team
+Agent's system memory (the installed agent that carries the roles: branch).
 
-THE NAME REGISTER IS GONE (hadron-server#1050, hadron-cli#496). A role used
-to carry an ordered cast-list that ` + "`worker cast`" + ` allocated the next free
-name from, plus an initial-letter range and convention prose. The server no
-longer has any of it: cor:agt:020:07 is WITHDRAWN rather than superseded, so
-` + "`role names set|add|rm|mv`" + `, --name-range, --name-convention and
---transfer-register-to are gone from this group too, and a cast now takes an
-explicit ` + "`--name`" + `.
+A cast takes an explicit --name, and a worker's name is permanent in its App:
+retiring a role does NOT free a name for re-casting. 'role list' shows what is
+defined; 'create', 'update' and 'rm' change definitions. (History: the role name
+register, with 'role names ...', --name-range and --transfer-register-to, was
+removed in hadron-server#1050.)
 
-Retiring a role still does NOT free a name for re-casting, and neither did
-removing the register: a name is permanent per App (cor:agt:020:02) because
-the ROSTER says so, not because a register recorded the allocation. That the
-register could be deleted without amending a durable clause is the evidence
-it was bookkeeping rather than identity.
-
-WHICH APP — every command here says so (#468). The team App resolves
-ambiently (--app, the configured App context, then the worktree binding),
-so each read opens with the App it landed on AND where that scope came
-from, each write names it in the receipt, and ` + "`role rm`" + ` names it in the
-confirmation.`,
+Which App: the App resolves ambiently (--app, the configured App context, then
+the worktree binding). Each read opens with the App it landed on and where that
+scope came from, each write names it in the receipt, and 'role rm' names it in
+the confirmation.`,
 	}
 	cmd.AddCommand(newCmdRoleList(f))
 	cmd.AddCommand(newCmdRoleGet(f))
@@ -153,20 +146,21 @@ func newCmdRoleList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list [--team-agent <ref>]",
 		Aliases: []string{"ls"},
 		Short:   "The App's role definitions and their role agents",
-		Long: `List the App's role definitions. --team-agent disambiguates when more than
-one installed agent carries a roles: branch.
-Roster-based divergence warnings are suppressed when the install or Agent list
-is withheld, or any install has a withheld Agent; absence cannot be inferred.
+		Long: `List the App's role definitions: each role, its description and its role
+agent. --team-agent disambiguates when more than one installed agent carries a
+roles: branch. An empty AGENT cell means no installed agent (or more than one)
+carries that role. To see whether a worker name is already taken before casting,
+use 'worker list --include-retired': retired workers keep their names.
 
-Role warning names use bounded, control-free display text. A role-create
-suggestion is omitted if display changes its argument; use app agent list
-<app> --json for the original installed persona role.
-
-This used to answer "which names are still free", the question to ask
-immediately before casting. There is no register to answer it from
-(hadron-server#1050) — a cast now takes an explicit --name, and the roster
-(` + "`worker list --include-retired`" + `, since retired workers keep their
-names) is what says whether one is already taken.`,
+After the table, text mode may add warnings (never errors; --json has none):
+  ! role <name>: no installed agent carries this persona role
+      the definition documents a role nobody holds
+  ! agent <name> (persona role "x"): no matching role definition
+      an agent has a persona role that no definition names; the line ends with a
+      'role create' command you can run to define it
+Nothing is printed when the install or agent list could not be read in full,
+because absence cannot be inferred then. The 'agent' warnings are skipped when
+--team-agent narrows the list, because it sees only one branch.`,
 		Example: `  hadron team role list --app acme.com:eng-team
   hadron team role list --json`,
 		Args: cobra.NoArgs,
@@ -500,30 +494,22 @@ func newCmdRoleRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <role>",
 		Aliases: []string{"delete"},
 		Short:   "Retire a role definition",
-		Long: `Retire a roles:<role> definition (deleteTeamRole, hadron-server#1002).
-The delete is SOFT — the role node and anything under it (a
-roles:<role>:notes is content OF the role) are tombstoned, so the subtree
-is recoverable.
+		Long: `Retire a roles:<role> definition. The delete is soft: the role node and any
+sub-nodes under it (such as roles:<role>:notes) are tombstoned and can be
+brought back. To recover one, find it with 'hadron node recovery list' in the
+Team Agent's system memory and run 'hadron node restore' on it; each sub-node is
+restored separately, the role node first.
 
-UNCONDITIONAL since hadron-server#1050. There used to be a minted-name
-gate: a role holding allocated names refused TEAM_ROLE_IN_USE unless
---transfer-register-to handed its register to a successor. Both are gone
-with the register — there is no allocation ledger left to preserve, and
-nothing for a bare retirement to refuse over.
+Nothing refuses a retirement. Workers already cast in the role are not retired or
+renamed by this command (it retires the definition only), and retiring does NOT
+free a name for re-casting: a worker's name is permanent in its App. The role
+AGENT is a separate object and is not touched: retire it with 'app agent remove
+<app> <agent> --yes' and 'agent rm <agent> --yes' once nothing else needs it.
 
-Retiring does NOT free a name for re-casting: a worker's name is permanent
-per App (cor:agt:020:02), enforced against the whole roster. That was true
-while the register existed and is true without it, which is the evidence
-the register was bookkeeping rather than identity.
-
-The confirmation names the APP before the role (#468) — an ambient scope
-is the mistake this prompt is best placed to catch, and the role name only
-confirms what you just typed. --yes skips the prompt, so a non-interactive
-caller gets the App in the receipt instead.
-
-The role AGENT is a separate object and is NOT touched: retire it with
-` + "`app agent remove <app> <agent> --yes`" + ` and ` + "`agent rm <agent> --yes`" + ` once
-nothing else needs it.`,
+The confirmation names the App before the role, because an ambient App is the
+mistake the prompt is best placed to catch. --yes skips the prompt (required
+when not on a terminal), so a non-interactive caller gets the App in the
+receipt instead.`,
 		Example: `  hadron team role rm typo-role --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
