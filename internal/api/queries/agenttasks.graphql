@@ -86,6 +86,8 @@ fragment AgentTaskFields on AgentTask {
     outcome
     summary
     evidence
+    # cli#2514 (hadron-server#4414, cor:agt:050:30): the role tasks the assignee followed, as stored.
+    workedFromRoleTaskRefs { nodeId urn revision }
   }
   # #2420: the task's OWN optional JSON object (never inherited, so a child
   # returns its own value, null when unset).
@@ -186,6 +188,9 @@ mutation AgentTaskProgress($taskId: ID!) {
   }
 }
 
+# cli#2514: workedFromRoleTaskRefs is omitted, never null, when --worked-from is absent, so the request is
+# byte-identical to the pre-flag one.
+# @genqlient(for: "AgentTaskResultInput.workedFromRoleTaskRefs", omitempty: true)
 mutation AgentTaskFinish(
   $taskId: ID!
   $result: AgentTaskResultInput!
@@ -1085,10 +1090,13 @@ mutation AgentTaskFinishWithFindings(
   $outcome: String!
   $summary: String
   $evidence: String
+  # cli#2514: omitted when --worked-from is absent.
+  # @genqlient(omitempty: true)
+  $workedFrom: [ID!]
   # @genqlient(bind: "encoding/json.RawMessage")
   $findings: [AgentTaskFindingInput!]!
 ) {
-  finishAgentTask(taskId: $taskId, result: {outcome: $outcome, summary: $summary, evidence: $evidence, findings: $findings}) {
+  finishAgentTask(taskId: $taskId, result: {outcome: $outcome, summary: $summary, evidence: $evidence, findings: $findings, workedFromRoleTaskRefs: $workedFrom}) {
     ...AgentTaskFields
     findingsResult: result { findings(limit: 20, offset: 0) { ...ImmutableTaskFindingPage } }
   }

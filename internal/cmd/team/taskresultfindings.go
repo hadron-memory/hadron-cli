@@ -93,7 +93,7 @@ func finishTaskWithFindings(ctx context.Context, client graphql.Client, f *cmdut
 	if err != nil {
 		return err
 	}
-	resp, err := gen.AgentTaskFinishWithFindings(mctx, client, taskID, outcome, optStr(summary), optStr(evidence), wire)
+	resp, err := gen.AgentTaskFinishWithFindings(mctx, client, taskID, outcome, optStr(summary), optStr(evidence), nil, wire)
 	if err != nil {
 		return api.WithServerCode(uncertainFindingsFinish(mapTaskError(err)), err)
 	}
