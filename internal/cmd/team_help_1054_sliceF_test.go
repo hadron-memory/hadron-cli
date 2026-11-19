@@ -80,19 +80,22 @@ func TestTeamSliceFHelpExamplesParseAndFactsHold(t *testing.T) {
 					t.Errorf("example %q: %v", line, err)
 					continue
 				}
-				// Find tolerates a mistyped subcommand under a group: it stops at the
-				// group and leaves the typo in rest. A group followed by a bare word
-				// is therefore a typo; a leaf (or flags only) is fine.
-				if c.HasSubCommands() && len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
-					t.Errorf("example %q: %q is not a subcommand of %q", line, rest[0], c.CommandPath())
-					continue
-				}
 				if err := c.ParseFlags(rest); err != nil {
 					t.Errorf("example %q: %v", line, err)
+					continue
 				}
-				// The draft waits the page describes (30s, overlapping the 30s stable
-				// interval) must fit in the total wait an example gives, or a draft
-				// would end held; a minute is the least that always does.
+				// Find tolerates a mistyped subcommand under a group: it stops at the
+				// group and leaves the typo among the leftover words, possibly after
+				// flags ("team grant --json lsit"). Once the flags are parsed, a group
+				// with any positional word left is a typo; a leaf takes its arguments.
+				if c.HasSubCommands() && len(c.Flags().Args()) > 0 {
+					t.Errorf("example %q: %q is not a subcommand of %q", line, c.Flags().Args()[0], c.CommandPath())
+					continue
+				}
+				// The page describes draft waits of at least 30s, overlapping a 30s
+				// stable interval, so an example giving the total wait less than a
+				// minute (twice the 30s default) could end held on a draft: it is
+				// rejected here; a minute or more is accepted.
 				if d, err := c.Flags().GetDuration("wait-timeout"); err == nil && c.Flags().Changed("wait-timeout") && d < time.Minute {
 					t.Errorf("example %q: --wait-timeout %s is shorter than the draft waits the page describes", line, d)
 				}
