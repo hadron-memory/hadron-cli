@@ -360,7 +360,7 @@ mutation AttachMemoryToApp($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
 
 # Omitted = preserve; flags the user didn't pass must not reach the wire.
 mutation UpdateMemory(
-  $id: ID!
+  $ref: ID!
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
@@ -432,7 +432,7 @@ mutation UpdateMemory(
   $forceFixedSize: Boolean
 ) {
   updateMemory(
-    id: $id
+    ref: $ref
     name: $name
     shortDescription: $shortDescription
     description: $description

@@ -6475,6 +6475,11 @@ type Grant {
   #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
   """
   state: GrantState!
+
+  """
+  #3709 — the grant's computed address hrn:grant:<root>:<app-slug>:<grant-id> (never stored: composed from the App's current urn plus the row id, so after an App rename only the new spelling is emitted while both spellings keep resolving through the alias map, hrn:node:hadronmemory.com:specs:cor:urn:030). Null only when the stored App urn cannot compose.
+  """
+  urn: String
   useCount: Int!
 
   """
@@ -9174,8 +9179,8 @@ type Mutation {
   confirmTeamAttentionSwitchover(appRef: ID!, proof: String!): TeamAttentionSwitchoverResult!
 
   """
-  Create an agent. Provide orgId to create an ORG-owned agent (requires org
-  ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+  Create an agent. Provide orgRef to create an ORG-owned agent (requires org
+  ADMIN); OMIT orgRef to create a USER-OWNED agent owned by the caller — its
   URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
   v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
   (org XOR user).
@@ -9186,7 +9191,8 @@ type Mutation {
   hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
   Worker, cast with castWorker; names never live on agents.
   
-  orgId accepts the org's ID or URN.
+  orgRef accepts the org's ID or URN; an empty orgRef is BAD_USER_INPUT. An empty
+  systemMemoryRef means none (a system memory is provisioned).
   """
   createAgent(
     """
@@ -9203,11 +9209,11 @@ type Mutation {
     """
     memberRoles: [String!]
     name: String!
-    orgId: ID
+    orgRef: ID
     personaRole: String
     resetContextAfterTask: Boolean
     surfaces: [String!]
-    systemMemoryId: String
+    systemMemoryRef: ID
     type: AgentType
     usesTasks: Boolean
     visibility: AgentVisibility
@@ -12224,7 +12230,7 @@ type Mutation {
     registerDefaults: RegisterDefaultsInput
     resetContextAfterTask: Boolean
     surfaces: [String!]
-    systemMemoryId: String
+    systemMemoryRef: ID
     type: AgentType
     urn: String
     usesTasks: Boolean
@@ -12394,7 +12400,7 @@ type Mutation {
   truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
   non-encrypted memory the flag is a no-op.
   """
-  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, id: ID!, license: String, listedOnMarketplace: Boolean, maxRevCount: Int, name: String, organizationId: ID, readBranch: String, schema: JSON, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
+  updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, license: String, listedOnMarketplace: Boolean, maxRevCount: Int, name: String, orgRef: ID, readBranch: String, ref: ID!, schema: JSON, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
 
   """
   #1325 part (c) — change a template by its id. With expectedRevision, a
@@ -12600,7 +12606,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateOrganization(id: ID!, listedOnMarketplace: Boolean, name: String, policy: JSON, urn: String): Organization!
+  updateOrganization(listedOnMarketplace: Boolean, name: String, policy: JSON, ref: ID!, urn: String): Organization!
 
   """
   Spec 049 Phase 5 — change a row's role / mentionOnly / description (the owner's gate).
@@ -15778,8 +15784,8 @@ type Query {
   ): GlobalSearchResult!
 
   """
-  One grant by id (#3789). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly, a pending one it requested itself, or (#3711) one held by its role agent in this App while the agent is installed and licensed here.
-  Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle.
+  One grant by id or hrn:grant URN (#3789; URN per #3709). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly, a pending one it requested itself, or (#3711) one held by its role agent in this App while the agent is installed and licensed here.
+  Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle. A well-formed URN naming nothing answers the same null; a malformed or wrong-type URN is the typed input refusal URN_NOT_QUALIFIED (hrn:node:hadronmemory.com:specs:cor:api:140:01) — and so is a ref that is neither an id nor a URN, which the entity-ref convention treats as a URN attempt.
   """
   grant(ref: ID!): Grant
 
@@ -21311,10 +21317,13 @@ route (hadron-portal#262).
 `kind` is the URN's type segment: memory | node | agent | org | app | user |
 apprun | worker | noderev | aiconf (#3857: an AI service config, behind the same
 gate as aiServiceConfig(ref:); an unreadable config answers null, as a missing
-one does, hrn:node:hadronmemory.com:specs:cor:urn:010:01).
+one does, hrn:node:hadronmemory.com:specs:cor:urn:010:01) | grant (#3709: behind
+the same gate as grant(ref:); an unreadable grant answers null, as a missing
+one does).
 `id` is the resolved entity's primary id. `memoryId` is set only for
-nodes (their owning memory), `organizationId` for apps, app runs, and
-workers (their owning org), and for an aiconf (#3857) the org that owns it or
+nodes (their owning memory), `organizationId` for apps, app runs,
+workers (their owning org), grants (#3709, their App's org), and for an
+aiconf (#3857) the org that owns it or
 its App or Agent (null for a server-owned config or a user-owned App or
 Agent) — both are the extra ids those resources' canonical routes require.
 """

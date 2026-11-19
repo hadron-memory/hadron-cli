@@ -72,11 +72,11 @@ func TestAgentCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateAgent"], &vars)
-	if vars["name"] != "Support Bot" || vars["orgId"] != "acme.com" ||
+	if vars["name"] != "Support Bot" || vars["orgRef"] != "acme.com" ||
 		vars["agentType"] != "CHATBOT" || vars["visibility"] != "ORGANIZATION" {
 		t.Errorf("create vars: %v", vars)
 	}
-	for _, k := range []string{"description", "systemPrompt", "systemMemoryId", "surfaces", "personaRole"} {
+	for _, k := range []string{"description", "systemPrompt", "systemMemoryRef", "surfaces", "personaRole"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}

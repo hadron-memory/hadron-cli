@@ -2122,7 +2122,7 @@ func TestMemorySetUpdate(t *testing.T) {
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
 	// The URN is resolved to the PK via memory(ref:) before updateMemory.
-	if vars["id"] != "m1" || vars["shortDescription"] != "Project knowledge" {
+	if vars["ref"] != "m1" || vars["shortDescription"] != "Project knowledge" {
 		t.Errorf("unexpected update vars: %v", vars)
 	}
 	// Unset optionals must be OMITTED, not sent as explicit nulls —
@@ -2235,7 +2235,7 @@ func TestMemorySetUpdateSlug(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
-	if vars["id"] != "m1" || vars["urn"] != "project-kb" {
+	if vars["ref"] != "m1" || vars["urn"] != "project-kb" {
 		t.Errorf("--slug should send the bare slug as updateMemory urn, got %v", vars)
 	}
 }
@@ -2259,7 +2259,7 @@ func TestMemorySetCreateWithSlug(t *testing.T) {
 	}
 	var uvars map[string]any
 	_ = json.Unmarshal(captured["UpdateMemory"], &uvars)
-	if uvars["id"] != "m1" || uvars["urn"] != "hadrontool-pdf" {
+	if uvars["ref"] != "m1" || uvars["urn"] != "hadrontool-pdf" {
 		t.Errorf("create --slug should rename via updateMemory urn, got %v", uvars)
 	}
 	if s := out.String(); !strings.Contains(s, "acme.com::hadrontool-pdf") {
