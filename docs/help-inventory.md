@@ -120,7 +120,7 @@ section between the markers.
 | `memory subscription set-role` |  |  | y | #1051 | e277640dcdba | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory sync` |  |  | n | #1051 | 5020c3e77486 |  | unread |  |
 | `memory sync pull` |  |  | y | #1051 | 4084889fd701 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
-| `memory sync set-token` |  |  | y | #1051 | a8e310bbb6af |  | unread |  |
+| `memory sync set-token` |  |  | y | #1051 | be4292bbf4fc |  | unread |  |
 | `memory transfer` |  |  | y | #1051 | e6e07c0abb6a | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory usage` |  |  | y | #1051 | 319d077623e8 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory validate` | audit, check |  | y | #1051 | 98706fff53c1 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |

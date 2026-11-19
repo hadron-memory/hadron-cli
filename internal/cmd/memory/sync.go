@@ -176,7 +176,7 @@ type syncSetTokenDTO struct {
 func newCmdSyncSetToken(f *cmdutil.Factory) *cobra.Command {
 	var tokenFile, expiresAt string
 	cmd := &cobra.Command{
-		Use: "set-token <memoryRef> [--token-file <path|->] [--expires-at <rfc3339>]", Short: "Set a memory's write-only source token",
+		Use: "set-token <memoryRef> [--token-file <path|@path|->] [--expires-at <rfc3339>]", Short: "Set a memory's write-only source token",
 		Long: `Store an encrypted access token for the memory's source repository, for a
 repository that is not reached through the organization's GitHub App. The
 token is write-only: Hadron never shows it again, and there is no command that
@@ -218,12 +218,22 @@ checks. The token is never printed: not in the output, --json or an error.
 			if err != nil {
 				return err
 			}
-			if _, err := gen.SetMemorySourceToken(cmd.Context(), client, ref, token, exp); err != nil {
+			resp, err := gen.SetMemorySourceToken(cmd.Context(), client, ref, token, exp)
+			if err != nil {
 				return setTokenError(err, token)
 			}
-			dto := syncSetTokenDTO{Memory: ref, Operation: "set-token", TokenSet: true, ExpiresAt: exp}
+			// A null field with no error cannot establish that a token is stored.
+			if resp == nil || resp.SetMemorySourceToken == nil {
+				return exitcode.Newf(exitcode.Unavailable, "no usable answer; the token may not be stored; check the memory and set it again")
+			}
+			// Name the memory as the server did; fall back to what was typed.
+			named := ref
+			if u := resp.SetMemorySourceToken.Urn; u != "" {
+				named = strings.ReplaceAll(u, token, "[REDACTED]")
+			}
+			dto := syncSetTokenDTO{Memory: named, Operation: "set-token", TokenSet: true, ExpiresAt: exp}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "source token set for %s\n", quoteCapped(ref, 300))
+				_, err := fmt.Fprintf(w, "source token set for %s\n", quoteCapped(named, 300))
 				return err
 			})
 		},
@@ -239,6 +249,9 @@ checks. The token is never printed: not in the output, --json or an error.
 // token is dropped.
 func setTokenError(err error, token string) error {
 	mapped := api.MapError(err)
+	if token == "" {
+		return api.MapErrorKeepingCode(err)
+	}
 	msg := output.SafeLine(strings.ReplaceAll(mapped.Error(), token, "[REDACTED]"), 2000)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
 	if strings.Contains(api.ServerCodeOf(err), token) {
