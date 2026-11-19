@@ -268,7 +268,7 @@ func answer(a *gen.DecisionAnswerFields) *answerDTO {
 	return d
 }
 
-func parts(in []*gen.DecisionFieldsPartsDecisionPart) []partDTO {
+func parts(in []*gen.DecisionFieldsPartsQuestionPart) []partDTO {
 	out := []partDTO{}
 	for _, p := range in {
 		if p == nil {
@@ -313,17 +313,17 @@ func decisionFrom(d *gen.DecisionFields) decisionDTO {
 		Deciders: actorRefs(d.Deciders, func(x *gen.DecisionFieldsDecidersCommentActorRef) *gen.DecisionActorRefFields {
 			return &x.DecisionActorRefFields
 		}),
-		IdentityMerges: identityMerges(d.IdentityMerges, func(x *gen.DecisionFieldsIdentityMergesDecisionIdentityMerge) *gen.DecisionIdentityMergeFields {
+		IdentityMerges: identityMerges(d.IdentityMerges, func(x *gen.DecisionFieldsIdentityMergesQuestionIdentityMerge) *gen.DecisionIdentityMergeFields {
 			return &x.DecisionIdentityMergeFields
 		}),
 		Parts: parts(d.Parts),
-		Blocks: refs(d.Blocks, func(x *gen.DecisionFieldsBlocksDecisionRef) *gen.DecisionRefFields {
+		Blocks: refs(d.Blocks, func(x *gen.DecisionFieldsBlocksQuestionRef) *gen.DecisionRefFields {
 			return &x.DecisionRefFields
 		}),
-		FollowUps: refs(d.FollowUps, func(x *gen.DecisionFieldsFollowUpsDecisionRef) *gen.DecisionRefFields {
+		FollowUps: refs(d.FollowUps, func(x *gen.DecisionFieldsFollowUpsQuestionRef) *gen.DecisionRefFields {
 			return &x.DecisionRefFields
 		}),
-		Sources: refs(d.Sources, func(x *gen.DecisionFieldsSourcesDecisionRef) *gen.DecisionRefFields {
+		Sources: refs(d.Sources, func(x *gen.DecisionFieldsSourcesQuestionRef) *gen.DecisionRefFields {
 			return &x.DecisionRefFields
 		}),
 	}
@@ -361,7 +361,7 @@ func decisionLogFrom(l *gen.DecisionLogFields) decisionLogDTO {
 		EligibleDeciders: actorRefs(l.EligibleDeciders, func(x *gen.DecisionLogFieldsEligibleDecidersCommentActorRef) *gen.DecisionActorRefFields {
 			return &x.DecisionActorRefFields
 		}),
-		IdentityMerges: identityMerges(l.IdentityMerges, func(x *gen.DecisionLogFieldsIdentityMergesDecisionIdentityMerge) *gen.DecisionIdentityMergeFields {
+		IdentityMerges: identityMerges(l.IdentityMerges, func(x *gen.DecisionLogFieldsIdentityMergesQuestionIdentityMerge) *gen.DecisionIdentityMergeFields {
 			return &x.DecisionIdentityMergeFields
 		}),
 		Purges: []purgeRecordDTO{},

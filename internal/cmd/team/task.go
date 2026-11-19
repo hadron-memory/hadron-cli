@@ -103,7 +103,15 @@ Stalled work raises alarms: a PENDING assigned task not started in time, a
 STARTED task with no progress, an owner who did not react to a finished child,
 a queued task nobody can take. ` + "`team stall-schedule get`" + ` shows the App's
 windows, ` + "`team events --alarms`" + ` lists the alarms and ` + "`team alarm ack`" + `
-acknowledges one.`,
+acknowledges one.
+
+Findings: a review or QA seat records what it found when it finishes, and the
+owner records what became of each one.
+  hadron team task finish <seat-task> --outcome approved --findings-file findings.json
+  hadron team task findings <seat-task>                 # read them (immutable once finished)
+  hadron team task dispose-finding <seat-task> F1 --disposition fixed --ref <kind>=<target>
+  hadron team task finding-dispositions <seat-task>     # list the latest disposition of each
+Each page below says what its command takes.`,
 	}
 	cmd.AddCommand(newCmdTeamTaskCreate(f))
 	cmd.AddCommand(newCmdTeamTaskClone(f))
@@ -216,66 +224,14 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <title> | create --batch-file <path|->",
 		Short: "Create a task",
-		Long: `Create an agent task in the team App. Anyone in the App may create a root
-task; only the parent's assignee may create a child task (--parent). The App
-comes from --app, else the configured App context, else the worktree binding;
-a child task takes its App from the parent (an --app that disagrees is
-refused). Pass --source (an issue URL or node URN) so readers can trace the
-task: without one the server adds the warning task.create.no-source.
-
---external-id <id> records the outside item the task CLAIMS, such as the
-issue URL (cor:agt:120:02). At most one ACTIVE task (backlog, pending or
-started) per App holds a given value, and it is set once, never edited. A
-finished or cancelled task keeps its value but no longer blocks a new claim. A
-claim on a value an active task holds is refused TASK_EXTERNAL_ID_TAKEN (exit
-5), which names no task; find the holder with
-` + "`task list --external-id <id> --status BACKLOG --status PENDING --status STARTED`" + `
-(the unfiltered ` + "`task list --external-id <id>`" + ` also lists ended tasks, newest
-first). The value is sent as given; only the server judges its form.
-
---family, --model or --tier (not both), and --effort set the task's run
-settings (cor:agt:050:01): what to launch, not whom to match (that is
---family-in and --min-tier). They apply only when the assigned worker's Agent is
-short-lived; a platform start of a long-lived worker uses the worker's own
-record and ignores them, so --family codex does not relaunch a long-lived Claude
-worker. They are set at creation and never edited, and a clone copies none.
-Every task command now selects runSettings and appliedRunSettings, so this needs
-a server with hadron-server#4295 (S14) or later, as the matching metadata above
-needs its provider. The CLI refuses a model with a tier and an effort of
-NOT_APPLICABLE (exit 2);
-anything depending on the task's requirements is the server's, shown as
-TASK_RUN_SETTINGS_INVALID (exit 2) with its reason.
-
---ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
-task points at: kind is issue, pull-request, node, task or url, and the label
-starts at the first |. The CLI checks only that shape; the server owns the form
-of each target and the caps (BAD_USER_INPUT, exit 2, naming the item's position).
-
-Requires a provider containing server#3245 for the matching metadata selected
-by every task command, even with no new flags. The server owns eligibility,
-authority and matching; the CLI never selects a worker.
-
---match runs one blocking match for the newly created PENDING task, without an
-explicit assignee, or a task that is blocked. False or omission keeps ordinary creation.
-Success prints the selected worker. If no worker matches, the task is STILL
-CREATED unassigned: stdout includes its id plus matchFailure reason and time;
-exit 5 follows only after the receipt is written (writer failure takes
-precedence). Below that line it lists every skipped candidate with every
-reason, in the server's order (matchSkipped; --json carries it as an array,
-[] when nothing was skipped). Do not retry creation: use that task id.
-Automatic matchers skip a marked task; assignment, cancellation, or park then
-ready clears its mark.
-Ready resumes regular matching, not a second match-now attempt. A server refusal
-(BAD_USER_INPUT, exit 2) creates no task. A transport failure can leave the
-outcome unknown; inspect task list before retrying.
-
---require-role accepts comma-separated or repeated roles; any one suffices.
-One role uses the existing single-role requirement. The server checks the
-1–32 roles, nonblank/128-character limits and matches case-insensitively.
---team <lead worker id, URN or name> restricts the pool to that active same-App
-lead, its reporting descendants and workers reporting to nobody. Other
-requirements still combine with AND. This is unrelated to task list --team's
-coordinator view. Unknown, retired or other-App leads are BAD_USER_INPUT.
+		Long: `Create an agent task in the team App and put it with someone: name an
+--assignee, or leave it queued for the platform's matcher to pick a worker
+(see "Who goes on it", below; examples follow the usage line). Anyone in the
+App may create a root task; only the parent's assignee may create a child task
+(--parent). The App comes from --app, else the configured App context, else the
+worktree binding; a child task takes its App from the parent (an --app that
+disagrees is refused). Pass --source (an issue URL or node URN) so readers can
+trace the task: without one the server adds the warning task.create.no-source.
 
 Who goes on it:
 - --assignee worker:<name> or user:<handle> puts it straight in that party's
@@ -298,28 +254,40 @@ Who goes on it:
   never matched, no alarms, until ` + "`task assign`" + ` or ` + "`task ready`" + `
   moves it to PENDING. --status pending is the default.
 
---properties <json|@file> gives it its own JSON object (the team's schedule
-and review notes, for example), which the platform stores and never reads. It
-is set only when the creator may write properties (the owner, someone above
-the owner, a manager, or the assignee named here); any other creator gets the
-task without them, not a refusal. The server checks it is an object, at most
-16 KiB and valid against the team's task-properties schema
-(PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE, PROPERTIES_SCHEMA_VIOLATION,
-PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties`" + `.
-
---owner defaults to you (the bound worker, or you as a person when no session
-is bound); a root task's creator may name any other participating worker or
-person (#1757, cor:agt:050:01). The owner, a worker the owner reports to and a
-person who manages the App may then assign, reassign, park, cancel, prioritize
-and block it. For a child task the owner is the parent's assignee — naming a
-different owner is refused (TASK_CHILD_OWNER_MISMATCH).
-
 Where it lands: without --parent the task goes under AT0, the reserved
 "no project", as AT0.<n>. --project makes a top-level project AT<n> instead.
 --parent <task> makes a child (AT1.<n> under the project AT1, AT1.2.<n> under
 AT1.2); the parent needs an assignee first, and that assignee creates the
 children. --blocked-by <task> makes it wait for another task (see
 ` + "`task add-blocker`" + `).
+
+--match tries once, right away, to find a worker for a queued task: one created
+PENDING with no --assignee that is not blocked. The CLI sends the flag as given
+and the server decides what it does for a task that has an assignee or is
+blocked; leaving it out keeps ordinary creation.
+Success prints the selected worker. If no worker matches, the task is STILL
+CREATED unassigned: stdout includes its id plus matchFailure reason and time;
+exit 5 follows only after the receipt is written (writer failure takes
+precedence). Below that line it lists every skipped candidate with every
+reason, in the server's order (matchSkipped; --json carries it as an array,
+[] when nothing was skipped). Do not retry creation: use that task id.
+Automatic matchers skip a marked task; assignment, cancellation, or park then
+ready clears its mark.
+Ready resumes regular matching, not a second match-now attempt. A server refusal
+(BAD_USER_INPUT, exit 2) creates no task. A transport failure can leave the
+outcome unknown; inspect task list before retrying.
+
+--require-role accepts comma-separated or repeated roles; any one suffices.
+One role uses the existing single-role requirement. The server checks the
+1–32 roles, nonblank/128-character limits and matches case-insensitively.
+--team <lead worker id, URN or name> restricts the pool to that active same-App
+lead, its reporting descendants and workers reporting to nobody. Other
+requirements still combine with AND. This is unrelated to task list --team's
+coordinator view. Unknown, retired or other-App leads are BAD_USER_INPUT.
+
+--min-tier low|mid|high sets a minimum model tier. The matcher prefers the
+lowest sufficient tier; workers with an unknown tier are ineligible when a
+minimum is set. Tier is a matching input, never an authorization rule.
 
 --start-by <RFC 3339 time> sets when the task should be started. Once it passes,
 ` + "`task list --overdue`" + ` lists the task while it is still pending, whether or
@@ -340,10 +308,18 @@ pending or started, until it ends — the same filter, not an alarm (this arm
 needs a provider containing hadron-server#2654; an older one filters by
 start-by only). The server refuses a past value or one earlier than start-by
 (BAD_USER_INPUT, exit 2); equal times are allowed. It owns the clock and all
-alarm behavior.
-With no flag the key is omitted. Change or clear it with task update.
-Requires a provider containing hadron-server#2648/#3088, including when no
-finish-by flag is given: all task-record reads select this field.
+alarm behavior. With no flag the key is omitted. Change or clear it with task
+update.
+
+--family, --model or --tier, and --effort set the task's run settings
+(cor:agt:050:01): what to launch, not whom to match (that is --family-in and
+--min-tier). --model and --tier exclude each other. They apply only when the
+assigned worker's Agent is short-lived; a platform start of a long-lived worker
+uses the worker's own record and ignores them, so --family codex does not
+relaunch a long-lived Claude worker. They are set at creation and never edited,
+and a clone copies none. The CLI refuses a model with a tier and an effort of
+NOT_APPLICABLE (exit 2); anything depending on the task's requirements is the
+server's, shown as TASK_RUN_SETTINGS_INVALID (exit 2) with its reason.
 
 By default finishing or cancelling does not ask the assignee to end its
 worker session. Pass --close-session to ask (cor:agt:050:10); the platform
@@ -354,14 +330,47 @@ the choice later; to set it up front, when the assignee's session should end
 with the task, pass --close-session at create, or on the assign that first
 names the assignee of a queued task.
 
---min-tier low|mid|high sets a minimum model tier. The matcher prefers the
-lowest sufficient tier; workers with an unknown tier are ineligible when a
-minimum is set. Tier is a matching input, never an authorization rule.
-Requires a server containing hadron-server#2983 (31d63828 or later).
+--owner defaults to you (the bound worker, or you as a person when no session
+is bound); a root task's creator may name any other participating worker or
+person (#1757, cor:agt:050:01). The owner, a worker the owner reports to and a
+person who manages the App may then assign, reassign, park, cancel, prioritize
+and block it. For a child task the owner is the parent's assignee — naming a
+different owner is refused (TASK_CHILD_OWNER_MISMATCH).
+
+--external-id <id> records the outside item the task CLAIMS, such as the
+issue URL (cor:agt:120:02). At most one ACTIVE task (backlog, pending or
+started) per App holds a given value, and it is set once, never edited. A
+finished or cancelled task keeps its value but no longer blocks a new claim. A
+claim on a value an active task holds is refused TASK_EXTERNAL_ID_TAKEN (exit
+5), which names no task; find the holder with
+` + "`task list --external-id <id> --status BACKLOG --status PENDING --status STARTED`" + `
+(the unfiltered ` + "`task list --external-id <id>`" + ` also lists ended tasks, newest
+first). The value is sent as given; only the server judges its form.
+
+--ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
+task points at: kind is issue, pull-request, node, task or url, and the label
+starts at the first |. The CLI checks only that shape; the server owns the form
+of each target and the caps (BAD_USER_INPUT, exit 2, naming the item's position).
+
+--properties <json|@file> gives it its own JSON object (the team's schedule
+and review notes, for example), which the platform stores and never reads. It
+is set only when the creator may write properties (the owner, someone above
+the owner, a manager, or the assignee named here); any other creator gets the
+task without them, not a refusal. The server checks it is an object, at most
+16 KiB and valid against the team's task-properties schema
+(PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE, PROPERTIES_SCHEMA_VIOLATION,
+PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties`" + `.
+
+The server owns eligibility, authority and matching; the CLI never selects a
+worker. Every task command reads fields that older servers lack, whichever flags
+you pass: run settings (hadron-server#4295 or later), the finish-by time
+(#2648/#3088), the matching metadata (#3245), the minimum tier (#2983) and the
+model-group records (#3029). A server that lacks any one of them refuses every
+task command, even a plain create; there is no fallback.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
-warnings list.` + "\n\n" + taskInstructionHelp + "\n\n--instruction does not combine with --batch-file: the batch write takes no instruction.",
+warnings list.` + "\n\n" + taskInstructionHelpShort("ba077810") + "\n\n--instruction does not combine with --batch-file: the batch write takes no instruction.",
 		Example: `  # assign to a named worker, with a deadline to start
   hadron team task create "Fix login redirect" --app acme.com:eng-team --assignee worker:Iris \
     --priority 2 --start-by 2026-11-02T09:00:00Z --source https://github.com/acme/app/issues/7

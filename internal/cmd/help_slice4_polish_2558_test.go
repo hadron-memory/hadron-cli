@@ -50,7 +50,7 @@ func TestHelpSlice4Polish2558(t *testing.T) {
 		{
 			name:    "7 connection grant create connection placeholder and flag",
 			args:    []string{"connection", "grant", "create"},
-			present: []string{"--connection <id>", "ID or ref of the connection"},
+			present: []string{"--connection <id>", "ID of the connection to delegate on"},
 			gone:    []string{"--connection <ref>"},
 		},
 		{

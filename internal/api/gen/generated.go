@@ -21916,128 +21916,128 @@ func (v *AlarmAcknowledgeResponse) GetAcknowledgeAlarm() *AlarmAcknowledgeAcknow
 	return v.AcknowledgeAlarm
 }
 
-// AmendDecisionAmendDecision includes the requested fields of the GraphQL type Decision.
+// AmendDecisionAmendQuestion includes the requested fields of the GraphQL type Question.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a human decision: a governed node (role decision) under a decision log, written only by the
-// decision operations. Its content is rendered from this structured payload, so an approval covers
+// #1641 — a human question: a governed node (role question) under a question log, written only by the
+// question operations. Its content is rendered from this structured payload, so an approval covers
 // exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
-type AmendDecisionAmendDecision struct {
+type AmendDecisionAmendQuestion struct {
 	DecisionFields `json:"-"`
 }
 
-// GetId returns AmendDecisionAmendDecision.Id, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetId() string { return v.DecisionFields.Id }
+// GetId returns AmendDecisionAmendQuestion.Id, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetId() string { return v.DecisionFields.Id }
 
-// GetUrn returns AmendDecisionAmendDecision.Urn, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetUrn() string { return v.DecisionFields.Urn }
+// GetUrn returns AmendDecisionAmendQuestion.Urn, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetUrn() string { return v.DecisionFields.Urn }
 
-// GetCode returns AmendDecisionAmendDecision.Code, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetCode() string { return v.DecisionFields.Code }
+// GetCode returns AmendDecisionAmendQuestion.Code, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetCode() string { return v.DecisionFields.Code }
 
-// GetN returns AmendDecisionAmendDecision.N, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetN() int { return v.DecisionFields.N }
+// GetN returns AmendDecisionAmendQuestion.N, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetN() int { return v.DecisionFields.N }
 
-// GetLogId returns AmendDecisionAmendDecision.LogId, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetLogId() *string { return v.DecisionFields.LogId }
+// GetLogId returns AmendDecisionAmendQuestion.LogId, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetLogId() *string { return v.DecisionFields.LogId }
 
-// GetTitle returns AmendDecisionAmendDecision.Title, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetTitle() string { return v.DecisionFields.Title }
+// GetTitle returns AmendDecisionAmendQuestion.Title, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetTitle() string { return v.DecisionFields.Title }
 
-// GetContext returns AmendDecisionAmendDecision.Context, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetContext() *string { return v.DecisionFields.Context }
+// GetContext returns AmendDecisionAmendQuestion.Context, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetContext() *string { return v.DecisionFields.Context }
 
-// GetState returns AmendDecisionAmendDecision.State, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetState() DecisionState { return v.DecisionFields.State }
+// GetState returns AmendDecisionAmendQuestion.State, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetState() QuestionState { return v.DecisionFields.State }
 
-// GetTier returns AmendDecisionAmendDecision.Tier, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetTier() DecisionTier { return v.DecisionFields.Tier }
+// GetTier returns AmendDecisionAmendQuestion.Tier, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetTier() QuestionTier { return v.DecisionFields.Tier }
 
-// GetUrgency returns AmendDecisionAmendDecision.Urgency, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetUrgency() DecisionUrgency { return v.DecisionFields.Urgency }
+// GetUrgency returns AmendDecisionAmendQuestion.Urgency, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetUrgency() QuestionUrgency { return v.DecisionFields.Urgency }
 
-// GetAuthorizes returns AmendDecisionAmendDecision.Authorizes, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
+// GetAuthorizes returns AmendDecisionAmendQuestion.Authorizes, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
 
-// GetArchival returns AmendDecisionAmendDecision.Archival, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetArchival() bool { return v.DecisionFields.Archival }
+// GetArchival returns AmendDecisionAmendQuestion.Archival, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetArchival() bool { return v.DecisionFields.Archival }
 
-// GetRevSeq returns AmendDecisionAmendDecision.RevSeq, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetRevSeq() int { return v.DecisionFields.RevSeq }
+// GetRevSeq returns AmendDecisionAmendQuestion.RevSeq, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetRevSeq() int { return v.DecisionFields.RevSeq }
 
-// GetPortalUrl returns AmendDecisionAmendDecision.PortalUrl, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
+// GetPortalUrl returns AmendDecisionAmendQuestion.PortalUrl, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
 
-// GetViewerIsDecider returns AmendDecisionAmendDecision.ViewerIsDecider, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetViewerIsDecider() bool {
+// GetViewerIsDecider returns AmendDecisionAmendQuestion.ViewerIsDecider, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetViewerIsDecider() bool {
 	return v.DecisionFields.ViewerIsDecider
 }
 
-// GetAskedAt returns AmendDecisionAmendDecision.AskedAt, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetAskedAt() *string { return v.DecisionFields.AskedAt }
+// GetAskedAt returns AmendDecisionAmendQuestion.AskedAt, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetAskedAt() *string { return v.DecisionFields.AskedAt }
 
-// GetAnsweredAt returns AmendDecisionAmendDecision.AnsweredAt, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetAnsweredAt() *string { return v.DecisionFields.AnsweredAt }
+// GetAnsweredAt returns AmendDecisionAmendQuestion.AnsweredAt, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetAnsweredAt() *string { return v.DecisionFields.AnsweredAt }
 
-// GetAskedBy returns AmendDecisionAmendDecision.AskedBy, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetAskedBy() *DecisionFieldsAskedByDecisionActor {
+// GetAskedBy returns AmendDecisionAmendQuestion.AskedBy, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetAskedBy() *DecisionFieldsAskedByQuestionActor {
 	return v.DecisionFields.AskedBy
 }
 
-// GetDeciderIds returns AmendDecisionAmendDecision.DeciderIds, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetDeciderIds() []string { return v.DecisionFields.DeciderIds }
+// GetDeciderIds returns AmendDecisionAmendQuestion.DeciderIds, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetDeciderIds() []string { return v.DecisionFields.DeciderIds }
 
-// GetDeciders returns AmendDecisionAmendDecision.Deciders, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
+// GetDeciders returns AmendDecisionAmendQuestion.Deciders, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
 	return v.DecisionFields.Deciders
 }
 
-// GetIdentityMerges returns AmendDecisionAmendDecision.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetIdentityMerges() []*DecisionFieldsIdentityMergesDecisionIdentityMerge {
+// GetIdentityMerges returns AmendDecisionAmendQuestion.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetIdentityMerges() []*DecisionFieldsIdentityMergesQuestionIdentityMerge {
 	return v.DecisionFields.IdentityMerges
 }
 
-// GetParts returns AmendDecisionAmendDecision.Parts, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetParts() []*DecisionFieldsPartsDecisionPart {
+// GetParts returns AmendDecisionAmendQuestion.Parts, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetParts() []*DecisionFieldsPartsQuestionPart {
 	return v.DecisionFields.Parts
 }
 
-// GetBlocks returns AmendDecisionAmendDecision.Blocks, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetBlocks() []*DecisionFieldsBlocksDecisionRef {
+// GetBlocks returns AmendDecisionAmendQuestion.Blocks, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetBlocks() []*DecisionFieldsBlocksQuestionRef {
 	return v.DecisionFields.Blocks
 }
 
-// GetFollowUps returns AmendDecisionAmendDecision.FollowUps, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetFollowUps() []*DecisionFieldsFollowUpsDecisionRef {
+// GetFollowUps returns AmendDecisionAmendQuestion.FollowUps, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetFollowUps() []*DecisionFieldsFollowUpsQuestionRef {
 	return v.DecisionFields.FollowUps
 }
 
-// GetSources returns AmendDecisionAmendDecision.Sources, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetSources() []*DecisionFieldsSourcesDecisionRef {
+// GetSources returns AmendDecisionAmendQuestion.Sources, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetSources() []*DecisionFieldsSourcesQuestionRef {
 	return v.DecisionFields.Sources
 }
 
-// GetWithdrawn returns AmendDecisionAmendDecision.Withdrawn, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetWithdrawn() *DecisionFieldsWithdrawnDecisionWithdrawal {
+// GetWithdrawn returns AmendDecisionAmendQuestion.Withdrawn, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetWithdrawn() *DecisionFieldsWithdrawnQuestionWithdrawal {
 	return v.DecisionFields.Withdrawn
 }
 
-// GetEvidence returns AmendDecisionAmendDecision.Evidence, and is useful for accessing the field via an interface.
-func (v *AmendDecisionAmendDecision) GetEvidence() *DecisionFieldsEvidenceDecisionEvidence {
+// GetEvidence returns AmendDecisionAmendQuestion.Evidence, and is useful for accessing the field via an interface.
+func (v *AmendDecisionAmendQuestion) GetEvidence() *DecisionFieldsEvidenceQuestionEvidence {
 	return v.DecisionFields.Evidence
 }
 
-func (v *AmendDecisionAmendDecision) UnmarshalJSON(b []byte) error {
+func (v *AmendDecisionAmendQuestion) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*AmendDecisionAmendDecision
+		*AmendDecisionAmendQuestion
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.AmendDecisionAmendDecision = v
+	firstPass.AmendDecisionAmendQuestion = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -22052,7 +22052,7 @@ func (v *AmendDecisionAmendDecision) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalAmendDecisionAmendDecision struct {
+type __premarshalAmendDecisionAmendQuestion struct {
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -22067,11 +22067,11 @@ type __premarshalAmendDecisionAmendDecision struct {
 
 	Context *string `json:"context"`
 
-	State DecisionState `json:"state"`
+	State QuestionState `json:"state"`
 
-	Tier DecisionTier `json:"tier"`
+	Tier QuestionTier `json:"tier"`
 
-	Urgency DecisionUrgency `json:"urgency"`
+	Urgency QuestionUrgency `json:"urgency"`
 
 	Authorizes bool `json:"authorizes"`
 
@@ -22087,28 +22087,28 @@ type __premarshalAmendDecisionAmendDecision struct {
 
 	AnsweredAt *string `json:"answeredAt"`
 
-	AskedBy *DecisionFieldsAskedByDecisionActor `json:"askedBy"`
+	AskedBy *DecisionFieldsAskedByQuestionActor `json:"askedBy"`
 
 	DeciderIds []string `json:"deciderIds"`
 
 	Deciders []*DecisionFieldsDecidersCommentActorRef `json:"deciders"`
 
-	IdentityMerges []*DecisionFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
+	IdentityMerges []*DecisionFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
 
-	Parts []*DecisionFieldsPartsDecisionPart `json:"parts"`
+	Parts []*DecisionFieldsPartsQuestionPart `json:"parts"`
 
-	Blocks []*DecisionFieldsBlocksDecisionRef `json:"blocks"`
+	Blocks []*DecisionFieldsBlocksQuestionRef `json:"blocks"`
 
-	FollowUps []*DecisionFieldsFollowUpsDecisionRef `json:"followUps"`
+	FollowUps []*DecisionFieldsFollowUpsQuestionRef `json:"followUps"`
 
-	Sources []*DecisionFieldsSourcesDecisionRef `json:"sources"`
+	Sources []*DecisionFieldsSourcesQuestionRef `json:"sources"`
 
-	Withdrawn *DecisionFieldsWithdrawnDecisionWithdrawal `json:"withdrawn"`
+	Withdrawn *DecisionFieldsWithdrawnQuestionWithdrawal `json:"withdrawn"`
 
-	Evidence *DecisionFieldsEvidenceDecisionEvidence `json:"evidence"`
+	Evidence *DecisionFieldsEvidenceQuestionEvidence `json:"evidence"`
 }
 
-func (v *AmendDecisionAmendDecision) MarshalJSON() ([]byte, error) {
+func (v *AmendDecisionAmendQuestion) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -22116,8 +22116,8 @@ func (v *AmendDecisionAmendDecision) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *AmendDecisionAmendDecision) __premarshalJSON() (*__premarshalAmendDecisionAmendDecision, error) {
-	var retval __premarshalAmendDecisionAmendDecision
+func (v *AmendDecisionAmendQuestion) __premarshalJSON() (*__premarshalAmendDecisionAmendQuestion, error) {
+	var retval __premarshalAmendDecisionAmendQuestion
 
 	retval.Id = v.DecisionFields.Id
 	retval.Urn = v.DecisionFields.Urn
@@ -22149,57 +22149,57 @@ func (v *AmendDecisionAmendDecision) __premarshalJSON() (*__premarshalAmendDecis
 	return &retval, nil
 }
 
-type AmendDecisionInput struct {
-	AddParts  []*DecisionPartInput      `json:"addParts,omitempty"`
-	Blocks    []*DecisionRefInput       `json:"blocks"`
-	Context   json.RawMessage           `json:"context,omitempty"`
-	FollowUps []*DecisionRefInput       `json:"followUps"`
-	Parts     []*DecisionPartPatchInput `json:"parts,omitempty"`
-	Sources   []*DecisionRefInput       `json:"sources"`
-	Tier      *DecisionTier             `json:"tier,omitempty"`
-	Title     *string                   `json:"title,omitempty"`
-	Urgency   *DecisionUrgency          `json:"urgency,omitempty"`
-}
-
-// GetAddParts returns AmendDecisionInput.AddParts, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetAddParts() []*DecisionPartInput { return v.AddParts }
-
-// GetBlocks returns AmendDecisionInput.Blocks, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetBlocks() []*DecisionRefInput { return v.Blocks }
-
-// GetContext returns AmendDecisionInput.Context, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetContext() json.RawMessage { return v.Context }
-
-// GetFollowUps returns AmendDecisionInput.FollowUps, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetFollowUps() []*DecisionRefInput { return v.FollowUps }
-
-// GetParts returns AmendDecisionInput.Parts, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetParts() []*DecisionPartPatchInput { return v.Parts }
-
-// GetSources returns AmendDecisionInput.Sources, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetSources() []*DecisionRefInput { return v.Sources }
-
-// GetTier returns AmendDecisionInput.Tier, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetTier() *DecisionTier { return v.Tier }
-
-// GetTitle returns AmendDecisionInput.Title, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetTitle() *string { return v.Title }
-
-// GetUrgency returns AmendDecisionInput.Urgency, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetUrgency() *DecisionUrgency { return v.Urgency }
-
 // AmendDecisionResponse is returned by AmendDecision on success.
 type AmendDecisionResponse struct {
-	// #1641 — amend a writable decision. Memory write access is always required; before any answer, any writer; after one, a decider only. Urgency is a
+	// #1641 — amend a writable question. Memory write access is always required; before any answer, any writer; after one, a decider only. Urgency is a
 	// decider's to change; lowering the tier is a decider's, before an answer, never when it authorizes.
-	// Refusals: NODE_WRITE_CONFLICT, DECISION_PART_RENUMBER, DECISION_ANSWER_IMMUTABLE, DECISION_NOT_DECIDER.
-	AmendDecision *AmendDecisionAmendDecision `json:"amendDecision"`
+	// Refusals: NODE_WRITE_CONFLICT, QUESTION_PART_RENUMBER, QUESTION_ANSWER_IMMUTABLE, QUESTION_NOT_DECIDER.
+	AmendQuestion *AmendDecisionAmendQuestion `json:"amendQuestion"`
 }
 
-// GetAmendDecision returns AmendDecisionResponse.AmendDecision, and is useful for accessing the field via an interface.
-func (v *AmendDecisionResponse) GetAmendDecision() *AmendDecisionAmendDecision {
-	return v.AmendDecision
+// GetAmendQuestion returns AmendDecisionResponse.AmendQuestion, and is useful for accessing the field via an interface.
+func (v *AmendDecisionResponse) GetAmendQuestion() *AmendDecisionAmendQuestion {
+	return v.AmendQuestion
 }
+
+type AmendQuestionInput struct {
+	AddParts  []*QuestionPartInput      `json:"addParts,omitempty"`
+	Blocks    []*QuestionRefInput       `json:"blocks"`
+	Context   json.RawMessage           `json:"context,omitempty"`
+	FollowUps []*QuestionRefInput       `json:"followUps"`
+	Parts     []*QuestionPartPatchInput `json:"parts,omitempty"`
+	Sources   []*QuestionRefInput       `json:"sources"`
+	Tier      *QuestionTier             `json:"tier,omitempty"`
+	Title     *string                   `json:"title,omitempty"`
+	Urgency   *QuestionUrgency          `json:"urgency,omitempty"`
+}
+
+// GetAddParts returns AmendQuestionInput.AddParts, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetAddParts() []*QuestionPartInput { return v.AddParts }
+
+// GetBlocks returns AmendQuestionInput.Blocks, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetBlocks() []*QuestionRefInput { return v.Blocks }
+
+// GetContext returns AmendQuestionInput.Context, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetContext() json.RawMessage { return v.Context }
+
+// GetFollowUps returns AmendQuestionInput.FollowUps, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetFollowUps() []*QuestionRefInput { return v.FollowUps }
+
+// GetParts returns AmendQuestionInput.Parts, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetParts() []*QuestionPartPatchInput { return v.Parts }
+
+// GetSources returns AmendQuestionInput.Sources, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetSources() []*QuestionRefInput { return v.Sources }
+
+// GetTier returns AmendQuestionInput.Tier, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetTier() *QuestionTier { return v.Tier }
+
+// GetTitle returns AmendQuestionInput.Title, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetTitle() *string { return v.Title }
+
+// GetUrgency returns AmendQuestionInput.Urgency, and is useful for accessing the field via an interface.
+func (v *AmendQuestionInput) GetUrgency() *QuestionUrgency { return v.Urgency }
 
 // AppAgentEffectiveRosterApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -25889,7 +25889,7 @@ type ApproveNodeResponse struct {
 	// if it is still the one you read (REVISION_MISMATCH otherwise). A memory
 	// writer may approve ordinary nodes, the author included; placed boot prompts
 	// also require their dedicated manager-as-self gate. Comments and
-	// decision-family nodes are refused. Idempotent: an approved
+	// question-family nodes are refused. Idempotent: an approved
 	// revision keeps its existing approval. Refuses NODE_IS_PLACEHOLDER, and
 	// ENCRYPTED_MEMORY_NOT_APPLICABLE on any encrypted memory, even with a
 	// cached session key.
@@ -25983,126 +25983,126 @@ type AppsResponse struct {
 // GetApps returns AppsResponse.Apps, and is useful for accessing the field via an interface.
 func (v *AppsResponse) GetApps() *AppsAppsAppsPage { return v.Apps }
 
-// AskDecisionAskDecision includes the requested fields of the GraphQL type Decision.
+// AskDecisionAskQuestion includes the requested fields of the GraphQL type Question.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a human decision: a governed node (role decision) under a decision log, written only by the
-// decision operations. Its content is rendered from this structured payload, so an approval covers
+// #1641 — a human question: a governed node (role question) under a question log, written only by the
+// question operations. Its content is rendered from this structured payload, so an approval covers
 // exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
-type AskDecisionAskDecision struct {
+type AskDecisionAskQuestion struct {
 	DecisionFields `json:"-"`
 }
 
-// GetId returns AskDecisionAskDecision.Id, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetId() string { return v.DecisionFields.Id }
+// GetId returns AskDecisionAskQuestion.Id, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetId() string { return v.DecisionFields.Id }
 
-// GetUrn returns AskDecisionAskDecision.Urn, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetUrn() string { return v.DecisionFields.Urn }
+// GetUrn returns AskDecisionAskQuestion.Urn, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetUrn() string { return v.DecisionFields.Urn }
 
-// GetCode returns AskDecisionAskDecision.Code, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetCode() string { return v.DecisionFields.Code }
+// GetCode returns AskDecisionAskQuestion.Code, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetCode() string { return v.DecisionFields.Code }
 
-// GetN returns AskDecisionAskDecision.N, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetN() int { return v.DecisionFields.N }
+// GetN returns AskDecisionAskQuestion.N, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetN() int { return v.DecisionFields.N }
 
-// GetLogId returns AskDecisionAskDecision.LogId, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetLogId() *string { return v.DecisionFields.LogId }
+// GetLogId returns AskDecisionAskQuestion.LogId, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetLogId() *string { return v.DecisionFields.LogId }
 
-// GetTitle returns AskDecisionAskDecision.Title, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetTitle() string { return v.DecisionFields.Title }
+// GetTitle returns AskDecisionAskQuestion.Title, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetTitle() string { return v.DecisionFields.Title }
 
-// GetContext returns AskDecisionAskDecision.Context, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetContext() *string { return v.DecisionFields.Context }
+// GetContext returns AskDecisionAskQuestion.Context, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetContext() *string { return v.DecisionFields.Context }
 
-// GetState returns AskDecisionAskDecision.State, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetState() DecisionState { return v.DecisionFields.State }
+// GetState returns AskDecisionAskQuestion.State, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetState() QuestionState { return v.DecisionFields.State }
 
-// GetTier returns AskDecisionAskDecision.Tier, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetTier() DecisionTier { return v.DecisionFields.Tier }
+// GetTier returns AskDecisionAskQuestion.Tier, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetTier() QuestionTier { return v.DecisionFields.Tier }
 
-// GetUrgency returns AskDecisionAskDecision.Urgency, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetUrgency() DecisionUrgency { return v.DecisionFields.Urgency }
+// GetUrgency returns AskDecisionAskQuestion.Urgency, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetUrgency() QuestionUrgency { return v.DecisionFields.Urgency }
 
-// GetAuthorizes returns AskDecisionAskDecision.Authorizes, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
+// GetAuthorizes returns AskDecisionAskQuestion.Authorizes, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
 
-// GetArchival returns AskDecisionAskDecision.Archival, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetArchival() bool { return v.DecisionFields.Archival }
+// GetArchival returns AskDecisionAskQuestion.Archival, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetArchival() bool { return v.DecisionFields.Archival }
 
-// GetRevSeq returns AskDecisionAskDecision.RevSeq, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetRevSeq() int { return v.DecisionFields.RevSeq }
+// GetRevSeq returns AskDecisionAskQuestion.RevSeq, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetRevSeq() int { return v.DecisionFields.RevSeq }
 
-// GetPortalUrl returns AskDecisionAskDecision.PortalUrl, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
+// GetPortalUrl returns AskDecisionAskQuestion.PortalUrl, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
 
-// GetViewerIsDecider returns AskDecisionAskDecision.ViewerIsDecider, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetViewerIsDecider() bool { return v.DecisionFields.ViewerIsDecider }
+// GetViewerIsDecider returns AskDecisionAskQuestion.ViewerIsDecider, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetViewerIsDecider() bool { return v.DecisionFields.ViewerIsDecider }
 
-// GetAskedAt returns AskDecisionAskDecision.AskedAt, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetAskedAt() *string { return v.DecisionFields.AskedAt }
+// GetAskedAt returns AskDecisionAskQuestion.AskedAt, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetAskedAt() *string { return v.DecisionFields.AskedAt }
 
-// GetAnsweredAt returns AskDecisionAskDecision.AnsweredAt, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetAnsweredAt() *string { return v.DecisionFields.AnsweredAt }
+// GetAnsweredAt returns AskDecisionAskQuestion.AnsweredAt, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetAnsweredAt() *string { return v.DecisionFields.AnsweredAt }
 
-// GetAskedBy returns AskDecisionAskDecision.AskedBy, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetAskedBy() *DecisionFieldsAskedByDecisionActor {
+// GetAskedBy returns AskDecisionAskQuestion.AskedBy, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetAskedBy() *DecisionFieldsAskedByQuestionActor {
 	return v.DecisionFields.AskedBy
 }
 
-// GetDeciderIds returns AskDecisionAskDecision.DeciderIds, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetDeciderIds() []string { return v.DecisionFields.DeciderIds }
+// GetDeciderIds returns AskDecisionAskQuestion.DeciderIds, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetDeciderIds() []string { return v.DecisionFields.DeciderIds }
 
-// GetDeciders returns AskDecisionAskDecision.Deciders, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
+// GetDeciders returns AskDecisionAskQuestion.Deciders, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
 	return v.DecisionFields.Deciders
 }
 
-// GetIdentityMerges returns AskDecisionAskDecision.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetIdentityMerges() []*DecisionFieldsIdentityMergesDecisionIdentityMerge {
+// GetIdentityMerges returns AskDecisionAskQuestion.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetIdentityMerges() []*DecisionFieldsIdentityMergesQuestionIdentityMerge {
 	return v.DecisionFields.IdentityMerges
 }
 
-// GetParts returns AskDecisionAskDecision.Parts, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetParts() []*DecisionFieldsPartsDecisionPart {
+// GetParts returns AskDecisionAskQuestion.Parts, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetParts() []*DecisionFieldsPartsQuestionPart {
 	return v.DecisionFields.Parts
 }
 
-// GetBlocks returns AskDecisionAskDecision.Blocks, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetBlocks() []*DecisionFieldsBlocksDecisionRef {
+// GetBlocks returns AskDecisionAskQuestion.Blocks, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetBlocks() []*DecisionFieldsBlocksQuestionRef {
 	return v.DecisionFields.Blocks
 }
 
-// GetFollowUps returns AskDecisionAskDecision.FollowUps, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetFollowUps() []*DecisionFieldsFollowUpsDecisionRef {
+// GetFollowUps returns AskDecisionAskQuestion.FollowUps, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetFollowUps() []*DecisionFieldsFollowUpsQuestionRef {
 	return v.DecisionFields.FollowUps
 }
 
-// GetSources returns AskDecisionAskDecision.Sources, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetSources() []*DecisionFieldsSourcesDecisionRef {
+// GetSources returns AskDecisionAskQuestion.Sources, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetSources() []*DecisionFieldsSourcesQuestionRef {
 	return v.DecisionFields.Sources
 }
 
-// GetWithdrawn returns AskDecisionAskDecision.Withdrawn, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetWithdrawn() *DecisionFieldsWithdrawnDecisionWithdrawal {
+// GetWithdrawn returns AskDecisionAskQuestion.Withdrawn, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetWithdrawn() *DecisionFieldsWithdrawnQuestionWithdrawal {
 	return v.DecisionFields.Withdrawn
 }
 
-// GetEvidence returns AskDecisionAskDecision.Evidence, and is useful for accessing the field via an interface.
-func (v *AskDecisionAskDecision) GetEvidence() *DecisionFieldsEvidenceDecisionEvidence {
+// GetEvidence returns AskDecisionAskQuestion.Evidence, and is useful for accessing the field via an interface.
+func (v *AskDecisionAskQuestion) GetEvidence() *DecisionFieldsEvidenceQuestionEvidence {
 	return v.DecisionFields.Evidence
 }
 
-func (v *AskDecisionAskDecision) UnmarshalJSON(b []byte) error {
+func (v *AskDecisionAskQuestion) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*AskDecisionAskDecision
+		*AskDecisionAskQuestion
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.AskDecisionAskDecision = v
+	firstPass.AskDecisionAskQuestion = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -26117,7 +26117,7 @@ func (v *AskDecisionAskDecision) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalAskDecisionAskDecision struct {
+type __premarshalAskDecisionAskQuestion struct {
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -26132,11 +26132,11 @@ type __premarshalAskDecisionAskDecision struct {
 
 	Context *string `json:"context"`
 
-	State DecisionState `json:"state"`
+	State QuestionState `json:"state"`
 
-	Tier DecisionTier `json:"tier"`
+	Tier QuestionTier `json:"tier"`
 
-	Urgency DecisionUrgency `json:"urgency"`
+	Urgency QuestionUrgency `json:"urgency"`
 
 	Authorizes bool `json:"authorizes"`
 
@@ -26152,28 +26152,28 @@ type __premarshalAskDecisionAskDecision struct {
 
 	AnsweredAt *string `json:"answeredAt"`
 
-	AskedBy *DecisionFieldsAskedByDecisionActor `json:"askedBy"`
+	AskedBy *DecisionFieldsAskedByQuestionActor `json:"askedBy"`
 
 	DeciderIds []string `json:"deciderIds"`
 
 	Deciders []*DecisionFieldsDecidersCommentActorRef `json:"deciders"`
 
-	IdentityMerges []*DecisionFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
+	IdentityMerges []*DecisionFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
 
-	Parts []*DecisionFieldsPartsDecisionPart `json:"parts"`
+	Parts []*DecisionFieldsPartsQuestionPart `json:"parts"`
 
-	Blocks []*DecisionFieldsBlocksDecisionRef `json:"blocks"`
+	Blocks []*DecisionFieldsBlocksQuestionRef `json:"blocks"`
 
-	FollowUps []*DecisionFieldsFollowUpsDecisionRef `json:"followUps"`
+	FollowUps []*DecisionFieldsFollowUpsQuestionRef `json:"followUps"`
 
-	Sources []*DecisionFieldsSourcesDecisionRef `json:"sources"`
+	Sources []*DecisionFieldsSourcesQuestionRef `json:"sources"`
 
-	Withdrawn *DecisionFieldsWithdrawnDecisionWithdrawal `json:"withdrawn"`
+	Withdrawn *DecisionFieldsWithdrawnQuestionWithdrawal `json:"withdrawn"`
 
-	Evidence *DecisionFieldsEvidenceDecisionEvidence `json:"evidence"`
+	Evidence *DecisionFieldsEvidenceQuestionEvidence `json:"evidence"`
 }
 
-func (v *AskDecisionAskDecision) MarshalJSON() ([]byte, error) {
+func (v *AskDecisionAskQuestion) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -26181,8 +26181,8 @@ func (v *AskDecisionAskDecision) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *AskDecisionAskDecision) __premarshalJSON() (*__premarshalAskDecisionAskDecision, error) {
-	var retval __premarshalAskDecisionAskDecision
+func (v *AskDecisionAskQuestion) __premarshalJSON() (*__premarshalAskDecisionAskQuestion, error) {
+	var retval __premarshalAskDecisionAskQuestion
 
 	retval.Id = v.DecisionFields.Id
 	retval.Urn = v.DecisionFields.Urn
@@ -26214,66 +26214,66 @@ func (v *AskDecisionAskDecision) __premarshalJSON() (*__premarshalAskDecisionAsk
 	return &retval, nil
 }
 
-type AskDecisionInput struct {
+// AskDecisionResponse is returned by AskDecision on success.
+type AskDecisionResponse struct {
+	// #1641 — ask a question in a log: the server issues the next code using the log prefix (DA, DB, … with default D) and renders the
+	// content. Any writer of the log's memory, agents included, outside impersonation. Refusals: QUESTION_INVALID (with JSON
+	// pointers), QUESTION_RECOMMENDATION_MISSING, QUESTION_TIER_TOO_LOW, QUESTION_DECIDER_NOT_ELIGIBLE.
+	AskQuestion *AskDecisionAskQuestion `json:"askQuestion"`
+}
+
+// GetAskQuestion returns AskDecisionResponse.AskQuestion, and is useful for accessing the field via an interface.
+func (v *AskDecisionResponse) GetAskQuestion() *AskDecisionAskQuestion { return v.AskQuestion }
+
+type AskQuestionInput struct {
 	Authorizes *bool               `json:"authorizes,omitempty"`
-	Blocks     []*DecisionRefInput `json:"blocks,omitempty"`
+	Blocks     []*QuestionRefInput `json:"blocks,omitempty"`
 	Context    *string             `json:"context,omitempty"`
 	// Narrows the log's default deciders; never widens past its eligible set.
 	Deciders  []string            `json:"deciders"`
-	FollowUps []*DecisionRefInput `json:"followUps,omitempty"`
-	// The authorization a grant decision carries (authorizes: true only).
+	FollowUps []*QuestionRefInput `json:"followUps,omitempty"`
+	// The authorization a grant question carries (authorizes: true only).
 	Grant   *json.RawMessage     `json:"grant,omitempty"`
-	Parts   []*DecisionPartInput `json:"parts,omitempty"`
-	Sources []*DecisionRefInput  `json:"sources,omitempty"`
-	// Default APPROVED; SIGNED when authorizes is true (APPROVED is then refused: DECISION_TIER_TOO_LOW).
-	Tier    *DecisionTier    `json:"tier,omitempty"`
+	Parts   []*QuestionPartInput `json:"parts,omitempty"`
+	Sources []*QuestionRefInput  `json:"sources,omitempty"`
+	// Default APPROVED; SIGNED when authorizes is true (APPROVED is then refused: QUESTION_TIER_TOO_LOW).
+	Tier    *QuestionTier    `json:"tier,omitempty"`
 	Title   string           `json:"title"`
-	Urgency *DecisionUrgency `json:"urgency,omitempty"`
+	Urgency *QuestionUrgency `json:"urgency,omitempty"`
 }
 
-// GetAuthorizes returns AskDecisionInput.Authorizes, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetAuthorizes() *bool { return v.Authorizes }
+// GetAuthorizes returns AskQuestionInput.Authorizes, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetAuthorizes() *bool { return v.Authorizes }
 
-// GetBlocks returns AskDecisionInput.Blocks, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetBlocks() []*DecisionRefInput { return v.Blocks }
+// GetBlocks returns AskQuestionInput.Blocks, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetBlocks() []*QuestionRefInput { return v.Blocks }
 
-// GetContext returns AskDecisionInput.Context, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetContext() *string { return v.Context }
+// GetContext returns AskQuestionInput.Context, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetContext() *string { return v.Context }
 
-// GetDeciders returns AskDecisionInput.Deciders, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetDeciders() []string { return v.Deciders }
+// GetDeciders returns AskQuestionInput.Deciders, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetDeciders() []string { return v.Deciders }
 
-// GetFollowUps returns AskDecisionInput.FollowUps, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetFollowUps() []*DecisionRefInput { return v.FollowUps }
+// GetFollowUps returns AskQuestionInput.FollowUps, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetFollowUps() []*QuestionRefInput { return v.FollowUps }
 
-// GetGrant returns AskDecisionInput.Grant, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetGrant() *json.RawMessage { return v.Grant }
+// GetGrant returns AskQuestionInput.Grant, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetGrant() *json.RawMessage { return v.Grant }
 
-// GetParts returns AskDecisionInput.Parts, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetParts() []*DecisionPartInput { return v.Parts }
+// GetParts returns AskQuestionInput.Parts, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetParts() []*QuestionPartInput { return v.Parts }
 
-// GetSources returns AskDecisionInput.Sources, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetSources() []*DecisionRefInput { return v.Sources }
+// GetSources returns AskQuestionInput.Sources, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetSources() []*QuestionRefInput { return v.Sources }
 
-// GetTier returns AskDecisionInput.Tier, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetTier() *DecisionTier { return v.Tier }
+// GetTier returns AskQuestionInput.Tier, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetTier() *QuestionTier { return v.Tier }
 
-// GetTitle returns AskDecisionInput.Title, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetTitle() string { return v.Title }
+// GetTitle returns AskQuestionInput.Title, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetTitle() string { return v.Title }
 
-// GetUrgency returns AskDecisionInput.Urgency, and is useful for accessing the field via an interface.
-func (v *AskDecisionInput) GetUrgency() *DecisionUrgency { return v.Urgency }
-
-// AskDecisionResponse is returned by AskDecision on success.
-type AskDecisionResponse struct {
-	// #1641 — ask a decision in a log: the server issues the next code using the log prefix (DA, DB, … with default D) and renders the
-	// content. Any writer of the log's memory, agents included, outside impersonation. Refusals: DECISION_INVALID (with JSON
-	// pointers), DECISION_RECOMMENDATION_MISSING, DECISION_TIER_TOO_LOW, DECISION_DECIDER_NOT_ELIGIBLE.
-	AskDecision *AskDecisionAskDecision `json:"askDecision"`
-}
-
-// GetAskDecision returns AskDecisionResponse.AskDecision, and is useful for accessing the field via an interface.
-func (v *AskDecisionResponse) GetAskDecision() *AskDecisionAskDecision { return v.AskDecision }
+// GetUrgency returns AskQuestionInput.Urgency, and is useful for accessing the field via an interface.
+func (v *AskQuestionInput) GetUrgency() *QuestionUrgency { return v.Urgency }
 
 // AssetDownloadUrlAssetDownloadUrl includes the requested fields of the GraphQL type AssetDownloadUrl.
 type AssetDownloadUrlAssetDownloadUrl struct {
@@ -36730,7 +36730,7 @@ type CloneMemoryResponse struct {
 	// display name is derived from the target slug.
 	//
 	// Copies the Memory row and its eligible live graph. Comment nodes,
-	// compiled boot-prompt nodes and decision-family nodes are excluded;
+	// compiled boot-prompt nodes and question-family nodes are excluded;
 	// derived INCLUDE edges are re-derived rather than copied. References to
 	// the source memory's URN inside node content/abstract
 	// (canonical and legacy spellings) are rewritten to the clone's URN.
@@ -36787,7 +36787,7 @@ type CloneNodeCloneNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -40345,8 +40345,8 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 
 // CreateAgentResponse is returned by CreateAgent on success.
 type CreateAgentResponse struct {
-	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
-	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// Create an agent. Provide orgRef to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgRef to create a USER-OWNED agent owned by the caller — its
 	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
 	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
 	// (org XOR user).
@@ -40357,7 +40357,8 @@ type CreateAgentResponse struct {
 	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
 	// Worker, cast with castWorker; names never live on agents.
 	//
-	// orgId accepts the org's ID or URN.
+	// orgRef accepts the org's ID or URN; an empty orgRef is BAD_USER_INPUT. An empty
+	// systemMemoryRef means none (a system memory is provisioned).
 	CreateAgent *CreateAgentCreateAgent `json:"createAgent"`
 }
 
@@ -41320,8 +41321,8 @@ func (v *CreateAgentWithContextCapCreateAgent) __premarshalJSON() (*__premarshal
 
 // CreateAgentWithContextCapResponse is returned by CreateAgentWithContextCap on success.
 type CreateAgentWithContextCapResponse struct {
-	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
-	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// Create an agent. Provide orgRef to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgRef to create a USER-OWNED agent owned by the caller — its
 	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
 	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
 	// (org XOR user).
@@ -41332,7 +41333,8 @@ type CreateAgentWithContextCapResponse struct {
 	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
 	// Worker, cast with castWorker; names never live on agents.
 	//
-	// orgId accepts the org's ID or URN.
+	// orgRef accepts the org's ID or URN; an empty orgRef is BAD_USER_INPUT. An empty
+	// systemMemoryRef means none (a system memory is provisioned).
 	CreateAgent *CreateAgentWithContextCapCreateAgent `json:"createAgent"`
 }
 
@@ -41577,8 +41579,8 @@ func (v *CreateAgentWithLifecycleCreateAgent) __premarshalJSON() (*__premarshalC
 
 // CreateAgentWithLifecycleResponse is returned by CreateAgentWithLifecycle on success.
 type CreateAgentWithLifecycleResponse struct {
-	// Create an agent. Provide orgId to create an ORG-owned agent (requires org
-	// ADMIN); OMIT orgId to create a USER-OWNED agent owned by the caller — its
+	// Create an agent. Provide orgRef to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgRef to create a USER-OWNED agent owned by the caller — its
 	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
 	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
 	// (org XOR user).
@@ -41589,7 +41591,8 @@ type CreateAgentWithLifecycleResponse struct {
 	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
 	// Worker, cast with castWorker; names never live on agents.
 	//
-	// orgId accepts the org's ID or URN.
+	// orgRef accepts the org's ID or URN; an empty orgRef is BAD_USER_INPUT. An empty
+	// systemMemoryRef means none (a system memory is provisioned).
 	CreateAgent *CreateAgentWithLifecycleCreateAgent `json:"createAgent"`
 }
 
@@ -43379,81 +43382,81 @@ func (v *CreateConnectionGrantResponse) GetCreateConnectionGrant() *CreateConnec
 	return v.CreateConnectionGrant
 }
 
-// CreateDecisionLogCreateDecisionLog includes the requested fields of the GraphQL type DecisionLog.
+// CreateDecisionLogCreateQuestionLog includes the requested fields of the GraphQL type QuestionLog.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a decision log's settings (never a decision, never approved).
-type CreateDecisionLogCreateDecisionLog struct {
+// #1641 — a question log's settings (never a question, never approved).
+type CreateDecisionLogCreateQuestionLog struct {
 	DecisionLogFields `json:"-"`
 }
 
-// GetId returns CreateDecisionLogCreateDecisionLog.Id, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetId() string { return v.DecisionLogFields.Id }
+// GetId returns CreateDecisionLogCreateQuestionLog.Id, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetId() string { return v.DecisionLogFields.Id }
 
-// GetUrn returns CreateDecisionLogCreateDecisionLog.Urn, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetUrn() string { return v.DecisionLogFields.Urn }
+// GetUrn returns CreateDecisionLogCreateQuestionLog.Urn, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetUrn() string { return v.DecisionLogFields.Urn }
 
-// GetLoc returns CreateDecisionLogCreateDecisionLog.Loc, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetLoc() string { return v.DecisionLogFields.Loc }
+// GetLoc returns CreateDecisionLogCreateQuestionLog.Loc, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetLoc() string { return v.DecisionLogFields.Loc }
 
-// GetName returns CreateDecisionLogCreateDecisionLog.Name, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetName() string { return v.DecisionLogFields.Name }
+// GetName returns CreateDecisionLogCreateQuestionLog.Name, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetName() string { return v.DecisionLogFields.Name }
 
-// GetPrefix returns CreateDecisionLogCreateDecisionLog.Prefix, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetPrefix() string { return v.DecisionLogFields.Prefix }
+// GetPrefix returns CreateDecisionLogCreateQuestionLog.Prefix, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetPrefix() string { return v.DecisionLogFields.Prefix }
 
-// GetLastCode returns CreateDecisionLogCreateDecisionLog.LastCode, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetLastCode() int { return v.DecisionLogFields.LastCode }
+// GetLastCode returns CreateDecisionLogCreateQuestionLog.LastCode, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetLastCode() int { return v.DecisionLogFields.LastCode }
 
-// GetRevSeq returns CreateDecisionLogCreateDecisionLog.RevSeq, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetRevSeq() int { return v.DecisionLogFields.RevSeq }
+// GetRevSeq returns CreateDecisionLogCreateQuestionLog.RevSeq, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetRevSeq() int { return v.DecisionLogFields.RevSeq }
 
-// GetPortalUrl returns CreateDecisionLogCreateDecisionLog.PortalUrl, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetPortalUrl() *string {
+// GetPortalUrl returns CreateDecisionLogCreateQuestionLog.PortalUrl, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetPortalUrl() *string {
 	return v.DecisionLogFields.PortalUrl
 }
 
-// GetDefaultDeciderIds returns CreateDecisionLogCreateDecisionLog.DefaultDeciderIds, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetDefaultDeciderIds() []string {
+// GetDefaultDeciderIds returns CreateDecisionLogCreateQuestionLog.DefaultDeciderIds, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetDefaultDeciderIds() []string {
 	return v.DecisionLogFields.DefaultDeciderIds
 }
 
-// GetDefaultDeciders returns CreateDecisionLogCreateDecisionLog.DefaultDeciders, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetDefaultDeciders() []*DecisionLogFieldsDefaultDecidersCommentActorRef {
+// GetDefaultDeciders returns CreateDecisionLogCreateQuestionLog.DefaultDeciders, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetDefaultDeciders() []*DecisionLogFieldsDefaultDecidersCommentActorRef {
 	return v.DecisionLogFields.DefaultDeciders
 }
 
-// GetEligibleDeciderIds returns CreateDecisionLogCreateDecisionLog.EligibleDeciderIds, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetEligibleDeciderIds() []string {
+// GetEligibleDeciderIds returns CreateDecisionLogCreateQuestionLog.EligibleDeciderIds, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetEligibleDeciderIds() []string {
 	return v.DecisionLogFields.EligibleDeciderIds
 }
 
-// GetEligibleDeciders returns CreateDecisionLogCreateDecisionLog.EligibleDeciders, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetEligibleDeciders() []*DecisionLogFieldsEligibleDecidersCommentActorRef {
+// GetEligibleDeciders returns CreateDecisionLogCreateQuestionLog.EligibleDeciders, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetEligibleDeciders() []*DecisionLogFieldsEligibleDecidersCommentActorRef {
 	return v.DecisionLogFields.EligibleDeciders
 }
 
-// GetIdentityMerges returns CreateDecisionLogCreateDecisionLog.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge {
+// GetIdentityMerges returns CreateDecisionLogCreateQuestionLog.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge {
 	return v.DecisionLogFields.IdentityMerges
 }
 
-// GetPurges returns CreateDecisionLogCreateDecisionLog.Purges, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogCreateDecisionLog) GetPurges() []*DecisionLogFieldsPurgesDecisionPurge {
+// GetPurges returns CreateDecisionLogCreateQuestionLog.Purges, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogCreateQuestionLog) GetPurges() []*DecisionLogFieldsPurgesQuestionPurge {
 	return v.DecisionLogFields.Purges
 }
 
-func (v *CreateDecisionLogCreateDecisionLog) UnmarshalJSON(b []byte) error {
+func (v *CreateDecisionLogCreateQuestionLog) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*CreateDecisionLogCreateDecisionLog
+		*CreateDecisionLogCreateQuestionLog
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.CreateDecisionLogCreateDecisionLog = v
+	firstPass.CreateDecisionLogCreateQuestionLog = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -43468,7 +43471,7 @@ func (v *CreateDecisionLogCreateDecisionLog) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalCreateDecisionLogCreateDecisionLog struct {
+type __premarshalCreateDecisionLogCreateQuestionLog struct {
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -43493,12 +43496,12 @@ type __premarshalCreateDecisionLogCreateDecisionLog struct {
 
 	EligibleDeciders []*DecisionLogFieldsEligibleDecidersCommentActorRef `json:"eligibleDeciders"`
 
-	IdentityMerges []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
+	IdentityMerges []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
 
-	Purges []*DecisionLogFieldsPurgesDecisionPurge `json:"purges"`
+	Purges []*DecisionLogFieldsPurgesQuestionPurge `json:"purges"`
 }
 
-func (v *CreateDecisionLogCreateDecisionLog) MarshalJSON() ([]byte, error) {
+func (v *CreateDecisionLogCreateQuestionLog) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -43506,8 +43509,8 @@ func (v *CreateDecisionLogCreateDecisionLog) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *CreateDecisionLogCreateDecisionLog) __premarshalJSON() (*__premarshalCreateDecisionLogCreateDecisionLog, error) {
-	var retval __premarshalCreateDecisionLogCreateDecisionLog
+func (v *CreateDecisionLogCreateQuestionLog) __premarshalJSON() (*__premarshalCreateDecisionLogCreateQuestionLog, error) {
+	var retval __premarshalCreateDecisionLogCreateQuestionLog
 
 	retval.Id = v.DecisionLogFields.Id
 	retval.Urn = v.DecisionLogFields.Urn
@@ -43528,17 +43531,17 @@ func (v *CreateDecisionLogCreateDecisionLog) __premarshalJSON() (*__premarshalCr
 
 // CreateDecisionLogResponse is returned by CreateDecisionLog on success.
 type CreateDecisionLogResponse struct {
-	// #1641 — create a decision log at loc in a memory: needs management rights on the memory, or the
+	// #1641 — create a question log at loc in a memory: needs management rights on the memory, or the
 	// owner role in its live, installed App for non-personal/non-private memories. Impersonation is refused. Refused
-	// in an encrypted memory (DECISION_LOG_ENCRYPTED), a git-mirrored one (DECISION_LOG_MIRRORED), a
-	// system memory (DECISION_LOG_SYSTEM_MEMORY), an anonymous one (DECISION_LOG_ANONYMOUS_MEMORY), at a loc occupied by a live or deleted node at or beneath it (DECISION_LOG_EXISTS), or inside a decision's subtree. Deciders are user ids, each able
-	// to write the memory (DECISION_DECIDER_NOT_ELIGIBLE; hrn:node:hadronmemory.com:specs:cor:dmo:130:09).
-	CreateDecisionLog *CreateDecisionLogCreateDecisionLog `json:"createDecisionLog"`
+	// in an encrypted memory (QUESTION_LOG_ENCRYPTED), a git-mirrored one (QUESTION_LOG_MIRRORED), a
+	// system memory (QUESTION_LOG_SYSTEM_MEMORY), an anonymous one (QUESTION_LOG_ANONYMOUS_MEMORY), at a loc occupied by a live or deleted node at or beneath it (QUESTION_LOG_EXISTS), or inside a question's subtree. Deciders are user ids, each able
+	// to write the memory (QUESTION_DECIDER_NOT_ELIGIBLE; hrn:node:hadronmemory.com:specs:cor:dmo:130:09).
+	CreateQuestionLog *CreateDecisionLogCreateQuestionLog `json:"createQuestionLog"`
 }
 
-// GetCreateDecisionLog returns CreateDecisionLogResponse.CreateDecisionLog, and is useful for accessing the field via an interface.
-func (v *CreateDecisionLogResponse) GetCreateDecisionLog() *CreateDecisionLogCreateDecisionLog {
-	return v.CreateDecisionLog
+// GetCreateQuestionLog returns CreateDecisionLogResponse.CreateQuestionLog, and is useful for accessing the field via an interface.
+func (v *CreateDecisionLogResponse) GetCreateQuestionLog() *CreateDecisionLogCreateQuestionLog {
+	return v.CreateQuestionLog
 }
 
 // CreateEdgeCreateEdge includes the requested fields of the GraphQL type Edge.
@@ -44784,7 +44787,7 @@ type CreateNodeCreateNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -44865,7 +44868,7 @@ type CreateNodeInput struct {
 	Reason *string `json:"reason,omitempty"`
 	// #1201 — what this node is FOR (open string). NOT 'nodeType' (the
 	// platform-kind axis) and NOT 'objectType' (the collection discriminator).
-	// A GOVERNED family ('review', 'spec', 'decision', including dotted descendants)
+	// A GOVERNED family ('review', 'spec', 'question', including dotted descendants)
 	// requires that kind's own door; generic createNode refuses it.
 	Role *string  `json:"role,omitempty"`
 	Seq  *int     `json:"seq,omitempty"`
@@ -46010,7 +46013,7 @@ type CreateReviewNodeCreateReviewNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -46461,7 +46464,7 @@ type CreateSpecNodeCreateSpecNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -46558,7 +46561,7 @@ type CreateTaskNodeCreateTaskNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -47672,7 +47675,7 @@ func (v *CreditLedgerEntryFields) GetCreatedAt() string { return v.CreatedAt }
 // GetCreatedBy returns CreditLedgerEntryFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *CreditLedgerEntryFields) GetCreatedBy() *string { return v.CreatedBy }
 
-// DecisionActorFields includes the GraphQL fields of DecisionActor requested by the fragment DecisionActorFields.
+// DecisionActorFields includes the GraphQL fields of QuestionActor requested by the fragment DecisionActorFields.
 // The GraphQL type's documentation follows.
 //
 // #1641 — an authenticated actor: taken from the principal, never supplied by a client. Public projections only (#552).
@@ -47963,7 +47966,7 @@ func (v *DecisionActorRefFields) GetHandle() *string { return v.Handle }
 // GetUrn returns DecisionActorRefFields.Urn, and is useful for accessing the field via an interface.
 func (v *DecisionActorRefFields) GetUrn() *string { return v.Urn }
 
-// DecisionAnswerFields includes the GraphQL fields of DecisionAnswer requested by the fragment DecisionAnswerFields.
+// DecisionAnswerFields includes the GraphQL fields of QuestionAnswer requested by the fragment DecisionAnswerFields.
 type DecisionAnswerFields struct {
 	At string `json:"at"`
 	// The decider whose credential recorded it.
@@ -47976,9 +47979,9 @@ type DecisionAnswerFields struct {
 	Key    *string           `json:"key"`
 	Text   *string           `json:"text"`
 	Reason *string           `json:"reason"`
-	Via    DecisionAnswerVia `json:"via"`
+	Via    QuestionAnswerVia `json:"via"`
 	// Where the answer was given (a claim).
-	Source *DecisionAnswerFieldsSourceDecisionRef `json:"source"`
+	Source *DecisionAnswerFieldsSourceQuestionRef `json:"source"`
 }
 
 // GetAt returns DecisionAnswerFields.At, and is useful for accessing the field via an interface.
@@ -48006,39 +48009,39 @@ func (v *DecisionAnswerFields) GetText() *string { return v.Text }
 func (v *DecisionAnswerFields) GetReason() *string { return v.Reason }
 
 // GetVia returns DecisionAnswerFields.Via, and is useful for accessing the field via an interface.
-func (v *DecisionAnswerFields) GetVia() DecisionAnswerVia { return v.Via }
+func (v *DecisionAnswerFields) GetVia() QuestionAnswerVia { return v.Via }
 
 // GetSource returns DecisionAnswerFields.Source, and is useful for accessing the field via an interface.
-func (v *DecisionAnswerFields) GetSource() *DecisionAnswerFieldsSourceDecisionRef { return v.Source }
+func (v *DecisionAnswerFields) GetSource() *DecisionAnswerFieldsSourceQuestionRef { return v.Source }
 
-// DecisionAnswerFieldsSourceDecisionRef includes the requested fields of the GraphQL type DecisionRef.
+// DecisionAnswerFieldsSourceQuestionRef includes the requested fields of the GraphQL type QuestionRef.
 // The GraphQL type's documentation follows.
 //
 // #1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
-type DecisionAnswerFieldsSourceDecisionRef struct {
+type DecisionAnswerFieldsSourceQuestionRef struct {
 	DecisionRefFields `json:"-"`
 }
 
-// GetRef returns DecisionAnswerFieldsSourceDecisionRef.Ref, and is useful for accessing the field via an interface.
-func (v *DecisionAnswerFieldsSourceDecisionRef) GetRef() *string { return v.DecisionRefFields.Ref }
+// GetRef returns DecisionAnswerFieldsSourceQuestionRef.Ref, and is useful for accessing the field via an interface.
+func (v *DecisionAnswerFieldsSourceQuestionRef) GetRef() *string { return v.DecisionRefFields.Ref }
 
-// GetNode returns DecisionAnswerFieldsSourceDecisionRef.Node, and is useful for accessing the field via an interface.
-func (v *DecisionAnswerFieldsSourceDecisionRef) GetNode() *string { return v.DecisionRefFields.Node }
+// GetNode returns DecisionAnswerFieldsSourceQuestionRef.Node, and is useful for accessing the field via an interface.
+func (v *DecisionAnswerFieldsSourceQuestionRef) GetNode() *string { return v.DecisionRefFields.Node }
 
-// GetSpec returns DecisionAnswerFieldsSourceDecisionRef.Spec, and is useful for accessing the field via an interface.
-func (v *DecisionAnswerFieldsSourceDecisionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
+// GetSpec returns DecisionAnswerFieldsSourceQuestionRef.Spec, and is useful for accessing the field via an interface.
+func (v *DecisionAnswerFieldsSourceQuestionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
 
-func (v *DecisionAnswerFieldsSourceDecisionRef) UnmarshalJSON(b []byte) error {
+func (v *DecisionAnswerFieldsSourceQuestionRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionAnswerFieldsSourceDecisionRef
+		*DecisionAnswerFieldsSourceQuestionRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionAnswerFieldsSourceDecisionRef = v
+	firstPass.DecisionAnswerFieldsSourceQuestionRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -48053,7 +48056,7 @@ func (v *DecisionAnswerFieldsSourceDecisionRef) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalDecisionAnswerFieldsSourceDecisionRef struct {
+type __premarshalDecisionAnswerFieldsSourceQuestionRef struct {
 	Ref *string `json:"ref"`
 
 	Node *string `json:"node"`
@@ -48061,7 +48064,7 @@ type __premarshalDecisionAnswerFieldsSourceDecisionRef struct {
 	Spec *string `json:"spec"`
 }
 
-func (v *DecisionAnswerFieldsSourceDecisionRef) MarshalJSON() ([]byte, error) {
+func (v *DecisionAnswerFieldsSourceQuestionRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -48069,8 +48072,8 @@ func (v *DecisionAnswerFieldsSourceDecisionRef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionAnswerFieldsSourceDecisionRef) __premarshalJSON() (*__premarshalDecisionAnswerFieldsSourceDecisionRef, error) {
-	var retval __premarshalDecisionAnswerFieldsSourceDecisionRef
+func (v *DecisionAnswerFieldsSourceQuestionRef) __premarshalJSON() (*__premarshalDecisionAnswerFieldsSourceQuestionRef, error) {
+	var retval __premarshalDecisionAnswerFieldsSourceQuestionRef
 
 	retval.Ref = v.DecisionRefFields.Ref
 	retval.Node = v.DecisionRefFields.Node
@@ -48078,261 +48081,11 @@ func (v *DecisionAnswerFieldsSourceDecisionRef) __premarshalJSON() (*__premarsha
 	return &retval, nil
 }
 
-// #1641 — where an answer was given, as the answering caller states it (a claim).
-type DecisionAnswerVia string
-
-const (
-	DecisionAnswerViaChatRecorded DecisionAnswerVia = "CHAT_RECORDED"
-	DecisionAnswerViaCli          DecisionAnswerVia = "CLI"
-	DecisionAnswerViaImport       DecisionAnswerVia = "IMPORT"
-	DecisionAnswerViaMcp          DecisionAnswerVia = "MCP"
-	DecisionAnswerViaPortal       DecisionAnswerVia = "PORTAL"
-)
-
-var AllDecisionAnswerVia = []DecisionAnswerVia{
-	DecisionAnswerViaChatRecorded,
-	DecisionAnswerViaCli,
-	DecisionAnswerViaImport,
-	DecisionAnswerViaMcp,
-	DecisionAnswerViaPortal,
-}
-
-// DecisionDecision includes the requested fields of the GraphQL type Decision.
+// DecisionFields includes the GraphQL fields of Question requested by the fragment DecisionFields.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a human decision: a governed node (role decision) under a decision log, written only by the
-// decision operations. Its content is rendered from this structured payload, so an approval covers
-// exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
-type DecisionDecision struct {
-	DecisionFields `json:"-"`
-}
-
-// GetId returns DecisionDecision.Id, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetId() string { return v.DecisionFields.Id }
-
-// GetUrn returns DecisionDecision.Urn, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetUrn() string { return v.DecisionFields.Urn }
-
-// GetCode returns DecisionDecision.Code, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetCode() string { return v.DecisionFields.Code }
-
-// GetN returns DecisionDecision.N, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetN() int { return v.DecisionFields.N }
-
-// GetLogId returns DecisionDecision.LogId, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetLogId() *string { return v.DecisionFields.LogId }
-
-// GetTitle returns DecisionDecision.Title, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetTitle() string { return v.DecisionFields.Title }
-
-// GetContext returns DecisionDecision.Context, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetContext() *string { return v.DecisionFields.Context }
-
-// GetState returns DecisionDecision.State, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetState() DecisionState { return v.DecisionFields.State }
-
-// GetTier returns DecisionDecision.Tier, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetTier() DecisionTier { return v.DecisionFields.Tier }
-
-// GetUrgency returns DecisionDecision.Urgency, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetUrgency() DecisionUrgency { return v.DecisionFields.Urgency }
-
-// GetAuthorizes returns DecisionDecision.Authorizes, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
-
-// GetArchival returns DecisionDecision.Archival, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetArchival() bool { return v.DecisionFields.Archival }
-
-// GetRevSeq returns DecisionDecision.RevSeq, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetRevSeq() int { return v.DecisionFields.RevSeq }
-
-// GetPortalUrl returns DecisionDecision.PortalUrl, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
-
-// GetViewerIsDecider returns DecisionDecision.ViewerIsDecider, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetViewerIsDecider() bool { return v.DecisionFields.ViewerIsDecider }
-
-// GetAskedAt returns DecisionDecision.AskedAt, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetAskedAt() *string { return v.DecisionFields.AskedAt }
-
-// GetAnsweredAt returns DecisionDecision.AnsweredAt, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetAnsweredAt() *string { return v.DecisionFields.AnsweredAt }
-
-// GetAskedBy returns DecisionDecision.AskedBy, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetAskedBy() *DecisionFieldsAskedByDecisionActor {
-	return v.DecisionFields.AskedBy
-}
-
-// GetDeciderIds returns DecisionDecision.DeciderIds, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetDeciderIds() []string { return v.DecisionFields.DeciderIds }
-
-// GetDeciders returns DecisionDecision.Deciders, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
-	return v.DecisionFields.Deciders
-}
-
-// GetIdentityMerges returns DecisionDecision.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetIdentityMerges() []*DecisionFieldsIdentityMergesDecisionIdentityMerge {
-	return v.DecisionFields.IdentityMerges
-}
-
-// GetParts returns DecisionDecision.Parts, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetParts() []*DecisionFieldsPartsDecisionPart {
-	return v.DecisionFields.Parts
-}
-
-// GetBlocks returns DecisionDecision.Blocks, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetBlocks() []*DecisionFieldsBlocksDecisionRef {
-	return v.DecisionFields.Blocks
-}
-
-// GetFollowUps returns DecisionDecision.FollowUps, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetFollowUps() []*DecisionFieldsFollowUpsDecisionRef {
-	return v.DecisionFields.FollowUps
-}
-
-// GetSources returns DecisionDecision.Sources, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetSources() []*DecisionFieldsSourcesDecisionRef {
-	return v.DecisionFields.Sources
-}
-
-// GetWithdrawn returns DecisionDecision.Withdrawn, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetWithdrawn() *DecisionFieldsWithdrawnDecisionWithdrawal {
-	return v.DecisionFields.Withdrawn
-}
-
-// GetEvidence returns DecisionDecision.Evidence, and is useful for accessing the field via an interface.
-func (v *DecisionDecision) GetEvidence() *DecisionFieldsEvidenceDecisionEvidence {
-	return v.DecisionFields.Evidence
-}
-
-func (v *DecisionDecision) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*DecisionDecision
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.DecisionDecision = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.DecisionFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalDecisionDecision struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Code string `json:"code"`
-
-	N int `json:"n"`
-
-	LogId *string `json:"logId"`
-
-	Title string `json:"title"`
-
-	Context *string `json:"context"`
-
-	State DecisionState `json:"state"`
-
-	Tier DecisionTier `json:"tier"`
-
-	Urgency DecisionUrgency `json:"urgency"`
-
-	Authorizes bool `json:"authorizes"`
-
-	Archival bool `json:"archival"`
-
-	RevSeq int `json:"revSeq"`
-
-	PortalUrl *string `json:"portalUrl"`
-
-	ViewerIsDecider bool `json:"viewerIsDecider"`
-
-	AskedAt *string `json:"askedAt"`
-
-	AnsweredAt *string `json:"answeredAt"`
-
-	AskedBy *DecisionFieldsAskedByDecisionActor `json:"askedBy"`
-
-	DeciderIds []string `json:"deciderIds"`
-
-	Deciders []*DecisionFieldsDecidersCommentActorRef `json:"deciders"`
-
-	IdentityMerges []*DecisionFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
-
-	Parts []*DecisionFieldsPartsDecisionPart `json:"parts"`
-
-	Blocks []*DecisionFieldsBlocksDecisionRef `json:"blocks"`
-
-	FollowUps []*DecisionFieldsFollowUpsDecisionRef `json:"followUps"`
-
-	Sources []*DecisionFieldsSourcesDecisionRef `json:"sources"`
-
-	Withdrawn *DecisionFieldsWithdrawnDecisionWithdrawal `json:"withdrawn"`
-
-	Evidence *DecisionFieldsEvidenceDecisionEvidence `json:"evidence"`
-}
-
-func (v *DecisionDecision) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *DecisionDecision) __premarshalJSON() (*__premarshalDecisionDecision, error) {
-	var retval __premarshalDecisionDecision
-
-	retval.Id = v.DecisionFields.Id
-	retval.Urn = v.DecisionFields.Urn
-	retval.Code = v.DecisionFields.Code
-	retval.N = v.DecisionFields.N
-	retval.LogId = v.DecisionFields.LogId
-	retval.Title = v.DecisionFields.Title
-	retval.Context = v.DecisionFields.Context
-	retval.State = v.DecisionFields.State
-	retval.Tier = v.DecisionFields.Tier
-	retval.Urgency = v.DecisionFields.Urgency
-	retval.Authorizes = v.DecisionFields.Authorizes
-	retval.Archival = v.DecisionFields.Archival
-	retval.RevSeq = v.DecisionFields.RevSeq
-	retval.PortalUrl = v.DecisionFields.PortalUrl
-	retval.ViewerIsDecider = v.DecisionFields.ViewerIsDecider
-	retval.AskedAt = v.DecisionFields.AskedAt
-	retval.AnsweredAt = v.DecisionFields.AnsweredAt
-	retval.AskedBy = v.DecisionFields.AskedBy
-	retval.DeciderIds = v.DecisionFields.DeciderIds
-	retval.Deciders = v.DecisionFields.Deciders
-	retval.IdentityMerges = v.DecisionFields.IdentityMerges
-	retval.Parts = v.DecisionFields.Parts
-	retval.Blocks = v.DecisionFields.Blocks
-	retval.FollowUps = v.DecisionFields.FollowUps
-	retval.Sources = v.DecisionFields.Sources
-	retval.Withdrawn = v.DecisionFields.Withdrawn
-	retval.Evidence = v.DecisionFields.Evidence
-	return &retval, nil
-}
-
-// DecisionFields includes the GraphQL fields of Decision requested by the fragment DecisionFields.
-// The GraphQL type's documentation follows.
-//
-// #1641 — a human decision: a governed node (role decision) under a decision log, written only by the
-// decision operations. Its content is rendered from this structured payload, so an approval covers
+// #1641 — a human question: a governed node (role question) under a question log, written only by the
+// question operations. Its content is rendered from this structured payload, so an approval covers
 // exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
 type DecisionFields struct {
 	Id  string `json:"id"`
@@ -48344,34 +48097,34 @@ type DecisionFields struct {
 	Title   string  `json:"title"`
 	Context *string `json:"context"`
 	// DERIVED on every read. Rely on a ruling only while it is DECIDED.
-	State      DecisionState   `json:"state"`
-	Tier       DecisionTier    `json:"tier"`
-	Urgency    DecisionUrgency `json:"urgency"`
+	State      QuestionState   `json:"state"`
+	Tier       QuestionTier    `json:"tier"`
+	Urgency    QuestionUrgency `json:"urgency"`
 	Authorizes bool            `json:"authorizes"`
 	// Migrated history that is never usable as an authorization.
 	Archival bool `json:"archival"`
 	// The node's current revision: the expectedRevision of the next change.
 	RevSeq int `json:"revSeq"`
-	// The decision's own page, where its card renders. Copy it; never build it.
+	// The question's own page, where its card renders. Copy it; never build it.
 	PortalUrl *string `json:"portalUrl"`
 	// True when the caller is a decider, including through an account merged into theirs (#1715).
 	ViewerIsDecider bool    `json:"viewerIsDecider"`
 	AskedAt         *string `json:"askedAt"`
 	// When the last part was answered; null while any part is open.
 	AnsweredAt *string                                  `json:"answeredAt"`
-	AskedBy    *DecisionFieldsAskedByDecisionActor      `json:"askedBy"`
+	AskedBy    *DecisionFieldsAskedByQuestionActor      `json:"askedBy"`
 	DeciderIds []string                                 `json:"deciderIds"`
 	Deciders   []*DecisionFieldsDecidersCommentActorRef `json:"deciders"`
 	// Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
-	IdentityMerges []*DecisionFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
-	Parts          []*DecisionFieldsPartsDecisionPart                   `json:"parts"`
-	// What is waiting on this decision.
-	Blocks []*DecisionFieldsBlocksDecisionRef `json:"blocks"`
+	IdentityMerges []*DecisionFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
+	Parts          []*DecisionFieldsPartsQuestionPart                   `json:"parts"`
+	// What is waiting on this question.
+	Blocks []*DecisionFieldsBlocksQuestionRef `json:"blocks"`
 	// Spec citations the ruling must reach.
-	FollowUps []*DecisionFieldsFollowUpsDecisionRef      `json:"followUps"`
-	Sources   []*DecisionFieldsSourcesDecisionRef        `json:"sources"`
-	Withdrawn *DecisionFieldsWithdrawnDecisionWithdrawal `json:"withdrawn"`
-	Evidence  *DecisionFieldsEvidenceDecisionEvidence    `json:"evidence"`
+	FollowUps []*DecisionFieldsFollowUpsQuestionRef      `json:"followUps"`
+	Sources   []*DecisionFieldsSourcesQuestionRef        `json:"sources"`
+	Withdrawn *DecisionFieldsWithdrawnQuestionWithdrawal `json:"withdrawn"`
+	Evidence  *DecisionFieldsEvidenceQuestionEvidence    `json:"evidence"`
 }
 
 // GetId returns DecisionFields.Id, and is useful for accessing the field via an interface.
@@ -48396,13 +48149,13 @@ func (v *DecisionFields) GetTitle() string { return v.Title }
 func (v *DecisionFields) GetContext() *string { return v.Context }
 
 // GetState returns DecisionFields.State, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetState() DecisionState { return v.State }
+func (v *DecisionFields) GetState() QuestionState { return v.State }
 
 // GetTier returns DecisionFields.Tier, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetTier() DecisionTier { return v.Tier }
+func (v *DecisionFields) GetTier() QuestionTier { return v.Tier }
 
 // GetUrgency returns DecisionFields.Urgency, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetUrgency() DecisionUrgency { return v.Urgency }
+func (v *DecisionFields) GetUrgency() QuestionUrgency { return v.Urgency }
 
 // GetAuthorizes returns DecisionFields.Authorizes, and is useful for accessing the field via an interface.
 func (v *DecisionFields) GetAuthorizes() bool { return v.Authorizes }
@@ -48426,7 +48179,7 @@ func (v *DecisionFields) GetAskedAt() *string { return v.AskedAt }
 func (v *DecisionFields) GetAnsweredAt() *string { return v.AnsweredAt }
 
 // GetAskedBy returns DecisionFields.AskedBy, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetAskedBy() *DecisionFieldsAskedByDecisionActor { return v.AskedBy }
+func (v *DecisionFields) GetAskedBy() *DecisionFieldsAskedByQuestionActor { return v.AskedBy }
 
 // GetDeciderIds returns DecisionFields.DeciderIds, and is useful for accessing the field via an interface.
 func (v *DecisionFields) GetDeciderIds() []string { return v.DeciderIds }
@@ -48435,75 +48188,75 @@ func (v *DecisionFields) GetDeciderIds() []string { return v.DeciderIds }
 func (v *DecisionFields) GetDeciders() []*DecisionFieldsDecidersCommentActorRef { return v.Deciders }
 
 // GetIdentityMerges returns DecisionFields.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetIdentityMerges() []*DecisionFieldsIdentityMergesDecisionIdentityMerge {
+func (v *DecisionFields) GetIdentityMerges() []*DecisionFieldsIdentityMergesQuestionIdentityMerge {
 	return v.IdentityMerges
 }
 
 // GetParts returns DecisionFields.Parts, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetParts() []*DecisionFieldsPartsDecisionPart { return v.Parts }
+func (v *DecisionFields) GetParts() []*DecisionFieldsPartsQuestionPart { return v.Parts }
 
 // GetBlocks returns DecisionFields.Blocks, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetBlocks() []*DecisionFieldsBlocksDecisionRef { return v.Blocks }
+func (v *DecisionFields) GetBlocks() []*DecisionFieldsBlocksQuestionRef { return v.Blocks }
 
 // GetFollowUps returns DecisionFields.FollowUps, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetFollowUps() []*DecisionFieldsFollowUpsDecisionRef { return v.FollowUps }
+func (v *DecisionFields) GetFollowUps() []*DecisionFieldsFollowUpsQuestionRef { return v.FollowUps }
 
 // GetSources returns DecisionFields.Sources, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetSources() []*DecisionFieldsSourcesDecisionRef { return v.Sources }
+func (v *DecisionFields) GetSources() []*DecisionFieldsSourcesQuestionRef { return v.Sources }
 
 // GetWithdrawn returns DecisionFields.Withdrawn, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetWithdrawn() *DecisionFieldsWithdrawnDecisionWithdrawal {
+func (v *DecisionFields) GetWithdrawn() *DecisionFieldsWithdrawnQuestionWithdrawal {
 	return v.Withdrawn
 }
 
 // GetEvidence returns DecisionFields.Evidence, and is useful for accessing the field via an interface.
-func (v *DecisionFields) GetEvidence() *DecisionFieldsEvidenceDecisionEvidence { return v.Evidence }
+func (v *DecisionFields) GetEvidence() *DecisionFieldsEvidenceQuestionEvidence { return v.Evidence }
 
-// DecisionFieldsAskedByDecisionActor includes the requested fields of the GraphQL type DecisionActor.
+// DecisionFieldsAskedByQuestionActor includes the requested fields of the GraphQL type QuestionActor.
 // The GraphQL type's documentation follows.
 //
 // #1641 — an authenticated actor: taken from the principal, never supplied by a client. Public projections only (#552).
-type DecisionFieldsAskedByDecisionActor struct {
+type DecisionFieldsAskedByQuestionActor struct {
 	DecisionActorFields `json:"-"`
 }
 
-// GetUserId returns DecisionFieldsAskedByDecisionActor.UserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsAskedByDecisionActor) GetUserId() *string { return v.DecisionActorFields.UserId }
+// GetUserId returns DecisionFieldsAskedByQuestionActor.UserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsAskedByQuestionActor) GetUserId() *string { return v.DecisionActorFields.UserId }
 
-// GetUser returns DecisionFieldsAskedByDecisionActor.User, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsAskedByDecisionActor) GetUser() *DecisionActorFieldsUserCommentActorRef {
+// GetUser returns DecisionFieldsAskedByQuestionActor.User, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsAskedByQuestionActor) GetUser() *DecisionActorFieldsUserCommentActorRef {
 	return v.DecisionActorFields.User
 }
 
-// GetWorkerId returns DecisionFieldsAskedByDecisionActor.WorkerId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsAskedByDecisionActor) GetWorkerId() *string {
+// GetWorkerId returns DecisionFieldsAskedByQuestionActor.WorkerId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsAskedByQuestionActor) GetWorkerId() *string {
 	return v.DecisionActorFields.WorkerId
 }
 
-// GetWorker returns DecisionFieldsAskedByDecisionActor.Worker, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsAskedByDecisionActor) GetWorker() *DecisionActorFieldsWorkerCommentActorRef {
+// GetWorker returns DecisionFieldsAskedByQuestionActor.Worker, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsAskedByQuestionActor) GetWorker() *DecisionActorFieldsWorkerCommentActorRef {
 	return v.DecisionActorFields.Worker
 }
 
-// GetAppId returns DecisionFieldsAskedByDecisionActor.AppId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsAskedByDecisionActor) GetAppId() *string { return v.DecisionActorFields.AppId }
+// GetAppId returns DecisionFieldsAskedByQuestionActor.AppId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsAskedByQuestionActor) GetAppId() *string { return v.DecisionActorFields.AppId }
 
-// GetApp returns DecisionFieldsAskedByDecisionActor.App, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsAskedByDecisionActor) GetApp() *DecisionActorFieldsAppCommentActorRef {
+// GetApp returns DecisionFieldsAskedByQuestionActor.App, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsAskedByQuestionActor) GetApp() *DecisionActorFieldsAppCommentActorRef {
 	return v.DecisionActorFields.App
 }
 
-func (v *DecisionFieldsAskedByDecisionActor) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsAskedByQuestionActor) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsAskedByDecisionActor
+		*DecisionFieldsAskedByQuestionActor
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsAskedByDecisionActor = v
+	firstPass.DecisionFieldsAskedByQuestionActor = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -48518,7 +48271,7 @@ func (v *DecisionFieldsAskedByDecisionActor) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalDecisionFieldsAskedByDecisionActor struct {
+type __premarshalDecisionFieldsAskedByQuestionActor struct {
 	UserId *string `json:"userId"`
 
 	User *DecisionActorFieldsUserCommentActorRef `json:"user"`
@@ -48532,7 +48285,7 @@ type __premarshalDecisionFieldsAskedByDecisionActor struct {
 	App *DecisionActorFieldsAppCommentActorRef `json:"app"`
 }
 
-func (v *DecisionFieldsAskedByDecisionActor) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsAskedByQuestionActor) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -48540,8 +48293,8 @@ func (v *DecisionFieldsAskedByDecisionActor) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsAskedByDecisionActor) __premarshalJSON() (*__premarshalDecisionFieldsAskedByDecisionActor, error) {
-	var retval __premarshalDecisionFieldsAskedByDecisionActor
+func (v *DecisionFieldsAskedByQuestionActor) __premarshalJSON() (*__premarshalDecisionFieldsAskedByQuestionActor, error) {
+	var retval __premarshalDecisionFieldsAskedByQuestionActor
 
 	retval.UserId = v.DecisionActorFields.UserId
 	retval.User = v.DecisionActorFields.User
@@ -48552,34 +48305,34 @@ func (v *DecisionFieldsAskedByDecisionActor) __premarshalJSON() (*__premarshalDe
 	return &retval, nil
 }
 
-// DecisionFieldsBlocksDecisionRef includes the requested fields of the GraphQL type DecisionRef.
+// DecisionFieldsBlocksQuestionRef includes the requested fields of the GraphQL type QuestionRef.
 // The GraphQL type's documentation follows.
 //
 // #1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
-type DecisionFieldsBlocksDecisionRef struct {
+type DecisionFieldsBlocksQuestionRef struct {
 	DecisionRefFields `json:"-"`
 }
 
-// GetRef returns DecisionFieldsBlocksDecisionRef.Ref, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsBlocksDecisionRef) GetRef() *string { return v.DecisionRefFields.Ref }
+// GetRef returns DecisionFieldsBlocksQuestionRef.Ref, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsBlocksQuestionRef) GetRef() *string { return v.DecisionRefFields.Ref }
 
-// GetNode returns DecisionFieldsBlocksDecisionRef.Node, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsBlocksDecisionRef) GetNode() *string { return v.DecisionRefFields.Node }
+// GetNode returns DecisionFieldsBlocksQuestionRef.Node, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsBlocksQuestionRef) GetNode() *string { return v.DecisionRefFields.Node }
 
-// GetSpec returns DecisionFieldsBlocksDecisionRef.Spec, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsBlocksDecisionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
+// GetSpec returns DecisionFieldsBlocksQuestionRef.Spec, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsBlocksQuestionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
 
-func (v *DecisionFieldsBlocksDecisionRef) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsBlocksQuestionRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsBlocksDecisionRef
+		*DecisionFieldsBlocksQuestionRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsBlocksDecisionRef = v
+	firstPass.DecisionFieldsBlocksQuestionRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -48594,7 +48347,7 @@ func (v *DecisionFieldsBlocksDecisionRef) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalDecisionFieldsBlocksDecisionRef struct {
+type __premarshalDecisionFieldsBlocksQuestionRef struct {
 	Ref *string `json:"ref"`
 
 	Node *string `json:"node"`
@@ -48602,7 +48355,7 @@ type __premarshalDecisionFieldsBlocksDecisionRef struct {
 	Spec *string `json:"spec"`
 }
 
-func (v *DecisionFieldsBlocksDecisionRef) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsBlocksQuestionRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -48610,8 +48363,8 @@ func (v *DecisionFieldsBlocksDecisionRef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsBlocksDecisionRef) __premarshalJSON() (*__premarshalDecisionFieldsBlocksDecisionRef, error) {
-	var retval __premarshalDecisionFieldsBlocksDecisionRef
+func (v *DecisionFieldsBlocksQuestionRef) __premarshalJSON() (*__premarshalDecisionFieldsBlocksQuestionRef, error) {
+	var retval __premarshalDecisionFieldsBlocksQuestionRef
 
 	retval.Ref = v.DecisionRefFields.Ref
 	retval.Node = v.DecisionRefFields.Node
@@ -48696,99 +48449,99 @@ func (v *DecisionFieldsDecidersCommentActorRef) __premarshalJSON() (*__premarsha
 	return &retval, nil
 }
 
-// DecisionFieldsEvidenceDecisionEvidence includes the requested fields of the GraphQL type DecisionEvidence.
-type DecisionFieldsEvidenceDecisionEvidence struct {
+// DecisionFieldsEvidenceQuestionEvidence includes the requested fields of the GraphQL type QuestionEvidence.
+type DecisionFieldsEvidenceQuestionEvidence struct {
 	// The latest approval on record, whoever gave it.
-	Approval *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence `json:"approval"`
+	Approval *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence `json:"approval"`
 }
 
-// GetApproval returns DecisionFieldsEvidenceDecisionEvidence.Approval, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidence) GetApproval() *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence {
+// GetApproval returns DecisionFieldsEvidenceQuestionEvidence.Approval, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidence) GetApproval() *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence {
 	return v.Approval
 }
 
-// DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence includes the requested fields of the GraphQL type DecisionApprovalEvidence.
-type DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence struct {
+// DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence includes the requested fields of the GraphQL type QuestionApprovalEvidence.
+type DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence struct {
 	ApprovedAt string `json:"approvedAt"`
 	// The revision approved.
 	Revision int `json:"revision"`
 	// INTACT, TAMPERED, SUPERSEDED or NOT_APPROVED: the approval hash checked against the live text.
 	Integrity string `json:"integrity"`
-	// Whether the approver is one of the decision's deciders (only then does it count).
+	// Whether the approver is one of the question's deciders (only then does it count).
 	ByDecider bool                                                                                     `json:"byDecider"`
 	ByUserId  *string                                                                                  `json:"byUserId"`
-	By        *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef `json:"by"`
+	By        *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef `json:"by"`
 }
 
-// GetApprovedAt returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence.ApprovedAt, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence) GetApprovedAt() string {
+// GetApprovedAt returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence.ApprovedAt, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence) GetApprovedAt() string {
 	return v.ApprovedAt
 }
 
-// GetRevision returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence.Revision, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence) GetRevision() int {
+// GetRevision returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence.Revision, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence) GetRevision() int {
 	return v.Revision
 }
 
-// GetIntegrity returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence.Integrity, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence) GetIntegrity() string {
+// GetIntegrity returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence.Integrity, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence) GetIntegrity() string {
 	return v.Integrity
 }
 
-// GetByDecider returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence.ByDecider, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence) GetByDecider() bool {
+// GetByDecider returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence.ByDecider, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence) GetByDecider() bool {
 	return v.ByDecider
 }
 
-// GetByUserId returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence.ByUserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence) GetByUserId() *string {
+// GetByUserId returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence.ByUserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence) GetByUserId() *string {
 	return v.ByUserId
 }
 
-// GetBy returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence.By, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidence) GetBy() *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef {
+// GetBy returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence.By, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidence) GetBy() *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef {
 	return v.By
 }
 
-// DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
 // The GraphQL type's documentation follows.
 //
 // #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
-type DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef struct {
+type DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef struct {
 	DecisionActorRefFields `json:"-"`
 }
 
-// GetId returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef.Id, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef) GetId() string {
+// GetId returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef) GetId() string {
 	return v.DecisionActorRefFields.Id
 }
 
-// GetName returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef.Name, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef) GetName() *string {
+// GetName returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef) GetName() *string {
 	return v.DecisionActorRefFields.Name
 }
 
-// GetHandle returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef.Handle, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef) GetHandle() *string {
+// GetHandle returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef) GetHandle() *string {
 	return v.DecisionActorRefFields.Handle
 }
 
-// GetUrn returns DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef.Urn, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef) GetUrn() *string {
+// GetUrn returns DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef) GetUrn() *string {
 	return v.DecisionActorRefFields.Urn
 }
 
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef
+		*DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef = v
+	firstPass.DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -48803,7 +48556,7 @@ func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceB
 	return nil
 }
 
-type __premarshalDecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef struct {
+type __premarshalDecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef struct {
 	Id string `json:"id"`
 
 	Name *string `json:"name"`
@@ -48813,7 +48566,7 @@ type __premarshalDecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalE
 	Urn *string `json:"urn"`
 }
 
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -48821,8 +48574,8 @@ func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceB
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef) __premarshalJSON() (*__premarshalDecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef, error) {
-	var retval __premarshalDecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceByCommentActorRef
+func (v *DecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef) __premarshalJSON() (*__premarshalDecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef, error) {
+	var retval __premarshalDecisionFieldsEvidenceQuestionEvidenceApprovalQuestionApprovalEvidenceByCommentActorRef
 
 	retval.Id = v.DecisionActorRefFields.Id
 	retval.Name = v.DecisionActorRefFields.Name
@@ -48831,34 +48584,34 @@ func (v *DecisionFieldsEvidenceDecisionEvidenceApprovalDecisionApprovalEvidenceB
 	return &retval, nil
 }
 
-// DecisionFieldsFollowUpsDecisionRef includes the requested fields of the GraphQL type DecisionRef.
+// DecisionFieldsFollowUpsQuestionRef includes the requested fields of the GraphQL type QuestionRef.
 // The GraphQL type's documentation follows.
 //
 // #1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
-type DecisionFieldsFollowUpsDecisionRef struct {
+type DecisionFieldsFollowUpsQuestionRef struct {
 	DecisionRefFields `json:"-"`
 }
 
-// GetRef returns DecisionFieldsFollowUpsDecisionRef.Ref, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsFollowUpsDecisionRef) GetRef() *string { return v.DecisionRefFields.Ref }
+// GetRef returns DecisionFieldsFollowUpsQuestionRef.Ref, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsFollowUpsQuestionRef) GetRef() *string { return v.DecisionRefFields.Ref }
 
-// GetNode returns DecisionFieldsFollowUpsDecisionRef.Node, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsFollowUpsDecisionRef) GetNode() *string { return v.DecisionRefFields.Node }
+// GetNode returns DecisionFieldsFollowUpsQuestionRef.Node, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsFollowUpsQuestionRef) GetNode() *string { return v.DecisionRefFields.Node }
 
-// GetSpec returns DecisionFieldsFollowUpsDecisionRef.Spec, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsFollowUpsDecisionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
+// GetSpec returns DecisionFieldsFollowUpsQuestionRef.Spec, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsFollowUpsQuestionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
 
-func (v *DecisionFieldsFollowUpsDecisionRef) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsFollowUpsQuestionRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsFollowUpsDecisionRef
+		*DecisionFieldsFollowUpsQuestionRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsFollowUpsDecisionRef = v
+	firstPass.DecisionFieldsFollowUpsQuestionRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -48873,7 +48626,7 @@ func (v *DecisionFieldsFollowUpsDecisionRef) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalDecisionFieldsFollowUpsDecisionRef struct {
+type __premarshalDecisionFieldsFollowUpsQuestionRef struct {
 	Ref *string `json:"ref"`
 
 	Node *string `json:"node"`
@@ -48881,7 +48634,7 @@ type __premarshalDecisionFieldsFollowUpsDecisionRef struct {
 	Spec *string `json:"spec"`
 }
 
-func (v *DecisionFieldsFollowUpsDecisionRef) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsFollowUpsQuestionRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -48889,8 +48642,8 @@ func (v *DecisionFieldsFollowUpsDecisionRef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsFollowUpsDecisionRef) __premarshalJSON() (*__premarshalDecisionFieldsFollowUpsDecisionRef, error) {
-	var retval __premarshalDecisionFieldsFollowUpsDecisionRef
+func (v *DecisionFieldsFollowUpsQuestionRef) __premarshalJSON() (*__premarshalDecisionFieldsFollowUpsQuestionRef, error) {
+	var retval __premarshalDecisionFieldsFollowUpsQuestionRef
 
 	retval.Ref = v.DecisionRefFields.Ref
 	retval.Node = v.DecisionRefFields.Node
@@ -48898,53 +48651,53 @@ func (v *DecisionFieldsFollowUpsDecisionRef) __premarshalJSON() (*__premarshalDe
 	return &retval, nil
 }
 
-// DecisionFieldsIdentityMergesDecisionIdentityMerge includes the requested fields of the GraphQL type DecisionIdentityMerge.
+// DecisionFieldsIdentityMergesQuestionIdentityMerge includes the requested fields of the GraphQL type QuestionIdentityMerge.
 // The GraphQL type's documentation follows.
 //
-// #1715 — an account merge that a user id stored in a decision or a log follows.
+// #1715 — an account merge that a user id stored in a question or a log follows.
 // Stored ids are never rewritten by mergeUsers, because they are part of the
 // authenticated record: the record still names fromUserId, and that account now
 // acts as toUserId. A chain of merges is listed link by link, oldest first.
-type DecisionFieldsIdentityMergesDecisionIdentityMerge struct {
+type DecisionFieldsIdentityMergesQuestionIdentityMerge struct {
 	DecisionIdentityMergeFields `json:"-"`
 }
 
-// GetFromUserId returns DecisionFieldsIdentityMergesDecisionIdentityMerge.FromUserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) GetFromUserId() string {
+// GetFromUserId returns DecisionFieldsIdentityMergesQuestionIdentityMerge.FromUserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) GetFromUserId() string {
 	return v.DecisionIdentityMergeFields.FromUserId
 }
 
-// GetFrom returns DecisionFieldsIdentityMergesDecisionIdentityMerge.From, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) GetFrom() *DecisionIdentityMergeFieldsFromCommentActorRef {
+// GetFrom returns DecisionFieldsIdentityMergesQuestionIdentityMerge.From, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) GetFrom() *DecisionIdentityMergeFieldsFromCommentActorRef {
 	return v.DecisionIdentityMergeFields.From
 }
 
-// GetToUserId returns DecisionFieldsIdentityMergesDecisionIdentityMerge.ToUserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) GetToUserId() string {
+// GetToUserId returns DecisionFieldsIdentityMergesQuestionIdentityMerge.ToUserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) GetToUserId() string {
 	return v.DecisionIdentityMergeFields.ToUserId
 }
 
-// GetTo returns DecisionFieldsIdentityMergesDecisionIdentityMerge.To, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) GetTo() *DecisionIdentityMergeFieldsToCommentActorRef {
+// GetTo returns DecisionFieldsIdentityMergesQuestionIdentityMerge.To, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) GetTo() *DecisionIdentityMergeFieldsToCommentActorRef {
 	return v.DecisionIdentityMergeFields.To
 }
 
-// GetMergedAt returns DecisionFieldsIdentityMergesDecisionIdentityMerge.MergedAt, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) GetMergedAt() string {
+// GetMergedAt returns DecisionFieldsIdentityMergesQuestionIdentityMerge.MergedAt, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) GetMergedAt() string {
 	return v.DecisionIdentityMergeFields.MergedAt
 }
 
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsIdentityMergesDecisionIdentityMerge
+		*DecisionFieldsIdentityMergesQuestionIdentityMerge
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsIdentityMergesDecisionIdentityMerge = v
+	firstPass.DecisionFieldsIdentityMergesQuestionIdentityMerge = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -48959,7 +48712,7 @@ func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) UnmarshalJSON(b []by
 	return nil
 }
 
-type __premarshalDecisionFieldsIdentityMergesDecisionIdentityMerge struct {
+type __premarshalDecisionFieldsIdentityMergesQuestionIdentityMerge struct {
 	FromUserId string `json:"fromUserId"`
 
 	From *DecisionIdentityMergeFieldsFromCommentActorRef `json:"from"`
@@ -48971,7 +48724,7 @@ type __premarshalDecisionFieldsIdentityMergesDecisionIdentityMerge struct {
 	MergedAt string `json:"mergedAt"`
 }
 
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -48979,8 +48732,8 @@ func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) MarshalJSON() ([]byt
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) __premarshalJSON() (*__premarshalDecisionFieldsIdentityMergesDecisionIdentityMerge, error) {
-	var retval __premarshalDecisionFieldsIdentityMergesDecisionIdentityMerge
+func (v *DecisionFieldsIdentityMergesQuestionIdentityMerge) __premarshalJSON() (*__premarshalDecisionFieldsIdentityMergesQuestionIdentityMerge, error) {
+	var retval __premarshalDecisionFieldsIdentityMergesQuestionIdentityMerge
 
 	retval.FromUserId = v.DecisionIdentityMergeFields.FromUserId
 	retval.From = v.DecisionIdentityMergeFields.From
@@ -48990,122 +48743,122 @@ func (v *DecisionFieldsIdentityMergesDecisionIdentityMerge) __premarshalJSON() (
 	return &retval, nil
 }
 
-// DecisionFieldsPartsDecisionPart includes the requested fields of the GraphQL type DecisionPart.
-type DecisionFieldsPartsDecisionPart struct {
-	// Permanent within the decision; amendments add parts, never renumber.
+// DecisionFieldsPartsQuestionPart includes the requested fields of the GraphQL type QuestionPart.
+type DecisionFieldsPartsQuestionPart struct {
+	// Permanent within the question; amendments add parts, never renumber.
 	N int `json:"n"`
 	// The citation of this part, e.g. DU-1.
 	Citation string                                                  `json:"citation"`
 	Question string                                                  `json:"question"`
-	Options  []*DecisionFieldsPartsDecisionPartOptionsDecisionOption `json:"options"`
+	Options  []*DecisionFieldsPartsQuestionPartOptionsQuestionOption `json:"options"`
 	// Null when the asker deliberately gave none (see noRecommendationReason). Never pre-selected.
-	Recommendation         *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation `json:"recommendation"`
+	Recommendation         *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation `json:"recommendation"`
 	NoRecommendationReason *string                                                              `json:"noRecommendationReason"`
-	Answer                 *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer                 `json:"answer"`
+	Answer                 *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer                 `json:"answer"`
 	// Earlier answers to this part, oldest first: a re-answer appends, never replaces quietly.
-	AnswerHistory []*DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer `json:"answerHistory"`
+	AnswerHistory []*DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer `json:"answerHistory"`
 }
 
-// GetN returns DecisionFieldsPartsDecisionPart.N, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetN() int { return v.N }
+// GetN returns DecisionFieldsPartsQuestionPart.N, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetN() int { return v.N }
 
-// GetCitation returns DecisionFieldsPartsDecisionPart.Citation, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetCitation() string { return v.Citation }
+// GetCitation returns DecisionFieldsPartsQuestionPart.Citation, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetCitation() string { return v.Citation }
 
-// GetQuestion returns DecisionFieldsPartsDecisionPart.Question, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetQuestion() string { return v.Question }
+// GetQuestion returns DecisionFieldsPartsQuestionPart.Question, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetQuestion() string { return v.Question }
 
-// GetOptions returns DecisionFieldsPartsDecisionPart.Options, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetOptions() []*DecisionFieldsPartsDecisionPartOptionsDecisionOption {
+// GetOptions returns DecisionFieldsPartsQuestionPart.Options, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetOptions() []*DecisionFieldsPartsQuestionPartOptionsQuestionOption {
 	return v.Options
 }
 
-// GetRecommendation returns DecisionFieldsPartsDecisionPart.Recommendation, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetRecommendation() *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation {
+// GetRecommendation returns DecisionFieldsPartsQuestionPart.Recommendation, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetRecommendation() *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation {
 	return v.Recommendation
 }
 
-// GetNoRecommendationReason returns DecisionFieldsPartsDecisionPart.NoRecommendationReason, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetNoRecommendationReason() *string {
+// GetNoRecommendationReason returns DecisionFieldsPartsQuestionPart.NoRecommendationReason, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetNoRecommendationReason() *string {
 	return v.NoRecommendationReason
 }
 
-// GetAnswer returns DecisionFieldsPartsDecisionPart.Answer, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetAnswer() *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer {
+// GetAnswer returns DecisionFieldsPartsQuestionPart.Answer, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetAnswer() *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer {
 	return v.Answer
 }
 
-// GetAnswerHistory returns DecisionFieldsPartsDecisionPart.AnswerHistory, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPart) GetAnswerHistory() []*DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer {
+// GetAnswerHistory returns DecisionFieldsPartsQuestionPart.AnswerHistory, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPart) GetAnswerHistory() []*DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer {
 	return v.AnswerHistory
 }
 
-// DecisionFieldsPartsDecisionPartAnswerDecisionAnswer includes the requested fields of the GraphQL type DecisionAnswer.
-type DecisionFieldsPartsDecisionPartAnswerDecisionAnswer struct {
+// DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer includes the requested fields of the GraphQL type QuestionAnswer.
+type DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer struct {
 	DecisionAnswerFields `json:"-"`
 }
 
-// GetAt returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.At, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetAt() string {
+// GetAt returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.At, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetAt() string {
 	return v.DecisionAnswerFields.At
 }
 
-// GetByUserId returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.ByUserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetByUserId() string {
+// GetByUserId returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.ByUserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetByUserId() string {
 	return v.DecisionAnswerFields.ByUserId
 }
 
-// GetRecordedByUserId returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.RecordedByUserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetRecordedByUserId() *string {
+// GetRecordedByUserId returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.RecordedByUserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetRecordedByUserId() *string {
 	return v.DecisionAnswerFields.RecordedByUserId
 }
 
-// GetClaimedBy returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.ClaimedBy, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetClaimedBy() *string {
+// GetClaimedBy returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.ClaimedBy, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetClaimedBy() *string {
 	return v.DecisionAnswerFields.ClaimedBy
 }
 
-// GetFreeform returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.Freeform, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetFreeform() bool {
+// GetFreeform returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.Freeform, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetFreeform() bool {
 	return v.DecisionAnswerFields.Freeform
 }
 
-// GetKey returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.Key, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetKey() *string {
+// GetKey returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.Key, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetKey() *string {
 	return v.DecisionAnswerFields.Key
 }
 
-// GetText returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.Text, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetText() *string {
+// GetText returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.Text, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetText() *string {
 	return v.DecisionAnswerFields.Text
 }
 
-// GetReason returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.Reason, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetReason() *string {
+// GetReason returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.Reason, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetReason() *string {
 	return v.DecisionAnswerFields.Reason
 }
 
-// GetVia returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.Via, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetVia() DecisionAnswerVia {
+// GetVia returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.Via, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetVia() QuestionAnswerVia {
 	return v.DecisionAnswerFields.Via
 }
 
-// GetSource returns DecisionFieldsPartsDecisionPartAnswerDecisionAnswer.Source, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) GetSource() *DecisionAnswerFieldsSourceDecisionRef {
+// GetSource returns DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer.Source, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) GetSource() *DecisionAnswerFieldsSourceQuestionRef {
 	return v.DecisionAnswerFields.Source
 }
 
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsPartsDecisionPartAnswerDecisionAnswer
+		*DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsPartsDecisionPartAnswerDecisionAnswer = v
+	firstPass.DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -49120,7 +48873,7 @@ func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) UnmarshalJSON(b []
 	return nil
 }
 
-type __premarshalDecisionFieldsPartsDecisionPartAnswerDecisionAnswer struct {
+type __premarshalDecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer struct {
 	At string `json:"at"`
 
 	ByUserId string `json:"byUserId"`
@@ -49137,12 +48890,12 @@ type __premarshalDecisionFieldsPartsDecisionPartAnswerDecisionAnswer struct {
 
 	Reason *string `json:"reason"`
 
-	Via DecisionAnswerVia `json:"via"`
+	Via QuestionAnswerVia `json:"via"`
 
-	Source *DecisionAnswerFieldsSourceDecisionRef `json:"source"`
+	Source *DecisionAnswerFieldsSourceQuestionRef `json:"source"`
 }
 
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -49150,8 +48903,8 @@ func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) MarshalJSON() ([]b
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) __premarshalJSON() (*__premarshalDecisionFieldsPartsDecisionPartAnswerDecisionAnswer, error) {
-	var retval __premarshalDecisionFieldsPartsDecisionPartAnswerDecisionAnswer
+func (v *DecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer) __premarshalJSON() (*__premarshalDecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer, error) {
+	var retval __premarshalDecisionFieldsPartsQuestionPartAnswerHistoryQuestionAnswer
 
 	retval.At = v.DecisionAnswerFields.At
 	retval.ByUserId = v.DecisionAnswerFields.ByUserId
@@ -49166,72 +48919,72 @@ func (v *DecisionFieldsPartsDecisionPartAnswerDecisionAnswer) __premarshalJSON()
 	return &retval, nil
 }
 
-// DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer includes the requested fields of the GraphQL type DecisionAnswer.
-type DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer struct {
+// DecisionFieldsPartsQuestionPartAnswerQuestionAnswer includes the requested fields of the GraphQL type QuestionAnswer.
+type DecisionFieldsPartsQuestionPartAnswerQuestionAnswer struct {
 	DecisionAnswerFields `json:"-"`
 }
 
-// GetAt returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.At, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetAt() string {
+// GetAt returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.At, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetAt() string {
 	return v.DecisionAnswerFields.At
 }
 
-// GetByUserId returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.ByUserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetByUserId() string {
+// GetByUserId returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.ByUserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetByUserId() string {
 	return v.DecisionAnswerFields.ByUserId
 }
 
-// GetRecordedByUserId returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.RecordedByUserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetRecordedByUserId() *string {
+// GetRecordedByUserId returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.RecordedByUserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetRecordedByUserId() *string {
 	return v.DecisionAnswerFields.RecordedByUserId
 }
 
-// GetClaimedBy returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.ClaimedBy, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetClaimedBy() *string {
+// GetClaimedBy returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.ClaimedBy, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetClaimedBy() *string {
 	return v.DecisionAnswerFields.ClaimedBy
 }
 
-// GetFreeform returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.Freeform, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetFreeform() bool {
+// GetFreeform returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.Freeform, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetFreeform() bool {
 	return v.DecisionAnswerFields.Freeform
 }
 
-// GetKey returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.Key, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetKey() *string {
+// GetKey returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.Key, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetKey() *string {
 	return v.DecisionAnswerFields.Key
 }
 
-// GetText returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.Text, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetText() *string {
+// GetText returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.Text, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetText() *string {
 	return v.DecisionAnswerFields.Text
 }
 
-// GetReason returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.Reason, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetReason() *string {
+// GetReason returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.Reason, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetReason() *string {
 	return v.DecisionAnswerFields.Reason
 }
 
-// GetVia returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.Via, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetVia() DecisionAnswerVia {
+// GetVia returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.Via, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetVia() QuestionAnswerVia {
 	return v.DecisionAnswerFields.Via
 }
 
-// GetSource returns DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer.Source, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) GetSource() *DecisionAnswerFieldsSourceDecisionRef {
+// GetSource returns DecisionFieldsPartsQuestionPartAnswerQuestionAnswer.Source, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) GetSource() *DecisionAnswerFieldsSourceQuestionRef {
 	return v.DecisionAnswerFields.Source
 }
 
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer
+		*DecisionFieldsPartsQuestionPartAnswerQuestionAnswer
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer = v
+	firstPass.DecisionFieldsPartsQuestionPartAnswerQuestionAnswer = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -49246,7 +48999,7 @@ func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) UnmarshalJS
 	return nil
 }
 
-type __premarshalDecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer struct {
+type __premarshalDecisionFieldsPartsQuestionPartAnswerQuestionAnswer struct {
 	At string `json:"at"`
 
 	ByUserId string `json:"byUserId"`
@@ -49263,12 +49016,12 @@ type __premarshalDecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer stru
 
 	Reason *string `json:"reason"`
 
-	Via DecisionAnswerVia `json:"via"`
+	Via QuestionAnswerVia `json:"via"`
 
-	Source *DecisionAnswerFieldsSourceDecisionRef `json:"source"`
+	Source *DecisionAnswerFieldsSourceQuestionRef `json:"source"`
 }
 
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -49276,8 +49029,8 @@ func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) MarshalJSON
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) __premarshalJSON() (*__premarshalDecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer, error) {
-	var retval __premarshalDecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer
+func (v *DecisionFieldsPartsQuestionPartAnswerQuestionAnswer) __premarshalJSON() (*__premarshalDecisionFieldsPartsQuestionPartAnswerQuestionAnswer, error) {
+	var retval __premarshalDecisionFieldsPartsQuestionPartAnswerQuestionAnswer
 
 	retval.At = v.DecisionAnswerFields.At
 	retval.ByUserId = v.DecisionAnswerFields.ByUserId
@@ -49292,8 +49045,8 @@ func (v *DecisionFieldsPartsDecisionPartAnswerHistoryDecisionAnswer) __premarsha
 	return &retval, nil
 }
 
-// DecisionFieldsPartsDecisionPartOptionsDecisionOption includes the requested fields of the GraphQL type DecisionOption.
-type DecisionFieldsPartsDecisionPartOptionsDecisionOption struct {
+// DecisionFieldsPartsQuestionPartOptionsQuestionOption includes the requested fields of the GraphQL type QuestionOption.
+type DecisionFieldsPartsQuestionPartOptionsQuestionOption struct {
 	// The option id an answer names.
 	Key     string  `json:"key"`
 	Label   string  `json:"label"`
@@ -49301,97 +49054,97 @@ type DecisionFieldsPartsDecisionPartOptionsDecisionOption struct {
 	Cost    *string `json:"cost"`
 }
 
-// GetKey returns DecisionFieldsPartsDecisionPartOptionsDecisionOption.Key, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartOptionsDecisionOption) GetKey() string { return v.Key }
+// GetKey returns DecisionFieldsPartsQuestionPartOptionsQuestionOption.Key, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartOptionsQuestionOption) GetKey() string { return v.Key }
 
-// GetLabel returns DecisionFieldsPartsDecisionPartOptionsDecisionOption.Label, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartOptionsDecisionOption) GetLabel() string { return v.Label }
+// GetLabel returns DecisionFieldsPartsQuestionPartOptionsQuestionOption.Label, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartOptionsQuestionOption) GetLabel() string { return v.Label }
 
-// GetMeaning returns DecisionFieldsPartsDecisionPartOptionsDecisionOption.Meaning, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartOptionsDecisionOption) GetMeaning() *string { return v.Meaning }
+// GetMeaning returns DecisionFieldsPartsQuestionPartOptionsQuestionOption.Meaning, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartOptionsQuestionOption) GetMeaning() *string { return v.Meaning }
 
-// GetCost returns DecisionFieldsPartsDecisionPartOptionsDecisionOption.Cost, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartOptionsDecisionOption) GetCost() *string { return v.Cost }
+// GetCost returns DecisionFieldsPartsQuestionPartOptionsQuestionOption.Cost, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartOptionsQuestionOption) GetCost() *string { return v.Cost }
 
-// DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation includes the requested fields of the GraphQL type DecisionRecommendation.
-type DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation struct {
+// DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation includes the requested fields of the GraphQL type QuestionRecommendation.
+type DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation struct {
 	Key    string  `json:"key"`
 	Reason *string `json:"reason"`
 	// A relayed recommendation's original author, as a claim.
 	AttributedTo *string `json:"attributedTo"`
 	// Who recorded the recommendation (authenticated).
-	By *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor `json:"by"`
+	By *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor `json:"by"`
 }
 
-// GetKey returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation.Key, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation) GetKey() string {
+// GetKey returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation.Key, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation) GetKey() string {
 	return v.Key
 }
 
-// GetReason returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation.Reason, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation) GetReason() *string {
+// GetReason returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation.Reason, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation) GetReason() *string {
 	return v.Reason
 }
 
-// GetAttributedTo returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation.AttributedTo, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation) GetAttributedTo() *string {
+// GetAttributedTo returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation.AttributedTo, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation) GetAttributedTo() *string {
 	return v.AttributedTo
 }
 
-// GetBy returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation.By, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendation) GetBy() *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor {
+// GetBy returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation.By, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendation) GetBy() *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor {
 	return v.By
 }
 
-// DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor includes the requested fields of the GraphQL type DecisionActor.
+// DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor includes the requested fields of the GraphQL type QuestionActor.
 // The GraphQL type's documentation follows.
 //
 // #1641 — an authenticated actor: taken from the principal, never supplied by a client. Public projections only (#552).
-type DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor struct {
+type DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor struct {
 	DecisionActorFields `json:"-"`
 }
 
-// GetUserId returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor.UserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) GetUserId() *string {
+// GetUserId returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor.UserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) GetUserId() *string {
 	return v.DecisionActorFields.UserId
 }
 
-// GetUser returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor.User, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) GetUser() *DecisionActorFieldsUserCommentActorRef {
+// GetUser returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor.User, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) GetUser() *DecisionActorFieldsUserCommentActorRef {
 	return v.DecisionActorFields.User
 }
 
-// GetWorkerId returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor.WorkerId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) GetWorkerId() *string {
+// GetWorkerId returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor.WorkerId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) GetWorkerId() *string {
 	return v.DecisionActorFields.WorkerId
 }
 
-// GetWorker returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor.Worker, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) GetWorker() *DecisionActorFieldsWorkerCommentActorRef {
+// GetWorker returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor.Worker, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) GetWorker() *DecisionActorFieldsWorkerCommentActorRef {
 	return v.DecisionActorFields.Worker
 }
 
-// GetAppId returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor.AppId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) GetAppId() *string {
+// GetAppId returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor.AppId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) GetAppId() *string {
 	return v.DecisionActorFields.AppId
 }
 
-// GetApp returns DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor.App, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) GetApp() *DecisionActorFieldsAppCommentActorRef {
+// GetApp returns DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor.App, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) GetApp() *DecisionActorFieldsAppCommentActorRef {
 	return v.DecisionActorFields.App
 }
 
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor
+		*DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor = v
+	firstPass.DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -49406,7 +49159,7 @@ func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDe
 	return nil
 }
 
-type __premarshalDecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor struct {
+type __premarshalDecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor struct {
 	UserId *string `json:"userId"`
 
 	User *DecisionActorFieldsUserCommentActorRef `json:"user"`
@@ -49420,7 +49173,7 @@ type __premarshalDecisionFieldsPartsDecisionPartRecommendationDecisionRecommenda
 	App *DecisionActorFieldsAppCommentActorRef `json:"app"`
 }
 
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -49428,8 +49181,8 @@ func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDe
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor) __premarshalJSON() (*__premarshalDecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor, error) {
-	var retval __premarshalDecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDecisionActor
+func (v *DecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor) __premarshalJSON() (*__premarshalDecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor, error) {
+	var retval __premarshalDecisionFieldsPartsQuestionPartRecommendationQuestionRecommendationByQuestionActor
 
 	retval.UserId = v.DecisionActorFields.UserId
 	retval.User = v.DecisionActorFields.User
@@ -49440,34 +49193,34 @@ func (v *DecisionFieldsPartsDecisionPartRecommendationDecisionRecommendationByDe
 	return &retval, nil
 }
 
-// DecisionFieldsSourcesDecisionRef includes the requested fields of the GraphQL type DecisionRef.
+// DecisionFieldsSourcesQuestionRef includes the requested fields of the GraphQL type QuestionRef.
 // The GraphQL type's documentation follows.
 //
 // #1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
-type DecisionFieldsSourcesDecisionRef struct {
+type DecisionFieldsSourcesQuestionRef struct {
 	DecisionRefFields `json:"-"`
 }
 
-// GetRef returns DecisionFieldsSourcesDecisionRef.Ref, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsSourcesDecisionRef) GetRef() *string { return v.DecisionRefFields.Ref }
+// GetRef returns DecisionFieldsSourcesQuestionRef.Ref, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsSourcesQuestionRef) GetRef() *string { return v.DecisionRefFields.Ref }
 
-// GetNode returns DecisionFieldsSourcesDecisionRef.Node, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsSourcesDecisionRef) GetNode() *string { return v.DecisionRefFields.Node }
+// GetNode returns DecisionFieldsSourcesQuestionRef.Node, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsSourcesQuestionRef) GetNode() *string { return v.DecisionRefFields.Node }
 
-// GetSpec returns DecisionFieldsSourcesDecisionRef.Spec, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsSourcesDecisionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
+// GetSpec returns DecisionFieldsSourcesQuestionRef.Spec, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsSourcesQuestionRef) GetSpec() *string { return v.DecisionRefFields.Spec }
 
-func (v *DecisionFieldsSourcesDecisionRef) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsSourcesQuestionRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsSourcesDecisionRef
+		*DecisionFieldsSourcesQuestionRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsSourcesDecisionRef = v
+	firstPass.DecisionFieldsSourcesQuestionRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -49482,7 +49235,7 @@ func (v *DecisionFieldsSourcesDecisionRef) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalDecisionFieldsSourcesDecisionRef struct {
+type __premarshalDecisionFieldsSourcesQuestionRef struct {
 	Ref *string `json:"ref"`
 
 	Node *string `json:"node"`
@@ -49490,7 +49243,7 @@ type __premarshalDecisionFieldsSourcesDecisionRef struct {
 	Spec *string `json:"spec"`
 }
 
-func (v *DecisionFieldsSourcesDecisionRef) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsSourcesQuestionRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -49498,8 +49251,8 @@ func (v *DecisionFieldsSourcesDecisionRef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsSourcesDecisionRef) __premarshalJSON() (*__premarshalDecisionFieldsSourcesDecisionRef, error) {
-	var retval __premarshalDecisionFieldsSourcesDecisionRef
+func (v *DecisionFieldsSourcesQuestionRef) __premarshalJSON() (*__premarshalDecisionFieldsSourcesQuestionRef, error) {
+	var retval __premarshalDecisionFieldsSourcesQuestionRef
 
 	retval.Ref = v.DecisionRefFields.Ref
 	retval.Node = v.DecisionRefFields.Node
@@ -49507,73 +49260,73 @@ func (v *DecisionFieldsSourcesDecisionRef) __premarshalJSON() (*__premarshalDeci
 	return &retval, nil
 }
 
-// DecisionFieldsWithdrawnDecisionWithdrawal includes the requested fields of the GraphQL type DecisionWithdrawal.
-type DecisionFieldsWithdrawnDecisionWithdrawal struct {
+// DecisionFieldsWithdrawnQuestionWithdrawal includes the requested fields of the GraphQL type QuestionWithdrawal.
+type DecisionFieldsWithdrawnQuestionWithdrawal struct {
 	At     string                                                    `json:"at"`
 	Reason string                                                    `json:"reason"`
-	By     *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor `json:"by"`
+	By     *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor `json:"by"`
 }
 
-// GetAt returns DecisionFieldsWithdrawnDecisionWithdrawal.At, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawal) GetAt() string { return v.At }
+// GetAt returns DecisionFieldsWithdrawnQuestionWithdrawal.At, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawal) GetAt() string { return v.At }
 
-// GetReason returns DecisionFieldsWithdrawnDecisionWithdrawal.Reason, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawal) GetReason() string { return v.Reason }
+// GetReason returns DecisionFieldsWithdrawnQuestionWithdrawal.Reason, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawal) GetReason() string { return v.Reason }
 
-// GetBy returns DecisionFieldsWithdrawnDecisionWithdrawal.By, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawal) GetBy() *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor {
+// GetBy returns DecisionFieldsWithdrawnQuestionWithdrawal.By, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawal) GetBy() *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor {
 	return v.By
 }
 
-// DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor includes the requested fields of the GraphQL type DecisionActor.
+// DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor includes the requested fields of the GraphQL type QuestionActor.
 // The GraphQL type's documentation follows.
 //
 // #1641 — an authenticated actor: taken from the principal, never supplied by a client. Public projections only (#552).
-type DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor struct {
+type DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor struct {
 	DecisionActorFields `json:"-"`
 }
 
-// GetUserId returns DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor.UserId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) GetUserId() *string {
+// GetUserId returns DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor.UserId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) GetUserId() *string {
 	return v.DecisionActorFields.UserId
 }
 
-// GetUser returns DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor.User, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) GetUser() *DecisionActorFieldsUserCommentActorRef {
+// GetUser returns DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor.User, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) GetUser() *DecisionActorFieldsUserCommentActorRef {
 	return v.DecisionActorFields.User
 }
 
-// GetWorkerId returns DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor.WorkerId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) GetWorkerId() *string {
+// GetWorkerId returns DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor.WorkerId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) GetWorkerId() *string {
 	return v.DecisionActorFields.WorkerId
 }
 
-// GetWorker returns DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor.Worker, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) GetWorker() *DecisionActorFieldsWorkerCommentActorRef {
+// GetWorker returns DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor.Worker, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) GetWorker() *DecisionActorFieldsWorkerCommentActorRef {
 	return v.DecisionActorFields.Worker
 }
 
-// GetAppId returns DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor.AppId, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) GetAppId() *string {
+// GetAppId returns DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor.AppId, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) GetAppId() *string {
 	return v.DecisionActorFields.AppId
 }
 
-// GetApp returns DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor.App, and is useful for accessing the field via an interface.
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) GetApp() *DecisionActorFieldsAppCommentActorRef {
+// GetApp returns DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor.App, and is useful for accessing the field via an interface.
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) GetApp() *DecisionActorFieldsAppCommentActorRef {
 	return v.DecisionActorFields.App
 }
 
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) UnmarshalJSON(b []byte) error {
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor
+		*DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor = v
+	firstPass.DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -49588,7 +49341,7 @@ func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) UnmarshalJSON
 	return nil
 }
 
-type __premarshalDecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor struct {
+type __premarshalDecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor struct {
 	UserId *string `json:"userId"`
 
 	User *DecisionActorFieldsUserCommentActorRef `json:"user"`
@@ -49602,7 +49355,7 @@ type __premarshalDecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor struct
 	App *DecisionActorFieldsAppCommentActorRef `json:"app"`
 }
 
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) MarshalJSON() ([]byte, error) {
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -49610,8 +49363,8 @@ func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) MarshalJSON()
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) __premarshalJSON() (*__premarshalDecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor, error) {
-	var retval __premarshalDecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor
+func (v *DecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor) __premarshalJSON() (*__premarshalDecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor, error) {
+	var retval __premarshalDecisionFieldsWithdrawnQuestionWithdrawalByQuestionActor
 
 	retval.UserId = v.DecisionActorFields.UserId
 	retval.User = v.DecisionActorFields.User
@@ -49622,10 +49375,10 @@ func (v *DecisionFieldsWithdrawnDecisionWithdrawalByDecisionActor) __premarshalJ
 	return &retval, nil
 }
 
-// DecisionIdentityMergeFields includes the GraphQL fields of DecisionIdentityMerge requested by the fragment DecisionIdentityMergeFields.
+// DecisionIdentityMergeFields includes the GraphQL fields of QuestionIdentityMerge requested by the fragment DecisionIdentityMergeFields.
 // The GraphQL type's documentation follows.
 //
-// #1715 — an account merge that a user id stored in a decision or a log follows.
+// #1715 — an account merge that a user id stored in a question or a log follows.
 // Stored ids are never rewritten by mergeUsers, because they are part of the
 // authenticated record: the record still names fromUserId, and that account now
 // acts as toUserId. A chain of merges is listed link by link, oldest first.
@@ -49818,155 +49571,10 @@ func (v *DecisionIdentityMergeFieldsToCommentActorRef) __premarshalJSON() (*__pr
 	return &retval, nil
 }
 
-// DecisionLogDecisionLog includes the requested fields of the GraphQL type DecisionLog.
+// DecisionLogFields includes the GraphQL fields of QuestionLog requested by the fragment DecisionLogFields.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a decision log's settings (never a decision, never approved).
-type DecisionLogDecisionLog struct {
-	DecisionLogFields `json:"-"`
-}
-
-// GetId returns DecisionLogDecisionLog.Id, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetId() string { return v.DecisionLogFields.Id }
-
-// GetUrn returns DecisionLogDecisionLog.Urn, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetUrn() string { return v.DecisionLogFields.Urn }
-
-// GetLoc returns DecisionLogDecisionLog.Loc, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetLoc() string { return v.DecisionLogFields.Loc }
-
-// GetName returns DecisionLogDecisionLog.Name, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetName() string { return v.DecisionLogFields.Name }
-
-// GetPrefix returns DecisionLogDecisionLog.Prefix, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetPrefix() string { return v.DecisionLogFields.Prefix }
-
-// GetLastCode returns DecisionLogDecisionLog.LastCode, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetLastCode() int { return v.DecisionLogFields.LastCode }
-
-// GetRevSeq returns DecisionLogDecisionLog.RevSeq, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetRevSeq() int { return v.DecisionLogFields.RevSeq }
-
-// GetPortalUrl returns DecisionLogDecisionLog.PortalUrl, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetPortalUrl() *string { return v.DecisionLogFields.PortalUrl }
-
-// GetDefaultDeciderIds returns DecisionLogDecisionLog.DefaultDeciderIds, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetDefaultDeciderIds() []string {
-	return v.DecisionLogFields.DefaultDeciderIds
-}
-
-// GetDefaultDeciders returns DecisionLogDecisionLog.DefaultDeciders, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetDefaultDeciders() []*DecisionLogFieldsDefaultDecidersCommentActorRef {
-	return v.DecisionLogFields.DefaultDeciders
-}
-
-// GetEligibleDeciderIds returns DecisionLogDecisionLog.EligibleDeciderIds, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetEligibleDeciderIds() []string {
-	return v.DecisionLogFields.EligibleDeciderIds
-}
-
-// GetEligibleDeciders returns DecisionLogDecisionLog.EligibleDeciders, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetEligibleDeciders() []*DecisionLogFieldsEligibleDecidersCommentActorRef {
-	return v.DecisionLogFields.EligibleDeciders
-}
-
-// GetIdentityMerges returns DecisionLogDecisionLog.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge {
-	return v.DecisionLogFields.IdentityMerges
-}
-
-// GetPurges returns DecisionLogDecisionLog.Purges, and is useful for accessing the field via an interface.
-func (v *DecisionLogDecisionLog) GetPurges() []*DecisionLogFieldsPurgesDecisionPurge {
-	return v.DecisionLogFields.Purges
-}
-
-func (v *DecisionLogDecisionLog) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*DecisionLogDecisionLog
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.DecisionLogDecisionLog = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.DecisionLogFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalDecisionLogDecisionLog struct {
-	Id string `json:"id"`
-
-	Urn string `json:"urn"`
-
-	Loc string `json:"loc"`
-
-	Name string `json:"name"`
-
-	Prefix string `json:"prefix"`
-
-	LastCode int `json:"lastCode"`
-
-	RevSeq int `json:"revSeq"`
-
-	PortalUrl *string `json:"portalUrl"`
-
-	DefaultDeciderIds []string `json:"defaultDeciderIds"`
-
-	DefaultDeciders []*DecisionLogFieldsDefaultDecidersCommentActorRef `json:"defaultDeciders"`
-
-	EligibleDeciderIds []string `json:"eligibleDeciderIds"`
-
-	EligibleDeciders []*DecisionLogFieldsEligibleDecidersCommentActorRef `json:"eligibleDeciders"`
-
-	IdentityMerges []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
-
-	Purges []*DecisionLogFieldsPurgesDecisionPurge `json:"purges"`
-}
-
-func (v *DecisionLogDecisionLog) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *DecisionLogDecisionLog) __premarshalJSON() (*__premarshalDecisionLogDecisionLog, error) {
-	var retval __premarshalDecisionLogDecisionLog
-
-	retval.Id = v.DecisionLogFields.Id
-	retval.Urn = v.DecisionLogFields.Urn
-	retval.Loc = v.DecisionLogFields.Loc
-	retval.Name = v.DecisionLogFields.Name
-	retval.Prefix = v.DecisionLogFields.Prefix
-	retval.LastCode = v.DecisionLogFields.LastCode
-	retval.RevSeq = v.DecisionLogFields.RevSeq
-	retval.PortalUrl = v.DecisionLogFields.PortalUrl
-	retval.DefaultDeciderIds = v.DecisionLogFields.DefaultDeciderIds
-	retval.DefaultDeciders = v.DecisionLogFields.DefaultDeciders
-	retval.EligibleDeciderIds = v.DecisionLogFields.EligibleDeciderIds
-	retval.EligibleDeciders = v.DecisionLogFields.EligibleDeciders
-	retval.IdentityMerges = v.DecisionLogFields.IdentityMerges
-	retval.Purges = v.DecisionLogFields.Purges
-	return &retval, nil
-}
-
-// DecisionLogFields includes the GraphQL fields of DecisionLog requested by the fragment DecisionLogFields.
-// The GraphQL type's documentation follows.
-//
-// #1641 — a decision log's settings (never a decision, never approved).
+// #1641 — a question log's settings (never a question, never approved).
 type DecisionLogFields struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
@@ -49979,14 +49587,14 @@ type DecisionLogFields struct {
 	RevSeq            int      `json:"revSeq"`
 	PortalUrl         *string  `json:"portalUrl"`
 	DefaultDeciderIds []string `json:"defaultDeciderIds"`
-	// Who decides a decision asked without naming deciders.
+	// Who decides a question asked without naming deciders.
 	DefaultDeciders    []*DecisionLogFieldsDefaultDecidersCommentActorRef `json:"defaultDeciders"`
 	EligibleDeciderIds []string                                           `json:"eligibleDeciderIds"`
-	// Who else a decision may name as a decider. A decision's deciders are narrowed from these, never widened.
+	// Who else a question may name as a decider. A question's deciders are narrowed from these, never widened.
 	EligibleDeciders []*DecisionLogFieldsEligibleDecidersCommentActorRef `json:"eligibleDeciders"`
 	// Account merges the stored user ids follow: the record keeps the merged-away id (#1715).
-	IdentityMerges []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
-	Purges         []*DecisionLogFieldsPurgesDecisionPurge                 `json:"purges"`
+	IdentityMerges []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
+	Purges         []*DecisionLogFieldsPurgesQuestionPurge                 `json:"purges"`
 }
 
 // GetId returns DecisionLogFields.Id, and is useful for accessing the field via an interface.
@@ -50030,12 +49638,12 @@ func (v *DecisionLogFields) GetEligibleDeciders() []*DecisionLogFieldsEligibleDe
 }
 
 // GetIdentityMerges returns DecisionLogFields.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *DecisionLogFields) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge {
+func (v *DecisionLogFields) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge {
 	return v.IdentityMerges
 }
 
 // GetPurges returns DecisionLogFields.Purges, and is useful for accessing the field via an interface.
-func (v *DecisionLogFields) GetPurges() []*DecisionLogFieldsPurgesDecisionPurge { return v.Purges }
+func (v *DecisionLogFields) GetPurges() []*DecisionLogFieldsPurgesQuestionPurge { return v.Purges }
 
 // DecisionLogFieldsDefaultDecidersCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
 // The GraphQL type's documentation follows.
@@ -50199,53 +49807,53 @@ func (v *DecisionLogFieldsEligibleDecidersCommentActorRef) __premarshalJSON() (*
 	return &retval, nil
 }
 
-// DecisionLogFieldsIdentityMergesDecisionIdentityMerge includes the requested fields of the GraphQL type DecisionIdentityMerge.
+// DecisionLogFieldsIdentityMergesQuestionIdentityMerge includes the requested fields of the GraphQL type QuestionIdentityMerge.
 // The GraphQL type's documentation follows.
 //
-// #1715 — an account merge that a user id stored in a decision or a log follows.
+// #1715 — an account merge that a user id stored in a question or a log follows.
 // Stored ids are never rewritten by mergeUsers, because they are part of the
 // authenticated record: the record still names fromUserId, and that account now
 // acts as toUserId. A chain of merges is listed link by link, oldest first.
-type DecisionLogFieldsIdentityMergesDecisionIdentityMerge struct {
+type DecisionLogFieldsIdentityMergesQuestionIdentityMerge struct {
 	DecisionIdentityMergeFields `json:"-"`
 }
 
-// GetFromUserId returns DecisionLogFieldsIdentityMergesDecisionIdentityMerge.FromUserId, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) GetFromUserId() string {
+// GetFromUserId returns DecisionLogFieldsIdentityMergesQuestionIdentityMerge.FromUserId, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) GetFromUserId() string {
 	return v.DecisionIdentityMergeFields.FromUserId
 }
 
-// GetFrom returns DecisionLogFieldsIdentityMergesDecisionIdentityMerge.From, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) GetFrom() *DecisionIdentityMergeFieldsFromCommentActorRef {
+// GetFrom returns DecisionLogFieldsIdentityMergesQuestionIdentityMerge.From, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) GetFrom() *DecisionIdentityMergeFieldsFromCommentActorRef {
 	return v.DecisionIdentityMergeFields.From
 }
 
-// GetToUserId returns DecisionLogFieldsIdentityMergesDecisionIdentityMerge.ToUserId, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) GetToUserId() string {
+// GetToUserId returns DecisionLogFieldsIdentityMergesQuestionIdentityMerge.ToUserId, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) GetToUserId() string {
 	return v.DecisionIdentityMergeFields.ToUserId
 }
 
-// GetTo returns DecisionLogFieldsIdentityMergesDecisionIdentityMerge.To, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) GetTo() *DecisionIdentityMergeFieldsToCommentActorRef {
+// GetTo returns DecisionLogFieldsIdentityMergesQuestionIdentityMerge.To, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) GetTo() *DecisionIdentityMergeFieldsToCommentActorRef {
 	return v.DecisionIdentityMergeFields.To
 }
 
-// GetMergedAt returns DecisionLogFieldsIdentityMergesDecisionIdentityMerge.MergedAt, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) GetMergedAt() string {
+// GetMergedAt returns DecisionLogFieldsIdentityMergesQuestionIdentityMerge.MergedAt, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) GetMergedAt() string {
 	return v.DecisionIdentityMergeFields.MergedAt
 }
 
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) UnmarshalJSON(b []byte) error {
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionLogFieldsIdentityMergesDecisionIdentityMerge
+		*DecisionLogFieldsIdentityMergesQuestionIdentityMerge
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionLogFieldsIdentityMergesDecisionIdentityMerge = v
+	firstPass.DecisionLogFieldsIdentityMergesQuestionIdentityMerge = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -50260,7 +49868,7 @@ func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) UnmarshalJSON(b [
 	return nil
 }
 
-type __premarshalDecisionLogFieldsIdentityMergesDecisionIdentityMerge struct {
+type __premarshalDecisionLogFieldsIdentityMergesQuestionIdentityMerge struct {
 	FromUserId string `json:"fromUserId"`
 
 	From *DecisionIdentityMergeFieldsFromCommentActorRef `json:"from"`
@@ -50272,7 +49880,7 @@ type __premarshalDecisionLogFieldsIdentityMergesDecisionIdentityMerge struct {
 	MergedAt string `json:"mergedAt"`
 }
 
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) MarshalJSON() ([]byte, error) {
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -50280,8 +49888,8 @@ func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) MarshalJSON() ([]
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) __premarshalJSON() (*__premarshalDecisionLogFieldsIdentityMergesDecisionIdentityMerge, error) {
-	var retval __premarshalDecisionLogFieldsIdentityMergesDecisionIdentityMerge
+func (v *DecisionLogFieldsIdentityMergesQuestionIdentityMerge) __premarshalJSON() (*__premarshalDecisionLogFieldsIdentityMergesQuestionIdentityMerge, error) {
+	var retval __premarshalDecisionLogFieldsIdentityMergesQuestionIdentityMerge
 
 	retval.FromUserId = v.DecisionIdentityMergeFields.FromUserId
 	retval.From = v.DecisionIdentityMergeFields.From
@@ -50291,76 +49899,76 @@ func (v *DecisionLogFieldsIdentityMergesDecisionIdentityMerge) __premarshalJSON(
 	return &retval, nil
 }
 
-// DecisionLogFieldsPurgesDecisionPurge includes the requested fields of the GraphQL type DecisionPurge.
-type DecisionLogFieldsPurgesDecisionPurge struct {
+// DecisionLogFieldsPurgesQuestionPurge includes the requested fields of the GraphQL type QuestionPurge.
+type DecisionLogFieldsPurgesQuestionPurge struct {
 	Code   string `json:"code"`
 	At     string `json:"at"`
 	Reason string `json:"reason"`
-	// sha256 of the purged decision's rendered content.
+	// sha256 of the purged question's rendered content.
 	ContentHash string                                                 `json:"contentHash"`
 	ByUserId    string                                                 `json:"byUserId"`
-	By          *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef `json:"by"`
+	By          *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef `json:"by"`
 }
 
-// GetCode returns DecisionLogFieldsPurgesDecisionPurge.Code, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurge) GetCode() string { return v.Code }
+// GetCode returns DecisionLogFieldsPurgesQuestionPurge.Code, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurge) GetCode() string { return v.Code }
 
-// GetAt returns DecisionLogFieldsPurgesDecisionPurge.At, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurge) GetAt() string { return v.At }
+// GetAt returns DecisionLogFieldsPurgesQuestionPurge.At, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurge) GetAt() string { return v.At }
 
-// GetReason returns DecisionLogFieldsPurgesDecisionPurge.Reason, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurge) GetReason() string { return v.Reason }
+// GetReason returns DecisionLogFieldsPurgesQuestionPurge.Reason, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurge) GetReason() string { return v.Reason }
 
-// GetContentHash returns DecisionLogFieldsPurgesDecisionPurge.ContentHash, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurge) GetContentHash() string { return v.ContentHash }
+// GetContentHash returns DecisionLogFieldsPurgesQuestionPurge.ContentHash, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurge) GetContentHash() string { return v.ContentHash }
 
-// GetByUserId returns DecisionLogFieldsPurgesDecisionPurge.ByUserId, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurge) GetByUserId() string { return v.ByUserId }
+// GetByUserId returns DecisionLogFieldsPurgesQuestionPurge.ByUserId, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurge) GetByUserId() string { return v.ByUserId }
 
-// GetBy returns DecisionLogFieldsPurgesDecisionPurge.By, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurge) GetBy() *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef {
+// GetBy returns DecisionLogFieldsPurgesQuestionPurge.By, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurge) GetBy() *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef {
 	return v.By
 }
 
-// DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
+// DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef includes the requested fields of the GraphQL type CommentActorRef.
 // The GraphQL type's documentation follows.
 //
 // #1606 — a public projection of a comment's author, resolver or provenance user. Never the full User/Worker/Agent/App object (#552).
-type DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef struct {
+type DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef struct {
 	DecisionActorRefFields `json:"-"`
 }
 
-// GetId returns DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef.Id, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) GetId() string {
+// GetId returns DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef.Id, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef) GetId() string {
 	return v.DecisionActorRefFields.Id
 }
 
-// GetName returns DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef.Name, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) GetName() *string {
+// GetName returns DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef.Name, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef) GetName() *string {
 	return v.DecisionActorRefFields.Name
 }
 
-// GetHandle returns DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef.Handle, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) GetHandle() *string {
+// GetHandle returns DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef.Handle, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef) GetHandle() *string {
 	return v.DecisionActorRefFields.Handle
 }
 
-// GetUrn returns DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef.Urn, and is useful for accessing the field via an interface.
-func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) GetUrn() *string {
+// GetUrn returns DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef.Urn, and is useful for accessing the field via an interface.
+func (v *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef) GetUrn() *string {
 	return v.DecisionActorRefFields.Urn
 }
 
-func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) UnmarshalJSON(b []byte) error {
+func (v *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef
+		*DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef = v
+	firstPass.DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -50375,7 +49983,7 @@ func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) UnmarshalJSON(b 
 	return nil
 }
 
-type __premarshalDecisionLogFieldsPurgesDecisionPurgeByCommentActorRef struct {
+type __premarshalDecisionLogFieldsPurgesQuestionPurgeByCommentActorRef struct {
 	Id string `json:"id"`
 
 	Name *string `json:"name"`
@@ -50385,7 +49993,7 @@ type __premarshalDecisionLogFieldsPurgesDecisionPurgeByCommentActorRef struct {
 	Urn *string `json:"urn"`
 }
 
-func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) MarshalJSON() ([]byte, error) {
+func (v *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -50393,8 +50001,8 @@ func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) MarshalJSON() ([
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) __premarshalJSON() (*__premarshalDecisionLogFieldsPurgesDecisionPurgeByCommentActorRef, error) {
-	var retval __premarshalDecisionLogFieldsPurgesDecisionPurgeByCommentActorRef
+func (v *DecisionLogFieldsPurgesQuestionPurgeByCommentActorRef) __premarshalJSON() (*__premarshalDecisionLogFieldsPurgesQuestionPurgeByCommentActorRef, error) {
+	var retval __premarshalDecisionLogFieldsPurgesQuestionPurgeByCommentActorRef
 
 	retval.Id = v.DecisionActorRefFields.Id
 	retval.Name = v.DecisionActorRefFields.Name
@@ -50403,116 +50011,392 @@ func (v *DecisionLogFieldsPurgesDecisionPurgeByCommentActorRef) __premarshalJSON
 	return &retval, nil
 }
 
+// DecisionLogQuestionLog includes the requested fields of the GraphQL type QuestionLog.
+// The GraphQL type's documentation follows.
+//
+// #1641 — a question log's settings (never a question, never approved).
+type DecisionLogQuestionLog struct {
+	DecisionLogFields `json:"-"`
+}
+
+// GetId returns DecisionLogQuestionLog.Id, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetId() string { return v.DecisionLogFields.Id }
+
+// GetUrn returns DecisionLogQuestionLog.Urn, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetUrn() string { return v.DecisionLogFields.Urn }
+
+// GetLoc returns DecisionLogQuestionLog.Loc, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetLoc() string { return v.DecisionLogFields.Loc }
+
+// GetName returns DecisionLogQuestionLog.Name, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetName() string { return v.DecisionLogFields.Name }
+
+// GetPrefix returns DecisionLogQuestionLog.Prefix, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetPrefix() string { return v.DecisionLogFields.Prefix }
+
+// GetLastCode returns DecisionLogQuestionLog.LastCode, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetLastCode() int { return v.DecisionLogFields.LastCode }
+
+// GetRevSeq returns DecisionLogQuestionLog.RevSeq, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetRevSeq() int { return v.DecisionLogFields.RevSeq }
+
+// GetPortalUrl returns DecisionLogQuestionLog.PortalUrl, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetPortalUrl() *string { return v.DecisionLogFields.PortalUrl }
+
+// GetDefaultDeciderIds returns DecisionLogQuestionLog.DefaultDeciderIds, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetDefaultDeciderIds() []string {
+	return v.DecisionLogFields.DefaultDeciderIds
+}
+
+// GetDefaultDeciders returns DecisionLogQuestionLog.DefaultDeciders, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetDefaultDeciders() []*DecisionLogFieldsDefaultDecidersCommentActorRef {
+	return v.DecisionLogFields.DefaultDeciders
+}
+
+// GetEligibleDeciderIds returns DecisionLogQuestionLog.EligibleDeciderIds, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetEligibleDeciderIds() []string {
+	return v.DecisionLogFields.EligibleDeciderIds
+}
+
+// GetEligibleDeciders returns DecisionLogQuestionLog.EligibleDeciders, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetEligibleDeciders() []*DecisionLogFieldsEligibleDecidersCommentActorRef {
+	return v.DecisionLogFields.EligibleDeciders
+}
+
+// GetIdentityMerges returns DecisionLogQuestionLog.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge {
+	return v.DecisionLogFields.IdentityMerges
+}
+
+// GetPurges returns DecisionLogQuestionLog.Purges, and is useful for accessing the field via an interface.
+func (v *DecisionLogQuestionLog) GetPurges() []*DecisionLogFieldsPurgesQuestionPurge {
+	return v.DecisionLogFields.Purges
+}
+
+func (v *DecisionLogQuestionLog) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DecisionLogQuestionLog
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DecisionLogQuestionLog = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DecisionLogFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDecisionLogQuestionLog struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Loc string `json:"loc"`
+
+	Name string `json:"name"`
+
+	Prefix string `json:"prefix"`
+
+	LastCode int `json:"lastCode"`
+
+	RevSeq int `json:"revSeq"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	DefaultDeciderIds []string `json:"defaultDeciderIds"`
+
+	DefaultDeciders []*DecisionLogFieldsDefaultDecidersCommentActorRef `json:"defaultDeciders"`
+
+	EligibleDeciderIds []string `json:"eligibleDeciderIds"`
+
+	EligibleDeciders []*DecisionLogFieldsEligibleDecidersCommentActorRef `json:"eligibleDeciders"`
+
+	IdentityMerges []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
+
+	Purges []*DecisionLogFieldsPurgesQuestionPurge `json:"purges"`
+}
+
+func (v *DecisionLogQuestionLog) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DecisionLogQuestionLog) __premarshalJSON() (*__premarshalDecisionLogQuestionLog, error) {
+	var retval __premarshalDecisionLogQuestionLog
+
+	retval.Id = v.DecisionLogFields.Id
+	retval.Urn = v.DecisionLogFields.Urn
+	retval.Loc = v.DecisionLogFields.Loc
+	retval.Name = v.DecisionLogFields.Name
+	retval.Prefix = v.DecisionLogFields.Prefix
+	retval.LastCode = v.DecisionLogFields.LastCode
+	retval.RevSeq = v.DecisionLogFields.RevSeq
+	retval.PortalUrl = v.DecisionLogFields.PortalUrl
+	retval.DefaultDeciderIds = v.DecisionLogFields.DefaultDeciderIds
+	retval.DefaultDeciders = v.DecisionLogFields.DefaultDeciders
+	retval.EligibleDeciderIds = v.DecisionLogFields.EligibleDeciderIds
+	retval.EligibleDeciders = v.DecisionLogFields.EligibleDeciders
+	retval.IdentityMerges = v.DecisionLogFields.IdentityMerges
+	retval.Purges = v.DecisionLogFields.Purges
+	return &retval, nil
+}
+
 // DecisionLogResponse is returned by DecisionLog on success.
 type DecisionLogResponse struct {
-	// #1641 — a decision log's settings by ID or URN; null when missing or unreadable.
-	DecisionLog *DecisionLogDecisionLog `json:"decisionLog"`
+	// #1641 — a question log's settings by ID or URN; null when missing or unreadable.
+	QuestionLog *DecisionLogQuestionLog `json:"questionLog"`
 }
 
-// GetDecisionLog returns DecisionLogResponse.DecisionLog, and is useful for accessing the field via an interface.
-func (v *DecisionLogResponse) GetDecisionLog() *DecisionLogDecisionLog { return v.DecisionLog }
+// GetQuestionLog returns DecisionLogResponse.QuestionLog, and is useful for accessing the field via an interface.
+func (v *DecisionLogResponse) GetQuestionLog() *DecisionLogQuestionLog { return v.QuestionLog }
 
-type DecisionNoRecommendationInput struct {
-	Reason string `json:"reason"`
+// DecisionQuestion includes the requested fields of the GraphQL type Question.
+// The GraphQL type's documentation follows.
+//
+// #1641 — a human question: a governed node (role question) under a question log, written only by the
+// question operations. Its content is rendered from this structured payload, so an approval covers
+// exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
+type DecisionQuestion struct {
+	DecisionFields `json:"-"`
 }
 
-// GetReason returns DecisionNoRecommendationInput.Reason, and is useful for accessing the field via an interface.
-func (v *DecisionNoRecommendationInput) GetReason() string { return v.Reason }
+// GetId returns DecisionQuestion.Id, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetId() string { return v.DecisionFields.Id }
 
-type DecisionOptionInput struct {
-	Cost    *string `json:"cost,omitempty"`
-	Key     string  `json:"key"`
-	Label   string  `json:"label"`
-	Meaning *string `json:"meaning,omitempty"`
+// GetUrn returns DecisionQuestion.Urn, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetUrn() string { return v.DecisionFields.Urn }
+
+// GetCode returns DecisionQuestion.Code, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetCode() string { return v.DecisionFields.Code }
+
+// GetN returns DecisionQuestion.N, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetN() int { return v.DecisionFields.N }
+
+// GetLogId returns DecisionQuestion.LogId, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetLogId() *string { return v.DecisionFields.LogId }
+
+// GetTitle returns DecisionQuestion.Title, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetTitle() string { return v.DecisionFields.Title }
+
+// GetContext returns DecisionQuestion.Context, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetContext() *string { return v.DecisionFields.Context }
+
+// GetState returns DecisionQuestion.State, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetState() QuestionState { return v.DecisionFields.State }
+
+// GetTier returns DecisionQuestion.Tier, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetTier() QuestionTier { return v.DecisionFields.Tier }
+
+// GetUrgency returns DecisionQuestion.Urgency, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetUrgency() QuestionUrgency { return v.DecisionFields.Urgency }
+
+// GetAuthorizes returns DecisionQuestion.Authorizes, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
+
+// GetArchival returns DecisionQuestion.Archival, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetArchival() bool { return v.DecisionFields.Archival }
+
+// GetRevSeq returns DecisionQuestion.RevSeq, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetRevSeq() int { return v.DecisionFields.RevSeq }
+
+// GetPortalUrl returns DecisionQuestion.PortalUrl, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
+
+// GetViewerIsDecider returns DecisionQuestion.ViewerIsDecider, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetViewerIsDecider() bool { return v.DecisionFields.ViewerIsDecider }
+
+// GetAskedAt returns DecisionQuestion.AskedAt, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetAskedAt() *string { return v.DecisionFields.AskedAt }
+
+// GetAnsweredAt returns DecisionQuestion.AnsweredAt, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetAnsweredAt() *string { return v.DecisionFields.AnsweredAt }
+
+// GetAskedBy returns DecisionQuestion.AskedBy, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetAskedBy() *DecisionFieldsAskedByQuestionActor {
+	return v.DecisionFields.AskedBy
 }
 
-// GetCost returns DecisionOptionInput.Cost, and is useful for accessing the field via an interface.
-func (v *DecisionOptionInput) GetCost() *string { return v.Cost }
+// GetDeciderIds returns DecisionQuestion.DeciderIds, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetDeciderIds() []string { return v.DecisionFields.DeciderIds }
 
-// GetKey returns DecisionOptionInput.Key, and is useful for accessing the field via an interface.
-func (v *DecisionOptionInput) GetKey() string { return v.Key }
-
-// GetLabel returns DecisionOptionInput.Label, and is useful for accessing the field via an interface.
-func (v *DecisionOptionInput) GetLabel() string { return v.Label }
-
-// GetMeaning returns DecisionOptionInput.Meaning, and is useful for accessing the field via an interface.
-func (v *DecisionOptionInput) GetMeaning() *string { return v.Meaning }
-
-// #1641 — one part of a decision. Give options or yesno, and a recommendation or noRecommendation.
-type DecisionPartInput struct {
-	NoRecommendation *DecisionNoRecommendationInput `json:"noRecommendation,omitempty"`
-	Options          []*DecisionOptionInput         `json:"options,omitempty"`
-	Question         string                         `json:"question"`
-	Recommendation   *DecisionRecommendationInput   `json:"recommendation,omitempty"`
-	Yesno            *bool                          `json:"yesno,omitempty"`
+// GetDeciders returns DecisionQuestion.Deciders, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
+	return v.DecisionFields.Deciders
 }
 
-// GetNoRecommendation returns DecisionPartInput.NoRecommendation, and is useful for accessing the field via an interface.
-func (v *DecisionPartInput) GetNoRecommendation() *DecisionNoRecommendationInput {
-	return v.NoRecommendation
+// GetIdentityMerges returns DecisionQuestion.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetIdentityMerges() []*DecisionFieldsIdentityMergesQuestionIdentityMerge {
+	return v.DecisionFields.IdentityMerges
 }
 
-// GetOptions returns DecisionPartInput.Options, and is useful for accessing the field via an interface.
-func (v *DecisionPartInput) GetOptions() []*DecisionOptionInput { return v.Options }
-
-// GetQuestion returns DecisionPartInput.Question, and is useful for accessing the field via an interface.
-func (v *DecisionPartInput) GetQuestion() string { return v.Question }
-
-// GetRecommendation returns DecisionPartInput.Recommendation, and is useful for accessing the field via an interface.
-func (v *DecisionPartInput) GetRecommendation() *DecisionRecommendationInput { return v.Recommendation }
-
-// GetYesno returns DecisionPartInput.Yesno, and is useful for accessing the field via an interface.
-func (v *DecisionPartInput) GetYesno() *bool { return v.Yesno }
-
-// #1641 — a change to an existing part (by its permanent number). Omitted fields are unchanged; answers never change here.
-type DecisionPartPatchInput struct {
-	N                int                            `json:"n"`
-	NoRecommendation *DecisionNoRecommendationInput `json:"noRecommendation,omitempty"`
-	Options          []*DecisionOptionInput         `json:"options,omitempty"`
-	Question         *string                        `json:"question,omitempty"`
-	Recommendation   *DecisionRecommendationInput   `json:"recommendation,omitempty"`
-	Yesno            *bool                          `json:"yesno,omitempty"`
+// GetParts returns DecisionQuestion.Parts, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetParts() []*DecisionFieldsPartsQuestionPart {
+	return v.DecisionFields.Parts
 }
 
-// GetN returns DecisionPartPatchInput.N, and is useful for accessing the field via an interface.
-func (v *DecisionPartPatchInput) GetN() int { return v.N }
-
-// GetNoRecommendation returns DecisionPartPatchInput.NoRecommendation, and is useful for accessing the field via an interface.
-func (v *DecisionPartPatchInput) GetNoRecommendation() *DecisionNoRecommendationInput {
-	return v.NoRecommendation
+// GetBlocks returns DecisionQuestion.Blocks, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetBlocks() []*DecisionFieldsBlocksQuestionRef {
+	return v.DecisionFields.Blocks
 }
 
-// GetOptions returns DecisionPartPatchInput.Options, and is useful for accessing the field via an interface.
-func (v *DecisionPartPatchInput) GetOptions() []*DecisionOptionInput { return v.Options }
-
-// GetQuestion returns DecisionPartPatchInput.Question, and is useful for accessing the field via an interface.
-func (v *DecisionPartPatchInput) GetQuestion() *string { return v.Question }
-
-// GetRecommendation returns DecisionPartPatchInput.Recommendation, and is useful for accessing the field via an interface.
-func (v *DecisionPartPatchInput) GetRecommendation() *DecisionRecommendationInput {
-	return v.Recommendation
+// GetFollowUps returns DecisionQuestion.FollowUps, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetFollowUps() []*DecisionFieldsFollowUpsQuestionRef {
+	return v.DecisionFields.FollowUps
 }
 
-// GetYesno returns DecisionPartPatchInput.Yesno, and is useful for accessing the field via an interface.
-func (v *DecisionPartPatchInput) GetYesno() *bool { return v.Yesno }
-
-type DecisionRecommendationInput struct {
-	// Relaying someone else's recommendation: who (recorded as a claim).
-	AttributedTo *string `json:"attributedTo,omitempty"`
-	Key          string  `json:"key"`
-	Reason       *string `json:"reason,omitempty"`
+// GetSources returns DecisionQuestion.Sources, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetSources() []*DecisionFieldsSourcesQuestionRef {
+	return v.DecisionFields.Sources
 }
 
-// GetAttributedTo returns DecisionRecommendationInput.AttributedTo, and is useful for accessing the field via an interface.
-func (v *DecisionRecommendationInput) GetAttributedTo() *string { return v.AttributedTo }
+// GetWithdrawn returns DecisionQuestion.Withdrawn, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetWithdrawn() *DecisionFieldsWithdrawnQuestionWithdrawal {
+	return v.DecisionFields.Withdrawn
+}
 
-// GetKey returns DecisionRecommendationInput.Key, and is useful for accessing the field via an interface.
-func (v *DecisionRecommendationInput) GetKey() string { return v.Key }
+// GetEvidence returns DecisionQuestion.Evidence, and is useful for accessing the field via an interface.
+func (v *DecisionQuestion) GetEvidence() *DecisionFieldsEvidenceQuestionEvidence {
+	return v.DecisionFields.Evidence
+}
 
-// GetReason returns DecisionRecommendationInput.Reason, and is useful for accessing the field via an interface.
-func (v *DecisionRecommendationInput) GetReason() *string { return v.Reason }
+func (v *DecisionQuestion) UnmarshalJSON(b []byte) error {
 
-// DecisionRefFields includes the GraphQL fields of DecisionRef requested by the fragment DecisionRefFields.
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DecisionQuestion
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DecisionQuestion = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DecisionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDecisionQuestion struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Code string `json:"code"`
+
+	N int `json:"n"`
+
+	LogId *string `json:"logId"`
+
+	Title string `json:"title"`
+
+	Context *string `json:"context"`
+
+	State QuestionState `json:"state"`
+
+	Tier QuestionTier `json:"tier"`
+
+	Urgency QuestionUrgency `json:"urgency"`
+
+	Authorizes bool `json:"authorizes"`
+
+	Archival bool `json:"archival"`
+
+	RevSeq int `json:"revSeq"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	ViewerIsDecider bool `json:"viewerIsDecider"`
+
+	AskedAt *string `json:"askedAt"`
+
+	AnsweredAt *string `json:"answeredAt"`
+
+	AskedBy *DecisionFieldsAskedByQuestionActor `json:"askedBy"`
+
+	DeciderIds []string `json:"deciderIds"`
+
+	Deciders []*DecisionFieldsDecidersCommentActorRef `json:"deciders"`
+
+	IdentityMerges []*DecisionFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
+
+	Parts []*DecisionFieldsPartsQuestionPart `json:"parts"`
+
+	Blocks []*DecisionFieldsBlocksQuestionRef `json:"blocks"`
+
+	FollowUps []*DecisionFieldsFollowUpsQuestionRef `json:"followUps"`
+
+	Sources []*DecisionFieldsSourcesQuestionRef `json:"sources"`
+
+	Withdrawn *DecisionFieldsWithdrawnQuestionWithdrawal `json:"withdrawn"`
+
+	Evidence *DecisionFieldsEvidenceQuestionEvidence `json:"evidence"`
+}
+
+func (v *DecisionQuestion) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DecisionQuestion) __premarshalJSON() (*__premarshalDecisionQuestion, error) {
+	var retval __premarshalDecisionQuestion
+
+	retval.Id = v.DecisionFields.Id
+	retval.Urn = v.DecisionFields.Urn
+	retval.Code = v.DecisionFields.Code
+	retval.N = v.DecisionFields.N
+	retval.LogId = v.DecisionFields.LogId
+	retval.Title = v.DecisionFields.Title
+	retval.Context = v.DecisionFields.Context
+	retval.State = v.DecisionFields.State
+	retval.Tier = v.DecisionFields.Tier
+	retval.Urgency = v.DecisionFields.Urgency
+	retval.Authorizes = v.DecisionFields.Authorizes
+	retval.Archival = v.DecisionFields.Archival
+	retval.RevSeq = v.DecisionFields.RevSeq
+	retval.PortalUrl = v.DecisionFields.PortalUrl
+	retval.ViewerIsDecider = v.DecisionFields.ViewerIsDecider
+	retval.AskedAt = v.DecisionFields.AskedAt
+	retval.AnsweredAt = v.DecisionFields.AnsweredAt
+	retval.AskedBy = v.DecisionFields.AskedBy
+	retval.DeciderIds = v.DecisionFields.DeciderIds
+	retval.Deciders = v.DecisionFields.Deciders
+	retval.IdentityMerges = v.DecisionFields.IdentityMerges
+	retval.Parts = v.DecisionFields.Parts
+	retval.Blocks = v.DecisionFields.Blocks
+	retval.FollowUps = v.DecisionFields.FollowUps
+	retval.Sources = v.DecisionFields.Sources
+	retval.Withdrawn = v.DecisionFields.Withdrawn
+	retval.Evidence = v.DecisionFields.Evidence
+	return &retval, nil
+}
+
+// DecisionRefFields includes the GraphQL fields of QuestionRef requested by the fragment DecisionRefFields.
 // The GraphQL type's documentation follows.
 //
 // #1641 — a reference: exactly one of an external ref (hadron-server#1640, team:6783), a node id or URN, or a spec citation.
@@ -50531,260 +50415,176 @@ func (v *DecisionRefFields) GetNode() *string { return v.Node }
 // GetSpec returns DecisionRefFields.Spec, and is useful for accessing the field via an interface.
 func (v *DecisionRefFields) GetSpec() *string { return v.Spec }
 
-type DecisionRefInput struct {
-	Node *string `json:"node,omitempty"`
-	Ref  *string `json:"ref,omitempty"`
-	Spec *string `json:"spec,omitempty"`
-}
-
-// GetNode returns DecisionRefInput.Node, and is useful for accessing the field via an interface.
-func (v *DecisionRefInput) GetNode() *string { return v.Node }
-
-// GetRef returns DecisionRefInput.Ref, and is useful for accessing the field via an interface.
-func (v *DecisionRefInput) GetRef() *string { return v.Ref }
-
-// GetSpec returns DecisionRefInput.Spec, and is useful for accessing the field via an interface.
-func (v *DecisionRefInput) GetSpec() *string { return v.Spec }
-
 // DecisionResponse is returned by Decision on success.
 type DecisionResponse struct {
-	// #1641 — one decision by ref (ID or URN), or by code (DU, or a citation DU-1) within logRef. Null when missing or unreadable.
-	Decision *DecisionDecision `json:"decision"`
+	// #1641 — one question by ref (ID or URN), or by code (DU, or a citation DU-1) within logRef. Null when missing or unreadable.
+	Question *DecisionQuestion `json:"question"`
 }
 
-// GetDecision returns DecisionResponse.Decision, and is useful for accessing the field via an interface.
-func (v *DecisionResponse) GetDecision() *DecisionDecision { return v.Decision }
+// GetQuestion returns DecisionResponse.Question, and is useful for accessing the field via an interface.
+func (v *DecisionResponse) GetQuestion() *DecisionQuestion { return v.Question }
 
-// #1641 — list order. PORTAL_DEFAULT: urgent first, then open before answered, then newest ask. CODE: code order.
-type DecisionSort string
-
-const (
-	DecisionSortCode          DecisionSort = "CODE"
-	DecisionSortPortalDefault DecisionSort = "PORTAL_DEFAULT"
-)
-
-var AllDecisionSort = []DecisionSort{
-	DecisionSortCode,
-	DecisionSortPortalDefault,
-}
-
-// #1641 — a decision's derived state (hrn:node:hadronmemory.com:hadron-server:design:decision-nodes §6.3). Computed by the one evaluation on every read, never stored. Precedence: TAMPERED, UNVERIFIABLE, WITHDRAWN, SUPERSEDED, STALE, DECIDED, ANSWERED_UNCONFIRMED, OPEN.
-type DecisionState string
-
-const (
-	// Every part is answered; the tier's evidence (a decider's approval, or later a signature) is missing at the current revision.
-	DecisionStateAnsweredUnconfirmed DecisionState = "ANSWERED_UNCONFIRMED"
-	// Answered, and the tier's evidence by a decider is intact at the current revision. The only state a ruling may be relied on in.
-	DecisionStateDecided DecisionState = "DECIDED"
-	// Not every part is answered.
-	DecisionStateOpen DecisionState = "OPEN"
-	// Evidence exists, but for an earlier revision: the decision changed after it was approved.
-	DecisionStateStale      DecisionState = "STALE"
-	DecisionStateSuperseded DecisionState = "SUPERSEDED"
-	// The rendered content, the structured payload and the approval hash disagree: changed outside the decision operations.
-	DecisionStateTampered DecisionState = "TAMPERED"
-	// Written by a codec or renderer this server does not know, so it cannot be verified (fail closed).
-	DecisionStateUnverifiable DecisionState = "UNVERIFIABLE"
-	DecisionStateWithdrawn    DecisionState = "WITHDRAWN"
-)
-
-var AllDecisionState = []DecisionState{
-	DecisionStateAnsweredUnconfirmed,
-	DecisionStateDecided,
-	DecisionStateOpen,
-	DecisionStateStale,
-	DecisionStateSuperseded,
-	DecisionStateTampered,
-	DecisionStateUnverifiable,
-	DecisionStateWithdrawn,
-}
-
-// #1641 — the assurance a decision's answer needs. APPROVED: a decider's approval. SIGNED: a decider's passkey signature (#1614; not available yet, so a SIGNED decision stays ANSWERED_UNCONFIRMED).
-type DecisionTier string
-
-const (
-	DecisionTierApproved DecisionTier = "APPROVED"
-	DecisionTierSigned   DecisionTier = "SIGNED"
-)
-
-var AllDecisionTier = []DecisionTier{
-	DecisionTierApproved,
-	DecisionTierSigned,
-}
-
-type DecisionUrgency string
-
-const (
-	DecisionUrgencyNormal DecisionUrgency = "NORMAL"
-	DecisionUrgencyUrgent DecisionUrgency = "URGENT"
-)
-
-var AllDecisionUrgency = []DecisionUrgency{
-	DecisionUrgencyNormal,
-	DecisionUrgencyUrgent,
-}
-
-// DecisionsDecisionsDecisionPage includes the requested fields of the GraphQL type DecisionPage.
-type DecisionsDecisionsDecisionPage struct {
-	// Matching decisions before paging.
+// DecisionsQuestionsQuestionPage includes the requested fields of the GraphQL type QuestionPage.
+type DecisionsQuestionsQuestionPage struct {
+	// Matching questions before paging.
 	Total int                                            `json:"total"`
-	Items []*DecisionsDecisionsDecisionPageItemsDecision `json:"items"`
+	Items []*DecisionsQuestionsQuestionPageItemsQuestion `json:"items"`
 }
 
-// GetTotal returns DecisionsDecisionsDecisionPage.Total, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPage) GetTotal() int { return v.Total }
+// GetTotal returns DecisionsQuestionsQuestionPage.Total, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPage) GetTotal() int { return v.Total }
 
-// GetItems returns DecisionsDecisionsDecisionPage.Items, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPage) GetItems() []*DecisionsDecisionsDecisionPageItemsDecision {
+// GetItems returns DecisionsQuestionsQuestionPage.Items, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPage) GetItems() []*DecisionsQuestionsQuestionPageItemsQuestion {
 	return v.Items
 }
 
-// DecisionsDecisionsDecisionPageItemsDecision includes the requested fields of the GraphQL type Decision.
+// DecisionsQuestionsQuestionPageItemsQuestion includes the requested fields of the GraphQL type Question.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a human decision: a governed node (role decision) under a decision log, written only by the
-// decision operations. Its content is rendered from this structured payload, so an approval covers
+// #1641 — a human question: a governed node (role question) under a question log, written only by the
+// question operations. Its content is rendered from this structured payload, so an approval covers
 // exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
-type DecisionsDecisionsDecisionPageItemsDecision struct {
+type DecisionsQuestionsQuestionPageItemsQuestion struct {
 	DecisionFields `json:"-"`
 }
 
-// GetId returns DecisionsDecisionsDecisionPageItemsDecision.Id, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetId() string { return v.DecisionFields.Id }
+// GetId returns DecisionsQuestionsQuestionPageItemsQuestion.Id, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetId() string { return v.DecisionFields.Id }
 
-// GetUrn returns DecisionsDecisionsDecisionPageItemsDecision.Urn, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetUrn() string { return v.DecisionFields.Urn }
+// GetUrn returns DecisionsQuestionsQuestionPageItemsQuestion.Urn, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetUrn() string { return v.DecisionFields.Urn }
 
-// GetCode returns DecisionsDecisionsDecisionPageItemsDecision.Code, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetCode() string { return v.DecisionFields.Code }
+// GetCode returns DecisionsQuestionsQuestionPageItemsQuestion.Code, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetCode() string { return v.DecisionFields.Code }
 
-// GetN returns DecisionsDecisionsDecisionPageItemsDecision.N, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetN() int { return v.DecisionFields.N }
+// GetN returns DecisionsQuestionsQuestionPageItemsQuestion.N, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetN() int { return v.DecisionFields.N }
 
-// GetLogId returns DecisionsDecisionsDecisionPageItemsDecision.LogId, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetLogId() *string {
+// GetLogId returns DecisionsQuestionsQuestionPageItemsQuestion.LogId, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetLogId() *string {
 	return v.DecisionFields.LogId
 }
 
-// GetTitle returns DecisionsDecisionsDecisionPageItemsDecision.Title, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetTitle() string {
+// GetTitle returns DecisionsQuestionsQuestionPageItemsQuestion.Title, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetTitle() string {
 	return v.DecisionFields.Title
 }
 
-// GetContext returns DecisionsDecisionsDecisionPageItemsDecision.Context, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetContext() *string {
+// GetContext returns DecisionsQuestionsQuestionPageItemsQuestion.Context, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetContext() *string {
 	return v.DecisionFields.Context
 }
 
-// GetState returns DecisionsDecisionsDecisionPageItemsDecision.State, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetState() DecisionState {
+// GetState returns DecisionsQuestionsQuestionPageItemsQuestion.State, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetState() QuestionState {
 	return v.DecisionFields.State
 }
 
-// GetTier returns DecisionsDecisionsDecisionPageItemsDecision.Tier, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetTier() DecisionTier {
+// GetTier returns DecisionsQuestionsQuestionPageItemsQuestion.Tier, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetTier() QuestionTier {
 	return v.DecisionFields.Tier
 }
 
-// GetUrgency returns DecisionsDecisionsDecisionPageItemsDecision.Urgency, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetUrgency() DecisionUrgency {
+// GetUrgency returns DecisionsQuestionsQuestionPageItemsQuestion.Urgency, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetUrgency() QuestionUrgency {
 	return v.DecisionFields.Urgency
 }
 
-// GetAuthorizes returns DecisionsDecisionsDecisionPageItemsDecision.Authorizes, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetAuthorizes() bool {
+// GetAuthorizes returns DecisionsQuestionsQuestionPageItemsQuestion.Authorizes, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetAuthorizes() bool {
 	return v.DecisionFields.Authorizes
 }
 
-// GetArchival returns DecisionsDecisionsDecisionPageItemsDecision.Archival, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetArchival() bool {
+// GetArchival returns DecisionsQuestionsQuestionPageItemsQuestion.Archival, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetArchival() bool {
 	return v.DecisionFields.Archival
 }
 
-// GetRevSeq returns DecisionsDecisionsDecisionPageItemsDecision.RevSeq, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetRevSeq() int { return v.DecisionFields.RevSeq }
+// GetRevSeq returns DecisionsQuestionsQuestionPageItemsQuestion.RevSeq, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetRevSeq() int { return v.DecisionFields.RevSeq }
 
-// GetPortalUrl returns DecisionsDecisionsDecisionPageItemsDecision.PortalUrl, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetPortalUrl() *string {
+// GetPortalUrl returns DecisionsQuestionsQuestionPageItemsQuestion.PortalUrl, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetPortalUrl() *string {
 	return v.DecisionFields.PortalUrl
 }
 
-// GetViewerIsDecider returns DecisionsDecisionsDecisionPageItemsDecision.ViewerIsDecider, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetViewerIsDecider() bool {
+// GetViewerIsDecider returns DecisionsQuestionsQuestionPageItemsQuestion.ViewerIsDecider, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetViewerIsDecider() bool {
 	return v.DecisionFields.ViewerIsDecider
 }
 
-// GetAskedAt returns DecisionsDecisionsDecisionPageItemsDecision.AskedAt, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetAskedAt() *string {
+// GetAskedAt returns DecisionsQuestionsQuestionPageItemsQuestion.AskedAt, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetAskedAt() *string {
 	return v.DecisionFields.AskedAt
 }
 
-// GetAnsweredAt returns DecisionsDecisionsDecisionPageItemsDecision.AnsweredAt, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetAnsweredAt() *string {
+// GetAnsweredAt returns DecisionsQuestionsQuestionPageItemsQuestion.AnsweredAt, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetAnsweredAt() *string {
 	return v.DecisionFields.AnsweredAt
 }
 
-// GetAskedBy returns DecisionsDecisionsDecisionPageItemsDecision.AskedBy, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetAskedBy() *DecisionFieldsAskedByDecisionActor {
+// GetAskedBy returns DecisionsQuestionsQuestionPageItemsQuestion.AskedBy, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetAskedBy() *DecisionFieldsAskedByQuestionActor {
 	return v.DecisionFields.AskedBy
 }
 
-// GetDeciderIds returns DecisionsDecisionsDecisionPageItemsDecision.DeciderIds, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetDeciderIds() []string {
+// GetDeciderIds returns DecisionsQuestionsQuestionPageItemsQuestion.DeciderIds, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetDeciderIds() []string {
 	return v.DecisionFields.DeciderIds
 }
 
-// GetDeciders returns DecisionsDecisionsDecisionPageItemsDecision.Deciders, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
+// GetDeciders returns DecisionsQuestionsQuestionPageItemsQuestion.Deciders, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
 	return v.DecisionFields.Deciders
 }
 
-// GetIdentityMerges returns DecisionsDecisionsDecisionPageItemsDecision.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetIdentityMerges() []*DecisionFieldsIdentityMergesDecisionIdentityMerge {
+// GetIdentityMerges returns DecisionsQuestionsQuestionPageItemsQuestion.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetIdentityMerges() []*DecisionFieldsIdentityMergesQuestionIdentityMerge {
 	return v.DecisionFields.IdentityMerges
 }
 
-// GetParts returns DecisionsDecisionsDecisionPageItemsDecision.Parts, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetParts() []*DecisionFieldsPartsDecisionPart {
+// GetParts returns DecisionsQuestionsQuestionPageItemsQuestion.Parts, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetParts() []*DecisionFieldsPartsQuestionPart {
 	return v.DecisionFields.Parts
 }
 
-// GetBlocks returns DecisionsDecisionsDecisionPageItemsDecision.Blocks, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetBlocks() []*DecisionFieldsBlocksDecisionRef {
+// GetBlocks returns DecisionsQuestionsQuestionPageItemsQuestion.Blocks, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetBlocks() []*DecisionFieldsBlocksQuestionRef {
 	return v.DecisionFields.Blocks
 }
 
-// GetFollowUps returns DecisionsDecisionsDecisionPageItemsDecision.FollowUps, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetFollowUps() []*DecisionFieldsFollowUpsDecisionRef {
+// GetFollowUps returns DecisionsQuestionsQuestionPageItemsQuestion.FollowUps, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetFollowUps() []*DecisionFieldsFollowUpsQuestionRef {
 	return v.DecisionFields.FollowUps
 }
 
-// GetSources returns DecisionsDecisionsDecisionPageItemsDecision.Sources, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetSources() []*DecisionFieldsSourcesDecisionRef {
+// GetSources returns DecisionsQuestionsQuestionPageItemsQuestion.Sources, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetSources() []*DecisionFieldsSourcesQuestionRef {
 	return v.DecisionFields.Sources
 }
 
-// GetWithdrawn returns DecisionsDecisionsDecisionPageItemsDecision.Withdrawn, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetWithdrawn() *DecisionFieldsWithdrawnDecisionWithdrawal {
+// GetWithdrawn returns DecisionsQuestionsQuestionPageItemsQuestion.Withdrawn, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetWithdrawn() *DecisionFieldsWithdrawnQuestionWithdrawal {
 	return v.DecisionFields.Withdrawn
 }
 
-// GetEvidence returns DecisionsDecisionsDecisionPageItemsDecision.Evidence, and is useful for accessing the field via an interface.
-func (v *DecisionsDecisionsDecisionPageItemsDecision) GetEvidence() *DecisionFieldsEvidenceDecisionEvidence {
+// GetEvidence returns DecisionsQuestionsQuestionPageItemsQuestion.Evidence, and is useful for accessing the field via an interface.
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) GetEvidence() *DecisionFieldsEvidenceQuestionEvidence {
 	return v.DecisionFields.Evidence
 }
 
-func (v *DecisionsDecisionsDecisionPageItemsDecision) UnmarshalJSON(b []byte) error {
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*DecisionsDecisionsDecisionPageItemsDecision
+		*DecisionsQuestionsQuestionPageItemsQuestion
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.DecisionsDecisionsDecisionPageItemsDecision = v
+	firstPass.DecisionsQuestionsQuestionPageItemsQuestion = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -50799,7 +50599,7 @@ func (v *DecisionsDecisionsDecisionPageItemsDecision) UnmarshalJSON(b []byte) er
 	return nil
 }
 
-type __premarshalDecisionsDecisionsDecisionPageItemsDecision struct {
+type __premarshalDecisionsQuestionsQuestionPageItemsQuestion struct {
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -50814,11 +50614,11 @@ type __premarshalDecisionsDecisionsDecisionPageItemsDecision struct {
 
 	Context *string `json:"context"`
 
-	State DecisionState `json:"state"`
+	State QuestionState `json:"state"`
 
-	Tier DecisionTier `json:"tier"`
+	Tier QuestionTier `json:"tier"`
 
-	Urgency DecisionUrgency `json:"urgency"`
+	Urgency QuestionUrgency `json:"urgency"`
 
 	Authorizes bool `json:"authorizes"`
 
@@ -50834,28 +50634,28 @@ type __premarshalDecisionsDecisionsDecisionPageItemsDecision struct {
 
 	AnsweredAt *string `json:"answeredAt"`
 
-	AskedBy *DecisionFieldsAskedByDecisionActor `json:"askedBy"`
+	AskedBy *DecisionFieldsAskedByQuestionActor `json:"askedBy"`
 
 	DeciderIds []string `json:"deciderIds"`
 
 	Deciders []*DecisionFieldsDecidersCommentActorRef `json:"deciders"`
 
-	IdentityMerges []*DecisionFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
+	IdentityMerges []*DecisionFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
 
-	Parts []*DecisionFieldsPartsDecisionPart `json:"parts"`
+	Parts []*DecisionFieldsPartsQuestionPart `json:"parts"`
 
-	Blocks []*DecisionFieldsBlocksDecisionRef `json:"blocks"`
+	Blocks []*DecisionFieldsBlocksQuestionRef `json:"blocks"`
 
-	FollowUps []*DecisionFieldsFollowUpsDecisionRef `json:"followUps"`
+	FollowUps []*DecisionFieldsFollowUpsQuestionRef `json:"followUps"`
 
-	Sources []*DecisionFieldsSourcesDecisionRef `json:"sources"`
+	Sources []*DecisionFieldsSourcesQuestionRef `json:"sources"`
 
-	Withdrawn *DecisionFieldsWithdrawnDecisionWithdrawal `json:"withdrawn"`
+	Withdrawn *DecisionFieldsWithdrawnQuestionWithdrawal `json:"withdrawn"`
 
-	Evidence *DecisionFieldsEvidenceDecisionEvidence `json:"evidence"`
+	Evidence *DecisionFieldsEvidenceQuestionEvidence `json:"evidence"`
 }
 
-func (v *DecisionsDecisionsDecisionPageItemsDecision) MarshalJSON() ([]byte, error) {
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -50863,8 +50663,8 @@ func (v *DecisionsDecisionsDecisionPageItemsDecision) MarshalJSON() ([]byte, err
 	return json.Marshal(premarshaled)
 }
 
-func (v *DecisionsDecisionsDecisionPageItemsDecision) __premarshalJSON() (*__premarshalDecisionsDecisionsDecisionPageItemsDecision, error) {
-	var retval __premarshalDecisionsDecisionsDecisionPageItemsDecision
+func (v *DecisionsQuestionsQuestionPageItemsQuestion) __premarshalJSON() (*__premarshalDecisionsQuestionsQuestionPageItemsQuestion, error) {
+	var retval __premarshalDecisionsQuestionsQuestionPageItemsQuestion
 
 	retval.Id = v.DecisionFields.Id
 	retval.Urn = v.DecisionFields.Urn
@@ -50898,14 +50698,14 @@ func (v *DecisionsDecisionsDecisionPageItemsDecision) __premarshalJSON() (*__pre
 
 // DecisionsResponse is returned by Decisions on success.
 type DecisionsResponse struct {
-	// #1641 — the decisions of one log (logRef), or with awaitingMe the OPEN decisions the caller
+	// #1641 — the questions of one log (logRef), or with awaitingMe the OPEN questions the caller
 	// decides across every memory they can read. State is derived for every candidate BEFORE the
-	// filters, sort and paging; a list above 5000 candidates refuses (DECISION_LOG_TOO_LARGE_FOR_FILTER).
-	Decisions *DecisionsDecisionsDecisionPage `json:"decisions"`
+	// filters, sort and paging; a list above 5000 candidates refuses (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
+	Questions *DecisionsQuestionsQuestionPage `json:"questions"`
 }
 
-// GetDecisions returns DecisionsResponse.Decisions, and is useful for accessing the field via an interface.
-func (v *DecisionsResponse) GetDecisions() *DecisionsDecisionsDecisionPage { return v.Decisions }
+// GetQuestions returns DecisionsResponse.Questions, and is useful for accessing the field via an interface.
+func (v *DecisionsResponse) GetQuestions() *DecisionsQuestionsQuestionPage { return v.Questions }
 
 // DeclineAutomationResponse is returned by DeclineAutomation on success.
 type DeclineAutomationResponse struct {
@@ -50935,8 +50735,8 @@ type DeleteAgentResponse struct {
 	// App install or live parent Agent import references it, or a live Agent
 	// extends it as its base. AgentMemoryItem attachments do not block deletion.
 	//
-	// Also refused with DECISION_CONTAINED (#1641) while the Agent's system memory holds a decision or a
-	// decision log: removing the memory would remove them, so the Agent is kept. Decision protection always applies.
+	// Also refused with QUESTION_CONTAINED (#1641) while the Agent's system memory holds a question or a
+	// question log: removing the memory would remove them, so the Agent is kept. Question protection always applies.
 	// If this server requires minted content to be retained, its separate deletion restrictions also apply.
 	//
 	// See hrn:node:hadronmemory.com:specs:cor:dmo:050:14.
@@ -55637,7 +55437,7 @@ type FindNodesFindNodesFindNodesResultHitsNodeHitNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -55857,7 +55657,7 @@ type FindNodesWithCommentSummaryFindNodesFindNodesResultHitsNodeHitNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -57848,7 +57648,7 @@ type GetNodeNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -58893,7 +58693,7 @@ type GetSpecNodeForEditNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -58992,7 +58792,7 @@ type GetSpecNodeRawNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -59082,7 +58882,7 @@ type GetSpecSupersedeTargetNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -71505,7 +71305,7 @@ type MergeNodesMergeNodesNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -71932,7 +71732,7 @@ func (v *MintMemoryNodesMintMemoryNodesSpecCorpusMintReportStaleAbstractsSpecMin
 // MintMemoryNodesResponse is returned by MintMemoryNodes on success.
 type MintMemoryNodesResponse struct {
 	// #1591 — mint the live nodes of a memory in the mint scope, at once,
-	// excluding comment nodes and the decision role family. The scope is the
+	// excluding comment nodes and the question role family. The scope is the
 	// unminted nodes plus (#1612) minted nodes whose content changed since their
 	// minted revision or that have no recorded minted revision; a re-mint keeps
 	// the first mint's time and minter. Each node is
@@ -72475,7 +72275,7 @@ type MoveNodeMoveNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -73321,7 +73121,7 @@ type NodeBatchContentNodeBatchNodeBatchResultNodesNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -73561,7 +73361,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -81065,13 +80865,216 @@ func (v *PublishRevisionResponse) GetPublishRevision() *PublishRevisionPublishRe
 
 // PurgeUnansweredDecisionResponse is returned by PurgeUnansweredDecision on success.
 type PurgeUnansweredDecisionResponse struct {
-	// #1641 — a platform admin hard-deletes a decision that was never answered, recorded on its log (DECISION_ANSWERED otherwise). The code stays consumed.
-	PurgeUnansweredDecision bool `json:"purgeUnansweredDecision"`
+	// #1641 — a platform admin hard-deletes a question that was never answered, recorded on its log (QUESTION_ANSWERED otherwise). The code stays consumed.
+	PurgeUnansweredQuestion bool `json:"purgeUnansweredQuestion"`
 }
 
-// GetPurgeUnansweredDecision returns PurgeUnansweredDecisionResponse.PurgeUnansweredDecision, and is useful for accessing the field via an interface.
-func (v *PurgeUnansweredDecisionResponse) GetPurgeUnansweredDecision() bool {
-	return v.PurgeUnansweredDecision
+// GetPurgeUnansweredQuestion returns PurgeUnansweredDecisionResponse.PurgeUnansweredQuestion, and is useful for accessing the field via an interface.
+func (v *PurgeUnansweredDecisionResponse) GetPurgeUnansweredQuestion() bool {
+	return v.PurgeUnansweredQuestion
+}
+
+// #1641 — where an answer was given, as the answering caller states it (a claim).
+type QuestionAnswerVia string
+
+const (
+	QuestionAnswerViaChatRecorded QuestionAnswerVia = "CHAT_RECORDED"
+	QuestionAnswerViaCli          QuestionAnswerVia = "CLI"
+	QuestionAnswerViaImport       QuestionAnswerVia = "IMPORT"
+	QuestionAnswerViaMcp          QuestionAnswerVia = "MCP"
+	QuestionAnswerViaPortal       QuestionAnswerVia = "PORTAL"
+)
+
+var AllQuestionAnswerVia = []QuestionAnswerVia{
+	QuestionAnswerViaChatRecorded,
+	QuestionAnswerViaCli,
+	QuestionAnswerViaImport,
+	QuestionAnswerViaMcp,
+	QuestionAnswerViaPortal,
+}
+
+type QuestionNoRecommendationInput struct {
+	Reason string `json:"reason"`
+}
+
+// GetReason returns QuestionNoRecommendationInput.Reason, and is useful for accessing the field via an interface.
+func (v *QuestionNoRecommendationInput) GetReason() string { return v.Reason }
+
+type QuestionOptionInput struct {
+	Cost    *string `json:"cost,omitempty"`
+	Key     string  `json:"key"`
+	Label   string  `json:"label"`
+	Meaning *string `json:"meaning,omitempty"`
+}
+
+// GetCost returns QuestionOptionInput.Cost, and is useful for accessing the field via an interface.
+func (v *QuestionOptionInput) GetCost() *string { return v.Cost }
+
+// GetKey returns QuestionOptionInput.Key, and is useful for accessing the field via an interface.
+func (v *QuestionOptionInput) GetKey() string { return v.Key }
+
+// GetLabel returns QuestionOptionInput.Label, and is useful for accessing the field via an interface.
+func (v *QuestionOptionInput) GetLabel() string { return v.Label }
+
+// GetMeaning returns QuestionOptionInput.Meaning, and is useful for accessing the field via an interface.
+func (v *QuestionOptionInput) GetMeaning() *string { return v.Meaning }
+
+// #1641 — one part of a question. Give options or yesno, and a recommendation or noRecommendation.
+type QuestionPartInput struct {
+	NoRecommendation *QuestionNoRecommendationInput `json:"noRecommendation,omitempty"`
+	Options          []*QuestionOptionInput         `json:"options,omitempty"`
+	Question         string                         `json:"question"`
+	Recommendation   *QuestionRecommendationInput   `json:"recommendation,omitempty"`
+	Yesno            *bool                          `json:"yesno,omitempty"`
+}
+
+// GetNoRecommendation returns QuestionPartInput.NoRecommendation, and is useful for accessing the field via an interface.
+func (v *QuestionPartInput) GetNoRecommendation() *QuestionNoRecommendationInput {
+	return v.NoRecommendation
+}
+
+// GetOptions returns QuestionPartInput.Options, and is useful for accessing the field via an interface.
+func (v *QuestionPartInput) GetOptions() []*QuestionOptionInput { return v.Options }
+
+// GetQuestion returns QuestionPartInput.Question, and is useful for accessing the field via an interface.
+func (v *QuestionPartInput) GetQuestion() string { return v.Question }
+
+// GetRecommendation returns QuestionPartInput.Recommendation, and is useful for accessing the field via an interface.
+func (v *QuestionPartInput) GetRecommendation() *QuestionRecommendationInput { return v.Recommendation }
+
+// GetYesno returns QuestionPartInput.Yesno, and is useful for accessing the field via an interface.
+func (v *QuestionPartInput) GetYesno() *bool { return v.Yesno }
+
+// #1641 — a change to an existing part (by its permanent number). Omitted fields are unchanged; answers never change here.
+type QuestionPartPatchInput struct {
+	N                int                            `json:"n"`
+	NoRecommendation *QuestionNoRecommendationInput `json:"noRecommendation,omitempty"`
+	Options          []*QuestionOptionInput         `json:"options,omitempty"`
+	Question         *string                        `json:"question,omitempty"`
+	Recommendation   *QuestionRecommendationInput   `json:"recommendation,omitempty"`
+	Yesno            *bool                          `json:"yesno,omitempty"`
+}
+
+// GetN returns QuestionPartPatchInput.N, and is useful for accessing the field via an interface.
+func (v *QuestionPartPatchInput) GetN() int { return v.N }
+
+// GetNoRecommendation returns QuestionPartPatchInput.NoRecommendation, and is useful for accessing the field via an interface.
+func (v *QuestionPartPatchInput) GetNoRecommendation() *QuestionNoRecommendationInput {
+	return v.NoRecommendation
+}
+
+// GetOptions returns QuestionPartPatchInput.Options, and is useful for accessing the field via an interface.
+func (v *QuestionPartPatchInput) GetOptions() []*QuestionOptionInput { return v.Options }
+
+// GetQuestion returns QuestionPartPatchInput.Question, and is useful for accessing the field via an interface.
+func (v *QuestionPartPatchInput) GetQuestion() *string { return v.Question }
+
+// GetRecommendation returns QuestionPartPatchInput.Recommendation, and is useful for accessing the field via an interface.
+func (v *QuestionPartPatchInput) GetRecommendation() *QuestionRecommendationInput {
+	return v.Recommendation
+}
+
+// GetYesno returns QuestionPartPatchInput.Yesno, and is useful for accessing the field via an interface.
+func (v *QuestionPartPatchInput) GetYesno() *bool { return v.Yesno }
+
+type QuestionRecommendationInput struct {
+	// Relaying someone else's recommendation: who (recorded as a claim).
+	AttributedTo *string `json:"attributedTo,omitempty"`
+	Key          string  `json:"key"`
+	Reason       *string `json:"reason,omitempty"`
+}
+
+// GetAttributedTo returns QuestionRecommendationInput.AttributedTo, and is useful for accessing the field via an interface.
+func (v *QuestionRecommendationInput) GetAttributedTo() *string { return v.AttributedTo }
+
+// GetKey returns QuestionRecommendationInput.Key, and is useful for accessing the field via an interface.
+func (v *QuestionRecommendationInput) GetKey() string { return v.Key }
+
+// GetReason returns QuestionRecommendationInput.Reason, and is useful for accessing the field via an interface.
+func (v *QuestionRecommendationInput) GetReason() *string { return v.Reason }
+
+type QuestionRefInput struct {
+	Node *string `json:"node,omitempty"`
+	Ref  *string `json:"ref,omitempty"`
+	Spec *string `json:"spec,omitempty"`
+}
+
+// GetNode returns QuestionRefInput.Node, and is useful for accessing the field via an interface.
+func (v *QuestionRefInput) GetNode() *string { return v.Node }
+
+// GetRef returns QuestionRefInput.Ref, and is useful for accessing the field via an interface.
+func (v *QuestionRefInput) GetRef() *string { return v.Ref }
+
+// GetSpec returns QuestionRefInput.Spec, and is useful for accessing the field via an interface.
+func (v *QuestionRefInput) GetSpec() *string { return v.Spec }
+
+// #1641 — list order. PORTAL_DEFAULT: urgent first, then open before answered, then newest ask. CODE: code order.
+type QuestionSort string
+
+const (
+	QuestionSortCode          QuestionSort = "CODE"
+	QuestionSortPortalDefault QuestionSort = "PORTAL_DEFAULT"
+)
+
+var AllQuestionSort = []QuestionSort{
+	QuestionSortCode,
+	QuestionSortPortalDefault,
+}
+
+// #1641 — a question's derived state (hrn:node:hadronmemory.com:hadron-server:design:decision-nodes §6.3). Computed by the one evaluation on every read, never stored. Precedence: TAMPERED, UNVERIFIABLE, WITHDRAWN, SUPERSEDED, STALE, DECIDED, ANSWERED_UNCONFIRMED, OPEN.
+type QuestionState string
+
+const (
+	// Every part is answered; the tier's evidence (a decider's approval, or later a signature) is missing at the current revision.
+	QuestionStateAnsweredUnconfirmed QuestionState = "ANSWERED_UNCONFIRMED"
+	// Answered, and the tier's evidence by a decider is intact at the current revision. The only state a ruling may be relied on in.
+	QuestionStateDecided QuestionState = "DECIDED"
+	// Not every part is answered.
+	QuestionStateOpen QuestionState = "OPEN"
+	// Evidence exists, but for an earlier revision: the question changed after it was approved.
+	QuestionStateStale      QuestionState = "STALE"
+	QuestionStateSuperseded QuestionState = "SUPERSEDED"
+	// The rendered content, the structured payload and the approval hash disagree: changed outside the question operations.
+	QuestionStateTampered QuestionState = "TAMPERED"
+	// Written by a codec or renderer this server does not know, so it cannot be verified (fail closed).
+	QuestionStateUnverifiable QuestionState = "UNVERIFIABLE"
+	QuestionStateWithdrawn    QuestionState = "WITHDRAWN"
+)
+
+var AllQuestionState = []QuestionState{
+	QuestionStateAnsweredUnconfirmed,
+	QuestionStateDecided,
+	QuestionStateOpen,
+	QuestionStateStale,
+	QuestionStateSuperseded,
+	QuestionStateTampered,
+	QuestionStateUnverifiable,
+	QuestionStateWithdrawn,
+}
+
+// #1641 — the assurance a question's answer needs. APPROVED: a decider's approval. SIGNED: a decider's passkey signature (#1614; not available yet, so a SIGNED question stays ANSWERED_UNCONFIRMED).
+type QuestionTier string
+
+const (
+	QuestionTierApproved QuestionTier = "APPROVED"
+	QuestionTierSigned   QuestionTier = "SIGNED"
+)
+
+var AllQuestionTier = []QuestionTier{
+	QuestionTierApproved,
+	QuestionTierSigned,
+}
+
+type QuestionUrgency string
+
+const (
+	QuestionUrgencyNormal QuestionUrgency = "NORMAL"
+	QuestionUrgencyUrgent QuestionUrgency = "URGENT"
+)
+
+var AllQuestionUrgency = []QuestionUrgency{
+	QuestionUrgencyNormal,
+	QuestionUrgencyUrgent,
 }
 
 // QuotaCounterFields includes the GraphQL fields of QuotaCounter requested by the fragment QuotaCounterFields.
@@ -85303,7 +85306,7 @@ type ReserveSpecCitationReserveSpecCitationNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -86280,10 +86283,13 @@ func (v *ResolveCommentThreadResponse) GetResolveCommentThread() *ResolveComment
 // `kind` is the URN's type segment: memory | node | agent | org | app | user |
 // apprun | worker | noderev | aiconf (#3857: an AI service config, behind the same
 // gate as aiServiceConfig(ref:); an unreadable config answers null, as a missing
-// one does, hrn:node:hadronmemory.com:specs:cor:urn:010:01).
+// one does, hrn:node:hadronmemory.com:specs:cor:urn:010:01) | grant (#3709: behind
+// the same gate as grant(ref:); an unreadable grant answers null, as a missing
+// one does).
 // `id` is the resolved entity's primary id. `memoryId` is set only for
-// nodes (their owning memory), `organizationId` for apps, app runs, and
-// workers (their owning org), and for an aiconf (#3857) the org that owns it or
+// nodes (their owning memory), `organizationId` for apps, app runs,
+// workers (their owning org), grants (#3709, their App's org), and for an
+// aiconf (#3857) the org that owns it or
 // its App or Agent (null for a server-owned config or a user-owned App or
 // Agent) — both are the extra ids those resources' canonical routes require.
 type ResolveUrnResolveUrnUrnResolution struct {
@@ -87568,8 +87574,7 @@ func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return
 type RevokeAppKeyInstructedResponse struct {
 	// Revoke an AppKey. Only whoever manages the App, as themselves, or through their held worker on a validated
 	// `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
-	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session,
-	// a run or an impersonated request. A worker session that is refused cannot tell a missing key from an existing one.
+	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). A worker session that is refused cannot tell a missing key from an existing one.
 	// An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
 	// AppKey has no URN; the id is raw ID-only.
 	RevokeAppKey bool `json:"revokeAppKey"`
@@ -87582,8 +87587,7 @@ func (v *RevokeAppKeyInstructedResponse) GetRevokeAppKey() bool { return v.Revok
 type RevokeAppKeyResponse struct {
 	// Revoke an AppKey. Only whoever manages the App, as themselves, or through their held worker on a validated
 	// `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
-	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session,
-	// a run or an impersonated request. A worker session that is refused cannot tell a missing key from an existing one.
+	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). A worker session that is refused cannot tell a missing key from an existing one.
 	// An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
 	// AppKey has no URN; the id is raw ID-only.
 	RevokeAppKey bool `json:"revokeAppKey"`
@@ -87594,7 +87598,7 @@ func (v *RevokeAppKeyResponse) GetRevokeAppKey() bool { return v.RevokeAppKey }
 
 // RevokeAppKeyScopeInstructedResponse is returned by RevokeAppKeyScopeInstructed on success.
 type RevokeAppKeyScopeInstructedResponse struct {
-	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id).
+	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340).
 	RevokeAppKeyScope *RevokeAppKeyScopeRow1595 `json:"revokeAppKeyScope"`
 }
 
@@ -87605,7 +87609,7 @@ func (v *RevokeAppKeyScopeInstructedResponse) GetRevokeAppKeyScope() *RevokeAppK
 
 // RevokeAppKeyScopeResponse is returned by RevokeAppKeyScope on success.
 type RevokeAppKeyScopeResponse struct {
-	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id).
+	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340).
 	RevokeAppKeyScope *RevokeAppKeyScopeRow1595 `json:"revokeAppKeyScope"`
 }
 
@@ -94562,104 +94566,104 @@ func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) __premars
 
 // SetDecisionLogDecidersResponse is returned by SetDecisionLogDeciders on success.
 type SetDecisionLogDecidersResponse struct {
-	// #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing decisions keep theirs. Needs management rights on the memory, or the owner role in its App.
-	SetDecisionLogDeciders *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog `json:"setDecisionLogDeciders"`
+	// #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing questions keep theirs. Needs management rights on the memory, or the owner role in its App.
+	SetQuestionLogDeciders *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog `json:"setQuestionLogDeciders"`
 }
 
-// GetSetDecisionLogDeciders returns SetDecisionLogDecidersResponse.SetDecisionLogDeciders, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersResponse) GetSetDecisionLogDeciders() *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog {
-	return v.SetDecisionLogDeciders
+// GetSetQuestionLogDeciders returns SetDecisionLogDecidersResponse.SetQuestionLogDeciders, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersResponse) GetSetQuestionLogDeciders() *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog {
+	return v.SetQuestionLogDeciders
 }
 
-// SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog includes the requested fields of the GraphQL type DecisionLog.
+// SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog includes the requested fields of the GraphQL type QuestionLog.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a decision log's settings (never a decision, never approved).
-type SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog struct {
+// #1641 — a question log's settings (never a question, never approved).
+type SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog struct {
 	DecisionLogFields `json:"-"`
 }
 
-// GetId returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.Id, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetId() string {
+// GetId returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.Id, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetId() string {
 	return v.DecisionLogFields.Id
 }
 
-// GetUrn returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.Urn, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetUrn() string {
+// GetUrn returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.Urn, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetUrn() string {
 	return v.DecisionLogFields.Urn
 }
 
-// GetLoc returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.Loc, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetLoc() string {
+// GetLoc returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.Loc, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetLoc() string {
 	return v.DecisionLogFields.Loc
 }
 
-// GetName returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.Name, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetName() string {
+// GetName returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.Name, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetName() string {
 	return v.DecisionLogFields.Name
 }
 
-// GetPrefix returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.Prefix, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetPrefix() string {
+// GetPrefix returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.Prefix, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetPrefix() string {
 	return v.DecisionLogFields.Prefix
 }
 
-// GetLastCode returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.LastCode, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetLastCode() int {
+// GetLastCode returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.LastCode, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetLastCode() int {
 	return v.DecisionLogFields.LastCode
 }
 
-// GetRevSeq returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.RevSeq, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetRevSeq() int {
+// GetRevSeq returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.RevSeq, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetRevSeq() int {
 	return v.DecisionLogFields.RevSeq
 }
 
-// GetPortalUrl returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.PortalUrl, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetPortalUrl() *string {
+// GetPortalUrl returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.PortalUrl, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetPortalUrl() *string {
 	return v.DecisionLogFields.PortalUrl
 }
 
-// GetDefaultDeciderIds returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.DefaultDeciderIds, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetDefaultDeciderIds() []string {
+// GetDefaultDeciderIds returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.DefaultDeciderIds, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetDefaultDeciderIds() []string {
 	return v.DecisionLogFields.DefaultDeciderIds
 }
 
-// GetDefaultDeciders returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.DefaultDeciders, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetDefaultDeciders() []*DecisionLogFieldsDefaultDecidersCommentActorRef {
+// GetDefaultDeciders returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.DefaultDeciders, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetDefaultDeciders() []*DecisionLogFieldsDefaultDecidersCommentActorRef {
 	return v.DecisionLogFields.DefaultDeciders
 }
 
-// GetEligibleDeciderIds returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.EligibleDeciderIds, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetEligibleDeciderIds() []string {
+// GetEligibleDeciderIds returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.EligibleDeciderIds, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetEligibleDeciderIds() []string {
 	return v.DecisionLogFields.EligibleDeciderIds
 }
 
-// GetEligibleDeciders returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.EligibleDeciders, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetEligibleDeciders() []*DecisionLogFieldsEligibleDecidersCommentActorRef {
+// GetEligibleDeciders returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.EligibleDeciders, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetEligibleDeciders() []*DecisionLogFieldsEligibleDecidersCommentActorRef {
 	return v.DecisionLogFields.EligibleDeciders
 }
 
-// GetIdentityMerges returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge {
+// GetIdentityMerges returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetIdentityMerges() []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge {
 	return v.DecisionLogFields.IdentityMerges
 }
 
-// GetPurges returns SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog.Purges, and is useful for accessing the field via an interface.
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) GetPurges() []*DecisionLogFieldsPurgesDecisionPurge {
+// GetPurges returns SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog.Purges, and is useful for accessing the field via an interface.
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) GetPurges() []*DecisionLogFieldsPurgesQuestionPurge {
 	return v.DecisionLogFields.Purges
 }
 
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) UnmarshalJSON(b []byte) error {
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog
+		*SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog = v
+	firstPass.SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -94674,7 +94678,7 @@ func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) UnmarshalJSON(
 	return nil
 }
 
-type __premarshalSetDecisionLogDecidersSetDecisionLogDecidersDecisionLog struct {
+type __premarshalSetDecisionLogDecidersSetQuestionLogDecidersQuestionLog struct {
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -94699,12 +94703,12 @@ type __premarshalSetDecisionLogDecidersSetDecisionLogDecidersDecisionLog struct 
 
 	EligibleDeciders []*DecisionLogFieldsEligibleDecidersCommentActorRef `json:"eligibleDeciders"`
 
-	IdentityMerges []*DecisionLogFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
+	IdentityMerges []*DecisionLogFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
 
-	Purges []*DecisionLogFieldsPurgesDecisionPurge `json:"purges"`
+	Purges []*DecisionLogFieldsPurgesQuestionPurge `json:"purges"`
 }
 
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) MarshalJSON() ([]byte, error) {
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -94712,8 +94716,8 @@ func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) MarshalJSON() 
 	return json.Marshal(premarshaled)
 }
 
-func (v *SetDecisionLogDecidersSetDecisionLogDecidersDecisionLog) __premarshalJSON() (*__premarshalSetDecisionLogDecidersSetDecisionLogDecidersDecisionLog, error) {
-	var retval __premarshalSetDecisionLogDecidersSetDecisionLogDecidersDecisionLog
+func (v *SetDecisionLogDecidersSetQuestionLogDecidersQuestionLog) __premarshalJSON() (*__premarshalSetDecisionLogDecidersSetQuestionLogDecidersQuestionLog, error) {
+	var retval __premarshalSetDecisionLogDecidersSetQuestionLogDecidersQuestionLog
 
 	retval.Id = v.DecisionLogFields.Id
 	retval.Urn = v.DecisionLogFields.Urn
@@ -99860,7 +99864,7 @@ func (v *TeamAppGrantFieldsWorker) GetId() string { return v.Id }
 
 // TeamAppGrantRmInstructedResponse is returned by TeamAppGrantRmInstructed on success.
 type TeamAppGrantRmInstructedResponse struct {
-	// #1747 — revoke a grant. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke records one team event (never the grant id). Takes effect at the grantee next call.
+	// #1747 — revoke a grant. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke records one team event (never the grant id). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). Takes effect at the grantee next call.
 	RevokeAppGrant *TeamAppGrantRmInstructedRevokeAppGrant `json:"revokeAppGrant"`
 }
 
@@ -99966,7 +99970,7 @@ func (v *TeamAppGrantRmInstructedRevokeAppGrant) __premarshalJSON() (*__premarsh
 
 // TeamAppGrantRmResponse is returned by TeamAppGrantRm on success.
 type TeamAppGrantRmResponse struct {
-	// #1747 — revoke a grant. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke records one team event (never the grant id). Takes effect at the grantee next call.
+	// #1747 — revoke a grant. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke records one team event (never the grant id). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). Takes effect at the grantee next call.
 	RevokeAppGrant *TeamAppGrantRmRevokeAppGrant `json:"revokeAppGrant"`
 }
 
@@ -104027,8 +104031,8 @@ func (v *TeamGrantGrant) GetAllows() bool { return v.Allows }
 
 // TeamGrantResponse is returned by TeamGrant on success.
 type TeamGrantResponse struct {
-	// One grant by id (#3789). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly, a pending one it requested itself, or (#3711) one held by its role agent in this App while the agent is installed and licensed here.
-	// Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle.
+	// One grant by id or hrn:grant URN (#3789; URN per #3709). Read only by a BOUND WORKER SESSION, in its own App, for a grant naming that worker directly, a pending one it requested itself, or (#3711) one held by its role agent in this App while the agent is installed and licensed here.
+	// Every other caller, a soft-deleted App and a missing id all answer null: no error and no existence oracle. A well-formed URN naming nothing answers the same null; a malformed or wrong-type URN is the typed input refusal URN_NOT_QUALIFIED (hrn:node:hadronmemory.com:specs:cor:api:140:01) — and so is a ref that is neither an id nor a URN, which the entity-ref convention treats as a URN attempt.
 	Grant *TeamGrantGrant `json:"grant"`
 }
 
@@ -116105,7 +116109,7 @@ type UpdateNodeClearingRoleUpdateNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -116212,7 +116216,7 @@ type UpdateNodeDataUpdateNodeDataNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -117436,7 +117440,7 @@ type UpdateNodeUpdateNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -118120,7 +118124,7 @@ type UpdateReviewNodeClearingRoleUpdateReviewNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -118213,7 +118217,7 @@ type UpdateReviewNodeUpdateReviewNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -118625,7 +118629,7 @@ type UpdateSpecNodeClearingRoleUpdateSpecNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -118718,7 +118722,7 @@ type UpdateSpecNodeUpdateSpecNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -118837,7 +118841,7 @@ type UpdateTaskNodeClearingRoleUpdateTaskNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -118930,7 +118934,7 @@ type UpdateTaskNodeUpdateTaskNode struct {
 	//
 	// A GOVERNED family routes the write to that kind's own authoring door, and
 	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
 	// gated on 'isRunnable'
 	// rather than on any label because a label can be omitted and a capability
 	// cannot. Other roles do not invoke a governed door, but can still be
@@ -120957,21 +120961,21 @@ func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryVa
 
 // VerifyDecisionResponse is returned by VerifyDecision on success.
 type VerifyDecisionResponse struct {
-	// #1641 — re-render a decision from its payload and check it against its content, data and approval: the findings behind its state.
-	VerifyDecision *VerifyDecisionVerifyDecisionDecisionVerification `json:"verifyDecision"`
+	// #1641 — re-render a question from its payload and check it against its content, data and approval: the findings behind its state.
+	VerifyQuestion *VerifyDecisionVerifyQuestionQuestionVerification `json:"verifyQuestion"`
 }
 
-// GetVerifyDecision returns VerifyDecisionResponse.VerifyDecision, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionResponse) GetVerifyDecision() *VerifyDecisionVerifyDecisionDecisionVerification {
-	return v.VerifyDecision
+// GetVerifyQuestion returns VerifyDecisionResponse.VerifyQuestion, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionResponse) GetVerifyQuestion() *VerifyDecisionVerifyQuestionQuestionVerification {
+	return v.VerifyQuestion
 }
 
-// VerifyDecisionVerifyDecisionDecisionVerification includes the requested fields of the GraphQL type DecisionVerification.
+// VerifyDecisionVerifyQuestionQuestionVerification includes the requested fields of the GraphQL type QuestionVerification.
 // The GraphQL type's documentation follows.
 //
-// #1641 — verifyDecision: the one evaluation's findings.
-type VerifyDecisionVerifyDecisionDecisionVerification struct {
-	State             DecisionState `json:"state"`
+// #1641 — verifyQuestion: the one evaluation's findings.
+type VerifyDecisionVerifyQuestionQuestionVerification struct {
+	State             QuestionState `json:"state"`
 	Revision          int           `json:"revision"`
 	ApprovedRevision  *int          `json:"approvedRevision"`
 	ApprovalIntegrity string        `json:"approvalIntegrity"`
@@ -120982,35 +120986,35 @@ type VerifyDecisionVerifyDecisionDecisionVerification struct {
 	Findings []string `json:"findings"`
 }
 
-// GetState returns VerifyDecisionVerifyDecisionDecisionVerification.State, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetState() DecisionState { return v.State }
+// GetState returns VerifyDecisionVerifyQuestionQuestionVerification.State, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetState() QuestionState { return v.State }
 
-// GetRevision returns VerifyDecisionVerifyDecisionDecisionVerification.Revision, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetRevision() int { return v.Revision }
+// GetRevision returns VerifyDecisionVerifyQuestionQuestionVerification.Revision, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetRevision() int { return v.Revision }
 
-// GetApprovedRevision returns VerifyDecisionVerifyDecisionDecisionVerification.ApprovedRevision, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetApprovedRevision() *int {
+// GetApprovedRevision returns VerifyDecisionVerifyQuestionQuestionVerification.ApprovedRevision, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetApprovedRevision() *int {
 	return v.ApprovedRevision
 }
 
-// GetApprovalIntegrity returns VerifyDecisionVerifyDecisionDecisionVerification.ApprovalIntegrity, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetApprovalIntegrity() string {
+// GetApprovalIntegrity returns VerifyDecisionVerifyQuestionQuestionVerification.ApprovalIntegrity, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetApprovalIntegrity() string {
 	return v.ApprovalIntegrity
 }
 
-// GetApprovalByDecider returns VerifyDecisionVerifyDecisionDecisionVerification.ApprovalByDecider, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetApprovalByDecider() bool {
+// GetApprovalByDecider returns VerifyDecisionVerifyQuestionQuestionVerification.ApprovalByDecider, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetApprovalByDecider() bool {
 	return v.ApprovalByDecider
 }
 
-// GetCodec returns VerifyDecisionVerifyDecisionDecisionVerification.Codec, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetCodec() *string { return v.Codec }
+// GetCodec returns VerifyDecisionVerifyQuestionQuestionVerification.Codec, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetCodec() *string { return v.Codec }
 
-// GetRenderer returns VerifyDecisionVerifyDecisionDecisionVerification.Renderer, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetRenderer() *string { return v.Renderer }
+// GetRenderer returns VerifyDecisionVerifyQuestionQuestionVerification.Renderer, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetRenderer() *string { return v.Renderer }
 
-// GetFindings returns VerifyDecisionVerifyDecisionDecisionVerification.Findings, and is useful for accessing the field via an interface.
-func (v *VerifyDecisionVerifyDecisionDecisionVerification) GetFindings() []string { return v.Findings }
+// GetFindings returns VerifyDecisionVerifyQuestionQuestionVerification.Findings, and is useful for accessing the field via an interface.
+func (v *VerifyDecisionVerifyQuestionQuestionVerification) GetFindings() []string { return v.Findings }
 
 // VerifyMemoryNodesResponse is returned by VerifyMemoryNodes on success.
 type VerifyMemoryNodesResponse struct {
@@ -121421,143 +121425,143 @@ func (v *WebPollsPageWebPollsPageItemsWebPoll) __premarshalJSON() (*__premarshal
 
 // WithdrawDecisionResponse is returned by WithdrawDecision on success.
 type WithdrawDecisionResponse struct {
-	// #1641 — withdraw a decision (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (DECISION_ANSWERED_DECIDED).
-	WithdrawDecision *WithdrawDecisionWithdrawDecision `json:"withdrawDecision"`
+	// #1641 — withdraw a question (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (QUESTION_ANSWERED_DECIDED).
+	WithdrawQuestion *WithdrawDecisionWithdrawQuestion `json:"withdrawQuestion"`
 }
 
-// GetWithdrawDecision returns WithdrawDecisionResponse.WithdrawDecision, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionResponse) GetWithdrawDecision() *WithdrawDecisionWithdrawDecision {
-	return v.WithdrawDecision
+// GetWithdrawQuestion returns WithdrawDecisionResponse.WithdrawQuestion, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionResponse) GetWithdrawQuestion() *WithdrawDecisionWithdrawQuestion {
+	return v.WithdrawQuestion
 }
 
-// WithdrawDecisionWithdrawDecision includes the requested fields of the GraphQL type Decision.
+// WithdrawDecisionWithdrawQuestion includes the requested fields of the GraphQL type Question.
 // The GraphQL type's documentation follows.
 //
-// #1641 — a human decision: a governed node (role decision) under a decision log, written only by the
-// decision operations. Its content is rendered from this structured payload, so an approval covers
+// #1641 — a human question: a governed node (role question) under a question log, written only by the
+// question operations. Its content is rendered from this structured payload, so an approval covers
 // exactly what was asked and answered. Plan: hrn:node:hadronmemory.com:hadron-server:design:decision-nodes.
-type WithdrawDecisionWithdrawDecision struct {
+type WithdrawDecisionWithdrawQuestion struct {
 	DecisionFields `json:"-"`
 }
 
-// GetId returns WithdrawDecisionWithdrawDecision.Id, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetId() string { return v.DecisionFields.Id }
+// GetId returns WithdrawDecisionWithdrawQuestion.Id, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetId() string { return v.DecisionFields.Id }
 
-// GetUrn returns WithdrawDecisionWithdrawDecision.Urn, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetUrn() string { return v.DecisionFields.Urn }
+// GetUrn returns WithdrawDecisionWithdrawQuestion.Urn, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetUrn() string { return v.DecisionFields.Urn }
 
-// GetCode returns WithdrawDecisionWithdrawDecision.Code, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetCode() string { return v.DecisionFields.Code }
+// GetCode returns WithdrawDecisionWithdrawQuestion.Code, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetCode() string { return v.DecisionFields.Code }
 
-// GetN returns WithdrawDecisionWithdrawDecision.N, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetN() int { return v.DecisionFields.N }
+// GetN returns WithdrawDecisionWithdrawQuestion.N, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetN() int { return v.DecisionFields.N }
 
-// GetLogId returns WithdrawDecisionWithdrawDecision.LogId, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetLogId() *string { return v.DecisionFields.LogId }
+// GetLogId returns WithdrawDecisionWithdrawQuestion.LogId, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetLogId() *string { return v.DecisionFields.LogId }
 
-// GetTitle returns WithdrawDecisionWithdrawDecision.Title, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetTitle() string { return v.DecisionFields.Title }
+// GetTitle returns WithdrawDecisionWithdrawQuestion.Title, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetTitle() string { return v.DecisionFields.Title }
 
-// GetContext returns WithdrawDecisionWithdrawDecision.Context, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetContext() *string { return v.DecisionFields.Context }
+// GetContext returns WithdrawDecisionWithdrawQuestion.Context, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetContext() *string { return v.DecisionFields.Context }
 
-// GetState returns WithdrawDecisionWithdrawDecision.State, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetState() DecisionState { return v.DecisionFields.State }
+// GetState returns WithdrawDecisionWithdrawQuestion.State, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetState() QuestionState { return v.DecisionFields.State }
 
-// GetTier returns WithdrawDecisionWithdrawDecision.Tier, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetTier() DecisionTier { return v.DecisionFields.Tier }
+// GetTier returns WithdrawDecisionWithdrawQuestion.Tier, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetTier() QuestionTier { return v.DecisionFields.Tier }
 
-// GetUrgency returns WithdrawDecisionWithdrawDecision.Urgency, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetUrgency() DecisionUrgency {
+// GetUrgency returns WithdrawDecisionWithdrawQuestion.Urgency, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetUrgency() QuestionUrgency {
 	return v.DecisionFields.Urgency
 }
 
-// GetAuthorizes returns WithdrawDecisionWithdrawDecision.Authorizes, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
+// GetAuthorizes returns WithdrawDecisionWithdrawQuestion.Authorizes, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetAuthorizes() bool { return v.DecisionFields.Authorizes }
 
-// GetArchival returns WithdrawDecisionWithdrawDecision.Archival, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetArchival() bool { return v.DecisionFields.Archival }
+// GetArchival returns WithdrawDecisionWithdrawQuestion.Archival, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetArchival() bool { return v.DecisionFields.Archival }
 
-// GetRevSeq returns WithdrawDecisionWithdrawDecision.RevSeq, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetRevSeq() int { return v.DecisionFields.RevSeq }
+// GetRevSeq returns WithdrawDecisionWithdrawQuestion.RevSeq, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetRevSeq() int { return v.DecisionFields.RevSeq }
 
-// GetPortalUrl returns WithdrawDecisionWithdrawDecision.PortalUrl, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
+// GetPortalUrl returns WithdrawDecisionWithdrawQuestion.PortalUrl, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetPortalUrl() *string { return v.DecisionFields.PortalUrl }
 
-// GetViewerIsDecider returns WithdrawDecisionWithdrawDecision.ViewerIsDecider, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetViewerIsDecider() bool {
+// GetViewerIsDecider returns WithdrawDecisionWithdrawQuestion.ViewerIsDecider, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetViewerIsDecider() bool {
 	return v.DecisionFields.ViewerIsDecider
 }
 
-// GetAskedAt returns WithdrawDecisionWithdrawDecision.AskedAt, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetAskedAt() *string { return v.DecisionFields.AskedAt }
+// GetAskedAt returns WithdrawDecisionWithdrawQuestion.AskedAt, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetAskedAt() *string { return v.DecisionFields.AskedAt }
 
-// GetAnsweredAt returns WithdrawDecisionWithdrawDecision.AnsweredAt, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetAnsweredAt() *string {
+// GetAnsweredAt returns WithdrawDecisionWithdrawQuestion.AnsweredAt, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetAnsweredAt() *string {
 	return v.DecisionFields.AnsweredAt
 }
 
-// GetAskedBy returns WithdrawDecisionWithdrawDecision.AskedBy, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetAskedBy() *DecisionFieldsAskedByDecisionActor {
+// GetAskedBy returns WithdrawDecisionWithdrawQuestion.AskedBy, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetAskedBy() *DecisionFieldsAskedByQuestionActor {
 	return v.DecisionFields.AskedBy
 }
 
-// GetDeciderIds returns WithdrawDecisionWithdrawDecision.DeciderIds, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetDeciderIds() []string {
+// GetDeciderIds returns WithdrawDecisionWithdrawQuestion.DeciderIds, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetDeciderIds() []string {
 	return v.DecisionFields.DeciderIds
 }
 
-// GetDeciders returns WithdrawDecisionWithdrawDecision.Deciders, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
+// GetDeciders returns WithdrawDecisionWithdrawQuestion.Deciders, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetDeciders() []*DecisionFieldsDecidersCommentActorRef {
 	return v.DecisionFields.Deciders
 }
 
-// GetIdentityMerges returns WithdrawDecisionWithdrawDecision.IdentityMerges, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetIdentityMerges() []*DecisionFieldsIdentityMergesDecisionIdentityMerge {
+// GetIdentityMerges returns WithdrawDecisionWithdrawQuestion.IdentityMerges, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetIdentityMerges() []*DecisionFieldsIdentityMergesQuestionIdentityMerge {
 	return v.DecisionFields.IdentityMerges
 }
 
-// GetParts returns WithdrawDecisionWithdrawDecision.Parts, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetParts() []*DecisionFieldsPartsDecisionPart {
+// GetParts returns WithdrawDecisionWithdrawQuestion.Parts, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetParts() []*DecisionFieldsPartsQuestionPart {
 	return v.DecisionFields.Parts
 }
 
-// GetBlocks returns WithdrawDecisionWithdrawDecision.Blocks, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetBlocks() []*DecisionFieldsBlocksDecisionRef {
+// GetBlocks returns WithdrawDecisionWithdrawQuestion.Blocks, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetBlocks() []*DecisionFieldsBlocksQuestionRef {
 	return v.DecisionFields.Blocks
 }
 
-// GetFollowUps returns WithdrawDecisionWithdrawDecision.FollowUps, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetFollowUps() []*DecisionFieldsFollowUpsDecisionRef {
+// GetFollowUps returns WithdrawDecisionWithdrawQuestion.FollowUps, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetFollowUps() []*DecisionFieldsFollowUpsQuestionRef {
 	return v.DecisionFields.FollowUps
 }
 
-// GetSources returns WithdrawDecisionWithdrawDecision.Sources, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetSources() []*DecisionFieldsSourcesDecisionRef {
+// GetSources returns WithdrawDecisionWithdrawQuestion.Sources, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetSources() []*DecisionFieldsSourcesQuestionRef {
 	return v.DecisionFields.Sources
 }
 
-// GetWithdrawn returns WithdrawDecisionWithdrawDecision.Withdrawn, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetWithdrawn() *DecisionFieldsWithdrawnDecisionWithdrawal {
+// GetWithdrawn returns WithdrawDecisionWithdrawQuestion.Withdrawn, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetWithdrawn() *DecisionFieldsWithdrawnQuestionWithdrawal {
 	return v.DecisionFields.Withdrawn
 }
 
-// GetEvidence returns WithdrawDecisionWithdrawDecision.Evidence, and is useful for accessing the field via an interface.
-func (v *WithdrawDecisionWithdrawDecision) GetEvidence() *DecisionFieldsEvidenceDecisionEvidence {
+// GetEvidence returns WithdrawDecisionWithdrawQuestion.Evidence, and is useful for accessing the field via an interface.
+func (v *WithdrawDecisionWithdrawQuestion) GetEvidence() *DecisionFieldsEvidenceQuestionEvidence {
 	return v.DecisionFields.Evidence
 }
 
-func (v *WithdrawDecisionWithdrawDecision) UnmarshalJSON(b []byte) error {
+func (v *WithdrawDecisionWithdrawQuestion) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*WithdrawDecisionWithdrawDecision
+		*WithdrawDecisionWithdrawQuestion
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.WithdrawDecisionWithdrawDecision = v
+	firstPass.WithdrawDecisionWithdrawQuestion = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -121572,7 +121576,7 @@ func (v *WithdrawDecisionWithdrawDecision) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalWithdrawDecisionWithdrawDecision struct {
+type __premarshalWithdrawDecisionWithdrawQuestion struct {
 	Id string `json:"id"`
 
 	Urn string `json:"urn"`
@@ -121587,11 +121591,11 @@ type __premarshalWithdrawDecisionWithdrawDecision struct {
 
 	Context *string `json:"context"`
 
-	State DecisionState `json:"state"`
+	State QuestionState `json:"state"`
 
-	Tier DecisionTier `json:"tier"`
+	Tier QuestionTier `json:"tier"`
 
-	Urgency DecisionUrgency `json:"urgency"`
+	Urgency QuestionUrgency `json:"urgency"`
 
 	Authorizes bool `json:"authorizes"`
 
@@ -121607,28 +121611,28 @@ type __premarshalWithdrawDecisionWithdrawDecision struct {
 
 	AnsweredAt *string `json:"answeredAt"`
 
-	AskedBy *DecisionFieldsAskedByDecisionActor `json:"askedBy"`
+	AskedBy *DecisionFieldsAskedByQuestionActor `json:"askedBy"`
 
 	DeciderIds []string `json:"deciderIds"`
 
 	Deciders []*DecisionFieldsDecidersCommentActorRef `json:"deciders"`
 
-	IdentityMerges []*DecisionFieldsIdentityMergesDecisionIdentityMerge `json:"identityMerges"`
+	IdentityMerges []*DecisionFieldsIdentityMergesQuestionIdentityMerge `json:"identityMerges"`
 
-	Parts []*DecisionFieldsPartsDecisionPart `json:"parts"`
+	Parts []*DecisionFieldsPartsQuestionPart `json:"parts"`
 
-	Blocks []*DecisionFieldsBlocksDecisionRef `json:"blocks"`
+	Blocks []*DecisionFieldsBlocksQuestionRef `json:"blocks"`
 
-	FollowUps []*DecisionFieldsFollowUpsDecisionRef `json:"followUps"`
+	FollowUps []*DecisionFieldsFollowUpsQuestionRef `json:"followUps"`
 
-	Sources []*DecisionFieldsSourcesDecisionRef `json:"sources"`
+	Sources []*DecisionFieldsSourcesQuestionRef `json:"sources"`
 
-	Withdrawn *DecisionFieldsWithdrawnDecisionWithdrawal `json:"withdrawn"`
+	Withdrawn *DecisionFieldsWithdrawnQuestionWithdrawal `json:"withdrawn"`
 
-	Evidence *DecisionFieldsEvidenceDecisionEvidence `json:"evidence"`
+	Evidence *DecisionFieldsEvidenceQuestionEvidence `json:"evidence"`
 }
 
-func (v *WithdrawDecisionWithdrawDecision) MarshalJSON() ([]byte, error) {
+func (v *WithdrawDecisionWithdrawQuestion) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -121636,8 +121640,8 @@ func (v *WithdrawDecisionWithdrawDecision) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *WithdrawDecisionWithdrawDecision) __premarshalJSON() (*__premarshalWithdrawDecisionWithdrawDecision, error) {
-	var retval __premarshalWithdrawDecisionWithdrawDecision
+func (v *WithdrawDecisionWithdrawQuestion) __premarshalJSON() (*__premarshalWithdrawDecisionWithdrawQuestion, error) {
+	var retval __premarshalWithdrawDecisionWithdrawQuestion
 
 	retval.Id = v.DecisionFields.Id
 	retval.Urn = v.DecisionFields.Urn
@@ -126072,7 +126076,7 @@ func (v *__AlarmAcknowledgeInstructedInput) GetInstruction() *ActInstructionInpu
 // __AmendDecisionInput is used internally by genqlient
 type __AmendDecisionInput struct {
 	Ref              string              `json:"ref"`
-	Input            *AmendDecisionInput `json:"input,omitempty"`
+	Input            *AmendQuestionInput `json:"input,omitempty"`
 	ExpectedRevision int                 `json:"expectedRevision"`
 	Reason           string              `json:"reason"`
 }
@@ -126081,7 +126085,7 @@ type __AmendDecisionInput struct {
 func (v *__AmendDecisionInput) GetRef() string { return v.Ref }
 
 // GetInput returns __AmendDecisionInput.Input, and is useful for accessing the field via an interface.
-func (v *__AmendDecisionInput) GetInput() *AmendDecisionInput { return v.Input }
+func (v *__AmendDecisionInput) GetInput() *AmendQuestionInput { return v.Input }
 
 // GetExpectedRevision returns __AmendDecisionInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__AmendDecisionInput) GetExpectedRevision() int { return v.ExpectedRevision }
@@ -126522,14 +126526,14 @@ func (v *__AppsInput) GetOffset() *int { return v.Offset }
 // __AskDecisionInput is used internally by genqlient
 type __AskDecisionInput struct {
 	LogRef string            `json:"logRef"`
-	Input  *AskDecisionInput `json:"input,omitempty"`
+	Input  *AskQuestionInput `json:"input,omitempty"`
 }
 
 // GetLogRef returns __AskDecisionInput.LogRef, and is useful for accessing the field via an interface.
 func (v *__AskDecisionInput) GetLogRef() string { return v.LogRef }
 
 // GetInput returns __AskDecisionInput.Input, and is useful for accessing the field via an interface.
-func (v *__AskDecisionInput) GetInput() *AskDecisionInput { return v.Input }
+func (v *__AskDecisionInput) GetInput() *AskQuestionInput { return v.Input }
 
 // __AssetDownloadUrlInput is used internally by genqlient
 type __AssetDownloadUrlInput struct {
@@ -127928,11 +127932,11 @@ func (v *__ContextResetInput) GetResetId() string { return v.ResetId }
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
 	Name                  string           `json:"name"`
-	OrgId                 *string          `json:"orgId,omitempty"`
+	OrgRef                *string          `json:"orgRef,omitempty"`
 	Description           *string          `json:"description,omitempty"`
 	AgentType             *AgentType       `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string          `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string         `json:"surfaces,omitempty"`
 	PersonaRole           *string          `json:"personaRole,omitempty"`
 	MemberRoles           []string         `json:"memberRoles,omitempty"`
@@ -127943,8 +127947,8 @@ type __CreateAgentInput struct {
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetName() string { return v.Name }
 
-// GetOrgId returns __CreateAgentInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __CreateAgentInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetDescription returns __CreateAgentInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetDescription() *string { return v.Description }
@@ -127955,8 +127959,8 @@ func (v *__CreateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 // GetVisibility returns __CreateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __CreateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __CreateAgentInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __CreateAgentInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
@@ -128005,11 +128009,11 @@ func (v *__CreateAgentWebhookInput) GetInput() *CreateAgentWebhookInput { return
 type __CreateAgentWithContextCapInput struct {
 	Name                  string                    `json:"name"`
 	Lifecycle             *AgentLifecycle           `json:"lifecycle,omitempty"`
-	OrgId                 *string                   `json:"orgId,omitempty"`
+	OrgRef                *string                   `json:"orgRef,omitempty"`
 	Description           *string                   `json:"description,omitempty"`
 	AgentType             *AgentType                `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility          `json:"visibility,omitempty"`
-	SystemMemoryId        *string                   `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string                   `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string                  `json:"surfaces,omitempty"`
 	PersonaRole           *string                   `json:"personaRole,omitempty"`
 	MemberRoles           []string                  `json:"memberRoles,omitempty"`
@@ -128024,8 +128028,8 @@ func (v *__CreateAgentWithContextCapInput) GetName() string { return v.Name }
 // GetLifecycle returns __CreateAgentWithContextCapInput.Lifecycle, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithContextCapInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
 
-// GetOrgId returns __CreateAgentWithContextCapInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentWithContextCapInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __CreateAgentWithContextCapInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetDescription returns __CreateAgentWithContextCapInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithContextCapInput) GetDescription() *string { return v.Description }
@@ -128036,8 +128040,8 @@ func (v *__CreateAgentWithContextCapInput) GetAgentType() *AgentType { return v.
 // GetVisibility returns __CreateAgentWithContextCapInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithContextCapInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __CreateAgentWithContextCapInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentWithContextCapInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __CreateAgentWithContextCapInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __CreateAgentWithContextCapInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithContextCapInput) GetSurfaces() []string { return v.Surfaces }
@@ -128065,11 +128069,11 @@ func (v *__CreateAgentWithContextCapInput) GetContextCap() *gqltypes.ContextCapI
 type __CreateAgentWithLifecycleInput struct {
 	Name                  string           `json:"name"`
 	Lifecycle             *AgentLifecycle  `json:"lifecycle,omitempty"`
-	OrgId                 *string          `json:"orgId,omitempty"`
+	OrgRef                *string          `json:"orgRef,omitempty"`
 	Description           *string          `json:"description,omitempty"`
 	AgentType             *AgentType       `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string          `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string         `json:"surfaces,omitempty"`
 	PersonaRole           *string          `json:"personaRole,omitempty"`
 	MemberRoles           []string         `json:"memberRoles,omitempty"`
@@ -128083,8 +128087,8 @@ func (v *__CreateAgentWithLifecycleInput) GetName() string { return v.Name }
 // GetLifecycle returns __CreateAgentWithLifecycleInput.Lifecycle, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithLifecycleInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
 
-// GetOrgId returns __CreateAgentWithLifecycleInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentWithLifecycleInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __CreateAgentWithLifecycleInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetDescription returns __CreateAgentWithLifecycleInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithLifecycleInput) GetDescription() *string { return v.Description }
@@ -128095,8 +128099,8 @@ func (v *__CreateAgentWithLifecycleInput) GetAgentType() *AgentType { return v.A
 // GetVisibility returns __CreateAgentWithLifecycleInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithLifecycleInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __CreateAgentWithLifecycleInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__CreateAgentWithLifecycleInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __CreateAgentWithLifecycleInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __CreateAgentWithLifecycleInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithLifecycleInput) GetSurfaces() []string { return v.Surfaces }
@@ -129296,10 +129300,10 @@ type __DecisionsInput struct {
 	LogRef     *string           `json:"logRef,omitempty"`
 	AwaitingMe *bool             `json:"awaitingMe,omitempty"`
 	Authorizes *bool             `json:"authorizes,omitempty"`
-	State      []DecisionState   `json:"state,omitempty"`
-	Tier       *DecisionTier     `json:"tier,omitempty"`
-	Urgency    []DecisionUrgency `json:"urgency,omitempty"`
-	Sort       *DecisionSort     `json:"sort,omitempty"`
+	State      []QuestionState   `json:"state,omitempty"`
+	Tier       *QuestionTier     `json:"tier,omitempty"`
+	Urgency    []QuestionUrgency `json:"urgency,omitempty"`
+	Sort       *QuestionSort     `json:"sort,omitempty"`
 	Limit      *int              `json:"limit,omitempty"`
 	Offset     *int              `json:"offset,omitempty"`
 }
@@ -129314,16 +129318,16 @@ func (v *__DecisionsInput) GetAwaitingMe() *bool { return v.AwaitingMe }
 func (v *__DecisionsInput) GetAuthorizes() *bool { return v.Authorizes }
 
 // GetState returns __DecisionsInput.State, and is useful for accessing the field via an interface.
-func (v *__DecisionsInput) GetState() []DecisionState { return v.State }
+func (v *__DecisionsInput) GetState() []QuestionState { return v.State }
 
 // GetTier returns __DecisionsInput.Tier, and is useful for accessing the field via an interface.
-func (v *__DecisionsInput) GetTier() *DecisionTier { return v.Tier }
+func (v *__DecisionsInput) GetTier() *QuestionTier { return v.Tier }
 
 // GetUrgency returns __DecisionsInput.Urgency, and is useful for accessing the field via an interface.
-func (v *__DecisionsInput) GetUrgency() []DecisionUrgency { return v.Urgency }
+func (v *__DecisionsInput) GetUrgency() []QuestionUrgency { return v.Urgency }
 
 // GetSort returns __DecisionsInput.Sort, and is useful for accessing the field via an interface.
-func (v *__DecisionsInput) GetSort() *DecisionSort { return v.Sort }
+func (v *__DecisionsInput) GetSort() *QuestionSort { return v.Sort }
 
 // GetLimit returns __DecisionsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__DecisionsInput) GetLimit() *int { return v.Limit }
@@ -135570,7 +135574,7 @@ type __UpdateAgentInput struct {
 	Description           *string                         `json:"description,omitempty"`
 	AgentType             *AgentType                      `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
-	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string                         `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string                        `json:"surfaces,omitempty"`
 	Urn                   *string                         `json:"urn,omitempty"`
 	PersonaRole           *string                         `json:"personaRole,omitempty"`
@@ -135596,8 +135600,8 @@ func (v *__UpdateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 // GetVisibility returns __UpdateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __UpdateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __UpdateAgentInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __UpdateAgentInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetSurfaces() []string { return v.Surfaces }
@@ -135677,7 +135681,7 @@ type __UpdateAgentWithContextCapInput struct {
 	Description           *string                         `json:"description,omitempty"`
 	AgentType             *AgentType                      `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
-	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string                         `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string                        `json:"surfaces,omitempty"`
 	Urn                   *string                         `json:"urn,omitempty"`
 	PersonaRole           *string                         `json:"personaRole,omitempty"`
@@ -135707,8 +135711,8 @@ func (v *__UpdateAgentWithContextCapInput) GetAgentType() *AgentType { return v.
 // GetVisibility returns __UpdateAgentWithContextCapInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentWithContextCapInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __UpdateAgentWithContextCapInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentWithContextCapInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __UpdateAgentWithContextCapInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithContextCapInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __UpdateAgentWithContextCapInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentWithContextCapInput) GetSurfaces() []string { return v.Surfaces }
@@ -135753,7 +135757,7 @@ type __UpdateAgentWithLifecycleInput struct {
 	Description           *string                         `json:"description,omitempty"`
 	AgentType             *AgentType                      `json:"agentType,omitempty"`
 	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
-	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	SystemMemoryRef       *string                         `json:"systemMemoryRef,omitempty"`
 	Surfaces              []string                        `json:"surfaces,omitempty"`
 	Urn                   *string                         `json:"urn,omitempty"`
 	PersonaRole           *string                         `json:"personaRole,omitempty"`
@@ -135782,8 +135786,8 @@ func (v *__UpdateAgentWithLifecycleInput) GetAgentType() *AgentType { return v.A
 // GetVisibility returns __UpdateAgentWithLifecycleInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentWithLifecycleInput) GetVisibility() *AgentVisibility { return v.Visibility }
 
-// GetSystemMemoryId returns __UpdateAgentWithLifecycleInput.SystemMemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentWithLifecycleInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
+// GetSystemMemoryRef returns __UpdateAgentWithLifecycleInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentWithLifecycleInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
 
 // GetSurfaces returns __UpdateAgentWithLifecycleInput.Surfaces, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentWithLifecycleInput) GetSurfaces() []string { return v.Surfaces }
@@ -136255,7 +136259,7 @@ func (v *__UpdateMemoryConfigTemplateInput) GetExpectedRevision() int { return v
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
-	Id                             string            `json:"id"`
+	Ref                            string            `json:"ref"`
 	Name                           *string           `json:"name,omitempty"`
 	ShortDescription               *string           `json:"shortDescription,omitempty"`
 	Description                    *string           `json:"description,omitempty"`
@@ -136284,8 +136288,8 @@ type __UpdateMemoryInput struct {
 	ForceFixedSize                 *bool             `json:"forceFixedSize,omitempty"`
 }
 
-// GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryInput) GetId() string { return v.Id }
+// GetRef returns __UpdateMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetRef() string { return v.Ref }
 
 // GetName returns __UpdateMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetName() *string { return v.Name }
@@ -136819,15 +136823,15 @@ func (v *__UpdateOrgMemberInput) GetRole() Role { return v.Role }
 
 // __UpdateOrganizationInput is used internally by genqlient
 type __UpdateOrganizationInput struct {
-	Id                  string           `json:"id"`
+	Ref                 string           `json:"ref"`
 	Name                *string          `json:"name,omitempty"`
 	Urn                 *string          `json:"urn,omitempty"`
 	ListedOnMarketplace *bool            `json:"listedOnMarketplace,omitempty"`
 	Policy              *json.RawMessage `json:"policy,omitempty"`
 }
 
-// GetId returns __UpdateOrganizationInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateOrganizationInput) GetId() string { return v.Id }
+// GetRef returns __UpdateOrganizationInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetRef() string { return v.Ref }
 
 // GetName returns __UpdateOrganizationInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetName() *string { return v.Name }
@@ -145327,12 +145331,12 @@ func AlarmAcknowledgeInstructed(
 
 // The mutation executed by AmendDecision.
 const AmendDecision_Operation = `
-mutation AmendDecision ($ref: ID!, $input: AmendDecisionInput!, $expectedRevision: Int!, $reason: String!) {
-	amendDecision(ref: $ref, input: $input, expectedRevision: $expectedRevision, reason: $reason) {
+mutation AmendDecision ($ref: ID!, $input: AmendQuestionInput!, $expectedRevision: Int!, $reason: String!) {
+	amendQuestion(ref: $ref, input: $input, expectedRevision: $expectedRevision, reason: $reason) {
 		... DecisionFields
 	}
 }
-fragment DecisionFields on Decision {
+fragment DecisionFields on Question {
 	id
 	urn
 	code
@@ -145415,7 +145419,7 @@ fragment DecisionFields on Decision {
 		}
 	}
 }
-fragment DecisionActorFields on DecisionActor {
+fragment DecisionActorFields on QuestionActor {
 	userId
 	user {
 		... DecisionActorRefFields
@@ -145435,7 +145439,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -145446,7 +145450,7 @@ fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
 	}
 	mergedAt
 }
-fragment DecisionAnswerFields on DecisionAnswer {
+fragment DecisionAnswerFields on QuestionAnswer {
 	at
 	byUserId
 	recordedByUserId
@@ -145460,7 +145464,7 @@ fragment DecisionAnswerFields on DecisionAnswer {
 		... DecisionRefFields
 	}
 }
-fragment DecisionRefFields on DecisionRef {
+fragment DecisionRefFields on QuestionRef {
 	ref
 	node
 	spec
@@ -145478,7 +145482,7 @@ func AmendDecision(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
-	input *AmendDecisionInput,
+	input *AmendQuestionInput,
 	expectedRevision int,
 	reason string,
 ) (data_ *AmendDecisionResponse, err_ error) {
@@ -147169,12 +147173,12 @@ func Apps(
 
 // The mutation executed by AskDecision.
 const AskDecision_Operation = `
-mutation AskDecision ($logRef: ID!, $input: AskDecisionInput!) {
-	askDecision(logRef: $logRef, input: $input) {
+mutation AskDecision ($logRef: ID!, $input: AskQuestionInput!) {
+	askQuestion(logRef: $logRef, input: $input) {
 		... DecisionFields
 	}
 }
-fragment DecisionFields on Decision {
+fragment DecisionFields on Question {
 	id
 	urn
 	code
@@ -147257,7 +147261,7 @@ fragment DecisionFields on Decision {
 		}
 	}
 }
-fragment DecisionActorFields on DecisionActor {
+fragment DecisionActorFields on QuestionActor {
 	userId
 	user {
 		... DecisionActorRefFields
@@ -147277,7 +147281,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -147288,7 +147292,7 @@ fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
 	}
 	mergedAt
 }
-fragment DecisionAnswerFields on DecisionAnswer {
+fragment DecisionAnswerFields on QuestionAnswer {
 	at
 	byUserId
 	recordedByUserId
@@ -147302,7 +147306,7 @@ fragment DecisionAnswerFields on DecisionAnswer {
 		... DecisionRefFields
 	}
 }
-fragment DecisionRefFields on DecisionRef {
+fragment DecisionRefFields on QuestionRef {
 	ref
 	node
 	spec
@@ -147315,7 +147319,7 @@ func AskDecision(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	logRef string,
-	input *AskDecisionInput,
+	input *AskQuestionInput,
 ) (data_ *AskDecisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AskDecision",
@@ -152126,8 +152130,8 @@ func ContextReset(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+mutation CreateAgent ($name: String!, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, orgRef: $orgRef, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
 		... AgentFields
 	}
 }
@@ -152167,11 +152171,11 @@ func CreateAgent(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	name string,
-	orgId *string,
+	orgRef *string,
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	personaRole *string,
 	memberRoles []string,
@@ -152183,11 +152187,11 @@ func CreateAgent(
 		Query:  CreateAgent_Operation,
 		Variables: &__CreateAgentInput{
 			Name:                  name,
-			OrgId:                 orgId,
+			OrgRef:                orgRef,
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			PersonaRole:           personaRole,
 			MemberRoles:           memberRoles,
@@ -152378,8 +152382,8 @@ func CreateAgentWebhook(
 
 // The mutation executed by CreateAgentWithContextCap.
 const CreateAgentWithContextCap_Operation = `
-mutation CreateAgentWithContextCap ($name: String!, $lifecycle: AgentLifecycle, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean, $contextCap: Int) {
-	createAgent(contextCap: $contextCap, name: $name, lifecycle: $lifecycle, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+mutation CreateAgentWithContextCap ($name: String!, $lifecycle: AgentLifecycle, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean, $contextCap: Int) {
+	createAgent(contextCap: $contextCap, name: $name, lifecycle: $lifecycle, orgRef: $orgRef, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
 		... AgentFields
 		lifecycle
 		contextCap
@@ -152422,11 +152426,11 @@ func CreateAgentWithContextCap(
 	client_ graphql.Client,
 	name string,
 	lifecycle *AgentLifecycle,
-	orgId *string,
+	orgRef *string,
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	personaRole *string,
 	memberRoles []string,
@@ -152440,11 +152444,11 @@ func CreateAgentWithContextCap(
 		Variables: &__CreateAgentWithContextCapInput{
 			Name:                  name,
 			Lifecycle:             lifecycle,
-			OrgId:                 orgId,
+			OrgRef:                orgRef,
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			PersonaRole:           personaRole,
 			MemberRoles:           memberRoles,
@@ -152468,8 +152472,8 @@ func CreateAgentWithContextCap(
 
 // The mutation executed by CreateAgentWithLifecycle.
 const CreateAgentWithLifecycle_Operation = `
-mutation CreateAgentWithLifecycle ($name: String!, $lifecycle: AgentLifecycle, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
-	createAgent(name: $name, lifecycle: $lifecycle, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+mutation CreateAgentWithLifecycle ($name: String!, $lifecycle: AgentLifecycle, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, lifecycle: $lifecycle, orgRef: $orgRef, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
 		... AgentFields
 		lifecycle
 	}
@@ -152511,11 +152515,11 @@ func CreateAgentWithLifecycle(
 	client_ graphql.Client,
 	name string,
 	lifecycle *AgentLifecycle,
-	orgId *string,
+	orgRef *string,
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	personaRole *string,
 	memberRoles []string,
@@ -152528,11 +152532,11 @@ func CreateAgentWithLifecycle(
 		Variables: &__CreateAgentWithLifecycleInput{
 			Name:                  name,
 			Lifecycle:             lifecycle,
-			OrgId:                 orgId,
+			OrgRef:                orgRef,
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			PersonaRole:           personaRole,
 			MemberRoles:           memberRoles,
@@ -153429,11 +153433,11 @@ func CreateConnectionGrant(
 // The mutation executed by CreateDecisionLog.
 const CreateDecisionLog_Operation = `
 mutation CreateDecisionLog ($memoryRef: ID!, $loc: String!, $name: String, $prefix: String, $defaultDeciders: [ID!]!, $eligibleDeciders: [ID!]) {
-	createDecisionLog(memoryRef: $memoryRef, loc: $loc, name: $name, prefix: $prefix, defaultDeciders: $defaultDeciders, eligibleDeciders: $eligibleDeciders) {
+	createQuestionLog(memoryRef: $memoryRef, loc: $loc, name: $name, prefix: $prefix, defaultDeciders: $defaultDeciders, eligibleDeciders: $eligibleDeciders) {
 		... DecisionLogFields
 	}
 }
-fragment DecisionLogFields on DecisionLog {
+fragment DecisionLogFields on QuestionLog {
 	id
 	urn
 	loc
@@ -153470,7 +153474,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -155248,11 +155252,11 @@ func CreditLedgerEntries(
 // The query executed by Decision.
 const Decision_Operation = `
 query Decision ($ref: ID, $code: String, $logRef: ID) {
-	decision(ref: $ref, code: $code, logRef: $logRef) {
+	question(ref: $ref, code: $code, logRef: $logRef) {
 		... DecisionFields
 	}
 }
-fragment DecisionFields on Decision {
+fragment DecisionFields on Question {
 	id
 	urn
 	code
@@ -155335,7 +155339,7 @@ fragment DecisionFields on Decision {
 		}
 	}
 }
-fragment DecisionActorFields on DecisionActor {
+fragment DecisionActorFields on QuestionActor {
 	userId
 	user {
 		... DecisionActorRefFields
@@ -155355,7 +155359,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -155366,7 +155370,7 @@ fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
 	}
 	mergedAt
 }
-fragment DecisionAnswerFields on DecisionAnswer {
+fragment DecisionAnswerFields on QuestionAnswer {
 	at
 	byUserId
 	recordedByUserId
@@ -155380,7 +155384,7 @@ fragment DecisionAnswerFields on DecisionAnswer {
 		... DecisionRefFields
 	}
 }
-fragment DecisionRefFields on DecisionRef {
+fragment DecisionRefFields on QuestionRef {
 	ref
 	node
 	spec
@@ -155421,11 +155425,11 @@ func Decision(
 // The query executed by DecisionLog.
 const DecisionLog_Operation = `
 query DecisionLog ($ref: ID!) {
-	decisionLog(ref: $ref) {
+	questionLog(ref: $ref) {
 		... DecisionLogFields
 	}
 }
-fragment DecisionLogFields on DecisionLog {
+fragment DecisionLogFields on QuestionLog {
 	id
 	urn
 	loc
@@ -155462,7 +155466,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -155502,15 +155506,15 @@ func DecisionLog(
 
 // The query executed by Decisions.
 const Decisions_Operation = `
-query Decisions ($logRef: ID, $awaitingMe: Boolean, $authorizes: Boolean, $state: [DecisionState!], $tier: DecisionTier, $urgency: [DecisionUrgency!], $sort: DecisionSort, $limit: Int, $offset: Int) {
-	decisions(logRef: $logRef, awaitingMe: $awaitingMe, authorizes: $authorizes, state: $state, tier: $tier, urgency: $urgency, sort: $sort, limit: $limit, offset: $offset) {
+query Decisions ($logRef: ID, $awaitingMe: Boolean, $authorizes: Boolean, $state: [QuestionState!], $tier: QuestionTier, $urgency: [QuestionUrgency!], $sort: QuestionSort, $limit: Int, $offset: Int) {
+	questions(logRef: $logRef, awaitingMe: $awaitingMe, authorizes: $authorizes, state: $state, tier: $tier, urgency: $urgency, sort: $sort, limit: $limit, offset: $offset) {
 		total
 		items {
 			... DecisionFields
 		}
 	}
 }
-fragment DecisionFields on Decision {
+fragment DecisionFields on Question {
 	id
 	urn
 	code
@@ -155593,7 +155597,7 @@ fragment DecisionFields on Decision {
 		}
 	}
 }
-fragment DecisionActorFields on DecisionActor {
+fragment DecisionActorFields on QuestionActor {
 	userId
 	user {
 		... DecisionActorRefFields
@@ -155613,7 +155617,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -155624,7 +155628,7 @@ fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
 	}
 	mergedAt
 }
-fragment DecisionAnswerFields on DecisionAnswer {
+fragment DecisionAnswerFields on QuestionAnswer {
 	at
 	byUserId
 	recordedByUserId
@@ -155638,14 +155642,14 @@ fragment DecisionAnswerFields on DecisionAnswer {
 		... DecisionRefFields
 	}
 }
-fragment DecisionRefFields on DecisionRef {
+fragment DecisionRefFields on QuestionRef {
 	ref
 	node
 	spec
 }
 `
 
-// The server pages (limit/offset, DecisionPage.total); omitted filters keep the
+// The server pages (limit/offset, QuestionPage.total); omitted filters keep the
 // server defaults (limit 20, offset 0, sort PORTAL_DEFAULT).
 func Decisions(
 	ctx_ context.Context,
@@ -155653,10 +155657,10 @@ func Decisions(
 	logRef *string,
 	awaitingMe *bool,
 	authorizes *bool,
-	state []DecisionState,
-	tier *DecisionTier,
-	urgency []DecisionUrgency,
-	sort *DecisionSort,
+	state []QuestionState,
+	tier *QuestionTier,
+	urgency []QuestionUrgency,
+	sort *QuestionSort,
 	limit *int,
 	offset *int,
 ) (data_ *DecisionsResponse, err_ error) {
@@ -167819,7 +167823,7 @@ func PublishRevision(
 // The mutation executed by PurgeUnansweredDecision.
 const PurgeUnansweredDecision_Operation = `
 mutation PurgeUnansweredDecision ($ref: ID!, $reason: String!) {
-	purgeUnansweredDecision(ref: $ref, reason: $reason)
+	purgeUnansweredQuestion(ref: $ref, reason: $reason)
 }
 `
 
@@ -173598,11 +173602,11 @@ func SetAutomationTeamSnapshotGrant(
 // The mutation executed by SetDecisionLogDeciders.
 const SetDecisionLogDeciders_Operation = `
 mutation SetDecisionLogDeciders ($logRef: ID!, $defaultDeciders: [ID!]!, $eligibleDeciders: [ID!], $expectedRevision: Int!, $reason: String!) {
-	setDecisionLogDeciders(logRef: $logRef, defaultDeciders: $defaultDeciders, eligibleDeciders: $eligibleDeciders, expectedRevision: $expectedRevision, reason: $reason) {
+	setQuestionLogDeciders(logRef: $logRef, defaultDeciders: $defaultDeciders, eligibleDeciders: $eligibleDeciders, expectedRevision: $expectedRevision, reason: $reason) {
 		... DecisionLogFields
 	}
 }
-fragment DecisionLogFields on DecisionLog {
+fragment DecisionLogFields on QuestionLog {
 	id
 	urn
 	loc
@@ -173639,7 +173643,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -179882,8 +179886,8 @@ func UntrackedTaskItemsNoTeam(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
 		... AgentFields
 	}
 }
@@ -179927,7 +179931,7 @@ func UpdateAgent(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	urn *string,
 	personaRole *string,
@@ -179946,7 +179950,7 @@ func UpdateAgent(
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			Urn:                   urn,
 			PersonaRole:           personaRole,
@@ -180159,8 +180163,8 @@ func UpdateAgentTickerTemplate(
 
 // The mutation executed by UpdateAgentWithContextCap.
 const UpdateAgentWithContextCap_Operation = `
-mutation UpdateAgentWithContextCap ($ref: ID!, $lifecycle: AgentLifecycle, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput, $contextCap: Int) {
-	updateAgent(contextCap: $contextCap, ref: $ref, lifecycle: $lifecycle, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
+mutation UpdateAgentWithContextCap ($ref: ID!, $lifecycle: AgentLifecycle, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput, $contextCap: Int) {
+	updateAgent(contextCap: $contextCap, ref: $ref, lifecycle: $lifecycle, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
 		... AgentFields
 		lifecycle
 		contextCap
@@ -180207,7 +180211,7 @@ func UpdateAgentWithContextCap(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	urn *string,
 	personaRole *string,
@@ -180228,7 +180232,7 @@ func UpdateAgentWithContextCap(
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			Urn:                   urn,
 			PersonaRole:           personaRole,
@@ -180255,8 +180259,8 @@ func UpdateAgentWithContextCap(
 
 // The mutation executed by UpdateAgentWithLifecycle.
 const UpdateAgentWithLifecycle_Operation = `
-mutation UpdateAgentWithLifecycle ($ref: ID!, $lifecycle: AgentLifecycle, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
-	updateAgent(ref: $ref, lifecycle: $lifecycle, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
+mutation UpdateAgentWithLifecycle ($ref: ID!, $lifecycle: AgentLifecycle, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
+	updateAgent(ref: $ref, lifecycle: $lifecycle, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
 		... AgentFields
 		lifecycle
 	}
@@ -180302,7 +180306,7 @@ func UpdateAgentWithLifecycle(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemMemoryId *string,
+	systemMemoryRef *string,
 	surfaces []string,
 	urn *string,
 	personaRole *string,
@@ -180322,7 +180326,7 @@ func UpdateAgentWithLifecycle(
 			Description:           description,
 			AgentType:             agentType,
 			Visibility:            visibility,
-			SystemMemoryId:        systemMemoryId,
+			SystemMemoryRef:       systemMemoryRef,
 			Surfaces:              surfaces,
 			Urn:                   urn,
 			PersonaRole:           personaRole,
@@ -180992,8 +180996,8 @@ func UpdateMcpServer(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean, $category0: String, $category1: String, $category2: String, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $acknowledgeVectorInversionRisk: Boolean, $chunkTokens: Int, $chunkOverlap: Int, $forceFixedSize: Boolean) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace, category0: $category0, category1: $category1, category2: $category2, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, acknowledgeVectorInversionRisk: $acknowledgeVectorInversionRisk, chunkTokens: $chunkTokens, chunkOverlap: $chunkOverlap, forceFixedSize: $forceFixedSize) {
+mutation UpdateMemory ($ref: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean, $category0: String, $category1: String, $category2: String, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $acknowledgeVectorInversionRisk: Boolean, $chunkTokens: Int, $chunkOverlap: Int, $forceFixedSize: Boolean) {
+	updateMemory(ref: $ref, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace, category0: $category0, category1: $category1, category2: $category2, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, acknowledgeVectorInversionRisk: $acknowledgeVectorInversionRisk, chunkTokens: $chunkTokens, chunkOverlap: $chunkOverlap, forceFixedSize: $forceFixedSize) {
 		id
 		urn
 		name
@@ -181014,7 +181018,7 @@ mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $desc
 func UpdateMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	name *string,
 	shortDescription *string,
 	description *string,
@@ -181046,7 +181050,7 @@ func UpdateMemory(
 		OpName: "UpdateMemory",
 		Query:  UpdateMemory_Operation,
 		Variables: &__UpdateMemoryInput{
-			Id:                             id,
+			Ref:                            ref,
 			Name:                           name,
 			ShortDescription:               shortDescription,
 			Description:                    description,
@@ -182254,8 +182258,8 @@ func UpdateOrgMember(
 
 // The mutation executed by UpdateOrganization.
 const UpdateOrganization_Operation = `
-mutation UpdateOrganization ($id: ID!, $name: String, $urn: String, $listedOnMarketplace: Boolean, $policy: JSON) {
-	updateOrganization(id: $id, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace, policy: $policy) {
+mutation UpdateOrganization ($ref: ID!, $name: String, $urn: String, $listedOnMarketplace: Boolean, $policy: JSON) {
+	updateOrganization(ref: $ref, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace, policy: $policy) {
 		... OrgFields
 	}
 }
@@ -182272,7 +182276,7 @@ fragment OrgFields on Organization {
 func UpdateOrganization(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	name *string,
 	urn *string,
 	listedOnMarketplace *bool,
@@ -182282,7 +182286,7 @@ func UpdateOrganization(
 		OpName: "UpdateOrganization",
 		Query:  UpdateOrganization_Operation,
 		Variables: &__UpdateOrganizationInput{
-			Id:                  id,
+			Ref:                 ref,
 			Name:                name,
 			Urn:                 urn,
 			ListedOnMarketplace: listedOnMarketplace,
@@ -183973,7 +183977,7 @@ func ValidateMemory(
 // The query executed by VerifyDecision.
 const VerifyDecision_Operation = `
 query VerifyDecision ($ref: ID!) {
-	verifyDecision(ref: $ref) {
+	verifyQuestion(ref: $ref) {
 		state
 		revision
 		approvedRevision
@@ -184160,11 +184164,11 @@ func WebPollsPage(
 // The mutation executed by WithdrawDecision.
 const WithdrawDecision_Operation = `
 mutation WithdrawDecision ($ref: ID!, $reason: String!, $expectedRevision: Int!) {
-	withdrawDecision(ref: $ref, reason: $reason, expectedRevision: $expectedRevision) {
+	withdrawQuestion(ref: $ref, reason: $reason, expectedRevision: $expectedRevision) {
 		... DecisionFields
 	}
 }
-fragment DecisionFields on Decision {
+fragment DecisionFields on Question {
 	id
 	urn
 	code
@@ -184247,7 +184251,7 @@ fragment DecisionFields on Decision {
 		}
 	}
 }
-fragment DecisionActorFields on DecisionActor {
+fragment DecisionActorFields on QuestionActor {
 	userId
 	user {
 		... DecisionActorRefFields
@@ -184267,7 +184271,7 @@ fragment DecisionActorRefFields on CommentActorRef {
 	handle
 	urn
 }
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
 	fromUserId
 	from {
 		... DecisionActorRefFields
@@ -184278,7 +184282,7 @@ fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
 	}
 	mergedAt
 }
-fragment DecisionAnswerFields on DecisionAnswer {
+fragment DecisionAnswerFields on QuestionAnswer {
 	at
 	byUserId
 	recordedByUserId
@@ -184292,7 +184296,7 @@ fragment DecisionAnswerFields on DecisionAnswer {
 		... DecisionRefFields
 	}
 }
-fragment DecisionRefFields on DecisionRef {
+fragment DecisionRefFields on QuestionRef {
 	ref
 	node
 	spec

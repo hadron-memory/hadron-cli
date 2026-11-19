@@ -809,7 +809,7 @@ upgrade that server first, including self-hosted or staging ones.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC (server default when unset)")
-	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "an existing memory's ID to use as the Agent's system memory; normally left out (the server gives each Agent one)")
+	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "an existing memory's ID or URN to use as the Agent's system memory; normally left out (the server gives each Agent one)")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
 	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "roles the agent offers an App's members, comma-separated (default owner,member; the server validates them)")
@@ -1055,7 +1055,7 @@ other flags. Against an older server the write is refused as a schema mismatch
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC")
-	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
+	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID or URN")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "rename the Agent's slug (the last part of its URN); organization-owned Agents only")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
@@ -1115,7 +1115,7 @@ still in use: an App has it installed (see "hadron app uninstall" and "hadron
 app agent remove"), another Agent imports it, or another Agent extends it as its
 base. Memories attached to the Agent ("hadron agent memory add") do not block
 the delete, and only the attachment goes with the Agent. The delete is also
-refused (DECISION_CONTAINED) while the Agent's system memory holds a decision or
+refused (QUESTION_CONTAINED) while the Agent's system memory holds a decision or
 a decision log, and a server that must keep minted content may add its own
 restrictions.
 

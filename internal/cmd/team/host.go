@@ -534,6 +534,9 @@ the App's manager — with no worker session.`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			if resp == nil || resp.IssueHostOperation == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no host operation")
+			}
 			op := hostOperationDTOFrom(&resp.IssueHostOperation.HostOperationFields)
 			return output.Write(f.IOStreams, f.JSON, op, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ issued %s %s to host %s for %s (%s, by %s) in %s\n",

@@ -29,9 +29,7 @@ import (
 // knownPanics1051 lists the commands (by path) that panic on a reply with no data,
 // each tracked by a follow-up issue: a panic is a defect of the command, not of
 // its example, so the walk records it here instead of failing the help check.
-var knownPanics1051 = map[string]string{
-	"replace text": "#2527",
-}
+var knownPanics1051 = map[string]string{}
 
 func collectReplaceCommentPages1051(root *cobra.Command) []*cobra.Command {
 	var pages []*cobra.Command

@@ -147,17 +147,24 @@ func uncertainFindingsFinish(err error) error {
 
 func newCmdTaskResultFindings(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int64
-	c := &cobra.Command{Use: "findings <task>", Short: "Read one page of immutable task result findings", Long: `Read immutable findings recorded at finish (server#3248/#2662, cor:agt:050:30).
-Requires a provider containing server#3248, only for this command and opt-in finish.
-This is not the separate latest finding-dispositions surface. Uses the task's existing readers.
-Default --limit 20; explicit 0 is count-only; larger positive GraphQL Int values pass
-through for provider capping (200). --offset is non-negative. Follow hasMore and the
-actual served count; no automatic page drain, read cursor, retry or writes.
-A task with no result prints no result yet (JSON findings:null); an empty finished
-result has a page with items:[],total:0,hasMore:false. Missing/unreadable task exits4.
-Human text neutralizes terminal controls; JSON retains complete original valid text.
-Severity is only a label and never changes exit status or task outcome.
-Sign in first. A task id or URN works directly; a handle uses the current App.`, Example: `  hadron team task findings AT0.7
+	c := &cobra.Command{Use: "findings <task>", Short: "Read one page of immutable task result findings", Long: `Show the findings a finished task recorded: the issues its assignee noted when it
+finished (a reviewer's defects, an evaluator's failing pages), each with an id
+such as F1, a severity (P1, P2, P3 or note) and its text. Findings are written
+once, by "hadron team task finish <task> --findings-file <path|->", and never
+change. What became of each one is its disposition: record it with "hadron team
+task dispose-finding" and list the current ones with "hadron team task
+finding-dispositions".
+
+A task with no result yet prints "no result yet" (--json: findings null); a
+finished task that recorded none has an empty page (items [], total 0). --limit
+is the page size (default 20; 0 prints only the count; the server caps large
+values at 200) and --offset starts later: follow hasMore, nothing is paged for
+you. Severity is only a label: it never changes the exit status or the task's
+outcome. Text neutralizes terminal controls; --json keeps the original text.
+
+Sign in first. The task may be an id, a URN or a handle in the current App; a
+missing or unreadable task exits 4. A server without findings refuses the
+command.`, Example: `  hadron team task findings AT0.7
   hadron team task findings AT0.7 --limit 0 --json
   hadron team task findings AT0.7 --limit 20 --offset 20`, Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
 		if limit < 0 || limit > 2147483647 || offset < 0 || offset > 2147483647 {

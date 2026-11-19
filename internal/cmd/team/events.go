@@ -294,11 +294,20 @@ func tasklessAlarmCell(e teamEventDTO) string {
 func newCmdTeamAlarm(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alarm <command>",
-		Short: "A team App's task-stall, dark-worker and coordinator-cadence alarms",
-		Long: `Task-stall, dark-worker and coordinator-cadence alarms — events that wake an owner chain
-(cor:agt:050:19). Task stall kinds include stall.not-started, stall.no-progress,
-stall.owner-unreactive, assignment.unassignable and stall.finish-by. The finish-by alarm
-uses the task deadline instead of ordinary stall windows. See them with ` + "`team events --alarms`" + `.`,
+		Short: "Acknowledge a team App's task-stall, dark-worker and coordinator-cadence alarms",
+		Long: `An alarm is a warning the platform raises when work stalls: a task that was not
+started (stall.not-started), shows no progress (stall.no-progress), whose owner
+has not reacted (stall.owner-unreactive), that cannot be assigned
+(assignment.unassignable) or has passed its finish-by time (stall.finish-by);
+or a dark-worker alarm (a worker that has gone dark), or a coordinator-cadence
+alarm (a coordinator that has missed its cadence). An alarm wakes its nearest
+owner first, and the owners above only while it stays unacknowledged.
+
+To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
+alarm) or "hadron team events --alarms" (the raw event stream). Both show each
+alarm's event id; "hadron team alarm ack <eventId>" acknowledges it.`,
+		Example: `  hadron team alarms --team
+  hadron team alarm ack 01a1f0c2d3e4f5a6b7c8d9e0f1a2b3c4`,
 	}
 	cmd.AddCommand(newCmdTeamAlarmAck(f))
 	return cmd
@@ -308,23 +317,31 @@ func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
 	var rawInstruction string
 	cmd := &cobra.Command{
 		Use:   "ack <eventId>",
-		Short: "Acknowledge an alarm",
-		Long: `Acknowledge an alarm (cor:agt:050:20): it stops waking higher
-owners; it does not end the alarm episode. A coordinator-cadence alarm names
-its coordinator, and a start-failing alarm its worker, without printing payload
-reasons or evidence. A finish-by episode ends when the
-task finishes or is cancelled, or its finish-by value changes or is cleared;
-starting or assigning the task does not end that episode. A dark-worker
-episode ends when the worker is checking again and has no unacknowledged
-wake older than the alarm window. Any owner in
-the alarm's chain may; the time is the server's. The first acknowledgement
-stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).
+		Short: "Acknowledge an alarm so it stops waking higher owners",
+		Long: `Acknowledge an alarm so it stops waking higher owners. <eventId> is the
+alarm's event id: the ALARM column of "hadron team alarms", or the ID column of
+"hadron team events --alarms". Any owner in the alarm's chain may. On success it
+prints "✓ acknowledged alarm <id> (<type> on task <task>), at <time>" (a
+task-less alarm names its worker or coordinator instead of the task; --json: the
+event). The first acknowledgement stands: a second is refused with
+ALARM_ALREADY_ACKNOWLEDGED.
 
---instruction opens the App-manager's held-worker path; the ordinary
+An acknowledgement stops the climb; it does not end the alarm episode. The
+episode ends by itself: a finish-by alarm when the task finishes or is
+cancelled, or its finish-by value changes or is cleared (starting or assigning
+it does not end it); a dark-worker alarm when the worker is checking again and
+has no unacknowledged wake older than the alarm window. A coordinator-cadence
+alarm names its coordinator, and a start-failing alarm its worker, without
+printing payload reasons or evidence.
+
+--instruction opens the App-manager's held-worker path: an AI worker whose
+holder manages the App acknowledges on its holder's say-so; the ordinary
 owner-in-chain path is unchanged. Instructed JSON adds warnings ([] when none);
-text prints server warnings on stderr. Needs server ba077810 or later.
+text prints server warnings on stderr.
 
-` + instructionHelpFor("ba077810"),
+` + taskInstructionHelpShort("ba077810"),
+		Example: `  hadron team alarms --team
+  hadron team alarm ack 01a1f0c2d3e4f5a6b7c8d9e0f1a2b3c4`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			eventId := strings.TrimSpace(args[0])

@@ -63,24 +63,31 @@ type appGrantDTO struct {
 	RevokedAt *string `json:"revokedAt"`
 }
 
-const appGrantHelp = `Manage named App grants, separate from worker action-grant requests and
-organization action grants. The server checks who may manage the App.
-add is person-only. Without --instruction, rm also uses your ordinary
-authenticated caller with no worker session. Only rm accepts the holder's
-instruction claim; its help describes binding checks and person fallback.
+const appGrantHelp = `A named App grant is one permission, from a short fixed list, given to one worker
+in an App. It is separate from worker action grants ('team grant request') and
+from organization action grants ('hadron grant'). The server checks who may
+manage the App.
+
+add is person-only: the CLI always sends it as the signed-in person, never as a
+worker session, so a worker cannot give itself a grant; the server refuses a
+caller who does not manage the App (FORBIDDEN, exit 8), so it must be run by a
+person who manages the App. Without --instruction, rm is sent the same way.
+Only rm accepts the holder's instruction claim; its help describes binding
+checks and the person fallback.
 
 Names follow the server's closed list:
 TICKER_SUBSCRIBE_WORKERS: subscribe and unsubscribe other workers of the App,
 at any cadence. WORKERS_STAFF: named permission for headless casting,
 retiring and deleting workers; the holder's own staffing rights still apply.
 APP_MEMBERS: named permission for headless App-member add/remove; the
-holder's own member-management rights still apply. These last two grants
-are provisioned before the separate server#3308 enforcement rollout; this
-CLI claims no additional gating effect. add is idempotent; revocation takes
-effect at the grantee's next call. Worker references are passed to the server
-as given (use a worker id or URN). --app selects the App; otherwise the
-configured App or binding supplies it. --json prints the returned grant's
-id, appId, workerId, name, grantedAt and nullable revokedAt.`
+holder's own member-management rights still apply. The last two are recorded
+now; the server may not yet enforce them against a headless action; this
+CLI adds no gating of its own. add is idempotent; revocation takes effect at the
+grantee's next call. Worker references are passed to the server as given (use a
+worker id or URN). --app selects the App; otherwise the configured App or
+binding supplies it. --json prints the returned grant's id, appId, workerId,
+name, grantedAt and nullable revokedAt (null until revoked). That returned grant
+is the only confirmation: no command lists named App grants yet.`
 
 func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 	verb, short := "add", "Give a worker a named App grant"

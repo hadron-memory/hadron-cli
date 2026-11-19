@@ -430,7 +430,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 // so server-side validation never runs there: this test validates the bodies
 // structurally. The server builds every ask part and every amend addPart with
 // checkPart, which refuses a part carrying neither "recommendation" nor
-// "noRecommendation" (DECISION_RECOMMENDATION_MISSING — server §8.4, "an
+// "noRecommendation" (QUESTION_RECOMMENDATION_MISSING — server §8.4, "an
 // absent recommendation is always deliberate and stated"); an amend parts
 // change only patches named fields, so it needs its "n" and nothing else.
 func Test2565HeredocInputsAreValidDecisionInput(t *testing.T) {
@@ -500,7 +500,7 @@ func checkHeredocPart2565(t *testing.T, page, file, key string, list []any, want
 		_, rec := part["recommendation"]
 		_, norec := part["noRecommendation"]
 		if rec == norec {
-			t.Errorf("%s: %s %s[%d] carries neither or both of recommendation/noRecommendation; the server refuses it (DECISION_RECOMMENDATION_MISSING)", page, file, key, i)
+			t.Errorf("%s: %s %s[%d] carries neither or both of recommendation/noRecommendation; the server refuses it (QUESTION_RECOMMENDATION_MISSING)", page, file, key, i)
 		}
 	}
 }

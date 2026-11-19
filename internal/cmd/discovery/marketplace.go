@@ -30,6 +30,11 @@ Listing is opt-in and separate from access: unlisted but public resources can
 still be opened by link, but do not appear here (cor:acl:080:04). The server
 applies every eligibility rule. No App/org/worktree filter is inherited.
 
+To list or unlist your own, use "hadron agent update --listed-on-marketplace",
+"hadron org update --marketplace" or "hadron memory set --listed-on-marketplace"
+(add =false to unlist). Listing is advertisement, not access: unlisting a
+resource does not make it private.
+
 These reads work signed out; stored credentials, when available, are attached.
 Each page contains only id, name, urn and nullable description, never members,
 private resource details or credentials. No follow-up resource reads are made.`, Example: `  hadron marketplace agents --limit 10

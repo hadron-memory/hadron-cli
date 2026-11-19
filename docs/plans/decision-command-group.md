@@ -20,7 +20,7 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
 
 ## Decisions made at build time (within the gate's "flag shapes may refine")
 
-- **Nested inputs come from `--input-file`.** `AskDecisionInput`/`AmendDecisionInput` carry
+- **Nested inputs come from `--input-file`.** `AskQuestionInput`/`AmendQuestionInput` carry
   parts, options, recommendations and refs; flags for those would be a second, lossy
   grammar. The file is decoded strictly into the generated input struct (unknown keys
   refused, exit 2, before any call); the four scalar fields also have flags that override
@@ -40,7 +40,7 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
   lists) is the presence-preserving encoding. `amendIsEmpty` counts these by presence.
 - **Amend `context` is tri-state** (Gizelle's LOCAL P2): the server reads absent as keep,
   `null` as clear and a string as set (`patch.context !== undefined`). `*string` cannot
-  carry that, so `AmendDecisionInput.context` is bound to `json.RawMessage` (omitempty):
+  carry that, so `AmendQuestionInput.context` is bound to `json.RawMessage` (omitempty):
   an absent key stays nil and is omitted, and a literal `null` is kept as `null`.
 - **Strict keys.** Besides `DisallowUnknownFields`, `checkKeys` walks the file against
   the target type's exact JSON names, refusing a duplicate key (encoding/json keeps the
@@ -58,7 +58,7 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
   platform-admin rule and every other authority stay server-side (cor:api:240:01).
 - **Deciders are user IDs.** Server `main` (`assertDecidersEligible`,
   `resolvers.decisions.ts`) looks each one up as a user who can write the log's Memory;
-  a worker or URN is refused (`DECISION_DECIDER_NOT_ELIGIBLE`). Help says user ID; the
+  a worker or URN is refused (`QUESTION_DECIDER_NOT_ELIGIBLE`). Help says user ID; the
   value is still passed verbatim.
 - **`withdraw` confirms with `cmdutil.Confirm`**, not `ConfirmDeletion`: a withdrawn
   decision stays readable, so a "Delete …? cannot be undone" prompt would misdescribe it.

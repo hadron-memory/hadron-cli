@@ -22,7 +22,14 @@ type teamPauseDTO struct {
 	TeamPausedAt *string `json:"teamPausedAt"`
 }
 
-const teamPauseHelp = `App scope comes from --app, the active context or this worktree's binding.
+const teamPauseHelp = `Regular wakes are the nudges that wake an idle worker to check the team chat (a
+ticker tick, a mention, a task event). While the App is paused, none of them
+wakes any worker: a mention does not wake a worker either. The one thing that
+still reaches a paused worker is a stop-signal notice, which travels alone
+("hadron team stop --help"). The pause does not interrupt a session that is
+already open, and "hadron team roster" shows each worker's state.
+
+App scope comes from --app, the active context or this worktree's binding.
 This is the signed-in person's write: no worker session is attached; the
 server checks permission.
 
@@ -33,7 +40,7 @@ Which pause to use:
     team stop --help for availability restrictions before setting a signal.
 
 While the App is paused, workers show PENDING with reason TEAM_PAUSED on the
-roster. Pausing again keeps the original timestamp. Resuming clears only the
+roster ("hadron team roster"). It asks no confirmation. Pausing again keeps the original timestamp. Resuming clears only the
 App's team pause, not worker self-pauses or stop signals; lifting it restarts
 every worker's overdue timer (the roster's OVERDUE clock). Resuming an unpaused
 team stamps nothing. The result is the server's stored state, not proof that
@@ -50,7 +57,7 @@ func newCmdTeamPause(f *cmdutil.Factory, paused bool) *cobra.Command {
 	}
 	return &cobra.Command{
 		Use: verb, Short: short, Long: opening + "\n\n" + teamPauseHelp,
-		Example: "  hadron team " + verb + " --app <app> --json",
+		Example: "  hadron team " + verb + " --app <app>\n  hadron team " + verb + " --app <app> --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
