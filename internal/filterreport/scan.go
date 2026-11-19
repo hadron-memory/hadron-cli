@@ -83,10 +83,12 @@ func Scan(ctx context.Context, c *orcaterm.Client, terms []orcaterm.Terminal, ta
 
 // serverOriginEqual is the conservative binding↔server match: scheme and
 // host compare case-insensitively, the scheme's default port is elided, and
-// trailing slashes are trimmed on both sides. Anything else — a different
-// host or port, a path difference, credentials, an empty or unparsable
-// origin — never matches: deployment isolation fails closed, and a mismatch
-// with no safe canonical form stays a mismatch (cli#2483 F15).
+// trailing slashes are trimmed on both sides. A query or fragment is
+// origin-irrelevant (an origin is scheme, host, port and — as this CLI
+// configures servers — path) and dropped on both sides. Anything else — a
+// different host or port, a path difference, credentials, an empty or
+// unparsable origin — never matches: deployment isolation fails closed, and
+// a mismatch with no safe canonical form stays a mismatch (cli#2483 F15).
 func serverOriginEqual(binding, server string) bool {
 	b, s := canonicalOrigin(binding), canonicalOrigin(server)
 	return b != "" && s != "" && b == s
@@ -102,7 +104,15 @@ func canonicalOrigin(raw string) string {
 		return ""
 	}
 	scheme := strings.ToLower(u.Scheme)
+	// net/url strips the brackets in Hostname(), so an IPv6 literal must be
+	// re-bracketed before the port is appended — otherwise http://[::1]:8080
+	// (host ::1, port 8080) and http://[::1:8080] (the address ::1:8080, no
+	// port) both canonicalize to http://::1:8080 and two different origins
+	// compare equal (#2556 review; cli#2483 F15).
 	host := strings.ToLower(u.Hostname())
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
 	if port := u.Port(); port != "" && (scheme != "https" || port != "443") && (scheme != "http" || port != "80") {
 		host += ":" + port
 	}

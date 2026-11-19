@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -122,8 +123,8 @@ objects, including an empty array when there are no local workers.`,
 			targets, err := source.targets(cmd.Context(), app, args)
 			if err != nil {
 				// A coded error already carries its fixed, redacted reason
-				// (unauthenticated, unreachable); anything else collapses to
-				// the unreadable code (cli#2483 F11).
+				// (unauthenticated, unreachable, unreadable); anything else
+				// collapses to the unreadable code (cli#2483 F11).
 				var coded *exitcode.CodedError
 				if errors.As(err, &coded) {
 					return err
@@ -170,6 +171,20 @@ objects, including an empty array when there are no local workers.`,
 	}
 }
 
+// rosterReadError keeps the roster codes honest about the error kind instead
+// of collapsing every failure into "unreachable": a transport failure is the
+// one class where the call never got an answer (team_roster_unreachable),
+// while everything else — an HTTP status the server or a proxy DID answer
+// with, or a GraphQL errors envelope — is an answer that is not a usable
+// roster (team_roster_unreadable). Both codes are fixed strings; the
+// backend's text never reaches the operator (cli#2483 F11, #2556 review).
+func rosterReadError(err error) error {
+	if _, transport := api.TransportCause(err); transport {
+		return exitcode.Newf(exitcode.Error, "team_roster_unreachable")
+	}
+	return exitcode.Newf(exitcode.Error, "team_roster_unreadable")
+}
+
 // PublicGraphQLClient preserves credentials and transport security without the
 // authored-write snapshot hook (that hook reads the binding through git even
 // for a query). Require authentication here: this is a private team read, not
@@ -177,8 +192,12 @@ objects, including an empty array when there are no local workers.`,
 //
 // Failures carry distinct fixed codes, never backend text (cli#2483 F11):
 // team_roster_unauthenticated (no credential), team_roster_unreachable (the
-// call could not be answered) and team_roster_unreadable (an answer that is
-// not a usable roster).
+// call could not be answered: refused, reset, timed out, or a gateway 5xx
+// with no GraphQL answer) and team_roster_unreadable (any answered failure —
+// an HTTP status, or a GraphQL errors envelope; the roster never arrived in
+// usable form). The split is the CLI's own load-bearing transport-vs-opinion
+// classification, so the codes follow what actually happened, not the first
+// error shape a caller happens to hit.
 func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, args []string) ([]filterreport.Target, error) {
 	app, err := cmdutil.CanonicalAppRef("selected App", app)
 	if err != nil || app == "" {
@@ -195,7 +214,7 @@ func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, ar
 	if len(args) > 0 {
 		response, err := gen.FilteredWorkerTarget953(ctx, gql, app, args[0])
 		if err != nil {
-			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreachable")
+			return nil, rosterReadError(err)
 		}
 		w := response.Worker
 		if w == nil {
@@ -233,7 +252,7 @@ func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, ar
 	for offset, pages := 0, 0; ; {
 		response, err := gen.FilteredWorkerRoster953(ctx, gql, app, workerPageSize, offset)
 		if err != nil {
-			return nil, exitcode.Newf(exitcode.Error, "team_roster_unreachable")
+			return nil, rosterReadError(err)
 		}
 		page := response.Workers
 		if page == nil || page.Items == nil || page.Total < 0 {

@@ -108,7 +108,11 @@ func TestTreeStateSymlinkedWorktree2483(t *testing.T) {
 // TestScanServerOriginCanonicalization2483 pins F15: scheme/host case and
 // the scheme's default port are canonicalized on both sides of the
 // binding↔server match; everything else — a different host or port, a
-// missing server, a path difference — stays refused.
+// missing server, a path difference — stays refused. IPv6 literals keep
+// their brackets through canonicalization, so a bracketed address and a
+// bracketed host:port can never fuse into one comparable form (#2556
+// review): http://[::1]:8080 is host ::1 with port 8080, while
+// http://[::1:8080] is the distinct address ::1:8080 with no port.
 func TestScanServerOriginCanonicalization2483(t *testing.T) {
 	for _, tc := range []struct {
 		name, binding, server string
@@ -117,6 +121,11 @@ func TestScanServerOriginCanonicalization2483(t *testing.T) {
 		{"case and default port", "HTTPS://Test.COM:443/", "https://test.com", true},
 		{"http default port", "http://Other.Host:80", "http://other.host", true},
 		{"trailing slash", "https://test.com/", "https://test.com", true},
+		{"ipv6 literal with port", "http://[::1]:8080", "http://[::1]:8080/", true},
+		{"ipv6 default port elided", "https://[2001:db8::1]:443", "https://[2001:db8::1]", true},
+		{"ipv6 host and fused address differ", "http://[::1]:8080", "http://[::1:8080]", false},
+		{"ipv6 address and host:port differ", "http://[::1:8080]", "http://[::1]:8080", false},
+		{"ipv6 case folds", "http://[2001:DB8::1]:8443", "http://[2001:db8::1]:8443", true},
 		{"different host", "https://other.example", "https://test.com", false},
 		{"non-default port", "https://test.com:8443", "https://test.com", false},
 		{"missing binding server", "", "https://test.com", false},

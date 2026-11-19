@@ -92,6 +92,10 @@ func TestFindFilteredMalformedList2483(t *testing.T) {
 // TestFindFilteredTargetErrorCodes2483 pins F11: target-read failures carry
 // distinct fixed codes — unauthenticated, unreachable transport — instead of
 // every failure collapsing into team_roster_unreadable. No raw backend text.
+// The error KIND decides the code (#2556 review): only a transport failure
+// (never answered) is team_roster_unreachable; an HTTP status or a GraphQL
+// errors envelope is the server answering with something that is not a
+// usable roster — team_roster_unreadable.
 func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		root := t.TempDir()
@@ -119,6 +123,42 @@ func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 			t.Fatal("raw transport text in the fixed code", err)
 		}
 	})
+	// Answered failures keep the third code: whatever came back — an HTTP
+	// status, a GraphQL errors envelope — is not a usable roster, and saying
+	// "unreachable" about a server that answered would hide the difference.
+	for _, tc := range []struct {
+		name       string
+		status     int
+		body       string
+		wantCode   string
+		wantLeaked string
+	}{
+		{"401 with GraphQL body", 401, `{"errors":[{"message":"bad credential","extensions":{"code":"FORBIDDEN"}}]}`, "team_roster_unreadable", "bad credential"},
+		{"500 with GraphQL errors body", 500, `{"errors":[{"message":"resolver exploded","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, "team_roster_unreadable", "resolver exploded"},
+		{"200 GraphQL errors envelope", 200, `{"data":null,"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}]}`, "team_roster_unreadable", "refused"},
+		{"404 proxy page", 404, `no such upstream`, "team_roster_unreadable", "no such upstream"},
+		{"502 gateway page", 502, `<html>502 Bad Gateway</html>`, "team_roster_unreachable", "502 Bad Gateway"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HADRON_TOKEN", "fake2483")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer server.Close()
+			f := cmdutil.NewFactory()
+			f.ServerFlag = server.URL
+			f.HTTPClient = server.Client()
+			_, err := findFilteredTargets(context.Background(), f, "hrn:app:test.com:team", nil)
+			if err == nil || err.Error() != tc.wantCode || exitcode.FromError(err) != exitcode.Error {
+				t.Fatalf("got %v, want fixed %s", err, tc.wantCode)
+			}
+			if strings.Contains(err.Error(), tc.wantLeaked) {
+				t.Fatal("raw backend text in the fixed code", err)
+			}
+		})
+	}
 	t.Run("coded errors surface from the command", func(t *testing.T) {
 		streams, out, _ := output.Test()
 		f := &cmdutil.Factory{IOStreams: streams, AppFlag: "hrn:app:acme.com:team"}
