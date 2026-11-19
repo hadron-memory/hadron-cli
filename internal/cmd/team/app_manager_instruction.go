@@ -17,8 +17,11 @@ const managerInstructionMinimum = "4bac6127"
 // deliverySettingsInstructionMinimum is the same requirement as
 // managerInstructionMinimum (commit 4bac6127, merged 2026-11-04, hadron-server#3398)
 // stated as the date the page body already uses, so one page says it once.
-// Only delivery-settings set uses it; the other team doors still print the
-// commit (a follow-up would move them together).
+// It is display text only: instruction.FlagUsageForServer prints it after
+// "Needs server" and nothing compares it with a server build (the app door
+// already passes a date, "2026-11-03", the same way). Only delivery-settings
+// set uses it; the other team doors still print the commit (a follow-up would
+// move them together).
 const deliverySettingsInstructionMinimum = "2026-11-04"
 
 func addManagerInstruction(cmd *cobra.Command) {

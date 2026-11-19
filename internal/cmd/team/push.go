@@ -46,8 +46,9 @@ When the recipient's input is empty and idle, the message is sent promptly. If a
 draft is being typed, the command waits at least 30s and the draft must stay
 byte-for-byte unchanged for at least 30s (overlapping intervals, not their sum).
 The captured draft is then cleared and re-sent once, labelled as unfinished and
-not submitted by the author, in the SAME input as your message. The command
-needs fresh on-screen evidence that this attempt's turn started; an accepted send
+not submitted by the author, in the SAME input as your message. If the command
+cannot prove how to clear that interface, it holds and sends nothing. It needs
+fresh on-screen evidence that this attempt's turn started; an accepted send
 receipt alone is not confirmation. It never resends and never presses Enter again.
 
 Exit codes specific to push: 0 sent; 9 sent with a draft included (SUCCESS, NEVER
