@@ -307,7 +307,11 @@ Each call REPLACES the whole list: repeat every slot you still want. The slot
 ids are the ones "pr seat --slot" and "pr readiness" use, so keep them
 identical. A slot may be dropped, but not one whose seat already gave a
 negative verdict at the frozen head (REVIEW_SEAT_NOT_SUPERSEDABLE). Prints the
-build task and the recorded action.` + prSeeGroup,
+build task and the recorded action.
+
+To see which slots are scheduled before a head is frozen, run hadron team task
+get <build-task> (its properties list review.schedule), or hadron team events
+--task <build-task> --type review.scheduled for each change.` + prSeeGroup,
 
 	"freeze": `Record the exact commit under review: the PR's current head, the full 40-hex
 SHA (git rev-parse HEAD, or the PR page). Reviews and readiness refer to this
@@ -364,7 +368,11 @@ head, holds an APPROVE, PASS or CARRY verdict from someone other than the build
 task's assignee or the head's freezer, and no seat of the head holds a negative
 verdict. NOT READY is a successful read (exit 0): fix the slots that do not
 count (seat a reviewer, wait for the verdict, finish the seat task), then run it
-again. When every slot counts, the build task's assignee runs "pr ready".` + prSeeGroup,
+again. When every slot counts, the build task's assignee runs "pr ready".
+
+To see which slots are scheduled before a head is frozen, run hadron team task
+get <build-task> (its properties list review.schedule), or hadron team events
+--task <build-task> --type review.scheduled for each change.` + prSeeGroup,
 
 	"ready": `Record the ready call: the build task's assignee says every scheduled review
 counts at the frozen head. It records that fact and nothing else: it does not
