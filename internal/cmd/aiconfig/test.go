@@ -99,8 +99,9 @@ transport failures) use the usual CLI error exits. Statuses:
   FAIL_MALFORMED             the call's arguments were not valid
   FAIL_PROVIDER_UNAVAILABLE  the provider call itself failed; retry after it recovers
   UNSUPPORTED_PROVIDER       the server cannot probe this provider
-After a FAIL other than FAIL_PROVIDER_UNAVAILABLE, pick a different model or provider ('ai-config tool-choice'
-predicts how chat treats a pair; this probe checks it for real).`,
+After a FAIL other than FAIL_PROVIDER_UNAVAILABLE, pick a different model or
+provider ('ai-config tool-choice' predicts how chat treats a pair; this probe
+checks it for real).`,
 		Example: "  hadron ai-config test cfg_123 --json\n  hadron ai-config test cfg_123 --override-file edited-config.json --json\n  hadron ai-config test cfg_123 --chat-probe --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
