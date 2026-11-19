@@ -20,7 +20,7 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
 
 ## Decisions made at build time (within the gate's "flag shapes may refine")
 
-- **Nested inputs come from `--input-file`.** `AskDecisionInput`/`AmendDecisionInput` carry
+- **Nested inputs come from `--input-file`.** `AskQuestionInput`/`AmendQuestionInput` carry
   parts, options, recommendations and refs; flags for those would be a second, lossy
   grammar. The file is decoded strictly into the generated input struct (unknown keys
   refused, exit 2, before any call); the four scalar fields also have flags that override
@@ -40,7 +40,7 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
   lists) is the presence-preserving encoding. `amendIsEmpty` counts these by presence.
 - **Amend `context` is tri-state** (Gizelle's LOCAL P2): the server reads absent as keep,
   `null` as clear and a string as set (`patch.context !== undefined`). `*string` cannot
-  carry that, so `AmendDecisionInput.context` is bound to `json.RawMessage` (omitempty):
+  carry that, so `AmendQuestionInput.context` is bound to `json.RawMessage` (omitempty):
   an absent key stays nil and is omitted, and a literal `null` is kept as `null`.
 - **Strict keys.** Besides `DisallowUnknownFields`, `checkKeys` walks the file against
   the target type's exact JSON names, refusing a duplicate key (encoding/json keeps the

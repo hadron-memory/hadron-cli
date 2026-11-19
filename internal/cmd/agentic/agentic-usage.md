@@ -6387,7 +6387,7 @@ withdraw, purge or change deciders is the server's rule, never re-checked by
 the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
 
 - `ask` and `amend` read `--input-file` (`-` = piped stdin): one JSON object with
-  the fields of the server's `AskDecisionInput` / `AmendDecisionInput`. Unknown,
+  the fields of the server's `AskQuestionInput` / `AmendQuestionInput`. Unknown,
   mis-cased and duplicate keys are refused (exit 2) before the call; values are
   judged by the server (`QUESTION_INVALID` names each bad field by JSON pointer).
   `--title`, `--context`, `--tier`, `--urgency` override the file. A field you

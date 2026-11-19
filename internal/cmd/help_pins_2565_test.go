@@ -36,7 +36,7 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 			"hadron user search",
 			"the authorization a grant decision carries, as JSON (authorizes: true only)",
 			`{"ref": "hadron-server#1640"}, {"node": "<id or URN>"}`,
-			"is AskDecisionInput in the server's schema",
+			"is AskQuestionInput in the server's schema",
 		}},
 		// decision ask — F9: the tiers defined; F10: the code is printed and
 		// how to read it back; F11: a copyable example file
@@ -97,6 +97,21 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 			if !strings.Contains(help, w) {
 				t.Errorf("%v help lacks %q", tc.page, w)
 			}
+		}
+	}
+}
+
+// TestDecisionHelpNamesQuestionInputs pins cli#2465 S1: server #4435 renamed
+// the input types to AskQuestionInput/AmendQuestionInput, so help that points
+// at the old names sends a reader to a type the vendored schema no longer has.
+func TestDecisionHelpNamesQuestionInputs(t *testing.T) {
+	for _, page := range [][]string{{"decision", "ask"}, {"decision", "amend"}} {
+		help := flatHelp2565(t, page...)
+		if strings.Contains(help, "DecisionInput") {
+			t.Errorf("%v help still names a *DecisionInput type", page)
+		}
+		if !strings.Contains(help, "QuestionInput") {
+			t.Errorf("%v help does not name its *QuestionInput type", page)
 		}
 	}
 }

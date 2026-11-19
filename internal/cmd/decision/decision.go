@@ -298,7 +298,7 @@ func newCmdAsk(f *cmdutil.Factory) *cobra.Command {
 		Long: `Ask a decision. The server issues its code (the log prefix plus the next
 letters) and prints the decision; decision get <code> --log <log> reads it
 back later. --input-file is a JSON object with the fields of the server's
-AskDecisionInput, passed through unchanged:
+AskQuestionInput, passed through unchanged:
 
   title (required)  the decision's headline, as the deciders see it
   parts (required)  the questions to answer, each an object:
@@ -331,7 +331,7 @@ AskDecisionInput, passed through unchanged:
 
 --title, --context, --tier and --urgency override the file's value. Keys are
 exact and case-sensitive, and a key given twice is refused. Every field's
-exact shape is AskDecisionInput in the server's schema, vendored in this repo
+exact shape is AskQuestionInput in the server's schema, vendored in this repo
 at schema/schema.graphql. The server validates the object (QUESTION_INVALID
 names each bad field by JSON pointer) and decides who may ask: any writer of
 the log's Memory.
@@ -404,7 +404,7 @@ func newCmdAmend(f *cmdutil.Factory) *cobra.Command {
 		Short: "Amend a decision",
 		Long: `Amend a decision. Only the fields you give change; the rest stay as they
 are. --input-file is a JSON object with the fields of the server's
-AmendDecisionInput, passed through unchanged:
+AmendQuestionInput, passed through unchanged:
 
   title, context, tier, urgency   as the flags of the same name (what the
                                   tiers mean: hadron decision ask --help)
