@@ -203,10 +203,10 @@ section between the markers.
 | `auth token unhide` |  |  | y | #1052 | 899ca25aa9f3 |  | unread |  |
 | `auth token validate` |  |  | y | #1052 | e283d066873f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth whoami` |  |  | y | #1052 | 2e1ede499246 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `grant` | grants |  | y | #1052 | 2f3c164b351d | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `grant create` |  |  | y | #1052 | b4c074380186 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `grant` | grants |  | y | #1052 | 3d7545be94b6 |  | unread |  |
+| `grant create` |  |  | y | #1052 | 82c34461db44 |  | unread |  |
 | `grant get` |  |  | y | #1052 | cb2e7b822557 |  | unread |  |
-| `grant list` | ls |  | y | #1052 | 5708dd084746 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: restate/link accepted --user reference forms |
+| `grant list` | ls |  | y | #1052 | 4a404e23c337 |  | unread |  |
 | `grant revoke` | rm |  | y | #1052 | f60e8ad166ca | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `org` | orgs, organization |  | y | #1052 | 4071af2db473 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `org create` |  |  | y | #1052 | dfe70106a5c5 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
@@ -236,9 +236,9 @@ section between the markers.
 | `org signing on` |  |  | y | #1052 | f7d32bf97101 |  | unread |  |
 | `org signing preview` |  |  | y | #1052 | 62ef1de10d90 |  | unread |  |
 | `org update` |  |  | y | #1052 | 82e65598f8b1 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: empty-field/result guidance could be clearer; rename/authority/effects clear |
-| `policy` |  |  | y | #1052 | 472633275aeb |  | unread |  |
-| `policy explain` |  |  | y | #1052 | 7ed922f626b6 |  | unread |  |
-| `policy set` |  |  | y | #1052 | 5e4bed6c739e |  | unread |  |
+| `policy` |  |  | y | #1052 | 93824e2e82fb |  | unread |  |
+| `policy explain` |  |  | y | #1052 | eef41c7e93e1 |  | unread |  |
+| `policy set` |  |  | y | #1052 | 906a91fc14b5 |  | unread |  |
 | `profile` | me |  | y | #1052 | b85ae5fa148f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `profile set` |  |  | y | #1052 | 8819ddfa5cc6 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary taken-handle recovery could be clearer; legacy-handle server2868 separate |
 | `secret` | secrets |  | y | #1052 | 1d4e9a973dd1 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
@@ -476,12 +476,12 @@ section between the markers.
 | `team delivery-settings get` |  |  | n | #1054 | 21c7552c6282 |  | unread |  |
 | `team delivery-settings set` |  |  | n | #1054 | 07f78aab5580 |  | unread |  |
 | `team events` |  |  | n | #1054 | 3530b1366bf5 |  | unread |  |
-| `team grant` |  |  | n | #1054 | f827cf1f14f4 |  | unread |  |
+| `team grant` |  |  | n | #1054 | 778d76cdfeed |  | unread |  |
 | `team grant action` |  |  | y | #1054 | d8f3bdf456fd |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 8d8c795a7626 |  | unread |  |
 | `team grant add` |  |  | y | #1054 | f0c3fab13458 |  | unread |  |
-| `team grant get` |  |  | y | #1054 | 8f2d0615ea5e |  | unread |  |
-| `team grant list` | ls |  | y | #1054 | 3732cbcdbd95 |  | unread |  |
+| `team grant get` |  |  | y | #1054 | 03bf992293d5 |  | unread |  |
+| `team grant list` | ls |  | y | #1054 | 4756da2474a9 |  | unread |  |
 | `team grant request` |  |  | y | #1054 | 4eff6b71827b |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | 1999874d6881 |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 6364c746d3e9 |  | unread |  |
