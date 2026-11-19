@@ -491,7 +491,7 @@ section between the markers.
 | `team health` |  |  | n | #1054 | d1b3825cdd4d |  | unread |  |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f |  | unread |  |
 | `team health status` |  |  | y | #1054 | f1bdb3714169 |  | unread |  |
-| `team health sweep` |  |  | y | #1054 | 185e340b5277 |  | unread |  |
+| `team health sweep` |  |  | y | #1054 | 85c2ef9d4cc7 |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 |  | unread |  |
 | `team host` |  |  | n | #1054 | 307cc3eddb80 |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 200354fa59ac |  | unread |  |
@@ -591,7 +591,7 @@ section between the markers.
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | f261ee1df23d |  | unread |  |
 | `team ticker settings set` |  |  | y | #1054 | b3b2b4bef0b8 |  | unread |  |
-| `team usage` |  |  | y | #1054 | f18618e8fba1 |  | unread |  |
+| `team usage` |  |  | y | #1054 | 440d6ac2ce7b |  | unread |  |
 | `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 |  | unread |  |
 | `team usage collect` |  |  | y | #1054 | a5848d3e96a5 |  | unread |  |
 | `team usage install` |  |  | y | #1054 | 7bf5d0e56bdc |  | unread |  |

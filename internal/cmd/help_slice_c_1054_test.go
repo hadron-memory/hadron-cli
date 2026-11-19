@@ -22,7 +22,11 @@ func TestSliceCRound1Fails1054(t *testing.T) {
 			"hadron team health sweep --config ./host.yaml --dry-run=false",
 			"same host YAML as for \"team host run\"",
 			"key_file", "worktrees_root",
-		}, []string{"(the default; the status batch"}},
+			"workers is a map keyed by worker name; launch is a list",
+			"workers: ana: family: claude launch: [claude]",
+			"changes no terminal or process",
+		}, []string{"(the default; the status batch", "changes nothing (--dry-run"}},
+		{[]string{"team", "usage"}, nil, []string{"the harness"}},
 	} {
 		help := flatHelp1053S3(t, tc.page...)
 		for _, w := range tc.want {

@@ -66,7 +66,7 @@ Setup, per account, by whoever runs the host (steps 1 and 2 need jq and npx):
       in=$(cat); d="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hadron-usage"
       mkdir -p "$d"; printf '%s' "$in" | jq -c '{observedAt: now|floor} + (.rate_limits // {} | {five_hour, seven_day} | with_entries(select(.value != null)))' > "$d/rate-limits.json.tmp" && mv "$d/rate-limits.json.tmp" "$d/rate-limits.json"
     The file is {"observedAt":N,"five_hour":{"used_percentage":N,"resets_at":N}?,
-    "seven_day":{...}?} (Unix seconds; a window the harness leaves out stays out).
+    "seven_day":{...}?} (Unix seconds; a window Claude Code leaves out stays out).
  2. Optionally a ccusage file, produced by you (the CLI never runs ccusage):
       CLAUDE_CONFIG_DIR=<dir> npx ccusage@<pinned version> blocks --json --offline > <file>
  3. A host YAML (--config): memory (where records go), optional host, and one
