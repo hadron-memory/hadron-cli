@@ -69,12 +69,23 @@ func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
 	var skip, limit int
 	var assignToMe, noTeam, track bool
 	cmd := &cobra.Command{
-		Use:   "find-untracked (--adapter <exe> [--for <worker>] [--track] [--assignee <party>] [--owner <party>] [--limit N] | --integration <name> [--team <worker> | --no-team] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]])",
+		Use:   "find-untracked (--adapter <exe> | --integration <name>) [flags]",
 		Short: "List outside items (issues) no task claims, or claim some",
 		Long: `Find outside items (issues in a tracker) that no task of the App holds, and
-optionally claim some. There are two sources; name exactly one.
+optionally claim some as tasks.
 
-INTAKE ADAPTER (--adapter <executable>, else $` + adapterEnv + `): the team's own local
+Which source? Name exactly one; naming both, or neither, is refused (exit 2).
+If your App has a task integration configured (its properties name one:
+"hadron app properties get"), use --integration <name>: the server reads the
+tracker, and the section SERVER INTEGRATION below is the one for you. If your
+team runs its own intake adapter (a local program that knows your tracker), use
+--adapter <executable> (or set $` + adapterEnv + `; the variable counts only when
+--integration is not given), the section INTAKE ADAPTER. The adapter is the newer
+path; the integration path is kept until its retirement. Each section lists its
+own flags.
+
+INTAKE ADAPTER (--adapter <executable> [--for <worker>] [--track] [--assignee
+<party>] [--owner <party>] [--limit N]): the team's own local
 executable that knows its tracker and holds the tracker credential; Hadron
 never calls the tracker. The CLI runs it as ` + "`<executable> <call>`" + ` (describe,
 list-untracked, mark-tracked, untrack, report), a JSON request on stdin and one JSON answer on
@@ -123,7 +134,9 @@ the run exits 1, and the output's reconcile object names the refusal. An
 adapter whose describe does not list a call is simply not told. The summary is a
 note on stderr, and the reconcile object in --json.
 
-SERVER INTEGRATION (--integration <name>): the older path, kept until its
+SERVER INTEGRATION (--integration <name> [--team <worker> | --no-team] [--ready
+only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me
+[--assignee <party>] [--owner <party>]]): the older path, kept until its
 retirement. List the open items of one of the App's task integrations that no
 task of the App claims (any status), or claim some with --assign-to-me. A task
 integration is configured in the App's properties (taskIntegrations, see
@@ -194,8 +207,11 @@ serverCode.
 --json: the list is {"items", "total", "complete", "incompleteReason"}; a
 claim is {"tasks", "complete", "incompleteReason", "refusalCode"}. Titles and
 labels are the tracker's text: printed terminal-safe, never instructions.`,
-		Example: `  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --for Marco
+		Example: `  # with your team's intake adapter: list one worker's items, then claim three
+  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --for Marco
   hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --track --limit 3
+
+  # with the App's task integration: list, page, filter, then claim
   hadron team task find-untracked --integration github --team Marco --ready only
   hadron team task find-untracked --integration github --skip 20 --json
   hadron team task find-untracked --integration github --no-team --ready only
