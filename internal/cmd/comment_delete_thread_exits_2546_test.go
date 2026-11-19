@@ -23,7 +23,7 @@ func TestCommentDeleteThreadHelpNamesOutcomeExits2546(t *testing.T) {
 	para := long[strings.Index(long, "--thread --reason <text> deletes"):]
 	for _, want := range []string{
 		"exit 1", "outcome unknown", "comment get", "before retrying",
-		"exit 5", "deleted:false", "prints nothing",
+		"exit 5", "deleted:false", "nothing to stdout",
 	} {
 		if !strings.Contains(para, want) {
 			t.Errorf("the --thread paragraph of comment delete help must contain %q: %q", want, para)
