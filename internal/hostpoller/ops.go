@@ -20,7 +20,7 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 		return
 	}
 	repo, base, branch, label := argString(op, "repo"), argString(op, "baseBranch"), argString(op, "branchName"), argString(op, "label")
-	repoPath, ok := p.cfg.Repos[repo]
+	repoPath, ok := p.cfg.Repo(repo)
 	if !ok {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("repo %q is not configured on this host", repo))
 		return

@@ -214,7 +214,7 @@ func (p *Poller) recipient(workerID string) (delivery.Recipient, bool) {
 	if !ok {
 		return delivery.Recipient{}, false
 	}
-	if _, ok := p.cfg.Workers[ref]; !ok {
+	if _, ok := p.cfg.Worker(ref); !ok {
 		return delivery.Recipient{}, false
 	}
 	return p.cfg.Recipient(p.state, ref, workerID), true
@@ -237,11 +237,12 @@ func (c *Config) RefFor(id, urn, name string) string {
 // needs it: its expected interface and its configured and created worktrees
 // as absolute paths. The poller and C2 build it the same way.
 func (c *Config) Recipient(s *State, ref, workerID string) delivery.Recipient {
+	w, _ := c.Worker(ref)
 	trees := []string{}
-	for _, t := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+	for _, t := range s.worktreesFor(ref, w.Worktrees) {
 		trees = append(trees, c.WorktreePath(t))
 	}
-	return delivery.Recipient{WorkerID: workerID, Name: ref, TUI: c.Workers[ref].tui(), Worktrees: trees}
+	return delivery.Recipient{WorkerID: workerID, Name: ref, TUI: w.tui(), Worktrees: trees}
 }
 
 // Registered is every configured worker's registered directories as
@@ -251,8 +252,9 @@ func (c *Config) Recipient(s *State, ref, workerID string) delivery.Recipient {
 func (c *Config) Registered(s *State) delivery.Registered {
 	out := delivery.Registered{}
 	for _, ref := range c.WorkerRefs() {
+		w, _ := c.Worker(ref)
 		dirs := []string{}
-		for _, t := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+		for _, t := range s.worktreesFor(ref, w.Worktrees) {
 			dirs = append(dirs, c.WorktreePath(t))
 		}
 		out[ref] = dirs

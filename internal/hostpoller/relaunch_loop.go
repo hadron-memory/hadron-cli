@@ -427,7 +427,7 @@ func (p *Poller) relaunchTarget(s RelaunchSnapshot, row RelaunchWorker) (hostrel
 	p.mu.Lock()
 	ref := p.workerRefs[row.WorkerID]
 	p.mu.Unlock()
-	w, ok := p.cfg.Workers[ref]
+	w, ok := p.cfg.Worker(ref)
 	if !ok || s.AppID == "" || s.HostID == "" || s.Server == "" || !SameFamily(w.Family, row.Family) || len(row.Worktrees) != 1 {
 		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
 	}

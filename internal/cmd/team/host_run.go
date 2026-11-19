@@ -508,6 +508,18 @@ The configuration (YAML):
   #   orca_bin: /absolute/path/to/orca
   #   cleanup_dead_tabs: false      # opt in only after live host validation
 
+The file is re-read every poll. A worker added to or removed from workers, a
+worker's entry changed in place, and changes to repos and account_profiles
+take effect on the next poll, with no restart (the poller logs
+config-reloaded, naming the workers). Everything else in the file (the key
+file, poll_interval_seconds, capabilities, state_file, delivery, reset_context,
+orca_launch and the rest) is read once at start: a change to it is logged as
+config-restart-needed, naming the settings, and is not applied until the
+poller restarts. A file that does not load or fails the start-time checks
+changes nothing: the poller keeps the configuration it has and logs
+config-reload-refused with the reason, once for that content. A worker that
+now launches through Orca is refused too, since that wiring is made at start.
+
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
 hadron-cli repository. Preparing a config authorizes no cutover.
@@ -758,6 +770,12 @@ type hostDeliveryWorkerDTO struct {
 	NotRevisited bool `json:"notRevisited"`
 }
 
+// screenUnknownHint says what a held screen-unknown means, in the status line
+// that shows it (cli#2623): the code alone read as a screen problem when most
+// of its causes are in the host's setup. The four are the four ways the
+// deliverer returns it (internal/delivery/deliver.go).
+const screenUnknownHint = "the poller could not confirm this worker's terminal: no agent terminal in its worktree, one that is not connected or writable, an agent whose family differs from the worker's tui in the config, or a screen it cannot classify"
+
 // heldTooLong is when `team host status` flags a worker's run of holds
 // (cli#1178): the #2746 class held workers for two days with no readable
 // reason.
@@ -866,6 +884,9 @@ func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
 		case wk.HeldSince != nil:
 			held = ", held since " + *wk.HeldSince
 		}
+		if wk.LastKind == string(delivery.Held) && wk.LastReason == delivery.HoldScreenUnknown {
+			held += ", SCREEN UNKNOWN: " + screenUnknownHint
+		}
 		if wk.NotRevisited {
 			held += ", NOT RE-EVALUATED recently: no newer local delivery event, so the hold shown may be stale (its cause is not known from this record)"
 		}
@@ -900,7 +921,10 @@ original values. This does not describe kept-worktree diagnostics.
 With delivery enabled it also shows the poller's local delivery snapshot:
 each worker's newest event (outcome, reason code, time and age), when its
 current run of holds began, and HELD OVER 30m once that run is older than
-30 minutes without a delivery. A held worker is re-evaluated every cycle; a
+30 minutes without a delivery. A hold with the code screen-unknown also prints
+SCREEN UNKNOWN and what it can mean (no agent terminal in the worker's
+worktree, one not connected or writable, an agent family that differs from the
+worker's tui, or a screen it cannot classify). A held worker is re-evaluated every cycle; a
 held record whose newest event is older than three poll intervals is marked
 NOT RE-EVALUATED (notRevisited in --json): no newer local event, so the
 hold shown may be stale; the cause is not recorded (the server may list no

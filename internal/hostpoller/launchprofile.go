@@ -69,11 +69,11 @@ type ProfileSource interface {
 type ConfigProfiles struct{ Cfg *Config }
 
 func (s ConfigProfiles) Profile(ref string) (LauncherProfile, AccountProfile, bool, error) {
-	w, ok := s.Cfg.Workers[ref]
+	w, ok := s.Cfg.Worker(ref)
 	if !ok || w.Profile == nil {
 		return LauncherProfile{}, AccountProfile{}, false, nil
 	}
-	a, ok := s.Cfg.Accounts[w.Profile.Account]
+	a, ok := s.Cfg.Account(w.Profile.Account)
 	if !ok {
 		return LauncherProfile{}, AccountProfile{}, false, fmt.Errorf("account profile %q is not configured on this host", w.Profile.Account)
 	}

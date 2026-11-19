@@ -15,8 +15,9 @@ type ResetIdleTarget struct {
 }
 
 func (p *Poller) resetIdleTarget(op Operation, ref, token string, id ProcessIdentity) ResetIdleTarget {
+	w, _ := p.cfg.Worker(ref)
 	return ResetIdleTarget{WorkerRef: ref, WorkerID: op.WorkerID, SessionID: argString(op, "sessionId"),
-		Worktree: p.cfg.WorktreePath(token), Family: p.cfg.Workers[ref].tui(), Process: id}
+		Worktree: p.cfg.WorktreePath(token), Family: w.tui(), Process: id}
 }
 
 // ResetDeps is what the worker.reset-context handler needs beyond the

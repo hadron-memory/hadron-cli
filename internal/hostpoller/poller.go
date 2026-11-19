@@ -192,6 +192,7 @@ type Poller struct {
 	relaunchCancel     context.CancelFunc
 	launchingWorktrees map[string]bool
 	cfg                *Config
+	reloadSeen         [32]byte // content of a configuration file already refused or reported (cli#2623)
 	server             Server
 	host               Host
 	state              *State
@@ -404,6 +405,7 @@ func (p *Poller) ReportFailures() int {
 // (Liam, team chat #11415: a re-collect omits a start whose grant is still
 // live), and this poller depends on it rather than pausing collection.
 func (p *Poller) Step(ctx context.Context) error {
+	p.reloadConfig()
 	if err := p.register(ctx); err != nil {
 		return fmt.Errorf("registering: %w", err)
 	}
@@ -422,7 +424,7 @@ func (p *Poller) Step(ctx context.Context) error {
 func (p *Poller) register(ctx context.Context) error {
 	r := Registration{Capabilities: append([]string{}, p.cfg.Capabilities...), Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
 	for _, ref := range p.cfg.WorkerRefs() {
-		w := p.cfg.Workers[ref]
+		w, _ := p.cfg.Worker(ref)
 		r.Workers = append(r.Workers, RegisteredWorker{
 			Worker: ref, Family: CanonicalFamily(w.Family), Worktrees: p.state.worktreesFor(ref, w.Worktrees),
 		})
@@ -637,6 +639,6 @@ func (p *Poller) workerRef(op Operation) (string, WorkerConfig, bool) {
 	if !ok {
 		return "", WorkerConfig{}, false
 	}
-	w, ok := p.cfg.Workers[ref]
+	w, ok := p.cfg.Worker(ref)
 	return ref, w, ok
 }
