@@ -451,8 +451,8 @@ section between the markers.
 | `chat served-prompts` |  |  | y | #1054 | d74663fe0464 |  | unread |  |
 | `chat tool-choice` |  |  | y | #1054 | 2cc7a5f10b02 |  | unread |  |
 | `team` |  |  | n | #1054 | ab36b6152330 |  | unread |  |
-| `team alarm` |  |  | y | #1054 | 36e989f118d4 |  | unread |  |
-| `team alarm ack` |  |  | y | #1054 | 066208749d29 |  | unread |  |
+| `team alarm` |  |  | y | #1054 | e37a54552f47 |  | unread |  |
+| `team alarm ack` |  |  | y | #1054 | 8ef83fc5a655 |  | unread |  |
 | `team alarms` |  |  | y | #1054 | d6b7b77f1802 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 |  | unread |  |
 | `team app sweep-mode` |  |  | y | #1054 | c6dba76f5908 |  | unread |  |
@@ -513,11 +513,11 @@ section between the markers.
 | `team host up` |  |  | y | #1054 | fd26d5db8907 |  | unread |  |
 | `team init` |  |  | y | #1054 | 36b43e94a913 |  | unread |  |
 | `team pause` |  |  | y | #1054 | a7a2e519211d |  | unread |  |
-| `team pr` |  |  | y | #1054 | b20eda976f2a |  | unread |  |
-| `team pr freeze` |  |  | y | #1054 | 0934213713d2 |  | unread |  |
+| `team pr` |  |  | y | #1054 | ba351d8ac713 |  | unread |  |
+| `team pr freeze` |  |  | y | #1054 | 2e9ac27cef86 |  | unread |  |
 | `team pr readiness` |  |  | y | #1054 | 87ab3f10ca46 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | b7026a29bd46 |  | unread |  |
-| `team pr schedule` |  |  | y | #1054 | 8b62608d8609 |  | unread |  |
+| `team pr schedule` |  |  | y | #1054 | 75a1a3560975 |  | unread |  |
 | `team pr seat` |  |  | y | #1054 | bf2da05201c3 |  | unread |  |
 | `team pr verdict` |  |  | y | #1054 | b35f943e5866 |  | unread |  |
 | `team push` |  |  | n | #1054 | 6c241890f4dc |  | unread |  |
@@ -565,12 +565,12 @@ section between the markers.
 | `team task assign` |  |  | y | #1054 | 1cc3b849b53d | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task cancel` |  |  | y | #1054 | 915a6d8ef76a | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task clone` |  |  | y | #1054 | c88f3037c421 |  | unread |  |
-| `team task create` |  |  | y | #1054 | c0b205065111 |  | unread |  |
+| `team task create` |  |  | y | #1054 | 74d2d9f69aee |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | 754051154aa6 |  | unread |  |
-| `team task dispose-finding` |  |  | y | #1054 | 12dc8d27647b |  | unread |  |
-| `team task find-untracked` |  |  | y | #1054 | dadd3914dffc |  | unread |  |
-| `team task finding-dispositions` |  |  | y | #1054 | c6d58acfb5a8 |  | unread |  |
-| `team task findings` |  |  | y | #1054 | 4ff2a7fce67d |  | unread |  |
+| `team task dispose-finding` |  |  | y | #1054 | 69ce756d5828 |  | unread |  |
+| `team task find-untracked` |  |  | y | #1054 | 920a2d52d2da |  | unread |  |
+| `team task finding-dispositions` |  |  | y | #1054 | 4af1d580a868 |  | unread |  |
+| `team task findings` |  |  | y | #1054 | 269d908ce5b9 |  | unread |  |
 | `team task finish` |  |  | y | #1054 | 0c2318e6a081 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task get` |  |  | y | #1054 | b74b0a550138 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice3-pass2-2711701e) |
 | `team task hand-back` |  |  | y | #1054 | 2d341945f13e |  | unread |  |

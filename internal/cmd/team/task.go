@@ -254,8 +254,9 @@ children. --blocked-by <task> makes it wait for another task (see
 ` + "`task add-blocker`" + `).
 
 --match tries once, right away, to find a worker for a queued task: one created
-PENDING with no --assignee that is not blocked. It does nothing for a task that
-already has an assignee or is blocked; leaving it out keeps ordinary creation.
+PENDING with no --assignee that is not blocked. The CLI sends the flag as given
+and the server decides what it does for a task that has an assignee or is
+blocked; leaving it out keeps ordinary creation.
 Success prints the selected worker. If no worker matches, the task is STILL
 CREATED unassigned: stdout includes its id plus matchFailure reason and time;
 exit 5 follows only after the receipt is written (writer failure takes
@@ -353,9 +354,11 @@ task without them, not a refusal. The server checks it is an object, at most
 PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties`" + `.
 
 The server owns eligibility, authority and matching; the CLI never selects a
-worker. A server that predates a flag refuses it (the flags for run settings, a
-minimum tier, model groups, a finish-by time and the matching metadata); there
-is no fallback.
+worker. Every task command reads fields that older servers lack, whichever flags
+you pass: run settings (hadron-server#4295 or later), the finish-by time
+(#2648/#3088), the matching metadata (#3245), the minimum tier (#2983) and the
+model-group records (#3029). A server older than all of them refuses even a
+plain create; there is no fallback.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a

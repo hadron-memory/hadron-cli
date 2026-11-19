@@ -147,7 +147,7 @@ func uncertainFindingsFinish(err error) error {
 
 func newCmdTaskResultFindings(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int64
-	c := &cobra.Command{Use: "findings <task>", Short: "Read one page of immutable task result findings", Long: `Show the findings a finished task recorded: the issues its holder noted when it
+	c := &cobra.Command{Use: "findings <task>", Short: "Read one page of immutable task result findings", Long: `Show the findings a finished task recorded: the issues its assignee noted when it
 finished (a reviewer's defects, an evaluator's failing pages), each with an id
 such as F1, a severity (P1, P2, P3 or note) and its text. Findings are written
 once, by "hadron team task finish <task> --findings-file <path|->", and never

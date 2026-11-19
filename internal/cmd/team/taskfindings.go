@@ -54,12 +54,15 @@ func renderFindingDispositions(w io.Writer, rows []findingDispositionDTO) error 
 	return t.Flush()
 }
 
-// findingDispositionDoc is the access paragraph both disposition pages share:
+// findingDispositionAccessDoc is the access paragraph both disposition pages share:
 // who may read, how a task is named, and the read refusal.
-const findingDispositionDoc = `Sign in first. The task may be an id, a handle or a URN; it decides the App, so
+const findingDispositionAccessDoc = `Sign in first. The task may be an id, a handle or a URN; it decides the App, so
 --app does not qualify an ambiguous handle (use an id, or a qualified handle such
 as hrn:agenttask:example.com:team:AT1.2). A missing or unreadable task exits 4.
-A server without finding dispositions refuses the command.`
+A server without finding dispositions refuses the command.
+
+Human output bounds values and neutralizes terminal controls. JSON retains
+original text, including reference kind, target and nullable label.`
 
 // findingWords says once what a finding and a disposition are; every findings
 // page opens with it so none of them has to be read first.
@@ -75,10 +78,7 @@ finished (never the assignee alone, an App key or an impersonation); the server
 judges it. Refusals: TASK_NOT_OWNER exits 8, TASK_NOT_FINISHED exits 5,
 TASK_FINDING_NOT_FOUND exits 4, BAD_USER_INPUT exits 2. No refusal is retried.
 A transport failure may have committed: list the current dispositions before
-sending another write.
-
-Human output bounds values and neutralizes terminal controls. JSON retains
-original text, including reference kind, target and nullable label.`
+sending another write.`
 
 func newCmdTaskFindingDispositions(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
@@ -98,7 +98,7 @@ empty or short page does not mean the list is complete. --json is {items:
 [{findingId, disposition, reference}], total, hasMore}; an empty list is [],
 reference is null when absent.
 
-` + findingDispositionDoc,
+` + findingDispositionAccessDoc,
 		Example: "  hadron team task finding-dispositions AT1.2 --limit 20 --offset 20 --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, a []string) error {
@@ -164,7 +164,7 @@ finding. The result itself is never changed. It prints the disposition the
 server now holds; --json is {taskId, findingId, disposition, reference}
 (reference null when absent).
 
-` + findingDispositionDoc + `
+` + findingDispositionAccessDoc + `
 
 ` + findingDispositionWrite + `
 

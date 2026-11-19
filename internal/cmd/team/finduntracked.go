@@ -76,12 +76,12 @@ optionally claim some as tasks.
 
 Which source? Name exactly one; naming both, or neither, is refused (exit 2).
 If your App has a task integration configured (its properties name one:
-"hadron app properties get"; today that means GitHub issues), use
---integration <name>: the server reads the tracker, and the section SERVER
-INTEGRATION below is the one for you. If your team runs its own intake adapter
-(a local program that knows your tracker), use --adapter <executable> (or set
-$` + adapterEnv + `), the section INTAKE ADAPTER. The adapter is the newer path; the
-integration path is kept until its retirement. Each section lists its own flags.
+"hadron app properties get"), use --integration <name>: the server reads the
+tracker, and the section SERVER INTEGRATION below is the one for you. If your
+team runs its own intake adapter (a local program that knows your tracker), use
+--adapter <executable> (or set $` + adapterEnv + `; the variable counts only when --integration is not given), the section INTAKE
+ADAPTER. The adapter is the newer path; the integration path is kept until its
+retirement. Each section lists its own flags.
 
 INTAKE ADAPTER (--adapter <executable> [--for <worker>] [--track] [--assignee
 <party>] [--owner <party>] [--limit N]): the team's own local

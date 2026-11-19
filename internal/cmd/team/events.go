@@ -300,8 +300,9 @@ started (stall.not-started), shows no progress (stall.no-progress), whose owner
 has not reacted (stall.owner-unreactive), that cannot be assigned
 (assignment.unassignable) or has passed its finish-by time (stall.finish-by);
 or a dark-worker alarm (a worker that has gone dark), or a coordinator-cadence
-alarm (a coordinator that has missed its cadence). Each alarm wakes the task's
-owner, then the owners above, until someone acknowledges it.
+alarm (a coordinator that has missed its cadence). An alarm wakes an owner chain
+until someone acknowledges it: for a task alarm, the task's owner and then the
+owners above.
 
 To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
 alarm) or "hadron team events --alarms" (the raw event stream). Both show each
@@ -321,8 +322,9 @@ func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
 		Long: `Acknowledge an alarm so it stops waking higher owners. <eventId> is the
 alarm's event id: the ALARM column of "hadron team alarms", or the ID column of
 "hadron team events --alarms". Any owner in the alarm's chain may. On success it
-prints "✓ acknowledged alarm <id> (<type> on task <task>), at <time>" (--json:
-the event). The first acknowledgement stands: a second is refused with
+prints "✓ acknowledged alarm <id> (<type> on task <task>), at <time>" (a
+task-less alarm names its worker or coordinator instead of the task; --json: the
+event). The first acknowledgement stands: a second is refused with
 ALARM_ALREADY_ACKNOWLEDGED.
 
 An acknowledgement stops the climb; it does not end the alarm episode. The
@@ -333,8 +335,12 @@ has no unacknowledged wake older than the alarm window. A coordinator-cadence
 alarm names its coordinator, and a start-failing alarm its worker, without
 printing payload reasons or evidence.
 
-` + taskInstructionHelpShort("ba077810") + ` Instructed JSON adds warnings ([] when
-none); text prints server warnings on stderr.`,
+--instruction opens the App-manager's held-worker path: an AI worker whose
+holder manages the App acknowledges on its holder's say-so; the ordinary
+owner-in-chain path is unchanged. Instructed JSON adds warnings ([] when none);
+text prints server warnings on stderr.
+
+` + taskInstructionHelpShort("ba077810"),
 		Example: `  hadron team alarms --team
   hadron team alarm ack 01a1f0c2d3e4f5a6b7c8d9e0f1a2b3c4`,
 		Args: cobra.ExactArgs(1),

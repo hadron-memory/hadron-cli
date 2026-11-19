@@ -270,6 +270,12 @@ commands do not check model families, merge a PR or finish a seat task. A task
 may be given as an id, handle or URN (as in team task get); a bare handle may
 need its App named when several are visible.
 
+Each write appends an event to the build task (review.scheduled, pr.frozen,
+review.seat.assigned, review.verdict, pr.ready): read them with hadron team
+events --task <build-task> --type <event>. A bound worker session writes as that
+worker, otherwise you write as the signed-in person; an App key may read
+readiness but not write.
+
 Each command makes one request and never retries or guesses a head. A write
 prints the task handle, id and status and the recorded action; --json is
 {task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (a missing loc or
@@ -293,8 +299,9 @@ const prSeeGroup = "\nThe flow and the exit codes are on \"hadron team pr --help
 
 var prLeafLong = map[string]string{
 	"schedule": `Say which reviews a PR needs: one --slot per required review, such as local,
-blind or qa. Run it on the PR's build task, before the head is frozen and the
-seats are bound. Only the task's owner chain may (not the assignee alone).
+blind or qa. Run it on the PR's build task, normally first (it can be changed
+later with the same command). Only the task's owner chain may (not the assignee
+alone).
 
 Each call REPLACES the whole list: repeat every slot you still want. The slot
 ids are the ones "pr seat --slot" and "pr readiness" use, so keep them
@@ -309,8 +316,9 @@ head, so after a push freeze the new one. Only the build task's assignee may.
 The build task must carry a pull_request reference (hadron team task update
 <task> --ref pull-request=<PR URL>; --ref replaces the whole list); without it the server refuses with
 PR_REFERENCE_MISSING. A head that already has a negative seat verdict cannot be
-frozen again: answer the finding with a new head. Run it after "pr schedule"
-and before "pr seat". Prints the build task and the recorded action.` + prSeeGroup,
+frozen again: answer the finding with a new head. Normally run it after "pr
+schedule" and before "pr seat"; after a push, freeze the new head again. Prints
+the build task and the recorded action.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
 is named for that review. Only the build task's owner chain may.
