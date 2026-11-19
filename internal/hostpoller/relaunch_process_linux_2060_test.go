@@ -19,7 +19,7 @@ import (
 // This does not claim the independent container/real-Orca acceptance leg.
 func TestPeriodicRelaunchPinsRealProcessInPlainDirectory2060(t *testing.T) {
 	p, _, _ := testPoller(t)
-	dir := p.cfg.WorktreePath("repo/iris")
+	dir := p.startCfg.WorktreePath("repo/iris")
 	if err := os.MkdirAll(filepath.Join(dir, ".hadron-team"), 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func TestPeriodicRelaunchPinsRealProcessInPlainDirectory2060(t *testing.T) {
 			return a, err
 		}
 		return nil, err
-	}, ConfigProfiles{Cfg: p.cfg})
+	}, ConfigProfiles{Cfg: p.startCfg})
 	source := &loopSource2060{snapshot: RelaunchSnapshot{AppID: "app-id", HostID: "h1", Server: "https://private.invalid", SweepMode: "APPLY", Workers: []RelaunchWorker{{WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "LONG_LIVED", SessionID: "still-open", Worktrees: []string{"repo/iris"}}}}}
 	startupZeros := 0
 	deps := RelaunchDependencies{Source: source, Ready: func(context.Context) error { return nil }, PostLaunchWait: 3 * time.Second,

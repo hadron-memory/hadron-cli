@@ -443,7 +443,7 @@ func TestWorkerStartRecordsAnUnclosedOrcaLaunch2088(t *testing.T) {
 	stuck := &OrcaAgent{handle: "term_x", done: make(chan struct{}), unclosed: true}
 	p.EnableOrcaLaunch(func(context.Context, OrcaLaunchSpec) (Agent, error) {
 		return stuck, &UnclosedLaunchError{Handle: "term_x", Why: "no marker", CloseErr: "timeout"}
-	}, ConfigProfiles{Cfg: p.cfg})
+	}, ConfigProfiles{Cfg: p.startCfg})
 	srv.notDone["s1"] = 1
 	srv.batches = [][]Operation{{startOp()}}
 	step(t, p)

@@ -61,7 +61,7 @@ func newExitFixture2161(t *testing.T) *exitFixture2161 {
 	if err := f.p.state.setHostID("h1"); err != nil {
 		t.Fatal(err)
 	}
-	tree := f.p.cfg.WorktreePath("repo/iris")
+	tree := f.p.startCfg.WorktreePath("repo/iris")
 	if err := os.Mkdir(filepath.Join(tree, ".git"), 0o700); err != nil {
 		t.Fatal(err)
 	}

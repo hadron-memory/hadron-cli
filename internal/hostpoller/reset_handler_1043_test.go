@@ -214,7 +214,7 @@ func TestResetGitCheckRunsInTheAgentsWorktree1043(t *testing.T) {
 	x := newResetFixture(t)
 	x.git.Dirty = true
 	x.run(t, resetOp())
-	if want := x.p.cfg.WorktreePath("repo/iris"); x.gitDir != want {
+	if want := x.p.startCfg.WorktreePath("repo/iris"); x.gitDir != want {
 		t.Fatalf("git read %q, want %q", x.gitDir, want)
 	}
 }

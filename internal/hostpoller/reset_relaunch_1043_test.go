@@ -20,7 +20,7 @@ func relaunchFixture(t *testing.T) (*resetFixture, *fakeHost) {
 	return x, host
 }
 
-func irisCfg(x *resetFixture) WorkerConfig { return x.p.cfg.Workers["iris"] }
+func irisCfg(x *resetFixture) WorkerConfig { return x.p.startCfg.Workers["iris"] }
 
 var oldIdentity = ProcessIdentity{PID: 4242, StartTime: "1"}
 
@@ -37,7 +37,7 @@ func TestRelaunchStartsTheConfiguredAgentWithoutAGrant1043(t *testing.T) {
 		t.Fatalf("launches %d", len(host.launches))
 	}
 	l := host.launches[0]
-	if !slices.Equal(l.Argv, irisCfg(x).Launch) || l.Dir != x.p.cfg.WorktreePath("repo/iris") {
+	if !slices.Equal(l.Argv, irisCfg(x).Launch) || l.Dir != x.p.startCfg.WorktreePath("repo/iris") {
 		t.Fatalf("launch %+v", l)
 	}
 	for _, e := range l.Env {
@@ -99,9 +99,9 @@ func TestRecoverPromptGetsIdsOnly1043(t *testing.T) {
 // prompt to is refused, so a stop is never made that cannot be recovered.
 func TestResetRefusesAWorkerWithoutARecoverPrompt1043(t *testing.T) {
 	x := newResetFixture(t)
-	w := x.p.cfg.Workers["iris"]
+	w := x.p.startCfg.Workers["iris"]
 	w.Recover = nil
-	x.p.cfg.Workers["iris"] = w
+	x.p.startCfg.Workers["iris"] = w
 	wantReason(t, x.run(t, resetOp()), "HOST_UNSUPPORTED")
 	if x.proc.observed != 0 {
 		t.Fatal("observed a process for a worker with no recover prompt")

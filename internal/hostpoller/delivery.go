@@ -214,10 +214,11 @@ func (p *Poller) recipient(workerID string) (delivery.Recipient, bool) {
 	if !ok {
 		return delivery.Recipient{}, false
 	}
-	if _, ok := p.cfg.Workers[ref]; !ok {
+	c := p.config() // one snapshot: the lookup and the recipient see the same worker
+	if _, ok := c.Worker(ref); !ok {
 		return delivery.Recipient{}, false
 	}
-	return p.cfg.Recipient(p.state, ref, workerID), true
+	return c.Recipient(p.state, ref, workerID), true
 }
 
 // RefFor is the configured reference for a worker, matched by id, URN or
@@ -237,11 +238,12 @@ func (c *Config) RefFor(id, urn, name string) string {
 // needs it: its expected interface and its configured and created worktrees
 // as absolute paths. The poller and C2 build it the same way.
 func (c *Config) Recipient(s *State, ref, workerID string) delivery.Recipient {
+	w, _ := c.Worker(ref)
 	trees := []string{}
-	for _, t := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+	for _, t := range s.worktreesFor(ref, w.Worktrees) {
 		trees = append(trees, c.WorktreePath(t))
 	}
-	return delivery.Recipient{WorkerID: workerID, Name: ref, TUI: c.Workers[ref].tui(), Worktrees: trees}
+	return delivery.Recipient{WorkerID: workerID, Name: ref, TUI: w.tui(), Worktrees: trees}
 }
 
 // Registered is every configured worker's registered directories as
@@ -251,8 +253,9 @@ func (c *Config) Recipient(s *State, ref, workerID string) delivery.Recipient {
 func (c *Config) Registered(s *State) delivery.Registered {
 	out := delivery.Registered{}
 	for _, ref := range c.WorkerRefs() {
+		w, _ := c.Worker(ref)
 		dirs := []string{}
-		for _, t := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+		for _, t := range s.worktreesFor(ref, w.Worktrees) {
 			dirs = append(dirs, c.WorktreePath(t))
 		}
 		out[ref] = dirs
@@ -262,4 +265,4 @@ func (c *Config) Registered(s *State) delivery.Registered {
 
 // Registered is Config.Registered over this poller's configuration and
 // state: the deliverer's view of every registered worker's directories.
-func (p *Poller) Registered() delivery.Registered { return p.cfg.Registered(p.state) }
+func (p *Poller) Registered() delivery.Registered { return p.config().Registered(p.state) }
