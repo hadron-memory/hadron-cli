@@ -54,21 +54,28 @@ func renderFindingDispositions(w io.Writer, rows []findingDispositionDTO) error 
 	return t.Flush()
 }
 
-const findingDispositionDoc = `Read or replace a finding's disposition beside a finished task's immutable
-result (server#3258, cor:agt:050:30). Every code — fixed, accepted, deferred,
-rejected — resolves the finding. The latest code/reference wins; there is no
-clear. Omitting --ref on a replacement means the new value has no reference.
-References are stored text, never fetched or resolved by this command.
+// findingDispositionDoc is the access paragraph both disposition pages share:
+// who may read, how a task is named, and the read refusal.
+const findingDispositionDoc = `Sign in first. The task may be an id, a handle or a URN; it decides the App, so
+--app does not qualify an ambiguous handle (use an id, or a qualified handle such
+as hrn:agenttask:example.com:team:AT1.2). A missing or unreadable task exits 4.
+A server without finding dispositions refuses the command.`
 
-Sign in first. Requires a provider containing server#3258. Refs are task ids or handles.
-The task determines its App; --app does not qualify an ambiguous handle.
-An ambiguous bare handle needs an id or a qualified handle such as
-hrn:agenttask:example.com:team:AT1.2. An unreadable or missing task exits 4.
-The server alone judges write authority: only task assigners after finish,
-never the assignee alone, an App key or impersonation. On writes, TASK_NOT_OWNER exits 8,
-TASK_NOT_FINISHED exits 5, TASK_FINDING_NOT_FOUND exits 4, BAD_USER_INPUT exits 2.
-No refusal is retried. A transport failure may have committed: read the current
-dispositions before deciding whether to send another write.
+// findingWords says once what a finding and a disposition are; every findings
+// page opens with it so none of them has to be read first.
+const findingWords = `A finding is an issue noted when a task finished (a reviewer's defect, an
+evaluator's failing page), with an id such as F1, a severity (P1, P2, P3 or
+note) and text; findings are written once and never change. A disposition is
+what became of one: fixed, accepted, deferred or rejected, with an optional
+link.`
+
+// findingDispositionWrite is the authority and refusal paragraph of the write.
+const findingDispositionWrite = `Only the task's assigners may record a disposition, and only after the task
+finished (never the assignee alone, an App key or an impersonation); the server
+judges it. Refusals: TASK_NOT_OWNER exits 8, TASK_NOT_FINISHED exits 5,
+TASK_FINDING_NOT_FOUND exits 4, BAD_USER_INPUT exits 2. No refusal is retried.
+A transport failure may have committed: list the current dispositions before
+sending another write.
 
 Human output bounds values and neutralizes terminal controls. JSON retains
 original text, including reference kind, target and nullable label.`
@@ -77,14 +84,21 @@ func newCmdTaskFindingDispositions(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
 	c := &cobra.Command{
 		Use: "finding-dispositions <task>", Short: "Read a page of the latest finding dispositions",
-		Long: findingDispositionDoc + `
+		Long: `List what became of a finished task's findings: for each finding its id, its
+disposition (fixed, accepted, deferred or rejected) and the link recorded with
+it, if any. It changes nothing. The findings themselves are listed by "hadron
+team task findings <task>"; "hadron team task dispose-finding" records or
+replaces a disposition.
 
-This read uses the task's existing readers; it writes nothing. A page is in
-finding order, default 20/max 200; --limit 0 returns counts only. Follow
-hasMore with --offset, never infer completion from an empty or short page.
---json is {items: [{findingId, disposition, reference}], total, hasMore};
-an empty list is [], reference is null when absent. This does not list the
-immutable result findings themselves (the separate findings client slice).`,
+` + findingWords + `
+
+A page is in finding order; --limit is its size (default 20, max 200; 0 prints
+only the counts) and --offset starts later. Follow hasMore with --offset: an
+empty or short page does not mean the list is complete. --json is {items:
+[{findingId, disposition, reference}], total, hasMore}; an empty list is [],
+reference is null when absent.
+
+` + findingDispositionDoc,
 		Example: "  hadron team task finding-dispositions AT1.2 --limit 20 --offset 20 --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, a []string) error {
@@ -134,17 +148,27 @@ func newCmdTaskDisposeFinding(f *cmdutil.Factory) *cobra.Command {
 	var code, reference, rawInstruction string
 	c := &cobra.Command{
 		Use: "dispose-finding <task> <finding-id>", Short: "Record or replace one finding's disposition",
-		Long: findingDispositionDoc + `
+		Long: `Record what became of one finding on a finished task: fixed, accepted,
+deferred or rejected, optionally with a link (the fixing PR, a follow-up issue).
+List the findings and their ids with "hadron team task findings <task>", and the
+current dispositions with "hadron team task finding-dispositions <task>".
 
---disposition is required and takes exactly fixed, accepted, deferred or
-rejected. --ref is optional: kind=target[|label], with kind issue,
-pull-request, node, task or url. A label starts at the first |; target/label
-are sent unchanged, with server-owned validation. The mutation sends once
-and prints the server-returned latest value, not an inferred success.
---json is {taskId, findingId, disposition, reference}; reference is null
-when absent. The immutable result is neither sent nor modified.
+` + findingWords + `
 
-` + taskInstructionHelp,
+--disposition is required. --ref is optional: kind=target[|label], with kind
+issue, pull-request, node, task or url; a label starts at the first |, and the
+link is stored as text, never fetched. Writing again replaces the earlier
+disposition (the latest wins; there is no clear), and omitting --ref on a
+replacement drops the old link. Any of the four codes counts as resolving the
+finding. The result itself is never changed. It prints the disposition the
+server now holds; --json is {taskId, findingId, disposition, reference}
+(reference null when absent).
+
+` + findingDispositionDoc + `
+
+` + findingDispositionWrite + `
+
+` + taskInstructionHelpShort("ba077810"),
 		Example: "  hadron team task dispose-finding AT1.2 F1 --disposition deferred --ref 'issue=https://example.com/issues/7|Follow-up' --json",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, a []string) error {
