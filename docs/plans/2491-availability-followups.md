@@ -30,10 +30,12 @@ exact topology — asserts:
    session;
 3. **no request in the whole flow carries a session header**.
 
-That pins the security property end-to-end: it kills the equivalent
-middleware-side mutants (removing the identity check, or any future change
-that makes the middleware attach in this fallback — verified by running the
-identity-check mutant against the pin), so the `withAsPerson` line remains as
+That pins the security property end-to-end: the pin fails on any change that
+makes the middleware actually attach in this fallback — today that takes the
+double removal (identity check AND `withAsPerson`; verified by running the
+mutants against the pins) — while the single identity-check removal is caught
+by the plain pin below and leaves this instructed flow safe through
+`withAsPerson` alone, so the `withAsPerson` line remains as
 defense-in-depth rather than as the last line of defense. The gate left the
 line-kill question to the ready call ("that call is theirs"); this is the
 honest position to review.
@@ -42,9 +44,13 @@ honest position to review.
 
 The combined synopsis line in `internal/cmd/agentic/agentic-usage.md` reads
 `availability get | set (…flags… [--instruction …])`, implying `get` takes the
-flag; `get` has no `--instruction`. Split the flags so the set-only ones sit on
-the `set` arm (minimal edit; no contract change — the documented behavior
-sentences already describe `set`).
+flag; `get` has no `--instruction`. As built (Jeremy's BLIND P3 on #2557:
+"split" overstated the edit): the combined `get | set` usage line is kept —
+it is the agentic-usage inventory's one-line surface — and the trailing
+comment now opens with "every flag shown is `set`'s — `get` is a read and
+takes none; `--instruction` in particular is set-only", so the set-only-ness
+is stated on the line itself instead of restructuring it (no contract
+change — the documented behavior sentences already describe `set`).
 
 ## F3 — explain the instructed call site's empty target and discarded bool
 

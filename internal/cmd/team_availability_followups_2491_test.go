@@ -12,9 +12,12 @@ import (
 // keeps its claim and targets App B. The named withAsPerson-removal mutant is
 // observation-equivalent through today's CLI (the middleware skips queries and
 // its own App-identity check declines the mutation here), so no CLI test can
-// kill that line alone; this pin kills the equivalent middleware-side mutants
-// — removing the identity check, or any future attach-in-fallback — verified
-// by running those mutants against it. See docs/plans/2491-availability-followups.md.
+// kill that line alone. Nor does this pin fail on the single identity-check
+// removal — withAsPerson still keeps the attach off (the plain pin below is
+// the one that fails on that mutant); what this pin kills is any change that
+// makes the middleware actually attach in this fallback, today the double
+// removal (identity check AND withAsPerson) — verified by running those
+// mutants against the pins. See docs/plans/2491-availability-followups.md.
 func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	dir := teamGitDir(t)
 	const appB = "capp999999999999999999999" // the binding's App is capp100…
@@ -45,10 +48,11 @@ func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	}
 	var mutation *snapshotCall1614
 	for i, c := range *calls {
-		// The pin: headerless, every request — lookups included. A middleware
-		// that attaches in this fallback (identity check removed, or any
-		// future change) fails here on the mutation, and any ctx-level session
-		// fails here on the lookups.
+		// The pin: headerless, every request — lookups included. Any change
+		// that makes the middleware attach in this fallback fails here on the
+		// mutation (today that takes the double removal — identity check AND
+		// withAsPerson; the identity check alone is caught by the plain pin
+		// below), and any ctx-level session fails here on the lookups.
 		if c.Session != "" {
 			t.Fatalf("request %s carried worker session %q through the person fallback", c.OperationName, c.Session)
 		}
@@ -105,9 +109,13 @@ func TestAvailabilityPlainCrossAppWorkerSetNotAttributed(t *testing.T) {
 		t.Fatal(err)
 	}
 	seen := false
+	bindingChecked := false
 	for _, c := range *calls {
 		if c.Session != "" {
 			t.Fatalf("request %s carried worker session %q: the App-A binding must not ride a write targeting App B", c.OperationName, c.Session)
+		}
+		if c.OperationName == "GetBoundSessionEnd" {
+			bindingChecked = true
 		}
 		if c.OperationName == "WorkerAvailabilitySet" {
 			seen = true
@@ -116,10 +124,13 @@ func TestAvailabilityPlainCrossAppWorkerSetNotAttributed(t *testing.T) {
 			}
 		}
 	}
+	if !bindingChecked {
+		t.Fatalf("the binding never loaded: no GetBoundSessionEnd read, so the no-session pin above is vacuous: %+v", *calls)
+	}
 	if !seen {
 		t.Fatalf("no plain WorkerAvailabilitySet observed: %+v", *calls)
 	}
-	if strings.Contains(stderr.String(), "session") {
+	if strings.Contains(stderr.String(), "worker session") {
 		t.Fatalf("unexpected session note on a cross-App plain write: %q", stderr.String())
 	}
 }
