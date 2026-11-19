@@ -90228,6 +90228,10 @@ func (v *SearchReplaceInNodesResponse) GetSearchReplaceInNodes() *SearchReplaceI
 type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult struct {
 	// Selected nodes whose requested text fields were actually inspected.
 	NodesScanned int `json:"nodesScanned"`
+	// Unique authorized nodes selected before bulk-write protections are applied.
+	NodesSelected int `json:"nodesSelected"`
+	// Selected nodes protected from inspection and replacement.
+	NodesSkipped int `json:"nodesSkipped"`
 	// Nodes with at least one replacement.
 	NodesChanged      int `json:"nodesChanged"`
 	TotalReplacements int `json:"totalReplacements"`
@@ -90240,6 +90244,16 @@ type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult struct {
 // GetNodesScanned returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesScanned, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesScanned() int {
 	return v.NodesScanned
+}
+
+// GetNodesSelected returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesSelected, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesSelected() int {
+	return v.NodesSelected
+}
+
+// GetNodesSkipped returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesSkipped, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesSkipped() int {
+	return v.NodesSkipped
 }
 
 // GetNodesChanged returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesChanged, and is useful for accessing the field via an interface.
@@ -171903,6 +171917,8 @@ const SearchReplaceInNodes_Operation = `
 mutation SearchReplaceInNodes ($input: SearchReplaceInNodesInput!) {
 	searchReplaceInNodes(input: $input) {
 		nodesScanned
+		nodesSelected
+		nodesSkipped
 		nodesChanged
 		totalReplacements
 		dryRun
