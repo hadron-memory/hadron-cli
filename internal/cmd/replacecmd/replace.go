@@ -336,7 +336,7 @@ func renderReport(w io.Writer, dto replaceResultDTO) error {
 	fmt.Fprintf(w, "%s %d occurrence(s) across %d of %d node(s) scanned%s\n",
 		verb, dto.TotalReplacements, dto.NodesChanged, dto.NodesScanned, suffix)
 	if dto.NodesSkipped > 0 {
-		fmt.Fprintf(w, "Skipped %d node(s): protected from inspection and replacement (comments, governed nodes, compiled boot prompts, or nodes under a Channel's address); they still have the old text.\n", dto.NodesSkipped)
+		fmt.Fprintf(w, "Skipped %d node(s): not inspected or changed (comments, governed nodes, compiled boot prompts, or nodes under a Channel's address); they may still contain the old text.\n", dto.NodesSkipped)
 	}
 	if len(dto.Results) == 0 {
 		return nil

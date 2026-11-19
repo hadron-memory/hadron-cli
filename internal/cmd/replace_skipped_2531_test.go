@@ -83,11 +83,19 @@ func TestReplaceTextShowsSkippedCount2531(t *testing.T) {
 		t.Run(c.name+"/text", func(t *testing.T) {
 			out, _ := runReplace2531(t, serveSkipped(t, 5, 2, 4), c.extra...)
 			lines := strings.Split(out, "\n")
+			if len(lines) < 2 {
+				t.Fatalf("expected a totals line and a Skipped line: %q", out)
+			}
 			if !strings.Contains(lines[0], totals) {
 				t.Fatalf("the totals line must be unchanged: %q", lines[0])
 			}
 			if !strings.HasPrefix(lines[1], "Skipped 2 node(s)") {
 				t.Fatalf("a Skipped line must follow the totals line: %q", out)
+			}
+			// Skipped nodes were not inspected, so the line must not claim they
+			// still carry the old text (cli#2637 review).
+			if !strings.Contains(lines[1], "not inspected or changed") || !strings.Contains(lines[1], "may still contain the old text") || strings.Contains(lines[1], "still have the old text") {
+				t.Fatalf("the Skipped line must say skipped nodes were not inspected and may still contain the old text: %q", lines[1])
 			}
 		})
 		t.Run(c.name+"/json", func(t *testing.T) {
