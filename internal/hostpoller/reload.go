@@ -105,6 +105,7 @@ func (p *Poller) reloadConfig() {
 	apply := len(added)+len(removed)+len(modified)+len(others) > 0
 	if apply {
 		merged.Workers, merged.Repos, merged.Accounts = next.Workers, next.Repos, next.Accounts
+		p.noteRemoved(c, removed, added)
 	}
 	p.live.Store(&merged)
 	p.reloadSeen, p.reloadPending = [sha256.Size]byte{}, [sha256.Size]byte{}
@@ -140,6 +141,48 @@ func readConfigFile(path string) ([]byte, os.FileInfo, error) {
 
 // maxConfigBytes bounds what a reload reads: a host config is a few kilobytes.
 const maxConfigBytes = 1 << 20
+
+// noteRemoved remembers, by worker id, the entry each removed worker had, so a
+// worker.end for it can still be carried out with that entry, and forgets a
+// worker that came back.
+func (p *Poller) noteRemoved(before *Config, removed, added []string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.removed == nil {
+		p.removed = map[string]removedWorker{}
+	}
+	for id, rm := range p.removed {
+		for _, ref := range added {
+			if rm.ref == ref {
+				delete(p.removed, id)
+			}
+		}
+	}
+	for _, ref := range removed {
+		w, ok := before.Workers[ref]
+		if !ok {
+			continue
+		}
+		for id, r := range p.workerRefs {
+			if r == ref {
+				p.removed[id] = removedWorker{ref: ref, cfg: w}
+			}
+		}
+	}
+}
+
+// removedWorkerFor is the last entry of a worker a reload removed, found by
+// the operation's worker id.
+func (p *Poller) removedWorkerFor(op Operation) (removedWorker, bool) {
+	id := op.WorkerID
+	if id == "" {
+		id = argString(op, "workerId")
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rm, ok := p.removed[id]
+	return rm, ok
+}
 
 // reloadRefused keeps the running configuration and says why, once for each
 // distinct content and reason. The content is judged again every poll, so a

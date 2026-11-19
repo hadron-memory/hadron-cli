@@ -567,7 +567,6 @@ func TestEveryOperationForARemovedWorkerIsReportedFailed2623(t *testing.T) {
 		{ID: "o-create", Type: OpWorktreeCreate, WorkerID: "id-billie", Args: map[string]any{"repo": "acme/repo", "baseBranch": "main", "branchName": "b", "label": "x"}},
 		{ID: "o-remove", Type: OpWorktreeRemove, WorkerID: "id-billie", Args: map[string]any{"worktree": "repo/billie"}},
 		{ID: "o-start", Type: OpWorkerStart, WorkerID: "id-billie", Args: map[string]any{"worktree": "repo/billie"}},
-		{ID: "o-end", Type: OpWorkerEnd, WorkerID: "id-billie"},
 	} {
 		t.Run(op.Type, func(t *testing.T) {
 			fx := newReloadFixtureFrom(t, reloadBase+billie)
@@ -588,6 +587,49 @@ func TestEveryOperationForARemovedWorkerIsReportedFailed2623(t *testing.T) {
 				t.Fatalf("the host was acted on for a removed worker: launches %v stopped %v created %v removed %v", fx.host.launches, fx.host.stopped, fx.host.created, fx.host.removed)
 			}
 		})
+	}
+}
+
+const billieWithEnd = "  billie:\n    family: claude\n    launch: [claude-worker]\n    end: [orca-send, billie, end]\n    end_wait: 20ms\n"
+
+// A worker a reload removed may still have a live agent, and ending a session
+// only de-escalates: worker.end is carried out with the entry the worker last
+// had, and an event says so. Anything else for her stays refused.
+func TestWorkerEndForARemovedWorkerUsesItsLastEntry2623(t *testing.T) {
+	fx := newReloadFixtureFrom(t, reloadBase+billieWithEnd)
+	fx.step()
+	fx.edit(reloadBase)
+	fx.srv.batches = [][]Operation{{{ID: "o-end", Type: OpWorkerEnd, WorkerID: "id-billie", Args: map[string]any{"sessionId": "s1"}}}}
+	fx.step()
+	fx.p.Wait()
+	fx.srv.mu.Lock()
+	reports := append([]report{}, fx.srv.reports...)
+	fx.srv.mu.Unlock()
+	if len(reports) != 1 || strings.Contains(reports[0].reason, "not configured") || !strings.Contains(reports[0].reason, "did not end") {
+		t.Fatalf("reports = %+v, want the ordinary end outcome, not 'not configured'", reports)
+	}
+	if len(fx.host.prompts) != 1 || strings.Join(fx.host.prompts[0], " ") != "orca-send billie end" {
+		t.Fatalf("the removed worker's last end prompt was not run: %v", fx.host.prompts)
+	}
+	if ev := fx.kinds("removed-worker-end"); len(ev) != 1 || !strings.Contains(ev[0].Detail, "billie") {
+		t.Fatalf("want one removed-worker-end event, got %+v", ev)
+	}
+}
+
+// A worker that comes back is configured again: no special path, no event.
+func TestAReAddedWorkerEndsNormally2623(t *testing.T) {
+	fx := newReloadFixtureFrom(t, reloadBase+billieWithEnd)
+	fx.step()
+	fx.edit(reloadBase)
+	fx.edit(reloadBase + billieWithEnd)
+	fx.srv.batches = [][]Operation{{{ID: "o-end", Type: OpWorkerEnd, WorkerID: "id-billie"}}}
+	fx.step()
+	fx.p.Wait()
+	if n := len(fx.kinds("removed-worker-end")); n != 0 {
+		t.Fatalf("a re-added worker was ended as a removed one: %d events", n)
+	}
+	if len(fx.host.prompts) != 1 {
+		t.Fatalf("prompts = %v", fx.host.prompts)
 	}
 }
 

@@ -47,8 +47,11 @@ entries, not replace ours): someone who can write a directory on the way can
 replace what is below it without touching its mode. The config file is judged
 on the one open file its bytes were read from (so it cannot be swapped between
 the read and the check; a symlink is followed once, at the open); named paths
-are resolved through symlinks to the real directories, and a path that does not
-exist yet is judged from its nearest existing parent. Bare program names are
+are resolved through symlinks to the real directories, and the directories on
+the way are judged both as the path is written and as it resolves (a writable
+directory that holds a symlink can repoint it, though the resolved path never
+passes through it); a path that does not exist yet is judged from its nearest
+existing parent. Bare program names are
 resolved through `PATH` and the program found is judged. Names that do not
 resolve are skipped (starting that worker fails on them as before). Not
 enforced on Windows, where a restart applies a change. A host whose config
@@ -61,6 +64,13 @@ is inside the poller's trust boundary, as it is for a restart: it could already
 edit the file and wait for a restart, or replace the poller's own binary, so a
 reload grants it nothing a restart did not. No check is added that a same-user
 process could not satisfy.
+
+**A removed worker.** Taking a worker out of the file does not stop its agent.
+`worker.end` for it is still carried out, with the entry the worker last had
+(kept by worker id when the reload applies, forgotten if the worker comes
+back), and a `removed-worker-end` event says so: ending a session only
+de-escalates. Every other operation for it is reported failed "not configured
+on this host", and a recovery that would *start* an agent stays refused.
 
 ## Why this shape
 

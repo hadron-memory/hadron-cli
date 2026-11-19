@@ -506,8 +506,16 @@ const launchGrantEnvVar = "HADRON_LAUNCH_GRANT"
 func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	ref, w, ok := p.workerRef(op)
 	if !ok {
-		p.finish(ctx, op, Failed, "", "the worker is not configured on this host")
-		return
+		// A worker a reload took out of the file may still have a live agent,
+		// and ending a session only de-escalates: carry it out with the entry
+		// the worker last had, and say so (cli#2623).
+		rm, found := p.removedWorkerFor(op)
+		if !found {
+			p.finish(ctx, op, Failed, "", "the worker is not configured on this host")
+			return
+		}
+		ref, w = rm.ref, rm.cfg
+		p.log("removed-worker-end", op.ID, op.Type, "", ref+": no longer in the configuration file; ending its session with the entry it last had")
 	}
 	session := argString(op, "sessionId")
 	p.mu.Lock()

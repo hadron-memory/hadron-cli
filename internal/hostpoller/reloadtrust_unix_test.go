@@ -304,3 +304,31 @@ func TestAConfigFileInADirectoryOthersCanWriteIsRefused2623(t *testing.T) {
 		t.Fatalf("want one refusal naming the directory, got %+v", ev)
 	}
 }
+
+// A directory that merely holds a symlink on the path is judged too: whoever
+// can write it can repoint the link, though the resolved path never passes
+// through it.
+func TestADirectoryHoldingASymlinkOnThePathIsJudged2623(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	safe := filepath.Join(fx.dir, "safe")
+	if err := os.Mkdir(safe, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	prog := filepath.Join(safe, "launcher")
+	if err := os.WriteFile(prog, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	open := looseDir(t, fx.dir, "open", false)
+	if err := os.Symlink(safe, filepath.Join(open, "link")); err != nil {
+		t.Fatal(err)
+	}
+	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + filepath.Join(open, "link", "launcher") + "]\n")
+	ev := fx.kinds("config-reload-refused")
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "not sticky") || !strings.Contains(ev[0].Detail, open) {
+		t.Fatalf("want a refusal naming the directory that holds the symlink, got %+v", ev)
+	}
+	if _, ok := fx.p.config().Worker("billie"); ok {
+		t.Fatal("a worker whose program is reached through a writable directory's symlink was applied")
+	}
+}

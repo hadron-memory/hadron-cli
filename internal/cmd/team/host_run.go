@@ -529,7 +529,13 @@ users and loose modes; a process running as the poller's own user is inside
 the poller's trust boundary, as it is for a restart. A file that does not load or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
 for that content and reason. A worker that now launches through Orca is
-refused too, since that wiring is made at start (restart to apply it).
+refused too, since that wiring is made at start (restart to apply it). A
+worker removed from the file keeps any live agent: worker.end for it is still
+carried out, with the entry it last had (the poller logs removed-worker-end),
+since ending a session only de-escalates; other operations for it are refused
+as not configured. Directories on the way to a path are judged both as the path
+is written and as it resolves, so a writable directory that holds a symlink to
+a safe place is refused too.
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the

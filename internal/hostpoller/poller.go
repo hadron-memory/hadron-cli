@@ -198,9 +198,10 @@ type Poller struct {
 	// reader of startCfg in production code is a bug (cli#2623).
 	startCfg      *Config
 	live          atomic.Pointer[Config]
-	orcaWired     bool     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
-	reloadSeen    [32]byte // content of a configuration file already refused or reported
-	reloadPending [32]byte // content seen once, applied only if the next poll sees it again
+	orcaWired     bool                     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
+	removed       map[string]removedWorker // by worker id: workers a reload removed, with their last entry (cli#2623)
+	reloadSeen    [32]byte                 // content of a configuration file already refused or reported
+	reloadPending [32]byte                 // content seen once, applied only if the next poll sees it again
 	server        Server
 	host          Host
 	state         *State
@@ -334,6 +335,13 @@ func (p *Poller) log(kind, op, typ, outcome, detail string) {
 	if p.emit != nil {
 		p.emit(Event{Time: p.now().UTC(), Kind: kind, Operation: op, Type: typ, Outcome: outcome, Detail: detail})
 	}
+}
+
+// removedWorker is a worker a reload took out of the file, with the entry it
+// had: ending its session still needs that entry, and ending only de-escalates.
+type removedWorker struct {
+	ref string
+	cfg WorkerConfig
 }
 
 // config is the configuration in force: the one the poller started with until

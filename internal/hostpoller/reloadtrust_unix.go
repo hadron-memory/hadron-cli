@@ -65,18 +65,28 @@ func trustedPath(path, what string) error {
 // /tmp, lets others add entries but not replace ours). A path that does not
 // exist yet is judged from the nearest directory that does.
 func trustedAncestors(path, what string) error {
-	real := resolveExisting(path)
-	for d := filepath.Dir(real); ; d = filepath.Dir(d) {
-		info, err := os.Stat(d)
-		if err == nil {
-			if err := trustedDirInfo(info, d, path, what); err != nil {
-				return err
+	// Two walks: the resolved path (where the file really is) and the path as
+	// written (a directory that merely holds a symlink on the way can be
+	// rewritten to point elsewhere, so it is judged even though the resolved
+	// path never passes through it).
+	lexical, err := filepath.Abs(path)
+	if err != nil {
+		lexical = filepath.Clean(path)
+	}
+	for _, start := range []string{resolveExisting(path), lexical} {
+		for d := filepath.Dir(start); ; d = filepath.Dir(d) {
+			info, err := os.Stat(d)
+			if err == nil {
+				if err := trustedDirInfo(info, d, path, what); err != nil {
+					return err
+				}
+			}
+			if d == filepath.Dir(d) {
+				break
 			}
 		}
-		if d == filepath.Dir(d) {
-			return nil
-		}
 	}
+	return nil
 }
 
 // resolveExisting is path with symlinks resolved as far as it exists, so the
