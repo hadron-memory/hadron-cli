@@ -33,8 +33,8 @@ func TestTeamSliceFHelpExamplesParseAndFactsHold(t *testing.T) {
 		{[]string{"team", "wake-settings"}, []string{"A wake is the nudge", "Which one to use:"}},
 		{[]string{"team", "wake-settings", "set"}, []string{"a time in the future", "<future RFC 3339 time>"}},
 		{[]string{"team", "wakes", "due"}, []string{"is a\nspending read", "Use --preview to"}},
-		{[]string{"team", "pause"}, []string{"Regular wakes are the nudges", "It asks no confirmation."}},
-		{[]string{"team", "resume"}, []string{"Regular wakes are the nudges"}},
+		{[]string{"team", "pause"}, []string{"Regular wakes are the nudges", "a mention does not wake a worker either", "stop-signal notice, which travels alone", "It asks no confirmation."}},
+		{[]string{"team", "resume"}, []string{"Regular wakes are the nudges", "a mention does not wake a worker either"}},
 		{[]string{"team", "push"}, []string{"<worker> is the recipient's name, URN or id", "total wait before sending 120s", "Exit codes specific to push", "Orca"}},
 	}
 	for _, p := range pages {
@@ -58,7 +58,7 @@ func TestTeamSliceFHelpExamplesParseAndFactsHold(t *testing.T) {
 					t.Errorf("help lacks %q", w)
 				}
 			}
-			if strings.Contains(help, "Needs server 4bac6127") || strings.Contains(help, "2026-11-01T00:00:00Z") || strings.Contains(help, "wait120s") || strings.Contains(help, "Source merge does not migrate") {
+			if strings.Contains(help, "Needs server 4bac6127") || strings.Contains(help, "2026-11-01T00:00:00Z") || strings.Contains(help, "wait120s") || strings.Contains(help, "Source merge does not migrate") || strings.Contains(help, "is the server's rule, and") {
 				t.Error("help still carries a retired phrase")
 			}
 			// Parse every example against the real tree.

@@ -23,10 +23,11 @@ type teamPauseDTO struct {
 }
 
 const teamPauseHelp = `Regular wakes are the nudges that wake an idle worker to check the team chat (a
-ticker tick, a mention, a task event). A team pause holds them for every worker
-in the App; which of them a given pause holds is the server's rule, and
-"hadron team roster" shows each worker's state. It does not interrupt a session
-that is already open.
+ticker tick, a mention, a task event). While the App is paused, none of them
+wakes any worker: a mention does not wake a worker either. The one thing that
+still reaches a paused worker is a stop-signal notice, which travels alone
+("hadron team stop --help"). The pause does not interrupt a session that is
+already open, and "hadron team roster" shows each worker's state.
 
 App scope comes from --app, the active context or this worktree's binding.
 This is the signed-in person's write: no worker session is attached; the

@@ -524,3 +524,28 @@ func TestAppKeyScopeGrantLocalRefusals(t *testing.T) {
 		})
 	}
 }
+
+// cli#2572: a server reply that carries no issueHostOperation (data {} or an
+// explicit null) must end in a named exit-1 error, not a nil dereference.
+func TestTeamHostIssueNoOperationInReply(t *testing.T) {
+	for name, reply := range map[string]string{
+		"empty data":    `{"data":{}}`,
+		"explicit null": `{"data":{"issueHostOperation":null}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := hostResponses()
+			r["IssueHostOperation"] = reply
+			_, _, err := runTeamTask(t, r, "team", "host", "issue", "worktree.remove",
+				"--host", "orca1", "--worker", "Jonas", "--arg", "worktree=jonas-3")
+			if err == nil {
+				t.Fatal("want an error for a reply with no operation")
+			}
+			if !strings.Contains(err.Error(), "server returned no host operation") {
+				t.Fatalf("error %q does not name the empty reply", err)
+			}
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("exit %d, want %d", got, exitcode.Error)
+			}
+		})
+	}
+}
