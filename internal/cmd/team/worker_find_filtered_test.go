@@ -168,9 +168,9 @@ func TestFindFilteredRosterReadAvoidsBindingHook953(t *testing.T) {
 				calls.Add(1)
 				w.Header().Set("Content-Type", "application/json")
 				if named {
-					_, _ = w.Write([]byte(`{"data":{"worker":{"id":"w1","name":"Iris","appId":"app1","appUrn":"hrn:app:test.com:team","retiredAt":null}}}`))
+					_, _ = w.Write([]byte(`{"data":{"worker":{"id":"w1","name":"Iris","appId":"app1","appUrn":"hrn:app:test.com:team"}}}`))
 				} else {
-					_, _ = w.Write([]byte(`{"data":{"workers":{"total":1,"items":[{"id":"w1","name":"Iris","retiredAt":null}]}}}`))
+					_, _ = w.Write([]byte(`{"data":{"workers":{"total":1,"items":[{"id":"w1","name":"Iris"}]}}}`))
 				}
 			}))
 			defer server.Close()
