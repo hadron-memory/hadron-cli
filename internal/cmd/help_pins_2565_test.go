@@ -54,10 +54,10 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 		// server would accept (exactly one recommendation arm, Bob #2584 P2-1)
 		{[]string{"decision", "amend"}, []string{
 			`{"n": <part number>}`,
-			"DECISION_PART_RENUMBER",
+			"QUESTION_PART_RENUMBER",
 			"new parts appended at the end, each shaped like ask's parts",
 			`exactly one of "recommendation" or "noRecommendation"`,
-			"DECISION_RECOMMENDATION_MISSING",
+			"QUESTION_RECOMMENDATION_MISSING",
 			`{"ref": "hadron-server#1640"}, {"node": "<id or URN>"}`,
 			"cat > amend.json <<'EOF'",
 			`"noRecommendation":{"reason":"outside the asker's remit"}`,

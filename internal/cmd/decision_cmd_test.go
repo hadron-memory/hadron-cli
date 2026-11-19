@@ -86,7 +86,7 @@ func writeJSONFile(t *testing.T, body string) string {
 
 func TestDecisionLogCreateSendsArgsVerbatimAndOmitsUnset(t *testing.T) {
 	c, _, err := runDecision(t, map[string]string{
-		"CreateDecisionLog": `{"data":{"createDecisionLog":` + decisionLogJSON + `}}`,
+		"CreateDecisionLog": `{"data":{"createQuestionLog":` + decisionLogJSON + `}}`,
 	}, "log", "create", "hrn:mem:acme.com:kb", "--loc", "decisions", "--decider", "u2", "--decider", "u3")
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +103,7 @@ func TestDecisionLogCreateSendsArgsVerbatimAndOmitsUnset(t *testing.T) {
 
 func TestDecisionLogCreateSendsOptionalsWhenGiven(t *testing.T) {
 	c, _, err := runDecision(t, map[string]string{
-		"CreateDecisionLog": `{"data":{"createDecisionLog":` + decisionLogJSON + `}}`,
+		"CreateDecisionLog": `{"data":{"createQuestionLog":` + decisionLogJSON + `}}`,
 	}, "log", "create", "m1", "--loc", "d", "--decider", "u2", "--name", "Rulings", "--prefix", "R", "--eligible", "u3")
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestDecisionLogCreateRequiresLocAndDecider(t *testing.T) {
 
 func TestDecisionLogGetJSONAndNotFound(t *testing.T) {
 	c, out, err := runDecision(t, map[string]string{
-		"DecisionLog": `{"data":{"decisionLog":` + decisionLogJSON + `}}`,
+		"DecisionLog": `{"data":{"questionLog":` + decisionLogJSON + `}}`,
 	}, "log", "get", "hrn:node:acme.com:kb:decisions", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestDecisionLogGetJSONAndNotFound(t *testing.T) {
 		}
 	}
 
-	_, _, err = runDecision(t, map[string]string{"DecisionLog": `{"data":{"decisionLog":null}}`}, "log", "get", "x")
+	_, _, err = runDecision(t, map[string]string{"DecisionLog": `{"data":{"questionLog":null}}`}, "log", "get", "x")
 	if err == nil || exitCodeFor(err) != exitcode.NotFound {
 		t.Fatalf("null log must be not-found, got %v", err)
 	}
@@ -167,7 +167,7 @@ func TestDecisionLogSetDecidersRequiresRevisionReasonDecider(t *testing.T) {
 		}
 	}
 	c, _, err := runDecision(t, map[string]string{
-		"SetDecisionLogDeciders": `{"data":{"setDecisionLogDeciders":` + decisionLogJSON + `}}`,
+		"SetDecisionLogDeciders": `{"data":{"setQuestionLogDeciders":` + decisionLogJSON + `}}`,
 	}, "log", "set-deciders", "l1", "--decider", "u2", "--expected-revision", "2", "--reason", "rotate")
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +185,7 @@ func TestDecisionLogSetDecidersRequiresRevisionReasonDecider(t *testing.T) {
 
 func TestDecisionLogSetDecidersEmptyEligibleClears(t *testing.T) {
 	c, _, err := runDecision(t, map[string]string{
-		"SetDecisionLogDeciders": `{"data":{"setDecisionLogDeciders":` + decisionLogJSON + `}}`,
+		"SetDecisionLogDeciders": `{"data":{"setQuestionLogDeciders":` + decisionLogJSON + `}}`,
 	}, "log", "set-deciders", "l1", "--decider", "u2", "--eligible", "", "--expected-revision", "2", "--reason", "clear")
 	if err != nil {
 		t.Fatal(err)
@@ -201,7 +201,7 @@ func TestDecisionLogSetDecidersEmptyEligibleClears(t *testing.T) {
 func TestDecisionAskPassesInputFileThrough(t *testing.T) {
 	in := `{"title":"Pick a db","parts":[{"question":"Which?","options":[{"key":"pg","label":"Postgres"}],"recommendation":{"key":"pg"}}],"blocks":[{"ref":"hadron-server#1"}]}`
 	c, _, err := runDecision(t, map[string]string{
-		"AskDecision": `{"data":{"askDecision":` + decisionJSON + `}}`,
+		"AskDecision": `{"data":{"askQuestion":` + decisionJSON + `}}`,
 	}, "ask", "hrn:node:acme.com:kb:decisions", "--input-file", writeJSONFile(t, in))
 	if err != nil {
 		t.Fatal(err)
@@ -221,7 +221,7 @@ func TestDecisionAskPassesInputFileThrough(t *testing.T) {
 func TestDecisionAskFlagsOverrideTopLevelKeys(t *testing.T) {
 	in := `{"title":"old","parts":[{"question":"Q","yesno":true,"noRecommendation":{"reason":"none"}}]}`
 	c, _, err := runDecision(t, map[string]string{
-		"AskDecision": `{"data":{"askDecision":` + decisionJSON + `}}`,
+		"AskDecision": `{"data":{"askQuestion":` + decisionJSON + `}}`,
 	}, "ask", "l1", "--input-file", writeJSONFile(t, in), "--title", "new", "--context", "ctx", "--tier", "SIGNED", "--urgency", "URGENT")
 	if err != nil {
 		t.Fatal(err)
@@ -240,7 +240,7 @@ func TestDecisionAskFlagsOverrideTopLevelKeys(t *testing.T) {
 // opaque grant is not the CLI's to refuse; it goes to the server verbatim.
 func TestDecisionAskPassesAHugeNumberInGrant(t *testing.T) {
 	c, _, err := runDecision(t, map[string]string{
-		"AskDecision": `{"data":{"askDecision":` + decisionJSON + `}}`,
+		"AskDecision": `{"data":{"askQuestion":` + decisionJSON + `}}`,
 	}, "ask", "l1", "--input-file", writeJSONFile(t, `{"grant":{"n":1e999},"title":"a","parts":[]}`))
 	if err != nil {
 		t.Fatalf("a huge number in grant must not be refused: %v", err)
@@ -307,7 +307,7 @@ func TestDecisionAmendRequiresRevisionReasonAndAChange(t *testing.T) {
 
 func TestDecisionAmendSendsOnlyGivenFields(t *testing.T) {
 	c, _, err := runDecision(t, map[string]string{
-		"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`,
+		"AmendDecision": `{"data":{"amendQuestion":` + decisionJSON + `}}`,
 	}, "amend", "hrn:node:acme.com:kb:decisions:DA", "--expected-revision", "3", "--reason", "typo", "--urgency", "URGENT")
 	if err != nil {
 		t.Fatal(err)
@@ -328,7 +328,7 @@ func TestDecisionAmendEmptyReferenceListClears(t *testing.T) {
 	for _, key := range []string{"blocks", "followUps", "sources"} {
 		// Alone: a clear is a change, not "nothing to amend".
 		c, _, err := runDecision(t, map[string]string{
-			"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`,
+			"AmendDecision": `{"data":{"amendQuestion":` + decisionJSON + `}}`,
 		}, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"`+key+`":[]}`))
 		if err != nil {
 			t.Fatalf("%s: [] alone must be sent, got %v", key, err)
@@ -339,7 +339,7 @@ func TestDecisionAmendEmptyReferenceListClears(t *testing.T) {
 		}
 		// Alongside a scalar change.
 		c, _, err = runDecision(t, map[string]string{
-			"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`,
+			"AmendDecision": `{"data":{"amendQuestion":` + decisionJSON + `}}`,
 		}, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--title", "t", "--input-file", writeJSONFile(t, `{"`+key+`":[]}`))
 		if err != nil {
 			t.Fatal(err)
@@ -359,7 +359,7 @@ func TestDecisionAmendEmptyReferenceListClears(t *testing.T) {
 func TestDecisionAmendMergesFileAndFlags(t *testing.T) {
 	in := `{"addParts":[{"question":"Also?","yesno":true,"noRecommendation":{"reason":"n"}}],"title":"file"}`
 	c, _, err := runDecision(t, map[string]string{
-		"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`,
+		"AmendDecision": `{"data":{"amendQuestion":` + decisionJSON + `}}`,
 	}, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, in), "--title", "flag")
 	if err != nil {
 		t.Fatal(err)
@@ -373,7 +373,7 @@ func TestDecisionAmendMergesFileAndFlags(t *testing.T) {
 // --- get / list / verify ---
 
 func TestDecisionGetByRefOrByCode(t *testing.T) {
-	resp := map[string]string{"Decision": `{"data":{"decision":` + decisionJSON + `}}`}
+	resp := map[string]string{"Decision": `{"data":{"question":` + decisionJSON + `}}`}
 	c, _, err := runDecision(t, resp, "get", "hrn:node:acme.com:kb:decisions:DA")
 	if err != nil {
 		t.Fatal(err)
@@ -394,14 +394,14 @@ func TestDecisionGetByRefOrByCode(t *testing.T) {
 	}
 	decisionAbsent(t, v, "ref")
 
-	_, _, err = runDecision(t, map[string]string{"Decision": `{"data":{"decision":null}}`}, "get", "x")
+	_, _, err = runDecision(t, map[string]string{"Decision": `{"data":{"question":null}}`}, "get", "x")
 	if err == nil || exitCodeFor(err) != exitcode.NotFound {
 		t.Fatalf("null decision must be not-found, got %v", err)
 	}
 }
 
 func TestDecisionGetJSONShape(t *testing.T) {
-	_, out, err := runDecision(t, map[string]string{"Decision": `{"data":{"decision":` + decisionJSON + `}}`}, "get", "d1", "--json")
+	_, out, err := runDecision(t, map[string]string{"Decision": `{"data":{"question":` + decisionJSON + `}}`}, "get", "d1", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestDecisionListNeedsAScope(t *testing.T) {
 }
 
 func TestDecisionListSendsFiltersAndOmitsUnset(t *testing.T) {
-	resp := map[string]string{"Decisions": `{"data":{"decisions":{"total":0,"items":[]}}}`}
+	resp := map[string]string{"Decisions": `{"data":{"questions":{"total":0,"items":[]}}}`}
 	c, out, err := runDecision(t, resp, "list", "--log", "l1", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -474,7 +474,7 @@ func TestDecisionListSendsFiltersAndOmitsUnset(t *testing.T) {
 }
 
 func TestDecisionListNoAuthorizesSendsFalse(t *testing.T) {
-	resp := map[string]string{"Decisions": `{"data":{"decisions":{"total":0,"items":[]}}}`}
+	resp := map[string]string{"Decisions": `{"data":{"questions":{"total":0,"items":[]}}}`}
 	c, _, err := runDecision(t, resp, "list", "--log", "l1", "--authorizes=false")
 	if err != nil {
 		t.Fatal(err)
@@ -486,7 +486,7 @@ func TestDecisionListNoAuthorizesSendsFalse(t *testing.T) {
 
 func TestDecisionListTable(t *testing.T) {
 	_, out, err := runDecision(t, map[string]string{
-		"Decisions": `{"data":{"decisions":{"total":1,"items":[` + decisionJSON + `]}}}`,
+		"Decisions": `{"data":{"questions":{"total":1,"items":[` + decisionJSON + `]}}}`,
 	}, "list", "--log", "l1")
 	if err != nil {
 		t.Fatal(err)
@@ -500,7 +500,7 @@ func TestDecisionListTable(t *testing.T) {
 
 func TestDecisionVerify(t *testing.T) {
 	c, out, err := runDecision(t, map[string]string{
-		"VerifyDecision": `{"data":{"verifyDecision":{"state":"OPEN","revision":3,"approvedRevision":null,
+		"VerifyDecision": `{"data":{"verifyQuestion":{"state":"OPEN","revision":3,"approvedRevision":null,
 		"approvalIntegrity":"NOT_APPROVED","approvalByDecider":false,"codec":"v1","renderer":"v1","findings":[]}}}`,
 	}, "verify", "d1", "--json")
 	if err != nil {
@@ -540,7 +540,7 @@ func TestDecisionWithdrawConfirmsThenSendsOneCall(t *testing.T) {
 		}
 	}
 	c, _, err = runDecision(t, map[string]string{
-		"WithdrawDecision": `{"data":{"withdrawDecision":` + decisionJSON + `}}`,
+		"WithdrawDecision": `{"data":{"withdrawQuestion":` + decisionJSON + `}}`,
 	}, "withdraw", "d1", "--expected-revision", "3", "--reason", "moot", "--yes")
 	if err != nil {
 		t.Fatal(err)
@@ -561,7 +561,7 @@ func TestDecisionPurgeConfirmsAndRequiresReason(t *testing.T) {
 		t.Fatalf("purge without --reason: want usage error, no call; err=%v ops=%v", err, c.ops)
 	}
 	c, out, err := runDecision(t, map[string]string{
-		"PurgeUnansweredDecision": `{"data":{"purgeUnansweredDecision":true}}`,
+		"PurgeUnansweredDecision": `{"data":{"purgeUnansweredQuestion":true}}`,
 	}, "purge", "d1", "--reason", "spam", "--yes", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -578,7 +578,7 @@ func TestDecisionPurgeConfirmsAndRequiresReason(t *testing.T) {
 
 func TestDecisionPurgeFalseIsAnError(t *testing.T) {
 	_, _, err := runDecision(t, map[string]string{
-		"PurgeUnansweredDecision": `{"data":{"purgeUnansweredDecision":false}}`,
+		"PurgeUnansweredDecision": `{"data":{"purgeUnansweredQuestion":false}}`,
 	}, "purge", "d1", "--reason", "spam", "--yes")
 	if err == nil || exitCodeFor(err) != exitcode.Error {
 		t.Fatalf("a false purge result must not report success, got %v", err)
@@ -634,7 +634,7 @@ const decisionFullJSON = `{"id":"d9","urn":"hrn:node:acme.com:kb:decisions:DB","
 "evidence":{"approval":{"approvedAt":"2026-11-02T01:00:00Z","revision":6,"integrity":"INTACT","byDecider":true,"byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null}}}}`
 
 func TestDecisionGetJSONMapsPopulatedValues(t *testing.T) {
-	_, out, err := runDecision(t, map[string]string{"Decision": `{"data":{"decision":` + decisionFullJSON + `}}`}, "get", "d9", "--json")
+	_, out, err := runDecision(t, map[string]string{"Decision": `{"data":{"question":` + decisionFullJSON + `}}`}, "get", "d9", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -676,7 +676,7 @@ func TestDecisionGetJSONMapsPopulatedValues(t *testing.T) {
 }
 
 func TestDecisionAmendContextIsTriState(t *testing.T) {
-	ok := map[string]string{"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`}
+	ok := map[string]string{"AmendDecision": `{"data":{"amendQuestion":` + decisionJSON + `}}`}
 	// null alone clears: a change, sent as null.
 	c, _, err := runDecision(t, ok, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"context":null}`))
 	if err != nil {

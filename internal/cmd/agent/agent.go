@@ -1115,7 +1115,7 @@ still in use: an App has it installed (see "hadron app uninstall" and "hadron
 app agent remove"), another Agent imports it, or another Agent extends it as its
 base. Memories attached to the Agent ("hadron agent memory add") do not block
 the delete, and only the attachment goes with the Agent. The delete is also
-refused (DECISION_CONTAINED) while the Agent's system memory holds a decision or
+refused (QUESTION_CONTAINED) while the Agent's system memory holds a decision or
 a decision log, and a server that must keep minted content may add its own
 restrictions.
 

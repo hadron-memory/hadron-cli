@@ -4,13 +4,13 @@
 # and who may do what is the server's rule (cor:api:240:01). Optional fields
 # of the ask/amend input objects carry omitempty (except the presence-sensitive
 # lists noted at each operation), so a field the caller left out stays
-# omitted: amend reads an omitted field as "unchanged", and DecisionRefInput is
+# omitted: amend reads an omitted field as "unchanged", and QuestionRefInput is
 # exactly one of ref/node/spec, so a sent null for the other two would be a
 # different request.
 
 fragment DecisionActorRefFields on CommentActorRef { id name handle urn }
 
-fragment DecisionActorFields on DecisionActor {
+fragment DecisionActorFields on QuestionActor {
   userId
   user { ...DecisionActorRefFields }
   workerId
@@ -19,9 +19,9 @@ fragment DecisionActorFields on DecisionActor {
   app { ...DecisionActorRefFields }
 }
 
-fragment DecisionRefFields on DecisionRef { ref node spec }
+fragment DecisionRefFields on QuestionRef { ref node spec }
 
-fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+fragment DecisionIdentityMergeFields on QuestionIdentityMerge {
   fromUserId
   from { ...DecisionActorRefFields }
   toUserId
@@ -29,7 +29,7 @@ fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
   mergedAt
 }
 
-fragment DecisionAnswerFields on DecisionAnswer {
+fragment DecisionAnswerFields on QuestionAnswer {
   at
   byUserId
   recordedByUserId
@@ -42,7 +42,7 @@ fragment DecisionAnswerFields on DecisionAnswer {
   source { ...DecisionRefFields }
 }
 
-fragment DecisionFields on Decision {
+fragment DecisionFields on Question {
   id
   urn
   code
@@ -90,7 +90,7 @@ fragment DecisionFields on Decision {
   }
 }
 
-fragment DecisionLogFields on DecisionLog {
+fragment DecisionLogFields on QuestionLog {
   id
   urn
   loc
@@ -115,7 +115,7 @@ fragment DecisionLogFields on DecisionLog {
 }
 
 query DecisionLog($ref: ID!) {
-  decisionLog(ref: $ref) { ...DecisionLogFields }
+  questionLog(ref: $ref) { ...DecisionLogFields }
 }
 
 # By ref, or by code within logRef. Each argument is omitted when unset so the
@@ -128,10 +128,10 @@ query Decision(
   # @genqlient(omitempty: true)
   $logRef: ID
 ) {
-  decision(ref: $ref, code: $code, logRef: $logRef) { ...DecisionFields }
+  question(ref: $ref, code: $code, logRef: $logRef) { ...DecisionFields }
 }
 
-# The server pages (limit/offset, DecisionPage.total); omitted filters keep the
+# The server pages (limit/offset, QuestionPage.total); omitted filters keep the
 # server defaults (limit 20, offset 0, sort PORTAL_DEFAULT).
 query Decisions(
   # @genqlient(omitempty: true)
@@ -141,19 +141,19 @@ query Decisions(
   # @genqlient(omitempty: true)
   $authorizes: Boolean,
   # @genqlient(omitempty: true)
-  $state: [DecisionState!],
+  $state: [QuestionState!],
   # @genqlient(omitempty: true)
-  $tier: DecisionTier,
+  $tier: QuestionTier,
   # @genqlient(omitempty: true)
-  $urgency: [DecisionUrgency!],
+  $urgency: [QuestionUrgency!],
   # @genqlient(omitempty: true)
-  $sort: DecisionSort,
+  $sort: QuestionSort,
   # @genqlient(omitempty: true)
   $limit: Int,
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  decisions(
+  questions(
     logRef: $logRef
     awaitingMe: $awaitingMe
     authorizes: $authorizes
@@ -170,7 +170,7 @@ query Decisions(
 }
 
 query VerifyDecision($ref: ID!) {
-  verifyDecision(ref: $ref) {
+  verifyQuestion(ref: $ref) {
     state
     revision
     approvedRevision
@@ -193,7 +193,7 @@ mutation CreateDecisionLog(
   # @genqlient(omitempty: true)
   $eligibleDeciders: [ID!]
 ) {
-  createDecisionLog(
+  createQuestionLog(
     memoryRef: $memoryRef
     loc: $loc
     name: $name
@@ -213,7 +213,7 @@ mutation SetDecisionLogDeciders(
   $expectedRevision: Int!,
   $reason: String!
 ) {
-  setDecisionLogDeciders(
+  setQuestionLogDeciders(
     logRef: $logRef
     defaultDeciders: $defaultDeciders
     eligibleDeciders: $eligibleDeciders
@@ -222,79 +222,79 @@ mutation SetDecisionLogDeciders(
   ) { ...DecisionLogFields }
 }
 
-# @genqlient(for: "AskDecisionInput.authorizes", omitempty: true)
-# @genqlient(for: "AskDecisionInput.blocks", omitempty: true)
+# @genqlient(for: "AskQuestionInput.authorizes", omitempty: true)
+# @genqlient(for: "AskQuestionInput.blocks", omitempty: true)
 # deciders carries NO omitempty: null means the log's defaults, while an explicit
 # [] is the caller's own (refused) request, so it must reach the server as sent.
-# @genqlient(for: "AskDecisionInput.context", omitempty: true)
-# @genqlient(for: "AskDecisionInput.followUps", omitempty: true)
-# @genqlient(for: "AskDecisionInput.grant", omitempty: true)
-# @genqlient(for: "AskDecisionInput.sources", omitempty: true)
-# @genqlient(for: "AskDecisionInput.tier", omitempty: true)
-# @genqlient(for: "AskDecisionInput.urgency", omitempty: true)
-# @genqlient(for: "DecisionPartInput.noRecommendation", omitempty: true)
-# @genqlient(for: "DecisionPartInput.options", omitempty: true)
-# @genqlient(for: "DecisionPartInput.recommendation", omitempty: true)
-# @genqlient(for: "DecisionPartInput.yesno", omitempty: true)
-# @genqlient(for: "DecisionOptionInput.cost", omitempty: true)
-# @genqlient(for: "DecisionOptionInput.meaning", omitempty: true)
-# @genqlient(for: "DecisionRecommendationInput.attributedTo", omitempty: true)
-# @genqlient(for: "DecisionRecommendationInput.reason", omitempty: true)
-# @genqlient(for: "DecisionRefInput.node", omitempty: true)
-# @genqlient(for: "DecisionRefInput.ref", omitempty: true)
-# @genqlient(for: "DecisionRefInput.spec", omitempty: true)
+# @genqlient(for: "AskQuestionInput.context", omitempty: true)
+# @genqlient(for: "AskQuestionInput.followUps", omitempty: true)
+# @genqlient(for: "AskQuestionInput.grant", omitempty: true)
+# @genqlient(for: "AskQuestionInput.sources", omitempty: true)
+# @genqlient(for: "AskQuestionInput.tier", omitempty: true)
+# @genqlient(for: "AskQuestionInput.urgency", omitempty: true)
+# @genqlient(for: "QuestionPartInput.noRecommendation", omitempty: true)
+# @genqlient(for: "QuestionPartInput.options", omitempty: true)
+# @genqlient(for: "QuestionPartInput.recommendation", omitempty: true)
+# @genqlient(for: "QuestionPartInput.yesno", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.cost", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.meaning", omitempty: true)
+# @genqlient(for: "QuestionRecommendationInput.attributedTo", omitempty: true)
+# @genqlient(for: "QuestionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "QuestionRefInput.node", omitempty: true)
+# @genqlient(for: "QuestionRefInput.ref", omitempty: true)
+# @genqlient(for: "QuestionRefInput.spec", omitempty: true)
 mutation AskDecision(
   $logRef: ID!,
-  $input: AskDecisionInput!
+  $input: AskQuestionInput!
 ) {
-  askDecision(logRef: $logRef, input: $input) { ...DecisionFields }
+  askQuestion(logRef: $logRef, input: $input) { ...DecisionFields }
 }
 
 # blocks, followUps and sources carry NO omitempty on purpose: the server reads
 # null as "unchanged" and [] as "clear" (amendDecision: patch.blocks != null), so
 # an absent key decodes to nil and is sent as null, and an explicit [] clears.
 # (omitempty: false is explicit because use_struct_references adds it by default.)
-# @genqlient(for: "AmendDecisionInput.blocks", omitempty: false)
-# @genqlient(for: "AmendDecisionInput.followUps", omitempty: false)
-# @genqlient(for: "AmendDecisionInput.sources", omitempty: false)
-# @genqlient(for: "AmendDecisionInput.addParts", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.blocks", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.followUps", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.sources", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.addParts", omitempty: true)
 # context is tri-state on the server (patch.context !== undefined: absent keeps,
 # null clears, a string sets), which *string cannot carry: RawMessage keeps the
 # file's literal null (non-nil "null") apart from an absent key (nil, omitted).
-# @genqlient(for: "AmendDecisionInput.context", omitempty: true, bind: "encoding/json.RawMessage")
-# @genqlient(for: "AmendDecisionInput.parts", omitempty: true)
-# @genqlient(for: "AmendDecisionInput.tier", omitempty: true)
-# @genqlient(for: "AmendDecisionInput.title", omitempty: true)
-# @genqlient(for: "AmendDecisionInput.urgency", omitempty: true)
-# @genqlient(for: "DecisionPartPatchInput.noRecommendation", omitempty: true)
-# @genqlient(for: "DecisionPartPatchInput.options", omitempty: true)
-# @genqlient(for: "DecisionPartPatchInput.question", omitempty: true)
-# @genqlient(for: "DecisionPartPatchInput.recommendation", omitempty: true)
-# @genqlient(for: "DecisionPartPatchInput.yesno", omitempty: true)
-# @genqlient(for: "DecisionPartInput.noRecommendation", omitempty: true)
-# @genqlient(for: "DecisionPartInput.options", omitempty: true)
-# @genqlient(for: "DecisionPartInput.recommendation", omitempty: true)
-# @genqlient(for: "DecisionPartInput.yesno", omitempty: true)
-# @genqlient(for: "DecisionOptionInput.cost", omitempty: true)
-# @genqlient(for: "DecisionOptionInput.meaning", omitempty: true)
-# @genqlient(for: "DecisionRecommendationInput.attributedTo", omitempty: true)
-# @genqlient(for: "DecisionRecommendationInput.reason", omitempty: true)
-# @genqlient(for: "DecisionRefInput.node", omitempty: true)
-# @genqlient(for: "DecisionRefInput.ref", omitempty: true)
-# @genqlient(for: "DecisionRefInput.spec", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.context", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "AmendQuestionInput.parts", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.tier", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.title", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.urgency", omitempty: true)
+# @genqlient(for: "QuestionPartPatchInput.noRecommendation", omitempty: true)
+# @genqlient(for: "QuestionPartPatchInput.options", omitempty: true)
+# @genqlient(for: "QuestionPartPatchInput.question", omitempty: true)
+# @genqlient(for: "QuestionPartPatchInput.recommendation", omitempty: true)
+# @genqlient(for: "QuestionPartPatchInput.yesno", omitempty: true)
+# @genqlient(for: "QuestionPartInput.noRecommendation", omitempty: true)
+# @genqlient(for: "QuestionPartInput.options", omitempty: true)
+# @genqlient(for: "QuestionPartInput.recommendation", omitempty: true)
+# @genqlient(for: "QuestionPartInput.yesno", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.cost", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.meaning", omitempty: true)
+# @genqlient(for: "QuestionRecommendationInput.attributedTo", omitempty: true)
+# @genqlient(for: "QuestionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "QuestionRefInput.node", omitempty: true)
+# @genqlient(for: "QuestionRefInput.ref", omitempty: true)
+# @genqlient(for: "QuestionRefInput.spec", omitempty: true)
 mutation AmendDecision(
   $ref: ID!,
-  $input: AmendDecisionInput!,
+  $input: AmendQuestionInput!,
   $expectedRevision: Int!,
   $reason: String!
 ) {
-  amendDecision(ref: $ref, input: $input, expectedRevision: $expectedRevision, reason: $reason) { ...DecisionFields }
+  amendQuestion(ref: $ref, input: $input, expectedRevision: $expectedRevision, reason: $reason) { ...DecisionFields }
 }
 
 mutation WithdrawDecision($ref: ID!, $reason: String!, $expectedRevision: Int!) {
-  withdrawDecision(ref: $ref, reason: $reason, expectedRevision: $expectedRevision) { ...DecisionFields }
+  withdrawQuestion(ref: $ref, reason: $reason, expectedRevision: $expectedRevision) { ...DecisionFields }
 }
 
 mutation PurgeUnansweredDecision($ref: ID!, $reason: String!) {
-  purgeUnansweredDecision(ref: $ref, reason: $reason)
+  purgeUnansweredQuestion(ref: $ref, reason: $reason)
 }
