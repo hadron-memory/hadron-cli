@@ -1182,7 +1182,8 @@ func codeForExtension(code string) int {
 	// its locks: a state conflict, never a request to retry automatically.
 	case code == "INSTALL_TARGET_CHANGED":
 		return exitcode.Conflict
-	// Decision refusals (hadron-server #1641, src/lib/questions/index.ts	// QuestionRefusalCode; `hadron decision`, cli#1335). QUESTION_NOT_FOUND and
+	// Decision refusals (hadron-server #1641, src/lib/questions/index.ts
+	// QuestionRefusalCode; `hadron decision`, cli#1335). QUESTION_NOT_FOUND and
 	// QUESTION_LOG_NOT_FOUND ride the _NOT_FOUND suffix rule (4).
 	// Who-may refusals are permissions, so 8:
 	case code == "QUESTION_FORBIDDEN" || code == "QUESTION_NOT_DECIDER" ||

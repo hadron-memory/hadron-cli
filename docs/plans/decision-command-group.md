@@ -58,7 +58,7 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
   platform-admin rule and every other authority stay server-side (cor:api:240:01).
 - **Deciders are user IDs.** Server `main` (`assertDecidersEligible`,
   `resolvers.decisions.ts`) looks each one up as a user who can write the log's Memory;
-  a worker or URN is refused (`DECISION_DECIDER_NOT_ELIGIBLE`). Help says user ID; the
+  a worker or URN is refused (`QUESTION_DECIDER_NOT_ELIGIBLE`). Help says user ID; the
   value is still passed verbatim.
 - **`withdraw` confirms with `cmdutil.Confirm`**, not `ConfirmDeletion`: a withdrawn
   decision stays readable, so a "Delete …? cannot be undone" prompt would misdescribe it.

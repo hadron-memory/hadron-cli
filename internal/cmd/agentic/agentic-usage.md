@@ -6389,7 +6389,7 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
 - `ask` and `amend` read `--input-file` (`-` = piped stdin): one JSON object with
   the fields of the server's `AskDecisionInput` / `AmendDecisionInput`. Unknown,
   mis-cased and duplicate keys are refused (exit 2) before the call; values are
-  judged by the server (`DECISION_INVALID` names each bad field by JSON pointer).
+  judged by the server (`QUESTION_INVALID` names each bad field by JSON pointer).
   `--title`, `--context`, `--tier`, `--urgency` override the file. A field you
   leave out is unchanged (amend) or the server default (ask). Amend's `blocks`,
   `followUps` and `sources` are sent as `null` when left out ("unchanged"), and an
@@ -6402,19 +6402,19 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
 - `revision` in every JSON shape is the node's current revision: pass it as
   `--expected-revision` to `amend`, `withdraw` and `log set-deciders`; a stale one
   is refused (`NODE_WRITE_CONFLICT`, exit 5) and nothing changes.
-- Refusal exits: `DECISION_FORBIDDEN`, `DECISION_NOT_DECIDER`, `DECISION_NOT_ASKER`,
-  `DECISION_IMPERSONATION_REFUSED` exit 8; `DECISION_INVALID`, `DECISION_TIER_TOO_LOW`,
-  `DECISION_DECIDER_NOT_ELIGIBLE`, `DECISION_RECOMMENDATION_MISSING`,
-  `DECISION_PART_RENUMBER`, `DECISION_LOG_ENCRYPTED|MIRRORED|SYSTEM_MEMORY|ANONYMOUS_MEMORY`,
-  `DECISION_LOG_TOO_LARGE_FOR_FILTER` exit 2; `DECISION_LOG_EXISTS`,
-  `DECISION_ANSWER_IMMUTABLE`, `DECISION_WITHDRAWN`, `DECISION_SUPERSEDED`,
-  `DECISION_ANSWERED_DECIDED`, `DECISION_ANSWERED` exit 5; `DECISION_NOT_FOUND`,
-  `DECISION_LOG_NOT_FOUND` exit 4.
+- Refusal exits: `QUESTION_FORBIDDEN`, `QUESTION_NOT_DECIDER`, `QUESTION_NOT_ASKER`,
+  `QUESTION_IMPERSONATION_REFUSED` exit 8; `QUESTION_INVALID`, `QUESTION_TIER_TOO_LOW`,
+  `QUESTION_DECIDER_NOT_ELIGIBLE`, `QUESTION_RECOMMENDATION_MISSING`,
+  `QUESTION_PART_RENUMBER`, `QUESTION_LOG_ENCRYPTED|MIRRORED|SYSTEM_MEMORY|ANONYMOUS_MEMORY`,
+  `QUESTION_LOG_TOO_LARGE_FOR_FILTER` exit 2; `QUESTION_LOG_EXISTS`,
+  `QUESTION_ANSWER_IMMUTABLE`, `QUESTION_WITHDRAWN`, `QUESTION_SUPERSEDED`,
+  `QUESTION_ANSWERED_DECIDED`, `QUESTION_ANSWERED` exit 5; `QUESTION_NOT_FOUND`,
+  `QUESTION_LOG_NOT_FOUND` exit 4.
 - `state` is derived by the server on every read. Rely on a decision as a ruling
   only while it is `DECIDED`; `verify` returns the findings behind the state.
 - Deciders (`--decider`, `--eligible`, and `deciders` in the input file) are
   user IDs: the server accepts only a user who can write the log's Memory
-  (`DECISION_DECIDER_NOT_ELIGIBLE`). An empty `--input-file ""` is refused.
+  (`QUESTION_DECIDER_NOT_ELIGIBLE`). An empty `--input-file ""` is refused.
 - `withdraw` (final, code stays used) and `purge` (platform admins; never-answered
   decisions only) prompt on a terminal and need `--yes` otherwise.
 - `list` is one server page (`--limit`, server default 20; `--offset`); `total`
