@@ -229,7 +229,8 @@ func (s *State) recordedWorktree(workerID string) (string, bool) {
 // the configuration or this poller's creations.
 func (s *State) ownerOf(token string, cfg *Config) (string, bool) {
 	for _, ref := range cfg.WorkerRefs() {
-		if contains(s.worktreesFor(ref, cfg.Workers[ref].Worktrees), token) {
+		w, _ := cfg.Worker(ref)
+		if contains(s.worktreesFor(ref, w.Worktrees), token) {
 			return ref, true
 		}
 	}

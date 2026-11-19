@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
@@ -191,14 +192,23 @@ type Poller struct {
 	// recovery job before joining it, without cancelling unrelated operations.
 	relaunchCancel     context.CancelFunc
 	launchingWorktrees map[string]bool
-	cfg                *Config
-	server             Server
-	host               Host
-	state              *State
-	key                string
-	emit               func(Event)
-	now                func() time.Time
-	sleep              func(context.Context, time.Duration) error
+	// startCfg is the configuration the poller started with and NEVER the one
+	// in force after a reload: read configuration through config(), once per
+	// pass, and use that one snapshot throughout. The name is the guard: a
+	// reader of startCfg in production code is a bug (cli#2623).
+	startCfg      *Config
+	live          atomic.Pointer[Config]
+	orcaWired     bool                     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
+	removed       map[string]removedWorker // by worker id: workers a reload removed, with their last entry (cli#2623)
+	reloadSeen    [32]byte                 // content of a configuration file already refused or reported
+	reloadPending [32]byte                 // content seen once, applied only if the next poll sees it again
+	server        Server
+	host          Host
+	state         *State
+	key           string
+	emit          func(Event)
+	now           func() time.Time
+	sleep         func(context.Context, time.Duration) error
 	// bound reads the session binding of a worktree path (worker.end's stop
 	// identifies a process by its worktree and that binding, #2057).
 	bound func(path string) delivery.Binding
@@ -292,7 +302,7 @@ type Poller struct {
 // launched agents' environments (defence in depth: it is never put there).
 func New(cfg *Config, server Server, host Host, state *State, key string, emit func(Event)) *Poller {
 	return &Poller{
-		cfg: cfg, server: server, host: host, state: state, key: key, emit: emit,
+		startCfg: cfg, orcaWired: cfg != nil && cfg.UsesOrcaLaunch(), server: server, host: host, state: state, key: key, emit: emit,
 		now:         time.Now,
 		sleep:       sleepCtx,
 		bound:       delivery.WorktreeBinding,
@@ -327,9 +337,30 @@ func (p *Poller) log(kind, op, typ, outcome, detail string) {
 	}
 }
 
+// removedWorker is a worker a reload took out of the file, with the entry it
+// had: ending its session still needs that entry, and ending only de-escalates.
+type removedWorker struct {
+	ref string
+	cfg WorkerConfig
+}
+
+// config is the configuration in force: the one the poller started with until
+// a reload applies, then the newest applied. A Config never changes after it
+// is built, so a caller that takes it once sees one consistent worker set.
+func (p *Poller) config() *Config {
+	if c := p.live.Load(); c != nil {
+		return c
+	}
+	return p.startCfg
+}
+
+// Current is the configuration in force: what a component wired at start asks
+// for when it needs the workers as they are now (cli#2623).
+func (p *Poller) Current() *Config { return p.config() }
+
 // Run polls until ctx ends, then waits for operations in flight.
 func (p *Poller) Run(ctx context.Context) error {
-	interval := time.Duration(p.cfg.PollIntervalSeconds) * time.Second
+	interval := time.Duration(p.config().PollIntervalSeconds) * time.Second
 	for {
 		if err := p.Step(ctx); err != nil {
 			p.log("error", "", "", "", err.Error())
@@ -404,6 +435,7 @@ func (p *Poller) ReportFailures() int {
 // (Liam, team chat #11415: a re-collect omits a start whose grant is still
 // live), and this poller depends on it rather than pausing collection.
 func (p *Poller) Step(ctx context.Context) error {
+	p.reloadConfig()
 	if err := p.register(ctx); err != nil {
 		return fmt.Errorf("registering: %w", err)
 	}
@@ -420,9 +452,10 @@ func (p *Poller) Step(ctx context.Context) error {
 }
 
 func (p *Poller) register(ctx context.Context) error {
-	r := Registration{Capabilities: append([]string{}, p.cfg.Capabilities...), Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
-	for _, ref := range p.cfg.WorkerRefs() {
-		w := p.cfg.Workers[ref]
+	c := p.config() // one snapshot for the whole registration
+	r := Registration{Capabilities: append([]string{}, c.Capabilities...), Label: c.Label, PollIntervalSeconds: c.PollIntervalSeconds, Workers: []RegisteredWorker{}}
+	for _, ref := range c.WorkerRefs() {
+		w, _ := c.Worker(ref)
 		r.Workers = append(r.Workers, RegisteredWorker{
 			Worker: ref, Family: CanonicalFamily(w.Family), Worktrees: p.state.worktreesFor(ref, w.Worktrees),
 		})
@@ -637,6 +670,6 @@ func (p *Poller) workerRef(op Operation) (string, WorkerConfig, bool) {
 	if !ok {
 		return "", WorkerConfig{}, false
 	}
-	w, ok := p.cfg.Workers[ref]
+	w, ok := p.config().Worker(ref)
 	return ref, w, ok
 }

@@ -151,9 +151,9 @@ func TestResetAgentWithoutALaunchIdentityRefuses1043(t *testing.T) {
 // it starts anything (an empty argv would otherwise reach Prompt).
 func TestResetRecoveryRefusesAWorkerWithoutARecoverPrompt1043(t *testing.T) {
 	x := newRecoverFixture(t, "agent-stopped")
-	w := x.p.cfg.Workers["iris"]
+	w := x.p.startCfg.Workers["iris"]
 	w.Recover = nil
-	x.p.cfg.Workers["iris"] = w
+	x.p.startCfg.Workers["iris"] = w
 	x.run(t)
 	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
 	x.wantNoLaunch(t)

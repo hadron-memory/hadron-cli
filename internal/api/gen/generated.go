@@ -7823,6 +7823,8 @@ type AgentTaskFieldsResultAgentTaskResult struct {
 	Summary *string `json:"summary"`
 	// A URL or a node URN.
 	Evidence *string `json:"evidence"`
+	// #4414: the role tasks (runnable instruction nodes) the assignee followed, in the order given, each with its URN and the revision it had at finish (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Null when the finish gave none. Not the previous task.
+	WorkedFromRoleTaskRefs []*AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef `json:"workedFromRoleTaskRefs"`
 }
 
 // GetOutcome returns AgentTaskFieldsResultAgentTaskResult.Outcome, and is useful for accessing the field via an interface.
@@ -7833,6 +7835,36 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 
 // GetEvidence returns AgentTaskFieldsResultAgentTaskResult.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
+
+// GetWorkedFromRoleTaskRefs returns AgentTaskFieldsResultAgentTaskResult.WorkedFromRoleTaskRefs, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResult) GetWorkedFromRoleTaskRefs() []*AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef {
+	return v.WorkedFromRoleTaskRefs
+}
+
+// AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef includes the requested fields of the GraphQL type AgentTaskRoleTaskRef.
+// The GraphQL type's documentation follows.
+//
+// #4414: one role task an assignee followed, kept as it was when the task finished.
+type AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef struct {
+	NodeId   string `json:"nodeId"`
+	Urn      string `json:"urn"`
+	Revision int    `json:"revision"`
+}
+
+// GetNodeId returns AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef.NodeId, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetUrn returns AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef.Urn, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef) GetUrn() string {
+	return v.Urn
+}
+
+// GetRevision returns AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef.Revision, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef) GetRevision() int {
+	return v.Revision
+}
 
 // AgentTaskFieldsRunSettingsAgentTaskRunSettings includes the requested fields of the GraphQL type AgentTaskRunSettings.
 // The GraphQL type's documentation follows.
@@ -15839,6 +15871,8 @@ type AgentTaskResultInput struct {
 	// One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text. When the team has an outcome set (#2652, schema:task-outcomes; hrn:node:hadronmemory.com:specs:cor:agt:050:30) it must be one of the set (TASK_OUTCOME_NOT_IN_SET); an unusable set refuses every finish (TASK_OUTCOME_SET_UNUSABLE).
 	Outcome string  `json:"outcome"`
 	Summary *string `json:"summary"`
+	// #4414: optional role tasks followed: node ids or URNs, at most 10, each a live runnable node you may read, none twice (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Anything else refuses TASK_ROLE_TASK_REFS_INVALID, one answer for a node you may not read and one that does not exist, and the task stays started. Omitted/null: none, as before.
+	WorkedFromRoleTaskRefs []string `json:"workedFromRoleTaskRefs,omitempty"`
 }
 
 // GetEvidence returns AgentTaskResultInput.Evidence, and is useful for accessing the field via an interface.
@@ -15852,6 +15886,9 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 
 // GetSummary returns AgentTaskResultInput.Summary, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
+
+// GetWorkedFromRoleTaskRefs returns AgentTaskResultInput.WorkedFromRoleTaskRefs, and is useful for accessing the field via an interface.
+func (v *AgentTaskResultInput) GetWorkedFromRoleTaskRefs() []string { return v.WorkedFromRoleTaskRefs }
 
 // #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01; decision record run-settings-are-not-worker-identity) — a task's own run
 // settings: what a start for it launches. Anything left out falls back to the worker's last used (Worker.lastUsed), so
@@ -46283,18 +46320,6 @@ type CreateScopeResponse struct {
 func (v *CreateScopeResponse) GetCreateScope() *CreateScopeCreateScope { return v.CreateScope }
 
 // CreateSecretCreateSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type CreateSecretCreateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -90861,18 +90886,6 @@ func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetSessionId(
 }
 
 // SecretFields includes the GraphQL fields of Secret requested by the fragment SecretFields.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretFields struct {
 	Id string `json:"id"`
 	// Owner scope: user | org | app.
@@ -90944,18 +90957,6 @@ type SecretResponse struct {
 func (v *SecretResponse) GetSecret() *SecretSecret { return v.Secret }
 
 // SecretSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretSecret struct {
 	SecretFields `json:"-"`
 }
@@ -91087,18 +91088,6 @@ type SecretVersionsResponse struct {
 func (v *SecretVersionsResponse) GetSecret() *SecretVersionsSecret { return v.Secret }
 
 // SecretVersionsSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretVersionsSecret struct {
 	Id string `json:"id"`
 	// Cascade-resolution key; unique per owner; lowercase [a-z0-9-], max 64.
@@ -91224,18 +91213,6 @@ func (v *SecretsSecretsSecretsPage) GetItems() []*SecretsSecretsSecretsPageItems
 func (v *SecretsSecretsSecretsPage) GetTotal() int { return v.Total }
 
 // SecretsSecretsSecretsPageItemsSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretsSecretsSecretsPageItemsSecret struct {
 	SecretFields `json:"-"`
 }
@@ -99351,7 +99328,7 @@ func (v *TaskLinkDefectInstructedLinkDefectToPullRequestDefectLink) GetCreated()
 
 // TaskLinkDefectInstructedResponse is returned by TaskLinkDefectInstructed on success.
 type TaskLinkDefectInstructedResponse struct {
-	// #4280 (S12b; Proposed hrn:node:hadronmemory.com:specs:cor:agt:130:05) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
+	// #4280 (S12b) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
 	LinkDefectToPullRequest *TaskLinkDefectInstructedLinkDefectToPullRequestDefectLink `json:"linkDefectToPullRequest"`
 }
 
@@ -99400,7 +99377,7 @@ func (v *TaskLinkDefectLinkDefectToPullRequestDefectLink) GetCreated() bool { re
 
 // TaskLinkDefectResponse is returned by TaskLinkDefect on success.
 type TaskLinkDefectResponse struct {
-	// #4280 (S12b; Proposed hrn:node:hadronmemory.com:specs:cor:agt:130:05) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
+	// #4280 (S12b) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
 	LinkDefectToPullRequest *TaskLinkDefectLinkDefectToPullRequestDefectLink `json:"linkDefectToPullRequest"`
 }
 
@@ -106327,8 +106304,7 @@ func (v *TeamRequestGrantSignatureResponse) GetRequestGrantSignature() *TeamRequ
 
 // TeamReviewQualityReportResponse is returned by TeamReviewQualityReport on success.
 type TeamReviewQualityReportResponse struct {
-	// #4281 — an App's review quality measures for one calendar month, one row per reviewer model family and model
-	// (hrn:node:hadronmemory.com:specs:cor:agt:130:06). month is YYYY-MM, a UTC calendar month; anything else is
+	// #4281 — an App's review quality measures for one calendar month, one row per reviewer model family and model. month is YYYY-MM, a UTC calendar month; anything else is
 	// BAD_USER_INPUT. A review is one finished review-seat task carrying at least one verdict; its latest verdict
 	// (hrn:node:hadronmemory.com:specs:cor:agt:130:02) decides its row and its month, and its findings are the seat task's
 	// result findings with their latest dispositions (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Findings and
@@ -106348,7 +106324,7 @@ func (v *TeamReviewQualityReportResponse) GetReviewQualityReport() *TeamReviewQu
 // TeamReviewQualityReportReviewQualityReport includes the requested fields of the GraphQL type ReviewQualityReport.
 // The GraphQL type's documentation follows.
 //
-// #4281 — an App's review quality measures for one UTC calendar month (hrn:node:hadronmemory.com:specs:cor:agt:130:06).
+// #4281 — an App's review quality measures for one UTC calendar month.
 type TeamReviewQualityReportReviewQualityReport struct {
 	// The month asked for, YYYY-MM.
 	Month string `json:"month"`
@@ -106372,7 +106348,7 @@ func (v *TeamReviewQualityReportReviewQualityReport) GetRows() []*TeamReviewQual
 // TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow includes the requested fields of the GraphQL type ReviewQualityRow.
 // The GraphQL type's documentation follows.
 //
-// #4281 — one reviewer row of the review quality measures (hrn:node:hadronmemory.com:specs:cor:agt:130:06). Every
+// #4281 — one reviewer row of the review quality measures. Every
 // ratio comes with its numerator and denominator: findingsPerReview = findings / reviews; shareConfirmed =
 // confirmedFindings / findings; defectsMissedPerApprovingReview = defectsMissed / approvingReviews.
 type TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow struct {
@@ -118802,18 +118778,6 @@ type UpdateSecretResponse struct {
 func (v *UpdateSecretResponse) GetUpdateSecret() *UpdateSecretUpdateSecret { return v.UpdateSecret }
 
 // UpdateSecretUpdateSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type UpdateSecretUpdateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -125538,11 +125502,12 @@ func (v *__AgentTaskFinishInput) GetResult() *AgentTaskResultInput { return v.Re
 
 // __AgentTaskFinishWithFindingsInput is used internally by genqlient
 type __AgentTaskFinishWithFindingsInput struct {
-	TaskId   string          `json:"taskId"`
-	Outcome  string          `json:"outcome"`
-	Summary  *string         `json:"summary"`
-	Evidence *string         `json:"evidence"`
-	Findings json.RawMessage `json:"findings"`
+	TaskId     string          `json:"taskId"`
+	Outcome    string          `json:"outcome"`
+	Summary    *string         `json:"summary"`
+	Evidence   *string         `json:"evidence"`
+	WorkedFrom []string        `json:"workedFrom,omitempty"`
+	Findings   json.RawMessage `json:"findings"`
 }
 
 // GetTaskId returns __AgentTaskFinishWithFindingsInput.TaskId, and is useful for accessing the field via an interface.
@@ -125556,6 +125521,9 @@ func (v *__AgentTaskFinishWithFindingsInput) GetSummary() *string { return v.Sum
 
 // GetEvidence returns __AgentTaskFinishWithFindingsInput.Evidence, and is useful for accessing the field via an interface.
 func (v *__AgentTaskFinishWithFindingsInput) GetEvidence() *string { return v.Evidence }
+
+// GetWorkedFrom returns __AgentTaskFinishWithFindingsInput.WorkedFrom, and is useful for accessing the field via an interface.
+func (v *__AgentTaskFinishWithFindingsInput) GetWorkedFrom() []string { return v.WorkedFrom }
 
 // GetFindings returns __AgentTaskFinishWithFindingsInput.Findings, and is useful for accessing the field via an interface.
 func (v *__AgentTaskFinishWithFindingsInput) GetFindings() json.RawMessage { return v.Findings }
@@ -139280,6 +139248,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139423,6 +139396,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139566,6 +139544,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139711,6 +139694,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139856,6 +139844,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139995,6 +139988,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140136,6 +140134,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140291,6 +140294,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140460,6 +140468,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140612,6 +140625,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140980,6 +140998,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140997,6 +141020,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
+// cli#2514: workedFromRoleTaskRefs is omitted, never null, when --worked-from is absent, so the request is
+// byte-identical to the pre-flag one.
 func AgentTaskFinish(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -141026,8 +141051,8 @@ func AgentTaskFinish(
 
 // The mutation executed by AgentTaskFinishWithFindings.
 const AgentTaskFinishWithFindings_Operation = `
-mutation AgentTaskFinishWithFindings ($taskId: ID!, $outcome: String!, $summary: String, $evidence: String, $findings: [AgentTaskFindingInput!]!) {
-	finishAgentTask(taskId: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings}) {
+mutation AgentTaskFinishWithFindings ($taskId: ID!, $outcome: String!, $summary: String, $evidence: String, $workedFrom: [ID!], $findings: [AgentTaskFindingInput!]!) {
+	finishAgentTask(taskId: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings,workedFromRoleTaskRefs:$workedFrom}) {
 		... AgentTaskFields
 		findingsResult: result {
 			findings(limit: 20, offset: 0) {
@@ -141126,6 +141151,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141161,17 +141191,19 @@ func AgentTaskFinishWithFindings(
 	outcome string,
 	summary *string,
 	evidence *string,
+	workedFrom []string,
 	findings json.RawMessage,
 ) (data_ *AgentTaskFinishWithFindingsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AgentTaskFinishWithFindings",
 		Query:  AgentTaskFinishWithFindings_Operation,
 		Variables: &__AgentTaskFinishWithFindingsInput{
-			TaskId:   taskId,
-			Outcome:  outcome,
-			Summary:  summary,
-			Evidence: evidence,
-			Findings: findings,
+			TaskId:     taskId,
+			Outcome:    outcome,
+			Summary:    summary,
+			Evidence:   evidence,
+			WorkedFrom: workedFrom,
+			Findings:   findings,
 		},
 	}
 
@@ -141294,6 +141326,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141441,6 +141478,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141625,6 +141667,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141784,6 +141831,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141974,6 +142026,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142163,6 +142220,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142323,6 +142385,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142511,6 +142578,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142654,6 +142726,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142795,6 +142872,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142934,6 +143016,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143076,6 +143163,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143217,6 +143309,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143360,6 +143457,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143505,6 +143607,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143648,6 +143755,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143789,6 +143901,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143932,6 +144049,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144127,6 +144249,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144270,6 +144397,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144413,6 +144545,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144606,6 +144743,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144745,6 +144887,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144900,6 +145047,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -150880,6 +151032,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -151038,6 +151195,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -151202,6 +151364,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -151360,6 +151527,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }

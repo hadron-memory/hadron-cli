@@ -35,6 +35,6 @@ func wireOrcaLaunch(p *hostpoller.Poller, cfg *hostpoller.Config) error {
 		StateDir: filepath.Join(filepath.Dir(cfg.StateFile), "runs"),
 		Proc:     hostpoller.LinuxProcessControl{},
 	}
-	p.EnableOrcaLaunch(l.LaunchFunc(), hostpoller.ConfigProfiles{Cfg: cfg})
+	p.EnableOrcaLaunch(l.LaunchFunc(), hostpoller.ConfigProfiles{Cfg: cfg, Get: p.Current})
 	return nil
 }

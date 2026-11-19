@@ -51,7 +51,8 @@ func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read the team App's append-only stream of task work — task.created,
 task.assigned, task.started, task.progress, task.finished, task.cancelled,
 task-stall alarms (stall.not-started, stall.no-progress, stall.owner-unreactive,
-assignment.unassignable and stall.finish-by), dark-worker and coordinator-cadence
+assignment.unassignable and stall.finish-by), dark-worker and cadence
+(alarm.lead-cadence; events raised before the rename say alarm.coordinator-cadence)
 alarms, availability.changed, the
 assignment/host events and app.properties-changed (whose payload names the
 changed top-level keys, never values). Platform payloads carry ids, counts and outcome words; App-defined action payloads
@@ -87,7 +88,7 @@ not recorded yet: one in effect, and also one already acknowledged or whose
 task already moved, until the server records the end. That record can lag the
 actual end by up to one evaluator pass (about a minute), and the alarm reads
 as in effect until it is written, so the column is not a real-time value. Task-less
-coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
+cadence alarms (either string) show coordinator <name> in the TASK cell; no payload
 reason or evidence is added. An alarm.start-failing (wake handle START: the
 platform's starts of a long-lived worker with no task keep failing) is task-less
 too and shows worker <name>; its failure count and window stay in --json. A missing subject stays —.
@@ -263,7 +264,7 @@ func tasklessAlarmCell(e teamEventDTO) string {
 		return "—"
 	}
 	switch e.Type {
-	case "alarm.coordinator-cadence":
+	case "alarm.lead-cadence", "alarm.coordinator-cadence": // the rename (server#4375); older events keep the old string
 		// The reason repeats the type, and hidden evidence may be absent.
 		// Render only the server's subject, never a payload-derived string.
 		return "coordinator " + partyCell(e.SubjectWorker)
@@ -294,13 +295,14 @@ func tasklessAlarmCell(e teamEventDTO) string {
 func newCmdTeamAlarm(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alarm <command>",
-		Short: "Acknowledge a team App's task-stall, dark-worker and coordinator-cadence alarms",
+		Short: "Acknowledge a team App's task-stall, dark-worker and cadence alarms",
 		Long: `An alarm is a warning the platform raises when work stalls: a task that was not
 started (stall.not-started), shows no progress (stall.no-progress), whose owner
 has not reacted (stall.owner-unreactive), that cannot be assigned
 (assignment.unassignable) or has passed its finish-by time (stall.finish-by);
-or a dark-worker alarm (a worker that has gone dark), or a coordinator-cadence
-alarm (a coordinator that has missed its cadence). An alarm wakes its nearest
+or a dark-worker alarm (a worker that has gone dark), or a cadence alarm
+(alarm.lead-cadence: a coordinator that has missed its cadence; events raised
+before the rename say alarm.coordinator-cadence, and both are handled alike). An alarm wakes its nearest
 owner first, and the owners above only while it stays unacknowledged.
 
 To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
@@ -330,8 +332,9 @@ An acknowledgement stops the climb; it does not end the alarm episode. The
 episode ends by itself: a finish-by alarm when the task finishes or is
 cancelled, or its finish-by value changes or is cleared (starting or assigning
 it does not end it); a dark-worker alarm when the worker is checking again and
-has no unacknowledged wake older than the alarm window. A coordinator-cadence
-alarm names its coordinator, and a start-failing alarm its worker, without
+has no unacknowledged wake older than the alarm window. A cadence alarm
+(alarm.lead-cadence, or alarm.coordinator-cadence on events raised before the
+rename) names its coordinator, and a start-failing alarm its worker, without
 printing payload reasons or evidence.
 
 --instruction opens the App-manager's held-worker path: an AI worker whose
@@ -422,7 +425,7 @@ text prints server warnings on stderr.
 						return err
 					}
 				}
-				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.coordinator-cadence" || event.Type == "alarm.start-failing") && event.SubjectWorker != nil {
+				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.lead-cadence" || event.Type == "alarm.coordinator-cadence" || event.Type == "alarm.start-failing") && event.SubjectWorker != nil {
 					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}
