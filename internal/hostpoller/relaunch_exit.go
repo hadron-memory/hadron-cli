@@ -75,10 +75,10 @@ func (p *Poller) relaunchExit(ctx context.Context, workerID string, old Agent) {
 	p.mu.Lock()
 	current, token, ref := p.agents[workerID], p.agentTrees[workerID], p.workerRefs[workerID]
 	p.mu.Unlock()
-	w, configured := p.cfg.Worker(ref)
+	w, configured := p.config().Worker(ref)
 	// Only the exit of the agent this poller tracks now, of an Orca worker,
 	// beside a stamp. An ordinary exit costs no network call.
-	if current != old || token == "" || !configured || !w.launchesViaOrca() || !delivery.HasRelaunchStamp(p.cfg.WorktreePath(token)) {
+	if current != old || token == "" || !configured || !w.launchesViaOrca() || !delivery.HasRelaunchStamp(p.config().WorktreePath(token)) {
 		return
 	}
 	hostID := p.state.RegisteredHostID()

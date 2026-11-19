@@ -20,7 +20,8 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 		return
 	}
 	repo, base, branch, label := argString(op, "repo"), argString(op, "baseBranch"), argString(op, "branchName"), argString(op, "label")
-	repoPath, ok := p.cfg.Repo(repo)
+	c := p.config() // one snapshot for the repo and the worktree owner check
+	repoPath, ok := c.Repo(repo)
 	if !ok {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("repo %q is not configured on this host", repo))
 		return
@@ -30,11 +31,11 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree name %q is not a valid name token", token))
 		return
 	}
-	if owner, ok := p.state.ownerOf(token, p.cfg); ok && owner != ref {
+	if owner, ok := p.state.ownerOf(token, c); ok && owner != ref {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("%s is registered for another worker here", token))
 		return
 	}
-	dir := p.cfg.WorktreePath(token)
+	dir := p.config().WorktreePath(token)
 	st, err := p.host.Inspect(ctx, dir)
 	if err != nil {
 		p.finish(ctx, op, Failed, "", "reading the worktree path: "+err.Error())
@@ -64,7 +65,7 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not a valid name token", token))
 		return
 	}
-	dir := p.cfg.WorktreePath(token)
+	dir := p.config().WorktreePath(token)
 	st, err := p.host.Inspect(ctx, dir)
 	if err != nil {
 		p.finish(ctx, op, Failed, "", "reading the worktree: "+err.Error())
@@ -189,7 +190,7 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not registered for this worker here", token))
 		return
 	}
-	dir := p.cfg.WorktreePath(token)
+	dir := p.config().WorktreePath(token)
 	if st, err := p.host.Inspect(ctx, dir); err != nil {
 		// An error is not "does not exist": an untrusted repo config (nothing was
 		// run on the tree) and an unreadable one say what they are.
@@ -527,7 +528,7 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	if len(w.End) > 0 {
 		dir := ""
 		if t, ok := p.agentWorktree(op.WorkerID); ok {
-			dir = p.cfg.WorktreePath(t)
+			dir = p.config().WorktreePath(t)
 		}
 		env := agentEnv(os.Environ(), p.key, "HADRON_SESSION_ID="+session, "HADRON_WORKER_ID="+op.WorkerID)
 		if err := p.host.Prompt(ctx, w.End, dir, env); err != nil {
@@ -629,7 +630,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 	// session's end (the window cannot be closed against a separate process
 	// writing the binding, only made as short as the signal itself).
 	allowed := func(t string) (bool, string) {
-		b := p.bound(p.cfg.WorktreePath(t))
+		b := p.bound(p.config().WorktreePath(t))
 		switch {
 		case b.Unusable:
 			return false, fmt.Sprintf("worktree %s has a session binding that cannot be read, so its processes were not touched", t)
@@ -674,7 +675,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 				}
 				return true, ""
 			}
-			b := p.bound(p.cfg.WorktreePath(t))
+			b := p.bound(p.config().WorktreePath(t))
 			if b.Unusable || b.WorkerID != op.WorkerID || b.SessionID == "" || b.SessionID != session {
 				return false, "the session of the launched agent is not recorded and the worktree's binding does not name this session, so the agent could not be identified and was not touched"
 			}
@@ -741,7 +742,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 			say("stop-skipped", why)
 			continue
 		}
-		stops, err := p.host.StopAgents(ctx, p.cfg.WorktreePath(t), p.authorizeStop(t, func() bool { ok, _ := allowed(t); return ok }, op))
+		stops, err := p.host.StopAgents(ctx, p.config().WorktreePath(t), p.authorizeStop(t, func() bool { ok, _ := allowed(t); return ok }, op))
 		if err != nil {
 			say("stop-skipped", fmt.Sprintf("this host could not look for agent processes in worktree %s, so none was touched: %v", t, err))
 			continue
@@ -881,7 +882,7 @@ const bindingLockWait = 2 * time.Second
 // keeps authority until its taskkill runner returns, including cancellation.
 func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Authorize {
 	return func() (func(), bool) {
-		release, err := p.lockBinding(p.cfg.WorktreePath(token), bindingLockWait)
+		release, err := p.lockBinding(p.config().WorktreePath(token), bindingLockWait)
 		if err != nil {
 			p.log("stop-skipped", op.ID, op.Type, "", fmt.Sprintf("the session binding of worktree %s could not be locked, so nothing was signalled: %v", token, err))
 			return nil, false
@@ -907,7 +908,7 @@ func (p *Poller) worktreeDirs(op Operation, ref string, w WorkerConfig) []string
 	}
 	dirs := make([]string, 0, len(trees))
 	for _, t := range trees {
-		dirs = append(dirs, p.cfg.WorktreePath(t))
+		dirs = append(dirs, p.config().WorktreePath(t))
 	}
 	return dirs
 }

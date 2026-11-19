@@ -214,10 +214,11 @@ func (p *Poller) recipient(workerID string) (delivery.Recipient, bool) {
 	if !ok {
 		return delivery.Recipient{}, false
 	}
-	if _, ok := p.cfg.Worker(ref); !ok {
+	c := p.config() // one snapshot: the lookup and the recipient see the same worker
+	if _, ok := c.Worker(ref); !ok {
 		return delivery.Recipient{}, false
 	}
-	return p.cfg.Recipient(p.state, ref, workerID), true
+	return c.Recipient(p.state, ref, workerID), true
 }
 
 // RefFor is the configured reference for a worker, matched by id, URN or
@@ -264,4 +265,4 @@ func (c *Config) Registered(s *State) delivery.Registered {
 
 // Registered is Config.Registered over this poller's configuration and
 // state: the deliverer's view of every registered worker's directories.
-func (p *Poller) Registered() delivery.Registered { return p.cfg.Registered(p.state) }
+func (p *Poller) Registered() delivery.Registered { return p.config().Registered(p.state) }

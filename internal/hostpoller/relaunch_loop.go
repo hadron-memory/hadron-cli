@@ -49,12 +49,12 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 	}
 	if d.OpenJournal == nil {
 		d.OpenJournal = func() (hostrelaunch.Journal, uint64, func(), error) {
-			return openRelaunchJournal(filepath.Join(filepath.Dir(p.cfg.StateFile), "relaunch"))
+			return openRelaunchJournal(filepath.Join(filepath.Dir(p.config().StateFile), "relaunch"))
 		}
 	}
 	if d.OpenExitJournal == nil {
 		d.OpenExitJournal = func() (hostrelaunch.Journal, uint64, func(), error) {
-			return openRelaunchJournalHeld(filepath.Join(filepath.Dir(p.cfg.StateFile), "relaunch"))
+			return openRelaunchJournalHeld(filepath.Join(filepath.Dir(p.config().StateFile), "relaunch"))
 		}
 	}
 	if d.Binding == nil {
@@ -73,7 +73,7 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 		return errors.New("post-launch proof wait is outside its bound")
 	}
 
-	if d.Cleanup == nil && p.cfg.OrcaLaunch.CleanupDeadTabs {
+	if d.Cleanup == nil && p.config().OrcaLaunch.CleanupDeadTabs {
 		d.Cleanup = p.cleanupRelaunchTerminals
 	}
 	if d.Verify == nil {
@@ -427,7 +427,7 @@ func (p *Poller) relaunchTarget(s RelaunchSnapshot, row RelaunchWorker) (hostrel
 	p.mu.Lock()
 	ref := p.workerRefs[row.WorkerID]
 	p.mu.Unlock()
-	w, ok := p.cfg.Worker(ref)
+	w, ok := p.config().Worker(ref)
 	if !ok || s.AppID == "" || s.HostID == "" || s.Server == "" || !SameFamily(w.Family, row.Family) || len(row.Worktrees) != 1 {
 		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
 	}
@@ -435,11 +435,11 @@ func (p *Poller) relaunchTarget(s RelaunchSnapshot, row RelaunchWorker) (hostrel
 	if !ValidNameToken(token) || !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
 		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
 	}
-	root, err := filepath.EvalSymlinks(p.cfg.WorktreesRoot)
+	root, err := filepath.EvalSymlinks(p.config().WorktreesRoot)
 	if err != nil {
 		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
 	}
-	dir, err := filepath.EvalSymlinks(p.cfg.WorktreePath(token))
+	dir, err := filepath.EvalSymlinks(p.config().WorktreePath(token))
 	if err != nil || !within(dir, root) {
 		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
 	}

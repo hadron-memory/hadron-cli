@@ -501,7 +501,7 @@ section between the markers.
 | `team host list` | ls |  | n | #1054 | e8a70f9dadc8 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 3573e30ba157 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 2b8ca0d88edf |  | unread |  |
-| `team host run` |  |  | n | #1054 | b6325d70b28d |  | unread |  |
+| `team host run` |  |  | n | #1054 | d532c714b134 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | bcce1a548620 |  | unread |  |
 | `team host status` |  |  | n | #1054 | 623c350ebccd |  | unread |  |
 | `team host sweep` |  |  | n | #1054 | d5a9799b46a2 |  | unread |  |

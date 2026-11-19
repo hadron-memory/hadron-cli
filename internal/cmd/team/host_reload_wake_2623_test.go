@@ -60,6 +60,9 @@ func (o *twoTreeOrca) run(_ context.Context, argv []string) orcaterm.Result {
 		}
 		return ""
 	}
+	if len(argv) < 2 {
+		return orcaterm.Result{Code: 1}
+	}
 	switch strings.Join(argv[:2], " ") {
 	case "terminal list":
 		var ts []map[string]any
@@ -141,8 +144,8 @@ workers:
 	// Billie's wake is due on every read until it is acknowledged.
 	now := time.Now().UTC()
 	bodies := map[string][]string{
-		"DeliveryBatches":  {stepNoBatches, stepNoBatches, stepNoBatches},
-		"DueWakes":         {wakePageFor("wkr-billie", now), wakePageFor("wkr-billie", now), stepNoWakes, stepNoWakes},
+		"DeliveryBatches":  {stepNoBatches, stepNoBatches, stepNoBatches, stepNoBatches, stepNoBatches},
+		"DueWakes":         {wakePageFor("wkr-billie", now), wakePageFor("wkr-billie", now), wakePageFor("wkr-billie", now), stepNoWakes, stepNoWakes},
 		"AcknowledgeWakes": {stepAcked},
 	}
 	srv, _ := deliveryFake(t, bodies)
@@ -166,7 +169,11 @@ workers:
 	if err := os.WriteFile(conf, []byte(added), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	step() // no restart
+	step() // the poller sees the new content for the first time
+	if got := orca.sends("term_billie"); len(got) != 0 {
+		t.Fatalf("typed %q on the first sight of new content: it is applied on the second poll that sees it", got)
+	}
+	step() // the second sighting applies it: no restart
 	got := orca.sends("term_billie")
 	if len(got) != 1 || !strings.Contains(got[0], "Base tick") {
 		t.Fatalf("terminal for the added worker got %q, want her tick line: the poller kept the worker set it read at start", got)
@@ -185,6 +192,7 @@ func TestHostRunHelpSaysWhatAReloadAppliesAndWhatNeedsARestart2623(t *testing.T)
 		"The file is re-read every poll", "take effect on the next poll, with no restart",
 		"config-reloaded", "config-restart-needed", "config-reload-refused",
 		"read once at start", "keeps the configuration it has",
+		"second poll that sees it", "owned by the poller's user", "not writable by group or others",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("team host run help lacks %q", want)

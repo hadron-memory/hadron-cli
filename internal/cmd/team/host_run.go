@@ -511,14 +511,21 @@ The configuration (YAML):
 The file is re-read every poll. A worker added to or removed from workers, a
 worker's entry changed in place, and changes to repos and account_profiles
 take effect on the next poll, with no restart (the poller logs
-config-reloaded, naming the workers). Everything else in the file (the key
-file, poll_interval_seconds, capabilities, state_file, delivery, reset_context,
-orca_launch and the rest) is read once at start: a change to it is logged as
-config-restart-needed, naming the settings, and is not applied until the
-poller restarts. A file that does not load or fails the start-time checks
-changes nothing: the poller keeps the configuration it has and logs
-config-reload-refused with the reason, once for that content. A worker that
-now launches through Orca is refused too, since that wiring is made at start.
+config-reloaded, naming the workers). Content is applied on the second poll
+that sees it, so a file still being written is never applied half-written.
+Everything else in the file (the key file, poll_interval_seconds,
+capabilities, state_file, delivery, reset_context, orca_launch and the rest)
+is read once at start: a change to it is logged as config-restart-needed,
+naming the settings, and is not applied until the poller restarts.
+
+A reload makes the poller run what the file says on its next poll, so it is
+held to more than a restart: the file, and every program or directory a
+changed entry names, must be owned by the poller's user (or root) and not
+writable by group or others, or the reload is refused. A file that does not
+load or fails the start-time checks changes nothing either: the poller keeps
+the configuration it has and logs config-reload-refused with the reason, once
+for that content and reason. A worker that now launches through Orca is
+refused too, since that wiring is made at start (restart to apply it).
 
 Moving a host from the Orca attention router: see
 docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the

@@ -3,10 +3,13 @@ package hostpoller
 import (
 	"crypto/sha256"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // cli#2623: a running poller picks up a change to its configuration file.
@@ -14,37 +17,67 @@ import (
 // The poller used to read the file once, at start, so a worker added to the
 // file while the poller ran was never registered and never got a wake until
 // someone restarted it. Each poll now compares the file's content to the
-// content the poller holds and, when it changed, loads and checks the new
-// file exactly as start does. Only what workers depend on is applied live:
-// the workers map, the repos worktree.create clones from and the account
-// profiles a launcher profile names. Anything else (the key, the poll
-// interval, delivery, the capability list, the state file) is read at start
-// by code that has already wired itself from it, so a change to it is logged
-// as needing a restart and is not applied. A file that does not load or does
-// not pass the start-time checks changes nothing: the poller keeps what it
-// has and says so once for that content.
+// content the poller holds and, when it changed, loads and checks the new file
+// as start does. Only what workers depend on is applied live: the workers
+// map, the repos worktree.create clones from and the account profiles a
+// launcher profile names. Anything else (the key, the poll interval, delivery,
+// the capability list, the state file) is read at start by code that has
+// already wired itself from it, so a change to it is logged as needing a
+// restart and is not applied. A file that does not load or does not pass the
+// start-time checks changes nothing: the poller keeps what it has and says so
+// once for that content.
+//
+// Hot reload turns "whoever can write this file" into "whoever can make the
+// poller run a command on the next poll", so it is held to more than a restart
+// is: the file, and every program or directory a changed entry names, must
+// belong to the poller's own user (or root) and not be writable by group or
+// others, or the reload is refused (checkReloadTrust). A new content must also
+// be seen on two consecutive polls before it is applied, so an editor that
+// truncates and then writes never has its half-written file applied.
+//
+// A Config is a snapshot and never changes once built. Applying a reload
+// builds a new one and swaps the poller's pointer (Poller.config), so a pass
+// that took the configuration once, as register and the recipient lookup do,
+// sees one consistent set of workers however a reload lands around it.
 
-// reloadable names the Config fields a running poller swaps.
-var reloadable = map[string]bool{"Workers": true, "Repos": true, "Accounts": true}
+// reloadable names the Config fields a running poller swaps. Every other field
+// is "read at start": a new field is therefore restart-only until someone
+// classifies it here on purpose.
+var reloadable = []string{"Workers", "Repos", "Accounts"}
+
+func isReloadable(field string) bool {
+	for _, f := range reloadable {
+		if f == field {
+			return true
+		}
+	}
+	return false
+}
 
 // reloadConfig is called at the top of every Step. It never fails a poll.
 func (p *Poller) reloadConfig() {
-	c := p.cfg
-	path, held := c.source()
+	c := p.config()
+	path, held := c.sourcePath, c.sourceHash
 	if path == "" {
 		return
 	}
-	raw, err := os.ReadFile(path)
+	// One open file: the bytes parsed and the owner and mode judged below are
+	// the same file's, so the file cannot be swapped between the read and the
+	// check (a symlink is followed once, at the open).
+	raw, info, err := readConfigFile(path)
 	if err != nil {
 		p.reloadRefused(sha256.Sum256([]byte(err.Error())), "the configuration file cannot be read: "+err.Error())
 		return
 	}
 	sum := sha256.Sum256(raw)
 	if sum == held {
-		p.reloadClear()
+		p.reloadSeen, p.reloadPending = [sha256.Size]byte{}, [sha256.Size]byte{}
 		return
 	}
-	if sum == p.reloadSeen {
+	if sum != p.reloadPending {
+		// First sight of this content: wait one poll, so a file an editor is
+		// still writing is never applied half-written.
+		p.reloadPending = sum
 		return
 	}
 	next, err := loadConfigBytes(path, raw)
@@ -56,96 +89,116 @@ func (p *Poller) reloadConfig() {
 		p.reloadRefused(sum, err.Error())
 		return
 	}
-	if next.UsesOrcaLaunch() && !c.UsesOrcaLaunch() {
+	if next.UsesOrcaLaunch() && !p.orcaWired {
 		p.reloadRefused(sum, "a worker now launches through Orca, which this poller did not wire at start; restart it to apply any of this change")
 		return
 	}
-	changed := fixedChanges(c, next)
 	added, removed, modified := diffWorkers(c, next)
-	apply := len(added)+len(removed)+len(modified) > 0 || !reflect.DeepEqual(c.reloadView(), next.reloadView())
-	if apply {
-		c.swapReloadable(next)
-	} else {
-		c.setSourceHash(sum)
+	others := reloadableChanges(c, next, "Workers")
+	if err := checkReloadTrust(c, next, path, info, append(append([]string{}, added...), modified...)); err != nil {
+		p.reloadRefused(sum, err.Error())
+		return
 	}
-	p.reloadSeen = [sha256.Size]byte{}
+	changed := fixedChanges(c, next)
+	merged := *c
+	merged.sourceHash = sum
+	apply := len(added)+len(removed)+len(modified)+len(others) > 0
 	if apply {
-		p.log("config-reloaded", "", "", "", reloadDetail(added, removed, modified, c.reloadChangedBeyondWorkers(next)))
+		merged.Workers, merged.Repos, merged.Accounts = next.Workers, next.Repos, next.Accounts
+	}
+	p.live.Store(&merged)
+	p.reloadSeen, p.reloadPending = [sha256.Size]byte{}, [sha256.Size]byte{}
+	if apply {
+		p.log("config-reloaded", "", "", "", reloadDetail(added, removed, modified, others))
 	}
 	if len(changed) > 0 {
 		p.log("config-restart-needed", "", "", "", "changed in the file but read only at start, so not applied: "+strings.Join(changed, ", ")+"; restart the poller to apply it")
 	}
 }
 
+// readConfigFile reads path through one open file and returns its content and
+// that file's own metadata.
+func readConfigFile(path string) ([]byte, os.FileInfo, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = f.Close() }() // read only: nothing to flush
+	info, err := f.Stat()
+	if err != nil {
+		return nil, nil, err
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, maxConfigBytes+1))
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(raw) > maxConfigBytes {
+		return nil, nil, fmt.Errorf("the file is larger than %d bytes", maxConfigBytes)
+	}
+	return raw, info, nil
+}
+
+// maxConfigBytes bounds what a reload reads: a host config is a few kilobytes.
+const maxConfigBytes = 1 << 20
+
 // reloadRefused keeps the running configuration and says why, once for each
-// distinct content.
+// distinct content and reason. The content is judged again every poll, so a
+// refusal that can be fixed without touching the content (a file mode) lifts
+// by itself; only the saying is deduplicated.
 func (p *Poller) reloadRefused(sum [sha256.Size]byte, why string) {
-	if sum == p.reloadSeen {
+	key := sha256.Sum256(append(sum[:], why...))
+	if key == p.reloadSeen {
 		return
 	}
-	p.reloadSeen = sum
-	p.log("config-reload-refused", "", "", "", "the configuration file changed but was not applied; the poller keeps the one it has: "+oneLine(why))
+	p.reloadSeen = key
+	p.log("config-reload-refused", "", "", "", "the configuration file changed but was not applied; the poller keeps the one it has: "+printable(why, 400))
 }
 
-// reloadClear forgets a refused content once the file is back to what the
-// poller holds, so the same bad content later is reported again.
-func (p *Poller) reloadClear() { p.reloadSeen = [sha256.Size]byte{} }
-
-func oneLine(s string) string {
-	s = strings.Join(strings.Fields(s), " ")
-	if len(s) > 400 {
-		s = s[:400] + "…"
+// printable is s on one line, control characters dropped, cut to at most max
+// runes: the text may come from a file an operator did not write.
+func printable(s string, max int) string {
+	var b strings.Builder
+	for _, r := range strings.Join(strings.Fields(s), " ") {
+		if unicode.IsControl(r) || r == utf8.RuneError {
+			continue
+		}
+		b.WriteRune(r)
 	}
-	return s
-}
-
-func (c *Config) source() (string, [sha256.Size]byte) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.sourcePath, c.sourceHash
-}
-
-func (c *Config) setSourceHash(h [sha256.Size]byte) {
-	c.mu.Lock()
-	c.sourceHash = h
-	c.mu.Unlock()
-}
-
-// reloadView is the part of a Config a reload swaps, for comparison.
-func (c *Config) reloadView() [3]any {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return [3]any{c.Workers, c.Repos, c.Accounts}
-}
-
-// swapReloadable installs next's workers, repos and account profiles, and the
-// content hash they came from, under the lock readers take.
-func (c *Config) swapReloadable(next *Config) {
-	c.mu.Lock()
-	c.Workers, c.Repos, c.Accounts, c.sourceHash = next.Workers, next.Repos, next.Accounts, next.sourceHash
-	c.mu.Unlock()
-}
-
-// reloadChangedBeyondWorkers names the reloadable maps other than workers
-// that differ, for the event line.
-func (c *Config) reloadChangedBeyondWorkers(next *Config) []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	var out []string
-	if !reflect.DeepEqual(c.Repos, next.Repos) {
-		out = append(out, "repos")
-	}
-	if !reflect.DeepEqual(c.Accounts, next.Accounts) {
-		out = append(out, "account_profiles")
+	out := b.String()
+	if r := []rune(out); len(r) > max {
+		out = string(r[:max]) + "…"
 	}
 	return out
+}
+
+// reloadableChanges names the reloadable fields other than skip that differ.
+func reloadableChanges(c, next *Config, skip string) []string {
+	var out []string
+	a, b := reflect.ValueOf(c).Elem(), reflect.ValueOf(next).Elem()
+	for _, name := range reloadable {
+		if name == skip {
+			continue
+		}
+		if !reflect.DeepEqual(a.FieldByName(name).Interface(), b.FieldByName(name).Interface()) {
+			out = append(out, yamlName(name))
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func yamlName(field string) string {
+	if f, ok := reflect.TypeOf(Config{}).FieldByName(field); ok {
+		if n := strings.Split(f.Tag.Get("yaml"), ",")[0]; n != "" {
+			return n
+		}
+	}
+	return field
 }
 
 // diffWorkers lists worker references added to, removed from and changed in
 // next, sorted.
 func diffWorkers(c, next *Config) (added, removed, modified []string) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	for ref, w := range next.Workers {
 		old, ok := c.Workers[ref]
 		switch {
@@ -169,22 +222,16 @@ func diffWorkers(c, next *Config) (added, removed, modified []string) {
 // fixedChanges names, by their file key, the settings that differ between the
 // running configuration and next and are not reloadable.
 func fixedChanges(c, next *Config) []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	var out []string
 	t := reflect.TypeOf(c).Elem()
 	a, b := reflect.ValueOf(c).Elem(), reflect.ValueOf(next).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if !f.IsExported() || reloadable[f.Name] {
+		if !f.IsExported() || isReloadable(f.Name) {
 			continue
 		}
 		if !reflect.DeepEqual(a.Field(i).Interface(), b.Field(i).Interface()) {
-			name := strings.Split(f.Tag.Get("yaml"), ",")[0]
-			if name == "" {
-				name = f.Name
-			}
-			out = append(out, name)
+			out = append(out, yamlName(f.Name))
 		}
 	}
 	sort.Strings(out)
@@ -202,6 +249,48 @@ func reloadDetail(added, removed, modified, others []string) string {
 	if len(modified) > 0 {
 		parts = append(parts, "workers changed: "+strings.Join(modified, ", "))
 	}
-	parts = append(parts, others...)
+	if len(others) > 0 {
+		parts = append(parts, "also changed: "+strings.Join(others, ", "))
+	}
 	return fmt.Sprintf("the configuration file changed and was applied (%s)", strings.Join(parts, "; "))
+}
+
+// namedFiles is what the entries that changed would make the poller run or
+// use: each worker's launch, end and recover programs, the launcher account
+// program of a worker or account that changed, and a changed repo's clone.
+func namedFiles(c, next *Config, workers []string) []string {
+	var out []string
+	argv0 := func(argv []string) {
+		if len(argv) > 0 && strings.TrimSpace(argv[0]) != "" {
+			out = append(out, argv[0])
+		}
+	}
+	seen := map[string]bool{}
+	account := func(name string) {
+		if a, ok := next.Accounts[name]; ok && a.Bin != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, a.Bin)
+		}
+	}
+	for _, ref := range workers {
+		w := next.Workers[ref]
+		argv0(w.Launch)
+		argv0(w.End)
+		argv0(w.Recover)
+		if w.Profile != nil {
+			account(w.Profile.Account)
+		}
+	}
+	for name, a := range next.Accounts {
+		if !reflect.DeepEqual(c.Accounts[name], a) {
+			account(name)
+		}
+	}
+	for token, dir := range next.Repos {
+		if c.Repos[token] != dir {
+			out = append(out, dir)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

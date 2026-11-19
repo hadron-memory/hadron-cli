@@ -15,9 +15,10 @@ type ResetIdleTarget struct {
 }
 
 func (p *Poller) resetIdleTarget(op Operation, ref, token string, id ProcessIdentity) ResetIdleTarget {
-	w, _ := p.cfg.Worker(ref)
+	c := p.config()
+	w, _ := c.Worker(ref)
 	return ResetIdleTarget{WorkerRef: ref, WorkerID: op.WorkerID, SessionID: argString(op, "sessionId"),
-		Worktree: p.cfg.WorktreePath(token), Family: w.tui(), Process: id}
+		Worktree: c.WorktreePath(token), Family: w.tui(), Process: id}
 }
 
 // ResetDeps is what the worker.reset-context handler needs beyond the
@@ -113,7 +114,7 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 	}
 	// Git first (ruling 0012): only inside a Git tree do cleanliness and
 	// push state refuse. An unreadable tree refuses, never passes.
-	git, err := p.resetDeps.Git(ctx, p.cfg.WorktreePath(token))
+	git, err := p.resetDeps.Git(ctx, p.config().WorktreePath(token))
 	switch {
 	case err != nil:
 		refuse("DIRTY_TREE", "the worktree could not be read: "+err.Error())
@@ -179,7 +180,7 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 // (RELAUNCH_BLOCKED: nothing started; RELAUNCH_UNVERIFIED: something started
 // but is not proven to be the recovered agent) and its detail.
 func (p *Poller) relaunchAgent(ctx context.Context, op Operation, w WorkerConfig, token string, old ProcessIdentity, checkpoint string) (ProcessIdentity, string, string) {
-	dir := p.cfg.WorktreePath(token)
+	dir := p.config().WorktreePath(token)
 	agent, err := p.host.Launch(ctx, LaunchSpec{Argv: w.Launch, Dir: dir, Env: agentEnv(os.Environ(), p.key)})
 	if err != nil {
 		return ProcessIdentity{}, "RELAUNCH_BLOCKED", "launching the agent failed: " + err.Error()

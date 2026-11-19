@@ -17,7 +17,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"go.yaml.in/yaml/v3"
@@ -29,15 +28,12 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
-	// mu guards Workers, Repos and Accounts, the three maps a running poller
-	// reloads when the file changes (cli#2623). Code that runs while the
-	// poller does reads them through Worker, Repo, Account and WorkerRefs,
-	// never the fields; the loader and the tests that own a Config alone may
-	// still touch the fields.
-	mu sync.RWMutex
 	// sourcePath and sourceHash name the file this Config was loaded from and
 	// the content it held; a poller compares them to the file each poll.
-	// Empty for a Config built in code.
+	// Empty for a Config built in code. A Config is a snapshot: once loaded
+	// it is never changed, and a reload (cli#2623) builds a new one and swaps
+	// the poller's pointer, so a pass that took one Config sees one
+	// consistent set of workers however long it runs.
 	sourcePath string
 	sourceHash [sha256.Size]byte
 	// Capabilities is an explicit full declaration at every refresh, never inferred.
@@ -118,8 +114,6 @@ func (w WorkerConfig) launchesViaOrca() bool { return w.LaunchVia == LaunchViaOr
 
 // UsesOrcaLaunch reports whether any worker here starts through Orca.
 func (c *Config) UsesOrcaLaunch() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	for _, w := range c.Workers {
 		if w.launchesViaOrca() {
 			return true
@@ -357,6 +351,11 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 	if err := c.validate(); err != nil {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
 	}
+	// The absolute path, so a later change of working directory cannot make a
+	// reload read a different file.
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
 	c.sourcePath, c.sourceHash = path, sha256.Sum256(raw)
 	return &c, nil
 }
@@ -517,35 +516,26 @@ func (c *Config) validate() error {
 // state file, where C2's --orca-host-config finds the same locks.
 func (c *Config) DeliveryStateDir() string { return filepath.Dir(c.StateFile) }
 
-// Worker is the configuration of one worker reference, read under the lock a
-// reload takes (cli#2623).
+// Worker is the configuration of one worker reference.
 func (c *Config) Worker(ref string) (WorkerConfig, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	w, ok := c.Workers[ref]
 	return w, ok
 }
 
-// Repo is the local clone for a repo token, read under the reload lock.
+// Repo is the local clone for a repo token.
 func (c *Config) Repo(token string) (string, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	p, ok := c.Repos[token]
 	return p, ok
 }
 
-// Account is a launcher account profile by name, read under the reload lock.
+// Account is a launcher account profile by name.
 func (c *Config) Account(name string) (AccountProfile, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	a, ok := c.Accounts[name]
 	return a, ok
 }
 
 // WorkerRefs lists the configured worker references in a stable order.
 func (c *Config) WorkerRefs() []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
 	refs := make([]string, 0, len(c.Workers))
 	for r := range c.Workers {
 		refs = append(refs, r)
