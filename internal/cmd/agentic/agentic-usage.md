@@ -6165,6 +6165,54 @@ Groups resolve live.
   `serverCode` and the message are the server's, unchanged.
 
 
+## Agent lifecycle: imports, AI-config clear, system-memory repair, App sessions (cli#2510)
+
+```
+hadron agent import publish <parent> <imported> --position <n> [--required=true|false]
+hadron agent import rm <parent> <imported> [--yes]
+hadron agent ai-config clear <agent> [--yes]
+hadron agent repair-system-memory <agent>
+hadron agent session start <agent> [--external-user <id>] [--timeout-seconds <n>]
+hadron agent session end <session-id>
+```
+
+Each verb sends exactly one mutation (`publishAgentImport`, `removeAgentImport`,
+`clearAgentAIConfig`, `repairAgentSystemMemory`, `startAgentSession`,
+`endAgentSession`) with refs as typed; authority is the server's, and a refusal
+maps through the usual exit codes (FORBIDDEN 8, not found 4, BAD_USER_INPUT 2)
+with no retry or follow-up call. A blank ref is exit 2 with nothing sent.
+
+- **`import publish`** makes `<imported>` a dependency of `<parent>`.
+  `--position` is required (exit 2 before any request without it); `--required`
+  unset is omitted (the server default, required). Needs ADMIN/OWNER on the
+  parent's org. Refused when `<imported>` itself imports other Agents (one level
+  deep), the parent's org holds no license grant for it, it is the parent, or the
+  position is taken. `--json` is `{parentAgentId, importedAgentId, position,
+  required, createdAt}`. Not an Agent's base (`agent set-base`).
+- **`import rm`** removes the edge; removing a missing edge succeeds. Apps that
+  already installed the imported Agent keep it. Prompts on a TTY, `--yes`
+  otherwise (exit 2, nothing sent). `--json` is `{parentAgentRef,
+  importedAgentRef, removed: true}`.
+- **`ai-config clear`** removes the AI provider config stored on the Agent; no
+  key is returned. A user-owned Agent loses every named config (owner or
+  platform admin alike); an org-owned Agent loses only the config named
+  `default`. A platform admin can clear but never read or set one. Prompts on a
+  TTY, `--yes` otherwise. `--json` is the Agent. Not the top-level `ai-config`
+  group (an org's AI service configs).
+- **`repair-system-memory`** re-owns the Agent's system memory to the Agent's
+  owner; platform admin only (FORBIDDEN for everyone else, impersonation
+  included). Idempotent, no prompt. `--json` is the Agent.
+- **`session start|end`** are an App's sessions with its installed Agents for
+  its end users, NOT worker sessions (`team session`). They need an App key as
+  the credential (e.g. `HADRON_TOKEN`). The server looks the Agent up by ID,
+  so a URN is resolved first with one `agent` read (an unreadable URN is exit 4,
+  nothing started: pass the ID). `--external-user` and `--timeout-seconds`
+  unset are omitted. `--json` is `{id, agentId, appId, memoryId, userId, type,
+  state, isLive, startedAt, expiresAt}`; no key material is printed, and Apps
+  that identify users by a secret key are not supported (no operation-key
+  header is ever sent). `end` of an already-ended session succeeds; `--json` is
+  `{sessionId, ended: true}`.
+
 ## Task integrations: App properties and task externalId (cli#1524)
 
 hadron-server#3125; plan `plans:1524-find-untracked`. Specs `cor:dmo:050:02`,

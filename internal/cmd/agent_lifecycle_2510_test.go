@@ -181,7 +181,7 @@ func TestAgentLifecycleHelpStatesServerFacts(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatalf("%v: %v", tc.args, err)
 		}
-		help := strings.ToLower(out.String())
+		help := strings.ToLower(strings.Join(strings.Fields(out.String()), " "))
 		for _, w := range tc.want {
 			if !strings.Contains(help, strings.ToLower(w)) {
 				t.Errorf("%v help should say %q:\n%s", tc.args, w, out.String())

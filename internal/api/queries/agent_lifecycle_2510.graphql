@@ -1,0 +1,78 @@
+# cli#2510 (gap #58): the six remaining agent-lifecycle mutations. Each command
+# sends exactly one of these, with refs as typed. Optional args are omitempty so
+# an unset flag is omitted (the server default applies), never sent as null.
+
+mutation PublishAgentImport(
+  $parentAgentRef: ID!
+  $importedAgentRef: ID!
+  $position: Int!
+  # @genqlient(pointer: true, omitempty: true)
+  $required: Boolean
+) {
+  publishAgentImport(
+    parentAgentRef: $parentAgentRef
+    importedAgentRef: $importedAgentRef
+    position: $position
+    required: $required
+  ) {
+    parentAgentId
+    importedAgentId
+    position
+    required
+    createdAt
+  }
+}
+
+mutation RemoveAgentImport($parentAgentRef: ID!, $importedAgentRef: ID!) {
+  removeAgentImport(parentAgentRef: $parentAgentRef, importedAgentRef: $importedAgentRef)
+}
+
+mutation ClearAgentAIConfig($agentId: ID!) {
+  clearAgentAIConfig(agentId: $agentId) {
+    ...AgentFields
+  }
+}
+
+mutation RepairAgentSystemMemory($agentRef: ID!) {
+  repairAgentSystemMemory(agentRef: $agentRef) {
+    ...AgentFields
+  }
+}
+
+# startAgentSession looks its agentId up by ID only (a URN is answered as
+# "App is not allowed to operate this agent"), so `agent session start`
+# resolves a URN to the ID with this read first.
+query AgentSessionAgentID($ref: ID!) {
+  agent(ref: $ref) {
+    id
+  }
+}
+
+mutation StartAgentSession(
+  $agentId: ID!
+  # @genqlient(pointer: true, omitempty: true)
+  $externalUserId: String
+  # @genqlient(pointer: true, omitempty: true)
+  $sessionTimeoutSeconds: Int
+) {
+  startAgentSession(
+    agentId: $agentId
+    externalUserId: $externalUserId
+    sessionTimeoutSeconds: $sessionTimeoutSeconds
+  ) {
+    id
+    agentId
+    appId
+    memoryId
+    userId
+    type
+    state
+    isLive
+    startedAt
+    expiresAt
+  }
+}
+
+mutation EndAgentSession($sessionId: ID!) {
+  endAgentSession(sessionId: $sessionId)
+}

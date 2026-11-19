@@ -2739,6 +2739,34 @@ func (v *AgentServedBootPromptResponse) GetAgentServedBootPrompt() *AgentServedB
 	return v.AgentServedBootPrompt
 }
 
+// AgentSessionAgentIDAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AgentSessionAgentIDAgent struct {
+	Id string `json:"id"`
+}
+
+// GetId returns AgentSessionAgentIDAgent.Id, and is useful for accessing the field via an interface.
+func (v *AgentSessionAgentIDAgent) GetId() string { return v.Id }
+
+// AgentSessionAgentIDResponse is returned by AgentSessionAgentID on success.
+type AgentSessionAgentIDResponse struct {
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *AgentSessionAgentIDAgent `json:"agent"`
+}
+
+// GetAgent returns AgentSessionAgentIDResponse.Agent, and is useful for accessing the field via an interface.
+func (v *AgentSessionAgentIDResponse) GetAgent() *AgentSessionAgentIDAgent { return v.Agent }
+
 // AgentSystemMemoryMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -35671,6 +35699,260 @@ func (v *ClaimUntrackedTaskItemsResponse) GetClaimUntrackedTaskItems() *ClaimUnt
 	return v.ClaimUntrackedTaskItems
 }
 
+// ClearAgentAIConfigClearAgentAIConfigAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type ClearAgentAIConfigClearAgentAIConfigAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns ClearAgentAIConfigClearAgentAIConfigAgent.Id, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns ClearAgentAIConfigClearAgentAIConfigAgent.Urn, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns ClearAgentAIConfigClearAgentAIConfigAgent.Name, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns ClearAgentAIConfigClearAgentAIConfigAgent.Description, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns ClearAgentAIConfigClearAgentAIConfigAgent.Type, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns ClearAgentAIConfigClearAgentAIConfigAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns ClearAgentAIConfigClearAgentAIConfigAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns ClearAgentAIConfigClearAgentAIConfigAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns ClearAgentAIConfigClearAgentAIConfigAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns ClearAgentAIConfigClearAgentAIConfigAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns ClearAgentAIConfigClearAgentAIConfigAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns ClearAgentAIConfigClearAgentAIConfigAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns ClearAgentAIConfigClearAgentAIConfigAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns ClearAgentAIConfigClearAgentAIConfigAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns ClearAgentAIConfigClearAgentAIConfigAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns ClearAgentAIConfigClearAgentAIConfigAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns ClearAgentAIConfigClearAgentAIConfigAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns ClearAgentAIConfigClearAgentAIConfigAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns ClearAgentAIConfigClearAgentAIConfigAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetResetContextAfterTask returns ClearAgentAIConfigClearAgentAIConfigAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns ClearAgentAIConfigClearAgentAIConfigAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns ClearAgentAIConfigClearAgentAIConfigAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns ClearAgentAIConfigClearAgentAIConfigAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns ClearAgentAIConfigClearAgentAIConfigAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClearAgentAIConfigClearAgentAIConfigAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClearAgentAIConfigClearAgentAIConfigAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClearAgentAIConfigClearAgentAIConfigAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) __premarshalJSON() (*__premarshalClearAgentAIConfigClearAgentAIConfigAgent, error) {
+	var retval __premarshalClearAgentAIConfigClearAgentAIConfigAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// ClearAgentAIConfigResponse is returned by ClearAgentAIConfig on success.
+type ClearAgentAIConfigResponse struct {
+	// Clear an Agent's AI provider config without returning or decrypting keys.
+	//
+	// Clearing a user-owned Agent, by its owner or a platform ADMIN/OWNER,
+	// removes every named configuration, including disabled configurations.
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:13
+	// An org-owned Agent clear deletes only the configuration named 'default'.
+	//
+	// Accepts the entity's ID or URN.
+	ClearAgentAIConfig *ClearAgentAIConfigClearAgentAIConfigAgent `json:"clearAgentAIConfig"`
+}
+
+// GetClearAgentAIConfig returns ClearAgentAIConfigResponse.ClearAgentAIConfig, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigResponse) GetClearAgentAIConfig() *ClearAgentAIConfigClearAgentAIConfigAgent {
+	return v.ClearAgentAIConfig
+}
+
 // ClearAgentProcessesIndexResponse is returned by ClearAgentProcessesIndex on success.
 type ClearAgentProcessesIndexResponse struct {
 	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
@@ -53968,6 +54250,14 @@ type EncryptMemoryResponse struct {
 func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 	return v.EncryptMemory
 }
+
+// EndAgentSessionResponse is returned by EndAgentSession on success.
+type EndAgentSessionResponse struct {
+	EndAgentSession bool `json:"endAgentSession"`
+}
+
+// GetEndAgentSession returns EndAgentSessionResponse.EndAgentSession, and is useful for accessing the field via an interface.
+func (v *EndAgentSessionResponse) GetEndAgentSession() bool { return v.EndAgentSession }
 
 type EndAgentlessSessionInput struct {
 	AppRef string             `json:"appRef"`
@@ -80855,6 +81145,54 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
 
+// PublishAgentImportPublishAgentImport includes the requested fields of the GraphQL type AgentImport.
+// The GraphQL type's documentation follows.
+//
+// 008-agent-installation: Agent dependency edge ("Suite imports Calendar").
+// v1 enforces 1-level imports only.
+type PublishAgentImportPublishAgentImport struct {
+	ParentAgentId   string `json:"parentAgentId"`
+	ImportedAgentId string `json:"importedAgentId"`
+	Position        int    `json:"position"`
+	Required        bool   `json:"required"`
+	CreatedAt       string `json:"createdAt"`
+}
+
+// GetParentAgentId returns PublishAgentImportPublishAgentImport.ParentAgentId, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetParentAgentId() string { return v.ParentAgentId }
+
+// GetImportedAgentId returns PublishAgentImportPublishAgentImport.ImportedAgentId, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetImportedAgentId() string { return v.ImportedAgentId }
+
+// GetPosition returns PublishAgentImportPublishAgentImport.Position, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetPosition() int { return v.Position }
+
+// GetRequired returns PublishAgentImportPublishAgentImport.Required, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetRequired() bool { return v.Required }
+
+// GetCreatedAt returns PublishAgentImportPublishAgentImport.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetCreatedAt() string { return v.CreatedAt }
+
+// PublishAgentImportResponse is returned by PublishAgentImport on success.
+type PublishAgentImportResponse struct {
+	// Publish a dependency edge from a parent Agent to an imported Agent
+	// (008-agent-installation FR-005). v1 supports 1-level imports only:
+	// the imported Agent must not itself be a parent of any other import.
+	//
+	// Authorization: ADMIN/OWNER of the parent Agent's owning org. The
+	// parent's owning org MUST hold an active AgentOrgGrant for the
+	// imported Agent — bundling requires the same kind of license that
+	// installation does.
+	//
+	// Accepts the entity's ID or URN for both Agent ids.
+	PublishAgentImport *PublishAgentImportPublishAgentImport `json:"publishAgentImport"`
+}
+
+// GetPublishAgentImport returns PublishAgentImportResponse.PublishAgentImport, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportResponse) GetPublishAgentImport() *PublishAgentImportPublishAgentImport {
+	return v.PublishAgentImport
+}
+
 // PublishRevisionPublishRevisionRevisionResult includes the requested fields of the GraphQL type RevisionResult.
 type PublishRevisionPublishRevisionRevisionResult struct {
 	RevisionLoc string `json:"revisionLoc"`
@@ -83599,6 +83937,20 @@ func (v *ReleaseWorkerResponse) GetReleaseWorker() *ReleaseWorkerReleaseWorkerRe
 	return v.ReleaseWorker
 }
 
+// RemoveAgentImportResponse is returned by RemoveAgentImport on success.
+type RemoveAgentImportResponse struct {
+	// Delete a dependency edge between two Agents. Idempotent (no-op when
+	// the row doesn't exist). Apps that already installed the imported
+	// Agent are unaffected; removing the import only stops *future*
+	// parent installs from cascading the dep.
+	//
+	// Accepts the entity's ID or URN.
+	RemoveAgentImport bool `json:"removeAgentImport"`
+}
+
+// GetRemoveAgentImport returns RemoveAgentImportResponse.RemoveAgentImport, and is useful for accessing the field via an interface.
+func (v *RemoveAgentImportResponse) GetRemoveAgentImport() bool { return v.RemoveAgentImport }
+
 // RemoveAppMemberInstructedResponse is returned by RemoveAppMemberInstructed on success.
 type RemoveAppMemberInstructedResponse struct {
 	// Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
@@ -84357,6 +84709,278 @@ type ReopenCommentThreadResponse struct {
 // GetReopenCommentThread returns ReopenCommentThreadResponse.ReopenCommentThread, and is useful for accessing the field via an interface.
 func (v *ReopenCommentThreadResponse) GetReopenCommentThread() *ReopenCommentThreadReopenCommentThreadComment {
 	return v.ReopenCommentThread
+}
+
+// RepairAgentSystemMemoryRepairAgentSystemMemoryAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type RepairAgentSystemMemoryRepairAgentSystemMemoryAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Id, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Urn, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetUrn() string {
+	return v.AgentFields.Urn
+}
+
+// GetName returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Name, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetName() string {
+	return v.AgentFields.Name
+}
+
+// GetDescription returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Description, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Type, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetType() AgentType {
+	return v.AgentFields.Type
+}
+
+// GetVisibility returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetResetContextAfterTask returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RepairAgentSystemMemoryRepairAgentSystemMemoryAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RepairAgentSystemMemoryRepairAgentSystemMemoryAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRepairAgentSystemMemoryRepairAgentSystemMemoryAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) __premarshalJSON() (*__premarshalRepairAgentSystemMemoryRepairAgentSystemMemoryAgent, error) {
+	var retval __premarshalRepairAgentSystemMemoryRepairAgentSystemMemoryAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// RepairAgentSystemMemoryResponse is returned by RepairAgentSystemMemory on success.
+type RepairAgentSystemMemoryResponse struct {
+	// #949 — re-own an Agent's class=system memory to the Agent's own owner
+	// (org XOR user). On an ownership repair, attempt the derived
+	// '<agent-urn>-system' URN; if another live memory holds it, retain the
+	// current URN. A changed URN records an alias. An already-consistent owner
+	// pair returns without changing its URN.
+	//
+	// The recovery path for a system memory that ended up owned by a different
+	// tenant. Access to a memory follows the MEMORY's owner, so such a row puts
+	// one tenant's Agent design inside another tenant's audience. System
+	// memories are only ever created by Agent provisioning, so before this the
+	// only fix was to recreate the Agent.
+	//
+	// Authorization: PLATFORM ADMIN only — the row being moved belongs to a
+	// different tenant than the Agent, so neither side's org admin is the right
+	// authority. Idempotent: an already-consistent pair is a no-op.
+	//
+	// Error codes (extensions.code): FORBIDDEN, AGENT_HAS_NO_SYSTEM_MEMORY,
+	// SYSTEM_MEMORY_NOT_FOUND.
+	//
+	// Accepts the entity's ID or URN.
+	RepairAgentSystemMemory *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent `json:"repairAgentSystemMemory"`
+}
+
+// GetRepairAgentSystemMemory returns RepairAgentSystemMemoryResponse.RepairAgentSystemMemory, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryResponse) GetRepairAgentSystemMemory() *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent {
+	return v.RepairAgentSystemMemory
 }
 
 // ReplyToCommentReplyToComment includes the requested fields of the GraphQL type Comment.
@@ -98298,6 +98922,112 @@ func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetTarge
 func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetText() *string {
 	return v.Text
 }
+
+// StartAgentSessionResponse is returned by StartAgentSession on success.
+type StartAgentSessionResponse struct {
+	// Multi-user-agent session lifecycle (renamed to avoid collision with
+	// the developer/guided startSession and endSession mutations).
+	// Supply a base64-encoded 32-byte key beside the operation through the
+	// x-hadron-operation-key header when identifyUserMethod is SECRET.
+	// The key is verified for an existing encrypted memory and held only
+	// after the new session commits; USER_ID mode rejects key supply.
+	// Only one key-consuming operation may use the header in a request;
+	// a second attempt is BAD_UNLOCK_INPUT.
+	StartAgentSession *StartAgentSessionStartAgentSession `json:"startAgentSession"`
+}
+
+// GetStartAgentSession returns StartAgentSessionResponse.StartAgentSession, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionResponse) GetStartAgentSession() *StartAgentSessionStartAgentSession {
+	return v.StartAgentSession
+}
+
+// StartAgentSessionStartAgentSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type StartAgentSessionStartAgentSession struct {
+	Id string `json:"id"`
+	// The role-agent driving the session (with workerId set, the agent behind the casting).
+	AgentId  *string `json:"agentId"`
+	AppId    *string `json:"appId"`
+	MemoryId *string `json:"memoryId"`
+	UserId   *string `json:"userId"`
+	// Which kind of session this is: DEVELOPER, CHATBOT, AUTOMATION or EDGE.
+	Type string `json:"type"`
+	// #2288 / hrn:node:hadronmemory.com:specs:cor:agt:020:13:
+	// this session's derived state, using its own App's dormancy period (platform
+	// default when App-less), never the viewer's App. ENDED means terminal: an
+	// explicit/reaped end, deletion, or now >= promised expiresAt before reap.
+	// It does not assert an explicit ending act. Otherwise DORMANT uses the same
+	// activity and strict older-than threshold as the resume refusal. At exact
+	// dormancy equality it is not dormant. LIVE includes idle deadline equality;
+	// hard expiry is exclusive even when the deadlines coincide. The remaining
+	// open sessions are LAPSED. Reading state never drives or resumes a session.
+	State SessionState `json:"state"`
+	// hadron-cli#791 / hrn:node:hadronmemory.com:specs:cor:agt:020:11:
+	// whether THIS session is live: not ended
+	// or hard-expired (hrn:node:hadronmemory.com:specs:cor:agt:020:03),
+	// AND driven inside its type's idle window (activity is the latest of
+	// startedAt, the heartbeat updatedAt, and the latest attributed usage
+	// event, capped at endedAt). The same derived predicate as startSession's
+	// WORKER_TAKEN gate and Worker.hasLiveSession, so the three always agree.
+	// An unexpired open session that is not live has LAPSED: nobody drove it inside the
+	// window, so another driver may bind its worker; it is not ended, and can
+	// still be ended with a handoff. False for an ended or deleted session.
+	IsLive    bool    `json:"isLive"`
+	StartedAt string  `json:"startedAt"`
+	ExpiresAt *string `json:"expiresAt"`
+}
+
+// GetId returns StartAgentSessionStartAgentSession.Id, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetId() string { return v.Id }
+
+// GetAgentId returns StartAgentSessionStartAgentSession.AgentId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetAgentId() *string { return v.AgentId }
+
+// GetAppId returns StartAgentSessionStartAgentSession.AppId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetAppId() *string { return v.AppId }
+
+// GetMemoryId returns StartAgentSessionStartAgentSession.MemoryId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetMemoryId() *string { return v.MemoryId }
+
+// GetUserId returns StartAgentSessionStartAgentSession.UserId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetUserId() *string { return v.UserId }
+
+// GetType returns StartAgentSessionStartAgentSession.Type, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetType() string { return v.Type }
+
+// GetState returns StartAgentSessionStartAgentSession.State, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetState() SessionState { return v.State }
+
+// GetIsLive returns StartAgentSessionStartAgentSession.IsLive, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetIsLive() bool { return v.IsLive }
+
+// GetStartedAt returns StartAgentSessionStartAgentSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetStartedAt() string { return v.StartedAt }
+
+// GetExpiresAt returns StartAgentSessionStartAgentSession.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetExpiresAt() *string { return v.ExpiresAt }
 
 // StartConnectionResponse is returned by StartConnection on success.
 type StartConnectionResponse struct {
@@ -124927,6 +125657,14 @@ func (v *__AgentServedBootPromptInput) GetAppRef() *string { return v.AppRef }
 // GetLlmModel returns __AgentServedBootPromptInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *__AgentServedBootPromptInput) GetLlmModel() *string { return v.LlmModel }
 
+// __AgentSessionAgentIDInput is used internally by genqlient
+type __AgentSessionAgentIDInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AgentSessionAgentIDInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentSessionAgentIDInput) GetRef() string { return v.Ref }
+
 // __AgentSystemMemoryInput is used internally by genqlient
 type __AgentSystemMemoryInput struct {
 	Ref string `json:"ref"`
@@ -127669,6 +128407,14 @@ func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetReady() *ReadyFilter { return 
 // GetLimit returns __ClaimUntrackedTaskItemsNoTeamInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetLimit() *int { return v.Limit }
 
+// __ClearAgentAIConfigInput is used internally by genqlient
+type __ClearAgentAIConfigInput struct {
+	AgentId string `json:"agentId"`
+}
+
+// GetAgentId returns __ClearAgentAIConfigInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__ClearAgentAIConfigInput) GetAgentId() string { return v.AgentId }
+
 // __ClearAgentProcessesIndexInput is used internally by genqlient
 type __ClearAgentProcessesIndexInput struct {
 	Ref               string  `json:"ref"`
@@ -129959,6 +130705,14 @@ func (v *__EncryptMemoryInput) GetDataKey() *string { return v.DataKey }
 // GetPassphrase returns __EncryptMemoryInput.Passphrase, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetPassphrase() *string { return v.Passphrase }
 
+// __EndAgentSessionInput is used internally by genqlient
+type __EndAgentSessionInput struct {
+	SessionId string `json:"sessionId"`
+}
+
+// GetSessionId returns __EndAgentSessionInput.SessionId, and is useful for accessing the field via an interface.
+func (v *__EndAgentSessionInput) GetSessionId() string { return v.SessionId }
+
 // __EndTeamSessionInput is used internally by genqlient
 type __EndTeamSessionInput struct {
 	Id      string  `json:"id"`
@@ -132201,6 +132955,26 @@ func (v *__PublicOrganizationInput) GetLimit() int { return v.Limit }
 // GetOffset returns __PublicOrganizationInput.Offset, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetOffset() int { return v.Offset }
 
+// __PublishAgentImportInput is used internally by genqlient
+type __PublishAgentImportInput struct {
+	ParentAgentRef   string `json:"parentAgentRef"`
+	ImportedAgentRef string `json:"importedAgentRef"`
+	Position         int    `json:"position"`
+	Required         *bool  `json:"required,omitempty"`
+}
+
+// GetParentAgentRef returns __PublishAgentImportInput.ParentAgentRef, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetParentAgentRef() string { return v.ParentAgentRef }
+
+// GetImportedAgentRef returns __PublishAgentImportInput.ImportedAgentRef, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetImportedAgentRef() string { return v.ImportedAgentRef }
+
+// GetPosition returns __PublishAgentImportInput.Position, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetPosition() int { return v.Position }
+
+// GetRequired returns __PublishAgentImportInput.Required, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetRequired() *bool { return v.Required }
+
 // __PublishRevisionInput is used internally by genqlient
 type __PublishRevisionInput struct {
 	AgentId      string  `json:"agentId"`
@@ -132557,6 +133331,18 @@ func (v *__ReleaseWorkerInput) GetExpectedHolderUserId() *string { return v.Expe
 // GetExpectUnheld returns __ReleaseWorkerInput.ExpectUnheld, and is useful for accessing the field via an interface.
 func (v *__ReleaseWorkerInput) GetExpectUnheld() *bool { return v.ExpectUnheld }
 
+// __RemoveAgentImportInput is used internally by genqlient
+type __RemoveAgentImportInput struct {
+	ParentAgentRef   string `json:"parentAgentRef"`
+	ImportedAgentRef string `json:"importedAgentRef"`
+}
+
+// GetParentAgentRef returns __RemoveAgentImportInput.ParentAgentRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAgentImportInput) GetParentAgentRef() string { return v.ParentAgentRef }
+
+// GetImportedAgentRef returns __RemoveAgentImportInput.ImportedAgentRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAgentImportInput) GetImportedAgentRef() string { return v.ImportedAgentRef }
+
 // __RemoveAppMemberInput is used internally by genqlient
 type __RemoveAppMemberInput struct {
 	AppRef  string `json:"appRef"`
@@ -132666,6 +133452,14 @@ func (v *__ReopenCommentThreadInput) GetRef() string { return v.Ref }
 
 // GetExpected returns __ReopenCommentThreadInput.Expected, and is useful for accessing the field via an interface.
 func (v *__ReopenCommentThreadInput) GetExpected() int { return v.Expected }
+
+// __RepairAgentSystemMemoryInput is used internally by genqlient
+type __RepairAgentSystemMemoryInput struct {
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAgentRef returns __RepairAgentSystemMemoryInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__RepairAgentSystemMemoryInput) GetAgentRef() string { return v.AgentRef }
 
 // __ReplyToCommentInput is used internally by genqlient
 type __ReplyToCommentInput struct {
@@ -134044,6 +134838,22 @@ func (v *__SpecUnresolvedReferencesPageInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __SpecUnresolvedReferencesPageInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SpecUnresolvedReferencesPageInput) GetOffset() int { return v.Offset }
+
+// __StartAgentSessionInput is used internally by genqlient
+type __StartAgentSessionInput struct {
+	AgentId               string  `json:"agentId"`
+	ExternalUserId        *string `json:"externalUserId,omitempty"`
+	SessionTimeoutSeconds *int    `json:"sessionTimeoutSeconds,omitempty"`
+}
+
+// GetAgentId returns __StartAgentSessionInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__StartAgentSessionInput) GetAgentId() string { return v.AgentId }
+
+// GetExternalUserId returns __StartAgentSessionInput.ExternalUserId, and is useful for accessing the field via an interface.
+func (v *__StartAgentSessionInput) GetExternalUserId() *string { return v.ExternalUserId }
+
+// GetSessionTimeoutSeconds returns __StartAgentSessionInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__StartAgentSessionInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
 
 // __StartConnectionInput is used internally by genqlient
 type __StartConnectionInput struct {
@@ -138742,6 +139552,43 @@ func AgentServedBootPrompt(
 	}
 
 	data_ = &AgentServedBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentSessionAgentID.
+const AgentSessionAgentID_Operation = `
+query AgentSessionAgentID ($ref: ID!) {
+	agent(ref: $ref) {
+		id
+	}
+}
+`
+
+// startAgentSession looks its agentId up by ID only (a URN is answered as
+// "App is not allowed to operate this agent"), so `agent session start`
+// resolves a URN to the ID with this read first.
+func AgentSessionAgentID(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AgentSessionAgentIDResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentSessionAgentID",
+		Query:  AgentSessionAgentID_Operation,
+		Variables: &__AgentSessionAgentIDInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AgentSessionAgentIDResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -151223,6 +152070,70 @@ func ClaimUntrackedTaskItemsNoTeam(
 	return data_, err_
 }
 
+// The mutation executed by ClearAgentAIConfig.
+const ClearAgentAIConfig_Operation = `
+mutation ClearAgentAIConfig ($agentId: ID!) {
+	clearAgentAIConfig(agentId: $agentId) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func ClearAgentAIConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+) (data_ *ClearAgentAIConfigResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearAgentAIConfig",
+		Query:  ClearAgentAIConfig_Operation,
+		Variables: &__ClearAgentAIConfigInput{
+			AgentId: agentId,
+		},
+	}
+
+	data_ = &ClearAgentAIConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ClearAgentProcessesIndex.
 const ClearAgentProcessesIndex_Operation = `
 mutation ClearAgentProcessesIndex ($ref: ID!, $processesIndexRef: ID) {
@@ -158045,6 +158956,38 @@ func EncryptMemory(
 	}
 
 	data_ = &EncryptMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EndAgentSession.
+const EndAgentSession_Operation = `
+mutation EndAgentSession ($sessionId: ID!) {
+	endAgentSession(sessionId: $sessionId)
+}
+`
+
+func EndAgentSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sessionId string,
+) (data_ *EndAgentSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndAgentSession",
+		Query:  EndAgentSession_Operation,
+		Variables: &__EndAgentSessionInput{
+			SessionId: sessionId,
+		},
+	}
+
+	data_ = &EndAgentSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -168016,6 +168959,50 @@ func PublicOrganization(
 	return data_, err_
 }
 
+// The mutation executed by PublishAgentImport.
+const PublishAgentImport_Operation = `
+mutation PublishAgentImport ($parentAgentRef: ID!, $importedAgentRef: ID!, $position: Int!, $required: Boolean) {
+	publishAgentImport(parentAgentRef: $parentAgentRef, importedAgentRef: $importedAgentRef, position: $position, required: $required) {
+		parentAgentId
+		importedAgentId
+		position
+		required
+		createdAt
+	}
+}
+`
+
+func PublishAgentImport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	parentAgentRef string,
+	importedAgentRef string,
+	position int,
+	required *bool,
+) (data_ *PublishAgentImportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PublishAgentImport",
+		Query:  PublishAgentImport_Operation,
+		Variables: &__PublishAgentImportInput{
+			ParentAgentRef:   parentAgentRef,
+			ImportedAgentRef: importedAgentRef,
+			Position:         position,
+			Required:         required,
+		},
+	}
+
+	data_ = &PublishAgentImportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by PublishRevision.
 const PublishRevision_Operation = `
 mutation PublishRevision ($agentId: ID!, $revisionLoc: String!, $versionLabel: String) {
@@ -169215,6 +170202,40 @@ func ReleaseWorker(
 	return data_, err_
 }
 
+// The mutation executed by RemoveAgentImport.
+const RemoveAgentImport_Operation = `
+mutation RemoveAgentImport ($parentAgentRef: ID!, $importedAgentRef: ID!) {
+	removeAgentImport(parentAgentRef: $parentAgentRef, importedAgentRef: $importedAgentRef)
+}
+`
+
+func RemoveAgentImport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	parentAgentRef string,
+	importedAgentRef string,
+) (data_ *RemoveAgentImportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveAgentImport",
+		Query:  RemoveAgentImport_Operation,
+		Variables: &__RemoveAgentImportInput{
+			ParentAgentRef:   parentAgentRef,
+			ImportedAgentRef: importedAgentRef,
+		},
+	}
+
+	data_ = &RemoveAgentImportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveAppMember.
 const RemoveAppMember_Operation = `
 mutation RemoveAppMember ($appRef: String!, $userRef: String!) {
@@ -169608,6 +170629,70 @@ func ReopenCommentThread(
 	}
 
 	data_ = &ReopenCommentThreadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RepairAgentSystemMemory.
+const RepairAgentSystemMemory_Operation = `
+mutation RepairAgentSystemMemory ($agentRef: ID!) {
+	repairAgentSystemMemory(agentRef: $agentRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func RepairAgentSystemMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+) (data_ *RepairAgentSystemMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RepairAgentSystemMemory",
+		Query:  RepairAgentSystemMemory_Operation,
+		Variables: &__RepairAgentSystemMemoryInput{
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &RepairAgentSystemMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -175167,6 +176252,53 @@ func SpecUnresolvedReferencesPage(
 	}
 
 	data_ = &SpecUnresolvedReferencesPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by StartAgentSession.
+const StartAgentSession_Operation = `
+mutation StartAgentSession ($agentId: ID!, $externalUserId: String, $sessionTimeoutSeconds: Int) {
+	startAgentSession(agentId: $agentId, externalUserId: $externalUserId, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
+		id
+		agentId
+		appId
+		memoryId
+		userId
+		type
+		state
+		isLive
+		startedAt
+		expiresAt
+	}
+}
+`
+
+func StartAgentSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+	externalUserId *string,
+	sessionTimeoutSeconds *int,
+) (data_ *StartAgentSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "StartAgentSession",
+		Query:  StartAgentSession_Operation,
+		Variables: &__StartAgentSessionInput{
+			AgentId:               agentId,
+			ExternalUserId:        externalUserId,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+		},
+	}
+
+	data_ = &StartAgentSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
