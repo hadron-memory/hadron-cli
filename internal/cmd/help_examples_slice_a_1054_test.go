@@ -78,8 +78,8 @@ var localOnlySliceA = []string{
 // fixture (the developer's pre-freeze full-suite run is that evidence). Both
 // outcomes pass: the map only covers the sent-nothing shape.
 var expectedRefusalsSliceA = map[string]string{
-	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json":                      "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
-	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/worktrees --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json":                       "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 }
 
 // knownPanicsSliceA lists commands that panic on a reply with no data, each
