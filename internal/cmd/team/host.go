@@ -167,13 +167,26 @@ func newCmdTeamHost(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "host <command>",
 		Short: "A team App's hosts and the operations issued to them",
-		Long: `The machines that launch a team App's workers. A host registers which
-workers it can run, as which model family and in which worktrees
-(cor:agt:070:01); people and workers issue it typed operations
-(cor:agt:070:05), which it collects and reports (cor:agt:070:02).
-` + "`list`" + ` and ` + "`ops`" + ` read them; ` + "`issue`" + ` issues one. ` + "`run`" + ` is the
-host's own poller; ` + "`availability`" + ` sets or clears its own worker mark. ` + "`status`" + ` checks its configuration. A host's key is
-granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
+		Long: `The machines that launch a team App's workers. A host is one machine
+running this CLI as a poller: it registers which workers it can run, as
+which model family and in which worktree, collects the operations queued
+for it, carries them out and reports the outcome.
+
+By goal: see what hosts exist and who they run (` + "`list`" + `, ` + "`status`" + `);
+read or issue queued operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
+(` + "`assign`" + `, ` + "`unassign`" + `, ` + "`setup`" + `, ` + "`import`" + `); reconcile workers to that
+record (` + "`up`" + `, ` + "`sweep`" + `, and the recorded outcomes in ` + "`sweep-runs`" + `); keep one
+host running (` + "`run`" + `, ` + "`report-stops`" + `, ` + "`availability`" + `). The three
+reconcile forms differ in who drives: ` + "`run`" + ` is the long-lived poller loop
+that keeps one host's workers up; ` + "`up`" + ` performs one reconcile pass now,
+from a desired state you name; ` + "`sweep`" + ` is the same pass keyed to the
+host's registered id and host.yaml — the form its installed timer runs.
+
+Prerequisites: sign in (` + "`hadron auth login`" + `), a team App context (pass ` + "`--app`" + `
+or run from a bound worktree), and for the host-local commands (` + "`run`" + `,
+` + "`sweep`" + `, ` + "`up`" + `, ` + "`availability`" + `, ` + "`report-stops`" + `) a host.yaml — its shape is
+documented by ` + "`hadron team host run --help`" + `. A host's server key is granted
+with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamHostLs(f))
 	cmd.AddCommand(newCmdTeamHostOps(f))
@@ -443,26 +456,32 @@ func newCmdTeamHostIssue(f *cmdutil.Factory) *cobra.Command {
 	var argPairs []string
 	var asPersonFlag bool
 	cmd := &cobra.Command{
-		Use:   "issue <type> --host <host-id> --worker <worker> [--arg key=value]...",
+		Use:   "issue <type> --host <host-id> --worker <worker> [--arg key=value]... [--as-person]",
 		Short: "Issue an operation to one of the App's hosts",
-		Long: `Issue one typed operation to a registered host (cor:agt:070:05). The type
-is one of a closed set (cor:agt:070:03); its arguments are ids and name
-tokens, never a command and never a credential:
+		Long: `Issue one queued operation to a registered host. The type is one of a
+closed set; its arguments are ids and name tokens, never a command and
+never a credential:
 
   worktree.create  --arg repo=… --arg baseBranch=… --arg branchName=… --arg label=…
   worktree.remove  --arg worktree=…   (a worktree the host registers for the worker)
+  worker.start     no --arg (the host launches the worker's recorded launch line)
+  worker.end       no --arg, for a worker with an open session
 
 The worker is named with --worker (id, URN or name), never inside --arg.
-worker.start and worker.end are issued by whoever manages the App —
-worker.end for an open session of the worker; worker.deliver is not issued
-until a host has a delivery path for it (hadron-cli#829), refusing
-HOST_OPERATION_NOT_ISSUABLE (exit 2). Any other type is
-HOST_OPERATION_TYPE_UNKNOWN (exit 2), and a missing, extra or malformed
-argument BAD_HOST_OPERATION_ARGS (exit 2). An unregistered host is
-HOST_NOT_FOUND (exit 4).
+Issuing worker.start by hand is the one-off form; the usual way to start
+workers is a reconcile — ` + "`team host up --apply`" + ` starts every worker the
+host's record says it runs. worker.deliver is not issued until a host has a
+delivery path for it (hadron-cli#829), refusing HOST_OPERATION_NOT_ISSUABLE
+(exit 2). Any other type is HOST_OPERATION_TYPE_UNKNOWN (exit 2), and a
+missing, extra or malformed argument BAD_HOST_OPERATION_ARGS (exit 2). An
+unregistered host is HOST_NOT_FOUND (exit 4).
 
-WHO ISSUES IT: a worktree operation is issued by the worker's holder, the
-worker it reports to, or whoever manages the App (else
+On success the command prints the issued operation (id, type, status,
+worker); follow it to completion with ` + "`hadron team host ops --worker <worker>`" + `.
+
+WHO ISSUES IT: any operation — worktree.create, worktree.remove, worker.start
+and worker.end — is issued by the worker's holder, the worker it reports to
+in the App's roster, or whoever manages the App (else
 HOST_OPERATION_NOT_PERMITTED, exit 8). In a worktree bound to a worker, the
 operation is that worker's: it qualifies only as the target's reports-to.
 Pass --as-person to issue it as yourself instead — as the target's holder or

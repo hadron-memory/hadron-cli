@@ -57,7 +57,10 @@ const hostSetupWriteHelp = `WHO: whoever manages the App. Without --instruction 
 signed-in person's, even in a bound worktree. A worker session is never an
 App key's: a key is refused.
 
-` + instructionHelp
+With --instruction <kind>:<ref> the write claims a named holder's
+instruction instead. The instruction forms, the server revision they need
+and their refusal codes are one shared contract, documented once:
+` + "`hadron agentic-usage`" + `, "App-manager writes with an instruction".`
 
 type hostAssignmentDTO struct {
 	ID         string  `json:"id"`
@@ -131,16 +134,19 @@ func newCmdTeamHostAssign(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "assign <worker> --host <host-id> --workdir <token> --family <family> [--model <id>] [--effort <token>] [--account-profile <token>] [--replace] [--instruction <kind>:<ref>]",
 		Short: "Assign a worker to a host of the App, as its manager",
-		Long: `Record that a host runs a worker: the workdir it runs in there, its model
-family and, optionally, its launcher profile: --model, --effort and
---account-profile (S1b, hadron-server#4230). The workdir is the NAME the host
-knows the directory by (an Orca worktree name), ` + hostSetupTokenRule + `;
-never a path. The three profile values are ` + hostSetupProfileTokenRule + `:
+		Long: `Record that a host runs a worker. This only records a plan: workers do not
+start from it until the App's staffing source is the server — run
+` + "`team host setup --source SERVER`" + ` once, after the assignments exist
+(that page explains the switch). Find the host's id with ` + "`team host list`" + `.
+
+The record names: the workdir the worker runs in there — the NAME the host
+knows the directory by (an Orca worktree name), ` + hostSetupTokenRule + `,
+never a path — its model family (a lowercase family token, currently ` + "`claude`" + ` or ` + "`codex`" + `), and optionally its launcher profile: --model, --effort and
+--account-profile. The three profile values are ` + hostSetupProfileTokenRule + `:
 the host builds its launch command from a fixed template for the family, so a
-value is never a path, a command or a credential. While the App's switch is
-SERVER a worker start carries the ones that are set. A worker may be assigned
-to several hosts. The record changes nothing until the App's switch is SERVER
-(` + "`team host setup --source SERVER`" + `).
+value is never a path, a command or a credential. While the source is SERVER,
+a worker start carries the ones that are set. A worker may be assigned to
+several hosts.
 
 --effort and --account-profile need a server with the S1b launcher profile; on
 one that predates it the command refuses by name (exit 2) and writes nothing,
@@ -159,8 +165,8 @@ retired worker is refused WORKER_RETIRED (5), an unknown one
 WORKER_NOT_FOUND (4), a field that is not its token shape
 BAD_HOST_ASSIGNMENT_ARGS (2), a profile value or a family with no launcher
 BAD_LAUNCHER_PROFILE (2), and a caller who does not manage the App
-HOST_ASSIGNMENT_NOT_PERMITTED (8). A refusal writes nothing. --json prints the
-assignment.
+HOST_ASSIGNMENT_NOT_PERMITTED (8). A refusal writes nothing. On success the
+assignment prints as one line (or as an object with --json).
 
 ` + hostSetupWriteHelp,
 		Example: `  hadron team host assign Jonas --host orca1 --workdir jonas-3 --family claude --model opus-5.5
@@ -389,16 +395,17 @@ func newCmdTeamHostSetup(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show which workers each host runs, or set who states it",
 		Long: `Without --source: read the App's host setup — the switch (who states which
 workers a host runs) and the assignments in effect, ordered by host then
-worker; --host narrows to one host. A retired worker's assignments are left
-out. Any participant who reads the App's tasks and events may read; a read
-carries no worker session. --json prints {appRef, source, hostId,
-assignments[]}, an assignment being {id, hostId, workerId, workerName,
-workdir, family, model, effort, accountProfile, createdAt, updatedAt}
-(effort and accountProfile are the S1b launcher profile: a profile token, or null
-when unset; the keys are always present). "profile" is "available", or
-"unavailable" when the server predates S1b: then the assignments are shown
-without the profile, effort and accountProfile read null meaning UNKNOWN (not
-unset), and the text says so once.
+worker; --host narrows this read to one host (it is ignored by the write,
+which always sets the switch for the whole App). A retired worker's
+assignments are left out. Any participant who reads the App's tasks and
+events may read; a read carries no worker session. --json prints {appRef,
+source, hostId, assignments[]}, an assignment being {id, hostId, workerId,
+workerName, workdir, family, model, effort, accountProfile, createdAt,
+updatedAt} (effort and accountProfile are the S1b launcher profile: a
+profile token, or null when unset; the keys are always present). "profile"
+is "available", or "unavailable" when the server predates S1b: then the
+assignments are shown without the profile, effort and accountProfile read
+null meaning UNKNOWN (not unset), and the text says so once.
 
 With --source HOST|SERVER: set the switch (the App manager's write). HOST, the
 default, keeps today's behaviour: the host states its workers at registration.
@@ -406,7 +413,13 @@ SERVER: a registration is checked against the assignments (an unassigned
 worker is left out, reported per row, never failing the registration), and a
 worker is started only on a host it is assigned to whose registration lists
 the assigned workdir, in that workdir and as the assigned family. It takes
-effect at the next registration and start decision. --json prints
+effect at the next registration and start decision.
+
+ORDER MATTERS: switching to SERVER is a behaviour change. Create the
+assignments FIRST (` + "`team host assign`" + `, or ` + "`team host import`" + ` for a whole
+host.yaml) and read them back with ` + "`team host setup`" + ` before switching:
+under SERVER a worker with no assignment is left out and never started — an
+empty assignment list leaves every worker unstarted. --json prints
 {appRef, source}.
 
 ` + hostSetupWriteHelp,

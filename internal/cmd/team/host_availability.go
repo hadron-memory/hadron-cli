@@ -25,16 +25,28 @@ func newCmdTeamHostAvailability(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "availability <worker> --config <host.yaml> (--reason <reason> | --clear)",
 		Short: "Set or clear this host's own worker availability mark",
-		Long: `Use only the host:operate key_file from --config, never HADRON_TOKEN or a
-worker session. The App comes from that configuration; --app does not change it.
-The server resolves the registered worker's name, id or URN and authorizes
-the call (cor:agt:060:08). This command does not register or poll the host.
+		Long: `An availability mark is the App-wide record that tells the matcher and the
+task assigners who is free for work: while THIS host's worker is marked
+unavailable, no new work is assigned to it. This is the host's own way to set
+that record — for example when the worker is out of tokens or the machine is
+about to go down — using only the host:operate key_file from --config, never
+HADRON_TOKEN or a worker session. The App comes from that configuration;
+--app does not change it. The server resolves the registered worker's name,
+id or URN and authorizes the call. This command does not register or poll
+the host.
 
 --reason OUT_OF_TOKENS or HOST_DOWN marks the worker unavailable, optionally
-until an RFC 3339 time. --clear sets it available. A host can clear or replace
-only its own mark; another setter's mark, including a stall, is refused with
+until an RFC 3339 time (--until; when it passes, the mark lapses on its
+own). --clear sets it available again. On success one line prints:
+"<worker>: unavailable (set by <this host>)" (the state and setter named;
+--json prints the full record). A host can clear or replace only its own
+mark; another setter's mark, including a stall, is refused with
 AVAILABILITY_NOT_PERMITTED (exit 8). No automatic failure classification.
-The server decides ownership and whether --until is in the future.`,
+The server decides ownership and whether --until is in the future.
+
+--config names a full host.yaml (the shape ` + "`hadron team host run --help`" + `
+documents; validation requires the whole file); this command uses only its
+key_file and app.`,
 		Example: "  hadron team host availability Iris --config host.yaml --reason OUT_OF_TOKENS\n  hadron team host availability Iris --config host.yaml --clear",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -83,7 +95,7 @@ The server decides ownership and whether --until is in the future.`,
 			})
 		}}
 	cmd.Flags().StringVar(&config, "config", "", "host configuration file (its host key and App are used)")
-	cmd.Flags().StringVar(&reason, "reason", "", "OUT_OF_TOKENS or HOST_DOWN; requires an unavailable mark")
+	cmd.Flags().StringVar(&reason, "reason", "", "why the worker is unavailable: OUT_OF_TOKENS or HOST_DOWN (required unless --clear)")
 	cmd.Flags().StringVar(&until, "until", "", "optional unavailable-until time (RFC 3339)")
 	cmd.Flags().BoolVar(&clear, "clear", false, "clear this host's own mark, setting the worker available")
 	return cmd

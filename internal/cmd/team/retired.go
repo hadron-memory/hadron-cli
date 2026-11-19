@@ -90,8 +90,12 @@ func newCmdTeamRouter(_ *cmdutil.Factory) *cobra.Command {
 		Use:   "router <command>",
 		Short: "Retired (hadron-server#2027): poll, loop and status exit 2",
 		Long: `The router is retired (hadron-server#2027): the attention API it polled is
-being removed. Wakes come from tickers (hadron-server#2138). Its poll, loop
-and status subcommands exit 2 and poll, type or read nothing.`,
+being removed. Its poll, loop and status subcommands exit 2 and poll, type
+or read nothing. What replaced its work: the host poller keeps workers
+running and delivers their wakes (` + "`hadron team host run`" + `, whose host.yaml
+enables delivery); tickers schedule recurring wakes (` + "`hadron team ticker`" + `);
+see due and acknowledged wakes with ` + "`hadron team wakes`" + `, a worker's wake
+schedule with ` + "`hadron team wake-settings`" + `.`,
 	}
 	for _, sub := range []struct{ use, short string }{
 		{"poll [--config <path>]", "Retired (hadron-server#2027): exits 2, polls nothing"},

@@ -173,7 +173,7 @@ type sweepRunDTO struct {
 func newCmdTeamHostSweepRuns(f *cmdutil.Factory) *cobra.Command {
 	var host string
 	var limit int
-	c := &cobra.Command{Use: "sweep-runs --host <id> [--limit N]", Short: "Read this host's recorded sweep runs", Long: "Read the newest hostSweepRuns (S10), newest first. Uses the normal App read credential, without a worker session. The server decides read authority. A server without S10 refuses this read; no fallback data is invented.", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	c := &cobra.Command{Use: "sweep-runs --host <id> [--limit N]", Short: "Read this host's recorded sweep runs", Long: `Lists the recorded outcomes of this host's reconcile passes — the runs ` + "`team host up`" + ` and ` + "`team host sweep`" + ` record — newest first: when each ran, in which mode, and how many workers it planned, applied, skipped and failed. Text prints one table row per run (columns RUN, STARTED, MODE, PLANNED, APPLIED, SKIPPED, FAILED; --json adds each run's per-worker lines with their outcome and reason). Uses the normal App read credential, without a worker session; the server decides read authority. A server that cannot record sweep runs yet refuses this read; no fallback data is invented.`, Example: "  hadron team host sweep-runs --host orca1 --limit 5", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		if strings.TrimSpace(host) == "" || limit < 1 || limit > 100 {
 			return exitcode.Newf(exitcode.Usage, "--host is required; --limit must be 1..100")
 		}

@@ -28,11 +28,12 @@ func newCmdTeamHostReportStops(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "report-stops --config <host.yaml> (--reporter-worker <name> | --dry-run)",
 		Short: "Flag halt notices the host poller could not type to each worker's coordinator",
-		Long: `Read the host poller's outbox of halt notices it could not type (held on
-a draft, a question, an unknown screen, a changed incarnation or no
-terminal) and flag each one with one team-chat post, tagging the halted
-worker's reportsTo worker, or the person holding it when it has none. The
-halted worker is named without an @, so it is not woken.
+		Long: `Read the host poller's outbox — the on-disk records of workers whose
+sessions halted without a typed reason (held on a draft, a question, an
+unknown screen, a changed incarnation or no terminal) — and flag each one
+with one team-chat post, tagging the halted worker's reportsTo worker (the
+worker it reports to in the App's roster), or the person holding it when it
+has none. The halted worker is named without an @, so it is not woken.
 
 The post is authored by the worker session bound in the CURRENT worktree,
 which must be a live session of --reporter-worker. With no binding, an ended
@@ -51,9 +52,19 @@ One run at a time per outbox (a run that finds another running does
 nothing). A post the server commits more than three minutes late, after the
 next run's check, can still appear twice. This is not exactly-once.
 
-Run it from a timer every few minutes. --dry-run posts nothing and counts
+SCHEDULING: this CLI installs no timer for this command (` + "`team host sweep install`" + `
+installs the sweep and health timers only), so a timer that runs it every few
+minutes is the operator's own (a systemd user timer or cron line).
+Because the post is authored by the session bound in the current worktree,
+the timer must run from a worktree holding a live session of
+--reporter-worker — typically that reporter's own worktree — or every run
+reports nothing and exits non-zero.
+
+--dry-run posts nothing and counts
 pending reports, and those first held more than --stale-after ago. It makes
-no server call, takes no lock and writes nothing. needsPerson counts only
+no server call, takes no lock and writes nothing (--config is still read:
+the outbox lives under the state directory the host.yaml names).
+needsPerson counts only
 cached, readable, non-stale observations of a recorded-seq mismatch, missing
 post or invalid accepted record; it is advisory, not a current check or a
 final diagnosis. JSON adds records (at most 50, oldest held first),

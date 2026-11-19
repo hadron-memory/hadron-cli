@@ -44,8 +44,11 @@ func TestTeamRosterHelpStatesInServerPrecedence(t *testing.T) {
 }
 
 func TestTeamHostIssueHelpNamesTheIssuerArms(t *testing.T) {
-	help := cmdHelpOut(t, "team", "host", "issue")
-	if !strings.Contains(help, "worker.start and worker.end are issued by whoever manages the App") {
+	// Whitespace-normalized like the roster test above: the Long wraps.
+	help := strings.Join(strings.Fields(cmdHelpOut(t, "team", "host", "issue")), " ")
+	// #1054 reworded the sentence; the pinned claim is unchanged: the issuable
+	// arms include worker.start and worker.end, and App managers may issue them.
+	if !strings.Contains(help, "worker.start and worker.end — is issued by the worker's holder, the worker it reports to in the App's roster, or whoever manages the App") {
 		t.Fatalf("host issue help must say start and end are issuable by App managers (#1971):\n%s", help)
 	}
 	if !strings.Contains(help, "worker.deliver is not issued") {
@@ -53,6 +56,9 @@ func TestTeamHostIssueHelpNamesTheIssuerArms(t *testing.T) {
 	}
 	if strings.Contains(help, "worker.start, worker.end and worker.deliver are in the set but not issued") {
 		t.Fatalf("host issue help carries the pre-#1971 wording")
+	}
+	if strings.Contains(help, "a worktree operation is issued by") {
+		t.Fatalf("host issue help narrows the issuer rule to worktree operations only (#1054)")
 	}
 }
 
