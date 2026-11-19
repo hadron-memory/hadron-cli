@@ -3,14 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -76,7 +72,7 @@ var expectedRefusals2565 = map[string]string{}
 // knownPanics2565 lists the commands (by path) that panic on a reply with no
 // data, each tracked by a follow-up issue (a panic is a defect of the command,
 // not of the help).
-var knownPanics2565 = map[string]string{}
+var knownPanics2565 = map[string]knownPanic{}
 
 // fileArgFlags2565 are the file-valued flags these pages' examples use. The
 // harness provides the file each names, so the example reads what a reader
@@ -170,21 +166,7 @@ func pipeIntoHadronLines2565(block string) []string {
 }
 
 func Test2565HelpExamplesAreWired(t *testing.T) {
-	var mu sync.Mutex
-	var ops []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string `json:"operationName"`
-		}
-		b, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(b, &body)
-		mu.Lock()
-		ops = append(ops, body.OperationName)
-		mu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{}}`))
-	}))
-	t.Cleanup(srv.Close)
+	fx := newWalkFixture(t)
 
 	f0, _ := testFactory(t)
 	pages := collect2565Pages(t, NewRootCmd(f0))
@@ -320,11 +302,9 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 					f, _ := testFactory(t)
 					setActiveApp(t, "hrn:app:acme.com:eng-team")
 					f.IOStreams.In = strings.NewReader(`{"team":{"x":1}}`) // an example that reads "-" gets a JSON document
-					mu.Lock()
-					before := len(ops)
-					mu.Unlock()
+					before := fx.mark()
 					root := NewRootCmd(f)
-					root.SetArgs(append(args, "--server", srv.URL))
+					root.SetArgs(append(args, "--server", fx.srv.URL))
 					var err error
 					panicked := ""
 					func() {
@@ -335,17 +315,15 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 						}()
 						err = root.Execute()
 					}()
-					mu.Lock()
-					sent := append([]string(nil), ops[before:]...)
-					mu.Unlock()
+					sent := fx.since(before)
 					if panicked != "" {
 						// A command that panics on a reply the server never sends (the fixture
 						// answers with an empty data object) is a defect of the command, not of
 						// its example: recorded as a finding, tracked by knownPanics2565.
 						res.Outcome = "PANIC on an empty fixture reply: " + panicked
 						known := false
-						for cmdPath := range knownPanics2565 {
-							known = known || strings.Contains(ex, "hadron "+cmdPath+" ")
+						if _, ok := matchKnownPanic(knownPanics2565, resolvedPath(root, args), panicked); ok {
+							known = true
 						}
 						if !known {
 							res.Broken = true
@@ -384,7 +362,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 							// The fixture's empty reply makes the command fail AFTER it reached the
 							// server; that is the wiring being verified.
 							res.Outcome = fmt.Sprintf("reached the server (%s); then: %s", strings.Join(sent, ", "), msg)
-						case strings.Contains(msg, "without --yes"):
+						case isConfirmRefusal(err):
 							res.Outcome = "asks for confirmation (refused without a terminal, as documented)"
 						case expected:
 							res.Outcome = "refused before any request, as the example documents: " + msg

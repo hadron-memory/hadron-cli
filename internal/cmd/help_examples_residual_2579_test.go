@@ -1,14 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -16,8 +11,9 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// cli#2579 (the group 1184 residual rows: automation grant/team-snapshot-grant/preview/re-adopt, billing grant and prices, marketplace, quota, usage): every example in the help of the replace
-// and comment pages is run through the real command tree against a local fixture
+// cli#2579: every example in the help of the automation grant, team-snapshot-grant,
+// preview and re-adopt pages, billing grant and prices, marketplace, quota and usage
+// is run through the real command tree against a local fixture
 // server, the same mode as the app/agent walk (#1053 slice 1): the fixture
 // answers every GraphQL operation with an empty data object, so this verifies
 // that each example PARSES and is WIRED (the flags exist, the arguments are
@@ -29,7 +25,7 @@ import (
 // knownPanics2579 lists the commands (by path) that panic on a reply with no data,
 // each tracked by a follow-up issue: a panic is a defect of the command, not of
 // its example, so the walk records it here instead of failing the help check.
-var knownPanics2579 = map[string]string{"usage events": "#2590"}
+var knownPanics2579 = map[string]knownPanic{}
 
 func collectResidualPages2579(root *cobra.Command) []*cobra.Command {
 	var pages []*cobra.Command
@@ -53,21 +49,7 @@ func collectResidualPages2579(root *cobra.Command) []*cobra.Command {
 }
 
 func TestResidualHelpExamplesAreWired2579(t *testing.T) {
-	var mu sync.Mutex
-	var ops []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string `json:"operationName"`
-		}
-		b, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(b, &body)
-		mu.Lock()
-		ops = append(ops, body.OperationName)
-		mu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{}}`))
-	}))
-	t.Cleanup(srv.Close)
+	fx := newWalkFixture(t)
 
 	f0, _ := testFactory(t)
 	pages := collectResidualPages2579(NewRootCmd(f0))
@@ -117,21 +99,17 @@ func TestResidualHelpExamplesAreWired2579(t *testing.T) {
 					t.Chdir(dir)
 					f, _ := testFactory(t)
 					f.IOStreams.In = strings.NewReader("piped text") // an example that reads "-"
-					mu.Lock()
-					before := len(ops)
-					mu.Unlock()
+					before := fx.mark()
 					root := NewRootCmd(f)
-					root.SetArgs(append(args, "--server", srv.URL))
+					root.SetArgs(append(args, "--server", fx.srv.URL))
 					var err error
 					panicked := false
 					func() {
 						defer func() {
 							if r := recover(); r != nil {
-								for cmdPath, issue := range knownPanics2579 {
-									if ex == "hadron "+cmdPath || strings.HasPrefix(ex, "hadron "+cmdPath+" ") {
-										t.Logf("known panic on an empty fixture reply (%s): %v", issue, r)
-										panicked = true
-									}
+								if issue, ok := matchKnownPanic(knownPanics2579, resolvedPath(root, args), r); ok {
+									t.Logf("known panic on an empty fixture reply (%s): %v", issue, r)
+									panicked = true
 								}
 								if !panicked {
 									t.Errorf("panicked on an empty fixture reply: %v", r)
@@ -143,9 +121,7 @@ func TestResidualHelpExamplesAreWired2579(t *testing.T) {
 					if panicked {
 						return
 					}
-					mu.Lock()
-					sent := append([]string(nil), ops[before:]...)
-					mu.Unlock()
+					sent := fx.since(before)
 					msg := ""
 					if err != nil {
 						msg = strings.SplitN(err.Error(), "\n", 2)[0]
@@ -162,7 +138,7 @@ func TestResidualHelpExamplesAreWired2579(t *testing.T) {
 						t.Errorf("a usage error after a request was sent: %s", msg)
 					case err != nil && len(sent) == 0:
 						// The only local refusal the help documents is the missing --yes.
-						if !strings.Contains(msg, "without --yes") && !strings.Contains(msg, "--yes") {
+						if !isConfirmRefusal(err) {
 							t.Errorf("refused locally before any request: %s", msg)
 						}
 					}

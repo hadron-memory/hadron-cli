@@ -127,7 +127,7 @@ same App.`, Example: `  hadron automation team-snapshot-grant set acme.com:ops -
 		return writeSnapshotGrant(f, d)
 	}}
 	cmd.Flags().StringVar(&kind, "trigger-kind", "", "SCHEDULE or WEBHOOK (required); manual runs have no automation")
-	cmd.Flags().StringVar(&id, "trigger-id", "", "the schedule or webhook ID (required)")
+	cmd.Flags().StringVar(&id, "trigger-id", "", "the schedule or webhook ID (required); it is the ID column of hadron schedule list or hadron webhook list")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	_ = cmd.MarkFlagRequired("trigger-kind")
 	_ = cmd.MarkFlagRequired("trigger-id")
