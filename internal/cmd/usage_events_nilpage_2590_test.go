@@ -29,11 +29,20 @@ func TestUsageEventsNoPageExitsNamingIt2590(t *testing.T) {
 					if code != 1 {
 						t.Fatalf("exit %d, want 1; out=%q stderr=%q", code, out, stderr)
 					}
-					if !strings.Contains(stderr, "server returned no usage events result") {
-						t.Errorf("stderr does not name the missing result: %q", stderr)
+					// Human mode: the message on stderr, stdout empty. --json: the
+					// error envelope on stdout is the contract, stderr empty.
+					want, other := stderr, out
+					if mode == "json" {
+						want, other = out, stderr
 					}
-					if strings.TrimSpace(out) != "" {
-						t.Errorf("stdout must stay empty on the refusal: %q", out)
+					if !strings.Contains(want, "server returned no usage events result") {
+						t.Errorf("does not name the missing result: %q", want)
+					}
+					if mode == "human" && strings.TrimSpace(other) != "" {
+						t.Errorf("stdout must stay empty on the refusal: %q", other)
+					}
+					if mode == "json" && strings.TrimSpace(other) != "" {
+						t.Errorf("stderr must stay empty in --json: %q", other)
 					}
 				})
 			}
