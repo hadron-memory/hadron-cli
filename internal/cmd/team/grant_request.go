@@ -274,7 +274,7 @@ next step to a person: hadron team grant request-signature <id>.
 				return mapGrantSigningError(err)
 			}
 			if resp == nil || resp.CreateGrant == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no grant")
+				return exitcode.Newf(exitcode.Error, "server returned no grant result")
 			}
 			dto := workerGrantFrom(resp.CreateGrant)
 			if !f.JSON {
