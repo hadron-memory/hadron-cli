@@ -87,13 +87,13 @@ func renderImmutableFindings(w io.Writer, task string, p *immutableFindingPageDT
 	return err
 }
 
-func finishTaskWithFindings(ctx context.Context, client graphql.Client, f *cmdutil.Factory, taskID, outcome, summary, evidence string, findings []*gen.AgentTaskFindingInput) error {
+func finishTaskWithFindings(ctx context.Context, client graphql.Client, f *cmdutil.Factory, taskID, outcome, summary, evidence string, workedFrom []string, findings []*gen.AgentTaskFindingInput) error {
 	mctx, sink := api.WithWarningSink(ctx)
 	wire, err := json.Marshal(findings)
 	if err != nil {
 		return err
 	}
-	resp, err := gen.AgentTaskFinishWithFindings(mctx, client, taskID, outcome, optStr(summary), optStr(evidence), nil, wire)
+	resp, err := gen.AgentTaskFinishWithFindings(mctx, client, taskID, outcome, optStr(summary), optStr(evidence), workedFrom, wire)
 	if err != nil {
 		return api.WithServerCode(uncertainFindingsFinish(mapTaskError(err)), err)
 	}
@@ -130,6 +130,9 @@ func finishTaskWithFindings(ctx context.Context, client graphql.Client, f *cmdut
 			if _, err := fmt.Fprintf(w, "  %s\n", *task.Result.Summary); err != nil {
 				return err
 			}
+		}
+		if err := workedFromLines(w, task.Result, "  "); err != nil {
+			return err
 		}
 		return renderImmutableFindings(w, task.ID, page, 20, 0)
 	})

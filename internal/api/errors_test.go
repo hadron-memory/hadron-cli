@@ -369,6 +369,7 @@ func TestMapError(t *testing.T) {
 		{"task not finished", gqlErr("TASK_NOT_FINISHED"), exitcode.Conflict},
 		{"task finding missing", gqlErr("TASK_FINDING_NOT_FOUND"), exitcode.NotFound},
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
+		{"worked-from refs invalid (cli#2514)", gqlErr("TASK_ROLE_TASK_REFS_INVALID"), exitcode.Usage},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
 		{"worker leave alone not permitted", gqlErr("WORKER_LEAVE_ALONE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
