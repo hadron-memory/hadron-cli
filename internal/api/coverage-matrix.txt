@@ -110,9 +110,6 @@ dashboardWidgetData  excluded graphical: the data feed for the widgets placed on
 dashboardWidgetPresets  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgetPresetsPage  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
-decision  command decision get
-decisionLog  command decision log get
-decisions  command decision list
 deleteWorkerPreview  command team worker rm
 deliveryBatches  command team chat inbox
 driveFile  command drive get
@@ -196,6 +193,9 @@ principalGrants  command grant list
 publicAgents  command agent list
 publicOrganization  command org public
 pullRequestReadiness  command team pr readiness
+question  command decision get
+questionLog  command decision log get
+questions  command decision list
 quotaCounters  command quota list
 rateLimitPolicies  gap #1482: platform-admin rate-limit policy read (server #1793)
 recoveryEdges  command node recovery graph
@@ -256,9 +256,9 @@ usageEventsPage  command usage events
 user  command team worker get
 users  command user search
 validateMemory  command memory validate
-verifyDecision  command decision verify
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
+verifyQuestion  command decision verify
 webPolls  excluded not-a-capability: legacy unpaged spelling; webPollsPage carries the same capability (cli#2032)
 webPollsPage  command web-poll list
 worker  command team worker get
@@ -278,7 +278,7 @@ addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
 allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
-amendDecision  command decision amend
+amendQuestion  command decision amend
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply
 applyMemoryConfigTemplateToMemories  command memory config template apply
@@ -286,7 +286,7 @@ approveAutomation  command automation approve
 approveMemoryNodes  command memory approve-all
 approveMergeUsersConsent  gap #1304
 approveNode  command node approve
-askDecision  command decision ask
+askQuestion  command decision ask
 assignAgentTask  command team task assign
 assignHostWorker  command team host assign
 assignReviewSeat  command team pr seat
@@ -336,7 +336,6 @@ createChannelMessage  command channel post
 createComment  command comment create
 createConnectionGrant  command connection grant create
 createDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
-createDecisionLog  command decision log create
 createEdge  command edge create
 createGrant  command team grant request
 createHomeAssistantInstance  command ha create
@@ -351,6 +350,7 @@ createNodeRoleRule  command memory config rule add
 createObject  command object create
 createOrganization  command org create
 createPrincipalGrant  command grant create
+createQuestionLog  command decision log create
 createRegisterEntry  command channel register add
 createResendSender  command org resend-sender create
 createResumeClaim  command team session resume-claim
@@ -452,7 +452,7 @@ planNodeMove  command node move
 processChatResponse  gap #64
 publishAgentImport  gap #58
 publishRevision  command agent revision publish
-purgeUnansweredDecision  command decision purge
+purgeUnansweredQuestion  command decision purge
 pushMemoryToGit  gap #60
 reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
@@ -538,13 +538,13 @@ setAssetPublicLink  command asset public-link
 setAutomationReadGrant  command automation grant set
 setAutomationTeamSnapshotGrant  command automation team-snapshot-grant set
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
-setDecisionLogDeciders  command decision log set-deciders
 setHostSetupSource  command team host setup
 setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
 setOrgBootPromptSigning  command org signing on
+setQuestionLogDeciders  command decision log set-deciders
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
 setReviewSchedule  command team pr schedule
@@ -619,9 +619,9 @@ updateTeamRole  command team role update
 updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
-withdrawDecision  command decision withdraw
 withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
+withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
 [Arguments] 52: 16 gap, 36 excluded
@@ -663,7 +663,7 @@ Mutation.unsubscribeWorker(instruction)  gap #1617
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.updateMemory(organizationId)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
+Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
