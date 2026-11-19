@@ -37,6 +37,7 @@ type reloadFixture struct {
 	dir    string
 	p      *Poller
 	srv    *fakeServer
+	host   *fakeHost
 	mu     sync.Mutex
 	events []Event
 }
@@ -64,7 +65,8 @@ func newReloadFixtureFrom(t *testing.T, text string) *reloadFixture {
 		t.Fatal(err)
 	}
 	fx.srv = &fakeServer{notDone: map[string]int{}, endedOnce: map[string]bool{}}
-	fx.p = New(cfg, fx.srv, &fakeHost{trees: map[string]WorktreeState{}}, st, hostKey, func(e Event) {
+	fx.host = &fakeHost{trees: map[string]WorktreeState{}}
+	fx.p = New(cfg, fx.srv, fx.host, st, hostKey, func(e Event) {
 		fx.mu.Lock()
 		fx.events = append(fx.events, e)
 		fx.mu.Unlock()
@@ -541,5 +543,52 @@ func TestAnOversizedConfigFileIsRefused2623(t *testing.T) {
 	}
 	if ev := fx.kinds("config-reload-refused"); len(ev) != 1 || !strings.Contains(ev[0].Detail, "larger than") {
 		t.Fatalf("got %+v", ev)
+	}
+}
+
+// Whatever kind of operation arrives for a worker the file no longer names, it
+// is reported failed with the reason; none runs against a zero-value worker.
+func TestEveryOperationForARemovedWorkerIsReportedFailed2623(t *testing.T) {
+	for _, op := range []Operation{
+		{ID: "o-create", Type: OpWorktreeCreate, WorkerID: "id-billie", Args: map[string]any{"repo": "acme/repo", "baseBranch": "main", "branchName": "b", "label": "x"}},
+		{ID: "o-remove", Type: OpWorktreeRemove, WorkerID: "id-billie", Args: map[string]any{"worktree": "repo/billie"}},
+		{ID: "o-start", Type: OpWorkerStart, WorkerID: "id-billie", Args: map[string]any{"worktree": "repo/billie"}},
+		{ID: "o-end", Type: OpWorkerEnd, WorkerID: "id-billie"},
+	} {
+		t.Run(op.Type, func(t *testing.T) {
+			fx := newReloadFixtureFrom(t, reloadBase+billie)
+			fx.step()
+			fx.edit(reloadBase)
+			// The tree exists: an absent one is "already removed" before any
+			// worker is consulted, by design (an idempotent remove).
+			fx.host.trees[fx.p.config().WorktreePath("repo/billie")] = WorktreeState{Exists: true, IsWorktree: true, Branch: "billie/work", Upstream: "origin/billie/work"}
+			fx.srv.batches = [][]Operation{{op}}
+			fx.step()
+			fx.p.Wait()
+			fx.srv.mu.Lock()
+			defer fx.srv.mu.Unlock()
+			if len(fx.srv.reports) != 1 || fx.srv.reports[0].outcome != Failed || !strings.Contains(fx.srv.reports[0].reason, "not configured") {
+				t.Fatalf("reports = %+v, want one FAILED naming the worker as not configured", fx.srv.reports)
+			}
+			if len(fx.host.launches) != 0 || len(fx.host.stopped) != 0 || len(fx.host.created) != 0 || len(fx.host.removed) != 0 {
+				t.Fatalf("the host was acted on for a removed worker: launches %v stopped %v created %v removed %v", fx.host.launches, fx.host.stopped, fx.host.created, fx.host.removed)
+			}
+		})
+	}
+}
+
+// Removing a worker from the file ends nothing: an agent the poller launched
+// for her stays tracked, and no process is stopped by the reload.
+func TestRemovingAWorkerFromTheFileStopsItsAgentNever2623(t *testing.T) {
+	fx := newReloadFixtureFrom(t, reloadBase+billie)
+	fx.step()
+	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
+	fx.p.agents["id-billie"] = agent
+	fx.edit(reloadBase)
+	if fx.p.agents["id-billie"] != agent {
+		t.Fatal("the reload dropped the tracked agent of a removed worker")
+	}
+	if agent.terminations() != 0 || len(fx.host.stopped) != 0 {
+		t.Fatalf("the reload stopped a process: terminations %d, stop calls %v", agent.terminations(), fx.host.stopped)
 	}
 }

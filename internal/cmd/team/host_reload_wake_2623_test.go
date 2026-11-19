@@ -193,6 +193,7 @@ func TestHostRunHelpSaysWhatAReloadAppliesAndWhatNeedsARestart2623(t *testing.T)
 		"config-reloaded", "config-restart-needed", "config-reload-refused",
 		"read once at start", "keeps the configuration it has",
 		"second poll that sees it", "owned by the poller's user", "not writable by group or others",
+		"guards against other users and loose modes only",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("team host run help lacks %q", want)

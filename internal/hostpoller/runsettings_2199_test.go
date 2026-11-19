@@ -17,7 +17,7 @@ func orcaStartWith(t *testing.T, prof LauncherProfile, acct AccountProfile, args
 	p, srv, host := testPoller(t)
 	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), prof, acct)
 	rec := &recordedOrca{}
-	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 	srv.notDone["s1"] = 2
 	op := startOp()
 	for k, v := range args {

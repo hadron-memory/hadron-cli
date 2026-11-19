@@ -20,10 +20,10 @@ func stopOp(issuedBy string) Operation {
 }
 
 func withStop(p *Poller, mode string) {
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.StopOnEnd = mode
 	w.StopWait = "20ms"
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 }
 
 func TestWorkerEndStopsNothingByDefault(t *testing.T) {
@@ -61,9 +61,9 @@ func TestWorkerEndStopsTheScannedProcessAndSaysWhich(t *testing.T) {
 func TestWorkerEndStopOnlyWaitsForADeliveredPrompt(t *testing.T) {
 	p, srv, host := testPoller(t)
 	withStop(p, StopOnEndAlways)
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.StopWait = "3s"
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 	host.promptErr = errors.New("terminal gone")
 	p.bound = func(string) delivery.Binding { return delivery.Binding{} }
 	srv.batches = [][]Operation{{stopOp(IssuedByPlatform)}}

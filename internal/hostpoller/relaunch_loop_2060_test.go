@@ -63,7 +63,7 @@ func newLoopFixture2060(t *testing.T) *loopFixture2060 {
 	t.Helper()
 	p, _, _ := testPoller(t)
 	f := &loopFixture2060{p: p, journal: loopJournal2060{}, ready: true, disk: filepath.Join(t.TempDir(), "disk")}
-	if err := os.MkdirAll(p.cfg.WorktreePath("repo/iris"), 0700); err != nil {
+	if err := os.MkdirAll(p.startCfg.WorktreePath("repo/iris"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	orcaWorker(p, f.disk, LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude"})
@@ -71,7 +71,7 @@ func newLoopFixture2060(t *testing.T) *loopFixture2060 {
 		f.launches = append(f.launches, s)
 		f.agent = &loopAgent2060{done: make(chan struct{})}
 		return f.agent, nil
-	}, ConfigProfiles{Cfg: p.cfg})
+	}, ConfigProfiles{Cfg: p.startCfg})
 	f.source = &loopSource2060{snapshot: RelaunchSnapshot{AppID: "app-id", HostID: "h1", Server: "https://private.invalid", SweepMode: "APPLY", Workers: []RelaunchWorker{{WorkerID: "id-iris", Family: "claude", Desired: "RUNNING", Reason: "HOLDS_TASK", SessionID: "still-open", Worktrees: []string{"repo/iris"}}}}}
 	deps := RelaunchDependencies{Source: f.source,
 		OpenJournal: func() (hostrelaunch.Journal, uint64, func(), error) {
@@ -198,7 +198,7 @@ func TestPollerRestartRequiresTwoFreshAbsenceObservations2060(t *testing.T) {
 	}
 	f.p.Wait()
 	old := f.p
-	clone := New(old.cfg, old.server, old.host, old.state, old.key, nil)
+	clone := New(old.startCfg, old.server, old.host, old.state, old.key, nil)
 	clone.now = old.now
 	clone.EnableOrcaLaunch(old.orcaLaunch, old.profiles)
 	if err := clone.EnableRelaunch(*old.relaunch); err != nil {

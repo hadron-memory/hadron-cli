@@ -43,6 +43,14 @@ or root and not be writable by group or others. Names that do not resolve are
 skipped (starting that worker fails on them as before). Not enforced on
 Windows, where a restart applies a change.
 
+**What this does not stop.** It guards against other users and loose modes. A
+process running as the poller's own user (every agent on a host is) can write a
+0600 config the poller's user owns and have it applied on the next poll;
+before, it could write the same file and waited for a person's restart. The
+file permissions cannot separate those two, so closing that gap means changing
+what a reload may apply (for example the worker set only, or only commands
+already in use), which is a decision for the security review, not made here.
+
 ## Why this shape
 
 - A `Config` is a snapshot: never changed once built. The poller reads it

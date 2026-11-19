@@ -521,8 +521,10 @@ naming the settings, and is not applied until the poller restarts.
 A reload makes the poller run what the file says on its next poll, so it is
 held to more than a restart: the file, and every program or directory a
 changed entry names, must be owned by the poller's user (or root) and not
-writable by group or others, or the reload is refused. A file that does not
-load or fails the start-time checks changes nothing either: the poller keeps
+writable by group or others, or the reload is refused. That guards against
+other users and loose modes only: a process running as the poller's own user
+can still edit the file, as before, and now needs no restart to be obeyed. A
+file that does not load or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
 for that content and reason. A worker that now launches through Orca is
 refused too, since that wiring is made at start (restart to apply it).

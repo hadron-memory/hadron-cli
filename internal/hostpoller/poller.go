@@ -192,10 +192,11 @@ type Poller struct {
 	// recovery job before joining it, without cancelling unrelated operations.
 	relaunchCancel     context.CancelFunc
 	launchingWorktrees map[string]bool
-	// cfg is the configuration the poller started with; live, once a reload
-	// has applied, is the one in force. Read it through config(), once per
-	// pass, and use that one snapshot throughout (cli#2623).
-	cfg           *Config
+	// startCfg is the configuration the poller started with and NEVER the one
+	// in force after a reload: read configuration through config(), once per
+	// pass, and use that one snapshot throughout. The name is the guard: a
+	// reader of startCfg in production code is a bug (cli#2623).
+	startCfg      *Config
 	live          atomic.Pointer[Config]
 	orcaWired     bool     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
 	reloadSeen    [32]byte // content of a configuration file already refused or reported
@@ -300,7 +301,7 @@ type Poller struct {
 // launched agents' environments (defence in depth: it is never put there).
 func New(cfg *Config, server Server, host Host, state *State, key string, emit func(Event)) *Poller {
 	return &Poller{
-		cfg: cfg, orcaWired: cfg != nil && cfg.UsesOrcaLaunch(), server: server, host: host, state: state, key: key, emit: emit,
+		startCfg: cfg, orcaWired: cfg != nil && cfg.UsesOrcaLaunch(), server: server, host: host, state: state, key: key, emit: emit,
 		now:         time.Now,
 		sleep:       sleepCtx,
 		bound:       delivery.WorktreeBinding,
@@ -342,7 +343,7 @@ func (p *Poller) config() *Config {
 	if c := p.live.Load(); c != nil {
 		return c
 	}
-	return p.cfg
+	return p.startCfg
 }
 
 // Current is the configuration in force: what a component wired at start asks

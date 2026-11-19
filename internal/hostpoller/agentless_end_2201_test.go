@@ -52,9 +52,9 @@ func (c *censusStub) calls() int {
 func agentlessEndPoller(t *testing.T, census *censusStub) (*Poller, *fakeServer, *fakeHost) {
 	t.Helper()
 	p, srv, host := testPoller(t)
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.StopOnEnd, w.StopWait, w.End = StopOnEndAlways, "20ms", nil
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 	p.bound = func(string) delivery.Binding { return delivery.Binding{} }
 	p.agentCensus = census.probe
 	srv.batches = [][]Operation{{stopOp(IssuedByPlatform)}}
@@ -120,9 +120,9 @@ func TestWorkerEndLongLivedNeverAgentAbsent2201(t *testing.T) {
 	for _, mode := range []string{"", StopOnEndNever, StopOnEndManager} {
 		census := &censusStub{obs: provenEmpty()}
 		p, srv, _ := agentlessEndPoller(t, census)
-		w := p.cfg.Workers["iris"]
+		w := p.startCfg.Workers["iris"]
 		w.StopOnEnd = mode
-		p.cfg.Workers["iris"] = w
+		p.startCfg.Workers["iris"] = w
 		step(t, p)
 		if r := only(t, srv); strings.HasPrefix(r.reason, agentAbsentCode) {
 			t.Errorf("stop_on_end %q is not a short-lived worker: %q", mode, r.reason)
@@ -151,9 +151,9 @@ func TestWorkerEndLiveLaunchedAgentIsNotAbsent2201(t *testing.T) {
 func TestWorkerEndNoRegisteredWorktreeIsUnproven2201(t *testing.T) {
 	census := &censusStub{obs: provenEmpty()}
 	p, srv, _ := agentlessEndPoller(t, census)
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.Worktrees = nil
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 	step(t, p)
 	if r := only(t, srv); strings.HasPrefix(r.reason, agentAbsentCode) {
 		t.Fatalf("no worktree to look in proves nothing: %q", r.reason)
@@ -163,11 +163,11 @@ func TestWorkerEndNoRegisteredWorktreeIsUnproven2201(t *testing.T) {
 func TestWorkerEndEveryWorktreeMustBeProvenEmpty2201(t *testing.T) {
 	census := &censusStub{obs: provenEmpty()}
 	p, srv, _ := agentlessEndPoller(t, census)
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.Worktrees = []string{"repo/iris", "repo/iris2"}
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 	census.byDir = map[string]hostrelaunch.Observation{
-		p.cfg.WorktreePath("repo/iris2"): {Proven: true, PIDs: []int{55}},
+		p.startCfg.WorktreePath("repo/iris2"): {Proven: true, PIDs: []int{55}},
 	}
 	step(t, p)
 	if r := only(t, srv); strings.HasPrefix(r.reason, agentAbsentCode) {
@@ -193,11 +193,11 @@ func TestWorkerEndAnEndWithNoSessionIsNotAgentAbsent2201(t *testing.T) {
 func TestWorkerEndRememberedLaunchTreeDoesNotNarrowTheCensus2201(t *testing.T) {
 	census := &censusStub{obs: provenEmpty()}
 	p, srv, _ := agentlessEndPoller(t, census)
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.Worktrees = []string{"repo/iris", "repo/iris2"}
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 	census.byDir = map[string]hostrelaunch.Observation{
-		p.cfg.WorktreePath("repo/iris2"): {Proven: true, PIDs: []int{55}},
+		p.startCfg.WorktreePath("repo/iris2"): {Proven: true, PIDs: []int{55}},
 	}
 	exited := &fakeAgent{done: make(chan struct{}), pid: 4242}
 	close(exited.done)
@@ -214,9 +214,9 @@ func TestWorkerEndRememberedLaunchTreeDoesNotNarrowTheCensus2201(t *testing.T) {
 func TestWorkerEndCensusesTheUnionOnceEach2201(t *testing.T) {
 	census := &censusStub{obs: provenEmpty()}
 	p, srv, _ := agentlessEndPoller(t, census)
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.Worktrees = []string{"repo/iris", "repo/iris2"}
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 	exited := &fakeAgent{done: make(chan struct{}), pid: 4242}
 	close(exited.done)
 	p.trackAgent("id-iris", "repo/iris", exited)
@@ -235,7 +235,7 @@ func TestWorkerEndRememberedTreeOutsideTheRegistrationIsCensused2201(t *testing.
 	census := &censusStub{obs: provenEmpty()}
 	p, srv, _ := agentlessEndPoller(t, census)
 	census.byDir = map[string]hostrelaunch.Observation{
-		p.cfg.WorktreePath("repo/ghost"): {Proven: true, PIDs: []int{88}},
+		p.startCfg.WorktreePath("repo/ghost"): {Proven: true, PIDs: []int{88}},
 	}
 	exited := &fakeAgent{done: make(chan struct{}), pid: 4242}
 	close(exited.done)
