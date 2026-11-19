@@ -29,7 +29,7 @@ func TestReplaceTextNullResult2527(t *testing.T) {
 	}{
 		{"dry-run", []string{"--dry-run"}, 1, 1, []string{"no result", "nothing was written"}},
 		{"applied-preview", []string{"--yes"}, 1, 1, []string{"no result", "nothing was written"}},
-		{"applied", []string{"--yes"}, 2, 2, []string{"no result", "outcome unknown", "hadron node revision list"}},
+		{"applied", []string{"--yes"}, 2, 2, []string{"no result", "outcome is unknown", "hadron node revision list"}},
 	}
 	for shape, body := range shapes {
 		for _, c := range cases {
@@ -40,10 +40,10 @@ func TestReplaceTextNullResult2527(t *testing.T) {
 					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						n++
 						w.Header().Set("Content-Type", "application/json")
-						switch {
-						case n == c.nullOn:
+						switch n {
+						case c.nullOn:
 							_, _ = w.Write([]byte(body))
-						case n == 1:
+						case 1:
 							_, _ = w.Write([]byte(searchReplaceDryJSON))
 						default:
 							_, _ = w.Write([]byte(searchReplaceRealJSON))
