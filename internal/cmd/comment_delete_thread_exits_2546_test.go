@@ -22,7 +22,7 @@ func TestCommentDeleteThreadHelpNamesOutcomeExits2546(t *testing.T) {
 	long := strings.Join(strings.Fields(c.Long), " ")
 	para := long[strings.Index(long, "--thread --reason <text> deletes"):]
 	for _, want := range []string{
-		"exit 1", "outcome unknown", "comment get", "before retrying",
+		"exit 1", "outcome unknown", "no result", "comment get", "before retrying",
 		"exit 5", "deleted:false", "nothing to stdout",
 	} {
 		if !strings.Contains(para, want) {
@@ -55,7 +55,7 @@ func TestAgenticUsageCommentDeleteThreadExits2546(t *testing.T) {
 	}
 	for _, want := range []string{
 		`{"thread":`, `"deleted":true`, "exit 0",
-		"exit 1", "outcome unknown", "comment get", "before retrying",
+		"exit 1", "outcome unknown", "no result", "comment get", "before retrying",
 		"exit 5", "deleted:false", "no stdout",
 	} {
 		if !strings.Contains(found, want) {
