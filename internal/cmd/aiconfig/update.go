@@ -26,8 +26,14 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Update an AI service config",
 		Long: `Update an AI service config by id. Only the fields you pass change.
 
---api-key sets a new key ("-" reads stdin); --api-key "" clears the stored key;
-omit it to keep the current key. --param replaces the whole params object.
+--api-key sets a new key ("-" reads stdin); omit it to keep the current key.
+--api-key "" clears the stored key, but the server holds the result to the same
+rule as 'create' (App, Agent and Organization configs need a stored key), so
+clearing the key of one of those is refused; to stop using a config without
+losing its key, use --enabled=false instead.
+--enabled defaults to true, but it changes the config only when you pass it.
+--param replaces the whole params object (there is no way to remove one key:
+pass the full set again).
 --endpoint sets a provider base URL; --endpoint "" clears the stored override
 and returns to the server's provider default. Omitting --endpoint preserves it.
 --api-style sets CHAT_COMPLETIONS or RESPONSES for an OpenAI-compatible
@@ -38,9 +44,8 @@ stored apiStyle and effectiveApiStyle plus the masked config and endpoints.
 Find ids with 'hadron ai-config list --json', or list by --owner-type/--owner-id.`,
 		Example: `  hadron ai-config update cfg_123 --model claude-opus-4-8
   printf '%s' "$KEY" | hadron ai-config update cfg_123 --api-key -
-  hadron ai-config update cfg_123 --api-key ""        # clear the key
+  hadron ai-config update cfg_123 --enabled=false     # stop using it, keep the key
   hadron ai-config update cfg_123 --endpoint ""     # use provider default
-  hadron ai-config update cfg_123 --enabled=false
   hadron ai-config update cfg_123 --api-style RESPONSES
   hadron ai-config update cfg_123 --clear-api-style`,
 		Args: cobra.ExactArgs(1),
