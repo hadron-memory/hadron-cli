@@ -520,7 +520,7 @@ section between the markers.
 | `team pr schedule` |  |  | n | #1054 | 5dfcbeb04381 |  | unread |  |
 | `team pr seat` |  |  | n | #1054 | 1b29cbb20d28 |  | unread |  |
 | `team pr verdict` |  |  | n | #1054 | 39f2be332fec |  | unread |  |
-| `team push` |  |  | y | #1054 | a1196b78a585 |  | unread |  |
+| `team push` |  |  | y | #1054 | fe1ad345c67b |  | unread |  |
 | `team register` |  |  | y | #1054 | dccd1090a3eb |  | unread |  |
 | `team register attendee` |  |  | y | #1054 | 72d9bdff255d |  | unread |  |
 | `team register candidates` |  |  | y | #1054 | 4d15d4932903 |  | unread |  |

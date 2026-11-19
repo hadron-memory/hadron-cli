@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 )
@@ -81,6 +82,11 @@ func TestTeamSliceFHelpExamplesParseAndFactsHold(t *testing.T) {
 				}
 				if err := c.ParseFlags(rest); err != nil {
 					t.Errorf("example %q: %v", line, err)
+				}
+				// The described draft waits (30s + 30s, overlapping) must fit in the
+				// total wait an example gives, or its text would end held (BLIND P2).
+				if d, err := c.Flags().GetDuration("wait-timeout"); err == nil && c.Flags().Changed("wait-timeout") && d < time.Minute {
+					t.Errorf("example %q: --wait-timeout %s is shorter than the draft waits the page describes", line, d)
 				}
 			}
 		})

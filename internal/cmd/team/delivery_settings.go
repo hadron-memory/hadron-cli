@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -86,12 +86,9 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 		c.Flags().StringVar(&darkWindow, "dark-alarm-window-seconds", "", "Dark-worker alarm window in whole seconds (server bounds 300–86400)")
 	}
 	if set {
-		addManagerInstruction(c)
 		// One server statement per page: the body says 2026-11-04, so the flag
 		// does too instead of a commit hash.
-		if fl := c.Flags().Lookup("instruction"); fl != nil {
-			fl.Usage = strings.Replace(fl.Usage, "Needs server "+managerInstructionMinimum+" or later", "Needs server 2026-11-04 or later", 1)
-		}
+		instruction.AddManagerFlag(c, deliverySettingsInstructionMinimum)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		var claim *gen.ActInstructionInput

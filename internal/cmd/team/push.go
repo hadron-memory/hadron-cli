@@ -67,9 +67,9 @@ Limits: the lock serializes only this command's own attempts, and the terminal
 host (Orca) has no atomic conditional send, so a person or another tool typing at
 the same moment can race the final read and the send. A captured draft is held in
 memory only, so killing the process can lose it.`, Example: `  hadron team push Iris --message-file ./note.txt
-  hadron team push Iris --text "Please check the team chat" --wait-timeout 30s`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+  hadron team push Iris --text "Please check the team chat" --wait-timeout 5m`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if !o.Validate() || seq < 0 {
-			return exitcode.Newf(exitcode.Usage, "invalid push timing or seq (stability must be at least30s)")
+			return exitcode.Newf(exitcode.Usage, "invalid push timing or seq (stability must be at least 30s)")
 		}
 		if cmd.Flags().Changed("text") == cmd.Flags().Changed("message-file") {
 			return exitcode.Newf(exitcode.Usage, "choose exactly one of --text or --message-file")
