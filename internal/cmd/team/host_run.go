@@ -520,8 +520,11 @@ naming the settings, and is not applied until the poller restarts.
 
 A reload makes the poller run what the file says on its next poll, so it is
 held to more than a restart: the file, and every program or directory a
-changed entry names, must be owned by the poller's user (or root) and not
-writable by group or others, or the reload is refused. The check stops other
+changed entry names (launch, end and recover programs, account programs, repo
+clones, codex_home, claude_config_dir, disk_tmp), and every directory above
+them and above the file, must be owned by the poller's user (or root) and not
+writable by group or others (a sticky directory such as /tmp is accepted above
+them), or the reload is refused. The check stops other
 users and loose modes; a process running as the poller's own user is inside
 the poller's trust boundary, as it is for a restart. A file that does not load or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once

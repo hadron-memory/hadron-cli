@@ -36,20 +36,31 @@ A comment-only edit updates the recorded hash and logs nothing.
 
 **Trust.** Hot reload turns "whoever can write this file" into "whoever can
 make the poller run a command on the next poll", so it is held to more than a
-restart: the file, and each program or directory a *changed* entry names (the
-launch, end and recover programs of an added or changed worker, a changed
-account's program, a changed repo's clone), must belong to the poller's user
-or root and not be writable by group or others. Names that do not resolve are
-skipped (starting that worker fails on them as before). Not enforced on
-Windows, where a restart applies a change.
+restart. The configuration file, and each program or directory a *changed*
+entry names (the launch, end and recover programs of an added or changed
+worker; a changed account's program and `codex_home`; a worker's `codex_home`,
+`claude_config_dir` and `disk_tmp`, where an agent's settings and hooks live; a
+changed repo's clone), must belong to the poller's user or root and not be
+writable by group or others. So must every directory above each of them and
+above the file, up to `/`, unless it is sticky (like `/tmp`: others may add
+entries, not replace ours): someone who can write a directory on the way can
+replace what is below it without touching its mode. The config file is judged
+on the one open file its bytes were read from (so it cannot be swapped between
+the read and the check; a symlink is followed once, at the open); named paths
+are resolved through symlinks to the real directories, and a path that does not
+exist yet is judged from its nearest existing parent. Bare program names are
+resolved through `PATH` and the program found is judged. Names that do not
+resolve are skipped (starting that worker fails on them as before). Not
+enforced on Windows, where a restart applies a change. A host whose config
+lives under a group-writable, non-sticky directory will see every reload
+refused until that is tightened.
 
 **Trust boundary.** The owner and mode check stops other users and loose
 modes. A process running as the poller's own user (every agent on a host is)
 is inside the poller's trust boundary, as it is for a restart: it could already
 edit the file and wait for a restart, or replace the poller's own binary, so a
 reload grants it nothing a restart did not. No check is added that a same-user
-process could not satisfy. (Not judged: the parent directories of the programs
-a changed entry names.)
+process could not satisfy.
 
 ## Why this shape
 

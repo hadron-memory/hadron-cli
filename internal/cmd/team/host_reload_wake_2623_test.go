@@ -97,7 +97,13 @@ func wakePageFor(workerID string, now time.Time) string {
 }
 
 func TestAWorkerAddedToARunningPollersConfigGetsItsWake2623(t *testing.T) {
-	root := t.TempDir()
+	// Under /tmp, not TMPDIR: the reload trust check judges every directory
+	// above the config file, and a developer's TMPDIR may be group-writable.
+	root, err := os.MkdirTemp("/tmp", "reloadwake2623-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(root) })
 	for _, w := range []string{"iris", "billie"} {
 		tree := filepath.Join(root, w)
 		if err := os.MkdirAll(filepath.Join(tree, ".git"), 0o755); err != nil {
@@ -193,7 +199,7 @@ func TestHostRunHelpSaysWhatAReloadAppliesAndWhatNeedsARestart2623(t *testing.T)
 		"config-reloaded", "config-restart-needed", "config-reload-refused",
 		"read once at start", "keeps the configuration it has",
 		"second poll that sees it", "owned by the poller's user", "not writable by group or others",
-		"stops other users and loose modes", "inside the poller's trust boundary, as it is for a restart",
+		"stops other users and loose modes", "every directory above them and above the file", "codex_home, claude_config_dir, disk_tmp", "inside the poller's trust boundary, as it is for a restart",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("team host run help lacks %q", want)

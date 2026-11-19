@@ -257,7 +257,9 @@ func reloadDetail(added, removed, modified, others []string) string {
 
 // namedFiles is what the entries that changed would make the poller run or
 // use: each worker's launch, end and recover programs, the launcher account
-// program of a worker or account that changed, and a changed repo's clone.
+// program of a worker or account that changed, a changed repo's clone, and the
+// directories a worker or account names for its agent to run in (CODEX_HOME,
+// CLAUDE_CONFIG_DIR and TMPDIR hold settings and hooks an agent runs).
 func namedFiles(c, next *Config, workers []string) []string {
 	var out []string
 	argv0 := func(argv []string) {
@@ -272,11 +274,19 @@ func namedFiles(c, next *Config, workers []string) []string {
 			out = append(out, a.Bin)
 		}
 	}
+	dir := func(path string) {
+		if strings.TrimSpace(path) != "" {
+			out = append(out, path)
+		}
+	}
 	for _, ref := range workers {
 		w := next.Workers[ref]
 		argv0(w.Launch)
 		argv0(w.End)
 		argv0(w.Recover)
+		dir(w.CodexHome)
+		dir(w.ClaudeConfigDir)
+		dir(w.DiskTmp)
 		if w.Profile != nil {
 			account(w.Profile.Account)
 		}
@@ -284,6 +294,7 @@ func namedFiles(c, next *Config, workers []string) []string {
 	for name, a := range next.Accounts {
 		if !reflect.DeepEqual(c.Accounts[name], a) {
 			account(name)
+			dir(a.CodexHome)
 		}
 	}
 	for token, dir := range next.Repos {

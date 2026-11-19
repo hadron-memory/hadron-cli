@@ -44,9 +44,23 @@ type reloadFixture struct {
 
 func newReloadFixture(t *testing.T) *reloadFixture { return newReloadFixtureFrom(t, reloadBase) }
 
+// trustTempDir is a directory whose ancestors pass the reload trust check: it
+// is made under /tmp (root-owned and sticky here and on CI), not under TMPDIR,
+// which a developer's host may make group-writable. The check walks every
+// directory above a file it judges, so where a fixture lives matters.
+func trustTempDir(t *testing.T) string {
+	t.Helper()
+	dir, err := os.MkdirTemp("/tmp", "reload2623-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
+}
+
 func newReloadFixtureFrom(t *testing.T, text string) *reloadFixture {
 	t.Helper()
-	dir := t.TempDir()
+	dir := trustTempDir(t)
 	key := filepath.Join(dir, "host.key")
 	if err := os.WriteFile(key, []byte(hostKey), 0o600); err != nil {
 		t.Fatal(err)
