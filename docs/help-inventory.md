@@ -717,21 +717,21 @@ section between the markers.
 | `automation grant` |  |  | n | #1184 | 90333d689910 |  | unread |  |
 | `automation grant list` | ls |  | y | #1184 | 3f1255801961 |  | unread |  |
 | `automation grant revoke` |  |  | y | #1184 | 885fdcb1e60c |  | unread |  |
-| `automation grant set` |  |  | y | #1184 | 6cc868d323fb |  | unread |  |
+| `automation grant set` |  |  | y | #1184 | 7732e78d3189 |  | unread |  |
 | `automation list` | ls |  | y | #1184 | 624bcb02a438 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
-| `automation preview` |  |  | n | #1184 | bdfe7173d1a5 |  | unread |  |
-| `automation re-adopt` |  |  | n | #1184 | 17450ba28a0d |  | unread |  |
+| `automation preview` |  |  | n | #1184 | 8ec9e9acaa1b |  | unread |  |
+| `automation re-adopt` |  |  | n | #1184 | 9f9d9495383e |  | unread |  |
 | `automation team-snapshot-grant` |  |  | n | #1184 | 3047b6de9aa2 |  | unread |  |
 | `automation team-snapshot-grant list` | ls |  | y | #1184 | cbf6c52d70c5 |  | unread |  |
 | `automation team-snapshot-grant revoke` |  |  | y | #1184 | ec1ad99d2ba2 |  | unread |  |
-| `automation team-snapshot-grant set` |  |  | y | #1184 | 314fcd981b65 |  | unread |  |
+| `automation team-snapshot-grant set` |  |  | y | #1184 | df29e3310367 |  | unread |  |
 | `billing` |  |  | y | #1184 | 12a97003097a | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `billing balance` |  |  | y | #1184 | cac022de8071 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `billing grant` |  |  | y | #1184 | 16036cb8f1bc |  | unread |  |
 | `billing ledger` |  |  | y | #1184 | 336b31fc1898 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `billing prices` |  |  | y | #1184 | fcc861c9ee24 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `billing prices get` |  |  | y | #1184 | cd5a3250ddf2 |  | unread |  |
-| `billing prices set` |  |  | y | #1184 | 88cdd704df97 |  | unread |  |
+| `billing prices set` |  |  | y | #1184 | c03b6f7c8c17 |  | unread |  |
 | `calendar` |  |  | y | #1184 | c2849191f7cd | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `calendar event` |  |  | n | #1184 | eda97ca71e1c | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `calendar event create` |  |  | y | #1184 | e91f48331fa3 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
