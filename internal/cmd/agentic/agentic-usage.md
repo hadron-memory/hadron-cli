@@ -4400,12 +4400,13 @@ replies exist; the server removes it with its last live reply. There are no
 hide/retract aliases and comments keep no revision history.
 
 `comment delete --thread` deletes the whole thread of the comment it names and
-prints `{"thread":"<ref>","deleted":true}` (`--json`) with exit 0. Two outcomes
-print no stdout and are not successes: an answer that carries no result is
+prints `{"thread":"<ref>","deleted":true}` (`--json`) with exit 0; thread is the
+comment ref you named. Two outcomes print no receipt on stdout (with `--json`,
+the standard error envelope) and are not successes: an answer that carries no result is
 exit 1, outcome unknown, so read the thread (`comment get`) before retrying and
 never retry blind; an explicit `deleted:false` is exit 5, not deleted (before
 cli#2543 that answer exited 0 with `{"thread":…,"deleted":false}`). Missing
-`--reason` or `--yes` exit 2, no permission 8, a missing comment 4.
+`--reason` or `--yes` exit 2, no permission 8, a comment that is missing or unreadable 4.
 Authorship is server-derived; bound comment writes use the #822 attribution
 hook. A generic comment node/edge write exits 2 (`ROLE_GOVERNED`) and points to
 this group. Permission/author/admin refusals exit 8; missing or unreadable

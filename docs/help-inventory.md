@@ -48,7 +48,7 @@ section between the markers.
 | `comment` |  |  | y | #1051 | dbb54d56ed07 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `comment add` |  |  | y | #1051 | 276db831c340 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
 | `comment create` |  |  | y | #1051 | d1cf5a1d1ed5 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
-| `comment delete` |  |  | y | #1051 | 68d1a86da04a | Gemma | pass | [re-read at 141c2b0b](https://github.com/hadron-memory/hadron-cli/issues/2546#issuecomment-6999435711) |
+| `comment delete` |  |  | y | #1051 | 2ec062351c75 |  | unread |  |
 | `comment edit` |  |  | y | #1051 | 5d247c71d0b3 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `comment get` |  |  | y | #1051 | bc93fd9bb333 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `comment list` | ls |  | y | #1051 | 1ad116c0f64c | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |

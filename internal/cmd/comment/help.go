@@ -104,9 +104,10 @@ of the thread. --reason is required and kept with the deletion for audit; no
 --expected-revision is needed. It asks first on a terminal, and needs --yes
 otherwise. Whether you may do it is the server's rule. On success (exit 0) it
 prints the comment you named and that its thread was deleted; --json is
-{"thread": <the comment you named>, "deleted": true}.
+{"thread":"<ref>","deleted":true}, where thread is the comment ref you named.
 
-Two outcomes are not a success and write nothing to stdout:
+Two outcomes are not a success and print no receipt on stdout (with --json, the
+standard error envelope):
 exit 1 (outcome unknown): the server's answer carried no result, so the delete
 may or may not have happened; read the thread (comment get) before retrying.
 exit 5 (not deleted): the server answered deleted:false; the thread is still there.
