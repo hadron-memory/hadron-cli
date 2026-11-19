@@ -755,16 +755,16 @@ section between the markers.
 | `ha ops` |  |  | y | #1184 | e0ba28e97603 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `ha rm` | delete |  | y | #1184 | 5bb88228f7f2 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
 | `ha update` |  |  | y | #1184 | 579db4d2f329 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
-| `marketplace` |  |  | y | #1184 | e8ed2e50a35b |  | unread |  |
+| `marketplace` |  |  | y | #1184 | 24b5ba80ad92 |  | unread |  |
 | `marketplace agents` |  |  | n | #1184 | 07b4ad7ff1be |  | unread |  |
 | `marketplace memories` |  |  | n | #1184 | 6fb8e32dcf51 |  | unread |  |
 | `marketplace orgs` | organizations |  | n | #1184 | 3a741f13f92f |  | unread |  |
-| `quota` | quotas |  | y | #1184 | 10762ec76d2c |  | unread |  |
-| `quota list` | ls |  | y | #1184 | 7e00f2581780 |  | unread |  |
+| `quota` | quotas |  | y | #1184 | 8f7732ab6485 |  | unread |  |
+| `quota list` | ls |  | y | #1184 | 6fcafd9b75cd |  | unread |  |
 | `quota set` |  |  | y | #1184 | 561c5f61bc9e |  | unread |  |
 | `usage` |  |  | y | #1184 | 663c38db6164 |  | unread | [prior assessment](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240); help changed in #65; reassessment pending |
 | `usage activity` |  |  | y | #1184 | c3af538e992d |  | unread |  |
-| `usage events` |  |  | y | #1184 | fdc0cc758da5 |  | unread | [prior assessment](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240); help changed in #65; reassessment pending |
+| `usage events` |  |  | y | #1184 | ee9e410a8c1c |  | unread |  |
 | `usage record` |  |  | y | #1184 | 96eb8932322f |  | unread |  |
 <!-- group:1184 end -->
 
