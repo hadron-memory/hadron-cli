@@ -204,13 +204,22 @@ func newCmdTeamGrantRequest(f *cmdutil.Factory) *cobra.Command {
 		Use:   "request --action <name> --values <json|@file> --reason <text>",
 		Short: "Ask for a grant for this worker or its role agent",
 		Long: `Ask for a pending grant for this worker (--holder worker, the default) or its
-role agent (--holder agent). The holder id comes from this worktree's binding;
---holder-id overrides it (and is required when unbound). --values is the JSON
-object of the action's parameters (or @file); whether it fits the action is the
-server's to judge. --starts-at, --expires-at and --max-uses are passed through.
+role agent (--holder agent), from a bound worker session that a person is
+driving: the server refuses any other caller, so bind first ('hadron team
+session start'). The holder id comes from the binding; --holder-id overrides it
+for the call, but an unbound call still reaches only the server's refusal.
 
-Prints the pending grant in the same fourteen fields as team grant get. Hand the
-next step to a person: hadron team grant request-signature <id>.
+--action is an action name from 'hadron team grant actions'. --values is the
+JSON object of that action's parameters (or @file): the PARAMETERS column of
+'team grant actions' (or 'team grant action <name>') lists the names and kinds
+it needs; whether your values fit is the server's to judge. --reason is shown to
+the person who signs. --starts-at and --expires-at take a timestamp such as
+2026-12-01T09:00:00Z (the server parses it); --max-uses is a count; leave them
+out to let the server apply its defaults.
+
+Prints the pending grant in its fourteen fields (see 'hadron team grant get').
+Next step: 'hadron team grant request-signature <id>', then give the URL to a
+person.
 
 ` + grantRequestHelp,
 		Example: "  hadron team grant request --action bootprompt.source.edit --values '{\"sourceNode\":\"<node-id>\"}' --reason 'fix a typo in my prompt'",
@@ -352,7 +361,7 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a signing request this worker made.\n\n" + grantRequestHelp}
 	get := signingRequestVerb(f, "get <request-id>", "Read a grant signing request",
-		"Shows whether the URL you handed over was signed: state is the server's own state\nfor the request (OPEN, COMPLETED, DECLINED, EXPIRED, STALE, WITHDRAWN), printed as sent.",
+		"Shows whether the URL you handed over was signed. <request-id> is the id printed by\n'hadron team grant request-signature'. state is the server's own word, printed as sent:\n  OPEN       not signed yet: the person can still sign; ask them, or wait\n  COMPLETED  signed and recorded: read the grant with 'team grant get <id>'\n  DECLINED   the signer turned it down: change the request or ask someone else\n  EXPIRED    its lifetime passed (24 hours by default): run request-signature again\n  STALE      the grant was revoked, its holder went, or its terms changed: request again\n  WITHDRAWN  the requester withdrew it: run request-signature again if still wanted",
 		"  hadron team grant signing-request get <request-id> --json",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamGrantSigningRequest(ctx, c, id)

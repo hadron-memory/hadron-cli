@@ -455,7 +455,7 @@ section between the markers.
 | `team alarm ack` |  |  | n | #1054 | 0a03ba094624 |  | unread |  |
 | `team alarms` |  |  | y | #1054 | d6b7b77f1802 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 |  | unread |  |
-| `team app sweep-mode` |  |  | y | #1054 | c6dba76f5908 |  | unread |  |
+| `team app sweep-mode` |  |  | y | #1054 | e1e0f9811e2c |  | unread |  |
 | `team attention` |  |  | n | #1054 | ce4dafa9f309 |  | unread |  |
 | `team attention switchover` |  |  | n | #1054 | 29c29b8cc74e |  | unread |  |
 | `team attention switchover apply` |  |  | n | #1054 | 357079115cf2 |  | unread |  |
@@ -476,17 +476,17 @@ section between the markers.
 | `team delivery-settings get` |  |  | n | #1054 | 21c7552c6282 |  | unread |  |
 | `team delivery-settings set` |  |  | n | #1054 | 07f78aab5580 |  | unread |  |
 | `team events` |  |  | n | #1054 | 3530b1366bf5 |  | unread |  |
-| `team grant` |  |  | n | #1054 | f827cf1f14f4 |  | unread |  |
-| `team grant action` |  |  | y | #1054 | d8f3bdf456fd |  | unread |  |
-| `team grant actions` |  |  | y | #1054 | 8d8c795a7626 |  | unread |  |
-| `team grant add` |  |  | y | #1054 | f0c3fab13458 |  | unread |  |
-| `team grant get` |  |  | y | #1054 | 8f2d0615ea5e |  | unread |  |
-| `team grant list` | ls |  | y | #1054 | 3732cbcdbd95 |  | unread |  |
-| `team grant request` |  |  | y | #1054 | 4eff6b71827b |  | unread |  |
+| `team grant` |  |  | n | #1054 | e520d30254bc |  | unread |  |
+| `team grant action` |  |  | y | #1054 | 3b2af7379343 |  | unread |  |
+| `team grant actions` |  |  | y | #1054 | 8868d30468f0 |  | unread |  |
+| `team grant add` |  |  | y | #1054 | c4e75c5b45b2 |  | unread |  |
+| `team grant get` |  |  | y | #1054 | e8f396c6524d |  | unread |  |
+| `team grant list` | ls |  | y | #1054 | 7cf16c012c0e |  | unread |  |
+| `team grant request` |  |  | y | #1054 | 8ba14705bf14 |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | 1999874d6881 |  | unread |  |
-| `team grant rm` |  |  | y | #1054 | 6364c746d3e9 |  | unread |  |
+| `team grant rm` |  |  | y | #1054 | badd592c6342 |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 2ac5131f473e |  | unread |  |
-| `team grant signing-request get` |  |  | y | #1054 | fac0e2a26947 |  | unread |  |
+| `team grant signing-request get` |  |  | y | #1054 | b8872bf7186a |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | 9bb0227faf93 |  | unread |  |
 | `team health` |  |  | n | #1054 | d1b3825cdd4d |  | unread |  |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f |  | unread |  |
@@ -521,17 +521,17 @@ section between the markers.
 | `team pr seat` |  |  | n | #1054 | 1b29cbb20d28 |  | unread |  |
 | `team pr verdict` |  |  | n | #1054 | 39f2be332fec |  | unread |  |
 | `team push` |  |  | n | #1054 | 6c241890f4dc |  | unread |  |
-| `team register` |  |  | y | #1054 | dccd1090a3eb |  | unread |  |
-| `team register attendee` |  |  | y | #1054 | 72d9bdff255d |  | unread |  |
-| `team register candidates` |  |  | y | #1054 | 4d15d4932903 |  | unread |  |
-| `team register pick` |  |  | y | #1054 | 0a5869e65db4 |  | unread |  |
+| `team register` |  |  | y | #1054 | 37fc9babac0f |  | unread |  |
+| `team register attendee` |  |  | y | #1054 | 5adac6a995b6 |  | unread |  |
+| `team register candidates` |  |  | y | #1054 | 962f057e17f4 |  | unread |  |
+| `team register pick` |  |  | y | #1054 | e50e0bb1318d |  | unread |  |
 | `team resume` |  |  | y | #1054 | b36a736a9a90 |  | unread |  |
 | `team review-stats` |  |  | y | #1054 | 597535b30638 |  | unread |  |
-| `team role` | roles |  | n | #1054 | 0790a1b7e1de |  | unread |  |
+| `team role` | roles |  | n | #1054 | d576db90078e |  | unread |  |
 | `team role create` |  |  | y | #1054 | 77016480c74b |  | unread |  |
 | `team role get` |  |  | y | #1054 | f80ad4194e34 |  | unread |  |
-| `team role list` | ls |  | y | #1054 | 3a12f0e7f5d0 |  | unread |  |
-| `team role rm` | delete |  | y | #1054 | 33056ea6fc9b |  | unread |  |
+| `team role list` | ls |  | y | #1054 | b39defe2f2b6 |  | unread |  |
+| `team role rm` | delete |  | y | #1054 | deda9fa6c0c2 |  | unread |  |
 | `team role update` |  |  | y | #1054 | 3a7ff9f6b7c4 |  | unread |  |
 | `team roster` |  |  | n | #1054 | 11d418e87c05 |  | unread |  |
 | `team router` |  |  | n | #1054 | 304c731d92e0 |  | unread |  |
