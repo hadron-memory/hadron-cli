@@ -273,28 +273,41 @@ func TestMemorySyncPull60PreflightUnavailable(t *testing.T) {
 // The sourced-preflight path still ends at the server's own no-sync refusal
 // (cli#2565): SYNC_NOT_ATTEMPTED has no explicit exit mapping, so it rides the
 // default (1) — never the local source-less gate's 2, and never the
-// outcome-unknown wording of exit 7.
+// outcome-unknown wording of exit 7. The server's message carries the reason
+// itself ("Sync was not attempted: NO_INSTALLATION. …" — server
+// src/integrations/github/syncNotAttempted.ts) and the CLI renders the
+// server's message verbatim, so the reason the help names (NO_SOURCE or
+// NO_INSTALLATION) reaches the reader; both reasons ride the same exit 1.
 func TestMemorySyncPull60ServerSyncNotAttemptedExits1(t *testing.T) {
-	gql, calls := captureSyncPull60(t, map[string]string{
-		"SyncMemory": `{"errors":[{"message":"no GitHub App installation for this organization","extensions":{"code":"SYNC_NOT_ATTEMPTED","reason":"NO_INSTALLATION"}}]}`,
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--json", "--server", gql.URL})
-	err := root.Execute()
-	got := 0
-	if err != nil {
-		got = renderError(f, err)
-	}
-	if got != 1 || len(calls) != 2 || calls["SyncMemory"] == nil {
-		t.Fatalf("exit=%d want=1 err=%v calls=%v", got, err, calls)
-	}
-	rendered := out.String()
-	if !strings.Contains(rendered, "SYNC_NOT_ATTEMPTED") {
-		t.Fatalf("server code not surfaced (out=%q err=%v)", rendered, err)
-	}
-	if err != nil && strings.Contains(err.Error(), "may have happened") {
-		t.Fatalf("a typed refusal is a definite answer: %v", err)
+	for _, tc := range []struct{ reason, message string }{
+		{"NO_INSTALLATION", "Sync was not attempted: NO_INSTALLATION. Install the GitHub App for this organization before syncing."},
+		{"NO_SOURCE", "Sync was not attempted: NO_SOURCE. Configure a source repository before syncing."},
+	} {
+		t.Run(tc.reason, func(t *testing.T) {
+			gql, calls := captureSyncPull60(t, map[string]string{
+				"SyncMemory": `{"errors":[{"message":"` + tc.message + `","extensions":{"code":"SYNC_NOT_ATTEMPTED","reason":"` + tc.reason + `"}}]}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--json", "--server", gql.URL})
+			err := root.Execute()
+			got := 0
+			if err != nil {
+				got = renderError(f, err)
+			}
+			if got != 1 || len(calls) != 2 || calls["SyncMemory"] == nil {
+				t.Fatalf("exit=%d want=1 err=%v calls=%v", got, err, calls)
+			}
+			rendered := out.String()
+			for _, want := range []string{"SYNC_NOT_ATTEMPTED", tc.reason} {
+				if !strings.Contains(rendered, want) {
+					t.Fatalf("%s not surfaced (out=%q err=%v)", want, rendered, err)
+				}
+			}
+			if strings.Contains(rendered, "may have happened") {
+				t.Fatalf("a typed refusal is a definite answer: %v", err)
+			}
+		})
 	}
 }
 

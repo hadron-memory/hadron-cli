@@ -300,7 +300,7 @@ letters) and prints the decision; decision get <code> --log <log> reads it
 back later. --input-file is a JSON object with the fields of the server's
 AskDecisionInput, passed through unchanged:
 
-  title (required)  the question, as the deciders see it
+  title (required)  the decision's headline, as the deciders see it
   parts (required)  the questions to answer, each an object:
                     {"question": "...", "options": [{"key": "pg",
                     "label": "Postgres"}, ...], "recommendation":
@@ -312,25 +312,27 @@ AskDecisionInput, passed through unchanged:
                     narrows the log's default deciders, never widens past
                     its eligible set
   urgency           NORMAL (the default) or URGENT
-  tier              APPROVED (the default) or SIGNED. APPROVED: the ruling
-                    counts once a decider has approved the answered
-                    decision. SIGNED: a decider's passkey signature rather
-                    than an approval — authorizes: true with APPROVED is
-                    refused DECISION_TIER_TOO_LOW
+  tier              APPROVED (the default) or SIGNED — SIGNED is forced
+                    when authorizes is true, and APPROVED is then refused
+                    (DECISION_TIER_TOO_LOW). APPROVED: the ruling counts
+                    once a decider has approved the answered decision.
+                    SIGNED: a decider's passkey signature rather than an
+                    approval; passkey signing is not available yet, so a
+                    SIGNED decision stays ANSWERED_UNCONFIRMED
   authorizes        true when this decision grants an authorization
   grant             the authorization a grant decision carries, as JSON
                     (authorizes: true only)
   blocks            what is waiting on this decision
   sources           where the question came from
-  followUps         spec citations the ruling must reach
+  followUps         citations and references the ruling must reach
                     — blocks, sources and followUps are lists of references,
                     each {"ref": "hadron-server#1640"}, {"node": "<id or
                     URN>"} or {"spec": "<citation>"}
 
 --title, --context, --tier and --urgency override the file's value. Keys are
 exact and case-sensitive, and a key given twice is refused. Every field's
-exact shape is AskDecisionInput in the server's schema (schema.graphql in
-the hadron-cli repo). The server validates the object (DECISION_INVALID
+exact shape is AskDecisionInput in the server's schema, vendored in this repo
+at schema/schema.graphql. The server validates the object (DECISION_INVALID
 names each bad field by JSON pointer) and decides who may ask: any writer of
 the log's Memory.
 
@@ -411,7 +413,9 @@ AmendDecisionInput, passed through unchanged:
              "recommendation", "noRecommendation". Part numbers are
              permanent; a change that renumbers parts is refused
              (DECISION_PART_RENUMBER)
-  addParts   new parts appended at the end, each shaped like ask's parts
+  addParts   new parts appended at the end, each shaped like ask's parts:
+             exactly one of "recommendation" or "noRecommendation" — a new
+             part with neither is refused (DECISION_RECOMMENDATION_MISSING)
   blocks, followUps, sources   replace that whole list; each entry a
              reference: {"ref": "hadron-server#1640"}, {"node": "<id or
              URN>"} or {"spec": "<citation>"}
@@ -431,7 +435,8 @@ On success the decision prints as decision get shows it, prefixed
 		Example: `  hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "clarify" --title "Pick a primary database"
   cat > amend.json <<'EOF'
 {"parts":[{"n":1,"question":"Postgres or MySQL, and why?"}],
- "addParts":[{"question":"Who owns the migration?","yesno":true}]}
+ "addParts":[{"question":"Who owns the migration?","yesno":true,
+   "noRecommendation":{"reason":"outside the asker's remit"}}]}
 EOF
   hadron decision amend hrn:node:acme.com:eng:decisions:DA --expected-revision 3 --reason "sharpen part 1" --input-file amend.json`,
 		Args: cobra.ExactArgs(1),

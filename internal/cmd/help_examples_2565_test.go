@@ -60,7 +60,9 @@ var pages2565 = []string{
 }
 
 // min2565Examples is a floor, not a target: it guards against a page list or a
-// parser that silently finds almost nothing.
+// parser that silently finds almost nothing. Only examples the harness
+// actually executes count toward it — "not run" entries (shell constructs,
+// prose placeholders) do not.
 const min2565Examples = 20
 
 // localOnly2565 are commands that legitimately make no request.
@@ -109,16 +111,46 @@ func exampleFileBody2565(flag string) string {
 	}
 }
 
-func collect2565Pages(root *cobra.Command) []*cobra.Command {
+func collect2565Pages(t *testing.T, root *cobra.Command) []*cobra.Command {
+	t.Helper()
 	var pages []*cobra.Command
 	for _, path := range pages2565 {
 		c, _, err := root.Find(strings.Split(path, " "))
 		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
-			panic("page not found in the command tree: " + path)
+			t.Fatalf("page not found in the command tree: %s", path)
 		}
 		pages = append(pages, c)
 	}
 	return pages
+}
+
+// heredocFiles2565 extracts the input files an Example block writes with a
+// heredoc: a line `cat > NAME <<'TAG'` opens one, and the TAG line alone
+// closes it. The copyable input files the pages show (ask.json, amend.json)
+// are exactly these, so the harness feeds each command the body its page
+// actually documents — a canned body would prove nothing about that body
+// (Bob's BLIND P2-2 on #2584), and this way the example's own file reaches
+// the command. Structural validation of these bodies lives in
+// Test2565HeredocInputsAreValidDecisionInput.
+func heredocFiles2565(block string) map[string]string {
+	files := map[string]string{}
+	lines := strings.Split(block, "\n")
+	for i := 0; i < len(lines); i++ {
+		fields := strings.Fields(strings.TrimSpace(lines[i]))
+		if len(fields) != 4 || fields[0] != "cat" || fields[1] != ">" || !strings.HasPrefix(fields[3], "<<") {
+			continue
+		}
+		name, tag := fields[2], strings.Trim(fields[3], "<\"'")
+		var body []string
+		for i++; i < len(lines); i++ {
+			if strings.TrimSpace(lines[i]) == tag {
+				files[name] = strings.Join(body, "\n")
+				break
+			}
+			body = append(body, lines[i])
+		}
+	}
+	return files
 }
 
 // pipeIntoHadronLines2565 returns example lines that do not themselves start
@@ -155,7 +187,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	f0, _ := testFactory(t)
-	pages := collect2565Pages(NewRootCmd(f0))
+	pages := collect2565Pages(t, NewRootCmd(f0))
 	if len(pages) != len(pages2565) {
 		t.Fatalf("found %d of %d pages; the walk is wrong", len(pages), len(pages2565))
 	}
@@ -163,6 +195,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	var results []exampleResult
 	for _, page := range pages {
 		path := strings.TrimPrefix(page.CommandPath(), "hadron ")
+		heredocs := heredocFiles2565(page.Example)
 		lines := append(exampleLines(page.Example), pipeIntoHadronLines2565(page.Example)...)
 		for _, line := range lines {
 			// A pipeline is run one hadron command at a time (the other tools, such as
@@ -225,7 +258,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 				for _, w := range words[1:] {
 					switch {
 					case strings.HasPrefix(w, "/etc/") || strings.HasPrefix(w, "/home/") || strings.HasPrefix(w, "/var/"):
-						w = dir + "/" + strings.TrimLeft(filepath.Base(w), "/") // redirected into the test directory
+						w = filepath.Base(w) // redirected into the test directory: the command runs with cwd there, so the bare name lands inside it (and the file-providing loop below writes dir/NAME without doubling the prefix)
 					case strings.HasPrefix(w, "<") && strings.HasSuffix(w, ">"):
 						w = "fixture-" + strings.Trim(w, "<>") // a placeholder the reader fills in
 					case strings.HasPrefix(w, "$") && len(w) > 1 && strings.Trim(w[1:], "ABCDEFGHIJKLMNOPQRSTUVWXYZ_") == "":
@@ -248,7 +281,10 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 				}
 				for _, a := range args {
 					if strings.HasPrefix(a, "@") && len(a) > 1 {
-						if err := os.WriteFile(dir+"/"+a[1:], []byte(`{"team":{"x":1}}`), 0o600); err != nil {
+						if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, a[1:])), 0o755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(filepath.Join(dir, a[1:]), []byte(`{"team":{"x":1}}`), 0o600); err != nil {
 							t.Fatal(err)
 						}
 					}
@@ -263,7 +299,18 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 						file = a[strings.Index(a, "=")+1:]
 					}
 					if file != "" {
-						if err := os.WriteFile(dir+"/"+file, []byte(exampleFileBody2565(flag)), 0o600); err != nil {
+						// The file the page itself writes with a heredoc, when it
+						// wrote one, is the body a reader following the page would
+						// send; the canned body stands in only for a file the page
+						// never shows.
+						body, ok := heredocs[filepath.Base(file)]
+						if !ok {
+							body = exampleFileBody2565(flag)
+						}
+						if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, file)), 0o755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(filepath.Join(dir, file), []byte(body), 0o600); err != nil {
 							t.Fatal(err)
 						}
 					}
@@ -366,7 +413,94 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if len(results) < min2565Examples {
-		t.Fatalf("only %d examples found across the 25 pages; the walk is wrong", len(results))
+	executed := 0
+	for _, r := range results {
+		if strings.HasPrefix(r.Mode, "fixture") {
+			executed++
+		}
+	}
+	if executed < min2565Examples {
+		t.Fatalf("only %d of %d examples executed across the 25 pages; the walk is wrong", executed, len(results))
+	}
+}
+
+// Test2565HeredocInputsAreValidDecisionInput pins the copyable input files the
+// decision pages show (cli#2565 F5/F11). The fixture harness proves the
+// commands are wired, but the fixture answers every mutation with empty data,
+// so server-side validation never runs there: this test validates the bodies
+// structurally. The server builds every ask part and every amend addPart with
+// checkPart, which refuses a part carrying neither "recommendation" nor
+// "noRecommendation" (DECISION_RECOMMENDATION_MISSING — server §8.4, "an
+// absent recommendation is always deliberate and stated"); an amend parts
+// change only patches named fields, so it needs its "n" and nothing else.
+func Test2565HeredocInputsAreValidDecisionInput(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	for _, path := range []string{"decision ask", "decision amend"} {
+		c, _, err := root.Find(strings.Split(path, " "))
+		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
+			t.Fatalf("page not found in the command tree: %s", path)
+		}
+		files := heredocFiles2565(c.Example)
+		if len(files) == 0 {
+			t.Fatalf("%s shows no heredoc input file; F5/F11 require a copyable one", path)
+		}
+		for name, body := range files {
+			var doc map[string]any
+			if err := json.Unmarshal([]byte(body), &doc); err != nil {
+				t.Errorf("%s: heredoc %s is not a JSON object: %v (body %q)", path, name, err, body)
+				continue
+			}
+			if path == "decision ask" {
+				if title, _ := doc["title"].(string); title == "" {
+					t.Errorf("%s: heredoc %s lacks the required title", path, name)
+				}
+				if _, ok := doc["parts"].([]any); !ok {
+					t.Errorf("%s: heredoc %s lacks the required parts", path, name)
+				}
+			}
+			// parts on ask: complete parts, exactly one recommendation arm.
+			// addParts on amend: complete parts, same rule. parts on amend:
+			// patch entries, each must name its part number instead.
+			if list, ok := doc["parts"].([]any); ok {
+				requirement := "recommendation"
+				if path == "decision amend" {
+					requirement = "n"
+				}
+				checkHeredocPart2565(t, path, name, "parts", list, requirement)
+			}
+			if list, ok := doc["addParts"].([]any); ok {
+				checkHeredocPart2565(t, path, name, "addParts", list, "recommendation")
+			}
+		}
+	}
+}
+
+// checkHeredocPart2565 checks one parts list of a heredoc body. want is
+// "recommendation" for lists of complete parts (ask parts, amend addParts):
+// each needs a question and exactly one of recommendation/noRecommendation.
+// want "n" for amend patch entries: each needs only its part number.
+func checkHeredocPart2565(t *testing.T, page, file, key string, list []any, want string) {
+	t.Helper()
+	for i, raw := range list {
+		part, ok := raw.(map[string]any)
+		if !ok {
+			t.Errorf("%s: %s %s[%d] is not an object", page, file, key, i)
+			continue
+		}
+		if want == "n" {
+			if _, ok := part["n"].(float64); !ok {
+				t.Errorf("%s: %s %s[%d] lacks its part number (\"n\")", page, file, key, i)
+			}
+			continue
+		}
+		if q, _ := part["question"].(string); q == "" {
+			t.Errorf("%s: %s %s[%d] lacks a question", page, file, key, i)
+		}
+		_, rec := part["recommendation"]
+		_, norec := part["noRecommendation"]
+		if rec == norec {
+			t.Errorf("%s: %s %s[%d] carries neither or both of recommendation/noRecommendation; the server refuses it (DECISION_RECOMMENDATION_MISSING)", page, file, key, i)
+		}
 	}
 }

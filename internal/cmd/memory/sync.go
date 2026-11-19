@@ -38,7 +38,7 @@ last sync. Encrypted memories cannot be synced.
 
 A memory needs a source repository first. Set one with:
 
-  hadron memory set <memory> --git-source <owner>/<repo>
+  hadron memory set <memory> --git-source https://github.com/<owner>/<repo>
 
 (--git-source "" clears it.) The organization also needs the Hadron GitHub
 App installed on that repository. A memory without a source, or whose
@@ -64,8 +64,9 @@ Outcomes: a clean pull prints "synced". Partial, unknown and unavailable
 reports exit 0 with a warning and clean:false in --json. A non-OK status
 exits 1 as not completed, and so does a failed report; a stored report is
 history, not this pull's outcome, and a missing report without a sync
-timestamp is never clean. Exit 7 means the sync may have happened: use
-memory get to check the recorded state before retrying. --json:
+timestamp is never clean. Exit 7 means the sync may have happened: the failed
+request is not retried, so use memory get to check the recorded state before
+pulling again. --json:
 {memory,operation:"pull",clean,syncStatus,syncError,lastSyncedAt,
 syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 		Example: "  hadron memory sync pull acme.com:kb --yes\n  hadron memory sync pull hrn:mem:acme.com:kb --yes --json",

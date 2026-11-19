@@ -43,19 +43,24 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 		{[]string{"decision", "ask"}, []string{
 			"APPROVED: the ruling counts once a decider has approved the answered decision",
 			"SIGNED: a decider's passkey signature rather than an approval",
-			"authorizes: true with APPROVED is refused DECISION_TIER_TOO_LOW",
+			"SIGNED is forced when authorizes is true",
+			"passkey signing is not available yet, so a SIGNED decision stays ANSWERED_UNCONFIRMED",
 			"decision get <code> --log <log> reads it back",
 			`prefixed "✓ asked"`,
 			"cat > ask.json <<'EOF'",
 		}},
 		// decision amend — F5: parts/addParts shaped, the reference lists
-		// shaped, and an example that uses a file
+		// shaped, and an example that uses a file — one whose added part the
+		// server would accept (exactly one recommendation arm, Bob #2584 P2-1)
 		{[]string{"decision", "amend"}, []string{
 			`{"n": <part number>}`,
 			"DECISION_PART_RENUMBER",
 			"new parts appended at the end, each shaped like ask's parts",
+			`exactly one of "recommendation" or "noRecommendation"`,
+			"DECISION_RECOMMENDATION_MISSING",
 			`{"ref": "hadron-server#1640"}, {"node": "<id or URN>"}`,
 			"cat > amend.json <<'EOF'",
+			`"noRecommendation":{"reason":"outside the asker's remit"}`,
 			"--input-file amend.json",
 		}},
 		// decision amend — F6: the tiers one pointer away; F7: the stale
@@ -68,7 +73,7 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 		}},
 		// memory sync pull — F39: the prerequisite and how to see it
 		{[]string{"memory", "sync", "pull"}, []string{
-			"hadron memory set <memory> --git-source <owner>/<repo>",
+			"hadron memory set <memory> --git-source https://github.com/<owner>/<repo>",
 			`(--git-source "" clears it.)`,
 			"SYNC_NOT_ATTEMPTED",
 			"NO_SOURCE or NO_INSTALLATION, exit",
@@ -76,12 +81,14 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 			"as having no source exits 2 with no sync request sent",
 		}},
 		// memory sync pull — F41: what to do about a skipped or held file;
-		// F40: the exit facts stay while the request mechanics go
+		// F40: the exit facts stay while the request mechanics go (a failed
+		// request is never retried, Bob #2584 P3-14)
 		{[]string{"memory", "sync", "pull"}, []string{
 			"Fix what the code names",
 			"a later pull takes it by itself (a README",
 			"name collision recurs until the pair is renamed)",
 			"Exit 7 means the sync may have happened",
+			"the failed request is not retried",
 			"clean:false",
 		}},
 	} {
