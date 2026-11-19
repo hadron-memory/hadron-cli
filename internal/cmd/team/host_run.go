@@ -257,7 +257,34 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run --config <host.yaml> [--once]",
 		Short: "Run this host's poller: register, collect, carry out, report",
-		Long: `Run the host poller (cor:agt:070). Every poll it registers the workers this
+		Long: `QUICKSTART — the smallest working setup is four steps:
+
+1. Mint the host's key (writes a 0600 file; that file is key_file below):
+   hadron app key create <app-ref> --out /etc/hadron/host.key
+2. Let that key act as this host (once, as the App's manager):
+   hadron app key scope grant <key-id> host:operate --host-id <host-id>
+3. Write host.yaml (minimal; the full shape is at the bottom of this page):
+
+   app: hrn:app:<root>:<slug>
+   key_file: /etc/hadron/host.key
+   worktrees_root: /srv/worktrees
+   workers:
+     jonas:
+       family: claude
+       launch: [claude-worker, --model, opus]
+       worktrees: [hadron-cli/jonas-2]
+
+4. Try one poll: hadron team host run --config host.yaml --once — then drop
+   --once to keep the host running. Each step prints its own errors; the
+   key grant is checked by ` + "`hadron team host status --config host.yaml`" + `.
+
+Events print one per line, for example
+  09:12:01 collected 01H… worktree.create
+  09:12:01 reported 01H… worktree.create SUCCEEDED hadron-cli/jonas-2
+(--json prints each event as an object). The rest of this page is the
+operator's reference.
+
+Run the host poller (cor:agt:070). Every poll it registers the workers this
 host can launch (with their family and existing worktrees), collects the
 operations issued to it, carries out only the closed set of five, and
 reports every outcome. One poller per host or container.
@@ -540,8 +567,11 @@ is refused too, and each symlink followed must be owned by the poller's user or
 root (a sticky directory lets anyone add one).
 
 Moving a host from the Orca attention router: see
-docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
-hadron-cli repository. Preparing a config authorizes no cutover.
+docs/how-to/move-from-the-attention-router-to-the-host-poller.md — in a
+hadron-cli checkout, or at
+https://github.com/hadron-memory/hadron-cli/blob/main/docs/how-to/move-from-the-attention-router-to-the-host-poller.md
+(not shipped with the installed CLI). Preparing a config authorizes no
+cutover.
 
 With delivery.enabled (and orca_bin), each poll also reads this host's
 ready chat batches (the key needs attention:deliver too) and types each
@@ -572,6 +602,8 @@ then.
 
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
+		Example: `  hadron team host run --config host.yaml --once
+  hadron team host run --config /etc/hadron/host.yaml`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, key, srv, err := loadHostPoller(f, configPath)

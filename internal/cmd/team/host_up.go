@@ -97,8 +97,10 @@ func newCmdTeamHostUp(f *cmdutil.Factory) *cobra.Command {
 registration, its worktree, its agent terminal and its worker session, and
 plan only what is missing. The default is a dry run: it prints the plan and
 issues no worker operation. --apply carries the plan out through the typed host-operation
-queue (cor:agt:070:05): worktree.create when the worktree is missing, then
-worker.start. There is no direct Orca create or launch call.
+queue: worktree.create when the worktree is missing, then
+worker.start. There is no direct Orca create or launch call. (The examples'
+desired.json is the --desired-state-file shape, documented under WHERE THE
+DESIRED STATE COMES FROM below.)
 
 SWEEP RUN RECORDS (S10):
   --config supplies a separate host key for recording this run. It never
@@ -178,9 +180,18 @@ starting a worker needs whoever manages the App. A refusal of your
 credential, on the registration read or on an operation, stops the run:
 nothing further is issued (exit 3 or 8).
 
+The reconcile mode is the App's, not this command's, and up reads it from the
+desired state: the server's desired state reports the App's mode, and a
+--desired-state-file names its own sweepMode. Nothing is planned unless it is
+APPLY, and the App's mode is set with ` + "`hadron team app sweep-mode`" + ` (an OFF or
+OBSERVE App plans nothing — workers read SWEEP_NOT_APPLY; raise the mode,
+then run again). --dry-run is the default and --apply is its opposite: pass
+one or neither, never both.
+
 Exit codes: 0 nothing failed; 1 a step failed; 2 usage, or Orca is not
-reachable here; 4 --worker names a worker this host should not run; 5 another
-run holds the lock.`,
+reachable here; 3 your credential was refused as not accepted (the run
+stops); 4 --worker names a worker this host should not run; 5 another run
+holds the lock; 8 you are authenticated but not permitted (the run stops).`,
 		Example: `  hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json
   hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json --worker Iris --apply`,
 		Args: cobra.NoArgs,

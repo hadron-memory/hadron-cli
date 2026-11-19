@@ -500,15 +500,16 @@ func newCmdTeamHostImport(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import --from <host.yaml> --host <host-id> [--apply [--yes]]",
 		Short: "Plan, or with --apply write, the server assignments a host.yaml implies",
-		Long: `Read an existing host YAML and report the S1a assignments it implies for one
+		Long: `Read an existing host YAML and report the assignments it implies for one
 host of the App. WITHOUT --apply nothing is written, ever: the report says,
 per entry, what an apply would do:
 
   create     no assignment on the server; an apply creates it
   unchanged  the server already holds exactly this assignment
   differs    the server holds another one; an import never replaces it
-  unchecked  the server lacks hostSetup (before hadron-server#4241), so what it
-             holds is unknown; the dry run still works and says so
+  unchecked  the server cannot report its assignments yet (it predates
+             hadron-server#4241), so what it holds is unknown; the dry run
+             still works and says so
   conflict   two entries name the same worker (a name and its id or URN) and
              ask for different things; neither is written
   skip       the entry cannot become an assignment as written (no roster
@@ -520,19 +521,22 @@ as program and argument count only, never its arguments; its launcher profile
 (hadron-server#4230, not served yet) reads "unmapped": a line is never guessed.
 "missing" lists the roster workers the file has no entry for. Read the copy of
 the file, not the one a live host reads. The cutover and rollback steps are in
-the runbook node coordination:team-on-orca-cutover-runbook.
+the runbook node
+hrn:node:hadronmemory.com:hadron-dev-team-shared:coordination:team-on-orca-cutover-runbook
+(https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:coordination:team-on-orca-cutover-runbook).
 
 --apply writes the "create" entries, one worker at a time: the worker is marked
-leave-alone FIRST (so the sweep never acts on it), then the assignment is
-created. These are the signed-in manager's own writes. It asks before writing
-(--yes when not interactive) and never replaces a "differs". A refusal on one
-entry is recorded on it (applied.error) and the others still run, except a
-failure that would repeat for all of them (no authority, server unreachable),
-which stops the run. Exit 1 when any entry failed; a re-run completes them and
-writes nothing for the entries now "unchanged" (idempotent). Marked but not
-assigned is the safe half-state. --apply is refused, nothing written, when the
-server lacks host setup. The report's applied.assigned entries are what a
-rollback undoes: "team host unassign <worker> --host <id>", and "team worker
+leave-alone FIRST — the sweep then leaves it alone until its lane is released
+— and the assignment is created. These are the signed-in manager's own
+writes. It asks before writing (--yes when not interactive) and never
+replaces a "differs". A refusal on one entry is recorded on it
+(applied.error) and the others still run, except a failure that would repeat
+for all of them (no authority, server unreachable), which stops the run.
+Exit 1 when any entry failed; a re-run completes them and writes nothing for
+the entries now "unchanged" (idempotent). Marked but not assigned is the safe
+half-state. --apply is refused, nothing written, when the server lacks host
+setup. The report's applied.assigned entries are what a rollback undoes:
+"team host unassign <worker> --host <id>", and "team worker
 leave-alone <worker> --off" ONLY where applied.leaveAlone is true and
 applied.leaveAloneKept is false (a kept mark was not the import's). An
 applied.unknown entry may have been written: check "team host setup --host <id>"

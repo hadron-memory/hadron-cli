@@ -7162,11 +7162,13 @@ No-flag request documents and JSON shapes remain unchanged.
 
 ## App-manager writes with an instruction (cli#2448)
 
-Exactly these six commands accept `--instruction <kind>:<ref>`:
+Exactly these nine commands accept `--instruction <kind>:<ref>`:
 `app properties set`, `app model-group set`, `app model-group clear`,
-`team delivery-settings set`, `team ticker settings set`, and `team grant rm`.
-Needs server **2026-11-04** or later (delivery/ticker server#3398;
-properties/model groups server#3376; revoke server#3340). Other commands,
+`team delivery-settings set`, `team ticker settings set`, `team grant rm`,
+`team host assign`, `team host unassign`, and `team host setup`. The first
+six need server **2026-11-04** or later (delivery/ticker server#3398;
+properties/model groups server#3376; revoke server#3340); the host trio
+needs only the flag's base revision, **17ef5905** or later. Other commands,
 including properties clear and grant add, gain no flag.
 
 Kinds are `team-chat-message`, `task`, `live-chat`; the reference is everything

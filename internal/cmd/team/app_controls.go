@@ -200,10 +200,20 @@ type tickerSettingsDTO struct {
 }
 
 func newCmdTeamTicker(f *cmdutil.Factory) *cobra.Command {
-	root := &cobra.Command{Use: "ticker <command>", Short: "App ticker controls"}
+	root := &cobra.Command{Use: "ticker <command>", Short: "App ticker controls", Long: `A ticker is a recurring wake: a worker subscribed to one is woken on its
+cadence to take a turn — the platform's own alternative to an external cron
+poking an agent. This group holds the App's ticker settings. Around it:
+` + "`hadron team wakes`" + ` lists and acknowledges the wakes due now;
+` + "`hadron team wake-settings`" + ` shows a worker's subscriptions and pause;
+` + "`hadron team pause`" + ` pauses the App's regular wakes.`}
 	settings := &cobra.Command{Use: "settings <command>", Short: "Show or change the App's ticker settings"}
 	settings.AddCommand(newCmdTeamTickerSettingsGet(f))
-	c := &cobra.Command{Use: "set", Short: "Change only the ticker setting fields supplied", Long: `Change App ticker settings. Without --instruction, this uses your ordinary
+	c := &cobra.Command{Use: "set", Short: "Change only the ticker setting fields supplied", Long: `Change App ticker settings: --min-cadence-seconds (the floor no ticker in
+this App may tick faster than), --live-cap (how many tickers may be live at
+once), --self-subscribe-cadence-seconds (the cadence bounds for a worker
+subscribing itself), --wake-daily-budget (the wakes the App may spend per
+day). The App comes from --app, the App context or the worktree binding (the
+examples show both spellings). Without --instruction, this uses your ordinary
 authenticated caller with no worker session or instruction. With the flag,
 the verified target-App worker session and holder's claim are used as described
 below; otherwise the claim goes as the person. The server decides admission.
@@ -211,16 +221,22 @@ Omitted fields preserve their values; null is not accepted. The server checks
 bounds and conflicts, never the CLI: minimum cadence floor 60 seconds,
 live cap 1–100, and a nonnegative daily wake budget. The self-subscription
 cadence must be between the shared floor and 86400 seconds; raising the
-floor above an existing ticker's cadence is refused. Delivery's stuck window
-must exceed busy delay plus the cadence floor. These are current server
-limits, not client-side authorization or validation.
+floor above an existing ticker's cadence is refused. Two checks name values
+this command has no flag for, because they live elsewhere: delivery's stuck
+window (` + "`hadron team delivery-settings`" + `) must exceed its busy delay plus
+this floor, and an existing ticker's own cadence (set with the ticker's
+subscription, not here) bounds how high the floor may rise. These are
+current server limits, not client-side authorization or validation.
 
 --clear-wake-daily-budget returns to a roster-derived budget; =false means
 "do not clear", the same as omitting it, and is not sent. A set that names no
 field (including one carrying only =false) is refused before any request,
 because it would change nothing.
-No standby switch is available. To read the current values, use
+Standby is not a ticker setting; there is no standby switch to configure
+here. To read the current values, use
 ` + "`hadron team ticker settings get`" + `.
+On success the output is the App line and one settings line ending
+` + "`(derived: true|false)`" + ` (see ` + "`settings get`" + ` for the fields' meaning).
 --json prints minCadenceSeconds, liveCap, selfSubscribeCadenceSeconds,
 dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker settings set --live-cap 10 --app acme.com:eng\n  hadron team ticker settings set --clear-wake-daily-budget", Args: cobra.NoArgs}
 	var raw [4]string
@@ -310,11 +326,16 @@ func newCmdTeamTickerSettingsGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get",
 		Short: "Show the App's ticker settings",
-		Long: `Show the App's ticker settings as the server returns them: the minimum
-cadence floor and the self-subscription cadence, in seconds, the live-ticker
-cap, and the daily wake budget. The budget is marked "derived" when the
-server computed it rather than the App setting it; the CLI never works it out
-itself. Any App participant may read. To change a value, use
+		Long: `Show the App's ticker settings as the server returns them, with what each
+number governs: the minimum cadence floor (no ticker in this App may tick
+faster than it) and the self-subscription cadence (the cadence bounds for a
+worker subscribing itself), in seconds; the live-ticker cap (how many tickers
+may be live at once); and the daily wake budget (the wakes the App may spend
+per day), marked "derived" when the server computed it from the roster rather
+than the App setting it; the CLI never works it out itself. Any App
+participant may read. Output is one line, for example
+  ticker settings: minimum cadence 60s; live cap 20; self-subscribe cadence 300s; daily wake budget 500 (derived)
+To change a value, use
 ` + "`hadron team ticker settings set`" + `.
 --json prints minCadenceSeconds, liveCap, selfSubscribeCadenceSeconds,
 dailyWakeBudget and dailyWakeBudgetDerived.`,
