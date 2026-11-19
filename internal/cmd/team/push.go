@@ -35,33 +35,39 @@ func newCmdTeamPush(f *cmdutil.Factory) *cobra.Command {
 	var text, file string
 	var seq int
 	o := guardedpush.Defaults()
-	cmd := &cobra.Command{Use: "push <worker> (--text <message> | --message-file <path>)", Short: "Send once through a guarded agent composer", Long: `Send one message directly to an agent's console, using code-only guards.
-Requires this worktree's open worker-session binding. The recipient must have exactly
-one connected writable local terminal with a matching App/server/session binding
-and positively recognized Claude/Codex interface. Busy waits; unknown holds.
+	cmd := &cobra.Command{Use: "push <worker> (--text <message> | --message-file <path>)", Short: "Send once through a guarded agent composer", Long: `Send one message directly to another worker's terminal, typed into its input box.
+<worker> is the recipient's name, URN or id. It works only from a worktree with an
+open worker-session binding, and only when the recipient has exactly one
+connected, writable local terminal for the same App, server and session, running
+an interface the command positively recognizes (Claude or Codex). A busy
+terminal is waited for; one it cannot identify is left untouched.
 
-An empty idle composer sends promptly. A draft waits at least 30s and must remain
+When the recipient's input is empty and idle, the message is sent promptly. If a
+draft is being typed, the command waits at least 30s and the draft must stay
 byte-for-byte unchanged for at least 30s (overlapping intervals, not their sum).
-A captured draft is cleared with the proven interface sequence, then included once
-as labelled unfinished/not-author-submitted text in the SAME input as the message.
-Fresh on-screen evidence of this attempt's turn starting is required; accepted
-send receipts alone are not confirmation. No automatic resend or follow-up Enter.
+The captured draft is then cleared and re-sent once, labelled as unfinished and
+not submitted by the author, in the SAME input as your message. The command
+needs fresh on-screen evidence that this attempt's turn started; an accepted send
+receipt alone is not confirmation. It never resends and never presses Enter again.
 
-Command-specific exits: 0 sent; 9 sent-with-draft (SUCCESS, NEVER RETRY);
-10 held-busy; 11 held-unknown (both zero composer input); 12 unconfirmed
-(composer mutation may have occurred, DO NOT RETRY). General errors keep their
-usual codes. JSON carries outcome/phase/reason/recipient/seq/draftIncluded only.
+Exit codes specific to push: 0 sent; 9 sent with a draft included (SUCCESS, NEVER
+RETRY); 10 held, terminal busy; 11 held, terminal state unknown (both send
+nothing); 12 unconfirmed (the input may have been changed, DO NOT RETRY). Other
+errors keep their usual codes. JSON carries only outcome, phase, reason,
+recipient, seq and draftIncluded.
 
-Defaults: total pre-send wait120s, draft wait30s, exact-byte stability30s,
-confirmation10s, poll250ms. Stability cannot be below30s. All durations must be
-positive and bounded to24h. --seq labels provenance only: no chat post or mark.
-Prefer --message-file for sensitive text: --text has ordinary argv visibility.
-No input/screen/draft text is logged or persisted. Unknown clear semantics hold.
+Timing defaults: total wait before sending 120s, draft wait 30s, unchanged-draft
+interval 30s (not below 30s), confirmation 10s, poll 250ms. Every duration must
+be positive and at most 24h. --seq only labels the message with a chat sequence
+number: it posts nothing and marks nothing. Prefer --message-file for sensitive
+text, because --text is visible in the process list. No input, screen or draft
+text is logged or stored.
 
-The local lock serializes only this command's attempts. Orca has no atomic
-conditional send: a human/external sender can race the final read and input.
-Draft bytes remain in memory only; process death can lose a captured draft.
-Source merge does not migrate unguarded callers, install or enable anything.`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+Limits: the lock serializes only this command's own attempts, and the terminal
+host (Orca) has no atomic conditional send, so a person or another tool typing at
+the same moment can race the final read and the send. A captured draft is held in
+memory only, so killing the process can lose it.`, Example: `  hadron team push Iris --message-file ./note.txt
+  hadron team push Iris --text "Please check the team chat" --wait-timeout 30s`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if !o.Validate() || seq < 0 {
 			return exitcode.Newf(exitcode.Usage, "invalid push timing or seq (stability must be at least30s)")
 		}
@@ -196,7 +202,7 @@ Source merge does not migrate unguarded callers, install or enable anything.`, A
 	cmd.Flags().IntVar(&seq, "seq", 0, "optional chat sequence label only")
 	cmd.Flags().DurationVar(&o.Wait, "wait-timeout", o.Wait, "total pre-send wait")
 	cmd.Flags().DurationVar(&o.DraftWait, "draft-wait", o.DraftWait, "minimum observed draft wait")
-	cmd.Flags().DurationVar(&o.Stable, "draft-stable-for", o.Stable, "unchanged draft interval (minimum30s)")
+	cmd.Flags().DurationVar(&o.Stable, "draft-stable-for", o.Stable, "unchanged draft interval (minimum 30s)")
 	cmd.Flags().DurationVar(&o.Confirm, "confirm-timeout", o.Confirm, "fresh screen confirmation deadline")
 	cmd.Flags().DurationVar(&o.Poll, "poll-interval", o.Poll, "observation interval")
 	return cmd
