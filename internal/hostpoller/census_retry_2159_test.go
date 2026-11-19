@@ -21,8 +21,8 @@ func TestMultiWorkerCensusRetryKeepsAttemptAuthority2159(t *testing.T) {
 			if err := f.p.state.setHostID("h1"); err != nil {
 				t.Fatal(err)
 			}
-			template := f.p.cfg.Workers["iris"]
-			f.p.cfg.Workers = map[string]WorkerConfig{}
+			template := f.p.startCfg.Workers["iris"]
+			f.p.startCfg.Workers = map[string]WorkerConfig{}
 			f.p.workerRefs = map[string]string{}
 			f.source.snapshot.Workers = nil
 			agents := map[string]*loopAgent2060{}
@@ -31,12 +31,12 @@ func TestMultiWorkerCensusRetryKeepsAttemptAuthority2159(t *testing.T) {
 			events := map[string]Event{}
 			for i := 0; i < 4; i++ {
 				ref, id, token := fmt.Sprintf("worker%d", i), fmt.Sprintf("id%d", i), fmt.Sprintf("repo/worker%d", i)
-				if err := os.MkdirAll(f.p.cfg.WorktreePath(token), 0700); err != nil {
+				if err := os.MkdirAll(f.p.startCfg.WorktreePath(token), 0700); err != nil {
 					t.Fatal(err)
 				}
 				w := template
 				w.Worktrees = []string{token}
-				f.p.cfg.Workers[ref] = w
+				f.p.startCfg.Workers[ref] = w
 				f.p.workerRefs[id] = ref
 				f.source.snapshot.Workers = append(f.source.snapshot.Workers, RelaunchWorker{WorkerID: id, Family: "claude", Desired: "RUNNING", Reason: "LONG_LIVED", SessionID: "sid-" + id, Worktrees: []string{token}})
 			}
@@ -57,7 +57,7 @@ func TestMultiWorkerCensusRetryKeepsAttemptAuthority2159(t *testing.T) {
 			}
 			f.p.orcaLaunch = func(_ context.Context, s OrcaLaunchSpec) (Agent, error) {
 				for _, row := range f.source.snapshot.Workers {
-					if s.Dir == f.p.cfg.WorktreePath(row.Worktrees[0]) {
+					if s.Dir == f.p.startCfg.WorktreePath(row.Worktrees[0]) {
 						a := &loopAgent2060{done: make(chan struct{})}
 						agents[row.WorkerID] = a
 						starts[row.WorkerID]++

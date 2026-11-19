@@ -9,6 +9,7 @@
 package hostpoller
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -27,6 +28,14 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
+	// sourcePath and sourceHash name the file this Config was loaded from and
+	// the content it held; a poller compares them to the file each poll.
+	// Empty for a Config built in code. A Config is a snapshot: once loaded
+	// it is never changed, and a reload (cli#2623) builds a new one and swaps
+	// the poller's pointer, so a pass that took one Config sees one
+	// consistent set of workers however long it runs.
+	sourcePath string
+	sourceHash [sha256.Size]byte
 	// Capabilities is an explicit full declaration at every refresh, never inferred.
 	Capabilities []string `yaml:"capabilities"`
 	// Server is the Hadron server URL; empty means the CLI's usual resolution.
@@ -298,6 +307,12 @@ func LoadConfig(path string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading host config: %w", err)
 	}
+	return loadConfigBytes(path, raw)
+}
+
+// loadConfigBytes is LoadConfig for content already read, so a reload judges
+// exactly the bytes it hashed.
+func loadConfigBytes(path string, raw []byte) (*Config, error) {
 	var c Config
 	dec := yaml.NewDecoder(strings.NewReader(string(raw)))
 	dec.KnownFields(true)
@@ -336,6 +351,12 @@ func LoadConfig(path string) (*Config, error) {
 	if err := c.validate(); err != nil {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
 	}
+	// The absolute path, so a later change of working directory cannot make a
+	// reload read a different file.
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	c.sourcePath, c.sourceHash = path, sha256.Sum256(raw)
 	return &c, nil
 }
 
@@ -495,6 +516,24 @@ func (c *Config) validate() error {
 // state file, where C2's --orca-host-config finds the same locks.
 func (c *Config) DeliveryStateDir() string { return filepath.Dir(c.StateFile) }
 
+// Worker is the configuration of one worker reference.
+func (c *Config) Worker(ref string) (WorkerConfig, bool) {
+	w, ok := c.Workers[ref]
+	return w, ok
+}
+
+// Repo is the local clone for a repo token.
+func (c *Config) Repo(token string) (string, bool) {
+	p, ok := c.Repos[token]
+	return p, ok
+}
+
+// Account is a launcher account profile by name.
+func (c *Config) Account(name string) (AccountProfile, bool) {
+	a, ok := c.Accounts[name]
+	return a, ok
+}
+
 // WorkerRefs lists the configured worker references in a stable order.
 func (c *Config) WorkerRefs() []string {
 	refs := make([]string, 0, len(c.Workers))
@@ -601,7 +640,8 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 	owner := map[string]claim{}
 	var errs []string
 	for _, ref := range c.WorkerRefs() {
-		for _, token := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+		w, _ := c.Worker(ref)
+		for _, token := range s.worktreesFor(ref, w.Worktrees) {
 			dir := filepath.Clean(c.WorktreePath(token))
 			if real, err := filepath.EvalSymlinks(dir); err == nil {
 				dir = real

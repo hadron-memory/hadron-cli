@@ -14,7 +14,7 @@ func TestWorkerStartRefusesABusyTreeForAnOrcaWorker2121(t *testing.T) {
 	p, srv, host := testPoller(t)
 	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude-holger"})
 	rec := &recordedOrca{err: errors.New("must not be called")}
-	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 	host.occupant = "pid 77 (claude)"
 	srv.notDone["s1"] = 1
 	srv.batches = [][]Operation{{startOp()}}

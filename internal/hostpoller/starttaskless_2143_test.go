@@ -30,7 +30,7 @@ func TestWorkerStartWithNoTaskLaunchesWithTheRecoverPrompt2143(t *testing.T) {
 			p, srv, host := testPoller(t)
 			orcaWorker(p, t.TempDir(), LauncherProfile{Family: "claude", Mode: ModeShort, Model: "m", Account: "acct1"}, AccountProfile{Bin: "claude"})
 			rec := &recordedOrca{}
-			p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+			p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 			srv.notDone["s1"] = 2
 			srv.batches = [][]Operation{{tasklessStart(extra)}}
 			step(t, p)

@@ -1931,7 +1931,7 @@ func TestMemorySetCreateOwnerMe(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemory"], &vars)
-	// spec 047: the org-less path must OMIT orgId (nil pointer → omitted), not
+	// spec 047: the org-less path must OMIT orgRef (nil pointer → omitted), not
 	// send it as an explicit null — that is what routes the server to the
 	// user-owned path.
 	if _, present := vars["orgRef"]; present {

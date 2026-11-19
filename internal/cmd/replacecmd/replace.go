@@ -33,6 +33,8 @@ type replaceNodeDTO struct {
 
 type replaceResultDTO struct {
 	NodesScanned      int              `json:"nodesScanned"`
+	NodesSelected     int              `json:"nodesSelected"`
+	NodesSkipped      int              `json:"nodesSkipped"`
 	NodesChanged      int              `json:"nodesChanged"`
 	TotalReplacements int              `json:"totalReplacements"`
 	DryRun            bool             `json:"dryRun"`
@@ -96,9 +98,11 @@ node still has the old text:
     replace change specs);
   - compiled boot prompts (a compile writes them: team worker compile);
   - nodes under a Channel's reserved address (channel list prints it).
-Skipped nodes are not counted in "scanned", and this command does not report
-how many were skipped. To check that the old text is gone, search for it
-afterwards: hadron search "<old>" -m <memory> lists the notes that still
+Skipped nodes are not counted in "scanned". The command says how many were
+skipped: a line "Skipped N node(s): ..." under the totals, printed only when N
+is above 0 (in --json, nodesSkipped is always present, and nodesSelected is the
+number of nodes picked before the protections applied). To check that the old
+text is gone, search for it afterwards: hadron search "<old>" -m <memory> lists the notes that still
 mention it (search also matches by meaning, so read the hits).
 
 --prefix narrows a --memory to one branch: the node at that loc and
@@ -127,7 +131,8 @@ prints "No matches — nothing to replace." on stderr and writes nothing
 It prints the totals ("Replaced 3 occurrence(s) across 2 of 40 node(s)
 scanned."), then a table of the changed nodes: LOC, REPLACEMENTS and FIELDS
 (content×2 means two matches in the body). --json prints nodesScanned,
-nodesChanged, totalReplacements, dryRun and results.
+nodesSelected, nodesSkipped, nodesChanged, totalReplacements, dryRun and
+results.
 
 Before it changes a node, it saves the node's previous text as a revision
 in its version history, labelled with --reason if you give one. Pass --reason
@@ -211,6 +216,16 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 				if err != nil {
 					return replaceResultDTO{}, api.MapError(err)
 				}
+				// A success envelope can still carry a null or absent result
+				// (cli#2527, the class of #2493): a command error, never a panic.
+				if resp == nil || resp.SearchReplaceInNodes == nil {
+					if dry {
+						return replaceResultDTO{}, exitcode.Newf(exitcode.Error,
+							"the server answered searchReplaceInNodes with no result and no error; this was a preview, so nothing was written")
+					}
+					return replaceResultDTO{}, exitcode.Newf(exitcode.Error,
+						"the server answered searchReplaceInNodes with no result and no error, so the outcome is unknown: the replacement may have been applied; read the affected nodes (hadron node revision list <node>) before retrying")
+				}
 				return toDTO(resp.SearchReplaceInNodes), nil
 			}
 
@@ -280,6 +295,8 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 func toDTO(r *gen.SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) replaceResultDTO {
 	dto := replaceResultDTO{
 		NodesScanned:      r.NodesScanned,
+		NodesSelected:     r.NodesSelected,
+		NodesSkipped:      r.NodesSkipped,
 		NodesChanged:      r.NodesChanged,
 		TotalReplacements: r.TotalReplacements,
 		DryRun:            r.DryRun,
@@ -318,6 +335,9 @@ func renderReport(w io.Writer, dto replaceResultDTO) error {
 	}
 	fmt.Fprintf(w, "%s %d occurrence(s) across %d of %d node(s) scanned%s\n",
 		verb, dto.TotalReplacements, dto.NodesChanged, dto.NodesScanned, suffix)
+	if dto.NodesSkipped > 0 {
+		fmt.Fprintf(w, "Skipped %d node(s): not inspected or changed (comments, governed nodes, compiled boot prompts, or nodes under a Channel's address); they may still contain the old text.\n", dto.NodesSkipped)
+	}
 	if len(dto.Results) == 0 {
 		return nil
 	}

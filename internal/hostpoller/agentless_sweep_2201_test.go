@@ -266,10 +266,10 @@ func TestSweepEndsOnlyWhenTheFreshRowStillNamesTheCensusedWorktree2201(t *testin
 	}
 	for name, change := range changes {
 		f := newAgentlessFixture(t, stoppedRow("still-open"))
-		w := f.p.cfg.Workers["iris"]
+		w := f.p.startCfg.Workers["iris"]
 		w.Worktrees = []string{"repo/iris", "repo/other"}
-		f.p.cfg.Workers["iris"] = w
-		if err := os.MkdirAll(f.p.cfg.WorktreePath("repo/other"), 0700); err != nil {
+		f.p.startCfg.Workers["iris"] = w
+		if err := os.MkdirAll(f.p.startCfg.WorktreePath("repo/other"), 0700); err != nil {
 			t.Fatal(err)
 		}
 		first := f.src.nth(1)

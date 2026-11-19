@@ -30,18 +30,18 @@ func TestHealthyWorkersUseOneDiscoverySnapshot2120(t *testing.T) {
 	if err := f.p.state.setHostID("h1"); err != nil {
 		t.Fatal(err)
 	}
-	template := f.p.cfg.Workers["iris"]
-	f.p.cfg.Workers = map[string]WorkerConfig{}
+	template := f.p.startCfg.Workers["iris"]
+	f.p.startCfg.Workers = map[string]WorkerConfig{}
 	f.p.workerRefs = map[string]string{}
 	f.source.snapshot.Workers = nil
 	for i := 0; i < 100; i++ {
 		ref, id, token := fmt.Sprintf("worker%d", i), fmt.Sprintf("id%d", i), fmt.Sprintf("repo/worker%d", i)
-		if err := os.MkdirAll(f.p.cfg.WorktreePath(token), 0700); err != nil {
+		if err := os.MkdirAll(f.p.startCfg.WorktreePath(token), 0700); err != nil {
 			t.Fatal(err)
 		}
 		w := template
 		w.Worktrees = []string{token}
-		f.p.cfg.Workers[ref] = w
+		f.p.startCfg.Workers[ref] = w
 		f.p.workerRefs[id] = ref
 		f.p.agents[id] = &fakeAgent{done: make(chan struct{}), pid: 1000 + i}
 		f.source.snapshot.Workers = append(f.source.snapshot.Workers, RelaunchWorker{WorkerID: id, Family: "claude", Desired: "RUNNING", Reason: "LONG_LIVED", SessionID: "sid-" + id, Worktrees: []string{token}})
@@ -157,7 +157,7 @@ func TestC5RequiresTheBindingLock2120(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.p.Wait()
-	release, err := delivery.LockBinding(f.p.cfg.WorktreePath("repo/iris"), time.Second)
+	release, err := delivery.LockBinding(f.p.startCfg.WorktreePath("repo/iris"), time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +298,7 @@ func TestCancelledRecoveryPassBreaksObservationContinuity2120(t *testing.T) {
 func TestUntrackedRecognizedAgentPreventsRecovery2120(t *testing.T) {
 	f := newLoopFixture2060(t)
 	proc := t.TempDir()
-	censusFixture2060(t, proc, f.p.cfg.WorktreePath("repo/iris"), 31337)
+	censusFixture2060(t, proc, f.p.startCfg.WorktreePath("repo/iris"), 31337)
 	f.p.relaunch.Probe = func(ctx context.Context, target hostrelaunch.Target) (hostrelaunch.Observation, error) {
 		rows, err := strictRelaunchCensus(ctx, proc, target.Worktree, func(ctx context.Context) error { return ctx.Err() })
 		out := hostrelaunch.Observation{Proven: err == nil, PIDs: []int{}}
@@ -330,12 +330,12 @@ func TestRelaunchTargetRequiresFamilyRegistrationAndRoot2120(t *testing.T) {
 				f.source.snapshot.Workers[0].Family = "codex"
 			case "registration":
 				token := "repo/not-registered"
-				if err := os.MkdirAll(f.p.cfg.WorktreePath(token), 0700); err != nil {
+				if err := os.MkdirAll(f.p.startCfg.WorktreePath(token), 0700); err != nil {
 					t.Fatal(err)
 				}
 				f.source.snapshot.Workers[0].Worktrees = []string{token}
 			case "root":
-				dir := f.p.cfg.WorktreePath("repo/iris")
+				dir := f.p.startCfg.WorktreePath("repo/iris")
 				if err := os.Remove(dir); err != nil {
 					t.Fatal(err)
 				}

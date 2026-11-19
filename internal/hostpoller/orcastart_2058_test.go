@@ -27,11 +27,11 @@ func (r *recordedOrca) launch(_ context.Context, spec OrcaLaunchSpec) (Agent, er
 }
 
 func orcaWorker(p *Poller, disk string, prof LauncherProfile, acct AccountProfile) {
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.LaunchVia, w.Profile, w.DiskTmp = LaunchViaOrca, &prof, disk
-	p.cfg.Workers["iris"] = w
-	p.cfg.Accounts = map[string]AccountProfile{prof.Account: acct}
-	p.cfg.OrcaLaunch = OrcaLaunchConfig{OrcaBin: "/usr/bin/orca"}
+	p.startCfg.Workers["iris"] = w
+	p.startCfg.Accounts = map[string]AccountProfile{prof.Account: acct}
+	p.startCfg.OrcaLaunch = OrcaLaunchConfig{OrcaBin: "/usr/bin/orca"}
 }
 
 func TestWorkerStartLaunchesThroughOrcaFromTheProfile2058(t *testing.T) {
@@ -39,9 +39,9 @@ func TestWorkerStartLaunchesThroughOrcaFromTheProfile2058(t *testing.T) {
 	disk := filepath.Join(t.TempDir(), "disk")
 	orcaWorker(p, disk, LauncherProfile{Family: "codex", Mode: ModeShort, Model: "gpt-6-luna", Account: "acct1"},
 		AccountProfile{Bin: "codex", CodexHome: "/acct/home"})
-	p.cfg.Workers["iris"] = func() WorkerConfig { w := p.cfg.Workers["iris"]; w.Family = "codex"; return w }()
+	p.startCfg.Workers["iris"] = func() WorkerConfig { w := p.startCfg.Workers["iris"]; w.Family = "codex"; return w }()
 	rec := &recordedOrca{}
-	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 	srv.notDone["s1"] = 2
 	op := startOp()
 	op.Args["family"] = "codex"
@@ -60,7 +60,7 @@ func TestWorkerStartLaunchesThroughOrcaFromTheProfile2058(t *testing.T) {
 	if want := []string{"codex", "--no-daemon", "--dangerously-bypass-approvals-and-sandbox", "-m", "gpt-6-luna", PromptArg}; !reflect.DeepEqual(s.Argv, want) {
 		t.Fatalf("argv = %q", s.Argv)
 	}
-	if s.Dir != p.cfg.WorktreePath("repo/iris") || s.Title != "iris" {
+	if s.Dir != p.startCfg.WorktreePath("repo/iris") || s.Title != "iris" {
 		t.Fatalf("dir %q title %q", s.Dir, s.Title)
 	}
 	want := []string{"HADRON_LAUNCH_GRANT=hlg_grant", "TMPDIR=" + disk, "CLAUDE_CODE_TMPDIR=" + disk,
@@ -86,7 +86,7 @@ func TestWorkerStartLaunchesThroughOrcaFromTheProfile2058(t *testing.T) {
 func TestWorkerStartKeepsTheExecPathByDefault2058(t *testing.T) {
 	p, srv, host := testPoller(t)
 	rec := &recordedOrca{}
-	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 	srv.notDone["s1"] = 1
 	srv.batches = [][]Operation{{startOp()}}
 	step(t, p)
@@ -102,7 +102,7 @@ func TestWorkerStartThroughOrcaNeverFallsBack2058(t *testing.T) {
 		"no launcher wired": func(p *Poller) {},
 		"orca refuses": func(p *Poller) {
 			rec := &recordedOrca{err: errors.New("orca did not create the terminal (invalid_argument)")}
-			p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.cfg})
+			p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -179,8 +179,8 @@ func TestOrcaWorkerValidation2058(t *testing.T) {
 func TestOrcaLaunchSpecForARelaunch2058(t *testing.T) {
 	p, _, _ := testPoller(t)
 	orcaWorker(p, filepath.Join(t.TempDir(), "disk"), LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}, AccountProfile{Bin: "claude-holger"})
-	p.EnableOrcaLaunch((&recordedOrca{}).launch, ConfigProfiles{Cfg: p.cfg})
-	spec, err := p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "", "", Resolved{})
+	p.EnableOrcaLaunch((&recordedOrca{}).launch, ConfigProfiles{Cfg: p.startCfg})
+	spec, err := p.orcaLaunchSpec("iris", p.startCfg.Workers["iris"], p.startCfg.WorktreePath("repo/iris"), "", "", Resolved{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestOrcaLaunchSpecForARelaunch2058(t *testing.T) {
 		t.Fatalf("relaunch prompt %q", spec.Prompt)
 	}
 	// A grant-bearing start with no task binds first, then recovers (G2).
-	spec, err = p.orcaLaunchSpec("iris", p.cfg.Workers["iris"], p.cfg.WorktreePath("repo/iris"), "hlg_g", "", Resolved{})
+	spec, err = p.orcaLaunchSpec("iris", p.startCfg.Workers["iris"], p.startCfg.WorktreePath("repo/iris"), "hlg_g", "", Resolved{})
 	if err != nil || !strings.Contains(spec.Prompt, "session start") || !strings.Contains(spec.Prompt, "session recover") || spec.Env[0] != launchGrantEnvVar+"=hlg_g" {
 		t.Fatalf("G2 start spec %+v %v", spec, err)
 	}

@@ -90216,6 +90216,10 @@ func (v *SearchReplaceInNodesResponse) GetSearchReplaceInNodes() *SearchReplaceI
 type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult struct {
 	// Selected nodes whose requested text fields were actually inspected.
 	NodesScanned int `json:"nodesScanned"`
+	// Unique authorized nodes selected before bulk-write protections are applied.
+	NodesSelected int `json:"nodesSelected"`
+	// Selected nodes protected from inspection and replacement.
+	NodesSkipped int `json:"nodesSkipped"`
 	// Nodes with at least one replacement.
 	NodesChanged      int `json:"nodesChanged"`
 	TotalReplacements int `json:"totalReplacements"`
@@ -90228,6 +90232,16 @@ type SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult struct {
 // GetNodesScanned returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesScanned, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesScanned() int {
 	return v.NodesScanned
+}
+
+// GetNodesSelected returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesSelected, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesSelected() int {
+	return v.NodesSelected
+}
+
+// GetNodesSkipped returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesSkipped, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) GetNodesSkipped() int {
+	return v.NodesSkipped
 }
 
 // GetNodesChanged returns SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult.NodesChanged, and is useful for accessing the field via an interface.
@@ -94859,6 +94873,44 @@ func (v *SetHostWorkerTerminalsInput) GetAppRef() string { return v.AppRef }
 
 // GetReports returns SetHostWorkerTerminalsInput.Reports, and is useful for accessing the field via an interface.
 func (v *SetHostWorkerTerminalsInput) GetReports() []*WorkerTerminalReportInput { return v.Reports }
+
+// SetMemorySourceTokenResponse is returned by SetMemorySourceToken on success.
+type SetMemorySourceTokenResponse struct {
+	// Set encrypted source token for non-GitHub-App repos.
+	//
+	// Accepts the entity's ID or URN.
+	SetMemorySourceToken *SetMemorySourceTokenSetMemorySourceTokenMemory `json:"setMemorySourceToken"`
+}
+
+// GetSetMemorySourceToken returns SetMemorySourceTokenResponse.SetMemorySourceToken, and is useful for accessing the field via an interface.
+func (v *SetMemorySourceTokenResponse) GetSetMemorySourceToken() *SetMemorySourceTokenSetMemorySourceTokenMemory {
+	return v.SetMemorySourceToken
+}
+
+// SetMemorySourceTokenSetMemorySourceTokenMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type SetMemorySourceTokenSetMemorySourceTokenMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn string `json:"urn"`
+}
+
+// GetId returns SetMemorySourceTokenSetMemorySourceTokenMemory.Id, and is useful for accessing the field via an interface.
+func (v *SetMemorySourceTokenSetMemorySourceTokenMemory) GetId() string { return v.Id }
+
+// GetUrn returns SetMemorySourceTokenSetMemorySourceTokenMemory.Urn, and is useful for accessing the field via an interface.
+func (v *SetMemorySourceTokenSetMemorySourceTokenMemory) GetUrn() string { return v.Urn }
 
 type SetModelFamilyAvailabilityInput struct {
 	AppRef string `json:"appRef"`
@@ -133688,6 +133740,22 @@ type __SetHostWorkerAvailabilityInput struct {
 // GetInput returns __SetHostWorkerAvailabilityInput.Input, and is useful for accessing the field via an interface.
 func (v *__SetHostWorkerAvailabilityInput) GetInput() *SetHostWorkerAvailabilityInput { return v.Input }
 
+// __SetMemorySourceTokenInput is used internally by genqlient
+type __SetMemorySourceTokenInput struct {
+	Ref       string  `json:"ref"`
+	Token     string  `json:"token"`
+	ExpiresAt *string `json:"expiresAt,omitempty"`
+}
+
+// GetRef returns __SetMemorySourceTokenInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SetMemorySourceTokenInput) GetRef() string { return v.Ref }
+
+// GetToken returns __SetMemorySourceTokenInput.Token, and is useful for accessing the field via an interface.
+func (v *__SetMemorySourceTokenInput) GetToken() string { return v.Token }
+
+// GetExpiresAt returns __SetMemorySourceTokenInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__SetMemorySourceTokenInput) GetExpiresAt() *string { return v.ExpiresAt }
+
 // __SetOrgBootPromptSigningInput is used internally by genqlient
 type __SetOrgBootPromptSigningInput struct {
 	Org          string  `json:"org"`
@@ -171830,6 +171898,8 @@ const SearchReplaceInNodes_Operation = `
 mutation SearchReplaceInNodes ($input: SearchReplaceInNodesInput!) {
 	searchReplaceInNodes(input: $input) {
 		nodesScanned
+		nodesSelected
+		nodesSkipped
 		nodesChanged
 		totalReplacements
 		dryRun
@@ -173657,6 +173727,48 @@ func SetHostWorkerAvailability(
 	}
 
 	data_ = &SetHostWorkerAvailabilityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetMemorySourceToken.
+const SetMemorySourceToken_Operation = `
+mutation SetMemorySourceToken ($ref: ID!, $token: String!, $expiresAt: String) {
+	setMemorySourceToken(ref: $ref, token: $token, expiresAt: $expiresAt) {
+		id
+		urn
+	}
+}
+`
+
+// cli#2511 (gap #60): write-only source token for a repository outside the
+// GitHub App. The reply selects identity only — never a field that could echo
+// the token. An omitted expiresAt keeps the server's default (no expiry).
+func SetMemorySourceToken(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	token string,
+	expiresAt *string,
+) (data_ *SetMemorySourceTokenResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetMemorySourceToken",
+		Query:  SetMemorySourceToken_Operation,
+		Variables: &__SetMemorySourceTokenInput{
+			Ref:       ref,
+			Token:     token,
+			ExpiresAt: expiresAt,
+		},
+	}
+
+	data_ = &SetMemorySourceTokenResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

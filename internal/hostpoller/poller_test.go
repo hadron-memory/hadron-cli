@@ -446,7 +446,7 @@ func TestWorktreeCreateRefusesAnUnconfiguredRepo(t *testing.T) {
 
 func TestWorktreeCreateIsIdempotentOnRedelivery(t *testing.T) {
 	p, srv, host := testPoller(t)
-	host.trees[p.cfg.WorktreePath("repo/x")] = WorktreeState{Exists: true, IsWorktree: true, Branch: "iris/x"}
+	host.trees[p.startCfg.WorktreePath("repo/x")] = WorktreeState{Exists: true, IsWorktree: true, Branch: "iris/x"}
 	srv.batches = [][]Operation{{{ID: "o1", Type: OpWorktreeCreate, WorkerID: "id-iris",
 		Args: map[string]any{"repo": "acme/repo", "baseBranch": "main", "branchName": "iris/x", "label": "x"}}}}
 	step(t, p)
@@ -474,7 +474,7 @@ func TestWorktreeRemoveRefusesAnythingWithWorkToLose(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			p, srv, host := testPoller(t)
-			host.trees[p.cfg.WorktreePath("repo/iris")] = c.st
+			host.trees[p.startCfg.WorktreePath("repo/iris")] = c.st
 			srv.batches = [][]Operation{{{ID: "o1", Type: OpWorktreeRemove, WorkerID: "id-iris", Args: map[string]any{"worktree": "repo/iris"}}}}
 			step(t, p)
 			if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, c.want) {
@@ -525,7 +525,7 @@ func TestWorkerStartHandsOnlyTheGrantToTheAgent(t *testing.T) {
 	if strings.Join(spec.Argv, " ") != "claude-worker --model opus" {
 		t.Errorf("argv must be the configured one: %v", spec.Argv)
 	}
-	if spec.Dir != p.cfg.WorktreePath("repo/iris") {
+	if spec.Dir != p.startCfg.WorktreePath("repo/iris") {
 		t.Errorf("dir: %s", spec.Dir)
 	}
 	var grant bool
@@ -626,7 +626,7 @@ func TestWorkerStartFailsWhenNothingBindsInTheGrantLifetime(t *testing.T) {
 	if host.agent == nil || host.agent.terminations() != 1 {
 		t.Error("a start whose session never binds must terminate the process group it launched")
 	}
-	if st, err := LoadState(p.cfg.StateFile); err != nil {
+	if st, err := LoadState(p.startCfg.StateFile); err != nil {
 		t.Fatal(err)
 	} else if len(st.Agents) != 0 {
 		t.Errorf("a failed start must leave no agents entry in the state file: %+v", st.Agents)
@@ -649,7 +649,7 @@ func TestWorkerStartFailsWhenTheAgentExitsFirst(t *testing.T) {
 	if host.agent == nil || host.agent.terminations() != 1 {
 		t.Error("a start whose agent exited unbound still stops the group it launched")
 	}
-	if st, err := LoadState(p.cfg.StateFile); err != nil {
+	if st, err := LoadState(p.startCfg.StateFile); err != nil {
 		t.Fatal(err)
 	} else if len(st.Agents) != 0 {
 		t.Errorf("a failed start must leave no agents entry in the state file: %+v", st.Agents)
@@ -680,7 +680,7 @@ func TestWorkerStartDeadlineHonoursABindThatLandsLate(t *testing.T) {
 	if host.agent == nil || host.agent.terminations() != 0 {
 		t.Error("a bound start is never terminated")
 	}
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -708,7 +708,7 @@ func TestWorkerStartExpiringAgentHonoursABindReportedLate(t *testing.T) {
 	if host.agent == nil || host.agent.terminations() != 0 {
 		t.Error("an exited agent is not stopped before the answer is authoritative")
 	}
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -847,7 +847,7 @@ func TestWorkerStartStopsAskingWhenAnswersStayUnclear(t *testing.T) {
 	if host.agent == nil || host.agent.terminations() != 0 {
 		t.Error("an unclear answer never stops the agent")
 	}
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -894,7 +894,7 @@ func TestWorkerStartRedeliveredAfterStartStuckRefusesWithoutStoppingTheAgent(t *
 	if agent.terminations() != 0 {
 		t.Error("the re-delivery never stops the deliberately-left-running agent")
 	}
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -951,7 +951,7 @@ func TestWorkerStartSuccessKeepsTheAgentRunning(t *testing.T) {
 	if host.agent == nil || host.agent.terminations() != 0 {
 		t.Error("a start whose session binds must not be terminated")
 	}
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1022,7 +1022,7 @@ func TestFailedWorkerEndKeepsTheWorktree(t *testing.T) {
 		t.Error("the worktree must survive a failed end")
 	}
 	// It survives a restart: the keep is in the state file.
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1106,7 +1106,7 @@ func TestHostKeyIsNeverReadFromTheEnvironment(t *testing.T) {
 
 func TestWorktreeRemoveRefusesATreeNotRegisteredForItsWorker(t *testing.T) {
 	p, srv, host := testPoller(t)
-	other := p.cfg.WorktreePath("repo/someone-else")
+	other := p.startCfg.WorktreePath("repo/someone-else")
 	host.trees[other] = WorktreeState{Exists: true, IsWorktree: true, Branch: "b", Upstream: "origin/b"}
 	srv.batches = [][]Operation{{{ID: "r1", Type: OpWorktreeRemove, WorkerID: "id-iris", Args: map[string]any{"worktree": "repo/someone-else"}}}}
 	step(t, p)
@@ -1156,7 +1156,7 @@ func TestWorkerStartActsOnTheOutcomeTheServerNamed(t *testing.T) {
 			if got, want := host.agent.terminations() != 0, tc.stops; got != want {
 				t.Errorf("terminations=%d, want a stop: %v", host.agent.terminations(), tc.stops)
 			}
-			st, err := LoadState(p.cfg.StateFile)
+			st, err := LoadState(p.startCfg.StateFile)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1223,7 +1223,7 @@ func TestWorkerStartKeepsTheAgentWhenTheStopIsUnconfirmed(t *testing.T) {
 	if host.agent.terminations() != 1 {
 		t.Fatal("the failed start still tries the stop")
 	}
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1273,7 +1273,7 @@ func TestWorkerEndIgnoresAnAgentThatExitedLongAgo(t *testing.T) {
 func TestRegistrationSavesTheHostID(t *testing.T) {
 	p, _, _ := testPoller(t)
 	step(t, p)
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1333,12 +1333,12 @@ func TestRestartKeepsALiveAgentsTree(t *testing.T) {
 		t.Fatal(err)
 	}
 	// A fresh poller over the same state file: nothing in memory.
-	st, err := LoadState(p.cfg.StateFile)
+	st, err := LoadState(p.startCfg.StateFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	host.alive = map[int]bool{4242: true}
-	q := New(p.cfg, srv, host, st, hostKey, nil)
+	q := New(p.startCfg, srv, host, st, hostKey, nil)
 	srv.batches = [][]Operation{{removeOp()}}
 	step(t, q)
 	if r := only(t, srv); r.outcome != Failed || !strings.Contains(r.reason, "still running") {
@@ -1447,7 +1447,7 @@ func TestConfigRefusesAWorktreeListedForTwoWorkers(t *testing.T) {
 
 func TestWorktreeCreateRefusesAnotherWorkersToken(t *testing.T) {
 	p, srv, host := testPoller(t)
-	p.cfg.Workers["dara"] = WorkerConfig{Family: "codex", Launch: []string{"x"}, Worktrees: []string{"repo/x"}}
+	p.startCfg.Workers["dara"] = WorkerConfig{Family: "codex", Launch: []string{"x"}, Worktrees: []string{"repo/x"}}
 	srv.batches = [][]Operation{{{ID: "c1", Type: OpWorktreeCreate, WorkerID: "id-iris",
 		Args: map[string]any{"repo": "acme/repo", "baseBranch": "main", "branchName": "iris/x", "label": "x"}}}}
 	step(t, p)

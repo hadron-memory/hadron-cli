@@ -11,6 +11,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -24,24 +25,30 @@ type deliverySettingsDTO struct {
 	FailedChecksToOverdue  int `json:"failedChecksToOverdue"`
 }
 
-const deliverySettingsHelp = `Workers expected to check the team channel use check period (default 600
-seconds) and failed checks to overdue (default 2, minimum 1). The server adds
-5 minutes of slack. The server derives worker check status; these commands
-do not calculate it. When changing the period, the App manager must also set
-the team ticker cadence to the same value. This command does not edit tickers.
+const deliverySettingsHelp = `In use: how the server decides a worker has gone quiet.
+A worker expected to check the team channel has a check period (default 600
+seconds). After failed checks to overdue (default 2, minimum 1) missed periods,
+plus 5 minutes of slack, the server marks it OVERDUE; the server derives that
+status, these commands do not calculate it. A ticker is the schedule that wakes
+workers to check the chat ("hadron ticker --help"). When you change the check
+period, also set the team ticker's cadence to the same value, for example
+"hadron ticker update <ticker-id> --cadence-seconds <seconds>": this command does
+not edit tickers.
 
-Dark alarms use dark alarm window (default 1800 seconds, server bounds
-300–86400). A task-less alarm names the worker and whether it is overdue
-or has an unacknowledged wake. Acknowledging it does not end the episode.
+A dark alarm is the alert raised for a worker that has gone silent. It uses the
+dark alarm window (default 1800 seconds, server bounds 300–86400). A task-less
+alarm names the worker and whether it is overdue or has an unacknowledged wake.
+Acknowledging it does not end the episode.
 
-The batch window, busy delay and stuck window are deprecated push-delivery
-settings, retained for compatibility. They have no new checking consumer.
-The batch window is also the ticker cadence floor: no ticker or
-self-subscription may tick faster than it. Lowering it allows faster tickers.
-Existing tickers keep their cadence. Raising it above a live ticker's cadence
-is refused, naming the tickers to slow or delete first. Managers change this
-shared floor; minimum 60 seconds, default 120. It also limits the normal wake rate.
-Defaults for busy delay and stuck window are 600 and 900 seconds.
+Deprecated, kept for compatibility (leave these alone unless you need the
+ticker floor): the batch window, busy delay and stuck window were push-delivery
+settings and have no new checking consumer. The batch window is still the
+ticker cadence floor: no ticker or self-subscription may tick faster than it.
+Lowering it allows faster tickers. Existing tickers keep their cadence. Raising
+it above a live ticker's cadence is refused, naming the tickers to slow or
+delete first. Managers change this shared floor; minimum 60 seconds, default
+120. It also limits the normal wake rate. Defaults for busy delay and stuck
+window are 600 and 900 seconds.
 
 The server rejects values outside its current limits: busy delay 1–86400
 seconds, stuck window 1–604800 seconds, and stuck must exceed busy plus the
@@ -64,6 +71,11 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 		help = "Change only the fields you pass; omitted fields keep their values.\nNo null or reset values are accepted.\nWith no field flags, set returns current setting values but still requires\nmanager write permission. Use get for a read.\n\nThe server checks App-manager authority. Without --instruction, the call\nuses your ordinary authenticated caller with no worker session. With the\nflag, the binding and instruction behavior below apply.\n\n" + deliverySettingsHelp
 	}
 	c := &cobra.Command{Use: use, Short: short, Long: help, Args: cobra.NoArgs}
+	if set {
+		c.Example = `  hadron team delivery-settings set --check-period-seconds 900
+  hadron ticker update <ticker-id> --cadence-seconds 900
+  hadron team delivery-settings set --dark-alarm-window-seconds 3600`
+	}
 	var batch, busy, stuck, checkPeriod, failedChecks, darkWindow string
 	if set {
 		c.Flags().StringVar(&batch, "batch-window-seconds", "", "Shared ticker cadence floor and batch window, whole seconds (minimum 60); existing tickers keep their cadence; raising above a live ticker is refused")
@@ -74,7 +86,9 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 		c.Flags().StringVar(&darkWindow, "dark-alarm-window-seconds", "", "Dark-worker alarm window in whole seconds (server bounds 300–86400)")
 	}
 	if set {
-		addManagerInstruction(c)
+		// One server statement per page: the body says 2026-11-04, so the flag
+		// does too instead of a commit hash.
+		instruction.AddManagerFlag(c, deliverySettingsInstructionMinimum)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		var claim *gen.ActInstructionInput
