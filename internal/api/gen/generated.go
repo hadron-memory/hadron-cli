@@ -46283,18 +46283,6 @@ type CreateScopeResponse struct {
 func (v *CreateScopeResponse) GetCreateScope() *CreateScopeCreateScope { return v.CreateScope }
 
 // CreateSecretCreateSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type CreateSecretCreateSecret struct {
 	SecretFields `json:"-"`
 }
@@ -90722,18 +90710,6 @@ func (v *SecretEventsSecretEventsSecretEventsPageItemsSecretEvent) GetSessionId(
 }
 
 // SecretFields includes the GraphQL fields of Secret requested by the fragment SecretFields.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretFields struct {
 	Id string `json:"id"`
 	// Owner scope: user | org | app.
@@ -90805,18 +90781,6 @@ type SecretResponse struct {
 func (v *SecretResponse) GetSecret() *SecretSecret { return v.Secret }
 
 // SecretSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretSecret struct {
 	SecretFields `json:"-"`
 }
@@ -90948,18 +90912,6 @@ type SecretVersionsResponse struct {
 func (v *SecretVersionsResponse) GetSecret() *SecretVersionsSecret { return v.Secret }
 
 // SecretVersionsSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretVersionsSecret struct {
 	Id string `json:"id"`
 	// Cascade-resolution key; unique per owner; lowercase [a-z0-9-], max 64.
@@ -91085,18 +91037,6 @@ func (v *SecretsSecretsSecretsPage) GetItems() []*SecretsSecretsSecretsPageItems
 func (v *SecretsSecretsSecretsPage) GetTotal() int { return v.Total }
 
 // SecretsSecretsSecretsPageItemsSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type SecretsSecretsSecretsPageItemsSecret struct {
 	SecretFields `json:"-"`
 }
@@ -99174,7 +99114,7 @@ func (v *TaskLinkDefectInstructedLinkDefectToPullRequestDefectLink) GetCreated()
 
 // TaskLinkDefectInstructedResponse is returned by TaskLinkDefectInstructed on success.
 type TaskLinkDefectInstructedResponse struct {
-	// #4280 (S12b; Proposed hrn:node:hadronmemory.com:specs:cor:agt:130:05) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
+	// #4280 (S12b) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
 	LinkDefectToPullRequest *TaskLinkDefectInstructedLinkDefectToPullRequestDefectLink `json:"linkDefectToPullRequest"`
 }
 
@@ -99223,7 +99163,7 @@ func (v *TaskLinkDefectLinkDefectToPullRequestDefectLink) GetCreated() bool { re
 
 // TaskLinkDefectResponse is returned by TaskLinkDefect on success.
 type TaskLinkDefectResponse struct {
-	// #4280 (S12b; Proposed hrn:node:hadronmemory.com:specs:cor:agt:130:05) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
+	// #4280 (S12b) — record that a defect found after a pull request merged traces back to it: one review.defect-linked event on the PR's build task (prTaskRef, which needs a pull_request reference: PR_REFERENCE_MISSING). defectRef is the defect's issue URL, under the same rules as a task reference of kind issue, stored as given. introducedAtHead, when given, is a full 40-hex head frozen on that task (DEFECT_HEAD_NOT_FROZEN otherwise); the review-quality report counts the defect against approving reviews at that head or a later one. Who: a worker through its bound session whose current Worker.role is qa-engineer or coordinator, a person who manages the App, or a worker whose holder manages it, with an instruction. The App's key and a run may not. A caller who may not read the App is answered as for a task that does not exist (TASK_NOT_FOUND); one who may read it but not link gets DEFECT_LINK_FORBIDDEN, with nothing written. One link per (defect, task): linking the same pair again returns the existing link with created false and writes nothing. A retry is checked like a first call: an introducedAtHead that was never frozen is still refused DEFECT_HEAD_NOT_FROZEN, not answered with the existing link (#4286). A link never changes a verdict, a seat, readiness or the task.
 	LinkDefectToPullRequest *TaskLinkDefectLinkDefectToPullRequestDefectLink `json:"linkDefectToPullRequest"`
 }
 
@@ -106150,8 +106090,7 @@ func (v *TeamRequestGrantSignatureResponse) GetRequestGrantSignature() *TeamRequ
 
 // TeamReviewQualityReportResponse is returned by TeamReviewQualityReport on success.
 type TeamReviewQualityReportResponse struct {
-	// #4281 — an App's review quality measures for one calendar month, one row per reviewer model family and model
-	// (hrn:node:hadronmemory.com:specs:cor:agt:130:06). month is YYYY-MM, a UTC calendar month; anything else is
+	// #4281 — an App's review quality measures for one calendar month, one row per reviewer model family and model. month is YYYY-MM, a UTC calendar month; anything else is
 	// BAD_USER_INPUT. A review is one finished review-seat task carrying at least one verdict; its latest verdict
 	// (hrn:node:hadronmemory.com:specs:cor:agt:130:02) decides its row and its month, and its findings are the seat task's
 	// result findings with their latest dispositions (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Findings and
@@ -106171,7 +106110,7 @@ func (v *TeamReviewQualityReportResponse) GetReviewQualityReport() *TeamReviewQu
 // TeamReviewQualityReportReviewQualityReport includes the requested fields of the GraphQL type ReviewQualityReport.
 // The GraphQL type's documentation follows.
 //
-// #4281 — an App's review quality measures for one UTC calendar month (hrn:node:hadronmemory.com:specs:cor:agt:130:06).
+// #4281 — an App's review quality measures for one UTC calendar month.
 type TeamReviewQualityReportReviewQualityReport struct {
 	// The month asked for, YYYY-MM.
 	Month string `json:"month"`
@@ -106195,7 +106134,7 @@ func (v *TeamReviewQualityReportReviewQualityReport) GetRows() []*TeamReviewQual
 // TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow includes the requested fields of the GraphQL type ReviewQualityRow.
 // The GraphQL type's documentation follows.
 //
-// #4281 — one reviewer row of the review quality measures (hrn:node:hadronmemory.com:specs:cor:agt:130:06). Every
+// #4281 — one reviewer row of the review quality measures. Every
 // ratio comes with its numerator and denominator: findingsPerReview = findings / reviews; shareConfirmed =
 // confirmedFindings / findings; defectsMissedPerApprovingReview = defectsMissed / approvingReviews.
 type TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow struct {
@@ -118425,18 +118364,6 @@ type UpdateSecretResponse struct {
 func (v *UpdateSecretResponse) GetUpdateSecret() *UpdateSecretUpdateSecret { return v.UpdateSecret }
 
 // UpdateSecretUpdateSecret includes the requested fields of the GraphQL type Secret.
-// The GraphQL type's documentation follows.
-//
-// One named, owner-scoped secret — the general secret store (#677).
-// Polymorphic owner (user | org | app). The value is encrypted at rest and
-// WRITE-ONLY: no field here ever returns it — kind + metadata are the
-// inspectable half (you can see THAT a secret exists and, for
-// webfetch-auth, WHERE it applies, without decrypting). A bare name
-// resolves at run time via the CSS cascade, most-specific-first:
-// user -> org. An App-owned secret is NEVER in that cascade: no run
-// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
-// secret keeps its values as versions: every store adds one
-// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type UpdateSecretUpdateSecret struct {
 	SecretFields `json:"-"`
 }
