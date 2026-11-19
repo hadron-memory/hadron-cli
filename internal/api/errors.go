@@ -1640,6 +1640,10 @@ func codeForExtension(code string) int {
 	// Missing is NotFound; unfinished is a state conflict, never a safe retry.
 	case code == "TASK_FINDING_NOT_FOUND":
 		return exitcode.NotFound
+	// cli#2514 (hadron-server#4414): a --worked-from reference the server will not take (unreadable, missing,
+	// not runnable, repeated, or an eleventh) is an input the caller changes.
+	case code == "TASK_ROLE_TASK_REFS_INVALID":
+		return exitcode.Usage
 	case code == "TASK_NOT_FINISHED":
 		return exitcode.Conflict
 	// The agent-task surface (hadron-cli#830 over server #1705/#1706). Who
