@@ -493,24 +493,24 @@ section between the markers.
 | `team health status` |  |  | y | #1054 | f1bdb3714169 |  | unread |  |
 | `team health sweep` |  |  | n | #1054 | 78f5e220548c |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 |  | unread |  |
-| `team host` |  |  | n | #1054 | 28ba5f6b1123 |  | unread |  |
+| `team host` |  |  | n | #1054 | 75443525fb36 |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 1fd63557ff82 |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 987010ccfab8 |  | unread |  |
 | `team host import` |  |  | y | #1054 | 569a14ffdba5 |  | unread |  |
-| `team host issue` |  |  | y | #1054 | d40d268d1de2 |  | unread |  |
+| `team host issue` |  |  | y | #1054 | 22c5303d5e76 |  | unread |  |
 | `team host list` | ls |  | n | #1054 | e8a70f9dadc8 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 3573e30ba157 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 |  | unread |  |
-| `team host run` |  |  | y | #1054 | e9d3a56b90d2 |  | unread |  |
+| `team host run` |  |  | y | #1054 | 59086ec74b14 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | 3d499d7ef2c5 |  | unread |  |
 | `team host status` |  |  | n | #1054 | a9dc32c61602 |  | unread |  |
-| `team host sweep` |  |  | n | #1054 | 37ad266412fb |  | unread |  |
+| `team host sweep` |  |  | n | #1054 | 22ee75e32e51 |  | unread |  |
 | `team host sweep install` |  |  | y | #1054 | 963f6f18deb7 |  | unread |  |
 | `team host sweep status` |  |  | y | #1054 | 49f6a1dd42c4 |  | unread |  |
 | `team host sweep uninstall` |  |  | y | #1054 | 5378961914a6 |  | unread |  |
 | `team host sweep-runs` |  |  | y | #1054 | 32ee49aff1d3 |  | unread |  |
 | `team host unassign` |  |  | y | #1054 | c6a84d263133 |  | unread |  |
-| `team host up` |  |  | y | #1054 | a2f4b40c2dde |  | unread |  |
+| `team host up` |  |  | y | #1054 | 84e3789be870 |  | unread |  |
 | `team init` |  |  | y | #1054 | 36b43e94a913 |  | unread |  |
 | `team pause` |  |  | y | #1054 | a7a2e519211d |  | unread |  |
 | `team pr` |  |  | n | #1054 | 902a16053e28 |  | unread |  |
@@ -590,7 +590,7 @@ section between the markers.
 | `team ticker` |  |  | n | #1054 | 94b5026458fd |  | unread |  |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 |  | unread |  |
-| `team ticker settings set` |  |  | y | #1054 | c00aeba416b5 |  | unread |  |
+| `team ticker settings set` |  |  | y | #1054 | 99dc28db9fd6 |  | unread |  |
 | `team usage` |  |  | y | #1054 | 8d7f8122b307 |  | unread |  |
 | `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 |  | unread |  |
 | `team usage collect` |  |  | y | #1054 | a5848d3e96a5 |  | unread |  |

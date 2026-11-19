@@ -260,7 +260,7 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
 		Long: `QUICKSTART — the smallest working setup is four steps:
 
 1. Mint the host's key (writes a 0600 file; that file is key_file below):
-   hadron app key create
+   hadron app key create <app-ref> --out /etc/hadron/host.key
 2. Let that key act as this host (once, as the App's manager):
    hadron app key scope grant <key-id> host:operate --host-id <host-id>
 3. Write host.yaml (minimal; the full shape is at the bottom of this page):

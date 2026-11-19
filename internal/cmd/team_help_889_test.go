@@ -46,10 +46,14 @@ func TestTeamRosterHelpStatesInServerPrecedence(t *testing.T) {
 func TestTeamHostIssueHelpNamesTheIssuerArms(t *testing.T) {
 	// Whitespace-normalized like the roster test above: the Long wraps.
 	help := strings.Join(strings.Fields(cmdHelpOut(t, "team", "host", "issue")), " ")
-	// #1054 reworded the sentence; the pinned claim is unchanged: the issuable
-	// arms include worker.start and worker.end, and App managers may issue them.
-	if !strings.Contains(help, "worker.start and worker.end — is issued by the worker's holder, the worker it reports to in the App's roster, or whoever manages the App") {
-		t.Fatalf("host issue help must say start and end are issuable by App managers (#1971):\n%s", help)
+	// #1054 reworded the sentence; the pinned claim follows cor:agt:070:05
+	// (built hadron-server#1876/#1877/#1883): worktree operations are issuable
+	// by the holder, the reports-to worker or an App manager, while
+	// worker.start and worker.end are an App manager's only — the holder and
+	// the reports-to worker are refused. Jonas's BLIND P2 on #2578 caught the
+	// widened wording that promised the server does not allow.
+	if !strings.Contains(help, "worktree.create and worktree.remove are issued by the worker's holder, the worker it reports to in the App's roster, or whoever manages the App; worker.start and worker.end are issued by whoever manages the App only — the holder and the reports-to worker are refused") {
+		t.Fatalf("host issue help must keep the cor:agt:070:05 issuer split (#1971, #2578):\n%s", help)
 	}
 	if !strings.Contains(help, "worker.deliver is not issued") {
 		t.Fatalf("host issue help must name worker.deliver as the only not-yet-issued:\n%s", help)

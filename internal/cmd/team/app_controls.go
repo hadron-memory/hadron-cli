@@ -228,8 +228,8 @@ because it would change nothing.
 Standby is not a ticker setting; there is no standby switch to configure
 here. To read the current values, use
 ` + "`hadron team ticker settings get`" + `.
-On success the new settings print as one line (see ` + "`settings get`" + ` for the
-fields' meaning).
+On success the output is the App line and one settings line ending
+` + "`(derived: true|false)`" + ` (see ` + "`settings get`" + ` for the fields' meaning).
 --json prints minCadenceSeconds, liveCap, selfSubscribeCadenceSeconds,
 dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker settings set --live-cap 10 --app acme.com:eng\n  hadron team ticker settings set --clear-wake-daily-budget", Args: cobra.NoArgs}
 	var raw [4]string

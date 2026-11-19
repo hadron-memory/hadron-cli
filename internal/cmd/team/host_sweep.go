@@ -60,9 +60,13 @@ This command requests no daemon start, kill or restart; the service manager
 owns it.
 
 Exit codes: 0 the pass ran — including an expected unavailable observation,
-which waits for the next timer tick; 2 an exec-host preflight refusal (records
-nothing, waits for the next tick, no service restart); 5 lock contention
-(another sweep holds the lock; no service restart).`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+which waits for the next timer tick; 2 --config missing or unreadable,
+--app or --server disagreeing with the config (the config supplies the
+sweep's App and server), or an exec-host preflight refusal (records
+nothing, waits for the next tick, no service restart); 1 host state
+unreadable or an unexpected error; 5 lock contention (another sweep holds
+the lock) or no saved registration (start the host poller first). No
+refusal restarts a service.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		started := time.Now()
 		if configPath == "" {
 			return exitcode.Newf(exitcode.Usage, "--config is required")

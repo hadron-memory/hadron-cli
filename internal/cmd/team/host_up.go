@@ -180,11 +180,13 @@ starting a worker needs whoever manages the App. A refusal of your
 credential, on the registration read or on an operation, stops the run:
 nothing further is issued (exit 3 or 8).
 
-The reconcile mode is the App's, not this command's: nothing is planned
-unless the desired state's sweepMode is APPLY, and the mode is set with
-` + "`hadron team app sweep-mode`" + ` (an OFF or OBSERVE App plans nothing — workers
-read SWEEP_NOT_APPLY; raise the mode, then run again). --dry-run is the
-default and --apply is its opposite: pass one or neither, never both.
+The reconcile mode is the App's, not this command's, and up reads it from the
+desired state: the server's desired state reports the App's mode, and a
+--desired-state-file names its own sweepMode. Nothing is planned unless it is
+APPLY, and the App's mode is set with ` + "`hadron team app sweep-mode`" + ` (an OFF or
+OBSERVE App plans nothing — workers read SWEEP_NOT_APPLY; raise the mode,
+then run again). --dry-run is the default and --apply is its opposite: pass
+one or neither, never both.
 
 Exit codes: 0 nothing failed; 1 a step failed; 2 usage, or Orca is not
 reachable here; 3 your credential was refused as not accepted (the run

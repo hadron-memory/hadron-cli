@@ -172,8 +172,9 @@ running this CLI as a poller: it registers which workers it can run, as
 which model family and in which worktree, collects the operations queued
 for it, carries them out and reports the outcome.
 
-By goal: see what hosts exist and who they run (` + "`list`" + `, ` + "`status`" + `);
-read or issue queued operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
+By goal: see what hosts exist and who they run (` + "`list`" + `, ` + "`setup`" + `); check
+one host's configuration and registration (` + "`status`" + `); read or issue queued
+operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
 (` + "`assign`" + `, ` + "`unassign`" + `, ` + "`setup`" + `, ` + "`import`" + `); reconcile workers to that
 record (` + "`up`" + `, ` + "`sweep`" + `, and the recorded outcomes in ` + "`sweep-runs`" + `); keep one
 host running (` + "`run`" + `, ` + "`report-stops`" + `, ` + "`availability`" + `). The three
@@ -479,9 +480,10 @@ unregistered host is HOST_NOT_FOUND (exit 4).
 On success the command prints the issued operation (id, type, status,
 worker); follow it to completion with ` + "`hadron team host ops --worker <worker>`" + `.
 
-WHO ISSUES IT: any operation — worktree.create, worktree.remove, worker.start
-and worker.end — is issued by the worker's holder, the worker it reports to
-in the App's roster, or whoever manages the App (else
+WHO ISSUES IT: worktree.create and worktree.remove are issued by the worker's
+holder, the worker it reports to in the App's roster, or whoever manages the
+App; worker.start and worker.end are issued by whoever manages the App only —
+the holder and the reports-to worker are refused (else
 HOST_OPERATION_NOT_PERMITTED, exit 8). In a worktree bound to a worker, the
 operation is that worker's: it qualifies only as the target's reports-to.
 Pass --as-person to issue it as yourself instead — as the target's holder or
