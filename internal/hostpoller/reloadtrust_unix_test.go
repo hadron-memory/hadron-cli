@@ -565,3 +565,23 @@ func TestAnUnjudgeablePathIsRefusedNotSkipped2623(t *testing.T) {
 		t.Fatalf("a path through too many symlinks must be refused: %v", err)
 	}
 }
+
+// A component that cannot be looked at (a directory with no permissions) is
+// refused rather than skipped: skipping it would judge a path part-way.
+func TestAPathThroughAnUnreadableDirectoryIsRefused2623(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can look at everything")
+	}
+	root := trustTempDir(t)
+	closed := filepath.Join(root, "closed")
+	if err := os.Mkdir(closed, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(closed, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(closed, 0o755) })
+	if err := trustedAncestors(filepath.Join(closed, "prog"), "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
+		t.Fatalf("a path through a directory that cannot be looked at must be refused: %v", err)
+	}
+}
