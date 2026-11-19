@@ -1182,31 +1182,31 @@ func codeForExtension(code string) int {
 	// its locks: a state conflict, never a request to retry automatically.
 	case code == "INSTALL_TARGET_CHANGED":
 		return exitcode.Conflict
-	// Decision refusals (hadron-server #1641, src/lib/decisions/index.ts
-	// DecisionRefusalCode; `hadron decision`, cli#1335). DECISION_NOT_FOUND and
-	// DECISION_LOG_NOT_FOUND ride the _NOT_FOUND suffix rule (4).
+	// Decision refusals (hadron-server #1641, src/lib/questions/index.ts
+	// QuestionRefusalCode; `hadron decision`, cli#1335). QUESTION_NOT_FOUND and
+	// QUESTION_LOG_NOT_FOUND ride the _NOT_FOUND suffix rule (4).
 	// Who-may refusals are permissions, so 8:
-	case code == "DECISION_FORBIDDEN" || code == "DECISION_NOT_DECIDER" ||
-		code == "DECISION_NOT_ASKER" || code == "DECISION_IMPERSONATION_REFUSED":
+	case code == "QUESTION_FORBIDDEN" || code == "QUESTION_NOT_DECIDER" ||
+		code == "QUESTION_NOT_ASKER" || code == "QUESTION_IMPERSONATION_REFUSED":
 		return exitcode.Forbidden
-	// Inputs the caller fixes: the ask/amend payload (DECISION_INVALID names the
+	// Inputs the caller fixes: the ask/amend payload (QUESTION_INVALID names the
 	// bad field by JSON pointer), a decider outside the log's eligible set, a
 	// tier the request cannot use, a log placed in a Memory that cannot hold one
 	// (choose another), or a filter over a log too large to filter (drop it):
-	case code == "DECISION_INVALID" || code == "DECISION_TIER_TOO_LOW" ||
-		code == "DECISION_DECIDER_NOT_ELIGIBLE" || code == "DECISION_RECOMMENDATION_MISSING" ||
-		code == "DECISION_PART_RENUMBER" || code == "DECISION_LOG_ENCRYPTED" ||
-		code == "DECISION_LOG_MIRRORED" || code == "DECISION_LOG_SYSTEM_MEMORY" ||
-		code == "DECISION_LOG_ANONYMOUS_MEMORY" || code == "DECISION_LOG_TOO_LARGE_FOR_FILTER":
+	case code == "QUESTION_INVALID" || code == "QUESTION_TIER_TOO_LOW" ||
+		code == "QUESTION_DECIDER_NOT_ELIGIBLE" || code == "QUESTION_RECOMMENDATION_MISSING" ||
+		code == "QUESTION_PART_RENUMBER" || code == "QUESTION_LOG_ENCRYPTED" ||
+		code == "QUESTION_LOG_MIRRORED" || code == "QUESTION_LOG_SYSTEM_MEMORY" ||
+		code == "QUESTION_LOG_ANONYMOUS_MEMORY" || code == "QUESTION_LOG_TOO_LARGE_FOR_FILTER":
 		return exitcode.Usage
 	// The decision's or log's state forbids the change until something else
 	// changes (already answered, withdrawn, superseded, decided; a log already
-	// at that loc): retrying blind will not help, so 5. DECISION_CONTAINED and
-	// DECISION_[LOG_]NOT_APPROVABLE come from node delete/move/approve, not from
+	// at that loc): retrying blind will not help, so 5. QUESTION_CONTAINED and
+	// QUESTION_[LOG_]NOT_APPROVABLE come from node delete/move/approve, not from
 	// the decision group, and stay on the default until measured there.
-	case code == "DECISION_LOG_EXISTS" || code == "DECISION_ANSWER_IMMUTABLE" ||
-		code == "DECISION_WITHDRAWN" || code == "DECISION_SUPERSEDED" ||
-		code == "DECISION_ANSWERED_DECIDED" || code == "DECISION_ANSWERED":
+	case code == "QUESTION_LOG_EXISTS" || code == "QUESTION_ANSWER_IMMUTABLE" ||
+		code == "QUESTION_WITHDRAWN" || code == "QUESTION_SUPERSEDED" ||
+		code == "QUESTION_ANSWERED_DECIDED" || code == "QUESTION_ANSWERED":
 		return exitcode.Conflict
 	// Task integrations (cli#1524, hadron-server#3125; plan
 	// plans:1524-find-untracked §4). Literal rows, ahead of the suffix rules:

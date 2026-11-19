@@ -40,7 +40,7 @@ func readInputFile(ios *output.IOStreams, path string) ([]byte, error) {
 // (the last one wins) and a mis-cased one ("Title"); cmdutil.CheckKeys refuses both,
 // against the target type's exact JSON names. The caller decodes into its generated input struct with
 // dec.Decode(&input) and then calls finishInput. The server still judges every
-// value (refusing with DECISION_INVALID and a JSON pointer); fields the file
+// value (refusing with QUESTION_INVALID and a JSON pointer); fields the file
 // leaves out stay nil and are omitted on the wire.
 func inputDecoder(data []byte, target any) (*json.Decoder, error) {
 	trimmed := bytes.TrimSpace(data)
