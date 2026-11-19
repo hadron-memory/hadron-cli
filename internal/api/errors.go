@@ -2074,3 +2074,23 @@ func SupersededSessionEvidence(err error) (definitive bool, sessionID, startedAt
 	}
 	return true, id, stamp
 }
+
+// ErrorDetail is one GraphQL error of a failed call: its extensions.code
+// ("" when it has none) and its message.
+type ErrorDetail struct {
+	Code    string
+	Message string
+}
+
+// ErrorDetails lists the GraphQL errors err carries (nothing for a transport
+// failure, or an HTTP error with no GraphQL body). Call it on the RAW error,
+// before MapError.
+func ErrorDetails(err error) []ErrorDetail {
+	var out []ErrorDetail
+	for _, e := range graphQLErrors(err) {
+		if e != nil {
+			out = append(out, ErrorDetail{Code: extensionCode(e), Message: e.Message})
+		}
+	}
+	return out
+}
