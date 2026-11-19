@@ -4,7 +4,7 @@
 
 ## Not in this cut
 - **Revoke.** The server's revoke page takes no target. The CLI builds no URL, takes no assertion and has no destructive revoke. Its help says that removal happens on the server's interactive page, that the CLI cannot do it, and (since the revoke-page cut below) that `hadron auth passkey revoke-page` prints the page's address.
-- **Part 2** (the `node sign` ceremony link) is still held on S2b-2.
+- **Part 2** (the `node sign` ceremony link) — cut below, in "Part 2: the node-sign ceremony URL handoff".
 - **Part 3** shipped in cli#891.
 
 ## Flow
@@ -111,3 +111,40 @@ Three mutants survive because each guard is equivalent to another check, and eac
 - **The leading-`-` refusal.** No absolute http(s) URL can start with `-`. The refusal backs up `OpenInBrowser`'s own.
 
 A fourth guard, `!u.IsAbs()`, was equivalent to the scheme allow-list and was removed.
+
+## Part 2: the node-sign ceremony URL handoff (design as built)
+
+**Scope:** the ceremony link only, `Refs #878` (the umbrella stays open). Author deltas by Wolfgang, gate comment [6982347689](https://github.com/hadron-memory/hadron-cli/issues/878#issuecomment-6982347689); reproduction by Cloe (AT0.7136). Provider: `SigningRequest.ceremonyUrl` (`String!`, hadron-server#3120, MERGED; the schema snapshot already carries the field at schema.graphql:19287). Specs: cor:api:020:01 (test for a token, never compare versions).
+
+The server hosts the ceremony page and returns its link on the request. The CLI copies it verbatim and never composes one — an output URL containing the `--server` host would be a composed one, and the pins hold a fixture host that deliberately differs from the fake server's for exactly that.
+
+**Verbatim is not raw** (BLIND P2 1, cli#2519): the line exists so a person will open it, so a hostile value must not reach a TTY byte for byte. Text mode (`ceremonyText`, `internal/cmd/node/sign.go`) prints the value verbatim when it parses as a URL and its runes are all display-neutral-clean — the same classification as a table cell; anything else goes through `output.SafeCell` (an OSC 8 hyperlink can hide the real target, OSC 52 writes the clipboard, an embedded newline forges lines). No scheme test applies to the text: a clean non-web value prints byte-identically through either arm, so the earlier "absolute http(s)" wording overstated (cli#2521); the scheme gate lives where it acts, on opening a page. `--json` keeps the raw value either way.
+
+### Where the link appears
+
+- **`--json`:** `ceremonyUrl` sits after `state` in the request DTO, for **every** state, OPEN included. The DTO shape is the stable contract; the field is always present (`String!` on the wire).
+- **Text, single request** (`node sign`, `signing-request get`, `withdraw`): one line `  ceremony: <url>`, printed **while OPEN only**. An ended request's link only explains that it ended — the schema's own words — so no ended state (COMPLETED, DECLINED, EXPIRED, WITHDRAWN, STALE) prints one; the URL stays in `--json`.
+- **Text, `signing-request list`:** the table cannot hold URLs, so each OPEN row gets an id-qualified line under the table (`<id> ceremony: <url>`), ended rows none.
+
+### The old-server refusal, token first
+
+`ceremonyUrl` is newer than the rest of the signing surface, so a server can offer signing and still refuse this one field — and that refusal's envelope quotes `SigningRequest` in the **type** position ("Cannot query field \"ceremonyUrl\" on type \"SigningRequest\""), which the surface-name loop in `mapSigningError` matches as signing-off. The two cases cannot be told apart by the envelope, so the node-signing capability token decides (cor:api:020:01; the `GET /capabilities` seam `node get` already uses):
+
+- field-position validation for `ceremonyUrl` only (`api.IsFrameworkValidationOnlyFor`), checked after the deterministic paged-list mapping and **before** the surface-name loop (order is load-bearing: the loop would swallow it) → probe;
+- token advertised: exit 2, "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)";
+- token absent, or discovery failed (which reads as not-advertised): the shipped "this server does not offer node signing" — a server that may simply be off never gets upgrade text;
+- a surface-name refusal never probes: zero capability reads, verified by a call-count pin.
+
+The probe runs only on that one branch — a switched-off server pays no extra round trip — and is injected per command (`newCeremonyTokenProbe`), so `localChecker` (`node signatures --check`) carries it too; a nil probe (no factory at hand) is mapped **explicitly** to the generic advice rather than guessing (BLIND P2 2, cli#2519: the bare fall-through used to reach the surface-name loop, whose `SigningRequest` type-position match answered signing-off — the generic mapping this section always claimed). Pinned by unit tests on `mapSigningError` in `internal/cmd/node/sign_ceremony_test.go`.
+
+### Tests and mutants (`internal/cmd/node_sign_ceremony_878_test.go`)
+
+The repro as pins, red on main first (commit 35a7d938): get/sign/list/withdraw text and `--json`, the ended-state no-line walk over all five states, the list's id-qualified lines, host-differs verbatim pins, and the three refusal pins (old-server, signing-off/never-upgrade, surface-refusal-never-probes). `--json` is indented by contract, so the pins read the field by unmarshalling — never a compact substring.
+
+Named mutants, each killed by its pin: the ended-state ceremony line (M1), the inverted token (off gets upgrade text, M2), the always-probe (surface refusal reads capabilities, M3).
+
+**BLIND delta pins** (Jonas's cli#2519 review, fbffbe79): the hostile-value neutralisation (wire form is JSON-escaped control characters — raw ESC is not valid JSON), the empty-`ceremonyUrl` no-line guard, the old-server refusal across `sign`/`withdraw`/`list` (confirming the hard break is intended, cli#2032 precedent), the paged-list refusal winning over the ceremony branch without a probe, and the probe reading the command's own `--server`.
+
+### Disclosure
+
+The gap matrix for #878 has no rows at either revision (Delta 6 is stale for this surface); the server change (hadron-server#3120) is verified MERGED, so no gap row applies.

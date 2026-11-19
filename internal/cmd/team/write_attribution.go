@@ -210,11 +210,11 @@ func authoredWriteField(field string) bool {
 		// #1524 C3: --assign-to-me claims as the bound worker (the claim's
 		// tasks are owned by and assigned to the actor), the person otherwise.
 		"claimUntrackedTaskItems",
-		// setModelFamilyAvailability is deliberately absent (#868), like
-		// setAgentTaskStallSchedule (#866): both are the App manager's
-		// writes, and the server's actorManagesApp is false for any worker
-		// actor, so attributing them refused every manager working from a
-		// bound worktree. A worker's OWN record stays authored — the worker
+		// setModelFamilyAvailability is deliberately absent for no-flag calls
+		// (#868), like setAgentTaskStallSchedule (#866). Explicit availability
+		// instructions attach their verified session in the command (#2450),
+		// not through this automatic middleware. A worker's OWN record stays
+		// authored without the flag — the worker
 		// may mark itself unavailable (cor:agt:060:08).
 		"setWorkerAvailability",
 		// #871 over server #1876 (cor:agt:070:05): a bound worker issues as

@@ -53,3 +53,13 @@ mutation RevokeAutomationTeamSnapshotGrantInstructed($id: ID!, $instruction: Act
     ...AutomationTeamSnapshotGrantFields
   }
 }
+
+# cli#1619 (server#3381): one grant by id, the same eight fields, revoked rows
+# included. Person-only on the grant's own App; there is no worker instruction
+# arm, so the --instruction revoke stays on the paged list above. An unknown or
+# unauthorized id both answer NOT_FOUND.
+query AutomationTeamSnapshotGrantById($id: ID!) {
+  automationTeamSnapshotGrant(id: $id) {
+    ...AutomationTeamSnapshotGrantFields
+  }
+}

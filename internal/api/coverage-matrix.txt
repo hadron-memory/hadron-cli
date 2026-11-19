@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 236: 198 command, 12 gap, 26 excluded
+[Query] 236: 199 command, 11 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -80,7 +80,7 @@ authenticationStatus  command auth status
 automationApproval  command automation approval
 automationApprovals  command automation approval
 automationReadGrants  command automation grant list
-automationTeamSnapshotGrant  gap #1619
+automationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 automationTeamSnapshotGrants  command automation team-snapshot-grant list
 calendarEvent  command calendar event get
 calendarEvents  command calendar events
@@ -265,7 +265,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 357: 303 command, 42 gap, 12 excluded
+[Mutation] 357: 305 command, 40 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -451,7 +451,7 @@ parkAgentTask  command team task park
 planNodeMove  command node move
 processChatResponse  gap #64
 publishAgentImport  gap #58
-publishRevision  gap #61
+publishRevision  command agent revision publish
 purgeUnansweredDecision  command decision purge
 pushMemoryToGit  gap #60
 reAdoptAutomation  command automation re-adopt
@@ -495,7 +495,7 @@ resolveCommentThread  command comment resolve
 restoreAsset  command asset restore
 restoreNode  command node restore
 restoreNodeRevision  command node revision restore
-restoreRevision  gap #61
+restoreRevision  command agent revision restore
 resumeSession  command team session start
 retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
@@ -624,54 +624,30 @@ withdrawGrant  gap #1880
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 61: 41 gap, 20 excluded
-Mutation.acknowledgeAlarm(instruction)  gap #1617
-Mutation.addAgentTaskBlocker(instruction)  gap #1617
+[Arguments] 36: 16 gap, 20 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
-Mutation.assignAgentTask(instruction)  gap #1617
-Mutation.cancelAgentTask(instruction)  gap #1617
-Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
 Mutation.createGrant(input.appRef)  gap #1880: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
-Mutation.deleteAppModelGroup(instruction)  gap #1617
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteTicker(instruction)  gap #1617
-Mutation.disposeAgentTaskFinding(instruction)  gap #1617
 Mutation.importNode(input.authoredWith)  gap #684
 Mutation.issueHostOperation(instruction)  gap #1617
 Mutation.liftTeamStopSignal(instruction)  gap #1617
-Mutation.linkDefectToPullRequest(instruction)  gap #1617
-Mutation.makeAgentTaskReady(instruction)  gap #1617
 Mutation.mergeUsers(input.consentProof)  gap #1304
-Mutation.parkAgentTask(instruction)  gap #1617
-Mutation.reassignAgentTask(instruction)  gap #1617
 Mutation.registerContextResetRecovery(input.checkpointNode)  excluded not-a-capability: the host has the server write the checkpoint (input.checkpoint) and never names an existing node (ruling 0090 A, hadron-cli#1043); the written node comes back as ContextReset.checkpointNode
-Mutation.releaseAgentTaskExternalId(instruction)  gap #1617
-Mutation.removeAgentTaskBlocker(instruction)  gap #1617
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.revokeAppGrant(instruction)  gap #1617
-Mutation.revokeAutomationReadGrant(instruction)  gap #1617
-Mutation.setAgentTaskPriority(instruction)  gap #1617
-Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
-Mutation.setAppDeliverySettings(instruction)  gap #1617
-Mutation.setAppModelGroup(instruction)  gap #1617
-Mutation.setAppProperties(instruction)  gap #1617
-Mutation.setAppTickerSettings(instruction)  gap #1617
-Mutation.setModelFamilyAvailability(instruction)  gap #1617
 Mutation.setTeamPause(instruction)  gap #1617
 Mutation.setTeamStopSignal(instruction)  gap #1617
-Mutation.setWorkerAvailability(instruction)  gap #1617
 Mutation.setWorkerWakeSettings(instruction)  gap #1617
 Mutation.subscribeWorker(instruction)  gap #1617
 Mutation.unsubscribeWorker(instruction)  gap #1617
-Mutation.updateAgentTask(instruction)  gap #1617
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
@@ -680,7 +656,6 @@ Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateTicker(instruction)  gap #1617
-Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617

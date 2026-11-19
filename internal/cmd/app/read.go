@@ -119,33 +119,32 @@ func newCmdKeyList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <app-ref> [--scopes [--host-uses <n>]]",
 		Aliases: []string{"ls"},
 		Short:   "List an App's active key metadata",
-		Long: `List active App keys through the server's manager-authorized metadata read.
+		Long: `List the active keys of an App: which keys can still sign in as it? An App key
+is a credential a program uses to act as the App. Give the App as an ID,
+hrn:app:<root>:<slug>, or the <root>:<slug> short form. Only whoever manages the
+App may list its keys; the server refuses anyone else.
 
-Pass an App ID, hrn:app:<root>:<slug>, or the <root>:<slug> short form.
-Prints only id, keyPreview, label, createdAt, lastUsedAt and revokedAt.
-No raw key, nested App.keys, host usage or AI configuration is requested.
-This is active-key inventory, not a history of revoked keys. Nullable values
-stay null in JSON and display as - in text, without guessing why they are null.
-An empty JSON result is []. Access refusals come from the server.
+The table has the columns ID (what "hadron app key revoke" takes), PREVIEW (a
+short preview of the key, so you can tell keys apart), LABEL, CREATED, LAST
+USED and REVOKED. The key itself is never returned. Revoked keys are not
+listed, so REVOKED is normally empty and this is the keys in use, not a
+history. An empty value shows as - in text and null in --json; an empty list is
+[] (text: "no active App keys returned"). Text cells have control and invisible
+characters replaced by a space and are cut at 256 characters; --json keeps
+every value as it is.
 
-Automatically reads every page, including with --scopes, --host-uses and
---instruction. A later-page error
-fails the command without a partial inventory. Requires server 27671b4b
-(hadron-server#3189) or later; there is no unpaged fallback.
+--scopes adds what each key may do beyond signing in as the App: its scopes,
+with granted-at and granted-by, and for host:operate the id of the host it acts
+as (a host is a machine that launches a team App's workers; see "hadron app key
+scope --help" and "hadron team host --help"). A key with none shows [].
+--host-uses <n> (with --scopes) also adds each key's newest n uses as a host
+(host, action, count, refusedCode, usedAt), a refused use included.
 
-This is not a snapshot: concurrent key changes can shift pages. A changed
-count or repeated ID fails without a partial inventory; equal-count changes
-can still escape detection. List again after changes settle.
-
---scopes adds what each key holds now (scope, hostId for host:operate,
-grantedAt, grantedBy) on each page; a key with none shows [].
---host-uses <n> (with --scopes) also adds each key's newest n host uses
-(host, action, count, refusedCode, usedAt), a refused use included. Neither
-ever returns the raw key.
-
-The text table replaces control and invisible characters (including newlines,
-escapes and bidi/zero-width marks) with a space and cuts a cell at 256
-characters, ending it with "…". --json keeps every original value.`,
+The command reads every page of keys. A page that fails makes the whole command
+fail, so you never get a partial inventory. The list is not a snapshot: if keys
+change while it runs, a changed count or a repeated ID fails the command, but an
+equal-count change (one key added as another is removed) can still escape
+detection. List again once changes settle. Needs server 2026-11-02 or later.`,
 		Example: `  hadron app key list hrn:app:acme.com:support
   hadron app key list acme.com:support --json
   hadron app key list acme.com:ops --scopes --host-uses 10`,

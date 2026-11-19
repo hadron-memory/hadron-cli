@@ -18,7 +18,13 @@ handling). A nonempty page with no new valid loc is ListNotAdvancing. Any error
 from either drain returns no partial transcript. Results merge only after both
 drains complete, deduplicated by loc; the unqualified version wins duplicates.
 Then the existing exact container-loc exclusion, since filter, stable seq sort
-and parseMessage apply. Nil-seq rows keep their existing full-history position.
+and parseMessage apply. A nil-seq row found by the unqualified (legacy and
+current-provider) drain keeps its existing position, after the sequenced rows
+and in its stream's order. A nil-seq row found only by the explicit chat-message
+drain follows those, in its own stream's order: the stable sort runs over the
+two streams concatenated, unqualified first. That is the stated merge order, not
+a global cross-stream ordering or snapshot guarantee. `--since` drops every
+nil-seq row from either stream.
 No stored cursor/read mark changes, no team-chat or memory-export change.
 
 There are twice as many paged drains on today's provider, including one empty
@@ -40,6 +46,22 @@ on refusal. The existing130-row clamp test expects both drains, still130 message
 
 Required mutants: remove explicit drain; remove cross-drain loc dedupe; share
 one paging seen-set. Each must fail the corresponding compatibility test.
+
+Follow-up pins (cli#1519). The goldens are a recorded baseline, not a value to
+keep current: `testdata/chat-read-1516/PROVENANCE` names the revision they were
+recorded from (cbe7dd32) and the SHA-256 of each, a test checks the files against
+it, and `UPDATE_1516_GOLDENS` refuses unless it names that full revision AND the
+working tree's production code (`internal/`, `cmd/`, `go.mod`, `go.sum`; test
+files and testdata excluded) equals it, with no uncommitted edit and no untracked
+production file (the original recording commit passes; #1518 and later do not).
+The check fails closed, so a shallow clone without that revision can compare but
+never regenerate. Further pins: a same-loc row
+with different content, envelope and seq in both streams emits the unqualified
+row once; the exact offset sequence of each drain (today `[0 2 4 5]`, after the
+exclusion `[0 2 4]`, explicit `[0 1]`); and qualified-only nil-seq rows plus the
+container loc in the explicit stream (sequenced rows first, then nil-seq rows in
+concatenated-stream order, the exact container absent, a near-container sibling
+kept).
 Provider applicability is independent QA: real compiled CLI on private stacks
 at main-equivalent server and #2836 head, platform and academy/legacy fixtures,
 since/JSON comparison to main, at least partly Sonnet-class/luna, cleanup.

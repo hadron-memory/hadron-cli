@@ -69,9 +69,10 @@ func appPatternsText(patterns []string) string {
 
 const appModelGroupLong = `A model group is a named list of model patterns (lowercase globs: * any run,
 ? one character) matched against a worker session's self-reported model. It is
-a matching input only, never an authorization input. The App's Team Agent
-declares groups (hadron agent model-group); the App may override one by name
-or add its own. Groups resolve live: a change to the Agent's group shows here
+a matching input only, never an authorization input. The App's Team Agent (the
+Agent a team App installs to hold the team's shared definitions, such as its
+roles and its team chat) declares groups ("hadron agent model-group"); the App
+may override one by name or add its own. Groups resolve live: a change to the Agent's group shows here
 at once unless the App overrides it.
 
 Names and patterns are sent exactly as given. The server lowercases them,
@@ -159,7 +160,7 @@ this App; otherwise it is the App's own group. Repeat --pattern once per glob;
 each value is sent as one list item, never split on commas. With no --pattern
 the group is set to an empty list, which matches no one.
 
-Whoever manages the App may set it. One mutation is sent and never retried.
+Whoever manages the App may set it. One change is sent and never retried.
 JSON is the stored group {name, patterns, updatedAt}, as the server returns it
 (lowercased).
 
@@ -168,6 +169,10 @@ JSON is the stored group {name, patterns, updatedAt}, as the server returns it
   hadron app model-group set acme.com:eng-team frontier`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := memberInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ref, err := requiredReadAppRef(args[0])
 			if err != nil {
 				return err
@@ -179,7 +184,11 @@ JSON is the stored group {name, patterns, updatedAt}, as the server returns it
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SetAppModelGroup(cmd.Context(), client, ref, args[1], list)
+			ctx, err := memberWriteContext(cmd, ref, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := setManagerModelGroup(ctx, client, ref, args[1], list, claim)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
@@ -195,6 +204,7 @@ JSON is the stored group {name, patterns, updatedAt}, as the server returns it
 		},
 	}
 	cmd.Flags().StringArrayVar(&patterns, "pattern", nil, "a model glob; repeat for each (omit all for an empty list)")
+	addManagerInstruction(cmd)
 	return cmd
 }
 
@@ -210,12 +220,16 @@ declares, the server answers MODEL_GROUP_NOT_FOUND, shown as it comes (exit 4).
 To change the Agent's group, use hadron agent model-group.
 
 Whoever manages the App may clear. Confirmation is required; scripts pass
---yes. One mutation is sent and never retried. JSON is {app, name, cleared}.
+--yes. One change is sent and never retried. JSON is {app, name, cleared}.
 
 ` + appModelGroupLong,
 		Example: `  hadron app model-group clear acme.com:eng-team frontier --yes`,
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := memberInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ref, err := requiredReadAppRef(args[0])
 			if err != nil {
 				return err
@@ -228,7 +242,11 @@ Whoever manages the App may clear. Confirmation is required; scripts pass
 			if err != nil {
 				return err
 			}
-			resp, err := gen.DeleteAppModelGroup(cmd.Context(), client, ref, name)
+			ctx, err := memberWriteContext(cmd, ref, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := clearManagerModelGroup(ctx, client, ref, name, claim)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
@@ -243,5 +261,6 @@ Whoever manages the App may clear. Confirmation is required; scripts pass
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
+	addManagerInstruction(cmd)
 	return cmd
 }

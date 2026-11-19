@@ -2,6 +2,7 @@ package spec
 
 import (
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,7 +14,7 @@ import (
 )
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
-	var memory, prefix string
+	var memory, prefix, role string
 	var limit, offset int
 	var approved, unapproved, minted, unminted bool
 	cmd := &cobra.Command{
@@ -30,11 +31,24 @@ Repair with hadron node update <node-urn> --role spec.
 
 By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to display one page
-after merging both spec markers.`,
+after merging both spec markers.
+
+With --role spec.rule, the server returns that role and its dotted descendants
+(such as spec.rule.detail). The value is passed verbatim; only that
+provider-filtered stream is listed: legacy tag-only specs are not
+included. The CLI does not match roles locally or fall back on older servers.
+The value need not be a spec role: nodes that carry it are listed under the
+same columns, spec or not, and the CLI does not check it. Omit --role to keep
+the normal tag/role union. An empty --role is refused.`,
 		Example: `  hadron spec list -m hrn:mem:micromentor.org:platform-specs
-  hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json`,
+  hadron spec list -m hrn:mem:micromentor.org:platform-specs --prefix msg:010 --json
+  hadron spec list -m hrn:mem:micromentor.org:platform-specs --role spec.rule --approved --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			roleGiven := cmd.Flags().Changed("role")
+			if roleGiven && strings.TrimSpace(role) == "" {
+				return exitcode.Newf(exitcode.Usage, "--role is blank; omit it or name a role")
+			}
 			if approved && unapproved {
 				return exitcode.Newf(exitcode.Usage, "--approved and --unapproved are mutually exclusive")
 			}
@@ -72,11 +86,51 @@ after merging both spec markers.`,
 			if prefix != "" {
 				prefixArg = &prefix
 			}
-			// The two marker streams are each paged to exhaustion and deduped
-			// before a user window is cut. Applying --limit/--offset to either
-			// stream on the server would skip specs from the other (#684).
+			// Default discovery pages and merges both marker streams. Explicit
+			// role discovery reads only the provider-filtered stream (two status
+			// partitions for --unapproved). Cut the user window only afterwards.
 			var rawNodes []*api.ListNode
 			switch {
+			case roleGiven:
+				filter := newNodeFilter(memoryArg, prefixArg, nil)
+				if filter == nil {
+					filter = &gen.NodeFilter{}
+				}
+				filter.Role = &role // Provider owns matching; do not normalise or widen.
+				if minted || unminted {
+					filter.Minted = &minted
+				}
+				if approved {
+					state := gen.NodeApprovalStateApproved
+					filter.ApprovalState = &state
+				}
+				if unapproved {
+					state := gen.NodeApprovalStateNotApproved
+					filter.ApprovalState = &state
+				}
+				rawNodes, err = scanAllNodesFiltered(cmd.Context(), client, filter)
+				if err == nil && unapproved {
+					// The second partition runs only after the first succeeded, and a
+					// failure in either ends the command with no rows (#2474).
+					state := gen.NodeApprovalStateSuperseded
+					filter.ApprovalState = &state
+					var stale []*api.ListNode
+					stale, err = scanAllNodesFiltered(cmd.Context(), client, filter)
+					if err == nil {
+						rawNodes = unionNodeResults(rawNodes, stale)
+					}
+				} else if err == nil {
+					// Canonicalize the single explicit stream before the display window.
+					rawNodes = unionNodeResults(rawNodes, nil)
+				}
+				if err != nil && roleFilterUnsupported(err) {
+					// An older server has no role field on its node filter. Refuse
+					// with that said, at the exit code the raw error had; never
+					// fall back to a local match (cor:api:240:01).
+					return exitcode.Newf(exitcode.FromError(api.MapError(err)),
+						"this server does not support --role: its node filter has no role field. Upgrade the server, or omit --role to list the tagged specs. Nothing was listed and no fallback was tried")
+				}
+				err = api.MapError(err)
 			case minted || unminted:
 				rawNodes, err = scanAllSpecNodesWithMint(cmd.Context(), client, memoryArg, prefixArg, minted)
 			case approved:
@@ -174,6 +228,7 @@ after merging both spec markers.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to list (ID or fully-qualified URN; default: the memory from spec use, else every memory you can read)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by citation prefix (e.g. msg:010)")
+	cmd.Flags().StringVar(&role, "role", "", "server role-family filter, passed verbatim; excludes legacy tag-only specs")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of specs to display (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (implies a single page)")
 	cmd.Flags().BoolVar(&approved, "approved", false, "show only specs whose current text is approved (a metadata-only revision keeps the approval)")

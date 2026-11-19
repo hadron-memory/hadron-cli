@@ -40,6 +40,7 @@ func newCmdTeamTaskUpdate(f *cmdutil.Factory) *cobra.Command {
 	var clearRefs bool
 	var clearDescription, clearTags, clearRequirements, clearStartBy, clearFinishBy, clearProperties bool
 	var closeSession, noCloseSession bool
+	var rawInstruction string
 	cmd := &cobra.Command{
 		Use:   "update <task> [flags]",
 		Short: "Edit a task's title, description, tags, requirements, deadlines or close-session choice",
@@ -108,7 +109,9 @@ even beside those, the whole edit is refused (TASK_NOT_OWNER) and nothing
 changes. The assignee's reference edit needs a server at or after
 hadron-server#3718 (f4db15e0); an older server refuses it with TASK_NOT_OWNER.
 A finished or cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
-a stall alarm. Success prints the task as task get does; --json returns it.`,
+a stall alarm. Success prints the task as task get does; --json returns it.
+
+` + taskInstructionHelp,
 		Example: `  # fix a title and clear the description
   hadron team task update AT1.2 --title "Fix the login redirect" --clear-description
 
@@ -119,6 +122,10 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
   hadron team task update AT1.2 --start-by 2026-11-02T09:00:00Z --close-session`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
 			taskId, err := taskRefArg(f, args)
 			if err != nil {
 				return err
@@ -265,7 +272,18 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTaskUpdate(cmd.Context(), client, taskId, &input)
+			var fields gen.AgentTaskFields
+			if claim != nil {
+				var ir *gen.AgentTaskUpdateInstructedResponse
+				if ir, err = gen.AgentTaskUpdateInstructed(cmd.Context(), client, taskId, &input, claim); err == nil {
+					fields = ir.UpdateAgentTask.AgentTaskFields
+				}
+			} else {
+				var resp *gen.AgentTaskUpdateResponse
+				if resp, err = gen.AgentTaskUpdate(cmd.Context(), client, taskId, &input); err == nil {
+					fields = resp.UpdateAgentTask.AgentTaskFields
+				}
+			}
 			if err != nil {
 				// The new requirement refusals retain their code at the JSON sink.
 				// Keep ordinary task-write error output unchanged when no group flag is named.
@@ -274,12 +292,16 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 				}
 				return mapTaskError(err)
 			}
-			task := taskDTOFrom(resp.UpdateAgentTask.AgentTaskFields)
+			task, err := taskDTOFromWrite(fields)
+			if err != nil {
+				return err
+			}
 			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
 				return renderTaskDetail(w, task)
 			})
 		},
 	}
+	addTaskInstructionFlag(cmd, &rawInstruction)
 	cmd.Flags().StringVar(&title, "title", "", "the new title (cannot be emptied)")
 	cmd.Flags().StringVar(&description, "description", "", "the new description")
 	cmd.Flags().BoolVar(&clearDescription, "clear-description", false, "remove the description")

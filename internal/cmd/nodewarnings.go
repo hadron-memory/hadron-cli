@@ -14,12 +14,28 @@ import (
 // Only advice for a node-writing mutation actually selected in that request is
 // collected. No read/probe is added and team task warnings keep their own sink.
 // Both output modes leave stdout/JSON untouched; advice goes to stderr only.
+//
+// The set is the mutation roots that carry plain-pin response advice, not every
+// mutation whose name contains "Node" (#1152; a new node writer must be classified
+// in nodewarnings_inventory_1152_test.go, where each root is pinned by name):
+//   - createAssetReferenceNode is in the set (#2470). It writes through the same
+//     node write, and the server interpolates the asset's file name unescaped into
+//     the reference node's content (hadron-server e096d48b,
+//     src/controller/operations/createAssetReferenceNode.ts:156, name at :151;
+//     evidence in the #2470 gate), so a file name containing include syntax
+//     lands as an include and draws plain-pin advice. Normal file names draw none:
+//     the server advises on include detection, not unconditionally.
+//   - updateNodeRevision is left out on purpose: it edits a revision's label only
+//     and writes no content.
+//
+// A later failed write suppresses the advice already collected for an earlier
+// committed one: the failed-command contract. Changing that is its own decision.
 func installNodeWriteWarnings(cmd *cobra.Command, f *cmdutil.Factory) {
 	if run := cmd.RunE; run != nil {
 		cmd.RunE = func(cmd *cobra.Command, args []string) error {
 			original := cmd.Context()
 			ctx, sink := api.WithWarningSinkForFields(original,
-				"createNode", "createSpecNode", "createTaskNode", "createReviewNode",
+				"createNode", "createSpecNode", "createTaskNode", "createReviewNode", "createAssetReferenceNode",
 				"updateNode", "updateSpecNode", "updateTaskNode", "updateReviewNode",
 				"importNode", "mergeNodes", "cloneNode", "moveNode", "updateNodeData", "restoreNode", "restoreNodeRevision",
 				"searchReplaceInNodes", "searchReplaceInSpecNodes")

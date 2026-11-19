@@ -13,6 +13,10 @@ import "testing"
 //
 // jsonOnlyEnc2234 is assembled from fragments so no tool or formatter can
 // turn the six-character unicode escapes back into the characters they spell.
+//
+// SYNC: the same two keys and their spellings are built a second time, from
+// escapes, in internal/cmd/aiconfig_escape_forms_2234_test.go (package cmd,
+// which cannot import this test file). Change them in BOTH places (cli#2364 F7).
 const (
 	jsonOnlyKey2234 = "sk-2234-<tag>&"
 	jsonOnlyEnc2234 = `sk-2234-\u` + `003ctag\u` + `003e\u` + `0026`

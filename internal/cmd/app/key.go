@@ -64,11 +64,21 @@ func newCmdKeyScope(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scope <command>",
 		Short: "Grant or revoke what an App key may do",
-		Long: `An App key holds no scope until one is granted (cor:aut:010:03); a new or
-rotated key starts with none. The scopes are attention:deliver and
-host:operate. Only whoever manages the App may change them. Granting stays
-person-only. Revoke also admits their held worker with
---instruction. App keys and impersonation are refused (FORBIDDEN, exit 8).`,
+		Long: `A scope is one thing an App key may do beyond authenticating as its App. A key
+holds no scope until one is granted; a new or rotated key starts with none. There
+are two:
+  attention:deliver  read and acknowledge the due wakes (the reasons a worker is
+                     due a turn) of the key's own App.
+  host:operate       act as ONE host: register the workers that host can run,
+                     collect the operations issued to it and report them done,
+                     and read the tickers and subscriptions of its workers. A
+                     host is a machine that launches a team App's workers; see
+                     "hadron team host --help". A key with this scope is a host
+                     key.
+Only whoever manages the App may change a key's scopes. Granting stays
+person-only; revoking also admits their held worker with --instruction. App keys
+and impersonation are refused (FORBIDDEN, exit 8). "hadron app key list
+--scopes" shows what each key holds now.`,
 	}
 	cmd.AddCommand(newCmdKeyScopeGrant(f))
 	cmd.AddCommand(newCmdKeyScopeRevoke(f))
@@ -80,14 +90,16 @@ func newCmdKeyScopeGrant(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "grant <key-id> <scope> [--host-id <host>]",
 		Short: "Grant an App key a scope",
-		Long: `Grant an App key a scope (cor:aut:010:04). Granting a scope the key already
-holds changes nothing.
+		Long: `Grant an App key a scope: attention:deliver (read and acknowledge the App's due
+wakes) or host:operate (act as one host); "hadron app key scope --help" says what
+each lets the key do. Granting a scope the key already holds changes nothing.
 
-host:operate is granted for ONE host, named with --host-id (a host token): the
-key then registers, collects and reports as that host and no other
-(cor:agt:070:04). A key already operating as another host is refused
-APP_KEY_SCOPE_HOST_CONFLICT (exit 5): revoke host:operate first, or use
-another key. --host-id is refused for every other scope (exit 2).`,
+host:operate is granted for ONE host, named with --host-id: the id the host is
+registered under (each host's id is shown by "hadron team host list"). The key then
+registers, collects and reports as that host and no other. A key already
+operating as another host is refused APP_KEY_SCOPE_HOST_CONFLICT (exit 5): revoke
+host:operate first, or use another key. --host-id is refused for every other
+scope (exit 2). Prints which scope the key now holds, then the key's scopes.`,
 		Example: `  hadron app key scope grant key_123 host:operate --host-id orca1
   hadron app key scope grant key_123 attention:deliver`,
 		Args: cobra.ExactArgs(2),
@@ -117,6 +129,9 @@ another key. --host-id is refused for every other scope (exit 2).`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			if resp == nil || resp.GrantAppKeyScope == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no grant")
+			}
 			dto := appKeyScopesDTOFrom(&resp.GrantAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				msg := fmt.Sprintf("✓ key %s holds %s", dto.ID, scope)
@@ -130,7 +145,7 @@ another key. --host-id is refused for every other scope (exit 2).`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&hostID, "host-id", "", "host:operate only: the one host this key operates as")
+	cmd.Flags().StringVar(&hostID, "host-id", "", "host:operate only: the id of the one host this key operates as (see \"hadron team host list\")")
 	return cmd
 }
 
@@ -138,10 +153,19 @@ func newCmdKeyScopeRevoke(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revoke <key-id> <scope>",
 		Short: "Take a scope back from an App key",
-		Long: `Take a scope back from an App key. The key's next call that needs it is
-refused. Revoking a scope the key does not hold changes nothing. Revoking
-host:operate frees the key to be granted it for another host.`,
-		Args: cobra.ExactArgs(2),
+		Long: `Take a scope back from an App key, by key id and scope name. A scope is
+something a key may do beyond authenticating as its App: attention:deliver or
+host:operate ("hadron app key scope --help" says what each lets a key do).
+"hadron app key list <app-ref> --scopes" shows which scopes each key holds now.
+
+The key's next call that needs the scope is refused. Revoking a scope the key
+does not hold changes nothing. Revoking host:operate frees the key to be
+granted it for another host. It is sent at once, with no confirmation prompt
+and no --yes. Prints "✓ key <id> no longer holds <scope>" and a table of the
+scopes the key still holds (or "scopes: none"); --json is {"id", "appId",
+"label", "revokedAt", "scopes"}.`,
+		Example: `  hadron app key scope revoke key_123 host:operate`,
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			instr, err := credentialInstruction(cmd, f)
 			if err != nil {
@@ -162,6 +186,9 @@ host:operate frees the key to be granted it for another host.`,
 				}
 				return api.MapErrorKeepingCode(err)
 			}
+			if resp == nil || resp.RevokeAppKeyScope == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no revocation")
+			}
 			dto := appKeyScopesDTOFrom(&resp.RevokeAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ key %s no longer holds %s\n", dto.ID, scope); err != nil {
@@ -171,7 +198,7 @@ host:operate frees the key to be granted it for another host.`,
 			})
 		},
 	}
-	addCredentialInstruction(cmd)
+	addCredentialInstructionRevoke(cmd)
 	return cmd
 }
 

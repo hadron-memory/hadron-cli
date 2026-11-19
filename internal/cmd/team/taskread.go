@@ -74,9 +74,16 @@ func reservedNoProjectParent(handle string) bool {
 	return true
 }
 
-// refNamesTask reports whether a task ref, as sent, names this task: its id,
-// its bare handle, or its handle qualified as hrn:agenttask:<root>:<slug>:<handle>
-// (typed, or composed from --app).
+// refNamesTask reports whether a task ref, as sent, names the task with this id
+// and handle: its id, its bare handle, or its handle qualified as
+// hrn:agenttask:<root>:<slug>:<handle> (typed, or composed from --app; flat or
+// embedded-App form). The ref is parsed (taskRefParts), so a malformed URN or an
+// extra segment does not match on a bare suffix.
+//
+// It compares the HANDLE only, never the App qualifier's text, on purpose: a
+// renamed App's old slug still resolves to the same App (cor:urn:030:01), and
+// the caller's rows are one App's chain, the App the server resolved the ref to,
+// so a qualifier for "another App" cannot reach a row of this one.
 func refNamesTask(ref, id, handle string) bool {
 	if ref == id {
 		return true
@@ -87,8 +94,8 @@ func refNamesTask(ref, id, handle string) bool {
 	if strings.EqualFold(ref, handle) {
 		return true
 	}
-	lower := strings.ToLower(ref)
-	return strings.HasPrefix(lower, "hrn:agenttask:") && strings.HasSuffix(lower, ":"+strings.ToLower(handle))
+	_, _, refHandle, ok := taskRefParts(ref)
+	return ok && strings.EqualFold(refHandle, handle)
 }
 
 // ---- get ------------------------------------------------------------------
@@ -143,13 +150,19 @@ original values.`,
 			if resp.AgentTask == nil {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", taskId)
 			}
-			detail := taskDetailDTO{taskDTO: taskDTOFrom(resp.AgentTask.AgentTaskFields)}
+			base, err := taskDTOFrom(resp.AgentTask.AgentTaskFields)
+			if err != nil {
+				return err
+			}
+			detail := taskDetailDTO{taskDTO: base}
 			if src := resp.AgentTask.ClonedFrom; src != nil {
 				detail.ClonedFrom = &taskDependencyDTO{ID: src.Id, Handle: src.Handle, Title: src.Title, Status: string(src.Status)}
 			}
 			detail.Clones = &taskDependencyPageDTO{Items: []taskDependencyDTO{}}
 			if p := resp.AgentTask.Clones; p != nil {
-				detail.Clones = dependencyPage(p.Total, p.HasMore, p.Items)
+				if detail.Clones, err = dependencyPage("clones", p.Total, p.HasMore, p.Items); err != nil {
+					return err
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, detail, func(w io.Writer) error {
 				if err := renderTaskDetail(w, detail.taskDTO); err != nil {
@@ -397,6 +410,25 @@ func strOr(s *string) string {
 
 // ---- list -----------------------------------------------------------------
 
+// taskListScope resolves the App scope a task listing runs against, and the
+// binding behind it when there is one. BOTH list views (the ordinary one and
+// --team) share it so the rationale lives in one place (cli#1289): listing needs
+// an App, not a git worktree or a worker session, so the ABSENCE of a worktree
+// (errNoWorktree) is not an error here, and resolveTeamAppScope names the App
+// remedy when no App is available either. Every other binding error, a corrupt
+// file included, is returned unchanged and is never treated as an absent scope.
+func taskListScope(ctx context.Context, f *cmdutil.Factory) (appScope, *binding, error) {
+	b, err := readBindingOrNilWithApp(ctx, f)
+	if err != nil && !errors.Is(err, errNoWorktree) {
+		return appScope{}, nil, err
+	}
+	scope, err := resolveTeamAppScope(ctx, f, b)
+	if err != nil {
+		return appScope{}, nil, err
+	}
+	return scope, b, nil
+}
+
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
 	var assignee, owner, creator, parent, tag, team, staleOver, text string
@@ -451,12 +483,19 @@ finished tasks only, so with it the lookup cannot find an active holder.
 --ref <target> lists tasks carrying a typed reference with exactly that target
 (never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
 node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
---overdue lists tasks whose start-by has passed that are not started, not
-ended and not backlog (backlog is never overdue); --overdue=false lists all
-other tasks. This is a filter, not an alarm. --created-/--started-/
---finished-after and -before take RFC 3339 times with Z or an offset and are
-inclusive bounds; a task with no start or finish time never matches a range
-on it. A malformed time is a usage error (exit 2) and nothing is sent. These
+--overdue lists tasks overdue on the server clock (the database clock).
+Two arms: a pending, not-started task whose start-by has passed, or a
+pending or started task whose finish-by has passed. An ended (finished or
+cancelled) task and a backlog task are never overdue, and neither is a task
+with neither time. Blocking is ignored and a person-assigned task counts
+like any other; --overdue=false lists all other tasks. This is a filter,
+not an alarm (the stall.finish-by deadline alarm is separate and
+unchanged). The finish-by arm needs a provider containing
+hadron-server#2654; an older one filters by start-by only.
+--created-/--started-/--finished-after and -before take RFC 3339 times
+with Z or an offset and are inclusive bounds; a task with no start or
+finish time never matches a range on it. A malformed time is a usage
+error (exit 2) and nothing is sent. These
 filters AND with the rest and do not combine with --team.
 
 --team is a coordinator's view of work in flight (#1044). The team is the
@@ -535,11 +574,7 @@ ageFrom; --tree changes text only.`,
 				return err
 			}
 			if cmd.Flags().Changed("team") {
-				b, err := readBindingOrNilWithApp(ctx, f)
-				if err != nil && !errors.Is(err, errNoWorktree) {
-					return err
-				}
-				scope, err := resolveTeamAppScope(ctx, f, b)
+				scope, b, err := taskListScope(ctx, f)
 				if err != nil {
 					return err
 				}
@@ -620,14 +655,7 @@ ageFrom; --tree changes text only.`,
 				}
 				parent = q
 			}
-			// Task listing needs App scope, not a worktree. Let the scope
-			// resolver name the remedies when neither is available; retain
-			// binding errors other than the absence of a worktree.
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil && !errors.Is(err, errNoWorktree) {
-				return err
-			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
+			scope, _, err := taskListScope(ctx, f)
 			if err != nil {
 				return err
 			}
@@ -657,7 +685,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
 	cmd.Flags().BoolVar(&unresolved, "unresolved", false, "finished tasks with undisposed findings; false/omitted does not narrow; not with --team")
 	cmd.Flags().BoolVar(&matchFailed, "match-failed", false, "filter marked match failures; false selects unmarked tasks; not with list --team")
-	cmd.Flags().BoolVar(&overdue, "overdue", false, "start-by passed, not started, not ended, not backlog; --overdue=false lists all other tasks")
+	cmd.Flags().BoolVar(&overdue, "overdue", false, "overdue on the server clock: start-by passed and not started, or finish-by passed and not ended; --overdue=false lists all other tasks")
 	for i, name := range taskTimeFlags {
 		cmd.Flags().StringVar(&times[i], name, "", "RFC 3339 time with Z or an offset; inclusive bound")
 	}
@@ -740,7 +768,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range r.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(r.AgentTasks), nil
@@ -754,7 +786,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range r.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(r.AgentTasks), nil
@@ -768,7 +804,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range resp.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(resp.AgentTasks), nil
@@ -780,7 +820,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 		}
 		for _, t := range resp.AgentTasks {
 			if t != nil {
-				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+				task, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return nil, 0, err
+				}
+				tasks = append(tasks, task)
 			}
 		}
 		return tasks, len(resp.AgentTasks), nil
@@ -791,7 +835,11 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 	}
 	for _, t := range resp.AgentTasks {
 		if t != nil {
-			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			task, err := taskDTOFrom(t.AgentTaskFields)
+			if err != nil {
+				return nil, 0, err
+			}
+			tasks = append(tasks, task)
 		}
 	}
 	return tasks, len(resp.AgentTasks), nil
@@ -1029,7 +1077,10 @@ walk is complete.`,
 				if t == nil {
 					continue
 				}
-				dto := taskDTOFrom(t.AgentTaskFields)
+				dto, err := taskDTOFrom(t.AgentTaskFields)
+				if err != nil {
+					return err
+				}
 				if n, ok := alarmsByTask[dto.ID]; ok {
 					open := n
 					dto.OpenAlarms = &open
@@ -1131,10 +1182,18 @@ walk is complete.`,
 // alarmWalkStop says why an open-alarm walk ended before the server's page end
 // (cli#1919, cor:api:120:04). nil means the walk ended on hasMore:false, so
 // the counts are complete. Reason is "page-limit" or "cursor-stalled".
+// LastEventID is always an EVENT id — the last one the walk read, empty when
+// it read none — never a page cursor. ResumeCursor is set ONLY on a page-limit
+// stop, where the cursor is one the walk has not paged from and a
+// continuation really can pick up; a cursor-stalled stop carries none,
+// because its cursor is one the walk just proved only re-reads pages
+// (cli#2349: the page-limit stop also used to store its cursor in LastEventID,
+// so the marker claimed an id it did not have).
 type alarmWalkStop struct {
-	Reason      string
-	LastEventID string
-	Pages       int
+	Reason       string
+	LastEventID  string
+	ResumeCursor string
+	Pages        int
 }
 
 const (
@@ -1142,11 +1201,25 @@ const (
 	alarmStopCursorStalled = "cursor-stalled"
 )
 
+// stopPoint is where the walk stopped, as every INCOMPLETE line prints it:
+// the last event read (or that none was), plus the resume cursor when the
+// stop has one. All of it is server text, so it all goes through SafeCell.
+func (s *alarmWalkStop) stopPoint() string {
+	at := "at " + output.SafeCell(s.LastEventID)
+	if s.LastEventID == "" {
+		at = "before reading any event"
+	}
+	if s.ResumeCursor == "" {
+		return at
+	}
+	return at + " (resume cursor " + output.SafeCell(s.ResumeCursor) + ")"
+}
+
 // explain is the one stdout line both commands print when the counts are
-// lower bounds. The event id is server text, so it goes through SafeCell.
+// lower bounds.
 func (s *alarmWalkStop) explain() string {
-	return fmt.Sprintf("alarms: open-alarm counts are INCOMPLETE (paging stopped: %s at %s after %d pages) — counts are lower bounds; a task with no count may still have open alarms",
-		s.Reason, output.SafeCell(s.LastEventID), s.Pages)
+	return fmt.Sprintf("alarms: open-alarm counts are INCOMPLETE (paging stopped: %s %s after %d pages) — counts are lower bounds; a task with no count may still have open alarms",
+		s.Reason, s.stopPoint(), s.Pages)
 }
 
 // openAlarmsByTask counts the App's alarms IN EFFECT, keyed by task — `task
@@ -1173,10 +1246,18 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 	// Each event id counts once across the walk: a server repeating a page
 	// must not inflate a lower bound (BLIND F1).
 	seen := map[string]bool{}
-	stop := func(reason, last string, pages int) (map[string]int, *alarmWalkStop, error) {
+	// Cursors already paged from: a revisit is a stall, not progress. The
+	// server's cursor is an event id (`team events --after` takes one), so a
+	// revisit is the same position again, not a new one.
+	cursors := map[string]bool{}
+	// last is the last event id read anywhere in the walk, not just this page,
+	// so an empty final page cannot erase what earlier pages read.
+	last := ""
+	stop := func(reason, lastEventID, resumeCursor string, pages int) (map[string]int, *alarmWalkStop, error) {
+		s := &alarmWalkStop{Reason: reason, LastEventID: lastEventID, ResumeCursor: resumeCursor, Pages: pages}
 		fmt.Fprintf(errOut,
-			"note: alarm paging stopped (%s) at %s without exhausting the stream; open-alarm counts are incomplete\n", reason, output.SafeCell(last))
-		return alarmsByTask, &alarmWalkStop{Reason: reason, LastEventID: last, Pages: pages}, nil
+			"note: alarm paging stopped (%s) %s without exhausting the stream; open-alarm counts are incomplete\n", reason, s.stopPoint())
+		return alarmsByTask, s, nil
 	}
 	for pages := 1; ; pages++ {
 		resp, err := gen.AgentTeamEventsPage(ctx, client, appID, after, nil, nil, nil, nil, boolPtr(true), &alarmPageSize, nil, nil, nil)
@@ -1184,7 +1265,9 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 			return nil, nil, mapTaskError(err)
 		}
 		page := resp.AgentTeamEventsPage
-		last := ""
+		if page == nil {
+			return nil, nil, exitcode.Newf(exitcode.Error, "the server returned no alarm page; the list cannot be trusted")
+		}
 		for _, e := range page.Events {
 			if e == nil {
 				continue
@@ -1208,14 +1291,20 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 			next = *page.NextCursor
 		}
 		if next == "" {
-			return stop(alarmStopCursorStalled, last, pages)
+			return stop(alarmStopCursorStalled, last, "", pages)
 		}
-		if after != nil && next == *after {
-			return stop(alarmStopCursorStalled, next, pages)
+		// A cursor the walk has already paged from — the immediate repeat, or
+		// a longer A→B→A cycle — can only re-read pages it has read (cli#2349:
+		// the old check caught only the immediate repeat and paged a cycle to
+		// the page bound). Its cursor is NOT offered as a resume point: the
+		// walk just proved it does not progress (cli#2349 BLIND P2).
+		if cursors[next] {
+			return stop(alarmStopCursorStalled, last, "", pages)
 		}
 		if pages >= alarmPageLimit {
-			return stop(alarmStopPageLimit, next, pages)
+			return stop(alarmStopPageLimit, last, next, pages)
 		}
+		cursors[next] = true
 		after = &next
 	}
 }

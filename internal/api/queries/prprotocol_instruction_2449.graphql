@@ -1,0 +1,17 @@
+# cli#2449: separate instructed document keeps the plain request unchanged.
+mutation TaskLinkDefectInstructed(
+  $instruction: ActInstructionInput!
+  $prTaskRef: ID!
+  $defectRef: String!
+  # @genqlient(omitempty: true)
+  $introducedAtHead: String
+) {
+  linkDefectToPullRequest(instruction: $instruction, prTaskRef: $prTaskRef, defectRef: $defectRef, introducedAtHead: $introducedAtHead) {
+    taskId
+    defect
+    introducedAtHead
+    eventId
+    linkedAt
+    created
+  }
+}

@@ -1,0 +1,115 @@
+# cli#2448: separate instructed documents keep no-flag wire bytes unchanged.
+#
+# Each *Instructed operation selects exactly what its plain twin (in
+# apps, modelgroups, team and teamcontrols .graphql) selects, so the Go
+# helpers can convert the instructed response into the plain response type.
+# That coupling is checked at compile time: a structural divergence between the
+# two selections makes the conversion in internal/cmd/{app,team}/*manager_instruction.go
+# fail to build, rather than silently reshaping --json output.
+
+mutation SetAppPropertiesInstructed(
+  $appRef: String!
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+
+  $instruction: ActInstructionInput!
+) {
+  setAppProperties(appRef: $appRef, properties: $properties, expectedRevision: $expectedRevision, instruction: $instruction) {
+    id
+    urn
+    propertiesRevision
+    properties
+  }
+}
+
+mutation SetAppModelGroupInstructed(
+  $appRef: ID!
+  $name: String!
+  $patterns: [String!]!
+  $instruction: ActInstructionInput!
+) {
+  setAppModelGroup(appRef: $appRef, name: $name, patterns: $patterns, instruction: $instruction) {
+    name
+    patterns
+    updatedAt
+  }
+}
+
+mutation DeleteAppModelGroupInstructed(
+  $appRef: ID!
+  $name: String!
+  $instruction: ActInstructionInput!
+) {
+  deleteAppModelGroup(appRef: $appRef, name: $name, instruction: $instruction)
+}
+
+mutation TeamDeliverySettingsSetInstructed(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $batchWindowSeconds: Int
+  # @genqlient(omitempty: true)
+  $busyDelaySeconds: Int
+  # @genqlient(omitempty: true)
+  $stuckWindowSeconds: Int
+  # @genqlient(omitempty: true)
+  $checkPeriodSeconds: Int
+  # @genqlient(omitempty: true)
+  $darkAlarmWindowSeconds: Int
+  # @genqlient(omitempty: true)
+  $failedChecksToOverdue: Int
+
+  $instruction: ActInstructionInput!
+) {
+  setAppDeliverySettings(appRef: $appRef, input: {
+    batchWindowSeconds: $batchWindowSeconds
+    busyDelaySeconds: $busyDelaySeconds
+    stuckWindowSeconds: $stuckWindowSeconds
+    checkPeriodSeconds: $checkPeriodSeconds
+    darkAlarmWindowSeconds: $darkAlarmWindowSeconds
+    failedChecksToOverdue: $failedChecksToOverdue
+  }, instruction: $instruction) { ...AppDeliverySettingsFields }
+}
+
+mutation TeamTickerSettingsSetInstructed(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $minCadenceSeconds: Int
+  # @genqlient(omitempty: true)
+  $liveCap: Int
+  # @genqlient(omitempty: true)
+  $selfSubscribeCadenceSeconds: Int
+  # @genqlient(omitempty: true)
+  $wakeDailyBudget: Int
+  # @genqlient(omitempty: true)
+  $clearWakeDailyBudget: Boolean
+
+  $instruction: ActInstructionInput!
+) {
+  setAppTickerSettings(
+    appRef: $appRef
+    input: {
+      minCadenceSeconds: $minCadenceSeconds
+      liveCap: $liveCap
+      selfSubscribeCadenceSeconds: $selfSubscribeCadenceSeconds
+      wakeDailyBudget: $wakeDailyBudget
+      clearWakeDailyBudget: $clearWakeDailyBudget
+    }
+    instruction: $instruction
+  ) {
+    minCadenceSeconds
+    liveCap
+    selfSubscribeCadenceSeconds
+    dailyWakeBudget
+    dailyWakeBudgetDerived
+  }
+}
+
+mutation TeamAppGrantRmInstructed(
+  $appRef: String!
+  $workerRef: String!
+  $name: AppGrantName!
+  $instruction: ActInstructionInput!
+) {
+  revokeAppGrant(appRef: $appRef, workerRef: $workerRef, name: $name, instruction: $instruction) { ...TeamAppGrantFields }
+}

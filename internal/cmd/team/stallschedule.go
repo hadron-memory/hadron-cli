@@ -93,6 +93,11 @@ func newCmdTeamStallScheduleGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
+			// A success answer can still carry a null selected read (cli#2537,
+			// the class of cli#2477): a command error, never a panic.
+			if resp.AgentTaskStallSchedule == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no stall schedule and no error; the read cannot be trusted")
+			}
 			dto := stallScheduleDTOFrom(&resp.AgentTaskStallSchedule.AgentTaskStallScheduleFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
@@ -155,6 +160,7 @@ func stallScheduleValue(fl stallScheduleFlag, raw string) (json.RawMessage, erro
 
 func newCmdTeamStallScheduleSet(f *cmdutil.Factory) *cobra.Command {
 	values := make([]string, len(stallScheduleFlags))
+	var rawInstruction string
 	cmd := &cobra.Command{
 		Use:   "set [--assignment-minutes N|default] [--not-started-minutes N|default] [--no-progress-minutes N|default] [--owner-reaction-minutes N|default] [--host-lapse-check-ins N|default] [--host-report-timeout-minutes N|default] [--session-end-grace-minutes N|default]",
 		Short: "Change the App's stall schedule",
@@ -167,9 +173,12 @@ the host report timeout is 5 to 1440 minutes and the session-end grace 1 to
 set with any value out of its range changes nothing.
 Only whoever manages the App may set it (APP_MANAGER_REQUIRED otherwise).
 
-The write is always the person's, never a bound worktree's worker: the
-server treats a worker as never managing the App, so attributing it to the
-session would refuse every manager working from one.`,
+Without --instruction the write is the signed-in person's, including from a
+bound worktree. --instruction opens the App-manager's held-worker path; the
+server decides admission. Only set accepts this flag; get stays a read.
+Needs server ba077810 or later.
+
+` + instructionHelpFor("ba077810"),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -189,6 +198,15 @@ session would refuse every manager working from one.`,
 			if !changed {
 				return exitcode.Newf(exitcode.Usage, "name at least one value to change: --assignment-minutes, --not-started-minutes, --no-progress-minutes, --owner-reaction-minutes, --host-lapse-check-ins, --host-report-timeout-minutes or --session-end-grace-minutes")
 			}
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
+			var finishInstruction InstructedWrite
+			if claim != nil {
+				finishInstruction = BeginInstructedWrite(f)(ctx)
+				ctx = withAsPerson(ctx)
+			}
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
@@ -202,11 +220,38 @@ session would refuse every manager working from one.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.TeamStallScheduleSet(ctx, client, scope.Ref, &input)
-			if err != nil {
-				return api.MapError(err)
+			var fields gen.AgentTaskStallScheduleFields
+			if claim == nil {
+				resp, callErr := gen.TeamStallScheduleSet(ctx, client, scope.Ref, &input)
+				if callErr != nil {
+					return api.MapError(callErr)
+				}
+				if resp.SetAgentTaskStallSchedule == nil {
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
+				}
+				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
+			} else {
+				// InstructedWrite's contract (instruction.go): targetAppID is
+				// "" because this command holds the App as a ref (scope.Ref),
+				// not an id, and the write resolves it; the discarded bool is
+				// whether the worker session was attached — unused here
+				// because admission is the server's either way, and a
+				// fallback-to-person note was already printed if one applied
+				// (#2505 F3).
+				ctx, _, err = finishInstruction(ctx, "", scope.Ref)
+				if err != nil {
+					return err
+				}
+				resp, callErr := gen.TeamStallScheduleSetInstructed(ctx, client, scope.Ref, &input, claim)
+				if callErr != nil {
+					return api.MapErrorKeepingCode(callErr)
+				}
+				if resp.SetAgentTaskStallSchedule == nil {
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
+				}
+				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			}
-			dto := stallScheduleDTOFrom(&resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields)
+			dto := stallScheduleDTOFrom(&fields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ stall schedule set for %s\n", appLabel()); err != nil {
 					return err
@@ -215,6 +260,7 @@ session would refuse every manager working from one.`,
 			})
 		},
 	}
+	cmd.Flags().StringVar(&rawInstruction, "instruction", "", taskInstructionFlagUsage)
 	for i, fl := range stallScheduleFlags {
 		cmd.Flags().StringVar(&values[i], fl.name, "", fl.usage)
 	}

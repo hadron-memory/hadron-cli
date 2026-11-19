@@ -469,9 +469,9 @@ mutation AlarmAcknowledge($eventId: ID!) {
 }
 
 # The server-derived roster (#1707). Rendered, never re-derived client-side;
-# the states are as defined by cor:agt:050:22 (Proposed; NO_FAMILY is served
-# but not yet defined there), in the server's first-that-holds order, which
-# the command's help text says out loud.
+# the states are as defined by hrn:node:hadronmemory.com:specs:cor:agt:050:22
+# (Proposed), in the server's first-that-holds order, which the command's
+# help text says out loud.
 query TeamRoster($appRef: ID!) {
   teamRoster(appRef: $appRef) {
     appId
@@ -647,16 +647,27 @@ query TeamReportingLines($appRef: ID!) {
   }
 }
 
-# #1135, merged server#2726 at cf9bcfece: all task refs are passed to the server.
+# Sets a task's matching priority, 1 to 5 (cli#1135, server#2726 at cf9bcfece).
+# The task ref is passed to the server as given.
 mutation AgentTaskSetPriority($taskRef: ID!, $priority: Int!) {
   setAgentTaskPriority(taskRef: $taskRef, priority: $priority) { ...AgentTaskFields }
 }
+
+# Makes a task wait for another (cli#1135, server#2726 at cf9bcfece). Both refs
+# are passed to the server as given; the server decides cycles and visibility.
 mutation AgentTaskAddBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
   addAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) { ...AgentTaskFields }
 }
+
+# Removes a blocker from a task (cli#1135, server#2726 at cf9bcfece). Both refs
+# are passed to the server as given.
 mutation AgentTaskRemoveBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
   removeAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) { ...AgentTaskFields }
 }
+
+# Reads one page of a task's blockers and of the tasks it blocks, with the same
+# limit and offset for both (cli#1135, server#2726 at cf9bcfece). The task ref is
+# passed to the server as given.
 query AgentTaskDependencies($taskRef: ID!, $limit: Int!, $offset: Int!) {
   agentTask(id: $taskRef) {
     id

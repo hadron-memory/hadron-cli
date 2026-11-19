@@ -409,3 +409,29 @@ mutation RemoveMemoryFromAgent($agentRef: ID!, $memoryRef: ID!) {
     ...AgentFields
   }
 }
+
+# cli#2495: publish and restore join create (the buildable two of the gate's
+# sequenced set; list has no server contract yet). Both refs go verbatim;
+# versionLabel is omitempty: unset leaves the server default.
+mutation PublishRevision(
+  $agentRef: ID!
+  $revisionLoc: String!
+  # @genqlient(omitempty: true)
+  $versionLabel: String
+) {
+  publishRevision(agentRef: $agentRef, revisionLoc: $revisionLoc, versionLabel: $versionLabel) {
+    revisionLoc
+    label
+    published
+    createdAt
+  }
+}
+
+mutation RestoreRevision($agentRef: ID!, $revisionLoc: String!) {
+  restoreRevision(agentRef: $agentRef, revisionLoc: $revisionLoc) {
+    revisionLoc
+    label
+    published
+    createdAt
+  }
+}

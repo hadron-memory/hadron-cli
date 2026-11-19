@@ -35,6 +35,11 @@ fragment SigningRequestFields on SigningRequest {
   approvalHash
   payloadVersion
   state
+  # The ceremony page's link, copied verbatim and never composed
+  # (hadron-server#3120, cli#878 part 2). Newer than the rest of the surface:
+  # a server can have signing and still refuse this one field, which is why
+  # mapSigningError tells that case apart by the capability token.
+  ceremonyUrl
   createdAt
   expiresAt
   endedAt

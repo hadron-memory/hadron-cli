@@ -82,11 +82,14 @@ func newCmdMemories(f *cmdutil.Factory) *cobra.Command {
 		Long: fmt.Sprintf(`List the memories an App reads for you: the memories that a search across the
 whole App covers. One row per memory, with every reason it is in scope:
 
-  AGENT_SYSTEM    the system memory of an Agent installed in the App
-  AGENT_LINK      a memory linked to an installed Agent
-  INHERITED_BASE  a base Agent's system memory, inherited by an installed one
+  AGENT_SYSTEM    the system memory of an Agent installed in the App (the
+                  memory holding that Agent's prompts and tasks)
+  AGENT_LINK      a memory attached to an installed Agent
+                  ("hadron agent memory add")
+  INHERITED_BASE  a base Agent's system memory, inherited by an installed
+                  Agent that builds on it
   TEAM_SPACE      the App's own team space
-  APP_MEMORY      the App's own tenant memory
+  APP_MEMORY      the memory that belongs to the App itself
 
 An Agent's name is shown after its kind when you may read that Agent;
 otherwise the kind is shown alone.
@@ -100,13 +103,12 @@ inherited base. That memory belongs to the base Agent and other Apps read it,
 so it is not a write target here. The column is advice: the server still
 decides every write.
 
-The App is the positional ref (ID or URN); omit it to use --app or the App
-set with 'hadron app set-active'. Exit 8 when you may not read the App's
-scope, 4 when the App is not found. Returns ONE page, ordered by memory URN: --limit
-1..%d (default %d) and --offset N. When more rows exist, stderr says how to
-fetch the next page. --json prints the page ({items, total}); each source
-adds agentName and each row adds writeTarget. The rule is in the Hadron specs
-corpus at cor:dmo:050:17.`, memoriesMaxLimit, memoriesDefaultLimit),
+Give the App as the argument (ID or URN); leave it out to use --app or the App
+set with "hadron app set-active". Exit 8 when you may not read the App's
+memories, 4 when the App is not found. It shows one page, ordered by memory
+URN: --limit 1..%d (default %d) and --offset N. When more rows exist, stderr
+says how to fetch the next page. --json prints the page ({items, total}); each
+source adds agentName and each row adds writeTarget.`, memoriesMaxLimit, memoriesDefaultLimit),
 		Example: `  hadron app memories hrn:app:acme.com:eng-team
   hadron app memories --app hrn:app:acme.com:eng-team --json
   hadron app memories hrn:app:acme.com:eng-team --limit 50 --offset 50`,

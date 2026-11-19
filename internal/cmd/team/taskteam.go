@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -72,7 +73,12 @@ type alarmCountsDTO struct {
 	Complete    bool   `json:"complete"`
 	Reason      string `json:"reason"`
 	LastEventID string `json:"lastEventId"`
-	Pages       int    `json:"pages"`
+	// ResumeCursor is a page-limit stop's continuation cursor — one the walk
+	// has not paged from; a cursor-stalled stop carries none, its cursor being
+	// known only to re-read pages. lastEventId is always an event id, empty
+	// when the walk read none, never a cursor (cli#2349).
+	ResumeCursor string `json:"resumeCursor,omitempty"`
+	Pages        int    `json:"pages"`
 }
 
 type teamTaskQuery struct {
@@ -308,7 +314,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		dto.StaleOverSeconds = &s
 	}
 	if alarmStop != nil {
-		dto.AlarmCounts = &alarmCountsDTO{Complete: false, Reason: alarmStop.Reason, LastEventID: alarmStop.LastEventID, Pages: alarmStop.Pages}
+		dto.AlarmCounts = &alarmCountsDTO{Complete: false, Reason: alarmStop.Reason, LastEventID: alarmStop.LastEventID, ResumeCursor: alarmStop.ResumeCursor, Pages: alarmStop.Pages}
 	}
 	for _, t := range all {
 		how, ok := match[t.ID]
@@ -375,7 +381,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		}
 		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
 		for _, task := range dto.Tasks {
-			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
 				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms, task.OpenAlarmsIncomplete != nil && *task.OpenAlarmsIncomplete)))...)
 		}
 		return t.Flush()
@@ -438,18 +444,20 @@ func renderTeamTree(w io.Writer, tasks []teamTaskDTO) error {
 	// task parented on it is a root, its own handle AT0.<n> already saying
 	// "no project". The row was selected on its own merits here, so it still
 	// renders as a plain root; only the parent display goes.
-	reservedID := ""
+	// EVERY reserved row counts, not just the first: the team listing reads one
+	// App today (hadron-server#2370, the help says so), and the law gives each
+	// App its own AT0 (cor:agt:050:01), so the render must not depend on that.
+	reserved := map[string]bool{}
 	for _, t := range tasks {
 		if t.Handle == "AT0" {
-			reservedID = t.ID
-			break
+			reserved[t.ID] = true
 		}
 	}
 	children := map[string][]int{}
 	roots := []int{}
 	for i, t := range tasks {
 		if t.ParentTaskID != nil {
-			if _, ok := byID[*t.ParentTaskID]; ok && *t.ParentTaskID != reservedID {
+			if _, ok := byID[*t.ParentTaskID]; ok && !reserved[*t.ParentTaskID] {
 				children[*t.ParentTaskID] = append(children[*t.ParentTaskID], i)
 				continue
 			}

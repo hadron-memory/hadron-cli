@@ -132,7 +132,7 @@ The returned grant metadata is printed; this does not run the automation.`, Exam
 
 // collectSnapshotGrants advances by rows actually returned. A broken/nonprogressing
 // page fails the whole command, so it never prints a partial list as complete.
-func collectSnapshotGrants(ctx context.Context, client graphql.Client, app string, include *bool, limit, offset int, all bool, claim snapshotInstruction) (snapshotGrantPageDTO, error) {
+func collectSnapshotGrants(ctx context.Context, client graphql.Client, app string, include *bool, limit, offset int, all bool, claim actInstruction) (snapshotGrantPageDTO, error) {
 	d := snapshotGrantPageDTO{Items: []snapshotGrantDTO{}}
 	seen := map[string]bool{}
 	for {
@@ -173,7 +173,7 @@ JSON is {items,total,hasMore}; empty items is [], and total is the server's
 count, not a count inferred by the CLI. Human output shows grant, App, trigger
 and revocation metadata. No credentials or task content are read.`, Example: `  hadron automation team-snapshot-grant list acme.com:ops --json
   hadron automation team-snapshot-grant list acme.com:ops --include-revoked --limit 20 --offset 20`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+		claim, err := parseActInstruction(cmd, f, instructionRaw)
 		if err != nil {
 			return err
 		}
@@ -225,15 +225,68 @@ func snapshotAppRef(ref string) (string, error) {
 	return cmdutil.CanonicalAppRef("<app-ref>", ref)
 }
 
+// lookupSnapshotGrantByID is a person's pre-confirmation read: one by-id query
+// (server#3381), the same eight fields, revoked rows included. An unknown and an
+// unauthorized id are both NOT_FOUND on the server; they map to the same CLI
+// error the paged lookup gave for an absent row, so nothing distinguishes them.
+func lookupSnapshotGrantByID(ctx context.Context, client graphql.Client, id string) (snapshotGrantDTO, error) {
+	r, err := gen.AutomationTeamSnapshotGrantById(ctx, client, id)
+	if err != nil {
+		// Only the server's own NOT_FOUND is "the grant is not there": a bare HTTP 404
+		// (a mistyped --server) keeps its own mapped error, not a false "not found".
+		if api.ServerCodeOf(err) == "NOT_FOUND" {
+			return snapshotGrantDTO{}, exitcode.Newf(exitcode.NotFound, "team snapshot grant not found")
+		}
+		return snapshotGrantDTO{}, api.MapErrorKeepingCode(err)
+	}
+	if r == nil || r.AutomationTeamSnapshotGrant == nil {
+		return snapshotGrantDTO{}, exitcode.Newf(exitcode.Error, "the server returned no team snapshot grant for that ID")
+	}
+	d, err := snapshotGrantFrom(r.AutomationTeamSnapshotGrant.AutomationTeamSnapshotGrantFields)
+	if err != nil {
+		return snapshotGrantDTO{}, err
+	}
+	if d.ID != id {
+		return snapshotGrantDTO{}, exitcode.Newf(exitcode.Error, "the server returned a different team snapshot grant than the one asked for")
+	}
+	return d, nil
+}
+
+// snapshotGrantInApp reports whether the App named by --app (an id, a URN or
+// root:slug) is the one that holds the grant. An id is compared directly; any
+// other form costs exactly one app(ref:) read to learn its id. An App that
+// resolves to null, or whose read is NOT_FOUND, is not the grant's App. Any OTHER
+// error on that read keeps its own mapped error: a FORBIDDEN exits 8 and sends no
+// mutation. Treating FORBIDDEN as "not the grant's App" too would be a behavior
+// change that needs its own decision (cli#2436).
+func snapshotGrantInApp(ctx context.Context, client graphql.Client, appRef, grantAppID string) (bool, error) {
+	if cmdutil.IsAppID(appRef) {
+		return appRef == grantAppID, nil
+	}
+	r, err := gen.GetAppMetadata(ctx, client, appRef)
+	if err != nil {
+		if api.ServerCodeOf(err) == "NOT_FOUND" {
+			return false, nil
+		}
+		return false, api.MapErrorKeepingCode(err)
+	}
+	if r == nil || r.App == nil {
+		return false, nil
+	}
+	return r.App.Id == grantAppID, nil
+}
+
 func newCmdSnapshotRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var instructionRaw string
-	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation team snapshot grant in the target App", Long: `Revoke the exact grant ID from list. The App is --app, else the active App
-selected by hadron app use. Read that App's grant history (including revoked
-rows), then show the returned App ID and trigger kind/ID for confirmation.
-Scripts must pass --yes before any history lookup, even for an ended row.
-A row absent from this App is not found and sends no
-mutation; nothing is inferred about any other App. An already ended row is
+	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation team snapshot grant by ID", Long: `Revoke the exact grant ID from list. A person's revoke reads that one grant
+by ID (the grant's own App, including an already ended row), then shows the
+returned App ID and trigger kind/ID for confirmation. No App's history is paged
+and no App is needed: without --app the confirmation names the App the server
+returned for that grant. With --app, the grant must belong to that App, else it
+is not found (before any confirmation) and nothing is sent. Scripts must pass
+--yes before any lookup, even for an ended row. An unknown ID, or one in an App
+you may not manage, is not found and sends no mutation. An already ended row is
 shown without re-sending revocation. Revocation is terminal; a future set
 creates a new row rather than reopening the old one.
 
@@ -241,12 +294,14 @@ One revoke mutation is sent, never retried. A lost answer is an unknown
 outcome: list --include-revoked before trying again. JSON returns the grant
 with explicit revokedAt/revokedBy.
 
-With --instruction, confirmation instead happens BEFORE any request: it names
-the grant ID and target App, and warns that the lookup records one event per
-page. After consent the entire App history is read, then the matching live
-row is revoked without a second prompt. No matching row means no revoke.
-Without the flag the returned App/trigger metadata is confirmed as before.`, Example: `  hadron automation team-snapshot-grant revoke <grant-id> --app acme.com:ops --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+With --instruction (a held worker), the grant is still found by paging the
+target App's history, because the by-id read has no worker arm: --app or the
+active App selected by hadron app use names that App. Confirmation then happens
+BEFORE any request: it names the grant ID and target App, and warns that the
+lookup records one event per page. After consent the entire App history is read,
+then the matching live row is revoked without a second prompt. No matching row
+means no revoke.`, Example: `  hadron automation team-snapshot-grant revoke <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		claim, err := parseActInstruction(cmd, f, instructionRaw)
 		if err != nil {
 			return err
 		}
@@ -254,21 +309,30 @@ Without the flag the returned App/trigger metadata is confirmed as before.`, Exa
 		if id == "" {
 			return exitcode.Newf(exitcode.Usage, "pass a nonempty grant ID from list")
 		}
-		app, source, err := cmdutil.TargetApp(cmd, f)
-		if err != nil {
-			return err
-		}
-		// A script cannot answer the later metadata-rich prompt. Refuse
-		// before building a client or reading even an ended grant.
-		if claim.claim == nil && !yes && !f.IOStreams.IsInputTerminal() {
-			return cmdutil.Confirm(f.IOStreams, yes, "")
-		}
-		if !f.JSON {
-			if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "App: %s (%s)\n", strconv.Quote(app), source); err != nil {
+		// The held-worker path pages the target App's history, so it needs an App.
+		// A person's by-id read does not (cli#1619): --app is still validated when
+		// given, so a malformed ref fails before any request. When given, it also
+		// SCOPES the revoke: the grant must belong to that App (snapshotGrantInApp),
+		// else it is not found before the confirmation.
+		var app, source string
+		if claim.input != nil || cmd.Flags().Changed("app") {
+			var err error
+			app, source, err = cmdutil.TargetApp(cmd, f)
+			if err != nil {
 				return err
 			}
 		}
-		if claim.claim != nil {
+		// A script cannot answer the later metadata-rich prompt. Refuse
+		// before building a client or reading even an ended grant.
+		if claim.input == nil && !yes && !f.IOStreams.IsInputTerminal() {
+			return cmdutil.Confirm(f.IOStreams, yes, "")
+		}
+		if claim.input != nil {
+			if !f.JSON {
+				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "App: %s (%s)\n", strconv.Quote(app), source); err != nil {
+					return err
+				}
+			}
 			prompt := fmt.Sprintf("Look up and revoke team snapshot grant %s in App %s (%s)? The lookup records one event per page, including empty pages; if the row is absent, no revoke is sent.", strconv.Quote(id), strconv.Quote(app), source)
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
@@ -278,20 +342,39 @@ Without the flag the returned App/trigger metadata is confirmed as before.`, Exa
 		if err != nil {
 			return err
 		}
-		include := true
-		page, err := collectSnapshotGrants(cmd.Context(), client, app, &include, 20, 0, true, claim)
-		if err != nil {
-			return err
-		}
 		var selected *snapshotGrantDTO
-		for i := range page.Items {
-			if page.Items[i].ID == id {
-				selected = &page.Items[i]
-				break
+		if claim.input == nil {
+			row, err := lookupSnapshotGrantByID(cmd.Context(), client, id)
+			if err != nil {
+				return err
 			}
-		}
-		if selected == nil {
-			return exitcode.Newf(exitcode.NotFound, "team snapshot grant not found")
+			// An explicit --app is never a silent no-op: the grant must belong to the
+			// App it names, as the paged lookup required before it (cli#1619).
+			if cmd.Flags().Changed("app") {
+				inApp, err := snapshotGrantInApp(cmd.Context(), client, app, row.AppID)
+				if err != nil {
+					return err
+				}
+				if !inApp {
+					return exitcode.Newf(exitcode.NotFound, "team snapshot grant not found")
+				}
+			}
+			selected = &row
+		} else {
+			include := true
+			page, err := collectSnapshotGrants(cmd.Context(), client, app, &include, 20, 0, true, claim)
+			if err != nil {
+				return err
+			}
+			for i := range page.Items {
+				if page.Items[i].ID == id {
+					selected = &page.Items[i]
+					break
+				}
+			}
+			if selected == nil {
+				return exitcode.Newf(exitcode.NotFound, "team snapshot grant not found")
+			}
 		}
 		if selected.RevokedAt != nil {
 			if _, err := fmt.Fprintln(f.IOStreams.ErrOut, "grant is already revoked; no mutation sent"); err != nil {
@@ -299,8 +382,8 @@ Without the flag the returned App/trigger metadata is confirmed as before.`, Exa
 			}
 			return writeSnapshotGrant(f, *selected)
 		}
-		if claim.claim == nil {
-			prompt := fmt.Sprintf("Revoke team snapshot grant %s for App %s trigger %s %s (%s)?", strconv.Quote(id), strconv.Quote(selected.AppID), strconv.Quote(selected.TriggerKind), strconv.Quote(selected.TriggerID), source)
+		if claim.input == nil {
+			prompt := fmt.Sprintf("Revoke team snapshot grant %s for App %s trigger %s %s?", strconv.Quote(id), strconv.Quote(selected.AppID), strconv.Quote(selected.TriggerKind), strconv.Quote(selected.TriggerID))
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}

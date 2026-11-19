@@ -58,7 +58,7 @@ WHICH COMMAND, IN ORDER:
   reset my context, keep work  session shed (or session resume-claim)
   stop being this worker       session end --handoff-file <notes> — only now
   see sessions                 session list
-  read one session's prompts  session served-prompts <session-id>
+  read one session's prompts   session served-prompts <session-id>
   record how a session went    session outcome <session-id> <0..1>
 
 TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
@@ -2146,6 +2146,11 @@ not ended) and is NOT liveness. A server that predates Session.state answers
 state "unknown". Plain whoami (no --check) makes no session-state read (it still
 reads the worker reporting line).
 
+With no binding here, the server fallback runs the same check on every candidate
+session it lists: a STATE column in the table, ` + "`candidateStates`" + ` in --json, and one
+state read per candidate. Exit 14 belongs to the bound session only: the
+fallback lists only open sessions and never exits 14.
+
 The fallback lists only sessions that are attributed to YOU, worker-bound, and
 still open. The server's session list is deliberately wider than that — it
 shows everything you may SEE, including other people's — so it is filtered here
@@ -2259,7 +2264,7 @@ predates the field exits 1. The three flags exclude each other (exit 2).`,
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&check, "check", false, "ask the server about the bound session: live, lapsed, dormant or ended; exits 14 if it has ended")
+	cmd.Flags().BoolVar(&check, "check", false, "ask the server about the bound session: live, lapsed, dormant or ended; exits 14 if it has ended. With no binding it checks each candidate session instead (a STATE column) and never exits 14")
 	cmd.Flags().BoolVar(&signature, "signature", false, "print only the bound worker's rendered signature")
 	cmd.Flags().BoolVar(&trailer, "trailer", false, "print only the bound worker's rendered commit trailer")
 	cmd.MarkFlagsMutuallyExclusive("check", "signature", "trailer")

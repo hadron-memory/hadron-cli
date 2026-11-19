@@ -84,7 +84,9 @@ type Service interface {
 	Delete(context.Context, string, int) (Comment, error)
 	Resolve(context.Context, string, int, bool) (Comment, error)
 	// DeleteThread deletes the whole thread of the named comment (cli#1341).
-	DeleteThread(context.Context, string, string) (bool, error)
+	// A nil *bool never comes back with a nil error: an absent or null answer
+	// returns the exit-1 outcome-unknown error instead (#2538).
+	DeleteThread(context.Context, string, string) (*bool, error)
 }
 
 // threadDeletedDTO is the stable --json shape of comment delete --thread.
@@ -203,7 +205,7 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	guarded := verb == "edit" || verb == "delete" || verb == "resolve"
 	if verb == "delete" {
 		cmd.Flags().BoolVar(&yes, "yes", false, "delete without asking (required when not on a terminal)")
-		cmd.Flags().BoolVar(&thread, "thread", false, "delete the whole thread the comment belongs to (a memory admin; needs --reason)")
+		cmd.Flags().BoolVar(&thread, "thread", false, "delete the whole thread the comment belongs to (a memory manager; needs --reason)")
 		cmd.Flags().StringVar(&reason, "reason", "", "with --thread: why the thread is deleted (required; kept for audit)")
 	}
 	if text {
@@ -222,7 +224,11 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 		cmd.Flags().IntVar(&anchor, "anchor-revision", 0, "attach to an earlier revision N of the node (default: its current revision)")
 	}
 	if guarded {
-		cmd.Flags().IntVar(&expected, "expected-revision", 0, "the comment's current write counter, from comment get (required)")
+		usage := "the comment's current write counter, from comment get (required)"
+		if verb == "delete" {
+			usage = "the comment's current write counter, from comment get (required unless --thread)"
+		}
+		cmd.Flags().IntVar(&expected, "expected-revision", 0, usage)
 	}
 	if verb == "resolve" {
 		cmd.Flags().BoolVar(&reopen, "reopen", false, "reopen a resolved thread instead")
@@ -342,16 +348,17 @@ func deleteThread(cmd *cobra.Command, f *cmdutil.Factory, connect Connect, memor
 	if err != nil {
 		return err
 	}
-	ok, err := svc.DeleteThread(cmd.Context(), ref, reason)
+	deleted, err := svc.DeleteThread(cmd.Context(), ref, reason)
 	if err != nil {
 		return err
 	}
-	dto := threadDeletedDTO{Thread: ref, Deleted: ok}
+	if !*deleted {
+		// Defence only: the server answers true or throws (#2538 gate), so a
+		// false is kept as a conflict with its detail, not a success line.
+		return exitcode.Newf(exitcode.Conflict, "thread of %s was not deleted (deleted:false); read the thread (comment get) before retrying", ref)
+	}
+	dto := threadDeletedDTO{Thread: ref, Deleted: true}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		if !ok {
-			_, err := fmt.Fprintf(w, "thread of %s was not deleted\n", ref)
-			return err
-		}
 		_, err := fmt.Fprintf(w, "✓ deleted the thread of %s\n", ref)
 		return err
 	})

@@ -50,48 +50,40 @@ func newCmdAgentList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list [<app-ref>]",
 		Aliases: []string{"ls"},
 		Short:   "List the Agents installed in an App",
-		Long: `List an App's installed Agents — the AppAgent join (cor:dmo:050:03), which
-is what "which agents does this App run?" actually means.
+		Long: `List the Agents installed in an App: which Agents does this App run? Give the
+App as the argument (ID or URN), or leave it out to use --app or the active App.
 
-The App is the positional ref (ID or URN); omit it to use --app or the
-configured App context.
+Note that "hadron agent list --app <a>" does NOT answer this: --app is the
+App-context flag, not a filter, so that command returns every Agent you can read
+whichever App you name. This command is the filter.
 
-Note that ` + "`hadron agent list --app <a>`" + ` does NOT answer this: --app is the
-persistent App-context flag, not a filter, so it returns every agent you can
-read whichever App you name (#383). This command is the filter.
+For a team App this is the roster of Agents the team's workers can be cast from.
+The named staff (the workers cast from these Agents) is "hadron team worker
+list". Columns: AGENT, ROLE (blank for an Agent with no persona role), AGENT
+URN, ID, BOOT PROMPT (NEXT BIND), INSTALL and IMPORTER. INSTALL says how the
+Agent got here: "installed" for an Agent installed directly, "derived" for one
+that arrived because another installed Agent imports it, and IMPORTER names that
+Agent. They are answered only when you may read every installed Agent;
+otherwise every row shows "?" and --json has installMethod and importer null,
+which does not tell you how an Agent was installed.
 
-For a team App this is the INSTALL roster — the cast pool. The named staff
-(workers cast from these agents) is ` + "`hadron team worker list`" + ` (#428). The
-ROLE column is blank for an agent without persona dressing, which is the
-honest answer rather than an empty list.
+BOOT PROMPT (NEXT BIND) is what a new session would be given if it started now:
+the source level, the compiled node and the served revision, or the reason it
+cannot be served. It is not the prompt of a session already running. Only
+BOOT_PROMPT_NOT_SET means none is set; a blank means not visible to you or
+unknown. Approval is never inferred from a pointer.
 
-INSTALL shows installed for a row install or derived for a direct import of
-an installed Agent; IMPORTER names the Agent supplying a derived install.
-Only readable Agent details are listed. If the installation roster or Agent
-list is withheld, --json prints null (not []), human output says "roster
-withheld (not visible to you)", and the command exits 0. When the installation list is
-available, its entries give the installation count; an entry with a null
-Agent counts as an install not visible to you. A partial roster prints
-"N installed (M not visible to you)" alongside readable details; its JSON
-array contains only those readable details and is not an install count.
-Known-empty stays [] and "0 readable agents". INSTALL and IMPORTER are
-answered only when you can read every installed Agent.
-Otherwise every row has no install mark (? = not available); JSON installMethod and importer
-are explicitly null. Null does not establish how an Agent is installed.
+Only Agents you may read are listed. When you may not see the roster, the table
+says "roster withheld (not visible to you)", --json prints null (not []), and
+the exit code is still 0. When only some Agents are hidden it prints "N
+installed (M not visible to you)" above the readable ones, and --json holds just
+those: it is not a count of installs. An App with no Agents prints "0 readable
+agents" and --json prints [].
 
-BOOT PROMPT (NEXT BIND) shows what a new bind would receive now: source level,
-compiled node id and served revision, or the typed refusal. It is not the
-current session's prompt. Only BOOT_PROMPT_NOT_SET means none; null means
-not visible or unknown. Approval is never inferred from a pointer. A visible
-own pointer is shown only when it matches the served level; no URN is built
-and no compiled content is fetched. The existing own deleted-pointer cue stays.
---json retains its keys and adds pointerLevel, compiledNodeId, servedRevSeq,
-bootPromptRefusal (null when absent) and an optional bootPromptUrn.
-An exact initial missing-bootPromptServe validation may use one legacy listing;
-other schema, permission, transport or partial errors do not fall back.
-
-Requires a server with AppAgent.installMethod and AppAgent.importer (#3446).
-Older servers refuse the new fields; no installation method is inferred.`,
+--json keeps its existing keys and adds pointerLevel, compiledNodeId,
+servedRevSeq, bootPromptRefusal (null when none) and, when known, bootPromptUrn.
+An older server refuses the install method and importer fields; nothing is
+guessed in their place.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
   hadron app agent list --app hrn:app:acme.com:eng-team --json`,
 		Args: cobra.MaximumNArgs(1),

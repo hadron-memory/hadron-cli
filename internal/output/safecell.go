@@ -1,6 +1,7 @@
 package output
 
 import (
+	"math"
 	"regexp"
 	"strings"
 	"unicode"
@@ -56,6 +57,14 @@ func SafeLine(s string, maxRunes int) string {
 	}
 	return b.String()
 }
+
+// SanitizeLine is SafeLine without a bound: it neutralises exactly the
+// characters SafeLine does (one space each) and never truncates. A caller that
+// must show a value in full, such as a task ref in a recovery message that a
+// reader copies back into a command, says so by calling this instead of passing
+// a rune bound that happens to be large enough (hadron-cli#2371). It delegates,
+// so SafeLine, SafeCell and Neutralised stay the one classification.
+func SanitizeLine(s string) string { return SafeLine(s, math.MaxInt) }
 
 // SafeBlock bounds server-authored multiline text without flattening its lines.
 // Escape sequences are removed before counting runes. CRLF becomes LF; every

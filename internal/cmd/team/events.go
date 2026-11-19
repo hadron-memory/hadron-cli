@@ -6,6 +6,7 @@ package team
 // an authored write the middleware attributes when a session is bound.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -133,6 +134,11 @@ handle needs a server that carries AgentTeamEvent.taskHandle (hadron-server
 			resp, err := gen.AgentTeamEventsPage(ctx, client, scope.Ref, optStr(after), optStr(before), optBool(newest), prefix, optBool(alarms), optBool(alarmsInEffect), &limit, optStr(since), optStr(task), types)
 			if err != nil {
 				return api.MapError(err)
+			}
+			// A success answer can still carry a null selected page (cli#2477):
+			// the same guard walkAlarms has — a command error, never a panic.
+			if resp.AgentTeamEventsPage == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no events page; the list cannot be trusted")
 			}
 			page := teamEventsPageDTO{Events: []teamEventDTO{}, HasMore: resp.AgentTeamEventsPage.HasMore, NextCursor: resp.AgentTeamEventsPage.NextCursor}
 			for _, e := range resp.AgentTeamEventsPage.Events {
@@ -299,6 +305,7 @@ uses the task deadline instead of ordinary stall windows. See them with ` + "`te
 }
 
 func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
+	var rawInstruction string
 	cmd := &cobra.Command{
 		Use:   "ack <eventId>",
 		Short: "Acknowledge an alarm",
@@ -311,23 +318,84 @@ starting or assigning the task does not end that episode. A dark-worker
 episode ends when the worker is checking again and has no unacknowledged
 wake older than the alarm window. Any owner in
 the alarm's chain may; the time is the server's. The first acknowledgement
-stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
+stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).
+
+--instruction opens the App-manager's held-worker path; the ordinary
+owner-in-chain path is unchanged. Instructed JSON adds warnings ([] when none);
+text prints server warnings on stderr. Needs server ba077810 or later.
+
+` + instructionHelpFor("ba077810"),
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			eventId := strings.TrimSpace(args[0])
 			if eventId == "" {
 				return exitcode.Newf(exitcode.Usage, "pass the alarm event id shown by `team events --alarms`")
 			}
+			claim, err := taskClaim(cmd, rawInstruction)
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			var finishInstruction func(context.Context) (context.Context, bool, error)
+			if claim != nil {
+				// Snapshot before any lookup; suppress ambient authored attribution
+				// so only the verified snapshot may attach this instructed session.
+				finishInstruction = BeginServerTargetInstructedWrite(f)(ctx)
+				ctx = withAsPerson(ctx)
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AlarmAcknowledge(cmd.Context(), client, eventId)
-			if err != nil {
-				return api.MapError(err)
+			var fields gen.AgentTeamEventFields
+			var warnings []taskWarningDTO
+			if claim == nil {
+				// #2537 (from #2505 F4): warnings arrive on a plain ack too
+				// (the server files task warnings for acknowledgeAlarm
+				// whatever carried the call), so the plain path reads the same
+				// sink. Text mode prints them below like the instructed path;
+				// plain --json keeps its bare event shape (byte identity).
+				mctx, sink := api.WithWarningSinkForFields(ctx, "acknowledgeAlarm")
+				resp, callErr := gen.AlarmAcknowledge(mctx, client, eventId)
+				if callErr != nil {
+					return api.MapError(callErr)
+				}
+				if resp.AcknowledgeAlarm == nil {
+					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
+				}
+				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
+				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
+			} else {
+				// The ServerTarget variant (instruction.go) takes no target:
+				// the server resolves the App this event names. The discarded
+				// bool is whether the worker session was attached — unused
+				// here because admission is the server's either way, and a
+				// fallback-to-person note was already printed if one applied
+				// (#2505 F3).
+				ctx, _, err = finishInstruction(ctx)
+				if err != nil {
+					return err
+				}
+				mctx, sink := api.WithWarningSinkForFields(ctx, "acknowledgeAlarm")
+				resp, callErr := gen.AlarmAcknowledgeInstructed(mctx, client, eventId, claim)
+				if callErr != nil {
+					return api.MapErrorKeepingCode(callErr)
+				}
+				if resp.AcknowledgeAlarm == nil {
+					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
+				}
+				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
+				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
 			}
-			event := teamEventDTOFrom(&resp.AcknowledgeAlarm.AgentTeamEventFields)
-			return output.Write(f.IOStreams, f.JSON, event, func(w io.Writer) error {
+			event := teamEventDTOFrom(&fields)
+			var result any = event
+			if claim != nil {
+				result = struct {
+					teamEventDTO
+					Warnings []taskWarningDTO `json:"warnings"`
+				}{event, warnings}
+			}
+			err = output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ acknowledged alarm %s (%s", event.ID, event.Type)
 				if err != nil {
 					return err
@@ -350,7 +418,19 @@ stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
 				_, err = io.WriteString(w, ")\n")
 				return err
 			})
+			if err != nil {
+				return err
+			}
+			if !f.JSON {
+				for _, warning := range warnings {
+					if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: [%s] %s\n", output.SafeCell(warning.Code), output.SafeCell(warning.Text)); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
 		},
 	}
+	cmd.Flags().StringVar(&rawInstruction, "instruction", "", taskInstructionFlagUsage)
 	return cmd
 }

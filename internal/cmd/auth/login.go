@@ -14,6 +14,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/skill"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -25,6 +26,7 @@ var browserLogin = auth.BrowserStrategy{}.Login
 
 func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	var withToken bool
+	var installSkills, noInstallSkills bool
 	var provider string
 	cmd := &cobra.Command{
 		Use:   "login",
@@ -63,6 +65,18 @@ then either pipe it to ` + "`hadron auth login --with-token`" + ` (stored like a
 browser login) or set the HADRON_TOKEN environment variable, which is used
 first and never stored. Read it from a file or a secret store rather than
 typing it on the command line.
+
+After a successful login, an interactive terminal offers to install enabled
+skills for detected Claude Code and Codex hosts (default no). Detection uses
+~/.claude, ~/.agents or ~/.codex directories, or claude/codex on PATH.
+--install-skills installs without asking; --no-install-skills skips the offer.
+Set skills.installPrompt to false with hadron config set to silence it;
+--install-skills overrides that setting. Non-interactive input and --json
+print a command on stderr instead of prompting, unless --install-skills is
+explicit. With that flag, --json includes the export report under skills.
+The installer uses this login's account, even when HADRON_TOKEN names another.
+It preserves export's ownership rules and never forces or prunes files.
+Restart the detected agent only if the report says files changed.
 
 Login applies to the current server; add --server to sign in to another one.
 On success it prints "✓ Signed in to <server>" and where the token is stored,
@@ -131,18 +145,52 @@ only whether the credential authenticates.`,
 			} else {
 				dto.Account, accountLine = acct, line
 			}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				if _, err := fmt.Fprintf(w, "✓ Signed in to %s (token stored in %s)\n", server, st.Name()); err != nil {
+			writeLogin := func() error {
+				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+					if _, err := fmt.Fprintf(w, "✓ Signed in to %s (token stored in %s)\n", server, st.Name()); err != nil {
+						return err
+					}
+					if accountLine != "" {
+						_, err := fmt.Fprintf(w, "  account: %s\n", accountLine)
+						return err
+					}
+					return nil
+				})
+			}
+			if !f.JSON {
+				if err := writeLogin(); err != nil {
 					return err
 				}
-				if accountLine != "" {
-					_, err := fmt.Fprintf(w, "  account: %s\n", accountLine)
+			}
+			report, installErr := reportLoginSkills(cmd, f, server, token, installSkills, noInstallSkills)
+			if f.JSON {
+				// Preserve a partial export report while keeping stdout one
+				// document. Failures that produced no report use the normal
+				// error envelope instead.
+				if installErr != nil && report == nil {
+					return installErr
+				}
+				dto.Skills = report
+				if err := writeLogin(); err != nil {
 					return err
+				}
+				if installErr != nil {
+					return exitcode.Silent(exitcode.FromError(installErr))
 				}
 				return nil
-			})
+			}
+			if report != nil {
+				if err := report.Render(f.IOStreams.Out); err != nil {
+					return err
+				}
+			}
+			return installErr
+
 		},
 	}
+	cmd.Flags().BoolVar(&installSkills, "install-skills", false, "install enabled skills for detected Claude Code/Codex hosts without prompting")
+	cmd.Flags().BoolVar(&noInstallSkills, "no-install-skills", false, "skip the skill installation offer and command hint")
+	cmd.MarkFlagsMutuallyExclusive("install-skills", "no-install-skills")
 	cmd.Flags().BoolVar(&withToken, "with-token", false, "read the token from standard input")
 	cmd.Flags().StringVar(&provider, "provider", "", "browser identity provider: github or google (google skips the sign-in page)")
 	cmd.MarkFlagsMutuallyExclusive("with-token", "provider")
@@ -154,7 +202,8 @@ type loginResult struct {
 	TokenStorage string `json:"tokenStorage"`
 	// Account is who the stored token belongs to; null when it could not be
 	// read (the login itself still succeeded).
-	Account *loginAccount `json:"account"`
+	Account *loginAccount        `json:"account"`
+	Skills  *skill.InstallReport `json:"skills,omitempty"`
 }
 
 // loginAccount is the whoami subset login reports.

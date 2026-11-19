@@ -31,10 +31,12 @@ func newCmdInstall(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install (--org <id> | --owner-me) --agent <ref> --name <n>",
 		Short: "Install an Agent as an App — into an organization, or as a personal App (--owner-me)",
-		Long: `Install an Agent as an App. Pass --org to install into an organization (you
-must be an org ADMIN), or --owner-me to create a user-owned (personal) App in
-your own @handle namespace (spec 047). A personal App can install a PUBLIC
-(marketplace) agent or your own user-owned agent.
+		Long: `Install an Agent as an App, which creates a new App. Pass --org (an
+organization ID or URN, for example hrn:org:acme.com) to install into an
+organization (you must be an ADMIN of it), or --owner-me to create a personal App
+in your own handle's namespace. A personal App can install a PUBLIC (marketplace)
+Agent or your own user-owned Agent. To add an Agent to an App you already have,
+use "hadron app agent add" instead.
 
 Only passed settings are sent. Omitted surfaces use the provider default ['chat'];
 --surface and --agent-tool are repeatable whole-list inputs. Surfaces describe
@@ -42,9 +44,9 @@ UI availability (the portal shows chat iff chat is present), not authorization.
 --type does not alter surfaces. Numeric values and policy shape are server
 validated. AI configuration uses ai-config.
 
---policy-file <path> sets the App's action-policy link, the App layer of the
-standing policy chain (cor:acl:040:02): one JSON value read from the file, for
-example {"allow":["run.execute"]}. The App layer can only narrow what the other
+--policy-file <path> sets the App's action-policy link, the App's layer of the
+standing policy chain: one JSON value read from the file, for example
+{"allow":["run.execute"]}. The App layer can only narrow what the other
 layers allow; {"allow":[]} allows nothing. An empty file, invalid JSON and a
 bare null are local usage errors and nothing is sent. Leave the flag out for no
 link. Without it the request never mentions policy, so an older server keeps
@@ -55,7 +57,7 @@ path, --type is validated against this CLI's schema enum; an explicit empty or
 unknown value is a local usage error. Confirmation names fields, never values.
 Success prints the installed App; --json retains its seven-field App receipt.
 memberCount stays present as null when withheld, distinct from a known 0.`,
-		Example: `  hadron app install --org acme.com --agent agent_123 --name "Support Bot"
+		Example: `  hadron app install --org hrn:org:acme.com --agent hrn:agent:acme.com:support-bot --name "Support Bot"
   hadron app install --owner-me --agent hrn:agent:acme.com:support-bot --name "My Bot"`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -80,7 +82,7 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 			// every refusal is local (the reader is shared with app update, #1640).
 			var policyJSON json.RawMessage
 			if cmd.Flags().Changed("policy-file") {
-				if policyJSON, err = readPolicyFile(policyFile, false); err != nil {
+				if policyJSON, err = readPolicyFile(policyFile, adviseOmitPolicyFile); err != nil {
 					return err
 				}
 				prepared.changed = append(prepared.changed, "policy")
@@ -167,7 +169,7 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN to install into (or use --owner-me for a personal App)")
+	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (for example hrn:org:acme.com) to install into (or use --owner-me for a personal App)")
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned (personal) App in your own @handle namespace (org-less)")
 	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID or URN to install (required)")
 	cmd.Flags().StringVar(&name, "name", "", "App name (required)")

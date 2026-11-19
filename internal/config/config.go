@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 
 	toml "github.com/pelletier/go-toml/v2"
 	"github.com/spf13/viper"
@@ -20,7 +21,8 @@ const DefaultServer = "https://srv.hadronmemory.com"
 // Keys lists the settings hadron config get/set accepts.
 //
 // It is also the ALLOW-LIST for `hadron config set`, which is a generic
-// key-value writer and performs no per-key validation. Several keys have a
+// key-value writer; it validates the skills.installPrompt boolean, but does not
+// resolve references. Several keys have a
 // dedicated setter that does — `org use` checks membership, `scope use` checks
 // the value resolves, `app set-active` shape-checks the ref — so `config set`
 // is deliberately the UNVERIFIED path for all of them (@copilot, #597).
@@ -31,12 +33,13 @@ const DefaultServer = "https://srv.hadronmemory.com"
 // The per-key descriptions say which setter verifies what, so the trade is
 // visible where a reader meets it.
 var Keys = map[string]string{
-	"server":      "Hadron server base URL",
-	"app":         "default App sent with requests — an App id or hrn:app:<root>:<slug> (set via hadron app set-active)",
-	"memory":      "default memory URN or ID (set via hadron memory set-active)",
-	"spec_memory": "default memory for spec commands (set via hadron spec use); overrides the global memory for `hadron spec`",
-	"org":         "active organization — an organization root, URN or id (set via hadron org use, which verifies membership; `config set` does not); what `--scope global` resolves against",
-	"scope":       "default search scope — a scope name, id, `app` or `global` (set via hadron scope use, which verifies it resolves; `config set` does not); applied when `hadron search` is run without --scope",
+	"skills.installPrompt": "offer skill installation after login (true by default; false silences the offer)",
+	"server":               "Hadron server base URL",
+	"app":                  "default App sent with requests — an App id or hrn:app:<root>:<slug> (set via hadron app set-active)",
+	"memory":               "default memory URN or ID (set via hadron memory set-active)",
+	"spec_memory":          "default memory for spec commands (set via hadron spec use); overrides the global memory for `hadron spec`",
+	"org":                  "active organization — an organization root, URN or id (set via hadron org use, which verifies membership; `config set` does not); what `--scope global` resolves against",
+	"scope":                "default search scope — a scope name, id, `app` or `global` (set via hadron scope use, which verifies it resolves; `config set` does not); applied when `hadron search` is run without --scope",
 }
 
 type Config struct {
@@ -108,10 +111,19 @@ func (c *Config) SpecMemory() string {
 	return c.v.GetString("spec_memory")
 }
 
+// SkillsInstallPrompt defaults to true; only a configured false silences the
+// automatic offer. Explicit login flags take precedence at the command layer.
+func (c *Config) SkillsInstallPrompt() bool {
+	return !c.v.IsSet("skills.installPrompt") || c.v.GetBool("skills.installPrompt")
+}
+
 // Get returns a known key's value.
 func (c *Config) Get(key string) (string, error) {
 	if _, ok := Keys[key]; !ok {
 		return "", exitcode.Newf(exitcode.Usage, "unknown config key %q (known keys: %s)", key, knownKeys())
+	}
+	if key == "skills.installPrompt" {
+		return strconv.FormatBool(c.SkillsInstallPrompt()), nil
 	}
 	return c.v.GetString(key), nil
 }
@@ -120,6 +132,15 @@ func (c *Config) Get(key string) (string, error) {
 // reload→mutate→write runs under the config-dir lock and re-reads the file
 // fresh, so a concurrent writer changing a different key isn't clobbered (#118).
 func (c *Config) Set(key, value string) error {
+	if key == "skills.installPrompt" {
+		if value == "" {
+			return c.Unset(key)
+		}
+		if _, err := strconv.ParseBool(value); err != nil {
+			return exitcode.Newf(exitcode.Usage, "skills.installPrompt must be true or false")
+		}
+	}
+
 	if _, ok := Keys[key]; !ok {
 		return exitcode.Newf(exitcode.Usage, "unknown config key %q (known keys: %s)", key, knownKeys())
 	}
@@ -185,7 +206,7 @@ func (c *Config) reload() error {
 func (c *Config) All() map[string]string {
 	out := map[string]string{}
 	for k := range Keys {
-		out[k] = c.v.GetString(k)
+		out[k], _ = c.Get(k)
 	}
 	return out
 }

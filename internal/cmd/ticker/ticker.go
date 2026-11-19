@@ -191,13 +191,21 @@ func writeCreated(ctx context.Context, client graphql.Client, f *cmdutil.Factory
 
 // NewCmdTicker builds ticker CRUD and subscription commands only.
 func NewCmdTicker(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "ticker <command>", Short: "Manage named ticker schedules and worker subscriptions", Long: `Manage named ticker schedules through the server. The server determines
-ownership, permissions, cadence limits and subscriber consent; this command
-never computes due wakes. Wake delivery is a separate host operation.
+	c := &cobra.Command{Use: "ticker <command>", Short: "Manage named ticker schedules and worker subscriptions", Long: `A ticker wakes the workers subscribed to it at a fixed interval (its cadence)
+so they check their team chat. Each ticker belongs to one App. Create a ticker,
+subscribe workers to it, and the host that runs the workers delivers the wakes;
+this command only manages the tickers and their subscriptions.
 
-Current server behavior may change. Create defaults reasons to
-read-team-channel, relevance to all, anchor to now and enabled to true.
-The server determines edit/delete authority and reader access.`}
+A tick wakes a subscribed worker when one of the ticker's reasons holds
+(read-team-channel: it has relevant unread messages; every-tick: always;
+live-check: it has not checked its chat within the cadence). Create defaults
+the reasons to read-team-channel, relevance to all, the anchor (the moment
+counting starts) to now, and enabled to true. The server decides who may
+create, edit or delete a ticker and who may read it.
+
+  hadron ticker create --name check-in --cadence-seconds 1800
+  hadron ticker list
+  hadron ticker subscribe <ticker-id> --worker <worker-urn>`}
 	c.AddCommand(newWrite(f, false), newWrite(f, true), newRead(f, false), newRead(f, true), newDelete(f), newSubscribe(f, false), newSubscribe(f, true), newApplyTemplates(f))
 	return c
 }
@@ -257,11 +265,21 @@ func newRead(f *cmdutil.Factory, list bool) *cobra.Command {
 		use = "list"
 		short = "List the tickers returned by the server"
 	}
-	c := &cobra.Command{Use: use, Short: short, Long: short + `. Channels are the reader's view, not the full configured set.
-Subscribers are paged to the end. The ticker list is read page by page until the
-server's own total is reached, so it is the whole set the caller may read (a
-page that stops early or repeats rows fails the command rather than printing a
-partial list).`, Args: cobra.ExactArgs(1)}
+	readLong := `Read one ticker and its live subscribers: its name, URN, cadence, whether it is
+enabled, relevance, reasons, owner, quiet hours, next and last tick, and the
+workers subscribed. Get the ticker id from "hadron ticker list". The channels
+shown are the ones you can read, not necessarily every channel it is set to
+watch.`
+	if list {
+		readLong = `List the tickers of the current App that you can read, one block each: name,
+URN, cadence, enabled or not, relevance, reasons, owner, next and last tick, and
+its subscribers. Use the URN or id with "hadron ticker get", "update",
+"delete", "subscribe" and "unsubscribe". The App is the global --app, else your
+App context, else the worktree's binding; the first line says which. The list is
+read to the end, and fails rather than print a partial one. The channels shown
+are the ones you can read, not necessarily every channel the ticker watches.`
+	}
+	c := &cobra.Command{Use: use, Short: short, Long: readLong, Example: readExample(list), Args: cobra.ExactArgs(1)}
 	if list {
 		c.Args = cobra.NoArgs
 		c.Aliases = []string{"ls"}
@@ -361,27 +379,52 @@ func newWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 		use = "update <id-or-URN>"
 		short = "Update a ticker atomically"
 	}
-	long := `Create a named ticker. Name and cadence are required. Omitted inputs
-use the current server defaults: reasons read-team-channel, relevance all,
-anchor at creation time, and enabled. These defaults may change.
-The caller becomes the owner; owner and immutable slug cannot be supplied.`
+	long := `Create a named ticker in the current App (the global --app, else your App
+context). Name and cadence are required. Left out, reasons are
+read-team-channel, relevance is all, the anchor is the moment of creation and
+the ticker is enabled. You become its owner; the owner and the slug (permanent,
+made from the name) cannot be supplied. It prints the new ticker; subscribe
+workers to it with "hadron ticker subscribe".`
 	if update {
-		long = `Update a ticker atomically. Omitted fields keep their current values,
-including enabled/disabled state. Pass at least one field flag.
-Adding every-tick may require subscriber consent: refusal rejects the whole
-edit. The server determines edit authority; current server behavior may change.
-Owner and immutable slug cannot be supplied.`
+		long = `Update a ticker in one step: either every change you pass is applied or none
+is. Fields you leave out keep their current values, including enabled or
+disabled. Pass at least one field flag. Get the id from "hadron ticker list".
+Adding every-tick can be refused until the workers subscribed to it agree (it
+wakes them on every tick); the refusal rejects the whole edit. The server
+decides who may edit. The owner and the slug cannot be changed.`
 	}
 	long += `
 
---reasons is a nonempty set: read-team-channel, every-tick, live-check (any-of).
-The server checks permissions and cadence limits. If a write's outcome is
-unknown, verify the current state before retrying; this command never retries.
-Quiet hours are a JSON object {"timezone":"UTC","windows":[{"days":[1],"from":"09:00","to":"10:00"}]}.
-Watched channels are those in the subscriber's WATCH or BOTH channel register.`
+--cadence-seconds is the time between ticks: at least the App's cadence floor
+and at most 86400 (one day); the server refuses a value outside that.
+--anchor-at is the moment tick counting starts (RFC3339).
+
+--reasons names when a tick wakes a worker, at least one (any one is enough):
+  read-team-channel  the worker has relevant unread messages in the ticker's
+                     channels (--relevance mentions: only mentions of it)
+  every-tick         always
+  live-check         the worker has not checked its team chat within the
+                     cadence, whatever is unread
+--relevance is all or mentions and only affects read-team-channel.
+--channel-ids limits which channels count; left out, the channels each
+subscribed worker watches (its WATCH or BOTH register) count. Naming a channel
+gives no one access to read it.
+--quiet-hours is a JSON object of weekly windows with no wakes, for example
+{"timezone":"UTC","windows":[{"days":[1],"from":"09:00","to":"10:00"}]}.
+
+If you do not know whether a write succeeded, read the ticker with "hadron
+ticker get" before trying again; this command never retries.`
 	c := &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, Long: long}
 	if update {
 		c.Args = cobra.ExactArgs(1)
+		c.Example = `  # ask for a check every 15 minutes, keeping everything else
+  hadron ticker update hrn:ticker:acme.com:ops:check-in --cadence-seconds 900`
+	} else {
+		c.Example = `  # wake subscribed workers every 30 minutes when they have unread messages
+  hadron ticker create --name check-in --cadence-seconds 1800
+
+  # wake them every hour whether or not anything is unread
+  hadron ticker create --name hourly --cadence-seconds 3600 --reasons every-tick`
 	}
 	flags := c.Flags()
 	nameUsage, cadenceUsage := "Ticker name (required)", "Cadence in whole seconds (required; server validates limits)"
@@ -568,15 +611,30 @@ func newSubscribe(f *cmdutil.Factory, unsubscribe bool) *cobra.Command {
 	if unsubscribe {
 		verb = "unsubscribe"
 	}
-	c := &cobra.Command{Use: verb + " <ticker-id-or-URN> --worker <id-or-URN>", Short: strings.ToUpper(verb[:1]) + verb[1:] + " a worker to a ticker", Args: cobra.ExactArgs(1), Long: `Change a worker's ticker subscription. The server checks holder, manager,
-self-subscribe cadence and grant authority. Current server behavior permits
-self-unsubscribe at any cadence; current server behavior may change.
-A grant announcement is best-effort:
-FAILED leaves the subscription change standing; this command never retries it.`}
+	c := &cobra.Command{Use: verb + " <ticker-id-or-URN> --worker <id-or-URN>", Short: strings.ToUpper(verb[:1]) + verb[1:] + " a worker to a ticker", Args: cobra.ExactArgs(1), Long: `Subscribe a worker to a ticker: from now on, a tick of that ticker wakes the
+worker whenever one of the ticker's reasons holds (see "hadron ticker create").
+Get the ticker id from "hadron ticker list". The worker is named by id or by its
+URN (hrn:worker:<root>:<app>:<name>). Who may do this: the worker's holder (the
+person whose terminal runs it), or someone who manages the App; the server
+refuses anyone else, and can refuse a self-subscription to a ticker faster than
+the worker's own cadence limit. A worker that is short-lived (started per task
+and ended when it finishes, rather than kept running) is woken by its tasks,
+not by tickers, so subscribing one is refused with TICKER_ON_SHORT_LIVED
+(exit 5).
+
+If the server tells the worker about the change and that notice fails, the
+subscription still stands; this command never retries.`,
+		Example: `  hadron ticker subscribe hrn:ticker:acme.com:ops:check-in --worker hrn:worker:acme.com:ops:iris`}
 	if unsubscribe {
 		c.Short = "Unsubscribe a worker from a ticker"
-	} else {
-		c.Long += "\nA short-lived worker is woken by its tasks, not by tickers. Subscribing it\nrefuses with TICKER_ON_SHORT_LIVED (exit 5); unsubscribing remains allowed."
+		c.Long = `Unsubscribe a worker from a ticker: its ticks stop waking the worker. Get the
+ticker id from "hadron ticker list" and name the worker by id or URN
+(hrn:worker:<root>:<app>:<name>). The worker's holder or someone who manages
+the App may do this; a worker may always unsubscribe itself, at any cadence. It
+works on any worker, including a short-lived one. If the server tells the
+worker about the change and that notice fails, the change still stands; this
+command never retries.`
+		c.Example = `  hadron ticker unsubscribe hrn:ticker:acme.com:ops:check-in --worker hrn:worker:acme.com:ops:iris`
 	}
 	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	_ = c.MarkFlagRequired("worker")
@@ -742,4 +800,12 @@ func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]g
 			return nil, exitcode.Newf(exitcode.Unavailable, "the ticker list changed while it was being read (%d of %d tickers read after %d restarts); retry the command", len(rows), page.Total, restarts)
 		}
 	}
+}
+
+// readExample is the one worked example `ticker get` and `ticker list` carry.
+func readExample(list bool) string {
+	if list {
+		return "  hadron ticker list\n  hadron ticker list --json"
+	}
+	return "  hadron ticker get hrn:ticker:acme.com:ops:check-in"
 }

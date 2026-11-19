@@ -30,20 +30,20 @@ type preparedSettings struct {
 
 func (s *settingsFlags) flags(cmd *cobra.Command, install bool) {
 	f := cmd.Flags()
-	f.StringVar(&s.role, "role", "", "member role: ADMIN|CONTRIBUTOR|OWNER|READER")
-	f.StringVar(&s.permission, "create-user-permission", "", "user creation: DENY|EXPLICIT|IMPLICIT")
-	f.StringVar(&s.identify, "identify-user-method", "", "user identity: SECRET|USER_ID")
-	f.IntVar(&s.ttl, "anonymous-ttl-days", 0, "anonymous-user TTL in days (server validated)")
+	f.StringVar(&s.role, "role", "", "the App's own role setting: ADMIN, CONTRIBUTOR, OWNER or READER (not a member's role: see \"hadron app member roles\")")
+	f.StringVar(&s.permission, "create-user-permission", "", "whether a chatbot session may create a platform user: DENY (never), EXPLICIT (only when asked) or IMPLICIT (whenever needed)")
+	f.StringVar(&s.identify, "identify-user-method", "", "how an incoming user is identified: USER_ID (by id) or SECRET (by a shared secret)")
+	f.IntVar(&s.ttl, "anonymous-ttl-days", 0, "how many days an anonymous session's data lives (server validated)")
 	f.StringVar(&s.expires, "expires-at", "", "expiry timestamp (ISO 8601; server validated)")
-	f.BoolVar(&s.training, "training-mode", false, "set training mode (explicit false is sent)")
+	f.BoolVar(&s.training, "training-mode", false, "mark this App's sessions as training data for the Agent's owner (an explicit =false is sent)")
 	f.StringArrayVar(&s.tools, "agent-tool", nil, "Agent tool; repeat to replace the whole list")
 	f.StringArrayVar(&s.surfaces, "surface", nil, "surface string; repeat to replace the whole list; descriptive, not an authorization boundary")
 	if install {
-		f.IntVar(&s.timeout, "session-timeout-seconds", 0, "session timeout in seconds (server validated)")
+		f.IntVar(&s.timeout, "session-timeout-seconds", 0, "how long a session lasts, in seconds (server validated)")
 		f.StringArrayVar(&s.optional, "install-optional", nil, "optional Agent ref to install; repeatable")
 	} else {
-		f.IntVar(&s.dormancy, "session-dormancy-days", 0, "session dormancy in days (server validated)")
-		f.BoolVar(&s.expire, "agent-sessions-expire", false, "set whether Agent sessions expire (explicit false is sent)")
+		f.IntVar(&s.dormancy, "session-dormancy-days", 0, "after how many idle days a lapsed worker session counts as dormant (server validated)")
+		f.BoolVar(&s.expire, "agent-sessions-expire", false, "whether an Agent session gets a hard expiry by default (an explicit =false is sent)")
 		f.BoolVar(&s.clearExpires, "clear-expires-at", false, "clear expiry (sends null)")
 		f.BoolVar(&s.clearTools, "clear-agent-tools", false, "replace Agent tools with an empty list")
 		f.BoolVar(&s.clearSurfaces, "clear-surfaces", false, "replace surfaces with an empty list")

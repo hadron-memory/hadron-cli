@@ -112,13 +112,20 @@ missing/unreadable node; 8 means access, reporter or author refusal.
 Exit 2: the input or the choice is invalid (an unknown --outcome, a --task outside the listed set, an invalid revision or a wrong task).
 Exit 5: no task is configured or the task is broken, the node changed during the call, or the --run-id conflicts.
 When no task is configured, exit 5 occurs without a write. Exit 7 means outcome unknown: inspect
-the node before retrying. The result is advisory, not approval or independence.`,
+the node before retrying. An HTTP 5xx answer (any status from 500 to 599) to the record request exits 7 even when
+its body is a JSON error: the outcome is unknown, so read the node's latest validation report
+before recording again (hadron node get). A repeat with the same --run-id is answered as a replay if the first attempt
+was recorded and the node and task revisions and your identity are unchanged, otherwise refused as a
+conflict; without --run-id it may record a second report. Nothing is retried. The result is advisory, not approval or independence.`,
 		Example: `  hadron node validation record instructions -m example.com:kb --outcome PASS --run-id check-42
   hadron node validation record hrn:node:example.com:kb:instructions --outcome FAIL --task <task-id> --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if outcome != "PASS" && outcome != "FAIL" && outcome != "ERROR" {
 				return exitcode.Newf(exitcode.Usage, "--outcome must be PASS, FAIL or ERROR")
+			}
+			if cmd.Flags().Changed("run-id") && strings.TrimSpace(runID) == "" {
+				return exitcode.Newf(exitcode.Usage, "--run-id must not be empty (1-200 characters); no report sent")
 			}
 			if cmd.Flags().Changed("task") && strings.TrimSpace(taskChoice) == "" {
 				return exitcode.Newf(exitcode.Usage, "--task must name a task in the effective set")
@@ -179,7 +186,7 @@ the node before retrying. The result is advisory, not approval or independence.`
 			}
 			response, err := gen.RecordContentValidation(cmd.Context(), client, n.Id, n.Revision, chosen.id, chosen.revision, gen.NodeContentValidationOutcome(outcome), run)
 			if err != nil {
-				return api.MapError(err)
+				return recordMutationError(err, args[0], run != nil)
 			}
 			r := response.RecordNodeContentValidationReport
 			if r == nil || r.Report == nil || r.NodeId != n.Id || r.Report.NodeRevision < 1 || r.Report.ReportedAt == "" || r.Report.Outcome == "" || r.State == "" {

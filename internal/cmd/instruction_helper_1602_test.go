@@ -14,13 +14,13 @@ func TestInstructionMinimumHelp1602(t *testing.T) {
 		path            []string
 		minimum, absent string
 	}{
-		{"S1_update", []string{"team", "worker", "update"}, "17ef5905", "c3ca05b5"},
-		{"S1_change", []string{"team", "worker", "change-agent"}, "17ef5905", "c3ca05b5"},
-		{"S3_keys", []string{"app", "key", "list"}, "c3ca05b5", "17ef5905"},
-		{"S3_revoke", []string{"app", "key", "revoke"}, "c3ca05b5", "17ef5905"},
-		{"S3_scope", []string{"app", "key", "scope", "revoke"}, "c3ca05b5", "17ef5905"},
-		{"S3_grants", []string{"app", "memory-grant", "list"}, "c3ca05b5", "17ef5905"},
-		{"S3_rm", []string{"app", "memory-grant", "rm"}, "c3ca05b5", "17ef5905"},
+		{"S1_update", []string{"team", "worker", "update"}, "17ef5905", "2026-11-03"},
+		{"S1_change", []string{"team", "worker", "change-agent"}, "17ef5905", "2026-11-03"},
+		{"S3_keys", []string{"app", "key", "list"}, "2026-11-03", "17ef5905"},
+		{"S3_revoke", []string{"app", "key", "revoke"}, "2026-11-03", "17ef5905"},
+		{"S3_scope", []string{"app", "key", "scope", "revoke"}, "2026-11-03", "17ef5905"},
+		{"S3_grants", []string{"app", "memory-grant", "list"}, "2026-11-03", "17ef5905"},
+		{"S3_rm", []string{"app", "memory-grant", "rm"}, "2026-11-03", "17ef5905"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f, _ := testFactory(t)

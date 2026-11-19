@@ -13,7 +13,9 @@ import (
 
 // Item 1: the --json fields agree. `truncated` is the CLI's verdict (the
 // server flagged the plan OR it lists fewer nodes than it counts), so it is
-// always !complete and never reads complete beside status TRUNCATED.
+// always !complete and never reads complete beside status TRUNCATED. A plan is
+// complete only when the server does not flag it and the list matches the
+// count, so a list longer than totalCount reads TRUNCATED too (cli#2358).
 func TestNodeMovePlan2320JSONFieldsCoherent(t *testing.T) {
 	for name, tc := range map[string]struct {
 		plan     map[string]any
@@ -23,6 +25,7 @@ func TestNodeMovePlan2320JSONFieldsCoherent(t *testing.T) {
 		"count short by one":      {plan741(2, 3, false, []any{}, false), false},
 		"flag only":               {plan741(3, 3, true, []any{}, false), false},
 		"both signals":            {plan741(1, 3, true, []any{}, false), false},
+		"list longer than count":  {plan741(3, 2, false, []any{}, false), false},
 		"complete":                {plan741(3, 3, false, []any{}, false), true},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -43,7 +46,7 @@ func TestNodeMovePlan2320JSONFieldsCoherent(t *testing.T) {
 				t.Fatalf("not one JSON document: %v\n%s", err, out)
 			}
 			if doc.Complete == nil || doc.Truncated == nil {
-				t.Fatalf("complete and truncated are both present:\n%s", out)
+				t.Fatalf("complete and truncated must both be present and non-null:\n%s", out)
 			}
 			wantStatus := "TRUNCATED"
 			if tc.complete {

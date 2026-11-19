@@ -14,10 +14,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// cli#61 first cut: `agent revision create` and `agent lock acquire|release`.
-// Each verb is one provider call with the agent reference passed exactly as
-// typed. Nothing follows a result: no retry, force, renewal, publish, restore
-// or listing. Who may act, and how long a lock lives, stay server-owned.
+// cli#61 first cut: `agent revision create` and `agent lock acquire|release`;
+// cli#2495 adds `revision publish` and `revision restore`. Each verb is one
+// provider call with the references passed exactly as typed. Nothing follows a
+// result: no retry, force, renewal or listing (no server list contract exists).
+// Who may act, and how long a lock lives, stay server-owned.
 
 // nonBlankAgentRef refuses a blank reference before any call; the original string
 // (never the trimmed one) is what goes to the server.
@@ -31,12 +32,22 @@ func nonBlankAgentRef(arg string) (string, error) {
 func newCmdAgentRevision(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revision",
-		Short: "Snapshot an Agent's system memory (draft workflow)",
-		Long: `The Agent system-memory draft workflow. This is not node history: per-node
-revisions live under 'hadron node revision'. Only 'create' exists here so far;
-publishing and restoring a revision are not available from the CLI yet.`,
+		Short: "Create, publish, or restore revisions of an Agent's system memory",
+		Long: `Save, publish and restore versions of an Agent's system memory (the Memory
+holding the Agent's prompts and tasks). A revision is a saved copy of that
+memory, named by its location (a "revision-loc" such as revisions:rev-7).
+
+  create    save the system memory as it is now; prints the new revision's loc
+  publish   make a saved revision the one the Agent serves: new chats load it
+  restore   put an earlier revision back as the Agent's current system memory
+
+Use the loc that "create" prints with the other two. Listing an Agent's
+revisions is not available from the CLI yet, so keep the locs you need. This is
+not node history: a single node's earlier versions live under "hadron node
+revision".
+Each command needs ADMIN on the Agent; the server decides.`,
 	}
-	cmd.AddCommand(newCmdAgentRevisionCreate(f))
+	cmd.AddCommand(newCmdAgentRevisionCreate(f), newCmdAgentRevisionPublish(f), newCmdAgentRevisionRestore(f))
 	return cmd
 }
 
@@ -88,13 +99,139 @@ func newCmdAgentRevisionCreate(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// nonBlankRevisionLoc refuses a blank loc before any call; the original string
+// (never the trimmed one) is what goes to the server.
+func nonBlankRevisionLoc(arg string) (string, error) {
+	if strings.TrimSpace(arg) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "the revision location is empty")
+	}
+	return arg, nil
+}
+
+func newCmdAgentRevisionPublish(f *cmdutil.Factory) *cobra.Command {
+	var versionLabel string
+	cmd := &cobra.Command{
+		Use:   "publish <agent> <revision-loc> [--version-label <text>]",
+		Short: "Publish a revision of an Agent's system memory",
+		Long: `Publish a saved revision of the Agent's system memory: the Agent then serves
+that revision, so new chats load their system memory from it. Give the
+revision's loc as "hadron agent revision create" printed it. Needs ADMIN on the
+Agent; the server decides.
+
+--version-label names the published version; left out, the server picks a
+label, and an explicit empty label stores an empty one. Prints "✓ published
+revision <loc> (label <label>, published: <true|false>)"; --json is
+{"revisionLoc", "label", "published", "createdAt"}.`,
+		Example: `  hadron agent revision publish hrn:agent:acme.com:bot revisions:rev-7 --version-label launch`,
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := nonBlankAgentRef(args[0])
+			if err != nil {
+				return err
+			}
+			loc, err := nonBlankRevisionLoc(args[1])
+			if err != nil {
+				return err
+			}
+			var label *string
+			if cmd.Flags().Changed("version-label") {
+				label = &versionLabel
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.PublishRevision(cmd.Context(), client, ref, loc, label)
+			if err != nil {
+				return api.MapError(err)
+			}
+			r := resp.PublishRevision
+			if r == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no revision")
+			}
+			dto := agentRevisionDTO{RevisionLoc: r.RevisionLoc, Label: r.Label, Published: r.Published, CreatedAt: r.CreatedAt}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ published revision %s (label %s, published: %t)\n",
+					output.SafeCell(dto.RevisionLoc), output.SafeCell(dto.Label), dto.Published)
+				return err
+			})
+		},
+	}
+	cmd.Flags().StringVar(&versionLabel, "version-label", "", "a version label for the published revision (omitted: the server default)")
+	return cmd
+}
+
+func newCmdAgentRevisionRestore(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "restore <agent> <revision-loc>",
+		Short: "Restore an earlier revision of an Agent's system memory",
+		Long: `Put an earlier revision back as the Agent's current system memory. This
+replaces the live system memory: the server first saves its present state as a
+new revision of its own, then rebuilds the memory from the revision you name.
+That automatic save can be refused when the Agent's revision slots are full
+(REVISION_SLOTS_EXHAUSTED); the CLI has no command to list or delete revisions,
+so it cannot free a slot, and the refusal is printed as the server gives it.
+Give the revision's loc as "hadron agent revision create" printed it. Needs
+ADMIN on the Agent; the server decides.
+
+Prints "✓ restored revision <loc> (label <label>, published: <true|false>)";
+--json is {"revisionLoc", "label", "published", "createdAt"}.`,
+		Example: `  hadron agent revision restore hrn:agent:acme.com:bot revisions:rev-5`,
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := nonBlankAgentRef(args[0])
+			if err != nil {
+				return err
+			}
+			loc, err := nonBlankRevisionLoc(args[1])
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.RestoreRevision(cmd.Context(), client, ref, loc)
+			if err != nil {
+				return api.MapError(err)
+			}
+			r := resp.RestoreRevision
+			if r == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no revision")
+			}
+			dto := agentRevisionDTO{RevisionLoc: r.RevisionLoc, Label: r.Label, Published: r.Published, CreatedAt: r.CreatedAt}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ restored revision %s (label %s, published: %t)\n",
+					output.SafeCell(dto.RevisionLoc), output.SafeCell(dto.Label), dto.Published)
+				return err
+			})
+		},
+	}
+	return cmd
+}
+
 func newCmdAgentLock(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lock",
 		Short: "Take or give up an Agent's editor lock",
-		Long: `The editor lock for an Agent's system memory. The server owns who may take it
-and how long it lasts; the CLI never retries, forces, renews or releases on
-your behalf.`,
+		Long: `The editor lock for an Agent's system memory: a server-side marker that says
+who is editing it. While someone holds it, anyone else who asks for it is told
+"not acquired", who holds it and until when.
+
+When you need it: only when you want to tell others you are editing this
+Agent's system memory. No other hadron command takes, checks or waits for the
+lock, so editing nodes does not require holding it from this CLI. Whether the
+server refuses an edit from someone who does not hold it is the server's
+decision; this CLI does not enforce it.
+
+A lock does not last forever: "lock acquire" prints the time it runs out
+("until <time>"), asking again while you hold it renews it, and "lock release"
+gives it up early. A lock nobody releases ends at that time.
+
+The usual order is: "hadron agent lock acquire <agent>", make your edits,
+"hadron agent lock release <agent>". The server owns who may take the lock and
+how long it lasts; the CLI never retries, forces, renews or releases on your
+behalf.`,
 	}
 	cmd.AddCommand(newCmdAgentLockAcquire(f), newCmdAgentLockRelease(f))
 	return cmd
@@ -110,9 +247,15 @@ func newCmdAgentLockAcquire(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "acquire <agent>",
 		Short: "Acquire an Agent's editor lock",
-		Long: `Ask for the editor lock. If someone else holds it the server answers "not
-locked" with who holds it and until when (null when unknown): the result is
-printed and the command exits 5 (conflict). It does not retry.`,
+		Long: `Ask for the editor lock. If someone else holds it, the server says the lock
+was not acquired and names who holds it and until when (null when unknown): the
+result is printed and the command exits 5 (conflict). It does not retry.
+Asking for a lock you already hold renews it.
+
+Prints "✓ lock acquired until <time>" on success ("✓ lock acquired" when the
+server gives no expiry), or "✗ lock not acquired (held by <who>) until <time>"
+when someone else has it; --json is {"locked": bool, "lockedBy": <who or null>,
+"expiresAt": <time or null>}.`,
 		Example: `  hadron agent lock acquire hrn:agent:acme.com:bot`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

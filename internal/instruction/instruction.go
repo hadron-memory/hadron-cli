@@ -1,9 +1,11 @@
 package instruction
 
 import (
+	"strings"
+
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"strings"
+	"github.com/spf13/cobra"
 )
 
 const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server "
@@ -59,42 +61,62 @@ func Parse(raw string) (*gen.ActInstructionInput, error) {
 
 // StaffingFlagUsage is the flag line for the staffing and member doors
 // (cli#1594), whose minimum server is hadron-server#3308's merge.
-const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server 517eb1db or later"
+const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server 2026-11-03 or later"
 
 // StaffingHelp is the help paragraph `team worker cast|retire|rm` and
 // `app member add|remove` share (cli#1594, hadron-server#3308). grant is the
 // worker's own grant that admits it without a claim: workers.staff or
 // app.members.
 func StaffingHelp(grant string) string {
-	return `INSTRUCTED (--instruction <kind>:<ref>). Without the flag this call is the
-signed-in person's, as before, even in a bound worktree: it carries no worker
-session. With it, the call claims that the bound worker's holder told it to
-make this one change. kind is team-chat-message, task or live-chat; ref is a
-reference to where the instruction was given (a team-chat message URN, a task
-URN, or an opaque client address), never its text. The CLI splits on the
-first colon only and sends the ref as written; a bad kind or a blank ref is
-refused (exit 2) before any prompt or request.
+	return `--instruction <kind>:<ref> is for an AI worker acting on its holder's say-so
+(the holder is the person responsible for the worker). It claims that the
+holder told the worker, bound to this working directory, to make this one
+change. kind is team-chat-message, task or live-chat; ref points to where they
+said so (a team-chat message URN, a task URN, or an opaque client address),
+never its text. A bad kind or a blank ref is refused (exit 2) before any prompt
+or request.
 
-The call goes out through this worktree's worker session when the binding,
-as it stood before the command's first lookup, is complete, for this server
-and for the App the change targets, and is unchanged when it is sent. Otherwise
-it goes out as the signed-in person, with a note on stderr saying why: the
-server still checks the reference and refuses a bad one, but records no
-claim. Lookups made to decide this never carry the session.
-
-The holder answers for the claim, and still needs the right to make the
-change themselves. The server checks the reference (a missing, unreadable or
-other-App one is refused, for a person too), never that an instruction really
-happened. An admitted claim is recorded with the worker, the holder and the
-reference, also for a change that changes nothing (an already-retired worker,
-an existing or absent member). A host-launched session's instruction is
-ignored, neither checked nor recorded: it acts only on its own ` + grant + `
-grant, refused without one and admitted with one. A worker session making
-this change without an instruction needs that same grant, which nobody holds
-by default. The MCP tools take no instruction, so a worker session there
-needs the grant; this flag is the way to make the call from a worktree.
-
-Needs server 517eb1db (hadron-server#3308) or later; an older server's
-refusal is passed through, never retried without the flag. Refusals keep
-their codes: FORBIDDEN is exit 8, with serverCode in --json errors.`
+Without the flag the call is yours, as the signed-in person. With it, the call
+goes out through the worker's session when its binding is complete and for this
+server and App; otherwise it goes out as you, with a note on stderr, and the
+server records no claim. The holder answers for the claim and still needs the
+right to make the change themselves; the server checks the reference, never
+that an instruction really happened. A host-launched session's instruction is
+ignored: it acts only on its own ` + grant + ` grant, which nobody holds by
+default; a worker session with no instruction needs the same grant. The MCP
+tools take no instruction. Needs server 2026-11-03 or later; an older server's
+refusal is passed through and never retried without the flag; a FORBIDDEN
+refusal is exit 8. More: "hadron agentic-usage", "Instructed staffing and
+member acts".`
 }
+
+// AddManagerFlag registers --instruction and appends ManagerHelp on one of the
+// six App-manager writes (cli#2448). The two doors, `app ...` and `team ...`,
+// share the registration but not the server minimum: each passes its own, so
+// one door's version text never moves with the other's (the same independence
+// FlagUsageForServer documents). The app door's minimum is the dated release
+// ManagerHelp names; the team door pins the server revision its settings and
+// grant mutations landed in.
+func AddManagerFlag(cmd *cobra.Command, minimum string) {
+	cmd.Flags().String("instruction", "", FlagUsageForServer(minimum))
+	cmd.Long += "\n\n" + ManagerHelp
+}
+
+// ManagerHelp is shared by the six App-manager writes in cli#2448.
+const ManagerHelp = `--instruction <kind>:<ref> is for an AI worker acting on its holder's say-so
+(the holder is the person responsible for the worker). It claims that the
+holder told it to make this change. kind is team-chat-message, task or
+live-chat; ref is everything after the first colon, sent unchanged, never the
+instruction's text. A bad kind or a blank ref is refused (exit 2) before any
+prompt or request.
+
+Without the flag this is your ordinary call as the signed-in person. With it,
+the call goes out through the worker's session when its binding is complete and
+for this server and App; otherwise it goes out as you with the claim still sent
+(a note on stderr says why when a binding was unusable). The holder must manage
+the App, and a host-launched session is refused. The server checks the
+reference, never that an instruction really happened. A change made with an
+instruction records one event naming only ids; a call that changes nothing
+records none. A server refusal is never retried as you or without the claim.
+The MCP tools take no instruction. Needs server 2026-11-04 or later. More:
+"hadron agentic-usage", "App-manager writes with an instruction".`
