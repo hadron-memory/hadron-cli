@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -101,63 +102,90 @@ func readProcesses(root string, uid int) ([]process, error) {
 		p.agent = len(argv) >= 2 && filepath.Base(argv[0]) == "node" && filepath.Base(argv[1]) == "codex"
 		result = append(result, p)
 	}
+	// /proc lists in directory order, which is arbitrary; a pid-sorted read
+	// makes every downstream answer independent of that order (cli#2483 F8).
+	sort.Slice(result, func(i, j int) bool { return result[i].pid < result[j].pid })
 	return result, nil
 }
 
+// resolvedPath is p with symlinks evaluated when that succeeds, and p itself
+// otherwise — a conservative comparison, never a broader match. Fixture
+// worktrees reached through symlinked temp paths (macOS /var → /private/var)
+// then compare in the same form as the resolved worktree root (cli#2483 F16).
+func resolvedPath(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return p
+}
+
+// treeState reports the wrapper→agent shape around one worktree. The answer
+// is order-independent: problems are collected first, then resolved by a
+// fixed precedence — foreign_uid, cwd_outside_worktree, multiple_wrappers,
+// multiple_agents, no_wrapper, no_agent, ok — so coexisting problems always
+// yield the same code whatever order the processes arrived in (cli#2483 F8).
+// Two codes are deliberately conservative, and the command's help says so
+// (cli#2483 F7): cwd_outside_worktree also covers a wrapper working strictly
+// below the worktree root and a wrapper↔agent edge crossing its boundary;
+// no_wrapper also covers a wrapper whose agent is not its child.
 func treeState(all []process, worktree string) string {
 	root, err := filepath.EvalSymlinks(worktree)
 	if err != nil {
 		return "cwd_outside_worktree"
 	}
 	byPID := map[int]process{}
+	inside := map[int]bool{}
 	wrappers, agents := []process{}, []process{}
+	foreign, cwdAnomaly := false, false
 	for _, p := range all {
 		byPID[p.pid] = p
-		if within(p.cwd, root) {
-			if p.foreign {
-				return "foreign_uid"
+		in := within(resolvedPath(p.cwd), root)
+		inside[p.pid] = in
+		if !in {
+			continue
+		}
+		if p.foreign {
+			foreign = true
+			continue
+		}
+		if p.wrapper {
+			if resolvedPath(p.cwd) != root {
+				cwdAnomaly = true
 			}
-			if p.wrapper {
-				if p.cwd != root {
-					return "cwd_outside_worktree"
-				}
-				wrappers = append(wrappers, p)
-			}
-			if p.agent {
-				agents = append(agents, p)
-			}
+			wrappers = append(wrappers, p)
+		}
+		if p.agent {
+			agents = append(agents, p)
 		}
 	}
 	// A direct wrapper/agent edge crossing the worktree boundary is never
 	// hidden by a second, well-formed child inside the worktree.
 	for _, p := range all {
-		if parent, ok := byPID[p.parent]; p.agent && ok && parent.wrapper && within(p.cwd, root) != within(parent.cwd, root) {
-			return "cwd_outside_worktree"
+		if parent, ok := byPID[p.parent]; p.agent && ok && parent.wrapper && inside[p.pid] != inside[parent.pid] {
+			cwdAnomaly = true
 		}
 	}
-	if len(wrappers) > 1 {
+	switch {
+	case foreign:
+		return "foreign_uid"
+	case cwdAnomaly:
+		return "cwd_outside_worktree"
+	case len(wrappers) > 1:
 		return "multiple_wrappers"
-	}
-	if len(agents) > 1 {
+	case len(agents) > 1:
 		return "multiple_agents"
-	}
-	if len(wrappers) == 0 {
-		if len(agents) == 1 {
-			if parent, ok := byPID[agents[0].parent]; ok && parent.wrapper {
-				return "cwd_outside_worktree"
-			}
-		}
+	case len(wrappers) == 0:
 		return "no_wrapper"
-	}
-	if len(agents) == 0 {
+	case len(agents) == 0:
+		// A wrapper whose only agent child works outside the worktree is a
+		// boundary crossing, not a missing agent.
 		for _, p := range all {
-			if p.parent == wrappers[0].pid && p.agent && !within(p.cwd, root) {
+			if p.agent && p.parent == wrappers[0].pid && !inside[p.pid] {
 				return "cwd_outside_worktree"
 			}
 		}
 		return "no_agent"
-	}
-	if agents[0].parent != wrappers[0].pid {
+	case agents[0].parent != wrappers[0].pid:
 		return "no_wrapper"
 	}
 	return "ok"
