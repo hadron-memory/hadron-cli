@@ -39,10 +39,11 @@ const maxPreviewRunes = 8000
 // what it was for).
 const triggerRefHelp = `The trigger is its row id: the ID column of "hadron schedule list" (SCHEDULE) or
 "hadron webhook list" (WEBHOOK), or, for a MANUAL run (one started by hand,
-not by a schedule or webhook), the id printed by the run that was refused. This raw surface does not resolve an automation name or
-require an App context; to work by name (schedule/<name>, webhook/<name>) use
-"hadron automation approval" and "hadron automation approve" instead, which need
-no row id or hash.`
+not by a schedule or webhook), the id printed by the run that was refused.
+This raw surface does not resolve an automation name or require an App
+context; to work by name (schedule/<name>, webhook/<name>) use
+"hadron automation approval" and "hadron automation approve" instead, which
+need no row id or hash.`
 
 const previewLong = `Show what an automation would do and the digest the server holds for it, without
 changing anything: read the exact graph before you approve it again with

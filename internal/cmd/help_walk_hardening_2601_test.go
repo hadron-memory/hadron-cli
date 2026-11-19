@@ -135,3 +135,15 @@ func TestReAdoptSaysWhenYouNeedIt2601(t *testing.T) {
 		}
 	}
 }
+
+// cli#2601 item 5's defect class, on the pages this PR edits: no source line of
+// the preview and re-adopt Long text runs past the usual wrap (LOCAL F1).
+func TestPreviewAndReAdoptLongLinesAreWrapped2601(t *testing.T) {
+	for _, path := range [][]string{{"automation", "preview"}, {"automation", "re-adopt"}} {
+		for _, line := range strings.Split(page2579(t, path...).Long, "\n") {
+			if len(line) > 90 {
+				t.Errorf("%v has a %d-column line: %q", path, len(line), line)
+			}
+		}
+	}
+}
