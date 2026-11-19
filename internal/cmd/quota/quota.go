@@ -27,7 +27,8 @@ used today against its limit; it resets at UTC midnight and the limit stays.
 When a counter reaches its limit, further use is refused until the reset.
 
 quota list shows the counters; quota set changes a limit. Both need ADMIN or
-OWNER in the org (else exit 8).`,
+OWNER in the org (else exit 8). For a scope you have not used, the limit shown
+is the platform default.`,
 		Example: `  hadron quota list --org acme.com
   hadron quota set --org acme.com --action run.execute --limit 500`,
 	}

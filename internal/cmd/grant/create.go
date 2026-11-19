@@ -36,7 +36,8 @@ scripts, and it asks no confirmation.
 hrn:user:<handle>. --action takes one or more actions (repeat it or separate
 with commas), each exact (memory.clone), a prefix (memory.*) or *. The
 actions checked today are memory.clone, memory.create and memory.delete; any
-other well-formed name is accepted but grants nothing. --expires is an
+other well-formed name is accepted but grants nothing. hadron team grant
+actions lists the grantable actions an App has registered. --expires is an
 ISO-8601 time with a timezone, in the future; without it the grant does not
 expire.
 

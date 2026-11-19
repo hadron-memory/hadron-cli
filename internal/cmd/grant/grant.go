@@ -26,8 +26,14 @@ only applies while the person is a member (removing them suspends it). Org
 ADMINs and OWNERs create and revoke grants; anyone can list their own.
 
 Actions are named like memory.clone, memory.create and memory.delete, which
-are the actions that currently check for a grant. There is no command that
-lists every action name. An action no check uses is accepted but does nothing.
+are the actions that currently check for a grant. To read the grantable
+actions an App has registered, run hadron team grant actions. No command lists
+the action names the policy chain takes (hadron policy explain and set); an
+action no check uses is accepted but does nothing.
+
+Three listings answer "what can I do?": hadron grant list (org action grants),
+hadron team grant list (a worker's grants) and hadron auth grants (grants held
+by you personally, across Apps).
 
 Grants differ from tickets (hadron ticket): a grant is a standing permission
 for a person, while a ticket is used up by one action of an agent run.`,
