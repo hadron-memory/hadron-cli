@@ -378,6 +378,9 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 				return err
 			}
 		}
+		if err := workedFromLines(w, task.Result, "    "); err != nil {
+			return err
+		}
 	}
 	if err := line("  created: %s", output.SafeCell(task.CreatedAt)); err != nil {
 		return err

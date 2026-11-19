@@ -45,7 +45,7 @@ func writeDecision(f *cmdutil.Factory, d decisionDTO, verb string) error {
 		}
 		var b strings.Builder
 		fmt.Fprintln(&b, head)
-		fmt.Fprintf(&b, "  state: %s  tier: %s  urgency: %s  revision: %d", d.State, d.Tier, d.Urgency, d.Revision)
+		fmt.Fprintf(&b, "  state: %s  tier: %s  priority: %s  revision: %d", d.State, d.Tier, d.Priority, d.Revision)
 		if d.Authorizes {
 			b.WriteString("  authorizes")
 		}
@@ -58,8 +58,17 @@ func writeDecision(f *cmdutil.Factory, d decisionDTO, verb string) error {
 			fmt.Fprintf(&b, "  URL: %s\n", output.SafeCell(*d.PortalURL))
 		}
 		fmt.Fprintf(&b, "  deciders: %s\n", actorNames(d.Deciders))
-		if d.Context != nil && *d.Context != "" {
-			fmt.Fprintf(&b, "  context: %s\n", output.SafeLine(*d.Context, 400))
+		if d.Background != nil && *d.Background != "" {
+			fmt.Fprintf(&b, "  background: %s\n", output.SafeLine(*d.Background, 400))
+		}
+		if d.WhyNow != nil && *d.WhyNow != "" {
+			fmt.Fprintf(&b, "  why now: %s\n", output.SafeLine(*d.WhyNow, 400))
+		}
+		if d.NeededBy != nil {
+			fmt.Fprintf(&b, "  needed by: %s\n", output.SafeCell(*d.NeededBy))
+			if d.DefaultAction != nil && *d.DefaultAction != "" {
+				fmt.Fprintf(&b, "  if unanswered: %s\n", output.SafeLine(*d.DefaultAction, 400))
+			}
 		}
 		if d.Withdrawn != nil {
 			fmt.Fprintf(&b, "  withdrawn %s: %s\n", output.SafeCell(d.Withdrawn.At), output.SafeLine(d.Withdrawn.Reason, 400))

@@ -1103,6 +1103,7 @@ Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 
 func newCmdTeamTaskFinish(f *cmdutil.Factory) *cobra.Command {
 	var outcome, summary, evidence, findingsFile string
+	var workedFrom []string
 	cmd := &cobra.Command{
 		Use:   "finish <taskId> --outcome <word>",
 		Short: "Finish a started task with its result",
@@ -1141,11 +1142,22 @@ After a lost/malformed answer state may have changed: inspect the immutable
 findings before deciding what to do. No automatic retry or page drain.
 Human findings neutralize controls; JSON retains original valid text.
 
+--worked-from REF records the role tasks you followed (cor:agt:050:30): repeat it
+for each, at most 10 (an eleventh exits 2 before any request). REF is a node id
+or URN of a live runnable node you can read, and may not repeat. The server
+keeps each as node id, URN and revision, in the order given, and never changes
+them. Any it refuses (TASK_ROLE_TASK_REFS_INVALID, exit 2) leaves the task
+started, and the message names no reference: the server answers the same for a
+node you cannot read and one that does not exist. Combines with --findings-file.
+Omitting the flag keeps the request and output as they were.
+
 Success prints the task, the outcome and the summary; --json returns the task
-with its result and a warnings list.`,
+with its result and a warnings list. The stored refs show under "worked from"
+and in --json as result.workedFromRoleTaskRefs [{nodeId, urn, revision}].`,
 		Example: `  hadron team task finish AT0.7 --outcome succeeded --summary "Login redirect fixed" --evidence https://github.com/acme/app/pull/9
   hadron team task finish AT0.8 --outcome failed --summary "Cannot reproduce on staging"
-  hadron team task finish AT0.7 --outcome changes-requested --findings-file findings.json`,
+  hadron team task finish AT0.7 --outcome changes-requested --findings-file findings.json
+  hadron team task finish AT0.9 --outcome succeeded --worked-from hrn:node:acme.com:eng-system:tasks:build-it --worked-from hrn:node:acme.com:eng-system:tasks:review-it`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -1163,6 +1175,10 @@ with its result and a warnings list.`,
 			if !taskOutcomeRe.MatchString(outcome) {
 				return exitcode.Newf(exitcode.Usage, "--outcome is one word of letters, digits, underscore, hyphen or dot (up to 64 characters), got %q", outcome)
 			}
+			refs, err := workedFromRefs(workedFrom)
+			if err != nil {
+				return err
+			}
 			var findings []*gen.AgentTaskFindingInput
 			withFindings := cmd.Flags().Changed("findings-file")
 			if withFindings {
@@ -1176,12 +1192,13 @@ with its result and a warnings list.`,
 				return err
 			}
 			if withFindings {
-				return finishTaskWithFindings(ctx, client, f, taskId, outcome, summary, evidence, findings)
+				return finishTaskWithFindings(ctx, client, f, taskId, outcome, summary, evidence, refs, findings)
 			}
 			result := gen.AgentTaskResultInput{
-				Outcome:  outcome,
-				Summary:  optStr(summary),
-				Evidence: optStr(evidence),
+				Outcome:                outcome,
+				Summary:                optStr(summary),
+				Evidence:               optStr(evidence),
+				WorkedFromRoleTaskRefs: refs,
 			}
 			mctx, sink := api.WithWarningSink(ctx)
 			resp, err := gen.AgentTaskFinish(mctx, client, taskId, &result)
@@ -1201,10 +1218,11 @@ with its result and a warnings list.`,
 					return err
 				}
 				if task.Result != nil && task.Result.Summary != nil {
-					_, err := fmt.Fprintf(w, "  %s\n", *task.Result.Summary)
-					return err
+					if _, err := fmt.Fprintf(w, "  %s\n", *task.Result.Summary); err != nil {
+						return err
+					}
 				}
-				return nil
+				return workedFromLines(w, task.Result, "  ")
 			})
 		},
 	}
@@ -1212,7 +1230,32 @@ with its result and a warnings list.`,
 	cmd.Flags().StringVar(&summary, "summary", "", "one-line result summary")
 	cmd.Flags().StringVar(&evidence, "evidence", "", "URL or node URN backing the result")
 	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (requires server#3248)")
+	cmd.Flags().StringArrayVar(&workedFrom, "worked-from", nil, "role task node id or URN you followed; repeat for each, at most 10 (live, runnable, readable, no repeats)")
 	return cmd
+}
+
+// maxWorkedFrom is the server's cap on workedFromRoleTaskRefs (cor:agt:050:30).
+const maxWorkedFrom = 10
+
+// workedFromRefs checks --worked-from before any request: at most 10, none blank. Everything else (readable,
+// runnable, no repeat) is the server's call and comes back as TASK_ROLE_TASK_REFS_INVALID. Nil when the flag
+// is absent, so the request omits the field.
+func workedFromRefs(in []string) ([]string, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	if len(in) > maxWorkedFrom {
+		return nil, exitcode.Newf(exitcode.Usage, "--worked-from: at most %d references, got %d", maxWorkedFrom, len(in))
+	}
+	out := make([]string, 0, len(in))
+	for _, r := range in {
+		r = strings.TrimSpace(r)
+		if r == "" {
+			return nil, exitcode.Newf(exitcode.Usage, "--worked-from: a reference must not be empty")
+		}
+		out = append(out, r)
+	}
+	return out, nil
 }
 
 // ---- hand-back --------------------------------------------------------------

@@ -35,16 +35,32 @@ one: the server has no answer operation yet.
 The server derives a decision's state on every read. Rely on a decision as a
 ruling only while its state is DECIDED.
 
-Each command makes one server call and passes references exactly as typed (ID
-or URN). The server decides who may do what; a refusal exits with its code.`,
+Servers speak one of two decision APIs, and this group works with both. A
+newer server (Questions, hadron-server#4513) has one question per decision,
+with a background, a priority (LOW, NORMAL, HIGH, URGENT), options that say why
+to choose them and a recommendation. An older server has parts, each with its
+options and recommendation, an urgency (NORMAL or URGENT) and a context. Each
+command that reads or writes a decision first asks the server which it is, once,
+and uses that server's operations; if the server cannot say, the command stops
+rather than guess. Both are shown in one form: priority and background are also
+printed as urgency and context in --json, a newer server's single question is
+the decision's only part (numbered 1, cited <code>-1; its text is the title),
+and a field only one server has is null or [] on the other. --background and
+--priority are the flags; --context and --urgency are their older names and still
+work. --input-file keys follow the server's own input: see decision ask --help.
+
+Each command makes one server call (after that one check) and passes references
+exactly as typed (ID or URN). The server decides who may do what; a refusal
+exits with its code.`,
 	}
+	p := &prober{}
 	cmd.AddCommand(
 		newCmdLog(f),
-		newCmdAsk(f),
-		newCmdGet(f),
-		newCmdList(f),
-		newCmdAmend(f),
-		newCmdWithdraw(f),
+		newCmdAsk(f, p),
+		newCmdGet(f, p),
+		newCmdList(f, p),
+		newCmdAmend(f, p),
+		newCmdWithdraw(f, p),
 		newCmdVerify(f),
 		newCmdPurge(f),
 	)
@@ -237,68 +253,154 @@ nothing changes.`,
 
 // addInputFlags registers the shared ask/amend input flags. Each one, when
 // given, sets the top-level key of the same name in the input object,
-// overriding --input-file.
+// overriding --input-file. --background and --priority are the names a newer
+// server uses; --context and --urgency are the older names and keep working.
 func addInputFlags(cmd *cobra.Command, in *inputFlags) {
 	cmd.Flags().StringVar(&in.file, "input-file", "", `a JSON object of input fields ("-" reads piped stdin); unknown, mis-cased and duplicate keys are refused`)
 	cmd.Flags().StringVar(&in.title, "title", "", "the decision's title (overrides the file's)")
-	cmd.Flags().StringVar(&in.context, "context", "", "background for the deciders (overrides the file's)")
-	cmd.Flags().StringVar(&in.tier, "tier", "", "APPROVED or SIGNED (overrides the file's; the server validates)")
-	cmd.Flags().StringVar(&in.urgency, "urgency", "", "NORMAL or URGENT (overrides the file's; the server validates)")
+	cmd.Flags().StringVar(&in.background, "background", "", "background for the deciders (overrides the file's; an older server calls it context)")
+	cmd.Flags().StringVar(&in.context, "context", "", "the older name of --background")
+	cmd.Flags().StringVar(&in.tier, "tier", "", "ANSWERED, APPROVED or SIGNED (overrides the file's; the server validates)")
+	cmd.Flags().StringVar(&in.priority, "priority", "", "LOW, NORMAL, HIGH or URGENT (overrides the file's; an older server has NORMAL and URGENT only)")
+	cmd.Flags().StringVar(&in.urgency, "urgency", "", "the older name of --priority, NORMAL or URGENT")
 }
 
 // inputFlags are the shared ask/amend field flags; each overrides the file.
 type inputFlags struct {
-	file, title, context, tier, urgency string
+	file, title, background, context, tier, priority, urgency string
 }
 
-// decoder opens --input-file for a strict decode; nil when it was not given.
-// A given-but-blank --input-file is refused, not read as absent.
-// The caller decodes into its own generated input struct, which is what lets
-// the coverage matrix see every input field as reachable through the file.
-func (in *inputFlags) decoder(cmd *cobra.Command, f *cmdutil.Factory, target any) (*json.Decoder, error) {
+// check refuses what is wrong whichever server is behind it: both spellings of
+// one field, and an --urgency the older vocabulary does not have.
+func (in *inputFlags) check(cmd *cobra.Command) error {
+	fl := cmd.Flags()
+	if fl.Changed("background") && fl.Changed("context") {
+		return exitcode.Newf(exitcode.Usage, "give --background or --context (its older name), not both")
+	}
+	if fl.Changed("priority") && fl.Changed("urgency") {
+		return exitcode.Newf(exitcode.Usage, "give --priority or --urgency (its older name), not both")
+	}
+	if fl.Changed("urgency") && in.urgency != "NORMAL" && in.urgency != "URGENT" {
+		return exitcode.Newf(exitcode.Usage, "--urgency takes NORMAL or URGENT; use --priority for LOW or HIGH")
+	}
+	return nil
+}
+
+// anyFlag reports whether any field flag was given.
+func (in *inputFlags) anyFlag(cmd *cobra.Command) bool {
+	fl := cmd.Flags()
+	for _, n := range []string{"title", "background", "context", "tier", "priority", "urgency"} {
+		if fl.Changed(n) {
+			return true
+		}
+	}
+	return false
+}
+
+// fileData reads --input-file once, before any call; nil when it was not
+// given. A given-but-blank --input-file is refused, not read as absent.
+func (in *inputFlags) fileData(cmd *cobra.Command, f *cmdutil.Factory) ([]byte, error) {
 	if !cmd.Flags().Changed("input-file") {
 		return nil, nil
 	}
 	if strings.TrimSpace(in.file) == "" {
 		return nil, exitcode.Newf(exitcode.Usage, "--input-file is empty: give a path, or - for piped stdin")
 	}
-	data, err := readInputFile(f.IOStreams, in.file)
-	if err != nil {
-		return nil, err
-	}
-	return inputDecoder(data, target)
+	return readInputFile(f.IOStreams, in.file)
 }
 
-// overrides returns a pointer for each field flag that was given, nil
-// otherwise (so an unset flag leaves the file's value, or omits the field).
-func (in *inputFlags) overrides(cmd *cobra.Command) (title, context *string, tier *gen.QuestionTier, urgency *gen.QuestionUrgency) {
+// decodeInput strictly decodes the file into target (a pointer to one shape's
+// input struct): an unknown, duplicate or mis-cased key is refused. Decoding
+// into the caller's own input struct is what lets the coverage matrix see every
+// input field as reachable through the file.
+func decodeInput(data []byte, target any) error {
+	dec, err := inputDecoder(data, target)
+	if err != nil {
+		return err
+	}
+	return finishInput(dec, dec.Decode(target))
+}
+
+// precheck refuses, before any call, a file that neither server's input would
+// take: the shape is not known until the server is asked, and a file that is
+// valid for one shape is not this command's to refuse early. The error is the
+// older shape's; decoding again once the shape is known gives the exact one.
+func precheck(data []byte, legacy, s2 any) error {
+	if data == nil {
+		return nil
+	}
+	errLegacy := decodeInput(data, legacy)
+	if errLegacy == nil {
+		return nil
+	}
+	if decodeInput(data, s2) == nil {
+		return nil
+	}
+	return errLegacy
+}
+
+// values resolves the flags that were given for the server's shape: nil for
+// each one not given. On an older server the priority is its urgency, so LOW
+// and HIGH, which it does not have, are refused here rather than as a schema
+// error from the server.
+func (in *inputFlags) values(cmd *cobra.Command, sh shape) (title, background, tier, priority *string, err error) {
 	fl := cmd.Flags()
 	if fl.Changed("title") {
 		title = &in.title
 	}
-	if fl.Changed("context") {
-		context = &in.context
+	switch {
+	case fl.Changed("background"):
+		background = &in.background
+	case fl.Changed("context"):
+		background = &in.context
 	}
 	if fl.Changed("tier") {
-		t := gen.QuestionTier(in.tier)
-		tier = &t
+		tier = &in.tier
 	}
-	if fl.Changed("urgency") {
-		u := gen.QuestionUrgency(in.urgency)
-		urgency = &u
+	switch {
+	case fl.Changed("priority"):
+		priority = &in.priority
+	case fl.Changed("urgency"):
+		priority = &in.urgency
 	}
-	return title, context, tier, urgency
+	if sh == shapeLegacy && priority != nil && *priority != "NORMAL" && *priority != "URGENT" {
+		return nil, nil, nil, nil, exitcode.Newf(exitcode.Usage,
+			"this server's priority is its urgency, NORMAL or URGENT; %q needs a server with priorities (LOW, NORMAL, HIGH, URGENT)", *priority)
+	}
+	return title, background, tier, priority, nil
 }
 
-func newCmdAsk(f *cmdutil.Factory) *cobra.Command {
+func newCmdAsk(f *cmdutil.Factory, p *prober) *cobra.Command {
 	var in inputFlags
 	cmd := &cobra.Command{
-		Use:   "ask <log> --input-file <path> [--title <t>] [--context <c>] [--tier <tier>] [--urgency <u>]",
+		Use:   "ask <log> --input-file <path> [--title <t>] [--background <b>] [--tier <tier>] [--priority <p>]",
 		Short: "Ask a decision in a decision log",
 		Long: `Ask a decision. The server issues its code (the log prefix plus the next
 letters) and prints the decision; decision get <code> --log <log> reads it
 back later. --input-file is a JSON object with the fields of the server's
-AskQuestionInput, passed through unchanged:
+AskQuestionInput, passed through unchanged. A newer server (see decision
+--help) takes these; a key an older server's input has (parts, context,
+urgency, followUps) is refused with its name:
+
+  title (required)  the question, one line
+  background        why it matters, in markdown (--background)
+  whyNow            why it is being asked now
+  priority          LOW, NORMAL (the default), HIGH or URGENT (--priority)
+  options           the choices, each {"key": "pg", "label": "Postgres",
+                    "whyChoose": "...", "whyNot": "...", "risks": "..."}
+                    (only key and label are required) — or "yesno": true
+                    for yes and no; neither makes a free-text question
+  recommendation    {"key": "pg", "reason": "we run it already"}, or
+  noRecommendation  {"reason": "..."} when none is given
+  deciders, tier, authorizes, grant   as for an older server below, except
+                    that tier also takes ANSWERED, the default, where a
+                    decider's answer alone settles it
+  assignee          a decider the question is routed to
+  neededBy, defaultAction   when it is needed, and what happens if it is not
+  blocks, sources, specsTouched, specsMustChange   lists of references, each
+                    {"ref": "..."}, {"node": "..."} or {"spec": "..."}
+
+An older server takes these keys instead:
 
   title (required)  the decision's headline, as the deciders see it
   parts (required)  the questions to answer, each an object:
@@ -329,22 +431,27 @@ AskQuestionInput, passed through unchanged:
                     each {"ref": "hadron-server#1640"}, {"node": "<id or
                     URN>"} or {"spec": "<citation>"}
 
---title, --context, --tier and --urgency override the file's value. Keys are
-exact and case-sensitive, and a key given twice is refused. Every field's
-exact shape is AskQuestionInput in the server's schema, vendored in this repo
-at schema/schema.graphql. The server validates the object (QUESTION_INVALID
+--title, --background (--context), --tier and --priority (--urgency) override
+the file's value; on an older server --priority is its urgency, so LOW and HIGH
+are refused there. Keys are exact and case-sensitive, and a key given twice is
+refused. Every field's exact shape is AskQuestionInput in the server's
+schema (an older server's is vendored in this repo at schema/schema.graphql;
+a newer server's is its own). The server validates the object (QUESTION_INVALID
 names each bad field by JSON pointer) and decides who may ask: any writer of
 the log's Memory.
 
 On success the decision prints as decision get shows it — code, title,
-state, tier, urgency, revision, deciders and each part — prefixed "✓ asked";
+state, tier, priority, revision, deciders and each part — prefixed "✓ asked";
 --json prints the same decision as one object.`,
 		Example: `  cat > ask.json <<'EOF'
 {"title":"Pick a database","parts":[{"question":"Which one?",
   "options":[{"key":"pg","label":"Postgres"},{"key":"my","label":"MySQL"}],
   "recommendation":{"key":"pg","reason":"we run it already"}}]}
 EOF
-  hadron decision ask hrn:node:acme.com:eng:decisions --input-file ask.json`,
+  hadron decision ask hrn:node:acme.com:eng:decisions --input-file ask.json
+  # a newer server: options and a recommendation, no parts
+  echo '{"title":"Pick a database","options":[{"key":"pg","label":"Postgres"},{"key":"my","label":"MySQL"}],"recommendation":{"key":"pg","reason":"we run it already"}}' > ask2.json
+  hadron decision ask hrn:node:acme.com:eng:decisions --input-file ask2.json --priority HIGH`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			logRef, err := refArg("log", args[0])
@@ -354,32 +461,78 @@ EOF
 			if err := requireFlag(cmd, "input-file"); err != nil {
 				return err
 			}
-			var input gen.AskQuestionInput
-			dec, err := in.decoder(cmd, f, &input)
+			data, err := in.fileData(cmd, f)
 			if err != nil {
 				return err
 			}
-			if dec != nil {
-				if err := finishInput(dec, dec.Decode(&input)); err != nil {
-					return err
-				}
+			if err := precheck(data, &gen.AskQuestionInput{}, &s2AskInput{}); err != nil {
+				return err
 			}
-			title, context, tier, urgency := in.overrides(cmd)
-			if title != nil {
-				input.Title = *title
-			}
-			if context != nil {
-				input.Context = context
-			}
-			if tier != nil {
-				input.Tier = tier
-			}
-			if urgency != nil {
-				input.Urgency = urgency
+			if err := in.check(cmd); err != nil {
+				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			sh, err := p.of(cmd.Context(), client)
+			if err != nil {
+				return err
+			}
+			title, background, tier, priority, err := in.values(cmd, sh)
+			if err != nil {
+				return err
+			}
+			if sh == shapeS2 {
+				var input s2AskInput
+				if data != nil {
+					if err := decodeInput(data, &input); err != nil {
+						return err
+					}
+				}
+				if title != nil {
+					input.Title = *title
+				}
+				if background != nil {
+					input.Background = background
+				}
+				if tier != nil {
+					input.Tier = tier
+				}
+				if priority != nil {
+					input.Priority = priority
+				}
+				d, err := s2Ask(cmd.Context(), client, logRef, &input)
+				if err != nil {
+					return err
+				}
+				return writeDecision(f, *d, "✓ asked")
+			}
+			var input gen.AskQuestionInput
+			if data != nil {
+				// Decoded here, into the generated input, so the coverage
+				// matrix sees every field of it as reachable through the file.
+				dec, err := inputDecoder(data, &input)
+				if err != nil {
+					return err
+				}
+				if err := finishInput(dec, dec.Decode(&input)); err != nil {
+					return err
+				}
+			}
+			if title != nil {
+				input.Title = *title
+			}
+			if background != nil {
+				input.Context = background
+			}
+			if tier != nil {
+				t := gen.QuestionTier(*tier)
+				input.Tier = &t
+			}
+			if priority != nil {
+				u := gen.QuestionUrgency(*priority)
+				input.Urgency = &u
 			}
 			resp, err := gen.AskDecision(cmd.Context(), client, logRef, &input)
 			if err != nil {
@@ -395,19 +548,20 @@ EOF
 	return cmd
 }
 
-func newCmdAmend(f *cmdutil.Factory) *cobra.Command {
+func newCmdAmend(f *cmdutil.Factory, p *prober) *cobra.Command {
 	var in inputFlags
 	var reason string
 	var expected int
 	cmd := &cobra.Command{
-		Use:   "amend <decision> --expected-revision <n> --reason <text> [--input-file <path>] [--title <t>] [--context <c>] [--tier <tier>] [--urgency <u>]",
+		Use:   "amend <decision> --expected-revision <n> --reason <text> [--input-file <path>] [--title <t>] [--background <b>] [--tier <tier>] [--priority <p>]",
 		Short: "Amend a decision",
 		Long: `Amend a decision. Only the fields you give change; the rest stay as they
 are. --input-file is a JSON object with the fields of the server's
 AmendQuestionInput, passed through unchanged:
 
-  title, context, tier, urgency   as the flags of the same name (what the
-                                  tiers mean: hadron decision ask --help)
+  title, tier, and background and priority (an older server: context and
+  urgency)   as the flags of the same name (what the tiers mean: hadron
+             decision ask --help)
   parts      changes to existing parts, each {"n": <part number>} plus only
              the fields to change: "question", "options", "yesno",
              "recommendation", "noRecommendation". Part numbers are
@@ -420,15 +574,23 @@ AmendQuestionInput, passed through unchanged:
              reference: {"ref": "hadron-server#1640"}, {"node": "<id or
              URN>"} or {"spec": "<citation>"}
 
---title, --context, --tier and --urgency set that field (overriding the file).
-An empty blocks, followUps or sources list ([]) clears that list, and
-"context": null clears the context; leaving a key out keeps it. Keys are exact
+A newer server's input takes, besides those, whyNow, assignee, neededBy,
+defaultAction, options, yesno, recommendation, noRecommendation, blocks,
+sources, specsTouched and specsMustChange (as in ask), and has no parts,
+addParts, context, urgency or followUps; the older keys are refused there with
+their name. Answers never change here.
+
+--title, --background (--context), --tier and --priority (--urgency) set that
+field (overriding the file). An empty blocks, followUps, sources, specsTouched
+or specsMustChange list ([]) clears that list, and "context": null (a newer
+server: "background", "whyNow", "assignee", "neededBy" or "defaultAction": null)
+clears that value; leaving a key out keeps it. Keys are exact
 and case-sensitive, and a key given twice is refused.
 --expected-revision is the revision you read (decision get shows it). If the
 decision changed since, the amend is refused (NODE_WRITE_CONFLICT, exit 5):
 read it again and retry with the new revision. The server decides who may
 amend what: before any answer any writer, after one a decider only, and
-urgency and tier are a decider's to change.
+priority and tier are a decider's to change.
 
 On success the decision prints as decision get shows it, prefixed
 "✓ amended".`,
@@ -451,38 +613,98 @@ EOF
 			if err := requireReason(cmd, reason); err != nil {
 				return err
 			}
-			var input gen.AmendQuestionInput
-			dec, err := in.decoder(cmd, f, &input)
+			data, err := in.fileData(cmd, f)
 			if err != nil {
 				return err
 			}
-			if dec != nil {
-				if err := finishInput(dec, dec.Decode(&input)); err != nil {
-					return err
-				}
+			if err := precheck(data, &gen.AmendQuestionInput{}, &s2AmendInput{}); err != nil {
+				return err
 			}
-			title, context, tier, urgency := in.overrides(cmd)
-			if title != nil {
-				input.Title = title
+			if err := in.check(cmd); err != nil {
+				return err
 			}
-			if context != nil {
-				// Context is the raw JSON value (absent / null / string); a
-				// string never fails to marshal.
-				raw, _ := json.Marshal(*context)
-				input.Context = raw
-			}
-			if tier != nil {
-				input.Tier = tier
-			}
-			if urgency != nil {
-				input.Urgency = urgency
-			}
-			if amendIsEmpty(&input) {
-				return exitcode.Newf(exitcode.Usage, "nothing to amend: give --input-file with a field, or --title, --context, --tier or --urgency")
+			// Nothing given at all is refused before any call, whichever server
+			// is behind it; an input that only looks empty to one shape (an empty
+			// list of parts) is refused once the shape is known.
+			if !in.anyFlag(cmd) && (data == nil || fileHasNoKeys(data)) {
+				return errNothingToAmend()
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			sh, err := p.of(cmd.Context(), client)
+			if err != nil {
+				return err
+			}
+			title, background, tier, priority, err := in.values(cmd, sh)
+			if err != nil {
+				return err
+			}
+			if sh == shapeS2 {
+				var input s2AmendInput
+				if data != nil {
+					if err := decodeInput(data, &input); err != nil {
+						return err
+					}
+					if err := refuseAmendNulls(data); err != nil {
+						return err
+					}
+				}
+				if title != nil {
+					input.Title = title
+				}
+				if background != nil {
+					// A string never fails to marshal.
+					raw, _ := json.Marshal(*background)
+					input.Background = raw
+				}
+				if tier != nil {
+					input.Tier = tier
+				}
+				if priority != nil {
+					input.Priority = priority
+				}
+				if input.isEmpty() {
+					return errNothingToAmend()
+				}
+				d, err := s2Amend(cmd.Context(), client, ref, &input, expected, reason)
+				if err != nil {
+					return err
+				}
+				return writeDecision(f, *d, "✓ amended")
+			}
+			var input gen.AmendQuestionInput
+			if data != nil {
+				// Decoded here, into the generated input, so the coverage
+				// matrix sees every field of it as reachable through the file.
+				dec, err := inputDecoder(data, &input)
+				if err != nil {
+					return err
+				}
+				if err := finishInput(dec, dec.Decode(&input)); err != nil {
+					return err
+				}
+			}
+			if title != nil {
+				input.Title = title
+			}
+			if background != nil {
+				// Context is the raw JSON value (absent / null / string); a
+				// string never fails to marshal.
+				raw, _ := json.Marshal(*background)
+				input.Context = raw
+			}
+			if tier != nil {
+				t := gen.QuestionTier(*tier)
+				input.Tier = &t
+			}
+			if priority != nil {
+				u := gen.QuestionUrgency(*priority)
+				input.Urgency = &u
+			}
+			if amendIsEmpty(&input) {
+				return errNothingToAmend()
 			}
 			resp, err := gen.AmendDecision(cmd.Context(), client, ref, &input, expected, reason)
 			if err != nil {
@@ -502,7 +724,7 @@ EOF
 
 // --- decision get | list | verify ---
 
-func newCmdGet(f *cmdutil.Factory) *cobra.Command {
+func newCmdGet(f *cmdutil.Factory, p *prober) *cobra.Command {
 	var logRef string
 	cmd := &cobra.Command{
 		Use:   "get <decision> | get <code> --log <log>",
@@ -530,6 +752,20 @@ within --log.`,
 			if err != nil {
 				return err
 			}
+			sh, err := p.of(cmd.Context(), client)
+			if err != nil {
+				return err
+			}
+			if sh == shapeS2 {
+				d, err := s2Decision(cmd.Context(), client, ref, code, logPtr)
+				if err != nil {
+					return err
+				}
+				if d == nil {
+					return exitcode.Newf(exitcode.NotFound, "decision %s not found (or not visible to you)", arg)
+				}
+				return writeDecision(f, *d, "")
+			}
 			resp, err := gen.Decision(cmd.Context(), client, ref, code, logPtr)
 			if err != nil {
 				return api.MapError(err)
@@ -544,13 +780,13 @@ within --log.`,
 	return cmd
 }
 
-func newCmdList(f *cmdutil.Factory) *cobra.Command {
+func newCmdList(f *cmdutil.Factory, p *prober) *cobra.Command {
 	var logRef, tier, sort string
-	var states, urgencies []string
+	var states, priorities, urgencies []string
 	var awaitingMe, authorizes bool
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:     "list (--log <log> | --awaiting-me) [--state <s>...] [--tier <t>] [--urgency <u>...] [--authorizes] [--sort CODE|PORTAL_DEFAULT] [--limit <n>] [--offset <n>]",
+		Use:     "list (--log <log> | --awaiting-me) [--state <s>...] [--tier <t>] [--priority <p>...] [--authorizes] [--sort CODE|PORTAL_DEFAULT] [--limit <n>] [--offset <n>]",
 		Aliases: []string{"ls"},
 		Short:   "List the decisions of a log, or those awaiting you",
 		Long: `List the decisions of one log (--log), or with --awaiting-me the open
@@ -559,10 +795,13 @@ decisions you decide across every Memory you can read. One page per call:
 match. The server derives each state before filtering; a log above 5000
 decisions refuses a filter (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
 
---state and --urgency take one or more values (repeat or comma-separate).
+--state and --priority take one or more values (repeat or comma-separate).
+--urgency is --priority's older name and takes NORMAL or URGENT; an older server
+has no LOW or HIGH, so --priority LOW or HIGH is refused there.
 --authorizes keeps grant decisions; --authorizes=false keeps the others.`,
 		Example: `  hadron decision list --log hrn:node:acme.com:eng:decisions --state OPEN,STALE
-  hadron decision list --awaiting-me --json`,
+  hadron decision list --awaiting-me --json
+  hadron decision list --log hrn:node:acme.com:eng:decisions --priority HIGH,URGENT`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
@@ -576,23 +815,17 @@ decisions refuses a filter (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
 				}
 				logPtr = &logRef
 			}
-			var stateVals []gen.QuestionState
-			for _, s := range states {
-				stateVals = append(stateVals, gen.QuestionState(s))
+			if fl.Changed("priority") && fl.Changed("urgency") {
+				return exitcode.Newf(exitcode.Usage, "give --priority or --urgency (its older name), not both")
 			}
-			var urgencyVals []gen.QuestionUrgency
 			for _, u := range urgencies {
-				urgencyVals = append(urgencyVals, gen.QuestionUrgency(u))
+				if u != "NORMAL" && u != "URGENT" {
+					return exitcode.Newf(exitcode.Usage, "--urgency takes NORMAL or URGENT; use --priority for LOW or HIGH")
+				}
 			}
-			var tierPtr *gen.QuestionTier
-			if fl.Changed("tier") {
-				t := gen.QuestionTier(tier)
-				tierPtr = &t
-			}
-			var sortPtr *gen.QuestionSort
-			if fl.Changed("sort") {
-				s := gen.QuestionSort(sort)
-				sortPtr = &s
+			wanted := priorities
+			if fl.Changed("urgency") {
+				wanted = urgencies
 			}
 			var awaitPtr, authPtr *bool
 			if fl.Changed("awaiting-me") {
@@ -612,24 +845,69 @@ decisions refuses a filter (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
 			if err != nil {
 				return err
 			}
-			resp, err := gen.Decisions(cmd.Context(), client, logPtr, awaitPtr, authPtr,
-				stateVals, tierPtr, urgencyVals, sortPtr, limitPtr, offsetPtr)
+			sh, err := p.of(cmd.Context(), client)
 			if err != nil {
-				return api.MapError(err)
+				return err
 			}
-			if resp.Questions == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no decision page")
-			}
-			page := decisionPageDTO{Total: resp.Questions.Total, Items: []decisionDTO{}}
-			for _, it := range resp.Questions.Items {
-				if it != nil {
-					page.Items = append(page.Items, decisionFrom(&it.DecisionFields))
+			var page decisionPageDTO
+			if sh == shapeS2 {
+				filters := s2ListFilters{
+					logRef: logPtr, awaitingMe: awaitPtr, authorize: authPtr,
+					states: states, priorities: wanted, limit: limitPtr, offset: offsetPtr,
+				}
+				if fl.Changed("tier") {
+					filters.tier = &tier
+				}
+				if fl.Changed("sort") {
+					filters.sort = &sort
+				}
+				pg, err := s2Decisions(cmd.Context(), client, filters)
+				if err != nil {
+					return err
+				}
+				page = *pg
+			} else {
+				var urgencyVals []gen.QuestionUrgency
+				for _, u := range wanted {
+					if u != "NORMAL" && u != "URGENT" {
+						return exitcode.Newf(exitcode.Usage,
+							"this server's priority is its urgency, NORMAL or URGENT; %q needs a server with priorities (LOW, NORMAL, HIGH, URGENT)", u)
+					}
+					urgencyVals = append(urgencyVals, gen.QuestionUrgency(u))
+				}
+				var stateVals []gen.QuestionState
+				for _, s := range states {
+					stateVals = append(stateVals, gen.QuestionState(s))
+				}
+				var tierPtr *gen.QuestionTier
+				if fl.Changed("tier") {
+					t := gen.QuestionTier(tier)
+					tierPtr = &t
+				}
+				var sortPtr *gen.QuestionSort
+				if fl.Changed("sort") {
+					s := gen.QuestionSort(sort)
+					sortPtr = &s
+				}
+				resp, err := gen.Decisions(cmd.Context(), client, logPtr, awaitPtr, authPtr,
+					stateVals, tierPtr, urgencyVals, sortPtr, limitPtr, offsetPtr)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.Questions == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no decision page")
+				}
+				page = decisionPageDTO{Total: resp.Questions.Total, Items: []decisionDTO{}}
+				for _, it := range resp.Questions.Items {
+					if it != nil {
+						page.Items = append(page.Items, decisionFrom(&it.DecisionFields))
+					}
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, page, func(w io.Writer) error {
-				t := output.NewTable(w, "CODE", "STATE", "URGENCY", "TIER", "REV", "TITLE")
+				t := output.NewTable(w, "CODE", "STATE", "PRIORITY", "TIER", "REV", "TITLE")
 				for _, d := range page.Items {
-					t.Row(output.SafeCell(d.Code), d.State, d.Urgency, d.Tier, fmt.Sprint(d.Revision), output.SafeCell(d.Title))
+					t.Row(output.SafeCell(d.Code), d.State, d.Priority, d.Tier, fmt.Sprint(d.Revision), output.SafeCell(d.Title))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -641,9 +919,10 @@ decisions refuses a filter (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
 	}
 	cmd.Flags().StringVar(&logRef, "log", "", "the decision log, by ID or URN")
 	cmd.Flags().BoolVar(&awaitingMe, "awaiting-me", false, "open decisions you decide, across every Memory you can read")
-	cmd.Flags().StringSliceVar(&states, "state", nil, "keep these states: OPEN, ANSWERED_UNCONFIRMED, DECIDED, STALE, SUPERSEDED, WITHDRAWN, TAMPERED, UNVERIFIABLE")
-	cmd.Flags().StringVar(&tier, "tier", "", "keep this tier: APPROVED or SIGNED")
-	cmd.Flags().StringSliceVar(&urgencies, "urgency", nil, "keep these urgencies: NORMAL, URGENT")
+	cmd.Flags().StringSliceVar(&states, "state", nil, "keep these states: OPEN, ANSWERED_UNCONFIRMED, DECIDED, STALE, WITHDRAWN, TAMPERED, UNVERIFIABLE (SUPERSEDED on an older server)")
+	cmd.Flags().StringVar(&tier, "tier", "", "keep this tier: ANSWERED, APPROVED or SIGNED")
+	cmd.Flags().StringSliceVar(&priorities, "priority", nil, "keep these priorities: LOW, NORMAL, HIGH, URGENT (an older server has NORMAL and URGENT only)")
+	cmd.Flags().StringSliceVar(&urgencies, "urgency", nil, "the older name of --priority: NORMAL, URGENT")
 	cmd.Flags().BoolVar(&authorizes, "authorizes", false, "keep grant decisions (=false keeps the others)")
 	cmd.Flags().StringVar(&sort, "sort", "", "CODE, or PORTAL_DEFAULT (urgent, then open, then newest; the server default)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "page size (server default 20)")
@@ -702,7 +981,7 @@ list with state DECIDED is a ruling you may rely on.`,
 
 // --- decision withdraw | purge ---
 
-func newCmdWithdraw(f *cmdutil.Factory) *cobra.Command {
+func newCmdWithdraw(f *cmdutil.Factory, p *prober) *cobra.Command {
 	var expected int
 	var reason string
 	var yes bool
@@ -732,6 +1011,17 @@ Prompts on a terminal; --yes is required otherwise.`,
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, "Withdraw decision "+output.SafeCell(ref)+"? Withdrawal is final and its code is never reused."); err != nil {
 				return err
+			}
+			sh, err := p.of(cmd.Context(), client)
+			if err != nil {
+				return err
+			}
+			if sh == shapeS2 {
+				d, err := s2Withdraw(cmd.Context(), client, ref, reason, expected)
+				if err != nil {
+					return err
+				}
+				return writeDecision(f, *d, "✓ withdrew")
 			}
 			resp, err := gen.WithdrawDecision(cmd.Context(), client, ref, reason, expected)
 			if err != nil {
@@ -804,4 +1094,16 @@ func amendIsEmpty(in *gen.AmendQuestionInput) bool {
 	return in.Title == nil && in.Context == nil && in.Tier == nil && in.Urgency == nil &&
 		len(in.Parts) == 0 && len(in.AddParts) == 0 &&
 		in.Blocks == nil && in.FollowUps == nil && in.Sources == nil
+}
+
+// errNothingToAmend is the refusal for an amend that would change nothing.
+func errNothingToAmend() error {
+	return exitcode.Newf(exitcode.Usage, "nothing to amend: give --input-file with a field, or --title, --background, --tier or --priority (the older names --context and --urgency work too)")
+}
+
+// fileHasNoKeys reports an --input-file whose JSON object has no key at all
+// (its validity was checked already).
+func fileHasNoKeys(data []byte) bool {
+	var m map[string]json.RawMessage
+	return json.Unmarshal(data, &m) == nil && len(m) == 0
 }
