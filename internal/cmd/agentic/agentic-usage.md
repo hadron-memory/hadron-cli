@@ -6543,7 +6543,7 @@ committed write: read dispositions before deciding whether to write again.
 ### Link a post-merge defect to its PR (server#4280; cli#2189)
 
 ```sh
-hadron team task link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>]
+hadron team task link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>] [--instruction <kind>:<ref>]
 ```
 
 Records that a defect found after a PR merged traces back to that PR's build
@@ -6553,7 +6553,8 @@ It sends exactly `prTaskRef`, `defectRef` and, when given, `introducedAtHead`
 With `--instruction <kind>:<ref>` (server 696ed50c8 or later), the holder's claim rides only this mutation; kind is team-chat-message, task or live-chat.
 Malformed claims exit 2 before any request. The verified same-server session
 attaches; an unavailable or changed binding sends as the person with the claim
-checked but not recorded. Refusals are never retried without the flag.
+checked but not recorded. A refusal is never retried on either path: no retry
+after a plain refusal, and no plain retry after an instructed one.
 Without the flag, requests and JSON remain unchanged. A link never changes a
 verdict, a seat, readiness or the task. Linking the same pair again writes
 nothing and exits 0 with the existing link (`already linked`, `created: false`).

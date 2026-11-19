@@ -93,6 +93,11 @@ func newCmdTeamStallScheduleGet(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
+			// A success answer can still carry a null selected read (cli#2537,
+			// the class of cli#2477): a command error, never a panic.
+			if resp.AgentTaskStallSchedule == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no stall schedule and no error; the read cannot be trusted")
+			}
 			dto := stallScheduleDTOFrom(&resp.AgentTaskStallSchedule.AgentTaskStallScheduleFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
@@ -222,10 +227,17 @@ Needs server ba077810 or later.
 					return api.MapError(callErr)
 				}
 				if resp.SetAgentTaskStallSchedule == nil {
-					return nullMutationResult2505("setAgentTaskStallSchedule", "stall schedule")
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			} else {
+				// InstructedWrite's contract (instruction.go): targetAppID is
+				// "" because this command holds the App as a ref (scope.Ref),
+				// not an id, and the write resolves it; the discarded bool is
+				// whether the worker session was attached — unused here
+				// because admission is the server's either way, and a
+				// fallback-to-person note was already printed if one applied
+				// (#2505 F3).
 				ctx, _, err = finishInstruction(ctx, "", scope.Ref)
 				if err != nil {
 					return err
@@ -235,7 +247,7 @@ Needs server ba077810 or later.
 					return api.MapErrorKeepingCode(callErr)
 				}
 				if resp.SetAgentTaskStallSchedule == nil {
-					return nullMutationResult2505("setAgentTaskStallSchedule", "stall schedule")
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			}

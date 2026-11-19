@@ -27,15 +27,22 @@ var parseInstruction = instruction.Parse
 const instructionHelpMinServer = "17ef5905"
 
 // instructionHelpFor renders the shared instruction help for a command whose
-// instructed path needs server revision serverMin instead of the shared one. It
-// panics when the shared text no longer names instructionHelpMinServer: a silent
-// no-op replace would print the wrong minimum server with no test failing, and
-// the panic fires while the command tree is built, so every test run sees it.
+// instructed path needs server revision serverMin instead of the shared one.
+// The swap is swapMinServer's, whose panic-on-missing-revision contract is
+// pinned in its own test (cli#2537).
 func instructionHelpFor(serverMin string) string {
-	if !strings.Contains(instructionHelp, instructionHelpMinServer) {
-		panic("instructionHelpFor: the shared instruction help no longer names " + instructionHelpMinServer)
+	return swapMinServer(instructionHelp, instructionHelpMinServer, serverMin)
+}
+
+// swapMinServer returns shared with every occurrence of orig replaced by
+// serverMin. It panics when shared no longer names orig: a silent no-op
+// replace would print the wrong minimum server with no test failing, and the
+// panic fires while the command tree is built, so every test run sees it.
+func swapMinServer(shared, orig, serverMin string) string {
+	if !strings.Contains(shared, orig) {
+		panic("instructionHelpFor: the shared instruction help no longer names " + orig)
 	}
-	return strings.ReplaceAll(instructionHelp, instructionHelpMinServer, serverMin)
+	return strings.ReplaceAll(shared, orig, serverMin)
 }
 
 // instructionSnapshot is the worktree binding as it stood before the
@@ -239,10 +246,12 @@ func BeginServerTargetInstructedWrite(f *cmdutil.Factory) func(context.Context) 
 	}
 }
 
-// nullMutationResult2505 is the answer to a write whose success response carries
-// a null result and no errors (cli#2505, the class of cli#2477). It is a
-// malformed answer: exit 1, never a clean refusal, and never a panic. The write
-// may have been recorded, so the message says to inspect before retrying.
-func nullMutationResult2505(field, what string) error {
-	return exitcode.Newf(exitcode.Error, "the server answered %s with no %s and no error, so the outcome is unknown: it may have been recorded; inspect it before retrying", field, what)
+// nullMutationResult is the answer to a write whose success response carries
+// a null result and no errors (cli#2505, the class of cli#2477; the helper
+// lost its issue number and gained a per-command inspection hint in cli#2537).
+// It is a malformed answer: exit 1, never a clean refusal, and never a panic.
+// The write may have been recorded, so the message says what to inspect — the
+// command that shows this write's outcome — before retrying.
+func nullMutationResult(field, what, inspect string) error {
+	return exitcode.Newf(exitcode.Error, "the server answered %s with no %s and no error, so the outcome is unknown: it may have been recorded; %s before retrying", field, what, inspect)
 }

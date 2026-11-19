@@ -1,6 +1,8 @@
 package team
 
 import (
+	"strings"
+
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/instruction"
@@ -33,6 +35,27 @@ instruction, so this is the way to make the call from a worktree.`
 
 func addTaskInstructionFlag(cmd *cobra.Command, raw *string) {
 	cmd.Flags().StringVar(raw, "instruction", "", taskInstructionFlagUsage)
+}
+
+// taskInstructionHelpFor and taskInstructionFlagUsageFor render the shared
+// task-write instruction help and flag line for a command whose instructed
+// path needs server revision serverMin instead of ba077810 (cli#2504,
+// mirroring instructionHelpFor for the non-task help). Like it, they panic
+// when the shared text no longer names ba077810: a silent no-op replace would
+// print the wrong minimum server with no test failing, and the panic fires
+// while the command tree is built, so every test run sees it.
+func taskInstructionHelpFor(serverMin string) string {
+	if !strings.Contains(taskInstructionHelp, "ba077810") {
+		panic("taskInstructionHelpFor: the shared task instruction help no longer names ba077810")
+	}
+	return strings.ReplaceAll(taskInstructionHelp, "ba077810", serverMin)
+}
+
+func taskInstructionFlagUsageFor(serverMin string) string {
+	if !strings.Contains(taskInstructionFlagUsage, "ba077810") {
+		panic("taskInstructionFlagUsageFor: the shared task instruction flag usage no longer names ba077810")
+	}
+	return strings.ReplaceAll(taskInstructionFlagUsage, "ba077810", serverMin)
 }
 
 // taskClaim reads --instruction: nil when the flag is absent (the command then
