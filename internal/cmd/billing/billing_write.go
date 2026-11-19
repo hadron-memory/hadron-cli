@@ -74,9 +74,9 @@ markup for this tier in hundredths of a percent (2500 = 25%); 0 is a real
 markup of none, different from leaving it off.
 
 --tier says which pricing tier the row belongs to (1 to 3). Every charge
-resolves tier 1 today, so leave --tier off. A row at tier 2 or 3 is stored but
-unused: it is never applied to a charge, and a tier with no row is unpriced,
-never billed at another tier's rate.
+resolves tier 1 today, so leave --tier off. Rows at tier 2 or 3 are stored but
+unused: nothing reads them yet, so they are never applied to a charge. A tier
+with no row is unpriced, never billed at another tier's rate.
 
 It asks before sending (or pass --yes; without a terminal --yes is required).`,
 		Example: `  hadron billing prices set --provider anthropic --model claude-opus-5-5 \
