@@ -43,13 +43,13 @@ or root and not be writable by group or others. Names that do not resolve are
 skipped (starting that worker fails on them as before). Not enforced on
 Windows, where a restart applies a change.
 
-**What this does not stop.** It guards against other users and loose modes. A
-process running as the poller's own user (every agent on a host is) can write a
-0600 config the poller's user owns and have it applied on the next poll;
-before, it could write the same file and waited for a person's restart. The
-file permissions cannot separate those two, so closing that gap means changing
-what a reload may apply (for example the worker set only, or only commands
-already in use), which is a decision for the security review, not made here.
+**Trust boundary.** The owner and mode check stops other users and loose
+modes. A process running as the poller's own user (every agent on a host is)
+is inside the poller's trust boundary, as it is for a restart: it could already
+edit the file and wait for a restart, or replace the poller's own binary, so a
+reload grants it nothing a restart did not. No check is added that a same-user
+process could not satisfy. (Not judged: the parent directories of the programs
+a changed entry names.)
 
 ## Why this shape
 

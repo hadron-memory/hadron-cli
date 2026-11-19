@@ -10,8 +10,10 @@ import (
 	"syscall"
 )
 
-// checkReloadTrust refuses a reload whose inputs a launched agent, or anyone
-// but the poller's own user, could have written: the configuration file, and
+// checkReloadTrust refuses a reload whose inputs anyone but the poller's own
+// user could have written. It stops other users and loose modes; a process
+// running as the poller's own user is inside the poller's trust boundary, as
+// it is for a restart, and no check here could tell it apart: the configuration file, and
 // each program or directory the changed entries name, must be owned by the
 // poller's user or by root and not writable by group or others (cli#2623).
 // A name that does not resolve is not an error here: starting that worker
