@@ -770,3 +770,18 @@ query MemoryLocSegments(
     endCursor
   }
 }
+
+# cli#2511 (gap #60): write-only source token for a repository outside the
+# GitHub App. The reply selects identity only — never a field that could echo
+# the token. An omitted expiresAt keeps the server's default (no expiry).
+mutation SetMemorySourceToken(
+  $id: ID!
+  $token: String!
+  # @genqlient(omitempty: true)
+  $expiresAt: String
+) {
+  setMemorySourceToken(id: $id, token: $token, expiresAt: $expiresAt) {
+    id
+    urn
+  }
+}
