@@ -110,8 +110,8 @@ func TestTreeStateSymlinkedWorktree2483(t *testing.T) {
 // binding↔server match; everything else — a different host or port, a
 // missing server, a path difference — stays refused. IPv6 literals keep
 // their brackets through canonicalization, so a bracketed address and a
-// bracketed host:port can never fuse into one comparable form (#2556
-// review): http://[::1]:8080 is host ::1 with port 8080, while
+// bracketed host:port can never fuse into one comparable form (a review
+// round of the PR that added this): http://[::1]:8080 is host ::1 with port 8080, while
 // http://[::1:8080] is the distinct address ::1:8080 with no port.
 func TestScanServerOriginCanonicalization2483(t *testing.T) {
 	for _, tc := range []struct {

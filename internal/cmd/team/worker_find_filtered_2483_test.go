@@ -92,7 +92,8 @@ func TestFindFilteredMalformedList2483(t *testing.T) {
 // TestFindFilteredTargetErrorCodes2483 pins F11: target-read failures carry
 // distinct fixed codes — unauthenticated, unreachable transport — instead of
 // every failure collapsing into team_roster_unreadable. No raw backend text.
-// The error KIND decides the code (#2556 review): only a transport failure
+// The error KIND decides the code (a review round of the PR that added
+// this): only a transport failure
 // (never answered) is team_roster_unreachable; an HTTP status or a GraphQL
 // errors envelope is the server answering with something that is not a
 // usable roster — team_roster_unreadable.
@@ -124,25 +125,28 @@ func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 		}
 	})
 	// Answered failures keep the third code: whatever came back — an HTTP
-	// status, a GraphQL errors envelope — is not a usable roster, and saying
-	// "unreachable" about a server that answered would hide the difference.
+	// status carrying an answer, a GraphQL errors envelope — is not a usable
+	// roster, and saying "unreachable" about a server that answered would
+	// hide the difference. The one exception is the gateway 5xx with no
+	// GraphQL body: indistinguishable from a lost answer, so unreachable.
+	// The exact-match assertion on the fixed code is also the no-leak pin:
+	// the message IS the code, so backend text cannot be present.
+	// A 401 is unreadable, not unauthenticated: the credential existed and
+	// was refused — "unauthenticated" is reserved for no credential at all.
 	for _, tc := range []struct {
-		name       string
-		status     int
-		body       string
-		wantCode   string
-		wantLeaked string
+		name, contentType, body, wantCode string
+		status                            int
 	}{
-		{"401 with GraphQL body", 401, `{"errors":[{"message":"bad credential","extensions":{"code":"FORBIDDEN"}}]}`, "team_roster_unreadable", "bad credential"},
-		{"500 with GraphQL errors body", 500, `{"errors":[{"message":"resolver exploded","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, "team_roster_unreadable", "resolver exploded"},
-		{"200 GraphQL errors envelope", 200, `{"data":null,"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}]}`, "team_roster_unreadable", "refused"},
-		{"404 proxy page", 404, `no such upstream`, "team_roster_unreadable", "no such upstream"},
-		{"502 gateway page", 502, `<html>502 Bad Gateway</html>`, "team_roster_unreachable", "502 Bad Gateway"},
+		{"401 with GraphQL body", "application/json", `{"errors":[{"message":"bad credential","extensions":{"code":"FORBIDDEN"}}]}`, "team_roster_unreadable", 401},
+		{"500 with GraphQL errors body", "application/json", `{"errors":[{"message":"resolver exploded","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, "team_roster_unreadable", 500},
+		{"200 GraphQL errors envelope", "application/json", `{"data":null,"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}]}`, "team_roster_unreadable", 200},
+		{"404 proxy page", "text/plain", `no such upstream`, "team_roster_unreadable", 404},
+		{"502 gateway page", "text/html", `<html>502 Bad Gateway</html>`, "team_roster_unreachable", 502},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "fake2483")
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Content-Type", tc.contentType)
 				w.WriteHeader(tc.status)
 				_, _ = w.Write([]byte(tc.body))
 			}))
@@ -153,9 +157,6 @@ func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 			_, err := findFilteredTargets(context.Background(), f, "hrn:app:test.com:team", nil)
 			if err == nil || err.Error() != tc.wantCode || exitcode.FromError(err) != exitcode.Error {
 				t.Fatalf("got %v, want fixed %s", err, tc.wantCode)
-			}
-			if strings.Contains(err.Error(), tc.wantLeaked) {
-				t.Fatal("raw backend text in the fixed code", err)
 			}
 		})
 	}

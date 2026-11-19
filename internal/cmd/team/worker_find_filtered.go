@@ -172,12 +172,14 @@ objects, including an empty array when there are no local workers.`,
 }
 
 // rosterReadError keeps the roster codes honest about the error kind instead
-// of collapsing every failure into "unreachable": a transport failure is the
-// one class where the call never got an answer (team_roster_unreachable),
-// while everything else — an HTTP status the server or a proxy DID answer
-// with, or a GraphQL errors envelope — is an answer that is not a usable
-// roster (team_roster_unreadable). Both codes are fixed strings; the
-// backend's text never reaches the operator (cli#2483 F11, #2556 review).
+// of collapsing every failure into "unreachable", using the CLI's one
+// transport-vs-opinion rule (api.TransportCause): unreachable is exactly the
+// class where the request never got a server-formed answer — a transport
+// failure, or a gateway 5xx whose body is not a GraphQL envelope.
+// Everything else DID get an answer that is not a usable roster — a 4xx from
+// the server or a proxy, a 200 carrying a GraphQL errors envelope, a 5xx
+// carrying one — and is unreadable. Both codes are fixed strings; the
+// backend's text never reaches the operator (cli#2483 F11; review round 2).
 func rosterReadError(err error) error {
 	if _, transport := api.TransportCause(err); transport {
 		return exitcode.Newf(exitcode.Error, "team_roster_unreachable")
@@ -192,12 +194,12 @@ func rosterReadError(err error) error {
 //
 // Failures carry distinct fixed codes, never backend text (cli#2483 F11):
 // team_roster_unauthenticated (no credential), team_roster_unreachable (the
-// call could not be answered: refused, reset, timed out, or a gateway 5xx
-// with no GraphQL answer) and team_roster_unreadable (any answered failure —
-// an HTTP status, or a GraphQL errors envelope; the roster never arrived in
-// usable form). The split is the CLI's own load-bearing transport-vs-opinion
-// classification, so the codes follow what actually happened, not the first
-// error shape a caller happens to hit.
+// call never got a server-formed answer: refused, reset, timed out, or a
+// gateway 5xx with no GraphQL body) and team_roster_unreadable (any answered
+// refusal — every other HTTP status, or any answer carrying GraphQL errors;
+// the roster never arrived in usable form). The split is the CLI's own
+// load-bearing transport-vs-opinion classification, so the codes follow what
+// actually happened, not the first error shape a caller happens to hit.
 func findFilteredTargets(ctx context.Context, f *cmdutil.Factory, app string, args []string) ([]filterreport.Target, error) {
 	app, err := cmdutil.CanonicalAppRef("selected App", app)
 	if err != nil || app == "" {
