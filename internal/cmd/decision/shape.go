@@ -62,6 +62,11 @@ func (p *prober) of(ctx context.Context, client graphql.Client) (shape, error) {
 	return p.shape, p.err
 }
 
+// Both servers are first-party Apollo, so the codes and the order (a query is
+// validated before it runs, so an execution error means it validated) can be
+// read as they are; a gateway that rewrote errors would need this revisited.
+// The probe is removed with the old-shape path (cli#2640).
+//
 // probeShape sends the validation probe and reads the server's answer:
 //   - it ran: the server has Question.background, so it speaks S2;
 //   - GRAPHQL_VALIDATION_FAILED, every such error about "background": it does

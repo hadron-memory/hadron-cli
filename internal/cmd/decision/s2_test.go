@@ -8,6 +8,8 @@ import (
 
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // cli#2639: the S2 operations are hand-written, so nothing generated checks
@@ -40,6 +42,25 @@ func TestS2OperationsMatchTheSDL(t *testing.T) {
 	} {
 		if _, errs := gqlparser.LoadQuery(schema, q); len(errs) > 0 {
 			t.Errorf("%s does not validate against the S2 SDL: %v", name, errs)
+		}
+	}
+}
+
+// TestSharedOperationsMatchTheS2SDL covers the verbs that do not probe: the log
+// reads and writes, verify and purge use the same generated operations on both
+// servers, so each of them must still validate against the S2 SDL, or "the same
+// on both" would be an assumption nothing checks.
+func TestSharedOperationsMatchTheS2SDL(t *testing.T) {
+	schema := s2Schema(t)
+	for name, q := range map[string]string{
+		"DecisionLog":             gen.DecisionLog_Operation,
+		"CreateDecisionLog":       gen.CreateDecisionLog_Operation,
+		"SetDecisionLogDeciders":  gen.SetDecisionLogDeciders_Operation,
+		"VerifyDecision":          gen.VerifyDecision_Operation,
+		"PurgeUnansweredDecision": gen.PurgeUnansweredDecision_Operation,
+	} {
+		if _, errs := gqlparser.LoadQuery(schema, q); len(errs) > 0 {
+			t.Errorf("%s does not validate against the S2 SDL, so it is not shape-invariant: %v", name, errs)
 		}
 	}
 }

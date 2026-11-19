@@ -1,6 +1,7 @@
 package decision
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 
@@ -446,18 +447,42 @@ type s2AmendInput struct {
 	Sources          *[]s2RefInput            `json:"sources,omitempty"`
 	SpecsTouched     *[]s2RefInput            `json:"specsTouched,omitempty"`
 	SpecsMustChange  *[]s2RefInput            `json:"specsMustChange,omitempty"`
-	Options          []s2OptionInput          `json:"options,omitempty"`
+	Options          *[]s2OptionInput         `json:"options,omitempty"`
 	Yesno            *bool                    `json:"yesno,omitempty"`
 	Recommendation   *s2RecommendationInput   `json:"recommendation,omitempty"`
 	NoRecommendation *s2NoRecommendationInput `json:"noRecommendation,omitempty"`
 }
 
+// s2AmendNullClears are the amend keys the server clears with an explicit null.
+// Every other key is unchanged when omitted, and says nothing useful when null.
+var s2AmendNullClears = map[string]bool{
+	"background": true, "whyNow": true, "assignee": true, "neededBy": true, "defaultAction": true,
+}
+
+// refuseAmendNulls refuses a key given as null that does not clear anything. A
+// pointer field decodes null to nil, which the marshaler then omits: the file
+// would be accepted and the key silently dropped, while the amend went ahead
+// without it. data has been through precheck, so it is one JSON object.
+func refuseAmendNulls(data []byte) error {
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return nil
+	}
+	for k, v := range keys {
+		if string(bytes.TrimSpace(v)) == "null" && !s2AmendNullClears[k] {
+			return exitcode.Newf(exitcode.Usage,
+				"parsing --input-file: %q is null, which changes nothing here: leave the key out to keep it (only background, whyNow, assignee, neededBy and defaultAction clear with null; options, blocks, sources, specsTouched and specsMustChange clear with [])", k)
+		}
+	}
+	return nil
+}
+
 // isEmpty reports an amend that would change nothing: every field omitted.
-// The three reference lists and the tri-state fields count by presence (an
-// explicit [] or null is a real change); options counts by length.
+// The reference lists, options and the tri-state fields count by presence (an
+// explicit [] or null is a real change).
 func (in *s2AmendInput) isEmpty() bool {
 	return in.Title == nil && in.Background == nil && in.WhyNow == nil && in.Priority == nil &&
 		in.Tier == nil && in.Assignee == nil && in.NeededBy == nil && in.DefaultAction == nil &&
 		in.Blocks == nil && in.Sources == nil && in.SpecsTouched == nil && in.SpecsMustChange == nil &&
-		len(in.Options) == 0 && in.Yesno == nil && in.Recommendation == nil && in.NoRecommendation == nil
+		in.Options == nil && in.Yesno == nil && in.Recommendation == nil && in.NoRecommendation == nil
 }

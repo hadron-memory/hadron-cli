@@ -6394,7 +6394,7 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
   `--title`, `--background`, `--tier`, `--priority` override the file (`--context`
   and `--urgency` are the older names; `--urgency` takes NORMAL or URGENT only,
   and on an older server `--priority` is its urgency, so LOW and HIGH are refused
-  there before any call). A field you
+  there before the decision operation, after the one shape check). A field you
   leave out is unchanged (amend) or the server default (ask). Amend's `blocks`,
   `followUps` and `sources` are sent as `null` when left out ("unchanged"), and an
   explicit `[]` clears that list; amend's `"context": null` clears the context

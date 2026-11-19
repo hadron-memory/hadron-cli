@@ -1,7 +1,7 @@
 # Fixture for TestS2OperationsMatchTheSDL (cli#2639): the Questions S2 types and
 # operations copied verbatim from hadron-server#4513 at 17b1b787fa92f46070b51ae696b10dc8552b6f43,
 # src/api/graphql/schema/typeDefs.ts (the Question block, CommentActorRef, and
-# the six operations the decision commands call). Nothing else of the schema is
+# the ten operations the decision commands call, signatures copied verbatim). Nothing else of the schema is
 # here. Removed with the old-shape path in cli#2640.
 scalar DateTime
 scalar JSON
@@ -9,6 +9,8 @@ scalar JSON
 type Node { id: ID! }
 
 type Query {
+  questionLog(ref: ID!): QuestionLog
+  verifyQuestion(ref: ID!): QuestionVerification!
   question(ref: ID, code: String, logRef: ID): Question
   questions(
     logRef: ID
@@ -24,6 +26,9 @@ type Query {
 }
 
 type Mutation {
+  createQuestionLog(memoryRef: ID!, loc: String!, name: String, prefix: String, defaultDeciders: [ID!]!, eligibleDeciders: [ID!]): QuestionLog!
+  setQuestionLogDeciders(logRef: ID!, defaultDeciders: [ID!]!, eligibleDeciders: [ID!], expectedRevision: Int!, reason: String!): QuestionLog!
+  purgeUnansweredQuestion(ref: ID!, reason: String!): Boolean!
   askQuestion(logRef: ID!, input: AskQuestionInput!): Question!
   amendQuestion(ref: ID!, input: AmendQuestionInput!, expectedRevision: Int!, reason: String!): Question!
   withdrawQuestion(ref: ID!, reason: String!, expectedRevision: Int!): Question!

@@ -647,6 +647,9 @@ EOF
 					if err := decodeInput(data, &input); err != nil {
 						return err
 					}
+					if err := refuseAmendNulls(data); err != nil {
+						return err
+					}
 				}
 				if title != nil {
 					input.Title = title

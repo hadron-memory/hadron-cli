@@ -516,14 +516,52 @@ func TestDecisionAmendOnS2(t *testing.T) {
 }
 
 func TestDecisionAmendNothingToChangeOnS2(t *testing.T) {
-	// {} and no flags: refused before any call. An input empty only to the S2 shape (an empty options list) is refused once the shape is known, and sends no amend.
+	// {} and no flags: refused before any call. A key that clears nothing (null) is refused once the shape is known, and sends no amend.
 	c, _, err := runDecision(t, s2(map[string]string{}), "amend", "QA", "--expected-revision", "5", "--reason", "r", "--input-file", writeJSONFile(t, `{}`))
 	if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 || c.probes != 0 {
 		t.Fatalf("want a usage error before any call, got %v probes %d", err, c.probes)
 	}
-	c, _, err = runDecision(t, s2(map[string]string{}), "amend", "QA", "--expected-revision", "5", "--reason", "r", "--input-file", writeJSONFile(t, `{"options":[]}`))
+	c, _, err = runDecision(t, s2(map[string]string{}), "amend", "QA", "--expected-revision", "5", "--reason", "r", "--input-file", writeJSONFile(t, `{"blocks":null}`))
 	if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
-		t.Fatalf("want a usage error and no amend, got %v ops %v", err, c.ops)
+		t.Fatalf("a null that clears nothing is refused, no amend; got %v ops %v", err, c.ops)
+	}
+}
+
+// TestDecisionAmendOnS2NeverDropsAGivenKey pins #2647's blind P2: a key the
+// file gives must reach the server or be refused with its name, never
+// accepted and silently dropped.
+func TestDecisionAmendOnS2NeverDropsAGivenKey(t *testing.T) {
+	ok := s2(map[string]string{"AmendDecisionS2": `{"data":{"amendQuestion":` + s2DecisionJSON + `}}`})
+	// options: [] clears the options; it is a change, and goes out as [].
+	c, _, err := runDecision(t, ok, "amend", "QA", "--expected-revision", "5", "--reason", "r", "--input-file", writeJSONFile(t, `{"options":[]}`))
+	if err != nil {
+		t.Fatalf(`{"options":[]} alone is a change, got %v`, err)
+	}
+	if input := decisionOnlyOp(t, c, "AmendDecisionS2")["input"]; !reflect.DeepEqual(input, any(map[string]any{"options": []any{}})) {
+		t.Fatalf("options [] must reach the server: %v", input)
+	}
+	// A null on a key that clears nothing is refused by name, alone or beside another key, before any amend.
+	for _, in := range []string{
+		`{"recommendation":null}`, `{"noRecommendation":null}`, `{"yesno":null}`, `{"title":null}`, `{"priority":null}`, `{"tier":null}`, `{"options":null}`,
+		`{"title":"x","recommendation":null}`,
+	} {
+		c, _, err := runDecision(t, ok, "amend", "QA", "--expected-revision", "5", "--reason", "r", "--input-file", writeJSONFile(t, in))
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+			t.Fatalf("%s: want a usage error and no amend, got %v ops %v", in, err, c.ops)
+		}
+		if !strings.Contains(err.Error(), "is null") {
+			t.Fatalf("%s: the refusal names the key: %v", in, err)
+		}
+	}
+	// The five clearable keys still send null.
+	c, _, err = runDecision(t, ok, "amend", "QA", "--expected-revision", "5", "--reason", "r",
+		"--input-file", writeJSONFile(t, `{"background":null,"whyNow":null,"assignee":null,"neededBy":null,"defaultAction":null}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"background": nil, "whyNow": nil, "assignee": nil, "neededBy": nil, "defaultAction": nil}
+	if input := decisionOnlyOp(t, c, "AmendDecisionS2")["input"]; !reflect.DeepEqual(input, any(want)) {
+		t.Fatalf("the clearable keys send null:\n got %v\nwant %v", input, want)
 	}
 }
 
