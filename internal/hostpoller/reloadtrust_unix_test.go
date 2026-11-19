@@ -380,7 +380,7 @@ func TestVisitedDirsFollowsEachComponentLikeTheKernel2623(t *testing.T) {
 	if err := os.Symlink("../b", filepath.Join(a, "up")); err != nil {
 		t.Fatal(err)
 	}
-	got, links := visitedDirs(filepath.Join(a, "up", "f"))
+	got, links, _ := visitedDirs(filepath.Join(a, "up", "f"))
 	if len(links) != 1 || links[0] != filepath.Join(a, "up") {
 		t.Errorf("links = %v, want the one symlink followed", links)
 	}
@@ -400,7 +400,9 @@ func TestVisitedDirsFollowsEachComponentLikeTheKernel2623(t *testing.T) {
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = visitedDirs(filepath.Join(loop, "x"))
+	if _, _, err := visitedDirs(filepath.Join(loop, "x")); err == nil {
+		t.Fatal("a symlink loop must be refused, not judged part-way")
+	}
 }
 
 // A symlink in a directory the walk accepts (a sticky one, where anyone may
@@ -448,7 +450,7 @@ func TestAnOwnedSymlinkInAStickyDirectoryIsAccepted2623(t *testing.T) {
 	if err := os.Symlink(prog, link); err != nil {
 		t.Fatal(err)
 	}
-	if _, links := visitedDirs(link); len(links) != 1 || links[0] != link {
+	if _, links, _ := visitedDirs(link); len(links) != 1 || links[0] != link {
 		t.Fatalf("the walk must report the link it followed: %v", links)
 	}
 	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + link + "]\n")
@@ -490,5 +492,76 @@ func TestTheWalkRefusesAPathThroughAnotherUsersSymlink2623(t *testing.T) {
 	}
 	if _, ok := fx.p.config().Worker("billie"); ok {
 		t.Fatal("a worker reached through another user's symlink was applied")
+	}
+}
+
+// ".." after a symlink goes to the link target's parent, as in the kernel; a
+// path cleaned first (/safe/link/../prog -> /safe/prog) would judge directories
+// the kernel never visits.
+func TestDotDotAfterASymlinkIsResolvedLikeTheKernel2623(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	safe := filepath.Join(fx.dir, "safe")
+	open := looseDir(t, fx.dir, "open", false)
+	inner := filepath.Join(open, "inner")
+	for _, d := range []string{safe, inner} {
+		if d == inner {
+			if err := os.Mkdir(d, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			continue
+		}
+		if err := os.Mkdir(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(inner, filepath.Join(safe, "link")); err != nil { // safe/link -> open/inner
+		t.Fatal(err)
+	}
+	prog := filepath.Join(open, "prog") // what safe/link/../prog really is
+	if err := os.WriteFile(prog, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	written := filepath.Join(safe, "link") + "/../prog"
+	dirs, _, err := visitedDirs(written)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, d := range dirs {
+		if d == open {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("the walk of %q never visited %q, where the kernel looks for prog: %v", written, open, dirs)
+	}
+	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + written + "]\n")
+	ev := fx.kinds("config-reload-refused")
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "not sticky") || !strings.Contains(ev[0].Detail, open) {
+		t.Fatalf("want a refusal naming the directory the kernel really uses, got %+v", ev)
+	}
+}
+
+func TestAnUnjudgeablePathIsRefusedNotSkipped2623(t *testing.T) {
+	root := trustTempDir(t)
+	a := filepath.Join(root, "a")
+	if err := os.Mkdir(a, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Each hop is a link to the next: 41 hops exceed the bound.
+	prev := filepath.Join(root, "end")
+	if err := os.WriteFile(prev, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < maxSymlinks+1; i++ {
+		l := filepath.Join(a, "l"+string(rune('a'+i%26))+string(rune('a'+i/26)))
+		if err := os.Symlink(prev, l); err != nil {
+			t.Fatal(err)
+		}
+		prev = l
+	}
+	if err := trustedAncestors(prev, "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
+		t.Fatalf("a path through too many symlinks must be refused: %v", err)
 	}
 }

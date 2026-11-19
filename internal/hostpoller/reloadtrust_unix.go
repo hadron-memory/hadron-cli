@@ -68,7 +68,10 @@ func trustedPath(path, what string) error {
 // directory, like /tmp, lets others add entries but not replace ours). A path
 // that does not exist yet is judged as far as it does.
 func trustedAncestors(path, what string) error {
-	dirs, links := visitedDirs(path)
+	dirs, links, err := visitedDirs(path)
+	if err != nil {
+		return fmt.Errorf("%s (%s) cannot be judged: %v; a reload runs what it names on the next poll, so restart the poller to apply the change", what, path, err)
+	}
 	for _, d := range dirs {
 		info, err := os.Stat(d)
 		if err != nil {
@@ -111,17 +114,25 @@ func trustedLinkInfo(info os.FileInfo, link, of, what string) error {
 	return nil
 }
 
-// maxSymlinks bounds a resolution, as the kernel does (ELOOP).
+// maxSymlinks bounds a resolution, as the kernel does (ELOOP): a path that
+// needs more is refused, not judged part-way.
 const maxSymlinks = 40
 
 // visitedDirs lists, in order and without repeats, the directories visited
 // resolving path component by component, and the symlinks followed on the
 // way. The final component, when it is not a symlink, is not included (that
 // file or directory is judged by the caller).
-func visitedDirs(path string) (dirs, links []string) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		abs = filepath.Clean(path)
+func visitedDirs(path string) (dirs, links []string, err error) {
+	// The path as written, made absolute but NOT cleaned: ".." after a symlink
+	// goes to the link target's parent, not the written path's, so cleaning
+	// first would judge directories the kernel never visits.
+	abs := path
+	if !filepath.IsAbs(abs) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, nil, err
+		}
+		abs = wd + "/" + abs
 	}
 	seen := map[string]bool{}
 	add := func(d string) {
@@ -150,25 +161,31 @@ func visitedDirs(path string) (dirs, links []string) {
 		add(cur)
 		next := filepath.Join(cur, c)
 		fi, err := os.Lstat(next)
-		if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		if err != nil {
+			if !os.IsNotExist(err) {
+				return dirs, links, err // cannot be judged: refuse, do not skip
+			}
+			cur = next
+			continue
+		}
+		if fi.Mode()&os.ModeSymlink == 0 {
 			cur = next
 			continue
 		}
 		if followed++; followed > maxSymlinks {
-			return dirs, links
+			return dirs, links, fmt.Errorf("it passes through more than %d symlinks", maxSymlinks)
 		}
 		links = append(links, next)
 		target, err := os.Readlink(next)
 		if err != nil {
-			cur = next
-			continue
+			return dirs, links, err
 		}
 		if filepath.IsAbs(target) {
 			cur = "/"
 		}
 		parts = append(split(target), parts...)
 	}
-	return dirs, links
+	return dirs, links, nil
 }
 
 func trustedDirInfo(info os.FileInfo, dir, of, what string) error {
