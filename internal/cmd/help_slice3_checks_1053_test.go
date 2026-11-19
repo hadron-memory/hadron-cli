@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/spf13/pflag"
 )
 
 // cli#1053 slice 3 (automation: run, schedule, task, ticker, webhook): facts the
@@ -69,11 +71,69 @@ func TestSlice3HelpHasNoMaintainerText1053(t *testing.T) {
 		{"run", "served-prompt"}, {"schedule", "create"}, {"schedule", "update"}, {"schedule", "preview"},
 		{"webhook", "create"}, {"task"}, {"task", "run"}, {"ticker"}, {"ticker", "create"}, {"ticker", "update"},
 		{"ticker", "list"}, {"ticker", "subscribe"}, {"ticker", "unsubscribe"},
+		{"chat", "served-prompts"}, {"team", "session", "served-prompts"},
 	} {
 		help := flatHelp1053S3(t, page...)
 		for _, b := range banned {
 			if strings.Contains(help, b) {
 				t.Errorf("%v help carries %q", page, b)
+			}
+		}
+	}
+}
+
+// cli#2559 — the #1053 slice-3 deferred P3s: the wording the seat receipts on
+// #2554 chose, pinned literally. The bans keep the replaced jargon ("platform
+// token", "trigger budgets", the API names) from coming back.
+func TestSlice3DeferredP3Wording2559(t *testing.T) {
+	for _, tc := range []struct {
+		page []string
+		want []string
+	}{
+		// 1: one name for the webhook credential — the secret is the pair (URL
+		// path + token), the token is the hpt part.
+		{[]string{"webhook"}, []string{"the secret (the URL path and the token)"}},
+		{[]string{"webhook", "create"}, []string{"the secret (the URL path and the token)"}},
+		// 2: --policy reads the same on every page that takes it.
+		{[]string{"schedule", "create"}, []string{`adds no restriction of its own`, `"hadron policy"`, `{"allow":[]} allows nothing`, `"hadron policy explain"`}},
+		{[]string{"schedule", "update"}, []string{`adds no restriction of its own`, `"hadron policy"`}},
+		{[]string{"webhook", "create"}, []string{`adds no restriction of its own`, `"hadron policy"`, `{"allow":[]} allows nothing`, `"hadron policy explain"`}},
+		// 3: the jargon phrases, replaced.
+		{[]string{"schedule", "create"}, []string{"a caller using an App key (hadron app key create) gets UNAUTHENTICATED", "Needs a server version that supports budgets"}},
+		{[]string{"schedule", "update"}, []string{"Needs a server version that supports budgets"}},
+		{[]string{"webhook", "create"}, []string{"Needs a server version that supports budgets"}},
+		// 4: the legacy URN clause, restored.
+		{[]string{"schedule", "preview"}, []string{"--entry is a fully-qualified node URN (the legacy org::memory::loc form is also accepted)"}},
+		// 5: the cadence floor, defined.
+		{[]string{"ticker", "create"}, []string{"the fastest any ticker in the App may tick", "120 seconds", `"hadron team ticker settings get"`}},
+		{[]string{"ticker", "update"}, []string{"the fastest any ticker in the App may tick", "120 seconds", `"hadron team ticker settings get"`}},
+		// 6: task run names the read-only path without API names.
+		{[]string{"task", "run"}, []string{"To only read the prompt, use 'hadron task render'.", "the arguments a task node declares"}},
+	} {
+		help := flatHelp1053S3(t, tc.page...)
+		for _, w := range tc.want {
+			if !strings.Contains(help, w) {
+				t.Errorf("%v help lacks %q", tc.page, w)
+			}
+		}
+	}
+	for _, tc := range []struct {
+		page []string
+		ban  []string
+	}{
+		{[]string{"webhook"}, []string{"platform token"}},
+		{[]string{"webhook", "create"}, []string{"platform token"}},
+		{[]string{"webhook", "rotate"}, []string{"platform token"}},
+		{[]string{"webhook", "list"}, []string{"platform token"}},
+		{[]string{"schedule", "create"}, []string{"trigger budgets"}},
+		{[]string{"schedule", "update"}, []string{"trigger budgets"}},
+		{[]string{"webhook", "create"}, []string{"trigger budgets"}},
+		{[]string{"task", "run"}, []string{"renderRunNode", "Node.data.args"}},
+	} {
+		help := flatHelp1053S3(t, tc.page...)
+		for _, b := range tc.ban {
+			if strings.Contains(help, b) {
+				t.Errorf("%v help still carries %q", tc.page, b)
 			}
 		}
 	}
@@ -106,7 +166,12 @@ func TestScheduleUpdateEnabledAndAsSelfSendOnlyWhenPassed1053(t *testing.T) {
 		var vars struct {
 			Input map[string]any `json:"input"`
 		}
-		_ = json.Unmarshal(captured["UpdateAgentSchedule"], &vars)
+		if err := json.Unmarshal(captured["UpdateAgentSchedule"], &vars); err != nil {
+			t.Fatalf("%v: %v", tc.args, err)
+		}
+		if vars.Input == nil {
+			t.Fatalf("%v: no input was sent", tc.args)
+		}
 		for k, want := range tc.want {
 			if got, ok := vars.Input[k]; !ok || got != want {
 				t.Errorf("%v: %s = %v (present=%v), want %v", tc.args, k, got, ok, want)
@@ -130,8 +195,20 @@ func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 		{"run", "served-prompt"}, {"schedule", "create"}, {"schedule", "update"}, {"schedule", "preview"},
 		{"webhook", "create"}, {"task"}, {"task", "run"}, {"ticker"}, {"ticker", "create"}, {"ticker", "update"},
 		{"ticker", "list"}, {"ticker", "get"}, {"ticker", "subscribe"}, {"ticker", "unsubscribe"},
+		{"chat", "served-prompts"}, {"team", "session", "served-prompts"},
 	}
-	quoted := regexp.MustCompile(`"hadron ([a-z][a-z -]*[a-z])[" ]`)
+	// N2: no leading-dash words, so a quoted reference carrying flags ("hadron
+	// task run --app ..." style) is not half-consumed by Find.
+	quoted := regexp.MustCompile(`"hadron ((?:[a-z][a-z-]*)(?: [a-z][a-z-]*)*)[" ]`)
+	// Flags a page names in prose without owning them: schedule preview says
+	// --name/--scope/--policy "are not preview inputs and are not accepted
+	// here" (naming them is the point), and the ticker group page shows
+	// create's and subscribe's flags inside its own examples.
+	mentionedNotOwned := map[string]map[string]bool{
+		"schedule/preview": {"--name": true, "--scope": true, "--policy": true},
+		"ticker":           {"--name": true, "--cadence-seconds": true, "--worker": true},
+	}
+	flagName := regexp.MustCompile(`--[a-z][a-z0-9-]*`)
 	resolves := func(words []string) bool {
 		c, rest, err := root.Find(words)
 		return err == nil && c != root && len(rest) == 0
@@ -147,9 +224,26 @@ func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// N3: every flag the page names in its Long or a flag's usage exists on
+		// the command — a rename that leaves the prose behind reddens here.
+		have := map[string]bool{}
+		usage := cmd.Long + "\n"
+		for _, set := range []*pflag.FlagSet{cmd.Flags(), cmd.InheritedFlags()} {
+			set.VisitAll(func(fl *pflag.Flag) {
+				have["--"+fl.Name] = true
+				usage += fl.Usage + "\n"
+			})
+		}
+		pageKey := strings.Join(page, "/")
+		for _, name := range flagName.FindAllString(usage, -1) {
+			if !have[name] && !mentionedNotOwned[pageKey][name] {
+				t.Errorf("%v names %q, which is not one of its flags", page, name)
+			}
+		}
 		for _, line := range strings.Split(cmd.Example, "\n") {
 			line = strings.TrimSpace(line)
-			if !strings.HasPrefix(line, "hadron ") {
+			line = strings.TrimPrefix(line, "$ ") // N3: shell-prompt examples parse too
+			if strings.HasPrefix(line, "#") || !strings.HasPrefix(line, "hadron ") {
 				continue
 			}
 			args := strings.Fields(strings.TrimPrefix(line, "hadron "))

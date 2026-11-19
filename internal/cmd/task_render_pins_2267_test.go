@@ -80,7 +80,7 @@ func TestTaskRenderHelpSentences2267(t *testing.T) {
 		}
 	}
 	run := flatHelp2267(t, "task", "run")
-	want := "For the renderRunNode Query without execution, use 'hadron task render'. Both record content read usage; task run's render mode also records an action-run, while task render records no action-run and never executes."
+	want := "To only read the prompt, use 'hadron task render'. Both record content read usage; task run's render mode also records an action-run, while task render records no action-run and never executes."
 	if !strings.Contains(run, want) {
 		t.Errorf("task run help lacks the complete comparison sentence %q", want)
 	}

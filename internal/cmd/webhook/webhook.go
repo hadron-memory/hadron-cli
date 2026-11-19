@@ -13,9 +13,9 @@ func NewCmdWebhook(f *cmdutil.Factory) *cobra.Command {
 		Short: "Manage inbound webhook triggers for headless runs",
 		Long: `Manage inbound webhook triggers (spec-040, D-2026-05-02).
 
-A POST to the webhook's URL fires an entry node under an App's identity. The URL
-path and platform token are shown ONCE at create and rotate — store them then;
-the secret is never queryable again.`,
+A POST to the webhook's URL fires an entry node under an App's identity. At
+create and rotate, the secret (the URL path and the token) is shown ONCE —
+store it then; it is never queryable again.`,
 	}
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdRotate(f))
