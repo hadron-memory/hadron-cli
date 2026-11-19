@@ -50,7 +50,7 @@ func TestPreviewAndReAdoptSayWhatTheyAreFor2579(t *testing.T) {
 			}
 		}
 	}
-	if !strings.Contains(previewLong, "changing nothing") && !strings.Contains(previewLong, "changes nothing") {
+	if !strings.Contains(previewLong, "without changing anything") {
 		t.Errorf("preview must say it changes nothing: %q", previewLong)
 	}
 	if strings.Contains(previewLong, "--expected-hash") {

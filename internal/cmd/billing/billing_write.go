@@ -69,15 +69,16 @@ the server exactly as typed (300000000 is 3 USD per million tokens; divide by
 is valid and says so if it refuses.
 
 Leave --tier, --markup-bp and --effective-at off to take the server's defaults:
-tier 1, the server's default markup, effective now. --markup-bp is the debit
-markup for this tier in hundredths of a percent (2500 = 25%); 0 is a real
-markup of none, different from leaving it off.
+tier 1, the server's default markup, effective now. --tier says which pricing
+tier the row belongs to (1 to 3); leave it off unless you have been told which
+tier to set. --markup-bp is the debit markup for this tier in hundredths of a
+percent (2500 = 25%); 0 is a real markup of none, different from leaving it off.
 
 It asks before sending (or pass --yes; without a terminal --yes is required).`,
 		Example: `  hadron billing prices set --provider anthropic --model claude-opus-5-5 \
     --input 1500000000 --output 7500000000 --yes
   hadron billing prices set --provider anthropic --model claude-opus-5-5 \
-    --input 1500000000 --output 7500000000 --tier 2 --markup-bp 2500 --yes --json`,
+    --input 1500000000 --output 7500000000 --markup-bp 2500 --yes --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, r := range []struct{ name, val string }{{"provider", provider}, {"model", model}, {"input", input}, {"output", output_}} {
@@ -131,7 +132,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 	cmd.Flags().StringVar(&model, "model", "", "the model (required)")
 	cmd.Flags().StringVar(&input, "input", "", "input micro-cents per million tokens, a whole number (required)")
 	cmd.Flags().StringVar(&output_, "output", "", "output micro-cents per million tokens, a whole number (required)")
-	cmd.Flags().IntVar(&tier, "tier", 0, "pricing tier 1-3; unset takes the server default (1)")
+	cmd.Flags().IntVar(&tier, "tier", 0, "the pricing tier this row belongs to (1-3); leave it off for the server default (1)")
 	cmd.Flags().IntVar(&markupBP, "markup-bp", 0, "debit markup in basis points (2500 = 25%); unset takes the server default")
 	cmd.Flags().StringVar(&effectiveAt, "effective-at", "", "when the row takes effect (ISO-8601); unset means now")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
