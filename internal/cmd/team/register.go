@@ -35,9 +35,14 @@ func newCmdTeamRegister(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register",
 		Short: "Read the action register's code-to-task index",
-		Long: `Read one page of the team's action register, resolved by the server through
-an Agent's chain with your own read access. This is read-only: it never runs
-a task, writes an entry, installs anything or caches the answer.
+		Long: `Read one page of the team's action register: the index that maps an action
+code (a short dotted name, such as task.finish) to the task node that carries
+the action out. The server builds it by following an Agent's chain: the Agent
+itself, then each Agent it is based on (its base links), using your own read
+access. A row's CODE is that action code. This is read-only: it never runs a
+task, writes an entry, installs anything or caches the answer. (Which Channels
+an attendee takes part in is a different thing: see 'hadron team register
+attendee'.)
 
 --app selects the team App; otherwise the configured App or worktree binding
 is used. --agent names an Agent installed in that App or cast there as a
@@ -55,8 +60,8 @@ by code. Omitted paging flags use its defaults (20 rows, offset 0); limits
 above 200 are sent unchanged and capped by the server. --limit 0 returns
 only the count. Use --offset for the next page; the summary shows total and
 whether more rows exist. --json returns {entries, total, hasMore}, preserving
-all server values and nullable fields. Human cells are terminal-safe and
-bounded as described by team --help. Requires server#3312 or later.`,
+all server values and nullable fields. Human-readable cells are shortened to fit
+and stripped of control characters; --json is not. Requires server#3312 or later.`,
 		Example: `  hadron team register --app acme.com:eng --agent hrn:agent:acme.com:coder
   hadron team register --code task.finish.open-children --json
   hadron team register --task-loc tasks:finish-a-task --limit 0`,

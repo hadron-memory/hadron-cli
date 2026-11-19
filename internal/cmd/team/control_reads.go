@@ -123,14 +123,7 @@ func newCmdRegisterPicker(f *cmdutil.Factory, pick bool) *cobra.Command {
 	}
 	var worker string
 	var limit, offset int
-	c := &cobra.Command{Use: verb + " <code>", Short: "Experimental: read the server's register role " + verb, Long: `Experimental, read-only register role picker. Prints the server's answer
-in its returned order, without re-ranking, filtering, assigning, routing or
-delivering anything. pick may return a named worker, one role holder, a
-coordinator or managers according to the server. candidates reads one page
-of nearest-task-depth ties, with server total and nullable depth/taskLoc.
---app selects the App; configured App or binding otherwise. --worker on pick
-is an optional worker id or URN passed unchanged. --json preserves the
-selected projection's fields and nullable values; empty arrays stay [].`, Example: "  hadron team register " + verb + " task.finish --app acme.com:eng --json", Args: cobra.ExactArgs(1)}
+	c := &cobra.Command{Use: verb + " <code>", Short: "Experimental: read the server's register role " + verb, Long: pickerHelp(pick), Example: "  hadron team register " + verb + " task.finish --app acme.com:eng --json", Args: cobra.ExactArgs(1)}
 	if pick {
 		c.Flags().StringVar(&worker, "worker", "", "optional worker id or URN")
 	} else {
@@ -233,12 +226,20 @@ type attendeeRegisterDTO struct {
 
 func newCmdRegisterAttendee(f *cmdutil.Factory) *cobra.Command {
 	var agent, worker string
-	c := &cobra.Command{Use: "attendee (--agent <id-or-URN> | --worker <id-or-URN>)", Short: "Read an Agent's or worker's resolved Channel register", Long: `Read the server's resolved attendee register for one Agent or worker.
-Pass exactly one of --agent or --worker. This does not change the action
-register index printed by plain team register. No routing or delivery is
-performed. Server visibility and capability values are preserved, including
-nullable canPost/attendeeUrn/lastSeenSeq. --json is an array of resolved rows
-with channel id/name/loc, namedBy, canRead, canPost, attendeeUrn and lastSeenSeq.
+	c := &cobra.Command{Use: "attendee (--agent <id-or-URN> | --worker <id-or-URN>)", Short: "Read an Agent's or worker's resolved Channel register", Long: `Read which Channels one Agent or worker takes part in. This is the Channel
+register (not the action register that plain 'team register' prints): each row
+says "this attendee takes part in this Channel" (a Channel is a chat room such
+as the team chat). An attendee is the Agent or worker you name, with --agent or
+--worker (exactly one). The register grants nothing; what the attendee may
+read or post is decided by the Channel's host memory, and the row shows that
+standing.
+
+Text mode prints CHANNEL, NAMED BY (which register row won: WORKER, AGENT or
+EVERYONE, meaning a row for every attendee), CAN READ and CAN POST. --json is an
+array of rows with channel id/name/loc, namedBy, canRead, canPost (null when no
+access subject applies), attendeeUrn and lastSeenSeq (the attendee's read
+position in the Channel; null until the server has one). Read-only: no routing
+or delivery is performed.
 --app selects the App; otherwise configured App or binding.`, Example: "  hadron team register attendee --agent hrn:agent:acme.com:coder --app acme.com:eng --json", Args: cobra.NoArgs}
 	c.Flags().StringVar(&agent, "agent", "", "Agent id or URN")
 	c.Flags().StringVar(&worker, "worker", "", "worker id or URN")
@@ -297,4 +298,38 @@ func heldAppText(v heldWorkerDTO) string {
 		return *v.AppURN
 	}
 	return v.AppID
+}
+
+// pickerHelp is the help for 'team register candidates' and 'team register
+// pick': each verb states what it answers; both are read-only and experimental.
+func pickerHelp(pick bool) string {
+	const common = `<code> is an action code from the action register (see 'hadron team register';
+for example task.finish). Experimental and read-only: it never assigns, routes or
+delivers anything, and prints the server's answer in the order returned.
+--app selects the App; otherwise the configured App or the worktree binding.`
+	if pick {
+		return `Ask the server which worker would take an action code, and print that one pick.
+The server tries in this order and stops at the first match: the worker you name
+with --worker; else one holder of the role that does the action (the one least
+recently assigned); else one holder of the coordinator role; else the App's
+managers (shown only to a manager). Text mode prints KIND (WORKER or USER) and ID
+per entry; a worker pick has one WORKER entry, the managers pick one USER entry per
+manager, nearest first. "No register pick returned." means nothing matched.
+
+` + common + `
+--worker is an optional worker id or URN, passed
+unchanged. --json prints {appId, code, entries:[{id, kind}]}. To see everyone
+tied for the role instead of one pick, use 'team register candidates'.`
+	}
+	return `List every worker the server considers equally near for an action code, one page.
+"Nearest" means the fewest steps from the action's task: a worker's own Agent is
+depth 0 and each base link adds one; the candidates are all readable workers tied at
+the nearest depth. The page also gives the total number of ties, the depth and the
+task loc the code resolves to (either may be empty). Each row shows the worker, its
+role, the task URN and the depth.
+
+` + common + `
+--limit (default 20, 0 counts only) and
+--offset page through the ties. --json preserves the fields and nulls; an empty
+list is []. To see the one worker the server would pick, use 'team register pick'.`
 }
