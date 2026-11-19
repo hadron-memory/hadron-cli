@@ -127,7 +127,8 @@ func newCmdPrices(f *cmdutil.Factory) *cobra.Command {
 		Long: `List what each AI model costs: one row per provider, model and tier, newest
 effective date first. Any signed-in caller can read them. Narrow with
 --provider, --model or --tier (the tier is the number in each row's tier
-column; it separates rate rows for the same model).
+column; it separates rate rows for the same model). Only tier 1 rows are
+applied to charges today; a row at another tier is stored but unused.
 
 Rates are micro-cents per million tokens, for input and for output
 separately: a rate of 300000000 micro-cents per million tokens is 3 USD per

@@ -69,10 +69,14 @@ the server exactly as typed (300000000 is 3 USD per million tokens; divide by
 is valid and says so if it refuses.
 
 Leave --tier, --markup-bp and --effective-at off to take the server's defaults:
-tier 1, the server's default markup, effective now. --tier says which pricing
-tier the row belongs to (1 to 3). Tiers 2 and 3 can be stored, but nothing reads
-them yet: every charge resolves tier 1 today, so leave --tier off. --markup-bp is the debit markup for this tier in hundredths of a
-percent (2500 = 25%); 0 is a real markup of none, different from leaving it off.
+tier 1, the server's default markup, effective now. --markup-bp is the debit
+markup for this tier in hundredths of a percent (2500 = 25%); 0 is a real
+markup of none, different from leaving it off.
+
+--tier says which pricing tier the row belongs to (1 to 3). Every charge
+resolves tier 1 today, so leave --tier off. Rows at tier 2 or 3 are stored but
+unused: nothing reads them yet, so they are never applied to a charge. A tier
+with no row is unpriced, never billed at another tier's rate.
 
 It asks before sending (or pass --yes; without a terminal --yes is required).`,
 		Example: `  hadron billing prices set --provider anthropic --model claude-opus-5-5 \
