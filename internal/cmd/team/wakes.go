@@ -140,7 +140,12 @@ func newCmdTeamWakesDue(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "due [--worker <ref>]... [--first N] [--after <cursor>] [--accept-stop] [--preview]",
 		Short: "List the wakes due now",
-		Long: `List the wakes due now (cor:agt:080:08): one merged wake per worker, with
+		Long: `List the wakes due now (cor:agt:080:08). A plain read, without --preview, is a
+spending read: it reserves the App's wake capacity for the wakes it returns,
+counts against the daily wake budget and may withhold workers. Use --preview to
+look without spending anything.
+
+It returns one merged wake per worker, with
 every reason (MENTION, TICK with its ticker, TASK with the task's handle and
 event, STOP with the notice), one seq range per channel, the unread counts and
 the proof that ` + "`team wakes ack`" + ` takes. It shows counts and ranges, never message
@@ -149,7 +154,7 @@ text, and listing moves no read position.
 --preview looks without reserving wake capacity, withholding workers or
 posting a budget notice. Preview rows cannot be acknowledged: text prints no
 proof and JSON keeps proof as an empty string and adds preview:true. Without
-the flag the existing spending read and JSON shape remain unchanged.
+the flag it is the spending read described above.
 --preview --accept-stop declares no stop lane. The server owns these effects;
 the CLI never acknowledges a preview. An older server that lacks preview
 refuses it (exit 2); the CLI never retries as a spending read.
@@ -178,7 +183,8 @@ Everything here runs as you, the person: a worker session cannot read wakes,
 and this command never sends one. --json returns {status, withheld, wakes[],
 dormant[], hasNextPage, endCursor}; dormant lists workers whose mentions are
 held back, never dropped.`,
-		Example: `  hadron team wakes due --worker Iris
+		Example: `  hadron team wakes due --preview --worker Iris
+  hadron team wakes due --worker Iris
   hadron team wakes due --app acme.com:eng-team --json
   hadron team wakes due --first 50 --after <endCursor>`,
 		Args: cobra.NoArgs,

@@ -58,6 +58,21 @@ func stopSignalDTOFrom(s gen.StopSignalFields) stopSignalDTO {
 	return d
 }
 
+const stopIntro = `Use a stop signal to hold workers back. Pick the mildest level that does the job:
+  pause-dispatch  the covered workers are given no new assignment
+  pause           also no ticks and no stall time for them
+  halt            also asks them to stop, save work and hand off
+A signal covers one worker, a team (the worker at its top, its "head", and
+everyone reporting up to it) or a host. To hold regular wakes for the whole App
+instead, use "hadron team pause"; to pause one worker's own wakes, use
+"hadron team wake-settings set --paused-until". Whoever manages the App sets,
+lists and lifts signals here; the details of how a notice reaches a worker are
+below.`
+
+const stopExamples = `  hadron team stop set --scope worker --worker <worker> --level pause --until <future RFC 3339 time>
+  hadron team stop list
+  hadron team stop lift <signal-id>`
+
 const stopHelp = `A stop signal stops covered workers at one level: pause-dispatch (no new
 assignment), pause (also no ticks or stall time), or halt (also asks the
 worker to stop, save work and hand off). Its scope is one worker, a team
@@ -77,7 +92,7 @@ a required worker lane is not freshly served; this is not an unconditional
 refusal of every set. Listing and lifting do not themselves deliver notices.`
 
 func newCmdTeamStop(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "stop <command>", Short: "List, set or lift the App's stop signals", Long: stopHelp}
+	c := &cobra.Command{Use: "stop <command>", Short: "List, set or lift the App's stop signals", Long: stopIntro + "\n\n" + stopHelp, Example: stopExamples}
 	c.AddCommand(newCmdTeamStopList(f), newCmdTeamStopSet(f), newCmdTeamStopLift(f))
 	return c
 }
@@ -101,11 +116,21 @@ named by its head worker); --scope host takes --host (a host key may omit it,
 and the server takes its own host). --until is an RFC 3339 time with an offset,
 later than now, sent as UTC; without it the signal lasts until lifted.
 
-Whoever manages the App may set any level and scope; a host key, a HALT on its
-own host. This is the person's write: a bound worktree's worker session is
-never attached. The server decides who may set what and refuses the rest.
+Whoever manages the App may set any level and scope. A host's own key may set
+only a halt, and only on that host. Find host ids with "hadron team host list".
+This is the person's write: a bound worktree's worker session is never
+attached. The server decides who may set what and refuses the rest.
+
+On success it prints the stored signal, including its id for "team stop lift",
+and says the signal is stored, not delivered or acknowledged. If the server
+refuses with STOP_SIGNAL_UNAVAILABLE (exit 5, nothing set), a covered worker's
+host is not currently serving that worker's stop notices: ask whoever runs the
+host to check it is running, then repeat the command.
 
 ` + stopHelp,
+		Example: `  hadron team stop set --scope worker --worker <worker> --level pause --until <future RFC 3339 time>
+  hadron team stop set --scope team --worker <head-worker> --level halt
+  hadron team stop set --scope host --host <host-id> --level pause-dispatch`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lv, ok := stopLevels[strings.ToLower(level)]

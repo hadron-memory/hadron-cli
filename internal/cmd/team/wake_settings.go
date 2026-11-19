@@ -102,13 +102,21 @@ func newCmdTeamWakeSettings(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "wake-settings",
 		Short: "Show or change a worker's wake settings",
-		Long: `A worker's wake settings (cor:agt:080:03): whether a mention wakes it at
-once or not at all, an optional pause, its live ticker subscriptions and the
-fastest cadence they give, and whether it is dormant. ` + "`get`" + ` shows
-them for any participant of the App, with the server's defaults when the worker
-has none stored; ` + "`set`" + ` changes the mention setting and the pause for the
-worker itself, its holder or whoever manages the App (cor:agt:080:21), never
-the may-subscribe-workers grant. Both take the worker's id or URN.`,
+		Long: `A wake is the nudge that makes an idle worker check the team chat. A worker's
+wake settings (cor:agt:080:03) say whether a mention wakes it at once or not at
+all, whether it is paused until some time, which live ticker subscriptions it
+has and the fastest cadence they give, and whether it is dormant (its mentions
+are held back, never dropped). ` + "`get`" + ` shows them for any participant of the
+App, with the server's defaults when the worker has none stored; ` + "`set`" + ` changes
+the mention setting and the pause for the worker itself, its holder or whoever
+manages the App (cor:agt:080:21), never the may-subscribe-workers grant (the
+permission to subscribe other workers to tickers). Both take the worker's id or URN.
+
+Which one to use:
+  team wake-settings: one worker's own mention setting and pause.
+  team pause: hold regular wakes for the whole App ("hadron team pause --help").
+  team stop: stop signals for chosen workers at a level and scope.
+  team wakes: read which wakes are due now ("hadron team wakes due --preview").`,
 	}
 	cmd.AddCommand(newCmdTeamWakeSettingsGet(f), newCmdTeamWakeSettingsSet(f))
 	return cmd
@@ -159,13 +167,13 @@ func newCmdTeamWakeSettingsSet(f *cmdutil.Factory) *cobra.Command {
 		Short: "Change a worker's mention setting or pause",
 		Long: `Change one worker's wake settings and print the settings the server returns.
 Only the flags you give are sent: a setting you do not name is kept. --mentions
-is immediate or off. --paused-until (RFC 3339) pauses the worker's wakes until
+is immediate or off. --paused-until (RFC 3339, a time in the future) pauses the worker's wakes until
 that time; --clear-pause ends a pause and cannot be combined with
 --paused-until. At least one of the three is required. Who may change them is
 the server's rule (cor:agt:080:21): the worker itself, its holder or whoever
 manages the App.`,
 		Example: `  hadron team wake-settings set --worker hrn:worker:acme.com:ops:iris --mentions off
-  hadron team wake-settings set --worker <worker-id> --paused-until 2026-11-01T00:00:00Z
+  hadron team wake-settings set --worker <worker-id> --paused-until <future RFC 3339 time>
   hadron team wake-settings set --worker <worker-id> --clear-pause`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -213,7 +221,7 @@ manages the App.`,
 	}
 	cmd.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "immediate or off")
-	cmd.Flags().StringVar(&pausedUntil, "paused-until", "", "pause the worker's wakes until this RFC 3339 time")
+	cmd.Flags().StringVar(&pausedUntil, "paused-until", "", "pause the worker's wakes until this future RFC 3339 time")
 	cmd.Flags().BoolVar(&clearPause, "clear-pause", false, "end the worker's pause (not with --paused-until)")
 	_ = cmd.MarkFlagRequired("worker")
 	return cmd
