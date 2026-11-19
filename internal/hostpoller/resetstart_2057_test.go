@@ -10,9 +10,9 @@ import (
 // reset_on_start (default off), and decides before anything is launched.
 
 func withReset(p *Poller) {
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.ResetOnStart = true
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 }
 
 func TestWorkerStartDoesNotResetByDefault(t *testing.T) {
@@ -40,7 +40,7 @@ func TestWorkerStartResetsTheTreeBeforeLaunching(t *testing.T) {
 	if strings.Join(order, ",") != "reset,launch" {
 		t.Fatalf("order = %v: the tree is reset BEFORE the agent is launched", order)
 	}
-	if len(host.resets) != 1 || host.resets[0] != p.cfg.WorktreePath("repo/iris") {
+	if len(host.resets) != 1 || host.resets[0] != p.startCfg.WorktreePath("repo/iris") {
 		t.Fatalf("resets = %v", host.resets)
 	}
 	if r := only(t, srv); r.outcome != Succeeded {

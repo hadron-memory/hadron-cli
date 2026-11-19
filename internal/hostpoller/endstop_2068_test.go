@@ -16,7 +16,7 @@ import (
 
 func realTree(t *testing.T, p *Poller) string {
 	t.Helper()
-	dir := p.cfg.WorktreePath("repo/iris")
+	dir := p.startCfg.WorktreePath("repo/iris")
 	if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}

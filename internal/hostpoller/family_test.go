@@ -29,9 +29,9 @@ func TestCanonicalFamily(t *testing.T) {
 func startWith(t *testing.T, cfgFamily, opFamily string) (report, int) {
 	t.Helper()
 	p, srv, host := testPoller(t)
-	w := p.cfg.Workers["iris"]
+	w := p.startCfg.Workers["iris"]
 	w.Family = cfgFamily
-	p.cfg.Workers["iris"] = w
+	p.startCfg.Workers["iris"] = w
 	srv.notDone["s1"] = 3
 	op := startOp()
 	op.Args["family"] = opFamily
@@ -94,9 +94,9 @@ func TestWorkerStartKeepsItsOtherGatesForAnAliasFamily(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			p, srv, host := testPoller(t)
-			w := p.cfg.Workers["iris"]
+			w := p.startCfg.Workers["iris"]
 			w.Family = "openai"
-			p.cfg.Workers["iris"] = w
+			p.startCfg.Workers["iris"] = w
 			srv.notDone["s1"] = 1
 			op := startOp()
 			op.Args["family"] = "codex"
@@ -116,9 +116,9 @@ func TestWorkerStartKeepsItsOtherGatesForAnAliasFamily(t *testing.T) {
 func TestRegistrationSendsTheCanonicalFamily(t *testing.T) {
 	for cfg, want := range map[string]string{"openai": "codex", "anthropic": "claude", "claude": "claude", "codex": "codex", "glm": "glm", "private.model-7": "private.model-7"} {
 		p, srv, _ := testPoller(t)
-		w := p.cfg.Workers["iris"]
+		w := p.startCfg.Workers["iris"]
 		w.Family = cfg
-		p.cfg.Workers["iris"] = w
+		p.startCfg.Workers["iris"] = w
 		step(t, p)
 		if len(srv.regs) != 1 || len(srv.regs[0].Workers) != 1 || srv.regs[0].Workers[0].Family != want {
 			t.Errorf("config %q must register as %q: %+v", cfg, want, srv.regs)
@@ -144,10 +144,10 @@ func TestRecipientForAnAliasConfiguredWorkerExpectsItsInterface(t *testing.T) {
 	// registered"), so an alias-configured worker must carry a real interface.
 	p, _, _ := testPoller(t)
 	for family, want := range map[string]string{"openai": "codex", "anthropic": "claude", "glm": ""} {
-		w := p.cfg.Workers["iris"]
+		w := p.startCfg.Workers["iris"]
 		w.Family = family
-		p.cfg.Workers["iris"] = w
-		if r := p.cfg.Recipient(p.state, "iris", "id-iris"); r.TUI != want {
+		p.startCfg.Workers["iris"] = w
+		if r := p.startCfg.Recipient(p.state, "iris", "id-iris"); r.TUI != want {
 			t.Errorf("family %q: recipient TUI %q, want %q", family, r.TUI, want)
 		}
 	}

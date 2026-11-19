@@ -66,14 +66,27 @@ type ProfileSource interface {
 
 // ConfigProfiles is the host-config source (TRANSITIONAL: S1b's typed server
 // fields replace it).
-type ConfigProfiles struct{ Cfg *Config }
+type ConfigProfiles struct {
+	Cfg *Config
+	// Get, when set, is the configuration in force now (a running poller's,
+	// after a reload); Cfg is the one it started with (cli#2623).
+	Get func() *Config
+}
+
+func (s ConfigProfiles) cfg() *Config {
+	if s.Get != nil {
+		return s.Get()
+	}
+	return s.Cfg
+}
 
 func (s ConfigProfiles) Profile(ref string) (LauncherProfile, AccountProfile, bool, error) {
-	w, ok := s.Cfg.Workers[ref]
+	c := s.cfg() // one snapshot for the worker and its account
+	w, ok := c.Worker(ref)
 	if !ok || w.Profile == nil {
 		return LauncherProfile{}, AccountProfile{}, false, nil
 	}
-	a, ok := s.Cfg.Accounts[w.Profile.Account]
+	a, ok := c.Account(w.Profile.Account)
 	if !ok {
 		return LauncherProfile{}, AccountProfile{}, false, fmt.Errorf("account profile %q is not configured on this host", w.Profile.Account)
 	}

@@ -240,7 +240,7 @@ func TestDefaultCleanupRequiresOptIn2193(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "default off", true: "explicit opt-in"}[enabled], func(t *testing.T) {
 			f := newLoopFixture2060(t)
-			f.p.cfg.OrcaLaunch.CleanupDeadTabs = enabled
+			f.p.startCfg.OrcaLaunch.CleanupDeadTabs = enabled
 			deps := *f.p.relaunch
 			deps.Cleanup = nil
 			deps.Verify = func(_ context.Context, a Agent, _ hostrelaunch.Target, o hostrelaunch.Observation) error {

@@ -14,9 +14,18 @@ type ResetIdleTarget struct {
 	Process                                          ProcessIdentity
 }
 
-func (p *Poller) resetIdleTarget(op Operation, ref, token string, id ProcessIdentity) ResetIdleTarget {
+// resetIdleTarget is what proving the agent idle needs. ok is false when the
+// worker is no longer in the configuration (a reload took it out since the
+// operation was checked): the caller must not go on to process control with
+// an empty interface (cli#2623).
+func (p *Poller) resetIdleTarget(op Operation, ref, token string, id ProcessIdentity) (ResetIdleTarget, bool) {
+	c := p.config()
+	w, ok := c.Worker(ref)
+	if !ok {
+		return ResetIdleTarget{}, false
+	}
 	return ResetIdleTarget{WorkerRef: ref, WorkerID: op.WorkerID, SessionID: argString(op, "sessionId"),
-		Worktree: p.cfg.WorktreePath(token), Family: p.cfg.Workers[ref].tui(), Process: id}
+		Worktree: c.WorktreePath(token), Family: w.tui(), Process: id}, true
 }
 
 // ResetDeps is what the worker.reset-context handler needs beyond the
@@ -112,7 +121,7 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 	}
 	// Git first (ruling 0012): only inside a Git tree do cleanliness and
 	// push state refuse. An unreadable tree refuses, never passes.
-	git, err := p.resetDeps.Git(ctx, p.cfg.WorktreePath(token))
+	git, err := p.resetDeps.Git(ctx, p.config().WorktreePath(token))
 	switch {
 	case err != nil:
 		refuse("DIRTY_TREE", "the worktree could not be read: "+err.Error())
@@ -161,7 +170,12 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		refuse("NOT_IDLE", "this host has no proven terminal read to show the agent idle")
 		return
 	}
-	if err := p.resetDeps.Idle(ctx, p.resetIdleTarget(op, ref, token, h.Identity())); err != nil {
+	target, ok := p.resetIdleTarget(op, ref, token, h.Identity())
+	if !ok {
+		refuse("HOST_UNSUPPORTED", "the worker is no longer configured on this host")
+		return
+	}
+	if err := p.resetDeps.Idle(ctx, target); err != nil {
 		refuse("NOT_IDLE", err.Error())
 		return
 	}
@@ -178,7 +192,7 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 // (RELAUNCH_BLOCKED: nothing started; RELAUNCH_UNVERIFIED: something started
 // but is not proven to be the recovered agent) and its detail.
 func (p *Poller) relaunchAgent(ctx context.Context, op Operation, w WorkerConfig, token string, old ProcessIdentity, checkpoint string) (ProcessIdentity, string, string) {
-	dir := p.cfg.WorktreePath(token)
+	dir := p.config().WorktreePath(token)
 	agent, err := p.host.Launch(ctx, LaunchSpec{Argv: w.Launch, Dir: dir, Env: agentEnv(os.Environ(), p.key)})
 	if err != nil {
 		return ProcessIdentity{}, "RELAUNCH_BLOCKED", "launching the agent failed: " + err.Error()
