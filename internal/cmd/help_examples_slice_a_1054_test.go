@@ -70,9 +70,17 @@ var localOnlySliceA = []string{
 }
 
 // expectedRefusalsSliceA are examples whose documented outcome IS a refusal
-// before any request. Empty unless a run shows one; the reason names where
-// the help documents it.
-var expectedRefusalsSliceA = map[string]string{}
+// before any request. The reason names where the help documents it. The two
+// `team host up` examples shell out to the Orca CLI (--orca-bin, default
+// `orca`): on a host without it (the CI runners) the command refuses before
+// any request, exactly as the page's exit-code list documents ("2 usage, or
+// Orca is not reachable here"); on an Orca host they run and reach the
+// fixture (the developer's pre-freeze full-suite run is that evidence). Both
+// outcomes pass: the map only covers the sent-nothing shape.
+var expectedRefusalsSliceA = map[string]string{
+	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json":                      "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/worktrees --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+}
 
 // knownPanicsSliceA lists commands that panic on a reply with no data, each
 // tracked by a follow-up issue (a panic is a defect of the command, not of
