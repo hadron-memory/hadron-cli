@@ -462,7 +462,9 @@ var s2AmendNullClears = map[string]bool{
 // refuseAmendNulls refuses a key given as null that does not clear anything. A
 // pointer field decodes null to nil, which the marshaler then omits: the file
 // would be accepted and the key silently dropped, while the amend went ahead
-// without it. data has been through precheck, so it is one JSON object.
+// without it. data is the --input-file bytes (the only caller, decision amend,
+// passes it only when a file was given), and has been through precheck, so it is
+// one JSON object.
 func refuseAmendNulls(data []byte) error {
 	var keys map[string]json.RawMessage
 	if err := json.Unmarshal(data, &keys); err != nil {
