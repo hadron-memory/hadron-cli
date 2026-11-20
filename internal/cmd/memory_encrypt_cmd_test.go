@@ -19,7 +19,7 @@ func TestMemoryEncrypt(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["EncryptMemory"], &vars)
-	if vars["memoryId"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["dataKey"] != "super-secret-data-key" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["dataKey"] != "super-secret-data-key" {
 		t.Errorf("encrypt vars: %v (dataKey must be read from stdin, trimmed)", vars)
 	}
 	var dto struct {

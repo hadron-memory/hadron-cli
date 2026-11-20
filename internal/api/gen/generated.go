@@ -1920,7 +1920,7 @@ func (v *AddOrgMemberAddOrgMemberUser) __premarshalJSON() (*__premarshalAddOrgMe
 
 // AddOrgMemberResponse is returned by AddOrgMember on success.
 type AddOrgMemberResponse struct {
-	// Accepts the entity's ID or URN (orgId). A user who is already a live member is refused with CONFLICT.
+	// Accepts the entity's ID or URN (orgRef). A user who is already a live member is refused with CONFLICT.
 	AddOrgMember *AddOrgMemberAddOrgMember `json:"addOrgMember"`
 }
 
@@ -44431,12 +44431,12 @@ func (v *CreateMemoryDraftCreateMemory) GetUpdatedAt() string { return v.Updated
 
 // CreateMemoryDraftResponse is returned by CreateMemoryDraft on success.
 type CreateMemoryDraftResponse struct {
-	// Create a free-standing memory. orgId accepts an organization's ID or URN.
-	// With orgId, the default is knowledge-class with ORGANIZATION visibility;
+	// Create a free-standing memory. orgRef accepts an organization's ID or URN.
+	// With orgRef, the default is knowledge-class with ORGANIZATION visibility;
 	// knowledge/group creation requires the org's memory.create grant. Omitting
-	// orgId (or passing null) creates a user-owned memory in the authenticated
+	// orgRef (or passing null) creates a user-owned memory in the authenticated
 	// caller's namespace and requires an explicit personal/private memoryClass.
-	// The default knowledge class is refused without orgId. Pass
+	// The default knowledge class is refused without orgRef. Pass
 	// memoryClass: group + visibility: GROUP for a group-class memory
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
@@ -44554,12 +44554,12 @@ func (v *CreateMemoryInAppResponse) GetCreateMemoryInApp() *CreateMemoryInAppCre
 
 // CreateMemoryResponse is returned by CreateMemory on success.
 type CreateMemoryResponse struct {
-	// Create a free-standing memory. orgId accepts an organization's ID or URN.
-	// With orgId, the default is knowledge-class with ORGANIZATION visibility;
+	// Create a free-standing memory. orgRef accepts an organization's ID or URN.
+	// With orgRef, the default is knowledge-class with ORGANIZATION visibility;
 	// knowledge/group creation requires the org's memory.create grant. Omitting
-	// orgId (or passing null) creates a user-owned memory in the authenticated
+	// orgRef (or passing null) creates a user-owned memory in the authenticated
 	// caller's namespace and requires an explicit personal/private memoryClass.
-	// The default knowledge class is refused without orgId. Pass
+	// The default knowledge class is refused without orgRef. Pass
 	// memoryClass: group + visibility: GROUP for a group-class memory
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
@@ -84039,7 +84039,7 @@ func (v *RemoveMemoryMemberResponse) GetRemoveMemoryMember() *RemoveMemoryMember
 
 // RemoveOrgMemberResponse is returned by RemoveOrgMember on success.
 type RemoveOrgMemberResponse struct {
-	// Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user never held a membership, and with CONFLICT when it would remove the last live owner; removing an already-revoked member succeeds again.
+	// Accepts the entity's ID or URN (orgRef). Refused with NOT_FOUND when the user never held a membership, and with CONFLICT when it would remove the last live owner; removing an already-revoked member succeeds again.
 	RemoveOrgMember bool `json:"removeOrgMember"`
 }
 
@@ -117849,7 +117849,7 @@ func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) __premarshalJSON() (*
 
 // UpdateOrgMemberResponse is returned by UpdateOrgMember on success.
 type UpdateOrgMemberResponse struct {
-	// Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user is not a live member, and with CONFLICT when it would demote the organization's last live owner.
+	// Accepts the entity's ID or URN (orgRef). Refused with NOT_FOUND when the user is not a live member, and with CONFLICT when it would demote the organization's last live owner.
 	UpdateOrgMember *UpdateOrgMemberUpdateOrgMember `json:"updateOrgMember"`
 }
 
@@ -125114,11 +125114,11 @@ func (v *__AcknowledgeWakesInput) GetProofs() []string { return v.Proofs }
 
 // __AcquireEditorLockInput is used internally by genqlient
 type __AcquireEditorLockInput struct {
-	AgentId string `json:"agentId"`
+	AgentRef string `json:"agentRef"`
 }
 
-// GetAgentId returns __AcquireEditorLockInput.AgentId, and is useful for accessing the field via an interface.
-func (v *__AcquireEditorLockInput) GetAgentId() string { return v.AgentId }
+// GetAgentRef returns __AcquireEditorLockInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AcquireEditorLockInput) GetAgentRef() string { return v.AgentRef }
 
 // __ActionTicketsInput is used internally by genqlient
 type __ActionTicketsInput struct {
@@ -129062,7 +129062,7 @@ func (v *__CreateMemoryConfigTemplateInput) GetInput() *CreateMemoryConfigTempla
 
 // __CreateMemoryDraftInput is used internally by genqlient
 type __CreateMemoryDraftInput struct {
-	OrgId              *string           `json:"orgId,omitempty"`
+	OrgRef             *string           `json:"orgRef,omitempty"`
 	Name               string            `json:"name"`
 	MemoryClass        *MemoryClass      `json:"memoryClass,omitempty"`
 	ShortDescription   *string           `json:"shortDescription,omitempty"`
@@ -129085,8 +129085,8 @@ type __CreateMemoryDraftInput struct {
 	WriteBranch        *string           `json:"writeBranch,omitempty"`
 }
 
-// GetOrgId returns __CreateMemoryDraftInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryDraftInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __CreateMemoryDraftInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetName returns __CreateMemoryDraftInput.Name, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryDraftInput) GetName() string { return v.Name }
@@ -129198,7 +129198,7 @@ func (v *__CreateMemoryInAppInput) GetVectorIndexEnabled() *bool { return v.Vect
 
 // __CreateMemoryInput is used internally by genqlient
 type __CreateMemoryInput struct {
-	OrgId              *string           `json:"orgId,omitempty"`
+	OrgRef             *string           `json:"orgRef,omitempty"`
 	Name               string            `json:"name"`
 	MemoryClass        *MemoryClass      `json:"memoryClass,omitempty"`
 	ShortDescription   *string           `json:"shortDescription,omitempty"`
@@ -129221,8 +129221,8 @@ type __CreateMemoryInput struct {
 	WriteBranch        *string           `json:"writeBranch,omitempty"`
 }
 
-// GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryInput) GetOrgId() *string { return v.OrgId }
+// GetOrgRef returns __CreateMemoryInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetName returns __CreateMemoryInput.Name, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetName() string { return v.Name }
@@ -129438,12 +129438,12 @@ func (v *__CreateReviewNodeInput) GetInput() *CreateNodeInput { return v.Input }
 
 // __CreateRevisionInput is used internally by genqlient
 type __CreateRevisionInput struct {
-	AgentId     string  `json:"agentId"`
+	AgentRef    string  `json:"agentRef"`
 	Description *string `json:"description,omitempty"`
 }
 
-// GetAgentId returns __CreateRevisionInput.AgentId, and is useful for accessing the field via an interface.
-func (v *__CreateRevisionInput) GetAgentId() string { return v.AgentId }
+// GetAgentRef returns __CreateRevisionInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateRevisionInput) GetAgentRef() string { return v.AgentRef }
 
 // GetDescription returns __CreateRevisionInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateRevisionInput) GetDescription() *string { return v.Description }
@@ -129562,7 +129562,7 @@ func (v *__CreateUserApiKeyInput) GetLabel() *string { return v.Label }
 
 // __CreateUserInvitationInput is used internally by genqlient
 type __CreateUserInvitationInput struct {
-	OrgId          string  `json:"orgId"`
+	OrgRef         string  `json:"orgRef"`
 	MemberRole     Role    `json:"memberRole"`
 	Email          *string `json:"email,omitempty"`
 	Name           *string `json:"name,omitempty"`
@@ -129571,8 +129571,8 @@ type __CreateUserInvitationInput struct {
 	MaxActivations *int    `json:"maxActivations,omitempty"`
 }
 
-// GetOrgId returns __CreateUserInvitationInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__CreateUserInvitationInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __CreateUserInvitationInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateUserInvitationInput) GetOrgRef() string { return v.OrgRef }
 
 // GetMemberRole returns __CreateUserInvitationInput.MemberRole, and is useful for accessing the field via an interface.
 func (v *__CreateUserInvitationInput) GetMemberRole() Role { return v.MemberRole }
@@ -129856,11 +129856,11 @@ func (v *__DeleteMemoryConfigTemplateInput) GetExpectedRevision() int { return v
 
 // __DeleteMemoryInput is used internally by genqlient
 type __DeleteMemoryInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __DeleteMemoryInput.Id, and is useful for accessing the field via an interface.
-func (v *__DeleteMemoryInput) GetId() string { return v.Id }
+// GetRef returns __DeleteMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteMemoryInput) GetRef() string { return v.Ref }
 
 // __DeleteMemoryShareInput is used internally by genqlient
 type __DeleteMemoryShareInput struct {
@@ -129940,11 +129940,11 @@ func (v *__DeleteObjectInput) GetHard() *bool { return v.Hard }
 
 // __DeleteOrganizationInput is used internally by genqlient
 type __DeleteOrganizationInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __DeleteOrganizationInput.Id, and is useful for accessing the field via an interface.
-func (v *__DeleteOrganizationInput) GetId() string { return v.Id }
+// GetRef returns __DeleteOrganizationInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteOrganizationInput) GetRef() string { return v.Ref }
 
 // __DeleteRegisterEntryInput is used internally by genqlient
 type __DeleteRegisterEntryInput struct {
@@ -130270,13 +130270,13 @@ func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
-	MemoryId   string  `json:"memoryId"`
+	MemoryRef  string  `json:"memoryRef"`
 	DataKey    *string `json:"dataKey,omitempty"`
 	Passphrase *string `json:"passphrase,omitempty"`
 }
 
-// GetMemoryId returns __EncryptMemoryInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__EncryptMemoryInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __EncryptMemoryInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__EncryptMemoryInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetDataKey() *string { return v.DataKey }
@@ -131466,11 +131466,11 @@ func (v *__IssueHostOperationInput) GetInput() *IssueHostOperationInput { return
 
 // __JoinAppInput is used internally by genqlient
 type __JoinAppInput struct {
-	AppId string `json:"appId"`
+	AppRef string `json:"appRef"`
 }
 
-// GetAppId returns __JoinAppInput.AppId, and is useful for accessing the field via an interface.
-func (v *__JoinAppInput) GetAppId() string { return v.AppId }
+// GetAppRef returns __JoinAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__JoinAppInput) GetAppRef() string { return v.AppRef }
 
 // __LatestAppRunInput is used internally by genqlient
 type __LatestAppRunInput struct {
@@ -131486,44 +131486,44 @@ func (v *__LatestAppRunInput) GetPrevious() *bool { return v.Previous }
 
 // __LeaveAppInput is used internally by genqlient
 type __LeaveAppInput struct {
-	AppId string `json:"appId"`
+	AppRef string `json:"appRef"`
 }
 
-// GetAppId returns __LeaveAppInput.AppId, and is useful for accessing the field via an interface.
-func (v *__LeaveAppInput) GetAppId() string { return v.AppId }
+// GetAppRef returns __LeaveAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInput) GetAppRef() string { return v.AppRef }
 
 // __LeaveAppInstructedInput is used internally by genqlient
 type __LeaveAppInstructedInput struct {
-	AppId       string               `json:"appId"`
+	AppRef      string               `json:"appRef"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
 }
 
-// GetAppId returns __LeaveAppInstructedInput.AppId, and is useful for accessing the field via an interface.
-func (v *__LeaveAppInstructedInput) GetAppId() string { return v.AppId }
+// GetAppRef returns __LeaveAppInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInstructedInput) GetAppRef() string { return v.AppRef }
 
 // GetInstruction returns __LeaveAppInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__LeaveAppInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __LinkGithubAppInput is used internally by genqlient
 type __LinkGithubAppInput struct {
-	OrgId          string `json:"orgId"`
+	OrgRef         string `json:"orgRef"`
 	InstallationId int    `json:"installationId"`
 }
 
-// GetOrgId returns __LinkGithubAppInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__LinkGithubAppInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __LinkGithubAppInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__LinkGithubAppInput) GetOrgRef() string { return v.OrgRef }
 
 // GetInstallationId returns __LinkGithubAppInput.InstallationId, and is useful for accessing the field via an interface.
 func (v *__LinkGithubAppInput) GetInstallationId() int { return v.InstallationId }
 
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
-	MemoryId       string `json:"memoryId"`
+	MemoryRef      string `json:"memoryRef"`
 	ExternalUserId string `json:"externalUserId"`
 }
 
-// GetMemoryId returns __LinkMemoryToUserInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__LinkMemoryToUserInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __LinkMemoryToUserInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__LinkMemoryToUserInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetExternalUserId returns __LinkMemoryToUserInput.ExternalUserId, and is useful for accessing the field via an interface.
 func (v *__LinkMemoryToUserInput) GetExternalUserId() string { return v.ExternalUserId }
@@ -132540,13 +132540,13 @@ func (v *__PublicOrganizationInput) GetOffset() int { return v.Offset }
 
 // __PublishRevisionInput is used internally by genqlient
 type __PublishRevisionInput struct {
-	AgentId      string  `json:"agentId"`
+	AgentRef     string  `json:"agentRef"`
 	RevisionLoc  string  `json:"revisionLoc"`
 	VersionLabel *string `json:"versionLabel,omitempty"`
 }
 
-// GetAgentId returns __PublishRevisionInput.AgentId, and is useful for accessing the field via an interface.
-func (v *__PublishRevisionInput) GetAgentId() string { return v.AgentId }
+// GetAgentRef returns __PublishRevisionInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__PublishRevisionInput) GetAgentRef() string { return v.AgentRef }
 
 // GetRevisionLoc returns __PublishRevisionInput.RevisionLoc, and is useful for accessing the field via an interface.
 func (v *__PublishRevisionInput) GetRevisionLoc() string { return v.RevisionLoc }
@@ -132872,11 +132872,11 @@ func (v *__ReinstallAppInput) GetRef() string { return v.Ref }
 
 // __ReleaseEditorLockInput is used internally by genqlient
 type __ReleaseEditorLockInput struct {
-	AgentId string `json:"agentId"`
+	AgentRef string `json:"agentRef"`
 }
 
-// GetAgentId returns __ReleaseEditorLockInput.AgentId, and is useful for accessing the field via an interface.
-func (v *__ReleaseEditorLockInput) GetAgentId() string { return v.AgentId }
+// GetAgentRef returns __ReleaseEditorLockInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__ReleaseEditorLockInput) GetAgentRef() string { return v.AgentRef }
 
 // __ReleaseWorkerInput is used internally by genqlient
 type __ReleaseWorkerInput struct {
@@ -133182,12 +133182,12 @@ func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
 
 // __RestoreRevisionInput is used internally by genqlient
 type __RestoreRevisionInput struct {
-	AgentId     string `json:"agentId"`
+	AgentRef    string `json:"agentRef"`
 	RevisionLoc string `json:"revisionLoc"`
 }
 
-// GetAgentId returns __RestoreRevisionInput.AgentId, and is useful for accessing the field via an interface.
-func (v *__RestoreRevisionInput) GetAgentId() string { return v.AgentId }
+// GetAgentRef returns __RestoreRevisionInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__RestoreRevisionInput) GetAgentRef() string { return v.AgentRef }
 
 // GetRevisionLoc returns __RestoreRevisionInput.RevisionLoc, and is useful for accessing the field via an interface.
 func (v *__RestoreRevisionInput) GetRevisionLoc() string { return v.RevisionLoc }
@@ -134120,13 +134120,13 @@ func (v *__SetHostWorkerAvailabilityInput) GetInput() *SetHostWorkerAvailability
 
 // __SetMemorySourceTokenInput is used internally by genqlient
 type __SetMemorySourceTokenInput struct {
-	Id        string  `json:"id"`
+	Ref       string  `json:"ref"`
 	Token     string  `json:"token"`
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 }
 
-// GetId returns __SetMemorySourceTokenInput.Id, and is useful for accessing the field via an interface.
-func (v *__SetMemorySourceTokenInput) GetId() string { return v.Id }
+// GetRef returns __SetMemorySourceTokenInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SetMemorySourceTokenInput) GetRef() string { return v.Ref }
 
 // GetToken returns __SetMemorySourceTokenInput.Token, and is useful for accessing the field via an interface.
 func (v *__SetMemorySourceTokenInput) GetToken() string { return v.Token }
@@ -134440,11 +134440,11 @@ func (v *__SubscribeTickerInput) GetWorkerRef() string { return v.WorkerRef }
 
 // __SyncMemoryInput is used internally by genqlient
 type __SyncMemoryInput struct {
-	Id string `json:"id"`
+	Ref string `json:"ref"`
 }
 
-// GetId returns __SyncMemoryInput.Id, and is useful for accessing the field via an interface.
-func (v *__SyncMemoryInput) GetId() string { return v.Id }
+// GetRef returns __SyncMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SyncMemoryInput) GetRef() string { return v.Ref }
 
 // __TaskLinkDefectInput is used internally by genqlient
 type __TaskLinkDefectInput struct {
@@ -135854,11 +135854,11 @@ func (v *__UninstallAppInput) GetRef() string { return v.Ref }
 
 // __UnlinkGithubAppInput is used internally by genqlient
 type __UnlinkGithubAppInput struct {
-	OrgId string `json:"orgId"`
+	OrgRef string `json:"orgRef"`
 }
 
-// GetOrgId returns __UnlinkGithubAppInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__UnlinkGithubAppInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __UnlinkGithubAppInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__UnlinkGithubAppInput) GetOrgRef() string { return v.OrgRef }
 
 // __UnlockNodeRoleRuleInput is used internally by genqlient
 type __UnlockNodeRoleRuleInput struct {
@@ -137188,13 +137188,13 @@ func (v *__UpdateObjectInput) GetReason() *string { return v.Reason }
 
 // __UpdateOrgGithubAppInput is used internally by genqlient
 type __UpdateOrgGithubAppInput struct {
-	OrgId      string `json:"orgId"`
+	OrgRef     string `json:"orgRef"`
 	AppId      string `json:"appId"`
 	PrivateKey string `json:"privateKey"`
 }
 
-// GetOrgId returns __UpdateOrgGithubAppInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__UpdateOrgGithubAppInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __UpdateOrgGithubAppInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgGithubAppInput) GetOrgRef() string { return v.OrgRef }
 
 // GetAppId returns __UpdateOrgGithubAppInput.AppId, and is useful for accessing the field via an interface.
 func (v *__UpdateOrgGithubAppInput) GetAppId() string { return v.AppId }
@@ -138609,8 +138609,8 @@ func AcknowledgeWakes(
 
 // The mutation executed by AcquireEditorLock.
 const AcquireEditorLock_Operation = `
-mutation AcquireEditorLock ($agentId: ID!) {
-	acquireEditorLock(agentId: $agentId) {
+mutation AcquireEditorLock ($agentRef: ID!) {
+	acquireEditorLock(agentRef: $agentRef) {
 		locked
 		lockedBy
 		expiresAt
@@ -138623,13 +138623,13 @@ mutation AcquireEditorLock ($agentId: ID!) {
 func AcquireEditorLock(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	agentId string,
+	agentRef string,
 ) (data_ *AcquireEditorLockResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AcquireEditorLock",
 		Query:  AcquireEditorLock_Operation,
 		Variables: &__AcquireEditorLockInput{
-			AgentId: agentId,
+			AgentRef: agentRef,
 		},
 	}
 
@@ -138825,7 +138825,7 @@ func AddMemoryToAgent(
 
 // The mutation executed by AddOrgMember.
 const AddOrgMember_Operation = `
-mutation AddOrgMember ($orgRef: String!, $userRef: String!, $role: Role!) {
+mutation AddOrgMember ($orgRef: ID!, $userRef: ID!, $role: Role!) {
 	addOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
 		id
 		role
@@ -154311,8 +154311,8 @@ func CreateMcpServer(
 
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
-mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
-	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch) {
+mutation CreateMemory ($orgRef: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
+	createMemory(orgRef: $orgRef, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch) {
 		id
 		urn
 		name
@@ -154330,7 +154330,7 @@ mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $s
 func CreateMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId *string,
+	orgRef *string,
 	name string,
 	memoryClass *MemoryClass,
 	shortDescription *string,
@@ -154356,7 +154356,7 @@ func CreateMemory(
 		OpName: "CreateMemory",
 		Query:  CreateMemory_Operation,
 		Variables: &__CreateMemoryInput{
-			OrgId:              orgId,
+			OrgRef:             orgRef,
 			Name:               name,
 			MemoryClass:        memoryClass,
 			ShortDescription:   shortDescription,
@@ -154476,8 +154476,8 @@ func CreateMemoryConfigTemplate(
 
 // The mutation executed by CreateMemoryDraft.
 const CreateMemoryDraft_Operation = `
-mutation CreateMemoryDraft ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
-	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, draftCorpus: true) {
+mutation CreateMemoryDraft ($orgRef: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
+	createMemory(orgRef: $orgRef, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, draftCorpus: true) {
 		id
 		urn
 		name
@@ -154498,7 +154498,7 @@ mutation CreateMemoryDraft ($orgId: ID, $name: String!, $memoryClass: MemoryClas
 func CreateMemoryDraft(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId *string,
+	orgRef *string,
 	name string,
 	memoryClass *MemoryClass,
 	shortDescription *string,
@@ -154524,7 +154524,7 @@ func CreateMemoryDraft(
 		OpName: "CreateMemoryDraft",
 		Query:  CreateMemoryDraft_Operation,
 		Variables: &__CreateMemoryDraftInput{
-			OrgId:              orgId,
+			OrgRef:             orgRef,
 			Name:               name,
 			MemoryClass:        memoryClass,
 			ShortDescription:   shortDescription,
@@ -154681,7 +154681,7 @@ func CreateMemoryShare(
 
 // The mutation executed by CreateMemorySubscription.
 const CreateMemorySubscription_Operation = `
-mutation CreateMemorySubscription ($memoryRef: String!, $orgRef: String!, $role: Role!) {
+mutation CreateMemorySubscription ($memoryRef: ID!, $orgRef: ID!, $role: Role!) {
 	createMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef, role: $role) {
 		role
 		activated
@@ -155184,8 +155184,8 @@ func CreateReviewNode(
 
 // The mutation executed by CreateRevision.
 const CreateRevision_Operation = `
-mutation CreateRevision ($agentId: ID!, $description: String) {
-	createRevision(agentId: $agentId, description: $description) {
+mutation CreateRevision ($agentRef: ID!, $description: String) {
+	createRevision(agentRef: $agentRef, description: $description) {
 		revisionLoc
 		label
 		published
@@ -155195,19 +155195,19 @@ mutation CreateRevision ($agentId: ID!, $description: String) {
 `
 
 // cli#61 first cut: the Agent system-memory draft workflow's snapshot and editor
-// lock. agentId goes to the server verbatim (ID or URN; no pre-resolve).
+// lock. agentRef goes to the server verbatim (ID or URN; no pre-resolve).
 // description is omitempty: unset leaves the server default.
 func CreateRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	agentId string,
+	agentRef string,
 	description *string,
 ) (data_ *CreateRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateRevision",
 		Query:  CreateRevision_Operation,
 		Variables: &__CreateRevisionInput{
-			AgentId:     agentId,
+			AgentRef:    agentRef,
 			Description: description,
 		},
 	}
@@ -155700,8 +155700,8 @@ func CreateUserApiKey(
 
 // The mutation executed by CreateUserInvitation.
 const CreateUserInvitation_Operation = `
-mutation CreateUserInvitation ($orgId: ID!, $memberRole: Role!, $email: String, $name: String, $githubUsername: String, $expiresInDays: Int, $maxActivations: Int) {
-	createUserInvitation(orgId: $orgId, memberRole: $memberRole, email: $email, name: $name, githubUsername: $githubUsername, expiresInDays: $expiresInDays, maxActivations: $maxActivations) {
+mutation CreateUserInvitation ($orgRef: ID!, $memberRole: Role!, $email: String, $name: String, $githubUsername: String, $expiresInDays: Int, $maxActivations: Int) {
+	createUserInvitation(orgRef: $orgRef, memberRole: $memberRole, email: $email, name: $name, githubUsername: $githubUsername, expiresInDays: $expiresInDays, maxActivations: $maxActivations) {
 		... InvitationFields
 	}
 }
@@ -155726,7 +155726,7 @@ fragment InvitationFields on UserInvitation {
 func CreateUserInvitation(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgRef string,
 	memberRole Role,
 	email *string,
 	name *string,
@@ -155738,7 +155738,7 @@ func CreateUserInvitation(
 		OpName: "CreateUserInvitation",
 		Query:  CreateUserInvitation_Operation,
 		Variables: &__CreateUserInvitationInput{
-			OrgId:          orgId,
+			OrgRef:         orgRef,
 			MemberRole:     memberRole,
 			Email:          email,
 			Name:           name,
@@ -156892,21 +156892,21 @@ func DeleteMcpServer(
 
 // The mutation executed by DeleteMemory.
 const DeleteMemory_Operation = `
-mutation DeleteMemory ($id: ID!) {
-	deleteMemory(id: $id)
+mutation DeleteMemory ($ref: ID!) {
+	deleteMemory(ref: $ref)
 }
 `
 
 func DeleteMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *DeleteMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteMemory",
 		Query:  DeleteMemory_Operation,
 		Variables: &__DeleteMemoryInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -157005,7 +157005,7 @@ func DeleteMemoryShare(
 
 // The mutation executed by DeleteMemorySubscription.
 const DeleteMemorySubscription_Operation = `
-mutation DeleteMemorySubscription ($memoryRef: String!, $orgRef: String!) {
+mutation DeleteMemorySubscription ($memoryRef: ID!, $orgRef: ID!) {
 	deleteMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef)
 }
 `
@@ -157187,21 +157187,21 @@ func DeleteObject(
 
 // The mutation executed by DeleteOrganization.
 const DeleteOrganization_Operation = `
-mutation DeleteOrganization ($id: ID!) {
-	deleteOrganization(id: $id)
+mutation DeleteOrganization ($ref: ID!) {
+	deleteOrganization(ref: $ref)
 }
 `
 
 func DeleteOrganization(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *DeleteOrganizationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteOrganization",
 		Query:  DeleteOrganization_Operation,
 		Variables: &__DeleteOrganizationInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -158372,8 +158372,8 @@ func EmailConnections(
 
 // The mutation executed by EncryptMemory.
 const EncryptMemory_Operation = `
-mutation EncryptMemory ($memoryId: ID!, $dataKey: String, $passphrase: String) {
-	encryptMemory(memoryId: $memoryId, dataKey: $dataKey, passphrase: $passphrase) {
+mutation EncryptMemory ($memoryRef: ID!, $dataKey: String, $passphrase: String) {
+	encryptMemory(memoryRef: $memoryRef, dataKey: $dataKey, passphrase: $passphrase) {
 		id
 		urn
 		name
@@ -158391,7 +158391,7 @@ mutation EncryptMemory ($memoryId: ID!, $dataKey: String, $passphrase: String) {
 func EncryptMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
+	memoryRef string,
 	dataKey *string,
 	passphrase *string,
 ) (data_ *EncryptMemoryResponse, err_ error) {
@@ -158399,7 +158399,7 @@ func EncryptMemory(
 		OpName: "EncryptMemory",
 		Query:  EncryptMemory_Operation,
 		Variables: &__EncryptMemoryInput{
-			MemoryId:   memoryId,
+			MemoryRef:  memoryRef,
 			DataKey:    dataKey,
 			Passphrase: passphrase,
 		},
@@ -158741,7 +158741,7 @@ func EndTeamSessionWithStatsAndResumeClaim(
 
 // The mutation executed by EnsureAppMember.
 const EnsureAppMember_Operation = `
-mutation EnsureAppMember ($appRef: String!, $userRef: String!, $role: String!) {
+mutation EnsureAppMember ($appRef: ID!, $userRef: ID!, $role: String!) {
 	ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role) {
 		role
 		createdAt
@@ -158787,7 +158787,7 @@ func EnsureAppMember(
 
 // The mutation executed by EnsureAppMemberInstructed.
 const EnsureAppMemberInstructed_Operation = `
-mutation EnsureAppMemberInstructed ($appRef: String!, $userRef: String!, $role: String!, $instruction: ActInstructionInput!) {
+mutation EnsureAppMemberInstructed ($appRef: ID!, $userRef: ID!, $role: String!, $instruction: ActInstructionInput!) {
 	ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role, instruction: $instruction) {
 		role
 		createdAt
@@ -163499,8 +163499,8 @@ func IssueHostOperation(
 
 // The mutation executed by JoinApp.
 const JoinApp_Operation = `
-mutation JoinApp ($appId: ID!) {
-	joinApp(appId: $appId) {
+mutation JoinApp ($appRef: ID!) {
+	joinApp(appRef: $appRef) {
 		appMember {
 			appId
 			role
@@ -163526,13 +163526,13 @@ mutation JoinApp ($appId: ID!) {
 func JoinApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId string,
+	appRef string,
 ) (data_ *JoinAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "JoinApp",
 		Query:  JoinApp_Operation,
 		Variables: &__JoinAppInput{
-			AppId: appId,
+			AppRef: appRef,
 		},
 	}
 
@@ -163620,8 +163620,8 @@ func LatestAppRun(
 
 // The mutation executed by LeaveApp.
 const LeaveApp_Operation = `
-mutation LeaveApp ($appId: ID!) {
-	leaveApp(appId: $appId) {
+mutation LeaveApp ($appRef: ID!) {
+	leaveApp(appRef: $appRef) {
 		appId
 		userId
 	}
@@ -163633,13 +163633,13 @@ mutation LeaveApp ($appId: ID!) {
 func LeaveApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId string,
+	appRef string,
 ) (data_ *LeaveAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "LeaveApp",
 		Query:  LeaveApp_Operation,
 		Variables: &__LeaveAppInput{
-			AppId: appId,
+			AppRef: appRef,
 		},
 	}
 
@@ -163657,8 +163657,8 @@ func LeaveApp(
 
 // The mutation executed by LeaveAppInstructed.
 const LeaveAppInstructed_Operation = `
-mutation LeaveAppInstructed ($appId: ID!, $instruction: ActInstructionInput!) {
-	leaveApp(appId: $appId, instruction: $instruction) {
+mutation LeaveAppInstructed ($appRef: ID!, $instruction: ActInstructionInput!) {
+	leaveApp(appRef: $appRef, instruction: $instruction) {
 		appId
 		userId
 	}
@@ -163670,14 +163670,14 @@ mutation LeaveAppInstructed ($appId: ID!, $instruction: ActInstructionInput!) {
 func LeaveAppInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	appId string,
+	appRef string,
 	instruction *ActInstructionInput,
 ) (data_ *LeaveAppInstructedResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "LeaveAppInstructed",
 		Query:  LeaveAppInstructed_Operation,
 		Variables: &__LeaveAppInstructedInput{
-			AppId:       appId,
+			AppRef:      appRef,
 			Instruction: instruction,
 		},
 	}
@@ -163696,8 +163696,8 @@ func LeaveAppInstructed(
 
 // The mutation executed by LinkGithubApp.
 const LinkGithubApp_Operation = `
-mutation LinkGithubApp ($orgId: ID!, $installationId: Int!) {
-	linkGithubApp(orgId: $orgId, installationId: $installationId) {
+mutation LinkGithubApp ($orgRef: ID!, $installationId: Int!) {
+	linkGithubApp(orgRef: $orgRef, installationId: $installationId) {
 		... OrgGithubFields
 	}
 }
@@ -163713,14 +163713,14 @@ fragment OrgGithubFields on Organization {
 func LinkGithubApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgRef string,
 	installationId int,
 ) (data_ *LinkGithubAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "LinkGithubApp",
 		Query:  LinkGithubApp_Operation,
 		Variables: &__LinkGithubAppInput{
-			OrgId:          orgId,
+			OrgRef:         orgRef,
 			InstallationId: installationId,
 		},
 	}
@@ -163739,8 +163739,8 @@ func LinkGithubApp(
 
 // The mutation executed by LinkMemoryToUser.
 const LinkMemoryToUser_Operation = `
-mutation LinkMemoryToUser ($memoryId: ID!, $externalUserId: String!) {
-	linkMemoryToUser(memoryId: $memoryId, externalUserId: $externalUserId) {
+mutation LinkMemoryToUser ($memoryRef: ID!, $externalUserId: String!) {
+	linkMemoryToUser(memoryRef: $memoryRef, externalUserId: $externalUserId) {
 		id
 		urn
 		name
@@ -163781,14 +163781,14 @@ mutation LinkMemoryToUser ($memoryId: ID!, $externalUserId: String!) {
 func LinkMemoryToUser(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
+	memoryRef string,
 	externalUserId string,
 ) (data_ *LinkMemoryToUserResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "LinkMemoryToUser",
 		Query:  LinkMemoryToUser_Operation,
 		Variables: &__LinkMemoryToUserInput{
-			MemoryId:       memoryId,
+			MemoryRef:      memoryRef,
 			ExternalUserId: externalUserId,
 		},
 	}
@@ -168422,8 +168422,8 @@ func PublicOrganization(
 
 // The mutation executed by PublishRevision.
 const PublishRevision_Operation = `
-mutation PublishRevision ($agentId: ID!, $revisionLoc: String!, $versionLabel: String) {
-	publishRevision(agentId: $agentId, revisionLoc: $revisionLoc, versionLabel: $versionLabel) {
+mutation PublishRevision ($agentRef: ID!, $revisionLoc: String!, $versionLabel: String) {
+	publishRevision(agentRef: $agentRef, revisionLoc: $revisionLoc, versionLabel: $versionLabel) {
 		revisionLoc
 		label
 		published
@@ -168438,7 +168438,7 @@ mutation PublishRevision ($agentId: ID!, $revisionLoc: String!, $versionLabel: S
 func PublishRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	agentId string,
+	agentRef string,
 	revisionLoc string,
 	versionLabel *string,
 ) (data_ *PublishRevisionResponse, err_ error) {
@@ -168446,7 +168446,7 @@ func PublishRevision(
 		OpName: "PublishRevision",
 		Query:  PublishRevision_Operation,
 		Variables: &__PublishRevisionInput{
-			AgentId:      agentId,
+			AgentRef:     agentRef,
 			RevisionLoc:  revisionLoc,
 			VersionLabel: versionLabel,
 		},
@@ -169457,21 +169457,21 @@ func ReinstallApp(
 
 // The mutation executed by ReleaseEditorLock.
 const ReleaseEditorLock_Operation = `
-mutation ReleaseEditorLock ($agentId: ID!) {
-	releaseEditorLock(agentId: $agentId)
+mutation ReleaseEditorLock ($agentRef: ID!) {
+	releaseEditorLock(agentRef: $agentRef)
 }
 `
 
 func ReleaseEditorLock(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	agentId string,
+	agentRef string,
 ) (data_ *ReleaseEditorLockResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "ReleaseEditorLock",
 		Query:  ReleaseEditorLock_Operation,
 		Variables: &__ReleaseEditorLockInput{
-			AgentId: agentId,
+			AgentRef: agentRef,
 		},
 	}
 
@@ -169621,7 +169621,7 @@ func ReleaseWorker(
 
 // The mutation executed by RemoveAppMember.
 const RemoveAppMember_Operation = `
-mutation RemoveAppMember ($appRef: String!, $userRef: String!) {
+mutation RemoveAppMember ($appRef: ID!, $userRef: ID!) {
 	removeAppMember(appRef: $appRef, userRef: $userRef)
 }
 `
@@ -169658,7 +169658,7 @@ func RemoveAppMember(
 
 // The mutation executed by RemoveAppMemberInstructed.
 const RemoveAppMemberInstructed_Operation = `
-mutation RemoveAppMemberInstructed ($appRef: String!, $userRef: String!, $instruction: ActInstructionInput!) {
+mutation RemoveAppMemberInstructed ($appRef: ID!, $userRef: ID!, $instruction: ActInstructionInput!) {
 	removeAppMember(appRef: $appRef, userRef: $userRef, instruction: $instruction)
 }
 `
@@ -169797,7 +169797,7 @@ func RemoveMemoryMember(
 
 // The mutation executed by RemoveOrgMember.
 const RemoveOrgMember_Operation = `
-mutation RemoveOrgMember ($orgRef: String!, $userRef: String!) {
+mutation RemoveOrgMember ($orgRef: ID!, $userRef: ID!) {
 	removeOrgMember(orgRef: $orgRef, userRef: $userRef)
 }
 `
@@ -170928,8 +170928,8 @@ func RestoreNodeRevision(
 
 // The mutation executed by RestoreRevision.
 const RestoreRevision_Operation = `
-mutation RestoreRevision ($agentId: ID!, $revisionLoc: String!) {
-	restoreRevision(agentId: $agentId, revisionLoc: $revisionLoc) {
+mutation RestoreRevision ($agentRef: ID!, $revisionLoc: String!) {
+	restoreRevision(agentRef: $agentRef, revisionLoc: $revisionLoc) {
 		revisionLoc
 		label
 		published
@@ -170941,14 +170941,14 @@ mutation RestoreRevision ($agentId: ID!, $revisionLoc: String!) {
 func RestoreRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	agentId string,
+	agentRef string,
 	revisionLoc string,
 ) (data_ *RestoreRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RestoreRevision",
 		Query:  RestoreRevision_Operation,
 		Variables: &__RestoreRevisionInput{
-			AgentId:     agentId,
+			AgentRef:    agentRef,
 			RevisionLoc: revisionLoc,
 		},
 	}
@@ -174389,8 +174389,8 @@ func SetHostWorkerAvailability(
 
 // The mutation executed by SetMemorySourceToken.
 const SetMemorySourceToken_Operation = `
-mutation SetMemorySourceToken ($id: ID!, $token: String!, $expiresAt: String) {
-	setMemorySourceToken(id: $id, token: $token, expiresAt: $expiresAt) {
+mutation SetMemorySourceToken ($ref: ID!, $token: String!, $expiresAt: String) {
+	setMemorySourceToken(ref: $ref, token: $token, expiresAt: $expiresAt) {
 		id
 		urn
 	}
@@ -174403,7 +174403,7 @@ mutation SetMemorySourceToken ($id: ID!, $token: String!, $expiresAt: String) {
 func SetMemorySourceToken(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	token string,
 	expiresAt *string,
 ) (data_ *SetMemorySourceTokenResponse, err_ error) {
@@ -174411,7 +174411,7 @@ func SetMemorySourceToken(
 		OpName: "SetMemorySourceToken",
 		Query:  SetMemorySourceToken_Operation,
 		Variables: &__SetMemorySourceTokenInput{
-			Id:        id,
+			Ref:       ref,
 			Token:     token,
 			ExpiresAt: expiresAt,
 		},
@@ -175865,8 +175865,8 @@ func SubscribeTicker(
 
 // The mutation executed by SyncMemory.
 const SyncMemory_Operation = `
-mutation SyncMemory ($id: ID!) {
-	syncMemory(id: $id) {
+mutation SyncMemory ($ref: ID!) {
+	syncMemory(ref: $ref) {
 		syncStatus
 		syncError
 		lastSyncedAt
@@ -175879,13 +175879,13 @@ mutation SyncMemory ($id: ID!) {
 func SyncMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 ) (data_ *SyncMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SyncMemory",
 		Query:  SyncMemory_Operation,
 		Variables: &__SyncMemoryInput{
-			Id: id,
+			Ref: ref,
 		},
 	}
 
@@ -180307,8 +180307,8 @@ func UninstallApp(
 
 // The mutation executed by UnlinkGithubApp.
 const UnlinkGithubApp_Operation = `
-mutation UnlinkGithubApp ($orgId: ID!) {
-	unlinkGithubApp(orgId: $orgId) {
+mutation UnlinkGithubApp ($orgRef: ID!) {
+	unlinkGithubApp(orgRef: $orgRef) {
 		... OrgGithubFields
 	}
 }
@@ -180324,13 +180324,13 @@ fragment OrgGithubFields on Organization {
 func UnlinkGithubApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgRef string,
 ) (data_ *UnlinkGithubAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UnlinkGithubApp",
 		Query:  UnlinkGithubApp_Operation,
 		Variables: &__UnlinkGithubAppInput{
-			OrgId: orgId,
+			OrgRef: orgRef,
 		},
 	}
 
@@ -182101,7 +182101,7 @@ func UpdateMemoryShareRole(
 
 // The mutation executed by UpdateMemorySubscription.
 const UpdateMemorySubscription_Operation = `
-mutation UpdateMemorySubscription ($memoryRef: String!, $orgRef: String!, $role: Role!) {
+mutation UpdateMemorySubscription ($memoryRef: ID!, $orgRef: ID!, $role: Role!) {
 	updateMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef, role: $role) {
 		role
 		activated
@@ -182931,8 +182931,8 @@ func UpdateObject(
 
 // The mutation executed by UpdateOrgGithubApp.
 const UpdateOrgGithubApp_Operation = `
-mutation UpdateOrgGithubApp ($orgId: ID!, $appId: String!, $privateKey: String!) {
-	updateOrgGithubApp(orgId: $orgId, appId: $appId, privateKey: $privateKey) {
+mutation UpdateOrgGithubApp ($orgRef: ID!, $appId: String!, $privateKey: String!) {
+	updateOrgGithubApp(orgRef: $orgRef, appId: $appId, privateKey: $privateKey) {
 		... OrgGithubFields
 	}
 }
@@ -182951,7 +182951,7 @@ fragment OrgGithubFields on Organization {
 func UpdateOrgGithubApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
+	orgRef string,
 	appId string,
 	privateKey string,
 ) (data_ *UpdateOrgGithubAppResponse, err_ error) {
@@ -182959,7 +182959,7 @@ func UpdateOrgGithubApp(
 		OpName: "UpdateOrgGithubApp",
 		Query:  UpdateOrgGithubApp_Operation,
 		Variables: &__UpdateOrgGithubAppInput{
-			OrgId:      orgId,
+			OrgRef:     orgRef,
 			AppId:      appId,
 			PrivateKey: privateKey,
 		},
@@ -182979,7 +182979,7 @@ func UpdateOrgGithubApp(
 
 // The mutation executed by UpdateOrgMember.
 const UpdateOrgMember_Operation = `
-mutation UpdateOrgMember ($orgRef: String!, $userRef: String!, $role: Role!) {
+mutation UpdateOrgMember ($orgRef: ID!, $userRef: ID!, $role: Role!) {
 	updateOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
 		id
 		role

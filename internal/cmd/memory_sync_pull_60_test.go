@@ -51,7 +51,7 @@ func TestMemorySyncPull60(t *testing.T) {
 				if err := json.Unmarshal(calls["SyncMemory"], &vars); err != nil {
 					t.Fatal(err)
 				}
-				if len(vars) != 1 || vars["id"] != "hrn:mem:acme.com:kb" {
+				if len(vars) != 1 || vars["ref"] != "hrn:mem:acme.com:kb" {
 					t.Fatalf("variables: %v", vars)
 				}
 				if asJSON {

@@ -7026,13 +7026,13 @@ secret keeps its values as versions: every store adds one
 """
 input IssueSecretReadClientInput {
   """
-  Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refused (SECRET_AUTO_DELETE_NOT_AVAILABLE) until the deletion is built (#4001).
+  Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refused (SECRET_AUTO_DELETE_NOT_AVAILABLE) until the deletion is available.
   """
   autoDelete: Boolean! = false
   expiresAt: DateTime
 
   """
-  WORKER: a live worker of the App (holderRef is its id). USER: the issuer themself (holderRef omitted).
+  WORKER: a live worker of the App (holderRef is its id). USER: the issuer themself (holderRef omitted). AGENT and APP are refused (GRANT_HOLDER_NOT_ALLOWED): a read client is held by a person or a worker.
   """
   holderKind: GrantHolderKind!
   holderRef: ID
@@ -8245,7 +8245,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  acquireEditorLock(agentId: ID!): EditorLockResult!
+  acquireEditorLock(agentRef: ID!): EditorLockResult!
 
   """
   #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -8306,22 +8306,15 @@ type Mutation {
   addMemoryToAgent(agentRef: ID!, memoryRef: ID!, role: String): Agent!
 
   """
-  Accepts the entity's ID or URN (orgId). A user who is already a live member is refused with CONFLICT.
+  Accepts the entity's ID or URN (orgRef). A user who is already a live member is refused with CONFLICT.
   """
   addOrgMember(
-    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
-
-    """
-    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
-    """
-    orgRef: String
+    """#764 — the organization as an id / slug / hrn:org:<slug> URN."""
+    orgRef: ID!
     role: Role!
-    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
 
-    """
-    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
-    """
-    userRef: String
+    """#764 — the user as an id / email / handle / hrn:user:<handle> URN."""
+    userRef: ID!
   ): OrgMember!
 
   """
@@ -8728,7 +8721,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  clearAgentAIConfig(agentId: ID!): Agent!
+  clearAgentAIConfig(agentRef: ID!): Agent!
 
   """
   Delete ALL NodeRevision rows for a node, returning the count deleted (#617).
@@ -9225,12 +9218,12 @@ type Mutation {
   createMcpServer(enabled: Boolean, headers: JSON, name: String!, orgRef: ID!, slug: String!, toolAllowlist: [String!], url: String!): McpServer!
 
   """
-  Create a free-standing memory. orgId accepts an organization's ID or URN.
-  With orgId, the default is knowledge-class with ORGANIZATION visibility;
+  Create a free-standing memory. orgRef accepts an organization's ID or URN.
+  With orgRef, the default is knowledge-class with ORGANIZATION visibility;
   knowledge/group creation requires the org's memory.create grant. Omitting
-  orgId (or passing null) creates a user-owned memory in the authenticated
+  orgRef (or passing null) creates a user-owned memory in the authenticated
   caller's namespace and requires an explicit personal/private memoryClass.
-  The default knowledge class is refused without orgId. Pass
+  The default knowledge class is refused without orgRef. Pass
   memoryClass: group + visibility: GROUP for a group-class memory
   (023-app-shape US4; the caller is auto-added as the first owner),
   or memoryClass: personal | private for an owner-only memory the
@@ -9279,9 +9272,9 @@ type Mutation {
     handle namespace (organizationId NULL, ownerUserId = caller), and its URN
     roots on the caller's handle (hrn:mem:<handle>:<slug>) rather than an org
     domain. The org-less path supports only the owner-only classes 'personal'
-    and 'private'; pass orgId for 'knowledge' / 'group'.
+    and 'private'; pass orgRef for 'knowledge' / 'group'.
     """
-    orgId: ID
+    orgRef: ID
     readBranch: String
     shortDescription: String
     source: String
@@ -9392,16 +9385,11 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createMemorySubscription(
-    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+    """#764 — the memory as an id or URN."""
+    memoryRef: ID!
 
-    """#764 — the memory as an id or URN. Supply this OR memoryId."""
-    memoryRef: String
-    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
-
-    """
-    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
-    """
-    orgRef: String
+    """#764 — the organization as an id / slug / hrn:org:<slug> URN."""
+    orgRef: ID!
     role: Role!
   ): MemorySubscription!
 
@@ -9518,7 +9506,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  createRevision(agentId: ID!, description: String): RevisionResult!
+  createRevision(agentRef: ID!, description: String): RevisionResult!
 
   """
   Spec 049 Phase 2 — create a named scope on exactly one owner. Auth by
@@ -9700,7 +9688,7 @@ type Mutation {
   null means 10 days and two activations (Holger V49). 0, negatives, an explicit 1 for maxActivations and larger values are refused as BAD_USER_INPUT
   (hrn:node:hadronmemory.com:specs:cor:api:260:01), judged after the org-admin gate.
   """
-  createUserInvitation(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, memberRole: Role!, name: String, orgId: ID!): UserInvitation!
+  createUserInvitation(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, memberRole: Role!, name: String, orgRef: ID!): UserInvitation!
 
   """
   #2441: decline. An adopted trigger is revoked, so its next run fails AUTOMATION_UNADOPTED (REVOKE event); with nothing adopted it changes no state (DECLINE event). A MANUAL origin deletes its consent row. Runs already started keep their snapshot.
@@ -9810,7 +9798,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  deleteMemory(id: ID!): Boolean!
+  deleteMemory(ref: ID!): Boolean!
 
   """
   #1325 part (c) — soft-delete a template. Configs it was applied to keep their copies.
@@ -9867,16 +9855,11 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   deleteMemorySubscription(
-    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+    """#764 — the memory as an id or URN."""
+    memoryRef: ID!
 
-    """#764 — the memory as an id or URN. Supply this OR memoryId."""
-    memoryRef: String
-    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
-
-    """
-    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
-    """
-    orgRef: String
+    """#764 — the organization as an id / slug / hrn:org:<slug> URN."""
+    orgRef: ID!
   ): Boolean!
 
   """
@@ -9925,7 +9908,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  deleteOrganization(id: ID!): Boolean!
+  deleteOrganization(ref: ID!): Boolean!
 
   """
   Spec 049 Phase 5 — soft-delete a row. Each owner removes its own rows; an App may remove its install-created default.
@@ -10094,7 +10077,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  encryptMemory(dataKey: String @deprecated(reason: "Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion."), memoryId: ID!, passphrase: String @deprecated(reason: "Send the passphrase in x-hadron-memory-keys.")): Memory!
+  encryptMemory(dataKey: String @deprecated(reason: "Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion."), memoryRef: ID!, passphrase: String @deprecated(reason: "Send the passphrase in x-hadron-memory-keys.")): Memory!
   endAgentSession(sessionId: ID!): Boolean!
 
   """
@@ -10183,22 +10166,17 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   ensureAppMember(
-    appId: ID @deprecated(reason: "Use appRef (accepts id / URN).")
-
-    """#764 — the App as an id / URN. Supply this OR appId."""
-    appRef: String
+    """#764 — the App as an id / URN."""
+    appRef: ID!
 
     """
     #3308: worker sessions need a validated instruction or their own live app.members grant, including self-leave; the holder still needs the original manager/self right. Refusal precedes target-user resolution. Instructed no-ops record a claim only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, hrn:node:hadronmemory.com:specs:cor:agt:080:24).
     """
     instruction: ActInstructionInput
     role: String!
-    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
 
-    """
-    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
-    """
-    userRef: String
+    """#764 — the user as an id / email / handle / hrn:user:<handle> URN."""
+    userRef: ID!
   ): AppMember!
   exchangeMoveMessage(connectionId: ID!, folderId: String!, messageId: ID!): Boolean!
   exchangeReply(body: String!, connectionId: ID!, messageId: ID!): Boolean!
@@ -10429,7 +10407,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  joinApp(appId: ID!): JoinAppPayload!
+  joinApp(appRef: ID!): JoinAppPayload!
   joinWaitingList(email: String!, requestedFeatures: String): Boolean!
 
   """
@@ -10443,7 +10421,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  leaveApp(appId: ID!, instruction: ActInstructionInput): LeaveAppPayload!
+  leaveApp(appRef: ID!, instruction: ActInstructionInput): LeaveAppPayload!
 
   """
   #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:05, :06) — lift a stop signal. Whoever manages the App, any; a host key, a HALT on its own host.
@@ -10462,7 +10440,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  linkGithubApp(installationId: Int!, orgId: ID!): Organization!
+  linkGithubApp(installationId: Int!, orgRef: ID!): Organization!
 
   """
   Link this App's live plaintext anonymous memory to a real user.
@@ -10475,7 +10453,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  linkMemoryToUser(externalUserId: String!, memoryId: ID!): Memory!
+  linkMemoryToUser(externalUserId: String!, memoryRef: ID!): Memory!
 
   """
   #1754 — make a backlog task ready to be worked
@@ -10677,7 +10655,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  publishRevision(agentId: ID!, revisionLoc: String!, versionLabel: String): RevisionResult!
+  publishRevision(agentRef: ID!, revisionLoc: String!, versionLabel: String): RevisionResult!
 
   """
   #1641 — a platform admin hard-deletes a question that was never answered, recorded on its log (QUESTION_ANSWERED otherwise). The code stays consumed.
@@ -10689,7 +10667,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  pushMemoryToGit(id: ID!): Boolean!
+  pushMemoryToGit(ref: ID!): Boolean!
 
   """
   #1719: rebind a trigger to its reviewed graph. expectedHash must match previewAutomation; edits since preview refuse adoption.
@@ -10887,7 +10865,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  releaseEditorLock(agentId: ID!): Boolean!
+  releaseEditorLock(agentRef: ID!): Boolean!
 
   """
   #1050 — release a HELD name, so somebody else can hold it.
@@ -10973,21 +10951,16 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   removeAppMember(
-    appId: ID @deprecated(reason: "Use appRef (accepts id / URN).")
-
-    """#764 — the App as an id / URN. Supply this OR appId."""
-    appRef: String
+    """#764 — the App as an id / URN."""
+    appRef: ID!
 
     """
     #3308: worker sessions need a validated instruction or their own live app.members grant, including self-leave; the holder still needs the original manager/self right. Refusal precedes target-user resolution. Instructed no-ops record a claim only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, hrn:node:hadronmemory.com:specs:cor:agt:080:24).
     """
     instruction: ActInstructionInput
-    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
 
-    """
-    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
-    """
-    userRef: String
+    """#764 — the user as an id / email / handle / hrn:user:<handle> URN."""
+    userRef: ID!
   ): Boolean!
 
   """
@@ -11023,21 +10996,14 @@ type Mutation {
   ): RemoveMemoryMemberPayload!
 
   """
-  Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user never held a membership, and with CONFLICT when it would remove the last live owner; removing an already-revoked member succeeds again.
+  Accepts the entity's ID or URN (orgRef). Refused with NOT_FOUND when the user never held a membership, and with CONFLICT when it would remove the last live owner; removing an already-revoked member succeeds again.
   """
   removeOrgMember(
-    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
+    """#764 — the organization as an id / slug / hrn:org:<slug> URN."""
+    orgRef: ID!
 
-    """
-    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
-    """
-    orgRef: String
-    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
-
-    """
-    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
-    """
-    userRef: String
+    """#764 — the user as an id / email / handle / hrn:user:<handle> URN."""
+    userRef: ID!
   ): Boolean!
 
   """
@@ -11174,7 +11140,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  restoreRevision(agentId: ID!, revisionLoc: String!): RevisionResult!
+  restoreRevision(agentRef: ID!, revisionLoc: String!): RevisionResult!
 
   """
   #1956 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — recover your worker binding after a context reset,
@@ -11247,16 +11213,11 @@ type Mutation {
   Accepts the entity's ID or URN (agentId).
   """
   revokeAgentSubscription(
-    agentId: ID @deprecated(reason: "Use agentRef (accepts id / URN).")
+    """#764 — the Agent as an id / URN."""
+    agentRef: ID!
 
-    """#764 — the Agent as an id / URN. Supply this OR agentId."""
-    agentRef: String
-    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
-
-    """
-    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
-    """
-    userRef: String
+    """#764 — the user as an id / email / handle / hrn:user:<handle> URN."""
+    userRef: ID!
   ): AgentSubscription!
 
   """
@@ -11584,7 +11545,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  setMemorySourceToken(expiresAt: String, id: ID!, token: String!): Memory!
+  setMemorySourceToken(expiresAt: String, ref: ID!, token: String!): Memory!
 
   """
   #1706 — set a model family's availability for work in an App
@@ -11747,7 +11708,7 @@ type Mutation {
   and detail), and nothing is created. A named start never checks a condition.
   """
   startChat(
-    agentId: ID!
+    agentRef: ID!
 
     """
     #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): optional AI config choice for this chat, stored with it: `default` or one of the chat App's own config ids from chatAiConfigChoices. Omitted keeps what the chat has. Any other id is refused as a missing config, revealing nothing about it.
@@ -11844,7 +11805,7 @@ type Mutation {
   no sync status, timestamp or report is written. Access is checked first; encrypted-memory refusal is unchanged.
   Accepts the entity's ID or URN.
   """
-  syncMemory(id: ID!): Memory!
+  syncMemory(ref: ID!): Memory!
 
   """
   #1378: test a SAVED config by id with one small real call, through the same
@@ -11916,7 +11877,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  unlinkGithubApp(orgId: ID!): Organization!
+  unlinkGithubApp(orgRef: ID!): Organization!
 
   """
   #1334 — the deliberate step before a rule a required template LOCKED can be
@@ -11981,7 +11942,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateAgentAIConfig(agentId: ID!, apiKey: String, model: String!, provider: String!): Agent!
+  updateAgentAIConfig(agentRef: ID!, apiKey: String, model: String!, provider: String!): Agent!
 
   """
   Update an Agent's role on an attached Memory. #3253 (hrn:node:hadronmemory.com:specs:cor:dmo:050:09):
@@ -12202,16 +12163,11 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   updateMemorySubscription(
-    memoryId: ID @deprecated(reason: "Use memoryRef (accepts id / URN).")
+    """#764 — the memory as an id or URN."""
+    memoryRef: ID!
 
-    """#764 — the memory as an id or URN. Supply this OR memoryId."""
-    memoryRef: String
-    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
-
-    """
-    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
-    """
-    orgRef: String
+    """#764 — the organization as an id / slug / hrn:org:<slug> URN."""
+    orgRef: ID!
     role: Role!
   ): MemorySubscription!
 
@@ -12327,25 +12283,18 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  updateOrgGithubApp(appId: String!, orgId: ID!, privateKey: String!): Organization!
+  updateOrgGithubApp(appId: String!, orgRef: ID!, privateKey: String!): Organization!
 
   """
-  Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user is not a live member, and with CONFLICT when it would demote the organization's last live owner.
+  Accepts the entity's ID or URN (orgRef). Refused with NOT_FOUND when the user is not a live member, and with CONFLICT when it would demote the organization's last live owner.
   """
   updateOrgMember(
-    orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
-
-    """
-    #764 — the organization as an id / slug / hrn:org:<slug> URN. Supply this OR orgId.
-    """
-    orgRef: String
+    """#764 — the organization as an id / slug / hrn:org:<slug> URN."""
+    orgRef: ID!
     role: Role!
-    userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
 
-    """
-    #764 — the user as an id / email / handle / hrn:user:<handle> URN. Supply this OR userId.
-    """
-    userRef: String
+    """#764 — the user as an id / email / handle / hrn:user:<handle> URN."""
+    userRef: ID!
   ): OrgMember!
 
   """
