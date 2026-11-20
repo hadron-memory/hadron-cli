@@ -39,7 +39,7 @@ that was refused as ineligible, shown as a timestamp only. A dash (null in
 these best effort. It names no one and changes nothing about the request.
 It shows on request-signature, signing-request get and signing-request withdraw,
 which need a server with hadron-server#4581 (an older server refuses them);
-'team grant request' does not read it.
+'hadron team grant request' does not read it.
 
 These commands exist only where signing is switched on. On a server without it
 the command says "does not offer" and exits 2.
