@@ -4,7 +4,7 @@
 //
 // Today the surface is the `grant` subgroup: a ConnectionGrant lets a
 // connection OWNER hand a specific App install scoped access (mail.read /
-// mail.send / calendar.freebusy / calendar.read) to their own connection.
+// mail.send / calendar.freebusy / calendar.read / drive.read) to their own connection.
 // Create/revoke are owner-only and enforced server-side; this group only
 // manages and lists the grant rows.
 package connection
@@ -49,7 +49,7 @@ func newCmdGrant(f *cmdutil.Factory) *cobra.Command {
 A grant lets the owner of a connection (the user it is recorded against, shown
 as USER ID by 'hadron email connections') give one App limited access to it:
 for example an assistant App that reads the inbox or answers free/busy. Scopes
-are mail.read, mail.send, calendar.freebusy and calendar.read. A grant may
+are mail.read, mail.send, calendar.freebusy, calendar.read and drive.read. A grant may
 expire and can be revoked at any time. Only the owner can create or revoke one;
 the server enforces that. Look grants up with 'list' and 'get'.`,
 	}

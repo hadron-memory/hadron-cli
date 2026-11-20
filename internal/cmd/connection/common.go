@@ -9,7 +9,7 @@ import (
 // validScopeList is the closed set of connection-grant scopes (spec-042);
 // validScopes indexes it for the create-time check. Kept together so the flag
 // help and the validation never drift.
-var validScopeList = []string{"mail.read", "mail.send", "calendar.freebusy", "calendar.read"}
+var validScopeList = []string{"mail.read", "mail.send", "calendar.freebusy", "calendar.read", "drive.read"}
 
 var validScopes = func() map[string]bool {
 	m := make(map[string]bool, len(validScopeList))
