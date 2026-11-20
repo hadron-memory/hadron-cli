@@ -375,7 +375,7 @@ func syntheticSchema2712(t *testing.T) *ast.Schema {
 			node(id: ID!): Thing
 			other(id: ID!): Other
 		}
-		type Thing { name: String items(first: Int): [Int] }
+		type Thing { name: String items(first: Int): [Int] legacy(id: ID @deprecated(reason: "use ref"), ref: ID): Int }
 		type Other { name: String items(limit: Int): [Int] }
 		type Mutation { dropMemory(ref: ID!): Boolean }`})
 	if err != nil {
@@ -459,5 +459,30 @@ func TestDocumentRefArgSweepResolvesSameNamedFieldsPerType2712(t *testing.T) {
 	wrong := `query Q { other(id: 1) { items(first: 1) } }`
 	if problems := documentRefArgProblems(schema, "s.graphql", wrong, 1, map[string]bool{}); len(problems) == 0 {
 		t.Error("Thing.items's argument on Other.items was accepted: resolution is by name, not by type")
+	}
+}
+
+// The unspread-fragment filter must not blind the deprecated-alias walk: a
+// fragment one file defines and another spreads still gets its own walk, so a
+// deprecated alias inside it is reported (Jane's P2 on #2725: the filter left
+// the validated document nil and the walk was skipped).
+func TestDocumentRefArgSweepWalksOwnUnspreadFragment2712(t *testing.T) {
+	schema := syntheticSchema2712(t)
+	problems, err := sweepDocuments(schema, []sweepSource{
+		{path: "frag.graphql", text: `fragment F on Thing { legacy(id: 1) }`},
+		{path: "spread.graphql", text: `query Q { node(id: 1) { ...F } }`},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(problems, "\n"), "declared only as a deprecated alias") {
+		t.Errorf("a deprecated alias inside an own fragment spread elsewhere escaped the sweep:\n%s", strings.Join(problems, "\n"))
+	}
+	// And the clean twin stays clean.
+	if problems, err := sweepDocuments(schema, []sweepSource{
+		{path: "frag.graphql", text: `fragment F on Thing { legacy(ref: 1) }`},
+		{path: "spread.graphql", text: `query Q { node(id: 1) { ...F } }`},
+	}); err != nil || len(problems) != 0 {
+		t.Errorf("a clean cross-file fragment was flagged: %v\n%s", err, strings.Join(problems, "\n"))
 	}
 }
