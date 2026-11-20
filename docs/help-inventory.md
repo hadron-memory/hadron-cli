@@ -487,12 +487,12 @@ section between the markers.
 | `team grant` |  |  | n | #1054 | d70982b794a3 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | 917faba0b917 |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 51f6ec4134c2 |  | unread |  |
-| `team grant add` |  |  | y | #1054 | faff4ed1b48d |  | unread |  |
+| `team grant add` |  |  | y | #1054 | 37a75f05031d |  | unread |  |
 | `team grant get` |  |  | y | #1054 | d015e80e46c9 |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 693d84145c89 |  | unread |  |
-| `team grant request` |  |  | y | #1054 | 605764d60d1d |  | unread |  |
+| `team grant request` |  |  | y | #1054 | 1c55a0ea19ed |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | aba80a34d0f3 |  | unread |  |
-| `team grant rm` |  |  | y | #1054 | 5921b76c9336 |  | unread |  |
+| `team grant rm` |  |  | y | #1054 | 2bd8b7c6efef |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 42bd64bc8916 |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | ba5f90188048 |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | e05fe078cf96 |  | unread |  |

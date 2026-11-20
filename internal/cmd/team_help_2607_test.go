@@ -75,13 +75,13 @@ func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
 func TestTeamHelpSliceBUsesOneCommandPrefix2607(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	for _, path := range [][]string{{"team", "grant"}, {"team", "grant", "request"}, {"team", "grant", "signing-request", "get"}, {"team", "register", "pick"}, {"team", "register", "candidates"}} {
+	for _, path := range [][]string{{"team", "grant"}, {"team", "grant", "add"}, {"team", "grant", "rm"}, {"team", "grant", "request"}, {"team", "grant", "signing-request", "get"}, {"team", "register", "pick"}, {"team", "register", "candidates"}} {
 		c, _, err := root.Find(path)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, line := range strings.Split(c.Long, "\n") {
-			for _, bare := range []string{"'team grant request", "'team register ", "'team grant get"} {
+			for _, bare := range []string{"'team grant request", "'team grant actions", "'team grant action ", "('team grant", "'team register ", "'team grant get"} {
 				if strings.Contains(line, bare) {
 					t.Errorf("%v: bare command in prose: %q", path, line)
 				}

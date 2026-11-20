@@ -65,7 +65,7 @@ type appGrantDTO struct {
 }
 
 const appGrantHelp = `A named App grant is one permission, from a short fixed list, given to one
-worker in an App. It is separate from worker action grants ('team grant
+worker in an App. It is separate from worker action grants ('hadron team grant
 request') and from organization action grants ('hadron grant'). The server
 checks who may manage the App.
 

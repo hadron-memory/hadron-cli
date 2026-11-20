@@ -215,11 +215,11 @@ worker session.
 
 --action is an action name from 'hadron team grant actions'. --values is the
 JSON object of that action's parameters (or @file): the PARAMETERS column of
-'team grant actions' (or 'team grant action <name>') lists the names and kinds
-it needs; whether your values fit is the server's to judge. --reason is shown to
-the person who signs. --starts-at and --expires-at take a timestamp such as
-2026-12-01T09:00:00Z (the server parses it); --max-uses is a count; leave them
-out to let the server apply its defaults.
+'hadron team grant actions' (or 'hadron team grant action <name>') lists the
+names and kinds it needs; whether your values fit is the server's to judge.
+--reason is shown to the person who signs. --starts-at and --expires-at take a
+timestamp such as 2026-12-01T09:00:00Z (the server parses it); --max-uses is a
+count; leave them out to let the server apply its defaults.
 
 Prints the pending grant in its fourteen fields (see 'hadron team grant get').
 Next step: 'hadron team grant request-signature <id>', then give the URL to a
