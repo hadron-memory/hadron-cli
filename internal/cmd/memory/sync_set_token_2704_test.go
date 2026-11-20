@@ -78,9 +78,11 @@ func TestRedactTokenNodeLineSeparators2704(t *testing.T) {
 }
 
 // setTokenRun drives the real set-token command against a fake server that
-// answers SetMemorySourceToken with the given URN, feeding the token through
-// --token-file exactly as a script would.
-func setTokenRun(t *testing.T, urn, token string, asJSON bool) (string, error) {
+// answers SetMemorySourceToken with the given URN, typing the memory as
+// typedRef, feeding the token through --token-file exactly as a script would.
+// A typedRef that does not canonicalize to urn (an id) is what makes the
+// splice observable: a fallback receipt then carries the typed ref instead.
+func setTokenRun(t *testing.T, typedRef, urn, token string, asJSON bool) (string, error) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HADRON_TOKEN", "hdr_user_test")
@@ -112,7 +114,7 @@ func setTokenRun(t *testing.T, urn, token string, asJSON bool) (string, error) {
 		t.Fatal(err)
 	}
 	cmd := newCmdSyncSetToken(f)
-	cmd.SetArgs([]string{"acme.com:kb", "--token-file", tf})
+	cmd.SetArgs([]string{typedRef, "--token-file", tf})
 	err := cmd.Execute()
 	return outBuf.String(), err
 }
@@ -126,7 +128,7 @@ func setTokenRun(t *testing.T, urn, token string, asJSON bool) (string, error) {
 func TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704(t *testing.T) {
 	const token = "[REDACTED]"
 	urn := "hrn:mem:acme.com:kb-" + token
-	out, err := setTokenRun(t, urn, token, false)
+	out, err := setTokenRun(t, "acme.com:kb", urn, token, false)
 	if err != nil {
 		t.Fatalf("set-token failed: %v", err)
 	}
@@ -137,7 +139,7 @@ func TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704(t *testing.T) {
 		t.Errorf("the typed ref must name the memory instead, got %q", out)
 	}
 	// The same choice shows in the --json receipt's memory field.
-	out, err = setTokenRun(t, urn, token, true)
+	out, err = setTokenRun(t, "acme.com:kb", urn, token, true)
 	if err != nil {
 		t.Fatalf("set-token --json failed: %v", err)
 	}
@@ -155,10 +157,15 @@ func TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704(t *testing.T) {
 // TestSetTokenUrnSplicedWhenTokenFree2704 pins Jack F4, the positive side the
 // negative pins cannot hold alone: a URN the token does NOT appear in (in any
 // spelling) is still spliced into the receipt, so hardening the guard never
-// becomes over-redaction. Passes on main; a guard that never splices fails it.
+// becomes over-redaction. The memory is typed by ID — a ref that cannot
+// canonicalize to the URN locally — so the receipt can carry the server's URN
+// only through the splice; a guard that never splices fails this pin (mutant 5
+// of the plan found the first draft vacuous: typed acme.com:kb, which
+// CanonicalMemoryRef composes to the same URN as the splice would).
 func TestSetTokenUrnSplicedWhenTokenFree2704(t *testing.T) {
 	const urn = "hrn:mem:acme.com:kb"
-	out, err := setTokenRun(t, urn, "tok-UNTouched-2704", false)
+	const byID = "01a13b5bc06c79faa2a41a99322be113"
+	out, err := setTokenRun(t, byID, urn, "tok-UNTouched-2704", false)
 	if err != nil {
 		t.Fatalf("set-token failed: %v", err)
 	}
@@ -168,7 +175,7 @@ func TestSetTokenUrnSplicedWhenTokenFree2704(t *testing.T) {
 	if strings.Contains(out, "tok-UNTouched-2704") {
 		t.Errorf("the token must never appear in the receipt, got %q", out)
 	}
-	out, err = setTokenRun(t, urn, "tok-UNTouched-2704", true)
+	out, err = setTokenRun(t, byID, urn, "tok-UNTouched-2704", true)
 	if err != nil {
 		t.Fatalf("set-token --json failed: %v", err)
 	}

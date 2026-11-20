@@ -235,7 +235,7 @@ checks. The token is never printed: not in the output, --json or an error.
 			// ref is what the user typed on their own command line, so "never
 			// printed" is strict only for real tokens.
 			named := ref
-			if u := resp.SetMemorySourceToken.Urn; u != "" && redactToken(u, token) == u {
+			if u := resp.SetMemorySourceToken.Urn; u != "" && !containsAnySpelling(u, token) {
 				named = u
 			}
 			dto := syncSetTokenDTO{Memory: named, Operation: "set-token", TokenSet: true, ExpiresAt: exp}
@@ -253,7 +253,7 @@ checks. The token is never printed: not in the output, --json or an error.
 // setTokenError maps a refusal without ever carrying the token: the server's
 // own answer is kept (an encrypted memory's refusal must reach the user) with
 // any occurrence of the token redacted, and a server code that reflects the
-// token is dropped.
+// token — in ANY spelling, raw or JSON-escaped (cli#2704 Jack F2) — is dropped.
 func setTokenError(err error, token string) error {
 	mapped := api.MapError(err)
 	if token == "" {
@@ -262,10 +262,30 @@ func setTokenError(err error, token string) error {
 	}
 	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
-	if strings.Contains(api.ServerCodeOf(err), token) {
+	if containsAnySpelling(api.ServerCodeOf(err), token) {
 		return safe
 	}
 	return api.WithServerCode(safe, err)
+}
+
+// containsAnySpelling reports whether s carries the token in any spelling
+// redactToken covers: the literal or a JSON-escaped form (cli#2704 Jack F1/F2).
+// A containment test, deliberately not a redaction fixpoint: a token equal to
+// the sentinel "[REDACTED]" leaves redactToken the identity on every input,
+// so leaning on redactToken(s, token) == s would accept token-carrying text.
+func containsAnySpelling(s, token string) bool {
+	if token == "" {
+		return false
+	}
+	if strings.Contains(s, token) {
+		return true
+	}
+	for _, esc := range escapedSpellings(token) {
+		if strings.Contains(s, esc) {
+			return true
+		}
+	}
+	return false
 }
 
 // maxErrMsgRunes bounds a server answer shown in an error.
@@ -273,9 +293,11 @@ const maxErrMsgRunes = 2000
 
 // redactToken replaces every occurrence of token in s, and of its JSON-escaped
 // spellings (a quote or backslash in the token; with and without the HTML
-// escaping of < > & that Go's encoder adds and a Node server's does not), which
-// a server that echoes the token inside a JSON string would produce. An empty
-// token is a no-op. Best effort: other encodings are not covered.
+// escaping of < > & that Go's encoder adds and a Node server's does not; and
+// with Go's \u2028/\u2029 line-separator escaping undone the way a Node
+// JSON.stringify writes it), which a server that echoes the token inside a
+// JSON string would produce. An empty token is a no-op. Best effort: other
+// encodings are not covered.
 func redactToken(s, token string) string {
 	if token == "" {
 		return s
@@ -286,6 +308,12 @@ func redactToken(s, token string) string {
 	}
 	return s
 }
+
+// nodeLineSeparatorReplacer maps Go's \u2028/\u2029 escaping — which
+// encoding/json performs even with SetEscapeHTML(false) — back to the raw
+// characters a Node server's JSON.stringify writes (cli#2704 Rook F1), so the
+// spelling a Node echo actually carries is generated too.
+var nodeLineSeparatorReplacer = strings.NewReplacer(`\u2028`, " ", `\u2029`, " ")
 
 // escapedSpellings returns the JSON-string spellings of token that differ from
 // it, without the surrounding quotes.
@@ -309,7 +337,11 @@ func escapedSpellings(token string) []string {
 	enc.SetEscapeHTML(false)
 	if enc.Encode(token) == nil {
 		raw := strings.TrimSuffix(buf.String(), "\n")
-		add(raw[1 : len(raw)-1])
+		inner := raw[1 : len(raw)-1]
+		add(inner)
+		// The Node form derives from the non-HTML spelling: JSON.stringify
+		// leaves U+2028/U+2029 raw where Go escapes them.
+		add(nodeLineSeparatorReplacer.Replace(inner))
 	}
 	return out
 }

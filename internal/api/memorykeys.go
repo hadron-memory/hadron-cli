@@ -81,9 +81,12 @@ const escapedSpellingDepth = 2
 
 // escapedSpellings returns each base secret with its JSON-escaped spellings up
 // to escapedSpellingDepth levels, in Go's HTML-escaping form (\u003c) and in
-// the plain form JavaScript's JSON.stringify writes. They are ordered longest
-// first, so an echoed header is replaced whole before a passphrase inside it
-// is matched, and no shorter spelling can split a longer one.
+// the plain form JavaScript's JSON.stringify writes — which also leaves
+// U+2028/U+2029 raw where Go's encoder escapes them even with
+// SetEscapeHTML(false), so that spelling is generated too (cli#2704 Rook F1).
+// They are ordered longest first, so an echoed header is replaced whole before
+// a passphrase inside it is matched, and no shorter spelling can split a
+// longer one.
 func escapedSpellings(bases []string) []string {
 	seen := map[string]bool{}
 	var out []string
@@ -101,10 +104,18 @@ func escapedSpellings(bases []string) []string {
 		for d := 0; d < escapedSpellingDepth; d++ {
 			var next []string
 			for _, s := range level {
+				plain := jsonEscape(s, false)
 				for _, html := range []bool{true, false} {
 					if e := jsonEscape(s, html); add(e) {
 						next = append(next, e)
 					}
+				}
+				// The Node form derives from the non-HTML spelling:
+				// JSON.stringify leaves U+2028/U+2029 raw where Go escapes
+				// them, at every depth (cli#2704 Rook F1). It joins next so
+				// the following depth derives from it too.
+				if n := nodeLineSeparatorReplacer.Replace(plain); n != plain && add(n) {
+					next = append(next, n)
 				}
 			}
 			level = next
@@ -113,6 +124,12 @@ func escapedSpellings(bases []string) []string {
 	sort.SliceStable(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
 	return out
 }
+
+// nodeLineSeparatorReplacer maps Go's \u2028/\u2029 escaping — which
+// encoding/json performs even with SetEscapeHTML(false) — back to the raw
+// characters a Node server's JSON.stringify writes (cli#2704 Rook F1), so the
+// spelling a Node echo actually carries is generated too.
+var nodeLineSeparatorReplacer = strings.NewReplacer(`\u2028`, " ", `\u2029`, " ")
 
 // jsonEscape returns s as it appears inside a JSON string literal, without
 // the quotes.

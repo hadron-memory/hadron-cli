@@ -54,13 +54,20 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
 
 ## Mutants (one per guard, run at the fix head)
 
-| Mutant | Guard that must go red |
-| --- | --- |
-| `setTokenError` guard back to `strings.Contains(code, token)` | F2 pin |
-| URN guard back to `redactToken(u, token) == u` | F1 pin |
-| drop the node-variant `add` in `sync.go` | sync U+2028 pin |
-| drop the node-variant `add` in `memorykeys.go` | api U+2028 pins |
-| URN guard never splices (`false`) | F4 positive pin |
+| Mutant | Guard that must go red | Result |
+| --- | --- | --- |
+| `setTokenError` guard back to `strings.Contains(code, token)` | F2 pin | killed |
+| URN guard back to `redactToken(u, token) == u` | F1 pin | killed (human + JSON) |
+| drop the node-variant `add` in `sync.go` | sync U+2028 pin | killed |
+| drop the node-variant `add` in `memorykeys.go` | api U+2028 pins | killed (both) |
+| URN guard never splices (`false`) | F4 positive pin | **survived the first draft** |
+
+The mutant-5 survival exposed the F4 pin as written vacuous: it typed
+`acme.com:kb`, which `CanonicalMemoryRef` locally composes to the same URN
+the splice would carry, so fallback and splice were indistinguishable. The
+pin now types the memory by id (a ref that cannot canonicalize to a URN
+locally), so the receipt can carry the server's URN only through the splice;
+the re-run mutant is killed on both the human line and the `--json` DTO.
 
 ## Spec FIT
 
