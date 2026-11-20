@@ -513,7 +513,11 @@ func (c *Config) validate() error {
 }
 
 // DeliveryStateDir holds delivery's records and per-worker locks: beside the
-// state file, where C2's --orca-host-config finds the same locks.
+// state file, where C2's --orca-host-config finds the same locks. Lexical on
+// purpose: delivery joins and cleans beneath it, and every reader of this
+// directory derives it from the same config, so they agree with each other
+// (for a ".." after a symlink in a nested relative state_file this is not the
+// state file's own kernel directory; known limit, cli#2674).
 func (c *Config) DeliveryStateDir() string { return filepath.Dir(c.StateFile) }
 
 // Worker is the configuration of one worker reference.

@@ -49,12 +49,12 @@ func (p *Poller) EnableRelaunch(d RelaunchDependencies) error {
 	}
 	if d.OpenJournal == nil {
 		d.OpenJournal = func() (hostrelaunch.Journal, uint64, func(), error) {
-			return openRelaunchJournal(filepath.Join(filepath.Dir(p.config().StateFile), "relaunch"))
+			return openRelaunchJournal(joinWritten(writtenDir(p.config().StateFile), "relaunch", filepath.Separator))
 		}
 	}
 	if d.OpenExitJournal == nil {
 		d.OpenExitJournal = func() (hostrelaunch.Journal, uint64, func(), error) {
-			return openRelaunchJournalHeld(filepath.Join(filepath.Dir(p.config().StateFile), "relaunch"))
+			return openRelaunchJournalHeld(joinWritten(writtenDir(p.config().StateFile), "relaunch", filepath.Separator))
 		}
 	}
 	if d.Binding == nil {

@@ -95,3 +95,30 @@ func TestJoinWrittenUsesTheNativeSeparator2674(t *testing.T) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+// A nested relative state_file behind a symlinked ".." must save: the state
+// directory is created where the kernel will write, not where filepath.Clean
+// would put it (cli#2674, review of a201e68a).
+func TestNestedRelativeStateSaves2674(t *testing.T) {
+	root, path := linkedConfigSite(t)
+	real := root + "/real/host.yaml"
+	b, err := os.ReadFile(real)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b = []byte(strings.Replace(string(b), "state_file: "+root+"/state.json", "state_file: nested/state.json", 1))
+	if err := os.WriteFile(real, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st, err := LoadState(cfg.StateFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.addCreated("iris", "wt"); err != nil {
+		t.Fatalf("saving %q: %v", cfg.StateFile, err)
+	}
+}
