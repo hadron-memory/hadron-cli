@@ -3,6 +3,7 @@ package email
 import (
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 
@@ -24,12 +25,18 @@ import (
 // body is only ever in --json, and nothing here logs it.
 
 // optInt returns a pointer to the flag's value when the caller set it, else nil
-// (so the argument is omitted and the server's default applies).
-func optInt(cmd *cobra.Command, name string, v int) *int {
+// (so the argument is omitted and the server's default applies). The only check
+// is the wire type's: GraphQL Int is signed 32-bit, so a value outside that range
+// would fail coercion before the resolver could clamp it, and is refused here
+// with no request. Everything inside the range is the server's to judge.
+func optInt(cmd *cobra.Command, name string, v int) (*int, error) {
 	if !cmd.Flags().Changed(name) {
-		return nil
+		return nil, nil
 	}
-	return &v
+	if v < math.MinInt32 || v > math.MaxInt32 {
+		return nil, exitcode.Newf(exitcode.Usage, "--%s %d does not fit a GraphQL Int (%d to %d)", name, v, math.MinInt32, math.MaxInt32)
+	}
+	return &v, nil
 }
 
 // connectionArg trims and requires --connection before any request.
@@ -97,16 +104,19 @@ Details:
 			if err != nil {
 				return err
 			}
+			topArg, err := optInt(cmd, "top", top)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			var unreadOnly *bool
-			if unread {
-				t := true
-				unreadOnly = &t
+			if cmd.Flags().Changed("unread") {
+				unreadOnly = &unread
 			}
-			r, err := gen.EmailMessages(cmd.Context(), client, id, optInt(cmd, "top", top), unreadOnly)
+			r, err := gen.EmailMessages(cmd.Context(), client, id, topArg, unreadOnly)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -259,8 +269,12 @@ func connectionsPage(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 			return e
 		}
 		line := fmt.Sprintf("showing %d of total %d", len(dto.Items), dto.Total)
-		if dto.HasMore {
-			line += fmt.Sprintf("; more follow: --offset %d", start+len(dto.Items))
+		// The hint counts from the offset you sent and must advance: an empty
+		// page that still says hasMore has no honest next offset, so none is given.
+		if dto.HasMore && len(dto.Items) > 0 {
+			line += fmt.Sprintf("; more follow: --offset %d (counted from the offset you sent)", start+len(dto.Items))
+		} else if dto.HasMore {
+			line += "; the server reports more, but this page was empty, so no next offset is suggested"
 		}
 		_, e := fmt.Fprintln(w, line)
 		return e

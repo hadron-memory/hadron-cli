@@ -77,12 +77,20 @@ Details:
 			if org == "" {
 				return exitcode.Newf(exitcode.Usage, "give a nonempty --org id or fully-qualified URN (check for an unset variable)")
 			}
+			limitArg, err := optInt(cmd, "limit", limit)
+			if err != nil {
+				return err
+			}
+			offsetArg, err := optInt(cmd, "offset", offset)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			if cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset") {
-				return connectionsPage(cmd, f, client, org, optInt(cmd, "limit", limit), optInt(cmd, "offset", offset))
+				return connectionsPage(cmd, f, client, org, limitArg, offsetArg)
 			}
 			r, err := gen.EmailConnections(cmd.Context(), client, org)
 			if err != nil {
