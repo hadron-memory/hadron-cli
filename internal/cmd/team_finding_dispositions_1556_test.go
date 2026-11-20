@@ -11,7 +11,7 @@ import (
 
 func dispositionResponse1556(code string, ref any) string {
 	b, _ := json.Marshal(map[string]any{"data": map[string]any{"disposeAgentTaskFinding": map[string]any{
-		"id": "task1", "findingDispositions": map[string]any{"total": 1, "hasMore": false, "items": []any{map[string]any{"findingId": "F1", "disposition": code, "reference": ref}}},
+		"id": "task1", "findingDisposition": map[string]any{"findingId": "F1", "disposition": code, "reference": ref},
 	}}})
 	return string(b)
 }
@@ -328,7 +328,119 @@ func TestFindingDispositions1556OperationDocuments(t *testing.T) {
 	if strings.Contains(gen.AgentTaskDisposeFinding_Operation, "result {") || strings.Contains(gen.AgentTaskFindingDispositions_Operation, "result {") {
 		t.Fatal("must not fetch immutable result text")
 	}
-	if !strings.Contains(gen.AgentTaskDisposeFinding_Operation, "findingDispositions(limit: 200, offset: 0)") {
-		t.Fatal("mutation readback must cover the capped finding set")
+	for name, doc := range map[string]string{"plain": gen.AgentTaskDisposeFinding_Operation, "instructed": gen.AgentTaskDisposeFindingInstructed_Operation} {
+		// cli#1709: the readback is the one targeted field, bound to the write's own variable.
+		if !strings.Contains(doc, "findingDisposition(findingId: $findingId)") {
+			t.Fatalf("%s: mutation readback must be the targeted field bound to $findingId", name)
+		}
+		for _, banned := range []string{"findingDispositions", "items", "total", "hasMore", "result {"} {
+			if strings.Contains(doc, banned) {
+				t.Fatalf("%s: the targeted readback must not select %q", name, banned)
+			}
+		}
+	}
+}
+
+// cli#1709: the readback is one targeted field. A response that carries only
+// the targeted disposition of F100 (a page scan over 100 findings would never
+// have found it in a 200-item window it was not sent) is enough; exactly one
+// request goes out and the operation never asks for the paged list.
+func TestFindingDispositions1709TargetedReadback(t *testing.T) {
+	r := taskResponses()
+	r["AgentTaskDisposeFinding"] = `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F100","disposition":"deferred","reference":{"kind":"ISSUE","target":"https://example.invalid/9","label":null}}}}}`
+	calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F100", "--disposition", "fixed", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 1 || (*calls)[0].Op != "AgentTaskDisposeFinding" {
+		t.Fatalf("exactly one mutation, no follow-up read: %v", *calls)
+	}
+	var got map[string]any
+	if json.Unmarshal([]byte(out), &got) != nil || len(got) != 4 || got["findingId"] != "F100" || got["taskId"] != "task1" {
+		t.Fatalf("receipt: %s", out)
+	}
+	// The server's value, not the submitted one (a later replacement is shown), reference kept.
+	if got["disposition"] != "deferred" || got["reference"].(map[string]any)["target"] != "https://example.invalid/9" {
+		t.Fatalf("must print the server's value: %s", out)
+	}
+	q := (*calls)[0].Query
+	if !strings.Contains(q, "findingDisposition(findingId: $findingId)") || strings.Contains(q, "findingDispositions") {
+		t.Fatalf("outgoing document is not the targeted readback: %s", q)
+	}
+}
+
+// Every unusable readback is the same unconfirmed-write failure: exit 1, no
+// success output, one request (no retry), and guidance that does not claim the
+// write failed.
+func TestFindingDispositions1709UnusableReadback(t *testing.T) {
+	ok := `{"findingId":"F1","disposition":"fixed","reference":null}`
+	for name, body := range map[string]string{
+		"null mutation":        `{"data":{"disposeAgentTaskFinding":null}}`,
+		"omitted target":       `{"data":{"disposeAgentTaskFinding":{"id":"task1"}}}`,
+		"null target":          `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}}}`,
+		"empty task id":        `{"data":{"disposeAgentTaskFinding":{"id":"","findingDisposition":` + ok + `}}}`,
+		"wrong finding id":     `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F2","disposition":"fixed","reference":null}}}}`,
+		"case-folded id":       `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"f1","disposition":"fixed","reference":null}}}}`,
+		"empty disposition":    `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":"","reference":null}}}}`,
+		"unknown disposition":  `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":"wontfix","reference":null}}}}`,
+		"reference no target":  `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":"fixed","reference":{"kind":"ISSUE","target":"","label":null}}}}}`,
+		"wrong field type":     `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":7,"disposition":"fixed","reference":null}}}}`,
+		"disposition not text": `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":["fixed"],"reference":null}}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json")
+			if err == nil || out != "" || len(*calls) != 1 {
+				t.Fatalf("must fail once with no success output: err=%v out=%q calls=%d", err, out, len(*calls))
+			}
+			if exitCodeFor(err) != 1 {
+				t.Fatalf("exit %d, want 1: %v", exitCodeFor(err), err)
+			}
+			if !strings.Contains(err.Error(), "may have been recorded") || !strings.Contains(err.Error(), "read finding-dispositions before retrying") {
+				t.Fatalf("recovery guidance missing or claims failure: %v", err)
+			}
+		})
+	}
+}
+
+// A provider without the field refuses the document (a typed GraphQL
+// validation error): that is not an unconfirmed write, the selection is not
+// dropped, and nothing is sent twice.
+func TestFindingDispositions1709ProviderWithoutField(t *testing.T) {
+	r := taskResponses()
+	r["AgentTaskDisposeFinding"] = `{"errors":[{"message":"Cannot query field \"findingDisposition\" on type \"AgentTask\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed")
+	if err == nil || out != "" || len(*calls) != 1 {
+		t.Fatalf("err=%v out=%q calls=%d", err, out, len(*calls))
+	}
+	if strings.Contains(err.Error(), "may have been recorded") {
+		t.Fatalf("a refused document is not an unconfirmed write: %v", err)
+	}
+}
+
+// The submitted and returned values vary independently, for all four codes and
+// with/without a reference: the receipt is always the returned one.
+func TestFindingDispositions1709ReturnedNotSubmitted(t *testing.T) {
+	for _, ret := range []string{"fixed", "accepted", "deferred", "rejected"} {
+		for _, withRef := range []bool{false, true} {
+			var ref any
+			if withRef {
+				ref = map[string]any{"kind": "NODE", "target": "hrn:node:x", "label": nil}
+			}
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = dispositionResponse1556(ret, ref)
+			_, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--ref", "issue=https://example.invalid/1", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if json.Unmarshal([]byte(out), &got) != nil || got["disposition"] != ret {
+				t.Fatalf("returned %s must win: %s", ret, out)
+			}
+			if _, has := got["reference"]; !has || (got["reference"] == nil) == withRef {
+				t.Fatalf("reference must follow the server (none stays an explicit null): %s", out)
+			}
+		}
 	}
 }

@@ -1,6 +1,8 @@
 package team
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -200,59 +202,93 @@ server now holds; --json is {taskId, findingId, disposition, reference}
 			if err != nil {
 				return err
 			}
-			// Either document answers the same shape; read it into one.
+			// Either document answers the same shape; read it into one. The
+			// readback is the one targeted field for the finding just written
+			// (cli#1709): the latest disposition when the field resolved, not an
+			// atomic receipt of this commit, so a concurrent replacement may
+			// show here. Never a scan of the paged list, never a second request.
 			var taskID string
-			var items []gen.TaskFindingDispositionFields
-			var haveReadback bool
+			var got *gen.TaskFindingDispositionFields
 			if claim != nil {
 				r, err := gen.AgentTaskDisposeFindingInstructed(c.Context(), client, ref, a[1], gen.AgentTaskFindingDispositionCode(code), refIn, claim)
 				if err != nil {
-					return mapFindingError(err)
+					return disposeFindingError(err)
 				}
-				if d := r.DisposeAgentTaskFinding; d != nil && d.Id != "" && d.FindingDispositions != nil {
-					taskID, haveReadback = d.Id, true
-					for _, item := range d.FindingDispositions.Items {
-						if item != nil {
-							items = append(items, item.TaskFindingDispositionFields)
-						}
+				if d := r.DisposeAgentTaskFinding; d != nil {
+					taskID = d.Id
+					if d.FindingDisposition != nil {
+						got = &d.FindingDisposition.TaskFindingDispositionFields
 					}
 				}
 			} else {
 				r, err := gen.AgentTaskDisposeFinding(c.Context(), client, ref, a[1], gen.AgentTaskFindingDispositionCode(code), refIn)
 				if err != nil {
-					return mapFindingError(err)
+					return disposeFindingError(err)
 				}
-				if d := r.DisposeAgentTaskFinding; d != nil && d.Id != "" && d.FindingDispositions != nil {
-					taskID, haveReadback = d.Id, true
-					for _, item := range d.FindingDispositions.Items {
-						if item != nil {
-							items = append(items, item.TaskFindingDispositionFields)
-						}
+				if d := r.DisposeAgentTaskFinding; d != nil {
+					taskID = d.Id
+					if d.FindingDisposition != nil {
+						got = &d.FindingDisposition.TaskFindingDispositionFields
 					}
 				}
 			}
-			// The server caps findings at 100; the response requests 200. Never
-			// fabricate a receipt from arguments if readback is incomplete.
-			if haveReadback {
-				for i := range items {
-					if items[i].FindingId == a[1] {
-						d := findingDispositionReceiptDTO{TaskID: taskID, findingDispositionDTO: findingDispositionFrom(items[i])}
-						return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-							if _, err := fmt.Fprintf(w, "task: %s\n", output.SafeCell(d.TaskID)); err != nil {
-								return err
-							}
-							return renderFindingDispositions(w, []findingDispositionDTO{d.findingDispositionDTO})
-						})
+			// Never fabricate a receipt from arguments: the readback must name
+			// this task, this exact finding id (no trimming or case folding),
+			// one of the four codes, and a complete reference when it has one.
+			if taskID != "" && validFindingReadback(got, a[1]) {
+				d := findingDispositionReceiptDTO{TaskID: taskID, findingDispositionDTO: findingDispositionFrom(*got)}
+				return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+					if _, err := fmt.Fprintf(w, "task: %s\n", output.SafeCell(d.TaskID)); err != nil {
+						return err
 					}
-				}
+					return renderFindingDispositions(w, []findingDispositionDTO{d.findingDispositionDTO})
+				})
 			}
-			return exitcode.Newf(exitcode.Error, "disposition may have been recorded but its readback is unavailable; read finding-dispositions before retrying")
+			return errDispositionReadbackUnavailable()
 		},
 	}
 	c.Flags().StringVar(&code, "disposition", "", "required: fixed, accepted, deferred or rejected")
 	c.Flags().StringVar(&reference, "ref", "", "optional kind=target[|label]; omission replaces any prior reference with none")
 	addTaskInstructionFlag(c, &rawInstruction)
 	return c
+}
+
+func errDispositionReadbackUnavailable() error {
+	return exitcode.Newf(exitcode.Error, "disposition may have been recorded but its readback is unavailable; read finding-dispositions before retrying")
+}
+
+// disposeFindingError maps a failed dispose-finding call. A success body the
+// client cannot decode (a wrong field type, malformed JSON) means the server
+// answered after the write: the outcome is unconfirmed, so it gets the same
+// recovery guidance as a missing readback, and never a claim that the write
+// failed. Only this verb does so (cli#1709); typed server refusals and
+// transport errors keep their usual mapping.
+func disposeFindingError(err error) error {
+	var typeErr *json.UnmarshalTypeError
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) {
+		return errDispositionReadbackUnavailable()
+	}
+	return mapFindingError(err)
+}
+
+// validFindingReadback reports whether the targeted readback can be shown as the
+// receipt: it is present, names exactly the finding that was written, carries
+// one of the four disposition codes, and any reference has its kind and target.
+func validFindingReadback(d *gen.TaskFindingDispositionFields, findingID string) bool {
+	if d == nil || d.FindingId != findingID {
+		return false
+	}
+	switch d.Disposition {
+	case gen.AgentTaskFindingDispositionCodeFixed, gen.AgentTaskFindingDispositionCodeAccepted,
+		gen.AgentTaskFindingDispositionCodeDeferred, gen.AgentTaskFindingDispositionCodeRejected:
+	default:
+		return false
+	}
+	if r := d.Reference; r != nil && (r.Kind == "" || r.Target == "") {
+		return false
+	}
+	return true
 }
 
 // Keep structured serverCode on these new surfaces without changing legacy task envelopes.
