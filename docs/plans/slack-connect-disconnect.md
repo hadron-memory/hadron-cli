@@ -16,7 +16,7 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   terminal (a typed token is shown in the clear) are refused before any request.
 - **No token anywhere else.** There is no token flag (cobra refuses one as unknown); the result renders the
   11 fields `slack get` shows, never `lastError`. The server's text is untrusted everywhere it can
-  reach the operator (blind P1 and local P2 on #2731): `guardedWriteError` adds the command's own recovery
+  reach the operator (blind P1 and local P2 on #2731): `redactConnectError` adds the command's own recovery
   text first (so an echo never costs the unknown-outcome notice), then returns the error through
   `api.Detached`, which cuts it from its raw chain and redacts every rendered string (message, `--json`
   serverCode, fault detail) with `api.RedactSecretText`, the transport's own redactor, which also covers the

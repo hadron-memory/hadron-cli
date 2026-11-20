@@ -26,14 +26,14 @@ type disconnectDTO struct {
 	Disconnected bool   `json:"disconnected"`
 }
 
-// guardedWriteError is the final error of a failed connect. The server's text is
+// redactConnectError is the final error of a failed connect. The server's text is
 // untrusted everywhere it can reach the operator, so the finished error is cut
 // from its raw chain and every rendered string (message, server code, internal
 // fault detail) has both submitted tokens removed, in every spelling the shared
 // redactor knows. The command's own recovery text is added BEFORE that, so an
 // echo never costs the operator the unknown-outcome notice; the exit class and
 // a clean server code survive.
-func guardedWriteError(raw error, secrets []string, recovery string) error {
+func redactConnectError(raw error, secrets []string, recovery string) error {
 	mapped := api.MapError(raw)
 	base := mapped
 	if class := exitcode.FromError(mapped); class == exitcode.Error || class == exitcode.Unavailable {
@@ -117,10 +117,12 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 				return err
 			}
 			secrets := []string{bot, appTok}
-			where := fmt.Sprintf("run \"hadron slack status --org %s\": it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected", orgRef)
+			// --org is the operator's own text and may, by mistake, equal a token:
+			// every post-submission message built from it is redacted too.
+			where := api.RedactSecretText(fmt.Sprintf("run \"hadron slack status --org %s\": it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected", orgRef), secrets)
 			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, appRef, bot, appTok)
 			if err != nil {
-				return guardedWriteError(err, secrets, "connect outcome unknown (sent once, not retried); "+where)
+				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried); "+where)
 			}
 			if resp == nil || resp.CreateSlackConnection == nil {
 				return exitcode.Newf(exitcode.Unavailable, "the server returned no connection; %s", where)
@@ -134,12 +136,22 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 					return exitcode.Newf(exitcode.Unavailable, "the server's answer repeated a submitted token and was withheld; the connection may exist: %s", where)
 				}
 			}
+			// Success needs a usable id: without one nothing is confirmed, and no
+			// "get" command can be named.
+			if strings.TrimSpace(v.Id) == "" {
+				return exitcode.Newf(exitcode.Unavailable, "the server's answer carried no connection id, so nothing is confirmed; the connection may exist: %s", where)
+			}
 			dto, err := toDTO(v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt)
 			if err != nil {
-				return exitcode.Newf(exitcode.Unavailable, "the connection was created (id %s) but the server returned an unknown status; read it with \"hadron slack get\"", strconv.Quote(v.Id))
+				return exitcode.Newf(exitcode.Unavailable, "the server's answer carried an unknown status, so the result is unconfirmed; read the connection with \"hadron slack get %s\" (or see %s)", strconv.Quote(v.Id), "\"hadron slack status --org\"")
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				if _, e := fmt.Fprintf(w, "✓ connected Slack workspace %s\n", output.SafeCell(strconv.Quote(dto.TeamName))); e != nil {
+				banner := "✓ connected Slack workspace %s\n"
+				if dto.Status == "ERROR" {
+					// ERROR is a recorded failure (see "hadron slack --help"), not success.
+					banner = "! registered Slack workspace %s, but the server has recorded a failure (status ERROR; see \"hadron slack --help\")\n"
+				}
+				if _, e := fmt.Fprintf(w, banner, output.SafeCell(strconv.Quote(dto.TeamName))); e != nil {
 					return e
 				}
 				return writeConnection(w, dto)

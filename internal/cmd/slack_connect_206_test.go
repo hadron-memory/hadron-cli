@@ -77,7 +77,7 @@ func TestSlackConnectSendsOneRequestWithBothTokensAndShowsNoSecret(t *testing.T)
 		t.Fatalf("one request exactly, got %d", n)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(ops["CreateSlackConnection"], &vars)
+	decodeSlackVars(t, ops["CreateSlackConnection"], &vars)
 	if vars["orgRef"] != "hrn:org:acme.com" || vars["appRef"] != "hrn:app:acme.com:assistant" || vars["botToken"] != botTok || vars["appToken"] != appTok {
 		t.Fatalf("variables %v", vars)
 	}
@@ -102,7 +102,7 @@ func TestSlackConnectTextOutputAndOneTokenFromStdin(t *testing.T) {
 		t.Fatalf("n=%d err=%v", n, e)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(ops["CreateSlackConnection"], &vars)
+	decodeSlackVars(t, ops["CreateSlackConnection"], &vars)
 	if vars["botToken"] != botTok || vars["appToken"] != appTok {
 		t.Fatalf("stdin must supply exactly the bot token: %v", vars)
 	}
@@ -263,7 +263,7 @@ func TestSlackDisconnectSendsOneRequestWithTheExactRef(t *testing.T) {
 		t.Fatalf("err=%v requests=%d", e, n)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(ops["DeleteSlackConnection"], &vars)
+	decodeSlackVars(t, ops["DeleteSlackConnection"], &vars)
 	if vars["ref"] != "c1" {
 		t.Fatalf("variables %v", vars)
 	}
@@ -431,7 +431,7 @@ func TestSlackConnectAppTokenFromStdinAndBotTokenFromAFile(t *testing.T) {
 		t.Fatalf("n=%d err=%v", n, e)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(ops["CreateSlackConnection"], &vars)
+	decodeSlackVars(t, ops["CreateSlackConnection"], &vars)
 	if vars["botToken"] != botTok || vars["appToken"] != appTok {
 		t.Fatalf("variables %v", vars)
 	}
@@ -474,5 +474,74 @@ func TestSlackConnectRedactsAPercentEncodedEcho(t *testing.T) {
 				t.Fatalf("err=%v\n%s", e, all)
 			}
 		})
+	}
+}
+
+// decodeSlackVars fails the test on a missing or malformed capture, so a variable
+// mismatch is never really a capture problem.
+func decodeSlackVars(t *testing.T, raw json.RawMessage, into *map[string]any) {
+	t.Helper()
+	if len(raw) == 0 {
+		t.Fatal("no request variables were captured")
+	}
+	if err := json.Unmarshal(raw, into); err != nil {
+		t.Fatalf("captured variables are not JSON: %v", err)
+	}
+}
+
+// George (blind P1, #2731): --org is the operator's own text and can, by mistake,
+// equal a token. The null-answer and withheld-answer paths build recovery text
+// from it, so they redact it too, in both renderers.
+func TestSlackConnectRecoveryTextNeverPrintsATokenTypedAsTheOrg(t *testing.T) {
+	bot := tokenFile(t, "bot", botTok)
+	app := tokenFile(t, "app", appTok)
+	var echoed map[string]any
+	_ = json.Unmarshal([]byte(connectedRow), &echoed)
+	echoed["teamName"] = appTok
+	withheldRow, _ := json.Marshal(echoed)
+	for name, wire := range map[string]string{
+		"null answer":     `{"data":{"createSlackConnection":null}}`,
+		"withheld answer": `{"data":{"createSlackConnection":` + string(withheldRow) + `}}`,
+		"empty id":        `{"data":{"createSlackConnection":` + strings.Replace(connectedRow, `"id":"c1"`, `"id":""`, 1) + `}}`,
+		"ambiguous":       `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`,
+	} {
+		for _, jsonMode := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/json=%v", name, jsonMode), func(t *testing.T) {
+				all, _, e := runSlackRendered(t, wire, jsonMode, "connect", "--org", botTok, "--app", appID, "--bot-token-file", bot, "--app-token-file", app)
+				if e == nil {
+					t.Fatal("must fail")
+				}
+				noSecret(t, "the rendered output", all)
+				if !strings.Contains(all, "hadron slack status --org") {
+					t.Errorf("the recovery pointer must survive the redaction: %s", all)
+				}
+			})
+		}
+	}
+}
+
+// George (blind P2): success needs a usable id; an ERROR row is a recorded
+// failure, not "connected"; an unknown status names the real `slack get` command.
+func TestSlackConnectValidatesTheSuccessAnswer(t *testing.T) {
+	args := func(t *testing.T) []string { return connectArgs(t) }
+	_, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"id":"c1"`, `"id":""`, 1)+`}}`, false, args(t)...)
+	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), "carried no connection id") {
+		t.Fatalf("an empty id is unconfirmed, never success: %v", e)
+	}
+	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":{}}}`, false, args(t)...)
+	if e == nil || exitCodeFor(e) != exitcode.Unavailable {
+		t.Fatalf("an empty object is unconfirmed: %v", e)
+	}
+	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"WAT"`, 1)+`}}`, false, args(t)...)
+	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), `hadron slack get "c1"`) || strings.Contains(e.Error(), "was created") {
+		t.Fatalf("an unknown status is unconfirmed and names the real get command: %v", e)
+	}
+	all, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"ERROR"`, 1)+`}}`, false, args(t)...)
+	if e != nil || strings.Contains(all, "✓ connected") || !strings.Contains(all, "recorded a failure") || !strings.Contains(all, "status ERROR") {
+		t.Fatalf("ERROR is not '✓ connected': err=%v\n%s", e, all)
+	}
+	all, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+connectedRow+`}}`, false, args(t)...)
+	if e != nil || !strings.Contains(all, "✓ connected Slack workspace") {
+		t.Fatalf("ACTIVE keeps the success banner: err=%v\n%s", e, all)
 	}
 }
