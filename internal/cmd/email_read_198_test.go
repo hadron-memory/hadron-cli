@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -14,17 +17,30 @@ import (
 // hadron-cli#198 Slice A: the read cut of `hadron email` — messages, folders and
 // the paged connection list. Fake HTTP only; no mailbox, no provider, no spend.
 // Message text (subject, from, preview, body) is external data: these tests plant
-// control sequences and secrets in it and check they are neither executed nor
-// logged.
+// control sequences (an OSC 52 clipboard write, an OSC 8 hyperlink, a screen
+// clear, a forged line) in it and check none reaches the terminal raw. What is
+// asserted is the command's output; no log or trace stream is captured here.
 
 const msgRow198 = `{"id":"m1","subject":"hello","from":"a@example.test","receivedDateTime":"2026-11-20T10:00:00Z","bodyPreview":"prev","body":"full body","hasAttachments":true,"isRead":false}`
 
+// requests198 counts the GraphQL POSTs the last runEmail198 made: ops is keyed by
+// operation NAME, so two requests of one operation would pass a len(ops) check.
+var requests198 int
+
 func runEmail198(t *testing.T, responses map[string]string, args ...string) (out string, ops map[string]json.RawMessage, err error) {
 	t.Helper()
+	requests198 = 0
 	srv, ops := captureGraphQL(t, responses)
+	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			requests198++
+		}
+		proxyTo198(w, r, srv.URL)
+	}))
+	t.Cleanup(counter.Close)
 	f, o := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs(append(append([]string{"email"}, args...), "--server", srv.URL))
+	root.SetArgs(append(append([]string{"email"}, args...), "--server", counter.URL))
 	err = root.Execute()
 	return o.String(), ops, err
 }
@@ -341,5 +357,126 @@ func TestEmailReadDocuments198(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// proxyTo198 forwards a request to the capturing fake and relays its answer.
+func proxyTo198(w http.ResponseWriter, r *http.Request, target string) {
+	req, err := http.NewRequestWithContext(r.Context(), r.Method, target+r.URL.RequestURI(), r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	req.Header = r.Header.Clone()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(resp.StatusCode)
+	_, _ = io.Copy(w, resp.Body)
+}
+
+// F4 (Cedar): "one request" is counted in HTTP requests, not in distinct
+// operation names.
+func TestEmailReadsMakeOneHTTPRequest198(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		resp map[string]string
+		args []string
+	}{
+		{"messages", map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[]}}`}, []string{"messages", "--connection", "c"}},
+		{"folders", map[string]string{"EmailFolders": `{"data":{"exchangeFolders":[]}}`}, []string{"folders", "--connection", "c"}},
+		{"paged connections", map[string]string{"EmailConnectionsPage": `{"data":{"exchangeConnectionsPage":{"items":[],"total":0,"hasMore":false}}}`}, []string{"connections", "--org", "o", "--limit", "5"}},
+		{"bare connections", map[string]string{"EmailConnections": `{"data":{"exchangeConnections":[]}}`}, []string{"connections", "--org", "o"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, _, err := runEmail198(t, tc.resp, tc.args...); err != nil {
+				t.Fatal(err)
+			}
+			if requests198 != 1 {
+				t.Errorf("made %d GraphQL requests, want exactly 1", requests198)
+			}
+		})
+	}
+}
+
+// F1 (Cedar, P2): GraphQL Int is signed 32-bit, so a value that does not fit
+// fails coercion before the resolver could apply its clamp. The CLI refuses only
+// what the wire type cannot carry, with zero requests; every value inside the
+// range is the server's to judge (cor:api:240:01).
+func TestEmailIntFlagsMustFitGraphQLInt198(t *testing.T) {
+	const max32, min32 = "2147483647", "-2147483648"
+	for _, tc := range []struct {
+		flag, value string
+		refuse      bool
+	}{
+		{"--top", max32, false}, {"--top", "2147483648", true}, {"--top", min32, false}, {"--top", "-2147483649", true},
+		{"--limit", max32, false}, {"--limit", "2147483648", true},
+		{"--offset", max32, false}, {"--offset", "2147483648", true}, {"--offset", "-2147483649", true},
+	} {
+		t.Run(tc.flag+" "+tc.value, func(t *testing.T) {
+			args := []string{"messages", "--connection", "c", tc.flag, tc.value}
+			resp := map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[]}}`}
+			if tc.flag != "--top" {
+				args = []string{"connections", "--org", "o", tc.flag, tc.value}
+				resp = map[string]string{"EmailConnectionsPage": `{"data":{"exchangeConnectionsPage":{"items":[],"total":0,"hasMore":false}}}`}
+			}
+			_, _, err := runEmail198(t, resp, args...)
+			if tc.refuse {
+				if exitCodeFor(err) != 2 || requests198 != 0 {
+					t.Errorf("exit %d (%v) with %d requests; want a usage error and none sent", exitCodeFor(err), err, requests198)
+				}
+				return
+			}
+			if err != nil || requests198 != 1 {
+				t.Errorf("an in-range value was refused or not sent: %v (%d requests)", err, requests198)
+			}
+		})
+	}
+}
+
+// F3 (Cedar): an explicit --unread=false is sent as unreadOnly:false; only an
+// unset flag is omitted.
+func TestEmailMessagesExplicitUnreadFalseIsSent198(t *testing.T) {
+	_, ops, err := runEmail198(t, map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[]}}`}, "messages", "--connection", "c", "--unread=false")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := vars198(t, ops, "EmailMessages")
+	if got, ok := v["unreadOnly"]; !ok || got != false {
+		t.Errorf("unreadOnly = %v (sent=%v), want an explicit false", got, ok)
+	}
+}
+
+// F2 (Cedar): the continuation hint must advance. An empty page that still says
+// hasMore has no honest next offset, so none is suggested.
+func TestEmailConnectionsPagingHintMustAdvance198(t *testing.T) {
+	empty := `{"data":{"exchangeConnectionsPage":{"items":[],"total":7,"hasMore":true}}}`
+	out, _, err := runEmail198(t, map[string]string{"EmailConnectionsPage": empty}, "connections", "--org", "o", "--limit", "5", "--offset", "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "--offset") {
+		t.Errorf("an empty page with hasMore suggested an offset that cannot advance:\n%s", out)
+	}
+	if !strings.Contains(out, "total 7") {
+		t.Errorf("the total is missing:\n%s", out)
+	}
+}
+
+// F5: the OSC 8 hyperlink the test comment names is in the fixture.
+func TestEmailMessagesOSC8Neutralised198(t *testing.T) {
+	row := `{"id":"m1","subject":"\u001b]8;;http://evil.example/\u0007click\u001b]8;;\u0007","from":null,"receivedDateTime":null,"bodyPreview":null,"body":null,"hasAttachments":null,"isRead":null}`
+	out, _, err := runEmail198(t, map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[` + row + `]}}`}, "messages", "--connection", "c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(out, '\x1b') || strings.ContainsRune(out, '\a') {
+		t.Errorf("an OSC 8 hyperlink reached the terminal raw:\n%q", out)
 	}
 }
