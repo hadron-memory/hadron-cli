@@ -83,6 +83,20 @@ jobs:
       - name: Build all packages
         run: go build ./...
 
+  # cli#2716: native execution of the config-path resolution test (the real
+  # filepath.VolumeName / os.IsPathSeparator / filepath.Abs, which the pure
+  # table in config_path_2700_test.go replaces with stand-ins).
+  windows-config-path:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+      - name: Native config path resolution through load and reload (2716)
+        run: go test ./internal/hostpoller -run 'TestLoadConfigNativeWindowsPaths2716' -count=1 -v
+
   windows-binding-lock:
     runs-on: windows-latest
     timeout-minutes: 15
