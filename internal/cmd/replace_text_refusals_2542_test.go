@@ -37,20 +37,38 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 		}
 		raw, _ := io.ReadAll(req.Body)
 		var b struct {
-			Variables struct {
+			OperationName string `json:"operationName"`
+			Variables     struct {
 				Input struct {
 					DryRun *bool `json:"dryRun"`
 				} `json:"input"`
 			} `json:"variables"`
 		}
-		_ = json.Unmarshal(raw, &b)
+		if err := json.Unmarshal(raw, &b); err != nil {
+			t.Errorf("replace recorder: undecodable request body: %v", err)
+		}
+		// Only the replace operation with an explicit dryRun is a countable
+		// request; anything else is a test failure, not a silent "write".
+		if b.OperationName != "SearchReplaceInNodes" || b.Variables.Input.DryRun == nil {
+			t.Errorf("replace recorder: unexpected request (operation %q, dryRun set: %v): %s",
+				b.OperationName, b.Variables.Input.DryRun != nil, raw)
+			http.Error(w, "unexpected request", http.StatusBadRequest)
+			return
+		}
 		r.mu.Lock()
-		r.dry = append(r.dry, b.Variables.Input.DryRun != nil && *b.Variables.Input.DryRun)
+		r.dry = append(r.dry, *b.Variables.Input.DryRun)
 		r.mu.Unlock()
 		_, _ = w.Write([]byte(r.body))
 	}))
 	t.Cleanup(r.srv.Close)
 	return r
+}
+
+// sequence returns the requests in arrival order, as dryRun values.
+func (r *replaceRecorder2542) sequence() []bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]bool(nil), r.dry...)
 }
 
 func (r *replaceRecorder2542) counts() (total, writes int) {
@@ -149,7 +167,7 @@ func TestReplaceTextAppliedRunSendsARealWrite2542(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if total, writes := rec.counts(); total != 2 || writes != 1 {
-		t.Errorf("want a preview then one write, got %d requests, %d writes", total, writes)
+	if got := rec.sequence(); len(got) != 2 || got[0] != true || got[1] != false {
+		t.Errorf("want a preview (dryRun true) then one write (dryRun false), got dryRun sequence %v", got)
 	}
 }

@@ -3,6 +3,7 @@ package node
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -70,8 +71,7 @@ func TestRefusalConstantsKeepTheirAdvice(t *testing.T) {
 			}
 		}
 	}
-	// The constants reach exitcode.Newf as arguments, not format strings: a
-	// "%" in the wording must come out verbatim.
+	// The refusal carries the constant's text unchanged.
 	if got := mapSigningError(ceremonyRefusal(), func() (bool, error) { return false, nil }).Error(); got != SigningOffRefusal {
 		t.Errorf("refusal must carry the constant verbatim: %q", got)
 	}
@@ -82,17 +82,18 @@ func TestRefusalConstantsKeepTheirAdvice(t *testing.T) {
 func TestCeremonyTextDisplayCleanIsVerbatim(t *testing.T) {
 	long := "https://h.example/" + strings.Repeat("a", 300)
 	for name, in := range map[string]string{
-		"https":        "https://ceremonies.acme.example/signing/sr1",
-		"javascript":   "javascript:alert(1)",
-		"ftp":          "ftp://h/x",
-		"long-clean":   long,
-		"long-badesc":  "https://h.example/%zz" + strings.Repeat("a", 300),
-		"short-badesc": "https://h.example/%zz",
+		"https":                        "https://ceremonies.acme.example/signing/sr1",
+		"javascript":                   "javascript:alert(1)",
+		"ftp":                          "ftp://h/x",
+		"long-clean":                   long,
+		"long-invalid-percent-escape":  "https://h.example/%zz" + strings.Repeat("a", 300),
+		"short-invalid-percent-escape": "https://h.example/%zz",
+		"multibyte-under-rune-limit":   "https://h.example/" + strings.Repeat("é", 200),
 	} {
 		if got := ceremonyText(in); got != in {
 			t.Errorf("%s: clean value must print verbatim:\ngot  %q\nwant %q", name, got, in)
 		}
-		if got, want := ceremonyText(in), output.SafeCell(in); len(in) <= 256 && got != want {
+		if got, want := ceremonyText(in), output.SafeCell(in); utf8.RuneCountInString(in) <= 256 && got != want {
 			t.Errorf("%s: both arms must agree on short clean input: %q vs %q", name, got, want)
 		}
 	}
