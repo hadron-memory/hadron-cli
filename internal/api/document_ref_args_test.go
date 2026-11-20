@@ -234,6 +234,13 @@ func documentRefArgProblems(schema *ast.Schema, name, src string, ownLines int, 
 	var problems []string
 	if gqlErrs != nil {
 		for _, e := range gqlErrs {
+			// A fragment this file DEFINES but only another file spreads is
+			// "never used" to this file alone; its own file is not at fault
+			// and the corpus-wide check is that every document validates
+			// with what it spreads (cli#2712).
+			if frag, ok := unusedFragmentName(e.Message); ok && ownFrags[frag] {
+				continue
+			}
 			where := name
 			if len(e.Locations) > 0 {
 				if e.Locations[0].Line <= ownLines {
