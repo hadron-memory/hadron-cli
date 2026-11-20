@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -273,12 +274,69 @@ func errDispositionReadbackUnavailable() error {
 // Typed server refusals, pre-execution validation refusals and gateway or
 // transport failures keep their usual mapping.
 func disposeFindingError(err error) error {
+	// A typed refusal on the write field is definitive (the write did not
+	// happen) and wins, in either order, even beside a readback error: map that
+	// error alone so its code, and so its exit status, survive.
+	if refusal := writeRefusal(err); refusal != nil {
+		return mapFindingError(refusal)
+	}
 	var typeErr *json.UnmarshalTypeError
 	var syntaxErr *json.SyntaxError
 	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || readbackFieldFailed(err) {
 		return errDispositionReadbackUnavailable()
 	}
 	return mapFindingError(err)
+}
+
+// gqlErrorsOf returns the GraphQL error list an error carries and, for a
+// non-200 answer, the HTTP wrapper to rebuild it in.
+func gqlErrorsOf(err error) (gqlerror.List, *graphql.HTTPError) {
+	var httpErr *graphql.HTTPError
+	var list gqlerror.List
+	var one *gqlerror.Error
+	switch {
+	case errors.As(err, &httpErr):
+		return httpErr.Response.Errors, httpErr
+	case errors.As(err, &list):
+		return list, nil
+	case errors.As(err, &one):
+		return gqlerror.List{one}, nil
+	}
+	return nil, nil
+}
+
+// isWriteRefusal reports a typed refusal of the write field itself: an error
+// whose path stops at disposeAgentTaskFinding, or that has no path but carries
+// one of the task refusal codes (TASK_NOT_OWNER, TASK_NOT_FINISHED,
+// TASK_FINDING_NOT_FOUND, BAD_USER_INPUT, ...).
+func isWriteRefusal(e *gqlerror.Error) bool {
+	if e == nil {
+		return false
+	}
+	if len(e.Path) == 1 {
+		root, _ := e.Path[0].(ast.PathName)
+		return root == "disposeAgentTaskFinding"
+	}
+	if len(e.Path) > 0 {
+		return false
+	}
+	code, _ := e.Extensions["code"].(string)
+	return slices.Contains(taskErrorCodes, code)
+}
+
+// writeRefusal returns err reduced to its first write-field refusal (keeping
+// the HTTP status for a non-200 answer), or nil when the list has none.
+func writeRefusal(err error) error {
+	list, httpErr := gqlErrorsOf(err)
+	for _, e := range list {
+		if isWriteRefusal(e) {
+			if httpErr != nil {
+				return &graphql.HTTPError{StatusCode: httpErr.StatusCode, Response: graphql.Response{Errors: gqlerror.List{e}}}
+			}
+			return gqlerror.List{e}
+		}
+	}
+	return nil
 }
 
 // readbackFieldFailed reports a GraphQL error raised while resolving a field of
@@ -295,30 +353,21 @@ func disposeFindingError(err error) error {
 // failures are classified earlier, by the transport layer, with their own
 // may-have-been-applied advice.
 func readbackFieldFailed(err error) bool {
-	var list gqlerror.List
-	var httpErr *graphql.HTTPError
-	var one *gqlerror.Error
-	switch {
-	case errors.As(err, &httpErr):
-		list = httpErr.Response.Errors
-	case errors.As(err, &list):
-	case errors.As(err, &one):
-		list = gqlerror.List{one}
-	default:
-		return false
-	}
+	list, _ := gqlErrorsOf(err)
 	descendant := false
 	for _, e := range list {
-		if e == nil || len(e.Path) == 0 {
+		if e == nil {
 			continue
 		}
-		if root, _ := e.Path[0].(ast.PathName); root != "disposeAgentTaskFinding" {
+		if isWriteRefusal(e) {
+			return false // the write was refused: typed mapping, handled first
+		}
+		if len(e.Path) < 2 {
 			continue
 		}
-		if len(e.Path) == 1 {
-			return false // the write field itself was refused
+		if root, _ := e.Path[0].(ast.PathName); root == "disposeAgentTaskFinding" {
+			descendant = true
 		}
-		descendant = true
 	}
 	return descendant
 }

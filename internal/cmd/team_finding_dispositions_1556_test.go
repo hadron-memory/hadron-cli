@@ -379,6 +379,27 @@ func TestFindingDispositions1556OperationDocuments(t *testing.T) {
 		if strings.Contains(doc, "result {") {
 			t.Fatalf("%s: must not fetch immutable result text", name)
 		}
+		// The readback's projection is the shared fragment: the targeted field
+		// spreads it, and it selects the finding id, code and reference.
+		var spread bool
+		for _, sel := range targeted.SelectionSet {
+			if fs, ok := sel.(*ast.FragmentSpread); ok && fs.Name == "TaskFindingDispositionFields" {
+				spread = true
+			}
+		}
+		frag := q.Fragments.ForName("TaskFindingDispositionFields")
+		if !spread || frag == nil {
+			t.Fatalf("%s: the targeted field must spread TaskFindingDispositionFields (defined in the document)", name)
+		}
+		var fnames []string
+		for _, sel := range frag.SelectionSet {
+			if f, ok := sel.(*ast.Field); ok {
+				fnames = append(fnames, f.Name)
+			}
+		}
+		if !reflect.DeepEqual(fnames, []string{"findingId", "disposition", "reference"}) {
+			t.Fatalf("%s: fragment fields %v", name, fnames)
+		}
 	}
 }
 
@@ -500,15 +521,18 @@ func TestFindingDispositions1709ReadbackFieldError(t *testing.T) {
 		unconfirmed bool
 		wantExit    int
 	}{
-		"readback field error":   {partial, true, 1},
-		"readback nested error":  {nested, true, 1},
-		"write field refusal":    {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
-		"pathless refusal":       {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
-		"id field error":         {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
-		"foreign root path":      {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["somethingElse","x"],"extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
-		"readback plus pathless": {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"other"}]}`, true, 1},
-		"readback plus foreign":  {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"x","path":["somethingElse"]},{"message":"a","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
-		"readback plus write":    {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 1},
+		"readback field error":                 {partial, true, 1},
+		"readback nested error":                {nested, true, 1},
+		"write field refusal":                  {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"pathless refusal":                     {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"id field error":                       {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"foreign root path":                    {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["somethingElse","x"],"extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"readback plus pathless":               {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"other"}]}`, true, 1},
+		"readback plus foreign":                {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"x","path":["somethingElse"]},{"message":"a","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"readback plus write":                  {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"write plus readback (reverse order)":  {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}},{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]}]}`, false, 8},
+		"pathless typed refusal plus readback": {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","id"]},{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"pathless typed refusal alone":         {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_FINDING_NOT_FOUND"}}]}`, false, 4},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := taskResponses()
@@ -581,9 +605,10 @@ func TestFindingDispositions1709HTTP500(t *testing.T) {
 		unconfirmed bool
 		wantExit    int
 	}{
-		"readback field": {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, 1},
-		"id field":       {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
-		"write refusal":  {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"readback field":              {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, 1},
+		"id field":                    {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"write refusal":               {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"write refusal plus readback": {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
 		// No GraphQL error to classify: a gateway-style 500 keeps the transport
 		// layer's own mapping (exit 7), not the readback recovery class.
 		"empty errors": {`{"errors":[]}`, false, 7},

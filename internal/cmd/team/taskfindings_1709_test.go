@@ -24,32 +24,75 @@ func TestReadbackFieldFailed1709(t *testing.T) {
 	id := gqlAt("disposeAgentTaskFinding", "id")
 	write := gqlAt("disposeAgentTaskFinding")
 	pathless := &gqlerror.Error{Message: "validation"}
+	typedPathless := &gqlerror.Error{Message: "Refused", Extensions: map[string]any{"code": "TASK_NOT_OWNER"}}
 	foreign := gqlAt("somethingElse", "x")
 	for name, tc := range map[string]struct {
 		err  error
 		want bool
 	}{
-		"readback":               {gqlerror.List{read}, true},
-		"id":                     {gqlerror.List{id}, true},
-		"nested":                 {gqlerror.List{gqlAt("disposeAgentTaskFinding", "findingDisposition", "reference")}, true},
-		"readback plus pathless": {gqlerror.List{read, pathless}, true},
-		"pathless first":         {gqlerror.List{pathless, id}, true},
-		"readback plus foreign":  {gqlerror.List{foreign, read}, true},
-		"write field refused":    {gqlerror.List{write}, false},
-		"readback plus write":    {gqlerror.List{read, write}, false},
-		"pathless only":          {gqlerror.List{pathless}, false},
-		"foreign only":           {gqlerror.List{foreign}, false},
-		"empty list":             {gqlerror.List{}, false},
-		"http 500, empty errors": {&graphql.HTTPError{StatusCode: 500}, false},
-		"http 500 with readback": {&graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: gqlerror.List{read}}}, true},
-		"single error value":     {read, true},
-		"wrapped list":           {errors.Join(errors.New("ctx"), gqlerror.List{id}), true},
-		"not a graphql error":    {errors.New("boom"), false},
-		"nil error":              {nil, false},
+		"readback":                       {gqlerror.List{read}, true},
+		"id":                             {gqlerror.List{id}, true},
+		"nested":                         {gqlerror.List{gqlAt("disposeAgentTaskFinding", "findingDisposition", "reference")}, true},
+		"readback plus pathless":         {gqlerror.List{read, pathless}, true},
+		"pathless first":                 {gqlerror.List{pathless, id}, true},
+		"readback plus foreign":          {gqlerror.List{foreign, read}, true},
+		"write field refused":            {gqlerror.List{write}, false},
+		"readback plus write":            {gqlerror.List{read, write}, false},
+		"typed pathless beside readback": {gqlerror.List{read, typedPathless}, false},
+		"typed pathless first":           {gqlerror.List{typedPathless, id}, false},
+		"pathless only":                  {gqlerror.List{pathless}, false},
+		"foreign only":                   {gqlerror.List{foreign}, false},
+		"empty list":                     {gqlerror.List{}, false},
+		"http 500, empty errors":         {&graphql.HTTPError{StatusCode: 500}, false},
+		"http 500 with readback":         {&graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: gqlerror.List{read}}}, true},
+		"single error value":             {read, true},
+		"wrapped list":                   {errors.Join(errors.New("ctx"), gqlerror.List{id}), true},
+		"not a graphql error":            {errors.New("boom"), false},
+		"nil error":                      {nil, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := readbackFieldFailed(tc.err); got != tc.want {
 				t.Fatalf("readbackFieldFailed = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+// writeRefusal picks the write field's typed refusal out of a mixed list, in
+// either order, so its code (and exit status) survive; nothing is picked when
+// the list has no such refusal.
+func TestWriteRefusal1709(t *testing.T) {
+	read := gqlAt("disposeAgentTaskFinding", "findingDisposition")
+	write := gqlAt("disposeAgentTaskFinding")
+	typed := &gqlerror.Error{Message: "Refused", Extensions: map[string]any{"code": "TASK_NOT_OWNER"}}
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"write then readback": {gqlerror.List{write, read}, true},
+		"readback then write": {gqlerror.List{read, write}, true},
+		"typed pathless":      {gqlerror.List{read, typed}, true},
+		"http wrapper kept":   {&graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: gqlerror.List{read, write}}}, true},
+		"readback only":       {gqlerror.List{read}, false},
+		"unrelated code":      {gqlerror.List{{Message: "x", Extensions: map[string]any{"code": "INTERNAL_SERVER_ERROR"}}}, false},
+		"not graphql":         {errors.New("boom"), false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := writeRefusal(tc.err)
+			if (got != nil) != tc.want {
+				t.Fatalf("writeRefusal = %v, want picked=%v", got, tc.want)
+			}
+			if got != nil {
+				if list, _ := gqlErrorsOf(got); len(list) != 1 {
+					t.Fatalf("must reduce to the single refusal, got %d errors", len(list))
+				}
+				var h *graphql.HTTPError
+				if errors.As(tc.err, &h) {
+					var h2 *graphql.HTTPError
+					if !errors.As(got, &h2) || h2.StatusCode != h.StatusCode {
+						t.Fatal("HTTP status not kept")
+					}
+				}
 			}
 		})
 	}
