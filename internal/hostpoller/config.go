@@ -165,7 +165,7 @@ func sameLaunchFamily(a, b string) bool { return a == b || claudeFamily[a] && cl
 // DeliveryConfig is chat delivery's part of a host configuration.
 type DeliveryConfig struct {
 	// Enabled turns delivery on. The host key then also needs
-	// attention:deliver; without it delivery switches off for the run.
+	// attention:deliver; without it delivery switches off until a re-check succeeds.
 	Enabled bool `yaml:"enabled"`
 	// AckMixed asserts that the server carries A-prime (#2072): mixed wake
 	// acknowledgment records ticks/tasks without advancing any chat mark.

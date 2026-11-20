@@ -154,10 +154,11 @@ func TestAWakeScopeRefusalSwitchesDeliveryOff(t *testing.T) {
 	ws.err = ErrDeliveryScope
 	step(t, p)
 	step(t, p)
-	if p.DeliveryEnabled() || ws.calls != 1 || src.calls != 1 {
+	step(t, p)
+	if p.DeliveryEnabled() || ws.calls != 2 || src.calls != 2 {
 		t.Fatalf("enabled %v wake reads %d batch reads %d", p.DeliveryEnabled(), ws.calls, src.calls)
 	}
-	if len(reads) != 1 || reads[0] != delivery.StepOffByScope {
+	if len(reads) != 2 || reads[0] != delivery.StepReadFailed || reads[1] != delivery.StepOffByScope {
 		t.Fatalf("steps %v", reads)
 	}
 }

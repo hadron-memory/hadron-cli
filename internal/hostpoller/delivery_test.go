@@ -146,11 +146,12 @@ func TestAMissingScopeSwitchesDeliveryOffForTheRunOnly(t *testing.T) {
 	p, srv, _, src, _ := deliveryPoller(t)
 	events := recordEvents(p)
 	src.err = ErrDeliveryScope
-	srv.batches = [][]Operation{{}, {{ID: "o1", Type: "shell.exec"}}}
+	srv.batches = [][]Operation{{}, {}, {{ID: "o1", Type: "shell.exec"}}}
 	step(t, p)
 	step(t, p)
-	if src.calls != 1 {
-		t.Fatalf("batches read %d times after the scope refusal", src.calls)
+	step(t, p)
+	if src.calls != 2 {
+		t.Fatalf("batches read %d times: two scope answers confirm it, the third step waits out the backoff", src.calls)
 	}
 	if p.DeliveryEnabled() {
 		t.Fatal("delivery still on")
@@ -332,6 +333,9 @@ func TestDeliveryDiagnosticsCarryNoSourceText(t *testing.T) {
 			events := recordEvents(p)
 			p.EnableDelivery(&fakeBatches{err: c.err}, &fakeDeliverer{})
 			p.deliverStep(context.Background())
+			if c.kind == "delivery-off" {
+				p.deliverStep(context.Background()) // the confirming step
+			}
 			noLeak(t, events())
 			if !hasEvent(events(), c.kind, c.want) {
 				t.Fatalf("events %+v, want %s with %q", events(), c.kind, c.want)
@@ -350,4 +354,80 @@ func TestWakeDiagnosticsCarryNoSourceText(t *testing.T) {
 	if !hasEvent(events(), "delivery-failed", "unclassified") {
 		t.Fatalf("events %+v", events())
 	}
+}
+
+// cli#2663: on 2026-11-19 a degraded server answered one scope refusal and
+// the poller kept delivery off for 15 h 50 min. One refusal between good
+// reads must leave delivery on and log no delivery-off.
+func TestATransientScopeAnswerDoesNotSwitchDeliveryOff(t *testing.T) {
+	p, _, _, src, _ := deliveryPoller(t)
+	events := recordEvents(p)
+	src.err = ErrDeliveryScope
+	step(t, p)
+	src.err = nil
+	step(t, p)
+	src.err = ErrDeliveryScope
+	step(t, p) // not consecutive with the first: the count was cleared
+	if !p.DeliveryEnabled() || hasEvent(events(), "delivery-off", "attention:deliver") {
+		t.Fatalf("enabled %v events %+v", p.DeliveryEnabled(), events())
+	}
+}
+
+// An off state re-checks on a doubling backoff and turns itself back on when
+// a read succeeds; a refused re-check stays off.
+func TestAnOffDeliveryRechecksOnABackoffAndHeals(t *testing.T) {
+	p, _, _, src, _ := deliveryPoller(t)
+	events := recordEvents(p)
+	now := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	p.now = func() time.Time { return now }
+	src.err = ErrDeliveryScope
+	step(t, p)
+	step(t, p) // confirmed: off, first re-check in a minute
+	if p.DeliveryEnabled() || src.calls != 2 {
+		t.Fatalf("enabled %v calls %d", p.DeliveryEnabled(), src.calls)
+	}
+	now = now.Add(30 * time.Second)
+	step(t, p)
+	if src.calls != 2 {
+		t.Fatalf("read before the backoff: %d", src.calls)
+	}
+	now = now.Add(31 * time.Second)
+	step(t, p) // still refused: off, backoff doubles to two minutes
+	if p.DeliveryEnabled() || src.calls != 3 {
+		t.Fatalf("enabled %v calls %d", p.DeliveryEnabled(), src.calls)
+	}
+	now = now.Add(time.Minute + time.Second)
+	step(t, p)
+	if src.calls != 3 {
+		t.Fatalf("the second re-check is two minutes out: %d", src.calls)
+	}
+	src.err = nil
+	now = now.Add(time.Minute)
+	step(t, p)
+	if !p.DeliveryEnabled() || !hasEvent(events(), "delivery-on", "back on") {
+		t.Fatalf("enabled %v events %+v", p.DeliveryEnabled(), events())
+	}
+	if n := countEvents(events(), "delivery-off"); n != 1 {
+		t.Fatalf("delivery-off logged %d times", n)
+	}
+}
+
+func TestNextRecheckDoublesToItsCap(t *testing.T) {
+	d := nextRecheck(0, true)
+	for _, want := range []time.Duration{2, 4, 8, 15, 15} {
+		d = nextRecheck(d, false)
+		if d != want*time.Minute {
+			t.Fatalf("got %v, want %v", d, want*time.Minute)
+		}
+	}
+}
+
+func countEvents(events []Event, kind string) int {
+	n := 0
+	for _, e := range events {
+		if e.Kind == kind {
+			n++
+		}
+	}
+	return n
 }

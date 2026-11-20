@@ -48,15 +48,29 @@ type Deliverer interface {
 }
 
 // ErrDeliveryScope is a host key without attention:deliver
-// (APP_KEY_SCOPE_REQUIRED). It does not heal by retrying, so delivery is
-// switched off for the rest of the run; host operations carry on.
-var ErrDeliveryScope = errors.New("the host key lacks attention:deliver: delivery is off for this run")
+// (APP_KEY_SCOPE_REQUIRED). One such answer is not believed (a degraded
+// server has been seen to refuse a key it would accept a minute later,
+// cli#2663): delivery goes off only after scopeConfirmations consecutive
+// steps answer it, and an off state re-checks on a backoff and turns itself
+// back on when a read succeeds. Host operations carry on throughout.
+var ErrDeliveryScope = errors.New("the host key lacks attention:deliver: delivery is off until a re-check succeeds")
+
+const (
+	// scopeConfirmations is how many consecutive delivery steps must answer
+	// the scope refusal before delivery is switched off.
+	scopeConfirmations = 2
+	// scopeRecheckMin and scopeRecheckMax bound the off state's re-check
+	// backoff: it starts at the minimum and doubles to the maximum.
+	scopeRecheckMin = time.Minute
+	scopeRecheckMax = 15 * time.Minute
+)
 
 // EnableDelivery turns chat delivery on.
 func (p *Poller) EnableDelivery(src BatchSource, d Deliverer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.batches, p.deliverer, p.deliveryOff = src, d, false
+	p.scopeStreak, p.recheckEvery, p.recheckAt = 0, 0, time.Time{}
 }
 
 // EnableWakes turns tick and task wake delivery on (cli#906 row 1). Wakes
@@ -79,7 +93,6 @@ func (p *Poller) wakesEnabled() bool {
 func (p *Poller) wakeStep(ctx context.Context) string {
 	page, err := p.wakes.Wakes(ctx)
 	if errors.Is(err, ErrDeliveryScope) {
-		p.scopeOff(err)
 		return delivery.StepOffByScope
 	}
 	at := p.now().UTC()
@@ -133,9 +146,14 @@ func (p *Poller) DeliveryEnabled() bool {
 
 // deliverStep reads the due batches and queues each for its worker, then
 // does the same for the due wakes. A failure here never fails the check-in:
-// operations already ran.
+// operations already ran. While delivery is off it still runs, but only when
+// the re-check backoff is due.
 func (p *Poller) deliverStep(ctx context.Context) {
-	if !p.DeliveryEnabled() || ctx.Err() != nil {
+	if ctx.Err() != nil {
+		return
+	}
+	probing, ok := p.deliveryDue()
+	if !ok {
 		return
 	}
 	read := p.batchStep(ctx)
@@ -144,16 +162,75 @@ func (p *Poller) deliverStep(ctx context.Context) {
 			read = delivery.StepOffByScope
 		}
 	}
+	read = p.scopeVerdict(read, probing)
 	p.stepDone(read)
 }
 
-// scopeOff switches delivery off for the run. It logs only the fixed scope
-// text: err may carry a source's text.
-func (p *Poller) scopeOff(error) {
+// deliveryDue reports whether this step reads, and whether it is a re-check
+// of an off state.
+func (p *Poller) deliveryDue() (probing, ok bool) {
 	p.mu.Lock()
-	p.deliveryOff = true
+	defer p.mu.Unlock()
+	if p.batches == nil {
+		return false, false
+	}
+	if !p.deliveryOff {
+		return false, true
+	}
+	return true, !p.now().Before(p.recheckAt)
+}
+
+// scopeVerdict turns a step's read into the delivery state and the step code
+// status records. Only consecutive scope answers switch delivery off; any
+// other answer, success or failure, clears the count. An off state that
+// reads successfully turns itself back on; one that is refused again, or
+// cannot read, waits out its backoff.
+func (p *Poller) scopeVerdict(read string, probing bool) string {
+	p.mu.Lock()
+	switch read {
+	case delivery.StepOffByScope:
+		p.scopeStreak++
+		if !probing && p.scopeStreak < scopeConfirmations {
+			p.mu.Unlock()
+			p.log("delivery-failed", "", "", "", "the host key's scope was refused once: delivery stays on until it is confirmed")
+			return delivery.StepReadFailed
+		}
+		first := !p.deliveryOff
+		p.deliveryOff = true
+		p.recheckEvery = nextRecheck(p.recheckEvery, first)
+		p.recheckAt = p.now().Add(p.recheckEvery)
+		p.mu.Unlock()
+		if first {
+			p.log("delivery-off", "", "", "", ErrDeliveryScope.Error())
+		}
+		return delivery.StepOffByScope
+	case delivery.StepRead:
+		p.scopeStreak = 0
+		if probing {
+			p.deliveryOff, p.recheckEvery = false, 0
+			p.mu.Unlock()
+			p.log("delivery-on", "", "", "", "the host key's scope is confirmed again: delivery is back on")
+			return read
+		}
+	default: // a failed read says nothing about the scope
+		p.scopeStreak = 0
+		if probing {
+			p.recheckAt = p.now().Add(p.recheckEvery)
+			p.mu.Unlock()
+			return delivery.StepOffByScope
+		}
+	}
 	p.mu.Unlock()
-	p.log("delivery-off", "", "", "", ErrDeliveryScope.Error())
+	return read
+}
+
+// nextRecheck is the off state's next backoff: the minimum when it has just
+// gone off, else doubled up to the maximum.
+func nextRecheck(cur time.Duration, first bool) time.Duration {
+	if first || cur < scopeRecheckMin {
+		return scopeRecheckMin
+	}
+	return min(cur*2, scopeRecheckMax)
 }
 
 // diagnostic is a source's error as a log line may carry it: the code it
@@ -172,7 +249,6 @@ func diagnostic(err error) string {
 func (p *Poller) batchStep(ctx context.Context) string {
 	batches, err := p.batches.Batches(ctx)
 	if errors.Is(err, ErrDeliveryScope) {
-		p.scopeOff(err)
 		return delivery.StepOffByScope
 	}
 	if err != nil {

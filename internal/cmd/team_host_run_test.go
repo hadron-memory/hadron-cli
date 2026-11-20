@@ -371,9 +371,9 @@ func TestTeamHostRunOnceReadsBatchesWithTheHostKey(t *testing.T) {
 	}
 }
 
-// A key without attention:deliver switches delivery off for the run; the
-// host's operations carry on and the run succeeds.
-func TestTeamHostRunOnceScopeRefusalTurnsDeliveryOff(t *testing.T) {
+// One scope refusal is not believed (cli#2663): a --once run logs it as a
+// failed read, leaves delivery on, and the run succeeds.
+func TestTeamHostRunOnceOneScopeRefusalDoesNotTurnDeliveryOff(t *testing.T) {
 	cfg := writeHostConfig(t, deliveryOn)
 	srv, _ := hostServerFake(t, map[string]string{
 		"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps,
@@ -385,10 +385,10 @@ func TestTeamHostRunOnceScopeRefusalTurnsDeliveryOff(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("run --once: %v", err)
 	}
-	if !strings.Contains(out.String(), "delivery-off") {
-		t.Errorf("the operator is told delivery is off:\n%s", out.String())
+	if strings.Contains(out.String(), "delivery-off") || !strings.Contains(out.String(), "scope was refused once") {
+		t.Errorf("one refusal is a failed read, not the verdict:\n%s", out.String())
 	}
-	if d := hostStatusJSON(t, cfg).Delivery; d.Mode != "off-by-scope" {
+	if d := hostStatusJSON(t, cfg).Delivery; d.Mode == "off-by-scope" {
 		t.Fatalf("delivery %+v", d)
 	}
 }

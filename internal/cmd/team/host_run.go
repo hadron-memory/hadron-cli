@@ -576,8 +576,10 @@ cutover.
 With delivery.enabled (and orca_bin), each poll also reads this host's
 ready chat batches (the key needs attention:deliver too) and types each
 into its worker's agent terminal, only into an empty composer, then
-acknowledges it. A key without attention:deliver turns delivery off for the
-run (a delivery-off event); operations carry on. It also reads this host's
+acknowledges it. A key refused for attention:deliver on two consecutive polls
+turns delivery off (a delivery-off event); it re-checks on a backoff of one to
+fifteen minutes and turns itself back on (a delivery-on event); operations
+carry on throughout. It also reads this host's
 due tick and task wakes (dueWakes) and types each as one line through the
 same path, then hands its proof back (hadron-cli#1178). A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
