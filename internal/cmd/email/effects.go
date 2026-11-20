@@ -116,24 +116,28 @@ func isDefinitiveSendRefusal(err error) bool {
 }
 
 // bodyFailure maps a failure of a command that SUBMITTED a message body (reply,
-// draft save, draft update). The server's error message can quote the body whole, in
-// part or escaped, and no redaction of free text is reliable, so such a command never
-// prints the server's message: it prints its own words plus the server's error CODE,
-// and keeps the exit class the error maps to. For a send, anything that is not a
-// definitive pre-send refusal also carries the unknown-outcome guidance. A failure
-// with no GraphQL answer at all keeps the existing mapping (it has no server text).
-func bodyFailure(err error, send bool, where string) error {
+// draft save, draft update). The server's error message, an HTTP body and a decode
+// error can all quote the body (whole, in part or escaped), and no redaction of free
+// text is reliable, so such a command never prints any of them: it prints its own
+// words (plus the HTTP status, or the server's error CODE when that is on the fixed
+// allowlist) and keeps the exit class. guidance is non-empty when an unclear failure
+// may still have had an effect (a send, a draft created): it is appended whenever the
+// failure is not a definitive pre-send refusal, and a failure with no GraphQL answer
+// is then an unknown outcome (exit 7).
+func bodyFailure(err error, guidance string) error {
+	const withheldWhy = "because this command submits a message body"
 	if !graphQLAnswered(err) {
-		if send {
-			return sendFailure(err, where)
-		}
-		// An HTTP answer with no GraphQL errors can still carry the body in its JSON
-		// (data, extensions) or its text: print the status, never the body.
+		var msg string
 		var httpErr *graphql.HTTPError
 		if errors.As(err, &httpErr) {
-			return exitcode.Newf(exitcode.FromError(api.MapError(err)), "the server answered HTTP %d with no usable error; its body is withheld because this command submits a message body", httpErr.StatusCode)
+			msg = fmt.Sprintf("the server answered HTTP %d with no usable error; its body is withheld %s", httpErr.StatusCode, withheldWhy)
+		} else {
+			msg = "the server's answer could not be used; its content is withheld " + withheldWhy
 		}
-		return api.MapError(err)
+		if guidance != "" {
+			return exitcode.Newf(exitcode.Unavailable, "%s; %s", msg, guidance)
+		}
+		return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s", msg)
 	}
 	mapped := api.MapError(err)
 	// The code is DATA from outside too: it is shown, and carried into the --json
@@ -144,9 +148,9 @@ func bodyFailure(err error, send bool, where string) error {
 	if code != "" {
 		msg += " (" + code + ")"
 	}
-	msg += "; its message is withheld because this command submits a message body"
-	if send && !isDefinitiveSendRefusal(err) {
-		msg += "; " + unknownOutcome(where)
+	msg += "; its message is withheld " + withheldWhy
+	if guidance != "" && !isDefinitiveSendRefusal(err) {
+		msg += "; " + guidance
 	}
 	return api.WithCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), code)
 }
@@ -168,6 +172,10 @@ func allowlistedServerCode(code string) string {
 	}
 	return ""
 }
+
+// draftMayExist is the guidance for an unclear draft save: the draft may have been
+// created, and a retry without the same idempotency key could make a second one.
+const draftMayExist = "outcome unknown: a draft may have been created; check the Drafts folder before trying again (the CLI does not retry; --idempotency-key makes a retry safe)"
 
 func unknownOutcome(where string) string {
 	return fmt.Sprintf("outcome unknown: the request may have reached the server and the mail may have been sent; check the %s before trying again (the CLI does not retry)", where)
@@ -263,7 +271,7 @@ Details:
 			}
 			r, err := gen.EmailReply(cmd.Context(), client, conn, msg, body)
 			if err != nil {
-				return bodyFailure(err, true, "Sent folder")
+				return bodyFailure(err, unknownOutcome("Sent folder"))
 			}
 			return writeConfirmedAction(f, r != nil && r.ExchangeReply, actionDTO{ConnectionID: conn, MessageID: msg, Action: "reply"},
 				fmt.Sprintf("reply to message %q sent (server confirmed)", msg),
@@ -297,7 +305,10 @@ you wrote it, and is read from --body-file (a path, or - for stdin); it is never
 printed back. The draft's ID is what "draft update" and "draft send" take.
 
 --idempotency-key is passed to the server unchanged so a retry you make cannot
-save two drafts; the CLI never makes one up and never retries on its own.
+save two drafts (reuse the same valid key within the server's deduplication window);
+the CLI never makes one up and never retries on its own. If the save is unclear (no
+usable answer), a draft may have been created: check the Drafts folder before trying
+again.
 
 Details:
   --json is {draftId, conversationId} (conversationId is null when the server
@@ -340,12 +351,12 @@ Details:
 			if err != nil {
 				return err
 			}
-			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, optStr(cmd, "reply-to", replyTo), optStr(cmd, "subject", subject), optList(cmd, "to", to), optStr(cmd, "idempotency-key", key))
+			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, stringFlagIfSet(cmd, "reply-to", replyTo), stringFlagIfSet(cmd, "subject", subject), optList(cmd, "to", to), stringFlagIfSet(cmd, "idempotency-key", key))
 			if err != nil {
-				return bodyFailure(err, false, "")
+				return bodyFailure(err, draftMayExist)
 			}
 			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
-				return exitcode.Newf(exitcode.Unavailable, "server returned no draft")
+				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist)
 			}
 			d := r.EmailSaveDraft
 			// The ids are the server's own opaque values, printed as returned: the draft
@@ -398,7 +409,7 @@ Details:
 			}
 			r, err := gen.EmailUpdateDraft(cmd.Context(), client, conn, id, body)
 			if err != nil {
-				return bodyFailure(err, false, "")
+				return bodyFailure(err, "")
 			}
 			return writeConfirmedAction(f, r != nil && r.EmailUpdateDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-update"},
 				fmt.Sprintf("draft %q updated (not sent)", id), "the server did not confirm the draft update; read the draft back to see its body")
@@ -442,7 +453,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			r, err := gen.EmailSendDraft(cmd.Context(), client, conn, id, optStr(cmd, "idempotency-key", key))
+			r, err := gen.EmailSendDraft(cmd.Context(), client, conn, id, stringFlagIfSet(cmd, "idempotency-key", key))
 			if err != nil {
 				return sendFailure(err, "Sent folder")
 			}
@@ -661,9 +672,10 @@ Details:
 	return c
 }
 
-// optStr returns a pointer to the flag's value when the caller set it, else nil
-// (the argument is omitted); the value is passed unchanged.
-func optStr(cmd *cobra.Command, name, v string) *string {
+// stringFlagIfSet returns a pointer to the flag's value when the caller set it (even
+// to an empty string, which is passed unchanged for the server to judge), else nil so
+// the argument is omitted.
+func stringFlagIfSet(cmd *cobra.Command, name, v string) *string {
 	if !cmd.Flags().Changed(name) {
 		return nil
 	}

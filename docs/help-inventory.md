@@ -767,7 +767,7 @@ section between the markers.
 | `email delete` |  |  | y | #1184 | 857be1e64c57 |  | unread |  |
 | `email disconnect` |  |  | y | #1184 | 6e33c89c4b91 |  | unread |  |
 | `email draft` |  |  | n | #1184 | 72a2a54f161c |  | unread |  |
-| `email draft save` |  |  | y | #1184 | 2ca55c619708 |  | unread |  |
+| `email draft save` |  |  | y | #1184 | 18f6c4d7edb3 |  | unread |  |
 | `email draft send` |  |  | y | #1184 | 659b74fd0008 |  | unread |  |
 | `email draft update` |  |  | y | #1184 | 5a699482870a |  | unread |  |
 | `email flag` |  |  | y | #1184 | abb9353538e5 |  | unread |  |
