@@ -526,6 +526,10 @@ func TestFindingDispositions1709ReadbackFieldError(t *testing.T) {
 		"write field refusal":                  {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
 		"pathless refusal":                     {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
 		"id field error":                       {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"root generic plus readback":           {`{"data":null,"errors":[{"message":"boom","path":["disposeAgentTaskFinding"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}},{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]}]}`, true, 1},
+		"readback plus root generic":           {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"boom","path":["disposeAgentTaskFinding"]}]}`, true, 1},
+		"root generic alone":                   {`{"data":null,"errors":[{"message":"boom","path":["disposeAgentTaskFinding"]}]}`, true, 1},
+		"root typed plus readback":             {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}},{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]}]}`, false, 8},
 		"foreign root path":                    {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["somethingElse","x"],"extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
 		"readback plus pathless":               {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"other"}]}`, true, 1},
 		"readback plus foreign":                {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"x","path":["somethingElse"]},{"message":"a","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
@@ -608,6 +612,7 @@ func TestFindingDispositions1709HTTP500(t *testing.T) {
 		"readback field":              {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, 1},
 		"id field":                    {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
 		"write refusal":               {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"root generic alone":          {`{"data":null,"errors":[{"message":"boom","path":["disposeAgentTaskFinding"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, 1},
 		"write refusal plus readback": {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
 		// No GraphQL error to classify: a gateway-style 500 keeps the transport
 		// layer's own mapping (exit 7), not the readback recovery class.

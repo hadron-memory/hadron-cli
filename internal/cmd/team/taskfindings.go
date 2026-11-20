@@ -306,19 +306,20 @@ func gqlErrorsOf(err error) (gqlerror.List, *graphql.HTTPError) {
 }
 
 // isWriteRefusal reports a typed refusal of the write field itself: an error
-// whose path stops at disposeAgentTaskFinding, or that has no path but carries
-// one of the task refusal codes (TASK_NOT_OWNER, TASK_NOT_FINISHED,
-// TASK_FINDING_NOT_FOUND, BAD_USER_INPUT, ...).
+// with no path, or whose path stops at disposeAgentTaskFinding, that carries one
+// of the task refusal codes (TASK_NOT_OWNER, TASK_NOT_FINISHED,
+// TASK_FINDING_NOT_FOUND, BAD_USER_INPUT, ...; taskErrorCodes). Only such a code
+// says the write was refused before it committed. A root-path error without one
+// (generic, INTERNAL_SERVER_ERROR, any message) only names the field that
+// failed: it does not say the transaction rolled back, so it is not a refusal.
 func isWriteRefusal(e *gqlerror.Error) bool {
-	if e == nil {
+	if e == nil || len(e.Path) > 1 {
 		return false
 	}
 	if len(e.Path) == 1 {
-		root, _ := e.Path[0].(ast.PathName)
-		return root == "disposeAgentTaskFinding"
-	}
-	if len(e.Path) > 0 {
-		return false
+		if root, _ := e.Path[0].(ast.PathName); root != "disposeAgentTaskFinding" {
+			return false
+		}
 	}
 	code, _ := e.Extensions["code"].(string)
 	return slices.Contains(taskErrorCodes, code)
@@ -339,22 +340,20 @@ func writeRefusal(err error) error {
 	return nil
 }
 
-// readbackFieldFailed reports a GraphQL error raised while resolving a field of
-// the write's result (the receipt fields id or findingDisposition, or anything
-// beneath them): its path runs through disposeAgentTaskFinding into a
-// subfield. The write field resolved first and its transaction has committed,
-// so the outcome is unconfirmed, whatever the HTTP status (a 200 with partial
-// data, or a 500 carrying the errors) and whatever else the list carries: a
-// pathless or foreign-root error beside it does not make the write unwritten.
-// The one thing that overrides it is an error on the write field itself (a path
-// that stops at disposeAgentTaskFinding): the write was refused, which keeps
-// its typed mapping. A list with no such descendant error (empty, pathless
-// validation refusals, foreign roots) is not this class. Gateway and transport
-// failures are classified earlier, by the transport layer, with their own
-// may-have-been-applied advice.
+// readbackFieldFailed reports the unconfirmed-write class: a GraphQL error whose
+// path runs through disposeAgentTaskFinding (the write field itself, or the
+// receipt fields id, findingDisposition and anything beneath them) that is not
+// a typed refusal of the write. A path names the field that failed; it does not
+// say the transaction rolled back, so only a typed refusal code
+// (isWriteRefusal) shows the write did not happen, and it wins over everything
+// else in the list. Whatever else the list carries (pathless or foreign-root
+// errors) does not change the class, at any HTTP status. An empty list, pathless
+// validation refusals and foreign roots are not this class. Gateway and
+// transport failures are classified earlier, by the transport layer, with their
+// own may-have-been-applied advice.
 func readbackFieldFailed(err error) bool {
 	list, _ := gqlErrorsOf(err)
-	descendant := false
+	unconfirmed := false
 	for _, e := range list {
 		if e == nil {
 			continue
@@ -362,14 +361,14 @@ func readbackFieldFailed(err error) bool {
 		if isWriteRefusal(e) {
 			return false // the write was refused: typed mapping, handled first
 		}
-		if len(e.Path) < 2 {
-			continue
+		if len(e.Path) == 0 {
+			continue // pathless (a validation refusal before execution): not this class
 		}
 		if root, _ := e.Path[0].(ast.PathName); root == "disposeAgentTaskFinding" {
-			descendant = true
+			unconfirmed = true // the write field or a field beneath it, without a typed refusal code
 		}
 	}
-	return descendant
+	return unconfirmed
 }
 
 // validFindingReadback reports whether the targeted readback can be shown as the
