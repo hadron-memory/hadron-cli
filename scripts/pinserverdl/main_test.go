@@ -31,6 +31,7 @@ package pinserverdl
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"os"
 	"os/exec"
@@ -42,7 +43,7 @@ import (
 
 // tokenValue is the fake credential handed to the script under test. If the
 // scrub regresses, this exact string shows up in the stubs' environment dumps.
-const tokenValue = "SECRETTOKEN-jill-p2"
+const tokenValue = "SECRETTOKEN-pin-verify-fixture"
 
 // stubExport is what the stub tsx prints as the "exported SDL". Its sha256 and
 // line count go into the fixture SOURCE and its bytes into the fixture
@@ -139,7 +140,7 @@ func fixtureServer(t *testing.T, tmp string) (repo, base, head string) {
 			t.Fatalf("write %s: %v", p, err)
 		}
 	}
-	identity := []string{"-c", "user.name=pin", "-c", "user.email=pin@example.invalid"}
+	identity := []string{"-c", "user.name=pin", "-c", "user.email=pin@example.invalid", "-c", "commit.gpgsign=false"}
 	write("scripts/export-graphql-sdl.mjs", "// fixture exporter\n")
 	write("src/api/graphql/schema/typeDefs.ts", "fixture SDL\n")
 	git(t, work, append(identity, "add", "-A")...)
@@ -169,7 +170,15 @@ func envHas(dump, name string) bool {
 	return false
 }
 
-func TestNpmNeverSeesTheFetchToken2696(t *testing.T) {
+// pinFixture is the fixture root the script runs from: its copy of the real
+// script and a SOURCE completed so --verify can end green, a local git origin,
+// the capture dir the stubs write to, and the dir shadowing npm on PATH.
+type pinFixture struct {
+	tmp, scriptPath, repo, capture, bin string
+}
+
+func newPinFixture(t *testing.T) pinFixture {
+	t.Helper()
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not on PATH")
 	}
@@ -217,14 +226,34 @@ func TestNpmNeverSeesTheFetchToken2696(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "schema", "schema.graphql"), []byte(stubExport), 0o644); err != nil {
 		t.Fatalf("write fixture snapshot: %v", err)
 	}
+	return pinFixture{tmp: tmp, scriptPath: scriptPath, repo: repo, capture: capture, bin: bin}
+}
 
-	// The stubs: npm records what it is called with and what its environment
-	// holds, then installs a tsx that records its environment. PIN_TEST_CAPTURE
-	// doubles as the canary proving the dumps are live.
+// verify runs the fixture script with --verify, the token set and the npm stub
+// first on PATH; t.TempDir removes the worktrees with everything else.
+func (f pinFixture) verify(t *testing.T, out string) (string, int) {
+	t.Helper()
+	return runScript(t, f.scriptPath, f.repo, out, true,
+		"PATH="+f.bin+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"HADRON_SERVER_FETCH_TOKEN="+tokenValue,
+		"PIN_TEST_CAPTURE="+f.capture,
+	)
+}
+
+// The stubs: npm records what it is called with and what its environment
+// holds, then installs a tsx that records its environment (or, with
+// npmFails, exits 1 without installing anything). PIN_TEST_CAPTURE doubles as
+// the canary proving the dumps are live.
+func writeNpmStub(t *testing.T, bin string, npmFails bool) {
+	t.Helper()
+	failure := ""
+	if npmFails {
+		failure = "exit 1\n"
+	}
 	npmStub := `#!/bin/sh
 env > "$PIN_TEST_CAPTURE/npm.env"
 printf '%s\n' "$*" > "$PIN_TEST_CAPTURE/npm.args"
-prefix=
+` + failure + `prefix=
 prev=
 for a in "$@"; do
   if [ "$prev" = "--prefix" ]; then prefix=$a; fi
@@ -241,16 +270,17 @@ chmod +x "$prefix/node_modules/.bin/tsx"
 	if err := os.WriteFile(filepath.Join(bin, "npm"), []byte(npmStub), 0o755); err != nil {
 		t.Fatalf("write npm stub: %v", err)
 	}
+}
 
-	out := filepath.Join(tmp, "verify-out")
-	log, code := runScript(t, scriptPath, repo, out, true,
-		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
-		"HADRON_SERVER_FETCH_TOKEN="+tokenValue,
-		"PIN_TEST_CAPTURE="+capture,
-	)
+func TestNpmNeverSeesTheFetchToken2696(t *testing.T) {
+	f := newPinFixture(t)
+	writeNpmStub(t, f.bin, false)
+	out := filepath.Join(f.tmp, "verify-out")
+	log, code := f.verify(t, out)
 	if code != 0 {
-		t.Fatalf("verify run failed (%d):\n%s", code, log)
+		t.Fatalf("verify run failed (%d):\n%s", code, redact(log))
 	}
+	capture := f.capture
 
 	npmEnv := readFile(t, filepath.Join(capture, "npm.env"))
 	tsxEnv := readFile(t, filepath.Join(capture, "tsx.env"))
@@ -258,17 +288,31 @@ chmod +x "$prefix/node_modules/.bin/tsx"
 
 	// The canary first: an empty or stale dump must not read as "absent".
 	if !envHas(npmEnv, "PIN_TEST_CAPTURE") || !envHas(tsxEnv, "PIN_TEST_CAPTURE") {
-		t.Fatalf("stub environment dumps are not live (canary missing):\nnpm:\n%s\ntsx:\n%s", npmEnv, tsxEnv)
+		t.Fatalf("stub environment dumps are not live (canary missing):\nnpm:\n%s\ntsx:\n%s", redact(npmEnv), redact(tsxEnv))
 	}
 	for _, dump := range []struct{ who, body string }{
 		{"npm", npmEnv},
 		{"tsx", tsxEnv},
 	} {
 		if envHas(dump.body, "HADRON_SERVER_FETCH_TOKEN") {
-			t.Errorf("P2 regression: %s ran with HADRON_SERVER_FETCH_TOKEN in its environment:\n%s", dump.who, dump.body)
+			t.Errorf("P2 regression: %s ran with HADRON_SERVER_FETCH_TOKEN in its environment:\n%s", dump.who, redact(dump.body))
 		}
 		if envHas(dump.body, "GIT_CONFIG_VALUE_0") {
-			t.Errorf("derived auth header leaked to %s:\n%s", dump.who, dump.body)
+			t.Errorf("derived auth header leaked to %s:\n%s", dump.who, redact(dump.body))
+		}
+	}
+	// The token must not survive under ANOTHER name either (a re-export, a
+	// renamed variable): its value, and the base64 of the header the script
+	// derives from it, appear nowhere in what either stub saw.
+	encoded := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + tokenValue))
+	for _, dump := range []struct{ who, body string }{{"npm", npmEnv}, {"tsx", tsxEnv}} {
+		for _, secret := range []struct{ what, val string }{
+			{"token value", tokenValue},
+			{"base64 of its auth header", encoded},
+		} {
+			if strings.Contains(dump.body, secret.val) {
+				t.Errorf("P2 regression: the %s reached %s's environment under some name:\n%s", secret.what, dump.who, redact(dump.body))
+			}
 		}
 	}
 	if !strings.Contains(npmArgs, "--ignore-scripts") {
@@ -279,13 +323,48 @@ chmod +x "$prefix/node_modules/.bin/tsx"
 	if _, err := os.Lstat(filepath.Join(out, "node_modules")); err == nil {
 		t.Errorf("worktree kept a node_modules entry after a green verify")
 	}
+}
 
-	t.Cleanup(func() {
-		for _, wt := range []string{probeOut, out} {
-			_ = exec.Command("git", "-C", repo, "worktree", "remove", "--force", wt).Run()
-		}
-		_ = exec.Command("git", "-C", repo, "worktree", "prune").Run()
-	})
+// A failing npm install must stop the run with a nonzero exit and a message that
+// says where the scratch dir is kept, take the worktree down with it (the exit
+// trap), and still never print the credential.
+func TestNpmInstallFailureCleansUpAndStaysQuiet2712(t *testing.T) {
+	f := newPinFixture(t)
+	writeNpmStub(t, f.bin, true)
+	out := filepath.Join(f.tmp, "verify-out")
+	log, code := f.verify(t, out)
+	if code != 1 {
+		t.Fatalf("a failing npm install exited %d, want 1:\n%s", code, redact(log))
+	}
+	if !strings.Contains(log, "npm install failed") {
+		t.Errorf("the failure did not say the install failed:\n%s", redact(log))
+	}
+	if _, err := os.Lstat(out); !os.IsNotExist(err) {
+		t.Errorf("the worktree %s was left behind after the failed install (Lstat: %v)", out, err)
+	}
+	if !strings.Contains(log, "scratch dir is kept for inspection at ") {
+		t.Errorf("the failure did not say where the scratch dir is kept:\n%s", redact(log))
+	}
+	if strings.Contains(log, base64.StdEncoding.EncodeToString([]byte("x-access-token:"+tokenValue))) {
+		t.Errorf("the failure output leaked the derived authorization value (log withheld)")
+	}
+	// Report detection WITHOUT printing the log: a failure message that
+	// echoed the leaked secret would leak it into the test output too.
+	if strings.Contains(log, tokenValue) {
+		t.Errorf("the failure output leaked the token (log withheld)")
+	}
+	// The failed run unregisters its worktree, so the same path is reusable.
+	if wts := git(t, f.repo, "worktree", "list", "--porcelain"); strings.Contains(wts, out) {
+		t.Errorf("the failed run left %s registered:\n%s", out, wts)
+	}
+}
+
+// redact blanks both credential forms out of a captured log before a failure
+// message prints it: a message that echoed a leaked secret would leak it into
+// the test output too.
+func redact(log string) string {
+	enc := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + tokenValue))
+	return strings.NewReplacer(tokenValue, "[REDACTED]", enc, "[REDACTED]").Replace(log)
 }
 
 func readFile(t *testing.T, p string) string {
