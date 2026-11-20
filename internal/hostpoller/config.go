@@ -355,8 +355,10 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 	// reload read a different file. Joined with a slash, not cleaned: ".."
 	// after a symlink goes to the link target's parent, not the written
 	// path's lexical parent, so both the reload read and the trust walk must
-	// follow the kernel, not filepath.Clean (cli#2668). A Getwd failure keeps
-	// the path as given, as before.
+	// follow the kernel, not filepath.Clean (cli#2668). The slash is a legal
+	// separator on both kernels — Windows path handling accepts it — and the
+	// Windows reload check is a no-op, so the written form survives unchanged
+	// there too. A Getwd failure keeps the path as given, as before.
 	if !filepath.IsAbs(path) {
 		if wd, err := os.Getwd(); err == nil {
 			path = wd + "/" + path

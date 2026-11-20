@@ -114,6 +114,29 @@ func TestAMissingPathIsStillSkipped2668(t *testing.T) {
 	}
 }
 
+// A path a component of which is a regular file (ENOTDIR) cannot be resolved
+// by anyone, so it is judged like a missing path — as far as it exists — and
+// not refused as unjudgeable: ENOTDIR is not fs.ErrNotExist in Go's mapping,
+// so it is named explicitly (cli#2673 review F2).
+func TestAPathThroughARegularFileIsJudgedAsMissing2668(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	// A regular file where a directory would need to be: the changed launch
+	// program names a path through it, absolute so the relative refusal
+	// (another arm) does not fire first.
+	if err := os.WriteFile(filepath.Join(fx.dir, "blocker"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	blocked := fx.dir + "/blocker/prog" // by concatenation: filepath.Join would clean
+	fx.edit(strings.Replace(reloadBase, "[claude-worker]", "["+blocked+"]", 1))
+	if ev := fx.kinds("config-reload-refused"); len(ev) != 0 {
+		t.Fatalf("a path through a regular file must be judged as missing, not refused, got %+v", ev)
+	}
+	if w, _ := fx.p.config().Worker("iris"); w.Launch[0] != blocked {
+		t.Fatalf("the reload must apply the entry (it fails at use, as before), got %v", w.Launch)
+	}
+}
+
 // ---- item 4: a relative launch, end or recover program refuses the reload ----
 
 // A program the changed entries name as a relative path (a slash, not
@@ -165,6 +188,27 @@ func TestARelativeProgramIsRefusedEvenWhereItResolves2668(t *testing.T) {
 	}
 }
 
+// The relative refusal covers the account program too: it is argv[0] of the
+// worker's command (LaunchArgv), run from the worker's directory like launch,
+// end and recover. An account a worker references has its form checked at
+// load (validateOrcaWorker refuses it before the walk runs), but an account
+// no worker references is not validated — its program is still named by the
+// changed entries, so a relative bin is refused on reload naming it (cli#2673
+// review F1).
+func TestARelativeAccountProgramIsRefusedOnReload2668(t *testing.T) {
+	start := reloadBase + "account_profiles:\n  spare: {bin: /usr/bin/spare-claude}\n"
+	fx := newReloadFixtureFrom(t, start)
+	fx.step()
+	fx.edit(reloadBase + "account_profiles:\n  spare: {bin: ./sub/tool}\n")
+	ev := fx.kinds("config-reload-refused")
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "./sub/tool") || !strings.Contains(ev[0].Detail, "relative path") {
+		t.Fatalf("want one refusal naming ./sub/tool as a relative path, got %+v", ev)
+	}
+	if a, ok := fx.p.config().Accounts["spare"]; !ok || a.Bin != "/usr/bin/spare-claude" {
+		t.Fatalf("a reload naming a relative account program was applied: %+v", a)
+	}
+}
+
 // An absolute program is judged where it points, as before, and a clean one is
 // accepted.
 func TestACleanAbsoluteProgramIsStillAcceptedOnReload2668(t *testing.T) {
@@ -180,6 +224,27 @@ func TestACleanAbsoluteProgramIsStillAcceptedOnReload2668(t *testing.T) {
 	}
 	if w, _ := fx.p.config().Worker("iris"); w.Launch[0] != prog {
 		t.Fatalf("the clean absolute program was not applied: %v", w.Launch)
+	}
+}
+
+// The refusal separates program names from directory names in namedFiles: a
+// relative disk_tmp a changed worker names is a directory, judged by the
+// directory rules (missing here, so skipped), not refused as a relative
+// program — the slash in it is what tells the two apart, so the pin uses one
+// (cli#2668 gate point 1; kills the directories-as-programs mutant).
+func TestARelativeDiskTmpIsNotRefusedAsAProgram2668(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	// The relative directory resolves against the process's working
+	// directory, so pin it to the fixture's own (tight) directory: judged on
+	// its merits, not on whatever mode the checkout happens to carry.
+	t.Chdir(fx.dir)
+	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [claude-worker]\n    disk_tmp: sub/tmp\n")
+	if ev := fx.kinds("config-reload-refused"); len(ev) != 0 {
+		t.Fatalf("a relative disk_tmp must not be refused as a relative program, got %+v", ev)
+	}
+	if w, _ := fx.p.config().Worker("billie"); w.DiskTmp != "sub/tmp" {
+		t.Fatalf("the reload must apply the relative disk_tmp as written, got %q", w.DiskTmp)
 	}
 }
 
@@ -281,6 +346,14 @@ func TestTheTrustWalkJudgesTheKernelDirectoriesOfTheConfigPath2668(t *testing.T)
 	ev := fx.kinds("config-reload-refused")
 	if len(ev) != 1 || !strings.Contains(ev[0].Detail, real) || !strings.Contains(ev[0].Detail, "writable by group or others") {
 		t.Fatalf("want one refusal naming %q, got %+v", real, ev)
+	}
+	// The refusal names the kernel-visited directory only: the lexical parent
+	// of the written path (root, Dir of root/link/../host.yaml after cleaning)
+	// is tight, so it must not appear as the refused directory — if a rewrite
+	// ever judges lexically, this is the confusion it would make (cli#2673
+	// review F7).
+	if strings.Contains(ev[0].Detail, "the directory "+root+" on the path") {
+		t.Fatalf("the refusal names the lexical parent %q as the refused directory: %s", root, ev[0].Detail)
 	}
 	if _, ok := fx.p.config().Worker("billie"); ok {
 		t.Fatal("a reload through a loose kernel-visited directory was applied")

@@ -3,6 +3,7 @@
 package hostpoller
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -64,6 +65,16 @@ func trustedChain(path, what string) error {
 // variable so a test can show what happens when a path cannot be stat'ed.
 var statPath = os.Stat
 
+// unresolved reports a lookup error for a path that is not all there: it is
+// missing, or a component of it is a regular file (ENOTDIR). Neither names a
+// file anyone could run or write, so both are judged like a missing path — as
+// far as the path exists — and not refused as unjudgeable. ENOTDIR is not
+// fs.ErrNotExist in Go's mapping (os.IsNotExist and errors.Is both return
+// false for it), so it is named explicitly (cli#2673 review F2).
+func unresolved(err error) bool {
+	return os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR)
+}
+
 // cannotJudge refuses a path the walk could not read: a reload runs what the
 // entries name on the next poll, so an unreadable path — unlike a missing
 // one, judged as far as it exists — cannot be judged part-way (cli#2668).
@@ -74,7 +85,7 @@ func cannotJudge(what, path string, err error) error {
 func trustedPath(path, what string) error {
 	info, err := statPath(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if unresolved(err) {
 			return nil
 		}
 		return cannotJudge(what, path, err)
@@ -99,7 +110,7 @@ func trustedAncestors(path, what string) error {
 	for _, d := range dirs {
 		info, err := statPath(d)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if unresolved(err) {
 				continue
 			}
 			return cannotJudge(what, path, err)
@@ -115,7 +126,7 @@ func trustedAncestors(path, what string) error {
 	for _, l := range links {
 		info, err := lstatLink(l)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if unresolved(err) {
 				continue
 			}
 			return cannotJudge(what, path, err)
@@ -192,7 +203,7 @@ func visitedDirs(path string) (dirs, links []string, err error) {
 		next := filepath.Join(cur, c)
 		fi, err := os.Lstat(next)
 		if err != nil {
-			if !os.IsNotExist(err) {
+			if !unresolved(err) {
 				return dirs, links, err // cannot be judged: refuse, do not skip
 			}
 			cur = next

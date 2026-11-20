@@ -551,7 +551,7 @@ changed entry names (launch, end and recover programs, account programs, repo
 clones, codex_home, claude_config_dir, disk_tmp), and every directory above
 them and above the file, must be owned by the poller's user (or root) and not
 writable by group or others (a sticky directory such as /tmp is accepted above
-them), or the reload is refused. A launch, end or recover
+them), or the reload is refused. A launch, end, recover or account
 program named as a relative path (with a slash) is refused on reload: it is
 run from the worker's directory, which the check cannot judge — use an
 absolute path or a bare name, or restart the poller. The check stops other
