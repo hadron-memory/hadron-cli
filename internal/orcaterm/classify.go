@@ -186,10 +186,12 @@ func LastTurnAt(sc *Screen, family string, now time.Time) *time.Time {
 const usageLimitWindow = 8
 
 var (
-	// Anchored to the banner shape the harness prints, "429 Usage limit reached"
-	// (a capture from the cli#2676 report), so a transcript that merely says
-	// "usage limit reached" does not hold an idle agent.
-	usageLimitLine = regexp.MustCompile(`(?i)\b429 usage limit reached`)
+	// The phrase alone is not the banner: a transcript that merely says "usage
+	// limit reached" must not hold an idle agent. A line counts when the phrase
+	// carries the banner's "429" prefix or its reset clause (the line captured
+	// in the cli#2676 report has both), so a variant without one still reads.
+	usageLimitPhrase = regexp.MustCompile(`(?i)usage limit reached`)
+	usageLimitLine   = regexp.MustCompile(`(?i)\b429 usage limit reached`)
 	// The reset time: "reset YYYY-MM-DD HH:MM:SS", then an optional "(UTC+8)",
 	// "(UTC-5)" or "(UTC+5:30)".
 	usageLimitReset = regexp.MustCompile(`(?i)\breset (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?: \(UTC(?:([+-])(\d{1,2})(?::?(\d{2}))?)?\))?`)
@@ -208,10 +210,10 @@ func usageLimit(tail []string, now time.Time) (limited bool, resetAt *time.Time,
 			continue
 		}
 		seen++
-		if !usageLimitLine.MatchString(s) {
+		m := usageLimitReset.FindStringSubmatch(s)
+		if !usageLimitPhrase.MatchString(s) || (!usageLimitLine.MatchString(s) && m == nil) {
 			continue
 		}
-		m := usageLimitReset.FindStringSubmatch(s)
 		if m == nil {
 			return true, nil, false
 		}
@@ -240,6 +242,11 @@ func usageLimit(tail []string, now time.Time) (limited bool, resetAt *time.Time,
 			return true, nil, false
 		}
 		u := at.UTC()
+		// A reset already past means the limit is lifted: a banner left in the
+		// scrollback must not hold the agent's new turn.
+		if !u.After(now) {
+			return false, nil, false
+		}
 		return true, &u, assumed
 	}
 	return false, nil, false

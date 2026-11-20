@@ -122,3 +122,26 @@ func TestClassifyUsageLimitOffsetEdges2676(t *testing.T) {
 		t.Fatalf("(utc) must read as UTC, not assumed local: %v %v", got.ResetAt, got.ResetAssumedLocal)
 	}
 }
+
+// A variant without the 429 prefix still reads when it carries the reset
+// clause; a bare phrase without either does not.
+func TestClassifyUsageLimitResetClauseAnchorsWithout429Prefix2676(t *testing.T) {
+	v := []string{"Usage limit reached for 5 hour ... reset 2026-11-20 16:45:32 (UTC+8)"}
+	if got := Classify(agent("claude"), fix(v), now); got.Reason != ts.RateLimited || got.ResetAt == nil {
+		t.Fatalf("a banner with a reset clause but no 429 must read: %s/%q", got.Status, got.Reason)
+	}
+}
+
+// An unexpired banner outranks a drawn, empty composer; once the reset time
+// has passed the stale banner no longer holds the agent (its turn runs).
+func TestClassifyUsageLimitExpiryAndComposer2676(t *testing.T) {
+	tail := []string{"⏺ Working", glmLimit, rule, "❯ ", rule, claudeHint}
+	before := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	after := time.Date(2026, 11, 20, 9, 0, 0, 0, time.UTC)
+	if got := Classify(agent("claude"), fix(tail), before); got.Reason != ts.RateLimited {
+		t.Fatalf("before the reset the banner holds: %s/%q", got.Status, got.Reason)
+	}
+	if got := Classify(agent("claude"), fix(tail), after); got.Reason == ts.RateLimited {
+		t.Fatalf("after the reset a stale banner must not hold: %s/%q", got.Status, got.Reason)
+	}
+}
