@@ -3877,8 +3877,12 @@ server error fails the command).
   exit 2, rather than falling back to it). It is monotonic — a lower seq
   changes nothing and says so — and a seq past the Channel's head exits 2
   (`SEQ_BEYOND_WATERMARK`). It needs a binding that records this server (exit 2
-  without one), and the server accepts only your own live session. `--json`: `{workerId, channelId,
-  through, lastSeenSeq}`.
+  without one), and the server accepts only your own live session. On the App's
+  team chat (no `--channel`) a successful mark also moves the binding's local
+  read hint, the watermark `session log` compares against, up to `--through`
+  (cli#1854): never backwards, never for `--through 0`, and not when the server
+  refuses the mark; a named `--channel` leaves it alone. `--json`: `{workerId, channelId,
+  through, lastSeenSeq}` (unchanged).
 - `user search <query>` finds users (enumeration-safe: substring on handle /
   GitHub username, exact on email) — the way to resolve a user ID for `org
   member`/`memory member`/`memory share`. **Omit the query** (also spelled `user
