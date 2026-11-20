@@ -387,3 +387,78 @@ func TestEmailAmbiguousSendIsOutcomeUnknown198(t *testing.T) {
 		}
 	}
 }
+
+// An absent answer ({"data":{}}) to any effect is NOT a success: it reads as not
+// confirmed (exit 7), exactly like a false, and prints no ok:true.
+func TestEmailEffectsAbsentAnswerIsNotConfirmed198(t *testing.T) {
+	for _, e := range effects198(t) {
+		t.Run(e.name, func(t *testing.T) {
+			out, _, n, err := runEffect198(t, map[string]string{e.op: `{"data":{}}`}, "", append(e.args, "--json")...)
+			if exitCodeFor(err) != 7 || n != 1 {
+				t.Fatalf("exit %d (%v) with %d requests; want exit 7 and one request", exitCodeFor(err), err, n)
+			}
+			if strings.Contains(out, `"ok": true`) {
+				t.Errorf("an absent answer printed ok:true: %s", out)
+			}
+		})
+	}
+}
+
+// runEffectTTY198 runs a command on an interactive terminal that answers with the
+// given lines.
+func runEffectTTY198(t *testing.T, responses map[string]string, answers string, args ...string) (stderr string, n int, ops map[string]json.RawMessage, err error) {
+	t.Helper()
+	requests198.Store(0)
+	srv, ops := captureGraphQL(t, responses)
+	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			requests198.Add(1)
+		}
+		proxyTo198(t, w, r, srv.URL)
+	}))
+	t.Cleanup(counter.Close)
+	f, _, errOut := testFactoryTTY(t, answers)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"email"}, args...), "--server", counter.URL))
+	err = root.Execute()
+	return errOut.String(), int(requests198.Load()), ops, err
+}
+
+// The prompts of reply, draft send and delete show the id made visible, never raw
+// (a control-bearing id could clear the screen or forge a prompt line), while the
+// id SENT is unchanged; y sends exactly one request and anything else sends none.
+func TestEmailEffectPromptsAreSafeAndAnswered198(t *testing.T) {
+	evil := "id\x1b[2J\nforged: send it? (y/N)"
+	body := bodyFile198(t, "x")
+	for _, tc := range []struct {
+		name, op, field, varName string
+		args                     []string
+	}{
+		{"reply", "EmailReply", "exchangeReply", "messageId", []string{"reply", evil, "--connection", "c", "--body-file", body}},
+		{"draft send", "EmailSendDraft", "emailSendDraft", "draftId", []string{"draft", "send", evil, "--connection", "c"}},
+		{"delete", "EmailDeleteMessage", "emailDeleteMessage", "messageId", []string{"delete", evil, "--connection", "c"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := map[string]string{tc.op: boolResp198(tc.field, ok198)}
+			stderr, n, _, err := runEffectTTY198(t, resp, "n\n", tc.args...)
+			if err == nil || n != 0 {
+				t.Fatalf("declining must send nothing: err %v, %d requests", err, n)
+			}
+			if strings.ContainsRune(stderr, '\x1b') || strings.Contains(stderr, "\nforged:") {
+				t.Errorf("a control-bearing id reached the terminal raw:\n%q", stderr)
+			}
+			_, n, ops, err := runEffectTTY198(t, resp, "y\n", tc.args...)
+			if err != nil || n != 1 {
+				t.Fatalf("accepting must send exactly one request: err %v, %d requests", err, n)
+			}
+			if got := vars198(t, ops, tc.op)[tc.varName]; got != evil {
+				t.Errorf("the id sent was changed: %q", got)
+			}
+			for _, ans := range []string{"\n", "no\n", ""} {
+				if _, n, _, err := runEffectTTY198(t, resp, ans, tc.args...); err == nil || n != 0 {
+					t.Errorf("answer %q: err %v, %d requests; anything but y/yes sends nothing", ans, err, n)
+				}
+			}
+		})
+	}
+}
