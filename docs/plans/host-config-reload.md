@@ -36,12 +36,25 @@ A comment-only edit updates the recorded hash and logs nothing.
 
 **Trust.** Hot reload turns "whoever can write this file" into "whoever can
 make the poller run a command on the next poll", so it is held to more than a
-restart. The configuration file, and each program or directory a *changed*
-entry names (the launch, end and recover programs of an added or changed
-worker; a changed account's program and `codex_home`; a worker's `codex_home`,
-`claude_config_dir` and `disk_tmp`, where an agent's settings and hooks live; a
-changed repo's clone), must belong to the poller's user or root and not be
-writable by group or others. So must every directory above each of them and
+restart.
+
+The configuration file is always judged. Of the entries, only those that
+changed are judged: an entry that is the same in the new file as in the
+running one is not judged again. For each worker that was added or whose entry
+changed: the first word of its `launch`, `end` and `recover` (when not blank),
+its `codex_home`, `claude_config_dir` and `disk_tmp`, and the program of the
+account its launcher profile names (even when that account itself did not
+change). For each account that was added or changed: its program (`bin`) and
+its `codex_home`. For each repo that was added or whose path changed: the new
+path. A worker that was removed names nothing to judge. A setting that is read
+only at start (key file, state file, `orca_launch`, `delivery`,
+`reset_context`, and the rest) is not judged, because it is not applied. A
+name with no slash is looked up on `PATH` and the program found is judged; a
+name that is not found is skipped (starting that worker fails on it as
+before).
+
+Each judged file and directory must belong to the poller's user or root and
+not be writable by group or others. So must every directory above each of them and
 above the file, up to `/`, unless it is sticky (like `/tmp`: others may add
 entries, not replace ours): someone who can write a directory on the way can
 replace what is below it without touching its mode. The config file is judged
@@ -56,17 +69,14 @@ itself belong to the poller's user or root, since a sticky directory (which the
 directory rule accepts) lets anyone add one and its owner chose where it
 leads. A path that does not exist yet is judged as far as it does; a path the
 walk cannot read for any other reason is refused, not skipped — it cannot be
-judged part-way. Bare program names are
-resolved through `PATH` and the program found is judged. Names that do not
-resolve are skipped (starting that worker fails on them as before). A launch,
-end or recover program given as a relative path (a slash, not absolute) is
-refused: it is run from the worker's directory, which the check cannot know —
-a worker can have several worktrees and the directory is picked when the
-operation runs — so judging it against the poller's directory would judge one
-file and run another. The configuration file is read and judged through the
-path as it was written at start, made absolute by joining the working
-directory but not cleaned, so a `..` after a symlink follows the kernel's
-directories on every reload as it did at start. Not
+judged part-way. A launch, end or recover program given as a relative path (a
+slash, not absolute) is refused: it is run from the worker's directory, which
+the check cannot know — a worker can have several worktrees and the directory
+is picked when the operation runs — so judging it against the poller's
+directory would judge one file and run another. The configuration file is read
+and judged through the path as it was written at start, made absolute by
+joining the working directory but not cleaned, so a `..` after a symlink
+follows the kernel's directories on every reload as it did at start. Not
 enforced on Windows, where a restart applies a change. A host whose config
 lives under a group-writable, non-sticky directory will see every reload
 refused until that is tightened.
@@ -83,7 +93,10 @@ process could not satisfy.
 (kept by worker id when the reload applies, forgotten if the worker comes
 back), and a `removed-worker-end` event says so: ending a session only
 de-escalates. Every other operation for it is reported failed "not configured
-on this host", and a recovery that would *start* an agent stays refused.
+on this host", and a recovery that would *start* an agent stays refused. A
+reload on the very first poll has no `workerRefs` yet (registration has not
+run), so a removed worker's id is not remembered; it only matters for an agent
+left from a previous poller process.
 
 ## Why this shape
 
@@ -115,6 +128,13 @@ on this host", and a recovery that would *start* an agent stays refused.
   `orca`, temp dirs, an httptest server; red on main). A help pin names the
   events and the rules.
 - `host_wakes_1178_test.go`: the `screen-unknown` hint, not on other holds.
+- `hostpoller/reload_followups_2653_test.go` and
+  `reset_removed_2653_test.go` (cli#2653): the profile-account program of a
+  changed worker though the account did not change, a `Readlink` failure on a
+  followed link (through the per-poller `trustWalk` seam, which also lets the
+  lstat-override test run in parallel), `noteRemoved` forgetting a worker that
+  came back, and both reset-handler arms for a worker a reload removed
+  mid-handler (the Git read) and after the checkpoint.
 
 ## Not done
 

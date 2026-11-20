@@ -95,7 +95,7 @@ func (p *Poller) reloadConfig() {
 	}
 	added, removed, modified := diffWorkers(c, next)
 	others := reloadableChanges(c, next, "Workers")
-	if err := checkReloadTrust(c, next, path, info, append(append([]string{}, added...), modified...)); err != nil {
+	if err := checkReloadTrust(p.trust, c, next, path, info, append(append([]string{}, added...), modified...)); err != nil {
 		p.reloadRefused(sum, err.Error())
 		return
 	}
