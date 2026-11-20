@@ -52146,6 +52146,139 @@ func (v *DiscoveryScopeFields) GetMemoryUrns() []string { return v.MemoryUrns }
 // GetDroppedCount returns DiscoveryScopeFields.DroppedCount, and is useful for accessing the field via an interface.
 func (v *DiscoveryScopeFields) GetDroppedCount() int { return v.DroppedCount }
 
+// DriveCreateDocExportNodeToGoogleDocDriveFile includes the requested fields of the GraphQL type DriveFile.
+// The GraphQL type's documentation follows.
+//
+// A file or folder in the connected drive.
+type DriveCreateDocExportNodeToGoogleDocDriveFile struct {
+	DriveReadFile `json:"-"`
+}
+
+// GetId returns DriveCreateDocExportNodeToGoogleDocDriveFile.Id, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetId() string { return v.DriveReadFile.Id }
+
+// GetName returns DriveCreateDocExportNodeToGoogleDocDriveFile.Name, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetName() string { return v.DriveReadFile.Name }
+
+// GetKind returns DriveCreateDocExportNodeToGoogleDocDriveFile.Kind, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetKind() DriveFileKind {
+	return v.DriveReadFile.Kind
+}
+
+// GetMimeType returns DriveCreateDocExportNodeToGoogleDocDriveFile.MimeType, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetMimeType() string {
+	return v.DriveReadFile.MimeType
+}
+
+// GetParents returns DriveCreateDocExportNodeToGoogleDocDriveFile.Parents, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetParents() []string {
+	return v.DriveReadFile.Parents
+}
+
+// GetSize returns DriveCreateDocExportNodeToGoogleDocDriveFile.Size, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetSize() *float64 {
+	return v.DriveReadFile.Size
+}
+
+// GetCreatedAt returns DriveCreateDocExportNodeToGoogleDocDriveFile.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetCreatedAt() *string {
+	return v.DriveReadFile.CreatedAt
+}
+
+// GetModifiedAt returns DriveCreateDocExportNodeToGoogleDocDriveFile.ModifiedAt, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetModifiedAt() *string {
+	return v.DriveReadFile.ModifiedAt
+}
+
+// GetWebLink returns DriveCreateDocExportNodeToGoogleDocDriveFile.WebLink, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) GetWebLink() *string {
+	return v.DriveReadFile.WebLink
+}
+
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*DriveCreateDocExportNodeToGoogleDocDriveFile
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.DriveCreateDocExportNodeToGoogleDocDriveFile = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DriveReadFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalDriveCreateDocExportNodeToGoogleDocDriveFile struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Kind DriveFileKind `json:"kind"`
+
+	MimeType string `json:"mimeType"`
+
+	Parents []string `json:"parents"`
+
+	Size *float64 `json:"size"`
+
+	CreatedAt *string `json:"createdAt"`
+
+	ModifiedAt *string `json:"modifiedAt"`
+
+	WebLink *string `json:"webLink"`
+}
+
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *DriveCreateDocExportNodeToGoogleDocDriveFile) __premarshalJSON() (*__premarshalDriveCreateDocExportNodeToGoogleDocDriveFile, error) {
+	var retval __premarshalDriveCreateDocExportNodeToGoogleDocDriveFile
+
+	retval.Id = v.DriveReadFile.Id
+	retval.Name = v.DriveReadFile.Name
+	retval.Kind = v.DriveReadFile.Kind
+	retval.MimeType = v.DriveReadFile.MimeType
+	retval.Parents = v.DriveReadFile.Parents
+	retval.Size = v.DriveReadFile.Size
+	retval.CreatedAt = v.DriveReadFile.CreatedAt
+	retval.ModifiedAt = v.DriveReadFile.ModifiedAt
+	retval.WebLink = v.DriveReadFile.WebLink
+	return &retval, nil
+}
+
+// DriveCreateDocResponse is returned by DriveCreateDoc on success.
+type DriveCreateDocResponse struct {
+	// Export a node's markdown as a NEW Google Doc in the connected drive
+	// (nodeRef is a PK or fully-qualified URN; title defaults to the node
+	// name; folderId defaults to the drive root). Always creates — the drive
+	// tool's scope cannot edit existing files, and no update surface exists.
+	// Owner-only: no grant scope maps to doc creation (fail-closed for
+	// App/headless callers).
+	ExportNodeToGoogleDoc *DriveCreateDocExportNodeToGoogleDocDriveFile `json:"exportNodeToGoogleDoc"`
+}
+
+// GetExportNodeToGoogleDoc returns DriveCreateDocResponse.ExportNodeToGoogleDoc, and is useful for accessing the field via an interface.
+func (v *DriveCreateDocResponse) GetExportNodeToGoogleDoc() *DriveCreateDocExportNodeToGoogleDocDriveFile {
+	return v.ExportNodeToGoogleDoc
+}
+
 // DriveExportDriveFileExport includes the requested fields of the GraphQL type DriveFileExport.
 // The GraphQL type's documentation follows.
 //
@@ -131063,6 +131196,26 @@ func (v *__DeliveryBatchesInput) GetFirst() int { return v.First }
 // GetAfter returns __DeliveryBatchesInput.After, and is useful for accessing the field via an interface.
 func (v *__DeliveryBatchesInput) GetAfter() *string { return v.After }
 
+// __DriveCreateDocInput is used internally by genqlient
+type __DriveCreateDocInput struct {
+	ConnectionRef string  `json:"connectionRef"`
+	NodeRef       string  `json:"nodeRef"`
+	FolderId      *string `json:"folderId,omitempty"`
+	Title         *string `json:"title,omitempty"`
+}
+
+// GetConnectionRef returns __DriveCreateDocInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__DriveCreateDocInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetNodeRef returns __DriveCreateDocInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__DriveCreateDocInput) GetNodeRef() string { return v.NodeRef }
+
+// GetFolderId returns __DriveCreateDocInput.FolderId, and is useful for accessing the field via an interface.
+func (v *__DriveCreateDocInput) GetFolderId() *string { return v.FolderId }
+
+// GetTitle returns __DriveCreateDocInput.Title, and is useful for accessing the field via an interface.
+func (v *__DriveCreateDocInput) GetTitle() *string { return v.Title }
+
 // __DriveExportInput is used internally by genqlient
 type __DriveExportInput struct {
 	ConnectionRef string             `json:"connectionRef"`
@@ -158996,6 +159149,57 @@ func DeliveryBatches(
 	}
 
 	data_ = &DeliveryBatchesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DriveCreateDoc.
+const DriveCreateDoc_Operation = `
+mutation DriveCreateDoc ($connectionRef: ID!, $nodeRef: ID!, $folderId: ID, $title: String) {
+	exportNodeToGoogleDoc(connectionRef: $connectionRef, nodeRef: $nodeRef, folderId: $folderId, title: $title) {
+		... DriveReadFile
+	}
+}
+fragment DriveReadFile on DriveFile {
+	id
+	name
+	kind
+	mimeType
+	parents
+	size
+	createdAt
+	modifiedAt
+	webLink
+}
+`
+
+func DriveCreateDoc(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	nodeRef string,
+	folderId *string,
+	title *string,
+) (data_ *DriveCreateDocResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DriveCreateDoc",
+		Query:  DriveCreateDoc_Operation,
+		Variables: &__DriveCreateDocInput{
+			ConnectionRef: connectionRef,
+			NodeRef:       nodeRef,
+			FolderId:      folderId,
+			Title:         title,
+		},
+	}
+
+	data_ = &DriveCreateDocResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
