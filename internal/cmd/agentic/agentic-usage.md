@@ -5212,7 +5212,8 @@ confirmed". A missing or blank `--connection` or id exits 2 with no request.
   body (reply, draft save, draft update) never prints the server's error MESSAGE (it can quote the
   body whole, in part or escaped): it prints its own words plus the server's error CODE when that is
   a recognised protocol code (an allowlist: an unknown or body-derived code is dropped, in the message
-  and in the --json serverCode). A save
+  and in the --json serverCode). An HTTP answer with no GraphQL errors (a proxy or non-conforming
+  server body) prints only "the server answered HTTP NNN with no usable error", never its body. A save
   result whose draftId or conversationId IS the submitted body is exit 7 (no substitute id); a valid
   id that merely contains a short body is printed intact. A body that is not valid UTF-8, over
   1 MiB, or `--body-file -` on an interactive terminal exits 2 with no request. There is no idempotency key on reply.

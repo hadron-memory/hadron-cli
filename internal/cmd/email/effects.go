@@ -127,6 +127,12 @@ func bodyFailure(err error, send bool, where string) error {
 		if send {
 			return sendFailure(err, where)
 		}
+		// An HTTP answer with no GraphQL errors can still carry the body in its JSON
+		// (data, extensions) or its text: print the status, never the body.
+		var httpErr *graphql.HTTPError
+		if errors.As(err, &httpErr) {
+			return exitcode.Newf(exitcode.FromError(api.MapError(err)), "the server answered HTTP %d with no usable error; its body is withheld because this command submits a message body", httpErr.StatusCode)
+		}
 		return api.MapError(err)
 	}
 	mapped := api.MapError(err)
