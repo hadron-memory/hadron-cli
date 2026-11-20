@@ -140,7 +140,7 @@ func TestAgentAIConfigClearConfirmsThenSendsOneCall(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := wantOneOp(t, calls, "ClearAgentAIConfig")
-	if v["agentId"] != "hrn:agent:acme.com:support-bot" {
+	if v["agentRef"] != "hrn:agent:acme.com:support-bot" {
 		t.Fatalf("the ref must be sent as typed: %v", v)
 	}
 	if !strings.Contains(out, "Support Bot") {

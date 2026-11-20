@@ -27,8 +27,8 @@ mutation RemoveAgentImport($parentAgentRef: ID!, $importedAgentRef: ID!) {
   removeAgentImport(parentAgentRef: $parentAgentRef, importedAgentRef: $importedAgentRef)
 }
 
-mutation ClearAgentAIConfig($agentId: ID!) {
-  clearAgentAIConfig(agentId: $agentId) {
+mutation ClearAgentAIConfig($agentRef: ID!) {
+  clearAgentAIConfig(agentRef: $agentRef) {
     ...AgentFields
   }
 }

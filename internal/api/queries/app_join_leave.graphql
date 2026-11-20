@@ -1,11 +1,11 @@
 # cli#1625 (joinApp / leaveApp coverage, #63): the signed-in user's own
-# membership doors. appId takes an App's ID or URN, passed through unchanged.
+# membership doors. appRef takes an App's ID or URN, passed through unchanged.
 
 # JoinAppPayload says nothing about whether this call created the row (the
 # server returns the existing row for an existing member), so the selection is
 # the row alone and nothing here lets the CLI claim "already a member".
-mutation JoinApp($appId: ID!) {
-  joinApp(appId: $appId) {
+mutation JoinApp($appRef: ID!) {
+  joinApp(appRef: $appRef) {
     appMember {
       appId
       role
@@ -26,8 +26,8 @@ mutation JoinApp($appId: ID!) {
 
 # Idempotent server-side (a no-op for a non-member). The user's personal memory
 # in the App is retained and re-attaches on a later join (cor:dmo:030:01).
-mutation LeaveApp($appId: ID!) {
-  leaveApp(appId: $appId) {
+mutation LeaveApp($appRef: ID!) {
+  leaveApp(appRef: $appRef) {
     appId
     userId
   }
@@ -35,8 +35,8 @@ mutation LeaveApp($appId: ID!) {
 
 # The holder's instruction claim (cor:dmo:050:12); a separate document so the
 # plain one above stays byte-for-byte unchanged.
-mutation LeaveAppInstructed($appId: ID!, $instruction: ActInstructionInput!) {
-  leaveApp(appId: $appId, instruction: $instruction) {
+mutation LeaveAppInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
+  leaveApp(appRef: $appRef, instruction: $instruction) {
     appId
     userId
   }

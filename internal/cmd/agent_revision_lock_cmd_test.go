@@ -49,7 +49,7 @@ func TestAgentRevisionCreateForwardsRefAndPrintsExactResult(t *testing.T) {
 		t.Fatalf("ops=%v (no publish/restore/list follow-up)", calls.ops)
 	}
 	v := calls.vars["CreateRevision"]
-	if v["agentId"] != " hrn:agent:acme.com:bot " || v["description"] != "before launch" {
+	if v["agentRef"] != " hrn:agent:acme.com:bot " || v["description"] != "before launch" {
 		t.Fatalf("vars=%v", v)
 	}
 	var dto map[string]any
@@ -81,7 +81,7 @@ func TestAgentLockAcquireStates(t *testing.T) {
 		calls, out, err := runAgentSub(t, map[string]string{
 			"AcquireEditorLock": `{"data":{"acquireEditorLock":{"locked":true,"lockedBy":"me","expiresAt":"2026-11-02T01:00:00Z"}}}`,
 		}, "lock", "acquire", "hrn:agent:acme.com:bot", "--json")
-		if err != nil || len(calls.ops) != 1 || calls.vars["AcquireEditorLock"]["agentId"] != "hrn:agent:acme.com:bot" {
+		if err != nil || len(calls.ops) != 1 || calls.vars["AcquireEditorLock"]["agentRef"] != "hrn:agent:acme.com:bot" {
 			t.Fatalf("err=%v ops=%v vars=%v", err, calls.ops, calls.vars)
 		}
 		if !strings.Contains(out, `"locked": true`) || !strings.Contains(out, "2026-11-02T01:00:00Z") {
@@ -116,7 +116,7 @@ func TestAgentLockAcquireStates(t *testing.T) {
 
 func TestAgentLockRelease(t *testing.T) {
 	calls, out, err := runAgentSub(t, map[string]string{"ReleaseEditorLock": `{"data":{"releaseEditorLock":true}}`}, "lock", "release", "agt1", "--json")
-	if err != nil || len(calls.ops) != 1 || calls.vars["ReleaseEditorLock"]["agentId"] != "agt1" || !strings.Contains(out, `"released": true`) {
+	if err != nil || len(calls.ops) != 1 || calls.vars["ReleaseEditorLock"]["agentRef"] != "agt1" || !strings.Contains(out, `"released": true`) {
 		t.Fatalf("err=%v ops=%v out=%s", err, calls.ops, out)
 	}
 	calls, out, err = runAgentSub(t, map[string]string{"ReleaseEditorLock": `{"data":{"releaseEditorLock":false}}`}, "lock", "release", "agt1", "--json")
@@ -172,7 +172,7 @@ func TestAgentRevisionPublishForwardsRefsAndLabelVerbatim(t *testing.T) {
 		t.Fatalf("ops=%v (one call, no follow-up)", calls.ops)
 	}
 	v := calls.vars["PublishRevision"]
-	if v["agentId"] != " hrn:agent:acme.com:bot " || v["revisionLoc"] != "revisions:draft-7" || v["versionLabel"] != "launch" {
+	if v["agentRef"] != " hrn:agent:acme.com:bot " || v["revisionLoc"] != "revisions:draft-7" || v["versionLabel"] != "launch" {
 		t.Fatalf("vars=%v", v)
 	}
 	var dto map[string]any
@@ -207,7 +207,7 @@ func TestAgentRevisionRestoreForwardsRefsAndPrintsExactResult(t *testing.T) {
 		t.Fatalf("ops=%v (one call, no re-create follow-up)", calls.ops)
 	}
 	v := calls.vars["RestoreRevision"]
-	if v["agentId"] != "hrn:agent:acme.com:bot" || v["revisionLoc"] != " revisions:draft-7 " {
+	if v["agentRef"] != "hrn:agent:acme.com:bot" || v["revisionLoc"] != " revisions:draft-7 " {
 		t.Fatalf("vars=%v (verbatim)", v)
 	}
 	var dto map[string]any
