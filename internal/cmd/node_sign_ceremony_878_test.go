@@ -590,3 +590,31 @@ func TestSigningCeremonyURL878CheckPathSigningOffNeverSaysUpgrade(t *testing.T) 
 		t.Errorf("a server that may simply be off must never get upgrade text: %q", err.Error())
 	}
 }
+
+// cli#2540: the neutralisation claim is "the same on both paths"; the format
+// character coverage above is the get path, so pin the list path too.
+func TestSigningRequestList878FormatCharactersAreNeutralised(t *testing.T) {
+	hostile := ceremonyURLSr1 + "/\u202Eev1l"
+	hostileJSON, err := json.Marshal(hostile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	open := strings.Replace(ceremonyRequestJSON("OPEN"), ceremonyURLSr1, strings.Trim(string(hostileJSON), `"`), 1)
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn":          resolveNodeJSON,
+		"NodeSigningRequests": `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:kb:findings:flaky-ci","loc":"findings:flaky-ci","signingRequestsPage":{"items":[` + open + `],"hasMore":false,"nextCursor":null}}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "signing-request", "list", nodeURN, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	if strings.ContainsRune(got, '\u202E') {
+		t.Errorf("the list ceremony line must not carry the bidi override raw:\n%q", got)
+	}
+	if want := "sr1 ceremony: " + ceremonyURLSr1 + "/ ev1l"; !strings.Contains(got, want) {
+		t.Errorf("the list path must neutralise in place like the get path:\nwant: %s\ngot:  %s", want, got)
+	}
+}
