@@ -82,13 +82,13 @@ query MemoriesSharedWithMe(
 }
 
 mutation CreateMemory(
-  # spec 047 — orgId is OPTIONAL: omit it (nil pointer) for a user-owned
+  # spec 047 — orgRef is OPTIONAL: omit it (nil pointer) for a user-owned
   # memory in the caller's own @handle namespace (organizationId NULL,
   # ownerUserId = caller). omitempty so a nil pointer is omitted, not sent as
   # an explicit null. The server derives the bare <handle>:<slug> URN; never
   # construct or prefix it client-side.
   # @genqlient(omitempty: true)
-  $orgId: ID
+  $orgRef: ID
   $name: String!
   # @genqlient(omitempty: true)
   $memoryClass: MemoryClass
@@ -135,7 +135,7 @@ mutation CreateMemory(
   $writeBranch: String
 ) {
   createMemory(
-    orgId: $orgId
+    orgRef: $orgRef
     name: $name
     memoryClass: $memoryClass
     shortDescription: $shortDescription
@@ -175,7 +175,7 @@ mutation CreateMemory(
 # make an unknown argument compatible with a pre-#1447 server.
 mutation CreateMemoryDraft(
   # @genqlient(omitempty: true)
-  $orgId: ID
+  $orgRef: ID
   $name: String!
   # @genqlient(omitempty: true)
   $memoryClass: MemoryClass
@@ -219,7 +219,7 @@ mutation CreateMemoryDraft(
   $writeBranch: String
 ) {
   createMemory(
-    orgId: $orgId
+    orgRef: $orgRef
     name: $name
     memoryClass: $memoryClass
     shortDescription: $shortDescription
@@ -507,8 +507,8 @@ query GetMemoryDetail($ref: ID!) {
   }
 }
 
-mutation DeleteMemory($id: ID!) {
-  deleteMemory(id: $id)
+mutation DeleteMemory($ref: ID!) {
+  deleteMemory(ref: $ref)
 }
 
 # memory(ref:) accepts the memory's PK id or URN (hadron-server#473).
@@ -583,13 +583,13 @@ mutation ExtractParentNodeToMemory(
 # cli#1340 — exactly one of dataKey / passphrase is sent (the server refuses
 # both or neither); the other stays omitted.
 mutation EncryptMemory(
-  $memoryId: ID!
+  $memoryRef: ID!
   # @genqlient(omitempty: true)
   $dataKey: String
   # @genqlient(omitempty: true)
   $passphrase: String
 ) {
-  encryptMemory(memoryId: $memoryId, dataKey: $dataKey, passphrase: $passphrase) {
+  encryptMemory(memoryRef: $memoryRef, dataKey: $dataKey, passphrase: $passphrase) {
     id
     urn
     name
@@ -621,10 +621,10 @@ mutation EncryptMemory(
 # dataKey at all, even to omit it: the removal slice deletes the argument,
 # which breaks every document that names it.
 mutation LinkMemoryToUser(
-  $memoryId: ID!
+  $memoryRef: ID!
   $externalUserId: String!
 ) {
-  linkMemoryToUser(memoryId: $memoryId, externalUserId: $externalUserId) {
+  linkMemoryToUser(memoryRef: $memoryRef, externalUserId: $externalUserId) {
     id
     urn
     name
@@ -738,8 +738,8 @@ query VerifyMemoryNodes($memoryRef: String!) {
 }
 
 # cli#60 slice A v2: pull only; push remains gap #60 (ruling 0168).
-mutation SyncMemory($id: ID!) {
-  syncMemory(id: $id) {
+mutation SyncMemory($ref: ID!) {
+  syncMemory(ref: $ref) {
     syncStatus
     syncError
     lastSyncedAt
@@ -775,12 +775,12 @@ query MemoryLocSegments(
 # GitHub App. The reply selects identity only — never a field that could echo
 # the token. An omitted expiresAt keeps the server's default (no expiry).
 mutation SetMemorySourceToken(
-  $id: ID!
+  $ref: ID!
   $token: String!
   # @genqlient(omitempty: true)
   $expiresAt: String
 ) {
-  setMemorySourceToken(id: $id, token: $token, expiresAt: $expiresAt) {
+  setMemorySourceToken(ref: $ref, token: $token, expiresAt: $expiresAt) {
     id
     urn
   }

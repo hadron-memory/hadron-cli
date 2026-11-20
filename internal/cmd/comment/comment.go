@@ -352,6 +352,12 @@ func deleteThread(cmd *cobra.Command, f *cmdutil.Factory, connect Connect, memor
 	if err != nil {
 		return err
 	}
+	if deleted == nil {
+		// The Service contract says a nil answer never comes back with a nil
+		// error; a stray (nil, nil) from a future implementer must not panic a
+		// destructive path, and the write was sent, so the outcome is unknown (#2538, #2547).
+		return errDeleteThreadOutcomeUnknown()
+	}
 	if !*deleted {
 		// Defence only: the server answers true or throws (#2538 gate), so a
 		// false is kept as a conflict with its detail, not a success line.

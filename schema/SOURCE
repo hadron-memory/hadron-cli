@@ -1,0 +1,14 @@
+# Provenance of schema/schema.graphql (hadron-cli#2043, retire with #2658).
+#
+# The snapshot is NOT an export of a commit on hadron-server main. It is the
+# export of the merge of these two named hadron-server commits, because the
+# CLI needs hadron-server#4219 (the S4+S6 renames) and #4414
+# (workedFromRoleTaskRefs) but cannot yet regenerate against S2 (#4513, which
+# removed fields the old-shape decision.graphql selects).
+#
+# scripts/pin-server-sdl.sh reproduces that merge; the nightly schema-drift job
+# checks the snapshot against it.
+base=2d1cd5c669be735eeeecf44941d86ad3f4f7688f
+merge=47b0672fb5270123bd2d4c49a9b5365106cb3b22
+sdl_lines=22710
+sdl_sha256=67c6459430ade0373dfac3864a4ea8fe2d1c2e73044d679b40f29d777385b7c1

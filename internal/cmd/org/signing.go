@@ -186,6 +186,11 @@ ends), REVISION_CHANGES (falls back to an older signed revision) or
 UNSIGNED_STOPS (would be refused). The Agent and Worker URNs are the server's,
 printed as served (empty when it could not derive one; --json shows null).
 
+To get a prompt out of UNSIGNED_STOPS, approve its compiled node (hadron team
+worker approve), then ask for its signature: hadron node sign <COMPILED NODE>,
+the node the preview names in its COMPILED NODE column. A person completes the
+request with their passkey on the signing page; the CLI never signs.
+
 A plain preview reads ONE server page (20 rows) and prints how to get more.
 --all reads every page; --first and --after choose a page by hand (--all
 cannot be combined with them). This is read-only: to switch on, use
@@ -257,6 +262,11 @@ then switches on with the preview's token. There is no way to skip the fetch or
 the display; --yes skips only the confirmation prompt, and a non-interactive
 run without --yes is refused (exit 2). An empty preview is still confirmed:
 the switch also governs prompts compiled and approved later.
+
+To get a prompt out of UNSIGNED_STOPS in the preview, approve its compiled node (hadron team
+worker approve), then ask for its signature: hadron node sign <COMPILED NODE>,
+the node the preview names in its COMPILED NODE column. A person completes the
+request with their passkey on the signing page; the CLI never signs.
 
 If the preview changed or expired (10 minutes) before the switch was sent, it
 answers exit 5 and nothing changes: run this command again. Needs ADMIN or
