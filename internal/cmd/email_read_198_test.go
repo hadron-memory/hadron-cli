@@ -1,0 +1,345 @@
+package cmd
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+)
+
+// hadron-cli#198 Slice A: the read cut of `hadron email` — messages, folders and
+// the paged connection list. Fake HTTP only; no mailbox, no provider, no spend.
+// Message text (subject, from, preview, body) is external data: these tests plant
+// control sequences and secrets in it and check they are neither executed nor
+// logged.
+
+const msgRow198 = `{"id":"m1","subject":"hello","from":"a@example.test","receivedDateTime":"2026-11-20T10:00:00Z","bodyPreview":"prev","body":"full body","hasAttachments":true,"isRead":false}`
+
+func runEmail198(t *testing.T, responses map[string]string, args ...string) (out string, ops map[string]json.RawMessage, err error) {
+	t.Helper()
+	srv, ops := captureGraphQL(t, responses)
+	f, o := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"email"}, args...), "--server", srv.URL))
+	err = root.Execute()
+	return o.String(), ops, err
+}
+
+func vars198(t *testing.T, ops map[string]json.RawMessage, op string) map[string]any {
+	t.Helper()
+	raw, ok := ops[op]
+	if !ok {
+		t.Fatalf("%s was not called (ops: %v)", op, ops)
+	}
+	var v map[string]any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// One request, exactly the arguments given: top and unreadOnly are OMITTED when
+// unset (the server defaults), the deprecated raw filter is never sent, and --top
+// is passed through unchecked — the server clamps (cor:api:240:01).
+func TestEmailMessagesWire198(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		args       []string
+		wantTop    any
+		hasTop     bool
+		wantUnread any
+		hasUnread  bool
+	}{
+		{"bare", []string{"--connection", "conn-1"}, nil, false, nil, false},
+		{"top", []string{"--connection", "conn-1", "--top", "5"}, float64(5), true, nil, false},
+		{"unread", []string{"--connection", "conn-1", "--unread"}, nil, false, true, true},
+		{"top beyond the server clamp is not refused", []string{"--connection", "conn-1", "--top", "500"}, float64(500), true, nil, false},
+		{"top zero is a value", []string{"--connection", "conn-1", "--top", "0"}, float64(0), true, nil, false},
+		{"negative top is the server's to judge", []string{"--connection", "conn-1", "--top", "-3"}, float64(-3), true, nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, ops, err := runEmail198(t, map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[]}}`}, append([]string{"messages", "--json"}, tc.args...)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(ops) != 1 {
+				t.Fatalf("want exactly one request, got %v", ops)
+			}
+			v := vars198(t, ops, "EmailMessages")
+			if v["connectionId"] != "conn-1" {
+				t.Errorf("connectionId = %v", v["connectionId"])
+			}
+			if _, ok := v["filter"]; ok {
+				t.Error("the deprecated raw filter must never be sent")
+			}
+			if got, ok := v["top"]; ok != tc.hasTop || (ok && got != tc.wantTop) {
+				t.Errorf("top = %v (sent=%v), want %v (sent=%v)", got, ok, tc.wantTop, tc.hasTop)
+			}
+			if got, ok := v["unreadOnly"]; ok != tc.hasUnread || (ok && got != tc.wantUnread) {
+				t.Errorf("unreadOnly = %v (sent=%v), want %v (sent=%v)", got, ok, tc.wantUnread, tc.hasUnread)
+			}
+		})
+	}
+}
+
+// The stable DTO: every ExchangeMessage field under its own name, nullable ones
+// stay null, an empty list is [].
+func TestEmailMessagesJSON198(t *testing.T) {
+	out, _, err := runEmail198(t, map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[` + msgRow198 + `,{"id":"m2","subject":null,"from":null,"receivedDateTime":null,"bodyPreview":null,"body":null,"hasAttachments":null,"isRead":null}]}}`},
+		"messages", "--connection", "c", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d", len(rows))
+	}
+	for _, k := range []string{"id", "subject", "from", "receivedDateTime", "bodyPreview", "body", "hasAttachments", "isRead"} {
+		if _, ok := rows[0][k]; !ok {
+			t.Errorf("row 0 lacks %q: %v", k, rows[0])
+		}
+		if _, ok := rows[1][k]; !ok {
+			t.Errorf("a null %q must stay present as null: %v", k, rows[1])
+		}
+	}
+	if rows[0]["isRead"] != false || rows[0]["hasAttachments"] != true || rows[1]["isRead"] != nil || rows[1]["subject"] != nil {
+		t.Errorf("values or nulls changed: %v", rows)
+	}
+	empty, _, err := runEmail198(t, map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[]}}`}, "messages", "--connection", "c", "--json")
+	if err != nil || strings.TrimSpace(empty) != "[]" {
+		t.Errorf("empty list = %q, %v; want []", empty, err)
+	}
+}
+
+// Message text is data: control and escape sequences are neutralised in text mode
+// (an OSC 8 link, an OSC 52 clipboard write, a forged line), the body is not
+// printed in the table at all, and the table never claims completeness.
+func TestEmailMessagesTextTreatsMailAsData198(t *testing.T) {
+	evil := `{"id":"m1","subject":"x\u001b]52;c;SECRET\u0007y\nforged: line","from":"\u001b[31mred@example.test","receivedDateTime":null,"bodyPreview":"p\u001b[2Jq","body":"BODY-MUST-NOT-PRINT","hasAttachments":false,"isRead":true}`
+	out, _, err := runEmail198(t, map[string]string{"EmailMessages": `{"data":{"exchangeMessages":[` + evil + `]}}`}, "messages", "--connection", "c")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsRune(out, '\x1b') || strings.ContainsRune(out, '\a') {
+		t.Errorf("a raw escape reached the terminal:\n%q", out)
+	}
+	if strings.Contains(out, "\nforged: line") {
+		t.Errorf("an embedded newline forged a line:\n%s", out)
+	}
+	if strings.Contains(out, "BODY-MUST-NOT-PRINT") {
+		t.Errorf("the text table printed the message body:\n%s", out)
+	}
+	if !strings.Contains(out, "m1") || !strings.Contains(out, "red@example.test") {
+		t.Errorf("the row is not shown:\n%s", out)
+	}
+	if strings.Contains(strings.ToLower(out), "complete") {
+		t.Errorf("a bounded list must not claim completeness:\n%s", out)
+	}
+}
+
+// Refusals pass through with the usual exit codes; the unknown-tool fallback is
+// unchanged (no reconnect advice from provider prose); a null list is unavailable;
+// and no error text carries mail.
+func TestEmailMessagesAndFoldersErrors198(t *testing.T) {
+	for _, op := range []struct{ cmd, op, field string }{{"messages", "EmailMessages", "exchangeMessages"}, {"folders", "EmailFolders", "exchangeFolders"}} {
+		for _, tc := range []struct {
+			name, wire string
+			want       int
+		}{
+			{"owner refusal", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`, 8},
+			{"unknown tool error keeps the fallback", `{"errors":[{"message":"reconnect your account now","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`, 1},
+			{"null list", `{"data":{"` + op.field + `":null}}`, 7},
+			{"null row", `{"data":{"` + op.field + `":[null]}}`, 7},
+		} {
+			t.Run(op.cmd+" "+tc.name, func(t *testing.T) {
+				out, _, err := runEmail198(t, map[string]string{op.op: tc.wire}, op.cmd, "--connection", "c", "--json")
+				if exitCodeFor(err) != tc.want {
+					t.Fatalf("exit %d (%v), want %d", exitCodeFor(err), err, tc.want)
+				}
+				if out != "" && strings.Contains(out, "id") && tc.want != 0 {
+					t.Errorf("a failed read printed rows: %s", out)
+				}
+				if err != nil && strings.Contains(strings.ToLower(err.Error()), "run hadron connection") {
+					t.Errorf("the error invents a reconnect remedy from provider prose: %v", err)
+				}
+			})
+		}
+	}
+}
+
+// A missing or blank --connection is a usage error with ZERO requests; so is a
+// stray positional.
+func TestEmailMessagesAndFoldersNeedAConnection198(t *testing.T) {
+	for _, cmd := range []string{"messages", "folders"} {
+		for _, args := range [][]string{{}, {"--connection", ""}, {"--connection", "  "}, {"--connection", "c", "extra"}} {
+			_, ops, err := runEmail198(t, map[string]string{}, append([]string{cmd}, args...)...)
+			if exitCodeFor(err) != 2 {
+				t.Errorf("email %s %v: exit %d (%v), want 2", cmd, args, exitCodeFor(err), err)
+			}
+			if len(ops) != 0 {
+				t.Errorf("email %s %v sent a request: %v", cmd, args, ops)
+			}
+		}
+	}
+}
+
+func TestEmailFolders198(t *testing.T) {
+	out, ops, err := runEmail198(t, map[string]string{"EmailFolders": `{"data":{"exchangeFolders":[{"id":"f1","displayName":"Inbox","totalItemCount":10,"unreadItemCount":2},{"id":"f2","displayName":"Odd\u001b[31m","totalItemCount":null,"unreadItemCount":null}]}}`},
+		"folders", "--connection", " conn-1 ", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ops) != 1 || vars198(t, ops, "EmailFolders")["connectionId"] != "conn-1" {
+		t.Fatalf("ops = %v", ops)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || len(rows[0]) != 4 || rows[1]["totalItemCount"] != nil || rows[1]["unreadItemCount"] != nil || rows[0]["unreadItemCount"] != float64(2) {
+		t.Errorf("rows = %v", rows)
+	}
+	text, _, err := runEmail198(t, map[string]string{"EmailFolders": `{"data":{"exchangeFolders":[{"id":"f2","displayName":"Odd\u001b[31m","totalItemCount":null,"unreadItemCount":null}]}}`}, "folders", "--connection", "c")
+	if err != nil || strings.ContainsRune(text, '\x1b') {
+		t.Errorf("text mode leaked an escape: %v\n%q", err, text)
+	}
+	empty, _, err := runEmail198(t, map[string]string{"EmailFolders": `{"data":{"exchangeFolders":[]}}`}, "folders", "--connection", "c", "--json")
+	if err != nil || strings.TrimSpace(empty) != "[]" {
+		t.Errorf("empty = %q, %v", empty, err)
+	}
+}
+
+const connRow198 = `{"id":"c1","organizationId":"o","userId":"u","mailboxEmail":"m@example.test","provider":"gmail","displayName":null,"syncEnabled":true,"syncStatus":"IDLE","lastSyncAt":null,"createdAt":"c","updatedAt":"u"}`
+
+// With --limit or --offset the paged operation is used ONCE; unset ones are
+// omitted; the bare form stays on the unpaged list; the paged JSON is an object
+// carrying total and hasMore, and the text names the next --offset, never
+// "complete".
+func TestEmailConnectionsPaging198(t *testing.T) {
+	page := func(more bool) string {
+		m := "false"
+		if more {
+			m = "true"
+		}
+		return `{"data":{"exchangeConnectionsPage":{"items":[` + connRow198 + `],"total":7,"hasMore":` + m + `}}}`
+	}
+	t.Run("bare form stays unpaged", func(t *testing.T) {
+		_, ops, err := runEmail198(t, map[string]string{"EmailConnections": `{"data":{"exchangeConnections":[]}}`}, "connections", "--org", "o", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, paged := ops["EmailConnectionsPage"]; paged || len(ops) != 1 {
+			t.Fatalf("the bare form must not use the paged operation: %v", ops)
+		}
+	})
+	for _, tc := range []struct {
+		name        string
+		args        []string
+		limit, offs any
+		hasL, hasO  bool
+	}{
+		{"limit only", []string{"--limit", "3"}, float64(3), nil, true, false},
+		{"offset only", []string{"--offset", "6"}, nil, float64(6), false, true},
+		{"both", []string{"--limit", "3", "--offset", "0"}, float64(3), float64(0), true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out, ops, err := runEmail198(t, map[string]string{"EmailConnectionsPage": page(true)}, append([]string{"connections", "--org", "o", "--json"}, tc.args...)...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(ops) != 1 {
+				t.Fatalf("want one request, got %v", ops)
+			}
+			v := vars198(t, ops, "EmailConnectionsPage")
+			if v["orgId"] != "o" {
+				t.Errorf("orgId = %v", v["orgId"])
+			}
+			if got, ok := v["limit"]; ok != tc.hasL || (ok && got != tc.limit) {
+				t.Errorf("limit = %v (sent=%v)", got, ok)
+			}
+			if got, ok := v["offset"]; ok != tc.hasO || (ok && got != tc.offs) {
+				t.Errorf("offset = %v (sent=%v)", got, ok)
+			}
+			var page struct {
+				Items   []map[string]any `json:"items"`
+				Total   int              `json:"total"`
+				HasMore bool             `json:"hasMore"`
+			}
+			if err := json.Unmarshal([]byte(out), &page); err != nil {
+				t.Fatalf("paged --json is not the {items,total,hasMore} object: %v\n%s", err, out)
+			}
+			if len(page.Items) != 1 || page.Total != 7 || !page.HasMore || len(page.Items[0]) != 11 {
+				t.Errorf("page = %+v", page)
+			}
+		})
+	}
+	t.Run("text names the next offset and never says complete", func(t *testing.T) {
+		out, _, err := runEmail198(t, map[string]string{"EmailConnectionsPage": page(true)}, "connections", "--org", "o", "--limit", "1", "--offset", "2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "total 7") || !strings.Contains(out, "--offset 3") || strings.Contains(strings.ToLower(out), "complete") {
+			t.Errorf("paging footer wrong:\n%s", out)
+		}
+		last, _, err := runEmail198(t, map[string]string{"EmailConnectionsPage": page(false)}, "connections", "--org", "o", "--limit", "1", "--offset", "6")
+		if err != nil || strings.Contains(last, "--offset") {
+			t.Errorf("the last page must not suggest a next offset: %v\n%s", err, last)
+		}
+	})
+	t.Run("a null page and a refusal", func(t *testing.T) {
+		if _, _, err := runEmail198(t, map[string]string{"EmailConnectionsPage": `{"data":{"exchangeConnectionsPage":null}}`}, "connections", "--org", "o", "--limit", "1"); exitCodeFor(err) != 7 {
+			t.Errorf("null page exit = %d (%v)", exitCodeFor(err), err)
+		}
+		if _, _, err := runEmail198(t, map[string]string{"EmailConnectionsPage": `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`}, "connections", "--org", "o", "--limit", "1"); exitCodeFor(err) != 8 {
+			t.Errorf("admin refusal exit = %d (%v)", exitCodeFor(err), err)
+		}
+	})
+}
+
+// The documents select only what the DTOs carry: no credentials, no lastError,
+// and messages never ask for the deprecated filter.
+func TestEmailReadDocuments198(t *testing.T) {
+	for _, tc := range []struct {
+		name, doc, root string
+		args            []string
+		fields          []string
+	}{
+		{"EmailMessages", gen.EmailMessages_Operation, "exchangeMessages", []string{"connectionId", "top", "unreadOnly"}, []string{"id", "subject", "from", "receivedDateTime", "bodyPreview", "body", "hasAttachments", "isRead"}},
+		{"EmailFolders", gen.EmailFolders_Operation, "exchangeFolders", []string{"connectionId"}, []string{"id", "displayName", "totalItemCount", "unreadItemCount"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			doc, err := parser.ParseQuery(&ast.Source{Input: tc.doc})
+			if err != nil {
+				t.Fatal(err)
+			}
+			op := doc.Operations.ForName(tc.name)
+			f := op.SelectionSet[0].(*ast.Field)
+			if len(op.SelectionSet) != 1 || f.Name != tc.root {
+				t.Fatalf("root = %v", op.SelectionSet)
+			}
+			if len(f.Arguments) != len(tc.args) {
+				t.Errorf("arguments = %v, want %v", f.Arguments, tc.args)
+			}
+			for _, a := range tc.args {
+				if f.Arguments.ForName(a) == nil {
+					t.Errorf("missing argument %s", a)
+				}
+			}
+			if len(f.SelectionSet) != len(tc.fields) {
+				t.Fatalf("selection = %d fields, want %v", len(f.SelectionSet), tc.fields)
+			}
+			for i, s := range f.SelectionSet {
+				if s.(*ast.Field).Name != tc.fields[i] {
+					t.Errorf("field %d = %s, want %s", i, s.(*ast.Field).Name, tc.fields[i])
+				}
+			}
+		})
+	}
+}
