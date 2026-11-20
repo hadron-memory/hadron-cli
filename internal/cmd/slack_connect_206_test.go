@@ -523,8 +523,9 @@ func TestSlackConnectRecoveryTextNeverPrintsATokenTypedAsTheOrg(t *testing.T) {
 				noSecret(t, "the rendered output", all)
 				// Dara (blind P2): a value holding a token is not printed at all, so the
 				// pointer asks for the real reference instead of a "[redacted]" command.
-				if !strings.Contains(all, "hadron slack status --org=<your organization reference>") || strings.Contains(all, "[redacted]") {
-					t.Errorf("the recovery pointer must be usable and token-free: %s", all)
+				// Jane/Eden: no --org filter at all, so the command runs as printed.
+				if !strings.Contains(all, "check with: hadron slack status (") || strings.Contains(all, "--org") || strings.Contains(all, "[redacted]") {
+					t.Errorf("the recovery pointer must be the unfiltered, runnable command and token-free: %s", all)
 				}
 			})
 		}
@@ -615,5 +616,68 @@ func TestSlackSuggestedIDCommandsSurviveADashPrefixedID(t *testing.T) {
 		if deleted == "false" && (e == nil || !strings.Contains(e.Error(), "hadron slack get -- -x")) {
 			t.Fatalf("disconnect's pointer carries the terminator too: %v", e)
 		}
+	}
+}
+
+// Jane (held-delta P2): quoting BEFORE redaction splits an apostrophe-bearing
+// token, so exact redaction misses it. The raw --org is checked first and a
+// sensitive value is never printed, in either renderer.
+func TestSlackConnectApostropheTokenTypedAsTheOrgIsNeverPrinted(t *testing.T) {
+	apos := "xoxb-AP'OS-1234567890-secretapos"
+	bot := tokenFile(t, "bot", apos)
+	app := tokenFile(t, "app", appTok)
+	for name, wire := range map[string]string{
+		"null answer": `{"data":{"createSlackConnection":null}}`,
+		"ambiguous":   `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`,
+	} {
+		for _, jsonMode := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/json=%v", name, jsonMode), func(t *testing.T) {
+				all, _, e := runSlackRendered(t, wire, jsonMode, "connect", "--org", apos, "--app", appID, "--bot-token-file", bot, "--app-token-file", app)
+				if e == nil {
+					t.Fatal("must fail")
+				}
+				for _, frag := range []string{"AP'OS", "AP'\\''OS", "secretapos", "xoxb-AP"} {
+					if strings.Contains(all, frag) {
+						t.Errorf("a fragment of the token (%q) reached the output:\n%s", frag, all)
+					}
+				}
+				if !strings.Contains(all, "check with: hadron slack status (") {
+					t.Errorf("the unfiltered command must survive: %s", all)
+				}
+			})
+		}
+	}
+}
+
+// Rodolfo (P3): an id with control characters never reaches the terminal raw
+// (ShellQuote does not escape them, unlike the Go quoting it replaced).
+func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
+	id := "a\x1b[31mb\nc"
+	jid, _ := json.Marshal(id)
+	row := strings.Replace(strings.Replace(connectedRow, `"id":"c1"`, `"id":`+string(jid), 1), `"status":"ACTIVE"`, `"status":"WAT"`, 1)
+	all, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+row+`}}`, false, connectArgs(t)...)
+	// The RAW error, not only the rendered stream: the renderer sanitizes its
+	// own output, so this is what pins the guard itself.
+	if e == nil || strings.ContainsAny(e.Error(), "\x1b\n") || strings.Contains(e.Error(), "disconnect") || !strings.Contains(all, "hadron slack status") {
+		t.Fatalf("a control-character id is not printed and the status pointer remains: %v\n%q", e, all)
+	}
+	// The same for a control-character --org: dropped from the command.
+	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":null}}`, false, "connect", "--org", "o\x1b[31m1", "--app", appID,
+		"--bot-token-file", tokenFile(t, "bot", botTok), "--app-token-file", tokenFile(t, "app", appTok))
+	if e == nil || strings.ContainsAny(e.Error(), "\x1b") || strings.Contains(e.Error(), "--org") {
+		t.Fatalf("a control-character --org is never printed: %v", e)
+	}
+	_, _, _, e = runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "--yes", id)
+	if e == nil || strings.ContainsAny(e.Error(), "\x1b\n") {
+		t.Fatalf("disconnect's pointer does not print the raw id: %v", e)
+	}
+}
+
+// Rodolfo: the disconnect outcome-unknown message carries the shell-quoted id
+// with the terminator and no prose double quotes around the command.
+func TestSlackDisconnectOutcomeUnknownSuggestsOneQuotedCommand(t *testing.T) {
+	_, _, n, e := runSlackWrite(t, "DeleteSlackConnection", `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, "", "disconnect", "--yes", "a b$(x)")
+	if e == nil || n != 1 || !strings.Contains(e.Error(), "with: hadron slack get -- 'a b$(x)':") || strings.Contains(e.Error(), `"hadron slack get`) {
+		t.Fatalf("err=%v requests=%d", e, n)
 	}
 }

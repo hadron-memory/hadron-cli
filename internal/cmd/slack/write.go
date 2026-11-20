@@ -12,6 +12,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -40,6 +41,24 @@ func redactConnectError(raw error, secrets []string, recovery string) error {
 		base = exitcode.Newf(class, "%s: %s", recovery, mapped)
 	}
 	return api.Detached(api.WithServerCode(base, raw), func(s string) string { return api.RedactSecretText(s, secrets) })
+}
+
+// printable reports whether s is safe to print in a message: no control or
+// format characters (an id carrying ESC/CSI or a newline would reach the
+// terminal raw once it is no longer Go-quoted).
+func printable(s string) bool {
+	return strings.IndexFunc(s, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) < 0
+}
+
+// getCmd is the unwrapped "slack get" suggestion for an id: shell-quoted, with
+// the -- terminator (a leading dash is a flag to cobra), and no outer prose
+// quotes (single quotes are literal inside double quotes, so $( ) would expand
+// again when pasted). An id with control characters is not named.
+func getCmd(id string) string {
+	if !printable(id) {
+		return "hadron slack get <connection-id>"
+	}
+	return "hadron slack get -- " + cmdutil.ShellQuote(id)
 }
 
 // readToken reads one token from its file flag. "-" is stdin and is refused on
@@ -121,11 +140,16 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			// every post-submission message built from it is redacted too.
 			// A value that holds a token is never printed, quoted or not: the pointer
 			// then asks for the real reference instead of showing a broken command.
-			orgArg := "--org=" + cmdutil.ShellQuote(orgRef)
-			if api.ContainsSecret(orgRef, secrets) {
-				orgArg = "--org=<your organization reference>"
+			// Detected on the ORIGINAL value, before any quoting (quoting splits an
+			// apostrophe-bearing token so exact redaction would miss it). A sensitive
+			// or control-character value is dropped from the command altogether: the
+			// unfiltered "hadron slack status" runs as printed and lists every
+			// organization the caller may see.
+			statusCmd := "hadron slack status"
+			if !api.ContainsSecret(orgRef, secrets) && printable(orgRef) {
+				statusCmd += " --org=" + cmdutil.ShellQuote(orgRef)
 			}
-			where := fmt.Sprintf("check with: hadron slack status %s (it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected)", orgArg)
+			where := fmt.Sprintf("check with: %s (it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected)", statusCmd)
 			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, appRef, bot, appTok)
 			if err != nil {
 				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried); "+where)
@@ -150,7 +174,11 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			dto, err := toDTO(v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt)
 			if err != nil {
 				// "slack get" and "slack status" refuse the same unknown status, so they
-				// would loop: the one command that always works is disconnect.
+				// would loop: the one command that always works is disconnect. An id
+				// with control characters is never printed (the terminal would act on it).
+				if !printable(v.Id) {
+					return exitcode.Newf(exitcode.Unavailable, "the server answered with a connection id this CLI will not print (it contains control characters) and a status it does not recognize; list the organization's connections with: hadron slack status")
+				}
 				return exitcode.Newf(exitcode.Unavailable, "the server answered with connection id %s and a status this CLI does not recognize (a newer server?), so it cannot be read back here: upgrade hadron, or remove the registration with: hadron slack disconnect -- %s", cmdutil.ShellQuote(v.Id), cmdutil.ShellQuote(v.Id))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -211,12 +239,12 @@ before trying again.`,
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried); \"hadron slack get -- %s\" shows whether the connection still exists: %s", cmdutil.ShellQuote(id), mapped), err)
+					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried); check whether it still exists with: %s: %s", getCmd(id), mapped), err)
 				}
 				return mapped
 			}
 			if resp == nil || !resp.DeleteSlackConnection {
-				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect; \"hadron slack get -- %s\" shows whether the connection still exists", cmdutil.ShellQuote(id))
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect; check whether it still exists with: %s", getCmd(id))
 			}
 			dto := disconnectDTO{ConnectionID: id, Disconnected: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

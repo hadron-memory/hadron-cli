@@ -28,8 +28,12 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   status). Every command suggested in a message is shell-quoted with `cmdutil.ShellQuote`, never Go-quoted
   (blind P2, Andi: `%q` leaves `$` and backticks live when pasted). Suggested commands also use `--org=<value>`
   and put `--` before an id, because cobra reads a leading dash as a flag even when the word is quoted (blind
-  P2, Dara); and a `--org` value that holds a token is never printed, quoted or not: the pointer shows
-  `--org=<your organization reference>` instead of a broken command. A success answer whose any field holds a token is withheld whole (Unavailable,
+  P2, Dara); and a `--org` value that holds a token, or a control character, is never printed, quoted or not: it is
+  checked on the ORIGINAL value (quoting splits an apostrophe-bearing token so exact redaction would miss it;
+  held-delta P2, Jane) and dropped, so the pointer is the unfiltered `hadron slack status`, which runs as
+  printed. A server id with control characters is not named either (`ShellQuote` does not escape them, unlike
+  the Go quoting it replaced; SEC10 P3, Rodolfo), and the `slack get` suggestion carries no outer prose quotes
+  (single quotes are literal inside double quotes). A success answer whose any field holds a token is withheld whole (Unavailable,
   nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary
   re-encoding.
 - **Recovery order.** The server's duplicate check (`deletedAt: null`, no status condition; hadron-server
