@@ -682,3 +682,56 @@ func TestEmailBodyValidationBeforeAnyRequest198(t *testing.T) {
 		t.Errorf("valid UTF-8 was altered or refused: %v %v", err, ops)
 	}
 }
+
+// runEffectRendered198 runs a command with --json and returns what the real
+// renderError wrote for its failure: the envelope a script would see.
+func runEffectRendered198(t *testing.T, responses map[string]string, args ...string) (rendered string, err error) {
+	t.Helper()
+	srv, _ := captureGraphQL(t, responses)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"email"}, args...), "--server", srv.URL, "--json"))
+	err = root.Execute()
+	if err == nil {
+		return "", nil
+	}
+	renderError(f, err)
+	return out.String() + f.IOStreams.ErrOut.(*strings.Builder).String(), err
+}
+
+// Joost's #2740 P2: the server's extensions.code is DATA from outside; a body-
+// submitting command must not carry a body-bearing code into the --json envelope's
+// serverCode (or the message). A well-formed code (UPPER_SNAKE) is kept for
+// scripts; anything else is dropped.
+func TestEmailBodyCommandsDoNotLeakThroughServerCode198(t *testing.T) {
+	body := bodyFile198(t, "line one SECRET-A\nline two SECRET-B")
+	cmds := []struct {
+		name, op string
+		args     []string
+	}{
+		{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
+		{"draft save", "EmailSaveDraft", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}},
+		{"draft update", "EmailUpdateDraft", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}},
+	}
+	for _, c := range cmds {
+		for _, code := range []string{"line one SECRET-A", "SECRET-B", "bad code with spaces SECRET-A"} {
+			t.Run(c.name+" "+code, func(t *testing.T) {
+				wire := `{"errors":[{"message":"x","extensions":{"code":"` + code + `"}}]}`
+				out, err := runEffectRendered198(t, map[string]string{c.op: wire}, c.args...)
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				if strings.Contains(out, "SECRET-A") || strings.Contains(out, "SECRET-B") {
+					t.Errorf("a body-bearing server code reached the rendered error: %s", out)
+				}
+			})
+		}
+		t.Run(c.name+" a well-formed code is kept", func(t *testing.T) {
+			wire := `{"errors":[{"message":"x","extensions":{"code":"EMAIL_TOOL_ERROR"}}]}`
+			out, err := runEffectRendered198(t, map[string]string{c.op: wire}, c.args...)
+			if err == nil || !strings.Contains(out, `"serverCode": "EMAIL_TOOL_ERROR"`) {
+				t.Errorf("a well-formed server code was dropped: %v\n%s", err, out)
+			}
+		})
+	}
+}
