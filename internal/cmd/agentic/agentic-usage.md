@@ -694,7 +694,7 @@ hadron policy explain --action <a> --app <ref> [--user <ref>] | set --mine (<jso
 hadron quota list --org <ref> [--app <ref>] | set --org <ref> [--app <ref>] --action <a> --limit <n>   # cli#1343; org ADMIN
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
-hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json] | test <connection-id> [--json] | disconnect <connection-id> [--yes] [--json]   # reads (cli#198 Slice A) plus test/disconnect (Slice B): nothing sends, replies, drafts, moves, flags or deletes mail
+hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json] | test <connection-id> [--json] | disconnect <connection-id> [--yes] [--json] | reply <message-id> --connection <id> --body-file <path|-> [--yes] | draft save --connection <id> (--reply-to <message-id> | --to <addr>... --subject <s>) --body-file <path|-> [--idempotency-key <k>] | draft update <draft-id> --connection <id> --body-file <path|-> | draft send <draft-id> --connection <id> [--idempotency-key <k>] [--yes] | mark-read <message-id> --connection <id> [--unread] | flag <message-id> --connection <id> [--flag FLAGGED|NONE|COMPLETE] | categorize <message-id> --connection <id> (--category <name>... | --clear) | delete <message-id> --connection <id> [--yes] | move <message-id> --connection <id> --folder <folder-id>   # cli#198: reads (Slice A), test/disconnect (Slice B), mailbox effects (Slice C); every command is ONE request, never retried
 hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id>   # read-only Slack workspace connections; one page (server default 20), stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4; status is a recorded value, not a health check: ACTIVE = registered, not proof it works (a failed token is not always recorded), ERROR = recorded as failed, reason not shown; recovery is an org admin registering the workspace again (no CLI command or portal page yet); --app and the saved org do not apply
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
 hadron connection flow <flow-id> [--json]
@@ -5192,6 +5192,34 @@ is {connectionId,disconnected}. "Disconnected" means Hadron's record: the
 provider-side teardown is the server's best effort and is not reported. A missing
 or blank id exits 2 with no request. Both commands: unknown tool failures keep the
 existing fallback with no reconnect advice.
+
+**Mailbox effects (cli#198 Slice C)** — each is one GraphQL request and is never retried; the
+server decides ownership (owner, or an App with a covering grant; impersonated sessions and an org
+admin who is not the owner are refused) and its refusals pass through (FORBIDDEN exit 8), unknown
+tool failures keep the existing fallback with no reconnect advice, and a false answer exits 7 "not
+confirmed". A missing or blank `--connection` or id exits 2 with no request.
+- `email reply MESSAGE-ID --connection ID --body-file PATH|-` calls exchangeReply and replies to
+  the SENDER only (the server takes no recipient: no `--all`, no `--to`; recipients = `draft save
+  --reply-to` then `draft send`). It SENDS MAIL: asks y/N on a terminal, else exit 2 with ZERO
+  requests unless `--yes`. The body (file, or `-` for stdin; required, nonempty, 1 MiB max) is never
+  printed back. No answer from the server (a dropped connection, a timeout) is exit 7 "outcome
+  unknown ... check the Sent folder", never "failed": the mail may have been sent, and the CLI does
+  not retry. A server refusal keeps its own words. There is no idempotency key on reply.
+- `email draft save` calls emailSaveDraft (a reply-draft with `--reply-to`, or a fresh one with
+  `--to` (repeatable) and `--subject`; the body is HTML sent as written) and prints
+  {draftId,conversationId} (conversationId may be null). `--idempotency-key` is passed unchanged
+  and omitted when unset: the CLI never invents or replays one. `draft update DRAFT-ID` calls
+  emailUpdateDraft and replaces the body only; it has no idempotency key because the server has
+  none. `draft send DRAFT-ID` calls emailSendDraft: SENDS MAIL (confirmation or `--yes`),
+  `--idempotency-key` passed unchanged, an ambiguous result is "outcome unknown, check the Sent
+  folder".
+- `email mark-read` (emailMarkRead; `--unread` sends isRead:false, unset omits it), `email flag`
+  (emailFlagMessage; `--flag FLAGGED|NONE|COMPLETE`, unset omits it, anything else exits 2 with no
+  request), `email categorize` (emailCategorizeMessage; repeatable `--category`, or `--clear` for an
+  explicit empty list; neither or both exits 2), `email move --folder FOLDER-ID` (exchangeMoveMessage;
+  the folder id is the one `email folders` prints), `email delete` (emailDeleteMessage, provider
+  trash semantics; asks y/N, else `--yes` or exit 2 with no request). `--json` for these is
+  {connectionId,messageId|draftId,action,ok}.
 
 
 `hadron connection connect <provider> --org REF` starts the OAuth flow that

@@ -274,6 +274,10 @@ func TestEmailDraftSave198(t *testing.T) {
 	if !strings.Contains(out, `"draftId": "d7"`) || !strings.Contains(out, `"conversationId": null`) || strings.Contains(out, "BODY-SECRET") {
 		t.Errorf("DTO = %s", out)
 	}
+	text, _, _, err := runEffect198(t, resp, "", "draft", "save", "--connection", "c1", "--reply-to", "m1", "--body-file", body)
+	if err != nil || strings.Contains(text, "BODY-SECRET") || !strings.Contains(text, "d7") {
+		t.Errorf("text mode echoed the body (or lost the draft id): %v\n%s", err, text)
+	}
 	_, ops, _, err = runEffect198(t, resp, "", "draft", "save", "--connection", "c1", "--to", "a@example.test", "--to", "b@example.test", "--subject", "Hi", "--body-file", body)
 	if err != nil {
 		t.Fatal(err)
