@@ -82,8 +82,8 @@ func TestEmailMessagesWire198(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(ops) != 1 {
-				t.Fatalf("want exactly one request, got %v", ops)
+			if requests198 != 1 || len(ops) != 1 {
+				t.Fatalf("want exactly one request, got %d (%v)", requests198, ops)
 			}
 			v := vars198(t, ops, "EmailMessages")
 			if v["connectionId"] != "conn-1" {
@@ -199,7 +199,7 @@ func TestEmailMessagesAndFoldersNeedAConnection198(t *testing.T) {
 			if exitCodeFor(err) != 2 {
 				t.Errorf("email %s %v: exit %d (%v), want 2", cmd, args, exitCodeFor(err), err)
 			}
-			if len(ops) != 0 {
+			if requests198 != 0 || len(ops) != 0 {
 				t.Errorf("email %s %v sent a request: %v", cmd, args, ops)
 			}
 		}
@@ -212,7 +212,7 @@ func TestEmailFolders198(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ops) != 1 || vars198(t, ops, "EmailFolders")["connectionId"] != "conn-1" {
+	if requests198 != 1 || len(ops) != 1 || vars198(t, ops, "EmailFolders")["connectionId"] != "conn-1" {
 		t.Fatalf("ops = %v", ops)
 	}
 	var rows []map[string]any
@@ -251,7 +251,7 @@ func TestEmailConnectionsPaging198(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, paged := ops["EmailConnectionsPage"]; paged || len(ops) != 1 {
+		if _, paged := ops["EmailConnectionsPage"]; paged || requests198 != 1 || len(ops) != 1 {
 			t.Fatalf("the bare form must not use the paged operation: %v", ops)
 		}
 	})
@@ -270,8 +270,8 @@ func TestEmailConnectionsPaging198(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if len(ops) != 1 {
-				t.Fatalf("want one request, got %v", ops)
+			if requests198 != 1 || len(ops) != 1 {
+				t.Fatalf("want one request, got %d (%v)", requests198, ops)
 			}
 			v := vars198(t, ops, "EmailConnectionsPage")
 			if v["orgId"] != "o" {
@@ -478,5 +478,22 @@ func TestEmailMessagesOSC8Neutralised198(t *testing.T) {
 	}
 	if strings.ContainsRune(out, '\x1b') || strings.ContainsRune(out, '\a') {
 		t.Errorf("an OSC 8 hyperlink reached the terminal raw:\n%q", out)
+	}
+}
+
+// Joost's F1 (P2): the server clamps a negative offset to zero (skip =
+// Math.max(0, offset)), so the continuation counts from the EFFECTIVE offset; the
+// outgoing argument is not changed.
+func TestEmailConnectionsPagingHintUsesEffectiveOffset198(t *testing.T) {
+	one := `{"data":{"exchangeConnectionsPage":{"items":[` + connRow198 + `],"total":7,"hasMore":true}}}`
+	out, ops, err := runEmail198(t, map[string]string{"EmailConnectionsPage": one}, "connections", "--org", "o", "--limit", "1", "--offset", "-5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := vars198(t, ops, "EmailConnectionsPage")["offset"]; got != float64(-5) {
+		t.Errorf("the outgoing offset was changed: %v", got)
+	}
+	if !strings.Contains(out, "--offset 1") || strings.Contains(out, "--offset -") {
+		t.Errorf("a negative offset must continue from the clamped skip (--offset 1):\n%s", out)
 	}
 }

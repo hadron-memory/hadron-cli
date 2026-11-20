@@ -249,8 +249,11 @@ func connectionsPage(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		}
 		dto.Items = append(dto.Items, connectionDTO{ID: v.Id, OrganizationID: v.OrganizationId, UserID: v.UserId, MailboxEmail: v.MailboxEmail, Provider: v.Provider, DisplayName: v.DisplayName, SyncEnabled: v.SyncEnabled, SyncStatus: string(v.SyncStatus), LastSyncAt: v.LastSyncAt, CreatedAt: v.CreatedAt, UpdatedAt: v.UpdatedAt})
 	}
+	// The server clamps a negative offset to zero (skip = max(0, offset)); the
+	// continuation counts from that effective skip. The outgoing argument is
+	// left as given.
 	start := 0
-	if offset != nil {
+	if offset != nil && *offset > 0 {
 		start = *offset
 	}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
