@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -227,9 +228,11 @@ checks. The token is never printed: not in the output, --json or an error.
 				return exitcode.Newf(exitcode.Unavailable, "no usable answer; the token may not be stored; check the memory and set it again")
 			}
 			// Name the memory as the server did; fall back to what was typed.
+			// A urn that contains the token is not spliced ("hrn:[REDACTED]e:..."
+			// for a very short token): the typed ref names the memory instead.
 			named := ref
-			if u := resp.SetMemorySourceToken.Urn; u != "" {
-				named = strings.ReplaceAll(u, token, "[REDACTED]")
+			if u := resp.SetMemorySourceToken.Urn; u != "" && !strings.Contains(u, token) {
+				named = u
 			}
 			dto := syncSetTokenDTO{Memory: named, Operation: "set-token", TokenSet: true, ExpiresAt: exp}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -250,14 +253,29 @@ checks. The token is never printed: not in the output, --json or an error.
 func setTokenError(err error, token string) error {
 	mapped := api.MapError(err)
 	if token == "" {
-		return api.MapErrorKeepingCode(err)
+		// Nothing to redact, but the same cap and control-character guard as below.
+		return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", output.SafeLine(mapped.Error(), 2000)), err)
 	}
-	msg := output.SafeLine(strings.ReplaceAll(mapped.Error(), token, "[REDACTED]"), 2000)
+	msg := output.SafeLine(redactToken(mapped.Error(), token), 2000)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
 	if strings.Contains(api.ServerCodeOf(err), token) {
 		return safe
 	}
 	return api.WithServerCode(safe, err)
+}
+
+// redactToken replaces every occurrence of token in s, and of its JSON-escaped
+// spelling (a quote or backslash in the token), which a server that echoes the
+// token inside a JSON string would produce. Best effort: other encodings are
+// not covered.
+func redactToken(s, token string) string {
+	s = strings.ReplaceAll(s, token, "[REDACTED]")
+	if b, err := json.Marshal(token); err == nil {
+		if esc := strings.Trim(string(b), `"`); esc != token && esc != "" {
+			s = strings.ReplaceAll(s, esc, "[REDACTED]")
+		}
+	}
+	return s
 }
 
 type syncPullFailure struct {
