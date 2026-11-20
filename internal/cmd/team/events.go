@@ -257,6 +257,18 @@ func eventTaskCell(e teamEventDTO) string {
 	return *e.TaskHandle + " " + short
 }
 
+// isTasklessSubjectAlarm reports whether an alarm type is raised without a
+// task and names its subject worker instead. It is the one definition of that
+// set: tasklessAlarmCell and the "team alarm ack" receipt both read it, so a new
+// alarm type or a rename is one edit here.
+func isTasklessSubjectAlarm(t string) bool {
+	switch t {
+	case "alarm.dark-worker", "alarm.lead-cadence", "alarm.coordinator-cadence", "alarm.start-failing":
+		return true
+	}
+	return false
+}
+
 // Task-less alarm metadata is server-owned. Only known reason words reach
 // human output; evidence and arbitrary payload strings remain JSON-only.
 func tasklessAlarmCell(e teamEventDTO) string {
@@ -302,8 +314,8 @@ has not reacted (stall.owner-unreactive), that cannot be assigned
 (assignment.unassignable) or has passed its finish-by time (stall.finish-by);
 or a dark-worker alarm (a worker that has gone dark), or a cadence alarm
 (alarm.lead-cadence: a coordinator that has missed its cadence; events raised
-before the rename say alarm.coordinator-cadence, and both are handled alike). An alarm wakes its nearest
-owner first, and the owners above only while it stays unacknowledged.
+before the rename say alarm.coordinator-cadence, and both are handled alike).
+An alarm wakes its nearest owner first, and the owners above only while it stays unacknowledged.
 
 To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
 alarm) or "hadron team events --alarms" (the raw event stream). Both show each
@@ -425,7 +437,7 @@ text prints server warnings on stderr.
 						return err
 					}
 				}
-				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.lead-cadence" || event.Type == "alarm.coordinator-cadence" || event.Type == "alarm.start-failing") && event.SubjectWorker != nil {
+				if event.TaskID == nil && isTasklessSubjectAlarm(event.Type) && event.SubjectWorker != nil {
 					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}
