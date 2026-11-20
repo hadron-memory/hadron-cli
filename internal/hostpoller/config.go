@@ -360,9 +360,7 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 	// Windows reload check is a no-op, so the written form survives unchanged
 	// there too. A Getwd failure keeps the path as given, as before.
 	if !filepath.IsAbs(path) {
-		if wd, err := os.Getwd(); err == nil {
-			path = wd + "/" + path
-		}
+		path = nonAbsoluteConfigPath(path, filepath.VolumeName(path), len(path) > 0 && os.IsPathSeparator(path[0]), os.Getwd, filepath.Abs)
 	}
 	c.sourcePath, c.sourceHash = path, sha256.Sum256(raw)
 	return &c, nil
@@ -665,4 +663,14 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+// nonAbsoluteConfigPath preserves the written form of an ordinary relative
+// path. Native path classification is passed in so Windows-shaped cases can
+// be exercised without replacing process-wide state or requiring Windows.
+func nonAbsoluteConfigPath(path, volume string, rooted bool, getwd func() (string, error), abs func(string) (string, error)) string {
+	if wd, err := getwd(); err == nil {
+		return wd + "/" + path
+	}
+	return path
 }
