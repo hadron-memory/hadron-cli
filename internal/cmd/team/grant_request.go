@@ -33,6 +33,14 @@ A requested grant is pending and allows nothing until a person signs it on the
 ceremony page. This command never signs and never activates a grant. It prints
 no grant state label, only the facts and allows.
 
+lastRefusedAt is the latest time the server observed a verified signing attempt
+that was refused as ineligible, shown as a timestamp only. A dash (null in
+--json) means none was observed, not that none happened: the server records
+these best effort. It names no one and changes nothing about the request.
+It shows on request-signature, signing-request get and signing-request withdraw,
+which need a server with hadron-server#4581 (an older server refuses them);
+'hadron team grant request' does not read it.
+
 These commands exist only where signing is switched on. On a server without it
 the command says "does not offer" and exits 2.
 
@@ -124,6 +132,7 @@ type grantSigningRequestDTO struct {
 	CreatedAt      string                   `json:"createdAt"`
 	ExpiresAt      string                   `json:"expiresAt"`
 	EndedAt        *string                  `json:"endedAt"`
+	LastRefusedAt  *string                  `json:"lastRefusedAt"` // latest observed refused signing attempt; null = none observed (cli#2727)
 	CeremonyURL    string                   `json:"ceremonyUrl"`
 }
 
@@ -137,7 +146,7 @@ type grantSigningRequesterDTO struct {
 func grantSigningRequestFrom(r *gen.TeamGrantSigningRequestFields) grantSigningRequestDTO {
 	d := grantSigningRequestDTO{
 		ID: r.Id, GrantID: r.GrantId, Version: r.Version, TermsHash: r.TermsHash, PayloadVersion: r.PayloadVersion,
-		State: string(r.State), CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, EndedAt: r.EndedAt, CeremonyURL: r.CeremonyUrl,
+		State: string(r.State), CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, EndedAt: r.EndedAt, LastRefusedAt: r.LastRefusedAt, CeremonyURL: r.CeremonyUrl,
 	}
 	if rb := r.RequestedBy; rb != nil {
 		d.RequestedBy = grantSigningRequesterDTO{rb.UserId, rb.AppId, rb.WorkerId, rb.SessionId}
@@ -178,6 +187,7 @@ func renderGrantSigningRequest(f *cmdutil.Factory, d grantSigningRequestDTO) err
 			{"requestedBy.userId", grantOrDash(d.RequestedBy.UserID)}, {"requestedBy.appId", grantOrDash(d.RequestedBy.AppID)},
 			{"requestedBy.workerId", grantOrDash(d.RequestedBy.WorkerID)}, {"requestedBy.sessionId", grantOrDash(d.RequestedBy.SessionID)},
 			{"createdAt", output.SafeCell(d.CreatedAt)}, {"expiresAt", output.SafeCell(d.ExpiresAt)}, {"endedAt", grantOrDash(d.EndedAt)},
+			{"lastRefusedAt", grantOrDash(d.LastRefusedAt)},
 			{"ceremonyUrl", d.CeremonyURL},
 		}
 		for _, r := range rows {

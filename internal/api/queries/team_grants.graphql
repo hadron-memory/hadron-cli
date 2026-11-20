@@ -27,7 +27,7 @@ mutation TeamCreateGrant(
 fragment TeamGrantSigningRequestFields on GrantSigningRequest {
   id grantId version termsHash payloadVersion state
   requestedBy { userId appId workerId sessionId }
-  createdAt expiresAt endedAt ceremonyUrl
+  createdAt expiresAt endedAt lastRefusedAt ceremonyUrl
 }
 
 mutation TeamRequestGrantSignature($grantRef: ID!) {

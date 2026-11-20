@@ -105011,6 +105011,8 @@ type TeamGrantSigningRequestFields struct {
 	ExpiresAt   string                                                    `json:"expiresAt"`
 	// Null while OPEN. EXPIRED ends at expiresAt; every other end at the moment it happened (DB clock).
 	EndedAt *string `json:"endedAt"`
+	// Latest verified ineligible signing-proof attempt while OPEN, if any. Visible only through the existing request read gate; contains no signer identity and does not end the request (#4546; hrn:node:hadronmemory.com:specs:cor:acl:140:07).
+	LastRefusedAt *string `json:"lastRefusedAt"`
 	// The server-hosted ceremony page where someone who may issue the grant signs it (hrn:node:hadronmemory.com:specs:cor:acl:140:07): the server origin plus /grant-signing/<id>, with no token. Copy it verbatim; never compose it. Signing there with a passkey activates the grant; no GraphQL or MCP call takes an assertion. An ended request's link only explains that it ended.
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
@@ -105046,6 +105048,9 @@ func (v *TeamGrantSigningRequestFields) GetExpiresAt() string { return v.Expires
 
 // GetEndedAt returns TeamGrantSigningRequestFields.EndedAt, and is useful for accessing the field via an interface.
 func (v *TeamGrantSigningRequestFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetLastRefusedAt returns TeamGrantSigningRequestFields.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetLastRefusedAt() *string { return v.LastRefusedAt }
 
 // GetCeremonyUrl returns TeamGrantSigningRequestFields.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamGrantSigningRequestFields) GetCeremonyUrl() string { return v.CeremonyUrl }
@@ -105141,6 +105146,11 @@ func (v *TeamGrantSigningRequestGrantSigningRequest) GetEndedAt() *string {
 	return v.TeamGrantSigningRequestFields.EndedAt
 }
 
+// GetLastRefusedAt returns TeamGrantSigningRequestGrantSigningRequest.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetLastRefusedAt() *string {
+	return v.TeamGrantSigningRequestFields.LastRefusedAt
+}
+
 // GetCeremonyUrl returns TeamGrantSigningRequestGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamGrantSigningRequestGrantSigningRequest) GetCeremonyUrl() string {
 	return v.TeamGrantSigningRequestFields.CeremonyUrl
@@ -105192,6 +105202,8 @@ type __premarshalTeamGrantSigningRequestGrantSigningRequest struct {
 
 	EndedAt *string `json:"endedAt"`
 
+	LastRefusedAt *string `json:"lastRefusedAt"`
+
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
 
@@ -105216,6 +105228,7 @@ func (v *TeamGrantSigningRequestGrantSigningRequest) __premarshalJSON() (*__prem
 	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
 	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.LastRefusedAt = v.TeamGrantSigningRequestFields.LastRefusedAt
 	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
 	return &retval, nil
 }
@@ -107007,6 +107020,11 @@ func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetE
 	return v.TeamGrantSigningRequestFields.EndedAt
 }
 
+// GetLastRefusedAt returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetLastRefusedAt() *string {
+	return v.TeamGrantSigningRequestFields.LastRefusedAt
+}
+
 // GetCeremonyUrl returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetCeremonyUrl() string {
 	return v.TeamGrantSigningRequestFields.CeremonyUrl
@@ -107058,6 +107076,8 @@ type __premarshalTeamRequestGrantSignatureRequestGrantSignatureGrantSigningReque
 
 	EndedAt *string `json:"endedAt"`
 
+	LastRefusedAt *string `json:"lastRefusedAt"`
+
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
 
@@ -107082,6 +107102,7 @@ func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) __pr
 	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
 	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.LastRefusedAt = v.TeamGrantSigningRequestFields.LastRefusedAt
 	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
 	return &retval, nil
 }
@@ -110079,6 +110100,11 @@ func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetEndedAt(
 	return v.TeamGrantSigningRequestFields.EndedAt
 }
 
+// GetLastRefusedAt returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetLastRefusedAt() *string {
+	return v.TeamGrantSigningRequestFields.LastRefusedAt
+}
+
 // GetCeremonyUrl returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetCeremonyUrl() string {
 	return v.TeamGrantSigningRequestFields.CeremonyUrl
@@ -110130,6 +110156,8 @@ type __premarshalTeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest stru
 
 	EndedAt *string `json:"endedAt"`
 
+	LastRefusedAt *string `json:"lastRefusedAt"`
+
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
 
@@ -110154,6 +110182,7 @@ func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) __premarsha
 	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
 	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.LastRefusedAt = v.TeamGrantSigningRequestFields.LastRefusedAt
 	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
 	return &retval, nil
 }
@@ -179113,6 +179142,7 @@ fragment TeamGrantSigningRequestFields on GrantSigningRequest {
 	createdAt
 	expiresAt
 	endedAt
+	lastRefusedAt
 	ceremonyUrl
 }
 `
@@ -179946,6 +179976,7 @@ fragment TeamGrantSigningRequestFields on GrantSigningRequest {
 	createdAt
 	expiresAt
 	endedAt
+	lastRefusedAt
 	ceremonyUrl
 }
 `
@@ -180883,6 +180914,7 @@ fragment TeamGrantSigningRequestFields on GrantSigningRequest {
 	createdAt
 	expiresAt
 	endedAt
+	lastRefusedAt
 	ceremonyUrl
 }
 `
