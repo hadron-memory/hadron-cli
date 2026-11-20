@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -152,6 +153,13 @@ func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 			for _, w := range tc.want {
 				if !strings.Contains(tc.op, w) {
 					t.Errorf("document lacks %q:\n%s", w, tc.op)
+				}
+			}
+			// "$orgRef: ID" is a prefix of "$orgRef: IDAlias" too, so the
+			// optional declaration is also checked to end at a type boundary.
+			if tc.name == "CreateMemory" || tc.name == "CreateMemoryDraft" {
+				if !regexp.MustCompile(`\$orgRef: ID([\s,)]|$)`).MatchString(tc.op) {
+					t.Errorf("$orgRef is not declared as exactly the nullable ID type:\n%s", tc.op)
 				}
 			}
 			for _, g := range tc.gone {

@@ -391,7 +391,7 @@ func syntheticSchema2712(t *testing.T) *ast.Schema {
 			node(id: ID!): Thing
 			other(id: ID!): Other
 		}
-		type Thing { name: String items(first: Int): [Int] legacy(id: ID @deprecated(reason: "use ref"), ref: ID): Int }
+		type Thing { name: String items(first: Int): [Int] other: Other legacy(id: ID @deprecated(reason: "use ref"), ref: ID): Int }
 		type Other { name: String items(limit: Int): [Int] }
 		type Mutation { dropMemory(ref: ID!): Boolean }`})
 	if err != nil {
@@ -415,7 +415,7 @@ func TestDocumentRefArgSweepCatchesTypeMismatch2712(t *testing.T) {
 // A fragment a file defines but only ANOTHER file spreads is "never used" to
 // that file alone: not a problem of its own, while a real stale argument in
 // the same file is still reported.
-func TestDocumentRefArgSweepIgnoresOwnUnspreadFragment2712(t *testing.T) {
+func TestDocumentRefArgSweepIgnoresOwnFragmentUnusedInItsFile2712(t *testing.T) {
 	schema := syntheticSchema2712(t)
 	own := map[string]bool{"F": true}
 	if problems := documentRefArgProblems(schema, "a.graphql", `fragment F on Thing { name }`, 1, own); len(problems) != 0 {
@@ -435,7 +435,7 @@ func TestDocumentRefArgSweepIgnoresOwnUnspreadFragment2712(t *testing.T) {
 // in one file and spread in another validates; a stale argument inside the
 // foreign fragment fails; and a pooled definition that does not parse is an
 // error, not a silent gap.
-func TestDocumentRefArgSweepPooledFragments2712(t *testing.T) {
+func TestDocumentRefArgSweepPoolsDirectlySpreadFragments2712(t *testing.T) {
 	schema := syntheticSchema2712(t)
 	spreader := sweepSource{path: "spread.graphql", text: `query Q { node(id: 1) { ...F } }`}
 	good := sweepSource{path: "frag.graphql", text: `fragment F on Thing { name items(first: 1) }`}
@@ -475,6 +475,30 @@ func TestDocumentRefArgSweepResolvesSameNamedFieldsPerType2712(t *testing.T) {
 	wrong := `query Q { other(id: 1) { items(first: 1) } }`
 	if problems := documentRefArgProblems(schema, "s.graphql", wrong, 1, map[string]bool{}); len(problems) == 0 {
 		t.Error("Thing.items's argument on Other.items was accepted: resolution is by name, not by type")
+	}
+}
+
+// Transitive pooling: an operation spreads F, F spreads G (a third file), and
+// only G holds the stale argument; the spreading document must still pull G in
+// and the sweep must report it.
+func TestDocumentRefArgSweepPoolsTransitiveFragments2712(t *testing.T) {
+	schema := syntheticSchema2712(t)
+	docs := func(gBody string) []sweepSource {
+		return []sweepSource{
+			{path: "op.graphql", text: `query Q { node(id: 1) { ...F } }`},
+			{path: "f.graphql", text: `fragment F on Thing { name other { ...G } }`},
+			{path: "g.graphql", text: `fragment G on Other { ` + gBody + ` }`},
+		}
+	}
+	if problems, err := sweepDocuments(schema, docs(`items(limit: 1)`)); err != nil || len(problems) != 0 {
+		t.Fatalf("a valid transitive fragment chain was flagged: %v\n%s", err, strings.Join(problems, "\n"))
+	}
+	problems, err := sweepDocuments(schema, docs(`items(first: 1)`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(problems, "\n"), "items") {
+		t.Errorf("a stale argument two fragments deep was not reported:\n%s", strings.Join(problems, "\n"))
 	}
 }
 

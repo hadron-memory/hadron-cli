@@ -339,8 +339,14 @@ func TestNpmInstallFailureCleansUpAndStaysQuiet2712(t *testing.T) {
 	if !strings.Contains(log, "npm install failed") {
 		t.Errorf("the failure did not say the install failed:\n%s", log)
 	}
-	if _, err := os.Lstat(out); err == nil {
-		t.Errorf("the worktree %s was left behind after the failed install", out)
+	if _, err := os.Lstat(out); !os.IsNotExist(err) {
+		t.Errorf("the worktree %s was left behind after the failed install (Lstat: %v)", out, err)
+	}
+	if !strings.Contains(log, "scratch dir is kept for inspection at ") {
+		t.Errorf("the failure did not say where the scratch dir is kept:\n%s", log)
+	}
+	if strings.Contains(log, base64.StdEncoding.EncodeToString([]byte("x-access-token:"+tokenValue))) {
+		t.Errorf("the failure output leaked the derived authorization value:\n%s", log)
 	}
 	if strings.Contains(log, tokenValue) {
 		t.Errorf("the failure output leaked the token:\n%s", log)

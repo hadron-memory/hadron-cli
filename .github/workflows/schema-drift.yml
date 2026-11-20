@@ -45,7 +45,14 @@ on:
 
 permissions:
   contents: read
-  issues: write # file a tracking issue when drift is found
+  issues: write # file a tracking issue when drift is found or the job fails
+
+# One run at a time: the issue de-duplication below (list, then create) is
+# best-effort, and two overlapping runs (a dispatch during the nightly) could
+# both see no open issue and both file one.
+concurrency:
+  group: schema-drift
+  cancel-in-progress: false
 
 jobs:
   schema-drift:
@@ -114,27 +121,35 @@ jobs:
       - name: Read the tool pins
         id: pins
         if: steps.gate.outputs.enabled == 'true'
+        run: bash scripts/read-tool-pins.sh schema/SOURCE >> "$GITHUB_OUTPUT"
+
+      # The export is its own step, NOT part of the drift step: an install or
+      # exporter failure (a registry outage, a broken exporter) is an
+      # infrastructure fault, and inside the continue-on-error drift step it
+      # read as a drift verdict, so the infrastructure reporter skipped it.
+      # Here a failure fails the job with no drift verdict, and the reporter
+      # below fires. The SDL is exported from .hadron-server, where the script
+      # and its imports live (what `make schema-check` does itself).
+      - name: Export the hadron-server SDL
+        id: export
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          PIN_TSX: ${{ steps.pins.outputs.tsx }}
+          PIN_GRAPHQL: ${{ steps.pins.outputs.graphql }}
         run: |
-          tsx=$(sed -n 's/^tsx=//p' schema/SOURCE)
-          graphql=$(sed -n 's/^graphql=//p' schema/SOURCE)
-          if [ -z "$tsx" ] || [ -z "$graphql" ]; then
-            echo "::error::schema/SOURCE names no tsx=/graphql= tool pins; refusing to install floating versions"
-            exit 2
-          fi
-          echo "tsx=$tsx" >> "$GITHUB_OUTPUT"
-          echo "graphql=$graphql" >> "$GITHUB_OUTPUT"
+          cd .hadron-server
+          npm install --no-save --no-package-lock --silent --ignore-scripts "tsx@$PIN_TSX" "graphql@$PIN_GRAPHQL" 1>&2
+          node_modules/.bin/tsx scripts/export-graphql-sdl.mjs > "$RUNNER_TEMP/server-sdl.graphql"
+          [ -s "$RUNNER_TEMP/server-sdl.graphql" ] || { echo "::error::the exporter produced no SDL"; exit 1; }
 
       - name: Check for schema drift
         id: check
         if: steps.gate.outputs.enabled == 'true'
         continue-on-error: true
-        env:
-          PIN_TSX: ${{ steps.pins.outputs.tsx }}
-          PIN_GRAPHQL: ${{ steps.pins.outputs.graphql }}
         run: |
           make schema-check \
             HADRON_SERVER_DIR=.hadron-server \
-            SDL_EXPORT="npm install --no-save --no-package-lock --silent --ignore-scripts tsx@$PIN_TSX graphql@$PIN_GRAPHQL 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
+            SDL_EXPORT="cat $RUNNER_TEMP/server-sdl.graphql"
 
       # Same cross-repo checkout, second drift axis: the registered-tool manifest
       # `hadron spec check-tools` embeds. Pure grep over the tool-source files (every module
