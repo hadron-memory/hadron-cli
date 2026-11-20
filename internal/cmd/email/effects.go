@@ -43,10 +43,11 @@ func requireConfirmable(f *cmdutil.Factory, yes bool) error {
 // maxBodyBytes bounds a body read from a file or stdin.
 const maxBodyBytes = 1 << 20
 
-// idArg trims and requires a positional id before any request.
+// idArg requires a nonblank id before any request and returns it EXACTLY as given: ids
+// are opaque values, and altering one (a trimmed copy of a server-returned id) could
+// address a different object.
 func idArg(what, v string) (string, error) {
-	v = strings.TrimSpace(v)
-	if v == "" {
+	if strings.TrimSpace(v) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "give a nonempty %s (check for an unset variable)", what)
 	}
 	return v, nil
@@ -174,8 +175,16 @@ func allowlistedServerCode(code string) string {
 }
 
 // draftMayExist is the guidance for an unclear draft save: the draft may have been
-// created, and a retry without the same idempotency key could make a second one.
-const draftMayExist = "outcome unknown: a draft may have been created; check the Drafts folder before trying again (the CLI does not retry; --idempotency-key makes a retry safe)"
+// created. Whether a retry is safe depends on the ORIGINAL request: only the same
+// idempotency key on the original request and on the retry (within the server's
+// deduplication window) protects against a second draft.
+func draftMayExist(hadKey bool) string {
+	const lead = "outcome unknown: a draft may have been created; check the Drafts folder before trying again (the CLI does not retry"
+	if hadKey {
+		return lead + "; retry with the same --idempotency-key, within the server's deduplication window, so it cannot make a second draft)"
+	}
+	return lead + "; this request had no idempotency key, so a retry may make a second draft: adding a key to the retry does not protect against the first request having succeeded)"
+}
 
 func unknownOutcome(where string) string {
 	return fmt.Sprintf("outcome unknown: the request may have reached the server and the mail may have been sent; check the %s before trying again (the CLI does not retry)", where)
@@ -304,11 +313,11 @@ or a fresh one (--to and --subject). Nothing is sent. The body is HTML, sent as
 you wrote it, and is read from --body-file (a path, or - for stdin); it is never
 printed back. The draft's ID is what "draft update" and "draft send" take.
 
---idempotency-key is passed to the server unchanged so a retry you make cannot
-save two drafts (reuse the same valid key within the server's deduplication window);
-the CLI never makes one up and never retries on its own. If the save is unclear (no
-usable answer), a draft may have been created: check the Drafts folder before trying
-again.
+--idempotency-key is passed to the server unchanged. It protects a retry only when
+the ORIGINAL request carried the same valid key too (within the server's deduplication
+window); adding a key to a retry of a request that had none does not. The CLI never
+makes a key up and never retries on its own. If the save is unclear (no usable
+answer), a draft may have been created: check the Drafts folder before trying again.
 
 Details:
   --json is {draftId, conversationId} (conversationId is null when the server
@@ -353,10 +362,10 @@ Details:
 			}
 			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, stringFlagIfSet(cmd, "reply-to", replyTo), stringFlagIfSet(cmd, "subject", subject), optList(cmd, "to", to), stringFlagIfSet(cmd, "idempotency-key", key))
 			if err != nil {
-				return bodyFailure(err, draftMayExist)
+				return bodyFailure(err, draftMayExist(cmd.Flags().Changed("idempotency-key")))
 			}
 			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
-				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist)
+				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist(cmd.Flags().Changed("idempotency-key")))
 			}
 			d := r.EmailSaveDraft
 			// The ids are the server's own opaque values, printed as returned: the draft
@@ -427,11 +436,12 @@ func newDraftSend(f *cmdutil.Factory) *cobra.Command {
 one, --yes is required (exit 2 and no request otherwise). Only the mailbox's owner
 (or an App with a covering grant) may send.
 
---idempotency-key is passed to the server unchanged so a retry you make cannot send
-twice; the CLI never makes one up and never retries on its own. If no answer comes
-back, the outcome is unknown: the mail may have been sent, so the CLI says "outcome
-unknown, check the Sent folder" and never "failed". A false answer is reported as
-not confirmed.
+--idempotency-key is passed to the server unchanged. It protects a retry from sending
+twice only when the ORIGINAL request carried the same valid key too (within the
+server's deduplication window); the CLI never makes one up and never retries on
+its own. If no answer comes back, the outcome is unknown: the mail may have been
+sent, so the CLI says "outcome unknown, check the Sent folder" and never "failed".
+A false answer is reported as not confirmed.
 
 Details:
   --json is {connectionId, draftId, action, ok}.`,

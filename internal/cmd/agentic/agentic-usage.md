@@ -5199,7 +5199,7 @@ existing fallback with no reconnect advice.
 server decides ownership (owner, or an App with a covering grant; impersonated sessions and an org
 admin who is not the owner are refused) and its refusals pass through (FORBIDDEN exit 8), unknown
 tool failures keep the existing fallback with no reconnect advice, and a false answer exits 7 "not
-confirmed". A missing or blank `--connection` or id exits 2 with no request.
+confirmed". A missing or blank `--connection` or id exits 2 with no request; ids are sent exactly as given (not trimmed).
 - `email reply MESSAGE-ID --connection ID --body-file PATH|-` calls exchangeReply and replies to
   the SENDER only (the server takes no recipient: no `--all`, no `--to`). It SENDS MAIL: asks y/N on
   a terminal, else exit 2 with ZERO requests unless `--yes` (refused before stdin is read). The body
@@ -5222,7 +5222,9 @@ confirmed". A missing or blank `--connection` or id exits 2 with no request.
   (conversationId may be null), printed as the server returned them: a draft that was created is never
   refused or altered on a guess about its id. An unclear save (no usable answer, or a success with no
   usable draft id) is exit 7 "outcome unknown: a draft may have been created; check the Drafts folder
-  before trying again", since a retry without the same key could make a second draft.
+  before trying again". A retry is protected from a second draft only when the ORIGINAL request carried
+  the same valid `--idempotency-key` too (within the server's deduplication window); the message says
+  which case applies, and says a key added only on the retry does not protect.
   `--idempotency-key` is passed unchanged (an empty value too) and omitted when unset: the CLI never
   invents or replays one, and retry protection needs the same valid key reused within the server's
   deduplication window. `draft update DRAFT-ID` calls
