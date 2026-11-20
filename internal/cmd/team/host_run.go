@@ -556,7 +556,8 @@ program named as a relative path (with a slash) is refused on reload: it is
 run from the worker's directory, which the check cannot judge — use an
 absolute path or a bare name, or restart the poller. The check stops other
 users and loose modes; a process running as the poller's own user is inside
-the poller's trust boundary, as it is for a restart. A file that does not load or fails the start-time checks changes nothing either: the poller keeps
+the poller's trust boundary, as it is for a restart. A file that does not load
+or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
 for that content and reason. A worker that now launches through Orca is
 refused too, since that wiring is made at start (restart to apply it). A

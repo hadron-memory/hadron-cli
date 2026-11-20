@@ -36,7 +36,7 @@ func TestAVisitedDirectoryWhoseStatFailsIsRefusedNotSkipped2668(t *testing.T) {
 		return prev(p)
 	}
 	t.Cleanup(func() { statPath = prev })
-	if err := trustedAncestors(filepath.Join(a, "prog"), "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
+	if err := trustedAncestors(trustWalk{}, filepath.Join(a, "prog"), "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
 		t.Fatalf("a directory whose Stat fails must be refused, got %v", err)
 	}
 }
@@ -77,15 +77,16 @@ func TestAFollowedLinkWhoseLstatFailsIsRefusedNotSkipped2668(t *testing.T) {
 	if err := os.Symlink(b, link); err != nil {
 		t.Fatal(err)
 	}
-	prev := lstatLink
-	lstatLink = func(p string) (os.FileInfo, error) {
+	// The failing Lstat is injected through the per-poller trustWalk seam
+	// (cli#2653 item 3), not a package variable, so this test can run in
+	// parallel with others that walk a real filesystem.
+	walk := trustWalk{lstatLink: func(p string) (os.FileInfo, error) {
 		if p == link {
 			return nil, fs.ErrPermission
 		}
-		return prev(p)
-	}
-	t.Cleanup(func() { lstatLink = prev })
-	if err := trustedAncestors(link, "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
+		return os.Lstat(p)
+	}}
+	if err := trustedAncestors(walk, link, "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
 		t.Fatalf("a followed link whose Lstat fails must be refused, got %v", err)
 	}
 }
@@ -106,7 +107,7 @@ func TestAMissingPathIsStillSkipped2668(t *testing.T) {
 		return prev(p)
 	}
 	t.Cleanup(func() { statPath = prev })
-	if err := trustedAncestors(filepath.Join(a, "prog"), "a program"); err != nil {
+	if err := trustedAncestors(trustWalk{}, filepath.Join(a, "prog"), "a program"); err != nil {
 		t.Fatalf("a not-exist Stat error must still be skipped, got %v", err)
 	}
 	if err := trustedPath(filepath.Join(a, "absent"), "a program"); err != nil {
