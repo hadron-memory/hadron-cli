@@ -330,3 +330,41 @@ func TestHealthInstallResolvesOrcaAgainstThePersistedPath(t *testing.T) {
 		t.Error("a refused install wrote files")
 	}
 }
+
+// cli#2674: a --config path with ".." after a symlink reaches the installed
+// unit as written, not lexically cleaned, so the reloaded poller reads the file
+// the kernel resolved when this command loaded it. The expected path is built
+// by concat: filepath.Join would clean the ".." away and pass for the wrong
+// reason.
+func TestHealthInstallKeepsTheWrittenConfigPath2674(t *testing.T) {
+	orcaOnPath(t)
+	_, run, home := healthHarness(t, "systemctl")
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "real", "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("real", "sub"), filepath.Join(root, "link")); err != nil {
+		t.Fatal(err)
+	}
+	key := filepath.Join(root, "real", "host.key")
+	if err := os.WriteFile(key, []byte("hdr_app_SENTINELKEY"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	y := "app: hrn:app:example.com:team\nkey_file: " + key + "\nworktrees_root: " + root + "\npoll_interval_seconds: 30\nworkers:\n  iris:\n    family: claude\n    launch: [claude-worker]\n"
+	if err := os.WriteFile(filepath.Join(root, "real", "host.yaml"), []byte(y), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	written := root + "/link/../host.yaml"
+	out, _, err := run("install", "--config", written, "--interval", "5m", "--bin", "/usr/local/bin/hadron", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var in map[string]any
+	if json.Unmarshal([]byte(out), &in) != nil || in["config"] != written {
+		t.Fatalf("the receipt must carry the written path %q: %s", written, out)
+	}
+	unit, _ := os.ReadFile(filepath.Join(home, ".config/systemd/user/hadron-team-health.service"))
+	if !strings.Contains(string(unit), `"--config" "`+written+`"`) {
+		t.Fatalf("the installed unit must carry the written path %q: %s", written, unit)
+	}
+}

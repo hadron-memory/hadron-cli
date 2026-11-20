@@ -339,30 +339,22 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
 	}
 
-	dir := filepath.Dir(path)
+	// The written path, absolute but not cleaned (AbsWritten): the directory
+	// state and key files are joined to is the one the kernel reached, so a
+	// ".." after a symlink must survive (cli#2674). Entries are joined with a
+	// slash, not filepath.Join, which would clean the ".." away.
+	path = AbsWritten(path)
+	dir := writtenDir(path)
 	if c.StateFile == "" {
-		c.StateFile = filepath.Join(dir, "hadron-host-state.json")
+		c.StateFile = dir + "/hadron-host-state.json"
 	} else if !filepath.IsAbs(c.StateFile) {
-		c.StateFile = filepath.Join(dir, c.StateFile)
+		c.StateFile = dir + "/" + c.StateFile
 	}
 	if c.KeyFile != "" && !filepath.IsAbs(c.KeyFile) {
-		c.KeyFile = filepath.Join(dir, c.KeyFile)
+		c.KeyFile = dir + "/" + c.KeyFile
 	}
 	if err := c.validate(); err != nil {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
-	}
-	// The absolute path, so a later change of working directory cannot make a
-	// reload read a different file. Joined with a slash, not cleaned: ".."
-	// after a symlink goes to the link target's parent, not the written
-	// path's lexical parent, so both the reload read and the trust walk must
-	// follow the kernel, not filepath.Clean (cli#2668). The slash is a legal
-	// separator on both kernels — Windows path handling accepts it — and the
-	// Windows reload check is a no-op, so the written form survives unchanged
-	// there too. A Getwd failure keeps the path as given, as before.
-	if !filepath.IsAbs(path) {
-		if wd, err := os.Getwd(); err == nil {
-			path = wd + "/" + path
-		}
 	}
 	c.sourcePath, c.sourceHash = path, sha256.Sum256(raw)
 	return &c, nil
@@ -665,4 +657,37 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+// AbsWritten makes path absolute by joining the working directory and the path
+// with a slash, never cleaning it. ".." after a symlink goes to the link
+// target's parent, not the written path's lexical parent, so the stored path
+// must keep it as written: the reload read, the trust walk and an installed
+// unit then all follow the kernel, not filepath.Clean (cli#2668, cli#2674). The
+// slash is a legal separator on both kernels, and the Windows reload check is a
+// no-op, so the written form survives unchanged there too. An absolute path, or
+// a Getwd failure, returns the path as given.
+func AbsWritten(path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	if wd, err := os.Getwd(); err == nil {
+		return wd + "/" + path
+	}
+	return path
+}
+
+// writtenDir is the directory part of an absolute written path, cut at its
+// last separator without cleaning: "root/link/../host.yaml" gives
+// "root/link/..", which the kernel resolves to the directory it loaded the file
+// from.
+func writtenDir(path string) string {
+	i := strings.LastIndexByte(path, '/')
+	if j := strings.LastIndexByte(path, filepath.Separator); j > i {
+		i = j
+	}
+	if i < 0 {
+		return "."
+	}
+	return path[:i]
 }
