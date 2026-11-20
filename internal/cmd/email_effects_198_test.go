@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -696,8 +697,8 @@ func runEffectRendered198(t *testing.T, responses map[string]string, args ...str
 
 // Joost's #2740 P2: the server's extensions.code is DATA from outside; a body-
 // submitting command must not carry a body-bearing code into the --json envelope's
-// serverCode (or the message). A well-formed code (UPPER_SNAKE) is kept for
-// scripts; anything else is dropped.
+// serverCode (or the message). A code on the fixed allowlist is kept for scripts;
+// anything else is dropped (the next test covers syntactically valid unknown codes).
 func TestEmailBodyCommandsDoNotLeakThroughServerCode198(t *testing.T) {
 	body := bodyFile198(t, "line one SECRET-A\nline two SECRET-B")
 	cmds := []struct {
@@ -721,7 +722,7 @@ func TestEmailBodyCommandsDoNotLeakThroughServerCode198(t *testing.T) {
 				}
 			})
 		}
-		t.Run(c.name+" a well-formed code is kept", func(t *testing.T) {
+		t.Run(c.name+" an allowlisted code is kept", func(t *testing.T) {
 			wire := `{"errors":[{"message":"x","extensions":{"code":"EMAIL_TOOL_ERROR"}}]}`
 			out, err := runEffectRendered198(t, map[string]string{c.op: wire}, c.args...)
 			if err == nil || !strings.Contains(out, `"serverCode": "EMAIL_TOOL_ERROR"`) {
@@ -797,8 +798,15 @@ func TestEmailRefusalsHappenBeforeStdinIsRead198(t *testing.T) {
 		{"reply without a connection", []string{"reply", "m1", "--body-file", "-", "--yes"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			requests198.Store(0)
-			srv, _ := captureGraphQL(t, map[string]string{})
+			var hits atomic.Int64
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodPost {
+					hits.Add(1)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"data":{}}`))
+			}))
+			defer srv.Close()
 			f, _ := testFactory(t)
 			spy := &readerSpy198{data: "the body"}
 			f.IOStreams.In = spy
@@ -810,6 +818,9 @@ func TestEmailRefusalsHappenBeforeStdinIsRead198(t *testing.T) {
 			}
 			if spy.touched {
 				t.Error("stdin was read before the command was refused")
+			}
+			if hits.Load() != 0 {
+				t.Errorf("%d requests were made before the usage error", hits.Load())
 			}
 		})
 	}
@@ -975,5 +986,59 @@ func TestEmailAmbiguousDraftSaveSaysADraftMayExist198(t *testing.T) {
 		if exitCodeFor(err) != 7 || err == nil || !strings.Contains(strings.ToLower(err.Error()), "drafts folder") {
 			t.Errorf("%s: want exit 7 naming the Drafts folder, got %v", wire, err)
 		}
+	}
+}
+
+// Beckett's #2740 P2 F1: ids are opaque values and are sent exactly as given (only a
+// blank one is refused); trimming a server-returned id could address a different
+// object.
+func TestEmailIDsAreSentExactlyAsGiven198(t *testing.T) {
+	ops := func(op, field string, args ...string) map[string]any {
+		_, captured, n, err := runEffect198(t, map[string]string{op: boolResp198(field, ok198)}, "", args...)
+		if err != nil || n != 1 {
+			t.Fatalf("%s: err %v, %d requests", op, err, n)
+		}
+		return vars198(t, captured, op)
+	}
+	body := bodyFile198(t, "x")
+	if v := ops("EmailReply", "exchangeReply", "reply", "--connection", " c 1 ", " m 1 ", "--body-file", body, "--yes"); v["connectionId"] != " c 1 " || v["messageId"] != " m 1 " {
+		t.Errorf("reply ids were altered: %v", v)
+	}
+	if v := ops("EmailSendDraft", "emailSendDraft", "draft", "send", "--connection", " c ", " d 1 ", "--yes"); v["connectionRef"] != " c " || v["draftId"] != " d 1 " {
+		t.Errorf("draft send ids were altered: %v", v)
+	}
+	if v := ops("EmailMoveMessage", "exchangeMoveMessage", "move", "--connection", "c", " m ", "--folder", " f 9 "); v["messageId"] != " m " || v["folderId"] != " f 9 " {
+		t.Errorf("move ids were altered: %v", v)
+	}
+	// A blank id is still a usage error with no request.
+	for _, id := range []string{"", "  ", "\t\n"} {
+		_, _, n, err := runEffect198(t, map[string]string{}, "", "delete", "--connection", "c", id, "--yes")
+		if exitCodeFor(err) != 2 || n != 0 {
+			t.Errorf("blank id %q: exit %d (%v), %d requests", id, exitCodeFor(err), err, n)
+		}
+	}
+}
+
+// Beckett's P2 F2: the unclear-save guidance depends on whether the ORIGINAL request
+// carried an idempotency key. With one, retrying with the same key is safe; without
+// one, adding a key on the retry does not protect against the first request having
+// succeeded, so the guidance says to check the Drafts folder first.
+func TestEmailAmbiguousDraftSaveKeyGuidance198(t *testing.T) {
+	body := bodyFile198(t, "x")
+	run := func(extra ...string) string {
+		args := append([]string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}, extra...)
+		_, _, _, err := runEffect198(t, map[string]string{"EmailSaveDraft": `{"data":{}}`}, "", args...)
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		return strings.ToLower(err.Error())
+	}
+	without := run()
+	if strings.Contains(without, "makes a retry safe") || !strings.Contains(without, "no idempotency key") {
+		t.Errorf("a save with no key must say a retry may duplicate (not that a key makes it safe): %s", without)
+	}
+	with := run("--idempotency-key", "k-1")
+	if !strings.Contains(with, "same --idempotency-key") || strings.Contains(with, "no idempotency key") {
+		t.Errorf("a save with a key must say to retry with the SAME key: %s", with)
 	}
 }
