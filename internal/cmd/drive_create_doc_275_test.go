@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/vektah/gqlparser/v2/ast"
@@ -107,43 +111,64 @@ func TestDriveCreateDoc275Success(t *testing.T) {
 }
 
 func TestDriveCreateDoc275ConsentAndValidation(t *testing.T) {
-	for _, tail := range [][]string{
-		{"node", "--connection", "c"},
-		{"node", "--yes"},
-		{"node", "--connection", " ", "--yes"},
-		{" ", "--connection", "c", "--yes"},
+	cases := [][]string{
+		{"node", "--connection", "c"}, {"node", "--yes"},
+		{"node", "--connection", " ", "--yes"}, {" ", "--connection", "c", "--yes"},
 		{"node", "--connection", "c", "--folder", "", "--yes"},
+		{"node", "--connection", "c", "--folder", " ", "--yes"},
+		{"node", "--connection", "c", "--title", "", "--yes"},
 		{"node", "--connection", "c", "--title", " ", "--yes"},
-	} {
-		srv, n := createDocServer275(t, func(http.ResponseWriter, *http.Request, map[string]any) { t.Error("request before refusal") })
-		f, _ := testFactory(t)
-		r := NewRootCmd(f)
-		r.SetArgs(append(append([]string{"drive", "create-doc"}, tail...), "--server", srv.URL))
-		if err := r.Execute(); exitCodeFor(err) != 2 {
-			t.Fatalf("args %v: %v", tail, err)
-		}
-		if n.Load() != 0 {
-			t.Fatalf("args %v: HTTP requests %d, want 0", tail, n.Load())
-		}
+		{"--connection", "c", "--yes"}, {"node", "extra", "--connection", "c", "--yes"},
+	}
+	for i, tail := range cases {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			srv, n := createDocServer275(t, func(http.ResponseWriter, *http.Request, map[string]any) { t.Error("request before refusal") })
+			f, _ := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs(append(append([]string{"drive", "create-doc"}, tail...), "--server", srv.URL))
+			if err := r.Execute(); exitCodeFor(err) != 2 {
+				t.Fatalf("args %v: %v", tail, err)
+			}
+			if n.Load() != 0 {
+				t.Fatalf("args %v: HTTP %d, want zero", tail, n.Load())
+			}
+		})
 	}
 	for _, answer := range []string{"n\n", "y\n"} {
-		srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
-			_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + driveFile275 + `}}`))
-		})
-		f, _, stderr := testFactoryTTY(t, answer)
-		r := NewRootCmd(f)
-		r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--server", srv.URL})
-		wantCode, wantN := 6, int32(0)
-		if answer == "y\n" {
-			wantCode, wantN = 0, 1
-		}
-		if err := r.Execute(); exitCodeFor(err) != wantCode || n.Load() != wantN {
-			t.Fatalf("answer %q: err %v, requests %d", answer, err, n.Load())
-		}
-		for _, phrase := range []string{"new Google Doc", "external", "cannot be recalled", "node", "c"} {
-			if !strings.Contains(stderr.String(), phrase) {
-				t.Fatalf("prompt lacks %q: %s", phrase, stderr)
-			}
+		for _, withOptions := range []bool{false, true} {
+			t.Run(strconv.Quote(answer)+strconv.FormatBool(withOptions), func(t *testing.T) {
+				srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+					_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + driveFile275 + `}}`))
+				})
+				f, _, stderr := testFactoryTTY(t, answer)
+				r := NewRootCmd(f)
+				args := []string{"drive", "create-doc", "node-275-ref", "--connection", "conn-275-id", "--server", srv.URL}
+				const folder = "folder-275\nforged-line"
+				const title = "title-275\t\x1b"
+				if withOptions {
+					args = append(args, "--folder", folder, "--title", title)
+				}
+				r.SetArgs(args)
+				wantCode, wantN := 6, int32(0)
+				if answer == "y\n" {
+					wantCode, wantN = 0, 1
+				}
+				if err := r.Execute(); exitCodeFor(err) != wantCode || n.Load() != wantN {
+					t.Fatalf("err=%v HTTP=%d, want code=%d HTTP=%d", err, n.Load(), wantCode, wantN)
+				}
+				phrases := []string{"new Google Doc", "external", "cannot be recalled", strconv.Quote("node-275-ref"), strconv.Quote("conn-275-id")}
+				if withOptions {
+					phrases = append(phrases, strconv.Quote(folder), strconv.Quote(title))
+				}
+				for _, phrase := range phrases {
+					if !strings.Contains(stderr.String(), phrase) {
+						t.Fatalf("prompt lacks %q: %s", phrase, stderr)
+					}
+				}
+				if strings.Contains(stderr.String(), "\x1b") || strings.Contains(stderr.String(), "folder-275\nforged-line") {
+					t.Fatal("prompt contains unescaped controls")
+				}
+			})
 		}
 	}
 }
@@ -167,7 +192,7 @@ func TestDriveCreateDoc275Refusals(t *testing.T) {
 }
 
 func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
-	for _, mode := range []string{"gateway", "structured-5xx", "drop", "redirect307", "redirect308", "malformed", "null"} {
+	for _, mode := range []string{"gateway", "structured-5xx", "coded-refusal-5xx", "internal-200", "partial-200", "uncoded-200", "empty-id", "drop", "redirect307", "redirect308", "malformed", "null"} {
 		t.Run(mode, func(t *testing.T) {
 			srv, n := createDocServer275(t, func(w http.ResponseWriter, req *http.Request, _ map[string]any) {
 				switch mode {
@@ -176,6 +201,17 @@ func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
 				case "structured-5xx":
 					w.WriteHeader(http.StatusServiceUnavailable)
 					_, _ = w.Write([]byte(`{"errors":[{"message":"request failed after dispatch","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`))
+				case "coded-refusal-5xx":
+					w.WriteHeader(http.StatusServiceUnavailable)
+					_, _ = w.Write([]byte(`{"errors":[{"message":"exact server refusal","extensions":{"code":"FORBIDDEN"}}]}`))
+				case "internal-200":
+					_, _ = w.Write([]byte(`{"errors":[{"message":"Unexpected error.","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":{"exportNodeToGoogleDoc":null}}`))
+				case "partial-200":
+					_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + driveFile275 + `},"errors":[{"message":"Unexpected error.","path":["exportNodeToGoogleDoc","name"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`))
+				case "uncoded-200":
+					_, _ = w.Write([]byte(`{"errors":[{"message":"boom"}]}`))
+				case "empty-id":
+					_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + strings.Replace(driveFile275, `"id":"f"`, `"id":""`, 1) + `}}`))
 				case "redirect307", "redirect308":
 					status := http.StatusTemporaryRedirect
 					if mode == "redirect308" {
@@ -199,7 +235,11 @@ func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
 			r := NewRootCmd(f)
 			r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
 			err := r.Execute()
-			if exitCodeFor(err) != 7 || err == nil || !strings.Contains(err.Error(), "the outcome is unknown; check the drive") || strings.Contains(err.Error(), "failed") || n.Load() != 1 || out.Len() != 0 {
+			wantMessage := map[string]string{"structured-5xx": "request failed after dispatch", "coded-refusal-5xx": "exact server refusal", "internal-200": "Unexpected error.", "partial-200": "Unexpected error.", "uncoded-200": "boom"}[mode]
+			if wantMessage != "" && (err == nil || !strings.Contains(err.Error(), "; server said: "+wantMessage)) {
+				t.Fatalf("server message missing: %v", err)
+			}
+			if exitCodeFor(err) != 7 || err == nil || !strings.Contains(err.Error(), "the outcome is unknown; check the drive") || n.Load() != 1 || out.Len() != 0 {
 				t.Fatalf("err=%v HTTP=%d stdout=%q", err, n.Load(), out.String())
 			}
 		})
@@ -223,10 +263,106 @@ func TestDriveCreateDoc275UnlockIsHeaderOnly(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + driveFile275 + `}}`))
 	})
 	f, out := testFactory(t)
+	var stderr bytes.Buffer
+	f.IOStreams.ErrOut = &stderr
 	r := NewRootCmd(f)
 	r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL,
 		"--unlock", "hrn:mem:example.com:kb", "--unlock-passphrase-file", passFile1234(t, secret, 0o600)})
-	if err := r.Execute(); err != nil || n.Load() != 1 || strings.Contains(out.String(), secret) {
-		t.Fatalf("err=%v HTTP=%d", err, n.Load())
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if n.Load() != 1 {
+		t.Fatalf("HTTP=%d, want one", n.Load())
+	}
+	if strings.Contains(out.String(), secret) {
+		t.Fatal("stdout contains the unlock passphrase")
+	}
+	if strings.Contains(stderr.String(), secret) {
+		t.Fatal("stderr contains the unlock passphrase")
+	}
+}
+
+func TestDriveCreateDoc275CancelledAttemptIsUnknown(t *testing.T) {
+	for _, mode := range []string{"deadline", "cancel"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			if mode == "deadline" {
+				cancel()
+				ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+			}
+			defer cancel()
+			srv, n := createDocServer275(t, func(_ http.ResponseWriter, r *http.Request, _ map[string]any) {
+				if mode == "cancel" {
+					cancel()
+				}
+				select {
+				case <-r.Context().Done():
+				case <-time.After(2 * time.Second):
+				}
+			})
+			f, out := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
+			err := r.ExecuteContext(ctx)
+			wantMessage := map[string]string{"structured-5xx": "request failed after dispatch", "coded-refusal-5xx": "exact server refusal", "internal-200": "Unexpected error.", "partial-200": "Unexpected error.", "uncoded-200": "boom"}[mode]
+			if wantMessage != "" && (err == nil || !strings.Contains(err.Error(), "; server said: "+wantMessage)) {
+				t.Fatalf("server message missing: %v", err)
+			}
+			if exitCodeFor(err) != 7 || err == nil || !strings.Contains(err.Error(), "the outcome is unknown; check the drive") || n.Load() != 1 || out.Len() != 0 {
+				t.Fatalf("err=%v HTTP=%d stdout=%q", err, n.Load(), out.String())
+			}
+		})
+	}
+}
+func TestDriveCreateDoc275Non200RefusalPreservesMessage(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		code   string
+		exit   int
+	}{{http.StatusUnauthorized, "SESSION_EXPIRED", 3}, {http.StatusForbidden, "FORBIDDEN", 8}, {http.StatusBadRequest, "BAD_USER_INPUT", 2}} {
+		t.Run(tc.code, func(t *testing.T) {
+			srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+				w.WriteHeader(tc.status)
+				_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": "exact server refusal", "extensions": map[string]any{"code": tc.code}}}})
+			})
+			f, _ := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
+			err := r.Execute()
+			if exitCodeFor(err) != tc.exit || err == nil || err.Error() != "exact server refusal" || n.Load() != 1 {
+				t.Fatalf("err=%v HTTP=%d", err, n.Load())
+			}
+		})
+	}
+}
+func TestDriveCreateDoc275ReferenceForms(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{{"  hrn:node:example.com:kb:notes ", "hrn:node:example.com:kb:notes"}, {"example.com::kb::notes", "hrn:node:example.com::kb::notes"}} {
+		t.Run(tc.in, func(t *testing.T) {
+			srv, _ := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, v map[string]any) {
+				if v["nodeRef"] != tc.want {
+					t.Errorf("nodeRef=%v, want %s", v["nodeRef"], tc.want)
+				}
+				_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + driveFile275 + `}}`))
+			})
+			f, _ := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"drive", "create-doc", tc.in, "--connection", "c", "--yes", "--server", srv.URL})
+			if err := r.Execute(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestDriveCreateDoc275IncompleteMetadataPreservesID(t *testing.T) {
+	srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+		_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + strings.Replace(driveFile275, `"parents":[]`, `"parents":null`, 1) + `}}`))
+	})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
+	err := r.Execute()
+	if exitCodeFor(err) != 7 || err == nil || !strings.Contains(err.Error(), `Google Doc ID "f" but incomplete metadata`) || n.Load() != 1 || out.Len() != 0 {
+		t.Fatalf("err=%v HTTP=%d stdout=%q", err, n.Load(), out.String())
 	}
 }

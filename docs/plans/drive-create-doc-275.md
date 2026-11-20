@@ -5,14 +5,15 @@ The existing `drive list`, `get` and `export` commands read a connected Drive.
 owner-only `exportNodeToGoogleDoc` mutation. It always creates a new Google Doc;
 it does not edit or replace an existing one.
 
-The cleared remote-create cut is T2 with LOCAL, BLIND, security and fake-HTTP
-QA seats (issue gate 7048732342). Refs #275; the change manager owns issue
+The cleared scope requires local and independent diff-only code reviews, a
+security review and fake-HTTP QA (issue gate 7048732342). Refs #275; the change manager owns issue
 completion after merge. This command does not change Drive read behavior.
 
 ## Request and consent
 
-The CLI forwards an ID or qualified node reference directly, without resolving
-it or fetching its content. The server reads the node, resolves includes with
+The CLI trims the node reference and applies the existing CanonicalNodeRef
+helper to qualify supported legacy forms. It sends that ID or reference
+without a resolving request or content fetch. The server reads the node, resolves includes with
 the caller's access, authorizes the connection and passes the content to the
 Drive tool. No permission preflight, discovery or alternate export path runs.
 
@@ -29,19 +30,23 @@ whitespace-only values refuse locally; other values are forwarded unchanged.
 
 Success reuses `drive get`'s explicit file DTO and text metadata renderer.
 The `size` pointer preserves null; no node content or provider credential is
-read or printed by the CLI. A missing/incomplete result cannot establish which
-Doc was created and reports unknown outcome, without producing a success DTO.
+read or printed by the CLI. A missing result or empty ID reports unknown outcome
+without a success DTO.
+If the server supplies an ID but incomplete metadata, the error retains that
+ID and asks the caller to check Drive before another creation.
 
 Server refusals use the shared error mapper and retain the server code.
-Transport/gateway failures and undecodable responses receive fixed exit-7
-guidance: the outcome is unknown; check the drive before retrying. The message
-does not claim a failed creation or encourage an automatic retry. There is no
+Transport/gateway failures, internal/uncoded GraphQL errors and undecodable
+responses receive exit-7 guidance: the outcome is unknown; check the drive
+before retrying. Server diagnostics and codes are retained alongside the
+guidance when supplied.
+The CLI does not infer a failed creation or encourage an automatic retry. There is no
 retry or fallback mutation. A structured unknown server refusal keeps the
 existing unknown-code fallback.
 
 ## Existing cross-repository rules
 
-Both FITs found this compliant without a new spec. cor:dmo:080:04 makes an
+Both specification reviews found this compliant without a new spec. cor:dmo:080:04 makes an
 operation with no grant mapping owner-only; App/headless, impersonated and
 non-owner callers are refused by the server. cor:dmo:150:03 governs resolved
 includes under the exporter's access. cor:api:240:01/:02 and cor:int:030:01

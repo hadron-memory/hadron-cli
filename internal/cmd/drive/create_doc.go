@@ -18,7 +18,7 @@ func createDoc(f *cmdutil.Factory) *cobra.Command {
 	var title string
 	var yes bool
 	c := &cobra.Command{
-		Use:   "create-doc <nodeRef>",
+		Use:   "create-doc <node-ref>",
 		Short: "Copy a Hadron node to a new Google Doc in a connected Drive",
 		Long: `Create a NEW Google Doc from a Hadron node. The node reference is its ID or
 fully-qualified URN. This copies its content to the connection owner's external
@@ -78,19 +78,21 @@ calls this creation operation.
 			}
 			r, err := gen.DriveCreateDoc(c.Context(), client, o.connection, node, folder, givenTitle)
 			if err != nil {
-				mapped := api.MapErrorKeepingCode(err)
-				code := exitcode.FromError(mapped)
-				if api.FromNon200Envelope(err) || (len(api.ServerMessages(err)) == 0 && (code == exitcode.Unavailable || code == exitcode.Error)) {
-					return exitcode.Newf(exitcode.Unavailable, "%s", createDocUnknown)
+				if api.FromNon200Envelope(err) || !api.IsDefiniteRefusal(err) {
+					message := createDocUnknown
+					if messages := api.ServerMessages(err); len(messages) != 0 {
+						message += "; server said: " + strings.Join(messages, "; ")
+					}
+					return api.WithServerCode(exitcode.Newf(exitcode.Unavailable, "%s", message), err)
 				}
-				return mapped
+				return api.MapErrorKeepingCode(err)
 			}
 			if r == nil || r.ExportNodeToGoogleDoc == nil || r.ExportNodeToGoogleDoc.Id == "" {
 				return exitcode.Newf(exitcode.Unavailable, "%s", createDocUnknown)
 			}
 			row, err := project(r.ExportNodeToGoogleDoc.DriveReadFile)
 			if err != nil {
-				return exitcode.Newf(exitcode.Unavailable, "%s", createDocUnknown)
+				return exitcode.Newf(exitcode.Unavailable, "server returned Google Doc ID %q but incomplete metadata; check the drive before retrying (a repeat creates another document)", r.ExportNodeToGoogleDoc.Id)
 			}
 			return render(f, o.connection, "Created Google Doc metadata (data):", row, false)
 		},
