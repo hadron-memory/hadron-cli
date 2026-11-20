@@ -2,7 +2,11 @@
 // refuse a PR that erases evaluator work (cli#2648).
 package helpinventory
 
-import "strings"
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
 
 // Row is one inventory row: the command path, its help hash and the three
 // human columns.
@@ -47,4 +51,25 @@ func Parse(doc string) map[string]Row {
 // (the help really changed), and unread to pass stays allowed. Measuring against
 // the merge base, not current main, is what keeps a PR that is merely behind
 // main from failing for main's newer flips.
-func Reverts(base, head map[string]Row) []string { return nil } // stub: red first (cli#2648)
+func Reverts(base, head map[string]Row) []string {
+	var out []string
+	for path, b := range base {
+		h, ok := head[path]
+		if !ok || b.Hash == "" || h.Hash != b.Hash {
+			continue
+		}
+		if b.Result != "pass" && b.Result != "fail" {
+			continue
+		}
+		switch {
+		case h.Result != "pass" && h.Result != "fail":
+			out = append(out, fmt.Sprintf("`%s`: %s (%s) -> %s, help hash %s unchanged", path, b.Result, b.Evaluator, h.Result, b.Hash))
+		case b.Evaluator != "" && h.Evaluator == "":
+			out = append(out, fmt.Sprintf("`%s`: evaluator %s dropped, help hash %s unchanged", path, b.Evaluator, b.Hash))
+		case b.Finding != "" && h.Finding == "":
+			out = append(out, fmt.Sprintf("`%s`: finding link dropped, help hash %s unchanged", path, b.Hash))
+		}
+	}
+	sort.Strings(out)
+	return out
+}
