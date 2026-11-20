@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -733,5 +734,105 @@ func TestEmailBodyCommandsDoNotLeakThroughServerCode198(t *testing.T) {
 				t.Errorf("a well-formed server code was dropped: %v\n%s", err, out)
 			}
 		})
+	}
+}
+
+// Andi's #2740 P2 F1: only a code from a fixed allowlist of protocol codes is ever
+// shown or carried; a shape-valid but body-derived code (PRIVATE_DRAFT, SECRET_B) is
+// dropped, in the message and in the real --json envelope.
+func TestEmailBodyCommandsCarryOnlyKnownServerCodes198(t *testing.T) {
+	body := bodyFile198(t, "PRIVATE_DRAFT and SECRET_B")
+	for _, code := range []string{"PRIVATE_DRAFT", "SECRET_B", "BODY_DERIVED_X"} {
+		for _, c := range []struct {
+			name, op string
+			args     []string
+		}{
+			{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
+			{"draft save", "EmailSaveDraft", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}},
+			{"draft update", "EmailUpdateDraft", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}},
+		} {
+			t.Run(c.name+" "+code, func(t *testing.T) {
+				wire := `{"errors":[{"message":"x","extensions":{"code":"` + code + `"}}]}`
+				out, err := runEffectRendered198(t, map[string]string{c.op: wire}, c.args...)
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				if strings.Contains(out, code) {
+					t.Errorf("an unknown server code reached the rendered error: %s", out)
+				}
+			})
+		}
+	}
+	for _, code := range []string{"FORBIDDEN", "UNAUTHENTICATED", "BAD_USER_INPUT", "EMAIL_TOOL_ERROR", "EMAIL_TOOL_UNREACHABLE", "INTERNAL_SERVER_ERROR"} {
+		wire := `{"errors":[{"message":"x","extensions":{"code":"` + code + `"}}]}`
+		out, err := runEffectRendered198(t, map[string]string{"EmailUpdateDraft": wire}, "draft", "update", "--connection", "c", "d1", "--body-file", body)
+		if err == nil || !strings.Contains(out, `"serverCode": "`+code+`"`) {
+			t.Errorf("the known code %s was dropped: %v\n%s", code, err, out)
+		}
+	}
+}
+
+// readerSpy198 records whether it was read.
+type readerSpy198 struct {
+	touched bool
+	data    string
+}
+
+func (r *readerSpy198) Read(p []byte) (int, error) {
+	r.touched = true
+	if r.data == "" {
+		return 0, io.EOF
+	}
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	return n, nil
+}
+
+// Andi's P2 F2 and P3 F5: everything that can be refused BEFORE reading is refused
+// before stdin is touched: a send with no --yes off a terminal, and an invalid
+// draft-save flag combination.
+func TestEmailRefusalsHappenBeforeStdinIsRead198(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"reply without --yes", []string{"reply", "--connection", "c", "m1", "--body-file", "-"}},
+		{"draft save with no form", []string{"draft", "save", "--connection", "c", "--body-file", "-"}},
+		{"draft save with both forms", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--to", "a@example.test", "--subject", "S", "--body-file", "-"}},
+		{"draft save with --to only", []string{"draft", "save", "--connection", "c", "--to", "a@example.test", "--body-file", "-"}},
+		{"reply without a connection", []string{"reply", "m1", "--body-file", "-", "--yes"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			requests198.Store(0)
+			srv, _ := captureGraphQL(t, map[string]string{})
+			f, _ := testFactory(t)
+			spy := &readerSpy198{data: "the body"}
+			f.IOStreams.In = spy
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"email"}, tc.args...), "--server", srv.URL))
+			err := root.Execute()
+			if exitCodeFor(err) != 2 {
+				t.Errorf("exit %d (%v), want a usage error", exitCodeFor(err), err)
+			}
+			if spy.touched {
+				t.Error("stdin was read before the command was refused")
+			}
+		})
+	}
+}
+
+// Andi's P3 F3: the reply help does not promise the server's refusal text.
+func TestEmailReplyHelpDescribesWithheldRefusals198(t *testing.T) {
+	f, _ := testFactory(t)
+	cmd, _, err := NewRootCmd(f).Find([]string{"email", "reply"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(cmd.Long), " ")
+	if strings.Contains(help, "shown as it comes") {
+		t.Errorf("reply help promises the server's refusal text: %q", help)
+	}
+	if !strings.Contains(help, "withheld") {
+		t.Errorf("reply help does not say the server's message is withheld: %q", help)
 	}
 }
