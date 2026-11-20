@@ -121,4 +121,46 @@ func TestNestedRelativeStateSaves2674(t *testing.T) {
 	if err := st.addCreated("iris", "wt"); err != nil {
 		t.Fatalf("saving %q: %v", cfg.StateFile, err)
 	}
+	// It landed where the kernel resolves the written path, and reloads from
+	// the direct spelling with the record.
+	again, err := LoadState(root + "/real/nested/state.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again.worktreesFor("iris", nil)) != 1 {
+		t.Fatalf("the saved record must be in root/real/nested/state.json: %+v", again)
+	}
+}
+
+// A root-level state file keeps "/" as its parent, a drive root keeps its
+// separator, and a root dir is not given a doubled separator.
+func TestWrittenDirRootsAndSlashEntries2674(t *testing.T) {
+	for in, want := range map[string]string{"/state.json": "/", "a:/x": "a:", "/a/b": "/a", "x": "."} {
+		if got := writtenDir(in); got != want {
+			t.Fatalf("writtenDir(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := joinWritten("/", "state.json", '/'); got != "/state.json" {
+		t.Fatalf("root join = %q", got)
+	}
+	if got, want := joinWritten(`\\?\C:\cfg`, "keys/host.key", '\\'), `\\?\C:\cfg\keys\host.key`; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+// Two spellings of one config select one delivery directory, so their locks
+// agree: the default state path through "link/.." and the direct one.
+func TestDeliveryStateDirAgreesAcrossSpellings2674(t *testing.T) {
+	root, path := linkedConfigSite(t)
+	via, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	direct, err := LoadConfig(root + "/real/host.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, b := via.DeliveryStateDir(), direct.DeliveryStateDir(); a != b {
+		t.Fatalf("delivery dirs differ across spellings: %q vs %q", a, b)
+	}
 }

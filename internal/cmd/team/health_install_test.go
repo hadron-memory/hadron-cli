@@ -373,13 +373,22 @@ func TestHealthInstallKeepsTheWrittenConfigPath2674(t *testing.T) {
 
 	// The same scenario written relative, from the fixture directory: the
 	// installed path is the working directory plus the path as written.
+	unitPath := filepath.Join(home, ".config/systemd/user/hadron-team-health.service")
+	if err := os.Remove(unitPath); err != nil {
+		t.Fatal(err)
+	}
 	t.Chdir(root)
 	wd, werr := os.Getwd()
 	if werr != nil {
 		t.Fatal(werr)
 	}
-	if _, _, err := run("install", "--config", "link/../host.yaml", "--interval", "5m", "--bin", "/usr/local/bin/hadron", "--json"); err != nil {
+	out2, _, err := run("install", "--config", "link/../host.yaml", "--interval", "5m", "--bin", "/usr/local/bin/hadron", "--json")
+	if err != nil {
 		t.Fatal(err)
+	}
+	var in2 map[string]any
+	if json.Unmarshal([]byte(out2), &in2) != nil || in2["config"] != wd+"/link/../host.yaml" {
+		t.Fatalf("the relative install receipt must carry %q: %s", wd+"/link/../host.yaml", out2)
 	}
 	unit, rerr = os.ReadFile(filepath.Join(home, ".config/systemd/user/hadron-team-health.service"))
 	if rerr != nil {

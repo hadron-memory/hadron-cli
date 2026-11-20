@@ -513,12 +513,10 @@ func (c *Config) validate() error {
 }
 
 // DeliveryStateDir holds delivery's records and per-worker locks: beside the
-// state file, where C2's --orca-host-config finds the same locks. Lexical on
-// purpose: delivery joins and cleans beneath it, and every reader of this
-// directory derives it from the same config, so they agree with each other
-// (for a ".." after a symlink in a nested relative state_file this is not the
-// state file's own kernel directory; known limit, cli#2674).
-func (c *Config) DeliveryStateDir() string { return filepath.Dir(c.StateFile) }
+// state file, where C2's --orca-host-config finds the same locks. It is the
+// kernel's directory for the state file (resolvedStateDir), not the cleaned
+// written one, so two spellings of one config select the same locks.
+func (c *Config) DeliveryStateDir() string { return resolvedStateDir(c.StateFile) }
 
 // Worker is the configuration of one worker reference.
 func (c *Config) Worker(ref string) (WorkerConfig, bool) {
@@ -666,7 +664,17 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 // joinWritten appends name to dir with sep, never cleaning. The separator is
 // the native one so an extended-length Windows path (\\?\C:\cfg), which the
 // OS does not convert slashes in, stays usable (cli#2674).
+//
+// A dir that already ends in a separator (a root) is not doubled, and slashes
+// inside name become sep, so a relative "keys/host.key" stays valid under an
+// extended-length prefix. Nothing is cleaned.
 func joinWritten(dir, name string, sep rune) string {
+	if sep != '/' {
+		name = strings.ReplaceAll(name, "/", string(sep))
+	}
+	if dir != "" && dir[len(dir)-1] == byte(sep) {
+		return dir + name
+	}
 	return dir + string(sep) + name
 }
 
@@ -717,5 +725,40 @@ func writtenDir(path string) string {
 	if i < 0 {
 		return "."
 	}
+	if i == 0 { // a root-level file: the parent is the root, never ""
+		return path[:1]
+	}
+	if filepath.Separator == '\\' && i == 2 && path[1] == ':' { // a drive root: "C:\x" -> "C:\"
+		return path[:3]
+	}
 	return path[:i]
+}
+
+// resolvedStateDir is the directory the kernel puts the state file in: the
+// written parent with its symlinks followed, so the two spellings of one
+// config ("root/link/../host.yaml" and "root/real/host.yaml") name one
+// directory. A parent that does not exist yet is resolved at its deepest
+// existing ancestor, the missing tail cleaned lexically (a missing name cannot
+// be a symlink). Anything unresolvable falls back to the lexical parent.
+func resolvedStateDir(stateFile string) string {
+	cur := writtenDir(stateFile)
+	var tail []string
+	for {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			for i := len(tail) - 1; i >= 0; i-- {
+				r = filepath.Join(r, tail[i])
+			}
+			return r
+		}
+		b := filepath.Base(cur)
+		if b == ".." || b == "." || b == string(filepath.Separator) {
+			return filepath.Dir(stateFile)
+		}
+		up := writtenDir(cur)
+		if up == cur {
+			return filepath.Dir(stateFile)
+		}
+		tail = append(tail, b)
+		cur = up
+	}
 }
