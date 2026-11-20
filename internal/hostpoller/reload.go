@@ -298,28 +298,35 @@ func reloadDetail(added, removed, modified, others []string) string {
 	return fmt.Sprintf("the configuration file changed and was applied (%s)", strings.Join(parts, "; "))
 }
 
+// namedFile is one path a changed entry names, and whether the poller runs it
+// (a program) or an agent runs in it / a clone lives in it (a directory).
+type namedFile struct {
+	path    string
+	program bool
+}
+
 // namedFiles is what the entries that changed would make the poller run or
 // use: each worker's launch, end and recover programs, the launcher account
 // program of a worker or account that changed, a changed repo's clone, and the
 // directories a worker or account names for its agent to run in (CODEX_HOME,
 // CLAUDE_CONFIG_DIR and TMPDIR hold settings and hooks an agent runs).
-func namedFiles(c, next *Config, workers []string) []string {
-	var out []string
+func namedFiles(c, next *Config, workers []string) []namedFile {
+	var out []namedFile
 	argv0 := func(argv []string) {
 		if len(argv) > 0 && strings.TrimSpace(argv[0]) != "" {
-			out = append(out, argv[0])
+			out = append(out, namedFile{argv[0], true})
 		}
 	}
 	seen := map[string]bool{}
 	account := func(name string) {
 		if a, ok := next.Accounts[name]; ok && a.Bin != "" && !seen[name] {
 			seen[name] = true
-			out = append(out, a.Bin)
+			out = append(out, namedFile{a.Bin, true})
 		}
 	}
 	dir := func(path string) {
 		if strings.TrimSpace(path) != "" {
-			out = append(out, path)
+			out = append(out, namedFile{path, false})
 		}
 	}
 	for _, ref := range workers {
@@ -342,9 +349,9 @@ func namedFiles(c, next *Config, workers []string) []string {
 	}
 	for token, dir := range next.Repos {
 		if c.Repos[token] != dir {
-			out = append(out, dir)
+			out = append(out, namedFile{dir, false})
 		}
 	}
-	sort.Strings(out)
+	sort.Slice(out, func(i, j int) bool { return out[i].path < out[j].path })
 	return out
 }

@@ -54,9 +54,19 @@ chain `a/link -> b/link2 -> c/prog` passes through a's, b's and c's directories:
 whoever can write any of them can repoint a link). Each symlink followed must
 itself belong to the poller's user or root, since a sticky directory (which the
 directory rule accepts) lets anyone add one and its owner chose where it
-leads. A path that does not exist yet is judged as far as it does. Bare program names are
+leads. A path that does not exist yet is judged as far as it does; a path the
+walk cannot read for any other reason is refused, not skipped — it cannot be
+judged part-way. Bare program names are
 resolved through `PATH` and the program found is judged. Names that do not
-resolve are skipped (starting that worker fails on them as before). Not
+resolve are skipped (starting that worker fails on them as before). A launch,
+end or recover program given as a relative path (a slash, not absolute) is
+refused: it is run from the worker's directory, which the check cannot know —
+a worker can have several worktrees and the directory is picked when the
+operation runs — so judging it against the poller's directory would judge one
+file and run another. The configuration file is read and judged through the
+path as it was written at start, made absolute by joining the working
+directory but not cleaned, so a `..` after a symlink follows the kernel's
+directories on every reload as it did at start. Not
 enforced on Windows, where a restart applies a change. A host whose config
 lives under a group-writable, non-sticky directory will see every reload
 refused until that is tightened.
