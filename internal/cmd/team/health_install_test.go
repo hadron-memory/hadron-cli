@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -337,6 +338,9 @@ func TestHealthInstallResolvesOrcaAgainstThePersistedPath(t *testing.T) {
 // by concat: filepath.Join would clean the ".." away and pass for the wrong
 // reason.
 func TestHealthInstallKeepsTheWrittenConfigPath2674(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("needs a symlink (privileged on Windows) and a '..' after it, whose kernel resolution differs from lexical cleaning only where symlinks work the Unix way")
+	}
 	orcaOnPath(t)
 	_, run, home := healthHarness(t, "systemctl")
 	root := t.TempDir()
