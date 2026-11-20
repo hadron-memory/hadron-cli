@@ -164,3 +164,25 @@ func TestDeliveryStateDirAgreesAcrossSpellings2674(t *testing.T) {
 		t.Fatalf("delivery dirs differ across spellings: %q vs %q", a, b)
 	}
 }
+
+// A state directory that does not exist yet is resolved at its deepest
+// existing ancestor (the symlink followed), the missing tail kept as written;
+// a ".." after a missing name cannot be resolved by the kernel either, so it
+// falls back to the lexical parent instead of guessing (cli#2674, blind round 3).
+func TestResolvedStateDirMissingTail2674(t *testing.T) {
+	root, _ := linkedConfigSite(t)
+	real, err := filepath.EvalSymlinks(root + "/real")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := resolvedStateDir(root+"/link/../nested/deep/state.json"), real+"/nested/deep"; got != want {
+		t.Fatalf("missing tail under a symlinked ..: got %q want %q", got, want)
+	}
+	if got, want := resolvedStateDir(root+"/link/../state.json"), real; got != want {
+		t.Fatalf("existing parent: got %q want %q", got, want)
+	}
+	got := resolvedStateDir(root + "/gone/../x/state.json")
+	if want := filepath.Dir(root + "/gone/../x/state.json"); got != want {
+		t.Fatalf("a '..' after a missing name must fall back lexically: got %q want %q", got, want)
+	}
+}
