@@ -125,7 +125,7 @@ conflict; without --run-id it may record a second report. Nothing is retried. Th
 				return exitcode.Newf(exitcode.Usage, "--outcome must be PASS, FAIL or ERROR")
 			}
 			if cmd.Flags().Changed("run-id") && strings.TrimSpace(runID) == "" {
-				return exitcode.Newf(exitcode.Usage, "--run-id must not be empty (1-200 characters); no report sent")
+				return exitcode.Newf(exitcode.Usage, "--run-id must not be empty; no report sent")
 			}
 			if cmd.Flags().Changed("task") && strings.TrimSpace(taskChoice) == "" {
 				return exitcode.Newf(exitcode.Usage, "--task must name a task in the effective set")
