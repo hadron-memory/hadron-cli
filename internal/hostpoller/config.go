@@ -165,7 +165,7 @@ func sameLaunchFamily(a, b string) bool { return a == b || claudeFamily[a] && cl
 // DeliveryConfig is chat delivery's part of a host configuration.
 type DeliveryConfig struct {
 	// Enabled turns delivery on. The host key then also needs
-	// attention:deliver; without it delivery switches off for the run.
+	// attention:deliver; without it delivery switches off until a re-check succeeds.
 	Enabled bool `yaml:"enabled"`
 	// AckMixed asserts that the server carries A-prime (#2072): mixed wake
 	// acknowledgment records ticks/tasks without advancing any chat mark.
@@ -659,19 +659,33 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 	return nil
 }
 
-// AbsWritten makes path absolute by joining the working directory and the path
-// with a slash, never cleaning it. ".." after a symlink goes to the link
-// target's parent, not the written path's lexical parent, so the stored path
-// must keep it as written: the reload read, the trust walk and an installed
-// unit then all follow the kernel, not filepath.Clean (cli#2668, cli#2674). The
-// slash is a legal separator on both kernels, and the Windows reload check is a
-// no-op, so the written form survives unchanged there too. An absolute path, or
-// a Getwd failure, returns the path as given.
+// AbsWritten makes path absolute without cleaning it. ".." after a symlink goes
+// to the link target's parent, not the written path's lexical parent, so the
+// stored path must keep it as written: the reload read, the trust walk and an
+// installed unit then all follow the kernel, not filepath.Clean (cli#2668,
+// cli#2674). An absolute path returns as given; the rest goes through
+// nonAbsoluteConfigPath (cli#2700).
 func AbsWritten(path string) string {
 	if filepath.IsAbs(path) {
 		return path
 	}
-	if wd, err := os.Getwd(); err == nil {
+	return nonAbsoluteConfigPath(
+		path, filepath.VolumeName, os.IsPathSeparator, os.Getwd, filepath.Abs,
+	)
+}
+
+// nonAbsoluteConfigPath preserves the written form of an ordinary relative
+// path. Classify inside this tested helper using native functions; callers
+// cannot replace the classification with precomputed empty/false values.
+// Function parameters let Windows-shaped cases run on other test hosts.
+func nonAbsoluteConfigPath(path string, volumeName func(string) string, isSeparator func(uint8) bool, getwd func() (string, error), abs func(string) (string, error)) string {
+	if volumeName(path) != "" || len(path) > 0 && isSeparator(path[0]) {
+		if resolved, err := abs(path); err == nil {
+			return resolved
+		}
+		return path
+	}
+	if wd, err := getwd(); err == nil {
 		return wd + "/" + path
 	}
 	return path

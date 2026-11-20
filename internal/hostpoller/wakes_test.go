@@ -3,6 +3,7 @@ package hostpoller
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -147,18 +148,48 @@ func TestAnExhaustedBudgetTypesNothingAndIsLoggedOncePerDay(t *testing.T) {
 	}
 }
 
-func TestAWakeScopeRefusalSwitchesDeliveryOff(t *testing.T) {
+// cli#2663 (blind P2): the batch read is the evidence about the key's scope.
+// A wake-only refusal beside good batch reads is a failed wake read: it never
+// switches delivery off, however many steps repeat it.
+func TestAWakeOnlyScopeRefusalIsAFailedWakeReadNotAVerdict(t *testing.T) {
 	p, src, ws, _ := wakePoller(t)
+	events := recordEvents(p)
 	var reads []string
 	p.DeliveryStep = func(_ time.Time, read string) { reads = append(reads, read) }
 	ws.err = ErrDeliveryScope
 	step(t, p)
 	step(t, p)
-	if p.DeliveryEnabled() || ws.calls != 1 || src.calls != 1 {
+	step(t, p)
+	if !p.DeliveryEnabled() || ws.calls != 3 || src.calls != 3 {
 		t.Fatalf("enabled %v wake reads %d batch reads %d", p.DeliveryEnabled(), ws.calls, src.calls)
 	}
-	if len(reads) != 1 || reads[0] != delivery.StepOffByScope {
+	if !slices.Equal(reads, []string{delivery.StepReadFailed, delivery.StepReadFailed, delivery.StepReadFailed}) {
 		t.Fatalf("steps %v", reads)
+	}
+	if hasEvent(events(), "delivery-off", "attention:deliver") {
+		t.Fatalf("events %+v", events())
+	}
+}
+
+// A batch scope refusal that confirms still ends in delivery-off through the
+// wake path's step order (batches first), and heals when batches read again
+// even while the wake source keeps refusing.
+func TestAnOffDeliveryHealsOnGoodBatchesWhileWakesStillRefuse(t *testing.T) {
+	p, src, ws, _ := wakePoller(t)
+	events := recordEvents(p)
+	now := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	p.now = func() time.Time { return now }
+	src.err = ErrDeliveryScope
+	step(t, p)
+	step(t, p)
+	if p.DeliveryEnabled() {
+		t.Fatal("two batch refusals confirm the verdict")
+	}
+	src.err, ws.err = nil, ErrDeliveryScope
+	now = now.Add(time.Minute + time.Second)
+	step(t, p)
+	if !p.DeliveryEnabled() || !hasEvent(events(), "delivery-on", "back on") {
+		t.Fatalf("enabled %v events %+v", p.DeliveryEnabled(), events())
 	}
 }
 

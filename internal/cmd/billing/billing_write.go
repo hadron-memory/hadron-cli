@@ -64,8 +64,8 @@ effective-dated row, and the newest row in effect is the one that applies.
 "hadron billing prices" shows them.
 
 --input and --output are micro-cents per million tokens, whole numbers sent to
-the server exactly as typed (300000000 is 3 USD per million tokens; divide by
-100000000 to get dollars). The CLI does not check them: the server decides what
+the server exactly as typed (300000000 is 3 USD per million tokens;
+100000000 micro-cents = 1 USD). The CLI does not check them: the server decides what
 is valid and says so if it refuses.
 
 Leave --tier, --markup-bp and --effective-at off to take the server's defaults:
@@ -79,7 +79,8 @@ unused: nothing reads them yet, so they are never applied to a charge. A tier
 with no row is unpriced, never billed at another tier's rate.
 
 It asks before sending (or pass --yes; without a terminal --yes is required).`,
-		Example: `  hadron billing prices set --provider anthropic --model claude-opus-5-5 \
+		Example: `  # 15 USD in and 75 USD out per million tokens
+  hadron billing prices set --provider anthropic --model claude-opus-5-5 \
     --input 1500000000 --output 7500000000 --yes
   hadron billing prices set --provider anthropic --model claude-opus-5-5 \
     --input 1500000000 --output 7500000000 --markup-bp 2500 --yes --json`,
@@ -152,8 +153,8 @@ func newCmdGrant(f *cmdutil.Factory) *cobra.Command {
 		Long: `Add credit to an organization's ledger. Platform admin only. It really credits
 the organization: use it deliberately.
 
-<org> is an organization ID or its hrn:org:<slug> URN. --amount is micro-cents
-(1 USD = 100,000,000), a whole number sent to the server exactly as typed. The
+<org> is an organization ID or its URN, hrn:org:<root> (for example
+hrn:org:acme.com). --amount is micro-cents (100000000 micro-cents = 1 USD), a whole number sent to the server exactly as typed. The
 CLI does not check it: the server requires a positive whole number and says so
 if it refuses.
 
@@ -166,7 +167,9 @@ timeout can double-credit. The CLI never retries by itself.
 
 The server's answer does not say whether the entry is new or was already
 there, so the command prints the returned ledger entry the same way either
-time. "hadron billing ledger <org>" shows the ledger.
+time. On success it prints "Ledger entry <id>: <amount> micro-cents to
+organization <org id>" (--json: the ledger entry). "hadron billing ledger <org>"
+shows the ledger.
 
 --expires-at is recorded on the entry; it is not enforced.
 

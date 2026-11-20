@@ -8,19 +8,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// alarmStallCase2451 looks one case up by name, so a test does not couple to
-// the slice's order (#2505 F5e: [0]/[1] silently meant ack/set).
-func alarmStallCase2451(t *testing.T, name string) taskInstructionCase2422 {
-	t.Helper()
-	for _, c := range alarmStallCases2451() {
-		if c.name == name {
-			return c
-		}
-	}
-	t.Fatalf("no alarm/stall case named %q", name)
-	return taskInstructionCase2422{}
-}
-
 // cli#2537 (from #2529's review): a success answer whose selected read is
 // null (no errors) is a malformed answer — a command error naming what is
 // missing, never a panic. Same class as the set command's null guard
@@ -53,7 +40,7 @@ func TestAlarmAckPlainPathSurfacesWarnings2537(t *testing.T) {
 	c := alarmStallCase2451(t, "ack")
 	r := stallResponses()
 	warning := `{"path":"acknowledgeAlarm","code":"alarm.ack.outside-chain","text":"Outside chain.","register":null}`
-	r[c.plainOp] = strings.TrimSuffix(c.response, "}") + `,"extensions":{"warnings":[` + warning + `]}}`
+	r[c.plainOp] = withWarning2552(t, c.response, warning)
 	args := append([]string{}, c.args...)
 	out, stderr, err := runTeamTaskStreams(t, r, args...)
 	if err != nil || !strings.Contains(out, "acknowledged alarm") || !strings.Contains(stderr, "warning: [alarm.ack.outside-chain] Outside chain.") {
@@ -62,6 +49,16 @@ func TestAlarmAckPlainPathSurfacesWarnings2537(t *testing.T) {
 	_, out, err = runTeamTask(t, r, append(args, "--json")...)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Byte identity, pinned on the whole output: the plain --json a warning
+	// rides on equals the one without it (#2552 item 6).
+	r[c.plainOp] = c.response
+	_, bare, err := runTeamTask(t, r, append(args, "--json")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != bare {
+		t.Fatalf("plain --json must be byte-identical with and without a warning:\nwith:    %s\nwithout: %s", out, bare)
 	}
 	var dto map[string]any
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
@@ -81,10 +78,20 @@ func TestAlarmStallInstructionOldServerRejectsArgument2537(t *testing.T) {
 	for _, c := range alarmStallCases2451() {
 		t.Run(c.name, func(t *testing.T) {
 			r := stallResponses()
-			r[c.instrOp] = `{"errors":[{"message":"Unknown argument 'instruction' on field 'Mutation'."}]}`
+			field := map[string]string{"ack": "acknowledgeAlarm", "set": "setAgentTaskStallSchedule"}[c.name]
+			if field == "" {
+				t.Fatalf("no mutation field recorded for case %q", c.name)
+			}
+			r[c.instrOp] = `{"errors":[{"message":"Unknown argument \"instruction\" on field \"Mutation.` + field + `\"."}]}`
 			calls, out, err := runTeamTask(t, r, append(append([]string{}, c.args...), "--instruction", "live-chat:opaque")...)
 			if err == nil || !strings.Contains(err.Error(), "Unknown argument") || out != "" {
 				t.Fatalf("err=%v out=%q", err, out)
+			}
+			// Passed through MapErrorKeepingCode: a schema-validation error
+			// carries no GraphQL error code, so it keeps the generic failure
+			// exit (1), not a usage or not-found one (#2552 item 7).
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("old-server rejection exit = %d, want %d: %v", got, exitcode.Error, err)
 			}
 			oneCall2422(t, calls, c.instrOp)
 			for _, call := range *calls {

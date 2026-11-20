@@ -26,15 +26,20 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 
 --connection is the connection's ID, and you must be the connection's owner.
 'hadron connection connect' prints the connection ID when it finishes
-("connected ... as <ID>"); keep it. If you no longer have it, an org admin can
+("connected ... as <ID>"); keep it. If connect returned before consent finished,
+'hadron connection flow <flow-id>' shows the connection ID once the flow is
+CONNECTED. If you no longer have it, an org admin can
 look it up with 'hadron email connections --org <org>' (the ID column) and hand
 it to you; there is no command that lists only your own connections.
 --app is the App that receives access (ID, hrn:app: URN or <org>:<slug>).
-Scopes are drawn from mail.read, mail.send, calendar.freebusy, calendar.read
-(the server validates the set); --scopes takes several, comma-separated or
+Scopes are drawn from mail.read, mail.send, calendar.freebusy, calendar.read,
+drive.read (the server validates the set); --scopes takes several, comma-separated or
 repeated. mail.read lets the App read mail; mail.send lets the App send mail
 as the mailbox; calendar.freebusy shows busy windows only, with no titles or
-attendees; calendar.read lets the App read events.
+attendees; calendar.read lets the App read events; drive.read lets the App
+read files in the connected Drive: list, search, get, export and download a
+file's contents. drive.read does not create or change anything, and grants
+nothing on mail or calendar.
 --expires-at is an optional ISO-8601 timestamp with timezone and must
 be in the future; omit it for a grant that lasts until revoked. On success it
 prints the scopes, connection, App, grant id and expiry; --json prints the grant.
@@ -101,7 +106,7 @@ To end it early, 'hadron connection grant revoke <grant-id>'.`,
 	}
 	cmd.Flags().StringVar(&connection, "connection", "", "ID of the connection to delegate on (required; printed by 'hadron connection connect')")
 	cmd.Flags().StringVar(&app, "app", "", "App that receives access (ID, URN or <org>:<slug>; required)")
-	cmd.Flags().StringSliceVar(&scopes, "scopes", nil, "scope(s) to grant (repeatable or comma-separated; mail.read|mail.send|calendar.freebusy|calendar.read; required)")
+	cmd.Flags().StringSliceVar(&scopes, "scopes", nil, "scope(s) to grant (repeatable or comma-separated; mail.read|mail.send|calendar.freebusy|calendar.read|drive.read; required)")
 	cmd.Flags().StringVar(&expires, "expires-at", "", "ISO-8601 expiry timestamp with timezone (omit for perpetual)")
 	_ = cmd.MarkFlagRequired("connection")
 	_ = cmd.MarkFlagRequired("app")

@@ -450,3 +450,47 @@ func TestStatusUnrecognizedNamesTheLineLocallyNeverInJSON1856(t *testing.T) {
 		t.Fatalf("text mode must name the unmatched line: %q", text)
 	}
 }
+
+// cli#2676: a usage-limit screen is locked/rate_limited with the reset in UTC.
+func TestStatusUsageLimit2676(t *testing.T) {
+	limit := []string{"⏺ Working", "  429 Usage limit reached for 5 hour ... reset 2026-11-20 16:45:32 (UTC+8)", rule, "❯ ", rule, claudeHint}
+	r := newRig(t)
+	r.joshua(limit)
+	code, out := r.run(t, true, "Joshua")
+	m := decode(t, out)
+	if code != 0 || m["contract"] != "terminal-status@1" || m["status"] != "locked" || m["reason"] != "rate_limited" || m["resetAt"] != "2026-11-20T08:45:32Z" {
+		t.Fatalf("exit %d: %v", code, m)
+	}
+	if strings.Contains(out, "Usage limit") || strings.Contains(out, "detail") {
+		t.Fatalf("screen text reached the JSON: %s", out)
+	}
+	if code, text := r.run(t, false, "Joshua"); code != 0 || strings.TrimSpace(text) != "Joshua locked (rate_limited, until 08:45Z)" {
+		t.Fatalf("text mode %d %q", code, text)
+	}
+}
+
+func TestStatusUsageLimitWithoutAParsableTime2676(t *testing.T) {
+	r := newRig(t)
+	r.joshua([]string{"429 Usage limit reached for 5 hour ... try again later"})
+	code, out := r.run(t, true, "Joshua")
+	m := decode(t, out)
+	if code != 0 || m["status"] != "locked" || m["reason"] != "rate_limited" {
+		t.Fatalf("exit %d: %v", code, m)
+	}
+	if v, ok := m["resetAt"]; !ok || v != nil {
+		t.Fatalf("resetAt must be present and null: %v", m)
+	}
+	if _, text := r.run(t, false, "Joshua"); strings.TrimSpace(text) != "Joshua locked (rate_limited)" {
+		t.Fatalf("text mode %q", text)
+	}
+}
+
+// A limit line with no offset is the host's local time, and the text says so.
+func TestStatusUsageLimitNoOffsetSaysHostLocal2676(t *testing.T) {
+	r := newRig(t)
+	r.joshua([]string{"429 Usage limit reached for 5 hour ... reset 2026-10-29 18:45:32"})
+	_, text := r.run(t, false, "Joshua")
+	if !strings.HasPrefix(text, "Joshua locked (rate_limited, until ") || !strings.Contains(text, "host's local time") {
+		t.Fatalf("text mode must say the time is the host's local time: %q", text)
+	}
+}

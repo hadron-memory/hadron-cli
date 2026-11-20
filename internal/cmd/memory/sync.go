@@ -1,6 +1,8 @@
 package memory
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -227,9 +229,14 @@ checks. The token is never printed: not in the output, --json or an error.
 				return exitcode.Newf(exitcode.Unavailable, "no usable answer; the token may not be stored; check the memory and set it again")
 			}
 			// Name the memory as the server did; fall back to what was typed.
+			// A urn that contains the token (raw or JSON-escaped) is not spliced
+			// ("hrn:[REDACTED]e:..." for a very short token): the typed ref names
+			// the memory instead. For a degenerate one-character token the typed
+			// ref is what the user typed on their own command line, so "never
+			// printed" is strict only for real tokens.
 			named := ref
-			if u := resp.SetMemorySourceToken.Urn; u != "" {
-				named = strings.ReplaceAll(u, token, "[REDACTED]")
+			if u := resp.SetMemorySourceToken.Urn; u != "" && redactToken(u, token) == u {
+				named = u
 			}
 			dto := syncSetTokenDTO{Memory: named, Operation: "set-token", TokenSet: true, ExpiresAt: exp}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -250,14 +257,61 @@ checks. The token is never printed: not in the output, --json or an error.
 func setTokenError(err error, token string) error {
 	mapped := api.MapError(err)
 	if token == "" {
-		return api.MapErrorKeepingCode(err)
+		// Nothing to redact, but the same cap and control-character guard as below.
+		return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", output.SafeLine(mapped.Error(), maxErrMsgRunes)), err)
 	}
-	msg := output.SafeLine(strings.ReplaceAll(mapped.Error(), token, "[REDACTED]"), 2000)
+	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
 	if strings.Contains(api.ServerCodeOf(err), token) {
 		return safe
 	}
 	return api.WithServerCode(safe, err)
+}
+
+// maxErrMsgRunes bounds a server answer shown in an error.
+const maxErrMsgRunes = 2000
+
+// redactToken replaces every occurrence of token in s, and of its JSON-escaped
+// spellings (a quote or backslash in the token; with and without the HTML
+// escaping of < > & that Go's encoder adds and a Node server's does not), which
+// a server that echoes the token inside a JSON string would produce. An empty
+// token is a no-op. Best effort: other encodings are not covered.
+func redactToken(s, token string) string {
+	if token == "" {
+		return s
+	}
+	s = strings.ReplaceAll(s, token, "[REDACTED]")
+	for _, esc := range escapedSpellings(token) {
+		s = strings.ReplaceAll(s, esc, "[REDACTED]")
+	}
+	return s
+}
+
+// escapedSpellings returns the JSON-string spellings of token that differ from
+// it, without the surrounding quotes.
+func escapedSpellings(token string) []string {
+	var out []string
+	add := func(esc string) {
+		if esc != token && esc != "" {
+			for _, have := range out {
+				if have == esc {
+					return
+				}
+			}
+			out = append(out, esc)
+		}
+	}
+	// json.Marshal of a string cannot fail.
+	b, _ := json.Marshal(token)
+	add(string(b[1 : len(b)-1]))
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if enc.Encode(token) == nil {
+		raw := strings.TrimSuffix(buf.String(), "\n")
+		add(raw[1 : len(raw)-1])
+	}
+	return out
 }
 
 type syncPullFailure struct {

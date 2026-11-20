@@ -37,9 +37,9 @@ An empty or unreadable resource result never falls back to your own activity
 (cor:acl:090:01). The server enforces reference-count limits and other rules.
 
 --from is inclusive and --to exclusive (ISO date-times). --bucket is DAY, WEEK
-or MONTH; --time-zone is an IANA zone such as Asia/Tokyo. Omitted flags are
-omitted on the wire: the server defaults to seven days, DAY and UTC. These are
-server defaults, not values the CLI computes. The server may shorten a requested
+or MONTH; --time-zone is an IANA zone such as Asia/Tokyo. A flag you
+leave out takes the server's default: the last seven days, DAY buckets and UTC
+(the CLI does not compute them). The server may shorten a requested
 window; the CLI cannot report its resolved bounds. A date labels a bucket in the
 requested zone; it is not converted into a UTC timestamp.
 
