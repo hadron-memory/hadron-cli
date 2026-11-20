@@ -60,16 +60,19 @@ const (
 	NoTerminal         Reason = "no_terminal"
 	BareShell          Reason = "bare_shell"
 	NoAgent            Reason = "no_agent"
+	// RateLimited: the harness shows a usage-limit screen (cli#2676). Locked:
+	// the agent is waiting on a reset, not stopped; Result.ResetAt carries it.
+	RateLimited Reason = "rate_limited"
 )
 
-// Deferred reasons (rate_limited, token_budget_exhausted, guardrail_triggered,
+// Deferred reasons (token_budget_exhausted, guardrail_triggered,
 // model_at_capacity, shed_staged_not_relaunched) have no captured screen yet:
 // until one exists such a screen answers Locked/Unrecognized, never a guess.
 
 // Valid reports whether r is on the closed list.
 func (r Reason) Valid() bool {
 	switch r {
-	case Unrecognized, MenuOrQuestion, NoTurnForDueTicker, NoTerminal, BareShell, NoAgent:
+	case Unrecognized, MenuOrQuestion, NoTurnForDueTicker, NoTerminal, BareShell, NoAgent, RateLimited:
 		return true
 	}
 	return false
@@ -87,6 +90,14 @@ type Result struct {
 	LastTurnAt *time.Time
 	CheckedAt  time.Time
 	Detail     string
+	// ResetAt is when a rate_limited screen says the limit resets (cli#2676):
+	// marshalled as "resetAt", RFC 3339 UTC, null when not known. An additive
+	// key, so the contract stays @1.
+	ResetAt *time.Time
+	// ResetAssumedLocal: the screen's reset time carried no UTC offset, so
+	// ResetAt reads it as the host's local time. Text output says so; never
+	// marshalled.
+	ResetAssumedLocal bool
 }
 
 // MarshalJSON writes the documented shape: every key present, nulls for the
@@ -101,7 +112,8 @@ func (r Result) MarshalJSON() ([]byte, error) {
 		Reason     *Reason    `json:"reason"`
 		LastTurnAt *time.Time `json:"lastTurnAt"`
 		CheckedAt  time.Time  `json:"checkedAt"`
-	}{Contract, nonEmpty(r.Worker), nonEmpty(r.Terminal), r.Status, r.Prompt, r.Reason, utc(r.LastTurnAt), r.CheckedAt.UTC().Truncate(time.Second)})
+		ResetAt    *time.Time `json:"resetAt"`
+	}{Contract, nonEmpty(r.Worker), nonEmpty(r.Terminal), r.Status, r.Prompt, r.Reason, utc(r.LastTurnAt), r.CheckedAt.UTC().Truncate(time.Second), utc(r.ResetAt)})
 }
 
 func nonEmpty(s string) *string {

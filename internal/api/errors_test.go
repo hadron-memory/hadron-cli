@@ -1249,3 +1249,37 @@ func TestErrorCodeExtension(t *testing.T) {
 		t.Fatalf("a wrapped GraphQL error is still read: %q %v", v, ok)
 	}
 }
+
+func TestErrorDetails(t *testing.T) {
+	list := gqlerror.List{
+		{Message: "a", Extensions: map[string]any{"code": "X"}},
+		{Message: "b"},
+	}
+	want := []ErrorDetail{{Code: "X", Message: "a"}, {Code: "", Message: "b"}}
+	for _, tc := range []struct {
+		name string
+		err  error
+		want []ErrorDetail
+	}{
+		{"nil", nil, nil},
+		{"transport failure", errors.New("dial tcp: refused"), nil},
+		{"http error with a graphql body", &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: list}}, want},
+		{"http error with no graphql body", &graphql.HTTPError{StatusCode: 502}, nil},
+		{"graphql list, no extensions on one", list, want},
+		{"wrapped graphql list", fmt.Errorf("call: %w", list), want},
+		{"single gqlerror", &gqlerror.Error{Message: "a", Extensions: map[string]any{"code": "X"}}, []ErrorDetail{{Code: "X", Message: "a"}}},
+		{"extensions without a code", gqlerror.List{{Message: "c", Extensions: map[string]any{"other": 1}}}, []ErrorDetail{{Code: "", Message: "c"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ErrorDetails(tc.err)
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("[%d] got %v, want %v", i, got[i], tc.want[i])
+				}
+			}
+		})
+	}
+}

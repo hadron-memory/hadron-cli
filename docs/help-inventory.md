@@ -509,7 +509,7 @@ section between the markers.
 | `team host list` | ls |  | n | #1054 | e8a70f9dadc8 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 3573e30ba157 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
-| `team host run` |  |  | y | #1054 | dc019fce5bc7 |  | unread |  |
+| `team host run` |  |  | y | #1054 | 2882ef258608 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | 3d499d7ef2c5 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host status` |  |  | n | #1054 | 623c350ebccd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host sweep` |  |  | n | #1054 | 22ee75e32e51 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
@@ -785,7 +785,7 @@ section between the markers.
 | `orca host` |  |  | n | #1396 | e77c3c207ec4 |  | unread |  |
 | `orca host plan` |  |  | n | #1396 | 262800770765 |  | unread |  |
 | `orca terminal` |  |  | n | #1396 | 10be515f1d47 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
-| `orca terminal status` |  |  | y | #1396 | fd0fbd587332 | Cooper | fail | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338), [follow-up #1398](https://github.com/hadron-memory/hadron-cli/issues/1398), [follow-up #1400](https://github.com/hadron-memory/hadron-cli/issues/1400) |
+| `orca terminal status` |  |  | y | #1396 | b61334b2b45c |  | unread |  |
 | `slack` |  |  | y | #1396 | 021f06eaca6b | Cooper | fail | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338), [follow-up #1399](https://github.com/hadron-memory/hadron-cli/issues/1399), [follow-up #1400](https://github.com/hadron-memory/hadron-cli/issues/1400) |
 | `slack get` |  |  | y | #1396 | cd1e7c877ab9 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 | `slack status` |  |  | y | #1396 | 3d39cb70d59f | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |

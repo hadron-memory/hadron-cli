@@ -271,10 +271,15 @@ type Poller struct {
 	wg         sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
-	// for the run by a missing attention:deliver scope.
+	// by a confirmed missing attention:deliver scope (re-checked, cli#2663).
 	batches     BatchSource
 	deliverer   Deliverer
 	deliveryOff bool
+	// Delivery's scope verdict (cli#2663): consecutive scope answers, and the
+	// off state's re-check backoff.
+	scopeStreak  int
+	recheckEvery time.Duration
+	recheckAt    time.Time
 	// Tick and task wakes (cli#906 row 1): off unless EnableWakes.
 	wakes         WakeSource
 	wakeDeliverer WakeDeliverer

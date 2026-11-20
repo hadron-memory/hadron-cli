@@ -4460,11 +4460,11 @@ exit 4 = Orca answered; exit 2 or 3 is refused before Orca is listed and says no
 `hadron orca terminal status <worker|terminal-id> [--config <host.yaml>] [--json]` or `--all` (with `--json` one JSON array, one entry per
 active worker of the App, in the App's worker order). The terminal is the Orca terminal whose worktree's
 session binding names the worker, or one named directly by id. Text mode prints one line per worker:
-`Joshua idle`, `Joshua locked (menu_or_question)`; a `dark` line also carries the local detail.
+`Joshua idle`, `Joshua locked (menu_or_question)`, `Joshua locked (rate_limited, until 08:45Z)` (a usage-limit screen; ", read as the host's local time" is added when the screen's time has no UTC offset); a `dark` line also carries the local detail.
 
 ```json
 {"contract":"terminal-status@1","worker":"Joshua","terminal":"term_50a6…","status":"idle",
- "prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T16:12:03Z","checkedAt":"2026-10-29T16:31:40Z"}
+ "prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T16:12:03Z","checkedAt":"2026-10-29T16:31:40Z","resetAt":null}
 ```
 
 | key | values |
@@ -4474,9 +4474,10 @@ session binding names the worker, or one named directly by id. Text mode prints 
 | `terminal` | the Orca terminal handle; `null` when the worker has none or has several agent terminals |
 | `status` | `busy` a turn is running · `idle` empty prompt, safe to push one line · `locked` cannot take work · `dark` broken |
 | `prompt` | `empty` · `not_empty` · `menu` · `unknown`: the terminal-level fact, separate from `status` |
-| `reason` | `null` unless `locked`/`dark`. `locked`: `menu_or_question` (a selection menu, permission dialog or pending question: never send), `unrecognized` (blocked, or a screen no rule matches: fail closed, never idle). `dark`: `no_turn_for_due_ticker`, `no_terminal`, `bare_shell`, `no_agent` |
+| `reason` | `null` unless `locked`/`dark`. `locked`: `menu_or_question` (a selection menu, permission dialog or pending question: never send), `rate_limited` (a usage-limit screen: waiting on a reset, not stopped; never send; `resetAt` says when), `unrecognized` (blocked, or a screen no rule matches: fail closed, never idle). `dark`: `no_turn_for_due_ticker`, `no_terminal`, `bare_shell`, `no_agent` |
 | `lastTurnAt` | when the harness's screen shows its last finished turn (Claude Code, Codex adapters); `null` when not shown, never guessed. It does not influence `status` |
 | `checkedAt` | when the status was produced, UTC |
+| `resetAt` | an additive key inside `@1` (cli#2676): when a `rate_limited` screen says the limit resets, RFC 3339 UTC; `null` otherwise, and for a usage-limit screen with no parsable time. A time with no UTC offset is read as the host's local time. Consumers that read only the other keys keep working |
 
 Precedence: `locked`, then `busy`, then `dark`, then `idle`. **Push only when `prompt` is `empty` and
 `status` is `idle` or `dark`.** `dark` means a ticker owed the worker a turn and none came: a tick of a
@@ -6411,6 +6412,12 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
   `specsMustChange`; no `parts`, `context`, `urgency` or `followUps`. An older server takes the
   `parts` input. A file valid for neither is refused before any call; one valid
   for the other server only is refused (exit 2) once the shape is known, naming the key.
+  S2 amend: `null` clears only `background`, `whyNow`, `assignee`, `neededBy` and
+  `defaultAction`; `null` on any other key is refused (exit 2) before any call,
+  naming the key (leave it out to keep it). `options`, `blocks`, `sources`,
+  `specsTouched` and `specsMustChange` clear with `[]`; `"options": []` makes the
+  question free text and drops its recommendation (refused `QUESTION_ANSWER_IMMUTABLE`
+  if a kept answer names an option key).
   Reads show both alike: `background`/`context` and `priority`/`urgency` carry the
   same value, a newer server's one question is `parts[0]` (`citation` `<code>-1`,
   `question` the title), `answerHistory` holds every answer-list entry with
