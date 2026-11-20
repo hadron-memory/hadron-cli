@@ -71,7 +71,7 @@ func callError(call, code string) *deliveryCallError {
 }
 
 // deliveryError classifies a delivery call's error. A key without the scope
-// turns delivery off for the run; anything else is that call failing.
+// is the scope verdict (the poller confirms it before delivery goes off); anything else is that call failing.
 func deliveryError(call string, err error) error {
 	e := callError(call, deliveryCodeOf(err))
 	if e.code == "APP_KEY_SCOPE_REQUIRED" {

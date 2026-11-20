@@ -488,7 +488,7 @@ func TestOrgInviteCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateUserInvitation"], &vars)
-	if vars["orgId"] != "org1" || vars["memberRole"] != "CONTRIBUTOR" || vars["email"] != "alice@partner.com" {
+	if vars["orgRef"] != "org1" || vars["memberRole"] != "CONTRIBUTOR" || vars["email"] != "alice@partner.com" {
 		t.Errorf("invite vars: %v", vars)
 	}
 	// unset optionals must be omitted, not sent as null/0.

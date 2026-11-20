@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/hadron-memory/hadron-cli/internal/helpinventory"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -129,5 +130,50 @@ func TestHelpInventoryCheckComparesTheWholeFile2310(t *testing.T) {
 	}
 	if out, err := check2310(t, dir, regenerated); err != nil {
 		t.Fatalf("regeneration must clear the old-format drift: %v\n%s", err, out)
+	}
+}
+
+// cli#2648 (blind P2-2): the revert check ignores a row that is GONE from the
+// head (a command may legitimately be removed), so a merge that deletes an
+// assessed row is left to help-inventory-check. Pinned here as the CI pipeline
+// runs it: the deletion is invisible to the revert check and fails the drift
+// check, because the generator re-emits every command-tree row (as unread, with
+// the human columns carried over only from a row that still exists). A mutant
+// that dropped the whole-file diff, or made the generator skip rows absent from
+// the committed file, turns the last assertion red.
+func TestDeletedAssessedRowFailsTheCheckPipeline2648(t *testing.T) {
+	dir := scratchTree2310(t)
+	fresh := generate2310(t, dir)
+	base := markInventory1126(t, fresh, "alpha two", "Gil", "pass", "[x](https://example.com/x)")
+	if out, err := check2310(t, dir, base); err != nil {
+		t.Fatalf("the assessed baseline must pass the drift check: %v\n%s", err, out)
+	}
+	var kept []string
+	dropped := false
+	for _, line := range strings.Split(base, "\n") {
+		if strings.HasPrefix(line, "| `alpha two` |") {
+			dropped = true
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if !dropped {
+		t.Fatal("fixture row not found")
+	}
+	head := strings.Join(kept, "\n")
+
+	baseRows, err := helpinventory.Parse(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headRows, err := helpinventory.Parse(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := helpinventory.Reverts(baseRows, headRows); len(got) != 0 {
+		t.Fatalf("the revert check must leave a deleted row to the drift check: %v", got)
+	}
+	if out, err := check2310(t, dir, head); err == nil || !strings.Contains(out, "help-inventory drift") {
+		t.Fatalf("a deleted assessed row must fail help-inventory-check: %v\n%s", err, out)
 	}
 }

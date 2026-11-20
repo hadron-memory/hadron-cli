@@ -28,7 +28,8 @@ Built on S1 (`internal/cmd/team/host_delivery.go`):
   `Unchanged`; any other count, or any refusal, is an error, and nothing
   moved.
 - **Scope:** `APP_KEY_SCOPE_REQUIRED` on the read is `ErrDeliveryScope`, so
-  delivery is off for the run; other refusals are read failures.
+  delivery is off once two consecutive steps answer it, and re-checks on a
+  1-15 minute backoff (cli#2663); other refusals are read failures.
 - **Diagnostics carry no upstream text** (Rodolfo's §10 P2 on #939). A
   server or proxy error may echo the request (a proof, the host key) or carry
   message text, and these errors reach the operator's log.
@@ -213,8 +214,10 @@ Holds are reported once per (batch, reason) change, not every poll.
   time, in order, and a batch in flight is queued once.
 - **Failures:**
   - `ErrDeliveryScope` (a key without `attention:deliver`,
-    `APP_KEY_SCOPE_REQUIRED`) switches delivery off for the run, and host
-    operations carry on.
+    `APP_KEY_SCOPE_REQUIRED`) switches delivery off after two consecutive
+    steps answer it (one answer between good reads changes nothing); the off
+    state re-checks on a doubling 1-15 minute backoff and turns itself back
+    on when a read succeeds (`delivery-on`). Host operations carry on.
   - Any other read failure is logged and retried next step.
   - Neither fails the check-in.
 - **`worker.deliver`** stays reported FAILED. It is a per-task-event

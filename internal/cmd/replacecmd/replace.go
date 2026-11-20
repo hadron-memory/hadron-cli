@@ -92,16 +92,17 @@ Choose the nodes with --node (a node URN or id, repeatable), with -m/--memory
 Needs write access to every memory it writes in.
 
 Some nodes are never changed, and are skipped without a warning. A skipped
-node still has the old text:
+node was not inspected, so it may still contain the old text:
   - comments (change them with comment edit);
-  - governed nodes: specs, reviews and runnable tasks (spec edit and spec
-    replace change specs);
+  - governed nodes: specs, reviews, questions and runnable tasks (spec edit
+    and spec replace change specs);
   - compiled boot prompts (a compile writes them: team worker compile);
   - nodes under a Channel's reserved address (channel list prints it).
 Skipped nodes are not counted in "scanned". The command says how many were
 skipped: a line "Skipped N node(s): ..." under the totals, printed only when N
-is above 0 (in --json, nodesSkipped is always present, and nodesSelected is the
-number of nodes picked before the protections applied). To check that the old
+is above 0; it points here for the kinds and does not list them (in --json,
+nodesSkipped is always present, and nodesSelected is the number of nodes
+picked before the protections applied). To check that the old
 text is gone, search for it afterwards: hadron search "<old>" -m <memory> lists the notes that still
 mention it (search also matches by meaning, so read the hits).
 
@@ -120,13 +121,17 @@ Otherwise it shows the count per node and asks before writing; without a
 terminal (a script or an AI agent) pass --yes, which skips the question but
 still prints the totals to stderr before writing. --max-nodes N refuses the
 whole change if more than N nodes would change: a guard against rewriting a
-memory by mistake (a wrong --memory, a forgotten --prefix).
+memory by mistake (a wrong --memory, a forgotten --prefix). It counts
+nodesChanged, the nodes that have a match, and never the skipped ones.
+Before the question, the terminal shows the same totals, Skipped line and
+table that the command prints afterwards, on stderr.
 
 A refusal before any write exits 2 and changes nothing: no --yes without a
 terminal, more nodes than --max-nodes, an empty <old>, a missing --field,
 --node or --memory, or --prefix without --memory. If nothing matches it
 prints "No matches — nothing to replace." on stderr and writes nothing
-(exit 0).
+(exit 0). When nodes were skipped, the note ends "(N node(s) skipped)"
+in place of the full stop.
 
 It prints the totals ("Replaced 3 occurrence(s) across 2 of 40 node(s)
 scanned."), then a table of the changed nodes: LOC, REPLACEMENTS and FIELDS
@@ -192,6 +197,7 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 				return err
 			}
 
+			var preview replaceResultDTO
 			run := func(dry bool) (replaceResultDTO, error) {
 				input := gen.SearchReplaceInNodesInput{
 					AuthoredWith:    cmdutil.AuthoredWith(cmd.Context()),
@@ -224,7 +230,7 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 							"the server answered searchReplaceInNodes with no result and no error; this was a preview, so nothing was written")
 					}
 					return replaceResultDTO{}, exitcode.Newf(exitcode.Error,
-						"the server answered searchReplaceInNodes with no result and no error, so the outcome is unknown: the replacement may have been applied; read the affected nodes (hadron node revision list <node>) before retrying")
+						"the server answered searchReplaceInNodes with no result and no error, so the outcome is unknown: the replacement may have been applied; read the affected nodes (hadron node revision list <node>) before retrying%s", previewedNodes(preview))
 				}
 				return toDTO(resp.SearchReplaceInNodes), nil
 			}
@@ -242,12 +248,16 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 			// signal of blast radius, and a whole-memory `-m` scope (a wrong URN,
 			// or a forgotten --prefix) can rewrite every node in one call. The
 			// --yes path agents use previously skipped this entirely (#126).
-			preview, err := run(true)
+			preview, err = run(true)
 			if err != nil {
 				return err
 			}
 			if preview.TotalReplacements == 0 {
-				fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")
+				if preview.NodesSkipped > 0 {
+					fmt.Fprintf(f.IOStreams.ErrOut, "No matches — nothing to replace (%d node(s) skipped).\n", preview.NodesSkipped)
+				} else {
+					fmt.Fprintln(f.IOStreams.ErrOut, "No matches — nothing to replace.")
+				}
 				// This is the real-run result (a no-op), not a preview: report it as
 				// such so --json shows dryRun=false for a run the user did not flag
 				// --dry-run on.
@@ -336,7 +346,7 @@ func renderReport(w io.Writer, dto replaceResultDTO) error {
 	fmt.Fprintf(w, "%s %d occurrence(s) across %d of %d node(s) scanned%s\n",
 		verb, dto.TotalReplacements, dto.NodesChanged, dto.NodesScanned, suffix)
 	if dto.NodesSkipped > 0 {
-		fmt.Fprintf(w, "Skipped %d node(s): not inspected or changed (comments, governed nodes, compiled boot prompts, or nodes under a Channel's address); they may still contain the old text.\n", dto.NodesSkipped)
+		fmt.Fprintf(w, "Skipped %d node(s): not inspected or changed (which kinds: hadron replace text --help); they may still contain the old text.\n", dto.NodesSkipped)
 	}
 	if len(dto.Results) == 0 {
 		return nil
@@ -350,4 +360,26 @@ func renderReport(w io.Writer, dto replaceResultDTO) error {
 		t.Row(output.SafeCell(n.Loc), fmt.Sprint(n.Replacements), output.SafeCell(strings.Join(parts, ", ")))
 	}
 	return t.Flush()
+}
+
+// previewedNodes names the nodes the preview said would change, for the
+// applied-with-no-result error: the caller is told where to look. At most five
+// locs, then "and M more"; empty when the preview listed none.
+func previewedNodes(preview replaceResultDTO) string {
+	const shown = 5
+	if len(preview.Results) == 0 {
+		return ""
+	}
+	locs := make([]string, 0, shown)
+	for i, n := range preview.Results {
+		if i == shown {
+			break
+		}
+		locs = append(locs, n.Loc)
+	}
+	list := strings.Join(locs, ", ")
+	if more := len(preview.Results) - len(locs); more > 0 {
+		list += fmt.Sprintf(" and %d more", more)
+	}
+	return fmt.Sprintf(" (the preview listed %d node(s): %s)", len(preview.Results), list)
 }

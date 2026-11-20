@@ -340,7 +340,7 @@ func TestMemorySyncPull60NullPreflightDelegates(t *testing.T) {
 			if e := json.Unmarshal(calls["SyncMemory"], &vars); e != nil {
 				t.Fatal(e)
 			}
-			if len(vars) != 1 || vars["id"] != "hrn:mem:acme.com:kb" {
+			if len(vars) != 1 || vars["ref"] != "hrn:mem:acme.com:kb" {
 				t.Fatal(vars)
 			}
 			if tc.name == "unreadable-refusal" && (!strings.Contains(out.String(), "server-owned refusal") || !strings.Contains(out.String(), "FORBIDDEN")) {

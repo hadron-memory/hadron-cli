@@ -689,7 +689,7 @@ hadron automation grant set <app-ref> --memory <ref> --trigger-kind SCHEDULE|WEB
 hadron webhook create [--scope <id|name>] --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | prices get <id> | balance <org> | ledger <org> [--limit N] [--offset N] | prices set --provider <p> --model <m> --input <n> --output <n> [--tier 1-3] [--markup-bp N] [--effective-at <t>] [--yes] | grant <org> --amount <n> [--source-type <t> --source-id <i>] [--expires-at <t>] [--note <s>] [--yes]   # spec-046 metering (cli#215): READS, then two platform-admin WRITES; <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices get <id>: one row (the id is the ID column of the prices table, or "id" in prices --json), the same DTO as a prices row as one object; a null row exits 4 NotFound "not found or not visible" (the server does not say which); an empty id exits 2 with no request. prices and prices get: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. WRITES (`prices set`, `grant`; platform admin, else FORBIDDEN exit 8): they change money records, so each asks y/N on a terminal and, without one, REFUSES with exit 2 and ZERO requests unless --yes; required flags absent or empty exit 2 with no request. Money flags (--input, --output, --amount) are opaque strings sent byte for byte: the CLI does not parse or range-check them (the server owns positivity/domain and its refusal passes through, exit per error class). Optional flags (--tier, --markup-bp, --effective-at, --expires-at, --note, --source-*) are OMITTED when unset so server defaults apply; an explicit `--markup-bp 0` is a value; an empty string flag exits 2. `grant`: --source-type/--source-id are a pair (both or neither, else exit 2 before any request); a repeated pair makes the server return the EXISTING entry instead of crediting twice, but the response carries no created/reused flag, so the CLI prints the returned entry identically either way and never claims 'already granted'. Without the pair a repeat credits again; the CLI NEVER retries a write. --json prints one DTO (a rate row as in `prices`, or a ledger entry as in `ledger`) with money as strings. --expires-at is recorded, not enforced
-hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | get <id> | revoke <id> --yes
+hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | get <id> | revoke <id> --yes   # organization-level grant (org member management actions), retiring; App grants: `hadron team grant` (cli#2672)
 hadron policy explain --action <a> --app <ref> [--user <ref>] | set --mine (<json> | @file | --clear)   # cli#1343; see that section
 hadron quota list --org <ref> [--app <ref>] | set --org <ref> [--app <ref>] --action <a> --limit <n>   # cli#1343; org ADMIN
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
@@ -4460,11 +4460,11 @@ exit 4 = Orca answered; exit 2 or 3 is refused before Orca is listed and says no
 `hadron orca terminal status <worker|terminal-id> [--config <host.yaml>] [--json]` or `--all` (with `--json` one JSON array, one entry per
 active worker of the App, in the App's worker order). The terminal is the Orca terminal whose worktree's
 session binding names the worker, or one named directly by id. Text mode prints one line per worker:
-`Joshua idle`, `Joshua locked (menu_or_question)`; a `dark` line also carries the local detail.
+`Joshua idle`, `Joshua locked (menu_or_question)`, `Joshua locked (rate_limited, until 08:45Z)` (a usage-limit screen; ", read as the host's local time" is added when the screen's time has no UTC offset); a `dark` line also carries the local detail.
 
 ```json
 {"contract":"terminal-status@1","worker":"Joshua","terminal":"term_50a6…","status":"idle",
- "prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T16:12:03Z","checkedAt":"2026-10-29T16:31:40Z"}
+ "prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T16:12:03Z","checkedAt":"2026-10-29T16:31:40Z","resetAt":null}
 ```
 
 | key | values |
@@ -4474,9 +4474,10 @@ session binding names the worker, or one named directly by id. Text mode prints 
 | `terminal` | the Orca terminal handle; `null` when the worker has none or has several agent terminals |
 | `status` | `busy` a turn is running · `idle` empty prompt, safe to push one line · `locked` cannot take work · `dark` broken |
 | `prompt` | `empty` · `not_empty` · `menu` · `unknown`: the terminal-level fact, separate from `status` |
-| `reason` | `null` unless `locked`/`dark`. `locked`: `menu_or_question` (a selection menu, permission dialog or pending question: never send), `unrecognized` (blocked, or a screen no rule matches: fail closed, never idle). `dark`: `no_turn_for_due_ticker`, `no_terminal`, `bare_shell`, `no_agent` |
+| `reason` | `null` unless `locked`/`dark`. `locked`: `menu_or_question` (a selection menu, permission dialog or pending question: never send), `rate_limited` (a usage-limit screen: waiting on a reset, not stopped; never send; `resetAt` says when), `unrecognized` (blocked, or a screen no rule matches: fail closed, never idle). `dark`: `no_turn_for_due_ticker`, `no_terminal`, `bare_shell`, `no_agent` |
 | `lastTurnAt` | when the harness's screen shows its last finished turn (Claude Code, Codex adapters); `null` when not shown, never guessed. It does not influence `status` |
 | `checkedAt` | when the status was produced, UTC |
+| `resetAt` | an additive key inside `@1` (cli#2676): when a `rate_limited` screen says the limit resets, RFC 3339 UTC; `null` otherwise, and for a usage-limit screen with no parsable time. A time with no UTC offset is read as the host's local time. Consumers that read only the other keys keep working |
 
 Precedence: `locked`, then `busy`, then `dark`, then `idle`. **Push only when `prompt` is `empty` and
 `status` is `idle` or `dark`.** `dark` means a ticker owed the worker a turn and none came: a tick of a
@@ -6411,6 +6412,12 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
   `specsMustChange`; no `parts`, `context`, `urgency` or `followUps`. An older server takes the
   `parts` input. A file valid for neither is refused before any call; one valid
   for the other server only is refused (exit 2) once the shape is known, naming the key.
+  S2 amend: `null` clears only `background`, `whyNow`, `assignee`, `neededBy` and
+  `defaultAction`; `null` on any other key is refused (exit 2) before any call,
+  naming the key (leave it out to keep it). `options`, `blocks`, `sources`,
+  `specsTouched` and `specsMustChange` clear with `[]`; `"options": []` makes the
+  question free text and drops its recommendation (refused `QUESTION_ANSWER_IMMUTABLE`
+  if a kept answer names an option key).
   Reads show both alike: `background`/`context` and `priority`/`urgency` carry the
   same value, a newer server's one question is `parts[0]` (`citation` `<code>-1`,
   `question` the title), `answerHistory` holds every answer-list entry with

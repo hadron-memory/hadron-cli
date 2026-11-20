@@ -44,7 +44,7 @@ func TestSetToken2511SendsOnceAndNeverEchoes(t *testing.T) {
 		if e := json.Unmarshal(calls["SetMemorySourceToken"], &vars); e != nil {
 			t.Fatal(e)
 		}
-		if vars["token"] != sentinel2511 || vars["id"] != "hrn:mem:acme.com:kb" {
+		if vars["token"] != sentinel2511 || vars["ref"] != "hrn:mem:acme.com:kb" {
 			t.Fatalf("variables: %v", vars)
 		}
 		if _, has := vars["expiresAt"]; has {

@@ -53,8 +53,8 @@ func TestMemoryLinkUser(t *testing.T) {
 	}
 	// The ref is canonicalized, not pre-resolved to a PK — the mutation
 	// resolves an id or a URN itself.
-	if vars["memoryId"] != "hrn:mem:acme.com:anon-7f3" {
-		t.Errorf("memoryId = %v, want the canonical URN", vars["memoryId"])
+	if vars["memoryRef"] != "hrn:mem:acme.com:anon-7f3" {
+		t.Errorf("memoryRef = %v, want the canonical URN", vars["memoryRef"])
 	}
 	if vars["externalUserId"] != "auth0|abc123" {
 		t.Errorf("externalUserId = %v", vars["externalUserId"])

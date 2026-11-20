@@ -119,11 +119,11 @@ mutation UpdateOrganization(
   }
 }
 
-mutation DeleteOrganization($id: ID!) {
-  deleteOrganization(id: $id)
+mutation DeleteOrganization($ref: ID!) {
+  deleteOrganization(ref: $ref)
 }
 
-mutation AddOrgMember($orgRef: String!, $userRef: String!, $role: Role!) {
+mutation AddOrgMember($orgRef: ID!, $userRef: ID!, $role: Role!) {
   addOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
     id
     role
@@ -133,7 +133,7 @@ mutation AddOrgMember($orgRef: String!, $userRef: String!, $role: Role!) {
   }
 }
 
-mutation UpdateOrgMember($orgRef: String!, $userRef: String!, $role: Role!) {
+mutation UpdateOrgMember($orgRef: ID!, $userRef: ID!, $role: Role!) {
   updateOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
     id
     role
@@ -143,7 +143,7 @@ mutation UpdateOrgMember($orgRef: String!, $userRef: String!, $role: Role!) {
   }
 }
 
-mutation RemoveOrgMember($orgRef: String!, $userRef: String!) {
+mutation RemoveOrgMember($orgRef: ID!, $userRef: ID!) {
   removeOrgMember(orgRef: $orgRef, userRef: $userRef)
 }
 
@@ -184,7 +184,7 @@ fragment InvitationFields on UserInvitation {
 # Org-scoped invitation (#56). The returned `slug` is the acceptance token the
 # invitee redeems with `org invite accept <slug>`.
 mutation CreateUserInvitation(
-  $orgId: ID!
+  $orgRef: ID!
   $memberRole: Role!
   # @genqlient(omitempty: true)
   $email: String
@@ -198,7 +198,7 @@ mutation CreateUserInvitation(
   $maxActivations: Int
 ) {
   createUserInvitation(
-    orgId: $orgId
+    orgRef: $orgRef
     memberRole: $memberRole
     email: $email
     name: $name
