@@ -29,8 +29,8 @@ func TestReplaceTextHelpStatesPrerequisitesAndRefusals1051(t *testing.T) {
 	}
 	// The --prefix paragraph must start on its own line, not run on from the
 	// sentence about skipped nodes.
-	if strings.Contains(c.Long, "skipped.\n--prefix") {
-		t.Error("the --prefix paragraph runs on from the skipped-nodes paragraph")
+	if !strings.Contains(c.Long, "\n\n--prefix narrows") {
+		t.Error("the --prefix paragraph does not start its own paragraph")
 	}
 }
 
