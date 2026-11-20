@@ -61,14 +61,23 @@ func TestEmailManageErrors198(t *testing.T) {
 		{"test", "EmailTestConnection", []string{"test", "conn-1"}},
 		{"disconnect", "EmailDisconnect", []string{"disconnect", "conn-1", "--yes"}},
 	} {
-		for _, e := range []struct {
+		cases := []struct {
 			name, wire string
 			want       int
 		}{
 			{"forbidden passes through", forbid198, 8},
 			{"unknown tool error keeps the fallback", unknown198, 1},
-			{"null result", `{"data":{}}`, 7},
-		} {
+		}
+		// The server types both answers Boolean!, so an absent or null one cannot be
+		// told from false after decoding: for disconnect false IS "not confirmed"
+		// (exit 7); for test it is a probe that did not pass (covered above).
+		if tc.cmd == "disconnect" {
+			cases = append(cases, struct {
+				name, wire string
+				want       int
+			}{"absent result is unconfirmed", `{"data":{}}`, 7})
+		}
+		for _, e := range cases {
 			t.Run(tc.cmd+" "+e.name, func(t *testing.T) {
 				_, _, err := runEmail198(t, map[string]string{tc.op: e.wire}, tc.args...)
 				if exitCodeFor(err) != e.want {
@@ -79,9 +88,11 @@ func TestEmailManageErrors198(t *testing.T) {
 				}
 				if err != nil {
 					low := strings.ToLower(err.Error())
-					for _, bad := range []string{"not found", "already", "reconnect"} {
+					// What the SERVER said passes through verbatim (the unknown-tool
+					// fixture itself says "reconnect"); the CLI adds no wording of its own.
+					for _, bad := range []string{"not found", "already disconnected", "hadron connection connect"} {
 						if strings.Contains(low, bad) {
-							t.Errorf("the error says %q, which the server did not: %v", bad, err)
+							t.Errorf("the error carries CLI-invented wording %q: %v", bad, err)
 						}
 					}
 				}

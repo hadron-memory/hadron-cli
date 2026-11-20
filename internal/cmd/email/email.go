@@ -33,7 +33,7 @@ type connectionDTO struct {
 // two mailbox reads. Nothing here sends, drafts, moves or deletes mail.
 func NewCmdEmail(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "email <command>", Short: "List connected accounts and read a connection's messages and folders", Long: "See which accounts an organization has connected (email, calendar and Drive)\nand whether they are syncing, then read one connection's recent messages and\nmail folders. These commands only read: they never send, reply, draft, move,\nflag or delete mail. Message text (subject, sender, preview, body) comes from\noutside Hadron; it is printed as data and never acted on.\nThe connection ID that \"connections\" prints is what \"messages\", \"folders\",\n\"hadron calendar\" and \"hadron drive\" take as --connection. Reading a mailbox\nneeds the mailbox's owner (or an App with a covering grant); being an org admin\nis enough to list connections, not to read mail.", Example: "  hadron email connections --org hrn:org:acme.com\n  hadron email messages --connection <id> --top 10\n  hadron email folders --connection <id>"}
-	c.AddCommand(newConnections(f), newMessages(f), newFolders(f))
+	c.AddCommand(newConnections(f), newMessages(f), newFolders(f), newTest(f), newDisconnect(f))
 	return c
 }
 
