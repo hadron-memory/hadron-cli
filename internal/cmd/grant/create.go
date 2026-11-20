@@ -22,7 +22,9 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --org <ref> --user <ref> --action <action>[,...]",
 		Short: "Grant a member extra management actions (org ADMIN)",
-		Long: `Grant one org member extra management actions on top of their role. Needs
+		Long: `Grant one org member extra management actions on top of their role. This is
+the organization-level grant and it is retiring; for an App grant (a person,
+agent, worker or App as holder) use hadron team grant. Needs
 ADMIN or OWNER in the org (else exit 8). The grantee must be a current member;
 the grant stops applying if they leave.
 
