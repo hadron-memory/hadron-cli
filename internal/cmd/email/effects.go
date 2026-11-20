@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -24,6 +25,10 @@ import (
 // Reply goes to the sender only (the server takes no recipient). The body is read
 // from a file or stdin and is never echoed. An idempotency key exists on draft
 // save and draft send only, is passed unchanged and is never invented.
+
+// shown renders an id for a confirmation prompt: made visible (control and escape
+// sequences neutralised), never raw. The id SENT is the one the caller gave.
+func shown(id string) string { return output.SafeCell(strconv.Quote(id)) }
 
 // maxBodyBytes bounds a body read from a file or stdin.
 const maxBodyBytes = 1 << 20
@@ -157,7 +162,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, "Send a reply to message "+msg+"? This sends mail."); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Send a reply to message "+shown(msg)+"? This sends mail."); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -310,7 +315,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, "Send draft "+id+"? This sends mail."); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Send draft "+shown(id)+"? This sends mail."); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -481,7 +486,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "message "+msg); err != nil {
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "message "+shown(msg)); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
