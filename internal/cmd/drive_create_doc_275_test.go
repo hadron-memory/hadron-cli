@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
 )
@@ -166,12 +167,18 @@ func TestDriveCreateDoc275Refusals(t *testing.T) {
 }
 
 func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
-	for _, mode := range []string{"gateway", "drop", "malformed", "null"} {
+	for _, mode := range []string{"gateway", "drop", "redirect307", "redirect308", "malformed", "null"} {
 		t.Run(mode, func(t *testing.T) {
-			srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+			srv, n := createDocServer275(t, func(w http.ResponseWriter, req *http.Request, _ map[string]any) {
 				switch mode {
 				case "gateway":
-					http.Error(w, "gateway failed", 502)
+					http.Error(w, "gateway failed", http.StatusBadGateway)
+				case "redirect307", "redirect308":
+					status := http.StatusTemporaryRedirect
+					if mode == "redirect308" {
+						status = http.StatusPermanentRedirect
+					}
+					http.Redirect(w, req, "/replayed", status)
 				case "drop":
 					conn, _, err := w.(http.Hijacker).Hijack()
 					if err != nil {
@@ -193,5 +200,30 @@ func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
 				t.Fatalf("err=%v HTTP=%d stdout=%q", err, n.Load(), out.String())
 			}
 		})
+	}
+}
+
+func TestDriveCreateDoc275UnlockIsHeaderOnly(t *testing.T) {
+	const secret = "synthetic-unlock-275"
+	srv, n := createDocServer275(t, func(w http.ResponseWriter, r *http.Request, vars map[string]any) {
+		var keys []map[string]string
+		if err := json.Unmarshal([]byte(r.Header.Get(api.MemoryKeysHeader)), &keys); err != nil {
+			t.Error("missing or malformed memory key header")
+			return
+		}
+		if len(keys) != 1 || keys[0]["memory"] != "hrn:mem:example.com:kb" || keys[0]["passphrase"] != secret {
+			t.Error("unexpected invocation key")
+		}
+		if len(vars) != 2 {
+			t.Error("unlock must not add mutation variables")
+		}
+		_, _ = w.Write([]byte(`{"data":{"exportNodeToGoogleDoc":` + driveFile275 + `}}`))
+	})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL,
+		"--unlock", "hrn:mem:example.com:kb", "--unlock-passphrase-file", passFile1234(t, secret, 0o600)})
+	if err := r.Execute(); err != nil || n.Load() != 1 || strings.Contains(out.String(), secret) {
+		t.Fatalf("err=%v HTTP=%d", err, n.Load())
 	}
 }

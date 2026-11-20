@@ -137,6 +137,7 @@ func TestLaterFailedWriteSuppressesEarlierAdvice1152(t *testing.T) {
 // is either verified (a reason) or marked UNVERIFIED (not evaluated). A node-named mutation that is in neither this table nor
 // nodeWriteAdviceRoots1152 fails the inventory test below.
 var nodeMutationExclusions1152 = map[string]string{
+	"exportNodeToGoogleDoc": "reads resolved node content for an external Doc; does not write a Hadron node or carry plain-pin write advice",
 	// Verified against hadron-server (writeNodeCore, resolvers.mutation.node.ts and
 	// createAssetReferenceNode.ts at origin/main when #1152 was built):
 	"updateNodeRevision": "edits a revision's label only; no content is written",

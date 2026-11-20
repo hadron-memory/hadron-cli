@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 309 command, 38 gap, 12 excluded
+[Mutation] 359: 310 command, 37 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -420,7 +420,7 @@ endSession  command team session end
 ensureAppMember  command app member add
 exchangeMoveMessage  gap #198
 exchangeReply  gap #198
-exportNodeToGoogleDoc  gap #275
+exportNodeToGoogleDoc  command drive create-doc
 extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish
 freezePullRequestHead  command team pr freeze
