@@ -161,12 +161,12 @@ func TestAgent58ImportPublishPositionAndRequired(t *testing.T) {
 	}
 }
 
-// A null or missing result is a controlled error, never a panic: one call, no output.
+// A null or missing result is a controlled error, never a panic or a silent
+// no-op: one call, no output. For import rm that means a missing or null Boolean
+// is an unknown outcome (exit 1), while an explicit false stays a successful
+// no-op (TestAgent58OutputShapes).
 func TestAgent58NullResultIsControlledError(t *testing.T) {
 	for _, v := range verbs58() {
-		if v.name == "import rm" {
-			continue // a Boolean: a missing value is a decode failure below
-		}
 		for name, body := range map[string]string{"null": `{"data":{"` + v.field + `":null}}`, "missing": `{"data":{}}`} {
 			t.Run(v.name+"/"+name, func(t *testing.T) {
 				calls, out, err := runAgent58(t, map[string]string{v.op: body}, v.args()...)

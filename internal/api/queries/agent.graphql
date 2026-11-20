@@ -469,6 +469,9 @@ mutation PublishAgentImport(
 }
 
 mutation RemoveAgentImport($parentAgentRef: ID!, $importedAgentRef: ID!) {
+  # A pointer, so a missing or null result is told apart from an explicit false:
+  # false is a successful no-op, nil is an unknown outcome.
+  # @genqlient(pointer: true)
   removeAgentImport(parentAgentRef: $parentAgentRef, importedAgentRef: $importedAgentRef)
 }
 

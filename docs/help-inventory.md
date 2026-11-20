@@ -276,15 +276,15 @@ section between the markers.
 |---|---|---|---|---|---|---|---|---|
 | `agent` | agents |  | n | #1053 | be82eed3b3b1 |  | unread |  |
 | `agent ai-config` |  |  | n | #1053 | 17175bf753f2 |  | unread |  |
-| `agent ai-config clear` |  |  | y | #1053 | 187f0f804c5c |  | unread |  |
+| `agent ai-config clear` |  |  | y | #1053 | e22ae16c71f6 |  | unread |  |
 | `agent boot-prompt` |  |  | y | #1053 | 10650306ed8f | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent clone` |  |  | n | #1053 | ebd5caccad52 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent compile` |  |  | y | #1053 | 8a3d148c1a1c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent create` |  |  | y | #1053 | f00513fe5e20 |  | unread |  |
 | `agent get` |  |  | y | #1053 | 166c9cefd1fd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
-| `agent import` |  |  | n | #1053 | a66f94c36a09 |  | unread |  |
-| `agent import publish` |  |  | y | #1053 | 5121fa14f6d7 |  | unread |  |
-| `agent import rm` | remove |  | y | #1053 | 2acdd72aedc1 |  | unread |  |
+| `agent import` |  |  | n | #1053 | 87d29f4f959b |  | unread |  |
+| `agent import publish` |  |  | y | #1053 | 2c03f45e8be8 |  | unread |  |
+| `agent import rm` | remove |  | y | #1053 | 18821a1377f0 |  | unread |  |
 | `agent list` | ls |  | n | #1053 | cf8a7a7b08c2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent lock` |  |  | n | #1053 | 1984178d701c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent lock acquire` |  |  | y | #1053 | 5c94841490ed | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
@@ -299,7 +299,7 @@ section between the markers.
 | `agent model-group set` |  |  | y | #1053 | 287573eb95bb | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent processes` |  |  | n | #1053 | 94eb3f76a56b | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent processes list` | ls |  | y | #1053 | c230b4d51819 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
-| `agent repair-system-memory` |  |  | y | #1053 | 004c8f39f4c0 |  | unread |  |
+| `agent repair-system-memory` |  |  | y | #1053 | 7b35e35c4fec |  | unread |  |
 | `agent revision` |  |  | n | #1053 | c2d202293270 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `agent revision create` |  |  | y | #1053 | 2e20a9e10e23 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent revision publish` |  |  | y | #1053 | e82e496eaa3c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |

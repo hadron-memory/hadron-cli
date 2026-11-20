@@ -16,7 +16,7 @@ import (
 
 // cli#58 (four-command cut): `agent ai-config clear`, `agent import publish|rm`
 // and `agent repair-system-memory`. Each is exactly one server call with the
-// references passed as typed (ID, URN or handle); who may run it, and every
+// references passed as typed (ID or URN); who may run it, and every
 // other rule, stays the server's (cor:api:240:01).
 
 // refArg refuses a blank reference before any call is made. TrimSpace only
@@ -66,11 +66,11 @@ configuration, disabled ones included; for an org-owned Agent it removes only th
 one named "default". The server decides what is removed.
 
 Whoever manages the Agent may run it: for an org-owned Agent, its organization's
-ADMINs and OWNERs; for a user-owned Agent, its owner; and platform admins. The
+ADMINs and OWNERs; for a user-owned Agent, its owner and platform admins. The
 server decides, and a refusal is reported as it came.
 
 It never reads or prints a key. Prints "✓ cleared AI configuration of <name>
-(<urn>)"; --json is the Agent as the server returned it. Without a terminal you
+(<urn>)"; --json is the Agent in the CLI's usual Agent JSON. Without a terminal you
 must pass --yes.`,
 		Example: `  hadron agent ai-config clear hrn:agent:acme.com:bot --yes`,
 		Args:    cobra.ExactArgs(1),
@@ -108,7 +108,7 @@ func newCmdAgentImport(f *cmdutil.Factory) *cobra.Command {
 		Short: "Publish or remove an Agent's dependency on another Agent",
 		Long: `Manage imports: a parent Agent's dependency on another Agent, which installing the
 parent into an App carries along. Each verb makes one server call and passes both
-Agents exactly as typed (ID, URN or handle).`,
+Agents exactly as typed (ID or URN).`,
 	}
 	cmd.AddCommand(newCmdAgentImportPublish(f), newCmdAgentImportRm(f))
 	return cmd
@@ -133,8 +133,9 @@ func newCmdAgentImportPublish(f *cmdutil.Factory) *cobra.Command {
 required). Installing the parent into an App then carries the imported Agent
 along. The parent's organization must hold an active grant for the imported
 Agent, and imports go one level deep (an imported Agent cannot itself be a
-parent). Whoever manages the parent Agent may publish: its organization's ADMINs
-and OWNERs, and platform admins; the server decides and reports its refusals as
+parent). Whoever manages the parent Agent may publish: for an org-owned Agent its
+organization's ADMINs and OWNERs, for a user-owned one its owner and platform
+admins; the server decides and reports its refusals as
 they came.
 
 --required says whether the dependency is mandatory; without the flag the server
@@ -207,7 +208,8 @@ Removing it stops future installs of the parent from carrying the imported Agent
 along. Installs that already happened stay. But if the imported Agent was
 installed in an App only through this import, removing the import also ends its
 grants there, and reinstalling does not revive them. Whoever manages the parent
-Agent may remove: its organization's ADMINs and OWNERs, and platform admins; the
+Agent may remove: for an org-owned Agent its organization's ADMINs and OWNERs, for
+a user-owned one its owner and platform admins; the
 server decides. Without a terminal you must pass --yes.
 
 Prints "✓ removed import ..." when the server reports it removed one; --json is
@@ -236,7 +238,10 @@ Prints "✓ removed import ..." when the server reports it removed one; --json i
 			if err != nil {
 				return api.MapError(err)
 			}
-			dto := removeImportDTO{Removed: resp.RemoveAgentImport}
+			if resp.RemoveAgentImport == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no result for the import removal; its outcome is unknown")
+			}
+			dto := removeImportDTO{Removed: *resp.RemoveAgentImport}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if !dto.Removed {
 					_, err := fmt.Fprintf(w, "the server reported no import of %s from %s removed\n",
@@ -257,13 +262,14 @@ func newCmdAgentRepairSystemMemory(f *cmdutil.Factory) *cobra.Command {
 		Use:   "repair-system-memory <agent>",
 		Short: "Repair an Agent's system-Memory owner pairing (platform admins)",
 		Long: `Repair an Agent whose system Memory ended up owned by a different tenant than the
-Agent: the server re-pairs the owner and keeps the Memory's URN consistent. It is
-idempotent: an already-consistent pair is a no-op. Only platform admins may run
+Agent: the server changes the system Memory's owner to match the Agent's and may
+also change the Memory's URN to match (if that URN is already taken it keeps the
+current one). It is idempotent: an already-consistent pair is a no-op. Only platform admins may run
 it; the server refuses anyone else (FORBIDDEN) and reports AGENT_HAS_NO_SYSTEM_MEMORY
 or SYSTEM_MEMORY_NOT_FOUND as they came.
 
-Prints "✓ repaired system memory of <name> (<urn>)"; --json is the Agent as the
-server returned it. It asks no confirmation because it changes nothing that is
+Prints "✓ repaired system memory of <name> (<urn>)"; --json is the Agent in the
+CLI's usual Agent JSON. It asks no confirmation because it changes nothing that is
 already consistent.`,
 		Example: `  hadron agent repair-system-memory hrn:agent:acme.com:bot`,
 		Args:    cobra.ExactArgs(1),

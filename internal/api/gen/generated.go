@@ -84034,11 +84034,11 @@ type RemoveAgentImportResponse struct {
 	// parent installs from cascading the dep.
 	//
 	// Accepts the entity's ID or URN.
-	RemoveAgentImport bool `json:"removeAgentImport"`
+	RemoveAgentImport *bool `json:"removeAgentImport"`
 }
 
 // GetRemoveAgentImport returns RemoveAgentImportResponse.RemoveAgentImport, and is useful for accessing the field via an interface.
-func (v *RemoveAgentImportResponse) GetRemoveAgentImport() bool { return v.RemoveAgentImport }
+func (v *RemoveAgentImportResponse) GetRemoveAgentImport() *bool { return v.RemoveAgentImport }
 
 // RemoveAppMemberInstructedResponse is returned by RemoveAppMemberInstructed on success.
 type RemoveAppMemberInstructedResponse struct {
