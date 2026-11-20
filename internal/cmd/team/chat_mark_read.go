@@ -128,6 +128,13 @@ only your own live session.`,
 				return api.MapError(err)
 			}
 			r := resp.MarkOwnTeamChatRead
+			// A response without a receipt is not evidence the server accepted
+			// the mark, so nothing local moves (and the DTO below would
+			// dereference nil). Exit 1, the CLI's "the server returned no X".
+			if r == nil {
+				return exitcode.Newf(exitcode.Error,
+					"the server returned no read receipt, so the mark is unconfirmed — the local read hint was not moved; check `hadron team chat read` or re-run mark-read")
+			}
 			// cli#1854: after the server accepted the mark, bring the local
 			// hint up to it, so `session log` cannot lag an explicit mark-read.
 			// recordChatWatermark only moves forward (a through below the

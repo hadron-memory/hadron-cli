@@ -71,6 +71,8 @@ func TestTeamChatMarkReadAdvancesTheLocalWatermark1854(t *testing.T) {
 		{"local equal to H is unchanged", ptr(1878), "1878", nil, markReadJSON, ptr(1878), "", "ch1"},
 		{"local above H is unchanged", ptr(2000), "1878", nil, markReadJSON, ptr(2000), "", "ch1"},
 		{"a failed server mark leaves it untouched", ptr(50), "1878", nil, `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`, ptr(50), "the server hit an internal error", "ch1"},
+		{"a null mark receipt is unconfirmed: hint untouched", ptr(50), "1878", nil, `{"data":{"markOwnTeamChatRead":null}}`, ptr(50), "no read receipt", "ch1"},
+		{"a missing mark receipt is unconfirmed: hint untouched", ptr(50), "1878", nil, `{"data":{}}`, ptr(50), "no read receipt", "ch1"},
 		{"an explicit --channel is not the team-chat watermark", ptr(50), "1878", []string{"--channel", "chats:dm-ada"}, markReadJSON, ptr(50), "", "chats:dm-ada"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
