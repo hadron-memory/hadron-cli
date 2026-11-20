@@ -15,15 +15,16 @@ func TestNonAbsoluteConfigPath2700(t *testing.T) {
 	const nativeResult = "native-resolution-result"
 	for _, tc := range []struct {
 		name, path string
-		native     bool
 		want       string
+		wdCalls    int // expected getwd calls: 1 for an ordinary relative path
+		absCalls   int // expected native Abs calls: 1 for a rooted or drive form
 	}{
-		{"ordinary-relative", `host.yaml`, false, `C:\wd/host.yaml`},
-		{"relative-parent-preserved", `link\..\host.yaml`, false, `C:\wd/link\..\host.yaml`},
-		{"drive-rooted-backslash", `\host.yaml`, true, nativeResult},
-		{"drive-rooted-slash", `/host.yaml`, true, nativeResult},
-		{"drive-relative", `C:host.yaml`, true, nativeResult},
-		{"other-drive-relative", `D:host.yaml`, true, nativeResult},
+		{"ordinary-relative", `host.yaml`, `C:\wd/host.yaml`, 1, 0},
+		{"relative-parent-preserved", `link\..\host.yaml`, `C:\wd/link\..\host.yaml`, 1, 0},
+		{"drive-rooted-backslash", `\host.yaml`, nativeResult, 0, 1},
+		{"drive-rooted-slash", `/host.yaml`, nativeResult, 0, 1},
+		{"drive-relative", `C:host.yaml`, nativeResult, 0, 1},
+		{"other-drive-relative", `D:host.yaml`, nativeResult, 0, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			wdCalls, absCalls, volumeCalls := 0, 0, 0
@@ -46,8 +47,8 @@ func TestNonAbsoluteConfigPath2700(t *testing.T) {
 			if got != tc.want {
 				t.Fatalf("got %q want %q", got, tc.want)
 			}
-			if tc.native && (absCalls != 1 || wdCalls != 0) || !tc.native && (absCalls != 0 || wdCalls != 1) {
-				t.Fatalf("native=%v abs calls=%d getwd calls=%d", tc.native, absCalls, wdCalls)
+			if absCalls != tc.absCalls || wdCalls != tc.wdCalls {
+				t.Fatalf("abs calls=%d (want %d), getwd calls=%d (want %d)", absCalls, tc.absCalls, wdCalls, tc.wdCalls)
 			}
 		})
 	}
@@ -56,12 +57,14 @@ func TestNonAbsoluteConfigPath2700(t *testing.T) {
 func TestNonAbsoluteConfigPath2700ResolutionFailure(t *testing.T) {
 	for _, tc := range []struct {
 		name, path string
-		native     bool
+		native     bool // a rooted or drive form: resolved by native Abs, never by getwd
+		wdCalls    int
+		absCalls   int
 	}{
-		{"getwd", "host.yaml", false},
-		{"drive-abs", "C:host.yaml", true},
-		{"rooted-backslash-abs", `\host.yaml`, true},
-		{"rooted-slash-abs", "/host.yaml", true},
+		{"getwd", "host.yaml", false, 1, 0},
+		{"drive-abs", "C:host.yaml", true, 0, 1},
+		{"rooted-backslash-abs", `\host.yaml`, true, 0, 1},
+		{"rooted-slash-abs", "/host.yaml", true, 0, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			wdCalls, absCalls := 0, 0
@@ -84,8 +87,8 @@ func TestNonAbsoluteConfigPath2700ResolutionFailure(t *testing.T) {
 			if got != tc.path {
 				t.Fatalf("failed resolution changed path: %q want %q", got, tc.path)
 			}
-			if tc.native && (absCalls != 1 || wdCalls != 0) || !tc.native && (absCalls != 0 || wdCalls != 1) {
-				t.Fatalf("native=%v abs=%d getwd=%d", tc.native, absCalls, wdCalls)
+			if absCalls != tc.absCalls || wdCalls != tc.wdCalls {
+				t.Fatalf("abs=%d (want %d) getwd=%d (want %d)", absCalls, tc.absCalls, wdCalls, tc.wdCalls)
 			}
 		})
 	}
@@ -104,7 +107,12 @@ func TestNonAbsoluteConfigPath2700UnixBackslash(t *testing.T) {
 		t.Skip("Unix filename semantics")
 	}
 	path := `\link/../host.yaml`
-	got := nonAbsoluteConfigPath(path, filepath.VolumeName, os.IsPathSeparator, func() (string, error) { return "/cwd", nil }, func(string) (string, error) { t.Fatal("Unix backslash filename is not rooted"); return "", nil })
+	got := nonAbsoluteConfigPath(path, filepath.VolumeName, os.IsPathSeparator,
+		func() (string, error) { return "/cwd", nil },
+		func(string) (string, error) {
+			t.Fatal("Unix backslash filename is not rooted")
+			return "", nil
+		})
 	if want := "/cwd/" + path; got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
