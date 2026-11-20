@@ -286,11 +286,14 @@ func disposeFindingError(err error) error {
 // beneath them): its path runs through disposeAgentTaskFinding into a
 // subfield. The write field resolved first and its transaction has committed,
 // so the outcome is unconfirmed, whatever the HTTP status (a 200 with partial
-// data, or a 500 carrying the errors). An error on the write field itself (a
-// path that stops at disposeAgentTaskFinding), or with no path (a validation
-// refusal before execution), is a typed refusal and keeps its usual mapping, as
-// does a mixed list. Gateway and transport failures are classified earlier, by
-// the transport layer, with their own may-have-been-applied advice.
+// data, or a 500 carrying the errors) and whatever else the list carries: a
+// pathless or foreign-root error beside it does not make the write unwritten.
+// The one thing that overrides it is an error on the write field itself (a path
+// that stops at disposeAgentTaskFinding): the write was refused, which keeps
+// its typed mapping. A list with no such descendant error (empty, pathless
+// validation refusals, foreign roots) is not this class. Gateway and transport
+// failures are classified earlier, by the transport layer, with their own
+// may-have-been-applied advice.
 func readbackFieldFailed(err error) bool {
 	var list gqlerror.List
 	var httpErr *graphql.HTTPError
@@ -304,19 +307,20 @@ func readbackFieldFailed(err error) bool {
 	default:
 		return false
 	}
-	if len(list) == 0 {
-		return false
-	}
+	descendant := false
 	for _, e := range list {
-		if e == nil || len(e.Path) < 2 {
-			return false
+		if e == nil || len(e.Path) == 0 {
+			continue
 		}
-		root, _ := e.Path[0].(ast.PathName)
-		if root != "disposeAgentTaskFinding" {
-			return false
+		if root, _ := e.Path[0].(ast.PathName); root != "disposeAgentTaskFinding" {
+			continue
 		}
+		if len(e.Path) == 1 {
+			return false // the write field itself was refused
+		}
+		descendant = true
 	}
-	return true
+	return descendant
 }
 
 // validFindingReadback reports whether the targeted readback can be shown as the
