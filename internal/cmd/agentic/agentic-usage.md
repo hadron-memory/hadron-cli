@@ -695,7 +695,7 @@ hadron quota list --org <ref> [--app <ref>] | set --org <ref> [--app <ref>] --ac
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
 hadron drive create-doc <node-id-or-qualified-URN> --connection <ref> [--folder <id>] [--title <text>] [--yes]   # one exportNodeToGoogleDoc mutation, never retried; creates a NEW Google Doc in the connection owner's external account, never updates an existing one. Content copied out cannot be recalled from Hadron. Requires confirmation: without a terminal, omitting --yes exits 2 with zero requests; declining the terminal prompt exits 6 with zero requests. Only the connection owner acting as themselves can create; drive.read, App/headless and impersonated callers do not authorize it. Server reads/resolves the node with the caller's access; locked encrypted nodes need global --unlock. Omitted folder/title are absent on the wire (Drive root/node name defaults); empty supplied values refuse locally. Success returns the same file DTO as drive get, including nullable size, parents[], and nullable times/webLink. An unanswered/malformed response exits 7: the outcome is unknown; check the drive before retrying, since a repeat creates another Doc. Server refusals and unknown-code fallback retain normal mapping. drive export stays read-only to local stdout; it never calls this mutation.
-hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json]   # reads only (cli#198 Slice A): nothing sends, replies, drafts, moves, flags or deletes mail
+hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json] | test <connection-id> [--json] | disconnect <connection-id> [--yes] [--json]   # reads (cli#198 Slice A) plus test/disconnect (Slice B): nothing sends, replies, drafts, moves, flags or deletes mail
 hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id>   # read-only Slack workspace connections; one page (server default 20), stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4; status is a recorded value, not a health check: ACTIVE = registered, not proof it works (a failed token is not always recorded), ERROR = recorded as failed, reason not shown; recovery is an org admin registering the workspace again (no CLI command or portal page yet); --app and the saved org do not apply
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
 hadron connection flow <flow-id> [--json]
@@ -5151,10 +5151,13 @@ server's default applies), the reply carries the real `total` and `hasMore`,
 with the total and, when more follow, the `--offset` that continues. One call is
 one page: the CLI never fetches the next page and never calls a list complete.
 The `--offset` hint counts from the effective offset (a negative one counts as
-0, as the server clamps it) and is withheld on an empty page. The bare form is unchanged. `--top`, `--limit` and `--offset` are checked
-only against the wire type (GraphQL Int, signed 32-bit; a value outside it exits
-2 with no request); inside that range the server decides. `--unread=false` is
-sent as an explicit `unreadOnly:false`; an unset `--unread` is omitted.
+0, as the server clamps it) and is withheld on an empty page. The bare form is
+unchanged.
+
+`--top`, `--limit` and `--offset` are checked only against the wire type (GraphQL
+Int, signed 32-bit; a value outside it exits 2 with no request); inside that
+range the server decides. `--unread=false` is sent as an explicit
+`unreadOnly:false`; an unset `--unread` is omitted.
 
 `hadron email messages --connection ID [--top N] [--unread]` reads one bounded
 list of recent messages (exchangeMessages, once). `--top` is parsed as an integer
@@ -5170,6 +5173,27 @@ unreadItemCount}], counts null when the provider omits them. Both are owner-only
 impersonated session, are refused by the server): FORBIDDEN exit 8 passes
 through unchanged, unknown tool failures keep the existing fallback with no
 reconnect advice. A missing or blank `--connection` exits 2 with no request.
+
+`hadron email test CONNECTION-ID` calls testExchangeConnection ONCE and never
+retries; the server records the result as the connection's sync status, so it is
+not a pure read. It is gated like reading messages (owner, or an App with a
+covering `mail.read` grant; an org admin who is not the owner, and an
+impersonated session, are refused by the server). `--json` is {connectionId,ok};
+true exits 0, an explicit false exits 1 ("the server's probe did not pass": no reason, no
+reconnect advice). An absent or null answer is exit 7 with no ok field, never a failed probe.
+Connecting again is `hadron connection connect`.
+
+`hadron email disconnect CONNECTION-ID [--yes]` calls deleteExchangeConnection
+ONCE and never retries. It deletes the connection record of ANY provider and is
+open only to an ADMIN of the owning organization (owner or grant holder does not
+open it; impersonation is refused). The server's single Forbidden (missing,
+deleted or not-admin alike) is shown as it comes, never as "not found" or
+"already disconnected". It asks y/N on a terminal; without one it exits 2 with
+ZERO requests unless `--yes`. If the server returns `false` (or no answer), the command exits 7 ("did not confirm"). `--json`
+is {connectionId,disconnected}. "Disconnected" means Hadron's record: the
+provider-side teardown is the server's best effort and is not reported. A missing
+or blank id exits 2 with no request. Both commands: unknown tool failures keep the
+existing fallback with no reconnect advice.
 
 
 `hadron connection connect <provider> --org REF` starts the OAuth flow that

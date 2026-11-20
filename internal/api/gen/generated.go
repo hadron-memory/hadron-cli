@@ -54407,6 +54407,16 @@ func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsE
 	return v.ExchangeConnections
 }
 
+// EmailDisconnectResponse is returned by EmailDisconnect on success.
+type EmailDisconnectResponse struct {
+	DeleteExchangeConnection *bool `json:"deleteExchangeConnection"`
+}
+
+// GetDeleteExchangeConnection returns EmailDisconnectResponse.DeleteExchangeConnection, and is useful for accessing the field via an interface.
+func (v *EmailDisconnectResponse) GetDeleteExchangeConnection() *bool {
+	return v.DeleteExchangeConnection
+}
+
 // EmailFoldersExchangeFoldersExchangeFolder includes the requested fields of the GraphQL type ExchangeFolder.
 type EmailFoldersExchangeFoldersExchangeFolder struct {
 	Id              string `json:"id"`
@@ -54487,6 +54497,16 @@ type EmailMessagesResponse struct {
 // GetExchangeMessages returns EmailMessagesResponse.ExchangeMessages, and is useful for accessing the field via an interface.
 func (v *EmailMessagesResponse) GetExchangeMessages() []*EmailMessagesExchangeMessagesExchangeMessage {
 	return v.ExchangeMessages
+}
+
+// EmailTestConnectionResponse is returned by EmailTestConnection on success.
+type EmailTestConnectionResponse struct {
+	TestExchangeConnection *bool `json:"testExchangeConnection"`
+}
+
+// GetTestExchangeConnection returns EmailTestConnectionResponse.TestExchangeConnection, and is useful for accessing the field via an interface.
+func (v *EmailTestConnectionResponse) GetTestExchangeConnection() *bool {
+	return v.TestExchangeConnection
 }
 
 // 033-rag-vector-retrieval: what a memory's vector index is built from.
@@ -131269,6 +131289,14 @@ func (v *__EmailConnectionsPageInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __EmailConnectionsPageInput.Offset, and is useful for accessing the field via an interface.
 func (v *__EmailConnectionsPageInput) GetOffset() *int { return v.Offset }
 
+// __EmailDisconnectInput is used internally by genqlient
+type __EmailDisconnectInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __EmailDisconnectInput.Id, and is useful for accessing the field via an interface.
+func (v *__EmailDisconnectInput) GetId() string { return v.Id }
+
 // __EmailFoldersInput is used internally by genqlient
 type __EmailFoldersInput struct {
 	ConnectionId string `json:"connectionId"`
@@ -131292,6 +131320,14 @@ func (v *__EmailMessagesInput) GetTop() *int { return v.Top }
 
 // GetUnreadOnly returns __EmailMessagesInput.UnreadOnly, and is useful for accessing the field via an interface.
 func (v *__EmailMessagesInput) GetUnreadOnly() *bool { return v.UnreadOnly }
+
+// __EmailTestConnectionInput is used internally by genqlient
+type __EmailTestConnectionInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __EmailTestConnectionInput.Id, and is useful for accessing the field via an interface.
+func (v *__EmailTestConnectionInput) GetId() string { return v.Id }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
@@ -159610,6 +159646,39 @@ func EmailConnectionsPage(
 	return data_, err_
 }
 
+// The mutation executed by EmailDisconnect.
+const EmailDisconnect_Operation = `
+mutation EmailDisconnect ($id: ID!) {
+	deleteExchangeConnection(id: $id)
+}
+`
+
+// Deletes the connection record (org ADMIN only). One request, never retried.
+func EmailDisconnect(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *EmailDisconnectResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailDisconnect",
+		Query:  EmailDisconnect_Operation,
+		Variables: &__EmailDisconnectInput{
+			Id: id,
+		},
+	}
+
+	data_ = &EmailDisconnectResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by EmailFolders.
 const EmailFolders_Operation = `
 query EmailFolders ($connectionId: ID!) {
@@ -159685,6 +159754,40 @@ func EmailMessages(
 	}
 
 	data_ = &EmailMessagesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EmailTestConnection.
+const EmailTestConnection_Operation = `
+mutation EmailTestConnection ($id: ID!) {
+	testExchangeConnection(id: $id)
+}
+`
+
+// hadron-cli#198 Slice B. Probes a connection once; the server records the result
+// as the connection's sync status, so this is not a pure read.
+func EmailTestConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *EmailTestConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailTestConnection",
+		Query:  EmailTestConnection_Operation,
+		Variables: &__EmailTestConnectionInput{
+			Id: id,
+		},
+	}
+
+	data_ = &EmailTestConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

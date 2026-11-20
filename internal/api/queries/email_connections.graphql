@@ -75,3 +75,18 @@ query EmailFolders($connectionId: ID!) {
     unreadItemCount
   }
 }
+
+# hadron-cli#198 Slice B. Probes a connection once; the server records the result
+# as the connection's sync status, so this is not a pure read.
+mutation EmailTestConnection($id: ID!) {
+  # pointer: true keeps an absent or null answer distinct from an explicit false
+  # (a Boolean! the server did not send is a missing result, not a failed probe).
+  # @genqlient(pointer: true)
+  testExchangeConnection(id: $id)
+}
+
+# Deletes the connection record (org ADMIN only). One request, never retried.
+mutation EmailDisconnect($id: ID!) {
+  # @genqlient(pointer: true)
+  deleteExchangeConnection(id: $id)
+}

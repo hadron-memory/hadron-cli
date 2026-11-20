@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 314 command, 33 gap, 12 excluded
+[Mutation] 359: 316 command, 31 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -382,7 +382,7 @@ deleteComment  command comment delete
 deleteCommentThread  command comment delete
 deleteDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 deleteEdge  command edge rm
-deleteExchangeConnection  gap #198
+deleteExchangeConnection  command email disconnect
 deleteHomeAssistantInstance  command ha rm
 deleteMcpServer  command mcp-server delete
 deleteMemory  command memory rm
@@ -570,7 +570,7 @@ stopImpersonation  command auth impersonate
 subscribeWorker  command ticker subscribe
 syncMemory  command memory sync pull
 testAiServiceConfig  command ai-config test
-testExchangeConnection  gap #198
+testExchangeConnection  command email test
 transferMemoryOwnership  command memory transfer
 triggerAppRun  command run trigger
 unassignHostWorker  command team host unassign
