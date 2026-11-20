@@ -485,7 +485,8 @@ func TestFindingDispositions1709InstructedUnusableReadback(t *testing.T) {
 	for name, body := range map[string]string{
 		"wrong finding id": `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F2","disposition":"fixed","reference":null}}}}`,
 		"null target":      `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}}}`,
-		"malformed body":   `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":`,
+		"truncated body":   `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":`,
+		"blank body":       ` `,
 		"wrong type":       `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":1,"disposition":"fixed"}}}}`,
 		"readback error":   `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"]}]}`,
 	} {
@@ -493,13 +494,32 @@ func TestFindingDispositions1709InstructedUnusableReadback(t *testing.T) {
 			r := taskResponses()
 			r["AgentTaskDisposeFindingInstructed"] = body
 			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json", "--instruction", "team-chat-message:"+taskInstructionRef2422)
-			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) == 0 {
-				t.Fatalf("err=%v out=%q calls=%d", err, out, len(*calls))
+			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) != 1 {
+				t.Fatalf("err=%v out=%q calls=%d exit=%d", err, out, len(*calls), exitCodeFor(err))
 			}
-			// A truncated body is a dropped connection to the client, which
-			// already says the write may have been applied.
-			if !strings.Contains(err.Error(), "may have been") || !strings.Contains(err.Error(), "before retrying") {
+			if !strings.Contains(err.Error(), "may have been recorded") || !strings.Contains(err.Error(), "read finding-dispositions before retrying") {
 				t.Fatalf("recovery guidance missing: %v", err)
+			}
+		})
+	}
+}
+
+// cli#1709 (local round 1): a 200 whose body is blank or truncated JSON reaches
+// the client as a decoder EOF. It is an unusable success body, so the plain
+// command gives exit 1 and the recovery guidance (not the generic connection
+// advice), with one request and no output.
+func TestFindingDispositions1709DecoderEOF(t *testing.T) {
+	for name, body := range map[string]string{
+		"blank":     ` `,
+		"truncated": `{"data":{"disposeAgentTaskFinding":`,
+		"empty":     ``,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json")
+			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) != 1 || !strings.Contains(err.Error(), "read finding-dispositions before retrying") {
+				t.Fatalf("err=%v out=%q calls=%d exit=%d", err, out, len(*calls), exitCodeFor(err))
 			}
 		})
 	}

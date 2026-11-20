@@ -268,7 +268,7 @@ func errDispositionReadbackUnavailable() error {
 func disposeFindingError(err error) error {
 	var typeErr *json.UnmarshalTypeError
 	var syntaxErr *json.SyntaxError
-	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) || readbackFieldFailed(err) {
+	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || readbackFieldFailed(err) {
 		return errDispositionReadbackUnavailable()
 	}
 	return mapFindingError(err)
