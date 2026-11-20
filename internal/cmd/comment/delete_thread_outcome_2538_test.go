@@ -165,8 +165,12 @@ func TestCommentDeleteThreadErrorPaths2547(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"errors":[{"message":"boom"}],"data":null}`))
 		}},
-		// The connection dropped before an answer: exit 7, whose message already
-		// tells the caller the write may have applied and to verify before retrying.
+		// The connection dropped before an answer: exit 7 is the repo-wide
+		// transport class (exitcode.Unavailable), and api.transportError appends
+		// "This was a MUTATION: it may or may not have been applied — verify the
+		// current state before retrying" for a write. Pinned so a regression to
+		// another class fails; the nil-answer case above is exit 1 because the
+		// server DID answer (#2538), not a transport failure.
 		{"transport", exitcode.Unavailable, func(w http.ResponseWriter, _ *http.Request) {
 			conn, _, err := w.(http.Hijacker).Hijack()
 			if err == nil {
