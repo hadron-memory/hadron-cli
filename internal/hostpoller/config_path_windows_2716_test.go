@@ -36,12 +36,14 @@ func TestLoadConfigNativeWindowsPaths2716(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(orig) })
 
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Registered after TempDir, so it runs first (cleanups are LIFO): Windows
+	// cannot remove a directory that is the process's working directory.
+	t.Cleanup(func() { _ = os.Chdir(orig) })
 	other := filepath.Join(dir, "elsewhere")
 	for _, d := range []string{filepath.Join(dir, "clone"), other} {
 		if err := os.Mkdir(d, 0o755); err != nil {
