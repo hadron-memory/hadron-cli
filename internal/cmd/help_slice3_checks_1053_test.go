@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -243,21 +244,52 @@ func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 				t.Errorf("%v names %q, which is not one of its flags", page, name)
 			}
 		}
-		for _, line := range strings.Split(cmd.Example, "\n") {
-			line = strings.TrimSpace(line)
-			line = strings.TrimPrefix(line, "$ ") // N3: shell-prompt examples parse too
-			if strings.HasPrefix(line, "#") || !strings.HasPrefix(line, "hadron ") {
-				continue
-			}
-			args := strings.Fields(strings.TrimPrefix(line, "hadron "))
+		examples, err := slice3ExampleArgs1053(cmd.Example)
+		if err != nil {
+			t.Fatalf("%v examples: %v", page, err)
+		}
+		for _, args := range examples {
 			target, rest, err := root.Find(args)
 			if err != nil || target == root {
-				t.Errorf("%v example %q: no such command", page, line)
+				t.Errorf("%v example %q: no such command", page, args)
 				continue
 			}
 			if err := target.ParseFlags(rest); err != nil {
-				t.Errorf("%v example %q: %v", page, line, err)
+				t.Errorf("%v example %q: %v", page, args, err)
 			}
 		}
+	}
+}
+
+func slice3ExampleArgs1053(block string) ([][]string, error) {
+	var examples [][]string
+	for _, line := range strings.Split(block, "\n") {
+		line = strings.TrimPrefix(strings.TrimSpace(line), "$ ")
+		if strings.HasPrefix(line, "hadron ") {
+			examples = append(examples, strings.Fields(strings.TrimPrefix(line, "hadron ")))
+		}
+	}
+	return examples, nil
+}
+
+func TestSlice3ExampleParsing2559(t *testing.T) {
+	for _, tc := range []struct {
+		name, block string
+		want        [][]string
+		wantErr     bool
+	}{
+		{"prompt and continuation", "$ hadron ticker create \\\n  --name check-in \\\n  --cadence-seconds 120 # ignore --not-a-flag", [][]string{{"ticker", "create", "--name", "check-in", "--cadence-seconds", "120"}}, false},
+		{"quoted comment character", "hadron ticker create --name '# --not-a-flag' --cadence-seconds 120 # comment --bogus", [][]string{{"ticker", "create", "--name", "# --not-a-flag", "--cadence-seconds", "120"}}, false},
+		{"hash within word", "hadron ticker create --name check#in", [][]string{{"ticker", "create", "--name", "check#in"}}, false},
+		{"comment and prompt", "# hadron absent --bogus\n$ hadron ticker list", [][]string{{"ticker", "list"}}, false},
+		{"unfinished continuation", "hadron ticker create \\", nil, true},
+		{"unfinished quote", "hadron ticker create --name 'unfinished", nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := slice3ExampleArgs1053(tc.block)
+			if (err != nil) != tc.wantErr || (!tc.wantErr && !reflect.DeepEqual(got, tc.want)) {
+				t.Fatalf("got %q, %v; want %q, error=%v", got, err, tc.want, tc.wantErr)
+			}
+		})
 	}
 }
