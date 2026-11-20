@@ -102,19 +102,52 @@ func isDefinitiveSendRefusal(err error) bool {
 	return graphQLAnswered(err) && api.OnlyErrorCodes(err, definitiveRefusalCodes...)
 }
 
+// withheld is what stands in for a body the server echoed back.
+const withheld = "[submitted body withheld]"
+
+// withhold removes the submitted body (and its trimmed form) from text the server
+// sent back: a provider error can quote it and a result field can contain it, and
+// the body must never come back out of this command (cor:sec / the gate's "never
+// echoed"). The rest of the text is untouched.
+func withhold(s, body string) string {
+	if body == "" {
+		return s
+	}
+	s = strings.ReplaceAll(s, body, withheld)
+	if t := strings.TrimSpace(body); t != "" && t != body {
+		s = strings.ReplaceAll(s, t, withheld)
+	}
+	return s
+}
+
+// mapWithBody is api.MapError for a command that submitted a body: the server's
+// words and the exit class are kept, the submitted body is not.
+func mapWithBody(err error, body string) error {
+	mapped := api.MapError(err)
+	if body == "" || mapped == nil {
+		return mapped
+	}
+	msg := mapped.Error()
+	red := withhold(msg, body)
+	if red == msg {
+		return mapped
+	}
+	return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", red), err)
+}
+
 // sendFailure maps a failed send. A definitive pre-send refusal keeps its own words
 // and exit code. Any other failure may have followed the send: a GraphQL error
 // keeps the server's words and its exit class and adds that the outcome is unknown;
 // no answer at all is an unknown outcome outright. Either way the CLI never says
 // "failed" for what it cannot know, points at the folder to check, and never retries.
-func sendFailure(err error, where string) error {
+func sendFailure(err error, where, body string) error {
 	if isDefinitiveSendRefusal(err) {
-		return api.MapError(err)
+		return mapWithBody(err, body)
 	}
 	guidance := fmt.Sprintf("outcome unknown: the request may have reached the server and the mail may have been sent; check the %s before trying again (the CLI does not retry)", where)
 	if graphQLAnswered(err) {
-		mapped := api.MapError(err)
-		return exitcode.Newf(exitcode.FromError(mapped), "%s; %s", mapped.Error(), guidance)
+		mapped := mapWithBody(err, body)
+		return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s; %s", mapped.Error(), guidance), err)
 	}
 	return exitcode.Newf(exitcode.Unavailable, "%s", guidance)
 }
@@ -187,7 +220,7 @@ Details:
 			}
 			r, err := gen.EmailReply(cmd.Context(), client, conn, msg, body)
 			if err != nil {
-				return sendFailure(err, "Sent folder")
+				return sendFailure(err, "Sent folder", body)
 			}
 			return finish(f, r != nil && r.ExchangeReply, actionDTO{ConnectionID: conn, MessageID: msg, Action: "reply"},
 				fmt.Sprintf("reply to message %q sent (server confirmed)", msg),
@@ -266,15 +299,21 @@ Details:
 			}
 			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, optStr(cmd, "reply-to", replyTo), optStr(cmd, "subject", subject), optList(cmd, "to", to), optStr(cmd, "idempotency-key", key))
 			if err != nil {
-				return api.MapError(err)
+				return mapWithBody(err, body)
 			}
 			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned no draft")
 			}
 			d := r.EmailSaveDraft
-			dto := draftDTO{DraftID: d.DraftId, ConversationID: d.ConversationId}
+			// A draft id that contains the submitted body is the server echoing it:
+			// withhold it from both the text and the JSON.
+			dto := draftDTO{DraftID: withhold(d.DraftId, body), ConversationID: d.ConversationId}
+			if dto.ConversationID != nil {
+				c := withhold(*dto.ConversationID, body)
+				dto.ConversationID = &c
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, e := fmt.Fprintf(w, "draft saved: %q (not sent)\n", d.DraftId)
+				_, e := fmt.Fprintf(w, "draft saved: %q (not sent)\n", dto.DraftID)
 				return e
 			})
 		}}
@@ -317,7 +356,7 @@ Details:
 			}
 			r, err := gen.EmailUpdateDraft(cmd.Context(), client, conn, id, body)
 			if err != nil {
-				return api.MapError(err)
+				return mapWithBody(err, body)
 			}
 			return finish(f, r != nil && r.EmailUpdateDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-update"},
 				fmt.Sprintf("draft %q updated (not sent)", id), "the server did not confirm the draft update; read the draft back to see its body")
@@ -363,7 +402,7 @@ Details:
 			}
 			r, err := gen.EmailSendDraft(cmd.Context(), client, conn, id, optStr(cmd, "idempotency-key", key))
 			if err != nil {
-				return sendFailure(err, "Sent folder")
+				return sendFailure(err, "Sent folder", "")
 			}
 			return finish(f, r != nil && r.EmailSendDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-send"},
 				fmt.Sprintf("draft %q sent (server confirmed)", id),
