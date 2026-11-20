@@ -31,6 +31,13 @@ func bindingWithWatermark1854(t *testing.T, seen *int) string {
 
 func itoa1854(n int) string { b, _ := json.Marshal(n); return string(b) }
 
+// json1854 is a seq as the fake server decodes a JSON number: float64.
+func json1854(s string) any {
+	var v float64
+	_ = json.Unmarshal([]byte(s), &v)
+	return v
+}
+
 func watermark1854(t *testing.T, path string) *int {
 	t.Helper()
 	data, err := os.ReadFile(path)
@@ -55,18 +62,20 @@ func TestTeamChatMarkReadAdvancesTheLocalWatermark1854(t *testing.T) {
 		args    []string
 		server  string // the MarkOwnTeamChatRead response
 		want    *int
+		wantErr string // "" = the command must succeed; else the error must contain this
+		channel string // the channelRef the one mark request must carry
 	}{
-		{"local below H advances to H", ptr(50), "1878", nil, markReadJSON, ptr(1878)},
-		{"never-read binding records H", nil, "1878", nil, markReadJSON, ptr(1878)},
-		{"through 0 never turns never-read into read-an-empty-chat", nil, "0", nil, markReadJSON, nil},
-		{"local equal to H is unchanged", ptr(1878), "1878", nil, markReadJSON, ptr(1878)},
-		{"local above H is unchanged", ptr(2000), "1878", nil, markReadJSON, ptr(2000)},
-		{"a failed server mark leaves it untouched", ptr(50), "1878", nil, `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`, ptr(50)},
-		{"an explicit --channel is not the team-chat watermark", ptr(50), "1878", []string{"--channel", "chats:dm-ada"}, markReadJSON, ptr(50)},
+		{"local below H advances to H", ptr(50), "1878", nil, markReadJSON, ptr(1878), "", "ch1"},
+		{"never-read binding records H", nil, "1878", nil, markReadJSON, ptr(1878), "", "ch1"},
+		{"through 0 never turns never-read into read-an-empty-chat", nil, "0", nil, markReadJSON, nil, "", "ch1"},
+		{"local equal to H is unchanged", ptr(1878), "1878", nil, markReadJSON, ptr(1878), "", "ch1"},
+		{"local above H is unchanged", ptr(2000), "1878", nil, markReadJSON, ptr(2000), "", "ch1"},
+		{"a failed server mark leaves it untouched", ptr(50), "1878", nil, `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`, ptr(50), "the server hit an internal error", "ch1"},
+		{"an explicit --channel is not the team-chat watermark", ptr(50), "1878", []string{"--channel", "chats:dm-ada"}, markReadJSON, ptr(50), "", "chats:dm-ada"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			path := bindingWithWatermark1854(t, tc.local)
-			srv, _ := attnServer(t, map[string]string{
+			srv, calls := attnServer(t, map[string]string{
 				"TeamDefaultChannel":  `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
 				"MarkOwnTeamChatRead": tc.server,
 			})
@@ -75,8 +84,27 @@ func TestTeamChatMarkReadAdvancesTheLocalWatermark1854(t *testing.T) {
 			root := NewRootCmd(f)
 			args := append([]string{"team", "chat", "mark-read", "--through", tc.through, "--json", "--server", srv.URL}, tc.args...)
 			root.SetArgs(args)
-			if err := root.Execute(); err != nil {
-				t.Logf("execute: %v", err)
+			err := root.Execute()
+			// The case must reach the path it names: succeed or fail as stated,
+			// and send exactly one mark for the right Channel and seq (cli#2746
+			// BLIND P2: a case that errored earlier would otherwise pass).
+			if tc.wantErr == "" && err != nil {
+				t.Fatalf("the command must succeed: %v", err)
+			}
+			if tc.wantErr != "" && (err == nil || !strings.Contains(err.Error(), tc.wantErr)) {
+				t.Fatalf("want an error containing %q, got %v", tc.wantErr, err)
+			}
+			var marks []attnCall
+			for _, c := range *calls {
+				if c.Op == "MarkOwnTeamChatRead" {
+					marks = append(marks, c)
+				}
+			}
+			if len(marks) != 1 {
+				t.Fatalf("want exactly one mark request, got %d (%v)", len(marks), opsOf(*calls))
+			}
+			if marks[0].Vars["channelRef"] != tc.channel || marks[0].Vars["seq"] != json1854(tc.through) {
+				t.Errorf("mark carried channelRef=%v seq=%v, want %s / %s", marks[0].Vars["channelRef"], marks[0].Vars["seq"], tc.channel, tc.through)
 			}
 			got := watermark1854(t, path)
 			if (got == nil) != (tc.want == nil) || (got != nil && *got != *tc.want) {
