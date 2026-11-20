@@ -67,18 +67,37 @@ func TestReadToolPins2712(t *testing.T) {
 		{"a partial version", "tsx=4.23\ngraphql=16.15.0\n", 2, ""},
 		{"a range of two", "tsx=4.23.15 || 5.0.0\ngraphql=16.15.0\n", 2, ""},
 		{"a trailing space", "tsx=4.23.15 \ngraphql=16.15.0\n", 2, ""},
+		{"a leading zero", "tsx=01.2.3\ngraphql=16.15.0\n", 2, ""},
+		{"an empty prerelease identifier", "tsx=1.2.3-rc..1\ngraphql=16.15.0\n", 2, ""},
+		{"a numeric prerelease with a leading zero", "tsx=1.2.3-01\ngraphql=16.15.0\n", 2, ""},
+		{"a valid tsx then a bad graphql", "tsx=4.23.15\ngraphql=latest\n", 2, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			src := filepath.Join(t.TempDir(), "SOURCE")
 			if err := os.WriteFile(src, []byte(tc.source), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			out, code := run(t, "", nil, "bash", script, src)
-			if code != tc.want {
-				t.Fatalf("exit %d, want %d:\n%s", code, tc.want, out)
+			// stdout alone is what reaches $GITHUB_OUTPUT: on any refusal it
+			// must be EMPTY (a bad second pin must not leave the first behind).
+			cmd := exec.Command("bash", script, src)
+			var stdout, stderr strings.Builder
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			code := 0
+			if err := cmd.Run(); err != nil {
+				ee, ok := err.(*exec.ExitError)
+				if !ok {
+					t.Fatal(err)
+				}
+				code = ee.ExitCode()
 			}
-			if tc.want == 0 && out != tc.wantOut {
-				t.Errorf("printed %q, want %q", out, tc.wantOut)
+			if code != tc.want {
+				t.Fatalf("exit %d, want %d:\nstdout %q\nstderr %q", code, tc.want, stdout.String(), stderr.String())
+			}
+			if tc.want != 0 && stdout.String() != "" {
+				t.Errorf("a refusal left %q on stdout (it would land in GITHUB_OUTPUT)", stdout.String())
+			}
+			if tc.want == 0 && stdout.String() != tc.wantOut {
+				t.Errorf("printed %q, want %q", stdout.String(), tc.wantOut)
 			}
 		})
 	}
@@ -215,5 +234,79 @@ func TestExportStepFailsOnInstallExporterOrEmptyOutput2712(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A real mismatch through the real comparison. The comparison step runs
+// `make schema-check` with SDL_EXPORT replaced by `cat <exported file>`; this
+// runs exactly that in a copy of the repo: the committed SDL passes, an SDL that
+// no longer carries a field the CLI selects fails with the target's drift
+// message. The drift reporters are keyed on that step's outcome alone
+// (TestSchemaDriftFailureRouting2712), so a real mismatch selects them and an
+// export failure, which never reaches this step, does not.
+func TestRealMismatchFailsTheComparison2712(t *testing.T) {
+	if testing.Short() {
+		t.Skip("copies the repo and runs genqlient")
+	}
+	for _, tool := range []string{"make", "go", "git", "bash"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skipf("%s not on PATH", tool)
+		}
+	}
+	root := repoFile(t, ".")
+	tmp := t.TempDir()
+	repo := filepath.Join(tmp, "repo")
+	for _, rel := range []string{"Makefile", "go.mod", "go.sum", "genqlient.yaml", "schema", "scripts", filepath.Join("internal", "api", "queries"), filepath.Join("internal", "api", "gen")} {
+		dst := filepath.Join(repo, rel)
+		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if out, err := exec.Command("cp", "-R", filepath.Join(root, rel), dst).CombinedOutput(); err != nil {
+			t.Fatalf("copy %s: %v\n%s", rel, err, out)
+		}
+	}
+	// sibling-source.sh wants a git repo at the named server dir; HADRON_SERVER_DIR
+	// being set is the deliberate signal that lets it be any revision.
+	server := filepath.Join(tmp, "server")
+	if err := os.MkdirAll(filepath.Join(server, "src/api/graphql/schema"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"init", "-q"}, {"-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "x"}} {
+		if out, err := exec.Command("git", append([]string{"-C", server}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	sdl, err := os.ReadFile(filepath.Join(root, "schema", "schema.graphql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	matching := filepath.Join(tmp, "match.graphql")
+	mismatch := filepath.Join(tmp, "mismatch.graphql")
+	if err := os.WriteFile(matching, sdl, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	broken := strings.Replace(string(sdl), "nodeById(", "nodeByIdRenamed(", 1)
+	if broken == string(sdl) {
+		t.Fatal("the mismatch fixture changed nothing: nodeById is no longer in the snapshot; pick another field the CLI selects")
+	}
+	if err := os.WriteFile(mismatch, []byte(broken), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	check := func(sdlFile string) (string, int) {
+		return run(t, repo, []string{"HADRON_SERVER_DIR=" + server, "GOFLAGS=-mod=mod"}, "make", "schema-check", "HADRON_SERVER_DIR="+server, "SDL_EXPORT=cat "+sdlFile)
+	}
+	if out, code := check(matching); code != 0 {
+		t.Fatalf("the committed SDL reported drift (exit %d):\n%s", code, out)
+	}
+	out, code := check(mismatch)
+	if code == 0 {
+		t.Fatalf("an SDL missing a selected field was not reported as drift:\n%s", out)
+	}
+	if !strings.Contains(out, "schema drift") {
+		t.Errorf("the failing comparison did not say it is drift:\n%s", out)
+	}
+	steps, _ := driftSteps(t)
+	if got := steps["File a drift tracking issue"].If; got != "steps.check.outcome == 'failure'" {
+		t.Errorf("the drift reporter is not keyed on the comparison step alone: %q", got)
 	}
 }

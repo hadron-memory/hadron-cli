@@ -346,10 +346,12 @@ func TestNpmInstallFailureCleansUpAndStaysQuiet2712(t *testing.T) {
 		t.Errorf("the failure did not say where the scratch dir is kept:\n%s", log)
 	}
 	if strings.Contains(log, base64.StdEncoding.EncodeToString([]byte("x-access-token:"+tokenValue))) {
-		t.Errorf("the failure output leaked the derived authorization value:\n%s", log)
+		t.Errorf("the failure output leaked the derived authorization value (log withheld)")
 	}
+	// Report detection WITHOUT printing the log: a failure message that
+	// echoed the leaked secret would leak it into the test output too.
 	if strings.Contains(log, tokenValue) {
-		t.Errorf("the failure output leaked the token:\n%s", log)
+		t.Errorf("the failure output leaked the token (log withheld)")
 	}
 	// The failed run unregisters its worktree, so the same path is reusable.
 	if wts := git(t, f.repo, "worktree", "list", "--porcelain"); strings.Contains(wts, out) {
