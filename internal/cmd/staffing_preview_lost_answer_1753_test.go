@@ -26,7 +26,8 @@ import (
 // whatever it records), then throws that answer away and ends the connection:
 // "closed" sends nothing back, "truncated" sends the status line and headers
 // and part of the body. sent counts the requests for the operation and
-// executed counts the ones the backend answered before the answer was lost.
+// executed counts the ones the backend answered with data and no GraphQL
+// error before the answer was lost.
 func loseAnswerAfterBackend(t *testing.T, backend, op, mode string, sent, executed *atomic.Int32) *httptest.Server {
 	t.Helper()
 	target, err := url.Parse(backend)
@@ -52,7 +53,11 @@ func loseAnswerAfterBackend(t *testing.T, backend, op, mode string, sent, execut
 		sent.Add(1)
 		rec := httptest.NewRecorder()
 		proxy.ServeHTTP(rec, r)
-		if rec.Code == http.StatusOK {
+		var answered struct {
+			Data   json.RawMessage   `json:"data"`
+			Errors []json.RawMessage `json:"errors"`
+		}
+		if rec.Code == http.StatusOK && json.Unmarshal(rec.Body.Bytes(), &answered) == nil && len(answered.Data) > 0 && string(answered.Data) != "null" && len(answered.Errors) == 0 {
 			executed.Add(1)
 		}
 		conn, _, err := w.(http.Hijacker).Hijack()
@@ -69,7 +74,9 @@ func loseAnswerAfterBackend(t *testing.T, backend, op, mode string, sent, execut
 	return front
 }
 
-func assertLostAnswerNote1753(t *testing.T, err error, out string, sent, executed *atomic.Int32, wantNote bool) {
+// claims counts the claim events the fake backend recorded: the instructed
+// preview records one when it runs, the plain preview none.
+func assertLostAnswerNote1753(t *testing.T, err error, out string, sent, executed, claims *atomic.Int32, wantNote bool) {
 	t.Helper()
 	if err == nil || out != "" {
 		t.Fatalf("want a failure with no stdout, got err=%v out=%q", err, out)
@@ -82,6 +89,13 @@ func assertLostAnswerNote1753(t *testing.T, err error, out string, sent, execute
 	}
 	if executed.Load() != 1 {
 		t.Errorf("the backend ran the preview %d times before its answer was lost, want 1", executed.Load())
+	}
+	wantClaims := int32(0)
+	if wantNote {
+		wantClaims = 1
+	}
+	if claims.Load() != wantClaims {
+		t.Errorf("the backend recorded %d claim(s) before the answer was lost, want %d", claims.Load(), wantClaims)
 	}
 	has := strings.Contains(err.Error(), "may or may not have been applied")
 	if has != wantNote {
@@ -100,13 +114,14 @@ func assertLostAnswerNote1753(t *testing.T, err error, out string, sent, execute
 
 // lostRun is one preview whose answer was lost after the backend ran it.
 type lostRun struct {
-	out            string
-	sent, executed *atomic.Int32
-	err            error
+	out                    string
+	sent, executed, claims *atomic.Int32
+	err                    error
 }
 
 func rmLostAnswer1753(t *testing.T, mode string, extra ...string) lostRun {
 	t.Helper()
+	var sent, executed, claims atomic.Int32
 	gql, _ := captureGraphQLFunc(t, func(op string) string {
 		switch op {
 		case "Workers", "WorkersRoster":
@@ -114,11 +129,14 @@ func rmLostAnswer1753(t *testing.T, mode string, extra ...string) lostRun {
 		case "GetWorkerInApp":
 			return `{"data":{"worker":` + irisWorkerJSON + `}}`
 		case "DeleteWorkerPreview", "DeleteWorkerPreviewInstructed":
+			// The instructed preview records its claim event as it runs.
+			if op == "DeleteWorkerPreviewInstructed" {
+				claims.Add(1)
+			}
 			return previewOK1735
 		}
 		return ""
 	})
-	var sent, executed atomic.Int32
 	op := "DeleteWorkerPreview"
 	if len(extra) > 0 {
 		op = "DeleteWorkerPreviewInstructed"
@@ -128,15 +146,19 @@ func rmLostAnswer1753(t *testing.T, mode string, extra ...string) lostRun {
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "worker", "rm", "Iris", "--app", "acme.com:eng-team", "--server", front.URL, "--dry-run"}, extra...))
 	err := root.Execute()
-	return lostRun{out.String(), &sent, &executed, err}
+	return lostRun{out.String(), &sent, &executed, &claims, err}
 }
 
 func castLostAnswer1753(t *testing.T, mode string, instructed bool) lostRun {
 	t.Helper()
 	writeTeamBinding(t)
 	responses := responses1594()
-	backend, _ := attnServerHook(t, responses, nil)
-	var sent, executed atomic.Int32
+	var sent, executed, claims atomic.Int32
+	backend, _ := attnServerHook(t, responses, func(op string) {
+		if op == "CastWorkerPreviewInstructed" {
+			claims.Add(1)
+		}
+	})
 	op := "CastWorkerPreview"
 	if instructed {
 		op = "CastWorkerPreviewInstructed"
@@ -151,35 +173,35 @@ func castLostAnswer1753(t *testing.T, mode string, instructed bool) lostRun {
 	}
 	root.SetArgs(args)
 	err := root.Execute()
-	return lostRun{out.String(), &sent, &executed, err}
+	return lostRun{out.String(), &sent, &executed, &claims, err}
 }
 
 func TestWorkerRmInstructedPreviewLostAnswerIsUnknownOutcome1753(t *testing.T) {
 	for _, mode := range []string{"closed", "truncated"} {
 		t.Run(mode, func(t *testing.T) {
 			r := rmLostAnswer1753(t, mode, "--instruction", instrTask1592)
-			assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, true)
+			assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, r.claims, true)
 		})
 	}
 }
 
 func TestWorkerRmPlainPreviewLostAnswerKeepsOrdinaryWording1753(t *testing.T) {
 	r := rmLostAnswer1753(t, "closed")
-	assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, false)
+	assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, r.claims, false)
 }
 
 func TestWorkerCastInstructedPreviewLostAnswerIsUnknownOutcome1753(t *testing.T) {
 	for _, mode := range []string{"closed", "truncated"} {
 		t.Run(mode, func(t *testing.T) {
 			r := castLostAnswer1753(t, mode, true)
-			assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, true)
+			assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, r.claims, true)
 		})
 	}
 }
 
 func TestWorkerCastPlainPreviewLostAnswerKeepsOrdinaryWording1753(t *testing.T) {
 	r := castLostAnswer1753(t, "closed", false)
-	assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, false)
+	assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, r.claims, false)
 }
 
 // A refusal the server answered is not a lost answer: it keeps its own
