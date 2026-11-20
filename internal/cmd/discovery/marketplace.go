@@ -39,6 +39,7 @@ These reads work signed out; stored credentials, when available, are attached.
 Each page contains only id, name, urn and nullable description, never members,
 private resource details or credentials. No follow-up resource reads are made.`, Example: `  hadron marketplace agents --limit 10
   hadron marketplace memories --json
+  # count only: no rows, just the total
   hadron marketplace orgs --limit 0`}
 	for _, kind := range []string{"agents", "memories", "orgs"} {
 		cmd.AddCommand(newCatalogue(f, kind))
