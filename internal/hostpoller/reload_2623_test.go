@@ -1,3 +1,5 @@
+//go:build !windows
+
 package hostpoller
 
 import (
@@ -634,14 +636,22 @@ func TestAReAddedWorkerEndsNormally2623(t *testing.T) {
 }
 
 // Removing a worker from the file ends nothing: an agent the poller launched
-// for her stays tracked, and no process is stopped by the reload.
+// for her stays tracked, and no process is stopped by the reload. The
+// registration is asserted first, so the test cannot pass vacuously if the
+// edit never reaches the second poll (cli#2653 item 6).
 func TestRemovingAWorkerFromTheFileStopsItsAgentNever2623(t *testing.T) {
 	fx := newReloadFixtureFrom(t, reloadBase+billie)
 	fx.step()
 	agent := &fakeAgent{done: make(chan struct{}), pid: 4242}
 	fx.p.agents["id-billie"] = agent
 	fx.edit(reloadBase)
-	if fx.p.agents["id-billie"] != agent {
+	if got := fx.registered(); got != "iris" {
+		t.Fatalf("registration = %q: the removal was not applied, so the rest asserts nothing", got)
+	}
+	fx.p.mu.Lock()
+	tracked := fx.p.agents["id-billie"]
+	fx.p.mu.Unlock()
+	if tracked != agent {
 		t.Fatal("the reload dropped the tracked agent of a removed worker")
 	}
 	if agent.terminations() != 0 || len(fx.host.stopped) != 0 {
