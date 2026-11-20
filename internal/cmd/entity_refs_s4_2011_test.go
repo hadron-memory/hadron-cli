@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -9,11 +10,11 @@ import (
 
 // Dropped spellings by operation family, from the S4 renames (server#4219).
 var (
-	s4GoneOrgId  = []string{"$orgId", "orgId:"}
-	s4GoneMemId  = []string{"$memoryId", "memoryId:"}
-	s4GoneAppId  = []string{"$appId", "appId:"}
-	s4GoneAgent  = []string{"$agentId", "agentId:"}
-	s4GoneUserId = []string{"$userId", "userId:"}
+	s4GoneOrgId   = []string{"$orgId", "orgId:"}
+	s4GoneMemId   = []string{"$memoryId", "memoryId:"}
+	s4GoneAppId   = []string{"$appId", "appId:"}
+	s4GoneAgentId = []string{"$agentId", "agentId:"}
+	s4GoneUserId  = []string{"$userId", "userId:"}
 	// The collapsed pairs were optional Strings before S4; a stale optional
 	// declaration sitting NEXT TO the correct one is the leftover shape the
 	// old, less-anchored gone-lists could miss (cli#2679 red/green).
@@ -22,6 +23,11 @@ var (
 	s4GoneUserRefStr = []string{"$userRef: String"}
 	// deleteMemory/deleteOrganization & co renamed id -> ref outright.
 	s4GoneIdArg = []string{"id: $id", "$id: ID"}
+	// createMemory's orgRef stays optional ($orgRef: ID): its declaration
+	// entry is the bare prefix, so the REQUIRED spelling is named here as the
+	// dropped one. That pins nullability without depending on which variable
+	// follows $orgRef in the document (cli#2712).
+	s4GoneOrgRefRequired = []string{"$orgRef: ID!"}
 )
 
 // s4GoneLists joins gone-lists without the nested-append chains.
@@ -48,10 +54,11 @@ func s4GoneLists(lists ...[]string) []string {
 // want entries are anchored fragments — the call prefix, one entry per renamed
 // argument at the call site, one per variable declaration — so a check never
 // depends on argument order and never matches a response-selection field of
-// the same name. A declaration entry that pins NULLABILITY is anchored on the
-// character after the type ("$orgRef: ID," not "$orgRef: ID"): the generated
-// operation is one line, and the bare type is a PREFIX of its non-null form,
-// so an unanchored entry is satisfied by the wrong spelling (#2696 review).
+// the same name. A declaration entry that pins NULLABILITY names the wrong
+// spelling in gone as well: the bare type is a PREFIX of its non-null form, so
+// a want entry alone is satisfied by the wrong spelling (#2696 review) —
+// and anchoring it on a following comma only worked while another variable
+// followed it (cli#2712).
 // gone entries name each dropped spelling in both its forms, the variable
 // ($orgId, $orgRef: String) and the literal argument (orgId:), never the bare
 // stem: a response selection may legitimately select one (removeMemoryMember
@@ -72,15 +79,15 @@ func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 		{"LeaveAppInstructed", gen.LeaveAppInstructed_Operation,
 			[]string{"leaveApp(", "appRef: $appRef", "$appRef: ID!"}, s4GoneAppId},
 		{"CreateRevision", gen.CreateRevision_Operation,
-			[]string{"createRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
+			[]string{"createRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgentId},
 		{"PublishRevision", gen.PublishRevision_Operation,
-			[]string{"publishRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
+			[]string{"publishRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgentId},
 		{"RestoreRevision", gen.RestoreRevision_Operation,
-			[]string{"restoreRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
+			[]string{"restoreRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgentId},
 		{"AcquireEditorLock", gen.AcquireEditorLock_Operation,
-			[]string{"acquireEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
+			[]string{"acquireEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgentId},
 		{"ReleaseEditorLock", gen.ReleaseEditorLock_Operation,
-			[]string{"releaseEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
+			[]string{"releaseEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgentId},
 		{"DeleteMemory", gen.DeleteMemory_Operation,
 			[]string{"deleteMemory(", "ref: $ref", "$ref: ID!"}, s4GoneIdArg},
 		{"SyncMemory", gen.SyncMemory_Operation,
@@ -105,14 +112,15 @@ func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 		{"CreateUserInvitation", gen.CreateUserInvitation_Operation,
 			[]string{"createUserInvitation(", "orgRef: $orgRef", "$orgRef: ID!"}, s4GoneOrgId},
 		// createMemory's orgRef is genuinely optional ($orgRef: ID), so its
-		// declaration entry pins the nullable spelling on purpose — anchored
-		// on the comma so the required $orgRef: ID!, which CONTAINS the bare
-		// prefix, cannot satisfy it.
+		// declaration entry is the bare "$orgRef: ID" — which the required
+		// "$orgRef: ID!" also CONTAINS, so that spelling goes in the gone-list
+		// instead. (The earlier "$orgRef: ID," anchor only matched while
+		// another variable followed $orgRef.)
 		{"CreateMemory", gen.CreateMemory_Operation,
-			[]string{"createMemory(", "orgRef: $orgRef", "$orgRef: ID,"}, s4GoneOrgId},
+			[]string{"createMemory(", "orgRef: $orgRef", "$orgRef: ID"}, s4GoneLists(s4GoneOrgId, s4GoneOrgRefRequired)},
 		// The draft variant is the same field with draftCorpus: true.
 		{"CreateMemoryDraft", gen.CreateMemoryDraft_Operation,
-			[]string{"createMemory(", "draftCorpus: true", "orgRef: $orgRef", "$orgRef: ID,"}, s4GoneOrgId},
+			[]string{"createMemory(", "draftCorpus: true", "orgRef: $orgRef", "$orgRef: ID"}, s4GoneLists(s4GoneOrgId, s4GoneOrgRefRequired)},
 		{"LinkGithubApp", gen.LinkGithubApp_Operation,
 			[]string{"linkGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, s4GoneOrgId},
 		{"UnlinkGithubApp", gen.UnlinkGithubApp_Operation,
@@ -145,6 +153,13 @@ func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 			for _, w := range tc.want {
 				if !strings.Contains(tc.op, w) {
 					t.Errorf("document lacks %q:\n%s", w, tc.op)
+				}
+			}
+			// "$orgRef: ID" is a prefix of "$orgRef: IDAlias" too, so the
+			// optional declaration is also checked to end at a type boundary.
+			if tc.name == "CreateMemory" || tc.name == "CreateMemoryDraft" {
+				if !regexp.MustCompile(`\$orgRef: ID([\s,)]|$)`).MatchString(tc.op) {
+					t.Errorf("$orgRef is not declared as exactly the nullable ID type:\n%s", tc.op)
 				}
 			}
 			for _, g := range tc.gone {

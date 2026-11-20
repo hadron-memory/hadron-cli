@@ -697,11 +697,13 @@ func AbsWritten(path string) string {
 }
 
 // nonAbsoluteConfigPath preserves the written form of an ordinary relative
-// path. Classify inside this tested helper using native functions; callers
-// cannot replace the classification with precomputed empty/false values.
-// Function parameters let Windows-shaped cases run on other test hosts.
+// path. The classification lives in this one tested helper rather than in its
+// callers. The function parameters let Windows-shaped cases run on other test
+// hosts, but injecting them cannot show that the native functions are the ones
+// wired in; that remains the accepted Linux-platform limit (native Windows
+// execution is tracked in #2716).
 func nonAbsoluteConfigPath(path string, volumeName func(string) string, isSeparator func(uint8) bool, getwd func() (string, error), abs func(string) (string, error)) string {
-	if volumeName(path) != "" || len(path) > 0 && isSeparator(path[0]) {
+	if volumeName(path) != "" || (len(path) > 0 && isSeparator(path[0])) {
 		if resolved, err := abs(path); err == nil {
 			return resolved
 		}

@@ -37,7 +37,8 @@ func TestSliceBHelpPolish2594(t *testing.T) {
 	}
 	usage := helpTree2508(t, "usage")
 	ev := usage["usage events"]
-	if strings.Index(ev, "COST is in micro-cents") > strings.Index(ev, "What you see depends") || strings.Contains(ev, "Details:") {
+	cost, what := strings.Index(ev, "COST is in micro-cents"), strings.Index(ev, "What you see depends")
+	if cost < 0 || what < 0 || cost > what || strings.Contains(ev, "Details:") {
 		t.Error("usage events: the COST note leads, and the Details repeat is gone")
 	}
 	if !strings.Contains(usage["usage record"], "Every\nexample below records a real event.") {

@@ -64,6 +64,12 @@ last approved it, and you have the raw trigger id rather than a name. Run
 "hadron automation preview" first and copy the digest it prints (the "Hash:"
 line, or graph.hash in --json) into --expected-hash.
 
+For a MANUAL run, give the id of the run you started by hand: re-adopting
+approves that run's automation by the digest you reviewed, so the run that needs
+approval can proceed. As the server behaves today, unlike a schedule or webhook
+(whose approval covers its future runs), the approval applies to that run only;
+each hand-started run is approved on its own.
+
 ` + triggerRefHelp + `
 
 Re-adopt requires --expected-hash and confirmation (--yes non-interactively).

@@ -4,6 +4,12 @@
 # schema/SOURCE (base= and head=). A checkout of "main" would not do: it carries
 # S2, which the committed old-shape decision operations cannot typecheck against.
 #
+# An optional overlay (schema/SOURCE: overlay=, pre_overlay_sdl_sha256=) is a
+# unified diff applied to the exported SDL before sdl_sha256/sdl_lines are
+# checked, for a field whose server commit cannot be merged into the pin without
+# S2 (cli#2727: GrantSigningRequest.lastRefusedAt, hadron-server#4581). It is
+# retired with the pin (#2658). No overlay= key means no overlay.
+#
 # usage: scripts/pin-server-sdl.sh <server-git-checkout> <out-dir> [--verify]
 #   <server-git-checkout>  a git checkout of hadron-server (a sparse, blobless
 #                          one is enough: only the SDL source is read)
@@ -160,6 +166,14 @@ if [ -n "$verify" ]; then
   ( cd "$out" && "$vtmp/node_modules/.bin/tsx" scripts/export-graphql-sdl.mjs ) > "$vtmp/exported.graphql" ||
     { echo "the exporter failed — its scratch dir is kept for inspection at $vtmp" >&2; exit 1; }
   rm "$out/node_modules"
+  overlay=$(sed -n 's/^overlay=//p' "$here/schema/SOURCE")
+  if [ -n "$overlay" ]; then
+    want_pre=$(sed -n 's/^pre_overlay_sdl_sha256=//p' "$here/schema/SOURCE")
+    pre_sha=$(sha256 "$vtmp/exported.graphql")
+    [ "$pre_sha" = "$want_pre" ] || { echo "pre_overlay_sdl_sha256 mismatch: SOURCE says $want_pre, the merged export is $pre_sha" >&2; ok=0; }
+    patch --quiet "$vtmp/exported.graphql" < "$here/$overlay" ||
+      { echo "overlay $overlay does not apply to the export — kept at $vtmp" >&2; exit 1; }
+  fi
   got_sha=$(sha256 "$vtmp/exported.graphql")
   got_lines=$(wc -l < "$vtmp/exported.graphql" | tr -d ' ')
   [ "$got_sha" = "$want_sha" ] || { echo "sdl_sha256 mismatch: SOURCE says $want_sha, export is $got_sha" >&2; ok=0; }

@@ -304,32 +304,33 @@ func heldAppText(v heldWorkerDTO) string {
 // pick': each verb states what it answers; both are read-only and experimental.
 func pickerHelp(pick bool) string {
 	const common = `<code> is an action code from the action register (see 'hadron team register';
-for example task.finish). Experimental and read-only: it never assigns, routes or
-delivers anything, and prints the server's answer in the order returned.
+for example task.finish). Experimental and read-only: it never assigns, routes
+or delivers anything, and prints the server's answer in the order returned.
 --app selects the App; otherwise the configured App or the worktree binding.`
 	if pick {
-		return `Ask the server which worker would take an action code, and print that one pick.
-The server tries in this order and stops at the first match: the worker you name
-with --worker; else one holder of the role that does the action (the one least
-recently assigned); else one holder of the coordinator role; else the App's
-managers (shown only to a manager). Text mode prints KIND (WORKER or USER) and ID
-per entry; a worker pick has one WORKER entry, the managers pick one USER entry per
-manager, nearest first. "No register pick returned." means nothing matched.
+		return `Ask the server which worker would take an action code, and print the pick (one
+worker); when none qualifies, one entry per manager. The server tries in this
+order and stops at the first match: the worker you name with --worker; else one
+holder of the role that does the action (the one least recently assigned); else
+one holder of the coordinator role; else the App's managers (shown only to a
+manager). Text mode prints KIND (WORKER or USER) and ID per entry; a worker pick
+has one WORKER entry, the managers pick one USER entry per manager, nearest
+first. "No register pick returned." means nothing matched.
 
 ` + common + `
---worker is an optional worker id or URN, passed
-unchanged. --json prints {appId, code, entries:[{id, kind}]}. To see everyone
-tied for the role instead of one pick, use 'team register candidates'.`
+--worker is an optional worker id or URN, passed unchanged. --json prints
+{appId, code, entries:[{id, kind}]}. To see everyone tied for the role instead
+of one pick, use 'hadron team register candidates'.`
 	}
-	return `List every worker the server considers equally near for an action code, one page.
-"Nearest" means the fewest steps from the action's task: a worker's own Agent is
-depth 0 and each base link adds one; the candidates are all readable workers tied at
-the nearest depth. The page also gives the total number of ties, the depth and the
-task loc the code resolves to (either may be empty). Each row shows the worker, its
-role, the task URN and the depth.
+	return `List every worker the server considers equally near for an action code, one
+page. "Nearest" means the fewest steps from the action's task: a worker's own
+Agent is depth 0 and each base link adds one; the candidates are all readable
+workers tied at the nearest depth. The page also gives the total number of ties,
+the depth and the task loc the code resolves to (either may be empty). Each row
+shows the worker, its role, the task URN and the depth.
 
 ` + common + `
---limit (default 20, 0 counts only) and
---offset page through the ties. --json preserves the fields and nulls; an empty
-list is []. To see the one worker the server would pick, use 'team register pick'.`
+--limit (default 20, 0 counts only) and --offset page through the ties. --json
+preserves the fields and nulls; an empty list is []. To see the one worker the
+server would pick, use 'hadron team register pick'.`
 }
