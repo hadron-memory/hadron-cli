@@ -13,7 +13,9 @@ import (
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/formatter"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 	"github.com/vektah/gqlparser/v2/parser"
+	"github.com/vektah/gqlparser/v2/validator"
 )
 
 // The S4 entity-ref renames (server#4219) renamed the identifying ARGUMENT of a
@@ -230,9 +232,23 @@ var refArgStems = map[string]bool{
 // honest: positions past the file's own text belong to pooled fragments, and
 // the deprecated-alias walk skips them (their own file walks them).
 func documentRefArgProblems(schema *ast.Schema, name, src string, ownLines int, ownFrags map[string]bool) []string {
-	doc, gqlErrs := gqlparser.LoadQuery(schema, src)
+	// Parse and validate by hand rather than gqlparser.LoadQuery: LoadQuery
+	// returns a nil document whenever validation reports anything, and the
+	// alias walk below needs the validated document (the walker fills each
+	// field's Definition) even when the only reports are filtered out.
+	doc, parseErr := parser.ParseQuery(&ast.Source{Input: src})
+	var gqlErrs gqlerror.List
+	if parseErr != nil {
+		gqlErrs = gqlerror.List{gqlerror.Wrap(parseErr)}
+		if e, ok := parseErr.(*gqlerror.Error); ok {
+			gqlErrs = gqlerror.List{e}
+		}
+		doc = nil
+	} else {
+		gqlErrs = validator.Validate(schema, doc)
+	}
 	var problems []string
-	if gqlErrs != nil {
+	if len(gqlErrs) > 0 {
 		for _, e := range gqlErrs {
 			// A fragment this file DEFINES but only another file spreads is
 			// "never used" to this file alone; its own file is not at fault
