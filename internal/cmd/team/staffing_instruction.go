@@ -26,20 +26,20 @@ func staffingInstruction(cmd *cobra.Command, f *cmdutil.Factory, raw string) (*g
 	return claim, BeginInstructedWrite(f)(cmd.Context()), nil
 }
 
-// instructedPreviewError states the outcome of an instructed preview whose
+// lostInstructedPreview states the outcome of an instructed preview whose
 // answer never arrived (cli#1753). The preview is a GraphQL query, but through
 // a worker session the server records a claim event and bumps the fences, so a
 // connection lost after it committed leaves a claim behind. The wording is the
 // one every other write with a lost answer carries, and it names no retry:
-// the request was sent once and is not resent. An error that is not a
-// transport failure is returned unchanged for the caller's own mapping.
-func instructedPreviewError(err error) error {
-	cause, ok := api.TransportCause(err)
-	if !ok {
-		return err
+// the request was sent once and is not resent. ok is false for an error that
+// is not a transport failure; the caller then maps it as before.
+func lostInstructedPreview(err error) (lost error, ok bool) {
+	cause, isTransport := api.TransportCause(err)
+	if !isTransport {
+		return nil, false
 	}
 	return exitcode.Newf(exitcode.Unavailable,
-		"outcome unknown (%s): this instructed preview records a claim, so it may or may not have been applied and was not retried — verify the current state before retrying", cause)
+		"outcome unknown (%s): this instructed preview records a claim, so it may or may not have been applied and was not retried — verify the current state before retrying", cause), true
 }
 
 // castWorker makes the one cast: the unchanged document without a claim,
@@ -83,7 +83,7 @@ func castPreview(cmd *cobra.Command, client graphql.Client, appRef, agentRef, ro
 	}
 	resp, err := gen.CastWorkerPreviewInstructed(api.WithNoRedirect(ctx), client, appRef, optStr(agentRef), optStr(role), optStr(name), reportsTo, noTeam, claim)
 	if err != nil {
-		if lost := instructedPreviewError(err); lost != err {
+		if lost, ok := lostInstructedPreview(err); ok {
 			return nil, false, lost
 		}
 		return nil, false, castChoiceRemedy(err)
@@ -165,7 +165,10 @@ func deleteWorkerPreview(cmd *cobra.Command, client graphql.Client, w *gen.Worke
 		// 307/308 must not resend it: refuse the redirect as a delete does.
 		resp, err := gen.DeleteWorkerPreviewInstructed(api.WithNoRedirect(ctx), client, w.Id, claim)
 		if err != nil {
-			return false, false, instructedPreviewError(err)
+			if lost, ok := lostInstructedPreview(err); ok {
+				return false, false, lost
+			}
+			return false, false, err
 		}
 		if resp == nil || resp.DeleteWorkerPreview == nil {
 			return false, false, exitcode.Newf(exitcode.Error, "server returned no delete preview")
