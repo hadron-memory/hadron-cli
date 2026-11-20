@@ -133,10 +133,10 @@ func newCmdAgentImportPublish(f *cmdutil.Factory) *cobra.Command {
 required). Installing the parent into an App then carries the imported Agent
 along. The parent's organization must hold an active grant for the imported
 Agent, and imports go one level deep (an imported Agent cannot itself be a
-parent). Whoever manages the parent Agent may publish: for an org-owned Agent its
-organization's ADMINs and OWNERs, for a user-owned one its owner and platform
-admins; the server decides and reports its refusals as
-they came.
+parent). Only an org-owned parent can import: the server refuses a user-owned
+parent ("not supported for a user-owned Agent yet"). Whoever manages the parent
+Agent may publish: its organization's ADMINs and OWNERs. The server decides and
+reports its refusals as they came.
 
 --required says whether the dependency is mandatory; without the flag the server
 default (required) stands, and --required=false sends false. Prints "✓ imported
@@ -268,7 +268,7 @@ current one). It is idempotent: an already-consistent pair is a no-op. Only plat
 it; the server refuses anyone else (FORBIDDEN) and reports AGENT_HAS_NO_SYSTEM_MEMORY
 or SYSTEM_MEMORY_NOT_FOUND as they came.
 
-Prints "✓ repaired system memory of <name> (<urn>)"; --json is the Agent in the
+Prints "✓ ran system-memory repair for <name> (<urn>)"; --json is the Agent in the
 CLI's usual Agent JSON. It asks no confirmation because it changes nothing that is
 already consistent.`,
 		Example: `  hadron agent repair-system-memory hrn:agent:acme.com:bot`,
@@ -290,7 +290,7 @@ already consistent.`,
 			if r := resp.RepairAgentSystemMemory; r != nil {
 				a = &r.AgentFields
 			}
-			return emitAgentReceipt(f, a, "✓ repaired system memory of")
+			return emitAgentReceipt(f, a, "✓ ran system-memory repair for")
 		},
 	}
 	return cmd

@@ -152261,7 +152261,7 @@ fragment AgentFields on Agent {
 
 // cli#58 (four-command cut): clear the Agent's AI service configuration, publish
 // and remove an Agent import, and repair an Agent's system-Memory pairing. Refs go
-// to the server verbatim (id, URN or handle; no pre-resolve). publishAgentImport's
+// to the server verbatim (id or URN; no pre-resolve). publishAgentImport's
 // `required` is omitempty: unset keeps the server default (true), an explicit
 // false is sent. `position` is required (Int!).
 func ClearAgentAIConfig(

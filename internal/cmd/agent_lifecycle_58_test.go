@@ -238,17 +238,21 @@ func TestAgent58OutputShapes(t *testing.T) {
 		t.Fatal(err)
 	}
 	var imp map[string]any
-	_ = json.Unmarshal([]byte(out), &imp)
-	if imp["parentAgentId"] != "p1" || imp["importedAgentId"] != "i1" || imp["position"] != float64(3) || imp["required"] != false {
+	if err := json.Unmarshal([]byte(out), &imp); err != nil {
+		t.Fatalf("import receipt is not JSON: %v\n%s", err, out)
+	}
+	if imp["parentAgentId"] != "p1" || imp["importedAgentId"] != "i1" || imp["position"] != float64(3) || imp["required"] != false || imp["createdAt"] != "2026-11-20T00:00:00Z" {
 		t.Errorf("import dto: %s", out)
 	}
 
 	for body, want := range map[string]string{`true`: `"removed":true`, `false`: `"removed":false`} {
 		_, out, err = runAgent58(t, map[string]string{"RemoveAgentImport": `{"data":{"removeAgentImport":` + body + `}}`},
 			"import", "rm", "par1", "imp1", "--yes", "--json")
-		if err != nil || !strings.Contains(strings.ReplaceAll(out, " ", ""), want) {
-			t.Errorf("rm result %s: err=%v out=%q", body, err, out)
+		var rm map[string]any
+		if err != nil || json.Unmarshal([]byte(out), &rm) != nil || rm["removed"] != (body == "true") || len(rm) != 1 {
+			t.Errorf("rm result %s: err=%v out=%q (want only removed=%s)", body, err, out, body)
 		}
+		_ = want
 	}
 }
 
