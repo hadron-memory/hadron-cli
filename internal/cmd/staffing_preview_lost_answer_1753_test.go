@@ -21,10 +21,13 @@ import (
 // lost answer: outcome unknown, nothing retried, exit 7. The plain preview
 // writes nothing, so a lost answer to it keeps the ordinary wording.
 
-// dropFront answers every request through a proxy to backend, except a request
-// for the named operation, which it reads and then closes the connection on,
-// sending no answer. sent counts those requests.
-func dropFront(t *testing.T, backend, op string, sent *atomic.Int32) *httptest.Server {
+// loseAnswerAfterBackend proxies every request to backend. For the named
+// operation it lets the backend run and answer (so the server has recorded
+// whatever it records), then throws that answer away and ends the connection:
+// "closed" sends nothing back, "truncated" sends the status line and headers
+// and part of the body. sent counts the requests for the operation and
+// executed counts the ones the backend answered before the answer was lost.
+func loseAnswerAfterBackend(t *testing.T, backend, op, mode string, sent, executed *atomic.Int32) *httptest.Server {
 	t.Helper()
 	target, err := url.Parse(backend)
 	if err != nil {
@@ -32,28 +35,41 @@ func dropFront(t *testing.T, backend, op string, sent *atomic.Int32) *httptest.S
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	front := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := io.ReadAll(r.Body)
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("reading the request body: %v", err)
+			http.Error(w, "read", http.StatusInternalServerError)
+			return
+		}
 		r.Body = io.NopCloser(bytes.NewReader(raw))
 		var q struct {
 			OperationName string `json:"operationName"`
 		}
-		if json.Unmarshal(raw, &q) == nil && q.OperationName == op {
-			sent.Add(1)
-			conn, _, err := w.(http.Hijacker).Hijack()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			_ = conn.Close()
+		if json.Unmarshal(raw, &q) != nil || q.OperationName != op {
+			proxy.ServeHTTP(w, r)
 			return
 		}
-		proxy.ServeHTTP(w, r)
+		sent.Add(1)
+		rec := httptest.NewRecorder()
+		proxy.ServeHTTP(rec, r)
+		if rec.Code == http.StatusOK {
+			executed.Add(1)
+		}
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		if mode == "truncated" {
+			_, _ = conn.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 4096\r\n\r\n{\"data\":"))
+		}
+		_ = conn.Close()
 	}))
 	t.Cleanup(front.Close)
 	return front
 }
 
-func assertLostAnswerNote1753(t *testing.T, err error, out string, sent *atomic.Int32, wantNote bool) {
+func assertLostAnswerNote1753(t *testing.T, err error, out string, sent, executed *atomic.Int32, wantNote bool) {
 	t.Helper()
 	if err == nil || out != "" {
 		t.Fatalf("want a failure with no stdout, got err=%v out=%q", err, out)
@@ -63,6 +79,9 @@ func assertLostAnswerNote1753(t *testing.T, err error, out string, sent *atomic.
 	}
 	if sent.Load() != 1 {
 		t.Errorf("the preview was sent %d times, want 1 (no retry)", sent.Load())
+	}
+	if executed.Load() != 1 {
+		t.Errorf("the backend ran the preview %d times before its answer was lost, want 1", executed.Load())
 	}
 	has := strings.Contains(err.Error(), "may or may not have been applied")
 	if has != wantNote {
@@ -74,9 +93,19 @@ func assertLostAnswerNote1753(t *testing.T, err error, out string, sent *atomic.
 	if wantNote && strings.Contains(err.Error(), "retry shortly") {
 		t.Errorf("an instructed preview must not invite a blind retry: %v", err)
 	}
+	if !wantNote && !strings.Contains(err.Error(), "retry shortly") {
+		t.Errorf("a plain preview keeps the ordinary transport guidance: %v", err)
+	}
 }
 
-func rmLostAnswer1753(t *testing.T, extra ...string) (string, *atomic.Int32, error) {
+// lostRun is one preview whose answer was lost after the backend ran it.
+type lostRun struct {
+	out            string
+	sent, executed *atomic.Int32
+	err            error
+}
+
+func rmLostAnswer1753(t *testing.T, mode string, extra ...string) lostRun {
 	t.Helper()
 	gql, _ := captureGraphQLFunc(t, func(op string) string {
 		switch op {
@@ -84,43 +113,35 @@ func rmLostAnswer1753(t *testing.T, extra ...string) (string, *atomic.Int32, err
 			return staffJSON
 		case "GetWorkerInApp":
 			return `{"data":{"worker":` + irisWorkerJSON + `}}`
+		case "DeleteWorkerPreview", "DeleteWorkerPreviewInstructed":
+			return previewOK1735
 		}
 		return ""
 	})
-	var sent atomic.Int32
+	var sent, executed atomic.Int32
 	op := "DeleteWorkerPreview"
 	if len(extra) > 0 {
 		op = "DeleteWorkerPreviewInstructed"
 	}
-	front := dropFront(t, gql.URL, op, &sent)
+	front := loseAnswerAfterBackend(t, gql.URL, op, mode, &sent, &executed)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "worker", "rm", "Iris", "--app", "acme.com:eng-team", "--server", front.URL, "--dry-run"}, extra...))
 	err := root.Execute()
-	return out.String(), &sent, err
+	return lostRun{out.String(), &sent, &executed, err}
 }
 
-func TestWorkerRmInstructedPreviewLostAnswerIsUnknownOutcome1753(t *testing.T) {
-	out, sent, err := rmLostAnswer1753(t, "--instruction", instrTask1592)
-	assertLostAnswerNote1753(t, err, out, sent, true)
-}
-
-func TestWorkerRmPlainPreviewLostAnswerKeepsOrdinaryWording1753(t *testing.T) {
-	out, sent, err := rmLostAnswer1753(t)
-	assertLostAnswerNote1753(t, err, out, sent, false)
-}
-
-func castLostAnswer1753(t *testing.T, instructed bool) (string, *atomic.Int32, error) {
+func castLostAnswer1753(t *testing.T, mode string, instructed bool) lostRun {
 	t.Helper()
 	writeTeamBinding(t)
 	responses := responses1594()
 	backend, _ := attnServerHook(t, responses, nil)
-	var sent atomic.Int32
+	var sent, executed atomic.Int32
 	op := "CastWorkerPreview"
 	if instructed {
 		op = "CastWorkerPreviewInstructed"
 	}
-	front := dropFront(t, backend.URL, op, &sent)
+	front := loseAnswerAfterBackend(t, backend.URL, op, mode, &sent, &executed)
 	setTeamBindingServer(t, front.URL)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -130,17 +151,35 @@ func castLostAnswer1753(t *testing.T, instructed bool) (string, *atomic.Int32, e
 	}
 	root.SetArgs(args)
 	err := root.Execute()
-	return out.String(), &sent, err
+	return lostRun{out.String(), &sent, &executed, err}
+}
+
+func TestWorkerRmInstructedPreviewLostAnswerIsUnknownOutcome1753(t *testing.T) {
+	for _, mode := range []string{"closed", "truncated"} {
+		t.Run(mode, func(t *testing.T) {
+			r := rmLostAnswer1753(t, mode, "--instruction", instrTask1592)
+			assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, true)
+		})
+	}
+}
+
+func TestWorkerRmPlainPreviewLostAnswerKeepsOrdinaryWording1753(t *testing.T) {
+	r := rmLostAnswer1753(t, "closed")
+	assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, false)
 }
 
 func TestWorkerCastInstructedPreviewLostAnswerIsUnknownOutcome1753(t *testing.T) {
-	out, sent, err := castLostAnswer1753(t, true)
-	assertLostAnswerNote1753(t, err, out, sent, true)
+	for _, mode := range []string{"closed", "truncated"} {
+		t.Run(mode, func(t *testing.T) {
+			r := castLostAnswer1753(t, mode, true)
+			assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, true)
+		})
+	}
 }
 
 func TestWorkerCastPlainPreviewLostAnswerKeepsOrdinaryWording1753(t *testing.T) {
-	out, sent, err := castLostAnswer1753(t, false)
-	assertLostAnswerNote1753(t, err, out, sent, false)
+	r := castLostAnswer1753(t, "closed", false)
+	assertLostAnswerNote1753(t, r.err, r.out, r.sent, r.executed, false)
 }
 
 // A refusal the server answered is not a lost answer: it keeps its own
@@ -152,6 +191,9 @@ func TestWorkerRmInstructedPreviewRefusalKeepsItsOwnWording1753(t *testing.T) {
 	}
 	if strings.Contains(r.err.Error(), "may or may not have been applied") {
 		t.Errorf("a server refusal must not read as an unknown outcome: %v", r.err)
+	}
+	if !strings.Contains(r.err.Error(), "Not permitted.") {
+		t.Errorf("the server's own message must be kept: %v", r.err)
 	}
 	if got := exitCodeFor(r.err); got != exitcode.Forbidden {
 		t.Errorf("exit = %d, want %d", got, exitcode.Forbidden)
