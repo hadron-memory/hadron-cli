@@ -71,7 +71,8 @@ missing flag, and so is - on a terminal. A trailing newline is dropped.
 --org and --app take an ID or URN. The App must belong to the organization. The
 server decides who may connect (organization ADMIN or OWNER), and refuses an
 unknown organization or App, an App outside the organization, and a workspace
-that is already connected; those refusals are passed through. This command does
+that is already connected (a registration that shows ERROR still counts: disconnect
+it first); those refusals are passed through. This command does
 not check any of them.
 
 One request is sent and never retried. If its answer is lost, the outcome is

@@ -39,8 +39,9 @@ func TestSlackGroupHelpDoesNotPromiseHealth(t *testing.T) {
 		"ERROR means Hadron has recorded this connection as failed",
 		"not always recorded here",
 		"reason is not shown here",
-		"an organization admin registers the workspace again",
-		`registers the workspace again with "hadron slack connect"`,
+		`first removes it with "hadron slack disconnect <connection-id>"`,
+		`then registers the workspace again with "hadron slack connect"`,
+		"the server refuses to connect a workspace that is still registered, whatever its status",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("slack help missing %q: %s", want, h)

@@ -24,6 +24,9 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   and the exit class survive. A success answer whose any field holds a token is withheld whole (Unavailable,
   nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary
   re-encoding.
+- **Recovery order.** The server's duplicate check (`deletedAt: null`, no status condition; hadron-server
+  `resolvers.mutation.slack.ts`) counts an ERROR registration as live, so recovering one is disconnect first,
+  then connect (blind P2 on #2731, Baloo). The group, connect and disconnect help and the agentic guide say so.
 - **The server decides.** Org ADMIN/OWNER, App-in-org and one live connection per workspace are the
   server's; refusals pass through (8 forbidden, 4 not found, 2 bad input). The CLI checks nothing of that
   and its help says so (cor:api:240:01).
