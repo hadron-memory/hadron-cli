@@ -87,3 +87,11 @@ func TestNewAndRemovedRowsAreIgnored2648(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+// A short row (fewer than the nine columns) is skipped, not a panic.
+func TestShortRowDoesNotPanic2648(t *testing.T) {
+	short := "| `a` |  |  | y | #1 | h1 | Gil | pass |\n"
+	if got := Parse(header + short); len(got) != 0 {
+		t.Fatalf("an 8-column row is not a row: %v", got)
+	}
+}

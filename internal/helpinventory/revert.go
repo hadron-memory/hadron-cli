@@ -28,7 +28,7 @@ func Parse(doc string) map[string]Row {
 			continue
 		}
 		cells := strings.Split(strings.TrimSuffix(strings.TrimSpace(line), "|"), "|")
-		if len(cells) < 9 {
+		if len(cells) < 10 {
 			continue
 		}
 		for i := range cells {

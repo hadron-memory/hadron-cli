@@ -10,6 +10,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -21,9 +22,48 @@ import (
 
 const file = "docs/help-inventory.md"
 
-func git(args ...string) (string, error) {
-	out, err := exec.Command("git", args...).Output()
+// errNoFile means the inventory does not exist at that revision (as opposed to
+// git failing to read it).
+var errNoFile = errors.New("no inventory at that revision")
+
+func git(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	out, err := cmd.Output()
 	return strings.TrimSpace(string(out)), err
+}
+
+// readInventory returns the inventory at rev, errNoFile only when git says the
+// path is absent there, and any other git failure as itself.
+func readInventory(dir, rev string) (string, error) {
+	if _, err := git(dir, "cat-file", "-e", rev+":"+file); err != nil {
+		if _, verr := git(dir, "rev-parse", "--verify", "--quiet", rev+"^{commit}"); verr != nil {
+			return "", fmt.Errorf("revision %s is not readable: %w", rev, verr)
+		}
+		return "", errNoFile
+	}
+	return git(dir, "show", rev+":"+file)
+}
+
+// check compares the inventory at head with the one at the merge base of head
+// and base, run in repo dir. It returns the reverted rows and the merge base.
+func check(dir, base, head string) (bad []string, mergeBase string, err error) {
+	mergeBase, err = git(dir, "merge-base", base, head)
+	if err != nil || mergeBase == "" {
+		return nil, "", fmt.Errorf("no merge base of %s and %s (a shallow clone? fetch full history): %v", base, head, err)
+	}
+	baseDoc, err := readInventory(dir, mergeBase)
+	if errors.Is(err, errNoFile) {
+		return nil, mergeBase, nil
+	}
+	if err != nil {
+		return nil, mergeBase, err
+	}
+	headDoc, err := readInventory(dir, head)
+	if err != nil {
+		return nil, mergeBase, fmt.Errorf("cannot read %s at %s: %w", file, head, err)
+	}
+	return helpinventory.Reverts(helpinventory.Parse(baseDoc), helpinventory.Parse(headDoc)), mergeBase, nil
 }
 
 func main() {
@@ -31,24 +71,13 @@ func main() {
 	headRef := flag.String("head", "HEAD", "the change under check")
 	flag.Parse()
 
-	mb, err := git("merge-base", *baseRef, *headRef)
-	if err != nil || mb == "" {
-		fmt.Fprintf(os.Stderr, "✗ help-inventory revert check: no merge base of %s and %s (a shallow clone? fetch full history): %v\n", *baseRef, *headRef, err)
+	bad, mb, err := check("", *baseRef, *headRef)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "✗ help-inventory revert check: %v\n", err)
 		os.Exit(2)
 	}
-	baseDoc, err := git("show", mb+":"+file)
-	if err != nil {
-		fmt.Printf("✓ help inventory revert check: %s does not exist at the merge base %s\n", file, mb[:9])
-		return
-	}
-	headDoc, err := git("show", *headRef+":"+file)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "✗ help-inventory revert check: cannot read %s at %s: %v\n", file, *headRef, err)
-		os.Exit(2)
-	}
-	bad := helpinventory.Reverts(helpinventory.Parse(baseDoc), helpinventory.Parse(headDoc))
 	if len(bad) == 0 {
-		fmt.Printf("✓ help inventory: no assessed row reverted since the merge base %s\n", mb[:9])
+		fmt.Printf("✓ help inventory: no assessed row reverted since the merge base %.9s\n", mb)
 		return
 	}
 	fmt.Printf("✗ help inventory: %d row(s) went back from an assessed state while their help hash did not change:\n", len(bad))
