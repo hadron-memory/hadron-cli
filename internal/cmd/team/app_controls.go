@@ -102,7 +102,7 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 		c.Flags().BoolVar(&yes, "yes", false, "skip the revocation confirmation")
 		// The shared body says "Needs server 2026-11-04 or later", so the flag
 		// states the same version (cli#2607 item 4), not the commit.
-		instruction.AddManagerFlag(c, managerInstructionSince)
+		instruction.AddManagerFlag(c, managerInstructionMinimum)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		var claim *gen.ActInstructionInput
@@ -216,7 +216,7 @@ this App may tick faster than), --live-cap (how many tickers may be live at
 once), --self-subscribe-cadence-seconds (the cadence bounds for a worker
 subscribing itself), --wake-daily-budget (the wakes the App may spend per
 day). The App comes from --app, the App context or the worktree binding (the
-examples show both spellings). Without --instruction, this uses your ordinary
+examples show --app first, then the App context). Without --instruction, this uses your ordinary
 authenticated caller with no worker session or instruction. With the flag,
 the verified target-App worker session and holder's claim are used as described
 below; otherwise the claim goes as the person. The server decides admission.
@@ -224,12 +224,11 @@ Omitted fields preserve their values; null is not accepted. The server checks
 bounds and conflicts, never the CLI: minimum cadence floor 60 seconds,
 live cap 1–100, and a nonnegative daily wake budget. The self-subscription
 cadence must be between the shared floor and 86400 seconds; raising the
-floor above an existing ticker's cadence is refused. Two checks name values
-this command has no flag for, because they live elsewhere: delivery's stuck
+floor above an existing ticker's cadence is refused. One more check names a
+value this command has no flag for, because it lives elsewhere: delivery's stuck
 window (` + "`hadron team delivery-settings`" + `) must exceed its busy delay plus
-this floor, and an existing ticker's own cadence (set with the ticker's
-subscription, not here) bounds how high the floor may rise. These are
-current server limits, not client-side authorization or validation.
+this floor. These are current server limits, not client-side authorization or
+validation.
 
 --clear-wake-daily-budget returns to a roster-derived budget; =false means
 "do not clear", the same as omitting it, and is not sent. A set that names no

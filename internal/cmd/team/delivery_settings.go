@@ -88,7 +88,7 @@ func newCmdTeamDeliverySettingsAction(f *cmdutil.Factory, set bool) *cobra.Comma
 	if set {
 		// One server statement per page: the body says 2026-11-04, so the flag
 		// does too instead of a commit hash.
-		instruction.AddManagerFlag(c, managerInstructionSince)
+		instruction.AddManagerFlag(c, deliverySettingsInstructionMinimum)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		var claim *gen.ActInstructionInput

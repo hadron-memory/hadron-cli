@@ -356,13 +356,16 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 	// after a symlink goes to the link target's parent, not the written
 	// path's lexical parent, so both the reload read and the trust walk must
 	// follow the kernel, not filepath.Clean (cli#2668). The slash is a legal
-	// separator on both kernels — Windows path handling accepts it — and the
-	// Windows reload check is a no-op, so the written form survives unchanged
-	// there too. A Getwd failure keeps the path as given, as before.
+	// separator on both kernels for ordinary relative paths. Volume-bearing
+	// and separator-rooted Windows forms instead need native absolute-path
+	// resolution to agree with the initial read (cli#2700). A resolution
+	// failure keeps the path as given. Native Windows Abs may clean parent
+	// segments; the uncleaned #2668 guarantee applies to the slash-join branch.
+	// Windows skips the reload trust check, but still reads sourcePath.
 	if !filepath.IsAbs(path) {
-		if wd, err := os.Getwd(); err == nil {
-			path = wd + "/" + path
-		}
+		path = nonAbsoluteConfigPath(
+			path, filepath.VolumeName, os.IsPathSeparator, os.Getwd, filepath.Abs,
+		)
 	}
 	c.sourcePath, c.sourceHash = path, sha256.Sum256(raw)
 	return &c, nil
@@ -665,4 +668,23 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+// nonAbsoluteConfigPath preserves the written form of an ordinary relative
+// path. The classification lives in this one tested helper rather than in its
+// callers. The function parameters let Windows-shaped cases run on other test
+// hosts, but injecting them cannot show that the native functions are the ones
+// wired in; that remains the accepted Linux-platform limit (native Windows
+// execution is tracked in #2716).
+func nonAbsoluteConfigPath(path string, volumeName func(string) string, isSeparator func(uint8) bool, getwd func() (string, error), abs func(string) (string, error)) string {
+	if volumeName(path) != "" || (len(path) > 0 && isSeparator(path[0])) {
+		if resolved, err := abs(path); err == nil {
+			return resolved
+		}
+		return path
+	}
+	if wd, err := getwd(); err == nil {
+		return wd + "/" + path
+	}
+	return path
 }
