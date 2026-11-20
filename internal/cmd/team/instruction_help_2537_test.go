@@ -28,8 +28,13 @@ func TestInstructionHelpForSwapsRevision2537(t *testing.T) {
 
 func TestSwapMinServerPanicsWhenOriginalMissing2537(t *testing.T) {
 	defer func() {
-		if recover() == nil {
+		r := recover()
+		if r == nil {
 			t.Fatal("a shared text without the original revision must panic, not no-op")
+		}
+		// The panic names the function that raises it, not its caller (#2552 item 3).
+		if msg, _ := r.(string); !strings.HasPrefix(msg, "swapMinServer:") {
+			t.Fatalf("panic message must name swapMinServer: %v", r)
 		}
 	}()
 	swapMinServer("no revision here", instructionHelpMinServer, "ba077810")
