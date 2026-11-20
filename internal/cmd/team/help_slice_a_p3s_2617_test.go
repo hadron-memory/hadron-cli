@@ -32,7 +32,11 @@ func TestHostRunHelpEventLinesMatchThePrinter2617(t *testing.T) {
 	emit(hostpoller.Event{Time: at, Kind: "collected", Operation: "01H…", Type: "worktree.create"})
 	emit(hostpoller.Event{Time: at, Kind: "reported", Operation: "01H…", Type: "worktree.create", Outcome: hostpoller.Succeeded, Detail: "hadron-cli/jonas-2"})
 	long := hostRunLong2617(t)
-	for _, line := range strings.Split(strings.TrimRight(out.String(), "\n"), "\n") {
+	lines := strings.Split(strings.TrimRight(out.String(), "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("the printer should emit exactly the two example events, got %d lines: %q", len(lines), lines)
+	}
+	for _, line := range lines {
 		if !strings.Contains(long, "  "+line+"\n") {
 			t.Errorf("the run page's example events do not show the printed line %q", line)
 		}
