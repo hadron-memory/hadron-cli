@@ -275,9 +275,9 @@ githubInstallationId and hasGithubAppPrivateKey are printed; --json returns
 			// key pasted there would be silently truncated and stored broken:
 			// refuse the mode instead of offering it (#2512 BLIND P2-1).
 			if keyFile == "" && f.IOStreams.IsInputTerminal() {
-				return exitcode.Newf(exitcode.Usage, "--private-key-file is required on a terminal: the private key is multi-line PEM a single-line masked prompt would truncate (a path, or - for stdin)")
+				return exitcode.Newf(exitcode.Usage, "--private-key-file is required on a terminal: the private key is multi-line PEM a single-line masked prompt would truncate (pass a path)")
 			}
-			key, err := cmdutil.ReadSecretInput(f.IOStreams, keyFile, "private-key-file", "GitHub App private key", "private key")
+			key, err := cmdutil.ReadSecretInput(f.IOStreams, keyFile, "private-key-file", "GitHub App private key", "private key", cmdutil.NoPrompt())
 			if err != nil {
 				return api.MapError(err)
 			}
