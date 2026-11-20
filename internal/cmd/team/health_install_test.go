@@ -363,8 +363,29 @@ func TestHealthInstallKeepsTheWrittenConfigPath2674(t *testing.T) {
 	if json.Unmarshal([]byte(out), &in) != nil || in["config"] != written {
 		t.Fatalf("the receipt must carry the written path %q: %s", written, out)
 	}
-	unit, _ := os.ReadFile(filepath.Join(home, ".config/systemd/user/hadron-team-health.service"))
+	unit, rerr := os.ReadFile(filepath.Join(home, ".config/systemd/user/hadron-team-health.service"))
+	if rerr != nil {
+		t.Fatal(rerr)
+	}
 	if !strings.Contains(string(unit), `"--config" "`+written+`"`) {
 		t.Fatalf("the installed unit must carry the written path %q: %s", written, unit)
+	}
+
+	// The same scenario written relative, from the fixture directory: the
+	// installed path is the working directory plus the path as written.
+	t.Chdir(root)
+	wd, werr := os.Getwd()
+	if werr != nil {
+		t.Fatal(werr)
+	}
+	if _, _, err := run("install", "--config", "link/../host.yaml", "--interval", "5m", "--bin", "/usr/local/bin/hadron", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	unit, rerr = os.ReadFile(filepath.Join(home, ".config/systemd/user/hadron-team-health.service"))
+	if rerr != nil {
+		t.Fatal(rerr)
+	}
+	if want := wd + "/link/../host.yaml"; !strings.Contains(string(unit), `"--config" "`+want+`"`) {
+		t.Fatalf("a relative --config must install as %q: %s", want, unit)
 	}
 }

@@ -117,6 +117,9 @@ written (uninstall removes them).`,
 			// path must reach the installed unit as written, so the reloaded
 			// poller reads the file this command loaded (cli#2674).
 			abs := hostpoller.AbsWritten(config)
+			if !filepath.IsAbs(abs) {
+				return exitcode.Newf(exitcode.Usage, "--config %q cannot be made absolute (the working directory is unreadable); pass an absolute path", config)
+			}
 			cfg, err := hostpoller.LoadConfig(abs)
 			if err != nil {
 				// A parse error can quote the file (the key file, if it was

@@ -341,17 +341,17 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 
 	// The written path, absolute but not cleaned (AbsWritten): the directory
 	// state and key files are joined to is the one the kernel reached, so a
-	// ".." after a symlink must survive (cli#2674). Entries are joined with a
-	// slash, not filepath.Join, which would clean the ".." away.
+	// ".." after a symlink must survive (cli#2674). Entries are joined with the
+	// native separator, not filepath.Join, which would clean the ".." away.
 	path = AbsWritten(path)
 	dir := writtenDir(path)
 	if c.StateFile == "" {
-		c.StateFile = dir + "/hadron-host-state.json"
+		c.StateFile = joinWritten(dir, "hadron-host-state.json", filepath.Separator)
 	} else if !filepath.IsAbs(c.StateFile) {
-		c.StateFile = dir + "/" + c.StateFile
+		c.StateFile = joinWritten(dir, c.StateFile, filepath.Separator)
 	}
 	if c.KeyFile != "" && !filepath.IsAbs(c.KeyFile) {
-		c.KeyFile = dir + "/" + c.KeyFile
+		c.KeyFile = joinWritten(dir, c.KeyFile, filepath.Separator)
 	}
 	if err := c.validate(); err != nil {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
@@ -659,7 +659,17 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 	return nil
 }
 
-// AbsWritten makes path absolute without cleaning it. ".." after a symlink goes
+// joinWritten appends name to dir with sep, never cleaning. The separator is
+// the native one so an extended-length Windows path (\\?\C:\cfg), which the
+// OS does not convert slashes in, stays usable (cli#2674).
+func joinWritten(dir, name string, sep rune) string {
+	return dir + string(sep) + name
+}
+
+// AbsWritten makes path absolute without cleaning it. It returns the path as
+// given, still relative, if the working directory cannot be read (callers that
+// need an absolute path must check), and native Windows resolution of rooted
+// or drive-relative forms may clean parent segments. ".." after a symlink goes
 // to the link target's parent, not the written path's lexical parent, so the
 // stored path must keep it as written: the reload read, the trust walk and an
 // installed unit then all follow the kernel, not filepath.Clean (cli#2668,

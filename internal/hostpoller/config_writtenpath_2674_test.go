@@ -84,3 +84,14 @@ func TestPlainConfigPathStateFileUnchanged2674(t *testing.T) {
 		t.Errorf("StateFile = %q, want %q", cfg.StateFile, want)
 	}
 }
+
+// The join uses the separator it is given, so an extended-length Windows path
+// is not left with a slash the OS will not convert (cli#2674).
+func TestJoinWrittenUsesTheNativeSeparator2674(t *testing.T) {
+	if got, want := joinWritten(`\\?\C:\cfg`, "host.key", '\\'), `\\?\C:\cfg\host.key`; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got, want := joinWritten("/r/link/..", "x", '/'), "/r/link/../x"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
