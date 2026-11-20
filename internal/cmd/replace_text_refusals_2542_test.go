@@ -38,6 +38,7 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 		raw, _ := io.ReadAll(req.Body)
 		var b struct {
 			OperationName string `json:"operationName"`
+			Query         string `json:"query"`
 			Variables     struct {
 				Input struct {
 					DryRun *bool `json:"dryRun"`
@@ -46,10 +47,14 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 		}
 		if err := json.Unmarshal(raw, &b); err != nil {
 			t.Errorf("replace recorder: undecodable request body: %v", err)
+			http.Error(w, "undecodable request", http.StatusBadRequest)
+			return
 		}
 		// Only the replace operation with an explicit dryRun is a countable
 		// request; anything else is a test failure, not a silent "write".
-		if b.OperationName != "SearchReplaceInNodes" || b.Variables.Input.DryRun == nil {
+		// The named operation must also be the one the query document runs:
+		// the replace mutation, not a different query under that name.
+		if b.OperationName != "SearchReplaceInNodes" || !strings.Contains(b.Query, "searchReplaceInNodes") || b.Variables.Input.DryRun == nil {
 			t.Errorf("replace recorder: unexpected request (operation %q, dryRun set: %v): %s",
 				b.OperationName, b.Variables.Input.DryRun != nil, raw)
 			http.Error(w, "unexpected request", http.StatusBadRequest)
