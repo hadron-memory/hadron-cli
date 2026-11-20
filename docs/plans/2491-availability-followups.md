@@ -42,15 +42,22 @@ honest position to review.
 
 ## F2 — agentic synopsis: `--instruction` is set-only (Jimmy F2)
 
-The combined synopsis line in `internal/cmd/agentic/agentic-usage.md` reads
-`availability get | set (…flags… [--instruction …])`, implying `get` takes the
-flag; `get` has no `--instruction`. As built (Jeremy's BLIND P3 on #2557:
-"split" overstated the edit): the combined `get | set` usage line is kept —
-it is the agentic-usage inventory's one-line surface — and the trailing
-comment now opens with "every flag shown is `set`'s — `get` is a read and
-takes none; `--instruction` in particular is set-only", so the set-only-ness
+The combined synopsis line in `internal/cmd/agentic/agentic-usage.md` —
+`availability get | set (--worker <ref> | --family <token>) --state
+<available|unavailable> [--reason HOST_DOWN|OTHER|OUT_OF_TOKENS|STALLED]
+[--until <iso>] [--instruction <kind>:<ref>]` — lists `--instruction` among
+the shared flags, implying `get` takes the flag; `get` has no
+`--instruction`. As built (Jeremy's BLIND P3 on #2557: "split" overstated
+the edit): the combined `get | set` usage line is kept — it is the
+agentic-usage inventory's one-line surface — and the trailing comment opens
+with "every flag shown is `set`'s — `get` is a read and takes none of them
+(`--app` or the binding still selects its App, as the tail says);
+`--instruction` in particular is set-only (cli#2491)", so the set-only-ness
 is stated on the line itself instead of restructuring it (no contract
 change — the documented behavior sentences already describe `set`).
+(Quote refreshed in cli#2560: the comment's opening was reworded from
+"takes none" to the "none of them" form above in #2557's fix head 7a45d7ef,
+after this plan first quoted it.)
 
 ## F3 — explain the instructed call site's empty target and discarded bool
 
