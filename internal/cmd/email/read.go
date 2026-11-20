@@ -272,10 +272,11 @@ func connectionsPage(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 			return e
 		}
 		line := fmt.Sprintf("showing %d of total %d", len(dto.Items), dto.Total)
-		// The hint counts from the offset you sent and must advance: an empty
+		// The hint counts from the effective offset (a negative one counts as 0,
+		// as the server clamps it) and must advance: an empty
 		// page that still says hasMore has no honest next offset, so none is given.
 		if dto.HasMore && len(dto.Items) > 0 {
-			line += fmt.Sprintf("; more follow: --offset %d (counted from the offset you sent)", start+len(dto.Items))
+			line += fmt.Sprintf("; more follow: --offset %d", start+len(dto.Items))
 		} else if dto.HasMore {
 			line += "; the server reports more, but this page was empty, so no next offset is suggested"
 		}

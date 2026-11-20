@@ -5149,8 +5149,8 @@ server's default applies), the reply carries the real `total` and `hasMore`,
 `--json` is then {items,total,hasMore} (the item shape above), and text ends
 with the total and, when more follow, the `--offset` that continues. One call is
 one page: the CLI never fetches the next page and never calls a list complete.
-The `--offset` hint counts from the offset you sent and is withheld on an empty
-page. The bare form is unchanged. `--top`, `--limit` and `--offset` are checked
+The `--offset` hint counts from the effective offset (a negative one counts as
+0, as the server clamps it) and is withheld on an empty page. The bare form is unchanged. `--top`, `--limit` and `--offset` are checked
 only against the wire type (GraphQL Int, signed 32-bit; a value outside it exits
 2 with no request); inside that range the server decides. `--unread=false` is
 sent as an explicit `unreadOnly:false`; an unset `--unread` is omitted.
