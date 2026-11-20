@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 237: 199 command, 12 gap, 26 excluded
+[Query] 237: 202 command, 9 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -122,9 +122,9 @@ effectiveAccess  command access check
 effectiveActionPolicy  command policy explain
 effectiveModelGroups  command app model-group list
 exchangeConnections  command email connections
-exchangeConnectionsPage  gap #198
-exchangeFolders  gap #198
-exchangeMessages  gap #198
+exchangeConnectionsPage  command email connections
+exchangeFolders  command email folders
+exchangeMessages  command email messages
 findNodes  command search
 findObjects  command object find
 globalSearch  command find
@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 311 command, 36 gap, 12 excluded
+[Mutation] 359: 318 command, 29 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -307,7 +307,7 @@ castWorker  command team worker cast
 changeWorkerAgent  command team worker change-agent
 claimContextReset  command team host run
 claimUntrackedTaskItems  command team task find-untracked
-clearAgentAIConfig  gap #58
+clearAgentAIConfig  command agent ai-config clear
 clearNodeHistory  command node revision clear
 cloneAgent  command agent clone
 cloneAgentTask  command team task clone
@@ -382,7 +382,7 @@ deleteComment  command comment delete
 deleteCommentThread  command comment delete
 deleteDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 deleteEdge  command edge rm
-deleteExchangeConnection  gap #198
+deleteExchangeConnection  command email disconnect
 deleteHomeAssistantInstance  command ha rm
 deleteMcpServer  command mcp-server delete
 deleteMemory  command memory rm
@@ -420,7 +420,7 @@ endSession  command team session end
 ensureAppMember  command app member add
 exchangeMoveMessage  gap #198
 exchangeReply  gap #198
-exportNodeToGoogleDoc  gap #275
+exportNodeToGoogleDoc  command drive create-doc
 extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish
 freezePullRequestHead  command team pr freeze
@@ -452,7 +452,7 @@ moveNode  command node move
 parkAgentTask  command team task park
 planNodeMove  command node move
 processChatResponse  gap #64
-publishAgentImport  gap #58
+publishAgentImport  command agent import publish
 publishRevision  command agent revision publish
 purgeUnansweredQuestion  command decision purge
 pushMemoryToGit  gap #2513
@@ -475,7 +475,7 @@ releaseAgentTaskExternalId  command team task release
 releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
-removeAgentImport  gap #58
+removeAgentImport  command agent import rm
 removeAgentTaskBlocker  command team task add-blocker
 removeAppMember  command app member remove
 removeMemoryFromAgent  command agent memory rm
@@ -483,7 +483,7 @@ removeMemoryMember  command memory member rm
 removeOrgMember  command org member rm
 renumberSpec  command spec renumber
 reopenCommentThread  command comment resolve
-repairAgentSystemMemory  gap #58
+repairAgentSystemMemory  command agent repair-system-memory
 replaceSubtree  excluded deprecated: @deprecated: Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.
 replyToComment  command comment reply
 reportContextResetAgentStopped  command team host run
@@ -570,7 +570,7 @@ stopImpersonation  command auth impersonate
 subscribeWorker  command ticker subscribe
 syncMemory  command memory sync pull
 testAiServiceConfig  command ai-config test
-testExchangeConnection  gap #198
+testExchangeConnection  command email test
 transferMemoryOwnership  command memory transfer
 triggerAppRun  command run trigger
 unassignHostWorker  command team host unassign
@@ -627,7 +627,7 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 36: 16 gap, 20 excluded
+[Arguments] 37: 16 gap, 21 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
@@ -662,6 +662,7 @@ Mutation.updateTicker(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
+Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); proposed class unruled under #1334
 

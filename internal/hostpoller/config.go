@@ -339,33 +339,22 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
 	}
 
-	dir := filepath.Dir(path)
+	// The written path, absolute but not cleaned (AbsWritten): the directory
+	// state and key files are joined to is the one the kernel reached, so a
+	// ".." after a symlink must survive (cli#2674). Entries are joined with the
+	// native separator, not filepath.Join, which would clean the ".." away.
+	path = AbsWritten(path)
+	dir := writtenDir(path)
 	if c.StateFile == "" {
-		c.StateFile = filepath.Join(dir, "hadron-host-state.json")
+		c.StateFile = joinWritten(dir, "hadron-host-state.json", filepath.Separator)
 	} else if !filepath.IsAbs(c.StateFile) {
-		c.StateFile = filepath.Join(dir, c.StateFile)
+		c.StateFile = joinWritten(dir, c.StateFile, filepath.Separator)
 	}
 	if c.KeyFile != "" && !filepath.IsAbs(c.KeyFile) {
-		c.KeyFile = filepath.Join(dir, c.KeyFile)
+		c.KeyFile = joinWritten(dir, c.KeyFile, filepath.Separator)
 	}
 	if err := c.validate(); err != nil {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
-	}
-	// The absolute path, so a later change of working directory cannot make a
-	// reload read a different file. Joined with a slash, not cleaned: ".."
-	// after a symlink goes to the link target's parent, not the written
-	// path's lexical parent, so both the reload read and the trust walk must
-	// follow the kernel, not filepath.Clean (cli#2668). The slash is a legal
-	// separator on both kernels for ordinary relative paths. Volume-bearing
-	// and separator-rooted Windows forms instead need native absolute-path
-	// resolution to agree with the initial read (cli#2700). A resolution
-	// failure keeps the path as given. Native Windows Abs may clean parent
-	// segments; the uncleaned #2668 guarantee applies to the slash-join branch.
-	// Windows skips the reload trust check, but still reads sourcePath.
-	if !filepath.IsAbs(path) {
-		path = nonAbsoluteConfigPath(
-			path, filepath.VolumeName, os.IsPathSeparator, os.Getwd, filepath.Abs,
-		)
 	}
 	c.sourcePath, c.sourceHash = path, sha256.Sum256(raw)
 	return &c, nil
@@ -524,8 +513,10 @@ func (c *Config) validate() error {
 }
 
 // DeliveryStateDir holds delivery's records and per-worker locks: beside the
-// state file, where C2's --orca-host-config finds the same locks.
-func (c *Config) DeliveryStateDir() string { return filepath.Dir(c.StateFile) }
+// state file, where C2's --orca-host-config finds the same locks. It is the
+// kernel's directory for the state file (resolvedStateDir), not the cleaned
+// written one, so two spellings of one config select the same locks.
+func (c *Config) DeliveryStateDir() string { return resolvedStateDir(c.StateFile) }
 
 // Worker is the configuration of one worker reference.
 func (c *Config) Worker(ref string) (WorkerConfig, bool) {
@@ -670,6 +661,41 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 	return nil
 }
 
+// joinWritten appends name to dir with sep, never cleaning. The separator is
+// the native one so an extended-length Windows path (\\?\C:\cfg), which the
+// OS does not convert slashes in, stays usable (cli#2674).
+//
+// A dir that already ends in a separator (a root) is not doubled, and slashes
+// inside name become sep, so a relative "keys/host.key" stays valid under an
+// extended-length prefix. Nothing is cleaned.
+func joinWritten(dir, name string, sep rune) string {
+	if sep != '/' {
+		name = strings.ReplaceAll(name, "/", string(sep))
+	}
+	if dir != "" && dir[len(dir)-1] == byte(sep) {
+		return dir + name
+	}
+	return dir + string(sep) + name
+}
+
+// AbsWritten makes path absolute without cleaning it. It returns the path as
+// given, still relative, if the working directory cannot be read (callers that
+// need an absolute path must check), and native Windows resolution of rooted
+// or drive-relative forms may clean parent segments. ".." after a symlink goes
+// to the link target's parent, not the written path's lexical parent, so the
+// stored path must keep it as written: the reload read, the trust walk and an
+// installed unit then all follow the kernel, not filepath.Clean (cli#2668,
+// cli#2674). An absolute path returns as given; the rest goes through
+// nonAbsoluteConfigPath (cli#2700).
+func AbsWritten(path string) string {
+	if filepath.IsAbs(path) {
+		return path
+	}
+	return nonAbsoluteConfigPath(
+		path, filepath.VolumeName, os.IsPathSeparator, os.Getwd, filepath.Abs,
+	)
+}
+
 // nonAbsoluteConfigPath preserves the written form of an ordinary relative
 // path. The classification lives in this one tested helper rather than in its
 // callers. The function parameters let Windows-shaped cases run on other test
@@ -687,4 +713,62 @@ func nonAbsoluteConfigPath(path string, volumeName func(string) string, isSepara
 		return wd + "/" + path
 	}
 	return path
+}
+
+// writtenDir is the directory part of an absolute written path, cut at its
+// last separator without cleaning: "root/link/../host.yaml" gives
+// "root/link/..", which the kernel resolves to the directory it loaded the file
+// from.
+func writtenDir(path string) string { return writtenDirSep(path, filepath.Separator) }
+
+// writtenDirSep is writtenDir for a given native separator, so the Windows
+// root forms can be pinned on any host.
+func writtenDirSep(path string, sep rune) string {
+	i := strings.LastIndexByte(path, '/')
+	if j := strings.LastIndexByte(path, byte(sep)); j > i {
+		i = j
+	}
+	if i < 0 {
+		return "."
+	}
+	if i == 0 { // a root-level file: the parent is the root, never ""
+		return path[:1]
+	}
+	// A drive root, plain or extended-length ("C:\x", "\\?\C:\x"): the parent
+	// keeps its separator, as filepath.Dir does.
+	if sep == '\\' && path[i-1] == ':' {
+		return path[:i+1]
+	}
+	return path[:i]
+}
+
+// resolvedStateDir is the directory the kernel puts the state file in: the
+// written parent with its symlinks followed, so the two spellings of one
+// config ("root/link/../host.yaml" and "root/real/host.yaml") name one
+// directory. A parent that does not exist yet is resolved at its deepest
+// existing ancestor, the missing tail cleaned lexically (a missing name cannot
+// be a symlink). Anything unresolvable falls back to the lexical parent.
+func resolvedStateDir(stateFile string) string {
+	cur := writtenDir(stateFile)
+	var tail []string
+	for {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			for i := len(tail) - 1; i >= 0; i-- {
+				r = filepath.Join(r, tail[i])
+			}
+			return r
+		}
+		b := filepath.Base(cur)
+		if b == ".." || b == string(filepath.Separator) {
+			return filepath.Dir(stateFile)
+		}
+		up := writtenDir(cur)
+		if up == cur {
+			return filepath.Dir(stateFile)
+		}
+		if b != "." { // a "." names the directory it is in: no step, no tail entry
+			tail = append(tail, b)
+		}
+		cur = up
+	}
 }

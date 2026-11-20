@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"sync"
 )
@@ -108,7 +107,7 @@ func (s *State) save() error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(s.path), 0o700); err != nil {
+	if err := os.MkdirAll(writtenDir(s.path), 0o700); err != nil {
 		return err
 	}
 	tmp := s.path + ".tmp"

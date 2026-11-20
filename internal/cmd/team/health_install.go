@@ -113,9 +113,12 @@ written (uninstall removes them).`,
 			if config == "" {
 				return exitcode.Newf(exitcode.Usage, "--config is required: the host configuration the sweep reads")
 			}
-			abs, err := filepath.Abs(config)
-			if err != nil {
-				return exitcode.Newf(exitcode.Usage, "--config: %v", err)
+			// Absolute but not cleaned: a ".." after a symlink in the written
+			// path must reach the installed unit as written, so the reloaded
+			// poller reads the file this command loaded (cli#2674).
+			abs := hostpoller.AbsWritten(config)
+			if !filepath.IsAbs(abs) {
+				return exitcode.Newf(exitcode.Usage, "--config %q cannot be made absolute (the working directory or a Windows path form could not be resolved); pass an absolute path", config)
 			}
 			cfg, err := hostpoller.LoadConfig(abs)
 			if err != nil {

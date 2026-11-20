@@ -14,3 +14,79 @@ query EmailConnections($orgId: ID!) {
     updatedAt
   }
 }
+
+# One page of the same org-admin list (hadron-cli#198 Slice A). The same
+# projection as EmailConnections; limit and offset are omitted when unset so the
+# server's defaults apply. The reply carries the real total and hasMore.
+query EmailConnectionsPage(
+  $orgId: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  exchangeConnectionsPage(orgId: $orgId, limit: $limit, offset: $offset) {
+    items {
+      id
+      organizationId
+      userId
+      mailboxEmail
+      provider
+      displayName
+      syncEnabled
+      syncStatus
+      lastSyncAt
+      createdAt
+      updatedAt
+    }
+    total
+    hasMore
+  }
+}
+
+# One bounded read of a connection's recent messages (hadron-cli#198 Slice A).
+# top and unreadOnly are omitted when unset (the server defaults and clamps);
+# the deprecated raw `filter` argument is never sent. Message text is external
+# data: it is printed as data and never logged.
+query EmailMessages(
+  $connectionId: ID!
+  # @genqlient(omitempty: true)
+  $top: Int
+  # @genqlient(omitempty: true)
+  $unreadOnly: Boolean
+) {
+  exchangeMessages(connectionId: $connectionId, top: $top, unreadOnly: $unreadOnly) {
+    id
+    subject
+    from
+    receivedDateTime
+    bodyPreview
+    body
+    hasAttachments
+    isRead
+  }
+}
+
+query EmailFolders($connectionId: ID!) {
+  exchangeFolders(connectionId: $connectionId) {
+    id
+    displayName
+    totalItemCount
+    unreadItemCount
+  }
+}
+
+# hadron-cli#198 Slice B. Probes a connection once; the server records the result
+# as the connection's sync status, so this is not a pure read.
+mutation EmailTestConnection($id: ID!) {
+  # pointer: true keeps an absent or null answer distinct from an explicit false
+  # (a Boolean! the server did not send is a missing result, not a failed probe).
+  # @genqlient(pointer: true)
+  testExchangeConnection(id: $id)
+}
+
+# Deletes the connection record (org ADMIN only). One request, never retried.
+mutation EmailDisconnect($id: ID!) {
+  # @genqlient(pointer: true)
+  deleteExchangeConnection(id: $id)
+}
