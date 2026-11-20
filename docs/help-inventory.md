@@ -481,7 +481,7 @@ section between the markers.
 | `team chat` |  |  | n | #1054 | 65fec19f03a4 |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
 | `team chat inbox` |  |  | n | #1054 | 99496731d1ef |  | unread |  |
-| `team chat mark-read` |  |  | y | #1054 | 4c9a07510914 |  | unread |  |
+| `team chat mark-read` |  |  | y | #1054 | 67b3ea4e50f0 |  | unread |  |
 | `team chat post` |  |  | y | #1054 | ee59d278c4a8 |  | unread |  |
 | `team chat read` | pull |  | y | #1054 | e333133af49a |  | unread |  |
 | `team chat search` |  |  | y | #1054 | 0ca12ea9a25e |  | unread |  |

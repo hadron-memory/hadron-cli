@@ -45,6 +45,11 @@ The cursor only moves forward: a lower seq changes nothing (the result shows
 where it already is), and a seq beyond the Channel's latest message is refused
 (exit 2). --channel defaults to the App's team chat.
 
+On the App's team chat the mark also moves this worktree's local read hint (the
+one ` + "`team session log`" + ` compares against) up to --through, and never back;
+if the server refuses the mark the hint is left as it was. A Channel named with
+--channel does not touch the hint, which counts the team chat only.
+
 Needs a worker session binding (` + "`hadron team session start`" + `) that records
 this server: the cursor belongs to the bound worker, and the server accepts
 only your own live session.`,
@@ -92,6 +97,10 @@ only your own live session.`,
 				return err
 			}
 			channelRef := strings.TrimSpace(channel)
+			// Only the App's team chat is what the binding's local watermark
+			// counts (state.go ChatSeenSeq), so a Channel the caller named is
+			// never mirrored into it (cli#1854).
+			teamChat := channelRef == ""
 			if channelRef == "" {
 				resp, err := gen.TeamDefaultChannel(ctx, client, scope.Ref)
 				if err != nil {
@@ -119,6 +128,17 @@ only your own live session.`,
 				return api.MapError(err)
 			}
 			r := resp.MarkOwnTeamChatRead
+			// cli#1854: after the server accepted the mark, bring the local
+			// hint up to it, so `session log` cannot lag an explicit mark-read.
+			// recordChatWatermark only moves forward (a through below the
+			// watermark changes nothing) and only for the session that is still
+			// bound. Best-effort: the mark has happened, so a failed
+			// bookkeeping write must not fail the command.
+			// Through 0 reads nothing, so it must not turn "never read" (nil)
+			// into "read an empty chat" (0).
+			if teamChat && through > 0 {
+				recordChatWatermark(ctx, b.SessionID, through)
+			}
 			dto := markReadDTO{WorkerID: r.WorkerId, ChannelID: r.ChannelId, Through: through, LastSeenSeq: r.LastSeenSeq}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				name := b.WorkerName
