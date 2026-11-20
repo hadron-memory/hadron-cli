@@ -133,3 +133,19 @@ func TestReplaceTextNoMatchWritesNothingAndExitsZero2542(t *testing.T) {
 		t.Errorf("want one preview and no write, got %d requests, %d writes", total, writes)
 	}
 }
+
+// Positive control for the table above: the same command, with the preview
+// showing matches and nothing refusing, DOES send a real (non-dry-run) write,
+// so "writes == 0" in the refusal rows can only mean the refusal held.
+func TestReplaceTextAppliedRunSendsARealWrite2542(t *testing.T) {
+	rec := newReplaceRecorder2542(t, replaceThreeNodes2542)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"replace", "text", "a", "b", "-m", "acme.com::kb", "--field", "content", "--yes", "--server", rec.srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if total, writes := rec.counts(); total != 2 || writes != 1 {
+		t.Errorf("want a preview then one write, got %d requests, %d writes", total, writes)
+	}
+}

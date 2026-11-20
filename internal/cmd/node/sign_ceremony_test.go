@@ -107,3 +107,28 @@ func TestCeremonyTextDisplayCleanIsVerbatim(t *testing.T) {
 		}
 	}
 }
+
+// cli#2541 dropped the url.Parse gate, which also rejected control characters.
+// The rule now rests on output.Neutralised flagging every one of them, so sweep
+// the whole C0 range, DEL and the C1 range: each must come out neutralised,
+// never raw (a regression in Neutralised would otherwise reach the terminal).
+func TestCeremonyTextNeutralisesEveryControlRune(t *testing.T) {
+	var runes []rune
+	for r := rune(0); r <= 0x1F; r++ {
+		runes = append(runes, r)
+	}
+	runes = append(runes, 0x7F)
+	for r := rune(0x80); r <= 0x9F; r++ {
+		runes = append(runes, r)
+	}
+	for _, r := range runes {
+		in := "https://h.example/a" + string(r) + "b"
+		got := ceremonyText(in)
+		if strings.ContainsRune(got, r) {
+			t.Errorf("U+%04X reached the terminal raw: %q", r, got)
+		}
+		if got != output.SafeCell(in) {
+			t.Errorf("U+%04X must route through SafeCell: %q", r, got)
+		}
+	}
+}
