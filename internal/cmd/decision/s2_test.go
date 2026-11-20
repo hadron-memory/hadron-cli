@@ -10,6 +10,7 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // cli#2639: the S2 operations are hand-written, so nothing generated checks
@@ -146,13 +147,39 @@ func TestS2ResponseTypesCoverTheSelection(t *testing.T) {
 
 // refuseAmendNulls must not wave through input it cannot read: a future caller
 // that skips precheck would otherwise send an amend with the bad file ignored.
+// Its one caller (decision amend) passes the --input-file bytes only when a
+// file was given (data != nil) and after decodeInput has parsed them.
 func TestRefuseAmendNullsReturnsTheParseError(t *testing.T) {
 	for _, in := range []string{`not json`, `[1,2]`, ``} {
-		if err := refuseAmendNulls([]byte(in)); err == nil {
-			t.Errorf("%q: want an error, got nil", in)
+		err := refuseAmendNulls([]byte(in))
+		if err == nil || exitcode.FromError(err) != exitcode.Usage {
+			t.Errorf("%q: want a usage error, got %v", in, err)
 		}
 	}
 	if err := refuseAmendNulls([]byte(`{"background":null,"options":[]}`)); err != nil {
 		t.Errorf("clearable null and [] are accepted: %v", err)
+	}
+}
+
+// The headline behaviour: a null on a key that clears nothing is refused as a
+// usage error naming the key; each of the five clearable keys passes; a
+// whole-document null and {} are not this function's to refuse (the caller
+// reports "nothing to change" for an empty file).
+func TestRefuseAmendNullsNamesTheKeyAndSparesTheClearableOnes(t *testing.T) {
+	for _, k := range []string{"title", "priority", "tier", "options", "blocks", "sources", "specsTouched", "specsMustChange", "recommendation", "noRecommendation", "yesno"} {
+		err := refuseAmendNulls([]byte(`{"` + k + `":null}`))
+		if err == nil || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), `"`+k+`" is null`) {
+			t.Errorf("%s: want a usage error naming the key, got %v", k, err)
+		}
+	}
+	for _, k := range []string{"background", "whyNow", "assignee", "neededBy", "defaultAction"} {
+		if err := refuseAmendNulls([]byte(`{"` + k + `":null}`)); err != nil {
+			t.Errorf("%s clears with null: %v", k, err)
+		}
+	}
+	for _, in := range []string{`null`, `{}`} {
+		if err := refuseAmendNulls([]byte(in)); err != nil {
+			t.Errorf("%s: not refused here: %v", in, err)
+		}
 	}
 }

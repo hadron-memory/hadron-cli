@@ -1266,6 +1266,9 @@ func TestErrorDetails(t *testing.T) {
 		{"http error with a graphql body", &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: list}}, want},
 		{"http error with no graphql body", &graphql.HTTPError{StatusCode: 502}, nil},
 		{"graphql list, no extensions on one", list, want},
+		{"wrapped graphql list", fmt.Errorf("call: %w", list), want},
+		{"single gqlerror", &gqlerror.Error{Message: "a", Extensions: map[string]any{"code": "X"}}, []ErrorDetail{{Code: "X", Message: "a"}}},
+		{"extensions without a code", gqlerror.List{{Message: "c", Extensions: map[string]any{"other": 1}}}, []ErrorDetail{{Code: "", Message: "c"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := ErrorDetails(tc.err)
