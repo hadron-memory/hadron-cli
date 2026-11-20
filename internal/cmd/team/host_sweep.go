@@ -25,29 +25,48 @@ var sweepDaemonReady = func(ctx context.Context, cfg *hostpoller.Config) error {
 
 func newCmdTeamHostSweep(f *cmdutil.Factory) *cobra.Command {
 	var configPath string
-	c := &cobra.Command{Use: "sweep --config <host.yaml>", Short: "Run one host reconcile and record its outcome", Long: `Run one host up pass using the registered host id in the poller's state and
-worktrees_root from host YAML. The existing manager credential reconciles;
-a separate key_file-only client records S10. The App's sweepMode decides
-whether actions are allowed (OFF or OBSERVE acts on nothing). No worker
-session is sent. C1 posts no chat message; the server owns summaries/alarms.
+	c := &cobra.Command{Use: "sweep --config <host.yaml>", Short: "Run one host reconcile and record its outcome", Long: `Run one reconcile pass (the same pass as ` + "`team host up`" + `) using the
+registered host id in the poller's state and worktrees_root from host YAML.
+` + "`team host up`" + ` is the on-demand form with a desired state you name; this
+one is keyed to the host's own registration — the form its installed
+one-minute timer (` + "`sweep install`" + `) runs. The subcommands ` + "`sweep install|status|uninstall`" + `
+manage that timer. The existing manager credential reconciles; a separate
+key_file-only client records the run on the server (read back with
+` + "`team host sweep-runs`" + `). No worker session is sent, and no chat message
+is posted: the server owns summaries and alarms.
+
+The App's sweep mode decides whether actions are allowed, and it is set with
+` + "`hadron team app sweep-mode`" + `: OFF (the default) acts on nothing and records
+nothing — a quiet result on an OFF App is the mode, not a fault; OBSERVE
+compares and reports without repairs; APPLY allows repairs. Nothing is
+planned unless the mode is APPLY.
 
 A second concurrent pass exits immediately with another sweep holds the lock.
-Open-session recovery belongs to the running poller's C5 loop; this command
-never starts a second agent directly. The 15-minute health timer and 5-minute
-report-stops timer remain explicitly separate: they still handle health and
-unreported stop notices. Install creates only the new one-minute sweep timer.
-On typed Orca-launch hosts, managed-daemon preflight is shared with C5;
-exec-launch hosts retain ordinary host-up readiness. A missing daemon scope or an
-unreachable terminal list records ORCA_DOWN skips and queues nothing; unreadable
-or ambiguous readiness stays RELAUNCH_UNPROVEN. The poller (C5) reports the first outage once and replays its
-token until confirmed, backing off while S10 is unavailable; it records only
-applied/failed passes, so this one-minute command records the quiet passes. An expected unavailable
-observation exits 0 and waits for the next timer tick. Lock contention exits 5
-without a service restart. Exec-host preflight refusals keep exit 2, record
-nothing and wait for the next timer tick without service restart. A failed record does not change
-the reconciliation result. Default recovery target assumes 30s poll cadence and
+Open-session recovery belongs to the running poller's relaunch loop; this
+command never starts a second agent directly. The 15-minute health timer and
+5-minute report-stops timer remain explicitly separate: they still handle
+health and unreported stop notices. Install creates only the new one-minute
+sweep timer. On typed Orca-launch hosts, managed-daemon preflight is shared
+with the poller's relaunch loop; exec-launch hosts retain ordinary host-up
+readiness. A missing daemon scope or an unreachable terminal list records
+ORCA_DOWN skips and queues nothing; unreadable or ambiguous readiness stays
+RELAUNCH_UNPROVEN. The poller reports the first outage once and replays its
+token until confirmed, backing off while the server's sweep-run records are
+unavailable; it records only applied/failed passes, so this one-minute
+command records the quiet passes. A failed record does not change the
+reconciliation result. Default recovery target assumes 30s poll cadence and
 two proven absence observations; a slow custom cadence can miss two minutes.
-This command requests no daemon start, kill or restart; the service manager owns it.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+This command requests no daemon start, kill or restart; the service manager
+owns it.
+
+Exit codes: 0 the pass ran — including an expected unavailable observation,
+which waits for the next timer tick; 2 --config missing or unreadable,
+--app or --server disagreeing with the config (the config supplies the
+sweep's App and server), or an exec-host preflight refusal (records
+nothing, waits for the next tick, no service restart); 1 host state
+unreadable or an unexpected error; 5 lock contention (another sweep holds
+the lock) or no saved registration (start the host poller first). No
+refusal restarts a service.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		started := time.Now()
 		if configPath == "" {
 			return exitcode.Newf(exitcode.Usage, "--config is required")

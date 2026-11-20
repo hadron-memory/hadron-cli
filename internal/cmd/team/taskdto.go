@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -60,6 +61,16 @@ type taskResultDTO struct {
 	Outcome  string  `json:"outcome"`
 	Summary  *string `json:"summary"`
 	Evidence *string `json:"evidence"`
+	// WorkedFromRoleTaskRefs (cli#2514, hadron-server#4414) are the role tasks the assignee followed, as the
+	// server stored them. omitempty: a result finished without any keeps the shape it always had.
+	WorkedFromRoleTaskRefs []taskRoleTaskRefDTO `json:"workedFromRoleTaskRefs,omitempty"`
+}
+
+// taskRoleTaskRefDTO is one stored role-task reference: the node, its URN and the revision it was at.
+type taskRoleTaskRefDTO struct {
+	NodeID   string `json:"nodeId"`
+	URN      string `json:"urn"`
+	Revision int    `json:"revision"`
 }
 
 // taskDTO is one task. OpenAlarms is set only by `task tree` (and `task list
@@ -239,8 +250,34 @@ func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultD
 	if r == nil {
 		return nil
 	}
-	return &taskResultDTO{Outcome: r.Outcome, Summary: r.Summary, Evidence: r.Evidence}
+	dto := &taskResultDTO{Outcome: r.Outcome, Summary: r.Summary, Evidence: r.Evidence}
+	for _, ref := range r.WorkedFromRoleTaskRefs {
+		if ref != nil {
+			dto.WorkedFromRoleTaskRefs = append(dto.WorkedFromRoleTaskRefs, taskRoleTaskRefDTO{NodeID: ref.NodeId, URN: ref.Urn, Revision: ref.Revision})
+		}
+	}
+	return dto
 }
+
+// workedFromLines renders the stored refs for a human: one line each, URN and revision, nothing when none.
+func workedFromLines(w io.Writer, r *taskResultDTO, indent string) error {
+	if r == nil || len(r.WorkedFromRoleTaskRefs) == 0 {
+		return nil
+	}
+	if _, err := fmt.Fprintf(w, "%sworked from:\n", indent); err != nil {
+		return err
+	}
+	for _, ref := range r.WorkedFromRoleTaskRefs {
+		if _, err := fmt.Fprintf(w, "%s  %s r%d\n", indent, output.SafeCell(ref.URN), ref.Revision); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// roleTaskRefsInvalidMessage is the one answer for every refused --worked-from reference: the server gives the
+// same refusal for an unreadable and a missing node, so this names no reference.
+const roleTaskRefsInvalidMessage = "TASK_ROLE_TASK_REFS_INVALID: --worked-from: every reference must be a live, runnable role task you can read, and none may repeat; the task is still started, so fix the references and finish again"
 
 // taskDTOFromWrite is taskDTOFrom for the answer of a command that WROTE. The
 // write has already happened when its answer is read, so a malformed page there
@@ -566,6 +603,10 @@ func mapTaskError(err error) error {
 	mapped := api.MapError(err)
 	if mapped == nil {
 		return nil
+	}
+	// cli#2514: fixed words, never the server's, which could carry a reference it will not name twice.
+	if api.HasErrorCode(err, "TASK_ROLE_TASK_REFS_INVALID") {
+		return &exitcode.CodedError{Code: exitcode.Usage, Err: safeTaskError{errors.New(roleTaskRefsInvalidMessage)}}
 	}
 	// The prefix goes INSIDE the terminal-safe wrapper: the root renderer
 	// prints the innermost HumanMessage, so a prefix added outside it would

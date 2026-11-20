@@ -30,16 +30,34 @@ const decisionLogJSON = `{"id":"l1","urn":"hrn:node:acme.com:kb:decisions","loc"
 "lastCode":1,"revSeq":2,"portalUrl":null,"defaultDeciderIds":["u2"],"defaultDeciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
 "eligibleDeciderIds":[],"eligibleDeciders":[],"identityMerges":[],"purges":[]}`
 
+// shapeLegacyJSON and shapeS2JSON are the answers the server's one-time shape
+// probe (hadron-cli#2639) gets. The probe selects Question.background through
+// the questions read: an older server refuses it at validation, naming the
+// field; an S2 server runs it. It is not an introspection read: the hosted
+// server refuses those.
+const (
+	shapeLegacyJSON = `{"errors":[{"message":"Cannot query field \"background\" on type \"Question\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	shapeS2JSON     = `{"data":{"questions":{"total":0,"items":[]}}}`
+)
+
 type decisionCall struct {
-	ops  []string
-	vars map[string]map[string]any
-	raw  map[string]json.RawMessage // each operation's variables as sent
+	probes int // how many times the shape probe ran
+	ops    []string
+	vars   map[string]map[string]any
+	raw    map[string]json.RawMessage // each operation's variables as sent
 }
 
 func runDecision(t *testing.T, responses map[string]string, args ...string) (*decisionCall, string, error) {
 	t.Helper()
 	calls := &decisionCall{vars: map[string]map[string]any{}, raw: map[string]json.RawMessage{}}
 	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		if op == "DecisionShape" {
+			calls.probes++
+			if r, ok := responses[op]; ok {
+				return r
+			}
+			return shapeLegacyJSON
+		}
 		calls.ops = append(calls.ops, op)
 		return responses[op]
 	})
@@ -120,7 +138,7 @@ func TestDecisionLogCreateRequiresLocAndDecider(t *testing.T) {
 		{"log", "create", "m1", "--loc", "d"},
 	} {
 		c, _, err := runDecision(t, nil, args...)
-		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 || c.probes != 0 {
 			t.Fatalf("%v: want usage error, no call; err=%v ops=%v", args, err, c.ops)
 		}
 	}
@@ -162,7 +180,7 @@ func TestDecisionLogSetDecidersRequiresRevisionReasonDecider(t *testing.T) {
 		{"log", "set-deciders", "l1", "--expected-revision", "2", "--reason", "r"},
 	} {
 		c, _, err := runDecision(t, nil, args...)
-		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 || c.probes != 0 {
 			t.Fatalf("%v: want usage error, no call; err=%v ops=%v", args, err, c.ops)
 		}
 	}
@@ -284,7 +302,7 @@ func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 		"mis-cased after huge number": {"ask", "l1", "--input-file", writeJSONFile(t, `{"grant":[-1e999],"Title":"a","parts":[]}`)},
 	} {
 		c, _, err := runDecision(t, nil, args...)
-		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 || c.probes != 0 {
 			t.Fatalf("%s: want usage error, no call; err=%v ops=%v", name, err, c.ops)
 		}
 	}
@@ -299,7 +317,7 @@ func TestDecisionAmendRequiresRevisionReasonAndAChange(t *testing.T) {
 		"blank flag":  {"amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", "", "--title", "t"},
 	} {
 		c, _, err := runDecision(t, nil, args...)
-		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 || c.probes != 0 {
 			t.Fatalf("%s: want usage error, no call; err=%v ops=%v", name, err, c.ops)
 		}
 	}
@@ -535,7 +553,7 @@ func TestDecisionWithdrawConfirmsThenSendsOneCall(t *testing.T) {
 		{"withdraw", "d1", "--expected-revision", "3", "--reason", "  ", "--yes"},
 	} {
 		c, _, err := runDecision(t, nil, args...)
-		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 || c.probes != 0 {
 			t.Fatalf("%v: want usage error, no call; err=%v ops=%v", args, err, c.ops)
 		}
 	}
@@ -616,17 +634,18 @@ func TestDecisionRefusalsMapAndDoNothingElse(t *testing.T) {
 // distinct value, so a dropped or crossed field (answer vs history, claimed vs
 // authenticated answerer, approval vs withdrawal actor) shows as a diff.
 const decisionFullJSON = `{"id":"d9","urn":"hrn:node:acme.com:kb:decisions:DB","code":"DB","n":2,"logId":"l1",
-"title":"T","context":"ctx","state":"DECIDED","tier":"APPROVED","urgency":"URGENT","authorizes":true,
+"title":"T","context":"ctx","background":"ctx","whyNow":null,"state":"DECIDED","tier":"APPROVED","urgency":"URGENT","priority":"URGENT",
+"neededBy":null,"defaultAction":null,"specsTouched":[],"specsMustChange":[],"authorizes":true,
 "archival":true,"revSeq":7,"portalUrl":"https://example.test/d/DB","viewerIsDecider":false,
 "askedAt":"2026-11-01T00:00:00Z","answeredAt":"2026-11-02T00:00:00Z",
 "askedBy":{"userId":null,"user":null,"workerId":"w1","worker":{"id":"w1","name":"Ada","handle":null,"urn":"hrn:worker:acme.com:t:ada"},"appId":"a1","app":{"id":"a1","name":"Team","handle":null,"urn":"hrn:app:acme.com:t"}},
 "deciderIds":["u2"],"deciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
 "identityMerges":[{"fromUserId":"u7","from":{"id":"u7","name":"Old","handle":"old","urn":null},"toUserId":"u2","to":{"id":"u2","name":"Bo","handle":"bo","urn":null},"mergedAt":"2026-10-30T00:00:00Z"}],
-"parts":[{"n":1,"citation":"DB-1","question":"Q","options":[{"key":"a","label":"A","meaning":"m","cost":"c"}],
+"parts":[{"n":1,"citation":"DB-1","question":"Q","options":[{"key":"a","label":"A","meaning":"m","cost":"c","whyChoose":null,"whyNot":null,"risks":null}],
 "recommendation":{"key":"a","reason":"why","attributedTo":"Ada","by":{"userId":"u1","user":{"id":"u1","name":"Ann","handle":"ann","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
 "noRecommendationReason":null,
-"answer":{"at":"2026-11-02T00:00:00Z","byUserId":"u2","recordedByUserId":"u5","claimedBy":"Bo via phone","freeform":false,"key":"a","text":null,"reason":"fine","via":"PORTAL","source":{"ref":null,"node":"hrn:node:acme.com:kb:notes:1","spec":null}},
-"answerHistory":[{"at":"2026-11-01T12:00:00Z","byUserId":"u3","recordedByUserId":null,"claimedBy":null,"freeform":true,"key":null,"text":"maybe","reason":null,"via":"CLI","source":null}]}],
+"answer":{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","recordedByUserId":"u5","claimedBy":"Bo via phone","freeform":false,"key":"a","text":null,"reason":"fine","via":"PORTAL","source":{"ref":null,"node":"hrn:node:acme.com:kb:notes:1","spec":null}},
+"answerHistory":[{"kind":"ANSWER","at":"2026-11-01T12:00:00Z","byUserId":"u3","recordedByUserId":null,"claimedBy":null,"freeform":true,"key":null,"text":"maybe","reason":null,"via":"CLI","source":null}]}],
 "blocks":[{"ref":"hadron-server#1","node":null,"spec":null}],
 "followUps":[{"ref":null,"node":"hrn:node:acme.com:kb:x","spec":null}],
 "sources":[{"ref":null,"node":null,"spec":"cor:api:240:01"}],
@@ -643,17 +662,18 @@ func TestDecisionGetJSONMapsPopulatedValues(t *testing.T) {
 		t.Fatalf("json: %v\n%s", err, out)
 	}
 	const want = `{"id":"d9","urn":"hrn:node:acme.com:kb:decisions:DB","code":"DB","n":2,"logId":"l1",
-"title":"T","context":"ctx","state":"DECIDED","tier":"APPROVED","urgency":"URGENT","authorizes":true,
+"title":"T","context":"ctx","background":"ctx","whyNow":null,"state":"DECIDED","tier":"APPROVED","urgency":"URGENT","priority":"URGENT",
+"neededBy":null,"defaultAction":null,"specsTouched":[],"specsMustChange":[],"authorizes":true,
 "archival":true,"revision":7,"portalUrl":"https://example.test/d/DB","viewerIsDecider":false,
 "askedAt":"2026-11-01T00:00:00Z","answeredAt":"2026-11-02T00:00:00Z",
 "askedBy":{"userId":null,"user":null,"workerId":"w1","worker":{"id":"w1","name":"Ada","handle":null,"urn":"hrn:worker:acme.com:t:ada"},"appId":"a1","app":{"id":"a1","name":"Team","handle":null,"urn":"hrn:app:acme.com:t"}},
 "deciderIds":["u2"],"deciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
 "identityMerges":[{"fromUserId":"u7","from":{"id":"u7","name":"Old","handle":"old","urn":null},"toUserId":"u2","to":{"id":"u2","name":"Bo","handle":"bo","urn":null},"mergedAt":"2026-10-30T00:00:00Z"}],
-"parts":[{"n":1,"citation":"DB-1","question":"Q","options":[{"key":"a","label":"A","meaning":"m","cost":"c"}],
+"parts":[{"n":1,"citation":"DB-1","question":"Q","options":[{"key":"a","label":"A","meaning":"m","cost":"c","whyChoose":null,"whyNot":null,"risks":null}],
 "recommendation":{"key":"a","reason":"why","attributedTo":"Ada","by":{"userId":"u1","user":{"id":"u1","name":"Ann","handle":"ann","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
 "noRecommendationReason":null,
-"answer":{"at":"2026-11-02T00:00:00Z","byUserId":"u2","recordedByUserId":"u5","claimedBy":"Bo via phone","freeform":false,"key":"a","text":null,"reason":"fine","via":"PORTAL","source":{"ref":null,"node":"hrn:node:acme.com:kb:notes:1","spec":null}},
-"answerHistory":[{"at":"2026-11-01T12:00:00Z","byUserId":"u3","recordedByUserId":null,"claimedBy":null,"freeform":true,"key":null,"text":"maybe","reason":null,"via":"CLI","source":null}]}],
+"answer":{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","recordedByUserId":"u5","claimedBy":"Bo via phone","freeform":false,"key":"a","text":null,"reason":"fine","via":"PORTAL","source":{"ref":null,"node":"hrn:node:acme.com:kb:notes:1","spec":null}},
+"answerHistory":[{"kind":"ANSWER","at":"2026-11-01T12:00:00Z","byUserId":"u3","recordedByUserId":null,"claimedBy":null,"freeform":true,"key":null,"text":"maybe","reason":null,"via":"CLI","source":null}]}],
 "blocks":[{"ref":"hadron-server#1","node":null,"spec":null}],
 "followUps":[{"ref":null,"node":"hrn:node:acme.com:kb:x","spec":null}],
 "sources":[{"ref":null,"node":null,"spec":"cor:api:240:01"}],

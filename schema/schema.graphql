@@ -1422,6 +1422,11 @@ type AgentTaskResult {
   """One word: succeeded, failed, or a word the team chooses."""
   outcome: String!
   summary: String
+
+  """
+  #4414: the role tasks (runnable instruction nodes) the assignee followed, in the order given, each with its URN and the revision it had at finish (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Null when the finish gave none. Not the previous task.
+  """
+  workedFromRoleTaskRefs: [AgentTaskRoleTaskRef!]
 }
 
 input AgentTaskResultInput {
@@ -1437,6 +1442,20 @@ input AgentTaskResultInput {
   """
   outcome: String!
   summary: String
+
+  """
+  #4414: optional role tasks followed: node ids or URNs, at most 10, each a live runnable node you may read, none twice (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Anything else refuses TASK_ROLE_TASK_REFS_INVALID, one answer for a node you may not read and one that does not exist, and the task stays started. Omitted/null: none, as before.
+  """
+  workedFromRoleTaskRefs: [ID!]
+}
+
+"""
+#4414: one role task an assignee followed, kept as it was when the task finished.
+"""
+type AgentTaskRoleTaskRef {
+  nodeId: ID!
+  revision: Int!
+  urn: String!
 }
 
 """
@@ -7007,13 +7026,13 @@ secret keeps its values as versions: every store adds one
 """
 input IssueSecretReadClientInput {
   """
-  Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refused (SECRET_AUTO_DELETE_NOT_AVAILABLE) until the deletion is built (#4001).
+  Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refused (SECRET_AUTO_DELETE_NOT_AVAILABLE) until the deletion is available.
   """
   autoDelete: Boolean! = false
   expiresAt: DateTime
 
   """
-  WORKER: a live worker of the App (holderRef is its id). USER: the issuer themself (holderRef omitted).
+  WORKER: a live worker of the App (holderRef is its id). USER: the issuer themself (holderRef omitted). AGENT and APP are refused (GRANT_HOLDER_NOT_ALLOWED): a read client is held by a person or a worker.
   """
   holderKind: GrantHolderKind!
   holderRef: ID

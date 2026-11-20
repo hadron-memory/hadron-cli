@@ -1,14 +1,9 @@
 package cmd
 
 import (
-	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -16,8 +11,8 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// cli#1051 (replace and comment rows): every example in the help of the replace
-// and comment pages is run through the real command tree against a local fixture
+// cli#1051: every example in the help of `hadron replace` and `hadron comment`
+// and their subcommands is run through the real command tree against a local fixture
 // server, the same mode as the app/agent walk (#1053 slice 1): the fixture
 // answers every GraphQL operation with an empty data object, so this verifies
 // that each example PARSES and is WIRED (the flags exist, the arguments are
@@ -29,7 +24,7 @@ import (
 // knownPanics1051 lists the commands (by path) that panic on a reply with no data,
 // each tracked by a follow-up issue: a panic is a defect of the command, not of
 // its example, so the walk records it here instead of failing the help check.
-var knownPanics1051 = map[string]string{}
+var knownPanics1051 = map[string]knownPanic{}
 
 func collectReplaceCommentPages1051(root *cobra.Command) []*cobra.Command {
 	var pages []*cobra.Command
@@ -52,21 +47,7 @@ func collectReplaceCommentPages1051(root *cobra.Command) []*cobra.Command {
 }
 
 func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
-	var mu sync.Mutex
-	var ops []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string `json:"operationName"`
-		}
-		b, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(b, &body)
-		mu.Lock()
-		ops = append(ops, body.OperationName)
-		mu.Unlock()
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{}}`))
-	}))
-	t.Cleanup(srv.Close)
+	fx := newWalkFixture(t)
 
 	f0, _ := testFactory(t)
 	pages := collectReplaceCommentPages1051(NewRootCmd(f0))
@@ -116,11 +97,9 @@ func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
 					t.Chdir(dir)
 					f, _ := testFactory(t)
 					f.IOStreams.In = strings.NewReader("piped text") // an example that reads "-"
-					mu.Lock()
-					before := len(ops)
-					mu.Unlock()
+					before := fx.mark()
 					root := NewRootCmd(f)
-					root.SetArgs(append(args, "--server", srv.URL))
+					root.SetArgs(append(args, "--server", fx.srv.URL))
 					var err error
 					panicked := false
 					func() {
@@ -142,9 +121,7 @@ func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
 					if panicked {
 						return
 					}
-					mu.Lock()
-					sent := append([]string(nil), ops[before:]...)
-					mu.Unlock()
+					sent := fx.since(before)
 					msg := ""
 					if err != nil {
 						msg = strings.SplitN(err.Error(), "\n", 2)[0]
@@ -161,7 +138,7 @@ func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
 						t.Errorf("a usage error after a request was sent: %s", msg)
 					case err != nil && len(sent) == 0:
 						// The only local refusal the help documents is the missing --yes.
-						if !strings.Contains(msg, "without --yes") && !strings.Contains(msg, "--yes") {
+						if !isConfirmRefusal(err) {
 							t.Errorf("refused locally before any request: %s", msg)
 						}
 					}
@@ -170,6 +147,6 @@ func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
 		}
 	}
 	if examples < 12 {
-		t.Fatalf("only %d examples found across the replace and comment pages", examples)
+		t.Fatalf("only %d examples found across the replace and comment help", examples)
 	}
 }

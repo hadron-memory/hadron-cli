@@ -170,7 +170,7 @@ myChats  gap #64
 myChatsPage  gap #64
 myGrants  command auth grants
 myPasskeys  command auth passkey list
-mySecretReadClients  gap #2631
+mySecretReadClients  gap #2631: secret read clients
 myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213)
 myUserApiKeysPage  command auth token list
 nextNode  command node next
@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 306 command, 41 gap, 12 excluded
+[Mutation] 359: 309 command, 38 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -432,13 +432,13 @@ importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  command user invite
 issueHostOperation  command team host issue
-issueSecretReadClient  gap #2631
+issueSecretReadClient  gap #2631: secret read clients
 joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
 leaveApp  command app leave
 liftTeamStopSignal  command team stop lift
 linkDefectToPullRequest  command team task link-defect
-linkGithubApp  gap #60
+linkGithubApp  command org github link
 linkMemoryToUser  command memory link-user
 makeAgentTaskReady  command team task ready
 markOwnTeamChatRead  command team chat check
@@ -501,7 +501,7 @@ restoreRevision  command agent revision restore
 resumeSession  command team session start
 retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
-revealSecret  gap #2631
+revealSecret  gap #2631: secret read clients
 revokeAgentOrgGrant  gap #890
 revokeAgentSubscription  gap #890
 revokeAppGrant  command team grant rm
@@ -576,7 +576,7 @@ triggerAppRun  command run trigger
 unassignHostWorker  command team host unassign
 uninstallAgentFromApp  command app agent remove
 uninstallApp  command app uninstall
-unlinkGithubApp  gap #60
+unlinkGithubApp  command org github unlink
 unlockNodeRoleRule  command memory config rule unlock
 unsubscribeWorker  command ticker unsubscribe
 updateAgent  command agent update
@@ -606,7 +606,7 @@ updateNodeProperties  command node set-properties
 updateNodeRevision  command node revision label
 updateNodeRoleRule  command memory config rule update
 updateObject  command object update
-updateOrgGithubApp  gap #60
+updateOrgGithubApp  command org github set-app
 updateOrgMember  command org member set-role
 updateOrganization  command org update
 updateRegisterEntry  command channel register set

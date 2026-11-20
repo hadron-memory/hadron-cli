@@ -7823,6 +7823,8 @@ type AgentTaskFieldsResultAgentTaskResult struct {
 	Summary *string `json:"summary"`
 	// A URL or a node URN.
 	Evidence *string `json:"evidence"`
+	// #4414: the role tasks (runnable instruction nodes) the assignee followed, in the order given, each with its URN and the revision it had at finish (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Null when the finish gave none. Not the previous task.
+	WorkedFromRoleTaskRefs []*AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef `json:"workedFromRoleTaskRefs"`
 }
 
 // GetOutcome returns AgentTaskFieldsResultAgentTaskResult.Outcome, and is useful for accessing the field via an interface.
@@ -7833,6 +7835,36 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 
 // GetEvidence returns AgentTaskFieldsResultAgentTaskResult.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
+
+// GetWorkedFromRoleTaskRefs returns AgentTaskFieldsResultAgentTaskResult.WorkedFromRoleTaskRefs, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResult) GetWorkedFromRoleTaskRefs() []*AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef {
+	return v.WorkedFromRoleTaskRefs
+}
+
+// AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef includes the requested fields of the GraphQL type AgentTaskRoleTaskRef.
+// The GraphQL type's documentation follows.
+//
+// #4414: one role task an assignee followed, kept as it was when the task finished.
+type AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef struct {
+	NodeId   string `json:"nodeId"`
+	Urn      string `json:"urn"`
+	Revision int    `json:"revision"`
+}
+
+// GetNodeId returns AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef.NodeId, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetUrn returns AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef.Urn, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef) GetUrn() string {
+	return v.Urn
+}
+
+// GetRevision returns AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef.Revision, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsResultAgentTaskResultWorkedFromRoleTaskRefsAgentTaskRoleTaskRef) GetRevision() int {
+	return v.Revision
+}
 
 // AgentTaskFieldsRunSettingsAgentTaskRunSettings includes the requested fields of the GraphQL type AgentTaskRunSettings.
 // The GraphQL type's documentation follows.
@@ -15839,6 +15871,8 @@ type AgentTaskResultInput struct {
 	// One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text. When the team has an outcome set (#2652, schema:task-outcomes; hrn:node:hadronmemory.com:specs:cor:agt:050:30) it must be one of the set (TASK_OUTCOME_NOT_IN_SET); an unusable set refuses every finish (TASK_OUTCOME_SET_UNUSABLE).
 	Outcome string  `json:"outcome"`
 	Summary *string `json:"summary"`
+	// #4414: optional role tasks followed: node ids or URNs, at most 10, each a live runnable node you may read, none twice (hrn:node:hadronmemory.com:specs:cor:agt:050:30). Anything else refuses TASK_ROLE_TASK_REFS_INVALID, one answer for a node you may not read and one that does not exist, and the task stays started. Omitted/null: none, as before.
+	WorkedFromRoleTaskRefs []string `json:"workedFromRoleTaskRefs,omitempty"`
 }
 
 // GetEvidence returns AgentTaskResultInput.Evidence, and is useful for accessing the field via an interface.
@@ -15852,6 +15886,9 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 
 // GetSummary returns AgentTaskResultInput.Summary, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
+
+// GetWorkedFromRoleTaskRefs returns AgentTaskResultInput.WorkedFromRoleTaskRefs, and is useful for accessing the field via an interface.
+func (v *AgentTaskResultInput) GetWorkedFromRoleTaskRefs() []string { return v.WorkedFromRoleTaskRefs }
 
 // #4291 (hrn:node:hadronmemory.com:specs:cor:agt:050:01; decision record run-settings-are-not-worker-identity) — a task's own run
 // settings: what a start for it launches. Anything left out falls back to the worker's last used (Worker.lastUsed), so
@@ -66601,6 +66638,104 @@ type LeaveAppResponse struct {
 // GetLeaveApp returns LeaveAppResponse.LeaveApp, and is useful for accessing the field via an interface.
 func (v *LeaveAppResponse) GetLeaveApp() *LeaveAppLeaveAppLeaveAppPayload { return v.LeaveApp }
 
+// LinkGithubAppLinkGithubAppOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type LinkGithubAppLinkGithubAppOrganization struct {
+	OrgGithubFields `json:"-"`
+}
+
+// GetId returns LinkGithubAppLinkGithubAppOrganization.Id, and is useful for accessing the field via an interface.
+func (v *LinkGithubAppLinkGithubAppOrganization) GetId() string { return v.OrgGithubFields.Id }
+
+// GetUrn returns LinkGithubAppLinkGithubAppOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *LinkGithubAppLinkGithubAppOrganization) GetUrn() string { return v.OrgGithubFields.Urn }
+
+// GetGithubAppId returns LinkGithubAppLinkGithubAppOrganization.GithubAppId, and is useful for accessing the field via an interface.
+func (v *LinkGithubAppLinkGithubAppOrganization) GetGithubAppId() *string {
+	return v.OrgGithubFields.GithubAppId
+}
+
+// GetGithubInstallationId returns LinkGithubAppLinkGithubAppOrganization.GithubInstallationId, and is useful for accessing the field via an interface.
+func (v *LinkGithubAppLinkGithubAppOrganization) GetGithubInstallationId() *int {
+	return v.OrgGithubFields.GithubInstallationId
+}
+
+// GetHasGithubAppPrivateKey returns LinkGithubAppLinkGithubAppOrganization.HasGithubAppPrivateKey, and is useful for accessing the field via an interface.
+func (v *LinkGithubAppLinkGithubAppOrganization) GetHasGithubAppPrivateKey() bool {
+	return v.OrgGithubFields.HasGithubAppPrivateKey
+}
+
+func (v *LinkGithubAppLinkGithubAppOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*LinkGithubAppLinkGithubAppOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.LinkGithubAppLinkGithubAppOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgGithubFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalLinkGithubAppLinkGithubAppOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	GithubAppId *string `json:"githubAppId"`
+
+	GithubInstallationId *int `json:"githubInstallationId"`
+
+	HasGithubAppPrivateKey bool `json:"hasGithubAppPrivateKey"`
+}
+
+func (v *LinkGithubAppLinkGithubAppOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *LinkGithubAppLinkGithubAppOrganization) __premarshalJSON() (*__premarshalLinkGithubAppLinkGithubAppOrganization, error) {
+	var retval __premarshalLinkGithubAppLinkGithubAppOrganization
+
+	retval.Id = v.OrgGithubFields.Id
+	retval.Urn = v.OrgGithubFields.Urn
+	retval.GithubAppId = v.OrgGithubFields.GithubAppId
+	retval.GithubInstallationId = v.OrgGithubFields.GithubInstallationId
+	retval.HasGithubAppPrivateKey = v.OrgGithubFields.HasGithubAppPrivateKey
+	return &retval, nil
+}
+
+// LinkGithubAppResponse is returned by LinkGithubApp on success.
+type LinkGithubAppResponse struct {
+	// Link a GitHub App installation to an organization (org ADMIN or platform ADMIN).
+	//
+	// Accepts the entity's ID or URN.
+	LinkGithubApp *LinkGithubAppLinkGithubAppOrganization `json:"linkGithubApp"`
+}
+
+// GetLinkGithubApp returns LinkGithubAppResponse.LinkGithubApp, and is useful for accessing the field via an interface.
+func (v *LinkGithubAppResponse) GetLinkGithubApp() *LinkGithubAppLinkGithubAppOrganization {
+	return v.LinkGithubApp
+}
+
 // LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -78610,6 +78745,33 @@ func (v *OrgFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetUpdatedAt returns OrgFields.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *OrgFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// OrgGithubFields includes the GraphQL fields of Organization requested by the fragment OrgGithubFields.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type OrgGithubFields struct {
+	Id                     string  `json:"id"`
+	Urn                    string  `json:"urn"`
+	GithubAppId            *string `json:"githubAppId"`
+	GithubInstallationId   *int    `json:"githubInstallationId"`
+	HasGithubAppPrivateKey bool    `json:"hasGithubAppPrivateKey"`
+}
+
+// GetId returns OrgGithubFields.Id, and is useful for accessing the field via an interface.
+func (v *OrgGithubFields) GetId() string { return v.Id }
+
+// GetUrn returns OrgGithubFields.Urn, and is useful for accessing the field via an interface.
+func (v *OrgGithubFields) GetUrn() string { return v.Urn }
+
+// GetGithubAppId returns OrgGithubFields.GithubAppId, and is useful for accessing the field via an interface.
+func (v *OrgGithubFields) GetGithubAppId() *string { return v.GithubAppId }
+
+// GetGithubInstallationId returns OrgGithubFields.GithubInstallationId, and is useful for accessing the field via an interface.
+func (v *OrgGithubFields) GetGithubInstallationId() *int { return v.GithubInstallationId }
+
+// GetHasGithubAppPrivateKey returns OrgGithubFields.HasGithubAppPrivateKey, and is useful for accessing the field via an interface.
+func (v *OrgGithubFields) GetHasGithubAppPrivateKey() bool { return v.HasGithubAppPrivateKey }
 
 // OrgMembersOrganization includes the requested fields of the GraphQL type Organization.
 // The GraphQL type's documentation follows.
@@ -111431,6 +111593,104 @@ type UninstallAppResponse struct {
 // GetUninstallApp returns UninstallAppResponse.UninstallApp, and is useful for accessing the field via an interface.
 func (v *UninstallAppResponse) GetUninstallApp() bool { return v.UninstallApp }
 
+// UnlinkGithubAppResponse is returned by UnlinkGithubApp on success.
+type UnlinkGithubAppResponse struct {
+	// Remove all GitHub App config from an organization.
+	//
+	// Accepts the entity's ID or URN.
+	UnlinkGithubApp *UnlinkGithubAppUnlinkGithubAppOrganization `json:"unlinkGithubApp"`
+}
+
+// GetUnlinkGithubApp returns UnlinkGithubAppResponse.UnlinkGithubApp, and is useful for accessing the field via an interface.
+func (v *UnlinkGithubAppResponse) GetUnlinkGithubApp() *UnlinkGithubAppUnlinkGithubAppOrganization {
+	return v.UnlinkGithubApp
+}
+
+// UnlinkGithubAppUnlinkGithubAppOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type UnlinkGithubAppUnlinkGithubAppOrganization struct {
+	OrgGithubFields `json:"-"`
+}
+
+// GetId returns UnlinkGithubAppUnlinkGithubAppOrganization.Id, and is useful for accessing the field via an interface.
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) GetId() string { return v.OrgGithubFields.Id }
+
+// GetUrn returns UnlinkGithubAppUnlinkGithubAppOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) GetUrn() string { return v.OrgGithubFields.Urn }
+
+// GetGithubAppId returns UnlinkGithubAppUnlinkGithubAppOrganization.GithubAppId, and is useful for accessing the field via an interface.
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) GetGithubAppId() *string {
+	return v.OrgGithubFields.GithubAppId
+}
+
+// GetGithubInstallationId returns UnlinkGithubAppUnlinkGithubAppOrganization.GithubInstallationId, and is useful for accessing the field via an interface.
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) GetGithubInstallationId() *int {
+	return v.OrgGithubFields.GithubInstallationId
+}
+
+// GetHasGithubAppPrivateKey returns UnlinkGithubAppUnlinkGithubAppOrganization.HasGithubAppPrivateKey, and is useful for accessing the field via an interface.
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) GetHasGithubAppPrivateKey() bool {
+	return v.OrgGithubFields.HasGithubAppPrivateKey
+}
+
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UnlinkGithubAppUnlinkGithubAppOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UnlinkGithubAppUnlinkGithubAppOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgGithubFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUnlinkGithubAppUnlinkGithubAppOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	GithubAppId *string `json:"githubAppId"`
+
+	GithubInstallationId *int `json:"githubInstallationId"`
+
+	HasGithubAppPrivateKey bool `json:"hasGithubAppPrivateKey"`
+}
+
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UnlinkGithubAppUnlinkGithubAppOrganization) __premarshalJSON() (*__premarshalUnlinkGithubAppUnlinkGithubAppOrganization, error) {
+	var retval __premarshalUnlinkGithubAppUnlinkGithubAppOrganization
+
+	retval.Id = v.OrgGithubFields.Id
+	retval.Urn = v.OrgGithubFields.Urn
+	retval.GithubAppId = v.OrgGithubFields.GithubAppId
+	retval.GithubInstallationId = v.OrgGithubFields.GithubInstallationId
+	retval.HasGithubAppPrivateKey = v.OrgGithubFields.HasGithubAppPrivateKey
+	return &retval, nil
+}
+
 // UnlockNodeRoleRuleResponse is returned by UnlockNodeRoleRule on success.
 type UnlockNodeRoleRuleResponse struct {
 	// #1334 — the deliberate step before a rule a required template LOCKED can be
@@ -117484,6 +117744,108 @@ type UpdateObjectResponse struct {
 
 // GetUpdateObject returns UpdateObjectResponse.UpdateObject, and is useful for accessing the field via an interface.
 func (v *UpdateObjectResponse) GetUpdateObject() json.RawMessage { return v.UpdateObject }
+
+// UpdateOrgGithubAppResponse is returned by UpdateOrgGithubApp on success.
+type UpdateOrgGithubAppResponse struct {
+	// Set GitHub App credentials for an organization (encrypted at rest).
+	//
+	// Accepts the entity's ID or URN.
+	UpdateOrgGithubApp *UpdateOrgGithubAppUpdateOrgGithubAppOrganization `json:"updateOrgGithubApp"`
+}
+
+// GetUpdateOrgGithubApp returns UpdateOrgGithubAppResponse.UpdateOrgGithubApp, and is useful for accessing the field via an interface.
+func (v *UpdateOrgGithubAppResponse) GetUpdateOrgGithubApp() *UpdateOrgGithubAppUpdateOrgGithubAppOrganization {
+	return v.UpdateOrgGithubApp
+}
+
+// UpdateOrgGithubAppUpdateOrgGithubAppOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type UpdateOrgGithubAppUpdateOrgGithubAppOrganization struct {
+	OrgGithubFields `json:"-"`
+}
+
+// GetId returns UpdateOrgGithubAppUpdateOrgGithubAppOrganization.Id, and is useful for accessing the field via an interface.
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) GetId() string {
+	return v.OrgGithubFields.Id
+}
+
+// GetUrn returns UpdateOrgGithubAppUpdateOrgGithubAppOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) GetUrn() string {
+	return v.OrgGithubFields.Urn
+}
+
+// GetGithubAppId returns UpdateOrgGithubAppUpdateOrgGithubAppOrganization.GithubAppId, and is useful for accessing the field via an interface.
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) GetGithubAppId() *string {
+	return v.OrgGithubFields.GithubAppId
+}
+
+// GetGithubInstallationId returns UpdateOrgGithubAppUpdateOrgGithubAppOrganization.GithubInstallationId, and is useful for accessing the field via an interface.
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) GetGithubInstallationId() *int {
+	return v.OrgGithubFields.GithubInstallationId
+}
+
+// GetHasGithubAppPrivateKey returns UpdateOrgGithubAppUpdateOrgGithubAppOrganization.HasGithubAppPrivateKey, and is useful for accessing the field via an interface.
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) GetHasGithubAppPrivateKey() bool {
+	return v.OrgGithubFields.HasGithubAppPrivateKey
+}
+
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateOrgGithubAppUpdateOrgGithubAppOrganization
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateOrgGithubAppUpdateOrgGithubAppOrganization = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OrgGithubFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateOrgGithubAppUpdateOrgGithubAppOrganization struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	GithubAppId *string `json:"githubAppId"`
+
+	GithubInstallationId *int `json:"githubInstallationId"`
+
+	HasGithubAppPrivateKey bool `json:"hasGithubAppPrivateKey"`
+}
+
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateOrgGithubAppUpdateOrgGithubAppOrganization) __premarshalJSON() (*__premarshalUpdateOrgGithubAppUpdateOrgGithubAppOrganization, error) {
+	var retval __premarshalUpdateOrgGithubAppUpdateOrgGithubAppOrganization
+
+	retval.Id = v.OrgGithubFields.Id
+	retval.Urn = v.OrgGithubFields.Urn
+	retval.GithubAppId = v.OrgGithubFields.GithubAppId
+	retval.GithubInstallationId = v.OrgGithubFields.GithubInstallationId
+	retval.HasGithubAppPrivateKey = v.OrgGithubFields.HasGithubAppPrivateKey
+	return &retval, nil
+}
 
 // UpdateOrgMemberResponse is returned by UpdateOrgMember on success.
 type UpdateOrgMemberResponse struct {
@@ -125140,11 +125502,12 @@ func (v *__AgentTaskFinishInput) GetResult() *AgentTaskResultInput { return v.Re
 
 // __AgentTaskFinishWithFindingsInput is used internally by genqlient
 type __AgentTaskFinishWithFindingsInput struct {
-	TaskId   string          `json:"taskId"`
-	Outcome  string          `json:"outcome"`
-	Summary  *string         `json:"summary"`
-	Evidence *string         `json:"evidence"`
-	Findings json.RawMessage `json:"findings"`
+	TaskId     string          `json:"taskId"`
+	Outcome    string          `json:"outcome"`
+	Summary    *string         `json:"summary"`
+	Evidence   *string         `json:"evidence"`
+	WorkedFrom []string        `json:"workedFrom,omitempty"`
+	Findings   json.RawMessage `json:"findings"`
 }
 
 // GetTaskId returns __AgentTaskFinishWithFindingsInput.TaskId, and is useful for accessing the field via an interface.
@@ -125158,6 +125521,9 @@ func (v *__AgentTaskFinishWithFindingsInput) GetSummary() *string { return v.Sum
 
 // GetEvidence returns __AgentTaskFinishWithFindingsInput.Evidence, and is useful for accessing the field via an interface.
 func (v *__AgentTaskFinishWithFindingsInput) GetEvidence() *string { return v.Evidence }
+
+// GetWorkedFrom returns __AgentTaskFinishWithFindingsInput.WorkedFrom, and is useful for accessing the field via an interface.
+func (v *__AgentTaskFinishWithFindingsInput) GetWorkedFrom() []string { return v.WorkedFrom }
 
 // GetFindings returns __AgentTaskFinishWithFindingsInput.Findings, and is useful for accessing the field via an interface.
 func (v *__AgentTaskFinishWithFindingsInput) GetFindings() json.RawMessage { return v.Findings }
@@ -131138,6 +131504,18 @@ func (v *__LeaveAppInstructedInput) GetAppRef() string { return v.AppRef }
 // GetInstruction returns __LeaveAppInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__LeaveAppInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
+// __LinkGithubAppInput is used internally by genqlient
+type __LinkGithubAppInput struct {
+	OrgRef         string `json:"orgRef"`
+	InstallationId int    `json:"installationId"`
+}
+
+// GetOrgRef returns __LinkGithubAppInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__LinkGithubAppInput) GetOrgRef() string { return v.OrgRef }
+
+// GetInstallationId returns __LinkGithubAppInput.InstallationId, and is useful for accessing the field via an interface.
+func (v *__LinkGithubAppInput) GetInstallationId() int { return v.InstallationId }
+
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
 	MemoryRef      string `json:"memoryRef"`
@@ -135474,6 +135852,14 @@ type __UninstallAppInput struct {
 // GetRef returns __UninstallAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__UninstallAppInput) GetRef() string { return v.Ref }
 
+// __UnlinkGithubAppInput is used internally by genqlient
+type __UnlinkGithubAppInput struct {
+	OrgRef string `json:"orgRef"`
+}
+
+// GetOrgRef returns __UnlinkGithubAppInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__UnlinkGithubAppInput) GetOrgRef() string { return v.OrgRef }
+
 // __UnlockNodeRoleRuleInput is used internally by genqlient
 type __UnlockNodeRoleRuleInput struct {
 	Ref              string `json:"ref"`
@@ -136799,6 +137185,22 @@ func (v *__UpdateObjectInput) GetFields() json.RawMessage { return v.Fields }
 
 // GetReason returns __UpdateObjectInput.Reason, and is useful for accessing the field via an interface.
 func (v *__UpdateObjectInput) GetReason() *string { return v.Reason }
+
+// __UpdateOrgGithubAppInput is used internally by genqlient
+type __UpdateOrgGithubAppInput struct {
+	OrgRef     string `json:"orgRef"`
+	AppId      string `json:"appId"`
+	PrivateKey string `json:"privateKey"`
+}
+
+// GetOrgRef returns __UpdateOrgGithubAppInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgGithubAppInput) GetOrgRef() string { return v.OrgRef }
+
+// GetAppId returns __UpdateOrgGithubAppInput.AppId, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgGithubAppInput) GetAppId() string { return v.AppId }
+
+// GetPrivateKey returns __UpdateOrgGithubAppInput.PrivateKey, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgGithubAppInput) GetPrivateKey() string { return v.PrivateKey }
 
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
@@ -138846,6 +139248,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -138989,6 +139396,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139132,6 +139544,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139277,6 +139694,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139422,6 +139844,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139561,6 +139988,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139702,6 +140134,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -139857,6 +140294,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140026,6 +140468,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140178,6 +140625,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140546,6 +140998,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140563,6 +141020,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
+// cli#2514: workedFromRoleTaskRefs is omitted, never null, when --worked-from is absent, so the request is
+// byte-identical to the pre-flag one.
 func AgentTaskFinish(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -140592,8 +141051,8 @@ func AgentTaskFinish(
 
 // The mutation executed by AgentTaskFinishWithFindings.
 const AgentTaskFinishWithFindings_Operation = `
-mutation AgentTaskFinishWithFindings ($taskId: ID!, $outcome: String!, $summary: String, $evidence: String, $findings: [AgentTaskFindingInput!]!) {
-	finishAgentTask(taskId: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings}) {
+mutation AgentTaskFinishWithFindings ($taskId: ID!, $outcome: String!, $summary: String, $evidence: String, $workedFrom: [ID!], $findings: [AgentTaskFindingInput!]!) {
+	finishAgentTask(taskId: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings,workedFromRoleTaskRefs:$workedFrom}) {
 		... AgentTaskFields
 		findingsResult: result {
 			findings(limit: 20, offset: 0) {
@@ -140692,6 +141151,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -140727,17 +141191,19 @@ func AgentTaskFinishWithFindings(
 	outcome string,
 	summary *string,
 	evidence *string,
+	workedFrom []string,
 	findings json.RawMessage,
 ) (data_ *AgentTaskFinishWithFindingsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AgentTaskFinishWithFindings",
 		Query:  AgentTaskFinishWithFindings_Operation,
 		Variables: &__AgentTaskFinishWithFindingsInput{
-			TaskId:   taskId,
-			Outcome:  outcome,
-			Summary:  summary,
-			Evidence: evidence,
-			Findings: findings,
+			TaskId:     taskId,
+			Outcome:    outcome,
+			Summary:    summary,
+			Evidence:   evidence,
+			WorkedFrom: workedFrom,
+			Findings:   findings,
 		},
 	}
 
@@ -140860,6 +141326,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141007,6 +141478,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141191,6 +141667,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141350,6 +141831,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141540,6 +142026,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141729,6 +142220,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -141889,6 +142385,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142077,6 +142578,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142220,6 +142726,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142361,6 +142872,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142500,6 +143016,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142642,6 +143163,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142783,6 +143309,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -142926,6 +143457,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143071,6 +143607,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143214,6 +143755,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143355,6 +143901,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143498,6 +144049,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143693,6 +144249,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143836,6 +144397,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -143979,6 +144545,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144172,6 +144743,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144311,6 +144887,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -144466,6 +145047,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -150446,6 +151032,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -150604,6 +151195,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -150768,6 +151364,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -150926,6 +151527,11 @@ fragment AgentTaskFields on AgentTask {
 		outcome
 		summary
 		evidence
+		workedFromRoleTaskRefs {
+			nodeId
+			urn
+			revision
+		}
 	}
 	properties
 }
@@ -163077,6 +163683,49 @@ func LeaveAppInstructed(
 	}
 
 	data_ = &LeaveAppInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by LinkGithubApp.
+const LinkGithubApp_Operation = `
+mutation LinkGithubApp ($orgRef: ID!, $installationId: Int!) {
+	linkGithubApp(orgRef: $orgRef, installationId: $installationId) {
+		... OrgGithubFields
+	}
+}
+fragment OrgGithubFields on Organization {
+	id
+	urn
+	githubAppId
+	githubInstallationId
+	hasGithubAppPrivateKey
+}
+`
+
+func LinkGithubApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	installationId int,
+) (data_ *LinkGithubAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LinkGithubApp",
+		Query:  LinkGithubApp_Operation,
+		Variables: &__LinkGithubAppInput{
+			OrgRef:         orgRef,
+			InstallationId: installationId,
+		},
+	}
+
+	data_ = &LinkGithubAppResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -179656,6 +180305,47 @@ func UninstallApp(
 	return data_, err_
 }
 
+// The mutation executed by UnlinkGithubApp.
+const UnlinkGithubApp_Operation = `
+mutation UnlinkGithubApp ($orgRef: ID!) {
+	unlinkGithubApp(orgRef: $orgRef) {
+		... OrgGithubFields
+	}
+}
+fragment OrgGithubFields on Organization {
+	id
+	urn
+	githubAppId
+	githubInstallationId
+	hasGithubAppPrivateKey
+}
+`
+
+func UnlinkGithubApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+) (data_ *UnlinkGithubAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UnlinkGithubApp",
+		Query:  UnlinkGithubApp_Operation,
+		Variables: &__UnlinkGithubAppInput{
+			OrgRef: orgRef,
+		},
+	}
+
+	data_ = &UnlinkGithubAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UnlockNodeRoleRule.
 const UnlockNodeRoleRule_Operation = `
 mutation UnlockNodeRoleRule ($ref: ID!, $expectedRevision: Int!) {
@@ -182228,6 +182918,54 @@ func UpdateObject(
 	}
 
 	data_ = &UpdateObjectResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateOrgGithubApp.
+const UpdateOrgGithubApp_Operation = `
+mutation UpdateOrgGithubApp ($orgRef: ID!, $appId: String!, $privateKey: String!) {
+	updateOrgGithubApp(orgRef: $orgRef, appId: $appId, privateKey: $privateKey) {
+		... OrgGithubFields
+	}
+}
+fragment OrgGithubFields on Organization {
+	id
+	urn
+	githubAppId
+	githubInstallationId
+	hasGithubAppPrivateKey
+}
+`
+
+// privateKey is required: set-app always sets the credentials as a pair, so
+// there is no omit-vs-clear distinction to preserve (unlike
+// updateOrganization) and no omitempty annotations here.
+func UpdateOrgGithubApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	appId string,
+	privateKey string,
+) (data_ *UpdateOrgGithubAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateOrgGithubApp",
+		Query:  UpdateOrgGithubApp_Operation,
+		Variables: &__UpdateOrgGithubAppInput{
+			OrgRef:     orgRef,
+			AppId:      appId,
+			PrivateKey: privateKey,
+		},
+	}
+
+	data_ = &UpdateOrgGithubAppResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
