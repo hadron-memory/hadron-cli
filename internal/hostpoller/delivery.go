@@ -53,7 +53,10 @@ type Deliverer interface {
 // cli#2663): delivery goes off only after scopeConfirmations consecutive
 // steps answer it, and an off state re-checks on a backoff and turns itself
 // back on when a read succeeds. Host operations carry on throughout.
-var ErrDeliveryScope = errors.New("the host key lacks attention:deliver: delivery is off until a re-check succeeds")
+var ErrDeliveryScope = errors.New("the host key lacks attention:deliver")
+
+// scopeOffText is the one fixed line a confirmed verdict logs.
+const scopeOffText = "the host key lacks attention:deliver: delivery is off until a re-check succeeds"
 
 const (
 	// scopeConfirmations is how many consecutive delivery steps must answer
@@ -156,14 +159,20 @@ func (p *Poller) deliverStep(ctx context.Context) {
 	if !ok {
 		return
 	}
+	// The batch read is the evidence about the key's scope: wakes share the
+	// key, so a wake-only refusal beside a good batch read is that read
+	// failing, never a verdict (and never keeps an off state from healing).
 	read := p.batchStep(ctx)
+	wakeRefused := false
 	if read != delivery.StepOffByScope && p.wakesEnabled() && ctx.Err() == nil {
-		if p.wakeStep(ctx) == delivery.StepOffByScope {
-			read = delivery.StepOffByScope
-		}
+		wakeRefused = p.wakeStep(ctx) == delivery.StepOffByScope
 	}
-	read = p.scopeVerdict(read, probing)
-	p.stepDone(read)
+	code := p.scopeVerdict(read, probing)
+	if wakeRefused && code == delivery.StepRead {
+		p.log("delivery-failed", "", "", "", "reading wakes failed: scope refused while batches read")
+		code = delivery.StepReadFailed
+	}
+	p.stepDone(code)
 }
 
 // deliveryDue reports whether this step reads, and whether it is a re-check
@@ -192,7 +201,7 @@ func (p *Poller) scopeVerdict(read string, probing bool) string {
 		p.scopeStreak++
 		if !probing && p.scopeStreak < scopeConfirmations {
 			p.mu.Unlock()
-			p.log("delivery-failed", "", "", "", "the host key's scope was refused once: delivery stays on until it is confirmed")
+			p.log("delivery-failed", "", "", "", "the host key's scope was refused: delivery stays on until it is confirmed")
 			return delivery.StepReadFailed
 		}
 		first := !p.deliveryOff
@@ -201,7 +210,7 @@ func (p *Poller) scopeVerdict(read string, probing bool) string {
 		p.recheckAt = p.now().Add(p.recheckEvery)
 		p.mu.Unlock()
 		if first {
-			p.log("delivery-off", "", "", "", ErrDeliveryScope.Error())
+			p.log("delivery-off", "", "", "", scopeOffText)
 		}
 		return delivery.StepOffByScope
 	case delivery.StepRead:

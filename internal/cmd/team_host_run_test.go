@@ -385,10 +385,10 @@ func TestTeamHostRunOnceOneScopeRefusalDoesNotTurnDeliveryOff(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("run --once: %v", err)
 	}
-	if strings.Contains(out.String(), "delivery-off") || !strings.Contains(out.String(), "scope was refused once") {
+	if strings.Contains(out.String(), "delivery-off") || !strings.Contains(out.String(), "delivery stays on until it is confirmed") {
 		t.Errorf("one refusal is a failed read, not the verdict:\n%s", out.String())
 	}
-	if d := hostStatusJSON(t, cfg).Delivery; d.Mode == "off-by-scope" {
+	if d := hostStatusJSON(t, cfg).Delivery; d.Mode != "enabled" {
 		t.Fatalf("delivery %+v", d)
 	}
 }

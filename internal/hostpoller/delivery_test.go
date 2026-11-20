@@ -142,8 +142,10 @@ func hasEvent(events []Event, kind, detail string) bool {
 	return false
 }
 
-func TestAMissingScopeSwitchesDeliveryOffForTheRunOnly(t *testing.T) {
+func TestAConfirmedMissingScopeSwitchesDeliveryOffAndHostOperationsCarryOn(t *testing.T) {
 	p, srv, _, src, _ := deliveryPoller(t)
+	now := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	p.now = func() time.Time { return now } // the third step stays inside the backoff
 	events := recordEvents(p)
 	src.err = ErrDeliveryScope
 	srv.batches = [][]Operation{{}, {}, {{ID: "o1", Type: "shell.exec"}}}
@@ -430,4 +432,41 @@ func countEvents(events []Event, kind string) int {
 		}
 	}
 	return n
+}
+
+// A failed re-check (not a scope answer) leaves the state off and waits out
+// the same backoff; healing then resets it, so the next episode starts at
+// the minimum again.
+func TestAFailedRecheckWaitsItsBackoffAndHealingResetsIt(t *testing.T) {
+	p, _, _, src, _ := deliveryPoller(t)
+	now := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
+	p.now = func() time.Time { return now }
+	src.err = ErrDeliveryScope
+	step(t, p)
+	step(t, p) // off, re-check in 1 min
+	src.err = errors.New("gateway 502")
+	now = now.Add(time.Minute)
+	step(t, p) // the re-check cannot read: still off, due again in 1 min
+	if p.DeliveryEnabled() || src.calls != 3 {
+		t.Fatalf("enabled %v calls %d", p.DeliveryEnabled(), src.calls)
+	}
+	now = now.Add(30 * time.Second)
+	step(t, p)
+	if src.calls != 3 {
+		t.Fatalf("a failed re-check waits its backoff: %d", src.calls)
+	}
+	src.err = nil
+	now = now.Add(31 * time.Second)
+	step(t, p) // heals
+	if !p.DeliveryEnabled() {
+		t.Fatal("did not heal")
+	}
+	src.err = ErrDeliveryScope
+	step(t, p)
+	step(t, p) // a new episode: back to the minimum backoff
+	now = now.Add(time.Minute)
+	step(t, p)
+	if p.DeliveryEnabled() || src.calls != 7 {
+		t.Fatalf("enabled %v calls %d", p.DeliveryEnabled(), src.calls)
+	}
 }

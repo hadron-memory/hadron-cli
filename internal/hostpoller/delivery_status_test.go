@@ -3,7 +3,7 @@ package hostpoller
 import (
 	"context"
 	"errors"
-	"fmt"
+	"slices"
 	"testing"
 	"time"
 )
@@ -26,7 +26,7 @@ func TestDeliveryStepReportsItsRead(t *testing.T) {
 				wantAll = []string{"read-failed", want}
 			}
 			p.deliverStep(context.Background())
-			if fmt.Sprint(got) != fmt.Sprint(wantAll) {
+			if !slices.Equal(got, wantAll) {
 				t.Fatalf("reported %v, want %v", got, wantAll)
 			}
 		})
