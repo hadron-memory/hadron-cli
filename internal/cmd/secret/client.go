@@ -213,7 +213,7 @@ was lost: the error says which, and how to ask again).`,
 				if perr := renderIssue(f, dto); perr != nil {
 					return perr
 				}
-				return signingStepError(err, issued.GrantId)
+				return signingStepError(err, issued.GrantId, issued.ClientId)
 			}
 			dto.SigningRequest = signingFrom(req)
 			if !f.JSON {
@@ -233,7 +233,7 @@ was lost: the error says which, and how to ask again).`,
 					output.SafeCell(dto.SigningRequest.ID), output.SafeCell(dto.SigningRequest.ID))
 			}
 			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "waiting for a signature at %s\n", dto.SigningRequest.CeremonyURL)
-			last, werr := pollSigning(ctx, client, req.Id, waitTimeout)
+			last, werr := pollSigning(ctx, client, req.Id, issued.ClientId, waitTimeout)
 			if last != nil {
 				dto.SigningRequest = last
 			}
@@ -266,9 +266,23 @@ func issueError(err error) error {
 	return mapped
 }
 
+// withoutClientID projects a mapped signing error so the issued client's id never
+// reaches the terminal or the --json error envelope, even if the server echoes it
+// in its message or its code (the id is half of a read: it appears in issue and
+// list output only). The exit code is kept; a server code that carries the id is
+// dropped, as setTokenError drops a code that carries a token.
+func withoutClientID(mapped, raw error, clientID string) error {
+	msg := strings.ReplaceAll(mapped.Error(), clientID, "[client id]")
+	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
+	if clientID != "" && strings.Contains(api.ServerCodeOf(raw), clientID) {
+		return safe
+	}
+	return api.WithServerCode(safe, raw)
+}
+
 // signingStepError maps a refused signing request after a successful issue. It
-// names the grant that was created (the client id is not repeated in an error).
-func signingStepError(err error, grantID string) error {
+// names the grant that was created and never repeats the client id.
+func signingStepError(err error, grantID, clientID string) error {
 	mapped := cmdutil.MapGrantSigningError(err)
 	msg := fmt.Sprintf("%s; the read client's grant %s was created and is pending, and allows nothing until a person signs it",
 		mapped.Error(), output.SafeCell(grantID))
@@ -277,7 +291,7 @@ func signingStepError(err error, grantID string) error {
 		// Asking again is safe for a pending grant, so name that, never resend.
 		msg += fmt.Sprintf("; a signing request may exist: run `hadron team grant request-signature %s` to ask again", output.SafeCell(grantID))
 	}
-	return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), err)
+	return withoutClientID(api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), err), err, clientID)
 }
 
 // pollSigning re-reads the signing request until its state is not OPEN or the
@@ -285,7 +299,7 @@ func signingStepError(err error, grantID string) error {
 // returns the last request it read (nil if none) and the exit-coded outcome: nil
 // for COMPLETED, 13 on timeout, 5 for an ended request, the mapped error for a
 // failed read. A timeout never withdraws the request.
-func pollSigning(parent context.Context, client graphql.Client, id string, timeout time.Duration) (*signingDTO, error) {
+func pollSigning(parent context.Context, client graphql.Client, id, clientID string, timeout time.Duration) (*signingDTO, error) {
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	var last *signingDTO
@@ -312,7 +326,7 @@ func pollSigning(parent context.Context, client graphql.Client, id string, timeo
 			if ctx.Err() != nil {
 				return last, timedOut()
 			}
-			return last, cmdutil.MapGrantSigningError(err)
+			return last, withoutClientID(cmdutil.MapGrantSigningError(err), err, clientID)
 		}
 		if resp == nil || resp.GrantSigningRequest == nil {
 			return last, exitcode.Newf(exitcode.NotFound, "signing request %s not found (or not visible to this caller)", output.SafeCell(id))
@@ -398,15 +412,19 @@ through and --all walks every page.`,
 				if err != nil {
 					return nil, api.MapErrorKeepingCode(err)
 				}
-				var page []clientDTO
-				if resp != nil {
-					for _, c := range resp.MySecretReadClients {
-						if c == nil {
-							continue
-						}
-						page = append(page, clientDTO{ClientID: c.ClientId, GrantID: c.GrantId, SecretID: c.SecretId,
-							SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
+				// The list is declared non-null with non-null rows. A missing or null
+				// list, or a null row, is a malformed answer, never an empty success
+				// (and a dropped row would shift the --all offsets).
+				if resp == nil || resp.MySecretReadClients == nil {
+					return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
+				}
+				page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+				for _, c := range resp.MySecretReadClients {
+					if c == nil {
+						return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
 					}
+					page = append(page, clientDTO{ClientID: c.ClientId, GrantID: c.GrantId, SecretID: c.SecretId,
+						SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
 				}
 				return page, nil
 			}

@@ -526,3 +526,60 @@ func TestSecretClientIssueLostSigningAnswer2631(t *testing.T) {
 		t.Errorf("the issue must still print: %s", out)
 	}
 }
+
+// Joost's F1: a signing failure whose server text or code echoes the client id
+// must not carry it into the error (the real renderer's JSON error message
+// included); the client record stays on stdout.
+func TestSecretClientIssueSigningErrorDoesNotEchoTheClientID2631(t *testing.T) {
+	for name, body := range map[string]string{
+		"message echoes": `{"errors":[{"message":"signing refused for cl-2631","extensions":{"code":"SERVER_BUSY"}}]}`,
+		"code echoes":    `{"errors":[{"message":"busy","extensions":{"code":"BUSY_cl-2631"}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, _ := attnServer(t, map[string]string{"IssueSecretReadClient": clientIssued2631, "TeamRequestGrantSignature": body})
+			f, out := testFactory(t)
+			var errOut strings.Builder
+			f.IOStreams.ErrOut = &errOut
+			f.JSON = true
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"secret", "client", "issue", "s1", "--reason", "r", "--json", "--server", srv.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected the signing refusal")
+			}
+			renderError(f, err)
+			if strings.Contains(err.Error(), "cl-2631") || strings.Contains(errOut.String(), "cl-2631") {
+				t.Errorf("the client id must not reach the error or the rendered envelope: %v / %q", err, errOut.String())
+			}
+			if !strings.Contains(out.String(), "cl-2631") {
+				t.Errorf("the client record must stay on stdout: %q", out.String())
+			}
+		})
+	}
+}
+
+// Joost's F2: a missing or null list, or a null row, is a malformed answer
+// (exit 1), never a successful empty list; a genuine [] stays a success. Both the
+// paged and the --all paths.
+func TestSecretClientListMalformedAnswerIsAnError2631(t *testing.T) {
+	for name, body := range map[string]string{
+		"missing data": `{"data":{}}`,
+		"null list":    `{"data":{"mySecretReadClients":null}}`,
+		"null element": `{"data":{"mySecretReadClients":[null]}}`,
+		"null data":    `{"data":null}`,
+	} {
+		for _, all := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/all=%t", name, all), func(t *testing.T) {
+				srv, _ := attnServer(t, map[string]string{"MySecretReadClients": body})
+				args := []string{"list", "--json"}
+				if all {
+					args = append(args, "--all")
+				}
+				out, _, err := runSecretClient2631(t, srv.URL, args...)
+				if err == nil || exitCodeFor(err) == 0 || strings.TrimSpace(out) == "[]" {
+					t.Fatalf("a malformed answer must be an error, not []: exit=%d out=%q err=%v", exitCodeFor(err), out, err)
+				}
+			})
+		}
+	}
+}
