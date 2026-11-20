@@ -455,7 +455,7 @@ processChatResponse  gap #64
 publishAgentImport  gap #58
 publishRevision  command agent revision publish
 purgeUnansweredQuestion  command decision purge
-pushMemoryToGit  gap #60
+pushMemoryToGit  gap #2513
 reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
