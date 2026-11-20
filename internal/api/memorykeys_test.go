@@ -466,3 +466,64 @@ func TestRawGraphQLNeverRendersAnUnlockEcho(t *testing.T) {
 		}
 	}
 }
+
+// cli#2704 (Rook F1): Go escapes U+2028/U+2029 even with SetEscapeHTML(false),
+// Node's JSON.stringify writes them raw — so the spellings a Node echo would
+// actually carry (backslash-escaped quote with the RAW line separator, at
+// depth 1 and 2) are distinct strings the generator on main never produces.
+func TestEscapedSpellingsNodeLineSeparatorSet2704(t *testing.T) {
+	pass := "p\"q\u2028r"
+	got := escapedSpellings([]string{pass})
+	want := []string{
+		pass,                // the literal
+		`p\"q\u2028r`,       // Go depth 1 (both HTML forms agree here)
+		"p\\\"q\u2028r",     // Node depth 1: \" with the raw separator
+		`p\\\"q\u2028r`,     // Go depth 2
+		"p\\\\\\\"q\u2028r", // Node depth 2: \\\" with the raw separator
+	}
+	for _, w := range want {
+		found := false
+		for _, g := range got {
+			if g == w {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("spelling %q missing from %q", w, got)
+		}
+	}
+	for i := 1; i < len(got); i++ {
+		if len(got[i-1]) < len(got[i]) {
+			t.Errorf("spellings not longest-first: %q before %q", got[i-1], got[i])
+		}
+	}
+}
+
+// cli#2704 (Rook F1), composed: an error body echoing the NODE-form spelling
+// of an --unlock passphrase (backslash-escaped quote with the RAW line
+// separator) must be scrubbed through the real secrets list (WithMemoryKeys →
+// keys.secrets → redactUnlockSecrets). The body is built with json.Marshal so
+// the decoded message carries the spelling exactly; the assertion is the
+// strong one — no spelling of the passphrase may survive, in any re-encoding
+// (the scrubber re-encodes with Go's encoder, which re-escapes U+2028).
+func TestUnlockNodeLineSeparatorEchoIsScrubbed2704(t *testing.T) {
+	pass := "S3\u2028NT\"K"
+	ctx, err := WithMemoryKeys(context.Background(), []MemoryKey{{Memory: "hrn:mem:acme.com:kb", Passphrase: pass}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, _ := memoryKeysFrom(ctx)
+	msg := "echo S3\u2028NT\\\"K back"
+	body, err := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": msg}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(redactUnlockSecrets(500, body, keys.secrets))
+	if strings.Contains(out, "S3") {
+		t.Fatalf("a spelling of the passphrase survived: %s", out)
+	}
+	if !hasGraphQLErrorsEnvelope([]byte(out)) {
+		t.Fatalf("envelope lost: %s", out)
+	}
+}
