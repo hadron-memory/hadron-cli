@@ -717,9 +717,13 @@ func nonAbsoluteConfigPath(path string, volumeName func(string) string, isSepara
 // last separator without cleaning: "root/link/../host.yaml" gives
 // "root/link/..", which the kernel resolves to the directory it loaded the file
 // from.
-func writtenDir(path string) string {
+func writtenDir(path string) string { return writtenDirSep(path, filepath.Separator) }
+
+// writtenDirSep is writtenDir for a given native separator, so the Windows
+// root forms can be pinned on any host.
+func writtenDirSep(path string, sep rune) string {
 	i := strings.LastIndexByte(path, '/')
-	if j := strings.LastIndexByte(path, filepath.Separator); j > i {
+	if j := strings.LastIndexByte(path, byte(sep)); j > i {
 		i = j
 	}
 	if i < 0 {
@@ -728,8 +732,10 @@ func writtenDir(path string) string {
 	if i == 0 { // a root-level file: the parent is the root, never ""
 		return path[:1]
 	}
-	if filepath.Separator == '\\' && i == 2 && path[1] == ':' { // a drive root: "C:\x" -> "C:\"
-		return path[:3]
+	// A drive root, plain or extended-length ("C:\x", "\\?\C:\x"): the parent
+	// keeps its separator, as filepath.Dir does.
+	if sep == '\\' && path[i-1] == ':' {
+		return path[:i+1]
 	}
 	return path[:i]
 }
@@ -751,14 +757,16 @@ func resolvedStateDir(stateFile string) string {
 			return r
 		}
 		b := filepath.Base(cur)
-		if b == ".." || b == "." || b == string(filepath.Separator) {
+		if b == ".." || b == string(filepath.Separator) {
 			return filepath.Dir(stateFile)
 		}
 		up := writtenDir(cur)
 		if up == cur {
 			return filepath.Dir(stateFile)
 		}
-		tail = append(tail, b)
+		if b != "." { // a "." names the directory it is in: no step, no tail entry
+			tail = append(tail, b)
+		}
 		cur = up
 	}
 }

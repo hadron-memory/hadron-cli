@@ -160,8 +160,12 @@ func TestDeliveryStateDirAgreesAcrossSpellings2674(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a, b := via.DeliveryStateDir(), direct.DeliveryStateDir(); a != b {
-		t.Fatalf("delivery dirs differ across spellings: %q vs %q", a, b)
+	realDir, err := filepath.EvalSymlinks(filepath.Dir(via.StateFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, b := via.DeliveryStateDir(), direct.DeliveryStateDir(); a != b || a != realDir {
+		t.Fatalf("delivery dirs must both be the real state directory %q: %q vs %q", realDir, a, b)
 	}
 }
 
@@ -184,5 +188,34 @@ func TestResolvedStateDirMissingTail2674(t *testing.T) {
 	got := resolvedStateDir(root + "/gone/../x/state.json")
 	if want := filepath.Dir(root + "/gone/../x/state.json"); got != want {
 		t.Fatalf("a '..' after a missing name must fall back lexically: got %q want %q", got, want)
+	}
+}
+
+// A "." after a missing name is a no-op in the walk, so the directory is the
+// same before and after the first save creates it (cli#2674, blind round 4).
+func TestResolvedStateDirDotAfterMissing2674(t *testing.T) {
+	root, _ := linkedConfigSite(t)
+	state := root + "/link/../nested/./state.json"
+	before := resolvedStateDir(state)
+	if err := os.MkdirAll(writtenDir(state), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if after := resolvedStateDir(state); after != before {
+		t.Fatalf("the directory moved when it was created: %q -> %q", before, after)
+	}
+}
+
+// Windows root forms, on any host: a drive root, plain or extended-length,
+// keeps its separator; the portable cases are unchanged.
+func TestWrittenDirWindowsRoots2674(t *testing.T) {
+	for in, want := range map[string]string{
+		`C:\state.json`:         `C:\`,
+		`\\?\C:\state.json`:     `\\?\C:\`,
+		`\\?\C:\cfg\state.json`: `\\?\C:\cfg`,
+		`C:\a\b`:                `C:\a`,
+	} {
+		if got := writtenDirSep(in, '\\'); got != want {
+			t.Fatalf("writtenDirSep(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
