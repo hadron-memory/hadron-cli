@@ -17,13 +17,13 @@ func NewCmdGrant(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "grant <command>",
 		Aliases: []string{"grants"},
-		Short:   "Manage organization-level action grants (retiring; App grants: hadron team grant)",
+		Short:   "Manage organization-level grants (retiring; see team grant)",
 		Long: `This is the organization-level grant, and it is retiring: App grants
 replace it. It gives one org member an extra management action, such as
 memory.clone, without raising their role. It cannot grant anything to a worker
 or inside an App. For an App grant, whose holder can be a person, an agent, a
 worker or an App, use hadron team grant (a worker or agent asks with hadron
-team grant request; for a secret, hadron secret client issue --worker).
+team grant request).
 
 A grant belongs to one org and one member. It may expire, can be revoked, and
 only applies while the person is a member (removing them suspends it). Org
