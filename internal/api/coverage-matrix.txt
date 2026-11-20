@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 309 command, 38 gap, 12 excluded
+[Mutation] 359: 313 command, 34 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -307,7 +307,7 @@ castWorker  command team worker cast
 changeWorkerAgent  command team worker change-agent
 claimContextReset  command team host run
 claimUntrackedTaskItems  command team task find-untracked
-clearAgentAIConfig  gap #58
+clearAgentAIConfig  command agent ai-config clear
 clearNodeHistory  command node revision clear
 cloneAgent  command agent clone
 cloneAgentTask  command team task clone
@@ -452,7 +452,7 @@ moveNode  command node move
 parkAgentTask  command team task park
 planNodeMove  command node move
 processChatResponse  gap #64
-publishAgentImport  gap #58
+publishAgentImport  command agent import publish
 publishRevision  command agent revision publish
 purgeUnansweredQuestion  command decision purge
 pushMemoryToGit  gap #2513
@@ -475,7 +475,7 @@ releaseAgentTaskExternalId  command team task release
 releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
-removeAgentImport  gap #58
+removeAgentImport  command agent import rm
 removeAgentTaskBlocker  command team task add-blocker
 removeAppMember  command app member remove
 removeMemoryFromAgent  command agent memory rm
@@ -483,7 +483,7 @@ removeMemoryMember  command memory member rm
 removeOrgMember  command org member rm
 renumberSpec  command spec renumber
 reopenCommentThread  command comment resolve
-repairAgentSystemMemory  gap #58
+repairAgentSystemMemory  command agent repair-system-memory
 replaceSubtree  excluded deprecated: @deprecated: Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.
 replyToComment  command comment reply
 reportContextResetAgentStopped  command team host run
