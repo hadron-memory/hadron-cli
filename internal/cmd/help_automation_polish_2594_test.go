@@ -39,3 +39,14 @@ func TestAutomationHelpNamesNoHashOrMaintainerCitation2594(t *testing.T) {
 		}
 	}
 }
+
+// cli#2594 (Vera, #124562): what re-adopting a MANUAL run means, worded as the
+// server's current behavior.
+func TestReAdoptHelpSaysWhatAManualReAdoptMeans2594(t *testing.T) {
+	h := strings.Join(strings.Fields(helpTree2508(t, "automation")["automation re-adopt"]), " ")
+	for _, want := range []string{"For a MANUAL run, give the id of the run you started by hand", "As the server behaves today", "the approval applies to that run only"} {
+		if !strings.Contains(h, want) {
+			t.Errorf("automation re-adopt help missing %q", want)
+		}
+	}
+}
