@@ -59,9 +59,9 @@ walk cannot read for any other reason is refused, not skipped — it cannot be
 judged part-way. Bare program names are
 resolved through `PATH` and the program found is judged. Names that do not
 resolve are skipped (starting that worker fails on them as before). A launch,
-end or recover program given as a relative path (a slash, not absolute) is
-refused: it is run from the worker's directory, which the check cannot know —
-a worker can have several worktrees and the directory is picked when the
+end or recover program, or a launcher account program, given as a relative path
+(a slash, not absolute) is refused: it is run from the worker's directory,
+which the check cannot know — a worker can have several worktrees and the directory is picked when the
 operation runs — so judging it against the poller's directory would judge one
 file and run another. The configuration file is read and judged through the
 path as it was written at start, made absolute by joining the working
