@@ -54296,11 +54296,11 @@ func (v *EmailDeleteMessageResponse) GetEmailDeleteMessage() bool { return v.Ema
 
 // EmailDisconnectResponse is returned by EmailDisconnect on success.
 type EmailDisconnectResponse struct {
-	DeleteExchangeConnection bool `json:"deleteExchangeConnection"`
+	DeleteExchangeConnection *bool `json:"deleteExchangeConnection"`
 }
 
 // GetDeleteExchangeConnection returns EmailDisconnectResponse.DeleteExchangeConnection, and is useful for accessing the field via an interface.
-func (v *EmailDisconnectResponse) GetDeleteExchangeConnection() bool {
+func (v *EmailDisconnectResponse) GetDeleteExchangeConnection() *bool {
 	return v.DeleteExchangeConnection
 }
 
@@ -54478,11 +54478,11 @@ func (v *EmailSendDraftResponse) GetEmailSendDraft() bool { return v.EmailSendDr
 
 // EmailTestConnectionResponse is returned by EmailTestConnection on success.
 type EmailTestConnectionResponse struct {
-	TestExchangeConnection bool `json:"testExchangeConnection"`
+	TestExchangeConnection *bool `json:"testExchangeConnection"`
 }
 
 // GetTestExchangeConnection returns EmailTestConnectionResponse.TestExchangeConnection, and is useful for accessing the field via an interface.
-func (v *EmailTestConnectionResponse) GetTestExchangeConnection() bool {
+func (v *EmailTestConnectionResponse) GetTestExchangeConnection() *bool {
 	return v.TestExchangeConnection
 }
 

@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -42,8 +45,8 @@ func TestEmailTest198(t *testing.T) {
 // nonzero exit, never as success, and with no reconnect advice of the CLI's own.
 func TestEmailTestFalseIsAFailedProbe198(t *testing.T) {
 	out, _, err := runEmail198(t, map[string]string{"EmailTestConnection": testFail198}, "test", "conn-1", "--json")
-	if err == nil {
-		t.Fatalf("a failed probe exited 0: %s", out)
+	if exitCodeFor(err) != 1 || requests198.Load() != 1 {
+		t.Fatalf("a failed probe: exit %d (%v) with %d requests; want exit 1 and one request: %s", exitCodeFor(err), err, requests198.Load(), out)
 	}
 	if !strings.Contains(out, `"ok": false`) {
 		t.Errorf("the failed probe is not in the output: %s", out)
@@ -156,6 +159,97 @@ func TestEmailDisconnectNotConfirmed198(t *testing.T) {
 	for _, bad := range []string{"not found", "already disconnected", "disconnected conn"} {
 		if strings.Contains(low, bad) {
 			t.Errorf("an unconfirmed delete says %q: %s %v", bad, out, err)
+		}
+	}
+}
+
+// runEmailTTY198 runs a command on an interactive terminal that answers with the
+// given lines; it returns stderr (where the prompt is drawn), the HTTP
+// request count, the captured variables and the error.
+func runEmailTTY198(t *testing.T, responses map[string]string, answers string, args ...string) (stderr string, n int, ops map[string]json.RawMessage, err error) {
+	t.Helper()
+	requests198.Store(0)
+	srv, ops := captureGraphQL(t, responses)
+	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			requests198.Add(1)
+		}
+		proxyTo198(t, w, r, srv.URL)
+	}))
+	t.Cleanup(counter.Close)
+	f, _, errOut := testFactoryTTY(t, answers)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"email"}, args...), "--server", counter.URL))
+	err = root.Execute()
+	return errOut.String(), int(requests198.Load()), ops, err
+}
+
+// The #2735 blind and local P2: a missing or null answer to the probe is NOT an
+// explicit false. Only a real false is "the probe did not pass" (exit 1, ok:false);
+// an absent or null result is unavailable (exit 7) and prints no definitive DTO.
+func TestEmailTestMissingResultIsNotAFailedProbe198(t *testing.T) {
+	for _, wire := range []string{`{"data":{}}`, `{"data":{"testExchangeConnection":null}}`} {
+		t.Run(wire, func(t *testing.T) {
+			out, _, err := runEmail198(t, map[string]string{"EmailTestConnection": wire}, "test", "conn-1", "--json")
+			if exitCodeFor(err) != 7 {
+				t.Fatalf("exit %d (%v), want 7 (unavailable)", exitCodeFor(err), err)
+			}
+			if strings.Contains(out, `"ok"`) {
+				t.Errorf("a missing result printed a definitive probe DTO: %s", out)
+			}
+			if requests198.Load() != 1 {
+				t.Errorf("%d requests", requests198.Load())
+			}
+		})
+	}
+	out, _, err := runEmail198(t, map[string]string{"EmailTestConnection": testFail198}, "test", "conn-1", "--json")
+	if exitCodeFor(err) != 1 || requests198.Load() != 1 || !strings.Contains(out, `"ok": false`) {
+		t.Errorf("an explicit false: exit %d (%v), %d requests, out %s; want exit 1, one request, ok:false", exitCodeFor(err), err, requests198.Load(), out)
+	}
+}
+
+// The #2735 local P2 (§10 delete boundary): the id shown in the destructive
+// prompt is made visible, never raw, while the id SENT stays exactly as given.
+// And the interactive safeguard itself is pinned: y sends one request; n and a
+// bare Enter send none.
+func TestEmailDisconnectPromptIsSafeAndAnswered198(t *testing.T) {
+	evil := "conn\x1b[2J\nforged: Delete everything? (y/N)"
+	stderr, n, _, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, "n\n", "disconnect", evil)
+	if err == nil || n != 0 {
+		t.Fatalf("declining must send nothing: err %v, %d requests", err, n)
+	}
+	if strings.ContainsRune(stderr, '\x1b') || strings.Contains(stderr, "\nforged:") {
+		t.Errorf("a control-bearing id reached the terminal raw:\n%q", stderr)
+	}
+	_, n, ops, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, "y\n", "disconnect", evil)
+	if err != nil || n != 1 {
+		t.Fatalf("accepting must send exactly one request: err %v, %d requests", err, n)
+	}
+	if got := vars198(t, ops, "EmailDisconnect")["id"]; got != evil {
+		t.Errorf("the id sent was changed: %q", got)
+	}
+	for _, ans := range []string{"\n", "no\n", ""} {
+		if _, n, _, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, ans, "disconnect", "conn-1"); err == nil || n != 0 {
+			t.Errorf("answer %q: err %v, %d requests; anything but y/yes sends nothing", ans, err, n)
+		}
+	}
+}
+
+// The group help describes what the group now does: it reads mail metadata AND
+// probes (recording sync status) and disconnects (deleting a connection record).
+func TestEmailGroupHelpDescribesTestAndDisconnect198(t *testing.T) {
+	f, _ := testFactory(t)
+	cmd, _, err := NewRootCmd(f).Find([]string{"email"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(cmd.Long), " ")
+	if strings.Contains(help, "only read") || strings.Contains(help, "only lists") {
+		t.Errorf("the group help still says it only reads: %q", help)
+	}
+	for _, want := range []string{"disconnect", "probe"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("the group help does not mention %q: %q", want, help)
 		}
 	}
 }

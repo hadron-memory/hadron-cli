@@ -3,6 +3,7 @@ package email
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -68,10 +69,12 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			if r == nil {
-				return exitcode.Newf(exitcode.Unavailable, "server returned no test result")
+			// An absent or null answer is a missing result, never a definite failed
+			// probe: only an explicit false is "did not pass".
+			if r == nil || r.TestExchangeConnection == nil {
+				return exitcode.Newf(exitcode.Unavailable, "server returned no probe result; the connection's state is unknown")
 			}
-			dto := testDTO{ConnectionID: id, OK: r.TestExchangeConnection}
+			dto := testDTO{ConnectionID: id, OK: *r.TestExchangeConnection}
 			if e := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.OK {
 					_, e := fmt.Fprintf(w, "connection %q: the server's probe passed\n", id)
@@ -128,7 +131,9 @@ Details:
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "connection "+id); err != nil {
+			// The prompt shows the id made visible (control and escape sequences
+			// neutralised); the id SENT is unchanged.
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "connection "+output.SafeCell(strconv.Quote(id))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -139,7 +144,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			if r == nil || !r.DeleteExchangeConnection {
+			if r == nil || r.DeleteExchangeConnection == nil || !*r.DeleteExchangeConnection {
 				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect; list the connections to see whether it still exists")
 			}
 			return output.Write(f.IOStreams, f.JSON, disconnectDTO{ConnectionID: id, Disconnected: true}, func(w io.Writer) error {
