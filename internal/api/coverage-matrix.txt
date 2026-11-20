@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 237: 202 command, 9 gap, 26 excluded
+[Query] 237: 203 command, 8 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -170,7 +170,7 @@ myChats  gap #64
 myChatsPage  gap #64
 myGrants  command auth grants
 myPasskeys  command auth passkey list
-mySecretReadClients  gap #2631: secret read clients
+mySecretReadClients  command secret client list
 myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213)
 myUserApiKeysPage  command auth token list
 nextNode  command node next
@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 316 command, 31 gap, 12 excluded
+[Mutation] 359: 317 command, 30 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -432,7 +432,7 @@ importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  command user invite
 issueHostOperation  command team host issue
-issueSecretReadClient  gap #2631: secret read clients
+issueSecretReadClient  command secret client issue
 joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
 leaveApp  command app leave
@@ -501,7 +501,7 @@ restoreRevision  command agent revision restore
 resumeSession  command team session start
 retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
-revealSecret  gap #2631: secret read clients
+revealSecret  gap #2664: secret exec and reveal (slice 2 of cli#2631)
 revokeAgentOrgGrant  gap #890
 revokeAgentSubscription  gap #890
 revokeAppGrant  command team grant rm

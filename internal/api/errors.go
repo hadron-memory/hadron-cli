@@ -1830,6 +1830,15 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "GRANT_NOT_PENDING" || code == "GRANT_EXPIRED" || code == "GRANT_TERMS_UNREPRESENTABLE":
 		return exitcode.Conflict
+	// cli#2631 (issuing a secret read client): auto-delete is refused until the
+	// server builds it, or needs a window or read budget: the caller's own input
+	// (2). A superseded issuer, or too many live clients on one secret, is the
+	// state of the secret, which no retry changes (5). Unmapped, they would fall
+	// to exit 1 and hide the cause behind "something failed".
+	case code == "SECRET_AUTO_DELETE_NOT_AVAILABLE" || code == "SECRET_AUTO_DELETE_NEEDS_LIMIT":
+		return exitcode.Usage
+	case code == "SECRET_READ_CLIENT_SUPERSEDED" || code == "SECRET_READ_CLIENT_LIMIT":
+		return exitcode.Conflict
 	// These are invalid inputs. The CLI validates or constructs them before
 	// calling the draft door; if one arrives anyway, keep its typed category.
 	case code == "SEARCH_REPLACE_NO_SELECTION" || code == "SEARCH_REPLACE_NO_FIELDS" || code == "SEARCH_REPLACE_BAD_LIMIT":
