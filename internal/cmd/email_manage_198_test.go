@@ -164,9 +164,9 @@ func TestEmailDisconnectNotConfirmed198(t *testing.T) {
 }
 
 // runEmailTTY198 runs a command on an interactive terminal that answers with the
-// given lines; it returns stderr (where the prompt is drawn), stdout, the HTTP
+// given lines; it returns stderr (where the prompt is drawn), the HTTP
 // request count, the captured variables and the error.
-func runEmailTTY198(t *testing.T, responses map[string]string, answers string, args ...string) (stderr, stdout string, n int, ops map[string]json.RawMessage, err error) {
+func runEmailTTY198(t *testing.T, responses map[string]string, answers string, args ...string) (stderr string, n int, ops map[string]json.RawMessage, err error) {
 	t.Helper()
 	requests198.Store(0)
 	srv, ops := captureGraphQL(t, responses)
@@ -177,11 +177,11 @@ func runEmailTTY198(t *testing.T, responses map[string]string, answers string, a
 		proxyTo198(t, w, r, srv.URL)
 	}))
 	t.Cleanup(counter.Close)
-	f, out, errOut := testFactoryTTY(t, answers)
+	f, _, errOut := testFactoryTTY(t, answers)
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{"email"}, args...), "--server", counter.URL))
 	err = root.Execute()
-	return errOut.String(), out.String(), int(requests198.Load()), ops, err
+	return errOut.String(), int(requests198.Load()), ops, err
 }
 
 // The #2735 blind and local P2: a missing or null answer to the probe is NOT an
@@ -214,14 +214,14 @@ func TestEmailTestMissingResultIsNotAFailedProbe198(t *testing.T) {
 // bare Enter send none.
 func TestEmailDisconnectPromptIsSafeAndAnswered198(t *testing.T) {
 	evil := "conn\x1b[2J\nforged: Delete everything? (y/N)"
-	stderr, _, n, _, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, "n\n", "disconnect", evil)
+	stderr, n, _, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, "n\n", "disconnect", evil)
 	if err == nil || n != 0 {
 		t.Fatalf("declining must send nothing: err %v, %d requests", err, n)
 	}
 	if strings.ContainsRune(stderr, '\x1b') || strings.Contains(stderr, "\nforged:") {
 		t.Errorf("a control-bearing id reached the terminal raw:\n%q", stderr)
 	}
-	_, _, n, ops, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, "y\n", "disconnect", evil)
+	_, n, ops, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, "y\n", "disconnect", evil)
 	if err != nil || n != 1 {
 		t.Fatalf("accepting must send exactly one request: err %v, %d requests", err, n)
 	}
@@ -229,7 +229,7 @@ func TestEmailDisconnectPromptIsSafeAndAnswered198(t *testing.T) {
 		t.Errorf("the id sent was changed: %q", got)
 	}
 	for _, ans := range []string{"\n", "no\n", ""} {
-		if _, _, n, _, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, ans, "disconnect", "conn-1"); err == nil || n != 0 {
+		if _, n, _, err := runEmailTTY198(t, map[string]string{"EmailDisconnect": discOK198}, ans, "disconnect", "conn-1"); err == nil || n != 0 {
 			t.Errorf("answer %q: err %v, %d requests; anything but y/yes sends nothing", ans, err, n)
 		}
 	}

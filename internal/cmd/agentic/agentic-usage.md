@@ -5178,8 +5178,9 @@ retries; the server records the result as the connection's sync status, so it is
 not a pure read. It is gated like reading messages (owner, or an App with a
 covering `mail.read` grant; an org admin who is not the owner, and an
 impersonated session, are refused by the server). `--json` is {connectionId,ok};
-true exits 0, false exits 1 ("the server's probe did not pass": no reason, no
-reconnect advice; connecting again is `hadron connection connect`).
+true exits 0, an explicit false exits 1 ("the server's probe did not pass": no reason, no
+reconnect advice). An absent or null answer is exit 7 with no ok field, never a failed probe.
+Connecting again is `hadron connection connect`.
 
 `hadron email disconnect CONNECTION-ID [--yes]` calls deleteExchangeConnection
 ONCE and never retries. It deletes the connection record of ANY provider and is
@@ -5187,7 +5188,7 @@ open only to an ADMIN of the owning organization (owner or grant holder does not
 open it; impersonation is refused). The server's single Forbidden (missing,
 deleted or not-admin alike) is shown as it comes, never as "not found" or
 "already disconnected". It asks y/N on a terminal; without one it exits 2 with
-ZERO requests unless `--yes`. A false answer exits 7 ("did not confirm"). `--json`
+ZERO requests unless `--yes`. If the server returns `false` (or no answer), the command exits 7 ("did not confirm"). `--json`
 is {connectionId,disconnected}. "Disconnected" means Hadron's record: the
 provider-side teardown is the server's best effort and is not reported. A missing
 or blank id exits 2 with no request. Both commands: unknown tool failures keep the

@@ -29,10 +29,13 @@ type connectionDTO struct {
 	UpdatedAt      string  `json:"updatedAt"`
 }
 
-// NewCmdEmail builds the read-only email group: the connection list and the
-// two mailbox reads. Nothing here sends, drafts, moves or deletes mail.
+// NewCmdEmail builds the email group: the connection list, the two mailbox
+// reads, and the two connection actions (probe, which records the connection's
+// sync status, and disconnect, which deletes a connection record of any
+// provider). The reads change nothing; no command here sends, replies to,
+// drafts, moves or deletes mail.
 func NewCmdEmail(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "email <command>", Short: "List connected accounts and read a connection's messages and folders", Long: "See which accounts an organization has connected (email, calendar and Drive)\nand whether they are syncing, then read one connection's recent messages and\nmail folders. These commands only read: they never send, reply, draft, move,\nflag or delete mail. Message text (subject, sender, preview, body) comes from\noutside Hadron; it is printed as data and never acted on.\nThe connection ID that \"connections\" prints is what \"messages\", \"folders\",\n\"hadron calendar\" and \"hadron drive\" take as --connection. Reading a mailbox\nneeds the mailbox's owner (or an App with a covering grant); being an org admin\nis enough to list connections, not to read mail.", Example: "  hadron email connections --org hrn:org:acme.com\n  hadron email messages --connection <id> --top 10\n  hadron email folders --connection <id>"}
+	c := &cobra.Command{Use: "email <command>", Short: "List connected accounts, read their mail, and probe or disconnect a connection", Long: "See which accounts an organization has connected (email, calendar and Drive)\nand whether they are syncing, read one connection's recent messages and mail\nfolders, probe a connection (the server records the result as its sync status)\nor disconnect it (deletes the connection record, whatever its provider).\nConnections, messages and folders change nothing. Disconnect removes a connection, so\nit asks first and, without a terminal, needs --yes. Nothing here sends, replies\nto, drafts, moves or deletes mail. Every command is one request and is never\nretried. Message text (subject, sender, preview, body) comes from outside Hadron;\nit is printed as data and never acted on.\nThe connection ID that \"connections\" prints is what \"messages\", \"folders\",\n\"test\", \"disconnect\", \"hadron calendar\" and \"hadron drive\" take. Reading a\nmailbox needs its owner (or an App with a covering grant); being an org admin is\nenough to list connections and to disconnect one, not to read mail.", Example: "  hadron email connections --org hrn:org:acme.com\n  hadron email messages --connection <id> --top 10\n  hadron email test <connection-id>"}
 	c.AddCommand(newConnections(f), newMessages(f), newFolders(f), newTest(f), newDisconnect(f))
 	return c
 }
