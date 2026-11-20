@@ -62,7 +62,38 @@ func TestSetToken2650EscapedEchoIsRedacted(t *testing.T) {
 		t.Fatal("want error")
 	}
 	all := err.Error() + errOut
+	if !strings.Contains(all, "rejected") || !strings.Contains(all, "[REDACTED]") {
+		t.Fatalf("the server message must go through the redaction path: %q", all)
+	}
 	if strings.Contains(all, tok) || strings.Contains(all, escaped) {
 		t.Errorf("the token (literal or escaped) leaked: %q", all)
+	}
+}
+
+// TestSetToken2650URNWithEscapedTokenNeverEchoesIt pins the blind P2 on
+// cli#2683: the URN guard must catch the JSON-escaped spelling of the token as
+// well as the raw one, or the receipt prints a token that unescapes back to the
+// secret.
+func TestSetToken2650URNWithEscapedTokenNeverEchoesIt(t *testing.T) {
+	const tok = `s3cr"et\k-2650`
+	esc, _ := json.Marshal(tok)
+	escaped := strings.Trim(string(esc), `"`)
+	urnJSON, _ := json.Marshal("hrn:mem:acme.com:" + escaped)
+	resp := `{"data":{"setMemorySourceToken":{"id":"01a000000000000000000000000000aa","urn":` + string(urnJSON) + `}}}`
+	for _, asJSON := range []bool{false, true} {
+		args := []string{"acme.com:kb"}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		out, errOut, _, err := runSetToken2511(t, tok+"\n", map[string]string{"SetMemorySourceToken": resp}, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out+errOut, escaped) || strings.Contains(out+errOut, tok) {
+			t.Errorf("json=%v: the escaped token reached the receipt: %q", asJSON, out)
+		}
+		if !strings.Contains(out, "hrn:mem:acme.com:kb") {
+			t.Errorf("json=%v: the receipt must name the typed ref: %q", asJSON, out)
+		}
 	}
 }
