@@ -907,14 +907,17 @@ func TestEmailBodyCommandsWithholdNon200Envelopes198(t *testing.T) {
 // and update print a CLI-owned message and keep a nonzero exit, in text and --json.
 func TestEmailBodyCommandsWithholdDecodeErrors198(t *testing.T) {
 	body := bodyFile198(t, "line one SECRET-A")
-	for _, answer := range []string{`{"data": SECRET-A`, `SECRET-A not json`, `{"data":{"emailSaveDraft":"SECRET-A"}}`, `{"data":{"emailUpdateDraft":"SECRET-A"}}`} {
-		for _, c := range []struct {
-			name string
-			args []string
-		}{
-			{"draft save", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}},
-			{"draft update", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}},
-		} {
+	for _, c := range []struct {
+		name    string
+		args    []string
+		answers []string
+	}{
+		{"draft save", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body},
+			[]string{`{"data": SECRET-A`, `SECRET-A not json`, `{"data":{"emailSaveDraft":"SECRET-A"}}`}},
+		{"draft update", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body},
+			[]string{`{"data": SECRET-A`, `SECRET-A not json`, `{"data":{"emailUpdateDraft":"SECRET-A"}}`}},
+	} {
+		for _, answer := range c.answers {
 			for _, jsonOut := range []bool{false, true} {
 				t.Run(c.name+" "+answer, func(t *testing.T) {
 					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -942,6 +945,9 @@ func TestEmailBodyCommandsWithholdDecodeErrors198(t *testing.T) {
 					all := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String() + err.Error()
 					if strings.Contains(all, "SECRET-A") {
 						t.Errorf("(json=%v) the server's bytes reached the output: %s", jsonOut, all)
+					}
+					if !strings.Contains(all, "withheld") {
+						t.Errorf("(json=%v) the CLI-owned fallback message is missing: %s", jsonOut, all)
 					}
 				})
 			}
@@ -1040,5 +1046,12 @@ func TestEmailAmbiguousDraftSaveKeyGuidance198(t *testing.T) {
 	with := run("--idempotency-key", "k-1")
 	if !strings.Contains(with, "same --idempotency-key") || strings.Contains(with, "no idempotency key") {
 		t.Errorf("a save with a key must say to retry with the SAME key: %s", with)
+	}
+	// An explicitly EMPTY key is sent unchanged (the server judges it) but enables no
+	// deduplication (the server treats an empty key as none), so the guidance is the
+	// no-protection warning, never the "same key" assurance (Baloo's and Joost's P2).
+	empty := run("--idempotency-key", "")
+	if strings.Contains(empty, "same --idempotency-key") || !strings.Contains(empty, "no idempotency key") {
+		t.Errorf("an empty key must get the no-protection warning: %s", empty)
 	}
 }
