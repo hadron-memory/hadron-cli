@@ -444,3 +444,63 @@ func TestFindingDispositions1709ReturnedNotSubmitted(t *testing.T) {
 		}
 	}
 }
+
+// cli#1709 (blind round 1): the readback field can fail after the write
+// committed. A GraphQL error whose path runs through findingDisposition is an
+// unconfirmed write (recovery guidance, one request); one on the write field
+// itself, or a pre-execution validation refusal, keeps its typed mapping and
+// is never described as "may have been recorded".
+func TestFindingDispositions1709ReadbackFieldError(t *testing.T) {
+	partial := `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+	nested := `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition","reference","target"]}]}`
+	for name, tc := range map[string]struct {
+		body        string
+		unconfirmed bool
+		wantExit    int
+	}{
+		"readback field error":  {partial, true, 1},
+		"readback nested error": {nested, true, 1},
+		"write field refusal":   {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"pathless refusal":      {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"readback plus write":   {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = tc.body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json")
+			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) != tc.wantExit {
+				t.Fatalf("err=%v out=%q calls=%d exit=%d want %d", err, out, len(*calls), exitCodeFor(err), tc.wantExit)
+			}
+			if got := strings.Contains(err.Error(), "may have been recorded"); got != tc.unconfirmed {
+				t.Fatalf("unconfirmed guidance = %v, want %v: %v", got, tc.unconfirmed, err)
+			}
+		})
+	}
+}
+
+// The instructed command (--instruction) handles an unusable readback, a
+// malformed body and a readback-field error the same way: exit 1, empty
+// output, one request, guidance that does not claim the write failed.
+func TestFindingDispositions1709InstructedUnusableReadback(t *testing.T) {
+	for name, body := range map[string]string{
+		"wrong finding id": `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F2","disposition":"fixed","reference":null}}}}`,
+		"null target":      `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}}}`,
+		"malformed body":   `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":`,
+		"wrong type":       `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":1,"disposition":"fixed"}}}}`,
+		"readback error":   `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"]}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFindingInstructed"] = body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json", "--instruction", "team-chat-message:"+taskInstructionRef2422)
+			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) == 0 {
+				t.Fatalf("err=%v out=%q calls=%d", err, out, len(*calls))
+			}
+			// A truncated body is a dropped connection to the client, which
+			// already says the write may have been applied.
+			if !strings.Contains(err.Error(), "may have been") || !strings.Contains(err.Error(), "before retrying") {
+				t.Fatalf("recovery guidance missing: %v", err)
+			}
+		})
+	}
+}

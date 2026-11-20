@@ -14,6 +14,8 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 type findingDispositionDTO struct {
@@ -233,7 +235,7 @@ server now holds; --json is {taskId, findingId, disposition, reference}
 				}
 			}
 			// Never fabricate a receipt from arguments: the readback must name
-			// this task, this exact finding id (no trimming or case folding),
+			// a task id, this exact finding id (no trimming or case folding),
 			// one of the four codes, and a complete reference when it has one.
 			if taskID != "" && validFindingReadback(got, a[1]) {
 				d := findingDispositionReceiptDTO{TaskID: taskID, findingDispositionDTO: findingDispositionFrom(*got)}
@@ -266,10 +268,46 @@ func errDispositionReadbackUnavailable() error {
 func disposeFindingError(err error) error {
 	var typeErr *json.UnmarshalTypeError
 	var syntaxErr *json.SyntaxError
-	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) {
+	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) || readbackFieldFailed(err) {
 		return errDispositionReadbackUnavailable()
 	}
 	return mapFindingError(err)
+}
+
+// readbackFieldFailed reports a GraphQL error raised while resolving the
+// readback field itself: its path runs through disposeAgentTaskFinding to
+// findingDisposition. The write field resolved first and its transaction has
+// committed, so the outcome is unconfirmed. An error on the write field (a path
+// that stops at disposeAgentTaskFinding, or none at all: a validation refusal
+// before execution) is a typed refusal and keeps its usual mapping.
+func readbackFieldFailed(err error) bool {
+	var list gqlerror.List
+	if !errors.As(err, &list) {
+		var one *gqlerror.Error
+		if !errors.As(err, &one) {
+			return false
+		}
+		list = gqlerror.List{one}
+	}
+	readback := false
+	for _, e := range list {
+		if e == nil || len(e.Path) == 0 {
+			return false
+		}
+		if len(e.Path) == 1 {
+			return false
+		}
+		root, _ := e.Path[0].(ast.PathName)
+		field, _ := e.Path[1].(ast.PathName)
+		if root != "disposeAgentTaskFinding" {
+			return false
+		}
+		if field != "findingDisposition" {
+			return false
+		}
+		readback = true
+	}
+	return readback
 }
 
 // validFindingReadback reports whether the targeted readback can be shown as the
