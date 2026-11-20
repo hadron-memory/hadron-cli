@@ -29,6 +29,11 @@ type Observation struct {
 	Reason     ts.Reason // "" when none
 	Family     string
 	LastTurnAt *time.Time
+	// ResetAt is the reset time of a rate_limited screen in UTC (cli#2676), nil
+	// when the screen shows none. ResetAssumedLocal: it carried no UTC offset,
+	// so it was read as now's (the host's) local time.
+	ResetAt           *time.Time
+	ResetAssumedLocal bool
 	// Detail is LOCAL only: for locked/unrecognized it names the screen line
 	// that could not be matched (cli#1856). Screen text, so it must never
 	// reach a report or a log; terminalstatus.Result.Detail is never marshalled.
@@ -48,6 +53,12 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 	// A terminal that cannot be typed into is never sendable.
 	if !t.Writable || !sc.usable() {
 		return held("")
+	}
+	// A usage-limit screen is its own state, and it outranks the composer
+	// reads below: the harness may draw an empty composer under the limit line.
+	if limited, resetAt, assumed := usageLimit(sc.Tail, now); limited {
+		return Observation{Status: ts.Locked, Prompt: ts.PromptUnknown, Reason: ts.RateLimited,
+			Family: ScreenAgentFamily(sc), ResetAt: resetAt, ResetAssumedLocal: assumed}
 	}
 	// Both families' chrome at once is ambiguity: Orca's identity must not
 	// break the tie.
@@ -166,4 +177,67 @@ func LastTurnAt(sc *Screen, family string, now time.Time) *time.Time {
 		return &at
 	}
 	return nil
+}
+
+// A usage-limit line, as a harness draws it: "429 Usage limit reached for 5
+// hour ... reset 2026-11-20 16:45:32 (UTC+8)". Only the LAST usageLimitWindow
+// non-blank lines count, so a limit line that has scrolled away above a live
+// composer does not hold an agent that has resumed.
+const usageLimitWindow = 8
+
+var (
+	usageLimitLine = regexp.MustCompile(`(?i)usage limit reached`)
+	// The reset time: "reset YYYY-MM-DD HH:MM:SS", then an optional "(UTC+8)",
+	// "(UTC-5)" or "(UTC+5:30)".
+	usageLimitReset = regexp.MustCompile(`(?i)\breset (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?: \(UTC(?:([+-])(\d{1,2})(?::?(\d{2}))?)?\))?`)
+)
+
+// usageLimit reports whether the screen shows a usage-limit line and, when it
+// also shows a parsable reset time, that time in UTC. A time with no offset is
+// read in now's location (the host's local time) and assumedLocal says so; one
+// that does not parse (an impossible date, an offset beyond +-14h) gives nil:
+// never guessed.
+func usageLimit(tail []string, now time.Time) (limited bool, resetAt *time.Time, assumedLocal bool) {
+	seen := 0
+	for i := len(tail) - 1; i >= 0 && seen < usageLimitWindow; i-- {
+		s := squash(tail[i])
+		if s == "" {
+			continue
+		}
+		seen++
+		if !usageLimitLine.MatchString(s) {
+			continue
+		}
+		m := usageLimitReset.FindStringSubmatch(s)
+		if m == nil {
+			return true, nil, false
+		}
+		n := make([]int, 7)
+		for j := 1; j <= 6; j++ {
+			n[j], _ = strconv.Atoi(m[j])
+		}
+		loc, assumed := now.Location(), true
+		if m[7] != "" {
+			oh, _ := strconv.Atoi(m[8])
+			om, _ := strconv.Atoi(m[9])
+			if oh > 14 || om > 59 {
+				return true, nil, false
+			}
+			secs := oh*3600 + om*60
+			if m[7] == "-" {
+				secs = -secs
+			}
+			loc, assumed = time.FixedZone("", secs), false
+		} else if strings.Contains(m[0], "(UTC") {
+			loc, assumed = time.UTC, false
+		}
+		at := time.Date(n[1], time.Month(n[2]), n[3], n[4], n[5], n[6], 0, loc)
+		// time.Date normalises an impossible field (month 13, hour 99): reject it.
+		if at.Year() != n[1] || int(at.Month()) != n[2] || at.Day() != n[3] || at.Hour() != n[4] || at.Minute() != n[5] || at.Second() != n[6] {
+			return true, nil, false
+		}
+		u := at.UTC()
+		return true, &u, assumed
+	}
+	return false, nil, false
 }
