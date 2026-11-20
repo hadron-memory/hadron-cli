@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -314,12 +315,12 @@ func TestSlackDisconnectAsksOnATerminal(t *testing.T) {
 // runSlackRendered runs slack connect through the same error renderer the binary
 // uses and returns everything either stream carried, so a leak anywhere in the
 // final envelope (message, serverCode, details) is measured, not just Error().
-func runSlackRendered(t *testing.T, op, wire string, jsonMode bool, args ...string) (all string, err error, ops int) {
+func runSlackRendered(t *testing.T, wire string, jsonMode bool, args ...string) (all string, ops int, err error) {
 	t.Helper()
 	var n int32
 	srv, _ := captureGraphQLFunc(t, func(o string) string {
 		atomic.AddInt32(&n, 1)
-		if o == op {
+		if o == "CreateSlackConnection" {
 			return wire
 		}
 		return ""
@@ -340,7 +341,7 @@ func runSlackRendered(t *testing.T, op, wire string, jsonMode bool, args ...stri
 	if stderr != nil {
 		all += stderr.String()
 	}
-	return all, err, int(atomic.LoadInt32(&n))
+	return all, int(atomic.LoadInt32(&n)), err
 }
 
 func connectArgs(t *testing.T) []string {
@@ -363,7 +364,7 @@ func TestSlackConnectNeverPrintsASubmittedTokenFromAnyServerText(t *testing.T) {
 		for name, wire := range cases {
 			for _, jsonMode := range []bool{true, false} {
 				t.Run(fmt.Sprintf("%s/%s/json=%v", name, tok[:8], jsonMode), func(t *testing.T) {
-					all, e, n := runSlackRendered(t, "CreateSlackConnection", wire, jsonMode, connectArgs(t)...)
+					all, n, e := runSlackRendered(t, wire, jsonMode, connectArgs(t)...)
 					if e == nil || n != 1 {
 						t.Fatalf("err=%v requests=%d", e, n)
 					}
@@ -378,12 +379,12 @@ func TestSlackConnectNeverPrintsASubmittedTokenFromAnyServerText(t *testing.T) {
 // code, and, for an ambiguous failure, the unknown-outcome notice: the scrub
 // edits the server's text, it does not replace the command's own guidance.
 func TestSlackConnectScrubKeepsClassCodeAndRecoveryGuidance(t *testing.T) {
-	all, e, _ := runSlackRendered(t, "CreateSlackConnection", `{"errors":[{"message":"bad `+botTok+`","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, true, connectArgs(t)...)
+	all, _, e := runSlackRendered(t, `{"errors":[{"message":"bad `+botTok+`","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, true, connectArgs(t)...)
 	if exitCodeFor(e) != exitcode.Usage || !strings.Contains(all, `"serverCode": "BAD_USER_INPUT"`) && !strings.Contains(all, `"serverCode":"BAD_USER_INPUT"`) {
 		t.Errorf("class and clean serverCode must survive the scrub: exit %d\n%s", exitCodeFor(e), all)
 	}
 	noSecret(t, "the rendered output", all)
-	all, e, _ = runSlackRendered(t, "CreateSlackConnection", `{"errors":[{"message":"boom `+appTok+`","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, false, connectArgs(t)...)
+	all, _, e = runSlackRendered(t, `{"errors":[{"message":"boom `+appTok+`","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, false, connectArgs(t)...)
 	for _, want := range []string{"outcome unknown", "not retried", "hadron slack status --org", "--offset", withheldText} {
 		if !strings.Contains(all, want) {
 			t.Errorf("an echoed token must not cost the recovery guidance, missing %q:\n%s", want, all)
@@ -395,7 +396,7 @@ func TestSlackConnectScrubKeepsClassCodeAndRecoveryGuidance(t *testing.T) {
 	}
 }
 
-const withheldText = "[token withheld]"
+const withheldText = "[redacted]"
 
 // The success answer is the server's text too: a field repeating a submitted
 // token is never rendered (text or JSON), and not even the id is quoted back.
@@ -408,7 +409,7 @@ func TestSlackConnectWithholdsASuccessAnswerThatRepeatsAToken(t *testing.T) {
 			b, _ := json.Marshal(row)
 			for _, jsonMode := range []bool{true, false} {
 				t.Run(fmt.Sprintf("%s/%s/json=%v", field, tok[:8], jsonMode), func(t *testing.T) {
-					all, e, n := runSlackRendered(t, "CreateSlackConnection", `{"data":{"createSlackConnection":`+string(b)+`}}`, jsonMode, connectArgs(t)...)
+					all, n, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+string(b)+`}}`, jsonMode, connectArgs(t)...)
 					if e == nil || n != 1 || exitCodeFor(e) != exitcode.Unavailable {
 						t.Fatalf("a repeated token is Unavailable, withheld: err=%v requests=%d", e, n)
 					}
@@ -433,5 +434,45 @@ func TestSlackConnectAppTokenFromStdinAndBotTokenFromAFile(t *testing.T) {
 	_ = json.Unmarshal(ops["CreateSlackConnection"], &vars)
 	if vars["botToken"] != botTok || vars["appToken"] != appTok {
 		t.Fatalf("variables %v", vars)
+	}
+}
+
+// F3 (§10): "both required" is its own refusal, not an accident of reading an
+// empty stdin: with a non-empty pipe and one flag missing, the named message wins
+// and nothing is read from the pipe or sent.
+func TestSlackConnectMissingTokenFlagIsRefusedByNameEvenWithPipedStdin(t *testing.T) {
+	good := tokenFile(t, "tok", appTok)
+	for name, args := range map[string][]string{
+		"no bot flag":       {"connect", "--org", "o1", "--app", appID, "--app-token-file", good},
+		"no app-token flag": {"connect", "--org", "o1", "--app", appID, "--bot-token-file", good},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, n, e := runSlackWrite(t, "CreateSlackConnection", `{}`, botTok+"\n", args...)
+			if e == nil || n != 0 || !strings.Contains(e.Error(), "--bot-token-file and --app-token-file are both required") {
+				t.Fatalf("err=%v requests=%d", e, n)
+			}
+		})
+	}
+}
+
+// An echoing gateway can render a token percent-encoded; the shared redactor
+// covers those spellings in the message, the code and a success field.
+func TestSlackConnectRedactsAPercentEncodedEcho(t *testing.T) {
+	tok := "xoxb-A/b+c=d-secretbot"
+	enc := url.QueryEscape(tok)
+	bot := tokenFile(t, "bot", tok)
+	app := tokenFile(t, "app", appTok)
+	args := []string{"connect", "--org", "o1", "--app", appID, "--bot-token-file", bot, "--app-token-file", app}
+	for name, wire := range map[string]string{
+		"message": `{"errors":[{"message":"bad ` + enc + `","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`,
+		"code":    `{"errors":[{"message":"refused","extensions":{"code":"` + enc + `"}}],"data":null}`,
+		"success": `{"data":{"createSlackConnection":` + strings.Replace(connectedRow, `"teamName":"Acme"`, `"teamName":"`+enc+`"`, 1) + `}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			all, _, e := runSlackRendered(t, wire, true, args...)
+			if e == nil || strings.Contains(all, enc) || strings.Contains(all, tok) {
+				t.Fatalf("err=%v\n%s", e, all)
+			}
+		})
 	}
 }

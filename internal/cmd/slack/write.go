@@ -26,53 +26,20 @@ type disconnectDTO struct {
 	Disconnected bool   `json:"disconnected"`
 }
 
-// withheldMark replaces a submitted token wherever the server's text repeated it.
-const withheldMark = "[token withheld]"
-
-// holdsSecret reports whether s contains any submitted token.
-func holdsSecret(s string, secrets []string) bool {
-	for _, t := range secrets {
-		if t != "" && strings.Contains(s, t) {
-			return true
-		}
-	}
-	return false
-}
-
-// withholdEchoedTokens removes every submitted token from s. A server or proxy
-// error may echo the request, so nothing the server said reaches the operator
-// before this runs: the message, and (below) the server code and every field of
-// a success answer.
-func withholdEchoedTokens(s string, secrets []string) string {
-	for _, t := range secrets {
-		if t != "" {
-			s = strings.ReplaceAll(s, t, withheldMark)
-		}
-	}
-	return s
-}
-
-// guardedWriteError is the final error of a failed connect. The server's message
-// is scrubbed BEFORE the command's own recovery text is added around it (so a
-// token echo never costs the operator the unknown-outcome notice); the server
-// code is kept only when it carries no token (the --json envelope prints it);
-// the exit class is the server's. raw itself is never wrapped, so no other
-// field of it can reach the envelope.
+// guardedWriteError is the final error of a failed connect. The server's text is
+// untrusted everywhere it can reach the operator, so the finished error is cut
+// from its raw chain and every rendered string (message, server code, internal
+// fault detail) has both submitted tokens removed, in every spelling the shared
+// redactor knows. The command's own recovery text is added BEFORE that, so an
+// echo never costs the operator the unknown-outcome notice; the exit class and
+// a clean server code survive.
 func guardedWriteError(raw error, secrets []string, recovery string) error {
 	mapped := api.MapError(raw)
-	class := exitcode.FromError(mapped)
-	code := api.ServerCodeOf(raw)
-	if holdsSecret(code, secrets) {
-		code = ""
+	var base error = mapped
+	if class := exitcode.FromError(mapped); class == exitcode.Error || class == exitcode.Unavailable {
+		base = exitcode.Newf(class, "%s: %s", recovery, mapped)
 	}
-	base := mapped
-	if holdsSecret(mapped.Error(), secrets) {
-		base = exitcode.Newf(class, "%s", withholdEchoedTokens(mapped.Error(), secrets))
-	}
-	if class == exitcode.Error || class == exitcode.Unavailable {
-		base = exitcode.Newf(class, "%s: %s", recovery, base)
-	}
-	return api.WithCode(base, code)
+	return api.Detached(api.WithServerCode(base, raw), func(s string) string { return api.RedactSecretText(s, secrets) })
 }
 
 // readToken reads one token from its file flag. "-" is stdin and is refused on
@@ -162,7 +129,7 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			// submitted token is never rendered, and nothing from it (not even the
 			// id) goes into the message.
 			for _, field := range []string{v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt} {
-				if holdsSecret(field, secrets) {
+				if api.HoldsSecret(field, secrets) {
 					return exitcode.Newf(exitcode.Unavailable, "the server's answer repeated a submitted token and was withheld; the connection may exist: %s", where)
 				}
 			}

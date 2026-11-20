@@ -15,13 +15,15 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   default would make two tokens ambiguous. At most one may be `-`; both `-`, a missing flag, and `-` on a
   terminal (a typed token is shown in the clear) are refused before any request.
 - **No token anywhere else.** There is no token flag (cobra refuses one as unknown); the result renders the
-  11 fields `slack get` shows, never `lastError`. The server's text is untrusted everywhere it can reach the
-  operator (blind P1 and local P2 on #2731): `guardedWriteError` removes either token from the server's
-  message BEFORE adding the command's own recovery text (so an echo never costs the unknown-outcome notice),
-  drops the server code from the `--json` envelope when it carries a token (the raw error is never wrapped, so
-  no other field reaches the envelope), and keeps the exit class. A success answer whose any field repeats a
-  token is withheld whole (Unavailable, nothing quoted back, not even the id). Limit: only the exact submitted
-  strings are matched, not a re-encoded or partial echo.
+  11 fields `slack get` shows, never `lastError`. The server's text is untrusted everywhere it can
+  reach the operator (blind P1 and local P2 on #2731): `guardedWriteError` adds the command's own recovery
+  text first (so an echo never costs the unknown-outcome notice), then returns the error through
+  `api.Detached`, which cuts it from its raw chain and redacts every rendered string (message, `--json`
+  serverCode, fault detail) with `api.RedactSecretText`, the transport's own redactor, which also covers the
+  URL-encoded spellings an echoing gateway produces (`api.HoldsSecret` is its predicate). A clean server code
+  and the exit class survive. A success answer whose any field holds a token is withheld whole (Unavailable,
+  nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary
+  re-encoding.
 - **The server decides.** Org ADMIN/OWNER, App-in-org and one live connection per workspace are the
   server's; refusals pass through (8 forbidden, 4 not found, 2 bad input). The CLI checks nothing of that
   and its help says so (cor:api:240:01).
@@ -45,5 +47,5 @@ connecting again registers anew (not a restore). A `false` answer is Unavailable
 `internal/cmd/slack_connect_206_test.go`, fake HTTP only: request variables, one request, local refusals
 with zero requests, secret-negative checks on stdout, errors and help, refusal pass-through, the echoed-token
 case in message, code and success fields (rendered through the real error renderer), unknown outcome with
-guidance kept, the confirmation paths. Mutants killed: the message scrub, the code scrub, the success-field
-check, the recovery text, the code pass-through, the both-stdin refusal, the terminal refusal, the confirmation.
+guidance kept, the confirmation paths. Mutants killed: the redactor, the chain cut, the success-field
+check, the recovery text, the code pass-through, a one-token secret list, the both-stdin refusal, the terminal refusal, the confirmation.
