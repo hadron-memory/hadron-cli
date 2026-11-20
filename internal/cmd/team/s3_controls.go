@@ -54,10 +54,11 @@ Not permitted exits 8; a missing worker exits 4, retired exits 5, and bad
 input exits 2. Correct the input or ask the App manager; nothing is retried.
 
 A worker id or URN is resolved by the server; a name needs --app, the App
-context or this worktree's binding. --json prints workerId, leaveAlone and
-nullable leaveAlone, reason, by and at. Existing worker get/list keep their earlier
-server compatibility and do not request these fields. Null leaveAlone means unknown (not visible to you), never false. The server
-withholds all four working-state fields from a profile-only reader.
+context or this worktree's binding. --json prints workerId, leaveAlone,
+reason, by and at (each null when the server withholds it). Existing worker
+get/list keep their earlier server compatibility and do not request these
+fields. Null leaveAlone means unknown (not visible to you), never false. The
+server withholds all four working-state fields from a profile-only reader.
 
 ` + s3InstructionHelp,
 		Example: "  hadron team worker leave-alone Iris --app acme.com:eng --json\n  hadron team worker leave-alone Iris --on --reason maintenance --app acme.com:eng\n  hadron team worker leave-alone Iris --off --instruction task:hrn:task:acme.com:eng:42",
@@ -187,11 +188,11 @@ host ids), and any alarms the server raised with 'hadron team events --alarms'.
 This command only records the mode and does not launch or stop any process.
 
 With no argument it reads the App's sweep mode; with one, it sets it as the App
-manager. Example reads and writes are below.
-App scope comes from --app, the App context or the worktree binding.
---json prints {appRef,sweepMode}. --instruction is accepted only for a write, and
-then needs a mode (a bare --instruction is refused, exit 2).
-A non-manager gets FORBIDDEN (exit 8); ask the App manager to set the mode.
+manager. Example reads and writes are below. App scope comes from --app, the App
+context or the worktree binding. --json prints {appRef,sweepMode}. --instruction
+is accepted only for a write, and then needs a mode (a bare --instruction is
+refused, exit 2). A non-manager gets FORBIDDEN (exit 8); ask the App manager to
+set the mode.
 
 ` + s3InstructionHelp,
 		Example: "  hadron team app sweep-mode --app acme.com:eng --json\n  hadron team app sweep-mode OBSERVE --app acme.com:eng",

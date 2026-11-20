@@ -5,7 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/vektah/gqlparser/v2/ast"
@@ -25,17 +27,17 @@ const msgRow198 = `{"id":"m1","subject":"hello","from":"a@example.test","receive
 
 // requests198 counts the GraphQL POSTs the last runEmail198 made: ops is keyed by
 // operation NAME, so two requests of one operation would pass a len(ops) check.
-var requests198 int
+var requests198 atomic.Int64
 
 func runEmail198(t *testing.T, responses map[string]string, args ...string) (out string, ops map[string]json.RawMessage, err error) {
 	t.Helper()
-	requests198 = 0
+	requests198.Store(0)
 	srv, ops := captureGraphQL(t, responses)
 	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			requests198++
+			requests198.Add(1)
 		}
-		proxyTo198(w, r, srv.URL)
+		proxyTo198(t, w, r, srv.URL)
 	}))
 	t.Cleanup(counter.Close)
 	f, o := testFactory(t)
@@ -82,8 +84,8 @@ func TestEmailMessagesWire198(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if requests198 != 1 || len(ops) != 1 {
-				t.Fatalf("want exactly one request, got %d (%v)", requests198, ops)
+			if requests198.Load() != 1 || len(ops) != 1 {
+				t.Fatalf("want exactly one request, got %d (%v)", requests198.Load(), ops)
 			}
 			v := vars198(t, ops, "EmailMessages")
 			if v["connectionId"] != "conn-1" {
@@ -199,7 +201,7 @@ func TestEmailMessagesAndFoldersNeedAConnection198(t *testing.T) {
 			if exitCodeFor(err) != 2 {
 				t.Errorf("email %s %v: exit %d (%v), want 2", cmd, args, exitCodeFor(err), err)
 			}
-			if requests198 != 0 || len(ops) != 0 {
+			if requests198.Load() != 0 || len(ops) != 0 {
 				t.Errorf("email %s %v sent a request: %v", cmd, args, ops)
 			}
 		}
@@ -212,7 +214,7 @@ func TestEmailFolders198(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests198 != 1 || len(ops) != 1 || vars198(t, ops, "EmailFolders")["connectionId"] != "conn-1" {
+	if requests198.Load() != 1 || len(ops) != 1 || vars198(t, ops, "EmailFolders")["connectionId"] != "conn-1" {
 		t.Fatalf("ops = %v", ops)
 	}
 	var rows []map[string]any
@@ -251,7 +253,7 @@ func TestEmailConnectionsPaging198(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, paged := ops["EmailConnectionsPage"]; paged || requests198 != 1 || len(ops) != 1 {
+		if _, paged := ops["EmailConnectionsPage"]; paged || requests198.Load() != 1 || len(ops) != 1 {
 			t.Fatalf("the bare form must not use the paged operation: %v", ops)
 		}
 	})
@@ -270,8 +272,8 @@ func TestEmailConnectionsPaging198(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if requests198 != 1 || len(ops) != 1 {
-				t.Fatalf("want one request, got %d (%v)", requests198, ops)
+			if requests198.Load() != 1 || len(ops) != 1 {
+				t.Fatalf("want one request, got %d (%v)", requests198.Load(), ops)
 			}
 			v := vars198(t, ops, "EmailConnectionsPage")
 			if v["orgId"] != "o" {
@@ -361,7 +363,8 @@ func TestEmailReadDocuments198(t *testing.T) {
 }
 
 // proxyTo198 forwards a request to the capturing fake and relays its answer.
-func proxyTo198(w http.ResponseWriter, r *http.Request, target string) {
+func proxyTo198(t *testing.T, w http.ResponseWriter, r *http.Request, target string) {
+	t.Helper()
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, target+r.URL.RequestURI(), r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
@@ -378,7 +381,9 @@ func proxyTo198(w http.ResponseWriter, r *http.Request, target string) {
 		w.Header()[k] = v
 	}
 	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		t.Errorf("test proxy: relaying the fake server's answer failed: %v", err)
+	}
 }
 
 // F4 (Cedar): "one request" is counted in HTTP requests, not in distinct
@@ -398,8 +403,8 @@ func TestEmailReadsMakeOneHTTPRequest198(t *testing.T) {
 			if _, _, err := runEmail198(t, tc.resp, tc.args...); err != nil {
 				t.Fatal(err)
 			}
-			if requests198 != 1 {
-				t.Errorf("made %d GraphQL requests, want exactly 1", requests198)
+			if requests198.Load() != 1 {
+				t.Errorf("made %d GraphQL requests, want exactly 1", requests198.Load())
 			}
 		})
 	}
@@ -416,8 +421,8 @@ func TestEmailIntFlagsMustFitGraphQLInt198(t *testing.T) {
 		refuse      bool
 	}{
 		{"--top", max32, false}, {"--top", "2147483648", true}, {"--top", min32, false}, {"--top", "-2147483649", true},
-		{"--limit", max32, false}, {"--limit", "2147483648", true},
-		{"--offset", max32, false}, {"--offset", "2147483648", true}, {"--offset", "-2147483649", true},
+		{"--limit", max32, false}, {"--limit", "2147483648", true}, {"--limit", min32, false}, {"--limit", "-2147483649", true},
+		{"--offset", max32, false}, {"--offset", "2147483648", true}, {"--offset", min32, false}, {"--offset", "-2147483649", true},
 	} {
 		t.Run(tc.flag+" "+tc.value, func(t *testing.T) {
 			args := []string{"messages", "--connection", "c", tc.flag, tc.value}
@@ -426,15 +431,26 @@ func TestEmailIntFlagsMustFitGraphQLInt198(t *testing.T) {
 				args = []string{"connections", "--org", "o", tc.flag, tc.value}
 				resp = map[string]string{"EmailConnectionsPage": `{"data":{"exchangeConnectionsPage":{"items":[],"total":0,"hasMore":false}}}`}
 			}
-			_, _, err := runEmail198(t, resp, args...)
+			_, ops, err := runEmail198(t, resp, args...)
 			if tc.refuse {
-				if exitCodeFor(err) != 2 || requests198 != 0 {
-					t.Errorf("exit %d (%v) with %d requests; want a usage error and none sent", exitCodeFor(err), err, requests198)
+				if exitCodeFor(err) != 2 || requests198.Load() != 0 {
+					t.Errorf("exit %d (%v) with %d requests; want a usage error and none sent", exitCodeFor(err), err, requests198.Load())
 				}
 				return
 			}
-			if err != nil || requests198 != 1 {
-				t.Errorf("an in-range value was refused or not sent: %v (%d requests)", err, requests198)
+			if err != nil || requests198.Load() != 1 {
+				t.Errorf("an in-range value was refused or not sent: %v (%d requests)", err, requests198.Load())
+				return
+			}
+			// The value must reach the wire exactly as given (a CLI that dropped or
+			// changed it would still succeed): compare the captured variable.
+			op, name := "EmailMessages", "top"
+			if tc.flag != "--top" {
+				op, name = "EmailConnectionsPage", strings.TrimPrefix(tc.flag, "--")
+			}
+			want, _ := strconv.ParseFloat(tc.value, 64)
+			if got := vars198(t, ops, op)[name]; got != want {
+				t.Errorf("%s was sent as %v, want %v", tc.flag, got, want)
 			}
 		})
 	}

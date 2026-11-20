@@ -26,8 +26,8 @@ func TestEmailTest198(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests198 != 1 || vars198(t, ops, "EmailTestConnection")["id"] != "conn-1" {
-		t.Fatalf("want one request with id conn-1, got %d: %v", requests198, ops)
+	if requests198.Load() != 1 || vars198(t, ops, "EmailTestConnection")["id"] != "conn-1" {
+		t.Fatalf("want one request with id conn-1, got %d: %v", requests198.Load(), ops)
 	}
 	if !strings.Contains(out, `"connectionId": "conn-1"`) || !strings.Contains(out, `"ok": true`) {
 		t.Errorf("DTO = %s", out)
@@ -83,8 +83,8 @@ func TestEmailManageErrors198(t *testing.T) {
 				if exitCodeFor(err) != e.want {
 					t.Fatalf("exit %d (%v), want %d", exitCodeFor(err), err, e.want)
 				}
-				if requests198 != 1 {
-					t.Errorf("%d requests: a failed call is never retried", requests198)
+				if requests198.Load() != 1 {
+					t.Errorf("%d requests: a failed call is never retried", requests198.Load())
 				}
 				if err != nil {
 					low := strings.ToLower(err.Error())
@@ -109,8 +109,8 @@ func TestEmailManageNeedsAConnectionID198(t *testing.T) {
 				full = append(full, "--yes")
 			}
 			_, _, err := runEmail198(t, map[string]string{}, full...)
-			if exitCodeFor(err) != 2 || requests198 != 0 {
-				t.Errorf("email %v: exit %d (%v) with %d requests; want a usage error and none sent", full, exitCodeFor(err), err, requests198)
+			if exitCodeFor(err) != 2 || requests198.Load() != 0 {
+				t.Errorf("email %v: exit %d (%v) with %d requests; want a usage error and none sent", full, exitCodeFor(err), err, requests198.Load())
 			}
 		}
 	}
@@ -121,15 +121,15 @@ func TestEmailManageNeedsAConnectionID198(t *testing.T) {
 // server confirmed.
 func TestEmailDisconnectConfirmation198(t *testing.T) {
 	_, _, err := runEmail198(t, map[string]string{"EmailDisconnect": discOK198}, "disconnect", "conn-1")
-	if exitCodeFor(err) != 2 || requests198 != 0 {
-		t.Fatalf("without --yes: exit %d (%v) with %d requests; want exit 2 and none", exitCodeFor(err), err, requests198)
+	if exitCodeFor(err) != 2 || requests198.Load() != 0 {
+		t.Fatalf("without --yes: exit %d (%v) with %d requests; want exit 2 and none", exitCodeFor(err), err, requests198.Load())
 	}
 	out, ops, err := runEmail198(t, map[string]string{"EmailDisconnect": discOK198}, "disconnect", " conn-1 ", "--yes", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests198 != 1 || vars198(t, ops, "EmailDisconnect")["id"] != "conn-1" {
-		t.Fatalf("want one request with id conn-1, got %d: %v", requests198, ops)
+	if requests198.Load() != 1 || vars198(t, ops, "EmailDisconnect")["id"] != "conn-1" {
+		t.Fatalf("want one request with id conn-1, got %d: %v", requests198.Load(), ops)
 	}
 	if !strings.Contains(out, `"connectionId": "conn-1"`) || !strings.Contains(out, `"disconnected": true`) {
 		t.Errorf("DTO = %s", out)

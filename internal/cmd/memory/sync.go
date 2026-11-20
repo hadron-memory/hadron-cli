@@ -262,7 +262,7 @@ func setTokenError(err error, token string) error {
 	}
 	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
-	if strings.Contains(api.ServerCodeOf(err), token) {
+	if code := api.ServerCodeOf(err); redactToken(code, token) != code {
 		return safe
 	}
 	return api.WithServerCode(safe, err)
