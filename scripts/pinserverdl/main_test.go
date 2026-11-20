@@ -140,7 +140,7 @@ func fixtureServer(t *testing.T, tmp string) (repo, base, head string) {
 			t.Fatalf("write %s: %v", p, err)
 		}
 	}
-	identity := []string{"-c", "user.name=pin", "-c", "user.email=pin@example.invalid"}
+	identity := []string{"-c", "user.name=pin", "-c", "user.email=pin@example.invalid", "-c", "commit.gpgsign=false"}
 	write("scripts/export-graphql-sdl.mjs", "// fixture exporter\n")
 	write("src/api/graphql/schema/typeDefs.ts", "fixture SDL\n")
 	git(t, work, append(identity, "add", "-A")...)
@@ -278,7 +278,7 @@ func TestNpmNeverSeesTheFetchToken2696(t *testing.T) {
 	out := filepath.Join(f.tmp, "verify-out")
 	log, code := f.verify(t, out)
 	if code != 0 {
-		t.Fatalf("verify run failed (%d):\n%s", code, log)
+		t.Fatalf("verify run failed (%d):\n%s", code, redact(log))
 	}
 	capture := f.capture
 
@@ -288,17 +288,17 @@ func TestNpmNeverSeesTheFetchToken2696(t *testing.T) {
 
 	// The canary first: an empty or stale dump must not read as "absent".
 	if !envHas(npmEnv, "PIN_TEST_CAPTURE") || !envHas(tsxEnv, "PIN_TEST_CAPTURE") {
-		t.Fatalf("stub environment dumps are not live (canary missing):\nnpm:\n%s\ntsx:\n%s", npmEnv, tsxEnv)
+		t.Fatalf("stub environment dumps are not live (canary missing):\nnpm:\n%s\ntsx:\n%s", redact(npmEnv), redact(tsxEnv))
 	}
 	for _, dump := range []struct{ who, body string }{
 		{"npm", npmEnv},
 		{"tsx", tsxEnv},
 	} {
 		if envHas(dump.body, "HADRON_SERVER_FETCH_TOKEN") {
-			t.Errorf("P2 regression: %s ran with HADRON_SERVER_FETCH_TOKEN in its environment:\n%s", dump.who, dump.body)
+			t.Errorf("P2 regression: %s ran with HADRON_SERVER_FETCH_TOKEN in its environment:\n%s", dump.who, redact(dump.body))
 		}
 		if envHas(dump.body, "GIT_CONFIG_VALUE_0") {
-			t.Errorf("derived auth header leaked to %s:\n%s", dump.who, dump.body)
+			t.Errorf("derived auth header leaked to %s:\n%s", dump.who, redact(dump.body))
 		}
 	}
 	// The token must not survive under ANOTHER name either (a re-export, a
@@ -311,7 +311,7 @@ func TestNpmNeverSeesTheFetchToken2696(t *testing.T) {
 			{"base64 of its auth header", encoded},
 		} {
 			if strings.Contains(dump.body, secret.val) {
-				t.Errorf("P2 regression: the %s reached %s's environment under some name:\n%s", secret.what, dump.who, dump.body)
+				t.Errorf("P2 regression: the %s reached %s's environment under some name:\n%s", secret.what, dump.who, redact(dump.body))
 			}
 		}
 	}
@@ -334,16 +334,16 @@ func TestNpmInstallFailureCleansUpAndStaysQuiet2712(t *testing.T) {
 	out := filepath.Join(f.tmp, "verify-out")
 	log, code := f.verify(t, out)
 	if code != 1 {
-		t.Fatalf("a failing npm install exited %d, want 1:\n%s", code, log)
+		t.Fatalf("a failing npm install exited %d, want 1:\n%s", code, redact(log))
 	}
 	if !strings.Contains(log, "npm install failed") {
-		t.Errorf("the failure did not say the install failed:\n%s", log)
+		t.Errorf("the failure did not say the install failed:\n%s", redact(log))
 	}
 	if _, err := os.Lstat(out); !os.IsNotExist(err) {
 		t.Errorf("the worktree %s was left behind after the failed install (Lstat: %v)", out, err)
 	}
 	if !strings.Contains(log, "scratch dir is kept for inspection at ") {
-		t.Errorf("the failure did not say where the scratch dir is kept:\n%s", log)
+		t.Errorf("the failure did not say where the scratch dir is kept:\n%s", redact(log))
 	}
 	if strings.Contains(log, base64.StdEncoding.EncodeToString([]byte("x-access-token:"+tokenValue))) {
 		t.Errorf("the failure output leaked the derived authorization value (log withheld)")
@@ -357,6 +357,14 @@ func TestNpmInstallFailureCleansUpAndStaysQuiet2712(t *testing.T) {
 	if wts := git(t, f.repo, "worktree", "list", "--porcelain"); strings.Contains(wts, out) {
 		t.Errorf("the failed run left %s registered:\n%s", out, wts)
 	}
+}
+
+// redact blanks both credential forms out of a captured log before a failure
+// message prints it: a message that echoed a leaked secret would leak it into
+// the test output too.
+func redact(log string) string {
+	enc := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + tokenValue))
+	return strings.NewReplacer(tokenValue, "[REDACTED]", enc, "[REDACTED]").Replace(log)
 }
 
 func readFile(t *testing.T, p string) string {

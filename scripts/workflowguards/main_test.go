@@ -271,7 +271,7 @@ func TestRealMismatchFailsTheComparison2712(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(server, "src/api/graphql/schema"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"init", "-q"}, {"-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m", "x"}} {
+	for _, args := range [][]string{{"init", "-q"}, {"-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-q", "--no-gpg-sign", "--allow-empty", "-m", "x"}} {
 		if out, err := exec.Command("git", append([]string{"-C", server}, args...)...).CombinedOutput(); err != nil {
 			t.Fatalf("git %v: %v\n%s", args, err, out)
 		}
