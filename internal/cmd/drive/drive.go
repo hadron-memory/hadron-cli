@@ -1,4 +1,4 @@
-// Package drive exposes bounded Drive reads and an explicit raw stdout export.
+// Package drive exposes bounded Drive reads, raw stdout export and confirmed Doc creation.
 package drive
 
 import (
@@ -47,10 +47,10 @@ type options struct {
 	top                                                         int
 }
 
-// NewCmdDrive builds only the gated list/get/export read operations.
+// NewCmdDrive builds Drive reads and explicit, confirmed remote Doc creation.
 func NewCmdDrive(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "drive <command>", Short: "Browse Drive files and export a file's text", Long: helpText("Look at files in a connected Drive without changing them: list or search files,\nread one file's details, or print a file's text to the terminal. Start with\n\"drive list\" to find a file ID, then \"drive export\" to get its text."), Example: "  hadron drive list --connection <connection-id> --name-contains budget\n  hadron drive export <file-id> --connection <connection-id> --format MARKDOWN > notes.md"}
-	c.AddCommand(list(f), get(f), export(f))
+	c := &cobra.Command{Use: "drive <command>", Short: "Browse Drive files, export text or create a Google Doc", Long: "List or search a connected Drive, read file metadata, or print a file's text\nto local stdout with \"drive export\". These read commands do not create files.\n\nTo copy a Hadron node to a NEW Google Doc in an external account, use\n\"drive create-doc\". That requires the connection's owner and asks first;\na drive.read grant permits reads, not creation. It never updates an existing\nDoc. Content copied out cannot be recalled from Hadron.\n\n" + connectionHelp, Example: "  hadron drive list --connection <connection-id> --name-contains budget\n  hadron drive export <file-id> --connection <connection-id> --format MARKDOWN > notes.md\n  hadron drive create-doc <node-id> --connection <connection-id> --yes"}
+	c.AddCommand(list(f), get(f), export(f), createDoc(f))
 	return c
 }
 func scope(c *cobra.Command, o *options) {
