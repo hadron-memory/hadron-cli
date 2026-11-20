@@ -5210,7 +5210,9 @@ confirmed". A missing or blank `--connection` or id exits 2 with no request.
   tool error, an internal error, an uncoded one) also carries the same "outcome unknown, check the
   Sent folder" guidance, and the exit class is the one the error maps to. A command that SUBMITS a
   body (reply, draft save, draft update) never prints the server's error MESSAGE (it can quote the
-  body whole, in part or escaped): it prints its own words plus the server's error CODE. A save
+  body whole, in part or escaped): it prints its own words plus the server's error CODE when that is
+  a recognised protocol code (an allowlist: an unknown or body-derived code is dropped, in the message
+  and in the --json serverCode). A save
   result whose draftId or conversationId IS the submitted body is exit 7 (no substitute id); a valid
   id that merely contains a short body is printed intact. A body that is not valid UTF-8, over
   1 MiB, or `--body-file -` on an interactive terminal exits 2 with no request. There is no idempotency key on reply.

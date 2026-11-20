@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -28,9 +27,18 @@ import (
 // from a file or stdin and is never echoed. An idempotency key exists on draft
 // save and draft send only, is passed unchanged and is never invented.
 
-// shown renders an id for a confirmation prompt: made visible (control and escape
+// quotePromptID renders an id for a confirmation prompt: made visible (control and escape
 // sequences neutralised), never raw. The id SENT is the one the caller gave.
-func shown(id string) string { return output.SafeCell(strconv.Quote(id)) }
+func quotePromptID(id string) string { return output.SafeCell(strconv.Quote(id)) }
+
+// requireConfirmable refuses, before anything is read, an effect that has no --yes
+// and no terminal to ask on (the same refusal Confirm would make later).
+func requireConfirmable(f *cmdutil.Factory, yes bool) error {
+	if !yes && !f.IOStreams.IsInputTerminal() {
+		return exitcode.Newf(exitcode.Usage, "refusing to proceed without --yes in non-interactive mode")
+	}
+	return nil
+}
 
 // maxBodyBytes bounds a body read from a file or stdin.
 const maxBodyBytes = 1 << 20
@@ -137,11 +145,19 @@ func bodyFailure(err error, send bool, where string) error {
 	return api.WithCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), code)
 }
 
-var serverCodeShape = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
+// knownServerCodes is the fixed allowlist of protocol error codes a body-submitting
+// command will show or carry. A code is data from outside and can be derived from the
+// submitted body, whatever its shape, so anything not on this list is dropped.
+var knownServerCodes = map[string]bool{
+	"FORBIDDEN": true, "UNAUTHENTICATED": true, "BAD_USER_INPUT": true, "NOT_FOUND": true,
+	"GRAPHQL_VALIDATION_FAILED": true, "GRAPHQL_PARSE_FAILED": true,
+	"EMAIL_TOOL_ERROR": true, "EMAIL_TOOL_UNREACHABLE": true, "INTERNAL_SERVER_ERROR": true,
+	"RATE_LIMITED": true, "SERVICE_UNAVAILABLE": true,
+}
 
-// safeServerCode returns code when it is a well-formed server error code and "" otherwise.
+// safeServerCode returns code when it is on the allowlist and "" otherwise.
 func safeServerCode(code string) string {
-	if serverCodeShape.MatchString(code) {
+	if knownServerCodes[code] {
 		return code
 	}
 	return ""
@@ -209,8 +225,9 @@ no recipient, so there is no --all and no --to. The body is read from --body-fil
 
 THIS SENDS MAIL. It asks first on a terminal; without one, --yes is required (exit
 2 and no request otherwise). Only the mailbox's owner (or an App with a covering
-grant) may send; impersonated sessions are refused. The server's refusal is shown
-as it comes.
+grant) may send; impersonated sessions are refused. A refusal keeps its exit class and
+shows the server's error code when it is a recognised one; the server's message is
+withheld, because it can quote the body.
 
 One request, never retried. If no answer comes back, the outcome is unknown: the
 mail may have been sent, so the CLI says "outcome unknown, check the Sent folder"
@@ -229,11 +246,16 @@ Details:
 			if err != nil {
 				return err
 			}
+			// Refuse a send that could never be confirmed BEFORE reading the body, so
+			// piped input is not consumed (or waited on) for a reply that cannot go.
+			if err := requireConfirmable(f, yes); err != nil {
+				return err
+			}
 			body, err := readBody(f, bodyFile)
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, "Send a reply to message "+shown(msg)+"? This sends mail."); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Send a reply to message "+quotePromptID(msg)+"? This sends mail."); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -415,7 +437,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, "Send draft "+shown(id)+"? This sends mail."); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Send draft "+quotePromptID(id)+"? This sends mail."); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -586,7 +608,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "message "+shown(msg)); err != nil {
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "message "+quotePromptID(msg)); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
