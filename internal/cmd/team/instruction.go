@@ -40,7 +40,7 @@ func instructionHelpFor(serverMin string) string {
 // panic fires while the command tree is built, so every test run sees it.
 func swapMinServer(shared, orig, serverMin string) string {
 	if !strings.Contains(shared, orig) {
-		panic("instructionHelpFor: the shared instruction help no longer names " + orig)
+		panic("swapMinServer: the shared instruction help no longer names " + orig)
 	}
 	return strings.ReplaceAll(shared, orig, serverMin)
 }

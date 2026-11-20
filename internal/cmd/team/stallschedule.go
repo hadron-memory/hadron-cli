@@ -23,6 +23,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// stallScheduleInspectHint is the hint for a set that answered null, shared by
+// the plain and the instructed call (#2552).
+const stallScheduleInspectHint = "check `team stall-schedule get`"
+
 type stallScheduleDTO struct {
 	AppID                string `json:"appId"`
 	AssignmentMinutes    int    `json:"assignmentMinutes"`
@@ -227,7 +231,7 @@ Needs server ba077810 or later.
 					return api.MapError(callErr)
 				}
 				if resp.SetAgentTaskStallSchedule == nil {
-					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", stallScheduleInspectHint)
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			} else {
@@ -247,7 +251,7 @@ Needs server ba077810 or later.
 					return api.MapErrorKeepingCode(callErr)
 				}
 				if resp.SetAgentTaskStallSchedule == nil {
-					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", stallScheduleInspectHint)
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			}

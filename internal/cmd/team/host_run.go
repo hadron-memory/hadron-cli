@@ -279,12 +279,12 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
    key grant is checked by ` + "`hadron team host status --config host.yaml`" + `.
 
 Events print one per line, for example
-  09:12:01 collected 01H… worktree.create
-  09:12:01 reported 01H… worktree.create SUCCEEDED hadron-cli/jonas-2
+  09:12:01 collected worktree.create 01H…
+  09:12:01 reported worktree.create 01H… SUCCEEDED: hadron-cli/jonas-2
 (--json prints each event as an object). The rest of this page is the
 operator's reference.
 
-Run the host poller (cor:agt:070). Every poll it registers the workers this
+Run the host poller. Every poll it registers the workers this
 host can launch (with their family and existing worktrees), collects the
 operations issued to it, carries out only the closed set of five, and
 reports every outcome. One poller per host or container.
@@ -556,7 +556,8 @@ program named as a relative path (with a slash) is refused on reload: it is
 run from the worker's directory, which the check cannot judge — use an
 absolute path or a bare name, or restart the poller. The check stops other
 users and loose modes; a process running as the poller's own user is inside
-the poller's trust boundary, as it is for a restart. A file that does not load or fails the start-time checks changes nothing either: the poller keeps
+the poller's trust boundary, as it is for a restart. A file that does not load
+or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
 for that content and reason. A worker that now launches through Orca is
 refused too, since that wiring is made at start (restart to apply it). A

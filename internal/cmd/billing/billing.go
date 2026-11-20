@@ -29,9 +29,8 @@ func NewCmdBilling(f *cmdutil.Factory) *cobra.Command {
 		Long: `See an organization's AI credit: what the models cost ("prices"), how much
 credit is left ("balance") and every grant and charge ("ledger").
 
-Money is shown in micro-cents, never converted to dollars:
-1 USD = 100,000,000 micro-cents, so 100000000 is 1 USD, 5000000 is 5 cents and
-1000000 is 1 cent. Divide by 100000000 to get dollars.
+Money is shown in micro-cents, never converted to dollars: 100000000
+micro-cents = 1 USD, so 5000000 is 5 cents and 1000000 is 1 cent.
 
 prices, balance and ledger only read. "prices set" and "grant" change money
 records, are platform-admin actions, and ask before they send (--yes to skip).
@@ -132,7 +131,7 @@ applied to charges today; a row at another tier is stored but unused.
 
 Rates are micro-cents per million tokens, for input and for output
 separately: a rate of 300000000 micro-cents per million tokens is 3 USD per
-million tokens (divide by 100000000 to get dollars). markupBasisPoints is a
+million tokens (100000000 micro-cents = 1 USD). markupBasisPoints is a
 markup added on top of the rate, in hundredths of a percent (100 = 1%); when it
 is null this row sets no markup of its own and the server's default markup
 applies (the default's value is not shown here).
@@ -244,15 +243,16 @@ func newCmdPricesGet(f *cmdutil.Factory) *cobra.Command {
 Any signed-in caller can read rates.
 
 It shows the columns of the "hadron billing prices" table, plus who created
-the row and when. Rates are micro-cents per million tokens (divide by
-100000000 to get dollars); a markup of "default" means the row sets none of its
+the row and when. Rates are micro-cents per million tokens
+(100000000 micro-cents = 1 USD); a markup of "default" means the row sets none of its
 own and the server's default applies.
 
 If the server returns no row, the command exits 4 with "not found or not
 visible": the server answers the same way for an id that does not exist and
 one you cannot see, so the CLI cannot tell them apart. Check the id against
 "hadron billing prices".`,
-		Example: `  hadron billing prices get <id>
+		Example: `  # <id> is the ID column of "hadron billing prices"
+  hadron billing prices get <id>
   hadron billing prices get <id> --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -296,7 +296,8 @@ func newCmdBalance(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show how much AI credit an organization has left: grants minus charges, as one
 number in micro-cents (1 USD = 100,000,000 micro-cents). Requires org ADMIN.
 
-<org> is an organization ID or its hrn:org:<slug> URN. The output is one line,
+<org> is an organization ID or its URN, hrn:org:<root> (for example
+hrn:org:acme.com). The output is one line,
 for example "250000000 micro-cents (organization <id>)", which is 2.50 USD. To
 see what made up the number, run "hadron billing ledger".`,
 		Example: `  hadron billing balance hrn:org:acme.com
@@ -337,7 +338,8 @@ micro-cents (1 USD = 100,000,000 micro-cents; a charge of -1500000 is 1.5
 cents). Requires org ADMIN. Without --limit the whole ledger is listed; --limit
 and --offset ask for one page.
 
-<org> is an organization ID or its hrn:org:<slug> URN.`,
+<org> is an organization ID or its URN, hrn:org:<root> (for example
+hrn:org:acme.com).`,
 		Example: `  hadron billing ledger hrn:org:acme.com --limit 20
   hadron billing ledger hrn:org:acme.com --limit 20 --offset 20`,
 		Args: cobra.ExactArgs(1),

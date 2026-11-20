@@ -12,6 +12,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// instructionFlagUsage is the --instruction flag's usage on these pages. It names
+// no server revision (a reader cannot map one to a release); the page text says an
+// older server refuses the flag.
+const instructionFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text; an older server refuses it"
+
+// snapshotInstructionHelp is the --instruction paragraph for the commands that
+// take the flag (list and revoke); set has no such flag and does not carry it.
+const snapshotInstructionHelp = `--instruction is for a worker acting on its holder's instruction; anyone else
+leaves it out. It takes <kind>:<ref>: kind is team-chat-message, task or
+live-chat; ref is where the instruction was given (a team-chat message URN, a
+task URN, or an opaque client address), never its text. The CLI splits at the
+first colon and sends everything after it as the ref, as written.
+
+Without --instruction, no worker session header is sent even from a bound
+worktree. With it, the command uses this worktree's verified session; an
+unusable binding falls back to the signed-in person with a note, and that
+fallback still has its reference checked but records no worker claim. The
+server checks the reference and owns App admission; refusals are never retried
+or downgraded. Each admitted worker-instructed list page records one team
+event, including empty pages: the default list walks to the end (one event per
+page), --limit reads one page; an instructed revoke's history lookup records
+one event per page before its single revoke. An older server refuses
+--instruction.`
+
 type actInstruction struct {
 	input *gen.ActInstructionInput
 	send  func(context.Context) (context.Context, bool, error)

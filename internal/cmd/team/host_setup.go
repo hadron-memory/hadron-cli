@@ -140,9 +140,13 @@ start from it until the App's staffing source is the server — run
 (that page explains the switch). Find the host's id with ` + "`team host list`" + `.
 
 The record names: the workdir the worker runs in there — the NAME the host
-knows the directory by (an Orca worktree name), ` + hostSetupTokenRule + `,
-never a path — its model family (a lowercase family token, currently ` + "`claude`" + ` or ` + "`codex`" + `), and optionally its launcher profile: --model, --effort and
---account-profile. The three profile values are ` + hostSetupProfileTokenRule + `:
+knows the directory by (an Orca worktree name),
+` + hostSetupTokenRule + `,
+never a path — its model family (a lowercase family token such as
+` + "`claude`" + ` or ` + "`codex`" + `; the server decides which families have a launcher), and
+optionally its launcher profile: --model, --effort and --account-profile. The
+three profile values are
+` + hostSetupProfileTokenRule + `:
 the host builds its launch command from a fixed template for the family, so a
 value is never a path, a command or a credential. While the source is SERVER,
 a worker start carries the ones that are set. A worker may be assigned to

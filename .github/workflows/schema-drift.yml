@@ -99,6 +99,11 @@ jobs:
       # typeDefs.ts is a self-contained SDL string, so a throwaway local install
       # of just tsx + graphql (the export script's only runtime deps) suffices.
       # Install chatter goes to stderr so stdout stays clean SDL for the redirect.
+      # tsx and graphql are pinned to the exact versions schema/SOURCE records
+      # as tsx=/graphql= (interpolated below from that one place — the same keys
+      # scripts/pin-server-sdl.sh reads): a floating graphql minor can change
+      # printSchema bytes and fire this job for a non-drift reason (#2679
+      # review). Bump in SOURCE, then re-run that script's --verify.
       - name: Check for schema drift
         id: check
         if: steps.gate.outputs.enabled == 'true'
@@ -106,7 +111,7 @@ jobs:
         run: |
           make schema-check \
             HADRON_SERVER_DIR=.hadron-server \
-            SDL_EXPORT="npm install --no-save --no-package-lock --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
+            SDL_EXPORT="npm install --no-save --no-package-lock --silent --ignore-scripts tsx@$(sed -n 's/^tsx=//p' schema/SOURCE) graphql@$(sed -n 's/^graphql=//p' schema/SOURCE) 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
 
       # Same cross-repo checkout, second drift axis: the registered-tool manifest
       # `hadron spec check-tools` embeds. Pure grep over the tool-source files (every module
@@ -186,6 +191,71 @@ jobs:
         run: |
           echo "Drift detected — see the steps above and any filed issue(s)."
           exit 1
+
+  # The pin question, asked nightly since #2679: the drift job above asks
+  # whether our copies match hadron-server MAIN; this one asks whether the PIN
+  # still reproduces. schema/SOURCE names two hadron-server commits whose merge
+  # the committed snapshot was exported from (until #2658 retires the pin), and
+  # `scripts/pin-server-sdl.sh --verify` re-merges them, re-exports the SDL and
+  # checks merge_sha/sdl_sha256/sdl_lines and the snapshot diff. Nothing else
+  # exercised --verify (#2679 blind review), so a pinned commit becoming
+  # unfetchable, a graphql print change, or a broken exporter would otherwise
+  # surface only when a human re-pinned.
+  #
+  # The server checkout needs just a git repo the script can fetch the two SHAs
+  # into (it fetches them itself, authenticating with HADRON_SERVER_FETCH_TOKEN
+  # — a credential the script scopes to its git calls and unsets again, header
+  # and environment variable both, before any npm command runs, which is
+  # exactly the property this job relies on; scripts/pinserverdl pins it).
+  # Nightly/dispatch only, like its neighbours: it needs the cross-repo
+  # credential, so it is a heads-up detector, not a PR gate. A red run IS the
+  # signal for this job — it means "the pin no longer reproduces", not "drift
+  # was detected", so it deliberately does not feed the drift job's
+  # issue-filing step (which would file the wrong report); a missing token
+  # skips green, exactly like the drift job's own gate above.
+  pin-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+
+      - name: Gate on server-access token
+        id: gate
+        env:
+          TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::HADRON_SERVER_RO_TOKEN not set — skipping pin-verify."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out hadron-server (git only)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          repository: hadron-memory/hadron-server
+          token: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+          path: .hadron-server
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/export-graphql-sdl.mjs
+            src/api/graphql/schema/typeDefs.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Verify the pinned snapshot
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          HADRON_SERVER_FETCH_TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+        run: |
+          out="$RUNNER_TEMP/pin-worktree"
+          scripts/pin-server-sdl.sh .hadron-server "$out" --verify
+          # The script's trap removes the worktree on failure; on success it
+          # is ours to clean up.
+          git -C .hadron-server worktree remove --force "$out"
 
   # The third question, and the one that had never been asked (#641): the checks
   # above keep our COPIES of the server's contract current; this one asks whether
