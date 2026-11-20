@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -63,15 +65,40 @@ func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	if mutation == nil {
 		t.Fatalf("no instructed mutation observed: %+v", *calls)
 	}
-	// The claim survives the fallback: checked by the server, not recorded.
-	if mutation.Variables["instruction"] == nil {
-		t.Fatal("the person fallback lost the instruction claim")
+	// The claim survives the fallback, checked by the server, not recorded —
+	// and it is the typed reference the flag spelled, not just a non-nil
+	// variable (cli#2560 F6).
+	wantClaim := map[string]any{"kind": "TASK", "ref": "one"}
+	if !reflect.DeepEqual(mutation.Variables["instruction"], wantClaim) {
+		t.Fatalf("the person fallback lost or reshaped the instruction claim: %v", mutation.Variables["instruction"])
 	}
 	if input, ok := mutation.Variables["input"].(map[string]any); !ok || input["appRef"] != appB {
 		t.Fatalf("the write must target the named App B: %v", mutation.Variables["input"])
 	}
-	if out.Len() == 0 {
-		t.Fatal("no receipt for the fallback write")
+	// The --json receipt is the written record, not merely non-empty output
+	// (cli#2560 F6): the person fallback's write round-trips the DTO.
+	var receipt struct {
+		Worker struct {
+			Name *string `json:"name"`
+			Urn  *string `json:"urn"`
+		} `json:"worker"`
+		State    string  `json:"state"`
+		Reason   *string `json:"reason"`
+		SetBy    string  `json:"setBy"`
+		InEffect bool    `json:"inEffect"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &receipt); err != nil {
+		t.Fatalf("the fallback write's --json output is not the record (%v): %s", err, out.String())
+	}
+	if receipt.Worker.Name == nil || *receipt.Worker.Name != "Rufus" ||
+		receipt.Worker.Urn == nil || *receipt.Worker.Urn != "hrn:worker:acme.com:eng:rufus" {
+		t.Fatalf("wrong worker party in the receipt: %+v", receipt.Worker)
+	}
+	if receipt.State != "UNAVAILABLE" || receipt.Reason == nil || *receipt.Reason != "OUT_OF_TOKENS" {
+		t.Fatalf("wrong state/reason in the receipt: %+v", receipt)
+	}
+	if receipt.SetBy != "APP_MANAGER" || !receipt.InEffect {
+		t.Fatalf("wrong setBy/inEffect in the receipt: %+v", receipt)
 	}
 }
 
@@ -132,5 +159,70 @@ func TestAvailabilityPlainCrossAppWorkerSetNotAttributed(t *testing.T) {
 	}
 	if strings.Contains(stderr.String(), "worker session") {
 		t.Fatalf("unexpected session note on a cross-App plain write: %q", stderr.String())
+	}
+}
+
+// cli#2560 (Jessie's LOCAL P3 on #2557): the cross-App pins above cover
+// --worker only; this is the --family twin — a valid App-A binding while
+// --app names App B, plain family set. The no-session property holds today
+// for a different reason than the worker path: setModelFamilyAvailability
+// is deliberately absent from the authored-write list (#868,
+// write_attribution.go — a plain family write is the person's), so the
+// middleware never even considers attaching. What this pin kills is any
+// change that makes a session actually ride an App-B family write: adding
+// the field to the list alone stays green here (the App-identity check then
+// refuses the cross-App attach, as for the worker pin above), so today that
+// takes the same double removal — the field AND the identity check; if
+// family ever joins the authored set deliberately, this test becomes that
+// guard's cross-App pin. The input targeting assert also fixes the routing:
+// the write names App B and the codex family, never the binding's App A.
+func TestAvailabilityPlainCrossAppFamilySetNotAttributed(t *testing.T) {
+	dir := teamGitDir(t)
+	const appB = "capp999999999999999999999" // the binding's App is capp100…
+	srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+		if c.OperationName == "GetBoundSessionEnd" {
+			return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`
+		}
+		if c.OperationName == "TeamAppIdentity" {
+			return `{"data":{"app":{"id":"` + appB + `"}}}`
+		}
+		if c.OperationName != "ModelFamilyAvailabilitySet" {
+			t.Errorf("unexpected op %s", c.OperationName)
+			return `{}`
+		}
+		return availabilityAnswer2450("family")
+	})
+	writeTeamBindingIn(t, dir, srv.URL)
+	f, _, stderr := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "availability", "set", "--family", "codex", "--state", "unavailable", "--reason", "OTHER",
+		"--app", appB, "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	seen := false
+	bindingChecked := false
+	for _, c := range *calls {
+		if c.Session != "" {
+			t.Fatalf("request %s carried worker session %q: the App-A binding must not ride a family write targeting App B", c.OperationName, c.Session)
+		}
+		if c.OperationName == "GetBoundSessionEnd" {
+			bindingChecked = true
+		}
+		if c.OperationName == "ModelFamilyAvailabilitySet" {
+			seen = true
+			if input, ok := c.Variables["input"].(map[string]any); !ok || input["appRef"] != appB || input["family"] != "codex" {
+				t.Fatalf("the write must target the named App B family: %v", c.Variables["input"])
+			}
+		}
+	}
+	if !bindingChecked {
+		t.Fatalf("the binding never loaded: no GetBoundSessionEnd read, so the no-session pin above is vacuous: %+v", *calls)
+	}
+	if !seen {
+		t.Fatalf("no plain ModelFamilyAvailabilitySet observed: %+v", *calls)
+	}
+	if strings.Contains(stderr.String(), "worker session") {
+		t.Fatalf("unexpected session note on a cross-App plain family write: %q", stderr.String())
 	}
 }
