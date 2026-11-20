@@ -56,6 +56,17 @@ jobs:
       - name: CLI coverage matrix
         run: make coverage-matrix-check
 
+      # cli#2648: a main-merge that silently puts assessed help-inventory rows
+      # back to unread (#2578, 78 rows) passes every other check. Needs the full
+      # history to find the merge base with main; the PR head, not the merge ref,
+      # is what is compared.
+      - name: Help inventory reverts
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --unshallow origin 2>/dev/null || git fetch --no-tags origin
+          git fetch --no-tags origin main ${{ github.event.pull_request.head.sha }}
+          make help-inventory-revert-check BASE=origin/main HEAD=${{ github.event.pull_request.head.sha }}
+
   # #1325: the key file's owner-only DACL on windows is a security claim, so it
   # is pinned by tests that read the DACL back through the Windows API. Only
   # this package runs here: the cost is one runner, and unrelated packages'
