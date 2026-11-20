@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -632,6 +633,28 @@ func TestGrantRequest2727LastRefusedAt(t *testing.T) {
 				if !strings.Contains(text, tc.text) {
 					t.Fatalf("%s: text lacks %q: %q", tc.name, tc.text, text)
 				}
+			}
+		})
+	}
+}
+
+// cli#2727: each of the three reads sends lastRefusedAt in its own selection,
+// independent of what the mock answers (a mock that always includes the field
+// cannot hide an operation that stopped asking for it).
+func TestGrantRequest2727OperationsSelectLastRefusedAt(t *testing.T) {
+	for _, v := range grantVerbs1868()[1:] {
+		t.Run(v.name, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, map[string]string{v.op: v.resp(ceremony1868)}, v.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := findCall1868(calls, v.op)
+			if c == nil {
+				t.Fatal("operation was never sent")
+			}
+			fields, _ := selection1868(t, c.Query, v.root)
+			if !slices.Contains(fields, "lastRefusedAt") {
+				t.Fatalf("%s must select lastRefusedAt, selected %v", v.op, fields)
 			}
 		})
 	}

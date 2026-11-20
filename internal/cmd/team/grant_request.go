@@ -37,7 +37,9 @@ lastRefusedAt is the latest time the server observed a verified signing attempt
 that was refused as ineligible, shown as a timestamp only. A dash (null in
 --json) means none was observed, not that none happened: the server records
 these best effort. It names no one and changes nothing about the request.
-It needs a server with hadron-server#4581; an older server refuses these reads.
+It shows on request-signature, signing-request get and signing-request withdraw,
+which need a server with hadron-server#4581 (an older server refuses them);
+'team grant request' does not read it.
 
 These commands exist only where signing is switched on. On a server without it
 the command says "does not offer" and exits 2.
