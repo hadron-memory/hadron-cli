@@ -20,13 +20,16 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   text first (so an echo never costs the unknown-outcome notice), then returns the error through
   `api.Detached`, which cuts it from its raw chain and redacts every rendered string (message, `--json`
   serverCode, fault detail) with `api.RedactSecretText`, the transport's own redactor, which also covers the
-  URL-encoded spellings an echoing gateway produces (`api.HoldsSecret` is its predicate). A clean server code
+  URL-encoded spellings an echoing gateway produces (`api.ContainsSecret` is its predicate). A clean server code
   and the exit class survive. Text built from the operator's own `--org` in the recovery pointer is redacted
   too (it can, by mistake, equal a token). Success needs a usable id (an empty id or object is unconfirmed,
   Unavailable); an ERROR row is shown as registered with a recorded failure, not "connected"; an unknown status
   ends in the one command that cannot loop, `hadron slack disconnect <id>` (get and status refuse the same
   status). Every command suggested in a message is shell-quoted with `cmdutil.ShellQuote`, never Go-quoted
-  (blind P2, Andi: `%q` leaves `$` and backticks live when pasted). A success answer whose any field holds a token is withheld whole (Unavailable,
+  (blind P2, Andi: `%q` leaves `$` and backticks live when pasted). Suggested commands also use `--org=<value>`
+  and put `--` before an id, because cobra reads a leading dash as a flag even when the word is quoted (blind
+  P2, Dara); and a `--org` value that holds a token is never printed, quoted or not: the pointer shows
+  `--org=<your organization reference>` instead of a broken command. A success answer whose any field holds a token is withheld whole (Unavailable,
   nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary
   re-encoding.
 - **Recovery order.** The server's duplicate check (`deletedAt: null`, no status condition; hadron-server

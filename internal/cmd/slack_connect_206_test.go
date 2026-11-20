@@ -225,7 +225,7 @@ func TestSlackConnectAmbiguousFailureIsSentOnceAndPointsAtStatus(t *testing.T) {
 	if e == nil || n != 1 {
 		t.Fatalf("sent once, never retried: err=%v requests=%d", e, n)
 	}
-	if !strings.Contains(e.Error(), "outcome unknown") || !strings.Contains(e.Error(), `hadron slack status --org acme.com`) {
+	if !strings.Contains(e.Error(), "outcome unknown") || !strings.Contains(e.Error(), `hadron slack status --org=acme.com`) {
 		t.Errorf("must say the outcome is unknown and where to look: %v", e)
 	}
 	noSecret(t, "error", e.Error())
@@ -521,8 +521,10 @@ func TestSlackConnectRecoveryTextNeverPrintsATokenTypedAsTheOrg(t *testing.T) {
 					t.Fatal("must fail")
 				}
 				noSecret(t, "the rendered output", all)
-				if !strings.Contains(all, "hadron slack status --org") {
-					t.Errorf("the recovery pointer must survive the redaction: %s", all)
+				// Dara (blind P2): a value holding a token is not printed at all, so the
+				// pointer asks for the real reference instead of a "[redacted]" command.
+				if !strings.Contains(all, "hadron slack status --org=<your organization reference>") || strings.Contains(all, "[redacted]") {
+					t.Errorf("the recovery pointer must be usable and token-free: %s", all)
 				}
 			})
 		}
@@ -542,7 +544,7 @@ func TestSlackConnectValidatesTheSuccessAnswer(t *testing.T) {
 		t.Fatalf("an empty object is unconfirmed: %v", e)
 	}
 	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"WAT"`, 1)+`}}`, false, args(t)...)
-	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), "hadron slack disconnect c1") || strings.Contains(e.Error(), "hadron slack get") {
+	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), "hadron slack disconnect -- c1") || strings.Contains(e.Error(), "hadron slack get") {
 		t.Fatalf("an unknown status is unconfirmed and ends in the one command that cannot loop (disconnect): %v", e)
 	}
 	all, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"ERROR"`, 1)+`}}`, false, args(t)...)
@@ -564,17 +566,54 @@ func TestSlackConnectSuggestedCommandsAreShellSafe(t *testing.T) {
 	bot := tokenFile(t, "bot", botTok)
 	app := tokenFile(t, "app", appTok)
 	_, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":null}}`, false, "connect", "--org", awkward, "--app", appID, "--bot-token-file", bot, "--app-token-file", app)
-	want := "hadron slack status --org 'acme.com; touch /tmp/x $(id) `id` it'\\''s'"
+	want := "hadron slack status --org='acme.com; touch /tmp/x $(id) `id` it'\\''s'"
 	if e == nil || !strings.Contains(e.Error(), want) {
 		t.Fatalf("the org must be one single-quoted shell word:\n%v\nwant %s", e, want)
 	}
 	row := strings.Replace(strings.Replace(connectedRow, `"id":"c1"`, `"id":"c 1$(x)"`, 1), `"status":"ACTIVE"`, `"status":"WAT"`, 1)
 	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+row+`}}`, false, connectArgs(t)...)
-	if e == nil || !strings.Contains(e.Error(), "hadron slack disconnect 'c 1$(x)'") || strings.Contains(e.Error(), "slack get") || strings.Contains(e.Error(), "slack status") {
+	if e == nil || !strings.Contains(e.Error(), "hadron slack disconnect -- 'c 1$(x)'") || strings.Contains(e.Error(), "slack get") || strings.Contains(e.Error(), "slack status") {
 		t.Fatalf("unknown status ends in one quoted disconnect, no looping get/status: %v", e)
 	}
 	_, _, _, e = runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "a b$(x)", "--yes")
-	if e == nil || !strings.Contains(e.Error(), "hadron slack get 'a b$(x)'") {
+	if e == nil || !strings.Contains(e.Error(), "hadron slack get -- 'a b$(x)'") {
 		t.Fatalf("disconnect's pointer quotes the id: %v", e)
+	}
+}
+
+// Dara (blind P2): shell quoting keeps an id one word, but cobra still reads a
+// leading dash as a flag, so every suggested command puts "--" before the id.
+func TestSlackSuggestedIDCommandsSurviveADashPrefixedID(t *testing.T) {
+	row := strings.Replace(strings.Replace(connectedRow, `"id":"c1"`, `"id":"-x"`, 1), `"status":"ACTIVE"`, `"status":"WAT"`, 1)
+	_, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+row+`}}`, false, connectArgs(t)...)
+	if e == nil || !strings.Contains(e.Error(), "hadron slack disconnect -- -x") {
+		t.Fatalf("the suggested command must carry the -- terminator: %v", e)
+	}
+	// ...and the command as printed really works with such an id (--server
+	// goes before the terminator: everything after -- is positional).
+	for _, deleted := range []string{"true", "false"} {
+		var n int32
+		srv, ops := captureGraphQLFunc(t, func(string) string {
+			atomic.AddInt32(&n, 1)
+			return `{"data":{"deleteSlackConnection":` + deleted + `}}`
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"slack", "disconnect", "--yes", "--server", srv.URL, "--", "-x"})
+		e := root.Execute()
+		if atomic.LoadInt32(&n) != 1 {
+			t.Fatalf("a dash-prefixed id after -- must be sent once: requests=%d err=%v", n, e)
+		}
+		var vars map[string]any
+		decodeSlackVars(t, ops["DeleteSlackConnection"], &vars)
+		if vars["ref"] != "-x" {
+			t.Fatalf("variables %v", vars)
+		}
+		if deleted == "true" && e != nil {
+			t.Fatalf("must succeed: %v", e)
+		}
+		if deleted == "false" && (e == nil || !strings.Contains(e.Error(), "hadron slack get -- -x")) {
+			t.Fatalf("disconnect's pointer carries the terminator too: %v", e)
+		}
 	}
 }
