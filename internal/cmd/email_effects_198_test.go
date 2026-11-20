@@ -115,6 +115,11 @@ func TestEmailEffectsWire198(t *testing.T) {
 				t.Fatalf("want exactly one request, got %d (%v)", n, ops)
 			}
 			v := vars198(t, ops, e.op)
+			// The exact payload: every expected variable, and NO other (an extra
+			// variable would slip through a check of only the expected ones).
+			if len(v) != len(e.vars) {
+				t.Errorf("variables sent = %v, want exactly %v", v, e.vars)
+			}
 			for k, want := range e.vars {
 				got, ok := v[k]
 				if !ok || !jsonEqual198(got, want) {
@@ -632,21 +637,8 @@ func TestEmailBodyIsWithheldFromServerEchoes198(t *testing.T) {
 			})
 		}
 	}
-	// A result id is the server's own value and is printed as returned, whatever it
-	// looks like: a draft was CREATED, so hiding or failing on an id that happens to
-	// equal (or contain) the submitted body would lose the handle and invite a
-	// duplicate on retry (Dara's #2740 F1/F2). No guess is made about id contents.
-	for _, jsonOut := range []bool{false, true} {
-		args := []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", bodyFile198(t, "short")}
-		if jsonOut {
-			args = append(args, "--json")
-		}
-		echoID := `{"data":{"emailSaveDraft":{"draftId":"short","conversationId":"short"}}}`
-		out, _, n, err := runEffect198(t, map[string]string{"EmailSaveDraft": echoID}, "", args...)
-		if err != nil || n != 1 || !strings.Contains(out, "short") {
-			t.Errorf("(json=%v) a valid id equal to the body was refused or hidden: err %v, %d requests, out %q", jsonOut, err, n, out)
-		}
-	}
+	// A result id is the server's own value and is printed as returned (Eden's
+	// adjudication on #2740): a valid id that merely contains a short body is intact.
 	out, _, n, err := runEffect198(t, map[string]string{"EmailSaveDraft": `{"data":{"emailSaveDraft":{"draftId":"dx7","conversationId":"cx9"}}}`}, "", "draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", bodyFile198(t, "x"), "--json")
 	if err != nil || n != 1 || !strings.Contains(out, `"draftId": "dx7"`) || !strings.Contains(out, `"conversationId": "cx9"`) {
 		t.Errorf("a valid id containing a short body was altered: err %v, out %s", err, out)
@@ -894,6 +886,94 @@ func TestEmailBodyCommandsWithholdNon200Envelopes198(t *testing.T) {
 					t.Errorf("a reply that got no usable answer lost its unknown-outcome guidance: %s", all)
 				}
 			})
+		}
+	}
+}
+
+// Eden's adjudication on #2740 (Andi F1): a failure that is neither a GraphQL error
+// nor an HTTP error with a status (a malformed 200 the client cannot decode) must not
+// reach the generic error mapper, whose text can carry the server's bytes: draft save
+// and update print a CLI-owned message and keep a nonzero exit, in text and --json.
+func TestEmailBodyCommandsWithholdDecodeErrors198(t *testing.T) {
+	body := bodyFile198(t, "line one SECRET-A")
+	for _, answer := range []string{`{"data": SECRET-A`, `SECRET-A not json`, `{"data":{"emailSaveDraft":"SECRET-A"}}`, `{"data":{"emailUpdateDraft":"SECRET-A"}}`} {
+		for _, c := range []struct {
+			name string
+			args []string
+		}{
+			{"draft save", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}},
+			{"draft update", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}},
+		} {
+			for _, jsonOut := range []bool{false, true} {
+				t.Run(c.name+" "+answer, func(t *testing.T) {
+					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.Method == http.MethodGet {
+							w.Header().Set("Content-Type", "application/json")
+							_, _ = w.Write([]byte(`{"capabilities":[]}`))
+							return
+						}
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(answer))
+					}))
+					defer srv.Close()
+					f, out := testFactory(t)
+					args := append(append([]string{"email"}, c.args...), "--server", srv.URL)
+					if jsonOut {
+						args = append(args, "--json")
+					}
+					root := NewRootCmd(f)
+					root.SetArgs(args)
+					err := root.Execute()
+					if err == nil {
+						t.Fatal("an undecodable answer reported success")
+					}
+					renderError(f, err)
+					all := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String() + err.Error()
+					if strings.Contains(all, "SECRET-A") {
+						t.Errorf("(json=%v) the server's bytes reached the output: %s", jsonOut, all)
+					}
+				})
+			}
+		}
+	}
+}
+
+// Eden's adjudication (Andi F2): an ambiguous draft save (no usable answer, or a
+// success with no usable id) says a draft MAY exist and where to look, so the caller
+// does not blindly retry without a key; the exit class stays unavailable (7).
+func TestEmailAmbiguousDraftSaveSaysADraftMayExist198(t *testing.T) {
+	body := bodyFile198(t, "x")
+	args := []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}
+	// no answer at all
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		conn, _, _ := w.(http.Hijacker).Hijack()
+		_ = conn.Close()
+	}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"email"}, args...), "--server", srv.URL))
+	err := root.Execute()
+	srv.Close()
+	if err == nil {
+		t.Fatal("a dropped connection reported success")
+	}
+	msg := strings.ToLower(err.Error() + out.String())
+	if !strings.Contains(msg, "drafts folder") || !strings.Contains(msg, "may") {
+		t.Errorf("a dropped draft save does not say a draft may exist and where to look: %v", err)
+	}
+	if exitCodeFor(err) != 7 {
+		t.Errorf("exit %d, want 7", exitCodeFor(err))
+	}
+	// a success with no usable id
+	for _, wire := range []string{`{"data":{}}`, `{"data":{"emailSaveDraft":null}}`, `{"data":{"emailSaveDraft":{"draftId":"","conversationId":null}}}`} {
+		_, _, _, err := runEffect198(t, map[string]string{"EmailSaveDraft": wire}, "", args...)
+		if exitCodeFor(err) != 7 || err == nil || !strings.Contains(strings.ToLower(err.Error()), "drafts folder") {
+			t.Errorf("%s: want exit 7 naming the Drafts folder, got %v", wire, err)
 		}
 	}
 }
