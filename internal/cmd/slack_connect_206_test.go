@@ -171,12 +171,15 @@ func TestSlackConnectRefusesStdinFromATerminal(t *testing.T) {
 // A token pasted where a path belongs must not come back in the error (#1490).
 func TestSlackConnectNeverEchoesATokenPastedAsAPath(t *testing.T) {
 	good := tokenFile(t, "tok", appTok)
-	_, _, n, e := runSlackWrite(t, "CreateSlackConnection", `{}`, "",
-		"connect", "--org", "o1", "--app", appID, "--bot-token-file", botTok, "--app-token-file", good)
-	if e == nil || n != 0 {
-		t.Fatalf("err=%v requests=%d", e, n)
+	for _, jsonMode := range []bool{true, false} {
+		// Through the real renderer, both streams (blind P3).
+		all, n, e := runSlackRendered(t, `{}`, jsonMode,
+			"connect", "--org", "o1", "--app", appID, "--bot-token-file", botTok, "--app-token-file", good)
+		if e == nil || n != 0 {
+			t.Fatalf("err=%v requests=%d", e, n)
+		}
+		noSecret(t, fmt.Sprintf("the rendered output (json=%v)", jsonMode), all)
 	}
-	noSecret(t, "error", e.Error())
 }
 
 func TestSlackConnectPassesServerRefusalsThroughAndWithholdsAnEchoedToken(t *testing.T) {
@@ -301,7 +304,13 @@ func TestSlackDisconnectAsksOnATerminal(t *testing.T) {
 		f, _, errOut := testFactoryTTY(t, answer)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"slack", "disconnect", "c1", "--server", srv.URL})
-		_ = root.Execute()
+		err := root.Execute()
+		if answer == "y\n" && err != nil {
+			t.Errorf("accepting must succeed: %v", err)
+		}
+		if answer == "n\n" && (err == nil || exitCodeFor(err) != exitcode.Cancelled) {
+			t.Errorf("declining is a cancellation, not %v (exit %d)", err, exitCodeFor(err))
+		}
 		if int(atomic.LoadInt32(&n)) != wantRequests {
 			t.Errorf("answer %q: %d requests, want %d", answer, n, wantRequests)
 		}
@@ -533,8 +542,8 @@ func TestSlackConnectValidatesTheSuccessAnswer(t *testing.T) {
 		t.Fatalf("an empty object is unconfirmed: %v", e)
 	}
 	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"WAT"`, 1)+`}}`, false, args(t)...)
-	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), `hadron slack get "c1"`) || strings.Contains(e.Error(), "was created") {
-		t.Fatalf("an unknown status is unconfirmed and names the real get command: %v", e)
+	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), "hadron slack disconnect c1") || strings.Contains(e.Error(), "hadron slack get") {
+		t.Fatalf("an unknown status is unconfirmed and ends in the one command that cannot loop (disconnect): %v", e)
 	}
 	all, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"ERROR"`, 1)+`}}`, false, args(t)...)
 	if e != nil || strings.Contains(all, "✓ connected") || !strings.Contains(all, "recorded a failure") || !strings.Contains(all, "status ERROR") {
@@ -543,5 +552,29 @@ func TestSlackConnectValidatesTheSuccessAnswer(t *testing.T) {
 	all, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+connectedRow+`}}`, false, args(t)...)
 	if e != nil || !strings.Contains(all, "✓ connected Slack workspace") {
 		t.Fatalf("ACTIVE keeps the success banner: err=%v\n%s", e, all)
+	}
+}
+
+// Andi (blind P2): a suggested command is pasted into a shell, so an operator-
+// or server-supplied value in it is shell-quoted (cmdutil.ShellQuote), never
+// Go-quoted, and the unknown-status recovery ends in the one command that cannot
+// loop (get and status refuse the same unknown status; disconnect needs no status).
+func TestSlackConnectSuggestedCommandsAreShellSafe(t *testing.T) {
+	awkward := "acme.com; touch /tmp/x $(id) `id` it's"
+	bot := tokenFile(t, "bot", botTok)
+	app := tokenFile(t, "app", appTok)
+	_, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":null}}`, false, "connect", "--org", awkward, "--app", appID, "--bot-token-file", bot, "--app-token-file", app)
+	want := "hadron slack status --org 'acme.com; touch /tmp/x $(id) `id` it'\\''s'"
+	if e == nil || !strings.Contains(e.Error(), want) {
+		t.Fatalf("the org must be one single-quoted shell word:\n%v\nwant %s", e, want)
+	}
+	row := strings.Replace(strings.Replace(connectedRow, `"id":"c1"`, `"id":"c 1$(x)"`, 1), `"status":"ACTIVE"`, `"status":"WAT"`, 1)
+	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+row+`}}`, false, connectArgs(t)...)
+	if e == nil || !strings.Contains(e.Error(), "hadron slack disconnect 'c 1$(x)'") || strings.Contains(e.Error(), "slack get") || strings.Contains(e.Error(), "slack status") {
+		t.Fatalf("unknown status ends in one quoted disconnect, no looping get/status: %v", e)
+	}
+	_, _, _, e = runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "a b$(x)", "--yes")
+	if e == nil || !strings.Contains(e.Error(), "hadron slack get 'a b$(x)'") {
+		t.Fatalf("disconnect's pointer quotes the id: %v", e)
 	}
 }

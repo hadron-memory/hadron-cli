@@ -24,7 +24,9 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   and the exit class survive. Text built from the operator's own `--org` in the recovery pointer is redacted
   too (it can, by mistake, equal a token). Success needs a usable id (an empty id or object is unconfirmed,
   Unavailable); an ERROR row is shown as registered with a recorded failure, not "connected"; an unknown status
-  names the real `slack get "<id>"` command. A success answer whose any field holds a token is withheld whole (Unavailable,
+  ends in the one command that cannot loop, `hadron slack disconnect <id>` (get and status refuse the same
+  status). Every command suggested in a message is shell-quoted with `cmdutil.ShellQuote`, never Go-quoted
+  (blind P2, Andi: `%q` leaves `$` and backticks live when pasted). A success answer whose any field holds a token is withheld whole (Unavailable,
   nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary
   re-encoding.
 - **Recovery order.** The server's duplicate check (`deletedAt: null`, no status condition; hadron-server

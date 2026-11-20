@@ -119,7 +119,7 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			secrets := []string{bot, appTok}
 			// --org is the operator's own text and may, by mistake, equal a token:
 			// every post-submission message built from it is redacted too.
-			where := api.RedactSecretText(fmt.Sprintf("run \"hadron slack status --org %s\": it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected", orgRef), secrets)
+			where := api.RedactSecretText(fmt.Sprintf("check with: hadron slack status --org %s (it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected)", cmdutil.ShellQuote(orgRef)), secrets)
 			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, appRef, bot, appTok)
 			if err != nil {
 				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried); "+where)
@@ -132,7 +132,7 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			// submitted token is never rendered, and nothing from it (not even the
 			// id) goes into the message.
 			for _, field := range []string{v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt} {
-				if api.HoldsSecret(field, secrets) {
+				if api.ContainsSecret(field, secrets) {
 					return exitcode.Newf(exitcode.Unavailable, "the server's answer repeated a submitted token and was withheld; the connection may exist: %s", where)
 				}
 			}
@@ -143,7 +143,9 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			}
 			dto, err := toDTO(v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt)
 			if err != nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server's answer carried an unknown status, so the result is unconfirmed; read the connection with \"hadron slack get %s\" (or see %s)", strconv.Quote(v.Id), "\"hadron slack status --org\"")
+				// "slack get" and "slack status" refuse the same unknown status, so they
+				// would loop: the one command that always works is disconnect.
+				return exitcode.Newf(exitcode.Unavailable, "the server answered with connection id %s and a status this CLI does not recognize (a newer server?), so it cannot be read back here: upgrade hadron, or remove the registration with: hadron slack disconnect %s", cmdutil.ShellQuote(v.Id), cmdutil.ShellQuote(v.Id))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				banner := "✓ connected Slack workspace %s\n"
@@ -203,12 +205,12 @@ before trying again.`,
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried); \"hadron slack get %s\" shows whether the connection still exists: %s", strconv.Quote(id), mapped), err)
+					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried); \"hadron slack get %s\" shows whether the connection still exists: %s", cmdutil.ShellQuote(id), mapped), err)
 				}
 				return mapped
 			}
 			if resp == nil || !resp.DeleteSlackConnection {
-				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect; \"hadron slack get %s\" shows whether the connection still exists", strconv.Quote(id))
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect; \"hadron slack get %s\" shows whether the connection still exists", cmdutil.ShellQuote(id))
 			}
 			dto := disconnectDTO{ConnectionID: id, Disconnected: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

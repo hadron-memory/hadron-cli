@@ -11,9 +11,9 @@ func RedactSecretText(s string, secrets []string) string {
 	return string(redactSecrets([]byte(s), nonEmpty(secrets)))
 }
 
-// HoldsSecret reports whether s contains any secret, in any spelling
+// ContainsSecret reports whether s contains any secret, in any spelling
 // RedactSecretText would replace.
-func HoldsSecret(s string, secrets []string) bool {
+func ContainsSecret(s string, secrets []string) bool {
 	for _, secret := range nonEmpty(secrets) {
 		for _, spelling := range secretSpellings(secret) {
 			if bytes.Contains([]byte(s), []byte(spelling)) {
