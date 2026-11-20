@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-// (Comment-only line added to move the frozen head after a withdrawn blind P1; no behaviour change.)
 // cli#2555 (server#4375 companion): the cadence alarm is emitted as
 // alarm.lead-cadence, and events raised before the rename still say
 // alarm.coordinator-cadence. Both render the same way: the subject in the TASK
