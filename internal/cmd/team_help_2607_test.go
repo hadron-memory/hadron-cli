@@ -39,7 +39,9 @@ func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
 		{[]string{"team", "role", "list"}, []string{"omitted"}},
 		// 13: the removed-flag history lists --name-convention.
 		{[]string{"team", "role"}, []string{"--name-convention"}},
-		// 16: the sweep-runs wording uses the sweep-runs field names.
+		// 16: these phrases already stand on the pages (the slice only reflowed
+		// them); the pin makes a reword deliberate, and the sweep-runs columns
+		// are the field names the sweep-mode sentence uses.
 		{[]string{"team", "app", "sweep-mode"}, []string{"planned, applied, skipped or failed"}},
 		{[]string{"team", "host", "sweep-runs"}, []string{"PLANNED, APPLIED, SKIPPED, FAILED"}},
 	} {
@@ -59,19 +61,20 @@ func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
 		t.Error("team grant list mentions get's not-found exit 4")
 	}
 	// 4: one version string on the rm page.
-	rm := root
-	c, _, err := rm.Find([]string{"team", "grant", "rm"})
+	c, _, err := root.Find([]string{"team", "grant", "rm"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	usage := c.Flags().Lookup("instruction").Usage
-	if !strings.Contains(c.Long, "Needs server 2026-11-04 or later") || !strings.Contains(usage, "Needs server 2026-11-04 or later") || strings.Contains(usage, "4bac6127") {
+	if !strings.Contains(c.Long, "Needs server 2026-11-04 or later") || !strings.Contains(usage, "Needs server 2026-11-04 or later") || strings.Contains(usage, "4bac6127") || strings.Contains(c.Long, "4bac6127") {
 		t.Errorf("team grant rm names two versions: long %q, flag %q", flat(c.Long), usage)
 	}
 }
 
-// cli#2607 item 14: prose in the revised pages names the command with its
-// "hadron" prefix, so it can be copied.
+// cli#2607 item 14: the prose of the revised team grant and team register
+// pages names a team grant or team register command with its "hadron" prefix,
+// so it can be copied. The pin is scoped to those two families (not to every
+// command named on the role pages).
 func TestTeamHelpSliceBUsesOneCommandPrefix2607(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -81,7 +84,7 @@ func TestTeamHelpSliceBUsesOneCommandPrefix2607(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, line := range strings.Split(c.Long, "\n") {
-			for _, bare := range []string{"'team grant request", "'team grant actions", "'team grant action ", "('team grant", "'team register ", "'team grant get"} {
+			for _, bare := range []string{"'team grant ", "('team grant", "'team register ", "('team register"} {
 				if strings.Contains(line, bare) {
 					t.Errorf("%v: bare command in prose: %q", path, line)
 				}
@@ -124,6 +127,21 @@ func TestPickerHelpKeyPhrases2607(t *testing.T) {
 			if !strings.Contains(got, w) {
 				t.Errorf("register %s help lacks %q", c.verb, w)
 			}
+		}
+	}
+}
+
+// cli#2607 item 2 (blind P2#1): the claim "unbound, list and get refuse
+// locally" is behaviour, so it is run: exit 2, the stated message, nothing sent.
+func TestTeamGrantListAndGetUnboundRefuseLocally2607(t *testing.T) {
+	for _, argv := range [][]string{{"team", "grant", "list"}, {"team", "grant", "get", "g1"}} {
+		teamGitDir(t) // an empty git dir: no binding
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(argv)
+		err := root.Execute()
+		if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "worker-bound grants require a worker session") {
+			t.Errorf("%v: want a local usage refusal, got %v", argv, err)
 		}
 	}
 }

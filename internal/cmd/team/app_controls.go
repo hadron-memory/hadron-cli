@@ -102,7 +102,7 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 		c.Flags().BoolVar(&yes, "yes", false, "skip the revocation confirmation")
 		// The shared body says "Needs server 2026-11-04 or later", so the flag
 		// states the same version (cli#2607 item 4), not the commit.
-		instruction.AddManagerFlag(c, deliverySettingsInstructionMinimum)
+		instruction.AddManagerFlag(c, managerInstructionSince)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		var claim *gen.ActInstructionInput
