@@ -138,7 +138,7 @@ func TestSchemaDriftFailureRouting2712(t *testing.T) {
 	if export.ContinueOnError {
 		t.Error("the export step is continue-on-error: an install or exporter failure would read as drift")
 	}
-	if !(idx["Read the tool pins"] < idx[export.Name] && idx[export.Name] < idx[drift.Name]) {
+	if idx["Read the tool pins"] >= idx[export.Name] || idx[export.Name] >= idx[drift.Name] {
 		t.Errorf("steps out of order: %v", order)
 	}
 	if !drift.ContinueOnError {
