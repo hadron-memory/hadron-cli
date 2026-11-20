@@ -12,6 +12,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -63,10 +64,10 @@ type appGrantDTO struct {
 	RevokedAt *string `json:"revokedAt"`
 }
 
-const appGrantHelp = `A named App grant is one permission, from a short fixed list, given to one worker
-in an App. It is separate from worker action grants ('team grant request') and
-from organization action grants ('hadron grant'). The server checks who may
-manage the App.
+const appGrantHelp = `A named App grant is one permission, from a short fixed list, given to one
+worker in an App. It is separate from worker action grants ('team grant
+request') and from organization action grants ('hadron grant'). The server
+checks who may manage the App.
 
 add is person-only: the CLI always sends it as the signed-in person, never as a
 worker session, so a worker cannot give itself a grant; the server refuses a
@@ -99,7 +100,9 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 	if remove {
 		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes.\nWith --instruction and a prompt, the App is selected once from --app, the\nconfigured App, or the binding AppID; that exact App is confirmed and sent.\nA legacy binding with only teamMemory needs --app or a configured App for\nthis instructed interactive path (exit 2 before any prompt or request).\nThe plain path and instructed --yes path retain their existing scope resolution."
 		c.Flags().BoolVar(&yes, "yes", false, "skip the revocation confirmation")
-		addManagerInstruction(c)
+		// The shared body says "Needs server 2026-11-04 or later", so the flag
+		// states the same version (cli#2607 item 4), not the commit.
+		instruction.AddManagerFlag(c, deliverySettingsInstructionMinimum)
 	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
 		var claim *gen.ActInstructionInput

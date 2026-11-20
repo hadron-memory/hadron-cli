@@ -33,8 +33,8 @@ Agent's system memory (the installed agent that carries the roles: branch).
 A cast takes an explicit --name, and a worker's name is permanent in its App:
 retiring a role does NOT free a name for re-casting. 'role list' shows what is
 defined; 'create', 'update' and 'rm' change definitions. (History: the role name
-register, with 'role names ...', --name-range and --transfer-register-to, was
-removed in hadron-server#1050.)
+register, with 'role names ...', --name-range, --name-convention and
+--transfer-register-to, was removed in hadron-server#1050.)
 
 Which App: the App resolves ambiently (--app, the configured App context, then
 the worktree binding). Each read opens with the App it landed on and where that
@@ -157,7 +157,8 @@ After the table, text mode may add warnings (never errors; --json has none):
       the definition documents a role nobody holds
   ! agent <name> (persona role "x"): no matching role definition
       an agent has a persona role that no definition names; the line ends with a
-      'role create' command you can run to define it
+      'role create' command you can run to define it (the command is
+      omitted when display sanitising would change the role name in it)
 Nothing is printed when the install or agent list could not be read in full,
 because absence cannot be inferred then. The 'agent' warnings are skipped when
 --team-agent narrows the list, because it sees only one branch.`,
@@ -398,9 +399,10 @@ func newCmdRoleUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <role> [--description <d>] [--repo <owner/repo> | --clear-repos]",
 		Short: "Edit a role's description or repository affinity",
-		Long: `Edit a role description or repository affinity. Repeat --repo for each repository;
---clear-repos sends an empty list (--clear-repos=false is the same as leaving it out). Omitted fields preserve their values.
-Repository affinity is advisory only, never an authorization or launch gate.
+		Long: `Edit a role description or repository affinity. Repeat --repo for each
+repository; --clear-repos sends an empty list (--clear-repos=false is the same
+as leaving it out). Omitted fields preserve their values. Repository affinity is
+advisory only, never an authorization or launch gate.
 
 Omitted is "preserve" on this server, so an update that names nothing is
 refused rather than sent: a no-op write that reports success is worse than
@@ -500,11 +502,12 @@ brought back. To recover one, find it with 'hadron node recovery list' in the
 Team Agent's system memory and run 'hadron node restore' on it; each sub-node is
 restored separately, the role node first.
 
-Nothing refuses a retirement. Workers already cast in the role are not retired or
-renamed by this command (it retires the definition only), and retiring does NOT
-free a name for re-casting: a worker's name is permanent in its App. The role
-AGENT is a separate object and is not touched: retire it with 'app agent remove
-<app> <agent> --yes' and 'agent rm <agent> --yes' once nothing else needs it.
+Nothing refuses a retirement. Workers already cast in the role are not retired
+or renamed by this command (it retires the definition only), and retiring does
+NOT free a name for re-casting: a worker's name is permanent in its App. The
+role AGENT is a separate object and is not touched: retire it with 'app agent
+remove <app> <agent> --yes' and 'agent rm <agent> --yes' once nothing else needs
+it.
 
 The confirmation names the App before the role, because an ambient App is the
 mistake the prompt is best placed to catch. --yes skips the prompt (required

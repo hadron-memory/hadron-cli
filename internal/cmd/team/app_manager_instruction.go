@@ -20,7 +20,7 @@ const managerInstructionMinimum = "4bac6127"
 // It is display text only: instruction.FlagUsageForServer prints it after
 // "Needs server" and nothing compares it with a server build (the app door
 // already passes a date, "2026-11-03", the same way). Only delivery-settings
-// set uses it; the other team doors still print the commit (a follow-up would
+// set and grant rm use it; the other team doors still print the commit (a follow-up would
 // move them together).
 const deliverySettingsInstructionMinimum = "2026-11-04"
 
