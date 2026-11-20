@@ -35671,6 +35671,260 @@ func (v *ClaimUntrackedTaskItemsResponse) GetClaimUntrackedTaskItems() *ClaimUnt
 	return v.ClaimUntrackedTaskItems
 }
 
+// ClearAgentAIConfigClearAgentAIConfigAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type ClearAgentAIConfigClearAgentAIConfigAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns ClearAgentAIConfigClearAgentAIConfigAgent.Id, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns ClearAgentAIConfigClearAgentAIConfigAgent.Urn, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns ClearAgentAIConfigClearAgentAIConfigAgent.Name, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns ClearAgentAIConfigClearAgentAIConfigAgent.Description, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns ClearAgentAIConfigClearAgentAIConfigAgent.Type, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns ClearAgentAIConfigClearAgentAIConfigAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns ClearAgentAIConfigClearAgentAIConfigAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns ClearAgentAIConfigClearAgentAIConfigAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns ClearAgentAIConfigClearAgentAIConfigAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns ClearAgentAIConfigClearAgentAIConfigAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns ClearAgentAIConfigClearAgentAIConfigAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns ClearAgentAIConfigClearAgentAIConfigAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns ClearAgentAIConfigClearAgentAIConfigAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns ClearAgentAIConfigClearAgentAIConfigAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns ClearAgentAIConfigClearAgentAIConfigAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns ClearAgentAIConfigClearAgentAIConfigAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns ClearAgentAIConfigClearAgentAIConfigAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns ClearAgentAIConfigClearAgentAIConfigAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns ClearAgentAIConfigClearAgentAIConfigAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetResetContextAfterTask returns ClearAgentAIConfigClearAgentAIConfigAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns ClearAgentAIConfigClearAgentAIConfigAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns ClearAgentAIConfigClearAgentAIConfigAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns ClearAgentAIConfigClearAgentAIConfigAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns ClearAgentAIConfigClearAgentAIConfigAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClearAgentAIConfigClearAgentAIConfigAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClearAgentAIConfigClearAgentAIConfigAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClearAgentAIConfigClearAgentAIConfigAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClearAgentAIConfigClearAgentAIConfigAgent) __premarshalJSON() (*__premarshalClearAgentAIConfigClearAgentAIConfigAgent, error) {
+	var retval __premarshalClearAgentAIConfigClearAgentAIConfigAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// ClearAgentAIConfigResponse is returned by ClearAgentAIConfig on success.
+type ClearAgentAIConfigResponse struct {
+	// Clear an Agent's AI provider config without returning or decrypting keys.
+	//
+	// Clearing a user-owned Agent, by its owner or a platform ADMIN/OWNER,
+	// removes every named configuration, including disabled configurations.
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:13
+	// An org-owned Agent clear deletes only the configuration named 'default'.
+	//
+	// Accepts the entity's ID or URN.
+	ClearAgentAIConfig *ClearAgentAIConfigClearAgentAIConfigAgent `json:"clearAgentAIConfig"`
+}
+
+// GetClearAgentAIConfig returns ClearAgentAIConfigResponse.ClearAgentAIConfig, and is useful for accessing the field via an interface.
+func (v *ClearAgentAIConfigResponse) GetClearAgentAIConfig() *ClearAgentAIConfigClearAgentAIConfigAgent {
+	return v.ClearAgentAIConfig
+}
+
 // ClearAgentProcessesIndexResponse is returned by ClearAgentProcessesIndex on success.
 type ClearAgentProcessesIndexResponse struct {
 	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15, hrn:node:hadronmemory.com:specs:cor:dmo:050:16) - set or clear
@@ -54015,6 +54269,131 @@ func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUpdatedAt() s
 	return v.UpdatedAt
 }
 
+// EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage includes the requested fields of the GraphQL type ExchangeConnectionPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an org's exchange connections.
+type EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage struct {
+	Items   []*EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection `json:"items"`
+	Total   int                                                                                         `json:"total"`
+	HasMore bool                                                                                        `json:"hasMore"`
+}
+
+// GetItems returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage.Items, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage) GetItems() []*EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection {
+	return v.Items
+}
+
+// GetTotal returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage.Total, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
+// The GraphQL type's documentation follows.
+//
+// A connected PROVIDER ACCOUNT (identity record) — despite the name, this
+// one type carries mailboxes, calendars and Drive accounts alike; the
+// provider field below says which, and each routes to its own capability
+// tool. Provider state lives in that tool, never here.
+//
+// Operations are identity-scoped: the connection's OWNER may perform them,
+// and an App/headless caller may perform those covered by a live
+// ConnectionGrant whose scopes include the operation's (requireEmailConnection
+// enforces both branches, fail-closed for an unmapped operation). list and
+// delete stay org-ADMIN management operations.
+type EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	UserId         string `json:"userId"`
+	MailboxEmail   string `json:"mailboxEmail"`
+	// Provider backing this connection. Dispatched per-connection through
+	// the tool registry: `ms-exchange`, `gmail`, `google-cal`,
+	// `google-drive`. (This said "'ms-exchange' today" until #1232 — true
+	// when written, and three providers out of date by the time it was
+	// published.)
+	Provider    string     `json:"provider"`
+	DisplayName *string    `json:"displayName"`
+	SyncEnabled bool       `json:"syncEnabled"`
+	SyncStatus  SyncStatus `json:"syncStatus"`
+	LastSyncAt  *string    `json:"lastSyncAt"`
+	CreatedAt   string     `json:"createdAt"`
+	UpdatedAt   string     `json:"updatedAt"`
+}
+
+// GetId returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.Id, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetId() string {
+	return v.Id
+}
+
+// GetOrganizationId returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetUserId returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.UserId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetUserId() string {
+	return v.UserId
+}
+
+// GetMailboxEmail returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.MailboxEmail, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetMailboxEmail() string {
+	return v.MailboxEmail
+}
+
+// GetProvider returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.Provider, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetDisplayName returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetDisplayName() *string {
+	return v.DisplayName
+}
+
+// GetSyncEnabled returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.SyncEnabled, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetSyncEnabled() bool {
+	return v.SyncEnabled
+}
+
+// GetSyncStatus returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.SyncStatus, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetSyncStatus() SyncStatus {
+	return v.SyncStatus
+}
+
+// GetLastSyncAt returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.LastSyncAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetLastSyncAt() *string {
+	return v.LastSyncAt
+}
+
+// GetCreatedAt returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// EmailConnectionsPageResponse is returned by EmailConnectionsPage on success.
+type EmailConnectionsPageResponse struct {
+	// #2213 — `exchangeConnections` as a page: the same admission (org ADMIN/OWNER,
+	// platform admin) and FORBIDDEN refusal, the same rows and order, with the real
+	// total. Sizes as `tickersPage`.
+	ExchangeConnectionsPage *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage `json:"exchangeConnectionsPage"`
+}
+
+// GetExchangeConnectionsPage returns EmailConnectionsPageResponse.ExchangeConnectionsPage, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageResponse) GetExchangeConnectionsPage() *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage {
+	return v.ExchangeConnectionsPage
+}
+
 // EmailConnectionsResponse is returned by EmailConnections on success.
 type EmailConnectionsResponse struct {
 	// Exchange connections for an org.
@@ -54026,6 +54405,88 @@ type EmailConnectionsResponse struct {
 // GetExchangeConnections returns EmailConnectionsResponse.ExchangeConnections, and is useful for accessing the field via an interface.
 func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsExchangeConnectionsExchangeConnection {
 	return v.ExchangeConnections
+}
+
+// EmailFoldersExchangeFoldersExchangeFolder includes the requested fields of the GraphQL type ExchangeFolder.
+type EmailFoldersExchangeFoldersExchangeFolder struct {
+	Id              string `json:"id"`
+	DisplayName     string `json:"displayName"`
+	TotalItemCount  *int   `json:"totalItemCount"`
+	UnreadItemCount *int   `json:"unreadItemCount"`
+}
+
+// GetId returns EmailFoldersExchangeFoldersExchangeFolder.Id, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetId() string { return v.Id }
+
+// GetDisplayName returns EmailFoldersExchangeFoldersExchangeFolder.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetDisplayName() string { return v.DisplayName }
+
+// GetTotalItemCount returns EmailFoldersExchangeFoldersExchangeFolder.TotalItemCount, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetTotalItemCount() *int { return v.TotalItemCount }
+
+// GetUnreadItemCount returns EmailFoldersExchangeFoldersExchangeFolder.UnreadItemCount, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetUnreadItemCount() *int {
+	return v.UnreadItemCount
+}
+
+// EmailFoldersResponse is returned by EmailFolders on success.
+type EmailFoldersResponse struct {
+	ExchangeFolders []*EmailFoldersExchangeFoldersExchangeFolder `json:"exchangeFolders"`
+}
+
+// GetExchangeFolders returns EmailFoldersResponse.ExchangeFolders, and is useful for accessing the field via an interface.
+func (v *EmailFoldersResponse) GetExchangeFolders() []*EmailFoldersExchangeFoldersExchangeFolder {
+	return v.ExchangeFolders
+}
+
+// EmailMessagesExchangeMessagesExchangeMessage includes the requested fields of the GraphQL type ExchangeMessage.
+type EmailMessagesExchangeMessagesExchangeMessage struct {
+	Id               string  `json:"id"`
+	Subject          *string `json:"subject"`
+	From             *string `json:"from"`
+	ReceivedDateTime *string `json:"receivedDateTime"`
+	BodyPreview      *string `json:"bodyPreview"`
+	Body             *string `json:"body"`
+	HasAttachments   *bool   `json:"hasAttachments"`
+	IsRead           *bool   `json:"isRead"`
+}
+
+// GetId returns EmailMessagesExchangeMessagesExchangeMessage.Id, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetId() string { return v.Id }
+
+// GetSubject returns EmailMessagesExchangeMessagesExchangeMessage.Subject, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetSubject() *string { return v.Subject }
+
+// GetFrom returns EmailMessagesExchangeMessagesExchangeMessage.From, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetFrom() *string { return v.From }
+
+// GetReceivedDateTime returns EmailMessagesExchangeMessagesExchangeMessage.ReceivedDateTime, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetReceivedDateTime() *string {
+	return v.ReceivedDateTime
+}
+
+// GetBodyPreview returns EmailMessagesExchangeMessagesExchangeMessage.BodyPreview, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetBodyPreview() *string { return v.BodyPreview }
+
+// GetBody returns EmailMessagesExchangeMessagesExchangeMessage.Body, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetBody() *string { return v.Body }
+
+// GetHasAttachments returns EmailMessagesExchangeMessagesExchangeMessage.HasAttachments, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetHasAttachments() *bool {
+	return v.HasAttachments
+}
+
+// GetIsRead returns EmailMessagesExchangeMessagesExchangeMessage.IsRead, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetIsRead() *bool { return v.IsRead }
+
+// EmailMessagesResponse is returned by EmailMessages on success.
+type EmailMessagesResponse struct {
+	ExchangeMessages []*EmailMessagesExchangeMessagesExchangeMessage `json:"exchangeMessages"`
+}
+
+// GetExchangeMessages returns EmailMessagesResponse.ExchangeMessages, and is useful for accessing the field via an interface.
+func (v *EmailMessagesResponse) GetExchangeMessages() []*EmailMessagesExchangeMessagesExchangeMessage {
+	return v.ExchangeMessages
 }
 
 // 033-rag-vector-retrieval: what a memory's vector index is built from.
@@ -81113,6 +81574,54 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
 
+// PublishAgentImportPublishAgentImport includes the requested fields of the GraphQL type AgentImport.
+// The GraphQL type's documentation follows.
+//
+// 008-agent-installation: Agent dependency edge ("Suite imports Calendar").
+// v1 enforces 1-level imports only.
+type PublishAgentImportPublishAgentImport struct {
+	ParentAgentId   string `json:"parentAgentId"`
+	ImportedAgentId string `json:"importedAgentId"`
+	Position        int    `json:"position"`
+	Required        bool   `json:"required"`
+	CreatedAt       string `json:"createdAt"`
+}
+
+// GetParentAgentId returns PublishAgentImportPublishAgentImport.ParentAgentId, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetParentAgentId() string { return v.ParentAgentId }
+
+// GetImportedAgentId returns PublishAgentImportPublishAgentImport.ImportedAgentId, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetImportedAgentId() string { return v.ImportedAgentId }
+
+// GetPosition returns PublishAgentImportPublishAgentImport.Position, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetPosition() int { return v.Position }
+
+// GetRequired returns PublishAgentImportPublishAgentImport.Required, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetRequired() bool { return v.Required }
+
+// GetCreatedAt returns PublishAgentImportPublishAgentImport.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportPublishAgentImport) GetCreatedAt() string { return v.CreatedAt }
+
+// PublishAgentImportResponse is returned by PublishAgentImport on success.
+type PublishAgentImportResponse struct {
+	// Publish a dependency edge from a parent Agent to an imported Agent
+	// (008-agent-installation FR-005). v1 supports 1-level imports only:
+	// the imported Agent must not itself be a parent of any other import.
+	//
+	// Authorization: ADMIN/OWNER of the parent Agent's owning org. The
+	// parent's owning org MUST hold an active AgentOrgGrant for the
+	// imported Agent — bundling requires the same kind of license that
+	// installation does.
+	//
+	// Accepts the entity's ID or URN for both Agent ids.
+	PublishAgentImport *PublishAgentImportPublishAgentImport `json:"publishAgentImport"`
+}
+
+// GetPublishAgentImport returns PublishAgentImportResponse.PublishAgentImport, and is useful for accessing the field via an interface.
+func (v *PublishAgentImportResponse) GetPublishAgentImport() *PublishAgentImportPublishAgentImport {
+	return v.PublishAgentImport
+}
+
 // PublishRevisionPublishRevisionRevisionResult includes the requested fields of the GraphQL type RevisionResult.
 type PublishRevisionPublishRevisionRevisionResult struct {
 	RevisionLoc string `json:"revisionLoc"`
@@ -83857,6 +84366,20 @@ func (v *ReleaseWorkerResponse) GetReleaseWorker() *ReleaseWorkerReleaseWorkerRe
 	return v.ReleaseWorker
 }
 
+// RemoveAgentImportResponse is returned by RemoveAgentImport on success.
+type RemoveAgentImportResponse struct {
+	// Delete a dependency edge between two Agents. Idempotent (no-op when
+	// the row doesn't exist). Apps that already installed the imported
+	// Agent are unaffected; removing the import only stops *future*
+	// parent installs from cascading the dep.
+	//
+	// Accepts the entity's ID or URN.
+	RemoveAgentImport *bool `json:"removeAgentImport"`
+}
+
+// GetRemoveAgentImport returns RemoveAgentImportResponse.RemoveAgentImport, and is useful for accessing the field via an interface.
+func (v *RemoveAgentImportResponse) GetRemoveAgentImport() *bool { return v.RemoveAgentImport }
+
 // RemoveAppMemberInstructedResponse is returned by RemoveAppMemberInstructed on success.
 type RemoveAppMemberInstructedResponse struct {
 	// Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
@@ -84615,6 +85138,278 @@ type ReopenCommentThreadResponse struct {
 // GetReopenCommentThread returns ReopenCommentThreadResponse.ReopenCommentThread, and is useful for accessing the field via an interface.
 func (v *ReopenCommentThreadResponse) GetReopenCommentThread() *ReopenCommentThreadReopenCommentThreadComment {
 	return v.ReopenCommentThread
+}
+
+// RepairAgentSystemMemoryRepairAgentSystemMemoryAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type RepairAgentSystemMemoryRepairAgentSystemMemoryAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Id, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Urn, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetUrn() string {
+	return v.AgentFields.Urn
+}
+
+// GetName returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Name, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetName() string {
+	return v.AgentFields.Name
+}
+
+// GetDescription returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Description, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Type, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetType() AgentType {
+	return v.AgentFields.Type
+}
+
+// GetVisibility returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetResetContextAfterTask returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns RepairAgentSystemMemoryRepairAgentSystemMemoryAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RepairAgentSystemMemoryRepairAgentSystemMemoryAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RepairAgentSystemMemoryRepairAgentSystemMemoryAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRepairAgentSystemMemoryRepairAgentSystemMemoryAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent) __premarshalJSON() (*__premarshalRepairAgentSystemMemoryRepairAgentSystemMemoryAgent, error) {
+	var retval __premarshalRepairAgentSystemMemoryRepairAgentSystemMemoryAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// RepairAgentSystemMemoryResponse is returned by RepairAgentSystemMemory on success.
+type RepairAgentSystemMemoryResponse struct {
+	// #949 — re-own an Agent's class=system memory to the Agent's own owner
+	// (org XOR user). On an ownership repair, attempt the derived
+	// '<agent-urn>-system' URN; if another live memory holds it, retain the
+	// current URN. A changed URN records an alias. An already-consistent owner
+	// pair returns without changing its URN.
+	//
+	// The recovery path for a system memory that ended up owned by a different
+	// tenant. Access to a memory follows the MEMORY's owner, so such a row puts
+	// one tenant's Agent design inside another tenant's audience. System
+	// memories are only ever created by Agent provisioning, so before this the
+	// only fix was to recreate the Agent.
+	//
+	// Authorization: PLATFORM ADMIN only — the row being moved belongs to a
+	// different tenant than the Agent, so neither side's org admin is the right
+	// authority. Idempotent: an already-consistent pair is a no-op.
+	//
+	// Error codes (extensions.code): FORBIDDEN, AGENT_HAS_NO_SYSTEM_MEMORY,
+	// SYSTEM_MEMORY_NOT_FOUND.
+	//
+	// Accepts the entity's ID or URN.
+	RepairAgentSystemMemory *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent `json:"repairAgentSystemMemory"`
+}
+
+// GetRepairAgentSystemMemory returns RepairAgentSystemMemoryResponse.RepairAgentSystemMemory, and is useful for accessing the field via an interface.
+func (v *RepairAgentSystemMemoryResponse) GetRepairAgentSystemMemory() *RepairAgentSystemMemoryRepairAgentSystemMemoryAgent {
+	return v.RepairAgentSystemMemory
 }
 
 // ReplyToCommentReplyToComment includes the requested fields of the GraphQL type Comment.
@@ -104349,6 +105144,8 @@ type TeamGrantSigningRequestFields struct {
 	ExpiresAt   string                                                    `json:"expiresAt"`
 	// Null while OPEN. EXPIRED ends at expiresAt; every other end at the moment it happened (DB clock).
 	EndedAt *string `json:"endedAt"`
+	// Latest verified ineligible signing-proof attempt while OPEN, if any. Visible only through the existing request read gate; contains no signer identity and does not end the request (#4546; hrn:node:hadronmemory.com:specs:cor:acl:140:07).
+	LastRefusedAt *string `json:"lastRefusedAt"`
 	// The server-hosted ceremony page where someone who may issue the grant signs it (hrn:node:hadronmemory.com:specs:cor:acl:140:07): the server origin plus /grant-signing/<id>, with no token. Copy it verbatim; never compose it. Signing there with a passkey activates the grant; no GraphQL or MCP call takes an assertion. An ended request's link only explains that it ended.
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
@@ -104384,6 +105181,9 @@ func (v *TeamGrantSigningRequestFields) GetExpiresAt() string { return v.Expires
 
 // GetEndedAt returns TeamGrantSigningRequestFields.EndedAt, and is useful for accessing the field via an interface.
 func (v *TeamGrantSigningRequestFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetLastRefusedAt returns TeamGrantSigningRequestFields.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestFields) GetLastRefusedAt() *string { return v.LastRefusedAt }
 
 // GetCeremonyUrl returns TeamGrantSigningRequestFields.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamGrantSigningRequestFields) GetCeremonyUrl() string { return v.CeremonyUrl }
@@ -104479,6 +105279,11 @@ func (v *TeamGrantSigningRequestGrantSigningRequest) GetEndedAt() *string {
 	return v.TeamGrantSigningRequestFields.EndedAt
 }
 
+// GetLastRefusedAt returns TeamGrantSigningRequestGrantSigningRequest.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamGrantSigningRequestGrantSigningRequest) GetLastRefusedAt() *string {
+	return v.TeamGrantSigningRequestFields.LastRefusedAt
+}
+
 // GetCeremonyUrl returns TeamGrantSigningRequestGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamGrantSigningRequestGrantSigningRequest) GetCeremonyUrl() string {
 	return v.TeamGrantSigningRequestFields.CeremonyUrl
@@ -104530,6 +105335,8 @@ type __premarshalTeamGrantSigningRequestGrantSigningRequest struct {
 
 	EndedAt *string `json:"endedAt"`
 
+	LastRefusedAt *string `json:"lastRefusedAt"`
+
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
 
@@ -104554,6 +105361,7 @@ func (v *TeamGrantSigningRequestGrantSigningRequest) __premarshalJSON() (*__prem
 	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
 	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.LastRefusedAt = v.TeamGrantSigningRequestFields.LastRefusedAt
 	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
 	return &retval, nil
 }
@@ -106345,6 +107153,11 @@ func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetE
 	return v.TeamGrantSigningRequestFields.EndedAt
 }
 
+// GetLastRefusedAt returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetLastRefusedAt() *string {
+	return v.TeamGrantSigningRequestFields.LastRefusedAt
+}
+
 // GetCeremonyUrl returns TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) GetCeremonyUrl() string {
 	return v.TeamGrantSigningRequestFields.CeremonyUrl
@@ -106396,6 +107209,8 @@ type __premarshalTeamRequestGrantSignatureRequestGrantSignatureGrantSigningReque
 
 	EndedAt *string `json:"endedAt"`
 
+	LastRefusedAt *string `json:"lastRefusedAt"`
+
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
 
@@ -106420,6 +107235,7 @@ func (v *TeamRequestGrantSignatureRequestGrantSignatureGrantSigningRequest) __pr
 	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
 	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.LastRefusedAt = v.TeamGrantSigningRequestFields.LastRefusedAt
 	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
 	return &retval, nil
 }
@@ -109417,6 +110233,11 @@ func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetEndedAt(
 	return v.TeamGrantSigningRequestFields.EndedAt
 }
 
+// GetLastRefusedAt returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.LastRefusedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetLastRefusedAt() *string {
+	return v.TeamGrantSigningRequestFields.LastRefusedAt
+}
+
 // GetCeremonyUrl returns TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest.CeremonyUrl, and is useful for accessing the field via an interface.
 func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) GetCeremonyUrl() string {
 	return v.TeamGrantSigningRequestFields.CeremonyUrl
@@ -109468,6 +110289,8 @@ type __premarshalTeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest stru
 
 	EndedAt *string `json:"endedAt"`
 
+	LastRefusedAt *string `json:"lastRefusedAt"`
+
 	CeremonyUrl string `json:"ceremonyUrl"`
 }
 
@@ -109492,6 +110315,7 @@ func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) __premarsha
 	retval.CreatedAt = v.TeamGrantSigningRequestFields.CreatedAt
 	retval.ExpiresAt = v.TeamGrantSigningRequestFields.ExpiresAt
 	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
+	retval.LastRefusedAt = v.TeamGrantSigningRequestFields.LastRefusedAt
 	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
 	return &retval, nil
 }
@@ -128127,6 +128951,14 @@ func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetReady() *ReadyFilter { return 
 // GetLimit returns __ClaimUntrackedTaskItemsNoTeamInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetLimit() *int { return v.Limit }
 
+// __ClearAgentAIConfigInput is used internally by genqlient
+type __ClearAgentAIConfigInput struct {
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAgentRef returns __ClearAgentAIConfigInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__ClearAgentAIConfigInput) GetAgentRef() string { return v.AgentRef }
+
 // __ClearAgentProcessesIndexInput is used internally by genqlient
 type __ClearAgentProcessesIndexInput struct {
 	Ref               string  `json:"ref"`
@@ -130421,6 +131253,46 @@ type __EmailConnectionsInput struct {
 // GetOrgId returns __EmailConnectionsInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
 
+// __EmailConnectionsPageInput is used internally by genqlient
+type __EmailConnectionsPageInput struct {
+	OrgId  string `json:"orgId"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __EmailConnectionsPageInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsPageInput) GetOrgId() string { return v.OrgId }
+
+// GetLimit returns __EmailConnectionsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsPageInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __EmailConnectionsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsPageInput) GetOffset() *int { return v.Offset }
+
+// __EmailFoldersInput is used internally by genqlient
+type __EmailFoldersInput struct {
+	ConnectionId string `json:"connectionId"`
+}
+
+// GetConnectionId returns __EmailFoldersInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__EmailFoldersInput) GetConnectionId() string { return v.ConnectionId }
+
+// __EmailMessagesInput is used internally by genqlient
+type __EmailMessagesInput struct {
+	ConnectionId string `json:"connectionId"`
+	Top          *int   `json:"top,omitempty"`
+	UnreadOnly   *bool  `json:"unreadOnly,omitempty"`
+}
+
+// GetConnectionId returns __EmailMessagesInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__EmailMessagesInput) GetConnectionId() string { return v.ConnectionId }
+
+// GetTop returns __EmailMessagesInput.Top, and is useful for accessing the field via an interface.
+func (v *__EmailMessagesInput) GetTop() *int { return v.Top }
+
+// GetUnreadOnly returns __EmailMessagesInput.UnreadOnly, and is useful for accessing the field via an interface.
+func (v *__EmailMessagesInput) GetUnreadOnly() *bool { return v.UnreadOnly }
+
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
 	MemoryRef  string  `json:"memoryRef"`
@@ -132691,6 +133563,26 @@ func (v *__PublicOrganizationInput) GetLimit() int { return v.Limit }
 // GetOffset returns __PublicOrganizationInput.Offset, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetOffset() int { return v.Offset }
 
+// __PublishAgentImportInput is used internally by genqlient
+type __PublishAgentImportInput struct {
+	ParentAgentRef   string `json:"parentAgentRef"`
+	ImportedAgentRef string `json:"importedAgentRef"`
+	Position         int    `json:"position"`
+	Required         *bool  `json:"required,omitempty"`
+}
+
+// GetParentAgentRef returns __PublishAgentImportInput.ParentAgentRef, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetParentAgentRef() string { return v.ParentAgentRef }
+
+// GetImportedAgentRef returns __PublishAgentImportInput.ImportedAgentRef, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetImportedAgentRef() string { return v.ImportedAgentRef }
+
+// GetPosition returns __PublishAgentImportInput.Position, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetPosition() int { return v.Position }
+
+// GetRequired returns __PublishAgentImportInput.Required, and is useful for accessing the field via an interface.
+func (v *__PublishAgentImportInput) GetRequired() *bool { return v.Required }
+
 // __PublishRevisionInput is used internally by genqlient
 type __PublishRevisionInput struct {
 	AgentRef     string  `json:"agentRef"`
@@ -133047,6 +133939,18 @@ func (v *__ReleaseWorkerInput) GetExpectedHolderUserId() *string { return v.Expe
 // GetExpectUnheld returns __ReleaseWorkerInput.ExpectUnheld, and is useful for accessing the field via an interface.
 func (v *__ReleaseWorkerInput) GetExpectUnheld() *bool { return v.ExpectUnheld }
 
+// __RemoveAgentImportInput is used internally by genqlient
+type __RemoveAgentImportInput struct {
+	ParentAgentRef   string `json:"parentAgentRef"`
+	ImportedAgentRef string `json:"importedAgentRef"`
+}
+
+// GetParentAgentRef returns __RemoveAgentImportInput.ParentAgentRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAgentImportInput) GetParentAgentRef() string { return v.ParentAgentRef }
+
+// GetImportedAgentRef returns __RemoveAgentImportInput.ImportedAgentRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAgentImportInput) GetImportedAgentRef() string { return v.ImportedAgentRef }
+
 // __RemoveAppMemberInput is used internally by genqlient
 type __RemoveAppMemberInput struct {
 	AppRef  string `json:"appRef"`
@@ -133156,6 +134060,14 @@ func (v *__ReopenCommentThreadInput) GetRef() string { return v.Ref }
 
 // GetExpected returns __ReopenCommentThreadInput.Expected, and is useful for accessing the field via an interface.
 func (v *__ReopenCommentThreadInput) GetExpected() int { return v.Expected }
+
+// __RepairAgentSystemMemoryInput is used internally by genqlient
+type __RepairAgentSystemMemoryInput struct {
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAgentRef returns __RepairAgentSystemMemoryInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__RepairAgentSystemMemoryInput) GetAgentRef() string { return v.AgentRef }
 
 // __ReplyToCommentInput is used internally by genqlient
 type __ReplyToCommentInput struct {
@@ -151737,6 +152649,75 @@ func ClaimUntrackedTaskItemsNoTeam(
 	return data_, err_
 }
 
+// The mutation executed by ClearAgentAIConfig.
+const ClearAgentAIConfig_Operation = `
+mutation ClearAgentAIConfig ($agentRef: ID!) {
+	clearAgentAIConfig(agentRef: $agentRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+// cli#58 (four-command cut): clear the Agent's AI service configuration, publish
+// and remove an Agent import, and repair an Agent's system-Memory pairing. Refs go
+// to the server verbatim (id or URN; no pre-resolve). publishAgentImport's
+// `required` is omitempty: unset keeps the server default (true), an explicit
+// false is sent. `position` is required (Int!).
+func ClearAgentAIConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+) (data_ *ClearAgentAIConfigResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearAgentAIConfig",
+		Query:  ClearAgentAIConfig_Operation,
+		Variables: &__ClearAgentAIConfigInput{
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &ClearAgentAIConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ClearAgentProcessesIndex.
 const ClearAgentProcessesIndex_Operation = `
 mutation ClearAgentProcessesIndex ($ref: ID!, $processesIndexRef: ID) {
@@ -158563,6 +159544,147 @@ func EmailConnections(
 	}
 
 	data_ = &EmailConnectionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailConnectionsPage.
+const EmailConnectionsPage_Operation = `
+query EmailConnectionsPage ($orgId: ID!, $limit: Int, $offset: Int) {
+	exchangeConnectionsPage(orgId: $orgId, limit: $limit, offset: $offset) {
+		items {
+			id
+			organizationId
+			userId
+			mailboxEmail
+			provider
+			displayName
+			syncEnabled
+			syncStatus
+			lastSyncAt
+			createdAt
+			updatedAt
+		}
+		total
+		hasMore
+	}
+}
+`
+
+// One page of the same org-admin list (hadron-cli#198 Slice A). The same
+// projection as EmailConnections; limit and offset are omitted when unset so the
+// server's defaults apply. The reply carries the real total and hasMore.
+func EmailConnectionsPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	limit *int,
+	offset *int,
+) (data_ *EmailConnectionsPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailConnectionsPage",
+		Query:  EmailConnectionsPage_Operation,
+		Variables: &__EmailConnectionsPageInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &EmailConnectionsPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailFolders.
+const EmailFolders_Operation = `
+query EmailFolders ($connectionId: ID!) {
+	exchangeFolders(connectionId: $connectionId) {
+		id
+		displayName
+		totalItemCount
+		unreadItemCount
+	}
+}
+`
+
+func EmailFolders(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionId string,
+) (data_ *EmailFoldersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailFolders",
+		Query:  EmailFolders_Operation,
+		Variables: &__EmailFoldersInput{
+			ConnectionId: connectionId,
+		},
+	}
+
+	data_ = &EmailFoldersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailMessages.
+const EmailMessages_Operation = `
+query EmailMessages ($connectionId: ID!, $top: Int, $unreadOnly: Boolean) {
+	exchangeMessages(connectionId: $connectionId, top: $top, unreadOnly: $unreadOnly) {
+		id
+		subject
+		from
+		receivedDateTime
+		bodyPreview
+		body
+		hasAttachments
+		isRead
+	}
+}
+`
+
+// One bounded read of a connection's recent messages (hadron-cli#198 Slice A).
+// top and unreadOnly are omitted when unset (the server defaults and clamps);
+// the deprecated raw `filter` argument is never sent. Message text is external
+// data: it is printed as data and never logged.
+func EmailMessages(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionId string,
+	top *int,
+	unreadOnly *bool,
+) (data_ *EmailMessagesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailMessages",
+		Query:  EmailMessages_Operation,
+		Variables: &__EmailMessagesInput{
+			ConnectionId: connectionId,
+			Top:          top,
+			UnreadOnly:   unreadOnly,
+		},
+	}
+
+	data_ = &EmailMessagesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -168624,6 +169746,50 @@ func PublicOrganization(
 	return data_, err_
 }
 
+// The mutation executed by PublishAgentImport.
+const PublishAgentImport_Operation = `
+mutation PublishAgentImport ($parentAgentRef: ID!, $importedAgentRef: ID!, $position: Int!, $required: Boolean) {
+	publishAgentImport(parentAgentRef: $parentAgentRef, importedAgentRef: $importedAgentRef, position: $position, required: $required) {
+		parentAgentId
+		importedAgentId
+		position
+		required
+		createdAt
+	}
+}
+`
+
+func PublishAgentImport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	parentAgentRef string,
+	importedAgentRef string,
+	position int,
+	required *bool,
+) (data_ *PublishAgentImportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PublishAgentImport",
+		Query:  PublishAgentImport_Operation,
+		Variables: &__PublishAgentImportInput{
+			ParentAgentRef:   parentAgentRef,
+			ImportedAgentRef: importedAgentRef,
+			Position:         position,
+			Required:         required,
+		},
+	}
+
+	data_ = &PublishAgentImportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by PublishRevision.
 const PublishRevision_Operation = `
 mutation PublishRevision ($agentRef: ID!, $revisionLoc: String!, $versionLabel: String) {
@@ -169823,6 +170989,40 @@ func ReleaseWorker(
 	return data_, err_
 }
 
+// The mutation executed by RemoveAgentImport.
+const RemoveAgentImport_Operation = `
+mutation RemoveAgentImport ($parentAgentRef: ID!, $importedAgentRef: ID!) {
+	removeAgentImport(parentAgentRef: $parentAgentRef, importedAgentRef: $importedAgentRef)
+}
+`
+
+func RemoveAgentImport(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	parentAgentRef string,
+	importedAgentRef string,
+) (data_ *RemoveAgentImportResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveAgentImport",
+		Query:  RemoveAgentImport_Operation,
+		Variables: &__RemoveAgentImportInput{
+			ParentAgentRef:   parentAgentRef,
+			ImportedAgentRef: importedAgentRef,
+		},
+	}
+
+	data_ = &RemoveAgentImportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveAppMember.
 const RemoveAppMember_Operation = `
 mutation RemoveAppMember ($appRef: ID!, $userRef: ID!) {
@@ -170216,6 +171416,70 @@ func ReopenCommentThread(
 	}
 
 	data_ = &ReopenCommentThreadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RepairAgentSystemMemory.
+const RepairAgentSystemMemory_Operation = `
+mutation RepairAgentSystemMemory ($agentRef: ID!) {
+	repairAgentSystemMemory(agentRef: $agentRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func RepairAgentSystemMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+) (data_ *RepairAgentSystemMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RepairAgentSystemMemory",
+		Query:  RepairAgentSystemMemory_Operation,
+		Variables: &__RepairAgentSystemMemoryInput{
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &RepairAgentSystemMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -178082,6 +179346,7 @@ fragment TeamGrantSigningRequestFields on GrantSigningRequest {
 	createdAt
 	expiresAt
 	endedAt
+	lastRefusedAt
 	ceremonyUrl
 }
 `
@@ -178915,6 +180180,7 @@ fragment TeamGrantSigningRequestFields on GrantSigningRequest {
 	createdAt
 	expiresAt
 	endedAt
+	lastRefusedAt
 	ceremonyUrl
 }
 `
@@ -179852,6 +181118,7 @@ fragment TeamGrantSigningRequestFields on GrantSigningRequest {
 	createdAt
 	expiresAt
 	endedAt
+	lastRefusedAt
 	ceremonyUrl
 }
 `

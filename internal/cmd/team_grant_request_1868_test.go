@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -24,10 +25,10 @@ func signingRequest1868(url string) string {
 	u, _ := json.Marshal(url)
 	return `{"id":"sr1","grantId":"g1","version":2,"termsHash":"h1","payloadVersion":"hadron-grant-signature-v1","state":"OPEN",` +
 		`"requestedBy":{"userId":"u1","appId":"capp100000000000000000000","workerId":"wkr1","sessionId":"s-new"},` +
-		`"createdAt":"c","expiresAt":"e","endedAt":null,"ceremonyUrl":` + string(u) + `,"futureServerField":"x"}`
+		`"createdAt":"c","expiresAt":"e","endedAt":null,"lastRefusedAt":null,"ceremonyUrl":` + string(u) + `,"futureServerField":"x"}`
 }
 
-var signingRequestFields1868 = []string{"id", "grantId", "version", "termsHash", "payloadVersion", "state", "requestedBy", "createdAt", "expiresAt", "endedAt", "ceremonyUrl"}
+var signingRequestFields1868 = []string{"id", "grantId", "version", "termsHash", "payloadVersion", "state", "requestedBy", "createdAt", "expiresAt", "endedAt", "lastRefusedAt", "ceremonyUrl"}
 
 type grantVerb1868 struct {
 	name string
@@ -591,5 +592,70 @@ func TestGrantRequest1868ExampleNamesSourceNode(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `sourceNode`) || strings.Contains(out.String(), `"node":`) {
 		t.Fatalf("example does not use sourceNode:\n%s", out.String())
+	}
+}
+
+// cli#2727: lastRefusedAt is shown on all three request reads. Null stays null
+// in --json and is a dash in text; a timestamp is printed as given. It is a
+// timestamp only: nothing is derived from it (null means "none observed").
+func TestGrantRequest2727LastRefusedAt(t *testing.T) {
+	const ts = "2026-11-20T10:11:12.000Z"
+	withTS := func(resp string) string {
+		return strings.Replace(resp, `"lastRefusedAt":null`, `"lastRefusedAt":"`+ts+`"`, 1)
+	}
+	for _, v := range grantVerbs1868()[1:] {
+		t.Run(v.name, func(t *testing.T) {
+			for _, tc := range []struct {
+				name string
+				resp string
+				json any
+				text string
+			}{
+				{"null", v.resp(ceremony1868), nil, "lastRefusedAt: —\n"},
+				{"set", withTS(v.resp(ceremony1868)), ts, "lastRefusedAt: " + ts + "\n"},
+			} {
+				_, out, err := runTeamTask(t, map[string]string{v.op: tc.resp}, append(append([]string{}, v.args...), "--json")...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var dto map[string]any
+				if e := json.Unmarshal([]byte(out), &dto); e != nil {
+					t.Fatal(e, out)
+				}
+				got, present := dto["lastRefusedAt"]
+				if !present || got != tc.json {
+					t.Fatalf("%s: lastRefusedAt in --json = %v (present %v), want %v: %s", tc.name, got, present, tc.json, out)
+				}
+				_, text, err := runTeamTask(t, map[string]string{v.op: tc.resp}, v.args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(text, tc.text) {
+					t.Fatalf("%s: text lacks %q: %q", tc.name, tc.text, text)
+				}
+			}
+		})
+	}
+}
+
+// cli#2727: each of the three reads sends lastRefusedAt in its own selection,
+// independent of what the mock answers (a mock that always includes the field
+// cannot hide an operation that stopped asking for it).
+func TestGrantRequest2727OperationsSelectLastRefusedAt(t *testing.T) {
+	for _, v := range grantVerbs1868()[1:] {
+		t.Run(v.name, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, map[string]string{v.op: v.resp(ceremony1868)}, v.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := findCall1868(calls, v.op)
+			if c == nil {
+				t.Fatal("operation was never sent")
+			}
+			fields, _ := selection1868(t, c.Query, v.root)
+			if !slices.Contains(fields, "lastRefusedAt") {
+				t.Fatalf("%s must select lastRefusedAt, selected %v", v.op, fields)
+			}
+		})
 	}
 }
