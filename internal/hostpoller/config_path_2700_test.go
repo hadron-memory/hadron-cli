@@ -47,7 +47,12 @@ func TestNonAbsoluteConfigPath2700ResolutionFailure(t *testing.T) {
 			if native {
 				path, volume = "C:host.yaml", "C:"
 			}
-			got := nonAbsoluteConfigPath(path, volume, false, func() (string, error) { return "", errors.New("no cwd") }, func(string) (string, error) { return "", errors.New("no absolute path") })
+			got := nonAbsoluteConfigPath(path, volume, false, func() (string, error) {
+				if native {
+					t.Fatal("native resolution failure must not fall back to slash-join")
+				}
+				return "", errors.New("no cwd")
+			}, func(string) (string, error) { return "", errors.New("no absolute path") })
 			if got != path {
 				t.Fatalf("failed resolution changed path: %q want %q", got, path)
 			}

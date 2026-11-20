@@ -356,9 +356,10 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 	// after a symlink goes to the link target's parent, not the written
 	// path's lexical parent, so both the reload read and the trust walk must
 	// follow the kernel, not filepath.Clean (cli#2668). The slash is a legal
-	// separator on both kernels — Windows path handling accepts it — and the
-	// Windows reload check is a no-op, so the written form survives unchanged
-	// there too. A Getwd failure keeps the path as given, as before.
+	// separator on both kernels for ordinary relative paths. Volume-bearing
+	// and separator-rooted Windows forms instead need native absolute-path
+	// resolution to agree with the initial read (cli#2700). A resolution
+	// failure keeps the path as given.
 	if !filepath.IsAbs(path) {
 		path = nonAbsoluteConfigPath(path, filepath.VolumeName(path), len(path) > 0 && os.IsPathSeparator(path[0]), os.Getwd, filepath.Abs)
 	}
@@ -669,6 +670,12 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 // path. Native path classification is passed in so Windows-shaped cases can
 // be exercised without replacing process-wide state or requiring Windows.
 func nonAbsoluteConfigPath(path, volume string, rooted bool, getwd func() (string, error), abs func(string) (string, error)) string {
+	if volume != "" || rooted {
+		if resolved, err := abs(path); err == nil {
+			return resolved
+		}
+		return path
+	}
 	if wd, err := getwd(); err == nil {
 		return wd + "/" + path
 	}
