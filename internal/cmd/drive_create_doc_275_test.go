@@ -152,7 +152,7 @@ func TestDriveCreateDoc275Refusals(t *testing.T) {
 	for _, tc := range []struct {
 		code string
 		exit int
-	}{{"FORBIDDEN", 8}, {"NODE_NOT_FOUND", 4}, {"NOT_FOUND", 4}, {"SESSION_EXPIRED", 3}, {"FUTURE_DRIVE_REFUSAL", 1}} {
+	}{{"FORBIDDEN", 8}, {"NODE_NOT_FOUND", 4}, {"NOT_FOUND", 4}, {"SESSION_EXPIRED", 3}, {"FUTURE_DRIVE_REFUSAL", 1}, {"GITHUB_UNAVAILABLE", 7}} {
 		srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": "exact server refusal", "extensions": map[string]any{"code": tc.code}}}})
 		})

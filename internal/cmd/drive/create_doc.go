@@ -80,7 +80,7 @@ calls this creation operation.
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				code := exitcode.FromError(mapped)
-				if code == exitcode.Unavailable || (code == exitcode.Error && len(api.ServerMessages(err)) == 0) {
+				if len(api.ServerMessages(err)) == 0 && (code == exitcode.Unavailable || code == exitcode.Error) {
 					return exitcode.Newf(exitcode.Unavailable, "%s", createDocUnknown)
 				}
 				return mapped
