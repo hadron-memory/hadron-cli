@@ -5,6 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -329,14 +335,40 @@ func TestFindingDispositions1556OperationDocuments(t *testing.T) {
 		t.Fatal("must not fetch immutable result text")
 	}
 	for name, doc := range map[string]string{"plain": gen.AgentTaskDisposeFinding_Operation, "instructed": gen.AgentTaskDisposeFindingInstructed_Operation} {
-		// cli#1709: the readback is the one targeted field, bound to the write's own variable.
-		if !strings.Contains(doc, "findingDisposition(findingId: $findingId)") {
-			t.Fatalf("%s: mutation readback must be the targeted field bound to $findingId", name)
+		// cli#1709: parse the document: the mutation's result selects id and
+		// exactly the one targeted field, bound to the write's own $findingId
+		// (and never the paged field).
+		q, perr := parser.ParseQuery(&ast.Source{Input: doc})
+		if perr != nil || len(q.Operations) != 1 {
+			t.Fatalf("%s: unparsable document: %v", name, perr)
 		}
-		for _, banned := range []string{"findingDispositions", "items", "total", "hasMore", "result {"} {
-			if strings.Contains(doc, banned) {
-				t.Fatalf("%s: the targeted readback must not select %q", name, banned)
+		var write *ast.Field
+		for _, sel := range q.Operations[0].SelectionSet {
+			if f, ok := sel.(*ast.Field); ok && f.Name == "disposeAgentTaskFinding" {
+				write = f
 			}
+		}
+		if write == nil {
+			t.Fatalf("%s: no disposeAgentTaskFinding selection", name)
+		}
+		var names []string
+		var targeted *ast.Field
+		for _, sel := range write.SelectionSet {
+			if f, ok := sel.(*ast.Field); ok {
+				names = append(names, f.Name)
+				if f.Name == "findingDisposition" {
+					targeted = f
+				}
+			}
+		}
+		if !reflect.DeepEqual(names, []string{"id", "findingDisposition"}) || targeted == nil {
+			t.Fatalf("%s: the write's result must select exactly id and findingDisposition, got %v", name, names)
+		}
+		if len(targeted.Arguments) != 1 || targeted.Arguments[0].Name != "findingId" || targeted.Arguments[0].Value.Kind != ast.Variable || targeted.Arguments[0].Value.Raw != "findingId" {
+			t.Fatalf("%s: findingDisposition must be bound to $findingId", name)
+		}
+		if strings.Contains(doc, "result {") {
+			t.Fatalf("%s: must not fetch immutable result text", name)
 		}
 	}
 }
@@ -462,6 +494,7 @@ func TestFindingDispositions1709ReadbackFieldError(t *testing.T) {
 		"readback nested error": {nested, true, 1},
 		"write field refusal":   {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
 		"pathless refusal":      {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"id field error":        {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
 		"readback plus write":   {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 1},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -520,6 +553,53 @@ func TestFindingDispositions1709DecoderEOF(t *testing.T) {
 			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json")
 			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) != 1 || !strings.Contains(err.Error(), "read finding-dispositions before retrying") {
 				t.Fatalf("err=%v out=%q calls=%d exit=%d", err, out, len(*calls), exitCodeFor(err))
+			}
+		})
+	}
+}
+
+// The same classes arrive with HTTP 500 when the server answers an execution
+// error with a non-200 status carrying the GraphQL errors (cli#1709, local
+// round 2): errors beneath the write's result are an unconfirmed write, an
+// error on the write field itself stays a typed refusal.
+func TestFindingDispositions1709HTTP500(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body        string
+		unconfirmed bool
+		wantExit    int
+	}{
+		"readback field": {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, 1},
+		"id field":       {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"write refusal":  {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+	} {
+		t.Run(name, func(t *testing.T) {
+			writeTeamBinding(t)
+			base, calls := attnServer(t, taskResponses())
+			var sent int
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				raw, _ := io.ReadAll(r.Body)
+				if strings.Contains(string(raw), `"operationName":"AgentTaskDisposeFinding"`) {
+					sent++
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					_, _ = w.Write([]byte(tc.body))
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewReader(raw))
+				base.Config.Handler.ServeHTTP(w, r)
+			}))
+			t.Cleanup(srv.Close)
+			_ = calls
+			setTeamBindingServer(t, srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json"})
+			err := root.Execute()
+			if err == nil || out.String() != "" || sent != 1 || exitCodeFor(err) != tc.wantExit {
+				t.Fatalf("err=%v out=%q sent=%d exit=%d want %d", err, out.String(), sent, exitCodeFor(err), tc.wantExit)
+			}
+			if got := strings.Contains(err.Error(), "may have been recorded"); got != tc.unconfirmed {
+				t.Fatalf("unconfirmed guidance = %v, want %v: %v", got, tc.unconfirmed, err)
 			}
 		})
 	}

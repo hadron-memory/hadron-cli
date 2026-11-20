@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -259,12 +260,18 @@ func errDispositionReadbackUnavailable() error {
 	return exitcode.Newf(exitcode.Error, "disposition may have been recorded but its readback is unavailable; read finding-dispositions before retrying")
 }
 
-// disposeFindingError maps a failed dispose-finding call. A success body the
-// client cannot decode (a wrong field type, malformed JSON) means the server
-// answered after the write: the outcome is unconfirmed, so it gets the same
-// recovery guidance as a missing readback, and never a claim that the write
-// failed. Only this verb does so (cli#1709); typed server refusals and
-// transport errors keep their usual mapping.
+// disposeFindingError maps a failed dispose-finding call. The post-write error
+// classes, each exit 1 with the same recovery guidance as a missing readback
+// and never a claim that the write failed (cli#1709, only this verb):
+//   - a success body the client cannot decode (wrong field type, malformed,
+//     blank or truncated JSON): it does not establish whether the write
+//     executed, and an EOF may also come from the transport, so it is treated
+//     as ambiguous on purpose;
+//   - a GraphQL error beneath the write's result (id, findingDisposition),
+//     whatever the HTTP status.
+//
+// Typed server refusals, pre-execution validation refusals and gateway or
+// transport failures keep their usual mapping.
 func disposeFindingError(err error) error {
 	var typeErr *json.UnmarshalTypeError
 	var syntaxErr *json.SyntaxError
@@ -274,40 +281,42 @@ func disposeFindingError(err error) error {
 	return mapFindingError(err)
 }
 
-// readbackFieldFailed reports a GraphQL error raised while resolving the
-// readback field itself: its path runs through disposeAgentTaskFinding to
-// findingDisposition. The write field resolved first and its transaction has
-// committed, so the outcome is unconfirmed. An error on the write field (a path
-// that stops at disposeAgentTaskFinding, or none at all: a validation refusal
-// before execution) is a typed refusal and keeps its usual mapping.
+// readbackFieldFailed reports a GraphQL error raised while resolving a field of
+// the write's result (the receipt fields id or findingDisposition, or anything
+// beneath them): its path runs through disposeAgentTaskFinding into a
+// subfield. The write field resolved first and its transaction has committed,
+// so the outcome is unconfirmed, whatever the HTTP status (a 200 with partial
+// data, or a 500 carrying the errors). An error on the write field itself (a
+// path that stops at disposeAgentTaskFinding), or with no path (a validation
+// refusal before execution), is a typed refusal and keeps its usual mapping, as
+// does a mixed list. Gateway and transport failures are classified earlier, by
+// the transport layer, with their own may-have-been-applied advice.
 func readbackFieldFailed(err error) bool {
 	var list gqlerror.List
-	if !errors.As(err, &list) {
-		var one *gqlerror.Error
-		if !errors.As(err, &one) {
-			return false
-		}
+	var httpErr *graphql.HTTPError
+	var one *gqlerror.Error
+	switch {
+	case errors.As(err, &httpErr):
+		list = httpErr.Response.Errors
+	case errors.As(err, &list):
+	case errors.As(err, &one):
 		list = gqlerror.List{one}
+	default:
+		return false
 	}
-	readback := false
+	if len(list) == 0 {
+		return false
+	}
 	for _, e := range list {
-		if e == nil || len(e.Path) == 0 {
-			return false
-		}
-		if len(e.Path) == 1 {
+		if e == nil || len(e.Path) < 2 {
 			return false
 		}
 		root, _ := e.Path[0].(ast.PathName)
-		field, _ := e.Path[1].(ast.PathName)
 		if root != "disposeAgentTaskFinding" {
 			return false
 		}
-		if field != "findingDisposition" {
-			return false
-		}
-		readback = true
 	}
-	return readback
+	return true
 }
 
 // validFindingReadback reports whether the targeted readback can be shown as the
