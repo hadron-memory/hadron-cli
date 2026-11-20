@@ -553,7 +553,8 @@ them and above the file, must be owned by the poller's user (or root) and not
 writable by group or others (a sticky directory such as /tmp is accepted above
 them), or the reload is refused. The check stops other
 users and loose modes; a process running as the poller's own user is inside
-the poller's trust boundary, as it is for a restart. A file that does not load or fails the start-time checks changes nothing either: the poller keeps
+the poller's trust boundary, as it is for a restart. A file that does not load
+or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
 for that content and reason. A worker that now launches through Orca is
 refused too, since that wiring is made at start (restart to apply it). A

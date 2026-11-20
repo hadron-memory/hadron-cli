@@ -200,6 +200,7 @@ type Poller struct {
 	live          atomic.Pointer[Config]
 	orcaWired     bool                     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
 	removed       map[string]removedWorker // by worker id: workers a reload removed, with their last entry (cli#2623)
+	trust         trustWalk                // the filesystem the reload trust check reads; a per-poller seam so tests may override it in parallel (cli#2653 item 3)
 	reloadSeen    [32]byte                 // content of a configuration file already refused or reported
 	reloadPending [32]byte                 // content seen once, applied only if the next poll sees it again
 	server        Server
