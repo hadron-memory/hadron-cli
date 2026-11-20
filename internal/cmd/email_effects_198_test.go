@@ -836,3 +836,59 @@ func TestEmailReplyHelpDescribesWithheldRefusals198(t *testing.T) {
 		t.Errorf("reply help does not say the server's message is withheld: %q", help)
 	}
 }
+
+// Rodolfo's #2740 pre-fold P3: a non-200 answer whose JSON has no errors list
+// (data or extensions carrying body text) must not be printed by a body-submitting
+// command; the command says what happened (the HTTP status) without the body, and
+// keeps a nonzero exit.
+func TestEmailBodyCommandsWithholdNon200Envelopes198(t *testing.T) {
+	body := bodyFile198(t, "line one SECRET-A")
+	for _, answer := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"extensions echo", 400, `{"data":null,"extensions":{"echo":"SECRET-A"}}`},
+		{"data echo", 400, `{"data":{"x":"SECRET-A"}}`},
+		{"plain echo", 413, `line one SECRET-A is too large`},
+		{"html echo", 502, `<html>SECRET-A</html>`},
+	} {
+		for _, c := range []struct {
+			name string
+			args []string
+		}{
+			{"draft save", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}},
+			{"draft update", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}},
+			{"reply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
+		} {
+			t.Run(c.name+" "+answer.name, func(t *testing.T) {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method == http.MethodGet {
+						w.Header().Set("Content-Type", "application/json")
+						_, _ = w.Write([]byte(`{"capabilities":[]}`))
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(answer.status)
+					_, _ = w.Write([]byte(answer.body))
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs(append(append([]string{"email"}, c.args...), "--server", srv.URL, "--json"))
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("a non-200 answer reported success")
+				}
+				renderError(f, err)
+				all := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String() + err.Error()
+				if strings.Contains(all, "SECRET-A") {
+					t.Errorf("a non-200 envelope echoing the body was printed: %s", all)
+				}
+				if exitCodeFor(err) == 0 {
+					t.Errorf("exit 0 for a failed request")
+				}
+			})
+		}
+	}
+}
