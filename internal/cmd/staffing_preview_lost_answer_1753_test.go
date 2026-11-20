@@ -76,7 +76,7 @@ func assertLostAnswerNote1753(t *testing.T, err error, out string, sent *atomic.
 	}
 }
 
-func rmLostAnswer1753(t *testing.T, extra ...string) (error, string, *atomic.Int32) {
+func rmLostAnswer1753(t *testing.T, extra ...string) (string, *atomic.Int32, error) {
 	t.Helper()
 	gql, _ := captureGraphQLFunc(t, func(op string) string {
 		switch op {
@@ -97,20 +97,20 @@ func rmLostAnswer1753(t *testing.T, extra ...string) (error, string, *atomic.Int
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "worker", "rm", "Iris", "--app", "acme.com:eng-team", "--server", front.URL, "--dry-run"}, extra...))
 	err := root.Execute()
-	return err, out.String(), &sent
+	return out.String(), &sent, err
 }
 
 func TestWorkerRmInstructedPreviewLostAnswerIsUnknownOutcome1753(t *testing.T) {
-	err, out, sent := rmLostAnswer1753(t, "--instruction", instrTask1592)
+	out, sent, err := rmLostAnswer1753(t, "--instruction", instrTask1592)
 	assertLostAnswerNote1753(t, err, out, sent, true)
 }
 
 func TestWorkerRmPlainPreviewLostAnswerKeepsOrdinaryWording1753(t *testing.T) {
-	err, out, sent := rmLostAnswer1753(t)
+	out, sent, err := rmLostAnswer1753(t)
 	assertLostAnswerNote1753(t, err, out, sent, false)
 }
 
-func castLostAnswer1753(t *testing.T, instructed bool) (error, string, *atomic.Int32) {
+func castLostAnswer1753(t *testing.T, instructed bool) (string, *atomic.Int32, error) {
 	t.Helper()
 	writeTeamBinding(t)
 	responses := responses1594()
@@ -130,16 +130,16 @@ func castLostAnswer1753(t *testing.T, instructed bool) (error, string, *atomic.I
 	}
 	root.SetArgs(args)
 	err := root.Execute()
-	return err, out.String(), &sent
+	return out.String(), &sent, err
 }
 
 func TestWorkerCastInstructedPreviewLostAnswerIsUnknownOutcome1753(t *testing.T) {
-	err, out, sent := castLostAnswer1753(t, true)
+	out, sent, err := castLostAnswer1753(t, true)
 	assertLostAnswerNote1753(t, err, out, sent, true)
 }
 
 func TestWorkerCastPlainPreviewLostAnswerKeepsOrdinaryWording1753(t *testing.T) {
-	err, out, sent := castLostAnswer1753(t, false)
+	out, sent, err := castLostAnswer1753(t, false)
 	assertLostAnswerNote1753(t, err, out, sent, false)
 }
 
