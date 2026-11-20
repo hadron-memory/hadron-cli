@@ -489,7 +489,7 @@ section between the markers.
 | `team grant actions` |  |  | y | #1054 | 51f6ec4134c2 |  | unread |  |
 | `team grant add` |  |  | y | #1054 | 37a75f05031d |  | unread |  |
 | `team grant get` |  |  | y | #1054 | d015e80e46c9 |  | unread |  |
-| `team grant list` | ls |  | y | #1054 | 693d84145c89 |  | unread |  |
+| `team grant list` | ls |  | y | #1054 | a0f37e8b8ece |  | unread |  |
 | `team grant request` |  |  | y | #1054 | 1c55a0ea19ed |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | 8cfe0007c697 |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 2bd8b7c6efef |  | unread |  |

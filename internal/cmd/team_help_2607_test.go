@@ -63,6 +63,10 @@ func TestTeamGrantRegisterRoleHelpFollowUps2607(t *testing.T) {
 	if strings.Contains(flat(longOf("team", "grant", "request-signature")), "byte for byte") {
 		t.Error("request-signature still claims the JSON URL is carried byte for byte")
 	}
+	// local review P3 on #2703: an unbound list is refused, not an empty page.
+	if strings.Contains(flat(longOf("team", "grant", "list")), "this worktree is bound") {
+		t.Error("team grant list still tells an unbound caller to expect an empty page")
+	}
 	// 3: get opens with what it does.
 	if !strings.HasPrefix(longOf("team", "grant", "get"), "Read one worker grant") {
 		t.Error("team grant get does not open with what it does")

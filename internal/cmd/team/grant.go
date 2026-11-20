@@ -79,8 +79,9 @@ ACTIVATED, REVOKED, ALLOWS) and a "total/offset/limit" line. --limit 0 prints
 only the total count; --offset selects the page start. The default page limit is
 20. --json returns {items:[],total:N}, or {total:N} for count-only. No page is
 fetched automatically. If the page is empty and you expected rows, check that
-this worktree is bound ('hadron team session whoami') and that you are not
-asking for a grant held by someone else; both give the same empty page.`, Example: "  hadron team grant list --limit 20\n  hadron team grant list --limit 0 --json", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+you are not asking for a grant held by someone else and that the bound session
+is a person-driven worker session in its own App; each gives the same empty
+page (an unbound worktree is refused instead, see above).`, Example: "  hadron team grant list --limit 20\n  hadron team grant list --limit 0 --json", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		if limit < 0 || limit > 200 || offset < 0 || offset > 2147483647 {
 			return exitcode.Newf(exitcode.Usage, "--limit takes 0..200 and --offset takes 0..2147483647")
 		}
