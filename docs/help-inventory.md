@@ -729,10 +729,10 @@ section between the markers.
 | `automation list` | ls |  | y | #1184 | 624bcb02a438 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `automation preview` |  |  | n | #1184 | 0010cb874381 |  | unread |  |
 | `automation re-adopt` |  |  | n | #1184 | 873c41db9cef |  | unread |  |
-| `automation team-snapshot-grant` |  |  | n | #1184 | 03893855d3cc |  | unread |  |
-| `automation team-snapshot-grant list` | ls |  | y | #1184 | 01b48f747386 |  | unread |  |
-| `automation team-snapshot-grant revoke` |  |  | y | #1184 | 531c21fdbd99 |  | unread |  |
-| `automation team-snapshot-grant set` |  |  | y | #1184 | b3d0a626083f |  | unread |  |
+| `automation team-snapshot-grant` |  |  | n | #1184 | 43471523b35a |  | unread |  |
+| `automation team-snapshot-grant list` | ls |  | y | #1184 | 74832babf735 |  | unread |  |
+| `automation team-snapshot-grant revoke` |  |  | y | #1184 | 649541714120 |  | unread |  |
+| `automation team-snapshot-grant set` |  |  | y | #1184 | 58877c715061 |  | unread |  |
 | `billing` |  |  | y | #1184 | 7e66fd0c12a2 |  | unread |  |
 | `billing balance` |  |  | y | #1184 | 9f01a80975bf |  | unread |  |
 | `billing grant` |  |  | y | #1184 | 4bcaeb4d0790 |  | unread |  |

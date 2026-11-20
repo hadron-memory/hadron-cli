@@ -62,7 +62,8 @@ writes and no access to another App. The server decides all authority.
 
 Only a person managing the App may give one (set stays person-only). Set and
 list take an explicit App ID, qualified URN or root:slug; revoke takes the grant
-ID, with --app or the active App only when you want that App checked. JSON keeps
+ID: a given --app must match the grant's App, and with --instruction --app or
+the active App names the App whose history is read. JSON keeps
 revokedAt/revokedBy null for a live grant; human output uses -. An older server
 refuses these commands; its refusal is passed through.`}
 	for _, c := range []*cobra.Command{newCmdSnapshotSet(f), newCmdSnapshotList(f), newCmdSnapshotRevoke(f)} {
