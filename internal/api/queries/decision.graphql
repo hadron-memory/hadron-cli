@@ -1,5 +1,12 @@
 # Decision logs and decisions (hadron-server #1641; hadron-cli#1335).
 #
+# Naming is intentional: the server renamed these operations and types to
+# question*/Question* (cli#2465), but the operation names (AskDecision, ...)
+# and fragment names (DecisionFields, DecisionLogFields) below are client-chosen
+# and deliberately keep the Decision spelling. Test capture keys and the pin
+# tests key on them, so do not "fix" either side on its own; the server-side
+# fields they call (question(...), askQuestion(...)) are the new names.
+#
 # Every operation is passed through: refs go to the server exactly as typed
 # and who may do what is the server's rule (cor:api:240:01). Optional fields
 # of the ask/amend input objects carry omitempty (except the presence-sensitive
@@ -207,8 +214,8 @@ mutation SetDecisionLogDeciders(
   $logRef: ID!,
   $defaultDeciders: [ID!]!,
   # NO omitempty on purpose: nil is sent as null, which keeps the log's
-  # eligible set, and [] clears it (resolvers.decisions.ts:
-  # eligibleDeciders == null ? prior : given).
+  # eligible set, and [] clears it (the server resolver, formerly
+  # resolvers.decisions.ts: eligibleDeciders == null ? prior : given).
   $eligibleDeciders: [ID!],
   $expectedRevision: Int!,
   $reason: String!
@@ -251,7 +258,7 @@ mutation AskDecision(
 }
 
 # blocks, followUps and sources carry NO omitempty on purpose: the server reads
-# null as "unchanged" and [] as "clear" (amendDecision: patch.blocks != null), so
+# null as "unchanged" and [] as "clear" (amendQuestion, formerly amendDecision: patch.blocks != null), so
 # an absent key decodes to nil and is sent as null, and an explicit [] clears.
 # (omitempty: false is explicit because use_struct_references adds it by default.)
 # @genqlient(for: "AmendQuestionInput.blocks", omitempty: false)

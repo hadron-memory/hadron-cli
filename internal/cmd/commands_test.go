@@ -1646,7 +1646,7 @@ func TestMemorySetCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemory"], &vars)
-	if vars["orgId"] != "acme.com" || vars["name"] != "KB" {
+	if vars["orgRef"] != "acme.com" || vars["name"] != "KB" {
 		t.Errorf("unexpected create vars: %v", vars)
 	}
 	// The create output surfaces the server-assigned class + visibility (#108).
@@ -1682,8 +1682,8 @@ func TestMemorySetCreateInApp(t *testing.T) {
 			t.Errorf("%s = %v, want %v (all vars: %v)", key, vars[key], want, vars)
 		}
 	}
-	if _, present := vars["orgId"]; present {
-		t.Errorf("App-scoped create must not send orgId: %v", vars)
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("App-scoped create must not send orgRef: %v", vars)
 	}
 	if _, present := vars["visibility"]; present {
 		t.Errorf("App-scoped create must not send visibility: %v", vars)
@@ -1759,7 +1759,7 @@ func TestMemorySetCreateAppMemory(t *testing.T) {
 			t.Errorf("%s = %v, want %v (all vars: %v)", key, vars[key], want, vars)
 		}
 	}
-	for _, absent := range []string{"description", "agentRef", "memoryClass", "maxRevCount", "visibility", "orgId"} {
+	for _, absent := range []string{"description", "agentRef", "memoryClass", "maxRevCount", "visibility", "orgId", "orgRef"} {
 		if _, present := vars[absent]; present {
 			t.Errorf("%s must be omitted on the createAppMemory route: %v", absent, vars)
 		}
@@ -1931,11 +1931,11 @@ func TestMemorySetCreateOwnerMe(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemory"], &vars)
-	// spec 047: the org-less path must OMIT orgId (nil pointer → omitted), not
+	// spec 047: the org-less path must OMIT orgRef (nil pointer → omitted), not
 	// send it as an explicit null — that is what routes the server to the
 	// user-owned path.
-	if _, present := vars["orgId"]; present {
-		t.Errorf("user-owned create must omit orgId, got: %v", vars)
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("user-owned create must omit orgRef, got: %v", vars)
 	}
 	if vars["memoryClass"] != "personal" || vars["name"] != "Jens" {
 		t.Errorf("unexpected create vars: %v", vars)
@@ -1964,8 +1964,8 @@ func TestMemorySetOwnerMeDefaultsToPersonalClass(t *testing.T) {
 	if vars["memoryClass"] != "personal" {
 		t.Errorf("owner-me without --class must default to personal, got: %v", vars["memoryClass"])
 	}
-	if _, present := vars["orgId"]; present {
-		t.Errorf("user-owned create must omit orgId, got: %v", vars)
+	if _, present := vars["orgRef"]; present {
+		t.Errorf("user-owned create must omit orgRef, got: %v", vars)
 	}
 }
 
@@ -2331,7 +2331,7 @@ func TestMemoryRm(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["DeleteMemory"], &vars)
-	if vars["id"] != "acme.com:scratch" {
+	if vars["ref"] != "acme.com:scratch" {
 		t.Errorf("unexpected delete vars: %v", vars)
 	}
 }

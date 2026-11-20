@@ -3,6 +3,7 @@
 package hostpoller
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -26,10 +27,20 @@ func checkReloadTrust(w trustWalk, c, next *Config, path string, info os.FileInf
 	if err := trustedAncestors(w, path, "the configuration file"); err != nil {
 		return err
 	}
-	for _, name := range namedFiles(c, next, changedWorkers) {
-		target := name
-		if !strings.ContainsRune(name, '/') {
-			p, err := exec.LookPath(name)
+	for _, nf := range namedFiles(c, next, changedWorkers) {
+		if nf.program {
+			// A relative program (a slash, not absolute) is run from the
+			// worker's directory, which the check cannot know here — a worker
+			// can have several worktrees and the directory is picked when the
+			// operation runs — so judging it against the poller's directory
+			// would judge one file and run another (cli#2668).
+			if strings.ContainsRune(nf.path, '/') && !filepath.IsAbs(nf.path) {
+				return fmt.Errorf("a program the changed entries name (%s) is a relative path; it is run from the worker's directory, so it cannot be judged here; use an absolute path or a bare name, or restart the poller to apply the change", nf.path)
+			}
+		}
+		target := nf.path
+		if !strings.ContainsRune(target, '/') {
+			p, err := exec.LookPath(target)
 			if err != nil {
 				continue
 			}
@@ -50,10 +61,34 @@ func trustedChain(w trustWalk, path, what string) error {
 	return trustedAncestors(w, path, what)
 }
 
+// statPath reads a path's metadata following symlinks, as the kernel does; a
+// variable so a test can show what happens when a path cannot be stat'ed.
+var statPath = os.Stat
+
+// unresolved reports a lookup error for a path that is not all there: it is
+// missing, or a component of it is a regular file (ENOTDIR). Neither names a
+// file anyone could run or write, so both are judged like a missing path — as
+// far as the path exists — and not refused as unjudgeable. ENOTDIR is not
+// fs.ErrNotExist in Go's mapping (os.IsNotExist and errors.Is both return
+// false for it), so it is named explicitly (cli#2673 review F2).
+func unresolved(err error) bool {
+	return os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR)
+}
+
+// cannotJudge refuses a path the walk could not read: a reload runs what the
+// entries name on the next poll, so an unreadable path — unlike a missing
+// one, judged as far as it exists — cannot be judged part-way (cli#2668).
+func cannotJudge(what, path string, err error) error {
+	return fmt.Errorf("%s (%s) cannot be judged: %v; a reload runs what it names on the next poll, so restart the poller to apply the change", what, path, err)
+}
+
 func trustedPath(path, what string) error {
-	info, err := os.Stat(path)
+	info, err := statPath(path)
 	if err != nil {
-		return nil
+		if unresolved(err) {
+			return nil
+		}
+		return cannotJudge(what, path, err)
 	}
 	return trustedInfo(info, path, what)
 }
@@ -70,12 +105,15 @@ func trustedPath(path, what string) error {
 func trustedAncestors(w trustWalk, path, what string) error {
 	dirs, links, err := visitedDirs(w, path)
 	if err != nil {
-		return fmt.Errorf("%s (%s) cannot be judged: %v; a reload runs what it names on the next poll, so restart the poller to apply the change", what, path, err)
+		return cannotJudge(what, path, err)
 	}
 	for _, d := range dirs {
-		info, err := os.Stat(d)
+		info, err := statPath(d)
 		if err != nil {
-			continue
+			if unresolved(err) {
+				continue
+			}
+			return cannotJudge(what, path, err)
 		}
 		if err := trustedDirInfo(info, d, path, what); err != nil {
 			return err
@@ -88,7 +126,10 @@ func trustedAncestors(w trustWalk, path, what string) error {
 	for _, l := range links {
 		info, err := w.lstat(l)
 		if err != nil {
-			continue
+			if unresolved(err) {
+				continue
+			}
+			return cannotJudge(what, path, err)
 		}
 		if err := trustedLinkInfo(info, l, path, what); err != nil {
 			return err
@@ -158,7 +199,7 @@ func visitedDirs(w trustWalk, path string) (dirs, links []string, err error) {
 		next := filepath.Join(cur, c)
 		fi, err := os.Lstat(next)
 		if err != nil {
-			if !os.IsNotExist(err) {
+			if !unresolved(err) {
 				return dirs, links, err // cannot be judged: refuse, do not skip
 			}
 			cur = next

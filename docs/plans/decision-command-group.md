@@ -1,7 +1,7 @@
 # `hadron decision` — decision logs and decisions (design as built, cli#1335)
 
 Gate: Xabat's CHECKED on hadron-cli#1335 (comment 6540704302), T1. Server surface:
-hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
+hadron-server #1641 (`resolvers.decisions.ts`, since renamed for `questions`), all ten operations on main.
 
 ## Surface
 

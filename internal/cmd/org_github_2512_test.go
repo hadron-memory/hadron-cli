@@ -46,10 +46,10 @@ func TestOrgGithub2512Commands(t *testing.T) {
 		args            []string
 		vars            map[string]any
 	}{
-		{"link", "LinkGithubApp", "linkGithubApp", []string{"github", "link", "acme.com", "--installation-id", "998877"}, map[string]any{"orgId": "acme.com", "installationId": float64(998877)}},
-		{"link urn as typed", "LinkGithubApp", "linkGithubApp", []string{"github", "link", "hrn:org:acme.com", "--installation-id", "1"}, map[string]any{"orgId": "hrn:org:acme.com", "installationId": float64(1)}},
-		{"unlink", "UnlinkGithubApp", "unlinkGithubApp", []string{"github", "unlink", "acme.com", "--yes"}, map[string]any{"orgId": "acme.com"}},
-		{"set-app", "UpdateOrgGithubApp", "updateOrgGithubApp", []string{"github", "set-app", "acme.com", "--app-id", "12345", "--private-key-file", "-"}, map[string]any{"orgId": "acme.com", "appId": "12345", "privateKey": keySentinel2512}},
+		{"link", "LinkGithubApp", "linkGithubApp", []string{"github", "link", "acme.com", "--installation-id", "998877"}, map[string]any{"orgRef": "acme.com", "installationId": float64(998877)}},
+		{"link urn as typed", "LinkGithubApp", "linkGithubApp", []string{"github", "link", "hrn:org:acme.com", "--installation-id", "1"}, map[string]any{"orgRef": "hrn:org:acme.com", "installationId": float64(1)}},
+		{"unlink", "UnlinkGithubApp", "unlinkGithubApp", []string{"github", "unlink", "acme.com", "--yes"}, map[string]any{"orgRef": "acme.com"}},
+		{"set-app", "UpdateOrgGithubApp", "updateOrgGithubApp", []string{"github", "set-app", "acme.com", "--app-id", "12345", "--private-key-file", "-"}, map[string]any{"orgRef": "acme.com", "appId": "12345", "privateKey": keySentinel2512}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, captured := captureGraphQL(t, map[string]string{tc.op: `{"data":{"` + tc.field + `":` + orgGithubLinked2512 + `}}`})
