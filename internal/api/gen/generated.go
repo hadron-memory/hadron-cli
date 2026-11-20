@@ -54053,6 +54053,17 @@ var AllEffortLevel = []EffortLevel{
 	EffortLevelXhigh,
 }
 
+// EmailCategorizeMessageResponse is returned by EmailCategorizeMessage on success.
+type EmailCategorizeMessageResponse struct {
+	// Set the categories (color labels) on a message. Owner-only.
+	EmailCategorizeMessage bool `json:"emailCategorizeMessage"`
+}
+
+// GetEmailCategorizeMessage returns EmailCategorizeMessageResponse.EmailCategorizeMessage, and is useful for accessing the field via an interface.
+func (v *EmailCategorizeMessageResponse) GetEmailCategorizeMessage() bool {
+	return v.EmailCategorizeMessage
+}
+
 // EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
 // The GraphQL type's documentation follows.
 //
@@ -54274,6 +54285,15 @@ func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsE
 	return v.ExchangeConnections
 }
 
+// EmailDeleteMessageResponse is returned by EmailDeleteMessage on success.
+type EmailDeleteMessageResponse struct {
+	// Delete a message (provider trash semantics). Owner-only.
+	EmailDeleteMessage bool `json:"emailDeleteMessage"`
+}
+
+// GetEmailDeleteMessage returns EmailDeleteMessageResponse.EmailDeleteMessage, and is useful for accessing the field via an interface.
+func (v *EmailDeleteMessageResponse) GetEmailDeleteMessage() bool { return v.EmailDeleteMessage }
+
 // EmailDisconnectResponse is returned by EmailDisconnect on success.
 type EmailDisconnectResponse struct {
 	DeleteExchangeConnection bool `json:"deleteExchangeConnection"`
@@ -54283,6 +54303,31 @@ type EmailDisconnectResponse struct {
 func (v *EmailDisconnectResponse) GetDeleteExchangeConnection() bool {
 	return v.DeleteExchangeConnection
 }
+
+// Provider-neutral flag state (spec 002) — Graph's tri-state mapped to a
+// neutral vocabulary so a future Gmail tool can map its own subset.
+type EmailFlag string
+
+const (
+	EmailFlagComplete EmailFlag = "COMPLETE"
+	EmailFlagFlagged  EmailFlag = "FLAGGED"
+	EmailFlagNone     EmailFlag = "NONE"
+)
+
+var AllEmailFlag = []EmailFlag{
+	EmailFlagComplete,
+	EmailFlagFlagged,
+	EmailFlagNone,
+}
+
+// EmailFlagMessageResponse is returned by EmailFlagMessage on success.
+type EmailFlagMessageResponse struct {
+	// Flag, unflag, or complete a message (default FLAGGED). Owner-only.
+	EmailFlagMessage bool `json:"emailFlagMessage"`
+}
+
+// GetEmailFlagMessage returns EmailFlagMessageResponse.EmailFlagMessage, and is useful for accessing the field via an interface.
+func (v *EmailFlagMessageResponse) GetEmailFlagMessage() bool { return v.EmailFlagMessage }
 
 // EmailFoldersExchangeFoldersExchangeFolder includes the requested fields of the GraphQL type ExchangeFolder.
 type EmailFoldersExchangeFoldersExchangeFolder struct {
@@ -54315,6 +54360,15 @@ type EmailFoldersResponse struct {
 func (v *EmailFoldersResponse) GetExchangeFolders() []*EmailFoldersExchangeFoldersExchangeFolder {
 	return v.ExchangeFolders
 }
+
+// EmailMarkReadResponse is returned by EmailMarkRead on success.
+type EmailMarkReadResponse struct {
+	// Mark a message read or unread (default read). Owner-only.
+	EmailMarkRead bool `json:"emailMarkRead"`
+}
+
+// GetEmailMarkRead returns EmailMarkReadResponse.EmailMarkRead, and is useful for accessing the field via an interface.
+func (v *EmailMarkReadResponse) GetEmailMarkRead() bool { return v.EmailMarkRead }
 
 // EmailMessagesExchangeMessagesExchangeMessage includes the requested fields of the GraphQL type ExchangeMessage.
 type EmailMessagesExchangeMessagesExchangeMessage struct {
@@ -54366,6 +54420,62 @@ func (v *EmailMessagesResponse) GetExchangeMessages() []*EmailMessagesExchangeMe
 	return v.ExchangeMessages
 }
 
+// EmailMoveMessageResponse is returned by EmailMoveMessage on success.
+type EmailMoveMessageResponse struct {
+	ExchangeMoveMessage bool `json:"exchangeMoveMessage"`
+}
+
+// GetExchangeMoveMessage returns EmailMoveMessageResponse.ExchangeMoveMessage, and is useful for accessing the field via an interface.
+func (v *EmailMoveMessageResponse) GetExchangeMoveMessage() bool { return v.ExchangeMoveMessage }
+
+// EmailReplyResponse is returned by EmailReply on success.
+type EmailReplyResponse struct {
+	ExchangeReply bool `json:"exchangeReply"`
+}
+
+// GetExchangeReply returns EmailReplyResponse.ExchangeReply, and is useful for accessing the field via an interface.
+func (v *EmailReplyResponse) GetExchangeReply() bool { return v.ExchangeReply }
+
+// EmailSaveDraftEmailSaveDraftEmailDraftInfo includes the requested fields of the GraphQL type EmailDraftInfo.
+// The GraphQL type's documentation follows.
+//
+// Result of emailSaveDraft: the provider-side draft (it lives in the
+// mailbox's Drafts folder, not in any platform table — spec 002 US5).
+type EmailSaveDraftEmailSaveDraftEmailDraftInfo struct {
+	DraftId        string  `json:"draftId"`
+	ConversationId *string `json:"conversationId"`
+}
+
+// GetDraftId returns EmailSaveDraftEmailSaveDraftEmailDraftInfo.DraftId, and is useful for accessing the field via an interface.
+func (v *EmailSaveDraftEmailSaveDraftEmailDraftInfo) GetDraftId() string { return v.DraftId }
+
+// GetConversationId returns EmailSaveDraftEmailSaveDraftEmailDraftInfo.ConversationId, and is useful for accessing the field via an interface.
+func (v *EmailSaveDraftEmailSaveDraftEmailDraftInfo) GetConversationId() *string {
+	return v.ConversationId
+}
+
+// EmailSaveDraftResponse is returned by EmailSaveDraft on success.
+type EmailSaveDraftResponse struct {
+	// Save a draft in the mailbox's own Drafts folder (spec 002 US5): either a
+	// reply-draft (replyToMessageId) or a fresh draft (to + subject). Owner-only.
+	// idempotencyKey makes retries safe (at-least-once callers).
+	EmailSaveDraft *EmailSaveDraftEmailSaveDraftEmailDraftInfo `json:"emailSaveDraft"`
+}
+
+// GetEmailSaveDraft returns EmailSaveDraftResponse.EmailSaveDraft, and is useful for accessing the field via an interface.
+func (v *EmailSaveDraftResponse) GetEmailSaveDraft() *EmailSaveDraftEmailSaveDraftEmailDraftInfo {
+	return v.EmailSaveDraft
+}
+
+// EmailSendDraftResponse is returned by EmailSendDraft on success.
+type EmailSendDraftResponse struct {
+	// Send a provider-side draft. Owner-only; idempotencyKey makes retries safe.
+	EmailSendDraft bool `json:"emailSendDraft"`
+}
+
+// GetEmailSendDraft returns EmailSendDraftResponse.EmailSendDraft, and is useful for accessing the field via an interface.
+func (v *EmailSendDraftResponse) GetEmailSendDraft() bool { return v.EmailSendDraft }
+
 // EmailTestConnectionResponse is returned by EmailTestConnection on success.
 type EmailTestConnectionResponse struct {
 	TestExchangeConnection bool `json:"testExchangeConnection"`
@@ -54375,6 +54485,15 @@ type EmailTestConnectionResponse struct {
 func (v *EmailTestConnectionResponse) GetTestExchangeConnection() bool {
 	return v.TestExchangeConnection
 }
+
+// EmailUpdateDraftResponse is returned by EmailUpdateDraft on success.
+type EmailUpdateDraftResponse struct {
+	// Update a provider-side draft's body. Owner-only.
+	EmailUpdateDraft bool `json:"emailUpdateDraft"`
+}
+
+// GetEmailUpdateDraft returns EmailUpdateDraftResponse.EmailUpdateDraft, and is useful for accessing the field via an interface.
+func (v *EmailUpdateDraftResponse) GetEmailUpdateDraft() bool { return v.EmailUpdateDraft }
 
 // 033-rag-vector-retrieval: what a memory's vector index is built from.
 type EmbeddingSource string
@@ -131112,6 +131231,22 @@ type __EffectiveModelGroupsInput struct {
 // GetAppRef returns __EffectiveModelGroupsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__EffectiveModelGroupsInput) GetAppRef() string { return v.AppRef }
 
+// __EmailCategorizeMessageInput is used internally by genqlient
+type __EmailCategorizeMessageInput struct {
+	ConnectionRef string   `json:"connectionRef"`
+	MessageId     string   `json:"messageId"`
+	Categories    []string `json:"categories"`
+}
+
+// GetConnectionRef returns __EmailCategorizeMessageInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__EmailCategorizeMessageInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetMessageId returns __EmailCategorizeMessageInput.MessageId, and is useful for accessing the field via an interface.
+func (v *__EmailCategorizeMessageInput) GetMessageId() string { return v.MessageId }
+
+// GetCategories returns __EmailCategorizeMessageInput.Categories, and is useful for accessing the field via an interface.
+func (v *__EmailCategorizeMessageInput) GetCategories() []string { return v.Categories }
+
 // __EmailConnectionsInput is used internally by genqlient
 type __EmailConnectionsInput struct {
 	OrgId string `json:"orgId"`
@@ -131136,6 +131271,18 @@ func (v *__EmailConnectionsPageInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __EmailConnectionsPageInput.Offset, and is useful for accessing the field via an interface.
 func (v *__EmailConnectionsPageInput) GetOffset() *int { return v.Offset }
 
+// __EmailDeleteMessageInput is used internally by genqlient
+type __EmailDeleteMessageInput struct {
+	ConnectionRef string `json:"connectionRef"`
+	MessageId     string `json:"messageId"`
+}
+
+// GetConnectionRef returns __EmailDeleteMessageInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__EmailDeleteMessageInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetMessageId returns __EmailDeleteMessageInput.MessageId, and is useful for accessing the field via an interface.
+func (v *__EmailDeleteMessageInput) GetMessageId() string { return v.MessageId }
+
 // __EmailDisconnectInput is used internally by genqlient
 type __EmailDisconnectInput struct {
 	Id string `json:"id"`
@@ -131144,6 +131291,22 @@ type __EmailDisconnectInput struct {
 // GetId returns __EmailDisconnectInput.Id, and is useful for accessing the field via an interface.
 func (v *__EmailDisconnectInput) GetId() string { return v.Id }
 
+// __EmailFlagMessageInput is used internally by genqlient
+type __EmailFlagMessageInput struct {
+	ConnectionRef string     `json:"connectionRef"`
+	MessageId     string     `json:"messageId"`
+	Flag          *EmailFlag `json:"flag,omitempty"`
+}
+
+// GetConnectionRef returns __EmailFlagMessageInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__EmailFlagMessageInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetMessageId returns __EmailFlagMessageInput.MessageId, and is useful for accessing the field via an interface.
+func (v *__EmailFlagMessageInput) GetMessageId() string { return v.MessageId }
+
+// GetFlag returns __EmailFlagMessageInput.Flag, and is useful for accessing the field via an interface.
+func (v *__EmailFlagMessageInput) GetFlag() *EmailFlag { return v.Flag }
+
 // __EmailFoldersInput is used internally by genqlient
 type __EmailFoldersInput struct {
 	ConnectionId string `json:"connectionId"`
@@ -131151,6 +131314,22 @@ type __EmailFoldersInput struct {
 
 // GetConnectionId returns __EmailFoldersInput.ConnectionId, and is useful for accessing the field via an interface.
 func (v *__EmailFoldersInput) GetConnectionId() string { return v.ConnectionId }
+
+// __EmailMarkReadInput is used internally by genqlient
+type __EmailMarkReadInput struct {
+	ConnectionRef string `json:"connectionRef"`
+	MessageId     string `json:"messageId"`
+	IsRead        *bool  `json:"isRead,omitempty"`
+}
+
+// GetConnectionRef returns __EmailMarkReadInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__EmailMarkReadInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetMessageId returns __EmailMarkReadInput.MessageId, and is useful for accessing the field via an interface.
+func (v *__EmailMarkReadInput) GetMessageId() string { return v.MessageId }
+
+// GetIsRead returns __EmailMarkReadInput.IsRead, and is useful for accessing the field via an interface.
+func (v *__EmailMarkReadInput) GetIsRead() *bool { return v.IsRead }
 
 // __EmailMessagesInput is used internally by genqlient
 type __EmailMessagesInput struct {
@@ -131168,6 +131347,82 @@ func (v *__EmailMessagesInput) GetTop() *int { return v.Top }
 // GetUnreadOnly returns __EmailMessagesInput.UnreadOnly, and is useful for accessing the field via an interface.
 func (v *__EmailMessagesInput) GetUnreadOnly() *bool { return v.UnreadOnly }
 
+// __EmailMoveMessageInput is used internally by genqlient
+type __EmailMoveMessageInput struct {
+	ConnectionId string `json:"connectionId"`
+	MessageId    string `json:"messageId"`
+	FolderId     string `json:"folderId"`
+}
+
+// GetConnectionId returns __EmailMoveMessageInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__EmailMoveMessageInput) GetConnectionId() string { return v.ConnectionId }
+
+// GetMessageId returns __EmailMoveMessageInput.MessageId, and is useful for accessing the field via an interface.
+func (v *__EmailMoveMessageInput) GetMessageId() string { return v.MessageId }
+
+// GetFolderId returns __EmailMoveMessageInput.FolderId, and is useful for accessing the field via an interface.
+func (v *__EmailMoveMessageInput) GetFolderId() string { return v.FolderId }
+
+// __EmailReplyInput is used internally by genqlient
+type __EmailReplyInput struct {
+	ConnectionId string `json:"connectionId"`
+	MessageId    string `json:"messageId"`
+	Body         string `json:"body"`
+}
+
+// GetConnectionId returns __EmailReplyInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__EmailReplyInput) GetConnectionId() string { return v.ConnectionId }
+
+// GetMessageId returns __EmailReplyInput.MessageId, and is useful for accessing the field via an interface.
+func (v *__EmailReplyInput) GetMessageId() string { return v.MessageId }
+
+// GetBody returns __EmailReplyInput.Body, and is useful for accessing the field via an interface.
+func (v *__EmailReplyInput) GetBody() string { return v.Body }
+
+// __EmailSaveDraftInput is used internally by genqlient
+type __EmailSaveDraftInput struct {
+	ConnectionRef    string   `json:"connectionRef"`
+	BodyHtml         string   `json:"bodyHtml"`
+	ReplyToMessageId *string  `json:"replyToMessageId,omitempty"`
+	Subject          *string  `json:"subject,omitempty"`
+	To               []string `json:"to,omitempty"`
+	IdempotencyKey   *string  `json:"idempotencyKey,omitempty"`
+}
+
+// GetConnectionRef returns __EmailSaveDraftInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__EmailSaveDraftInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetBodyHtml returns __EmailSaveDraftInput.BodyHtml, and is useful for accessing the field via an interface.
+func (v *__EmailSaveDraftInput) GetBodyHtml() string { return v.BodyHtml }
+
+// GetReplyToMessageId returns __EmailSaveDraftInput.ReplyToMessageId, and is useful for accessing the field via an interface.
+func (v *__EmailSaveDraftInput) GetReplyToMessageId() *string { return v.ReplyToMessageId }
+
+// GetSubject returns __EmailSaveDraftInput.Subject, and is useful for accessing the field via an interface.
+func (v *__EmailSaveDraftInput) GetSubject() *string { return v.Subject }
+
+// GetTo returns __EmailSaveDraftInput.To, and is useful for accessing the field via an interface.
+func (v *__EmailSaveDraftInput) GetTo() []string { return v.To }
+
+// GetIdempotencyKey returns __EmailSaveDraftInput.IdempotencyKey, and is useful for accessing the field via an interface.
+func (v *__EmailSaveDraftInput) GetIdempotencyKey() *string { return v.IdempotencyKey }
+
+// __EmailSendDraftInput is used internally by genqlient
+type __EmailSendDraftInput struct {
+	ConnectionRef  string  `json:"connectionRef"`
+	DraftId        string  `json:"draftId"`
+	IdempotencyKey *string `json:"idempotencyKey,omitempty"`
+}
+
+// GetConnectionRef returns __EmailSendDraftInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__EmailSendDraftInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetDraftId returns __EmailSendDraftInput.DraftId, and is useful for accessing the field via an interface.
+func (v *__EmailSendDraftInput) GetDraftId() string { return v.DraftId }
+
+// GetIdempotencyKey returns __EmailSendDraftInput.IdempotencyKey, and is useful for accessing the field via an interface.
+func (v *__EmailSendDraftInput) GetIdempotencyKey() *string { return v.IdempotencyKey }
+
 // __EmailTestConnectionInput is used internally by genqlient
 type __EmailTestConnectionInput struct {
 	Id string `json:"id"`
@@ -131175,6 +131430,22 @@ type __EmailTestConnectionInput struct {
 
 // GetId returns __EmailTestConnectionInput.Id, and is useful for accessing the field via an interface.
 func (v *__EmailTestConnectionInput) GetId() string { return v.Id }
+
+// __EmailUpdateDraftInput is used internally by genqlient
+type __EmailUpdateDraftInput struct {
+	ConnectionRef string `json:"connectionRef"`
+	DraftId       string `json:"draftId"`
+	BodyHtml      string `json:"bodyHtml"`
+}
+
+// GetConnectionRef returns __EmailUpdateDraftInput.ConnectionRef, and is useful for accessing the field via an interface.
+func (v *__EmailUpdateDraftInput) GetConnectionRef() string { return v.ConnectionRef }
+
+// GetDraftId returns __EmailUpdateDraftInput.DraftId, and is useful for accessing the field via an interface.
+func (v *__EmailUpdateDraftInput) GetDraftId() string { return v.DraftId }
+
+// GetBodyHtml returns __EmailUpdateDraftInput.BodyHtml, and is useful for accessing the field via an interface.
+func (v *__EmailUpdateDraftInput) GetBodyHtml() string { return v.BodyHtml }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
@@ -159342,6 +159613,42 @@ func EffectiveModelGroups(
 	return data_, err_
 }
 
+// The mutation executed by EmailCategorizeMessage.
+const EmailCategorizeMessage_Operation = `
+mutation EmailCategorizeMessage ($connectionRef: ID!, $messageId: ID!, $categories: [String!]!) {
+	emailCategorizeMessage(connectionRef: $connectionRef, messageId: $messageId, categories: $categories)
+}
+`
+
+func EmailCategorizeMessage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	messageId string,
+	categories []string,
+) (data_ *EmailCategorizeMessageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailCategorizeMessage",
+		Query:  EmailCategorizeMessage_Operation,
+		Variables: &__EmailCategorizeMessageInput{
+			ConnectionRef: connectionRef,
+			MessageId:     messageId,
+			Categories:    categories,
+		},
+	}
+
+	data_ = &EmailCategorizeMessageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by EmailConnections.
 const EmailConnections_Operation = `
 query EmailConnections ($orgId: ID!) {
@@ -159442,6 +159749,40 @@ func EmailConnectionsPage(
 	return data_, err_
 }
 
+// The mutation executed by EmailDeleteMessage.
+const EmailDeleteMessage_Operation = `
+mutation EmailDeleteMessage ($connectionRef: ID!, $messageId: ID!) {
+	emailDeleteMessage(connectionRef: $connectionRef, messageId: $messageId)
+}
+`
+
+func EmailDeleteMessage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	messageId string,
+) (data_ *EmailDeleteMessageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailDeleteMessage",
+		Query:  EmailDeleteMessage_Operation,
+		Variables: &__EmailDeleteMessageInput{
+			ConnectionRef: connectionRef,
+			MessageId:     messageId,
+		},
+	}
+
+	data_ = &EmailDeleteMessageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by EmailDisconnect.
 const EmailDisconnect_Operation = `
 mutation EmailDisconnect ($id: ID!) {
@@ -159464,6 +159805,42 @@ func EmailDisconnect(
 	}
 
 	data_ = &EmailDisconnectResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EmailFlagMessage.
+const EmailFlagMessage_Operation = `
+mutation EmailFlagMessage ($connectionRef: ID!, $messageId: ID!, $flag: EmailFlag) {
+	emailFlagMessage(connectionRef: $connectionRef, messageId: $messageId, flag: $flag)
+}
+`
+
+func EmailFlagMessage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	messageId string,
+	flag *EmailFlag,
+) (data_ *EmailFlagMessageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailFlagMessage",
+		Query:  EmailFlagMessage_Operation,
+		Variables: &__EmailFlagMessageInput{
+			ConnectionRef: connectionRef,
+			MessageId:     messageId,
+			Flag:          flag,
+		},
+	}
+
+	data_ = &EmailFlagMessageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -159501,6 +159878,42 @@ func EmailFolders(
 	}
 
 	data_ = &EmailFoldersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EmailMarkRead.
+const EmailMarkRead_Operation = `
+mutation EmailMarkRead ($connectionRef: ID!, $messageId: ID!, $isRead: Boolean) {
+	emailMarkRead(connectionRef: $connectionRef, messageId: $messageId, isRead: $isRead)
+}
+`
+
+func EmailMarkRead(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	messageId string,
+	isRead *bool,
+) (data_ *EmailMarkReadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailMarkRead",
+		Query:  EmailMarkRead_Operation,
+		Variables: &__EmailMarkReadInput{
+			ConnectionRef: connectionRef,
+			MessageId:     messageId,
+			IsRead:        isRead,
+		},
+	}
+
+	data_ = &EmailMarkReadResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -159561,6 +159974,160 @@ func EmailMessages(
 	return data_, err_
 }
 
+// The mutation executed by EmailMoveMessage.
+const EmailMoveMessage_Operation = `
+mutation EmailMoveMessage ($connectionId: ID!, $messageId: ID!, $folderId: String!) {
+	exchangeMoveMessage(connectionId: $connectionId, messageId: $messageId, folderId: $folderId)
+}
+`
+
+func EmailMoveMessage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionId string,
+	messageId string,
+	folderId string,
+) (data_ *EmailMoveMessageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailMoveMessage",
+		Query:  EmailMoveMessage_Operation,
+		Variables: &__EmailMoveMessageInput{
+			ConnectionId: connectionId,
+			MessageId:    messageId,
+			FolderId:     folderId,
+		},
+	}
+
+	data_ = &EmailMoveMessageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EmailReply.
+const EmailReply_Operation = `
+mutation EmailReply ($connectionId: ID!, $messageId: ID!, $body: String!) {
+	exchangeReply(connectionId: $connectionId, messageId: $messageId, body: $body)
+}
+`
+
+// Replies to the SENDER only: the server takes no recipient argument.
+func EmailReply(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionId string,
+	messageId string,
+	body string,
+) (data_ *EmailReplyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailReply",
+		Query:  EmailReply_Operation,
+		Variables: &__EmailReplyInput{
+			ConnectionId: connectionId,
+			MessageId:    messageId,
+			Body:         body,
+		},
+	}
+
+	data_ = &EmailReplyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EmailSaveDraft.
+const EmailSaveDraft_Operation = `
+mutation EmailSaveDraft ($connectionRef: ID!, $bodyHtml: String!, $replyToMessageId: ID, $subject: String, $to: [String!], $idempotencyKey: String) {
+	emailSaveDraft(connectionRef: $connectionRef, bodyHtml: $bodyHtml, replyToMessageId: $replyToMessageId, subject: $subject, to: $to, idempotencyKey: $idempotencyKey) {
+		draftId
+		conversationId
+	}
+}
+`
+
+func EmailSaveDraft(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	bodyHtml string,
+	replyToMessageId *string,
+	subject *string,
+	to []string,
+	idempotencyKey *string,
+) (data_ *EmailSaveDraftResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailSaveDraft",
+		Query:  EmailSaveDraft_Operation,
+		Variables: &__EmailSaveDraftInput{
+			ConnectionRef:    connectionRef,
+			BodyHtml:         bodyHtml,
+			ReplyToMessageId: replyToMessageId,
+			Subject:          subject,
+			To:               to,
+			IdempotencyKey:   idempotencyKey,
+		},
+	}
+
+	data_ = &EmailSaveDraftResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EmailSendDraft.
+const EmailSendDraft_Operation = `
+mutation EmailSendDraft ($connectionRef: ID!, $draftId: ID!, $idempotencyKey: String) {
+	emailSendDraft(connectionRef: $connectionRef, draftId: $draftId, idempotencyKey: $idempotencyKey)
+}
+`
+
+func EmailSendDraft(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	draftId string,
+	idempotencyKey *string,
+) (data_ *EmailSendDraftResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailSendDraft",
+		Query:  EmailSendDraft_Operation,
+		Variables: &__EmailSendDraftInput{
+			ConnectionRef:  connectionRef,
+			DraftId:        draftId,
+			IdempotencyKey: idempotencyKey,
+		},
+	}
+
+	data_ = &EmailSendDraftResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by EmailTestConnection.
 const EmailTestConnection_Operation = `
 mutation EmailTestConnection ($id: ID!) {
@@ -159584,6 +160151,43 @@ func EmailTestConnection(
 	}
 
 	data_ = &EmailTestConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EmailUpdateDraft.
+const EmailUpdateDraft_Operation = `
+mutation EmailUpdateDraft ($connectionRef: ID!, $draftId: ID!, $bodyHtml: String!) {
+	emailUpdateDraft(connectionRef: $connectionRef, draftId: $draftId, bodyHtml: $bodyHtml)
+}
+`
+
+// Replaces the draft's body only; the server has no idempotency key here.
+func EmailUpdateDraft(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionRef string,
+	draftId string,
+	bodyHtml string,
+) (data_ *EmailUpdateDraftResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailUpdateDraft",
+		Query:  EmailUpdateDraft_Operation,
+		Variables: &__EmailUpdateDraftInput{
+			ConnectionRef: connectionRef,
+			DraftId:       draftId,
+			BodyHtml:      bodyHtml,
+		},
+	}
+
+	data_ = &EmailUpdateDraftResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
