@@ -78,14 +78,15 @@ calls this creation operation.
 			}
 			r, err := gen.DriveCreateDoc(c.Context(), client, o.connection, node, folder, givenTitle)
 			if err != nil {
-				if api.FromNon200Envelope(err) || !api.IsDefiniteRefusal(err) {
+				mapped := api.MapErrorKeepingCode(err)
+				if api.FromNon200Envelope(err) || !api.IsDefiniteRefusal(err) || exitcode.FromError(mapped) == exitcode.Unavailable {
 					message := createDocUnknown
 					if messages := api.ServerMessages(err); len(messages) != 0 {
-						message += "; server said: " + strings.Join(messages, "; ")
+						message += fmt.Sprintf("; server said: %q", strings.Join(messages, "; "))
 					}
 					return api.WithServerCode(exitcode.Newf(exitcode.Unavailable, "%s", message), err)
 				}
-				return api.MapErrorKeepingCode(err)
+				return mapped
 			}
 			if r == nil || r.ExportNodeToGoogleDoc == nil || r.ExportNodeToGoogleDoc.Id == "" {
 				return exitcode.Newf(exitcode.Unavailable, "%s", createDocUnknown)
@@ -94,7 +95,7 @@ calls this creation operation.
 			if err != nil {
 				return exitcode.Newf(exitcode.Unavailable, "server returned Google Doc ID %q but incomplete metadata; check the drive before retrying (a repeat creates another document)", r.ExportNodeToGoogleDoc.Id)
 			}
-			return render(f, o.connection, "Created Google Doc metadata (data):", row, false)
+			return render(f, o.connection, "Created Google Doc metadata (data):", row, false) // A single file has no pagination hint.
 		},
 	}
 	scope(c, o)

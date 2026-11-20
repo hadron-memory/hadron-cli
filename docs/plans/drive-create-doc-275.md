@@ -36,10 +36,13 @@ If the server supplies an ID but incomplete metadata, the error retains that
 ID and asks the caller to check Drive before another creation.
 
 Server refusals use the shared error mapper and retain the server code.
-Transport/gateway failures, internal/uncoded GraphQL errors and undecodable
+Unavailable-class server errors, transport/gateway failures, internal/uncoded
+GraphQL errors and undecodable
 responses receive exit-7 guidance: the outcome is unknown; check the drive
 before retrying. Server diagnostics and codes are retained alongside the
-guidance when supplied.
+guidance when supplied, with diagnostics quoted as data. A bodyless HTTP
+401/429 response has no coded refusal, so this command conservatively treats
+that attempted write as unknown too.
 The CLI does not infer a failed creation or encourage an automatic retry. There is no
 retry or fallback mutation. A structured unknown server refusal keeps the
 existing unknown-code fallback.

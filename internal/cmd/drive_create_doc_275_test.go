@@ -62,7 +62,7 @@ func createDocServer275(t *testing.T, reply func(http.ResponseWriter, *http.Requ
 func TestDriveCreateDoc275Success(t *testing.T) {
 	for _, opts := range []bool{false, true} {
 		for _, asJSON := range []bool{false, true} {
-			t.Run(strings.Join([]string{map[bool]string{false: "default", true: "options"}[opts], map[bool]string{false: "text", true: "json"}[asJSON]}, "/"), func(t *testing.T) {
+			t.Run("options="+strconv.FormatBool(opts)+"/json="+strconv.FormatBool(asJSON), func(t *testing.T) {
 				srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, vars map[string]any) {
 					want := map[string]any{"nodeRef": "hrn:node:example.com:kb:notes", "connectionRef": "c"}
 					if opts {
@@ -177,22 +177,24 @@ func TestDriveCreateDoc275Refusals(t *testing.T) {
 	for _, tc := range []struct {
 		code string
 		exit int
-	}{{"FORBIDDEN", 8}, {"NODE_NOT_FOUND", 4}, {"NOT_FOUND", 4}, {"SESSION_EXPIRED", 3}, {"FUTURE_DRIVE_REFUSAL", 1}, {"GITHUB_UNAVAILABLE", 7}} {
-		srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
-			_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": "exact server refusal", "extensions": map[string]any{"code": tc.code}}}})
+	}{{"FORBIDDEN", 8}, {"NODE_NOT_FOUND", 4}, {"NOT_FOUND", 4}, {"SESSION_EXPIRED", 3}, {"FUTURE_DRIVE_REFUSAL", 1}} {
+		t.Run(tc.code, func(t *testing.T) {
+			srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+				_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": "exact server refusal", "extensions": map[string]any{"code": tc.code}}}})
+			})
+			f, out := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
+			err := r.Execute()
+			if exitCodeFor(err) != tc.exit || err == nil || err.Error() != "exact server refusal" || n.Load() != 1 || out.Len() != 0 {
+				t.Fatalf("%s: err=%v HTTP=%d stdout=%q", tc.code, err, n.Load(), out.String())
+			}
 		})
-		f, out := testFactory(t)
-		r := NewRootCmd(f)
-		r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
-		err := r.Execute()
-		if exitCodeFor(err) != tc.exit || err == nil || err.Error() != "exact server refusal" || n.Load() != 1 || out.Len() != 0 {
-			t.Fatalf("%s: err=%v HTTP=%d stdout=%q", tc.code, err, n.Load(), out.String())
-		}
 	}
 }
 
 func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
-	for _, mode := range []string{"gateway", "structured-5xx", "coded-refusal-5xx", "internal-200", "partial-200", "uncoded-200", "empty-id", "drop", "redirect307", "redirect308", "malformed", "null"} {
+	for _, mode := range []string{"gateway", "structured-5xx", "coded-refusal-5xx", "unavailable-200", "internal-200", "partial-200", "uncoded-200", "empty-id", "drop", "redirect307", "redirect308", "malformed", "null"} {
 		t.Run(mode, func(t *testing.T) {
 			srv, n := createDocServer275(t, func(w http.ResponseWriter, req *http.Request, _ map[string]any) {
 				switch mode {
@@ -204,6 +206,9 @@ func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
 				case "coded-refusal-5xx":
 					w.WriteHeader(http.StatusServiceUnavailable)
 					_, _ = w.Write([]byte(`{"errors":[{"message":"exact server refusal","extensions":{"code":"FORBIDDEN"}}]}`))
+				case "unavailable-200":
+					// Exercise the shared Unavailable mapping, not a Drive-specific server code.
+					_, _ = w.Write([]byte(`{"errors":[{"message":"provider unavailable after dispatch","extensions":{"code":"GITHUB_UNAVAILABLE"}}]}`))
 				case "internal-200":
 					_, _ = w.Write([]byte(`{"errors":[{"message":"Unexpected error.","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":{"exportNodeToGoogleDoc":null}}`))
 				case "partial-200":
@@ -235,8 +240,8 @@ func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
 			r := NewRootCmd(f)
 			r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
 			err := r.Execute()
-			wantMessage := map[string]string{"structured-5xx": "request failed after dispatch", "coded-refusal-5xx": "exact server refusal", "internal-200": "Unexpected error.", "partial-200": "Unexpected error.", "uncoded-200": "boom"}[mode]
-			if wantMessage != "" && (err == nil || !strings.Contains(err.Error(), "; server said: "+wantMessage)) {
+			wantMessage := map[string]string{"structured-5xx": "request failed after dispatch", "coded-refusal-5xx": "exact server refusal", "unavailable-200": "provider unavailable after dispatch", "internal-200": "Unexpected error.", "partial-200": "Unexpected error.", "uncoded-200": "boom"}[mode]
+			if wantMessage != "" && (err == nil || !strings.Contains(err.Error(), "; server said: "+strconv.Quote(wantMessage))) {
 				t.Fatalf("server message missing: %v", err)
 			}
 			if exitCodeFor(err) != 7 || err == nil || !strings.Contains(err.Error(), "the outcome is unknown; check the drive") || n.Load() != 1 || out.Len() != 0 {
@@ -285,10 +290,12 @@ func TestDriveCreateDoc275UnlockIsHeaderOnly(t *testing.T) {
 func TestDriveCreateDoc275CancelledAttemptIsUnknown(t *testing.T) {
 	for _, mode := range []string{"deadline", "cancel"} {
 		t.Run(mode, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
+			var ctx context.Context
+			var cancel context.CancelFunc
 			if mode == "deadline" {
-				cancel()
 				ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+			} else {
+				ctx, cancel = context.WithCancel(context.Background())
 			}
 			defer cancel()
 			srv, n := createDocServer275(t, func(_ http.ResponseWriter, r *http.Request, _ map[string]any) {
@@ -304,10 +311,6 @@ func TestDriveCreateDoc275CancelledAttemptIsUnknown(t *testing.T) {
 			r := NewRootCmd(f)
 			r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL})
 			err := r.ExecuteContext(ctx)
-			wantMessage := map[string]string{"structured-5xx": "request failed after dispatch", "coded-refusal-5xx": "exact server refusal", "internal-200": "Unexpected error.", "partial-200": "Unexpected error.", "uncoded-200": "boom"}[mode]
-			if wantMessage != "" && (err == nil || !strings.Contains(err.Error(), "; server said: "+wantMessage)) {
-				t.Fatalf("server message missing: %v", err)
-			}
 			if exitCodeFor(err) != 7 || err == nil || !strings.Contains(err.Error(), "the outcome is unknown; check the drive") || n.Load() != 1 || out.Len() != 0 {
 				t.Fatalf("err=%v HTTP=%d stdout=%q", err, n.Load(), out.String())
 			}
@@ -364,5 +367,36 @@ func TestDriveCreateDoc275IncompleteMetadataPreservesID(t *testing.T) {
 	err := r.Execute()
 	if exitCodeFor(err) != 7 || err == nil || !strings.Contains(err.Error(), `Google Doc ID "f" but incomplete metadata`) || n.Load() != 1 || out.Len() != 0 {
 		t.Fatalf("err=%v HTTP=%d stdout=%q", err, n.Load(), out.String())
+	}
+}
+
+func TestDriveCreateDoc275UnknownJSONCode(t *testing.T) {
+	const diagnostic = "provider line\nforged:\x1b[31m"
+	srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": diagnostic, "extensions": map[string]any{"code": "INTERNAL_SERVER_ERROR"}}}})
+	})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--json", "--server", srv.URL})
+	err := r.Execute()
+	if err == nil || n.Load() != 1 {
+		t.Fatalf("err=%v HTTP=%d", err, n.Load())
+	}
+	if !strings.Contains(err.Error(), strconv.Quote(diagnostic)) || strings.ContainsAny(err.Error(), "\n\x1b") {
+		t.Fatalf("diagnostic must be quoted data: %q", err.Error())
+	}
+	renderError(f, err)
+	var envelope struct {
+		Error struct {
+			Code       int    `json:"code"`
+			ServerCode string `json:"serverCode"`
+			Message    string `json:"message"`
+		} `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+		t.Fatal(e)
+	}
+	if envelope.Error.Code != 7 || envelope.Error.ServerCode != "INTERNAL_SERVER_ERROR" || !strings.Contains(envelope.Error.Message, "the outcome is unknown") {
+		t.Fatalf("envelope: %s", out.String())
 	}
 }
