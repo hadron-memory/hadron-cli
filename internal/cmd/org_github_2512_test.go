@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
 )
 
 const (
@@ -349,8 +351,14 @@ func TestOrgGithub2512SetAppNoMaskedPrompt(t *testing.T) {
 	if exitCodeFor(err) != 2 {
 		t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
 	}
-	if !strings.Contains(err.Error(), "--private-key-file") {
-		t.Fatalf("refusal does not name the flag: %v", err)
+	// #2656 item 2: the guard's OWN message, not just any Usage failure
+	// naming the flag — the terminal/truncation rationale is what separates
+	// this refusal from flag validation, so a different Usage error cannot
+	// satisfy the pin.
+	for _, want := range []string{"--private-key-file", "required on a terminal", "multi-line PEM", "masked prompt"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("refusal missing the guard's own text %q: %v", want, err)
+		}
 	}
 	for _, op := range []string{"LinkGithubApp", "UnlinkGithubApp", "UpdateOrgGithubApp"} {
 		if calls(op) != 0 {
@@ -419,6 +427,15 @@ func TestOrgGithub2512SecretNeverEchoes(t *testing.T) {
 				var coded interface{ ServerCode() string }
 				if errors.As(err, &coded) {
 					t.Fatalf("server code %q rides along while embedding the key", coded.ServerCode())
+				}
+				// #2656 item 1: errors.As alone cannot show the raw poisoned
+				// error is UNREACHABLE — a chain that wrapped it through
+				// without implementing ServerCode would still pass. ServerCodeOf
+				// reads extensions.code off any GraphQL error still in the
+				// chain, so this pins that the safe error drops the raw one
+				// from the chain entirely.
+				if code := api.ServerCodeOf(err); code != "" {
+					t.Fatalf("raw error reachable in the chain; its code %q would surface the key", code)
 				}
 			}
 		})
