@@ -35,7 +35,7 @@ type disconnectDTO struct {
 // a clean server code survive.
 func guardedWriteError(raw error, secrets []string, recovery string) error {
 	mapped := api.MapError(raw)
-	var base error = mapped
+	base := mapped
 	if class := exitcode.FromError(mapped); class == exitcode.Error || class == exitcode.Unavailable {
 		base = exitcode.Newf(class, "%s: %s", recovery, mapped)
 	}
