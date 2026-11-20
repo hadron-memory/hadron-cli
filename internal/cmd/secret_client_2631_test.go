@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -397,5 +398,131 @@ func TestSecretClientLsNeutralisesText2631(t *testing.T) {
 	out, _, err := runSecretClient2631(t, srv.URL, "ls")
 	if err != nil || strings.ContainsAny(out, "\x1b") || strings.Count(out, "\n") != 2 {
 		t.Fatalf("header plus one control-free row expected: err=%v out=%q", err, out)
+	}
+}
+
+// Dara's P2: --wait must not poll when the signer could not be shown the URL.
+// Both modes print the issue (text refuses the URL; --json carries it) and send
+// no TeamGrantSigningRequest at all.
+func TestSecretClientIssueWaitDoesNotPollWithAnUnshowableURL2631(t *testing.T) {
+	const evil = "https://portal.example/x\u202Eevil"
+	for _, asJSON := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%t", asJSON), func(t *testing.T) {
+			resp := issueResponses2631("OPEN")
+			resp["TeamRequestGrantSignature"] = `{"data":{"requestGrantSignature":` + signingRequest2631("OPEN", evil) + `}}`
+			srv, calls := attnServer(t, resp)
+			args := []string{"issue", "s1", "--reason", "r", "--wait", "--wait-timeout", "30s"}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			start := time.Now()
+			out, errOut, err := runSecretClient2631(t, srv.URL, args...)
+			if exitCodeFor(err) != 1 || time.Since(start) > 5*time.Second {
+				t.Fatalf("must stop at once with exit 1: exit=%d after %s err=%v", exitCodeFor(err), time.Since(start), err)
+			}
+			for _, op := range opsOf2631(calls) {
+				if op == "TeamGrantSigningRequest" {
+					t.Fatalf("no poll may be sent when the URL cannot be shown: %v", opsOf2631(calls))
+				}
+			}
+			if strings.Contains(errOut, "\u202E") {
+				t.Errorf("the unsafe URL must not reach stderr: %q", errOut)
+			}
+			if asJSON {
+				var d struct {
+					SigningRequest struct{ CeremonyURL string } `json:"signingRequest"`
+				}
+				if json.Unmarshal([]byte(out), &d) != nil || d.SigningRequest.CeremonyURL != evil {
+					t.Errorf("--json must carry the URL exactly, promptly: %s", out)
+				}
+			} else if strings.Contains(out, "\u202E") {
+				t.Errorf("text must not print the unsafe URL: %q", out)
+			}
+		})
+	}
+}
+
+// Dara's P2: cancelling the parent context while a poll is in flight is a
+// cancellation (exit 130), not a signing timeout, and says so.
+func TestSecretClientIssueWaitCancellationIsNotATimeout2631(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	release := make(chan struct{})
+	srv, _ := attnServerHook(t, issueResponses2631("OPEN"), func(op string) {
+		if op == "TeamGrantSigningRequest" {
+			cancel()
+			<-release
+		}
+	})
+	t.Cleanup(func() { close(release) })
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"secret", "client", "issue", "s1", "--reason", "r", "--wait", "--json", "--server", srv.URL})
+	err := root.ExecuteContext(ctx)
+	if exitCodeFor(err) != exitcode.Cancelled || err == nil || strings.Contains(err.Error(), "not signed within") || !strings.Contains(err.Error(), "cancel") {
+		t.Fatalf("a cancelled parent must exit %d as cancelled, not as a timeout: exit=%d err=%v", exitcode.Cancelled, exitCodeFor(err), err)
+	}
+}
+
+// Dara's P3: OPEN on one read, COMPLETED on the next: the poll must be
+// scheduled again, and the final record carries the last state.
+func TestSecretClientIssueWaitPollsAcrossOpenToCompleted2631(t *testing.T) {
+	var polls int
+	resp := issueResponses2631("OPEN")
+	srv, calls := attnServerHook(t, resp, func(op string) {
+		if op == "TeamGrantSigningRequest" {
+			polls++
+			state := "OPEN"
+			if polls >= 2 {
+				state = "COMPLETED"
+			}
+			setAttnResponse(resp, "TeamGrantSigningRequest", `{"data":{"grantSigningRequest":`+signingRequest2631(state, ceremonyURL2631)+`}}`)
+		}
+	})
+	out, _, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r", "--wait", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ops := opsOf2631(calls)
+	if len(ops) != 4 || ops[2] != "TeamGrantSigningRequest" || ops[3] != "TeamGrantSigningRequest" {
+		t.Fatalf("want issue, request, then two polls: %v", ops)
+	}
+	if !strings.Contains(out, `"state": "COMPLETED"`) && !strings.Contains(out, `"state":"COMPLETED"`) {
+		t.Errorf("the final record must carry COMPLETED: %s", out)
+	}
+}
+
+// Dara's P3: a lost answer to the signing request is an unknown outcome: sent
+// once, exit 7, and the error says how to check or ask again.
+func TestSecretClientIssueLostSigningAnswer2631(t *testing.T) {
+	var sigCalls int
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if body.OperationName == "TeamRequestGrantSignature" {
+			mu.Lock()
+			sigCalls++
+			mu.Unlock()
+			w.WriteHeader(502)
+			_, _ = w.Write([]byte("bad gateway"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(clientIssued2631))
+	}))
+	defer srv.Close()
+	out, _, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r", "--json")
+	mu.Lock()
+	defer mu.Unlock()
+	if exitCodeFor(err) != exitcode.Unavailable || sigCalls != 1 {
+		t.Fatalf("exit=%d sends=%d err=%v", exitCodeFor(err), sigCalls, err)
+	}
+	if !strings.Contains(err.Error(), "gr-2631") || !strings.Contains(err.Error(), "may exist") || !strings.Contains(err.Error(), "request-signature") {
+		t.Errorf("the error must say a signing request may exist and how to ask again: %v", err)
+	}
+	if !strings.Contains(out, `"signingRequest"`) || !strings.Contains(out, "cl-2631") {
+		t.Errorf("the issue must still print: %s", out)
 	}
 }

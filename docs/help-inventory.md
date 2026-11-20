@@ -251,8 +251,8 @@ section between the markers.
 | `profile set` |  |  | y | #1052 | 8819ddfa5cc6 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary taken-handle recovery could be clearer; legacy-handle server2868 separate |
 | `secret` | secrets |  | y | #1052 | 0df5754b8464 |  | unread |  |
 | `secret client` |  |  | n | #1052 | aeb0471fcc0e |  | unread |  |
-| `secret client issue` |  |  | y | #1052 | c8eee4db226c |  | unread |  |
-| `secret client list` | ls |  | y | #1052 | f71bbe05946c |  | unread |  |
+| `secret client issue` |  |  | y | #1052 | ef58b95049c8 |  | unread |  |
+| `secret client list` | ls |  | y | #1052 | 72726a0d9dd5 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 230d9394ff41 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret get` |  |  | y | #1052 | 3d942cb0742a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |

@@ -2,6 +2,7 @@ package secret
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -142,7 +143,9 @@ that wait ends by timeout: the request's lastRefusedAt, in 'hadron team grant
 signing-request get <request-id>', may show it.
 
 A lost answer to the issue is never resent: a pending read client may exist, so
-check 'hadron secret client list' before issuing again.`,
+check 'hadron secret client list' before issuing again. --json signingRequest is
+null when no signing request was received (the server refused it, or its answer
+was lost: the error says which, and how to ask again).`,
 		Example: `  hadron secret client issue <secret-id> --reason "deploy window" --max-reads 1
   hadron secret client issue <secret-id> --worker <worker-id> --reason "nightly job" --wait`,
 		Args: cobra.ExactArgs(1),
@@ -219,9 +222,17 @@ check 'hadron secret client list' before issuing again.`,
 			if !wait {
 				return renderIssue(f, dto)
 			}
-			if !cmdutil.UnsafeForTerminal(dto.SigningRequest.CeremonyURL) {
-				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "waiting for a signature at %s\n", dto.SigningRequest.CeremonyURL)
+			if cmdutil.UnsafeForTerminal(dto.SigningRequest.CeremonyURL) {
+				// The signer could not be shown this URL while we wait, so nothing is
+				// polled: print the issue (text refuses the URL, --json carries it
+				// exactly) and stop at once; the request stays open.
+				if err := renderIssue(f, dto); err != nil {
+					return err
+				}
+				return exitcode.Newf(exitcode.Error, "not waiting: the ceremony URL contains control or format characters and cannot be shown while waiting; the signing request %s stays open (read it with `hadron team grant signing-request get %s`)",
+					output.SafeCell(dto.SigningRequest.ID), output.SafeCell(dto.SigningRequest.ID))
 			}
+			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "waiting for a signature at %s\n", dto.SigningRequest.CeremonyURL)
 			last, werr := pollSigning(ctx, client, req.Id, waitTimeout)
 			if last != nil {
 				dto.SigningRequest = last
@@ -261,6 +272,11 @@ func signingStepError(err error, grantID string) error {
 	mapped := cmdutil.MapGrantSigningError(err)
 	msg := fmt.Sprintf("%s; the read client's grant %s was created and is pending, and allows nothing until a person signs it",
 		mapped.Error(), output.SafeCell(grantID))
+	if exitcode.FromError(mapped) == exitcode.Unavailable || errors.Is(err, cmdutil.ErrNoSigningRequest) {
+		// The answer was lost or empty: a signing request may or may not exist.
+		// Asking again is safe for a pending grant, so name that, never resend.
+		msg += fmt.Sprintf("; a signing request may exist: run `hadron team grant request-signature %s` to ask again", output.SafeCell(grantID))
+	}
 	return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), err)
 }
 
@@ -274,6 +290,13 @@ func pollSigning(parent context.Context, client graphql.Client, id string, timeo
 	defer cancel()
 	var last *signingDTO
 	timedOut := func() error {
+		// The parent (Ctrl-C, a caller's cancel or deadline) is not the command's
+		// own wait: say what happened, and leave everything as it is.
+		if parent.Err() != nil {
+			return exitcode.Newf(exitcode.Cancelled,
+				"cancelled while waiting for a signature (%v); the grant and its signing request %s are left as they are (nothing is withdrawn): read it with `hadron team grant signing-request get %s`",
+				parent.Err(), output.SafeCell(id), output.SafeCell(id))
+		}
 		return exitcode.Newf(exitcode.WaitTimeout,
 			"not signed within %s; the grant and its signing request %s are left as they are (nothing is withdrawn): read it with `hadron team grant signing-request get %s`",
 			timeout, output.SafeCell(id), output.SafeCell(id))
@@ -329,9 +352,10 @@ func newCmdClientLs(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List the read clients you issued or hold",
 		Long: `List the read clients the caller issued or holds: client id, secret, whether it
-was self-issued, why it ended (SECRET_DELETED or PROTECTED, empty while it is
-live) and when it was created. The server returns nothing else: there is no
-window, read budget or live/spent column here.
+was self-issued, the end reason the server reported (SECRET_DELETED or PROTECTED;
+a dash means no reason reported, not that the client is live) and when it was
+created. The server returns nothing else: there is no window, read budget or
+live/spent column here.
 
 Acting as you (the default, no worker session) lists the clients you issued or
 hold. --as-worker sends this worktree's bound worker session and so lists the
@@ -415,7 +439,7 @@ through and --all walks every page.`,
 					_, err := fmt.Fprintln(w, "no read clients")
 					return err
 				}
-				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "ENDED", "CREATED", "GRANT")
+				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "END REASON", "CREATED", "GRANT")
 				for _, r := range rows {
 					t.Row(output.SafeCell(r.ClientID), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued),
 						output.SafeCell(output.Dash(r.EndReason)), output.SafeCell(r.CreatedAt), output.SafeCell(r.GrantID))
