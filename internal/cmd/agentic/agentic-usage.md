@@ -694,6 +694,7 @@ hadron policy explain --action <a> --app <ref> [--user <ref>] | set --mine (<jso
 hadron quota list --org <ref> [--app <ref>] | set --org <ref> [--app <ref>] --action <a> --limit <n>   # cli#1343; org ADMIN
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
+hadron drive create-doc <node-id-or-qualified-URN> --connection <ref> [--folder <id>] [--title <text>] [--yes]   # one exportNodeToGoogleDoc mutation, never retried; creates a NEW Google Doc in the connection owner's external account, never updates an existing one. Content copied out cannot be recalled from Hadron. Requires confirmation: without a terminal, omitting --yes exits 2 with zero requests; declining the terminal prompt exits 6 with zero requests. Only the connection owner acting as themselves can create; drive.read, App/headless and impersonated callers do not authorize it. Server reads/resolves the node with the caller's access; locked encrypted nodes need global --unlock. Omitted folder/title are absent on the wire (Drive root/node name defaults); empty supplied values refuse locally. Success returns the same file DTO as drive get, including nullable size, parents[], and nullable times/webLink. An unanswered/malformed response exits 7: the outcome is unknown; check the drive before retrying, since a repeat creates another Doc. Server refusals and unknown-code fallback retain normal mapping. drive export stays read-only to local stdout; it never calls this mutation.
 hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json] | test <connection-id> [--json] | disconnect <connection-id> [--yes] [--json]   # reads (cli#198 Slice A) plus test/disconnect (Slice B): nothing sends, replies, drafts, moves, flags or deletes mail
 hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id>   # read-only Slack workspace connections; one page (server default 20), stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4; status is a recorded value, not a health check: ACTIVE = registered, not proof it works (a failed token is not always recorded), ERROR = recorded as failed, reason not shown; recovery is an org admin registering the workspace again (no CLI command or portal page yet); --app and the saved org do not apply
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
@@ -5267,7 +5268,7 @@ terminal. Existing error mapping/refusal sentences remain; unknown errors do not
 imply reconnect/retry.
 
 
-`hadron drive` is read-only with explicit --connection and the server's existing
+`hadron drive list/get/export` are read-only with explicit --connection and the server's existing
 owner/drive.read grant gate; org administration grants no mailbox access. List
 returns one bounded {files,nextPageToken} page, never --all or a completeness
 claim. Explicit top defaults to50 browse/25 search (query/nameContains/mimeType/
@@ -5280,10 +5281,13 @@ requires RFC3339 with offset; no timezone guessed. Get/list text labels escaped
 JSON metadata as data and names the connection source. Export text writes only
 the original content bytes (no banner/newline/truncation/evaluation); JSON is
 {file,format,mimeType,content}. Format MARKDOWN/TEXT/HTML is case-normalized; absent
-format delegates the provider default. No local output-file or remote document
-creation option. Server delegates format/binary/size guarantees to its tool;
+format delegates the provider default. Export has no local output-file or remote
+document creation option. Server delegates format/binary/size guarantees to its tool;
 file_too_large and unknown failures retain existing error mapping/refusal text,
 with no retry/reconnect guess. No hidden discovery, writes or uploads.
+
+`drive create-doc` is the separate, confirmed owner-only remote creation
+command: `hadron drive create-doc <node-ref> --connection <id> [--folder <id>] [--title <text>] [--yes]`. It never changes the read/export commands into writes.
 
 ## Default team channel location (#489)
 

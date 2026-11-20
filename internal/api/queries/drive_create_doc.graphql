@@ -1,0 +1,12 @@
+mutation DriveCreateDoc(
+  $connectionRef: ID!
+  $nodeRef: ID!
+  # @genqlient(omitempty: true)
+  $folderId: ID
+  # @genqlient(omitempty: true)
+  $title: String
+) {
+  exportNodeToGoogleDoc(connectionRef: $connectionRef, nodeRef: $nodeRef, folderId: $folderId, title: $title) {
+    ...DriveReadFile
+  }
+}
