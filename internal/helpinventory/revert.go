@@ -19,28 +19,33 @@ type Row struct {
 }
 
 // Parse reads the data rows of the inventory (a table row whose first cell is a
-// backticked path). Header, separator and prose lines are ignored. A path that
-// appears twice keeps its first row, as the generator never emits one.
-func Parse(doc string) map[string]Row {
+// backticked path). Header, separator and prose lines are ignored. It fails
+// closed: a data row without the nine columns, a path that appears twice (the
+// generator never emits one) or a document with no data row at all is an error,
+// because a parser that quietly reads nothing would let every revert pass.
+func Parse(doc string) (map[string]Row, error) {
 	rows := map[string]Row{}
-	for _, line := range strings.Split(doc, "\n") {
+	for n, line := range strings.Split(doc, "\n") {
 		if !strings.HasPrefix(line, "| `") {
 			continue
 		}
 		cells := strings.Split(strings.TrimSuffix(strings.TrimSpace(line), "|"), "|")
-		if len(cells) < 10 {
-			continue
+		if len(cells) != 10 {
+			return nil, fmt.Errorf("line %d: an inventory row needs 9 columns, found %d (did the table format change?)", n+1, len(cells)-1)
 		}
 		for i := range cells {
 			cells[i] = strings.TrimSpace(cells[i])
 		}
 		path := strings.Trim(cells[1], "`")
 		if _, dup := rows[path]; dup {
-			continue
+			return nil, fmt.Errorf("line %d: path `%s` appears twice", n+1, path)
 		}
 		rows[path] = Row{Path: path, Hash: cells[6], Evaluator: cells[7], Result: cells[8], Finding: cells[9]}
 	}
-	return rows
+	if len(rows) == 0 {
+		return nil, fmt.Errorf("no inventory rows found (did the table format change?)")
+	}
+	return rows, nil
 }
 
 // Reverts lists the rows a change put back from an assessed state while the

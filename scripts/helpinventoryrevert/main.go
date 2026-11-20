@@ -30,6 +30,10 @@ func git(dir string, args ...string) (string, error) {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	out, err := cmd.Output()
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && len(ee.Stderr) > 0 {
+		err = fmt.Errorf("%w: %s", err, strings.TrimSpace(string(ee.Stderr)))
+	}
 	return strings.TrimSpace(string(out)), err
 }
 
@@ -63,7 +67,15 @@ func check(dir, base, head string) (bad []string, mergeBase string, err error) {
 	if err != nil {
 		return nil, mergeBase, fmt.Errorf("cannot read %s at %s: %w", file, head, err)
 	}
-	return helpinventory.Reverts(helpinventory.Parse(baseDoc), helpinventory.Parse(headDoc)), mergeBase, nil
+	baseRows, err := helpinventory.Parse(baseDoc)
+	if err != nil {
+		return nil, mergeBase, fmt.Errorf("%s at merge base %.9s: %w", file, mergeBase, err)
+	}
+	headRows, err := helpinventory.Parse(headDoc)
+	if err != nil {
+		return nil, mergeBase, fmt.Errorf("%s at %s: %w", file, head, err)
+	}
+	return helpinventory.Reverts(baseRows, headRows), mergeBase, nil
 }
 
 func main() {

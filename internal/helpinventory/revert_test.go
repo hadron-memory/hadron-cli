@@ -14,7 +14,17 @@ func row(path, hash, eval, result, finding string) string {
 	return fmt.Sprintf("| `%s` |  |  | y | #1 | %s | %s | %s | %s |", path, hash, eval, result, finding)
 }
 
-func check(base, head string) []string { return Reverts(Parse(base), Parse(head)) }
+func check(base, head string) []string {
+	b, err := Parse(base)
+	if err != nil {
+		panic(err)
+	}
+	h, err := Parse(head)
+	if err != nil {
+		panic(err)
+	}
+	return Reverts(b, h)
+}
 
 // (a) a reverted pass row with the SAME hash fails and names the row.
 func TestRevertedPassRowIsNamed2648(t *testing.T) {
@@ -88,10 +98,19 @@ func TestNewAndRemovedRowsAreIgnored2648(t *testing.T) {
 	}
 }
 
-// A short row (fewer than the nine columns) is skipped, not a panic.
-func TestShortRowDoesNotPanic2648(t *testing.T) {
+// Fail closed (blind P2 #1): a short row, a duplicate path and a document with
+// no rows are errors, not an empty map that lets every revert pass.
+func TestParseFailsClosed2648(t *testing.T) {
 	short := "| `a` |  |  | y | #1 | h1 | Gil | pass |\n"
-	if got := Parse(header + short); len(got) != 0 {
-		t.Fatalf("an 8-column row is not a row: %v", got)
+	for name, d := range map[string]string{
+		"short row":  header + short,
+		"no rows":    header,
+		"duplicate":  doc(row("a", "h", "", "unread", ""), row("a", "h", "", "unread", "")),
+		"extra col":  header + "| `a` |  |  | y | #1 | h1 | Gil | pass | f | extra |\n",
+		"empty text": "",
+	} {
+		if got, err := Parse(d); err == nil {
+			t.Errorf("%s: want an error, got %v", name, got)
+		}
 	}
 }
