@@ -274,7 +274,9 @@ the variable: it outranks any stored login.
   `{"status":"REFUSED"}` or `{"status":"ANONYMOUS"}` (exit 3).
   It never adds an authentication refusal cause, identity, credential source or
   token. A scope refusal before the resolver runs is a failed check with no
-  answer: exit 1, no status report. Other check errors retain their ordinary
+  answer: exit 1, no status report, and stderr carries only the CLI's fixed
+  recovery for that typed scope refusal (never the server's sentence, never the
+  REFUSED line; cli#1752). Other check errors retain their ordinary
   mapped exits except 3 becomes 1; missing/unknown status values exit 7. Older-server
   schema errors stay explicit (exit 2), without authContext fallback or retry.
 - **`hadron api` is the exception.** It is the raw path, so it prints the
