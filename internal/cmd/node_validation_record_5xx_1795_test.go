@@ -242,16 +242,24 @@ func TestValidationRecord5xxEdges1795(t *testing.T) {
 	})
 }
 
-// #2430: the class is exactly 500-599. 499 and 600 are not 5xx answers and keep
-// the shared mapping, never the exit-7 guidance.
-func TestValidationRecord5xxClassBoundary2430(t *testing.T) {
+// #2430, #2466: the class is exactly 500-599. 499 and 600 are not 5xx answers
+// and keep the shared mapping, never the exit-7 guidance: pin the exact exit the
+// shared mapper gives them, so a change in how out-of-range statuses are
+// classified is caught (a bare "not 7" would pass for any other exit).
+func TestValidationRecordOutside5xxKeepsSharedMapping(t *testing.T) {
 	for _, status := range []int{499, 600} {
 		t.Run(fmt.Sprint(status), func(t *testing.T) {
 			srv, sent := server5xx1795(t, status, `{"errors":[{"message":"x"}]}`)
 			err := record1795(t, srv)
+			if err == nil || len(*sent) != 1 {
+				t.Fatalf("status %d: sent=%d %v", status, len(*sent), err)
+			}
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("status %d must keep the shared mapping, exit %d: got %d: %v", status, exitcode.Error, got, err)
+			}
 			// "unknown outcome" is the marker of the exit-7 guidance text.
-			if err == nil || exitCodeFor(err) == exitcode.Unavailable || strings.Contains(err.Error(), "unknown outcome") || len(*sent) != 1 {
-				t.Fatalf("status %d must keep the shared mapping: sent=%d exit=%d %v", status, len(*sent), exitCodeFor(err), err)
+			if strings.Contains(err.Error(), "unknown outcome") {
+				t.Fatalf("status %d must not carry the 5xx guidance: %v", status, err)
 			}
 		})
 	}
