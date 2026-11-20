@@ -500,13 +500,14 @@ func TestEmailSendExecutionErrorsKeepOutcomeUnknown198(t *testing.T) {
 			name, wire    string
 			wantUnknown   bool
 			wantServerTxt string
+			wantCode      string
 		}{
-			{"forbidden is a definitive refusal", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`, false, "Forbidden"},
-			{"unauthenticated is definitive", `{"errors":[{"message":"sign in","extensions":{"code":"UNAUTHENTICATED"}}]}`, false, "sign in"},
-			{"a provider tool error may have sent", `{"errors":[{"message":"provider hiccup","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`, true, "provider hiccup"},
-			{"an internal error may have sent", `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "internal error"},
-			{"an uncoded error may have sent", `{"errors":[{"message":"odd"}]}`, true, "odd"},
-			{"a mixed list is ambiguous", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "internal error"},
+			{"forbidden is a definitive refusal", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`, false, "Forbidden", "FORBIDDEN"},
+			{"unauthenticated is definitive", `{"errors":[{"message":"sign in","extensions":{"code":"UNAUTHENTICATED"}}]}`, false, "sign in", "UNAUTHENTICATED"},
+			{"a provider tool error may have sent", `{"errors":[{"message":"provider hiccup","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`, true, "provider hiccup", "EMAIL_TOOL_ERROR"},
+			{"an internal error may have sent", `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "internal", "INTERNAL_SERVER_ERROR"},
+			{"an uncoded error may have sent", `{"errors":[{"message":"odd"}]}`, true, "odd", ""},
+			{"a mixed list is ambiguous", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "internal error", "FORBIDDEN"},
 		} {
 			t.Run(s.name+" "+tc.name, func(t *testing.T) {
 				_, _, n, err := runEffect198(t, map[string]string{s.op: tc.wire}, "", s.args...)
@@ -514,8 +515,15 @@ func TestEmailSendExecutionErrorsKeepOutcomeUnknown198(t *testing.T) {
 					t.Fatalf("err %v with %d requests; want an error and exactly one request", err, n)
 				}
 				msg := strings.ToLower(err.Error())
-				if !strings.Contains(msg, strings.ToLower(tc.wantServerTxt)) {
-					t.Errorf("the server's own words were lost: %v", err)
+				// reply submits a body, so its error text is the CLI's own plus the
+				// server's CODE (never the server's message); draft send has no body and
+				// keeps the server's words.
+				want := tc.wantServerTxt
+				if s.name == "reply" {
+					want = tc.wantCode
+				}
+				if want != "" && !strings.Contains(msg, strings.ToLower(want)) {
+					t.Errorf("the expected text %q is missing: %v", want, err)
 				}
 				unknown := strings.Contains(msg, "outcome unknown") && strings.Contains(msg, "sent folder")
 				if unknown != tc.wantUnknown {
@@ -575,48 +583,102 @@ func TestEmailDraftSaveFormsAreExclusive198(t *testing.T) {
 	}
 }
 
-// Joost's #2740 P2 F2: the body must not come back out in the CLI's output even when
-// the SERVER echoes it (a provider error message that quotes the submitted body, a
-// draft id that contains it). Error codes, exit classes and the unknown-outcome
-// guidance survive; the echoed body is withheld.
+// Joost's and Cedar's #2740 P2: the body must not come back out of the CLI even when
+// the SERVER echoes it, whole, as an excerpt, or HTML-escaped. A command that submits
+// a body therefore never prints the server's error MESSAGE: it prints its own words
+// plus the server's error CODE, keeps the exit class, and for a send keeps the
+// unknown-outcome guidance. A result field that is a whole-field echo of the body is
+// unusable (exit 7, no substitute id); a valid opaque id that merely contains a short
+// body is printed intact.
 func TestEmailBodyIsWithheldFromServerEchoes198(t *testing.T) {
-	body := bodyFile198(t, secretBody198)
-	echoErr := `{"errors":[{"message":"provider rejected body: ` + secretBody198 + ` is not valid","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`
-	for _, tc := range []struct {
-		name, op string
-		args     []string
-		sends    bool
-	}{
-		{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}, true},
-		{"draft save", "EmailSaveDraft", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}, false},
-		{"draft update", "EmailUpdateDraft", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}, false},
+	multi := "line one SECRET-A\nline two SECRET-B <b>bold</b>"
+	body := bodyFile198(t, multi)
+	for _, msg := range []string{
+		`provider rejected the whole body: ` + `line one SECRET-A\nline two SECRET-B <b>bold</b>`,
+		`provider rejected SECRET-B`,
+		`provider rejected &lt;b&gt;bold&lt;/b&gt; SECRET-B`,
+		`provider rejected \u003cb\u003ebold SECRET-A`,
 	} {
-		t.Run(tc.name+" error", func(t *testing.T) {
-			out, _, n, err := runEffect198(t, map[string]string{tc.op: echoErr}, "", tc.args...)
-			if err == nil || n != 1 {
-				t.Fatalf("err %v with %d requests", err, n)
-			}
-			all := out + err.Error()
-			if strings.Contains(all, "BODY-SECRET") {
-				t.Errorf("the submitted body came back out through the server's error: %s", all)
-			}
-			if !strings.Contains(strings.ToLower(all), "provider rejected") {
-				t.Errorf("the rest of the server's message was lost: %s", all)
-			}
-			if tc.sends && !strings.Contains(strings.ToLower(all), "outcome unknown") {
-				t.Errorf("the send lost its unknown-outcome guidance: %s", all)
-			}
-		})
+		echoErr := `{"errors":[{"message":"` + strings.ReplaceAll(msg, `"`, `\"`) + `","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`
+		for _, tc := range []struct {
+			name, op string
+			args     []string
+			sends    bool
+		}{
+			{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}, true},
+			{"draft save", "EmailSaveDraft", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}, false},
+			{"draft update", "EmailUpdateDraft", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}, false},
+		} {
+			t.Run(tc.name+" "+msg, func(t *testing.T) {
+				out, _, n, err := runEffect198(t, map[string]string{tc.op: echoErr}, "", tc.args...)
+				if err == nil || n != 1 {
+					t.Fatalf("err %v with %d requests", err, n)
+				}
+				all := out + err.Error()
+				for _, leak := range []string{"SECRET-A", "SECRET-B", "bold"} {
+					if strings.Contains(all, leak) {
+						t.Errorf("part of the submitted body (%q) came back out through the server's error: %s", leak, all)
+					}
+				}
+				if !strings.Contains(all, "EMAIL_TOOL_ERROR") {
+					t.Errorf("the server's error code is missing: %s", all)
+				}
+				if exitCodeFor(err) != 1 {
+					t.Errorf("exit %d, want the mapped class 1", exitCodeFor(err))
+				}
+				if tc.sends && !strings.Contains(strings.ToLower(all), "outcome unknown") {
+					t.Errorf("the send lost its unknown-outcome guidance: %s", all)
+				}
+			})
+		}
 	}
-	echoID := `{"data":{"emailSaveDraft":{"draftId":"` + secretBody198 + `","conversationId":null}}}`
+	// A whole-field echo is unusable; a valid id containing a short body is not touched.
 	for _, jsonOut := range []bool{false, true} {
-		args := []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}
+		args := []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", bodyFile198(t, secretBody198)}
 		if jsonOut {
 			args = append(args, "--json")
 		}
-		out, _, _, _ := runEffect198(t, map[string]string{"EmailSaveDraft": echoID}, "", args...)
-		if strings.Contains(out, "BODY-SECRET") {
-			t.Errorf("(json=%v) a draft id echoing the body was printed: %s", jsonOut, out)
+		echoID := `{"data":{"emailSaveDraft":{"draftId":"` + secretBody198 + `","conversationId":null}}}`
+		out, _, _, err := runEffect198(t, map[string]string{"EmailSaveDraft": echoID}, "", args...)
+		if strings.Contains(out, "BODY-SECRET") || exitCodeFor(err) != 7 {
+			t.Errorf("(json=%v) a draft id echoing the body: exit %d (%v), out %q; want exit 7 and no echo", jsonOut, exitCodeFor(err), err, out)
 		}
+	}
+	out, _, n, err := runEffect198(t, map[string]string{"EmailSaveDraft": `{"data":{"emailSaveDraft":{"draftId":"dx7","conversationId":"cx9"}}}`}, "", "draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", bodyFile198(t, "x"), "--json")
+	if err != nil || n != 1 || !strings.Contains(out, `"draftId": "dx7"`) || !strings.Contains(out, `"conversationId": "cx9"`) {
+		t.Errorf("a valid id containing a short body was altered: err %v, out %s", err, out)
+	}
+}
+
+// Cedar's #2740 P2 F3: a body that is not valid UTF-8 would be altered (U+FFFD) by
+// JSON encoding, so it is refused before any request instead of being sent changed.
+// And the #2747 pins: the size cap, and --body-file - on an interactive terminal.
+func TestEmailBodyValidationBeforeAnyRequest198(t *testing.T) {
+	bad := filepath.Join(t.TempDir(), "latin1.txt")
+	if err := os.WriteFile(bad, []byte("caf\xe9 au lait"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	big := bodyFile198(t, strings.Repeat("a", (1<<20)+1))
+	for _, body := range []struct{ name, path string }{{"invalid UTF-8", bad}, {"over the size cap", big}} {
+		for _, args := range [][]string{
+			{"reply", "--connection", "c", "m1", "--body-file", body.path, "--yes"},
+			{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body.path},
+			{"draft", "update", "--connection", "c", "d1", "--body-file", body.path},
+		} {
+			_, _, n, err := runEffect198(t, map[string]string{}, "", args...)
+			if exitCodeFor(err) != 2 || n != 0 {
+				t.Errorf("%s, email %v: exit %d (%v), %d requests; want a usage error and none sent", body.name, args[:2], exitCodeFor(err), err, n)
+			}
+		}
+	}
+	_, n, _, err := runEffectTTY198(t, map[string]string{}, "typed\n", "reply", "--connection", "c", "m1", "--body-file", "-", "--yes")
+	if exitCodeFor(err) != 2 || n != 0 {
+		t.Errorf("--body-file - on a terminal: exit %d (%v), %d requests; want a usage error and none sent", exitCodeFor(err), err, n)
+	}
+	// Valid multi-byte UTF-8 is untouched.
+	ok := bodyFile198(t, "caf\u00e9 \u2713 <b>ok</b>")
+	_, ops, n2, err := runEffect198(t, map[string]string{"EmailReply": boolResp198("exchangeReply", ok198)}, "", "reply", "--connection", "c", "m1", "--body-file", ok, "--yes")
+	if err != nil || n2 != 1 || vars198(t, ops, "EmailReply")["body"] != "caf\u00e9 \u2713 <b>ok</b>" {
+		t.Errorf("valid UTF-8 was altered or refused: %v %v", err, ops)
 	}
 }
