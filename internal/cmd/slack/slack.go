@@ -45,11 +45,13 @@ func toDTO(id, org, app, provider, status, team, teamName, bot, botUser, created
 	return connectionDTO{ID: id, OrganizationID: org, DefaultAppID: app, Provider: provider, Status: status, TeamID: team, TeamName: teamName, BotID: bot, BotUserID: botUser, CreatedAt: created, UpdatedAt: updated}, nil
 }
 
-// NewCmdSlack builds the read-only slack group; connect/disconnect are a later cut.
+// NewCmdSlack builds the slack group: read a workspace connection, connect a workspace, disconnect it.
 func NewCmdSlack(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "slack <command>", Short: "See the Slack workspaces registered with your organizations", Long: `See which Slack workspaces are registered with your organizations, and read one
-registration's details. It only reads; tokens are never shown and nothing here
-contacts Slack. This is separate from "hadron email" and "hadron connection",
+	c := &cobra.Command{Use: "slack <command>", Short: "See, connect and disconnect Slack workspaces registered with your organizations", Long: `See which Slack workspaces are registered with your organizations, read one
+registration's details, register a workspace and remove one. status and get
+only read; connect and disconnect change the registration (the server
+allows that to an organization admin only). Tokens are never shown, and this CLI never contacts
+Slack itself. This is separate from "hadron email" and "hadron connection",
 which cover email, calendar and Drive accounts.
 
 What the status means:
@@ -59,9 +61,9 @@ What the status means:
   ERROR means Hadron has recorded this connection as failed. The reason is not
   shown here, and this CLI never requests it.
 
-To recover, an organization admin registers the workspace again. No CLI command
-or portal page does this yet.`, Example: "  hadron slack status\n  hadron slack get <connection-id>"}
-	c.AddCommand(newStatus(f), newGet(f))
+To recover, an organization admin registers the workspace again with "hadron
+slack connect".`, Example: "  hadron slack status\n  hadron slack get <connection-id>\n  hadron slack connect --org <ref> --app <ref> --bot-token-file <file> --app-token-file <file>\n  hadron slack disconnect <connection-id> --yes"}
+	c.AddCommand(newStatus(f), newGet(f), newConnect(f), newDisconnect(f))
 	return c
 }
 
@@ -190,13 +192,16 @@ Details:
 			if err != nil {
 				return err
 			}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				for _, kv := range [][2]string{{"id", dto.ID}, {"organization", dto.OrganizationID}, {"default app", dto.DefaultAppID}, {"provider", dto.Provider}, {"status", dto.Status}, {"team id", dto.TeamID}, {"team", dto.TeamName}, {"bot id", dto.BotID}, {"bot user", dto.BotUserID}, {"created", dto.CreatedAt}, {"updated", dto.UpdatedAt}} {
-					if _, e := fmt.Fprintf(w, "%-13s %s\n", kv[0]+":", output.SafeCell(strconv.Quote(kv[1]))); e != nil {
-						return e
-					}
-				}
-				return nil
-			})
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return writeConnection(w, dto) })
 		}}
+}
+
+// writeConnection is one connection as one line per field (get and connect).
+func writeConnection(w io.Writer, dto connectionDTO) error {
+	for _, kv := range [][2]string{{"id", dto.ID}, {"organization", dto.OrganizationID}, {"default app", dto.DefaultAppID}, {"provider", dto.Provider}, {"status", dto.Status}, {"team id", dto.TeamID}, {"team", dto.TeamName}, {"bot id", dto.BotID}, {"bot user", dto.BotUserID}, {"created", dto.CreatedAt}, {"updated", dto.UpdatedAt}} {
+		if _, e := fmt.Fprintf(w, "%-13s %s\n", kv[0]+":", output.SafeCell(strconv.Quote(kv[1]))); e != nil {
+			return e
+		}
+	}
+	return nil
 }

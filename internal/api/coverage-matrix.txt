@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 309 command, 38 gap, 12 excluded
+[Mutation] 359: 311 command, 36 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -359,7 +359,7 @@ createReviewNode  command coding review create
 createRevision  command agent revision create
 createScope  command scope create
 createSecret  command secret create
-createSlackConnection  gap #206
+createSlackConnection  command slack connect
 createSpecNode  command node create
 createTaskNode  command node create
 createTeamChatMessage  command team chat post
@@ -398,7 +398,7 @@ deleteRegisterEntry  command channel register rm
 deleteResendSender  command org resend-sender rm
 deleteScope  command scope rm
 deleteSecret  command secret rm
-deleteSlackConnection  gap #206
+deleteSlackConnection  command slack disconnect
 deleteTeamRole  command team role rm
 deleteTicker  command ticker delete
 deleteUser  command user delete

@@ -21,7 +21,8 @@ func slackHelp(t *testing.T, args ...string) string {
 
 // cli#1399: the group page must not promise health, must say what ACTIVE does
 // and does not mean, say the reason is not shown, and name the one next step
-// that exists (an org admin registers the workspace again), with no portal pointer.
+// that exists (an org admin registers the workspace again with slack connect,
+// cli#206), with no portal pointer.
 func TestSlackGroupHelpDoesNotPromiseHealth(t *testing.T) {
 	h := slackHelp(t, "slack")
 	for _, bad := range []string{"healthy", "health"} {
@@ -29,8 +30,7 @@ func TestSlackGroupHelpDoesNotPromiseHealth(t *testing.T) {
 			t.Errorf("slack help must not mention %q: %s", bad, h)
 		}
 	}
-	// The only portal mention is the statement that no portal page exists.
-	if strings.Count(h, "portal") != 1 || !strings.Contains(h, "No CLI command or portal page does this yet") {
+	if strings.Contains(h, "portal") {
 		t.Errorf("slack help must not point at a portal page: %s", h)
 	}
 	for _, want := range []string{
@@ -40,7 +40,7 @@ func TestSlackGroupHelpDoesNotPromiseHealth(t *testing.T) {
 		"not always recorded here",
 		"reason is not shown here",
 		"an organization admin registers the workspace again",
-		"No CLI command or portal page does this yet",
+		`registers the workspace again with "hadron slack connect"`,
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("slack help missing %q: %s", want, h)
