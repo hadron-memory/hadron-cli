@@ -359,9 +359,13 @@ func loadConfigBytes(path string, raw []byte) (*Config, error) {
 	// separator on both kernels for ordinary relative paths. Volume-bearing
 	// and separator-rooted Windows forms instead need native absolute-path
 	// resolution to agree with the initial read (cli#2700). A resolution
-	// failure keeps the path as given.
+	// failure keeps the path as given. Native Windows Abs may clean parent
+	// segments; the uncleaned #2668 guarantee applies to the slash-join branch.
+	// Windows skips the reload trust check, but still reads sourcePath.
 	if !filepath.IsAbs(path) {
-		path = nonAbsoluteConfigPath(path, filepath.VolumeName(path), len(path) > 0 && os.IsPathSeparator(path[0]), os.Getwd, filepath.Abs)
+		path = nonAbsoluteConfigPath(
+			path, filepath.VolumeName, os.IsPathSeparator, os.Getwd, filepath.Abs,
+		)
 	}
 	c.sourcePath, c.sourceHash = path, sha256.Sum256(raw)
 	return &c, nil
@@ -667,10 +671,11 @@ func (c *Config) CheckWorktreeAliases(s *State) error {
 }
 
 // nonAbsoluteConfigPath preserves the written form of an ordinary relative
-// path. Native path classification is passed in so Windows-shaped cases can
-// be exercised without replacing process-wide state or requiring Windows.
-func nonAbsoluteConfigPath(path, volume string, rooted bool, getwd func() (string, error), abs func(string) (string, error)) string {
-	if volume != "" || rooted {
+// path. Classify inside this tested helper using native functions; callers
+// cannot replace the classification with precomputed empty/false values.
+// Function parameters let Windows-shaped cases run on other test hosts.
+func nonAbsoluteConfigPath(path string, volumeName func(string) string, isSeparator func(uint8) bool, getwd func() (string, error), abs func(string) (string, error)) string {
+	if volumeName(path) != "" || len(path) > 0 && isSeparator(path[0]) {
 		if resolved, err := abs(path); err == nil {
 			return resolved
 		}
