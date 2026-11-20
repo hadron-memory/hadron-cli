@@ -588,9 +588,8 @@ func TestEmailDraftSaveFormsAreExclusive198(t *testing.T) {
 // the SERVER echoes it, whole, as an excerpt, or HTML-escaped. A command that submits
 // a body therefore never prints the server's error MESSAGE: it prints its own words
 // plus the server's error CODE, keeps the exit class, and for a send keeps the
-// unknown-outcome guidance. A result field that is a whole-field echo of the body is
-// unusable (exit 7, no substitute id); a valid opaque id that merely contains a short
-// body is printed intact.
+// unknown-outcome guidance. A result id is the server's own value and is printed as
+// returned (see the id checks below).
 func TestEmailBodyIsWithheldFromServerEchoes198(t *testing.T) {
 	multi := "line one SECRET-A\nline two SECRET-B <b>bold</b>"
 	body := bodyFile198(t, multi)
@@ -633,16 +632,19 @@ func TestEmailBodyIsWithheldFromServerEchoes198(t *testing.T) {
 			})
 		}
 	}
-	// A whole-field echo is unusable; a valid id containing a short body is not touched.
+	// A result id is the server's own value and is printed as returned, whatever it
+	// looks like: a draft was CREATED, so hiding or failing on an id that happens to
+	// equal (or contain) the submitted body would lose the handle and invite a
+	// duplicate on retry (Dara's #2740 F1/F2). No guess is made about id contents.
 	for _, jsonOut := range []bool{false, true} {
-		args := []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", bodyFile198(t, secretBody198)}
+		args := []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", bodyFile198(t, "short")}
 		if jsonOut {
 			args = append(args, "--json")
 		}
-		echoID := `{"data":{"emailSaveDraft":{"draftId":"` + secretBody198 + `","conversationId":null}}}`
-		out, _, _, err := runEffect198(t, map[string]string{"EmailSaveDraft": echoID}, "", args...)
-		if strings.Contains(out, "BODY-SECRET") || exitCodeFor(err) != 7 {
-			t.Errorf("(json=%v) a draft id echoing the body: exit %d (%v), out %q; want exit 7 and no echo", jsonOut, exitCodeFor(err), err, out)
+		echoID := `{"data":{"emailSaveDraft":{"draftId":"short","conversationId":"short"}}}`
+		out, _, n, err := runEffect198(t, map[string]string{"EmailSaveDraft": echoID}, "", args...)
+		if err != nil || n != 1 || !strings.Contains(out, "short") {
+			t.Errorf("(json=%v) a valid id equal to the body was refused or hidden: err %v, %d requests, out %q", jsonOut, err, n, out)
 		}
 	}
 	out, _, n, err := runEffect198(t, map[string]string{"EmailSaveDraft": `{"data":{"emailSaveDraft":{"draftId":"dx7","conversationId":"cx9"}}}`}, "", "draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", bodyFile198(t, "x"), "--json")
@@ -887,6 +889,9 @@ func TestEmailBodyCommandsWithholdNon200Envelopes198(t *testing.T) {
 				}
 				if exitCodeFor(err) == 0 {
 					t.Errorf("exit 0 for a failed request")
+				}
+				if c.name == "reply" && !strings.Contains(strings.ToLower(all), "outcome unknown") {
+					t.Errorf("a reply that got no usable answer lost its unknown-outcome guidance: %s", all)
 				}
 			})
 		}
