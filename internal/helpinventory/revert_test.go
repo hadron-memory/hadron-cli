@@ -2,6 +2,7 @@ package helpinventory
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 )
@@ -108,9 +109,28 @@ func TestParseFailsClosed2648(t *testing.T) {
 		"duplicate":  doc(row("a", "h", "", "unread", ""), row("a", "h", "", "unread", "")),
 		"extra col":  header + "| `a` |  |  | y | #1 | h1 | Gil | pass | f | extra |\n",
 		"empty text": "",
+		"recased":    doc(row("a", "h", "Gil", "Pass", "")),
+		"reordered":  strings.Replace(doc(row("a", "h", "", "unread", "")), "| evaluator | result |", "| result | evaluator |", 1),
+		"no header":  "| `a` |  |  | y | #1 | h | | unread | |\n",
 	} {
 		if got, err := Parse(d); err == nil {
 			t.Errorf("%s: want an error, got %v", name, got)
 		}
+	}
+}
+
+// The real committed inventory must parse: ties the parser's header, columns and
+// result vocabulary to what the generator writes (blind P2 #1).
+func TestRealInventoryParses2648(t *testing.T) {
+	b, err := os.ReadFile("../../docs/help-inventory.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := Parse(string(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) < 100 {
+		t.Fatalf("only %d rows read from the real inventory", len(rows))
 	}
 }

@@ -18,6 +18,11 @@ type Row struct {
 	Finding   string
 }
 
+// headerLine is the column header the generator writes
+// (scripts/gen-help-inventory.sh); Parse refuses a data row under any other, so a
+// reordered, renamed or added column cannot be read at the old indices.
+const headerLine = "| path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |"
+
 // Parse reads the data rows of the inventory (a table row whose first cell is a
 // backticked path). Header, separator and prose lines are ignored. It fails
 // closed: a data row without the nine columns, a path that appears twice (the
@@ -25,9 +30,17 @@ type Row struct {
 // because a parser that quietly reads nothing would let every revert pass.
 func Parse(doc string) (map[string]Row, error) {
 	rows := map[string]Row{}
+	header := ""
 	for n, line := range strings.Split(doc, "\n") {
+		if strings.HasPrefix(line, "| path ") {
+			header = strings.TrimSpace(line)
+			continue
+		}
 		if !strings.HasPrefix(line, "| `") {
 			continue
+		}
+		if header != headerLine {
+			return nil, fmt.Errorf("line %d: row under an unexpected table header %q (want %q)", n+1, header, headerLine)
 		}
 		cells := strings.Split(strings.TrimSuffix(strings.TrimSpace(line), "|"), "|")
 		if len(cells) != 10 {
@@ -39,6 +52,11 @@ func Parse(doc string) (map[string]Row, error) {
 		path := strings.Trim(cells[1], "`")
 		if _, dup := rows[path]; dup {
 			return nil, fmt.Errorf("line %d: path `%s` appears twice", n+1, path)
+		}
+		switch cells[8] {
+		case "pass", "fail", "unread":
+		default:
+			return nil, fmt.Errorf("line %d: result %q for `%s` is not pass, fail or unread", n+1, cells[8], path)
 		}
 		rows[path] = Row{Path: path, Hash: cells[6], Evaluator: cells[7], Result: cells[8], Finding: cells[9]}
 	}
