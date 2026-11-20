@@ -279,12 +279,12 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
    key grant is checked by ` + "`hadron team host status --config host.yaml`" + `.
 
 Events print one per line, for example
-  09:12:01 collected 01H… worktree.create
-  09:12:01 reported 01H… worktree.create SUCCEEDED hadron-cli/jonas-2
+  09:12:01 collected worktree.create 01H…
+  09:12:01 reported worktree.create 01H… SUCCEEDED: hadron-cli/jonas-2
 (--json prints each event as an object). The rest of this page is the
 operator's reference.
 
-Run the host poller (cor:agt:070). Every poll it registers the workers this
+Run the host poller. Every poll it registers the workers this
 host can launch (with their family and existing worktrees), collects the
 operations issued to it, carries out only the closed set of five, and
 reports every outcome. One poller per host or container.

@@ -37,9 +37,11 @@ the host.
 
 --reason OUT_OF_TOKENS or HOST_DOWN marks the worker unavailable, optionally
 until an RFC 3339 time (--until; when it passes, the mark lapses on its
-own). --clear sets it available again. On success one line prints:
-"<worker>: unavailable (set by <this host>)" (the state and setter named;
---json prints the full record). A host can clear or replace only its own
+own). --clear sets it available again. On success one line prints the
+worker, the state and the setter, whichever you did:
+  "Iris": unavailable (set by HOST)    after --reason
+  "Iris": available (set by HOST)      after --clear
+(--json prints the full record). A host can clear or replace only its own
 mark; another setter's mark, including a stall, is refused with
 AVAILABILITY_NOT_PERMITTED (exit 8). No automatic failure classification.
 The server decides ownership and whether --until is in the future.
