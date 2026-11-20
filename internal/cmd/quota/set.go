@@ -34,6 +34,7 @@ Needs ADMIN or OWNER in the org (else exit 8). --app must belong to the org
 Prints the counter as it now stands; --json gives one counter, with the same
 fields as a hadron quota list row.`,
 		Example: `  hadron quota set --org acme.com --action run.execute --limit 500
+  # stops every run launch for that App until you raise the limit
   hadron quota set --org acme.com --app hrn:app:acme.com:assistant --action llm.tokens --limit 0`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -67,8 +68,8 @@ fields as a hadron quota list row.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "organization id, URN or root (required)")
-	cmd.Flags().StringVar(&app, "app", "", "set this App's limit instead of the org's (id or URN; must belong to --org)")
+	cmd.Flags().StringVar(&org, "org", "", "organization id, URN (hrn:org:acme.com) or root domain (acme.com) (required)")
+	cmd.Flags().StringVar(&app, "app", "", "set this App's limit instead of the org's (id or URN; must belong to --org). Here --app names the scope, it is not the App context")
 	cmd.Flags().StringVar(&action, "action", "", "run.execute, llm.tokens, sms.send or email.send (required)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "the new daily limit, 0 or more; 0 stops the action for the scope (required)")
 	return cmd
