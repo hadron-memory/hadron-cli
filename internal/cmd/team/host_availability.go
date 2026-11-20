@@ -90,7 +90,7 @@ key_file and app.`,
 			}
 			dto := hostAvailabilityDTO{workerAvailabilityDTO: workerAvailabilityDTO{Worker: *party, State: string(v.State), Reason: reasonPtr(v.Reason), Until: v.Until, SetAt: v.SetAt, SetBy: string(v.SetBy), SetByParty: partyDTO(v.SetByParty), InEffect: v.InEffect}, SetByHostID: v.SetByHostId}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "%s: %s (set by %s)\n", strconv.Quote(args[0]), output.SafeCell(dto.State), output.SafeCell(dto.SetBy))
+				_, err := fmt.Fprintln(w, hostAvailabilityLine(args[0], dto.State, dto.SetBy))
 				return err
 			})
 		}}
@@ -99,4 +99,10 @@ key_file and app.`,
 	cmd.Flags().StringVar(&until, "until", "", "optional unavailable-until time (RFC 3339)")
 	cmd.Flags().BoolVar(&clear, "clear", false, "clear this host's own mark, setting the worker available")
 	return cmd
+}
+
+// hostAvailabilityLine is the one line a successful `team host availability`
+// prints; the page quotes it (cli#2617 P3-4).
+func hostAvailabilityLine(worker, state, setBy string) string {
+	return fmt.Sprintf("%s: %s (set by %s)", strconv.Quote(worker), output.SafeCell(state), output.SafeCell(setBy))
 }
