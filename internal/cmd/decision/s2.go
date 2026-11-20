@@ -466,7 +466,7 @@ var s2AmendNullClears = map[string]bool{
 func refuseAmendNulls(data []byte) error {
 	var keys map[string]json.RawMessage
 	if err := json.Unmarshal(data, &keys); err != nil {
-		return nil
+		return exitcode.Newf(exitcode.Usage, "parsing --input-file: %v", err)
 	}
 	for k, v := range keys {
 		if string(bytes.TrimSpace(v)) == "null" && !s2AmendNullClears[k] {

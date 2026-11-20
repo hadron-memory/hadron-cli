@@ -6411,6 +6411,12 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
   `specsMustChange`; no `parts`, `context`, `urgency` or `followUps`. An older server takes the
   `parts` input. A file valid for neither is refused before any call; one valid
   for the other server only is refused (exit 2) once the shape is known, naming the key.
+  S2 amend: `null` clears only `background`, `whyNow`, `assignee`, `neededBy` and
+  `defaultAction`; `null` on any other key is refused (exit 2) before any call,
+  naming the key (leave it out to keep it). `options`, `blocks`, `sources`,
+  `specsTouched` and `specsMustChange` clear with `[]`; `"options": []` makes the
+  question free text and drops its recommendation (refused `QUESTION_ANSWER_IMMUTABLE`
+  if a kept answer names an option key).
   Reads show both alike: `background`/`context` and `priority`/`urgency` carry the
   same value, a newer server's one question is `parts[0]` (`citation` `<code>-1`,
   `question` the title), `answerHistory` holds every answer-list entry with

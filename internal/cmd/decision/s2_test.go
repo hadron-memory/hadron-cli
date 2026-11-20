@@ -143,3 +143,16 @@ func TestS2ResponseTypesCoverTheSelection(t *testing.T) {
 	}
 	check(doc.Operations[0].SelectionSet)
 }
+
+// refuseAmendNulls must not wave through input it cannot read: a future caller
+// that skips precheck would otherwise send an amend with the bad file ignored.
+func TestRefuseAmendNullsReturnsTheParseError(t *testing.T) {
+	for _, in := range []string{`not json`, `[1,2]`, ``} {
+		if err := refuseAmendNulls([]byte(in)); err == nil {
+			t.Errorf("%q: want an error, got nil", in)
+		}
+	}
+	if err := refuseAmendNulls([]byte(`{"background":null,"options":[]}`)); err != nil {
+		t.Errorf("clearable null and [] are accepted: %v", err)
+	}
+}
