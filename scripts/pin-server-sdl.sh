@@ -26,9 +26,11 @@
 #                          exported SDL for inspection and prints its path.
 # env: HADRON_SERVER_FETCH_TOKEN  optional; when set, the two commits are
 #      fetched from origin with it before the worktree is made (CI). The
-#      credential is scoped to the git calls: it is unset again right after
-#      the merge, before any npm command runs (#2696 review: no dependency's
-#      lifecycle script may be able to read it).
+#      credential is scoped to the git calls: the derived git header AND the
+#      variable itself are unset again right after the merge, before any npm
+#      command runs (#2696 review: --ignore-scripts stops lifecycle scripts,
+#      but tsx and graphql still execute, so they must not inherit the token
+#      in their environment either).
 #
 # Determinism: the merge runs as --no-ff with hooks and commit signing off
 # (--no-verify, commit.gpgsign=false) under a fixed author and committer
@@ -38,13 +40,6 @@
 # #2679 the dates were left at "now", so the SHA changed whenever two runs did
 # not land in the same clock second; only the merged tree was deterministic.)
 set -euo pipefail
-
-# The exact tool versions sdl_sha256/sdl_lines in schema/SOURCE were produced
-# with (#2696 review: a floating graphql minor can change printSchema bytes and
-# trip the sha for a non-pin reason). Bump deliberately, re-run --verify, and
-# move the note in schema/SOURCE with it.
-pin_tsx=4.23.15
-pin_graphql=16.15.0
 
 usage='usage: pin-server-sdl.sh <server-git-checkout> <out-dir> [--verify]'
 repo= out= verify=
@@ -62,7 +57,15 @@ out=${positional[1]}
 here=$(cd "$(dirname "$0")/.." && pwd)
 base=$(sed -n 's/^base=//p' "$here/schema/SOURCE")
 head=$(sed -n 's/^head=//p' "$here/schema/SOURCE")
+# The exact tool versions sdl_sha256/sdl_lines in schema/SOURCE were produced
+# with (#2696 review: a floating graphql minor can change printSchema bytes and
+# trip the sha for a non-pin reason). They live in SOURCE as tsx=/graphql= —
+# the single place: the schema-drift job's SDL_EXPORT interpolates the same
+# keys, so a bump is one edit plus a re-run of --verify.
+pin_tsx=$(sed -n 's/^tsx=//p' "$here/schema/SOURCE")
+pin_graphql=$(sed -n 's/^graphql=//p' "$here/schema/SOURCE")
 [ -n "$base" ] && [ -n "$head" ] || { echo "schema/SOURCE names no base/head" >&2; exit 2; }
+[ -n "$pin_tsx" ] && [ -n "$pin_graphql" ] || { echo "schema/SOURCE names no tsx=/graphql= tool pins" >&2; exit 2; }
 case $out in
   /*) ;;
   *) out=$PWD/$out ;;
@@ -84,7 +87,8 @@ sha256() {
 
 # CI authenticates every git call below (the fetch and any lazy blob fetch the
 # checkout and merge trigger in a blobless clone) with the same header. The
-# credential is unset again once no git call is left (see above).
+# credential — header and variable both — is unset again once no git call is
+# left (see above); scripts/pinserverdl pins it.
 scrub_auth=
 if [ -n "${HADRON_SERVER_FETCH_TOKEN:-}" ]; then
   auth=$(printf 'x-access-token:%s' "$HADRON_SERVER_FETCH_TOKEN" | base64 | tr -d '\n')
@@ -123,9 +127,12 @@ GIT_COMMITTER_NAME=schema-pin GIT_COMMITTER_EMAIL=schema-pin@example.invalid GIT
 GIT_AUTHOR_NAME=schema-pin GIT_AUTHOR_EMAIL=schema-pin@example.invalid GIT_AUTHOR_DATE="$pin_date" \
   git -C "$out" -c commit.gpgsign=false merge --quiet --no-edit --no-ff --no-verify "$head" >&2
 merge_sha=$(git -C "$out" rev-parse HEAD)
-# No git call needs the credential past the merge; npm must never see it.
+# No git call needs the credential past the merge; npm must never see it —
+# not the derived header, and not HADRON_SERVER_FETCH_TOKEN itself (unsetting
+# only the header leaves the raw token in npm's, and so tsx's and graphql's,
+# environment: #2696 review).
 if [ -n "$scrub_auth" ]; then
-  unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 auth scrub_auth
+  unset GIT_CONFIG_COUNT GIT_CONFIG_KEY_0 GIT_CONFIG_VALUE_0 HADRON_SERVER_FETCH_TOKEN auth scrub_auth
 fi
 want_merge_sha=$(sed -n 's/^merge_sha=//p' "$here/schema/SOURCE")
 if [ -n "$want_merge_sha" ] && [ "$merge_sha" != "$want_merge_sha" ] && [ -z "$verify" ]; then
@@ -144,9 +151,14 @@ if [ -n "$verify" ]; then
   # node_modules symlinked in for the duration of the export and removed right
   # after — a failed run takes the symlink down with the worktree (trap).
   vtmp=$(mktemp -d "${TMPDIR:-/tmp}/pin-sdl-verify.XXXXXX")
-  npm install --silent --no-save --no-package-lock --ignore-scripts --prefix "$vtmp" "tsx@$pin_tsx" "graphql@$pin_graphql" 1>&2
+  # A failing install or export must say WHERE it kept its scratch dir, not
+  # just die (#2696 review): set -e alone would exit silently with $vtmp
+  # leaked. The worktree trap still fires on these exits.
+  npm install --silent --no-save --no-package-lock --ignore-scripts --prefix "$vtmp" "tsx@$pin_tsx" "graphql@$pin_graphql" 1>&2 ||
+    { echo "npm install failed — the scratch dir is kept for inspection at $vtmp" >&2; exit 1; }
   ln -s "$vtmp/node_modules" "$out/node_modules"
-  ( cd "$out" && "$vtmp/node_modules/.bin/tsx" scripts/export-graphql-sdl.mjs ) > "$vtmp/exported.graphql"
+  ( cd "$out" && "$vtmp/node_modules/.bin/tsx" scripts/export-graphql-sdl.mjs ) > "$vtmp/exported.graphql" ||
+    { echo "the exporter failed — its scratch dir is kept for inspection at $vtmp" >&2; exit 1; }
   rm "$out/node_modules"
   got_sha=$(sha256 "$vtmp/exported.graphql")
   got_lines=$(wc -l < "$vtmp/exported.graphql" | tr -d ' ')

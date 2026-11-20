@@ -99,10 +99,11 @@ jobs:
       # typeDefs.ts is a self-contained SDL string, so a throwaway local install
       # of just tsx + graphql (the export script's only runtime deps) suffices.
       # Install chatter goes to stderr so stdout stays clean SDL for the redirect.
-      # tsx and graphql are pinned to the exact versions scripts/pin-server-sdl.sh
-      # verified the committed snapshot's sha256 with: a floating graphql minor
-      # can change printSchema bytes and fire this job for a non-drift reason
-      # (#2679 review). Bump both together, via a --verify run of that script.
+      # tsx and graphql are pinned to the exact versions schema/SOURCE records
+      # as tsx=/graphql= (interpolated below from that one place — the same keys
+      # scripts/pin-server-sdl.sh reads): a floating graphql minor can change
+      # printSchema bytes and fire this job for a non-drift reason (#2679
+      # review). Bump in SOURCE, then re-run that script's --verify.
       - name: Check for schema drift
         id: check
         if: steps.gate.outputs.enabled == 'true'
@@ -110,7 +111,7 @@ jobs:
         run: |
           make schema-check \
             HADRON_SERVER_DIR=.hadron-server \
-            SDL_EXPORT="npm install --no-save --no-package-lock --silent --ignore-scripts tsx@4.23.15 graphql@16.15.0 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
+            SDL_EXPORT="npm install --no-save --no-package-lock --silent --ignore-scripts tsx@$(sed -n 's/^tsx=//p' schema/SOURCE) graphql@$(sed -n 's/^graphql=//p' schema/SOURCE) 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
 
       # Same cross-repo checkout, second drift axis: the registered-tool manifest
       # `hadron spec check-tools` embeds. Pure grep over the tool-source files (every module
@@ -203,10 +204,15 @@ jobs:
   #
   # The server checkout needs just a git repo the script can fetch the two SHAs
   # into (it fetches them itself, authenticating with HADRON_SERVER_FETCH_TOKEN
-  # — a credential the script scopes to its git calls and unsets again before
-  # any npm command runs, which is exactly the property this job relies on).
+  # — a credential the script scopes to its git calls and unsets again, header
+  # and environment variable both, before any npm command runs, which is
+  # exactly the property this job relies on; scripts/pinserverdl pins it).
   # Nightly/dispatch only, like its neighbours: it needs the cross-repo
-  # credential, so it is a heads-up detector, not a PR gate.
+  # credential, so it is a heads-up detector, not a PR gate. A red run IS the
+  # signal for this job — it means "the pin no longer reproduces", not "drift
+  # was detected", so it deliberately does not feed the drift job's
+  # issue-filing step (which would file the wrong report); a missing token
+  # skips green, exactly like the drift job's own gate above.
   pin-verify:
     runs-on: ubuntu-latest
     steps:

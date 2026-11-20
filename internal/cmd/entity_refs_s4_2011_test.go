@@ -7,6 +7,32 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
+// Dropped spellings by operation family, from the S4 renames (server#4219).
+var (
+	s4GoneOrgId  = []string{"$orgId", "orgId:"}
+	s4GoneMemId  = []string{"$memoryId", "memoryId:"}
+	s4GoneAppId  = []string{"$appId", "appId:"}
+	s4GoneAgent  = []string{"$agentId", "agentId:"}
+	s4GoneUserId = []string{"$userId", "userId:"}
+	// The collapsed pairs were optional Strings before S4; a stale optional
+	// declaration sitting NEXT TO the correct one is the leftover shape the
+	// old, less-anchored gone-lists could miss (cli#2679 red/green).
+	s4GoneOrgRefStr  = []string{"$orgRef: String"}
+	s4GoneAppRefStr  = []string{"$appRef: String"}
+	s4GoneUserRefStr = []string{"$userRef: String"}
+	// deleteMemory/deleteOrganization & co renamed id -> ref outright.
+	s4GoneIdArg = []string{"id: $id", "$id: ID"}
+)
+
+// s4GoneLists joins gone-lists without the nested-append chains.
+func s4GoneLists(lists ...[]string) []string {
+	var out []string
+	for _, l := range lists {
+		out = append(out, l...)
+	}
+	return out
+}
+
 // server#4219 (entity refs S4) renamed the identifying argument of a family of
 // mutations with no alias — a document that names a dropped arg fails "Unknown
 // argument" — and collapsed the former optional *Id/*Ref pairs into one required
@@ -22,31 +48,17 @@ import (
 // want entries are anchored fragments — the call prefix, one entry per renamed
 // argument at the call site, one per variable declaration — so a check never
 // depends on argument order and never matches a response-selection field of
-// the same name. gone entries name each dropped spelling in both its forms,
-// the variable ($orgId, $orgRef: String) and the literal argument (orgId:),
-// never the bare stem: a response selection may legitimately select one
-// (removeMemoryMember returns memoryId/userId fields). The document-wide
-// sweep against the committed snapshot lives in internal/api
-// (document_ref_args_test.go); this table additionally pins, per operation,
-// the exact spelling and typing the CLI sends.
-
-// Dropped spellings by operation family, from the S4 renames (server#4219).
-var (
-	goneOrgId  = []string{"$orgId", "orgId:"}
-	goneMemId  = []string{"$memoryId", "memoryId:"}
-	goneAppId  = []string{"$appId", "appId:"}
-	goneAgent  = []string{"$agentId", "agentId:"}
-	goneUserId = []string{"$userId", "userId:"}
-	// The collapsed pairs were optional Strings before S4; a stale optional
-	// declaration sitting NEXT TO the correct one is the leftover shape the
-	// old, less-anchored gone-lists could miss (cli#2679 red/green).
-	goneOrgRefStr  = []string{"$orgRef: String"}
-	goneAppRefStr  = []string{"$appRef: String"}
-	goneUserRefStr = []string{"$userRef: String"}
-	// deleteMemory/deleteOrganization & co renamed id -> ref outright.
-	goneIdArg = []string{"id: $id", "$id: ID"}
-)
-
+// the same name. A declaration entry that pins NULLABILITY is anchored on the
+// character after the type ("$orgRef: ID," not "$orgRef: ID"): the generated
+// operation is one line, and the bare type is a PREFIX of its non-null form,
+// so an unanchored entry is satisfied by the wrong spelling (#2696 review).
+// gone entries name each dropped spelling in both its forms, the variable
+// ($orgId, $orgRef: String) and the literal argument (orgId:), never the bare
+// stem: a response selection may legitimately select one (removeMemoryMember
+// returns memoryId/userId fields). The document-wide sweep against the
+// committed snapshot lives in internal/api (document_ref_args_test.go); this
+// table additionally pins, per operation, the exact spelling and typing the
+// CLI sends.
 func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 	for _, tc := range []struct {
 		name, op string
@@ -54,78 +66,80 @@ func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 		gone     []string
 	}{
 		{"JoinApp", gen.JoinApp_Operation,
-			[]string{"joinApp(", "appRef: $appRef", "$appRef: ID!"}, goneAppId},
+			[]string{"joinApp(", "appRef: $appRef", "$appRef: ID!"}, s4GoneAppId},
 		{"LeaveApp", gen.LeaveApp_Operation,
-			[]string{"leaveApp(", "appRef: $appRef", "$appRef: ID!"}, goneAppId},
+			[]string{"leaveApp(", "appRef: $appRef", "$appRef: ID!"}, s4GoneAppId},
 		{"LeaveAppInstructed", gen.LeaveAppInstructed_Operation,
-			[]string{"leaveApp(", "appRef: $appRef", "$appRef: ID!"}, goneAppId},
+			[]string{"leaveApp(", "appRef: $appRef", "$appRef: ID!"}, s4GoneAppId},
 		{"CreateRevision", gen.CreateRevision_Operation,
-			[]string{"createRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, goneAgent},
+			[]string{"createRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
 		{"PublishRevision", gen.PublishRevision_Operation,
-			[]string{"publishRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, goneAgent},
+			[]string{"publishRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
 		{"RestoreRevision", gen.RestoreRevision_Operation,
-			[]string{"restoreRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, goneAgent},
+			[]string{"restoreRevision(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
 		{"AcquireEditorLock", gen.AcquireEditorLock_Operation,
-			[]string{"acquireEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, goneAgent},
+			[]string{"acquireEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
 		{"ReleaseEditorLock", gen.ReleaseEditorLock_Operation,
-			[]string{"releaseEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, goneAgent},
+			[]string{"releaseEditorLock(", "agentRef: $agentRef", "$agentRef: ID!"}, s4GoneAgent},
 		{"DeleteMemory", gen.DeleteMemory_Operation,
-			[]string{"deleteMemory(", "ref: $ref", "$ref: ID!"}, goneIdArg},
+			[]string{"deleteMemory(", "ref: $ref", "$ref: ID!"}, s4GoneIdArg},
 		{"SyncMemory", gen.SyncMemory_Operation,
-			[]string{"syncMemory(", "ref: $ref", "$ref: ID!"}, goneIdArg},
+			[]string{"syncMemory(", "ref: $ref", "$ref: ID!"}, s4GoneIdArg},
 		{"SetMemorySourceToken", gen.SetMemorySourceToken_Operation,
-			[]string{"setMemorySourceToken(", "ref: $ref", "$ref: ID!"}, goneIdArg},
+			[]string{"setMemorySourceToken(", "ref: $ref", "$ref: ID!"}, s4GoneIdArg},
 		{"EncryptMemory", gen.EncryptMemory_Operation,
-			[]string{"encryptMemory(", "memoryRef: $memoryRef", "$memoryRef: ID!"}, goneMemId},
+			[]string{"encryptMemory(", "memoryRef: $memoryRef", "$memoryRef: ID!"}, s4GoneMemId},
 		{"LinkMemoryToUser", gen.LinkMemoryToUser_Operation,
-			[]string{"linkMemoryToUser(", "memoryRef: $memoryRef", "$memoryRef: ID!"}, goneMemId},
+			[]string{"linkMemoryToUser(", "memoryRef: $memoryRef", "$memoryRef: ID!"}, s4GoneMemId},
 		{"CreateMemorySubscription", gen.CreateMemorySubscription_Operation,
 			[]string{"createMemorySubscription(", "memoryRef: $memoryRef", "orgRef: $orgRef", "$memoryRef: ID!", "$orgRef: ID!"},
-			append(append([]string{}, goneMemId...), goneOrgId...)},
+			s4GoneLists(s4GoneMemId, s4GoneOrgId)},
 		{"UpdateMemorySubscription", gen.UpdateMemorySubscription_Operation,
 			[]string{"updateMemorySubscription(", "memoryRef: $memoryRef", "orgRef: $orgRef", "$memoryRef: ID!", "$orgRef: ID!"},
-			append(append([]string{}, goneMemId...), goneOrgId...)},
+			s4GoneLists(s4GoneMemId, s4GoneOrgId)},
 		{"DeleteMemorySubscription", gen.DeleteMemorySubscription_Operation,
 			[]string{"deleteMemorySubscription(", "memoryRef: $memoryRef", "orgRef: $orgRef", "$memoryRef: ID!", "$orgRef: ID!"},
-			append(append([]string{}, goneMemId...), goneOrgId...)},
+			s4GoneLists(s4GoneMemId, s4GoneOrgId)},
 		{"DeleteOrganization", gen.DeleteOrganization_Operation,
-			[]string{"deleteOrganization(", "ref: $ref", "$ref: ID!"}, goneIdArg},
+			[]string{"deleteOrganization(", "ref: $ref", "$ref: ID!"}, s4GoneIdArg},
 		{"CreateUserInvitation", gen.CreateUserInvitation_Operation,
-			[]string{"createUserInvitation(", "orgRef: $orgRef", "$orgRef: ID!"}, goneOrgId},
+			[]string{"createUserInvitation(", "orgRef: $orgRef", "$orgRef: ID!"}, s4GoneOrgId},
 		// createMemory's orgRef is genuinely optional ($orgRef: ID), so its
-		// declaration entry pins the nullable spelling on purpose.
+		// declaration entry pins the nullable spelling on purpose — anchored
+		// on the comma so the required $orgRef: ID!, which CONTAINS the bare
+		// prefix, cannot satisfy it.
 		{"CreateMemory", gen.CreateMemory_Operation,
-			[]string{"createMemory(", "orgRef: $orgRef", "$orgRef: ID"}, goneOrgId},
+			[]string{"createMemory(", "orgRef: $orgRef", "$orgRef: ID,"}, s4GoneOrgId},
 		// The draft variant is the same field with draftCorpus: true.
 		{"CreateMemoryDraft", gen.CreateMemoryDraft_Operation,
-			[]string{"createMemory(", "draftCorpus: true", "orgRef: $orgRef", "$orgRef: ID"}, goneOrgId},
+			[]string{"createMemory(", "draftCorpus: true", "orgRef: $orgRef", "$orgRef: ID,"}, s4GoneOrgId},
 		{"LinkGithubApp", gen.LinkGithubApp_Operation,
-			[]string{"linkGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, goneOrgId},
+			[]string{"linkGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, s4GoneOrgId},
 		{"UnlinkGithubApp", gen.UnlinkGithubApp_Operation,
-			[]string{"unlinkGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, goneOrgId},
+			[]string{"unlinkGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, s4GoneOrgId},
 		{"UpdateOrgGithubApp", gen.UpdateOrgGithubApp_Operation,
-			[]string{"updateOrgGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, goneOrgId},
+			[]string{"updateOrgGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, s4GoneOrgId},
 		{"AddOrgMember", gen.AddOrgMember_Operation,
 			[]string{"addOrgMember(", "orgRef: $orgRef", "userRef: $userRef", "$orgRef: ID!", "$userRef: ID!"},
-			append(append(append(append([]string{}, goneOrgId...), goneUserId...), goneOrgRefStr...), goneUserRefStr...)},
+			s4GoneLists(s4GoneOrgId, s4GoneUserId, s4GoneOrgRefStr, s4GoneUserRefStr)},
 		{"EnsureAppMember", gen.EnsureAppMember_Operation,
 			[]string{"ensureAppMember(", "appRef: $appRef", "userRef: $userRef", "$appRef: ID!", "$userRef: ID!"},
-			append(append(append(append([]string{}, goneAppId...), goneUserId...), goneAppRefStr...), goneUserRefStr...)},
+			s4GoneLists(s4GoneAppId, s4GoneUserId, s4GoneAppRefStr, s4GoneUserRefStr)},
 		{"EnsureAppMemberInstructed", gen.EnsureAppMemberInstructed_Operation,
 			[]string{"ensureAppMember(", "appRef: $appRef", "userRef: $userRef", "$appRef: ID!", "$userRef: ID!"},
-			append(append(append(append([]string{}, goneAppId...), goneUserId...), goneAppRefStr...), goneUserRefStr...)},
+			s4GoneLists(s4GoneAppId, s4GoneUserId, s4GoneAppRefStr, s4GoneUserRefStr)},
 		{"RemoveAppMember", gen.RemoveAppMember_Operation,
 			[]string{"removeAppMember(", "appRef: $appRef", "userRef: $userRef", "$appRef: ID!", "$userRef: ID!"},
-			append(append(append(append([]string{}, goneAppId...), goneUserId...), goneAppRefStr...), goneUserRefStr...)},
+			s4GoneLists(s4GoneAppId, s4GoneUserId, s4GoneAppRefStr, s4GoneUserRefStr)},
 		{"RemoveAppMemberInstructed", gen.RemoveAppMemberInstructed_Operation,
 			[]string{"removeAppMember(", "appRef: $appRef", "userRef: $userRef", "$appRef: ID!", "$userRef: ID!"},
-			append(append(append(append([]string{}, goneAppId...), goneUserId...), goneAppRefStr...), goneUserRefStr...)},
+			s4GoneLists(s4GoneAppId, s4GoneUserId, s4GoneAppRefStr, s4GoneUserRefStr)},
 		{"RemoveOrgMember", gen.RemoveOrgMember_Operation,
 			[]string{"removeOrgMember(", "orgRef: $orgRef", "userRef: $userRef", "$orgRef: ID!", "$userRef: ID!"},
-			append(append(append(append([]string{}, goneOrgId...), goneUserId...), goneOrgRefStr...), goneUserRefStr...)},
+			s4GoneLists(s4GoneOrgId, s4GoneUserId, s4GoneOrgRefStr, s4GoneUserRefStr)},
 		{"UpdateOrgMember", gen.UpdateOrgMember_Operation,
 			[]string{"updateOrgMember(", "orgRef: $orgRef", "userRef: $userRef", "$orgRef: ID!", "$userRef: ID!"},
-			append(append(append(append([]string{}, goneOrgId...), goneUserId...), goneOrgRefStr...), goneUserRefStr...)},
+			s4GoneLists(s4GoneOrgId, s4GoneUserId, s4GoneOrgRefStr, s4GoneUserRefStr)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, w := range tc.want {

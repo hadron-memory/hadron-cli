@@ -17,10 +17,15 @@
 # resulting merge commit — whose SHA the script reproduces deterministically
 # and records as merge_sha=.
 #
-# sdl_sha256/sdl_lines were produced with graphql 16.15.0 and tsx 4.23.15
-# (pinned in the script; a graphql minor can change printSchema bytes).
+# sdl_sha256/sdl_lines were produced with the tool versions recorded below as
+# tsx= and graphql= — the single place they live: scripts/pin-server-sdl.sh
+# reads them here, and the schema-drift job's SDL_EXPORT interpolates the same
+# keys (a graphql minor can change printSchema bytes, so a silent float trips
+# the sha for a non-pin reason). Bump deliberately, then re-run --verify.
 base=2d1cd5c669be735eeeecf44941d86ad3f4f7688f
 head=47b0672fb5270123bd2d4c49a9b5365106cb3b22
 merge_sha=3dedeab1783ea6554145c693fd70b7c5b24e9236
 sdl_lines=22710
 sdl_sha256=67c6459430ade0373dfac3864a4ea8fe2d1c2e73044d679b40f29d777385b7c1
+tsx=4.23.15
+graphql=16.15.0
