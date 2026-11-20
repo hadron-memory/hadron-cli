@@ -75,3 +75,50 @@ func TestClassifyUsageLimitDoesNotOutrankDark2676(t *testing.T) {
 		t.Fatalf("got %s/%q", got.Status, got.Reason)
 	}
 }
+
+// A transcript that merely says the phrase (an agent working on rate-limit
+// code) is not the banner and must not hold an idle agent.
+func TestClassifyUsageLimitProseMentionIsNotLimited2676(t *testing.T) {
+	tail := []string{"⏺ The API said usage limit reached, so I added a retry.", "✻ Cogitated for 1m 3s", rule, "❯ ", rule, claudeHint}
+	got := Classify(agent("claude"), fix(tail), now)
+	if got.Reason == ts.RateLimited || got.Status != ts.Idle {
+		t.Fatalf("a prose mention must not lock: %s/%q", got.Status, got.Reason)
+	}
+}
+
+// The window is the last eight non-blank lines: the banner at line eight
+// counts, at line nine it does not. A running composer under the banner still
+// reads as limited.
+func TestClassifyUsageLimitWindowBoundary2676(t *testing.T) {
+	pad := func(n int) []string {
+		out := []string{glmLimit}
+		for i := 0; i < n; i++ {
+			out = append(out, "⏺ line")
+		}
+		return out
+	}
+	if got := Classify(agent("claude"), fix(pad(7)), now); got.Reason != ts.RateLimited {
+		t.Fatalf("banner 8th from the end must count: %s/%q", got.Status, got.Reason)
+	}
+	if got := Classify(agent("claude"), fix(pad(8)), now); got.Reason == ts.RateLimited {
+		t.Fatal("banner 9th from the end must not count")
+	}
+}
+
+// Offset edges: +14:00 is accepted, +15:00 is refused as an unparsable time;
+// a lower-case (utc) reads as UTC, not as host-local time.
+func TestClassifyUsageLimitOffsetEdges2676(t *testing.T) {
+	line := func(z string) []string {
+		return []string{"429 Usage limit reached for 5 hour ... reset 2026-11-20 16:45:32 " + z}
+	}
+	if got := Classify(agent("claude"), fix(line("(UTC+14)")), now); got.ResetAt == nil {
+		t.Fatal("+14 must parse")
+	}
+	if got := Classify(agent("claude"), fix(line("(UTC+15)")), now); got.Reason != ts.RateLimited || got.ResetAt != nil {
+		t.Fatalf("+15 must be limited with no resetAt, got %q %v", got.Reason, got.ResetAt)
+	}
+	got := Classify(agent("claude"), fix(line("(utc)")), now)
+	if got.ResetAt == nil || got.ResetAssumedLocal {
+		t.Fatalf("(utc) must read as UTC, not assumed local: %v %v", got.ResetAt, got.ResetAssumedLocal)
+	}
+}

@@ -186,7 +186,10 @@ func LastTurnAt(sc *Screen, family string, now time.Time) *time.Time {
 const usageLimitWindow = 8
 
 var (
-	usageLimitLine = regexp.MustCompile(`(?i)usage limit reached`)
+	// Anchored to the banner shape the harness prints, "429 Usage limit reached"
+	// (a capture from the cli#2676 report), so a transcript that merely says
+	// "usage limit reached" does not hold an idle agent.
+	usageLimitLine = regexp.MustCompile(`(?i)\b429 usage limit reached`)
 	// The reset time: "reset YYYY-MM-DD HH:MM:SS", then an optional "(UTC+8)",
 	// "(UTC-5)" or "(UTC+5:30)".
 	usageLimitReset = regexp.MustCompile(`(?i)\breset (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?: \(UTC(?:([+-])(\d{1,2})(?::?(\d{2}))?)?\))?`)
@@ -228,7 +231,7 @@ func usageLimit(tail []string, now time.Time) (limited bool, resetAt *time.Time,
 				secs = -secs
 			}
 			loc, assumed = time.FixedZone("", secs), false
-		} else if strings.Contains(m[0], "(UTC") {
+		} else if strings.Contains(strings.ToUpper(m[0]), "(UTC") {
 			loc, assumed = time.UTC, false
 		}
 		at := time.Date(n[1], time.Month(n[2]), n[3], n[4], n[5], n[6], 0, loc)
