@@ -146053,7 +146053,7 @@ fragment DecisionRefFields on QuestionRef {
 `
 
 // blocks, followUps and sources carry NO omitempty on purpose: the server reads
-// null as "unchanged" and [] as "clear" (amendDecision: patch.blocks != null), so
+// null as "unchanged" and [] as "clear" (amendQuestion, formerly amendDecision: patch.blocks != null), so
 // an absent key decodes to nil and is sent as null, and an explicit [] clears.
 // (omitempty: false is explicit because use_struct_references adds it by default.)
 // context is tri-state on the server (patch.context !== undefined: absent keeps,
