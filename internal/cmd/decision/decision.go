@@ -120,8 +120,8 @@ func newCmdLogCreate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "create <memory> --loc <loc> --decider <user-id>... [--eligible <user-id>...] [--name <name>] [--prefix <prefix>]",
 		Short: "Create a decision log in a Memory",
 		Long: `Create a decision log at --loc in a Memory. --decider names the default
-deciders by user ID (repeat it or separate with commas); each must be a user
-who can write the Memory. --eligible names who else a decision may name as a
+deciders by user ID (hadron user search lists them; repeat it or separate with
+commas); each must be a user who can write the Memory. --eligible names who else a decision may name as a
 decider; omitted, only the default deciders are eligible. --prefix sets the code prefix (D gives DA, DB, …);
 omitted, the server uses D.
 
@@ -203,7 +203,7 @@ func newCmdLogSetDeciders(f *cmdutil.Factory) *cobra.Command {
 		Use:   "set-deciders <log> --decider <user-id>... [--eligible <user-id>...] --expected-revision <n> --reason <text>",
 		Short: "Replace a decision log's deciders",
 		Long: `Replace a log's default deciders (and, with --eligible, its other eligible
-deciders), by user ID, as an audited revision of the log. Decisions already asked keep
+deciders), by user ID (hadron user search lists them), as an audited revision of the log. Decisions already asked keep
 their deciders. Without --eligible the other eligible deciders are kept;
 --eligible "" clears them. --expected-revision is the revision you read
 (decision log get shows it); a different current revision is refused and
