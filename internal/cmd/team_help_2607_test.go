@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// cli#2607: the slice-B help follow-ups, each a literal the page must carry.
-func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
+// cli#2607: the team grant, register and role help follow-ups, each a literal the page must carry.
+func TestTeamGrantRegisterRoleHelpFollowUps2607(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	longOf := func(path ...string) string {
@@ -36,7 +39,12 @@ func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
 		{[]string{"team", "grant", "signing-request", "get"}, []string{"<grant-id>", "<request-id>"}},
 		{[]string{"team", "grant", "request-signature"}, []string{"<grant-id> is the id that 'hadron team grant request' printed"}},
 		// 12: the role-create suggestion is omitted when display sanitising would alter its argument.
-		{[]string{"team", "role", "list"}, []string{"omitted"}},
+		{[]string{"team", "role", "list"}, []string{"omitted when display sanitising would change the role name"}},
+		// review (blind P2/P3 on #2703): --json holds the URL as a JSON string, so the
+		// claim is that decoding it gives the URL, not that the raw bytes match;
+		// the leave-alone field list names each key once.
+		{[]string{"team", "grant", "request-signature"}, []string{"the decoded JSON string is the URL exactly"}},
+		{[]string{"team", "worker", "leave-alone"}, []string{"workerId, leaveAlone, reason, by and at (each null when the server withholds it)"}},
 		// 13: the removed-flag history lists --name-convention.
 		{[]string{"team", "role"}, []string{"--name-convention"}},
 		// 16: these phrases already stand on the pages (the slice only reflowed
@@ -52,6 +60,9 @@ func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
 			}
 		}
 	}
+	if strings.Contains(flat(longOf("team", "grant", "request-signature")), "byte for byte") {
+		t.Error("request-signature still claims the JSON URL is carried byte for byte")
+	}
 	// 3: get opens with what it does.
 	if !strings.HasPrefix(longOf("team", "grant", "get"), "Read one worker grant") {
 		t.Error("team grant get does not open with what it does")
@@ -65,7 +76,11 @@ func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	usage := c.Flags().Lookup("instruction").Usage
+	instructionFlag := c.Flags().Lookup("instruction")
+	if instructionFlag == nil {
+		t.Fatal("team grant rm has no --instruction flag")
+	}
+	usage := instructionFlag.Usage
 	if !strings.Contains(c.Long, "Needs server 2026-11-04 or later") || !strings.Contains(usage, "Needs server 2026-11-04 or later") || strings.Contains(usage, "4bac6127") || strings.Contains(c.Long, "4bac6127") {
 		t.Errorf("team grant rm names two versions: long %q, flag %q", flat(c.Long), usage)
 	}
@@ -75,7 +90,7 @@ func TestTeamHelpSliceBFollowUps2607(t *testing.T) {
 // pages names a team grant or team register command with its "hadron" prefix,
 // so it can be copied. The pin is scoped to those two families (not to every
 // command named on the role pages).
-func TestTeamHelpSliceBUsesOneCommandPrefix2607(t *testing.T) {
+func TestTeamGrantRegisterHelpUsesHadronPrefix2607(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	for _, path := range [][]string{{"team", "grant"}, {"team", "grant", "add"}, {"team", "grant", "rm"}, {"team", "grant", "request"}, {"team", "grant", "signing-request", "get"}, {"team", "register", "pick"}, {"team", "register", "candidates"}} {
@@ -83,14 +98,29 @@ func TestTeamHelpSliceBUsesOneCommandPrefix2607(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, line := range strings.Split(c.Long, "\n") {
-			for _, bare := range []string{"'team grant ", "('team grant", "'team register ", "('team register"} {
-				if strings.Contains(line, bare) {
-					t.Errorf("%v: bare command in prose: %q", path, line)
-				}
+		if got := strings.Fields(c.CommandPath()); strings.Join(got[1:], " ") != strings.Join(path, " ") {
+			t.Fatalf("Find(%v) returned %q", path, c.CommandPath())
+		}
+		prose := strings.Join(strings.Fields(c.Long), " ")
+		for _, bare := range []string{"'team grant ", "('team grant", "'team register ", "('team register"} {
+			if strings.Contains(prose, bare) {
+				t.Errorf("%v: bare command %q in prose", path, bare)
 			}
 		}
 	}
+}
+
+// requestCounter is a loopback server that answers nothing useful and counts
+// what reaches it, so a test can assert that a refusal sent no request.
+func requestCounter(t *testing.T) (url string, count func() int32) {
+	t.Helper()
+	var n int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&n, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL, func() int32 { return atomic.LoadInt32(&n) }
 }
 
 // cli#2607 item 15: the CLI refuses fast, so the help may say so. With no
@@ -99,10 +129,14 @@ func TestTeamGrantRequestUnboundWithoutHolderIDRefusesLocally2607(t *testing.T) 
 	teamGitDir(t) // an empty git dir: no binding
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "grant", "request", "--action", "a.b", "--values", "{}", "--reason", "r"})
+	url, sent := requestCounter(t)
+	root.SetArgs([]string{"team", "grant", "request", "--action", "a.b", "--values", "{}", "--reason", "r", "--server", url})
 	err := root.Execute()
 	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "pass --holder-id") {
 		t.Fatalf("want a local usage refusal naming --holder-id, got %v", err)
+	}
+	if n := sent(); n != 0 {
+		t.Errorf("the refusal sent %d request(s), want 0", n)
 	}
 }
 
@@ -138,10 +172,14 @@ func TestTeamGrantListAndGetUnboundRefuseLocally2607(t *testing.T) {
 		teamGitDir(t) // an empty git dir: no binding
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs(argv)
+		url, sent := requestCounter(t)
+		root.SetArgs(append(argv, "--server", url))
 		err := root.Execute()
 		if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "worker-bound grants require a worker session") {
 			t.Errorf("%v: want a local usage refusal, got %v", argv, err)
+		}
+		if n := sent(); n != 0 {
+			t.Errorf("%v: the refusal sent %d request(s), want 0", argv, n)
 		}
 	}
 }

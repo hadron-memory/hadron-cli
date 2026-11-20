@@ -54,11 +54,11 @@ Not permitted exits 8; a missing worker exits 4, retired exits 5, and bad
 input exits 2. Correct the input or ask the App manager; nothing is retried.
 
 A worker id or URN is resolved by the server; a name needs --app, the App
-context or this worktree's binding. --json prints workerId, leaveAlone and
-nullable leaveAlone, reason, by and at. Existing worker get/list keep their
-earlier server compatibility and do not request these fields. Null leaveAlone
-means unknown (not visible to you), never false. The server withholds all four
-working-state fields from a profile-only reader.
+context or this worktree's binding. --json prints workerId, leaveAlone,
+reason, by and at (each null when the server withholds it). Existing worker
+get/list keep their earlier server compatibility and do not request these
+fields. Null leaveAlone means unknown (not visible to you), never false. The
+server withholds all four working-state fields from a profile-only reader.
 
 ` + s3InstructionHelp,
 		Example: "  hadron team worker leave-alone Iris --app acme.com:eng --json\n  hadron team worker leave-alone Iris --on --reason maintenance --app acme.com:eng\n  hadron team worker leave-alone Iris --off --instruction task:hrn:task:acme.com:eng:42",

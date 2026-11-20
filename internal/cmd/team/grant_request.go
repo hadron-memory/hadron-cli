@@ -348,7 +348,7 @@ func signingRequestVerb(f *cmdutil.Factory, use, short, what, example string, ca
 
 func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 	return signingRequestVerb(f, "request-signature <grant-id>", "Ask for a pending grant to be signed",
-		"Prints the signing request and its ceremonyUrl, the page where a person signs\nthe grant. <grant-id> is the id that 'hadron team grant request' printed. Hand\nthe URL to that person as printed; it is never composed, shortened or rewritten\nhere. Text mode refuses a URL carrying control or format characters (exit 1);\n--json always carries it byte for byte.",
+		"Prints the signing request and its ceremonyUrl, the page where a person signs\nthe grant. <grant-id> is the id that 'hadron team grant request' printed. Hand\nthe URL to that person as printed; it is never composed, shortened or rewritten\nhere. Text mode refuses a URL carrying control or format characters (exit 1);\n--json always carries it; the decoded JSON string is the URL exactly.",
 		"  hadron team grant request-signature <grant-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamRequestGrantSignature(ctx, c, id)

@@ -491,7 +491,7 @@ section between the markers.
 | `team grant get` |  |  | y | #1054 | d015e80e46c9 |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 693d84145c89 |  | unread |  |
 | `team grant request` |  |  | y | #1054 | 1c55a0ea19ed |  | unread |  |
-| `team grant request-signature` |  |  | y | #1054 | aba80a34d0f3 |  | unread |  |
+| `team grant request-signature` |  |  | y | #1054 | 8cfe0007c697 |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 2bd8b7c6efef |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 42bd64bc8916 |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | ba5f90188048 |  | unread |  |
@@ -622,7 +622,7 @@ section between the markers.
 | `team worker find-filtered` |  |  | y | #1054 | 0576280d6e54 |  | unread |  |
 | `team worker get` |  |  | y | #1054 | 80ced7626735 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker held` |  |  | y | #1054 | 59aa7ad5f2ee |  | unread |  |
-| `team worker leave-alone` |  |  | y | #1054 | 8f08c74ca998 |  | unread |  |
+| `team worker leave-alone` |  |  | y | #1054 | aa17eecb0410 |  | unread |  |
 | `team worker list` | ls |  | y | #1054 | 28d3d76b1ad4 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker onboard` |  |  | y | #1054 | d9906ab0dbd2 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de); example limit: a successful dry-run is not yet verified (no host fixture) |
 | `team worker release` |  |  | y | #1054 | eaebebacfeb3 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
