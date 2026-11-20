@@ -658,7 +658,7 @@ func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
 	all, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+row+`}}`, false, connectArgs(t)...)
 	// The RAW error, not only the rendered stream: the renderer sanitizes its
 	// own output, so this is what pins the guard itself.
-	if e == nil || strings.ContainsAny(e.Error(), "\x1b\n") || strings.Contains(e.Error(), "disconnect") || !strings.Contains(all, "hadron slack status") {
+	if e == nil || strings.ContainsAny(e.Error(), "\x1b\n") || strings.Contains(e.Error(), "disconnect") || strings.Contains(e.Error(), "hadron slack") || !strings.Contains(e.Error(), "ask the server's administrator") {
 		t.Fatalf("a control-character id is not printed and the status pointer remains: %v\n%q", e, all)
 	}
 	// The same for a control-character --org: dropped from the command.
@@ -677,7 +677,7 @@ func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
 // with the terminator and no prose double quotes around the command.
 func TestSlackDisconnectOutcomeUnknownSuggestsOneQuotedCommand(t *testing.T) {
 	_, _, n, e := runSlackWrite(t, "DeleteSlackConnection", `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, "", "disconnect", "--yes", "a b$(x)")
-	if e == nil || n != 1 || !strings.Contains(e.Error(), "with: hadron slack get -- 'a b$(x)':") || strings.Contains(e.Error(), `"hadron slack get`) {
+	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "with: hadron slack get -- 'a b$(x)'") || strings.Contains(e.Error(), `"hadron slack get`) {
 		t.Fatalf("err=%v requests=%d", e, n)
 	}
 }

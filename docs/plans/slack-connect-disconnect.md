@@ -33,7 +33,10 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   held-delta P2, Jane) and dropped, so the pointer is the unfiltered `hadron slack status`, which runs as
   printed. A server id with control characters is not named either (`ShellQuote` does not escape them, unlike
   the Go quoting it replaced; SEC10 P3, Rodolfo), and the `slack get` suggestion carries no outer prose quotes
-  (single quotes are literal inside double quotes). A success answer whose any field holds a token is withheld whole (Unavailable,
+  (single quotes are literal inside double quotes). A suggested command is the LAST thing in its message, never
+  followed by punctuation (a colon after a quoted id pastes as part of the id; blind P2, Bruno), and an id this
+  CLI will not print gets no command at all, only "upgrade hadron, or ask the server's administrator" (get and
+  status refuse the same unknown status, so pointing there would loop). A success answer whose any field holds a token is withheld whole (Unavailable,
   nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary
   re-encoding.
 - **Recovery order.** The server's duplicate check (`deletedAt: null`, no status condition; hadron-server

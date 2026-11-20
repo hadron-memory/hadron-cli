@@ -43,11 +43,11 @@ func redactConnectError(raw error, secrets []string, recovery string) error {
 	return api.Detached(api.WithServerCode(base, raw), func(s string) string { return api.RedactSecretText(s, secrets) })
 }
 
-// printable reports whether s is safe to print in a message: no control or
-// format characters (an id carrying ESC/CSI or a newline would reach the
-// terminal raw once it is no longer Go-quoted).
-func printable(s string) bool {
-	return strings.IndexFunc(s, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) < 0
+// hasControlOrFormatCharacter reports whether s carries a Unicode control or
+// format character (an id with ESC/CSI or a newline would reach the terminal
+// raw once it is no longer Go-quoted). Shell quoting is a separate step.
+func hasControlOrFormatCharacter(s string) bool {
+	return strings.IndexFunc(s, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) >= 0
 }
 
 // getCmd is the unwrapped "slack get" suggestion for an id: shell-quoted, with
@@ -55,7 +55,7 @@ func printable(s string) bool {
 // quotes (single quotes are literal inside double quotes, so $( ) would expand
 // again when pasted). An id with control characters is not named.
 func getCmd(id string) string {
-	if !printable(id) {
+	if hasControlOrFormatCharacter(id) {
 		return "hadron slack get <connection-id>"
 	}
 	return "hadron slack get -- " + cmdutil.ShellQuote(id)
@@ -146,7 +146,7 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			// unfiltered "hadron slack status" runs as printed and lists every
 			// organization the caller may see.
 			statusCmd := "hadron slack status"
-			if !api.ContainsSecret(orgRef, secrets) && printable(orgRef) {
+			if !api.ContainsSecret(orgRef, secrets) && !hasControlOrFormatCharacter(orgRef) {
 				statusCmd += " --org=" + cmdutil.ShellQuote(orgRef)
 			}
 			where := fmt.Sprintf("check with: %s (it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected)", statusCmd)
@@ -176,8 +176,10 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 				// "slack get" and "slack status" refuse the same unknown status, so they
 				// would loop: the one command that always works is disconnect. An id
 				// with control characters is never printed (the terminal would act on it).
-				if !printable(v.Id) {
-					return exitcode.Newf(exitcode.Unavailable, "the server answered with a connection id this CLI will not print (it contains control characters) and a status it does not recognize; list the organization's connections with: hadron slack status")
+				if hasControlOrFormatCharacter(v.Id) {
+					// No command is suggested: get/status refuse this same status, and the id
+					// cannot be named safely. Upgrade, or an administrator removes it.
+					return exitcode.Newf(exitcode.Unavailable, "the server answered with a connection id this CLI will not print (it contains control characters) and a status it does not recognize (a newer server?); upgrade hadron, or ask the server's administrator to remove that registration")
 				}
 				return exitcode.Newf(exitcode.Unavailable, "the server answered with connection id %s and a status this CLI does not recognize (a newer server?), so it cannot be read back here: upgrade hadron, or remove the registration with: hadron slack disconnect -- %s", cmdutil.ShellQuote(v.Id), cmdutil.ShellQuote(v.Id))
 			}
@@ -239,7 +241,7 @@ before trying again.`,
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried); check whether it still exists with: %s: %s", getCmd(id), mapped), err)
+					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. Check whether it still exists with: %s", mapped, getCmd(id)), err)
 				}
 				return mapped
 			}
