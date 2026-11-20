@@ -225,6 +225,7 @@ func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 		c, rest, err := root.Find(words)
 		return err == nil && c != root && len(rest) == 0
 	}
+	parsedExamples, sawParserFixture := 0, false
 	for _, page := range pages {
 		help := flatHelp1053S3(t, page...)
 		for _, m := range quoted.FindAllStringSubmatch(help, -1) {
@@ -257,6 +258,10 @@ func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 			t.Fatalf("%v examples: %v", page, err)
 		}
 		for _, args := range examples {
+			parsedExamples++
+			if pageKey == "ticker/create" && reflect.DeepEqual(args, []string{"ticker", "create", "--name", "parser-fixture", "--cadence-seconds", "120"}) {
+				sawParserFixture = true
+			}
 			target, rest, err := root.Find(args)
 			if err != nil || target == root {
 				t.Errorf("%v example %q: no such command", page, args)
@@ -266,6 +271,9 @@ func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 				t.Errorf("%v example %q: %v", page, args, err)
 			}
 		}
+	}
+	if parsedExamples == 0 || !sawParserFixture {
+		t.Fatalf("example walk parsed %d examples; parser fixture seen=%v", parsedExamples, sawParserFixture)
 	}
 }
 
@@ -339,6 +347,8 @@ func TestSlice3ExampleParsing2559(t *testing.T) {
 	}{
 		{"prompt and continuation", "$ hadron ticker create \\\n  --name check-in \\\n  --cadence-seconds 120 # ignore --not-a-flag", [][]string{{"ticker", "create", "--name", "check-in", "--cadence-seconds", "120"}}, false},
 		{"quoted comment character", "hadron ticker create --name '# --not-a-flag' --cadence-seconds 120 # comment --bogus", [][]string{{"ticker", "create", "--name", "# --not-a-flag", "--cadence-seconds", "120"}}, false},
+		{"spaced hash in single quotes", "hadron ticker create --name 'a #b'", [][]string{{"ticker", "create", "--name", "a #b"}}, false},
+		{"spaced hash in double quotes", `hadron ticker create --name "a #b"`, [][]string{{"ticker", "create", "--name", "a #b"}}, false},
 		{"hash within word", "hadron ticker create --name check#in", [][]string{{"ticker", "create", "--name", "check#in"}}, false},
 		{"escaped hash", "hadron ticker create --name \\#tag # ignore --bogus", [][]string{{"ticker", "create", "--name", "#tag"}}, false},
 		{"quoted continuation", "hadron ticker create --name \"joined\\\n#value\"", [][]string{{"ticker", "create", "--name", "joined#value"}}, false},
