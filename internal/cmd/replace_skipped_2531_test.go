@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -23,23 +25,44 @@ func skippedBody(dry bool, scanned, selected, skipped, total int) string {
 	results := `[]`
 	if total > 0 {
 		changed = 1
-		results = `[{"nodeId":"n1","loc":"kb:a","memoryId":"m1","replacements":` + itoa2531(total) + `,"fields":[{"field":"content","matches":` + itoa2531(total) + `}]}]`
+		results = `[{"nodeId":"n1","loc":"kb:a","memoryId":"m1","replacements":` + strconv.Itoa(total) + `,"fields":[{"field":"content","matches":` + strconv.Itoa(total) + `}]}]`
 	}
-	return `{"data":{"searchReplaceInNodes":{"nodesScanned":` + itoa2531(scanned) +
-		`,"nodesSelected":` + itoa2531(selected) + `,"nodesSkipped":` + itoa2531(skipped) +
-		`,"nodesChanged":` + itoa2531(changed) + `,"totalReplacements":` + itoa2531(total) +
+	return `{"data":{"searchReplaceInNodes":{"nodesScanned":` + strconv.Itoa(scanned) +
+		`,"nodesSelected":` + strconv.Itoa(selected) + `,"nodesSkipped":` + strconv.Itoa(skipped) +
+		`,"nodesChanged":` + strconv.Itoa(changed) + `,"totalReplacements":` + strconv.Itoa(total) +
 		`,"dryRun":` + d + `,"results":` + results + `}}}`
 }
 
-func itoa2531(n int) string {
-	b, _ := json.Marshal(n)
-	return string(b)
+// dryRunLog records the dryRun variable of every request a fake server saw.
+type dryRunLog struct {
+	mu   sync.Mutex
+	runs []bool
+}
+
+func (l *dryRunLog) add(dry bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.runs = append(l.runs, dry)
+}
+
+func (l *dryRunLog) seen() []bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]bool(nil), l.runs...)
 }
 
 // serveSkipped answers the preview (dryRun true) and the applied request
 // (dryRun false) with the same counts.
 func serveSkipped(t *testing.T, selected, skipped, total int) *httptest.Server {
 	t.Helper()
+	srv, _ := serveSkippedLogged(t, selected, skipped, total)
+	return srv
+}
+
+// serveSkippedLogged is serveSkipped plus the log of the dryRun values received.
+func serveSkippedLogged(t *testing.T, selected, skipped, total int) (*httptest.Server, *dryRunLog) {
+	t.Helper()
+	log := &dryRunLog{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Variables struct {
@@ -50,11 +73,12 @@ func serveSkipped(t *testing.T, selected, skipped, total int) *httptest.Server {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		dry := body.Variables.Input.DryRun != nil && *body.Variables.Input.DryRun
+		log.add(dry)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(skippedBody(dry, 3, selected, skipped, total)))
 	}))
 	t.Cleanup(srv.Close)
-	return srv
+	return srv, log
 }
 
 func runReplace2531(t *testing.T, srv *httptest.Server, extra ...string) (stdout, stderr string) {
@@ -94,8 +118,18 @@ func TestReplaceTextShowsSkippedCount2531(t *testing.T) {
 			}
 			// Skipped nodes were not inspected, so the line must not claim they
 			// still carry the old text (cli#2637 review).
-			if !strings.Contains(lines[1], "not inspected or changed") || !strings.Contains(lines[1], "may still contain the old text") || strings.Contains(lines[1], "still have the old text") {
-				t.Fatalf("the Skipped line must say skipped nodes were not inspected and may still contain the old text: %q", lines[1])
+			if !strings.Contains(lines[1], "not inspected or changed") {
+				t.Fatalf("the Skipped line must say skipped nodes were not inspected or changed: %q", lines[1])
+			}
+			if !strings.Contains(lines[1], "may still contain the old text") {
+				t.Fatalf("the Skipped line must say skipped nodes may still contain the old text: %q", lines[1])
+			}
+			if strings.Contains(lines[1], "still have the old text") {
+				t.Fatalf("the Skipped line must not claim skipped nodes still have the old text: %q", lines[1])
+			}
+			// One source for the protected kinds: the help, not this line (cli#2642).
+			if strings.Contains(lines[1], "comments") || !strings.Contains(lines[1], "hadron replace text --help") {
+				t.Fatalf("the Skipped line must point at the help and not list the kinds: %q", lines[1])
 			}
 		})
 		t.Run(c.name+"/json", func(t *testing.T) {
@@ -141,10 +175,21 @@ func TestReplaceTextNothingSkipped2531(t *testing.T) {
 // still shows on stdout when nodes were skipped.
 func TestReplaceTextNoMatchStillShowsSkipped2531(t *testing.T) {
 	out, errOut := runReplace2531(t, serveSkipped(t, 5, 2, 0), "--yes")
-	if !strings.Contains(errOut, "No matches") {
-		t.Fatalf("no-match note missing: %q", errOut)
+	if want := "No matches — nothing to replace (2 node(s) skipped).\n"; errOut != want {
+		t.Fatalf("stderr = %q, want %q", errOut, want)
 	}
 	if !strings.Contains(out, "Skipped 2 node(s)") {
 		t.Fatalf("skipped count must show on a no-match run: %q", out)
+	}
+}
+
+// --yes sends the preview (dryRun true) and then the applied request
+// (dryRun false): two requests, in that order.
+func TestReplaceTextYesSendsPreviewThenApplied2531(t *testing.T) {
+	srv, log := serveSkippedLogged(t, 5, 2, 4)
+	runReplace2531(t, srv, "--yes")
+	got := log.seen()
+	if len(got) != 2 || !got[0] || got[1] {
+		t.Fatalf("dryRun values = %v, want [true false]", got)
 	}
 }
