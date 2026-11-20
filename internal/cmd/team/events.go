@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -257,22 +258,24 @@ func eventTaskCell(e teamEventDTO) string {
 	return *e.TaskHandle + " " + short
 }
 
-// isTasklessSubjectAlarm reports whether an alarm type is raised without a
-// task and names its subject worker instead. It is the one definition of that
-// set: tasklessAlarmCell and the "team alarm ack" receipt both read it, so a new
-// alarm type or a rename is one edit here.
+// tasklessSubjectAlarmTypes is the one definition of the alarm types raised
+// without a task that name a subject worker instead. A type added here must get
+// a case in tasklessAlarmCell (TestEveryTasklessAlarmTypeRenders enforces it); a
+// type missing here renders "—" in the list and is dropped from the ack receipt.
+var tasklessSubjectAlarmTypes = []string{
+	"alarm.dark-worker", "alarm.lead-cadence", "alarm.coordinator-cadence", "alarm.start-failing",
+}
+
+// isTasklessSubjectAlarm reports whether t is one of tasklessSubjectAlarmTypes.
+// tasklessAlarmCell gates on it and the "team alarm ack" receipt filters on it.
 func isTasklessSubjectAlarm(t string) bool {
-	switch t {
-	case "alarm.dark-worker", "alarm.lead-cadence", "alarm.coordinator-cadence", "alarm.start-failing":
-		return true
-	}
-	return false
+	return slices.Contains(tasklessSubjectAlarmTypes, t)
 }
 
 // Task-less alarm metadata is server-owned. Only known reason words reach
 // human output; evidence and arbitrary payload strings remain JSON-only.
 func tasklessAlarmCell(e teamEventDTO) string {
-	if e.SubjectWorker == nil {
+	if e.SubjectWorker == nil || !isTasklessSubjectAlarm(e.Type) {
 		return "—"
 	}
 	switch e.Type {
