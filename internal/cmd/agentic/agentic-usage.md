@@ -694,7 +694,7 @@ hadron policy explain --action <a> --app <ref> [--user <ref>] | set --mine (<jso
 hadron quota list --org <ref> [--app <ref>] | set --org <ref> [--app <ref>] --action <a> --limit <n>   # cli#1343; org ADMIN
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
-hadron email connections --org <id|urn> [--json]
+hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json]   # reads only (cli#198 Slice A): nothing sends, replies, drafts, moves, flags or deletes mail
 hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id>   # read-only Slack workspace connections; one page (server default 20), stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4; status is a recorded value, not a health check: ACTIVE = registered, not proof it works (a failed token is not always recorded), ERROR = recorded as failed, reason not shown; recovery is an org admin registering the workspace again (no CLI command or portal page yet); --app and the saved org do not apply
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
 hadron connection flow <flow-id> [--json]
@@ -5142,6 +5142,33 @@ or client completeness guarantee is invented. Empty JSON is []. Each row has
 lastSyncAt,createdAt,updatedAt}; displayName/lastSyncAt preserve null. No credentials
 or lastError are selected. Text quotes external strings. Error mapping remains
 unchanged, including unknown tool failures; no guessed reconnect remedy.
+
+`hadron email connections --org REF --limit N --offset N` (either flag) makes ONE
+paged request over exchangeConnectionsPage: an unset flag is omitted (the
+server's default applies), the reply carries the real `total` and `hasMore`,
+`--json` is then {items,total,hasMore} (the item shape above), and text ends
+with the total and, when more follow, the `--offset` that continues. One call is
+one page: the CLI never fetches the next page and never calls a list complete.
+The `--offset` hint counts from the effective offset (a negative one counts as
+0, as the server clamps it) and is withheld on an empty page. The bare form is unchanged. `--top`, `--limit` and `--offset` are checked
+only against the wire type (GraphQL Int, signed 32-bit; a value outside it exits
+2 with no request); inside that range the server decides. `--unread=false` is
+sent as an explicit `unreadOnly:false`; an unset `--unread` is omitted.
+
+`hadron email messages --connection ID [--top N] [--unread]` reads one bounded
+list of recent messages (exchangeMessages, once). `--top` is parsed as an integer
+and sent unchecked (the server clamps and has the default); unset `--top` and
+`--unread` are omitted, and the deprecated raw `filter` is never sent. `--json`
+is an array of {id,subject,from,receivedDateTime,bodyPreview,body,hasAttachments,
+isRead}; absent values are null, an empty result is []. The text table shows the
+preview, never the body, with control and escape sequences made visible; message
+text is external data and is never acted on or logged. `hadron email folders
+--connection ID` reads exchangeFolders once: [{id,displayName,totalItemCount,
+unreadItemCount}], counts null when the provider omits them. Both are owner-only
+(an App needs a covering grant; an org admin who is not the owner, and an
+impersonated session, are refused by the server): FORBIDDEN exit 8 passes
+through unchanged, unknown tool failures keep the existing fallback with no
+reconnect advice. A missing or blank `--connection` exits 2 with no request.
 
 
 `hadron connection connect <provider> --org REF` starts the OAuth flow that

@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 237: 199 command, 12 gap, 26 excluded
+[Query] 237: 202 command, 9 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -122,9 +122,9 @@ effectiveAccess  command access check
 effectiveActionPolicy  command policy explain
 effectiveModelGroups  command app model-group list
 exchangeConnections  command email connections
-exchangeConnectionsPage  gap #198
-exchangeFolders  gap #198
-exchangeMessages  gap #198
+exchangeConnectionsPage  command email connections
+exchangeFolders  command email folders
+exchangeMessages  command email messages
 findNodes  command search
 findObjects  command object find
 globalSearch  command find
@@ -627,7 +627,7 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 36: 16 gap, 20 excluded
+[Arguments] 37: 16 gap, 21 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
@@ -662,6 +662,7 @@ Mutation.updateTicker(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
+Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); proposed class unruled under #1334
 

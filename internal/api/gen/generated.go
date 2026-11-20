@@ -54136,6 +54136,131 @@ func (v *EmailConnectionsExchangeConnectionsExchangeConnection) GetUpdatedAt() s
 	return v.UpdatedAt
 }
 
+// EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage includes the requested fields of the GraphQL type ExchangeConnectionPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an org's exchange connections.
+type EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage struct {
+	Items   []*EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection `json:"items"`
+	Total   int                                                                                         `json:"total"`
+	HasMore bool                                                                                        `json:"hasMore"`
+}
+
+// GetItems returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage.Items, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage) GetItems() []*EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection {
+	return v.Items
+}
+
+// GetTotal returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage.Total, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
+// The GraphQL type's documentation follows.
+//
+// A connected PROVIDER ACCOUNT (identity record) — despite the name, this
+// one type carries mailboxes, calendars and Drive accounts alike; the
+// provider field below says which, and each routes to its own capability
+// tool. Provider state lives in that tool, never here.
+//
+// Operations are identity-scoped: the connection's OWNER may perform them,
+// and an App/headless caller may perform those covered by a live
+// ConnectionGrant whose scopes include the operation's (requireEmailConnection
+// enforces both branches, fail-closed for an unmapped operation). list and
+// delete stay org-ADMIN management operations.
+type EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	UserId         string `json:"userId"`
+	MailboxEmail   string `json:"mailboxEmail"`
+	// Provider backing this connection. Dispatched per-connection through
+	// the tool registry: `ms-exchange`, `gmail`, `google-cal`,
+	// `google-drive`. (This said "'ms-exchange' today" until #1232 — true
+	// when written, and three providers out of date by the time it was
+	// published.)
+	Provider    string     `json:"provider"`
+	DisplayName *string    `json:"displayName"`
+	SyncEnabled bool       `json:"syncEnabled"`
+	SyncStatus  SyncStatus `json:"syncStatus"`
+	LastSyncAt  *string    `json:"lastSyncAt"`
+	CreatedAt   string     `json:"createdAt"`
+	UpdatedAt   string     `json:"updatedAt"`
+}
+
+// GetId returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.Id, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetId() string {
+	return v.Id
+}
+
+// GetOrganizationId returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetUserId returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.UserId, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetUserId() string {
+	return v.UserId
+}
+
+// GetMailboxEmail returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.MailboxEmail, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetMailboxEmail() string {
+	return v.MailboxEmail
+}
+
+// GetProvider returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.Provider, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetDisplayName returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetDisplayName() *string {
+	return v.DisplayName
+}
+
+// GetSyncEnabled returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.SyncEnabled, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetSyncEnabled() bool {
+	return v.SyncEnabled
+}
+
+// GetSyncStatus returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.SyncStatus, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetSyncStatus() SyncStatus {
+	return v.SyncStatus
+}
+
+// GetLastSyncAt returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.LastSyncAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetLastSyncAt() *string {
+	return v.LastSyncAt
+}
+
+// GetCreatedAt returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPageItemsExchangeConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// EmailConnectionsPageResponse is returned by EmailConnectionsPage on success.
+type EmailConnectionsPageResponse struct {
+	// #2213 — `exchangeConnections` as a page: the same admission (org ADMIN/OWNER,
+	// platform admin) and FORBIDDEN refusal, the same rows and order, with the real
+	// total. Sizes as `tickersPage`.
+	ExchangeConnectionsPage *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage `json:"exchangeConnectionsPage"`
+}
+
+// GetExchangeConnectionsPage returns EmailConnectionsPageResponse.ExchangeConnectionsPage, and is useful for accessing the field via an interface.
+func (v *EmailConnectionsPageResponse) GetExchangeConnectionsPage() *EmailConnectionsPageExchangeConnectionsPageExchangeConnectionPage {
+	return v.ExchangeConnectionsPage
+}
+
 // EmailConnectionsResponse is returned by EmailConnections on success.
 type EmailConnectionsResponse struct {
 	// Exchange connections for an org.
@@ -54147,6 +54272,88 @@ type EmailConnectionsResponse struct {
 // GetExchangeConnections returns EmailConnectionsResponse.ExchangeConnections, and is useful for accessing the field via an interface.
 func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsExchangeConnectionsExchangeConnection {
 	return v.ExchangeConnections
+}
+
+// EmailFoldersExchangeFoldersExchangeFolder includes the requested fields of the GraphQL type ExchangeFolder.
+type EmailFoldersExchangeFoldersExchangeFolder struct {
+	Id              string `json:"id"`
+	DisplayName     string `json:"displayName"`
+	TotalItemCount  *int   `json:"totalItemCount"`
+	UnreadItemCount *int   `json:"unreadItemCount"`
+}
+
+// GetId returns EmailFoldersExchangeFoldersExchangeFolder.Id, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetId() string { return v.Id }
+
+// GetDisplayName returns EmailFoldersExchangeFoldersExchangeFolder.DisplayName, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetDisplayName() string { return v.DisplayName }
+
+// GetTotalItemCount returns EmailFoldersExchangeFoldersExchangeFolder.TotalItemCount, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetTotalItemCount() *int { return v.TotalItemCount }
+
+// GetUnreadItemCount returns EmailFoldersExchangeFoldersExchangeFolder.UnreadItemCount, and is useful for accessing the field via an interface.
+func (v *EmailFoldersExchangeFoldersExchangeFolder) GetUnreadItemCount() *int {
+	return v.UnreadItemCount
+}
+
+// EmailFoldersResponse is returned by EmailFolders on success.
+type EmailFoldersResponse struct {
+	ExchangeFolders []*EmailFoldersExchangeFoldersExchangeFolder `json:"exchangeFolders"`
+}
+
+// GetExchangeFolders returns EmailFoldersResponse.ExchangeFolders, and is useful for accessing the field via an interface.
+func (v *EmailFoldersResponse) GetExchangeFolders() []*EmailFoldersExchangeFoldersExchangeFolder {
+	return v.ExchangeFolders
+}
+
+// EmailMessagesExchangeMessagesExchangeMessage includes the requested fields of the GraphQL type ExchangeMessage.
+type EmailMessagesExchangeMessagesExchangeMessage struct {
+	Id               string  `json:"id"`
+	Subject          *string `json:"subject"`
+	From             *string `json:"from"`
+	ReceivedDateTime *string `json:"receivedDateTime"`
+	BodyPreview      *string `json:"bodyPreview"`
+	Body             *string `json:"body"`
+	HasAttachments   *bool   `json:"hasAttachments"`
+	IsRead           *bool   `json:"isRead"`
+}
+
+// GetId returns EmailMessagesExchangeMessagesExchangeMessage.Id, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetId() string { return v.Id }
+
+// GetSubject returns EmailMessagesExchangeMessagesExchangeMessage.Subject, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetSubject() *string { return v.Subject }
+
+// GetFrom returns EmailMessagesExchangeMessagesExchangeMessage.From, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetFrom() *string { return v.From }
+
+// GetReceivedDateTime returns EmailMessagesExchangeMessagesExchangeMessage.ReceivedDateTime, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetReceivedDateTime() *string {
+	return v.ReceivedDateTime
+}
+
+// GetBodyPreview returns EmailMessagesExchangeMessagesExchangeMessage.BodyPreview, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetBodyPreview() *string { return v.BodyPreview }
+
+// GetBody returns EmailMessagesExchangeMessagesExchangeMessage.Body, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetBody() *string { return v.Body }
+
+// GetHasAttachments returns EmailMessagesExchangeMessagesExchangeMessage.HasAttachments, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetHasAttachments() *bool {
+	return v.HasAttachments
+}
+
+// GetIsRead returns EmailMessagesExchangeMessagesExchangeMessage.IsRead, and is useful for accessing the field via an interface.
+func (v *EmailMessagesExchangeMessagesExchangeMessage) GetIsRead() *bool { return v.IsRead }
+
+// EmailMessagesResponse is returned by EmailMessages on success.
+type EmailMessagesResponse struct {
+	ExchangeMessages []*EmailMessagesExchangeMessagesExchangeMessage `json:"exchangeMessages"`
+}
+
+// GetExchangeMessages returns EmailMessagesResponse.ExchangeMessages, and is useful for accessing the field via an interface.
+func (v *EmailMessagesResponse) GetExchangeMessages() []*EmailMessagesExchangeMessagesExchangeMessage {
+	return v.ExchangeMessages
 }
 
 // 033-rag-vector-retrieval: what a memory's vector index is built from.
@@ -130864,6 +131071,46 @@ type __EmailConnectionsInput struct {
 // GetOrgId returns __EmailConnectionsInput.OrgId, and is useful for accessing the field via an interface.
 func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
 
+// __EmailConnectionsPageInput is used internally by genqlient
+type __EmailConnectionsPageInput struct {
+	OrgId  string `json:"orgId"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __EmailConnectionsPageInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsPageInput) GetOrgId() string { return v.OrgId }
+
+// GetLimit returns __EmailConnectionsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsPageInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __EmailConnectionsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__EmailConnectionsPageInput) GetOffset() *int { return v.Offset }
+
+// __EmailFoldersInput is used internally by genqlient
+type __EmailFoldersInput struct {
+	ConnectionId string `json:"connectionId"`
+}
+
+// GetConnectionId returns __EmailFoldersInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__EmailFoldersInput) GetConnectionId() string { return v.ConnectionId }
+
+// __EmailMessagesInput is used internally by genqlient
+type __EmailMessagesInput struct {
+	ConnectionId string `json:"connectionId"`
+	Top          *int   `json:"top,omitempty"`
+	UnreadOnly   *bool  `json:"unreadOnly,omitempty"`
+}
+
+// GetConnectionId returns __EmailMessagesInput.ConnectionId, and is useful for accessing the field via an interface.
+func (v *__EmailMessagesInput) GetConnectionId() string { return v.ConnectionId }
+
+// GetTop returns __EmailMessagesInput.Top, and is useful for accessing the field via an interface.
+func (v *__EmailMessagesInput) GetTop() *int { return v.Top }
+
+// GetUnreadOnly returns __EmailMessagesInput.UnreadOnly, and is useful for accessing the field via an interface.
+func (v *__EmailMessagesInput) GetUnreadOnly() *bool { return v.UnreadOnly }
+
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
 	MemoryRef  string  `json:"memoryRef"`
@@ -159064,6 +159311,147 @@ func EmailConnections(
 	}
 
 	data_ = &EmailConnectionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailConnectionsPage.
+const EmailConnectionsPage_Operation = `
+query EmailConnectionsPage ($orgId: ID!, $limit: Int, $offset: Int) {
+	exchangeConnectionsPage(orgId: $orgId, limit: $limit, offset: $offset) {
+		items {
+			id
+			organizationId
+			userId
+			mailboxEmail
+			provider
+			displayName
+			syncEnabled
+			syncStatus
+			lastSyncAt
+			createdAt
+			updatedAt
+		}
+		total
+		hasMore
+	}
+}
+`
+
+// One page of the same org-admin list (hadron-cli#198 Slice A). The same
+// projection as EmailConnections; limit and offset are omitted when unset so the
+// server's defaults apply. The reply carries the real total and hasMore.
+func EmailConnectionsPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId string,
+	limit *int,
+	offset *int,
+) (data_ *EmailConnectionsPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailConnectionsPage",
+		Query:  EmailConnectionsPage_Operation,
+		Variables: &__EmailConnectionsPageInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &EmailConnectionsPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailFolders.
+const EmailFolders_Operation = `
+query EmailFolders ($connectionId: ID!) {
+	exchangeFolders(connectionId: $connectionId) {
+		id
+		displayName
+		totalItemCount
+		unreadItemCount
+	}
+}
+`
+
+func EmailFolders(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionId string,
+) (data_ *EmailFoldersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailFolders",
+		Query:  EmailFolders_Operation,
+		Variables: &__EmailFoldersInput{
+			ConnectionId: connectionId,
+		},
+	}
+
+	data_ = &EmailFoldersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EmailMessages.
+const EmailMessages_Operation = `
+query EmailMessages ($connectionId: ID!, $top: Int, $unreadOnly: Boolean) {
+	exchangeMessages(connectionId: $connectionId, top: $top, unreadOnly: $unreadOnly) {
+		id
+		subject
+		from
+		receivedDateTime
+		bodyPreview
+		body
+		hasAttachments
+		isRead
+	}
+}
+`
+
+// One bounded read of a connection's recent messages (hadron-cli#198 Slice A).
+// top and unreadOnly are omitted when unset (the server defaults and clamps);
+// the deprecated raw `filter` argument is never sent. Message text is external
+// data: it is printed as data and never logged.
+func EmailMessages(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	connectionId string,
+	top *int,
+	unreadOnly *bool,
+) (data_ *EmailMessagesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EmailMessages",
+		Query:  EmailMessages_Operation,
+		Variables: &__EmailMessagesInput{
+			ConnectionId: connectionId,
+			Top:          top,
+			UnreadOnly:   unreadOnly,
+		},
+	}
+
+	data_ = &EmailMessagesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
