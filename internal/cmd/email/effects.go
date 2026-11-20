@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -69,6 +70,9 @@ func readBody(f *cmdutil.Factory, path string) (string, error) {
 	if len(b) > maxBodyBytes {
 		return "", exitcode.Newf(exitcode.Usage, "the body is larger than %d bytes", maxBodyBytes)
 	}
+	if !utf8.Valid(b) {
+		return "", exitcode.Newf(exitcode.Usage, "the body is not valid UTF-8 (JSON would alter it); convert it first")
+	}
 	if strings.TrimSpace(string(b)) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "the body is empty")
 	}
@@ -102,37 +106,34 @@ func isDefinitiveSendRefusal(err error) bool {
 	return graphQLAnswered(err) && api.OnlyErrorCodes(err, definitiveRefusalCodes...)
 }
 
-// withheld is what stands in for a body the server echoed back.
-const withheld = "[submitted body withheld]"
-
-// withhold removes the submitted body (and its trimmed form) from text the server
-// sent back: a provider error can quote it and a result field can contain it, and
-// the body must never come back out of this command (cor:sec / the gate's "never
-// echoed"). The rest of the text is untouched.
-func withhold(s, body string) string {
-	if body == "" {
-		return s
+// bodyFailure maps a failure of a command that SUBMITTED a message body (reply,
+// draft save, draft update). The server's error message can quote the body whole, in
+// part or escaped, and no redaction of free text is reliable, so such a command never
+// prints the server's message: it prints its own words plus the server's error CODE,
+// and keeps the exit class the error maps to. For a send, anything that is not a
+// definitive pre-send refusal also carries the unknown-outcome guidance. A failure
+// with no GraphQL answer at all keeps the existing mapping (it has no server text).
+func bodyFailure(err error, send bool, where string) error {
+	if !graphQLAnswered(err) {
+		if send {
+			return sendFailure(err, where)
+		}
+		return api.MapError(err)
 	}
-	s = strings.ReplaceAll(s, body, withheld)
-	if t := strings.TrimSpace(body); t != "" && t != body {
-		s = strings.ReplaceAll(s, t, withheld)
+	mapped := api.MapError(err)
+	msg := "the server answered with an error"
+	if code := api.ServerCodeOf(err); code != "" {
+		msg += " (" + code + ")"
 	}
-	return s
+	msg += "; its message is withheld because this command submits a message body"
+	if send && !isDefinitiveSendRefusal(err) {
+		msg += "; " + unknownOutcome(where)
+	}
+	return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), err)
 }
 
-// mapWithBody is api.MapError for a command that submitted a body: the server's
-// words and the exit class are kept, the submitted body is not.
-func mapWithBody(err error, body string) error {
-	mapped := api.MapError(err)
-	if body == "" || mapped == nil {
-		return mapped
-	}
-	msg := mapped.Error()
-	red := withhold(msg, body)
-	if red == msg {
-		return mapped
-	}
-	return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", red), err)
+func unknownOutcome(where string) string {
+	return fmt.Sprintf("outcome unknown: the request may have reached the server and the mail may have been sent; check the %s before trying again (the CLI does not retry)", where)
 }
 
 // sendFailure maps a failed send. A definitive pre-send refusal keeps its own words
@@ -140,16 +141,15 @@ func mapWithBody(err error, body string) error {
 // keeps the server's words and its exit class and adds that the outcome is unknown;
 // no answer at all is an unknown outcome outright. Either way the CLI never says
 // "failed" for what it cannot know, points at the folder to check, and never retries.
-func sendFailure(err error, where, body string) error {
+func sendFailure(err error, where string) error {
 	if isDefinitiveSendRefusal(err) {
-		return mapWithBody(err, body)
+		return api.MapError(err)
 	}
-	guidance := fmt.Sprintf("outcome unknown: the request may have reached the server and the mail may have been sent; check the %s before trying again (the CLI does not retry)", where)
 	if graphQLAnswered(err) {
-		mapped := mapWithBody(err, body)
-		return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s; %s", mapped.Error(), guidance), err)
+		mapped := api.MapError(err)
+		return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s; %s", mapped.Error(), unknownOutcome(where)), err)
 	}
-	return exitcode.Newf(exitcode.Unavailable, "%s", guidance)
+	return exitcode.Newf(exitcode.Unavailable, "%s", unknownOutcome(where))
 }
 
 type actionDTO struct {
@@ -160,8 +160,8 @@ type actionDTO struct {
 	OK           bool   `json:"ok"`
 }
 
-// finish renders a confirmed action, or the unconfirmed refusal.
-func finish(f *cmdutil.Factory, confirmed bool, dto actionDTO, line string, unconfirmed string) error {
+// writeConfirmedAction renders a confirmed action, or the unconfirmed refusal.
+func writeConfirmedAction(f *cmdutil.Factory, confirmed bool, dto actionDTO, line string, unconfirmed string) error {
 	if !confirmed {
 		return exitcode.Newf(exitcode.Unavailable, "%s", unconfirmed)
 	}
@@ -170,6 +170,13 @@ func finish(f *cmdutil.Factory, confirmed bool, dto actionDTO, line string, unco
 		_, e := fmt.Fprintln(w, line)
 		return e
 	})
+}
+
+// echoesBody reports whether a server field IS the submitted body (whole or trimmed),
+// which no genuine id ever is.
+func echoesBody(field, body string) bool {
+	f, b := strings.TrimSpace(field), strings.TrimSpace(body)
+	return b != "" && f == b
 }
 
 func connFlag(c *cobra.Command, v *string) {
@@ -220,9 +227,9 @@ Details:
 			}
 			r, err := gen.EmailReply(cmd.Context(), client, conn, msg, body)
 			if err != nil {
-				return sendFailure(err, "Sent folder", body)
+				return bodyFailure(err, true, "Sent folder")
 			}
-			return finish(f, r != nil && r.ExchangeReply, actionDTO{ConnectionID: conn, MessageID: msg, Action: "reply"},
+			return writeConfirmedAction(f, r != nil && r.ExchangeReply, actionDTO{ConnectionID: conn, MessageID: msg, Action: "reply"},
 				fmt.Sprintf("reply to message %q sent (server confirmed)", msg),
 				"the server did not confirm the reply: outcome unknown, check the Sent folder before trying again")
 		}}
@@ -299,19 +306,19 @@ Details:
 			}
 			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, optStr(cmd, "reply-to", replyTo), optStr(cmd, "subject", subject), optList(cmd, "to", to), optStr(cmd, "idempotency-key", key))
 			if err != nil {
-				return mapWithBody(err, body)
+				return bodyFailure(err, false, "")
 			}
 			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned no draft")
 			}
 			d := r.EmailSaveDraft
-			// A draft id that contains the submitted body is the server echoing it:
-			// withhold it from both the text and the JSON.
-			dto := draftDTO{DraftID: withhold(d.DraftId, body), ConversationID: d.ConversationId}
-			if dto.ConversationID != nil {
-				c := withhold(*dto.ConversationID, body)
-				dto.ConversationID = &c
+			// A field that IS the submitted body is the server echoing it back, not an
+			// id: refuse it rather than print it (no substitute id is shown). A valid
+			// opaque id that merely contains a short body is left intact.
+			if echoesBody(d.DraftId, body) || (d.ConversationId != nil && echoesBody(*d.ConversationId, body)) {
+				return exitcode.Newf(exitcode.Unavailable, "server returned an unusable draft: a field repeats the submitted body")
 			}
+			dto := draftDTO{DraftID: d.DraftId, ConversationID: d.ConversationId}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, e := fmt.Fprintf(w, "draft saved: %q (not sent)\n", dto.DraftID)
 				return e
@@ -356,9 +363,9 @@ Details:
 			}
 			r, err := gen.EmailUpdateDraft(cmd.Context(), client, conn, id, body)
 			if err != nil {
-				return mapWithBody(err, body)
+				return bodyFailure(err, false, "")
 			}
-			return finish(f, r != nil && r.EmailUpdateDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-update"},
+			return writeConfirmedAction(f, r != nil && r.EmailUpdateDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-update"},
 				fmt.Sprintf("draft %q updated (not sent)", id), "the server did not confirm the draft update; read the draft back to see its body")
 		}}
 	connFlag(c, &connection)
@@ -402,9 +409,9 @@ Details:
 			}
 			r, err := gen.EmailSendDraft(cmd.Context(), client, conn, id, optStr(cmd, "idempotency-key", key))
 			if err != nil {
-				return sendFailure(err, "Sent folder", "")
+				return sendFailure(err, "Sent folder")
 			}
-			return finish(f, r != nil && r.EmailSendDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-send"},
+			return writeConfirmedAction(f, r != nil && r.EmailSendDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-send"},
 				fmt.Sprintf("draft %q sent (server confirmed)", id),
 				"the server did not confirm the send: outcome unknown, check the Sent folder before trying again")
 		}}
@@ -443,7 +450,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return finish(f, r != nil && r.EmailMarkRead, actionDTO{ConnectionID: conn, MessageID: msg, Action: "mark-read"},
+			return writeConfirmedAction(f, r != nil && r.EmailMarkRead, actionDTO{ConnectionID: conn, MessageID: msg, Action: "mark-read"},
 				fmt.Sprintf("message %q updated (server confirmed)", msg), "the server did not confirm the change; read the message back to see its state")
 		}}
 	connFlag(c, &connection)
@@ -494,7 +501,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return finish(f, r != nil && r.EmailFlagMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "flag"},
+			return writeConfirmedAction(f, r != nil && r.EmailFlagMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "flag"},
 				fmt.Sprintf("message %q flag updated (server confirmed)", msg), "the server did not confirm the change; read the message back to see its flag")
 		}}
 	connFlag(c, &connection)
@@ -538,7 +545,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return finish(f, r != nil && r.EmailCategorizeMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "categorize"},
+			return writeConfirmedAction(f, r != nil && r.EmailCategorizeMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "categorize"},
 				fmt.Sprintf("message %q categories set (server confirmed)", msg), "the server did not confirm the change; read the message back to see its categories")
 		}}
 	connFlag(c, &connection)
@@ -575,7 +582,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return finish(f, r != nil && r.EmailDeleteMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "delete"},
+			return writeConfirmedAction(f, r != nil && r.EmailDeleteMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "delete"},
 				fmt.Sprintf("message %q deleted (server confirmed)", msg), "the server did not confirm the delete; read the folder to see whether the message is still there")
 		}}
 	connFlag(c, &connection)
@@ -610,7 +617,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return finish(f, r != nil && r.ExchangeMoveMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "move"},
+			return writeConfirmedAction(f, r != nil && r.ExchangeMoveMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "move"},
 				fmt.Sprintf("message %q moved (server confirmed)", msg), "the server did not confirm the move; read the folders to see where the message is")
 		}}
 	connFlag(c, &connection)
