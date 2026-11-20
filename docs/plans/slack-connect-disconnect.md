@@ -21,7 +21,10 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   `api.Detached`, which cuts it from its raw chain and redacts every rendered string (message, `--json`
   serverCode, fault detail) with `api.RedactSecretText`, the transport's own redactor, which also covers the
   URL-encoded spellings an echoing gateway produces (`api.HoldsSecret` is its predicate). A clean server code
-  and the exit class survive. A success answer whose any field holds a token is withheld whole (Unavailable,
+  and the exit class survive. Text built from the operator's own `--org` in the recovery pointer is redacted
+  too (it can, by mistake, equal a token). Success needs a usable id (an empty id or object is unconfirmed,
+  Unavailable); an ERROR row is shown as registered with a recorded failure, not "connected"; an unknown status
+  names the real `slack get "<id>"` command. A success answer whose any field holds a token is withheld whole (Unavailable,
   nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary
   re-encoding.
 - **Recovery order.** The server's duplicate check (`deletedAt: null`, no status condition; hadron-server
