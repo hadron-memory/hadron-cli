@@ -574,3 +574,49 @@ func TestEmailDraftSaveFormsAreExclusive198(t *testing.T) {
 		}
 	}
 }
+
+// Joost's #2740 P2 F2: the body must not come back out in the CLI's output even when
+// the SERVER echoes it (a provider error message that quotes the submitted body, a
+// draft id that contains it). Error codes, exit classes and the unknown-outcome
+// guidance survive; the echoed body is withheld.
+func TestEmailBodyIsWithheldFromServerEchoes198(t *testing.T) {
+	body := bodyFile198(t, secretBody198)
+	echoErr := `{"errors":[{"message":"provider rejected body: ` + secretBody198 + ` is not valid","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`
+	for _, tc := range []struct {
+		name, op string
+		args     []string
+		sends    bool
+	}{
+		{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}, true},
+		{"draft save", "EmailSaveDraft", []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}, false},
+		{"draft update", "EmailUpdateDraft", []string{"draft", "update", "--connection", "c", "d1", "--body-file", body}, false},
+	} {
+		t.Run(tc.name+" error", func(t *testing.T) {
+			out, _, n, err := runEffect198(t, map[string]string{tc.op: echoErr}, "", tc.args...)
+			if err == nil || n != 1 {
+				t.Fatalf("err %v with %d requests", err, n)
+			}
+			all := out + err.Error()
+			if strings.Contains(all, "BODY-SECRET") {
+				t.Errorf("the submitted body came back out through the server's error: %s", all)
+			}
+			if !strings.Contains(strings.ToLower(all), "provider rejected") {
+				t.Errorf("the rest of the server's message was lost: %s", all)
+			}
+			if tc.sends && !strings.Contains(strings.ToLower(all), "outcome unknown") {
+				t.Errorf("the send lost its unknown-outcome guidance: %s", all)
+			}
+		})
+	}
+	echoID := `{"data":{"emailSaveDraft":{"draftId":"` + secretBody198 + `","conversationId":null}}}`
+	for _, jsonOut := range []bool{false, true} {
+		args := []string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}
+		if jsonOut {
+			args = append(args, "--json")
+		}
+		out, _, _, _ := runEffect198(t, map[string]string{"EmailSaveDraft": echoID}, "", args...)
+		if strings.Contains(out, "BODY-SECRET") {
+			t.Errorf("(json=%v) a draft id echoing the body was printed: %s", jsonOut, out)
+		}
+	}
+}
