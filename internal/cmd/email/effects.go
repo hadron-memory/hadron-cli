@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -121,15 +122,29 @@ func bodyFailure(err error, send bool, where string) error {
 		return api.MapError(err)
 	}
 	mapped := api.MapError(err)
+	// The code is DATA from outside too: it is shown, and carried into the --json
+	// envelope's serverCode, only when it is a well-formed code (UPPER_SNAKE), never
+	// as the raw string the server sent.
+	code := safeServerCode(api.ServerCodeOf(err))
 	msg := "the server answered with an error"
-	if code := api.ServerCodeOf(err); code != "" {
+	if code != "" {
 		msg += " (" + code + ")"
 	}
 	msg += "; its message is withheld because this command submits a message body"
 	if send && !isDefinitiveSendRefusal(err) {
 		msg += "; " + unknownOutcome(where)
 	}
-	return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), err)
+	return api.WithCode(exitcode.Newf(exitcode.FromError(mapped), "%s", msg), code)
+}
+
+var serverCodeShape = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
+
+// safeServerCode returns code when it is a well-formed server error code and "" otherwise.
+func safeServerCode(code string) string {
+	if serverCodeShape.MatchString(code) {
+		return code
+	}
+	return ""
 }
 
 func unknownOutcome(where string) string {
