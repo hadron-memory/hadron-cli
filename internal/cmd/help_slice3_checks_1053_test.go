@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -195,6 +196,13 @@ func TestScheduleUpdateEnabledAndAsSelfSendOnlyWhenPassed1053(t *testing.T) {
 func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
+	// Exercise comment handling through the real walk too, so its call to the
+	// example parser cannot be bypassed while the parser's unit tests pass.
+	ticker, rest, err := root.Find([]string{"ticker", "create"})
+	if err != nil || len(rest) != 0 {
+		t.Fatalf("ticker fixture: %v, %v", rest, err)
+	}
+	ticker.Example += "\n$ hadron ticker create --name parser-fixture --cadence-seconds 120 # ignore --intentionally-absent"
 	pages := [][]string{
 		{"run", "served-prompt"}, {"schedule", "create"}, {"schedule", "update"}, {"schedule", "preview"},
 		{"webhook", "create"}, {"task"}, {"task", "run"}, {"ticker"}, {"ticker", "create"}, {"ticker", "update"},
@@ -263,11 +271,62 @@ func TestSlice3HelpPointersAndExamplesResolve1053(t *testing.T) {
 
 func slice3ExampleArgs1053(block string) ([][]string, error) {
 	var examples [][]string
-	for _, line := range strings.Split(block, "\n") {
-		line = strings.TrimPrefix(strings.TrimSpace(line), "$ ")
-		if strings.HasPrefix(line, "hadron ") {
-			examples = append(examples, strings.Fields(strings.TrimPrefix(line, "hadron ")))
+	var command strings.Builder
+	quote, wordStart := rune(0), true
+	// Keep quoted/escaped hashes; only an unquoted hash starting a word is a
+	// shell comment. Quote state survives an explicit line continuation.
+	stripComment := func(line string) (string, bool) {
+		escaped, escapeWordStart := false, false
+		for i, c := range line {
+			switch {
+			case escaped:
+				escaped, wordStart = false, false
+			case c == '\\' && quote != '\'':
+				escaped, escapeWordStart = true, wordStart
+			case quote != 0:
+				if c == quote {
+					quote = 0
+				}
+			case c == '\'' || c == '"':
+				quote, wordStart = c, false
+			case c == '#' && wordStart:
+				return line[:i], false
+			default:
+				wordStart = c == ' ' || c == '\t'
+			}
 		}
+		if escaped {
+			wordStart = escapeWordStart
+		}
+		return line, escaped
+	}
+	for _, raw := range strings.Split(block, "\n") {
+		line := strings.TrimSuffix(raw, "\r")
+		if command.Len() == 0 {
+			line = strings.TrimPrefix(strings.TrimLeft(line, " \t"), "$ ")
+			if !strings.HasPrefix(line, "hadron ") {
+				continue
+			}
+		}
+		line, continued := stripComment(line)
+		if continued {
+			command.WriteString(strings.TrimSuffix(line, "\\"))
+			continue
+		}
+		command.WriteString(line)
+		words, err := splitShell(command.String())
+		if err != nil {
+			return nil, fmt.Errorf("example %q: %w", command.String(), err)
+		}
+		if len(words) < 2 {
+			return nil, fmt.Errorf("example %q has no command", command.String())
+		}
+		examples = append(examples, words[1:])
+		command.Reset()
+		quote, wordStart = 0, true
+	}
+	if command.Len() != 0 {
+		return nil, fmt.Errorf("example has an unfinished continuation")
 	}
 	return examples, nil
 }
@@ -281,6 +340,9 @@ func TestSlice3ExampleParsing2559(t *testing.T) {
 		{"prompt and continuation", "$ hadron ticker create \\\n  --name check-in \\\n  --cadence-seconds 120 # ignore --not-a-flag", [][]string{{"ticker", "create", "--name", "check-in", "--cadence-seconds", "120"}}, false},
 		{"quoted comment character", "hadron ticker create --name '# --not-a-flag' --cadence-seconds 120 # comment --bogus", [][]string{{"ticker", "create", "--name", "# --not-a-flag", "--cadence-seconds", "120"}}, false},
 		{"hash within word", "hadron ticker create --name check#in", [][]string{{"ticker", "create", "--name", "check#in"}}, false},
+		{"escaped hash", "hadron ticker create --name \\#tag # ignore --bogus", [][]string{{"ticker", "create", "--name", "#tag"}}, false},
+		{"quoted continuation", "hadron ticker create --name \"joined\\\n#value\"", [][]string{{"ticker", "create", "--name", "joined#value"}}, false},
+		{"literal trailing backslash", "hadron ticker create --name path\\\\", [][]string{{"ticker", "create", "--name", "path\\"}}, false},
 		{"comment and prompt", "# hadron absent --bogus\n$ hadron ticker list", [][]string{{"ticker", "list"}}, false},
 		{"unfinished continuation", "hadron ticker create \\", nil, true},
 		{"unfinished quote", "hadron ticker create --name 'unfinished", nil, true},
