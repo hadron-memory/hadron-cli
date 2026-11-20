@@ -92,3 +92,15 @@ func TestSetTokenErrorTokenBranchIsCapped2650(t *testing.T) {
 		t.Errorf("token leaked: %q", msg)
 	}
 }
+
+// TestSetTokenErrorDropsServerCodeThatEchoesAnEscapedToken2650 closes the gap
+// the plain-token check left: a server code carrying the token in a
+// JSON-escaped spelling (a quote in the token) must be dropped too.
+func TestSetTokenErrorDropsServerCodeThatEchoesAnEscapedToken2650(t *testing.T) {
+	const token = `tok"SENT\INEL`
+	code := `BAD tok\"SENT\\INEL`
+	err := &gqlerror.Error{Message: "refused", Extensions: map[string]any{"code": code}}
+	if got := carriedCode(setTokenError(err, token)); got != "" {
+		t.Errorf("a server code holding an escaped spelling of the token must be dropped, got %q", got)
+	}
+}
