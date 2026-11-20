@@ -462,3 +462,115 @@ func TestEmailEffectPromptsAreSafeAndAnswered198(t *testing.T) {
 		})
 	}
 }
+
+// Jane's #2740 P2 F1: a missing draft result is not a saved draft. A nil wrapper,
+// a null emailSaveDraft and a blank draftId are all "the server returned no
+// draft" (exit 7), never a success line or a panic.
+func TestEmailDraftSaveMissingResult198(t *testing.T) {
+	body := bodyFile198(t, "x")
+	for _, wire := range []string{`{"data":{}}`, `{"data":{"emailSaveDraft":null}}`, `{"data":{"emailSaveDraft":{"draftId":"","conversationId":null}}}`, `{"data":{"emailSaveDraft":{"draftId":"  ","conversationId":null}}}`} {
+		t.Run(wire, func(t *testing.T) {
+			out, _, n, err := runEffect198(t, map[string]string{"EmailSaveDraft": wire}, "", "draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body)
+			if exitCodeFor(err) != 7 || n != 1 {
+				t.Fatalf("exit %d (%v) with %d requests; want exit 7 and one request", exitCodeFor(err), err, n)
+			}
+			if strings.Contains(strings.ToLower(out), "saved") {
+				t.Errorf("a missing result printed a success line: %s", out)
+			}
+		})
+	}
+}
+
+// Jane's P2 F2: a GraphQL error is not proof the mail was never sent. Only the
+// documented pre-send refusals (authorization, authentication, validation) are
+// definitive; any other error keeps the server's words AND says the outcome is
+// unknown, so the caller checks the Sent folder before trying again. A mixed list
+// is ambiguous too.
+func TestEmailSendExecutionErrorsKeepOutcomeUnknown198(t *testing.T) {
+	body := bodyFile198(t, "x")
+	sends := []struct {
+		name, op string
+		args     []string
+	}{
+		{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
+		{"draft send", "EmailSendDraft", []string{"draft", "send", "--connection", "c", "d1", "--yes"}},
+	}
+	for _, s := range sends {
+		for _, tc := range []struct {
+			name, wire    string
+			wantUnknown   bool
+			wantServerTxt string
+		}{
+			{"forbidden is a definitive refusal", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`, false, "Forbidden"},
+			{"unauthenticated is definitive", `{"errors":[{"message":"sign in","extensions":{"code":"UNAUTHENTICATED"}}]}`, false, "sign in"},
+			{"a provider tool error may have sent", `{"errors":[{"message":"provider hiccup","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`, true, "provider hiccup"},
+			{"an internal error may have sent", `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "boom"},
+			{"an uncoded error may have sent", `{"errors":[{"message":"odd"}]}`, true, "odd"},
+			{"a mixed list is ambiguous", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "boom"},
+		} {
+			t.Run(s.name+" "+tc.name, func(t *testing.T) {
+				_, _, n, err := runEffect198(t, map[string]string{s.op: tc.wire}, "", s.args...)
+				if err == nil || n != 1 {
+					t.Fatalf("err %v with %d requests; want an error and exactly one request", err, n)
+				}
+				msg := strings.ToLower(err.Error())
+				if !strings.Contains(msg, strings.ToLower(tc.wantServerTxt)) {
+					t.Errorf("the server's own words were lost: %v", err)
+				}
+				unknown := strings.Contains(msg, "outcome unknown") && strings.Contains(msg, "sent folder")
+				if unknown != tc.wantUnknown {
+					t.Errorf("outcome-unknown guidance = %v, want %v: %v", unknown, tc.wantUnknown, err)
+				}
+			})
+		}
+	}
+}
+
+// Jane's P2 F3: reply's help must not promise a recipient-choosing workflow the
+// draft commands do not offer (a reply-draft has the provider's recipients; a
+// fresh draft is a different mode).
+func TestEmailReplyHelpPromisesNoRecipientWorkflow198(t *testing.T) {
+	f, _ := testFactory(t)
+	cmd, _, err := NewRootCmd(f).Find([]string{"email", "reply"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(cmd.Long), " ")
+	if strings.Contains(help, "draft save --reply-to") || strings.Contains(help, "chosen recipients") {
+		t.Errorf("reply help promises a recipient-choosing workflow: %q", help)
+	}
+	if !strings.Contains(help, "SENDER only") {
+		t.Errorf("reply help no longer says it goes to the sender only: %q", help)
+	}
+}
+
+// Jane's P3 F4: draft save has two exclusive forms; anything else is a usage error
+// with zero requests, before the body is read.
+func TestEmailDraftSaveFormsAreExclusive198(t *testing.T) {
+	body := bodyFile198(t, "x")
+	resp := map[string]string{"EmailSaveDraft": `{"data":{"emailSaveDraft":{"draftId":"d","conversationId":null}}}`}
+	base := []string{"draft", "save", "--connection", "c", "--body-file", body}
+	for _, bad := range [][]string{
+		{},
+		{"--to", "a@example.test"},
+		{"--subject", "Hi"},
+		{"--reply-to", "m1", "--to", "a@example.test"},
+		{"--reply-to", "m1", "--subject", "Hi"},
+		{"--reply-to", "  "},
+		{"--to", " ", "--subject", "Hi"},
+	} {
+		_, _, n, err := runEffect198(t, resp, "", append(append([]string{}, base...), bad...)...)
+		if exitCodeFor(err) != 2 || n != 0 {
+			t.Errorf("draft save %v: exit %d (%v), %d requests; want a usage error and none sent", bad, exitCodeFor(err), err, n)
+		}
+	}
+	for _, good := range [][]string{
+		{"--reply-to", "m1"},
+		{"--to", "a@example.test", "--subject", "Hi"},
+		{"--to", "a@example.test", "--to", "b@example.test", "--subject", "Hi"},
+	} {
+		if _, _, n, err := runEffect198(t, resp, "", append(append([]string{}, base...), good...)...); err != nil || n != 1 {
+			t.Errorf("draft save %v: err %v, %d requests", good, err, n)
+		}
+	}
+}
