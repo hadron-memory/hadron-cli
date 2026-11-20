@@ -115,7 +115,7 @@ func TestSweepRunsHelpNamesThePrintedColumns2617(t *testing.T) {
 		t.Fatalf("no table header in the output:\n%s", out.String())
 	}
 	flat := strings.Join(strings.Fields(c.Long), " ")
-	if want := "columns " + strings.Join(header, ", ") + ";"; !strings.Contains(flat, want) {
+	if want := "columns " + strings.Join(header, ", ") + ")"; !strings.Contains(flat, want) {
 		t.Errorf("the page does not name the printed columns %q", want)
 	}
 }
