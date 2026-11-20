@@ -137,9 +137,9 @@ func bodyFailure(err error, send bool, where string) error {
 	}
 	mapped := api.MapError(err)
 	// The code is DATA from outside too: it is shown, and carried into the --json
-	// envelope's serverCode, only when it is a well-formed code (UPPER_SNAKE), never
-	// as the raw string the server sent.
-	code := safeServerCode(api.ServerCodeOf(err))
+	// envelope's serverCode, only when it is on the fixed allowlist, never as the raw
+	// string the server sent.
+	code := allowlistedServerCode(api.ServerCodeOf(err))
 	msg := "the server answered with an error"
 	if code != "" {
 		msg += " (" + code + ")"
@@ -161,8 +161,8 @@ var knownServerCodes = map[string]bool{
 	"RATE_LIMITED": true, "SERVICE_UNAVAILABLE": true,
 }
 
-// safeServerCode returns code when it is on the allowlist and "" otherwise.
-func safeServerCode(code string) string {
+// allowlistedServerCode returns code when it is on the allowlist and "" otherwise.
+func allowlistedServerCode(code string) string {
 	if knownServerCodes[code] {
 		return code
 	}
@@ -207,13 +207,6 @@ func writeConfirmedAction(f *cmdutil.Factory, confirmed bool, dto actionDTO, lin
 		_, e := fmt.Fprintln(w, line)
 		return e
 	})
-}
-
-// echoesBody reports whether a server field IS the submitted body (whole or trimmed),
-// which no genuine id ever is.
-func echoesBody(field, body string) bool {
-	f, b := strings.TrimSpace(field), strings.TrimSpace(body)
-	return b != "" && f == b
 }
 
 func connFlag(c *cobra.Command, v *string) {
@@ -355,12 +348,11 @@ Details:
 				return exitcode.Newf(exitcode.Unavailable, "server returned no draft")
 			}
 			d := r.EmailSaveDraft
-			// A field that IS the submitted body is the server echoing it back, not an
-			// id: refuse it rather than print it (no substitute id is shown). A valid
-			// opaque id that merely contains a short body is left intact.
-			if echoesBody(d.DraftId, body) || (d.ConversationId != nil && echoesBody(*d.ConversationId, body)) {
-				return exitcode.Newf(exitcode.Unavailable, "server returned an unusable draft: a field repeats the submitted body")
-			}
+			// The ids are the server's own opaque values, printed as returned: the draft
+			// WAS created, so refusing or altering an id on a guess about its contents
+			// would lose the handle and invite a duplicate on retry. What this command
+			// never prints back is the body, in anything it renders itself or takes from
+			// a server error.
 			dto := draftDTO{DraftID: d.DraftId, ConversationID: d.ConversationId}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, e := fmt.Fprintf(w, "draft saved: %q (not sent)\n", dto.DraftID)

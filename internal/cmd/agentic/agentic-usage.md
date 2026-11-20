@@ -5201,26 +5201,27 @@ admin who is not the owner are refused) and its refusals pass through (FORBIDDEN
 tool failures keep the existing fallback with no reconnect advice, and a false answer exits 7 "not
 confirmed". A missing or blank `--connection` or id exits 2 with no request.
 - `email reply MESSAGE-ID --connection ID --body-file PATH|-` calls exchangeReply and replies to
-  the SENDER only (the server takes no recipient: no `--all`, no `--to`). It SENDS MAIL: asks y/N on a terminal, else exit 2 with ZERO
-  requests unless `--yes`. The body (file, or `-` for stdin; required, nonempty, 1 MiB max) is never
-  printed back. No answer from the server (a dropped connection, a timeout) is exit 7 "outcome
-  unknown ... check the Sent folder", never "failed": the mail may have been sent, and the CLI does
-  not retry. Only a pre-send refusal (FORBIDDEN, UNAUTHENTICATED, BAD_USER_INPUT, GraphQL
-  validation) is definitive and keeps the server's words alone; any other GraphQL error (a provider
-  tool error, an internal error, an uncoded one) also carries the same "outcome unknown, check the
-  Sent folder" guidance, and the exit class is the one the error maps to. A command that SUBMITS a
-  body (reply, draft save, draft update) never prints the server's error MESSAGE (it can quote the
-  body whole, in part or escaped): it prints its own words plus the server's error CODE when that is
-  a recognised protocol code (an allowlist: an unknown or body-derived code is dropped, in the message
-  and in the --json serverCode). An HTTP answer with no GraphQL errors (a proxy or non-conforming
-  server body) prints only "the server answered HTTP NNN with no usable error", never its body. A save
-  result whose draftId or conversationId IS the submitted body is exit 7 (no substitute id); a valid
-  id that merely contains a short body is printed intact. A body that is not valid UTF-8, over
-  1 MiB, or `--body-file -` on an interactive terminal exits 2 with no request. There is no idempotency key on reply.
+  the SENDER only (the server takes no recipient: no `--all`, no `--to`). It SENDS MAIL: asks y/N on
+  a terminal, else exit 2 with ZERO requests unless `--yes` (refused before stdin is read). The body
+  (file, or `-` for stdin; required, nonempty, valid UTF-8, 1 MiB max; `--body-file -` on an
+  interactive terminal exits 2) is never printed back, and exits 2 with no request when invalid.
+  Failures of the commands that SUBMIT a body (reply, draft save, draft update) never print the
+  server's error MESSAGE (it can quote the body whole, in part or escaped): they print their own
+  words plus the server's error CODE when it is on a fixed allowlist of protocol codes (an unknown
+  or body-derived code is dropped, in the message and in the --json serverCode), and keep the exit
+  class the error maps to. An HTTP answer with no GraphQL errors (a proxy or non-conforming
+  server body) prints only the HTTP status for draft save and draft update, never its body.
+  For the SEND (reply, and draft send): only a pre-send refusal (FORBIDDEN, UNAUTHENTICATED,
+  BAD_USER_INPUT, GraphQL validation) is definitive; any other GraphQL error, and any answer with no
+  usable GraphQL error at all (a dropped connection, a timeout, a bad HTTP answer), carries "outcome
+  unknown ... check the Sent folder" (never "failed": the mail may have been sent) and the CLI does
+  not retry. Draft send has no body and keeps the server's words. There is no idempotency key on reply.
 - `email draft save` calls emailSaveDraft: a reply-draft with `--reply-to` ALONE, or a fresh one with
   `--to` (repeatable) AND `--subject` (any other combination exits 2 with no request and before the
   body is read); the body is HTML sent as written. It prints {draftId,conversationId}
-  (conversationId may be null); a missing or blank draft in the answer is exit 7, never a success. `--idempotency-key` is passed unchanged
+  (conversationId may be null), printed as the server returned them: a draft that was created is never
+  refused or altered on a guess about its id. A missing or blank draft in the answer is exit 7, never a
+  success. `--idempotency-key` is passed unchanged
   and omitted when unset: the CLI never invents or replays one. `draft update DRAFT-ID` calls
   emailUpdateDraft and replaces the body only; it has no idempotency key because the server has
   none. `draft send DRAFT-ID` calls emailSendDraft: SENDS MAIL (confirmation or `--yes`),
