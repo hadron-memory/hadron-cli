@@ -290,7 +290,7 @@ signing page — the request prints that page's link, the server's own URL,
 while it is open — and agents may ask but never sign.
 
 Any reader of the node may ask. Without --signer, any writer of the node's
-memory may sign; --signer names one user (by id), pinned for the life of the
+memory may sign; --signer names one user (by id; hadron user search lists them), pinned for the life of the
 request. Pass --revision from a prior node read to refuse if the node changed
 since you saw it. The request ends exactly once: completed, declined,
 withdrawn, expired, or stale when the title, abstract or content changes.

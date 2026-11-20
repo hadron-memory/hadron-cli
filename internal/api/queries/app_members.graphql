@@ -6,7 +6,7 @@
 
 # An idempotent upsert: the same role is a repeat, a different role changes the
 # membership. The selection is the smallest that names the row.
-mutation EnsureAppMember($appRef: String!, $userRef: String!, $role: String!) {
+mutation EnsureAppMember($appRef: ID!, $userRef: ID!, $role: String!) {
   ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role) {
     role
     createdAt
@@ -21,7 +21,7 @@ mutation EnsureAppMember($appRef: String!, $userRef: String!, $role: String!) {
 # true whether or not a row existed (a deleteMany server-side), so the result
 # says nothing about prior membership. A pointer so an absent answer (null,
 # e.g. beside an error) stays distinguishable from an answered false.
-mutation RemoveAppMember($appRef: String!, $userRef: String!) {
+mutation RemoveAppMember($appRef: ID!, $userRef: ID!) {
   # @genqlient(pointer: true)
   removeAppMember(appRef: $appRef, userRef: $userRef)
 }
@@ -59,7 +59,7 @@ query AppMemberRoles($appRef: ID!) {
 # cli#1594 (hadron-server#3308, 517eb1db): the member doors carrying a
 # holder's instruction claim; separate so the documents above stay unchanged.
 # An instructed no-op (an existing member, an absent one) still records a claim.
-mutation EnsureAppMemberInstructed($appRef: String!, $userRef: String!, $role: String!, $instruction: ActInstructionInput!) {
+mutation EnsureAppMemberInstructed($appRef: ID!, $userRef: ID!, $role: String!, $instruction: ActInstructionInput!) {
   ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role, instruction: $instruction) {
     role
     createdAt
@@ -71,7 +71,7 @@ mutation EnsureAppMemberInstructed($appRef: String!, $userRef: String!, $role: S
   }
 }
 
-mutation RemoveAppMemberInstructed($appRef: String!, $userRef: String!, $instruction: ActInstructionInput!) {
+mutation RemoveAppMemberInstructed($appRef: ID!, $userRef: ID!, $instruction: ActInstructionInput!) {
   # @genqlient(pointer: true)
   removeAppMember(appRef: $appRef, userRef: $userRef, instruction: $instruction)
 }

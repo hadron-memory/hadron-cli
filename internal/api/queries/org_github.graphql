@@ -14,14 +14,14 @@ fragment OrgGithubFields on Organization {
   hasGithubAppPrivateKey
 }
 
-mutation LinkGithubApp($orgId: ID!, $installationId: Int!) {
-  linkGithubApp(orgId: $orgId, installationId: $installationId) {
+mutation LinkGithubApp($orgRef: ID!, $installationId: Int!) {
+  linkGithubApp(orgRef: $orgRef, installationId: $installationId) {
     ...OrgGithubFields
   }
 }
 
-mutation UnlinkGithubApp($orgId: ID!) {
-  unlinkGithubApp(orgId: $orgId) {
+mutation UnlinkGithubApp($orgRef: ID!) {
+  unlinkGithubApp(orgRef: $orgRef) {
     ...OrgGithubFields
   }
 }
@@ -29,8 +29,8 @@ mutation UnlinkGithubApp($orgId: ID!) {
 # privateKey is required: set-app always sets the credentials as a pair, so
 # there is no omit-vs-clear distinction to preserve (unlike
 # updateOrganization) and no omitempty annotations here.
-mutation UpdateOrgGithubApp($orgId: ID!, $appId: String!, $privateKey: String!) {
-  updateOrgGithubApp(orgId: $orgId, appId: $appId, privateKey: $privateKey) {
+mutation UpdateOrgGithubApp($orgRef: ID!, $appId: String!, $privateKey: String!) {
+  updateOrgGithubApp(orgRef: $orgRef, appId: $appId, privateKey: $privateKey) {
     ...OrgGithubFields
   }
 }

@@ -131,7 +131,10 @@ issue that owns the page), \`help-hash\` (the first 12 hex characters of the
 sha256 of captured help text), then the three HUMAN columns \`evaluator\`, \`result\`
 (\`unread\` | \`pass\` | \`fail\`; \`unread\` is never a pass; \`pass\` needs a named
 evaluator who is not the author of the text) and \`finding\` (a link to the
-assessment). The generator keeps these three by path only while the page's
+assessment). The help-hash tracks the page's help text only, not the code
+behind it: it is not a last-reviewed code state, and a row resets only when that
+text changes.
+The generator keeps these three by path only while the page's
 help-hash is unchanged. A changed hash clears evaluator and finding and resets
 both pass and fail to unread; a child that fixes help must re-assess the row.
 For first adoption, a missing or empty hash is seeded from current help while
