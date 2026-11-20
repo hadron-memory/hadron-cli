@@ -786,9 +786,9 @@ section between the markers.
 | `orca host plan` |  |  | n | #1396 | 262800770765 |  | unread |  |
 | `orca terminal` |  |  | n | #1396 | 10be515f1d47 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 | `orca terminal status` |  |  | y | #1396 | b61334b2b45c |  | unread |  |
-| `slack` |  |  | y | #1396 | 58bd599f7e4a |  | unread |  |
-| `slack connect` |  |  | y | #1396 | 1ca988247fd2 |  | unread |  |
-| `slack disconnect` |  |  | y | #1396 | 907bde3442dd |  | unread |  |
+| `slack` |  |  | y | #1396 | 8055a1fd1da5 |  | unread |  |
+| `slack connect` |  |  | y | #1396 | cbc4e66e17ef |  | unread |  |
+| `slack disconnect` |  |  | y | #1396 | 8c3d825bd291 |  | unread |  |
 | `slack get` |  |  | y | #1396 | cd1e7c877ab9 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 | `slack status` |  |  | y | #1396 | 3d39cb70d59f | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 <!-- group:1396 end -->

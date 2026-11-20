@@ -26,20 +26,53 @@ type disconnectDTO struct {
 	Disconnected bool   `json:"disconnected"`
 }
 
-// withheld replaces a server message that repeated one of the request's own
-// secrets. A server or proxy error may echo the request; the tokens must never
-// reach the operator's terminal or log through it.
-func withheld(mapped, raw error, secrets ...string) error {
-	if mapped == nil {
-		return nil
-	}
-	text := mapped.Error()
-	for _, s := range secrets {
-		if s != "" && strings.Contains(text, s) {
-			return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "the server's message repeated a token and was withheld"), raw)
+// withheldMark replaces a submitted token wherever the server's text repeated it.
+const withheldMark = "[token withheld]"
+
+// holdsSecret reports whether s contains any submitted token.
+func holdsSecret(s string, secrets []string) bool {
+	for _, t := range secrets {
+		if t != "" && strings.Contains(s, t) {
+			return true
 		}
 	}
-	return mapped
+	return false
+}
+
+// withholdEchoedTokens removes every submitted token from s. A server or proxy
+// error may echo the request, so nothing the server said reaches the operator
+// before this runs: the message, and (below) the server code and every field of
+// a success answer.
+func withholdEchoedTokens(s string, secrets []string) string {
+	for _, t := range secrets {
+		if t != "" {
+			s = strings.ReplaceAll(s, t, withheldMark)
+		}
+	}
+	return s
+}
+
+// guardedWriteError is the final error of a failed connect. The server's message
+// is scrubbed BEFORE the command's own recovery text is added around it (so a
+// token echo never costs the operator the unknown-outcome notice); the server
+// code is kept only when it carries no token (the --json envelope prints it);
+// the exit class is the server's. raw itself is never wrapped, so no other
+// field of it can reach the envelope.
+func guardedWriteError(raw error, secrets []string, recovery string) error {
+	mapped := api.MapError(raw)
+	class := exitcode.FromError(mapped)
+	code := api.ServerCodeOf(raw)
+	if holdsSecret(code, secrets) {
+		code = ""
+	}
+	base := mapped
+	if holdsSecret(mapped.Error(), secrets) {
+		base = exitcode.Newf(class, "%s", withholdEchoedTokens(mapped.Error(), secrets))
+	}
+	if class == exitcode.Error || class == exitcode.Unavailable {
+		base = exitcode.Newf(class, "%s: %s", recovery, base)
+	}
+	return api.WithCode(base, code)
 }
 
 // readToken reads one token from its file flag. "-" is stdin and is refused on
@@ -75,7 +108,9 @@ that is already connected; those refusals are passed through. This command does
 not check any of them.
 
 One request is sent and never retried. If its answer is lost, the outcome is
-unknown: "hadron slack status --org <ref>" shows whether the connection exists.
+unknown: "hadron slack status --org <ref>" lists the organization's connections
+one page at a time, so follow its --offset hint before deciding the workspace is
+not connected.
 On success it shows the connection the way "hadron slack get" does (never a
 token). Re-connecting a workspace that was disconnected registers it again.`,
 		Example: `  hadron slack connect --org hrn:org:acme.com --app hrn:app:acme.com:assistant \
@@ -113,18 +148,24 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			if err != nil {
 				return err
 			}
+			secrets := []string{bot, appTok}
+			where := fmt.Sprintf("run \"hadron slack status --org %s\": it lists connections one page at a time, so follow its --offset hint before deciding the workspace is not connected", orgRef)
 			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, appRef, bot, appTok)
 			if err != nil {
-				mapped := api.MapErrorKeepingCode(err)
-				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "connect outcome unknown (sent once, not retried); \"hadron slack status --org %s\" shows whether the connection exists: %s", strconv.Quote(orgRef), mapped), err)
-				}
-				return withheld(mapped, err, bot, appTok)
+				return guardedWriteError(err, secrets, "connect outcome unknown (sent once, not retried); "+where)
 			}
 			if resp == nil || resp.CreateSlackConnection == nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server returned no connection; \"hadron slack status --org %s\" shows whether it was created", strconv.Quote(orgRef))
+				return exitcode.Newf(exitcode.Unavailable, "the server returned no connection; %s", where)
 			}
 			v := resp.CreateSlackConnection
+			// A success answer is the server's text too: a field that repeats a
+			// submitted token is never rendered, and nothing from it (not even the
+			// id) goes into the message.
+			for _, field := range []string{v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt} {
+				if holdsSecret(field, secrets) {
+					return exitcode.Newf(exitcode.Unavailable, "the server's answer repeated a submitted token and was withheld; the connection may exist: %s", where)
+				}
+			}
 			dto, err := toDTO(v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt)
 			if err != nil {
 				return exitcode.Newf(exitcode.Unavailable, "the connection was created (id %s) but the server returned an unknown status; read it with \"hadron slack get\"", strconv.Quote(v.Id))
@@ -150,9 +191,9 @@ func newDisconnect(f *cmdutil.Factory) *cobra.Command {
 		Use:   "disconnect <connection-id> [--yes]",
 		Short: "Remove a Slack workspace connection (org ADMIN)",
 		Long: `Remove one Slack workspace connection, by its ID (from "hadron slack status").
-The server marks the connection deleted and removes the stored Slack tokens on
-its side as far as it can; it does not say how far it got. Connect the
-workspace again with "hadron slack connect" to register it anew.
+The server marks the connection deleted and tries to remove the stored Slack
+tokens on its side (best effort; it does not say how far it got). Connecting
+the workspace again with "hadron slack connect" registers it anew.
 
 On a terminal this asks first; without one, --yes is required and nothing is
 sent without it. The server decides who may disconnect (organization ADMIN or
@@ -171,7 +212,7 @@ before trying again.`,
 			}
 			// Not ConfirmDeletion: its "cannot be undone" is false here. The server
 			// soft-deletes, and "hadron slack connect" registers the workspace again.
-			if err := cmdutil.Confirm(f.IOStreams, yes, "Disconnect Slack connection "+strconv.Quote(id)+"? The server removes its stored Slack tokens; connect the workspace again to restore it"); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Disconnect Slack connection "+strconv.Quote(id)+"? The server marks it deleted and tries to remove the stored Slack tokens (best effort, not reported); connecting the workspace again registers it anew"); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()

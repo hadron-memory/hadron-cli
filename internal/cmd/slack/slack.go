@@ -61,8 +61,8 @@ What the status means:
   ERROR means Hadron has recorded this connection as failed. The reason is not
   shown here, and this CLI never requests it.
 
-To recover, an organization admin registers the workspace again with "hadron
-slack connect".`, Example: "  hadron slack status\n  hadron slack get <connection-id>\n  hadron slack connect --org <ref> --app <ref> --bot-token-file <file> --app-token-file <file>\n  hadron slack disconnect <connection-id> --yes"}
+To recover, an organization admin registers the workspace again with
+"hadron slack connect".`, Example: "  hadron slack status\n  hadron slack get <connection-id>\n  hadron slack connect --org <ref> --app <ref> --bot-token-file <file> --app-token-file <file>\n  hadron slack disconnect <connection-id> --yes"}
 	c.AddCommand(newStatus(f), newGet(f), newConnect(f), newDisconnect(f))
 	return c
 }
