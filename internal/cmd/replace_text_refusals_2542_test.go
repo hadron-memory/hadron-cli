@@ -22,6 +22,7 @@ import (
 type replaceRecorder2542 struct {
 	mu   sync.Mutex
 	dry  []bool
+	gets int // GET requests (capability discovery), counted apart from GraphQL operations
 	srv  *httptest.Server
 	body string
 }
@@ -32,6 +33,9 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 	r.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if req.Method == http.MethodGet {
+			r.mu.Lock()
+			r.gets++
+			r.mu.Unlock()
 			_, _ = w.Write([]byte(`{"capabilities":[]}`))
 			return
 		}
@@ -65,7 +69,13 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 		r.mu.Lock()
 		r.dry = append(r.dry, *b.Variables.Input.DryRun)
 		r.mu.Unlock()
-		_, _ = w.Write([]byte(r.body))
+		// Answer a real write with a dryRun:false result, so the fixture is
+		// consistent with the request it answers.
+		body := r.body
+		if !*b.Variables.Input.DryRun {
+			body = strings.Replace(body, `"dryRun":true`, `"dryRun":false`, 1)
+		}
+		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(r.srv.Close)
 	return r
@@ -76,6 +86,13 @@ func (r *replaceRecorder2542) sequence() []bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]bool(nil), r.dry...)
+}
+
+// httpRequests is every request the server saw: GETs plus GraphQL operations.
+func (r *replaceRecorder2542) httpRequests() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.gets + len(r.dry)
 }
 
 func (r *replaceRecorder2542) counts() (total, writes int) {
@@ -130,15 +147,16 @@ func TestReplaceTextRefusalsExitTwoAndWriteNothing2542(t *testing.T) {
 			if !strings.Contains(err.Error(), tc.wantMsg) {
 				t.Errorf("message %q lacks %q", err.Error(), tc.wantMsg)
 			}
-			total, writes := rec.counts()
+			_, writes := rec.counts()
 			if writes != 0 {
 				t.Errorf("a refusal must never send a write; %d real request(s)", writes)
 			}
-			if tc.wantRequest && total == 0 {
-				t.Error("expected the read-only preview before this refusal")
-			}
-			if !tc.wantRequest && total != 0 {
-				t.Errorf("this refusal precedes any request; %d sent", total)
+			if tc.wantRequest {
+				if got := rec.sequence(); len(got) != 1 || !got[0] {
+					t.Errorf("want exactly one read-only preview (dryRun true) before this refusal, got %v", got)
+				}
+			} else if n := rec.httpRequests(); n != 0 {
+				t.Errorf("this refusal precedes any request (GET or GraphQL); %d sent", n)
 			}
 		})
 	}

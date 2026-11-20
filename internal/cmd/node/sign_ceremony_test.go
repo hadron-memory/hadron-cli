@@ -103,6 +103,9 @@ func TestCeremonyTextDisplayCleanIsVerbatim(t *testing.T) {
 		"osc":        "https://h/\x1b]8;;evil\x07x",
 		"zero-width": "https://h/sr\u200B1",
 	} {
+		if got := ceremonyText(in); strings.ContainsFunc(got, output.Neutralised) {
+			t.Errorf("%s: the raw characters must be gone from the output: %q", name, got)
+		}
 		if got, want := ceremonyText(in), output.SafeCell(in); got != want {
 			t.Errorf("%s: neutralised value must route through SafeCell:\ngot  %q\nwant %q", name, got, want)
 		}
