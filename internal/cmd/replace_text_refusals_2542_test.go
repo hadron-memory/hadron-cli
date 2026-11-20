@@ -9,6 +9,9 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
+
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -35,7 +38,12 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 			_, _ = w.Write([]byte(`{"capabilities":[]}`))
 			return
 		}
-		raw, _ := io.ReadAll(req.Body)
+		raw, err := io.ReadAll(req.Body)
+		if err != nil {
+			t.Errorf("replace recorder: reading the request body: %v", err)
+			http.Error(w, "unreadable request", http.StatusBadRequest)
+			return
+		}
 		var b struct {
 			OperationName string `json:"operationName"`
 			Query         string `json:"query"`
@@ -45,7 +53,7 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 				} `json:"input"`
 			} `json:"variables"`
 		}
-		if err := json.Unmarshal(raw, &b); err != nil {
+		if err = json.Unmarshal(raw, &b); err != nil {
 			t.Errorf("replace recorder: undecodable request body: %v", err)
 			http.Error(w, "undecodable request", http.StatusBadRequest)
 			return
@@ -54,7 +62,7 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 		// request; anything else is a test failure, not a silent "write".
 		// The named operation must also be the one the query document runs:
 		// the replace mutation, not a different query under that name.
-		if b.OperationName != "SearchReplaceInNodes" || !strings.Contains(b.Query, "searchReplaceInNodes") || b.Variables.Input.DryRun == nil {
+		if b.OperationName != "SearchReplaceInNodes" || !runsReplaceMutation2542(b.Query, b.OperationName) || b.Variables.Input.DryRun == nil {
 			t.Errorf("replace recorder: unexpected request (operation %q, dryRun set: %v): %s",
 				b.OperationName, b.Variables.Input.DryRun != nil, raw)
 			http.Error(w, "unexpected request", http.StatusBadRequest)
@@ -67,6 +75,27 @@ func newReplaceRecorder2542(t *testing.T, result string) *replaceRecorder2542 {
 	}))
 	t.Cleanup(r.srv.Close)
 	return r
+}
+
+// runsReplaceMutation2542 reports whether the query document, parsed as
+// GraphQL, defines the named mutation operation and selects the
+// searchReplaceInNodes root field in it (not in another operation, a fragment
+// or a comment).
+func runsReplaceMutation2542(query, name string) bool {
+	doc, err := parser.ParseQuery(&ast.Source{Input: query})
+	if err != nil {
+		return false
+	}
+	op := doc.Operations.ForName(name)
+	if op == nil || op.Operation != ast.Mutation {
+		return false
+	}
+	for _, sel := range op.SelectionSet {
+		if f, ok := sel.(*ast.Field); ok && f.Name == "searchReplaceInNodes" {
+			return true
+		}
+	}
+	return false
 }
 
 // sequence returns the requests in arrival order, as dryRun values.
@@ -174,5 +203,25 @@ func TestReplaceTextAppliedRunSendsARealWrite2542(t *testing.T) {
 	}
 	if got := rec.sequence(); len(got) != 2 || got[0] != true || got[1] != false {
 		t.Errorf("want a preview (dryRun true) then one write (dryRun false), got dryRun sequence %v", got)
+	}
+}
+
+// The recorder's operation check must not be fooled by the field name sitting
+// in a comment, another operation or a differently named operation.
+func TestRunsReplaceMutation2542(t *testing.T) {
+	const real = `mutation SearchReplaceInNodes($input: X!) { searchReplaceInNodes(input: $input) { dryRun } }`
+	if !runsReplaceMutation2542(real, "SearchReplaceInNodes") {
+		t.Fatal("the real operation must match")
+	}
+	for name, q := range map[string]string{
+		"comment only":       `# searchReplaceInNodes` + "\n" + `mutation SearchReplaceInNodes { other }`,
+		"other operation":    `query Other { searchReplaceInNodes } mutation SearchReplaceInNodes { other }`,
+		"query not mutation": `query SearchReplaceInNodes { searchReplaceInNodes }`,
+		"wrong name":         `mutation Different { searchReplaceInNodes }`,
+		"not graphql":        `searchReplaceInNodes {`,
+	} {
+		if runsReplaceMutation2542(q, "SearchReplaceInNodes") {
+			t.Errorf("%s must not match", name)
+		}
 	}
 }
