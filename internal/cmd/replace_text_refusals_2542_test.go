@@ -12,6 +12,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
+// Pre-existing helpers this file relies on, all in package cmd on main:
+// testFactory (root_test.go), captureGraphQL (commands_test.go), and
+// exitcode.Usage / exitcode.FromError (internal/exitcode).
+
 // replaceRecorder2542 answers SearchReplaceInNodes with a fixed result and
 // records each request's dryRun flag, so a test can tell "no request" from
 // "a preview, no write".

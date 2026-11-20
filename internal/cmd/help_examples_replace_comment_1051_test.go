@@ -58,6 +58,10 @@ func fillPlaceholders1051(w string) string {
 	})
 }
 
+// Pre-existing helpers used in this file, all on main in package cmd:
+// matchKnownPanic, resolvedPath, isConfirmRefusal and newWalkFixture live in
+// help_walk_common_2601_test.go; knownPanics1051 is declared in this file;
+// testFactory is in root_test.go.
 func TestFillPlaceholders1051(t *testing.T) {
 	for in, want := range map[string]string{
 		"<id>":         "fixture-id",
