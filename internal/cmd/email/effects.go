@@ -75,10 +75,15 @@ func readBody(f *cmdutil.Factory, path string) (string, error) {
 	return string(b), nil
 }
 
-// serverAnswered reports whether the failure carries the server's own GraphQL
-// answer (a refusal), as opposed to a failure with no answer at all (a dropped
-// connection, a timeout, a body that is not a GraphQL reply).
-func serverAnswered(err error) bool {
+// definitiveRefusalCodes are the GraphQL error codes that guarantee the request
+// was refused BEFORE anything was sent: authorization, authentication and input
+// validation are judged before the provider is called. Any other error can arise
+// after the send took effect (a provider error, an internal error, an uncoded
+// one), so it does not prove the mail was not sent.
+var definitiveRefusalCodes = []string{"FORBIDDEN", "UNAUTHENTICATED", "BAD_USER_INPUT", "GRAPHQL_VALIDATION_FAILED", "GRAPHQL_PARSE_FAILED"}
+
+// graphQLAnswered reports whether the failure carries a GraphQL error list.
+func graphQLAnswered(err error) bool {
 	var list gqlerror.List
 	if errors.As(err, &list) && len(list) > 0 {
 		return true
@@ -91,14 +96,27 @@ func serverAnswered(err error) bool {
 	return errors.As(err, &httpErr) && len(httpErr.Response.Errors) > 0
 }
 
-// sendFailure maps a failed send. A server refusal keeps its own words and exit
-// code; no answer at all is an unknown outcome: the request may have gone out, so
-// the CLI says so and never "failed", and never retries.
+// isDefinitiveSendRefusal reports whether err is made only of errors that
+// guarantee nothing was sent. A mixed list is not definitive.
+func isDefinitiveSendRefusal(err error) bool {
+	return graphQLAnswered(err) && api.OnlyErrorCodes(err, definitiveRefusalCodes...)
+}
+
+// sendFailure maps a failed send. A definitive pre-send refusal keeps its own words
+// and exit code. Any other failure may have followed the send: a GraphQL error
+// keeps the server's words and its exit class and adds that the outcome is unknown;
+// no answer at all is an unknown outcome outright. Either way the CLI never says
+// "failed" for what it cannot know, points at the folder to check, and never retries.
 func sendFailure(err error, where string) error {
-	if serverAnswered(err) {
+	if isDefinitiveSendRefusal(err) {
 		return api.MapError(err)
 	}
-	return exitcode.Newf(exitcode.Unavailable, "outcome unknown: the request may have reached the server and the mail may have been sent; check the %s before trying again (the CLI does not retry)", where)
+	guidance := fmt.Sprintf("outcome unknown: the request may have reached the server and the mail may have been sent; check the %s before trying again (the CLI does not retry)", where)
+	if graphQLAnswered(err) {
+		mapped := api.MapError(err)
+		return exitcode.Newf(exitcode.FromError(mapped), "%s; %s", mapped.Error(), guidance)
+	}
+	return exitcode.Newf(exitcode.Unavailable, "%s", guidance)
 }
 
 type actionDTO struct {
@@ -131,10 +149,8 @@ func newReply(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	c := &cobra.Command{Use: "reply <message-id> --connection <id> --body-file <path|-> [--yes]", Short: "Reply to a message's sender", Args: cobra.ExactArgs(1),
 		Long: `Send a reply to one message. It goes to the message's SENDER only: the server takes
-no recipient, so there is no --all and no --to, and a reply with chosen
-recipients is "hadron email draft save --reply-to <message-id>" followed by
-"hadron email draft send". The body is read from --body-file (a path, or - for
-stdin) and is never printed back.
+no recipient, so there is no --all and no --to. The body is read from --body-file
+(a path, or - for stdin) and is never printed back.
 
 THIS SENDS MAIL. It asks first on a terminal; without one, --yes is required (exit
 2 and no request otherwise). Only the mailbox's owner (or an App with a covering
@@ -217,6 +233,29 @@ Details:
 			if err != nil {
 				return err
 			}
+			// Two exclusive forms, judged before anything is read or sent: a
+			// reply-draft (--reply-to alone) or a fresh draft (--to and --subject).
+			replying := cmd.Flags().Changed("reply-to")
+			fresh := cmd.Flags().Changed("to") || cmd.Flags().Changed("subject")
+			switch {
+			case replying && fresh:
+				return exitcode.Newf(exitcode.Usage, "give --reply-to (a reply-draft) or --to and --subject (a fresh draft), not both")
+			case replying:
+				if strings.TrimSpace(replyTo) == "" {
+					return exitcode.Newf(exitcode.Usage, "--reply-to needs a message id")
+				}
+			case fresh:
+				if len(to) == 0 || strings.TrimSpace(subject) == "" {
+					return exitcode.Newf(exitcode.Usage, "a fresh draft needs both --to and --subject")
+				}
+				for _, a := range to {
+					if strings.TrimSpace(a) == "" {
+						return exitcode.Newf(exitcode.Usage, "a --to address must not be empty")
+					}
+				}
+			default:
+				return exitcode.Newf(exitcode.Usage, "give --reply-to <message-id> (a reply-draft) or --to and --subject (a fresh draft)")
+			}
 			body, err := readBody(f, bodyFile)
 			if err != nil {
 				return err
@@ -229,7 +268,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			if r == nil {
+			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned no draft")
 			}
 			d := r.EmailSaveDraft

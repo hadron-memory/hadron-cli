@@ -775,7 +775,7 @@ section between the markers.
 | `email mark-read` |  |  | y | #1184 | 205480bda8dd |  | unread |  |
 | `email messages` |  |  | y | #1184 | 915687038e25 |  | unread |  |
 | `email move` |  |  | y | #1184 | fd58d515a787 |  | unread |  |
-| `email reply` |  |  | y | #1184 | 9273051ae544 |  | unread |  |
+| `email reply` |  |  | y | #1184 | 40d9af7f4e5c |  | unread |  |
 | `email test` |  |  | y | #1184 | ee16c8a83812 |  | unread |  |
 | `ha` |  |  | y | #1184 | 1e8e5f9d4584 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `ha create` |  |  | y | #1184 | 9252b418b210 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |

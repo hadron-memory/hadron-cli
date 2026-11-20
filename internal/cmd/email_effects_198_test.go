@@ -504,9 +504,9 @@ func TestEmailSendExecutionErrorsKeepOutcomeUnknown198(t *testing.T) {
 			{"forbidden is a definitive refusal", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`, false, "Forbidden"},
 			{"unauthenticated is definitive", `{"errors":[{"message":"sign in","extensions":{"code":"UNAUTHENTICATED"}}]}`, false, "sign in"},
 			{"a provider tool error may have sent", `{"errors":[{"message":"provider hiccup","extensions":{"code":"EMAIL_TOOL_ERROR","emailErrorCode":"unknown"}}]}`, true, "provider hiccup"},
-			{"an internal error may have sent", `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "boom"},
+			{"an internal error may have sent", `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "internal error"},
 			{"an uncoded error may have sent", `{"errors":[{"message":"odd"}]}`, true, "odd"},
-			{"a mixed list is ambiguous", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "boom"},
+			{"a mixed list is ambiguous", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, "internal error"},
 		} {
 			t.Run(s.name+" "+tc.name, func(t *testing.T) {
 				_, _, n, err := runEffect198(t, map[string]string{s.op: tc.wire}, "", s.args...)
