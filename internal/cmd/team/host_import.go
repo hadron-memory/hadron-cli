@@ -344,7 +344,7 @@ func applyHostImport(ctx context.Context, entries []importEntryDTO, w hostImport
 	return nil
 }
 
-const importLeaveAloneReason = "imported from host.yaml (hadron-cli#2061); the sweep leaves it alone until its lane is released"
+const importLeaveAloneReason = "imported from host.yaml (hadron-cli#2061); the sweep leaves it alone until the mark is turned off"
 
 // hostImportWriter is the production writer set: the signed-in manager's own
 // writes (assignHostWorker, setWorkerLeaveAlone), by worker id. A write counts
@@ -526,8 +526,8 @@ hrn:node:hadronmemory.com:hadron-dev-team-shared:coordination:team-on-orca-cutov
 (https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:coordination:team-on-orca-cutover-runbook).
 
 --apply writes the "create" entries, one worker at a time: the worker is marked
-leave-alone FIRST — the sweep then leaves it alone until its lane is released
-— and the assignment is created. These are the signed-in manager's own
+leave-alone FIRST — the sweep then leaves it alone until that mark is turned
+off — and the assignment is created. These are the signed-in manager's own
 writes. It asks before writing (--yes when not interactive) and never
 replaces a "differs". A refusal on one entry is recorded on it
 (applied.error) and the others still run, except a failure that would repeat
