@@ -167,12 +167,15 @@ func TestDriveCreateDoc275Refusals(t *testing.T) {
 }
 
 func TestDriveCreateDoc275UnknownOutcome(t *testing.T) {
-	for _, mode := range []string{"gateway", "drop", "redirect307", "redirect308", "malformed", "null"} {
+	for _, mode := range []string{"gateway", "structured-5xx", "drop", "redirect307", "redirect308", "malformed", "null"} {
 		t.Run(mode, func(t *testing.T) {
 			srv, n := createDocServer275(t, func(w http.ResponseWriter, req *http.Request, _ map[string]any) {
 				switch mode {
 				case "gateway":
 					http.Error(w, "gateway failed", http.StatusBadGateway)
+				case "structured-5xx":
+					w.WriteHeader(http.StatusServiceUnavailable)
+					_, _ = w.Write([]byte(`{"errors":[{"message":"request failed after dispatch","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`))
 				case "redirect307", "redirect308":
 					status := http.StatusTemporaryRedirect
 					if mode == "redirect308" {
