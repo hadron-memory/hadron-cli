@@ -14,7 +14,7 @@ func TestReplace1227EmptyResults(t *testing.T) {
 			for _, jsonOutput := range []bool{true, false} {
 				t.Run(fmt.Sprintf("wire=%s/dry=%t/json=%t", wire, dry, jsonOutput), func(t *testing.T) {
 					gql, _ := captureGraphQL(t, map[string]string{
-						"SearchReplaceInNodes": fmt.Sprintf(`{"data":{"searchReplaceInNodes":{"nodesScanned":3,"nodesChanged":0,"totalReplacements":0,"dryRun":true,"results":%s}}}`, wire),
+						"SearchReplaceInNodes": fmt.Sprintf(`{"data":{"searchReplaceInNodes":{"nodesScanned":3,"nodesSelected":3,"nodesChanged":0,"totalReplacements":0,"dryRun":true,"results":%s}}}`, wire),
 					})
 					f, out := testFactory(t)
 					stderr := &strings.Builder{}
@@ -38,7 +38,7 @@ func TestReplace1227EmptyResults(t *testing.T) {
 						if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 							t.Fatalf("decode stdout: %v: %s", err, out.String())
 						}
-						want := map[string]string{"nodesScanned": "3", "nodesSelected": "0", "nodesSkipped": "0", "nodesChanged": "0", "totalReplacements": "0", "dryRun": fmt.Sprint(dry), "results": "[]"}
+						want := map[string]string{"nodesScanned": "3", "nodesSelected": "3", "nodesSkipped": "0", "nodesChanged": "0", "totalReplacements": "0", "dryRun": fmt.Sprint(dry), "results": "[]"}
 						if len(got) != len(want) {
 							t.Fatalf("unexpected JSON keys: %s", out.String())
 						}
@@ -75,7 +75,7 @@ func TestReplace1227ChangedResultsStaySorted(t *testing.T) {
 	for _, dry := range []bool{true, false} {
 		t.Run(fmt.Sprintf("dry=%t", dry), func(t *testing.T) {
 			gql, _ := captureGraphQL(t, map[string]string{
-				"SearchReplaceInNodes": fmt.Sprintf(`{"data":{"searchReplaceInNodes":{"nodesScanned":3,"nodesChanged":2,"totalReplacements":3,"dryRun":%t,"results":%s}}}`, dry, unsorted),
+				"SearchReplaceInNodes": fmt.Sprintf(`{"data":{"searchReplaceInNodes":{"nodesScanned":3,"nodesSelected":3,"nodesChanged":2,"totalReplacements":3,"dryRun":%t,"results":%s}}}`, dry, unsorted),
 			})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
@@ -93,7 +93,7 @@ func TestReplace1227ChangedResultsStaySorted(t *testing.T) {
 			if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 				t.Fatal(err)
 			}
-			if err := json.Unmarshal([]byte(fmt.Sprintf(`{"nodesScanned":3,"nodesSelected":0,"nodesSkipped":0,"nodesChanged":2,"totalReplacements":3,"dryRun":%t,"results":%s}`, dry, sorted)), &want); err != nil {
+			if err := json.Unmarshal([]byte(fmt.Sprintf(`{"nodesScanned":3,"nodesSelected":3,"nodesSkipped":0,"nodesChanged":2,"totalReplacements":3,"dryRun":%t,"results":%s}`, dry, sorted)), &want); err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(got, want) {
