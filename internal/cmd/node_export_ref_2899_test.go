@@ -68,15 +68,16 @@ func TestNodeExportNodeNotFoundIsOneAnswer2899(t *testing.T) {
 	refusal := func(code string) string {
 		return `{"errors":[{"message":"node not found","extensions":{"code":"` + code + `"}}]}`
 	}
-	run := func(t *testing.T, resp string) (error, *[]attnCall) {
+	run := func(t *testing.T, resp string) (*[]attnCall, error) {
 		srv, calls := attnServer(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeExport": resp})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
-		return root.Execute(), calls
+		err := root.Execute()
+		return calls, err
 	}
-	oldErr, _ := run(t, refusal("NOT_FOUND"))
-	newErr, calls := run(t, refusal("NODE_NOT_FOUND"))
+	_, oldErr := run(t, refusal("NOT_FOUND"))
+	calls, newErr := run(t, refusal("NODE_NOT_FOUND"))
 	if oldErr == nil || newErr == nil {
 		t.Fatalf("a missing node refuses: old=%v new=%v", oldErr, newErr)
 	}
@@ -95,7 +96,7 @@ func TestNodeExportNodeNotFoundIsOneAnswer2899(t *testing.T) {
 		}
 	}
 	// A null answer (today's other not-found shape) keeps the same exit.
-	nullErr, _ := run(t, `{"data":{"nodeExport":null}}`)
+	_, nullErr := run(t, `{"data":{"nodeExport":null}}`)
 	if nullErr == nil || exitCodeFor(nullErr) != exitcode.NotFound {
 		t.Errorf("a null answer exits %d, want %d: %v", exitCodeFor(nullErr), exitcode.NotFound, nullErr)
 	}
