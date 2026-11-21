@@ -538,8 +538,8 @@ section between the markers.
 | `team pr readiness` |  |  | y | #1054 | 978dcd7c3526 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | b7026a29bd46 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team pr schedule` |  |  | y | #1054 | e51b4a00796d |  | unread |  |
-| `team pr seat` |  |  | y | #1054 | d4537c58338f |  | unread |  |
-| `team pr verdict` |  |  | y | #1054 | 74afe77b69e3 |  | unread |  |
+| `team pr seat` |  |  | y | #1054 | ddac5e9b34c4 |  | unread |  |
+| `team pr verdict` |  |  | y | #1054 | 6129da33da35 |  | unread |  |
 | `team push` |  |  | y | #1054 | 1576000c023d | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team register` |  |  | y | #1054 | 80106e4262e4 |  | unread |  |
 | `team register attendee` |  |  | y | #1054 | 5adac6a995b6 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
