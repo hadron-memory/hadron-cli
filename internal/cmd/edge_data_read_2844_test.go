@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"strings"
 	"testing"
 )
@@ -116,5 +117,47 @@ func TestNodeGetShowsEdgeData2844(t *testing.T) {
 			}
 			checkNodeEdges2844(t, "node get (batch)", env.Nodes[0], tc.want)
 		})
+	}
+}
+
+// The stubs above answer with data whatever the query selects, so they cannot
+// notice a dropped selection (review: assert-the-query-not-the-capture). These
+// pin the generated operation text itself: the edge selection of each read asks
+// for `data`.
+func selectionAfter2844(t *testing.T, op, anchor string) string {
+	t.Helper()
+	i := strings.Index(op, anchor)
+	if i < 0 {
+		t.Fatalf("anchor %q not found in operation", anchor)
+	}
+	rest := op[i+len(anchor):]
+	// the selection ends at the endpoint sub-selection ("target {" / "source {")
+	end := len(rest)
+	for _, stop := range []string{"target {", "source {"} {
+		if j := strings.Index(rest, stop); j >= 0 && j < end {
+			end = j
+		}
+	}
+	return rest[:end]
+}
+
+func TestEdgeReadOperationsSelectEdgeData2844(t *testing.T) {
+	for _, op := range []struct{ name, text string }{
+		{"GetNode", gen.GetNode_Operation},
+		{"NodeBatch", gen.NodeBatch_Operation},
+	} {
+		for _, anchor := range []string{"outgoingEdges {", "incomingEdges {"} {
+			if !strings.Contains(selectionAfter2844(t, op.text, anchor), "data") {
+				t.Errorf("%s: the %s selection must request data", op.name, anchor)
+			}
+		}
+	}
+	for _, op := range []struct{ name, text string }{
+		{"GetEdge", gen.GetEdge_Operation},
+		{"ListEdges", gen.ListEdges_Operation},
+	} {
+		if !strings.Contains(selectionAfter2844(t, op.text, "fragment UniformEdge on Edge {"), "data") {
+			t.Errorf("%s: the UniformEdge fragment must request data", op.name)
+		}
 	}
 }
