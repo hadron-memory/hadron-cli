@@ -120,7 +120,7 @@ func TestEncryptMemoryHeadersScoped1650(t *testing.T) {
 			}
 			n := 0
 			for _, r := range s.calls() {
-				if strings.Contains(r.body, encrypt1650Secret) || strings.Contains(r.body, `"dataKey"`) || strings.Contains(r.body, `"passphrase"`) {
+				if strings.Contains(r.body, encrypt1650Secret) || strings.Contains(r.body, "dataKey") || strings.Contains(r.body, "passphrase") {
 					t.Error("secret field/value in GraphQL body")
 				}
 				if r.op != "EncryptMemory" {
@@ -183,6 +183,12 @@ func TestEncryptMemoryRefusalsNoFallback1650(t *testing.T) {
 			}
 			n := 0
 			for _, r := range s.calls() {
+				if strings.Contains(r.body, encrypt1650Secret) || strings.Contains(r.body, "dataKey") || strings.Contains(r.body, "passphrase") {
+					t.Error("a refused run sent key material or arguments in a GraphQL body")
+				}
+				if r.op != "GetMemory" && r.op != "MemoryEncryptionPrincipal" && r.op != "EncryptMemory" {
+					t.Errorf("unexpected fallback operation %s", r.op)
+				}
 				if r.op == "EncryptMemory" {
 					n++
 					if strings.Contains(r.body, encrypt1650Secret) {
