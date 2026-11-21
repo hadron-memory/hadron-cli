@@ -251,23 +251,29 @@ checks. The token is never printed: not in the output, --json or an error.
 }
 
 // setTokenError maps a refusal without ever carrying the token: the server's
-// own answer is kept (an encrypted memory's refusal must reach the user) with
-// any occurrence of the token redacted, and a server code that reflects the
-// token — the literal token or one of its generated JSON spellings
-// (cli#2704 Jack F2) — is dropped.
+// own answer is kept (an encrypted memory's refusal must reach the user), a
+// server code that reflects the token — the literal token or one of its
+// generated JSON spellings (cli#2704 Jack F2) — is dropped, and the message
+// is only partially redacted when that provably writes the token nowhere
+// (cli#2714 round 4). Otherwise the fixed refusal replaces the whole
+// message: the scrubber's only replacement is the marker, and any
+// replacement can itself (re)create token text.
 func setTokenError(err error, token string) error {
 	mapped := api.MapError(err)
 	if token == "" {
 		// Nothing to redact, but the same cap and control-character guard as below.
 		return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", output.SafeLine(mapped.Error(), maxErrMsgRunes)), err)
 	}
-	// A token that is or contains the marker cannot be scrubbed by
-	// replacement (an equal token rewrites to itself; token material
-	// survives beside the marker), so the server's answer is not attempted:
-	// a fixed refusal carries nothing from it. The code guard still applies
-	// (cli#2714 Dara P1).
-	if strings.Contains(token, redactionMarker) {
-		safe := exitcode.Newf(exitcode.FromError(mapped), "the server refused the source token")
+	// Partial redaction is refused whenever it cannot be proven safe (Eden's
+	// round-4 ruling, cli#2714 Bruno P2 / Dara P2): the marker replacement
+	// re-creates a token contained in it ("REDACTED" -> "[REDACTED]"), leaves
+	// a token containing it untouched, re-forms a seam-spanning token
+	// ("x[" in "xx[" -> "x[REDACTED]"), and a message carrying any covered
+	// spelling is not scrubbed piecemeal at all — the fixed refusal carries
+	// nothing from it. The code (and, in the receipt path, the URN) is kept
+	// only when it itself carries no spelling.
+	if replacementCanRecreateToken(token) || containsAnySpelling(mapped.Error(), token) {
+		safe := exitcode.Newf(exitcode.FromError(mapped), "%s", fixedTokenRefusal)
 		if containsAnySpelling(api.ServerCodeOf(err), token) {
 			return safe
 		}
@@ -283,6 +289,18 @@ func setTokenError(err error, token string) error {
 	}
 	return api.WithServerCode(safe, err)
 }
+
+// replacementCanRecreateToken reports whether redactToken's replacement — the
+// marker — could itself put the token into the output: a token that contains
+// the marker replaces to itself, and a token contained in the marker is
+// re-created inside every replacement (cli#2714 round 4).
+func replacementCanRecreateToken(token string) bool {
+	return strings.Contains(token, redactionMarker) || strings.Contains(redactionMarker, token)
+}
+
+// fixedTokenRefusal is the only message rendered when the server's answer may
+// not be partially redacted: it carries nothing from the server's message.
+const fixedTokenRefusal = "the server refused the source token"
 
 // redactionMarker is what redactToken writes over every spelling of the
 // token. Exported nowhere: a caller cannot choose the marker, because a

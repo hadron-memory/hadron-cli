@@ -226,7 +226,8 @@ func TestSetTokenNoReplacementRecreatesToken2714(t *testing.T) {
 		}
 	}
 	// A code carrying the token is dropped on the same path.
-	if got := carriedCode(setTokenError(mkErr("BAD REDACTED"), "REDACTED")); got != "" {
+	codeErr := &gqlerror.Error{Message: "refused", Extensions: map[string]any{"code": "BAD REDACTED"}}
+	if got := carriedCode(setTokenError(codeErr, "REDACTED")); got != "" {
 		t.Errorf("a code carrying the token must be dropped, got %q", got)
 	}
 	// The negative space: a token disjoint from the marker over a message

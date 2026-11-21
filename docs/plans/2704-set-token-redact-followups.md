@@ -36,11 +36,18 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
    literal or any escaped spelling — the honest predicate. Used by both guards:
    - `setTokenError`: drop the code when `containsAnySpelling(code, token)`
      (catches escaped spellings — Jack F2 — and keeps the empty-token behavior).
-   - the marker case: a token that is or contains `"[REDACTED]"` cannot be
-     scrubbed by replacement (an equal token rewrites to itself, and token
-     material survives beside the marker), so `setTokenError` answers with a
-     fixed refusal carrying nothing from the server's message; the code guard
-     still applies (cli#2714 Dara P1).
+   - the marker case grew into the round-4 rule (Eden's ruling after two
+     independent readers found replacement recreating token text): partial
+     redaction of the message is only attempted when it provably writes the
+     token nowhere. `replacementCanRecreateToken(token)` — the token contains
+     the marker, or the marker contains the token — or the message carrying
+     any covered spelling (`containsAnySpelling(msg, token)`) means the fixed
+     refusal replaces the whole message: the scrubber's only replacement is
+     the marker, and a token contained in it is re-created inside every
+     replacement ("REDACTED" → "[REDACTED]"), a token spanning a seam
+     re-forms around it ("x[" in "xx[" → "x[REDACTED]"), and a message
+     carrying an escaped spelling is never scrubbed piecemeal (cli#2714
+     round 2 Dara P1, round 3 Bruno P2 / Dara P2).
    - URN guard: splice when `u != "" && !containsAnySpelling(u, token)` — no
      fixpoint, so the sentinel-equal token can no longer wedge it open (Jack F1).
 2. **Node line-separator spellings at both generator sites**: every
@@ -73,19 +80,31 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
      Go-then-Go) with U+2029 covered; the fake server decodes its request
      and encodes its response (no interpolated JSON); the fallback pin
      asserts `dto.Memory` equals the expected canonical typed ref.
+   - cli#2714 round-4 pins: token equal to / substring of / containing the
+     marker, a seam-spanning token ("x[" in "xx["), and a message carrying
+     only an escaped spelling all render the fixed refusal and keep an
+     ordinary code; a token disjoint from the marker over a token-free
+     message keeps the server's own text (never over-redact). Round 3 also
+     corrected the api depth-2 fixture bytes (raw separator source bytes had
+     made the Go expectations duplicate the Node ones; the true Go spellings
+     are now asserted, final entry relabeled Node-then-Node — the generator
+     was right, only the fixture bytes were wrong), and moved the 2650 cap
+     pin to a token-free long message, where the cap now applies.
 
 ## Mutants (one per guard, run at the fix head)
 
 | Mutant | Guard that must go red | Result |
 | --- | --- | --- |
-| `setTokenError` guard back to the base's fixpoint, `redactToken(code, token) != code` (the `strings.Contains` form this plan was first written against no longer exists on main) | marker pin (cli#2714 Dara P1 / Rodolfo P3-1) — the F2 pin alone does NOT kill this one, which is why the marker pin exists | killed (rendered message + carried code, re-run at the fix head) |
+| `setTokenError` guard back to the base's fixpoint, `redactToken(code, token) != code` (the `strings.Contains` form this plan was first written against no longer exists on main) | carried-code assertions of the marker/round-4 pins detect the guard mutation; the rendered-message assertions detect removal of the fixed-refusal branch — credited separately (cli#2714 round-3 Dara P3); the F2 pin alone does NOT kill this one | killed (re-run at the round-4 head: 17 assertion failures) |
+| drop-branch back to the one-directional `strings.Contains(token, marker)` of round 3 | round-4 pin: substring / seam / escaped-only cases (cli#2714 Bruno P2, Dara P2) | killed (10 assertion failures) |
+| drop only the message-spelling arm (`replacementCanRecreateToken` alone) | round-4 pin: the escaped-spelling-only case (a disjoint token over a message carrying its escaped spelling) | killed (3 assertion failures) |
 | URN guard back to `redactToken(u, token) == u` | F1 pin | killed (human + JSON) |
 | drop the node-variant `add` in `sync.go` | sync U+2028 pin | killed |
 | drop the node-variant `add` in `memorykeys.go` | api U+2028 pins | killed (both) |
 | `nodeJSONForm` back to the blind `\u2028`/`\u2029` replacer | literal-backslash-u pins (cli#2714 Dara P2) | killed (both sites) |
 | URN guard never splices (`false`) | F4 positive pin | **survived the first draft** |
 
-The mutant-5 survival exposed the F4 pin as written vacuous: it typed
+The never-splice mutant's survival (the last row) exposed the F4 pin as written vacuous: it typed
 `acme.com:kb`, which `CanonicalMemoryRef` locally composes to the same URN
 the splice would carry, so fallback and splice were indistinguishable. The
 pin now types the memory by id (a ref that cannot canonicalize to a URN
