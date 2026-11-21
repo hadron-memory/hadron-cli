@@ -370,7 +370,9 @@ func TestDriveCreateDoc275IncompleteMetadataPreservesID(t *testing.T) {
 	}
 }
 
-func TestDriveCreateDoc275UnknownJSONCode(t *testing.T) {
+// An INTERNAL_SERVER_ERROR JSON envelope on a 200 is an unknown outcome in --json mode: the
+// diagnostic is quoted data, and the command itself wrote nothing to stdout before the renderer.
+func TestDriveCreateDoc275InternalServerErrorEnvelopeInJSONMode(t *testing.T) {
 	const diagnostic = "provider line\nforged:\x1b[31m"
 	srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": diagnostic, "extensions": map[string]any{"code": "INTERNAL_SERVER_ERROR"}}}})
@@ -385,6 +387,9 @@ func TestDriveCreateDoc275UnknownJSONCode(t *testing.T) {
 	if !strings.Contains(err.Error(), strconv.Quote(diagnostic)) || strings.ContainsAny(err.Error(), "\n\x1b") {
 		t.Fatalf("diagnostic must be quoted data: %q", err.Error())
 	}
+	if out.Len() != 0 {
+		t.Fatalf("the command must write nothing to stdout before the error renderer runs: %q", out.String())
+	}
 	renderError(f, err)
 	var envelope struct {
 		Error struct {
@@ -397,6 +402,153 @@ func TestDriveCreateDoc275UnknownJSONCode(t *testing.T) {
 		t.Fatal(e)
 	}
 	if envelope.Error.Code != 7 || envelope.Error.ServerCode != "INTERNAL_SERVER_ERROR" || !strings.Contains(envelope.Error.Message, "the outcome is unknown") {
+		t.Fatalf("envelope: %s", out.String())
+	}
+}
+
+// cli#2737 (BLIND delta on #2732): a bodyless HTTP 401 or 429 has no coded refusal, so create-doc
+// conservatively treats the attempted write as unknown (exit 7, check the drive before retrying),
+// as the plan documents. Four shapes: no body, and a plain-text body (quoted as data), each status.
+func TestDriveCreateDoc2737BodylessAuthAndRateLimitAreUnknownOutcomes(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+		said   string // the quoted "server said" tail, empty when the body carried nothing
+	}{
+		{"401 no body", http.StatusUnauthorized, "", ""},
+		{"401 plain text", http.StatusUnauthorized, "unauthorized", "unauthorized"},
+		{"429 no body", http.StatusTooManyRequests, "", ""},
+		{"429 plain text", http.StatusTooManyRequests, "slow down", "slow down"},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(tc.name+map[bool]string{false: "", true: " json"}[asJSON], func(t *testing.T) {
+				srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+					if tc.body != "" {
+						w.Header().Set("Content-Type", "text/plain")
+					}
+					w.WriteHeader(tc.status)
+					_, _ = w.Write([]byte(tc.body))
+				})
+				f, out := testFactory(t)
+				r := NewRootCmd(f)
+				args := []string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				r.SetArgs(args)
+				err := r.Execute()
+				if err == nil || exitCodeFor(err) != 7 || n.Load() != 1 || out.Len() != 0 {
+					t.Fatalf("want exit 7 after exactly one request and no stdout: err=%v exit=%d HTTP=%d stdout=%q", err, exitCodeFor(err), n.Load(), out.String())
+				}
+				if !strings.Contains(err.Error(), "the outcome is unknown; check the drive before retrying") {
+					t.Errorf("the unknown-outcome guidance is missing: %v", err)
+				}
+				if (tc.said == "") == strings.Contains(err.Error(), "server said") || (tc.said != "" && !strings.Contains(err.Error(), "; server said: "+strconv.Quote(tc.said))) {
+					t.Errorf("the body (if any) is quoted data after the guidance, nothing is invented for an empty one: %v", err)
+				}
+				if asJSON {
+					renderError(f, err)
+					var env struct {
+						Error struct {
+							Code    int    `json:"code"`
+							Message string `json:"message"`
+						} `json:"error"`
+					}
+					if json.Unmarshal([]byte(out.String()), &env) != nil || env.Error.Code != 7 || !strings.Contains(env.Error.Message, "check the drive before retrying") {
+						t.Errorf("--json envelope: %s", out.String())
+					}
+				}
+			})
+		}
+	}
+}
+
+// cli#2737: a DEFINITE refusal keeps the shared mapping (exit 8, the server's message verbatim in the
+// error), and what reaches the terminal goes through the shared renderer, which neutralises control
+// characters (cli#2739): the line forgery in the server's text never reaches stderr, and in --json the
+// document carries no raw ESC byte. Pinned at the command level so the create-doc refusal branch is
+// covered, not only the renderer in isolation.
+func TestDriveCreateDoc2737DefiniteRefusalWithControlCharactersIsNeutralisedAtRender(t *testing.T) {
+	const message = "refused by drive\nforged: \x1b[31mred\x1b[0m \u202eevil"
+	run := func(t *testing.T, asJSON bool) (error, *int32, string, string) {
+		srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "FORBIDDEN"}}}})
+		})
+		f, out := testFactory(t)
+		var errOut strings.Builder
+		f.IOStreams.ErrOut = &errOut
+		f.JSON = asJSON
+		r := NewRootCmd(f)
+		args := []string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--server", srv.URL}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		r.SetArgs(args)
+		err := r.Execute()
+		if out.Len() != 0 {
+			t.Fatalf("the command wrote to stdout before the renderer: %q", out.String())
+		}
+		renderError(f, err)
+		c := n.Load()
+		return err, &c, out.String(), errOut.String()
+	}
+	err, n, _, stderr := run(t, false)
+	if err == nil || exitCodeFor(err) != 8 || *n != 1 {
+		t.Fatalf("a definite refusal keeps its exit: err=%v exit=%d HTTP=%d", err, exitCodeFor(err), *n)
+	}
+	if r, bad := errTextHasControl2739(stderr); bad {
+		t.Errorf("stderr carries %U: %q", r, stderr)
+	}
+	for _, want := range []string{"refused by drive", "forged", "red", "evil"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("the visible words survive neutralisation (%q missing): %q", want, stderr)
+		}
+	}
+	err, _, stdout, _ := run(t, true)
+	if err == nil || exitCodeFor(err) != 8 {
+		t.Fatalf("--json: %v", err)
+	}
+	if strings.ContainsRune(stdout, 0x1b) || strings.Contains(stdout, "\u202e") || strings.ContainsRune(stdout, 0x202e) {
+		t.Errorf("the --json document must hold no raw ESC and no bidi override: %q", stdout)
+	}
+	var env struct {
+		Error struct {
+			Code int `json:"code"`
+		} `json:"error"`
+	}
+	if json.Unmarshal([]byte(stdout), &env) != nil || env.Error.Code != 8 {
+		t.Errorf("--json envelope: %q", stdout)
+	}
+}
+
+// cli#2737: a GITHUB_UNAVAILABLE answer (the shared Unavailable mapping, not a Drive code) is an
+// unknown outcome with guidance AND its server code survives into the --json envelope's serverCode.
+func TestDriveCreateDoc2737UnavailableCodeSurvivesIntoTheJSONEnvelope(t *testing.T) {
+	srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+		_, _ = w.Write([]byte(`{"errors":[{"message":"provider unavailable after dispatch","extensions":{"code":"GITHUB_UNAVAILABLE"}}]}`))
+	})
+	f, out := testFactory(t)
+	f.JSON = true
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"drive", "create-doc", "node", "--connection", "c", "--yes", "--json", "--server", srv.URL})
+	err := r.Execute()
+	if err == nil || exitCodeFor(err) != 7 || n.Load() != 1 || out.Len() != 0 {
+		t.Fatalf("err=%v exit=%d HTTP=%d stdout=%q", err, exitCodeFor(err), n.Load(), out.String())
+	}
+	renderError(f, err)
+	var env struct {
+		Error struct {
+			Code       int    `json:"code"`
+			ServerCode string `json:"serverCode"`
+			Message    string `json:"message"`
+		} `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(out.String()), &env); e != nil {
+		t.Fatal(e)
+	}
+	if env.Error.Code != 7 || env.Error.ServerCode != "GITHUB_UNAVAILABLE" || !strings.Contains(env.Error.Message, "the outcome is unknown; check the drive before retrying") ||
+		!strings.Contains(env.Error.Message, "provider unavailable after dispatch") {
 		t.Fatalf("envelope: %s", out.String())
 	}
 }
