@@ -33,6 +33,7 @@ func spec1302RunAllocating(t *testing.T, allocLoc, scan string, args ...string) 
 		"AllocateSpecNode": {`{"data":{"allocateSpecNode":{"id":"a1","memoryId":"mem1","loc":"` + allocLoc + `","name":"x","revision":1,"isPlaceholder":true}}}`},
 		"UpdateSpecNode":   {`{"data":{"updateSpecNode":{"id":"a1","memoryId":"mem1","loc":"` + allocLoc + `","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-10-31T00:00:00Z"}}}`},
 		// The scan pages to exhaustion: one page, then an empty one.
+		"Memories":       {memListMicromentorJSON},
 		"FindNodes":      {`{"data":{"nodes":[` + scan + `]}}`, `{"data":{"nodes":[]}}`},
 		"CreateSpecNode": {spec1302Create},
 		"ResolveUrn":     {`{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`},

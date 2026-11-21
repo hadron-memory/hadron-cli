@@ -307,14 +307,6 @@ is one call instead of four.`, abstractSoftMax),
 				allLocs = append(allLocs, n.Loc)
 			}
 
-			memID := ""
-			for _, n := range all {
-				if n != nil && n.MemoryId != "" && (n.Loc == prefix || strings.HasPrefix(n.Loc, prefix+":")) {
-					memID = n.MemoryId
-					break
-				}
-			}
-
 			var deferred deferredAlloc
 			target, parentLoc, inheritLoc, err := planTarget(planInput{
 				product: product, module: module, feature: feature, rule: rule, ruleAfter: ruleAfter, flow: flow,
@@ -327,12 +319,20 @@ is one call instead of four.`, abstractSoftMax),
 			if deferred.parent != (Citation{}) {
 				// cli#398: the SERVER picks the number (allocateSpecNode), so
 				// nothing below this point may compute one locally.
+				// The allocator's answer is vouched for by the memory's own id,
+				// resolved directly from the ref (not read off a scanned node).
+				expectedMemoryID := ""
+				if !dryRun {
+					if expectedMemoryID, _, err = specMemoryID(f, cmd, client, memory); err != nil {
+						return err
+					}
+				}
 				return runNewAllocated(cmd, f, client, memURN, allocatedInput{
 					alloc: deferred, parentLoc: parentLoc, inheritLoc: inheritLoc,
 					title: title, content: content, contentFile: contentFile,
 					abstract: abstract, abstractFile: abstractFile, tags: specTags(tags),
 					newFeature: newFeature, noEdges: noEdges, noContract: noContract, dryRun: dryRun,
-					contentSet: cmd.Flags().Changed("content") || cmd.Flags().Changed("content-file"), memID: memID,
+					contentSet: cmd.Flags().Changed("content") || cmd.Flags().Changed("content-file"), expectedMemoryID: expectedMemoryID,
 				})
 			}
 

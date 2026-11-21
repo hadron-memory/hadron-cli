@@ -64,8 +64,8 @@ durable high-water record is a later slice. Help and docs say only the former.
   locally; it is outside this gate's scope ("`spec new`") and keeps its behavior.
   `spec supersede` and `spec register` keep `allocateChild` for the same reason
   (supersede's allocator is the follow-up on #579).
-- The matrix line `allocateSpecNode` flips to `command spec new` (Mutation 329
-  command / 18 gap). #2791 also edits `internal/api/coverage-matrix.txt`; whichever
+- The matrix line `allocateSpecNode` flips to `command spec new`
+  command / 16 gap). #2791 also edits `internal/api/coverage-matrix.txt`; whichever
   lands second regenerates (`make coverage-matrix`).
 
 ## Tests
@@ -77,3 +77,15 @@ nothing; refused/conflict/lost fills report the reservation without a second
 allocation; a lost allocation sends no fill; schema skew has no fallback; the
 feature contract stays explicit; a copied prefix is refused before anything is
 reserved. Existing `spec new` tests were moved from create to allocate + fill.
+
+## Review fold (blind + security, a141a2a6)
+
+- **Recovery keeps the text.** A failed fill saves the abstract and body it carried
+  to private (0600) temp files and the recovery names those real paths (no `<file>`
+  placeholder); the diagnostic never prints the authored text.
+- **Numbering contract enforced.** Rules `01..99`, features multiples of ten in
+  `010..990`; `:00` (the contract) is never accepted from the allocator.
+- **Memory id** is resolved from the memory ref (allocating, non-dry-run path only),
+  not read off a scanned node; `expectedMemoryID` names the vouching value. The
+  empty-id pre-check is now a defensive guard behind a lookup that already errors.
+- Plan-doc coverage totals removed (they drift with the generated matrix).

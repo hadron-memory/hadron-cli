@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -109,6 +110,9 @@ func alloc398Run(t *testing.T, reply map[string]alloc398Reply, args ...string) (
 	t.Helper()
 	if _, ok := reply["FindNodes"]; !ok {
 		reply["FindNodes"] = alloc398Reply{body: alloc398Scanned()}
+	}
+	if _, ok := reply["Memories"]; !ok {
+		reply["Memories"] = alloc398Reply{body: `{"data":{"memories":{"total":1,"items":[{"id":"mem1","urn":"hrn:memory:micromentor.org::platform-specs","name":"Platform Specs","class":"knowledge","visibility":"PUBLIC","organizationId":"org1","isEncrypted":false,"updatedAt":"2026-06-14T00:00:00Z"}]}}}`}
 	}
 	if _, ok := reply["ResolveUrn"]; !ok {
 		reply["ResolveUrn"] = alloc398Reply{body: alloc398Res}
@@ -697,5 +701,194 @@ func TestSpecNewContractRecoveryKeepsOptions398(t *testing.T) {
 				t.Errorf("contract recovery must keep the tags and --no-edges, got %q", contract)
 			}
 		})
+	}
+}
+
+// Dara P2 (a141a2a6): recovery from a failed fill must be a pasteable command
+// whose files hold what the failed fill carried (body from a file or the
+// scaffold default), without printing authored text in the diagnostic.
+func TestSpecNewRecoveryPreservesFillText398(t *testing.T) {
+	dir := t.TempDir()
+	bodyFile := dir + "/body.md"
+	secret := "SECRET-BODY-TEXT-398"
+	if err := os.WriteFile(bodyFile, []byte(secret+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, tc := range map[string]struct {
+		args     []string
+		wantBody string
+		wantAbs  string
+	}{
+		"supplied":  {[]string{"--content-file", bodyFile, "--abstract", "SECRET-ABSTRACT-398"}, secret, "SECRET-ABSTRACT-398"},
+		"scaffolds": {nil, "msg:010:07", "msg:010:07"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			args := append([]string{"--module", "msg", "--feature", "010", "--title", "Test", "--json"}, tc.args...)
+			_, out, errText, err := alloc398Run(t, map[string]alloc398Reply{
+				"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:07", 1)},
+				"UpdateSpecNode":   {body: alloc398Err("BAD_USER_INPUT")},
+			}, args...)
+			if err == nil {
+				t.Fatal("a refused fill must fail")
+			}
+			var dto struct {
+				Recovery []string `json:"recovery"`
+			}
+			if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil {
+				t.Fatal(jerr, out)
+			}
+			all := strings.Join(dto.Recovery, "\n")
+			if strings.Contains(all, "<file>") || strings.ContainsAny(all, "<>") {
+				t.Errorf("recovery has an unfilled placeholder / shell redirection:\n%s", all)
+			}
+			var edit string
+			for _, c := range dto.Recovery {
+				if strings.HasPrefix(c, "hadron spec edit") {
+					edit = c
+				}
+			}
+			read := func(flag string) string {
+				fields := strings.Fields(edit)
+				path := ""
+				for i, w := range fields {
+					if w == flag && i+1 < len(fields) {
+						path = strings.Trim(fields[i+1], "'")
+					}
+				}
+				if path == "" {
+					t.Fatalf("edit command lacks %s: %s", flag, edit)
+				}
+				b, rerr := os.ReadFile(path)
+				if rerr != nil {
+					t.Fatalf("recovery names %s but it cannot be read: %v", path, rerr)
+				}
+				t.Cleanup(func() { _ = os.Remove(path) })
+				return string(b)
+			}
+			if got := read("--content-file"); !strings.Contains(got, tc.wantBody) {
+				t.Errorf("preserved body = %q, want it to hold %q", got, tc.wantBody)
+			}
+			if got := read("--abstract-file"); !strings.Contains(got, tc.wantAbs) {
+				t.Errorf("preserved abstract = %q, want it to hold %q", got, tc.wantAbs)
+			}
+			if strings.Contains(errText+out, "SECRET-") {
+				t.Errorf("authored text leaked into the diagnostic:\n%s\n%s", errText, out)
+			}
+		})
+	}
+}
+
+// Dara P2: the provider's numbering contract is enforced, not just "a rule".
+func TestSpecNewOutOfContractNumberSendsNoFill398(t *testing.T) {
+	for name, tc := range map[string]struct {
+		loc  string
+		args []string
+	}{
+		"rule 00 is the contract":  {"msg:010:00", []string{"--module", "msg", "--feature", "010"}},
+		"feature off the step":     {"msg:015", []string{"--new-feature", "--module", "msg"}},
+		"feature 000":              {"msg:000", []string{"--new-feature", "--module", "msg"}},
+		"feature past the ceiling": {"msg:1000", []string{"--new-feature", "--module", "msg"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+				"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", tc.loc, 1)},
+			}, append(tc.args, "--title", "Test")...)
+			if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+				t.Fatalf("exit %d expected, got %v (%s)", exitcode.Unavailable, err, errText)
+			}
+			if fk.count("UpdateSpecNode") != 0 {
+				t.Error("a fill was sent on an out-of-contract number")
+			}
+		})
+	}
+}
+
+// Dara P3: the expected memory id is resolved from the ref, so a scan whose
+// nodes carry no memory id still reaches the allocator.
+func TestSpecNewMemoryIDIsNotReadOffScan398(t *testing.T) {
+	scan := strings.ReplaceAll(alloc398Scanned(), `"memoryId":"mem1"`, `"memoryId":""`)
+	fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+		"FindNodes":        {body: scan},
+		"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:07", 1)},
+		"UpdateSpecNode":   {body: alloc398Fill},
+	}, "--module", "msg", "--feature", "010", "--title", "Test")
+	if err != nil {
+		t.Fatalf("%v (%s)", err, errText)
+	}
+	if fk.count("AllocateSpecNode") != 1 {
+		t.Error("the allocator must be reached when the scan carries no memory id")
+	}
+}
+
+// Rodolfo P3-1: every recovery command, on both the fill and contract paths,
+// survives a real shell split: a hostile title/tag/label arrives as ONE literal
+// word and nothing runs.
+func TestSpecNewRecoveryShellSplitsEveryCommand398(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("no bash")
+	}
+	canary := t.TempDir() + "/canary"
+	hostile := "a\"$(touch " + canary + ")`id`'b"
+	scan := alloc398Scan + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
+	for name, reply := range map[string]map[string]alloc398Reply{
+		"fill refused": {
+			"FindNodes":        {body: scan},
+			"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:020", 1)},
+			"UpdateSpecNode":   {body: alloc398Err("BAD_USER_INPUT")},
+		},
+		"contract refused": {
+			"FindNodes":        {body: scan},
+			"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:020", 1)},
+			"UpdateSpecNode":   {body: alloc398Fill},
+			"CreateSpecNode":   {body: alloc398Err("BAD_USER_INPUT")},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, out, _, err := alloc398Run(t, reply, "--new-feature", "--module", "msg", "--title", hostile, "--tag", "x y;z", "--json")
+			if err == nil {
+				t.Fatal("expected a failure")
+			}
+			var dto struct {
+				Recovery []string `json:"recovery"`
+			}
+			if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil || len(dto.Recovery) == 0 {
+				t.Fatal(jerr, out)
+			}
+			for _, c := range dto.Recovery {
+				script := "hadron() { printf '%s\\n' \"$@\"; }\n" + c
+				got, rerr := exec.Command("bash", "-c", script).Output()
+				if rerr != nil {
+					t.Fatalf("bash rejected %q: %v", c, rerr)
+				}
+				for _, w := range strings.Split(strings.TrimSuffix(string(got), "\n"), "\n") {
+					if strings.Contains(w, "touch") && w != hostile && w != hostile+" general provisions" && !strings.HasPrefix(w, "--") {
+						// a word holding the canary must be a whole title or label, never a fragment
+						if !strings.Contains(w, hostile) {
+							t.Errorf("hostile text was split across words in %q: word %q", c, w)
+						}
+					}
+				}
+				if strings.Contains(c, "--tag") && !strings.Contains(string(got), "x y;z\n") {
+					t.Errorf("tag was not one literal word in %q:\n%s", c, got)
+				}
+			}
+			if _, serr := os.Stat(canary); serr == nil {
+				t.Fatal("a recovery command executed the hostile title")
+			}
+		})
+	}
+}
+
+// Rodolfo P3-2: a rule allocated exactly AT the requested floor is refused
+// (the floor is exclusive).
+func TestSpecNewAllocationAtFloorSendsNoFill398(t *testing.T) {
+	fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+		"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:07", 1)},
+	}, "--module", "msg", "--feature", "010", "--rule-after", "07", "--title", "Test")
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("a rule at the floor exits %d, got %v (%s)", exitcode.Unavailable, err, errText)
+	}
+	if fk.count("UpdateSpecNode") != 0 {
+		t.Error("a fill was sent on a node at the requested floor")
 	}
 }

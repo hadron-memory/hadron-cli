@@ -805,6 +805,7 @@ func TestSpecNew(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":        scan,
+		"Memories":         memListMicromentorJSON,
 		"AllocateSpecNode": `{"data":{"allocateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"Test","revision":1,"isPlaceholder":true}}}`,
 		"UpdateSpecNode":   `{"data":{"updateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
@@ -928,6 +929,7 @@ func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
 func TestSpecNewUnresolvableEdgeCreatesNothing(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
+		"Memories":       memListMicromentorJSON,
 		"FindNodes":      scan,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn":     `{"data":{"resolveUrn":null}}`, // edge target won't resolve
@@ -958,6 +960,7 @@ func TestSpecNewWiresEdgesInline(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
 		"FindNodes":        scan,
+		"Memories":         memListMicromentorJSON,
 		"AllocateSpecNode": `{"data":{"allocateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"Test","revision":1,"isPlaceholder":true}}}`,
 		"UpdateSpecNode":   `{"data":{"updateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
@@ -1612,6 +1615,7 @@ func TestSpecNewFeatureAutoContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
 		"FindNodes":        scan,
+		"Memories":         memListMicromentorJSON,
 		"AllocateSpecNode": `{"data":{"allocateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"Test","revision":1,"isPlaceholder":true}}}`,
 		"UpdateSpecNode":   `{"data":{"updateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 		"CreateSpecNode":   `{"data":{"createSpecNode":{"id":"c1","memoryId":"mem1","loc":"msg:010:00","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
