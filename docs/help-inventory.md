@@ -339,7 +339,7 @@ section between the markers.
 | `app agent add` | install |  | y | #1053 | d74f7e9d5f09 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `app agent compile` |  |  | y | #1053 | 860e2d33f686 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `app agent customize` |  |  | y | #1053 | a221584c9efb | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `app agent list` | ls |  | y | #1053 | ba9cb13c2f16 |  | unread |  |
+| `app agent list` | ls |  | y | #1053 | 5d615987e372 |  | unread |  |
 | `app agent remove` | rm, uninstall |  | y | #1053 | 8c777b5d09ad | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app agent set-boot-prompt` |  |  | y | #1053 | e3c9615423e3 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app asset-upload` |  |  | n | #1053 | 3e822ec2eb6c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
@@ -721,7 +721,7 @@ section between the markers.
 | `config list` | ls |  | y | #1056 | 0b827a3e5ab0 |  | unread |  |
 | `config set` |  |  | y | #1056 | cd59e51ad9ab |  | unread |  |
 | `help` |  | generated | y | #1056 | c86d29522fe2 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
-| `server-info` | serverinfo |  | y | #1056 | 1f449e1ac2fb |  | unread |  |
+| `server-info` | serverinfo |  | y | #1056 | b1f183027128 |  | unread |  |
 | `version` |  |  | y | #1056 | 61ced850740d |  | unread |  |
 <!-- group:1056 end -->
 
