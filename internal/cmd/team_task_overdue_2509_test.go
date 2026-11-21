@@ -62,10 +62,10 @@ func TestTaskListOverdueHelpNamesTheFinishByArm2509(t *testing.T) {
 	}
 }
 
-// paragraphAround2509 returns the blank-line-delimited paragraph of help that
+// helpParagraph returns the blank-line-delimited paragraph of help that
 // contains phrase, with its original line breaks (cli#2520: one extraction for
 // every paragraph pin, scoped by the paragraph's own distinctive phrase).
-func paragraphAround2509(t *testing.T, help, phrase string) string {
+func helpParagraph(t *testing.T, help, phrase string) string {
 	t.Helper()
 	i := strings.Index(help, phrase)
 	if i < 0 {
@@ -86,7 +86,7 @@ func TestTaskCreateFinishByHelpMentionsOverdue2509(t *testing.T) {
 	help := cmdHelpOut(t, "team", "task", "create")
 	// The --finish-by PARAGRAPH must say it, not just the --start-by one
 	// above it (which already names --overdue on main).
-	para := strings.Join(strings.Fields(paragraphAround2509(t, help, "sets a deadline to finish")), " ")
+	para := strings.Join(strings.Fields(helpParagraph(t, help, "sets a deadline to finish")), " ")
 	for _, want := range []string{
 		"overdue",
 		"needs a provider containing hadron-server#2654",
@@ -97,43 +97,65 @@ func TestTaskCreateFinishByHelpMentionsOverdue2509(t *testing.T) {
 	}
 	// And the start-by paragraph names its own arm, so it cannot read as
 	// the only one.
-	startPara := strings.Join(strings.Fields(paragraphAround2509(t, help, "sets when the task should be started")), " ")
+	startPara := strings.Join(strings.Fields(helpParagraph(t, help, "sets when the task should be started")), " ")
 	if !strings.Contains(startPara, "start-by arm") {
 		t.Errorf("the --start-by help must name its arm:\n%s", startPara)
 	}
 }
 
-// cli#2520: the overdue paragraphs wrap evenly: every line but the last is a
-// full line, and the last is not an orphan word or two.
-func assertEvenWrap2509(t *testing.T, name, para string) {
+// The wrap shape of the overdue paragraphs (cli#2520): every line but the last
+// is a full line, and the last is not an orphan word or two. The numbers are
+// named so a deliberate help edit changes one constant, not a scattered literal.
+const (
+	wrapMaxRunes     = 80 // no line is longer than this many runes
+	wrapMinFullRunes = 60 // every line but the last is at least this long
+	wrapMinLastRunes = 25 // the last line is at least this long (no orphan)
+)
+
+func assertEvenWrap(t *testing.T, name, para string) {
 	t.Helper()
 	lines := strings.Split(strings.TrimRight(para, "\n"), "\n")
 	for i, l := range lines {
-		n := len([]rune(l))
+		n := len([]rune(l)) // runes, not display columns: the help is ASCII apart from dashes
 		switch {
-		case n > 80:
-			t.Errorf("%s line %d is %d columns (over 80): %q", name, i+1, n, l)
-		case i < len(lines)-1 && n < 60:
-			t.Errorf("%s line %d is short (%d columns) before the paragraph ends: %q", name, i+1, n, l)
-		case i == len(lines)-1 && n < 25:
-			t.Errorf("%s ends in an orphan line (%d columns): %q", name, n, l)
+		case n > wrapMaxRunes:
+			t.Errorf("%s line %d is %d runes (over %d): %q", name, i+1, n, wrapMaxRunes, l)
+		case i < len(lines)-1 && n < wrapMinFullRunes:
+			t.Errorf("%s line %d is short (%d runes) before the paragraph ends: %q", name, i+1, n, l)
+		case i == len(lines)-1 && n < wrapMinLastRunes:
+			t.Errorf("%s ends in an orphan line (%d runes): %q", name, n, l)
 		}
 	}
 }
 
+// textBetween returns help from the line starting with from up to (not
+// including) the line starting with to, or to the end of help when to is "" or
+// absent; it fails the test, never panics, when from is missing.
+func textBetween(t *testing.T, help, from, to string) string {
+	t.Helper()
+	i := strings.Index(help, from)
+	if i < 0 {
+		t.Fatalf("no text starting %q in:\n%s", from, help)
+	}
+	rest := help[i:]
+	end := len(rest)
+	if to != "" {
+		if j := strings.Index(rest, to); j >= 0 {
+			end = j
+		}
+	}
+	return strings.TrimRight(rest[:end], "\n")
+}
+
 func TestOverdueHelpParagraphsWrapEvenly2520(t *testing.T) {
 	list := cmdHelpOut(t, "team", "task", "list")
-	i := strings.Index(list, "--overdue lists tasks overdue")
-	j := strings.Index(list[i:], "\n--created-/")
-	if i < 0 || j < 0 {
-		t.Fatalf("no --overdue paragraph followed by the range-bound one in:\n%s", list)
-	}
-	assertEvenWrap2509(t, "task list --overdue paragraph", list[i:i+j])
-	// The range-bound sentences next to it (the same wrap pass).
-	k := strings.Index(list[i+j:], "\n\n")
-	assertEvenWrap2509(t, "task list range-bound paragraph", strings.TrimPrefix(list[i+j:i+j+k], "\n"))
+	// The --overdue paragraph runs straight into the range-bound one (no blank
+	// line between them), then a blank line ends the range-bound one.
+	assertEvenWrap(t, "task list --overdue paragraph", textBetween(t, list, "--overdue lists tasks overdue", "\n--created-/"))
+	rangeBound := textBetween(t, list, "--created-/--started-/--finished-after", "\n\n")
+	assertEvenWrap(t, "task list range-bound paragraph", rangeBound)
 	create := cmdHelpOut(t, "team", "task", "create")
-	assertEvenWrap2509(t, "task create --finish-by paragraph", paragraphAround2509(t, create, "sets a deadline to finish"))
+	assertEvenWrap(t, "task create --finish-by paragraph", helpParagraph(t, create, "sets a deadline to finish"))
 }
 
 func TestAgenticUsagePinsOverdueFinishByArm2509(t *testing.T) {
@@ -146,6 +168,9 @@ func TestAgenticUsagePinsOverdueFinishByArm2509(t *testing.T) {
 	root.SetArgs([]string{"agentic-usage"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
+	}
+	if errOut := f.IOStreams.ErrOut.(*strings.Builder).String(); errOut != "" {
+		t.Errorf("agentic-usage wrote to stderr: %q", errOut)
 	}
 	flat := strings.Join(strings.Fields(out.String()), " ")
 	for _, want := range []string{
