@@ -37,6 +37,10 @@ const appKeyScopesJSON = `{"id":"key1","appId":"capp100000000000000000000","labe
 func hostResponses() map[string]string {
 	r := taskResponses()
 	r["HostRegistrations"] = `{"data":{"hostRegistrations":[` + hostRegJSON + `]}}`
+	// `team host list` reads the paged field (cli#2824), draining it 20 at a
+	// time by default; the whole-set callers (onboarding, host up) still stub
+	// the unpaged field above, so the map carries both.
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[` + hostRegJSON + `],"total":1,"hasMore":false}}}`
 	r["HostOperations"] = `{"data":{"hostOperations":{"items":[` + hostOpJSON + `],"hasNextPage":true,"endCursor":"hop1"}}}`
 	r["HostOperationsWithReason"] = r["HostOperations"]
 	r["IssueHostOperation"] = `{"data":{"issueHostOperation":` + issuedHostOpJSON + `}}`
@@ -68,7 +72,7 @@ func TestTeamHostLsRenders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := findCall(t, calls, "HostRegistrations")
+	c := findCall(t, calls, "HostRegistrationsPage")
 	if c.Vars["appRef"] != "capp100000000000000000000" || c.Session != "" {
 		t.Fatalf("appRef %v session %q", c.Vars["appRef"], c.Session)
 	}
@@ -110,7 +114,7 @@ func TestTeamHostLsJSON(t *testing.T) {
 // An App with no hosts renders [] in JSON, never null.
 func TestTeamHostLsEmptyJSONIsArray(t *testing.T) {
 	r := hostResponses()
-	r["HostRegistrations"] = `{"data":{"hostRegistrations":[]}}`
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[],"total":0,"hasMore":false}}}`
 	_, out, err := runTeamTask(t, r, "team", "host", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -474,8 +478,8 @@ func TestTeamHostEmptyListsRenderAsArrays(t *testing.T) {
 		t.Fatalf("empty page must render items as []:\n%s", out)
 	}
 	r = hostResponses()
-	r["HostRegistrations"] = `{"data":{"hostRegistrations":[{"hostId":"orca2","label":"idle","pollIntervalSeconds":60,
-		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":false,"workers":[]}]}}`
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[{"hostId":"orca2","label":"idle","pollIntervalSeconds":60,
+		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":false,"workers":[]}],"total":1,"hasMore":false}}}`
 	_, out, err = runTeamTask(t, r, "team", "host", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -488,9 +492,9 @@ func TestTeamHostEmptyListsRenderAsArrays(t *testing.T) {
 // A worker the host lists with no worktrees renders worktrees as [].
 func TestTeamHostWorkerWithoutWorktreesJSON(t *testing.T) {
 	r := hostResponses()
-	r["HostRegistrations"] = `{"data":{"hostRegistrations":[{"hostId":"orca1","label":"x","pollIntervalSeconds":30,
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[{"hostId":"orca1","label":"x","pollIntervalSeconds":30,
 		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":true,
-		"workers":[{"workerId":"wkr1","worker":null,"family":"codex","worktrees":[]}]}]}}`
+		"workers":[{"workerId":"wkr1","worker":null,"family":"codex","worktrees":[]}]}],"total":1,"hasMore":false}}}`
 	_, out, err := runTeamTask(t, r, "team", "host", "list", "--json")
 	if err != nil {
 		t.Fatal(err)

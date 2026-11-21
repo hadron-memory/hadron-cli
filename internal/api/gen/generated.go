@@ -63221,6 +63221,165 @@ func (v *HostRegistrationsHostRegistrationsHostRegistrationWorkersHostRegistrati
 	return v.Name
 }
 
+// HostRegistrationsPageHostRegistrationsPageHostRegistrationPage includes the requested fields of the GraphQL type HostRegistrationPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 S3 — one page of an App's host registrations.
+type HostRegistrationsPageHostRegistrationsPageHostRegistrationPage struct {
+	Items   []*HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration `json:"items"`
+	Total   int                                                                                    `json:"total"`
+	HasMore bool                                                                                   `json:"hasMore"`
+}
+
+// GetItems returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPage.Items, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPage) GetItems() []*HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration {
+	return v.Items
+}
+
+// GetTotal returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPage.Total, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPage.HasMore, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration includes the requested fields of the GraphQL type HostRegistration.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a host's registration (hrn:node:hadronmemory.com:specs:cor:agt:070:01).
+type HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration struct {
+	// The host's id within its App: the one its key's host:operate scope names.
+	HostId              string `json:"hostId"`
+	Label               string `json:"label"`
+	PollIntervalSeconds int    `json:"pollIntervalSeconds"`
+	RegisteredAt        string `json:"registeredAt"`
+	RefreshedAt         string `json:"refreshedAt"`
+	// Refreshed within the App's lapse count of its poll intervals, now.
+	Live    bool                                                                                                                `json:"live"`
+	Workers []*HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker `json:"workers"`
+}
+
+// GetHostId returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration.HostId, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration) GetHostId() string {
+	return v.HostId
+}
+
+// GetLabel returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration.Label, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration) GetLabel() string {
+	return v.Label
+}
+
+// GetPollIntervalSeconds returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration) GetPollIntervalSeconds() int {
+	return v.PollIntervalSeconds
+}
+
+// GetRegisteredAt returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration.RegisteredAt, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration) GetRegisteredAt() string {
+	return v.RegisteredAt
+}
+
+// GetRefreshedAt returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration.RefreshedAt, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration) GetRefreshedAt() string {
+	return v.RefreshedAt
+}
+
+// GetLive returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration.Live, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration) GetLive() bool {
+	return v.Live
+}
+
+// GetWorkers returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration.Workers, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration) GetWorkers() []*HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker {
+	return v.Workers
+}
+
+// HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker includes the requested fields of the GraphQL type HostRegistrationWorker.
+// The GraphQL type's documentation follows.
+//
+// #1709 — a worker a host can launch: the family it would run as, and its existing worktrees there.
+type HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker struct {
+	WorkerId  string                                                                                                                  `json:"workerId"`
+	Worker    *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker `json:"worker"`
+	Family    string                                                                                                                  `json:"family"`
+	Worktrees []string                                                                                                                `json:"worktrees"`
+}
+
+// GetWorkerId returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetWorker returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker.Worker, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker) GetWorker() *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker {
+	return v.Worker
+}
+
+// GetFamily returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker.Family, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker) GetFamily() string {
+	return v.Family
+}
+
+// GetWorktrees returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorker) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker.Id, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker.Urn, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker) GetUrn() *string {
+	return v.Urn
+}
+
+// GetName returns HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker.Name, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistrationWorkersHostRegistrationWorkerWorker) GetName() string {
+	return v.Name
+}
+
+// HostRegistrationsPageResponse is returned by HostRegistrationsPage on success.
+type HostRegistrationsPageResponse struct {
+	// #2213 S3 — `hostRegistrations` as a page: the same App gate and refusals, the same rows in `hostId` order with
+	// their workers in `workerId` order, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04). A consumer
+	// that decides on the set follows the pages to the end; `hostRegistrations` remains the complete set. A host key's
+	// read is recorded as one use counting the items returned. `limit` defaults to 20, 0 returns the count only, a
+	// negative limit is 0 and a limit over 200 is served as 200 (never refused). `offset` below 0 is 0.
+	HostRegistrationsPage *HostRegistrationsPageHostRegistrationsPageHostRegistrationPage `json:"hostRegistrationsPage"`
+}
+
+// GetHostRegistrationsPage returns HostRegistrationsPageResponse.HostRegistrationsPage, and is useful for accessing the field via an interface.
+func (v *HostRegistrationsPageResponse) GetHostRegistrationsPage() *HostRegistrationsPageHostRegistrationsPageHostRegistrationPage {
+	return v.HostRegistrationsPage
+}
+
 // HostRegistrationsResponse is returned by HostRegistrations on success.
 type HostRegistrationsResponse struct {
 	// #1709 — the App's host registrations, liveness derived now (hrn:node:hadronmemory.com:specs:cor:agt:070:01). Whoever reads the App's tasks and events, the App's own key included.
@@ -137792,6 +137951,22 @@ type __HostRegistrationsInput struct {
 // GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
 
+// __HostRegistrationsPageInput is used internally by genqlient
+type __HostRegistrationsPageInput struct {
+	AppRef string `json:"appRef"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetAppRef returns __HostRegistrationsPageInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRegistrationsPageInput) GetAppRef() string { return v.AppRef }
+
+// GetLimit returns __HostRegistrationsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__HostRegistrationsPageInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __HostRegistrationsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__HostRegistrationsPageInput) GetOffset() int { return v.Offset }
+
 // __HostRelaunchSetupFailureInput is used internally by genqlient
 type __HostRelaunchSetupFailureInput struct {
 	AppRef    string `json:"appRef"`
@@ -170563,6 +170738,71 @@ func HostRegistrations(
 	}
 
 	data_ = &HostRegistrationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostRegistrationsPage.
+const HostRegistrationsPage_Operation = `
+query HostRegistrationsPage ($appRef: String!, $limit: Int!, $offset: Int!) {
+	hostRegistrationsPage(appRef: $appRef, limit: $limit, offset: $offset) {
+		items {
+			hostId
+			label
+			pollIntervalSeconds
+			registeredAt
+			refreshedAt
+			live
+			workers {
+				workerId
+				worker {
+					id
+					urn
+					name
+				}
+				family
+				worktrees
+			}
+		}
+		total
+		hasMore
+	}
+}
+`
+
+// One page of an App's host registrations, the paged sibling of the field
+// above (server #2213 S3, cli#2824): same rows, App gate and refusals, plus
+// the {items,total,hasMore} envelope. limit and offset are always sent —
+// `team host list` drains this field 20 at a time by default and reads one
+// explicit page with --limit/--offset, so it never wants the server's default
+// page; a limit of 0 asks for the count only. The callers that decide on the
+// whole set (host up/run/sweep, onboarding, the chat adapter) keep the
+// unpaged field.
+func HostRegistrationsPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	limit int,
+	offset int,
+) (data_ *HostRegistrationsPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRegistrationsPage",
+		Query:  HostRegistrationsPage_Operation,
+		Variables: &__HostRegistrationsPageInput{
+			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &HostRegistrationsPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
