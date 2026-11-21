@@ -13,6 +13,13 @@
 # tsx= and graphql= are the exporter's tool versions, the single place they live: the
 # schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
 # because a floating graphql minor can change printSchema bytes. Bump deliberately.
+# PRE-MERGE DELTA (hadron-cli#2899, companion to hadron-server#4763): schema.graphql is NOT a plain
+# export of server_sha. It is the export of server_sha PLUS the SDL delta of the #4763 head
+# 717040eb837c345a308c122f27949549fcd08372 over its merge base with main 2db3d9ba4b713e0f01b7bd55f73ec124ef60ea2a
+# (nodeExport(id:) becomes nodeExport(ref: ID!), and the doc comment; 7 lines), so nothing unrelated from
+# that base is pulled in. #4763 is not on main, so the snapshot-reproduces job cannot match these bytes.
+# Before the ready call, after server#4763 merges: re-export at the MERGE SHA, set server_sha to it,
+# delete this block and regenerate. A ready call at this pin is refused; the CLI merges after the server.
 server_sha=ef26d5856de6c33f99e4b29a5e9af2bee6875f75
 tsx=4.23.15
 graphql=16.15.0

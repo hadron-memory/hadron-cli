@@ -100,3 +100,29 @@ func TestNodeExportNodeNotFoundIsOneAnswer2899(t *testing.T) {
 		t.Errorf("a null answer exits %d, want %d: %v", exitCodeFor(nullErr), exitcode.NotFound, nullErr)
 	}
 }
+
+// Against a server that still has nodeExport(id:), the new CLI fails loud: the server
+// rejects the unknown ref argument at validation, nothing executes, and the CLI says the
+// two are out of sync (exit 2). It does NOT retry with the old name: there is no
+// fallback, so there is no silent success and no guessing at support (cor:api:220:01).
+// The release order (the server first, then the CLI in step) is the release hold's.
+func TestNodeExportOnAServerThatStillHasIDFailsLoudWithoutAFallback2899(t *testing.T) {
+	srv, calls := attnServer(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"NodeExport": `{"errors":[{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "out of sync") {
+		t.Fatalf("an old server fails loud as a version mismatch (exit 2): exit=%d err=%v", exitCodeFor(err), err)
+	}
+	sent := exportCalls2899(calls)
+	if len(sent) != 1 {
+		t.Fatalf("one attempt and no retry, got %d", len(sent))
+	}
+	if strings.Contains(sent[0].Query, "nodeExport(id:") {
+		t.Errorf("never falls back to the old argument name: %s", sent[0].Query)
+	}
+}
