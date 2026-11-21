@@ -8,7 +8,10 @@ import (
 
 func TestRedactSecretTextCoversEverySpellingAndSkipsEmpty(t *testing.T) {
 	secret := "xoxb-a/b+c=d secret"
-	for _, echo := range []string{secret, url.QueryEscape(secret), url.PathEscape(secret), strings.ToLower(url.QueryEscape(secret))} {
+	// cli#2756 P3-4: an upper- or lower-casing gateway (the case flip of the
+	// token itself) is redacted too; a mixed-case flip or partial echo is a
+	// named limit, not a covered spelling.
+	for _, echo := range []string{secret, strings.ToUpper(secret), strings.ToLower(secret), url.QueryEscape(secret), url.PathEscape(secret), strings.ToLower(url.QueryEscape(secret))} {
 		in := "bad " + echo + " end"
 		if !ContainsSecret(in, []string{secret}) {
 			t.Errorf("ContainsSecret missed %q", echo)
