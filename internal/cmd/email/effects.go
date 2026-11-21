@@ -174,6 +174,11 @@ func allowlistedServerCode(code string) string {
 	return ""
 }
 
+// effectiveKey reports whether an idempotency key counts as one: an empty or
+// whitespace-only value is sent unchanged (the server judges it) but enables no
+// deduplication, so it is no key for the retry guidance.
+func effectiveKey(key string) bool { return strings.TrimSpace(key) != "" }
+
 // draftMayExist is the guidance for an unclear draft save: the draft may have been
 // created. Whether a retry is safe depends on the ORIGINAL request: only the same
 // idempotency key on the original request and on the retry (within the server's
@@ -364,10 +369,10 @@ Details:
 			}
 			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, stringFlagIfSet(cmd, "reply-to", replyTo), stringFlagIfSet(cmd, "subject", subject), optList(cmd, "to", to), stringFlagIfSet(cmd, "idempotency-key", key))
 			if err != nil {
-				return bodyFailure(err, draftMayExist(key != ""))
+				return bodyFailure(err, draftMayExist(effectiveKey(key)))
 			}
 			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
-				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist(key != ""))
+				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist(effectiveKey(key)))
 			}
 			d := r.EmailSaveDraft
 			// The ids are the server's own opaque values, printed as returned: the draft

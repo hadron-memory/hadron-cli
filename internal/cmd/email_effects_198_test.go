@@ -1050,8 +1050,18 @@ func TestEmailAmbiguousDraftSaveKeyGuidance198(t *testing.T) {
 	// An explicitly EMPTY key is sent unchanged (the server judges it) but enables no
 	// deduplication (the server treats an empty key as none), so the guidance is the
 	// no-protection warning, never the "same key" assurance (Baloo's and Joost's P2).
-	empty := run("--idempotency-key", "")
-	if strings.Contains(empty, "same --idempotency-key") || !strings.Contains(empty, "no idempotency key") {
-		t.Errorf("an empty key must get the no-protection warning: %s", empty)
+	for _, noKey := range []string{"", " ", "\t \n"} {
+		got := run("--idempotency-key", noKey)
+		if strings.Contains(got, "same --idempotency-key") || !strings.Contains(got, "no idempotency key") {
+			t.Errorf("an empty or whitespace-only key (%q) must get the no-protection warning: %s", noKey, got)
+		}
+	}
+	// A key with content, however odd, is a key as far as the CLI can tell; the server
+	// judges its validity, and the message says the protection needs a VALID key.
+	for _, odd := range []string{"k-1", " k-1 ", "a b"} {
+		got := run("--idempotency-key", odd)
+		if !strings.Contains(got, "same --idempotency-key") || strings.Contains(got, "no idempotency key") {
+			t.Errorf("a non-empty key (%q) must get the same-key guidance: %s", odd, got)
+		}
 	}
 }
