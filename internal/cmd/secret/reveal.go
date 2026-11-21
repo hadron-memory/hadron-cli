@@ -46,6 +46,11 @@ var envNameRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 // NOT_FOUND. The server answers an unknown id, another holder's client, an App
 // key, a run, an impersonation and a person on an API token identically, so the
 // CLI says what is true of all of them and never which cause applied.
+// revealLookupMaxPages bounds the link lookup: it reads at most this many pages of 200 clients, so a
+// person with a very long list is not made to wait for a link that is an extra; a client beyond them
+// simply gets the sentence alone (the full list is `secret client list --all`).
+const revealLookupMaxPages = 10
+
 // uniformNotFoundCode is the one code the server answers an unknown id, another holder's client, an
 // App key, a run, an impersonation and a person on an API token with.
 const uniformNotFoundCode = "SECRET_READ_CLIENT_NOT_FOUND"
@@ -224,9 +229,10 @@ func withRevealLink(cmd *cobra.Command, f *cmdutil.Factory, clientID string, err
 // session) and returns the revealUrl of the one whose full id is clientID, or "". A short page is
 // the end of the list, so the lookup stops there; a failed read is not an error here.
 func findRevealURL(ctx context.Context, client graphql.Client, clientID string) string {
-	for off, pages := 0, 0; pages < maxClientPages; pages++ {
+	noLink := false
+	for off, pages := 0, 0; pages < revealLookupMaxPages; pages++ {
 		l, o := clientsPageSize, off
-		page, err := fetchClientPage(ctx, client, &l, &o)
+		page, err := fetchClientPage(ctx, client, &noLink, &l, &o)
 		if err != nil {
 			return ""
 		}
@@ -414,7 +420,7 @@ page). When the server's answer is the uniform not-found and your own 'hadron
 secret client list' carries a revealUrl for this client, the refusal also prints
 that link exactly as the server sent it: text refuses a link with control or format
 characters and says to use --json, which carries it in error.revealUrl. The link is
-never built here and a client without one keeps the sentence alone. One call, never retried: if its answer is lost the read may be spent, so
+never built here and a client without one keeps the sentence alone, as does a server that does not have the field and a client beyond your first 2,000 (the lookup reads at most ten pages). One call, never retried: if its answer is lost the read may be spent, so
 check 'hadron secret client list' before trying again. Exit codes as for exec
 before the child: 2 usage, 4 not found, 5 not live (spent, expired, revoked, not
 yet started, pending, issuer gone) or the secret deleted, 8 not permitted.`,

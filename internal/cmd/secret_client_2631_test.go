@@ -126,7 +126,7 @@ func TestSecretClientSendsASessionOnlyWithAsWorker2631(t *testing.T) {
 	srv, calls := attnServer(t, map[string]string{
 		"IssueSecretReadClient":     clientIssued2631,
 		"TeamRequestGrantSignature": `{"data":{"requestGrantSignature":` + signingRequest2631("OPEN", ceremonyURL2631) + `}}`,
-		"MySecretReadClients":       `{"data":{"mySecretReadClients":[]}}`,
+		listOp2758:                  `{"data":{"mySecretReadClients":[]}}`,
 		"TeamAppIdentity":           teamAppIdentityJSON,
 	})
 	setTeamBindingServer(t, srv.URL)
@@ -143,7 +143,7 @@ func TestSecretClientSendsASessionOnlyWithAsWorker2631(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, c := range *calls {
-		if c.Op == "MySecretReadClients" && c.Session != "" {
+		if c.Op == listOp2758 && c.Session != "" {
 			t.Errorf("ls without --as-worker must send no session, got %q", c.Session)
 		}
 	}
@@ -153,7 +153,7 @@ func TestSecretClientSendsASessionOnlyWithAsWorker2631(t *testing.T) {
 	}
 	var sent bool
 	for _, c := range *calls {
-		if c.Op == "MySecretReadClients" {
+		if c.Op == listOp2758 {
 			sent = c.Session != ""
 		}
 	}
@@ -346,13 +346,13 @@ func TestSecretClientIssueLocalRefusalsSendNothing2631(t *testing.T) {
 // here), never a null list; paging
 // flags pass through; --all walks until an empty page.
 func TestSecretClientLs2631(t *testing.T) {
-	srv, _ := attnServer(t, map[string]string{"MySecretReadClients": `{"data":{"mySecretReadClients":[]}}`})
+	srv, _ := attnServer(t, map[string]string{listOp2758: `{"data":{"mySecretReadClients":[]}}`})
 	out, _, err := runSecretClient2631(t, srv.URL, "ls", "--json")
 	if err != nil || strings.TrimSpace(out) != "[]" {
 		t.Fatalf("an empty answer must print []: err=%v out=%q", err, out)
 	}
 	row := `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
-	srv2, calls := attnServer(t, map[string]string{"MySecretReadClients": `{"data":{"mySecretReadClients":[` + row + `]}}`})
+	srv2, calls := attnServer(t, map[string]string{listOp2758: `{"data":{"mySecretReadClients":[` + row + `]}}`})
 	out, _, err = runSecretClient2631(t, srv2.URL, "ls", "--json", "--limit", "5", "--offset", "2")
 	if err != nil {
 		t.Fatal(err)
@@ -412,7 +412,7 @@ func TestSecretClientLsAllWalksPages2631(t *testing.T) {
 // name must not reach the terminal.
 func TestSecretClientLsNeutralisesText2631(t *testing.T) {
 	row := `{"clientId":"c1","grantId":"g1","secretId":"s1","secretName":"to\u001b[31mk\nx","selfIssued":true,"endReason":"PROTECTED","createdAt":"t"}`
-	srv, _ := attnServer(t, map[string]string{"MySecretReadClients": `{"data":{"mySecretReadClients":[` + row + `]}}`})
+	srv, _ := attnServer(t, map[string]string{listOp2758: `{"data":{"mySecretReadClients":[` + row + `]}}`})
 	out, _, err := runSecretClient2631(t, srv.URL, "ls")
 	if err != nil || strings.ContainsAny(out, "\x1b") || strings.Count(out, "\n") != 2 {
 		t.Fatalf("header plus one control-free row expected: err=%v out=%q", err, out)
@@ -593,7 +593,7 @@ func TestSecretClientListMalformedAnswerIsAnError2631(t *testing.T) {
 	} {
 		for _, all := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/all=%t", name, all), func(t *testing.T) {
-				srv, _ := attnServer(t, map[string]string{"MySecretReadClients": body})
+				srv, _ := attnServer(t, map[string]string{listOp2758: body})
 				args := []string{"list", "--json"}
 				if all {
 					args = append(args, "--all")
@@ -765,7 +765,7 @@ func TestSecretClientIssueIncompleteSigningRequestIsNotSuccess2631(t *testing.T)
 // carries both fields and the table shows the prefix with an ellipsis.
 func TestSecretClientLsManagerRowHasANullIDAndAPrefix2631(t *testing.T) {
 	row := `{"clientId":null,"clientPrefix":"cl-ab12","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
-	srv, _ := attnServer(t, map[string]string{"MySecretReadClients": `{"data":{"mySecretReadClients":[` + row + `]}}`})
+	srv, _ := attnServer(t, map[string]string{listOp2758: `{"data":{"mySecretReadClients":[` + row + `]}}`})
 	out, _, err := runSecretClient2631(t, srv.URL, "list", "--json")
 	var rows []map[string]any
 	if err != nil || json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 1 {
