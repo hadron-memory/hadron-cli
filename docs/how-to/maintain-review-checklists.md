@@ -213,6 +213,23 @@ hadron coding preflight lint -m hrn:mem:acme.com:kb
 | `route-target-retired` | warning | a route to a retired/superseded node |
 | `route-target-moved-memory` | warning | a route that left the router's memory |
 
+A route that is **deliberately** cross-memory (the dev router sends agents into
+the hadron-server and hadron-portal memories) is marked, so the warning keeps
+meaning "this target moved":
+
+```sh
+hadron coding preflight route hrn:node:acme.com:specs:tasks:mint -m hrn:mem:acme.com:dev \
+  --route "mint a spec" --cross-memory
+```
+
+`--cross-memory` stores `{"crossMemory": true}` in the route edge's data (never
+in its name) on the route edge and, under the mirrored model, the back-edge, and
+refuses a target in the router's own memory. Re-run the same command with the
+flag to mark a route that already exists; the edge's other data is kept. Lint
+skips only `route-target-moved-memory` for a marked route: an unreadable, retired
+or badly labelled target is still reported. `preflight list` shows the marker in
+its MARKER column and as `crossMemory` in `--json`.
+
 **Errors exit 5** (`exitcode.Conflict`, as `spec lint` does); warnings alone
 exit 0. `--strict` promotes warnings to errors. That split is deliberate: a
 third of a healthy router fails the action-phrasing convention, and a linter

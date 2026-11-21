@@ -79,6 +79,9 @@ type graphEdge struct {
 	OtherID  string
 	Other    string // the far endpoint's loc; "" when the projection was redacted
 	MemoryID string // the far endpoint's memory id, for the moved-memory route check
+	// CrossMemory is the route marker (cli#2736): the edge's own data says the route
+	// is an INTENTIONAL cross-memory route, so the moved-memory check skips it.
+	CrossMemory bool
 }
 
 // endpointName identifies an edge in a finding when its far endpoint has no
@@ -240,7 +243,7 @@ func fetchRootGraph(ctx context.Context, client graphql.Client, mem codingMemory
 		if e == nil {
 			continue
 		}
-		ge := graphEdge{ID: e.Id, Loc: e.Loc}
+		ge := graphEdge{ID: e.Id, Loc: e.Loc, CrossMemory: edgeCrossMemory(e.Data)}
 		if e.Name != nil {
 			ge.Label = *e.Name
 		}
@@ -253,7 +256,7 @@ func fetchRootGraph(ctx context.Context, client graphql.Client, mem codingMemory
 		if e == nil {
 			continue
 		}
-		ge := graphEdge{ID: e.Id, Loc: e.Loc}
+		ge := graphEdge{ID: e.Id, Loc: e.Loc, CrossMemory: edgeCrossMemory(e.Data)}
 		if e.Name != nil {
 			ge.Label = *e.Name
 		}

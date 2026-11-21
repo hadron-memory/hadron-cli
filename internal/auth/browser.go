@@ -178,6 +178,9 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
+		if limited := tokenRateLimit(resp.StatusCode, resp.Header, body); limited != nil {
+			return nil, limited
+		}
 		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
 			return nil, fault
 		}

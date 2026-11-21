@@ -3,9 +3,11 @@
 package hostpoller
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"testing"
 )
 
@@ -306,5 +308,77 @@ func TestAVanishedZombieMemberIsCodedAsAVanishedMember2142(t *testing.T) {
 	_, void, _, why := scanGroupOnce(churnPgid, churnPgid, zs, readProcDir)
 	if !void || why != whyVanishedMember {
 		t.Fatalf("void=%v why=%q, want vanished-member", void, why)
+	}
+}
+
+// cli#2744: when the host's unrelated churn outlasts the scan's bound, EVERY pass is void
+// (why=unseen-pid) and the stop reports a drained group as "not exited within 2s of
+// SIGKILL": modelled here with a fresh vanisher on every pass, past maxGroupScanPasses.
+// The FIRST assertion pins the production scan's conservative answer under unbounded
+// churn as a KNOWN LIMITATION tracked as #2853, not as the desired behavior: it is here
+// so that a future fix of #2853 changes this line on purpose. The held-exit tests give
+// their launch a group-only lister (groupOnlyProc2744) so that churn from OTHER groups
+// never reaches their scan; the second half pins that the lister settles.
+func TestUnrelatedChurnPastTheBoundVoidsTheScanAndAGroupOnlyListerKeepsItOut2744(t *testing.T) {
+	f := churnHost(3)
+	f.install(t)
+	withFreshVanisher(f, 1<<30) // a new short-lived process on every listing, forever
+	if members, why := groupMembership(churnPgid, churnPgid); !members || why != whyUnseenPid {
+		t.Fatalf("the safe answer under unbounded churn is members/unseen-pid (known limitation, #2853): %v %s", members, why)
+	}
+	var pg atomic.Int64
+	pg.Store(churnPgid)
+	f.lists, f.pass = 0, 0
+	members, why := groupMembershipWith(churnPgid, churnPgid, groupOnlyProc2744(&pg))
+	if members {
+		t.Fatalf("a group-only lister must settle on the group's own drained state, got members (%s)", why)
+	}
+	// Two listings settle it: the Z member is first seen on pass 0 (void: first sighting),
+	// and the second pass sees it again.
+	if f.lists != 2 {
+		t.Errorf("settles in exactly two listings, not by exhausting the bound (%d): %d", maxGroupScanPasses, f.lists)
+	}
+}
+
+// The group-only lister keeps the leader and its members and drops everything else,
+// including a pid gone before its stat read that was never seen as a member; a pid that
+// WAS seen as a member and then vanishes is kept (so the scan voids over it); a /proc
+// that cannot be listed passes its error through; with no pgid yet it lists all.
+func TestGroupOnlyListerKeepsOnlyTheGroup2744(t *testing.T) {
+	f := churnHost(2)
+	f.install(t)
+	withFreshVanisher(f, 1<<30)
+	var pg atomic.Int64
+	all, err := groupOnlyProc2744(&pg)("/proc")
+	if err != nil || len(all) != len(f.pids)+1 {
+		t.Fatalf("before the pgid is known the lister must list everything: %d entries, err %v", len(all), err)
+	}
+	pg.Store(churnPgid)
+	list := groupOnlyProc2744(&pg)
+	kept, err := list("/proc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range kept {
+		names = append(names, e.Name())
+	}
+	if len(kept) != 2 || names[0] != strconv.Itoa(churnPgid) || names[1] != strconv.Itoa(churnMember) {
+		t.Fatalf("only the leader and its member are kept: %v", names)
+	}
+	// The member was seen; now it vanishes before its stat read: it is still listed.
+	f.gone = func(_, pid int) bool { return pid == churnMember }
+	kept, _ = list("/proc")
+	names = names[:0]
+	for _, e := range kept {
+		names = append(names, e.Name())
+	}
+	if len(names) != 2 || names[1] != strconv.Itoa(churnMember) {
+		t.Fatalf("a known member that vanished must stay listed so the scan voids over it: %v", names)
+	}
+	// An unlistable /proc is the caller's problem, not an empty group.
+	readProcDir = func(string) ([]os.DirEntry, error) { return nil, fs.ErrPermission }
+	if _, err := groupOnlyProc2744(&pg)("/proc"); !errors.Is(err, fs.ErrPermission) {
+		t.Fatalf("a listing error passes through: %v", err)
 	}
 }

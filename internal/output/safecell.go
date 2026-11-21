@@ -102,3 +102,54 @@ var (
 	blockCSI = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]?`)
 	blockESC = regexp.MustCompile(`\x1b.?`)
 )
+
+// Terminal escape sequences, in their 7-bit (ESC-introduced) and 8-bit (C1) forms. An OSC
+// string ends at BEL, ST (ESC \) or the C1 ST; a CSI sequence ends at its final byte.
+var (
+	errOSC = regexp.MustCompile(`(?:\x1b\]|\x{9d})[^\x07\x1b\x{9c}]*(?:\x07|\x1b\\|\x{9c})?`)
+	errCSI = regexp.MustCompile(`(?:\x1b\[|\x{9b})[0-?]*[ -/]*[@-~]?`)
+	errESC = regexp.MustCompile(`\x1b.?`)
+)
+
+// SafeError makes server or provider error text safe to print on the terminal
+// (cli#2739). It removes terminal escape sequences whole (a sequence's parameters are not
+// left behind as visible junk), then turns every remaining control, format and line or
+// paragraph separator character into a single space, so the text cannot act on the terminal
+// or overwrite a line (a carriage return is a control character). A NEWLINE is kept: the
+// renderer's own messages are legitimately multi-line (a recovery command alone on the last
+// line), and a newline only starts another line, it does not move the cursor or recolour
+// anything. Known limit, accepted: a server message can therefore still start an extra line.
+// Ordinary text, including accents, CJK and emoji, passes byte for byte. It never truncates
+// and is for TEXT only: an error code, a request id or an exit code is carried beside the
+// message, not through this.
+func SafeError(s string) string {
+	s = errOSC.ReplaceAllString(s, "")
+	s = errCSI.ReplaceAllString(s, "")
+	s = errESC.ReplaceAllString(s, "")
+	var b strings.Builder
+	for _, r := range s {
+		if r != '\n' && Neutralised(r) {
+			r = ' '
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// SafeJSONText is SafeError's counterpart for text that goes into a JSON document
+// (cli#2739): the encoder already writes the C0 controls (an ESC, a BEL, a NUL) as \u
+// escapes, so those stay as the server sent them and the value is unchanged for a program
+// that decodes it. What the encoder leaves RAW, and a terminal that prints the document
+// can still act on, becomes a space: the C1 controls (U+0080 to U+009F, which include the
+// 8-bit CSI and OSC introducers) and the format characters (bidi overrides, zero-width
+// characters). Ordinary text is unchanged.
+func SafeJSONText(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 0x80 && r <= 0x9f) || unicode.In(r, unicode.Cf) {
+			r = ' '
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}

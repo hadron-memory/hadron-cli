@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -162,6 +163,15 @@ func taskResponses() map[string]string {
 // recorded calls.
 func runTeamTask(t *testing.T, responses map[string]string, argv ...string) (*[]attnCall, string, error) {
 	t.Helper()
+	_, calls, out, err := runTeamTaskFactory(t, responses, argv...)
+	return calls, out.String(), err
+}
+
+// runTeamTaskFactory is runTeamTask's scaffold, also returning the Factory and
+// the live stdout builder so a caller can render the error and read both streams
+// afterwards (cli#2784: shared with the app guard pins' refused1468).
+func runTeamTaskFactory(t *testing.T, responses map[string]string, argv ...string) (*cmdutil.Factory, *[]attnCall, *strings.Builder, error) {
+	t.Helper()
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, responses)
 	setTeamBindingServer(t, srv.URL)
@@ -169,7 +179,7 @@ func runTeamTask(t *testing.T, responses map[string]string, argv ...string) (*[]
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"--server", srv.URL}, argv...))
 	err := root.Execute()
-	return calls, out.String(), err
+	return f, calls, out, err
 }
 
 // ---- create ---------------------------------------------------------------

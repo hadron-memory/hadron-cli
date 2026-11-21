@@ -67,6 +67,8 @@ query NextNode(
       loc
       isRunnable
       priority
+      # cli#2736: the route marker lives in the edge data (crossMemory).
+      data
       target {
         id
         name
@@ -80,6 +82,8 @@ query NextNode(
       loc
       isRunnable
       priority
+      # cli#2736: the route marker lives in the edge data (crossMemory).
+      data
       source {
         id
         loc
