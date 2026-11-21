@@ -48,8 +48,10 @@ flag parsing is off so an old flag reaches the message). It is not an alias.
   deliberately not omitempty (an empty list clears). `AskQuestionInput.deciders` is not
   omitempty either (null means the log's defaults).
 - **Every list filter is sent only when its flag was given.** `--answered` alone is
-  `true`; `--answered=false` is pending. A list needs exactly one scope: `--app`,
-  `--log` or `--awaiting-me` (and not `--app` with `--log`), checked before any request.
+  `true`; `--answered=false` is pending. A list needs a scope: `--app`,
+  `--log` or `--awaiting-me` (`--awaiting-me=false` is none; `--app` with `--log` is refused;
+  `--awaiting-me` may stand alone or sit beside `--app`/`--log`, the server judging the
+  combination), checked before any request.
 - **Exit codes** (`internal/api/errors.go`): the `QUESTION_*` rows keep their classes;
   `QUESTION_PART_RENUMBER`, `QUESTION_SUPERSEDED` and `QUESTION_ANSWERED_DECIDED` are
   gone with the old shape; `QUESTION_UNKNOWN_OPTION` and `QUESTION_ASSIGNEE_NOT_DECIDER`

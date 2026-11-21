@@ -433,6 +433,22 @@ func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 				} else if in.Title == "" {
 					t.Errorf("%s: heredoc %s lacks the required title", path, name)
 				}
+				if dec.More() {
+					t.Errorf("%s: heredoc %s has data after the JSON object", path, name)
+				}
+				// The server's rules for the example: every option has a key and a label, and
+				// a recommendation names one of them.
+				keys := map[string]bool{}
+				for _, o := range in.Options {
+					if o == nil || o.Key == "" || o.Label == "" {
+						t.Errorf("%s: heredoc %s has an option without a key and a label", path, name)
+						continue
+					}
+					keys[o.Key] = true
+				}
+				if in.Recommendation != nil && !keys[in.Recommendation.Key] {
+					t.Errorf("%s: heredoc %s recommends %q, which is not one of its options", path, name, in.Recommendation.Key)
+				}
 				continue
 			}
 			var in gen.AmendQuestionInput

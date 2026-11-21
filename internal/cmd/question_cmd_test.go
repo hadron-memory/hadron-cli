@@ -751,3 +751,42 @@ func TestQuestionAwaitingMeFalseIsNoScopeAndPurgeSaysItsException(t *testing.T) 
 		t.Fatalf("the purge help must state the legacy-format limit, not an answered-or-not exception: %v %q", ferr, flat)
 	}
 }
+
+// Beckett's P2: success is claimed only when the reply confirms the outcome.
+// A reply with no standing answer after answer, or one still showing a standing
+// answer after retract, is an unconfirmed outcome (exit 1, nothing printed, in text
+// and JSON), pointing at question get.
+func TestQuestionAnswerAndRetractRefuseAnInconsistentReply(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		answerArgs := []string{"answer", "QA", "--expected-revision", "3", "--option", "pg"}
+		retractArgs := []string{"retract", "QA", "--expected-revision", "4"}
+		if asJSON {
+			answerArgs = append(answerArgs, "--json")
+			retractArgs = append(retractArgs, "--json")
+		}
+		c, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionJSON + `}}`}, answerArgs...)
+		if exitCodeFor(err) != exitcode.Error || out != "" || len(c.ops) != 1 || err == nil || !strings.Contains(err.Error(), "unconfirmed") || !strings.Contains(err.Error(), "question get") {
+			t.Fatalf("answer with no standing answer returned (json=%v): exit=%d out=%q err=%v", asJSON, exitCodeFor(err), out, err)
+		}
+		c, out, err = runQuestion(t, map[string]string{"RetractQuestionAnswer": `{"data":{"retractQuestionAnswer":` + questionAnsweredJSON + `}}`}, retractArgs...)
+		if exitCodeFor(err) != exitcode.Error || out != "" || len(c.ops) != 1 || err == nil || !strings.Contains(err.Error(), "unconfirmed") || !strings.Contains(err.Error(), "question get") {
+			t.Fatalf("retract with a standing answer returned (json=%v): exit=%d out=%q err=%v", asJSON, exitCodeFor(err), out, err)
+		}
+	}
+}
+
+// Beckett's P3: `hadron decision --help` is the one thing the stub shows besides the
+// sentence; the fake server address is NOT configured for decision (flag parsing is off)
+// and the harness fails the test on any attempt to reach a real host, so the retirement
+// test above proves no request is sent.
+func TestDecisionHelpShowsTheRetirementPage(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"decision", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--help must show the page: %v", err)
+	}
+	if !strings.Contains(strings.Join(strings.Fields(out.String()), " "), "was renamed to hadron question") {
+		t.Fatalf("the page must name the rename: %q", out.String())
+	}
+}

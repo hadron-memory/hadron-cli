@@ -104,7 +104,7 @@ end, or one that still allows reads); 8 not permitted.`,
 				return err
 			}
 			if c == nil {
-				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client you neither issued nor hold does not list here, even where the server would let you revoke its grant as the App's manager); see `hadron secret client list --all`", output.SafeCell(fmt.Sprintf("%q", id)))
+				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client you neither issued nor hold lists only by its prefix, which this exact-id lookup does not match, even where the server would let you revoke its grant as the App's manager); see `hadron secret client list --all`", output.SafeCell(fmt.Sprintf("%q", id)))
 			}
 			if strings.TrimSpace(c.GrantID) == "" {
 				return exitcode.Newf(exitcode.Error, "the server returned read client %s with no grant id, so it cannot be revoked; nothing was sent", output.SafeCell(*c.ClientID))

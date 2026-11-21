@@ -662,14 +662,16 @@ as question get shows it; --json prints the question as one object.`,
 				return exitcode.Newf(exitcode.Error, "server returned no question")
 			}
 			q := questionFrom(&resp.AnswerQuestion.QuestionFields)
-			// The heading names the standing answer the server RETURNED, not what was
-			// requested: the two should agree, and a difference must show.
-			given := "(text)"
-			if q.Answer != nil {
-				given = answerHeading(q.Answer)
-			} else if fl.Changed("option") {
-				given = output.SafeCell(option)
+			// Success is only claimed when the returned question carries a standing
+			// answer: a reply without one does not confirm the answer, so the
+			// outcome is unconfirmed (in either output mode) and must be read back
+			// before retrying.
+			if q.Answer == nil || !q.Answered {
+				return exitcode.Newf(exitcode.Error, "the server's reply does not show a standing answer, so the outcome of this answer is unconfirmed; read it with `hadron question get %s` before retrying", output.SafeCell(ref))
 			}
+			// The heading names the standing answer the server RETURNED, not what was
+			// requested.
+			given := answerHeading(q.Answer)
 			return output.Write(f.IOStreams, f.JSON, q, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ answered %s: %s\n", output.SafeCell(q.Code), given); err != nil {
 					return err
@@ -727,6 +729,11 @@ question; --json prints the question as one object.`,
 				return exitcode.Newf(exitcode.Error, "server returned no question")
 			}
 			q := questionFrom(&resp.RetractQuestionAnswer.QuestionFields)
+			// "Pending again" is only claimed when the returned question has no
+			// standing answer; otherwise the outcome is unconfirmed.
+			if q.Answered || q.Answer != nil {
+				return exitcode.Newf(exitcode.Error, "the server's reply still shows a standing answer, so the outcome of this retraction is unconfirmed; read it with `hadron question get %s` before retrying", output.SafeCell(ref))
+			}
 			return output.Write(f.IOStreams, f.JSON, q, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ answer taken back; %s is pending again\n", output.SafeCell(q.Code)); err != nil {
 					return err
@@ -796,7 +803,7 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the questions of one App (--app: every question in the Memories of that App
 that you can read), of one log (--log), or with --awaiting-me the open questions
 you decide across every Memory you can read. Give at least one of the three (--awaiting-me
-may be combined with another), and not --app with --log. One page per call: --limit (server default 20) and --offset page
+may stand alone or sit beside --app or --log), and not --app with --log. One page per call: --limit (server default 20) and --offset page
 through; total counts every match. The server derives each state before
 filtering; a list above 5000 candidates refuses a filter
 (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
@@ -816,7 +823,9 @@ Every filter is sent only when its flag was given:
   --sort               PORTAL_DEFAULT (the server default), CODE, ASKED_AT_DESC,
                        ASKED_AT_ASC, PRIORITY_DESC or ANSWERED_AT_DESC
 
-The table is CODE STATE PRIORITY TIER ASSIGNEE REV TITLE; "N of M" goes to stderr.`,
+The table is CODE STATE PRIORITY TIER ASSIGNEE REV TITLE; "N of M" goes to stderr.
+ASSIGNEE is the effective assignee: the explicit one, else the holder of the worker that
+asked (so it can be inferred, not named by the asker), else a dash.`,
 		Example: `  hadron question list --app hrn:app:acme.com:ops --answered=false --priority HIGH,URGENT
   hadron question list --awaiting-me --json
   hadron question list --log hrn:node:acme.com:eng:questions --asked-by-me --answered-since 2026-11-01T00:00:00Z`,

@@ -1,10 +1,18 @@
 # `hadron decision` is now `hadron question`; `answer`, `retract` and list filters
 
-Unreleased (cli#2465, over hadron-server#1641 slices S1-S4). **Breaking:** the server
-renamed decisions to questions with no aliases, so every released CLI's
-`hadron decision …` fails against it with the schema-skew message (exit 2). This
-release is the client for the renamed server: it needs a server that has hadron-server
-#4425-#4428 (alpha 0.22.0 or later). Older servers are no longer supported by this group.
+Unreleased (cli#2465, over hadron-server#1641 slices S1-S4). **Breaking.** The server
+renamed decisions to questions with no aliases (S1, #4425) and changed their shape (S2,
+#4426): a CLI older than the dual-shape release (cli#2639) fails against the renamed server
+with the schema-skew message (exit 2). The dual-shape CLI spoke both shapes; this release drops
+the old one (cli#2640), so it needs a server that has hadron-server #4425-#4428 (alpha 0.22.0
+or later), and `hadron question` does not work against an older server. The `secret client
+list` and `secret client revoke` commands now also need a server with
+`SecretReadClient.clientPrefix` (hadron-server#4536): an older server rejects their query at
+validation, before any mutation.
+
+**Existing records.** The CLI has no migration. A question stored in the format before #4426 is
+judged by the server (its derived state, and what `purge` may remove: see below); do not rely
+on such a record as a ruling unless `hadron question verify` says it is DECIDED.
 
 ## New
 
