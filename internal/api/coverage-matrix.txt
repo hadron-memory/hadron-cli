@@ -278,7 +278,7 @@ addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
-allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
+allocateSpecNode  command spec new
 amendQuestion  command decision amend
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply

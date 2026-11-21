@@ -697,7 +697,7 @@ section between the markers.
 | `spec lint` | check, validate |  | y | #1055 | a47ed7c798e2 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec list` | ls |  | y | #1055 | f482dd92b9bc |  | unread |  |
 | `spec mint` |  |  | y | #1055 | ea9e9556b5df | Cloe | fail | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 : wording passes (Cloe pass2); NOT example-verified: the real mint was blocked, follow-up [#1307](https://github.com/hadron-memory/hadron-cli/issues/1307) carries the end-to-end leg |
-| `spec new` | scaffold |  | y | #1055 | 0177e55239ad | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
+| `spec new` | scaffold |  | y | #1055 | 83e79ad75d3a |  | unread |  |
 | `spec register` | reg |  | y | #1055 | 2f690e3f6081 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec renumber` |  |  | y | #1055 | 7785b7b971cc | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec replace` |  |  | y | #1055 | 2806244fb2ce | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
