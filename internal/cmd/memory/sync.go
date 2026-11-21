@@ -261,6 +261,16 @@ checks. The token is never printed: not in the output, --json or an error.
 // chosen by the same test — a fixed text that carries this token is never
 // printed (cli#2714 round 5; see tokenSafeRefusal).
 func setTokenError(err error, token string) error {
+	out := setTokenErrorUnguarded(err, token)
+	if token == "" {
+		return out
+	}
+	// cli#2761: text a later layer appends (renderError's stored-credential
+	// hint) is output too; it is judged by the same predicate as the message.
+	return api.WithOutputGuard(out, func(candidate string) bool { return containsAnySpelling(candidate, token) })
+}
+
+func setTokenErrorUnguarded(err error, token string) error {
 	mapped := api.MapError(err)
 	if token == "" {
 		// Nothing to redact, but the same cap and control-character guard as below.

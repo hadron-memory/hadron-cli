@@ -636,6 +636,34 @@ type serverCodeError struct {
 func (e *serverCodeError) Unwrap() error      { return e.error }
 func (e *serverCodeError) ServerCode() string { return e.code }
 
+// outputGuardError carries a predicate that says whether a candidate output
+// string would carry text the error's producer proved it had removed (a
+// redacted secret). It exists for post-redaction text assembly: whatever a
+// later layer appends to the message must pass the same containment test the
+// message itself passed (cli#2761).
+type outputGuardError struct {
+	error
+	carries func(string) bool
+}
+
+func (e *outputGuardError) Unwrap() error { return e.error }
+
+// WithOutputGuard attaches carries to err. A nil err or nil carries returns err
+// unchanged. Error() and Unwrap() are err's, untouched.
+func WithOutputGuard(err error, carries func(string) bool) error {
+	if err == nil || carries == nil {
+		return err
+	}
+	return &outputGuardError{error: err, carries: carries}
+}
+
+// OutputCarriesGuarded reports whether err carries an output guard that
+// rejects candidate. An error with no guard rejects nothing.
+func OutputCarriesGuarded(err error, candidate string) bool {
+	var g *outputGuardError
+	return errors.As(err, &g) && g.carries(candidate)
+}
+
 // WithServerCode keeps the server's extensions.code of raw on mapped, for the
 // --json envelope's serverCode. A nil mapped stays nil whatever raw carries;
 // without a code mapped is returned as it was. Only mapped is wrapped, so
