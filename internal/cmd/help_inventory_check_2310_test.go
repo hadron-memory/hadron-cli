@@ -133,9 +133,10 @@ func TestHelpInventoryCheckComparesTheWholeFile2310(t *testing.T) {
 	}
 }
 
-// cli#2648 (blind P2-2): a merge that deletes an assessed row. Pinned here as the CI
-// pipeline runs it: since cli#2699 the revert check names it when the command still
-// exists, and it also fails the drift check, because the generator re-emits every command-tree row (as unread, with
+// cli#2648 (blind P2-2): a merge that deletes an assessed row. Since cli#2699 the revert
+// check names it when the command still exists (the live set here is the fixture's own
+// command, standing in for the real tree the tool builds), and it also fails the drift
+// check, because the generator re-emits every command-tree row (as unread, with
 // the human columns carried over only from a row that still exists). A mutant
 // that dropped the whole-file diff, or made the generator skip rows absent from
 // the committed file, turns the last assertion red.

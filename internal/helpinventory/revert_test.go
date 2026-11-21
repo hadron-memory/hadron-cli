@@ -196,7 +196,9 @@ func TestLivePathsSpellingMatchesTheInventory2699(t *testing.T) {
 	grp.AddCommand(&cobra.Command{Use: "old", Short: "old", Deprecated: "use sub", Run: func(*cobra.Command, []string) {}})
 	empty := &cobra.Command{Use: "empty", Short: "no listed children"}
 	empty.AddCommand(&cobra.Command{Use: "h", Short: "h", Hidden: true, Run: func(*cobra.Command, []string) {}})
-	root.AddCommand(grp, empty, &cobra.Command{Use: "solo", Short: "solo", Run: func(*cobra.Command, []string) {}})
+	comp := &cobra.Command{Use: "completion", Short: "scripts"}
+	comp.AddCommand(&cobra.Command{Use: "bash", Short: "bash", Run: func(*cobra.Command, []string) {}})
+	root.AddCommand(grp, empty, comp, &cobra.Command{Use: "solo", Short: "solo", Run: func(*cobra.Command, []string) {}})
 	got := LivePaths(root)
 	want := map[string]bool{"(root)": true, "help": true, "completion": true, "grp": true, "grp sub": true, "solo": true}
 	for p := range want {

@@ -78,7 +78,10 @@ const rootPath = "(root)"
 // hidden, not deprecated, runnable or with a listed child), found by its canonical
 // name (an alias is a column of its target's row, never a path); the root is "(root)".
 // cobra adds the help and completion commands when a command runs, not when the root
-// is built, so the two `generated` pages the inventory lists are added by name.
+// is built, so the two `generated` pages the inventory lists are added by name; that
+// hard-coding is tied to the generator (which lists help and completion from the root's
+// own "Available Commands:" and does not walk below them) and pinned against a walk of the
+// real root's help text in scripts/helpinventoryrevert (TestLivePathsEqualTheHelpWalk2699).
 func LivePaths(root *cobra.Command) map[string]bool {
 	live := map[string]bool{rootPath: true, "help": true, "completion": true}
 	var walk func(c *cobra.Command, prefix string)
@@ -92,6 +95,11 @@ func LivePaths(root *cobra.Command) map[string]bool {
 				path = prefix + " " + ch.Name()
 			}
 			live[path] = true
+			if prefix == "" && (ch.Name() == "help" || ch.Name() == "completion") {
+				// The generator lists these two pages and does not walk below them: the
+				// completion command's per-shell children are not inventory rows.
+				continue
+			}
 			walk(ch, path)
 		}
 	}
@@ -115,9 +123,10 @@ func LivePaths(root *cobra.Command) map[string]bool {
 // path is still live it is a bad merge resolution (a regeneration would have kept the
 // row, as unread, so only a hand edit or a bad resolution can drop it): the check names
 // the row and the command. When the command is no longer live (a command may be
-// removed) the deletion is allowed. A nil live set means the command tree is unknown,
-// and the deletion rule is then inert (every command reads as removed), so a caller
-// that wants the rule must pass the tree.
+// removed) the deletion is allowed. A nil live set DISABLES the deletion rule (no tree was
+// given, so no command is known to exist): it is not a way to say "every command was
+// removed", and a caller that wants the rule must pass the tree (the tool refuses to run
+// with an empty one).
 func Reverts(base, head map[string]Row, live map[string]bool) []string {
 	var out []string
 	for path, b := range base {
@@ -127,7 +136,7 @@ func Reverts(base, head map[string]Row, live map[string]bool) []string {
 		h, ok := head[path]
 		if !ok {
 			if live[path] {
-				out = append(out, fmt.Sprintf("`%s`: assessed row (%s by %s) deleted while the command `%s` still exists in the command tree, help hash %s at the merge base", path, b.Result, evaluatorOrDash(b.Evaluator), commandOf(path), b.Hash))
+				out = append(out, fmt.Sprintf("`%s`: assessed row (%s by %s) deleted while the command `%s` still exists in the command tree, help hash %s at the merge base", path, b.Result, evaluatorOrDash(b.Evaluator), commandOf(path), evaluatorOrDash(b.Hash)))
 			}
 			continue
 		}
@@ -147,6 +156,7 @@ func Reverts(base, head map[string]Row, live map[string]bool) []string {
 	return out
 }
 
+// evaluatorOrDash renders an empty cell as a dash.
 func evaluatorOrDash(e string) string {
 	if e == "" {
 		return "-"

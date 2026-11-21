@@ -16,7 +16,8 @@
 // where the inventory is read from: when -head names a revision other than the
 // checked-out HEAD (CI checks out the PR merge commit and passes the PR head sha) the
 // tool says so on stderr, because a command added or removed by the other side is judged
-// by the checked-out tree, not by the ref.
+// by the checked-out tree, not by the ref. A local `go run` compiles the working tree,
+// uncommitted changes included, while the inventory is read from the committed -head.
 package main
 
 import (
@@ -99,7 +100,15 @@ func main() {
 	// The live command tree of this build (the checked-out tree); building the root reads no
 	// configuration and makes no request.
 	live := helpinventory.LivePaths(cmd.NewRootCmd(cmdutil.NewFactory()))
-	noteIfHeadIsNotCheckedOut(*headRef)
+	if len(live) <= minLivePages {
+		// A broken or empty tree would read every deletion as a removed command and let
+		// it through: refuse to judge rather than pass quietly.
+		fmt.Fprintf(os.Stderr, "✗ help-inventory revert check: the live command tree has %d page(s): refusing to judge deletions against it\n", len(live))
+		os.Exit(2)
+	}
+	if n := headNote("", *headRef); n != "" {
+		fmt.Fprintln(os.Stderr, n)
+	}
 	bad, mb, err := check("", *baseRef, *headRef, live)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "✗ help-inventory revert check: %v\n", err)
@@ -117,18 +126,22 @@ func main() {
 	os.Exit(1)
 }
 
-// noteIfHeadIsNotCheckedOut says on stderr when -head is a revision other than the
-// checked-out HEAD, so a reader of the result knows which tree "the command still exists"
-// was judged against. It never fails the check: the revision may be unreadable here
-// (checkHead reports that itself) or simply the PR head of a merge checkout.
-func noteIfHeadIsNotCheckedOut(head string) {
+// minLivePages is the number of pages below which the live tree cannot be the CLI's:
+// the root, help and completion alone are what LivePaths reports for an empty root.
+const minLivePages = 3
+
+// headNote returns the stderr note for a -head other than the checked-out HEAD, so a reader
+// of the result knows which tree "the command still exists" was judged against, or "" when
+// there is nothing to say. It never fails the check: the revision may be unreadable here
+// (check reports that itself) or simply the PR head of a merge checkout.
+func headNote(dir, head string) string {
 	if head == "HEAD" {
-		return
+		return ""
 	}
-	want, err1 := git("", "rev-parse", "--verify", "--quiet", head+"^{commit}")
-	have, err2 := git("", "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
+	want, err1 := git(dir, "rev-parse", "--verify", "--quiet", head+"^{commit}")
+	have, err2 := git(dir, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
 	if err1 != nil || err2 != nil || want == have {
-		return
+		return ""
 	}
-	fmt.Fprintf(os.Stderr, "note: the live command tree is the checked-out one (%.9s); the inventory is read from -head %.9s\n", have, want)
+	return fmt.Sprintf("note: the live command tree is the checked-out one (%.9s); the inventory is read from -head %.9s", have, want)
 }
