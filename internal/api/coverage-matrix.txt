@@ -627,7 +627,7 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 42: 17 gap, 25 excluded
+[Arguments] 40: 15 gap, 25 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #2773
@@ -664,8 +664,6 @@ Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateTicker(instruction)  gap #2773
-Query.automationTeamSnapshotGrants(triggerId)  gap #2775
-Query.automationTeamSnapshotGrants(triggerKind)  gap #2775
 Query.dueWakes(instruction)  gap #2774
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
