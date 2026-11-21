@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -131,10 +132,13 @@ func TestSecretRevealRefusedPersonLinkInTheJSONEnvelope2758(t *testing.T) {
 // A null or absent field, a row for another client, a row with no full client id and a
 // failed lookup all leave the refusal exactly as it was: the same text, the same code.
 func TestSecretRevealRefusalIsUnchangedWithoutALink2758(t *testing.T) {
+	// A literal, not a run of the same binary: dropping the "no link, no extra line" guard would
+	// change the baseline and the cases alike and still compare equal.
+	const wantText = "refused: SECRET_READ_CLIENT_NOT_FOUND; a read client is revealed by the worker it names, in that worker's session; a person reveals on the server's passkey page"
 	baseline, _ := attnServer(t, map[string]string{"RevealSecret": gqlErrorJSON(notFound2758), "MySecretReadClients": list2758()})
 	want := runSecretReveal2664(t, baseline.URL, true, "reveal", "cl-1").err
-	if want == nil {
-		t.Fatal("baseline must refuse")
+	if want == nil || want.Error() != wantText {
+		t.Fatalf("the refusal today is exactly %q, got %v", wantText, want)
 	}
 	other := strings.Replace(clientRow2758(withURL2758(url2758)), `"clientId":"cl-1"`, `"clientId":"cl-2"`, 1)
 	prefixOnly := strings.Replace(clientRow2758(withURL2758(url2758)), `"clientId":"cl-1"`, `"clientId":null`, 1)
@@ -145,6 +149,7 @@ func TestSecretRevealRefusalIsUnchangedWithoutALink2758(t *testing.T) {
 		"no full client id": list2758(prefixOnly),
 		"lookup refused":    gqlErrorJSON("FORBIDDEN"),
 		"empty url":         list2758(clientRow2758(`,"revealUrl":""`)),
+		"an id that merely starts with the requested one": list2758(strings.Replace(clientRow2758(withURL2758(url2758)), `"clientId":"cl-1"`, `"clientId":"cl-12"`, 1)),
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv, _ := attnServer(t, map[string]string{"RevealSecret": gqlErrorJSON(notFound2758), "MySecretReadClients": resp})
@@ -216,5 +221,81 @@ func TestSecretRevealLinkLookupStopsOnAShortPage2758(t *testing.T) {
 	_ = runSecretReveal2664(t, srv.URL, true, "reveal", "cl-1")
 	if n := listCalls2758(calls); n != 1 {
 		t.Errorf("a short page ends the lookup, got %d list reads", n)
+	}
+}
+
+// The lookup is the viewer's own and carries NO worker session, in a bound worktree too, while the
+// reveal itself carries the worker's (LOCAL P2 on #2882): a lookup sent as the worker would make
+// the server answer a person's list with nothing and the link would silently never print.
+func TestSecretRevealLinkLookupCarriesNoWorkerSession2758(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, map[string]string{
+		"RevealSecret":        gqlErrorJSON(notFound2758),
+		"MySecretReadClients": list2758(clientRow2758(withURL2758(url2758))),
+		"TeamAppIdentity":     teamAppIdentityJSON,
+	})
+	setTeamBindingServer(t, srv.URL)
+	r := runSecretReveal2664(t, srv.URL, true, "reveal", "cl-1")
+	if r.err == nil || !strings.Contains(r.err.Error(), url2758) {
+		t.Fatalf("the link prints in a bound worktree too: %v", r.err)
+	}
+	var revealSession, lookups int
+	for _, c := range *calls {
+		switch c.Op {
+		case "RevealSecret":
+			if c.Session != "" {
+				revealSession++
+			}
+		case "MySecretReadClients":
+			lookups++
+			if c.Session != "" {
+				t.Errorf("the lookup must carry no worker session: %q", c.Session)
+			}
+		}
+	}
+	if revealSession != 1 || lookups != 1 {
+		t.Errorf("the reveal carries the bound session once (%d) and the lookup is one read (%d)", revealSession, lookups)
+	}
+}
+
+// A client on the second page is found: the offset advances by the rows seen.
+func TestSecretRevealLinkLookupPagesToTheClient2758(t *testing.T) {
+	var firstPage []string
+	for i := 0; i < 200; i++ {
+		row := strings.Replace(clientRow2758(""), `"clientId":"cl-1"`, fmt.Sprintf(`"clientId":"x-%03d"`, i), 1)
+		firstPage = append(firstPage, row)
+	}
+	responses := map[string]string{"RevealSecret": gqlErrorJSON(notFound2758), "MySecretReadClients": list2758(firstPage...)}
+	reads := 0
+	srv, calls := attnServerHook(t, responses, func(op string) {
+		// The hook runs before the answer is read: the first read keeps the full page, the second gets page two.
+		if op == "MySecretReadClients" {
+			reads++
+			if reads == 2 {
+				setAttnResponse(responses, "MySecretReadClients", list2758(clientRow2758(withURL2758(url2758))))
+			}
+		}
+	})
+	r := runSecretReveal2664(t, srv.URL, true, "reveal", "cl-1")
+	if r.err == nil || !strings.Contains(r.err.Error(), url2758) {
+		t.Fatalf("a client on page two is found: %v", r.err)
+	}
+	var offsets []any
+	for _, c := range *calls {
+		if c.Op == "MySecretReadClients" {
+			offsets = append(offsets, c.Vars["offset"])
+		}
+	}
+	if len(offsets) != 2 || offsets[0] != float64(0) || offsets[1] != float64(200) {
+		t.Errorf("the second read starts after the 200 rows already seen: %v", offsets)
+	}
+}
+
+// Only the server's own uniform code triggers the lookup: another not-found code does not.
+func TestSecretRevealLinkOnlyForTheUniformCode2758(t *testing.T) {
+	srv, calls := attnServer(t, map[string]string{"RevealSecret": gqlErrorJSON("NOT_FOUND"), "MySecretReadClients": list2758(clientRow2758(withURL2758(url2758)))})
+	r := runSecretReveal2664(t, srv.URL, true, "reveal", "cl-1")
+	if r.err == nil || listCalls2758(calls) != 0 || strings.Contains(r.err.Error(), url2758) {
+		t.Errorf("a different not-found makes no lookup: reads=%d err=%v", listCalls2758(calls), r.err)
 	}
 }

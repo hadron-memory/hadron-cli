@@ -46,6 +46,10 @@ var envNameRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 // NOT_FOUND. The server answers an unknown id, another holder's client, an App
 // key, a run, an impersonation and a person on an API token identically, so the
 // CLI says what is true of all of them and never which cause applied.
+// uniformNotFoundCode is the one code the server answers an unknown id, another holder's client, an
+// App key, a run, an impersonation and a person on an API token with.
+const uniformNotFoundCode = "SECRET_READ_CLIENT_NOT_FOUND"
+
 const notRevealedHere = "a read client is revealed by the worker it names, in that worker's session; a person reveals on the server's passkey page"
 
 const lostAnswerNote = "the read may have been spent: check `hadron secret client list` before trying again"
@@ -192,7 +196,10 @@ func (e *revealLinkError) RevealURL() string { return e.url }
 // holder is (the server's field is the answer for the viewer), and changes nothing else: a refusal
 // of any other kind, a lookup that fails or a client with no link comes back exactly as it was.
 func withRevealLink(cmd *cobra.Command, f *cmdutil.Factory, clientID string, err error) error {
-	if exitcode.FromError(err) != exitcode.NotFound {
+	// Only the server's own uniform answer: a not-found the CLI raised before sending (a binding
+	// check, say) carries no server code and never triggers the read.
+	var coded interface{ ServerCode() string }
+	if exitcode.FromError(err) != exitcode.NotFound || !errors.As(err, &coded) || coded.ServerCode() != uniformNotFoundCode {
 		return err
 	}
 	client, cerr := f.GraphQLClient()
