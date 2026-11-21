@@ -716,6 +716,28 @@ enum AgentProcessKind {
   STARTS
 }
 
+"""One revision in an Agent's list. #4488"""
+type AgentRevision {
+  createdAt: DateTime!
+  description: String
+  label: String!
+
+  """True for the revision the Agent is pinned to (publishRevision)."""
+  published: Boolean!
+  revisionLoc: String!
+}
+
+"""
+An Agent's revisions, newest first, with the slot facts. Slot numbers are never reused: the next save takes
+1 + the highest ever used, deleted revisions included, so a delete does not raise slotsRemaining. #4488
+"""
+type AgentRevisionList {
+  highestSlotUsed: Float!
+  revisions: [AgentRevision!]!
+  slotLimit: Float!
+  slotsRemaining: Float!
+}
+
 """Recurring trigger (cor:agt:010, D-2026-07-04-E)."""
 type AgentSchedule {
   agentId: ID
@@ -5579,6 +5601,11 @@ type DueTaskReason {
   """The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's)."""
   id: ID!
 
+  """
+  #4431 — for ANSWERED, the code of the question that was answered (e.g. QA3), for the nudge: a question this task asked was answered: <code>. Never the answer. Null for every other event (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+  """
+  questionCode: String
+
   """A stable label for the reason, e.g. TASK:<id>:assigned."""
   ref: String!
 
@@ -9721,6 +9748,16 @@ type Mutation {
   Refusals: AGENT_NOT_FOUND, FORBIDDEN, BAD_USER_INPUT, MODEL_GROUP_NOT_FOUND, AGENT_OWNERSHIP_CHANGED.
   """
   deleteAgentModelGroup(agentRef: ID!, name: String!): Boolean!
+
+  """
+  Delete one of an Agent's revisions by loc (#4488). Same gate as restoreRevision: the Agent's manager.
+  Refuses, before any write, the published (pinned) revision (REVISION_PUBLISHED) and the Agent's only
+  revision (REVISION_ONLY). A deleted revision leaves the list and can no longer be restored; its slot
+  number is not reused, so a delete does not free a slot (see agentRevisions).
+  
+  Accepts the entity's ID or URN.
+  """
+  deleteAgentRevision(agentRef: ID!, revisionLoc: String!): RevisionResult!
   deleteAgentSchedule(id: ID!): Boolean!
 
   """
@@ -14311,6 +14348,14 @@ type Query {
   hadron_agent_processes returns the same list. Accepts the Agent's ID or URN.
   """
   agentProcessList(ref: ID!): [AgentListedProcess!]!
+
+  """
+  An Agent's revisions, newest first, with the slot limit, the highest slot used and the saves left (#4488).
+  Read by whoever may restore a revision: the Agent's manager.
+  
+  Accepts the entity's ID or URN.
+  """
+  agentRevisions(agentRef: ID!): AgentRevisionList!
   agentSchedules(appRef: String!, limit: Int, offset: Int): AgentSchedulesPage!
 
   """
@@ -20175,6 +20220,11 @@ enum TaskWakeEvent {
   An unacknowledged alarm's currently-woken chain position (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Delivering it never acknowledges the alarm.
   """
   ALARM
+
+  """
+  #4431 — a question that blocks the task was answered (a question.answered event on the task); the nudge names the task, never the answer. Due to the task's current assignee until delivered or that worker acts on the task (hrn:node:hadronmemory.com:specs:cor:agt:050:11). A take-back wakes nobody.
+  """
+  ANSWERED
   ASSIGNED
 
   """
