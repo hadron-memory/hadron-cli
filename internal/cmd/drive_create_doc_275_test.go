@@ -471,8 +471,8 @@ func TestDriveCreateDoc2737BodylessAuthAndRateLimitAreUnknownOutcomes(t *testing
 // covered, not only the renderer in isolation.
 func TestDriveCreateDoc2737DefiniteRefusalWithControlCharactersIsNeutralisedAtRender(t *testing.T) {
 	const message = "refused by drive\nforged: \x1b[31mred\x1b[0m \u202eevil"
-	run := func(t *testing.T, asJSON bool) (error, *int32, string, string) {
-		srv, n := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
+	run := func(t *testing.T, asJSON bool) (n int32, stdout, stderr string, err error) {
+		srv, count := createDocServer275(t, func(w http.ResponseWriter, _ *http.Request, _ map[string]any) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "FORBIDDEN"}}}})
 		})
 		f, out := testFactory(t)
@@ -485,17 +485,16 @@ func TestDriveCreateDoc2737DefiniteRefusalWithControlCharactersIsNeutralisedAtRe
 			args = append(args, "--json")
 		}
 		r.SetArgs(args)
-		err := r.Execute()
+		err = r.Execute()
 		if out.Len() != 0 {
 			t.Fatalf("the command wrote to stdout before the renderer: %q", out.String())
 		}
 		renderError(f, err)
-		c := n.Load()
-		return err, &c, out.String(), errOut.String()
+		return count.Load(), out.String(), errOut.String(), err
 	}
-	err, n, _, stderr := run(t, false)
-	if err == nil || exitCodeFor(err) != 8 || *n != 1 {
-		t.Fatalf("a definite refusal keeps its exit: err=%v exit=%d HTTP=%d", err, exitCodeFor(err), *n)
+	n, _, stderr, err := run(t, false)
+	if err == nil || exitCodeFor(err) != 8 || n != 1 {
+		t.Fatalf("a definite refusal keeps its exit: err=%v exit=%d HTTP=%d", err, exitCodeFor(err), n)
 	}
 	if r, bad := errTextHasControl2739(stderr); bad {
 		t.Errorf("stderr carries %U: %q", r, stderr)
@@ -505,7 +504,7 @@ func TestDriveCreateDoc2737DefiniteRefusalWithControlCharactersIsNeutralisedAtRe
 			t.Errorf("the visible words survive neutralisation (%q missing): %q", want, stderr)
 		}
 	}
-	err, _, stdout, _ := run(t, true)
+	_, stdout, _, err := run(t, true)
 	if err == nil || exitCodeFor(err) != 8 {
 		t.Fatalf("--json: %v", err)
 	}
