@@ -5,11 +5,17 @@ As-built plan for the four non-blocking follow-ups from the #2683 delta seats
 One slice, no behavior change beyond closing the named gaps. Issue:
 https://github.com/hadron-memory/hadron-cli/issues/2704
 
-## What main has today (verified at `49bdc792`)
+## What main has at this PR's base (`6e2d19de`; first read at `49bdc792`)
 
-- `setTokenError` drops a server code only when `strings.Contains(code, token)`
-  — the raw token. An **escaped** spelling of the token inside a carried code
-  passes the guard and reaches the user (Jack F2).
+- `setTokenError` drops a server code only on a redaction **fixpoint**,
+  `redactToken(code, token) != code`. This plan was written against
+  `49bdc792`, where the guard was the substring check
+  `strings.Contains(code, token)`; main's cli#2671 fold (`fd3d668a`) replaced
+  that with the fixpoint before this PR's base, closing the escaped-spelling
+  gap (Jack F2) the substring form had. What the fixpoint still misses: a
+  token equal to the marker `"[REDACTED]"` redacts to itself, so both a
+  carried code and the rendered message ride through unscrubbed
+  (cli#2714 Dara P1).
 - The URN guard in `sync.go` splices the server's URN when
   `redactToken(u, token) == u` — a **fixpoint test**, vacuously true for every
   `u` when the token equals the sentinel `"[REDACTED]"` (replace-all of the
@@ -30,12 +36,20 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
    literal or any escaped spelling — the honest predicate. Used by both guards:
    - `setTokenError`: drop the code when `containsAnySpelling(code, token)`
      (catches escaped spellings — Jack F2 — and keeps the empty-token behavior).
+   - the marker case: a token that is or contains `"[REDACTED]"` cannot be
+     scrubbed by replacement (an equal token rewrites to itself, and token
+     material survives beside the marker), so `setTokenError` answers with a
+     fixed refusal carrying nothing from the server's message; the code guard
+     still applies (cli#2714 Dara P1).
    - URN guard: splice when `u != "" && !containsAnySpelling(u, token)` — no
      fixpoint, so the sentinel-equal token can no longer wedge it open (Jack F1).
+2. **Node line-separator spellings at both generator sites**: every
    generated Go spelling also contributes the variant with its textual
    `\u2028`/`\u2029` escape sequences unescaped to the raw characters
-   (`nodeLineSeparatorReplacer` in each file —
-   the two implementations are deliberately independent per #2650's design).
+   (`nodeJSONForm` in each file — a scan of the Go-encoded body by whole
+   JSON escape units, so an escaped backslash is consumed as a unit and a
+   LITERAL backslash-u in the token stays literal, cli#2714 Dara P2; the two
+   implementations are deliberately independent per #2650's design).
    In `memorykeys.go` the variants join `next`, so depth 2 derives from them
    too (Node escaping twice keeps the raw character). Superset-safe for
    redaction; guards only become stricter (fail closed). For tokens without
@@ -51,15 +65,24 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
      depth 1 and 2, and `redactUnlockSecrets` scrubs a Node-form echo (red).
    - F4: token-free URN splices into the receipt, human line and `--json` DTO
      unmarshalled (positive pin — guards against over-redaction regressions).
+   - cli#2714 round-2 pins: the marker token never appears in the rendered
+     message, and a code carrying it is dropped; a literal backslash-u token
+     generates its true mixed Node spelling (never the bogus raw-separator
+     one the blind replacer derived) at both generator sites; the api
+     depth-2 cases are labeled by their derivation chain (Node-then-Go,
+     Go-then-Go) with U+2029 covered; the fake server decodes its request
+     and encodes its response (no interpolated JSON); the fallback pin
+     asserts `dto.Memory` equals the expected canonical typed ref.
 
 ## Mutants (one per guard, run at the fix head)
 
 | Mutant | Guard that must go red | Result |
 | --- | --- | --- |
-| `setTokenError` guard back to `strings.Contains(code, token)` | F2 pin | killed |
+| `setTokenError` guard back to the base's fixpoint, `redactToken(code, token) != code` (the `strings.Contains` form this plan was first written against no longer exists on main) | marker pin (cli#2714 Dara P1 / Rodolfo P3-1) — the F2 pin alone does NOT kill this one, which is why the marker pin exists | killed (rendered message + carried code, re-run at the fix head) |
 | URN guard back to `redactToken(u, token) == u` | F1 pin | killed (human + JSON) |
 | drop the node-variant `add` in `sync.go` | sync U+2028 pin | killed |
 | drop the node-variant `add` in `memorykeys.go` | api U+2028 pins | killed (both) |
+| `nodeJSONForm` back to the blind `\u2028`/`\u2029` replacer | literal-backslash-u pins (cli#2714 Dara P2) | killed (both sites) |
 | URN guard never splices (`false`) | F4 positive pin | **survived the first draft** |
 
 The mutant-5 survival exposed the F4 pin as written vacuous: it typed
