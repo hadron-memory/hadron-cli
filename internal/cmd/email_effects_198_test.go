@@ -1138,7 +1138,7 @@ func TestEmailConfirmedEffectSurvivesAFailedResultWrite198(t *testing.T) {
 			[]string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
 		{"draft send", "EmailSendDraft", boolResp198("emailSendDraft", ok198), "sent folder",
 			[]string{"draft", "send", "--connection", "c", "d1", "--yes"}},
-		{"delete", "EmailDeleteMessage", boolResp198("emailDeleteMessage", ok198), "confirmed",
+		{"delete", "EmailDeleteMessage", boolResp198("emailDeleteMessage", ok198), "the mailbox",
 			[]string{"delete", "--connection", "c", "m1", "--yes"}},
 	} {
 		for _, jsonOut := range []bool{false, true} {
@@ -1181,5 +1181,60 @@ func TestEmailFlagValueIsNormalised198(t *testing.T) {
 	}
 	if help := strings.Join(strings.Fields(cmd.Long), " "); !strings.Contains(help, "any case") {
 		t.Errorf("the flag help does not say the value is accepted in any case: %q", help)
+	}
+}
+
+// The five GraphQL error codes the CLI treats as DEFINITIVE pre-send refusals (nothing
+// was sent, so no unknown-outcome guidance), as a checkable table rather than an
+// argument. WHY they are pre-send: the server's resolvers run every mail mutation
+// through runOwnedEmailOperation (hadron-server src/api/graphql/schema/
+// resolvers.helpers.ts, ~line 3812 at main 8a05a948), which calls
+// requireEmailConnection (the owner / covering-grant gate, FORBIDDEN) BEFORE
+// runEmailOperation (the provider call); UNAUTHENTICATED comes from the request
+// context before any resolver runs, and BAD_USER_INPUT / GRAPHQL_VALIDATION_FAILED /
+// GRAPHQL_PARSE_FAILED are raised by input coercion and GraphQL validation before
+// execution. Those are the server's contract, which this fake-HTTP test cannot show;
+// what it pins is the CLI's side: each of these codes carries NO unknown-outcome
+// guidance, keeps its mapped exit class, and costs exactly one request (never a
+// retry), for reply (bodyFailure) and draft send (sendFailure) alike. Every OTHER code,
+// including ones the CLI will display (NOT_FOUND, RATE_LIMITED) carries the guidance.
+func TestEmailDefinitiveRefusalCodesTable198(t *testing.T) {
+	body := bodyFile198(t, "x")
+	sends := []struct {
+		name, op string
+		args     []string
+	}{
+		{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
+		{"draft send", "EmailSendDraft", []string{"draft", "send", "--connection", "c", "d1", "--yes"}},
+	}
+	definitive := []string{"FORBIDDEN", "UNAUTHENTICATED", "BAD_USER_INPUT", "GRAPHQL_VALIDATION_FAILED", "GRAPHQL_PARSE_FAILED"}
+	for _, s := range sends {
+		for _, code := range definitive {
+			t.Run(s.name+" definitive "+code, func(t *testing.T) {
+				wire := `{"errors":[{"message":"x","extensions":{"code":"` + code + `"}}]}`
+				_, _, n, err := runEffect198(t, map[string]string{s.op: wire}, "", s.args...)
+				if err == nil || n != 1 {
+					t.Fatalf("err %v with %d requests; want an error after exactly one request", err, n)
+				}
+				if strings.Contains(strings.ToLower(err.Error()), "outcome unknown") {
+					t.Errorf("%s is a definitive pre-send refusal but carries the unknown-outcome guidance: %v", code, err)
+				}
+				if exitCodeFor(err) == 0 || exitCodeFor(err) == 7 {
+					t.Errorf("%s: exit %d, want the mapped refusal class (not 0, not the unknown-outcome 7)", code, exitCodeFor(err))
+				}
+			})
+		}
+		for _, code := range []string{"NOT_FOUND", "RATE_LIMITED", "SERVICE_UNAVAILABLE", "EMAIL_TOOL_ERROR", "EMAIL_TOOL_UNREACHABLE", "INTERNAL_SERVER_ERROR"} {
+			t.Run(s.name+" not definitive "+code, func(t *testing.T) {
+				wire := `{"errors":[{"message":"x","extensions":{"code":"` + code + `"}}]}`
+				_, _, n, err := runEffect198(t, map[string]string{s.op: wire}, "", s.args...)
+				if err == nil || n != 1 {
+					t.Fatalf("err %v with %d requests", err, n)
+				}
+				if !strings.Contains(strings.ToLower(err.Error()), "outcome unknown") {
+					t.Errorf("%s may follow the provider send but carries no unknown-outcome guidance: %v", code, err)
+				}
+			})
+		}
 	}
 }
