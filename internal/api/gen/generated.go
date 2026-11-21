@@ -63019,6 +63019,38 @@ var AllGrantSigningRequestState = []GrantSigningRequestState{
 	GrantSigningRequestStateWithdrawn,
 }
 
+// #4173 (hrn:node:hadronmemory.com:specs:cor:acl:140:03): where a grant stands, worked out from its record on every read and never stored. An
+// ended grant keeps its first end. A grant withdrawn before #4173 shipped reads REVOKED (its withdrawal was not recorded separately). No
+// name exists yet for an end from a deleted secret or from protection being turned on.
+type GrantState string
+
+const (
+	// Signed and not ended. Allows its action once its start has come (allows says whether that is now).
+	GrantStateActive GrantState = "ACTIVE"
+	// Its expiry came first (a pending grant past its expiry too).
+	GrantStateExpired GrantState = "EXPIRED"
+	// The holder went (a person erased, a worker retired, an agent or App deleted).
+	GrantStateHolderGone GrantState = "HOLDER_GONE"
+	// Asked for and not yet signed. Allows nothing.
+	GrantStatePending GrantState = "PENDING"
+	// Ended by a person's revoke.
+	GrantStateRevoked GrantState = "REVOKED"
+	// Its use limit was reached.
+	GrantStateSpent GrantState = "SPENT"
+	// Its pending request was withdrawn.
+	GrantStateWithdrawn GrantState = "WITHDRAWN"
+)
+
+var AllGrantState = []GrantState{
+	GrantStateActive,
+	GrantStateExpired,
+	GrantStateHolderGone,
+	GrantStatePending,
+	GrantStateRevoked,
+	GrantStateSpent,
+	GrantStateWithdrawn,
+}
+
 // HealthSweepPauseResponse is returned by HealthSweepPause on success.
 type HealthSweepPauseResponse struct {
 	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
@@ -89905,6 +89937,43 @@ type RevokePrincipalGrantResponse struct {
 
 // GetRevokePrincipalGrant returns RevokePrincipalGrantResponse.RevokePrincipalGrant, and is useful for accessing the field via an interface.
 func (v *RevokePrincipalGrantResponse) GetRevokePrincipalGrant() bool { return v.RevokePrincipalGrant }
+
+// RevokeSecretReadClientGrantResponse is returned by RevokeSecretReadClientGrant on success.
+type RevokeSecretReadClientGrantResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, :03) — revoke a grant now, unsigned, in any state but ended. By the issuer (while still a member of the App's Org), by whoever manages the App, or by a held worker on a validated instruction from a holder who may. Returns the grant as appGrants reads it. The first end stands: a grant already revoked, withdrawn or whose holder departed is returned as it is, with no second stamp and no second REVOKE event. Judged on the locked current row. Refusals: GRANT_NOT_MANAGER (not allowed, and a grant that does not exist or cannot be seen: the same answer).
+	RevokeGrant *RevokeSecretReadClientGrantRevokeGrant `json:"revokeGrant"`
+}
+
+// GetRevokeGrant returns RevokeSecretReadClientGrantResponse.RevokeGrant, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantResponse) GetRevokeGrant() *RevokeSecretReadClientGrantRevokeGrant {
+	return v.RevokeGrant
+}
+
+// RevokeSecretReadClientGrantRevokeGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type RevokeSecretReadClientGrantRevokeGrant struct {
+	Id string `json:"id"`
+	// #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+	State     GrantState `json:"state"`
+	RevokedAt *string    `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows *bool `json:"allows"`
+}
+
+// GetId returns RevokeSecretReadClientGrantRevokeGrant.Id, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetId() string { return v.Id }
+
+// GetState returns RevokeSecretReadClientGrantRevokeGrant.State, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetState() GrantState { return v.State }
+
+// GetRevokedAt returns RevokeSecretReadClientGrantRevokeGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns RevokeSecretReadClientGrantRevokeGrant.Allows, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetAllows() *bool { return v.Allows }
 
 // RevokeUserApiKeyResponse is returned by RevokeUserApiKey on success.
 type RevokeUserApiKeyResponse struct {
@@ -135064,6 +135133,14 @@ type __RevokePrincipalGrantInput struct {
 // GetRef returns __RevokePrincipalGrantInput.Ref, and is useful for accessing the field via an interface.
 func (v *__RevokePrincipalGrantInput) GetRef() string { return v.Ref }
 
+// __RevokeSecretReadClientGrantInput is used internally by genqlient
+type __RevokeSecretReadClientGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __RevokeSecretReadClientGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RevokeSecretReadClientGrantInput) GetRef() string { return v.Ref }
+
 // __RevokeUserApiKeyInput is used internally by genqlient
 type __RevokeUserApiKeyInput struct {
 	Id string `json:"id"`
@@ -174550,6 +174627,47 @@ func RevokePrincipalGrant(
 	}
 
 	data_ = &RevokePrincipalGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeSecretReadClientGrant.
+const RevokeSecretReadClientGrant_Operation = `
+mutation RevokeSecretReadClientGrant ($ref: ID!) {
+	revokeGrant(ref: $ref) {
+		id
+		state
+		revokedAt
+		allows
+	}
+}
+`
+
+// cli#2680: revoke a read client's grant. A read client is one grant (cor:sec:060),
+// so this is revokeGrant on its grantId, once. The answer is the grant as the App's
+// manager reads it; the first end stands, so an already-ended grant comes back as it
+// is. No instruction is sent: the CLI acts as the person.
+func RevokeSecretReadClientGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *RevokeSecretReadClientGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeSecretReadClientGrant",
+		Query:  RevokeSecretReadClientGrant_Operation,
+		Variables: &__RevokeSecretReadClientGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &RevokeSecretReadClientGrantResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

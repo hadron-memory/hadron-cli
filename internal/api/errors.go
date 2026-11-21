@@ -569,6 +569,23 @@ func OnlyErrorCodes(err error, codes ...string) bool {
 	return true
 }
 
+// OnlyErrorCodesAtRoot is OnlyErrorCodes that also requires every error to sit at
+// the operation's own level: no path, or a path of one segment (the mutation
+// field itself). An error beneath it (path [revokeGrant, state]) is a result field
+// failing AFTER the write may have committed, so it is never a proof that nothing
+// happened, whatever its code.
+func OnlyErrorCodesAtRoot(err error, codes ...string) bool {
+	if !OnlyErrorCodes(err, codes...) {
+		return false
+	}
+	for _, e := range graphQLErrors(err) {
+		if e != nil && len(e.Path) > 1 {
+			return false
+		}
+	}
+	return true
+}
+
 // ErrorCodeExtension reads a named string extension off the GraphQL error
 // carrying code — the typed-error contract: a client reads extensions,
 // never the message text. ok is false when no error carries the code, or
@@ -1820,11 +1837,15 @@ func codeForExtension(code string) int {
 	// suffix rule.
 	//   - GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED: this session
 	//     may not make this write, like BOOT_PROMPT_WORKER_SESSION_REFUSED: 8.
+	//   - GRANT_NOT_MANAGER (revokeGrant, cor:acl:140:05, cli#2680): the caller may
+	//     not revoke this grant. The server answers "not allowed" and "does not
+	//     exist or cannot be seen" with this one code, so the CLI cannot tell them
+	//     apart and reports the permission class: 8.
 	//   - GRANT_ACTION_UNKNOWN, GRANT_VALUES_INVALID, GRANT_TERMS_INVALID: the
 	//     caller's own input, which it fixes: 2.
 	//   - GRANT_NOT_PENDING, GRANT_EXPIRED, GRANT_TERMS_UNREPRESENTABLE: the
 	//     grant's (or its stored terms') state, which no retry changes: 5.
-	case code == "GRANT_REQUESTER_NOT_WORKER" || code == "GRANT_HOLDER_NOT_ALLOWED":
+	case code == "GRANT_REQUESTER_NOT_WORKER" || code == "GRANT_HOLDER_NOT_ALLOWED" || code == "GRANT_NOT_MANAGER":
 		return exitcode.Forbidden
 	case code == "GRANT_ACTION_UNKNOWN" || code == "GRANT_VALUES_INVALID" || code == "GRANT_TERMS_INVALID":
 		return exitcode.Usage
