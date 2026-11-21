@@ -141,8 +141,7 @@ func orgGrantUnknown(verb, org string, cause error) error {
 	}
 	// The cause stays wrapped, not flattened to text (cli#2855): what the server sent, its code and
 	// request id, reaches the --json envelope, and the message adds nothing it did not say.
-	mapped := api.MapError(cause)
-	return exitcode.New(exitcode.Unavailable, fmt.Errorf("%s outcome unknown (%s). %s: %w", verb, mapped.Error(), check, mapped))
+	return exitcode.New(exitcode.Unavailable, fmt.Errorf("%s outcome unknown (%w). %s", verb, api.MapError(cause), check))
 }
 
 func renderGrant(f *cmdutil.Factory, g orgAgentGrantDTO, verb string) error {
@@ -270,7 +269,7 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		// The hard cap (cli#2855): a walk that would go on past MaxSubscriptionRows stops here and says
 		// where it was cut, never returning a long prefix as if it were the set.
 		if p.hasMore && len(items) >= MaxSubscriptionRows {
-			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the walk was cut at %d rows (the CLI reads at most %d with --all) of a total of %d; this is NOT the whole set. Narrow the question, or page on with --offset %d", len(items), MaxSubscriptionRows, total, len(items))
+			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the walk was cut at %d rows (--all stops at a page boundary once it holds %d or more) of a total of %d; this is NOT the whole set. Page with --limit and --offset instead of --all (rows created meanwhile shift the pages), starting at --offset %d", len(items), MaxSubscriptionRows, total, len(items))
 		}
 		if !p.hasMore || len(p.items) == 0 {
 			// An empty page that still claims more is a server bug: say so

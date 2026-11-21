@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -33,8 +34,13 @@ func TestSubscriptionMineEmptyIsNotMarkedComplete2855(t *testing.T) {
 	}
 	// The same empty set read for an Agent (the server answered for that Agent) is still complete.
 	_, out, err = grants2788Run(t, map[string][]grants2788Reply{"AgentSubscriptionsPage": {page2788("agentSubscriptionsPage", 0, false)}}, "list", "--agent", "ag1", "--json")
-	if err != nil || !strings.Contains(out, `"complete": true`) && !strings.Contains(out, `"complete":true`) {
+	if err != nil || !jsonComplete2855(t, out) {
 		t.Errorf("an empty --agent list stays complete: %v\n%s", err, out)
+	}
+	// --all over an empty --mine set is not complete either.
+	_, out, err = grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {page2788("myAgentSubscriptionsPage", 0, false)}}, "list", "--mine", "--all", "--json")
+	if err != nil || jsonComplete2855(t, out) {
+		t.Errorf("an empty --mine --all is not complete: %v\n%s", err, out)
 	}
 	// The text is the caveat only, not the "answer is inconsistent" footer.
 	_, text, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {page2788("myAgentSubscriptionsPage", 0, false)}}, "list", "--mine")
@@ -55,15 +61,18 @@ func TestSubscriptionAllStopsLoudlyAtTheRowCap2855(t *testing.T) {
 		page2788("agentSubscriptionsPage", 9, true, sub2788(3), sub2788(4)),
 		page2788("agentSubscriptionsPage", 9, true, sub2788(5), sub2788(6)),
 	}}, "list", "--agent", "ag1", "--all", "--json")
-	if err == nil || exitCodeFor(err) == exitcode.OK {
-		t.Fatalf("a cut walk must fail, got %v\n%s", err, out)
+	if err == nil {
+		t.Fatalf("a cut walk must fail, got nil\n%s", out)
 	}
-	for _, want := range []string{"cut at 4", "total of 9", "NOT the whole set"} {
+	if exitCodeFor(err) != exitcode.Error {
+		t.Errorf("a cut walk is exit 1, got %d", exitCodeFor(err))
+	}
+	for _, want := range []string{"cut at 4", "total of 9", "NOT the whole set", "--limit", "--offset 4"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the cut must say %q: %v", want, err)
 		}
 	}
-	if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+	if out != "" && jsonComplete2855(t, out) {
 		t.Errorf("never complete:true on a cut walk: %s", out)
 	}
 	// Under the cap, the walk is whole.
@@ -72,9 +81,31 @@ func TestSubscriptionAllStopsLoudlyAtTheRowCap2855(t *testing.T) {
 		page2788("agentSubscriptionsPage", 3, true, sub2788(1), sub2788(2)),
 		page2788("agentSubscriptionsPage", 3, false, sub2788(3)),
 	}}, "list", "--agent", "ag1", "--all", "--json")
-	if err != nil || !strings.Contains(out, `"complete": true`) && !strings.Contains(out, `"complete":true`) {
+	if err != nil || !jsonComplete2855(t, out) {
 		t.Errorf("a set under the cap is read whole: %v\n%s", err, out)
 	}
+	// The boundary: exactly the cap rows with no more pages is whole; the cap with more pages is cut.
+	agent.MaxSubscriptionRows = 2
+	_, out, err = grants2788Run(t, map[string][]grants2788Reply{"AgentSubscriptionsPage": {page2788("agentSubscriptionsPage", 2, false, sub2788(1), sub2788(2))}}, "list", "--agent", "ag1", "--all", "--json")
+	if err != nil || !jsonComplete2855(t, out) {
+		t.Errorf("len == cap with no more pages is whole: %v\n%s", err, out)
+	}
+	_, _, err = grants2788Run(t, map[string][]grants2788Reply{"AgentSubscriptionsPage": {page2788("agentSubscriptionsPage", 3, true, sub2788(1), sub2788(2))}}, "list", "--agent", "ag1", "--all")
+	if err == nil || !strings.Contains(err.Error(), "NOT the whole set") {
+		t.Errorf("len == cap with more pages is cut, in text mode too: %v", err)
+	}
+}
+
+// jsonComplete2855 reads the "complete" key of a paged list's --json by decoding it.
+func jsonComplete2855(t *testing.T, out string) bool {
+	t.Helper()
+	var got struct {
+		Complete bool `json:"complete"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("%v: %q", err, out)
+	}
+	return got.Complete
 }
 
 // P3 3: the unknown-outcome error keeps its cause instead of flattening it to text: what the server
@@ -100,6 +131,14 @@ func TestSubscriptionUnknownOutcomeKeepsTheServerCause2855(t *testing.T) {
 	if !strings.Contains(err.Error(), "outcome unknown") || !strings.Contains(err.Error(), "subscription list --org") {
 		t.Errorf("the check-first guidance stays: %v", err)
 	}
+	// The cause is said once, inside the parenthesis, and the check-first sentence ends the message.
+	const cause = "the server hit an internal error (request id: req_2855)"
+	if n := strings.Count(err.Error(), cause); n != 1 {
+		t.Errorf("the server's cause %q must appear exactly once, got %d in %q", cause, n, err.Error())
+	}
+	if !strings.HasSuffix(err.Error(), "before running it again") {
+		t.Errorf("the check-first sentence must end the message: %q", err.Error())
+	}
 }
 
 // P3 4: add and revoke map every JSON field from its own field (each value distinct), so a swapped
@@ -116,7 +155,7 @@ func TestSubscriptionGrantJSONMapsEachFieldFromItsOwn2855(t *testing.T) {
 		"revoke": {"UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", []string{"revoke", "--yes"}, "false", `"RV-6"`},
 	} {
 		t.Run(name, func(t *testing.T) {
-			body := `{"data":{"` + tc.field + `":` + sprintf2855(row, tc.active, tc.revoked) + `}}`
+			body := `{"data":{"` + tc.field + `":` + fmt.Sprintf(row, tc.active, tc.revoked) + `}}`
 			_, out, err := grants2788Run(t, map[string][]grants2788Reply{tc.op: {{body: body}}}, append(orgArgs2788(tc.args), "--json")...)
 			if err != nil {
 				t.Fatal(err)
@@ -136,12 +175,4 @@ func TestSubscriptionGrantJSONMapsEachFieldFromItsOwn2855(t *testing.T) {
 			}
 		})
 	}
-}
-
-func sprintf2855(format string, a ...string) string {
-	out := format
-	for _, v := range a {
-		out = strings.Replace(out, "%s", v, 1)
-	}
-	return out
 }
