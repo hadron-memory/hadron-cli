@@ -15,7 +15,7 @@ import (
 // keep the two issue numbers from mixing in these tests.
 const renderNodeRef2268 = renderNodeRef1010
 
-func renderFixture2268(t *testing.T, reply string) (*httptest.Server, *[]map[string]json.RawMessage) {
+func renderFixture2268(t *testing.T, reply string) (*httptest.Server, *renderCapture1010) {
 	t.Helper()
 	return renderFixture1010(t, reply)
 }
