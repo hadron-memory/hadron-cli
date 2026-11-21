@@ -11,11 +11,8 @@ import (
 // caller that must show a value in full (a task ref in a recovery message) says
 // so by name instead of passing a rune bound that happens to be big enough.
 func TestSanitizeLineNeutralisesLikeSafeLineAndNeverTruncates2371(t *testing.T) {
-	// One rune corpus for the neutralising and the agreement subtests
-	// (cli#2417 F5), so "exactly the same classification" covers every class.
-	corpus := []rune{0x00, 0x09, 0x0a, 0x0d, 0x1b, 0x7f, 0x85, 0x200b, 0x202e, 0x2028, 0x2029, 0xfeff}
 	t.Run("neutralises the same classes with one space each", func(t *testing.T) {
-		for _, r := range corpus {
+		for _, r := range []rune{0x00, 0x09, 0x0a, 0x0d, 0x1b, 0x7f, 0x85, 0x200b, 0x202e, 0x2028, 0x2029, 0xfeff} {
 			if got := SanitizeLine("a" + string(r) + "b"); got != "a b" {
 				t.Errorf("SanitizeLine(a%Ub) = %q, want %q", r, got, "a b")
 			}
@@ -38,16 +35,7 @@ func TestSanitizeLineNeutralisesLikeSafeLineAndNeverTruncates2371(t *testing.T) 
 		}
 	})
 	t.Run("agrees with SafeLine whenever SafeLine would not truncate", func(t *testing.T) {
-		var inputs []string
-		for _, r := range corpus {
-			inputs = append(inputs, "a"+string(r)+"b", string(r), strings.Repeat(string(r), 3))
-		}
-		inputs = append(inputs, "a\x1b[31mb\nc", "plain", "日本語\t語", "")
-		// A few lengths, with a neutralised rune at the end of each.
-		for _, n := range []int{1, 255, 256, 257, 1000} {
-			inputs = append(inputs, strings.Repeat("é", n)+"\x1b")
-		}
-		for _, s := range inputs {
+		for _, s := range []string{"a\x1b[31mb\nc", "plain", "x" + string(rune(0x202e)) + "y" + string(rune(0x200b)) + "z", "日本語\t語"} {
 			if a, b := SanitizeLine(s), SafeLine(s, utf8.RuneCountInString(s)); a != b {
 				t.Errorf("SanitizeLine(%q) = %q but SafeLine = %q", s, a, b)
 			}

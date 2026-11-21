@@ -263,23 +263,19 @@ func TestTaskLinkDefect2329RecoveryRefInFull(t *testing.T) {
 	// least one byte): the rune and byte counts differ, so a guard or a bound that
 	// counts bytes where it means runes cannot pass this by accident (cli#2371 F3).
 	multibyte := "hrn:agenttask:" + strings.Repeat("é", 200) + ":AT1.2"
-	// The invariants live in the case, not in the case's name (cli#2417 F1):
-	// renaming a case cannot stop them being enforced.
-	for name, tc := range map[string]struct {
-		ref, shown         string
-		minRunes           int  // the ref must exceed this many runes (0: no length requirement)
-		moreBytesThanRunes bool // the ref must hold multibyte runes
-	}{
-		"longer than 200":                 {ref: long, shown: long, minRunes: 200},
-		"multibyte longer than 200 runes": {ref: multibyte, shown: multibyte, minRunes: 200, moreBytesThanRunes: true},
-		"shell metachars":                 {ref: "AT1.2;rm -rf $(x) 'q'", shown: "AT1.2;rm -rf $(x) 'q'"},
-		"control chars":                   {ref: "AT1.2\x1b[31m\nforged", shown: "AT1.2 [31m forged"},
+	for name, tc := range map[string]struct{ ref, shown string }{
+		"longer than 200":                 {long, long},
+		"multibyte longer than 200 runes": {multibyte, multibyte},
+		"shell metachars":                 {"AT1.2;rm -rf $(x) 'q'", "AT1.2;rm -rf $(x) 'q'"},
+		"control chars":                   {"AT1.2\x1b[31m\nforged", "AT1.2 [31m forged"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if runes := utf8.RuneCountInString(tc.ref); runes <= tc.minRunes {
-				t.Fatalf("fixture must exceed %d runes, is %d", tc.minRunes, runes)
+			if strings.HasPrefix(name, "longer than 200") || strings.HasPrefix(name, "multibyte") {
+				if runes := utf8.RuneCountInString(tc.ref); runes <= 200 {
+					t.Fatalf("fixture must exceed 200 runes, is %d", runes)
+				}
 			}
-			if tc.moreBytesThanRunes && len(tc.ref) == utf8.RuneCountInString(tc.ref) {
+			if strings.HasPrefix(name, "multibyte") && len(tc.ref) == utf8.RuneCountInString(tc.ref) {
 				t.Fatalf("the multibyte fixture must have more bytes than runes, both are %d", len(tc.ref))
 			}
 			r := taskResponses()
