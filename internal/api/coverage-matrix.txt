@@ -268,7 +268,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 361: 330 command, 20 gap, 11 excluded
+[Mutation] 361: 331 command, 19 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -505,7 +505,7 @@ resumeSession  command team session start
 retireWorker  command team worker retire
 retractQuestionAnswer  command question retract
 retryFailedEmbeddings  command memory reembed-failed
-revealSecret  gap #2664: secret exec and reveal (slice 2 of cli#2631)
+revealSecret  command secret exec
 revokeAgentOrgGrant  gap #890
 revokeAgentSubscription  gap #890
 revokeAppGrant  command team grant rm

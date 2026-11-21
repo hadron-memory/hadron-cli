@@ -1841,6 +1841,17 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "SECRET_READ_CLIENT_SUPERSEDED" || code == "SECRET_READ_CLIENT_LIMIT":
 		return exitcode.Conflict
+	// cli#2664 (revealing a value): a known client that is not live now (spent,
+	// pending, not started, expired, revoked, its issuer gone) or whose secret was
+	// deleted is the client's STATE, which no retry changes: 5. Two reveals in one
+	// operation is the caller's own input: 2 (this CLI sends one, so it cannot occur
+	// from here). SECRET_READ_CLIENT_NOT_FOUND keeps its _NOT_FOUND suffix mapping (4).
+	case code == "SECRET_READ_CLIENT_SPENT" || code == "SECRET_READ_CLIENT_PENDING" || code == "SECRET_READ_CLIENT_NOT_STARTED" ||
+		code == "SECRET_READ_CLIENT_EXPIRED" || code == "SECRET_READ_CLIENT_REVOKED" || code == "SECRET_READ_CLIENT_ISSUER_GONE" ||
+		code == "SECRET_DELETED":
+		return exitcode.Conflict
+	case code == "SECRET_REVEAL_ONE_PER_OPERATION":
+		return exitcode.Usage
 	// These are invalid inputs. The CLI validates or constructs them before
 	// calling the draft door; if one arrives anyway, keep its typed category.
 	case code == "SEARCH_REPLACE_NO_SELECTION" || code == "SEARCH_REPLACE_NO_FIELDS" || code == "SEARCH_REPLACE_BAD_LIMIT":
