@@ -54,7 +54,10 @@ org, scope or skills.installPrompt ('hadron config --help' explains each).
 A key that was never set prints an empty line, except server, which prints
 the default (https://srv.hadronmemory.com), and skills.installPrompt (true). It prints the saved value only: the
 HADRON_SERVER environment variable and the --server flag are not applied. An
-unknown key is refused with the list of known keys (exit 2).`,
+unknown key is refused with the list of known keys (exit 2).
+
+--json prints one object with the key and its value as a string:
+{"server": "https://srv.hadronmemory.com"}.`,
 		Example: `  hadron config get server
   hadron config get app --json`,
 		Args: cobra.ExactArgs(1),
@@ -94,7 +97,10 @@ The dedicated commands ('app set-active', 'memory set-active', 'org use',
 
 To remove a saved value, set it to an empty string (""): the key is dropped
 from the file, server returns to its default, and skills.installPrompt returns
-to true.`,
+to true.
+
+On success it prints '✓ <key> = <value>'; with --json, an object with the
+key and the value as stored: {"<key>": "<value>"}.`,
 		Example: `  hadron config set server https://hadron.internal.example
   hadron config set app hrn:app:acme.com:support
   hadron config set app ""`,
@@ -137,7 +143,10 @@ the saved values only: the HADRON_SERVER environment variable and the --server f
 This does not read the sign-in credential store ('hadron auth' keeps that).
 It does show the server URL and the App, memory and org you work with.
 Review the saved values before sharing them: a server URL or another setting
-can itself contain sensitive information.`,
+can itself contain sensitive information.
+
+--json prints one object of every key to its value. Every value is a
+string, including skills.installPrompt ("true", not true).`,
 		Example: `  hadron config list
   hadron config list --json`,
 		Args: cobra.NoArgs,
