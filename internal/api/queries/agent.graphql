@@ -436,6 +436,39 @@ mutation RestoreRevision($agentRef: ID!, $revisionLoc: String!) {
   }
 }
 
+# cli#2533 (server #4488): an Agent's revisions, newest first, with the slot facts,
+# and deleting one. agentRef goes to the server verbatim (id or URN; no
+# pre-resolve). Slot numbers are never reused, so a delete does NOT raise
+# slotsRemaining (the server's contract; the CLI help says so).
+query AgentRevisions($agentRef: ID!) {
+  agentRevisions(agentRef: $agentRef) {
+    revisions {
+      revisionLoc
+      label
+      published
+      createdAt
+    }
+    # The three slot counts are required by the SDL (Float!), but a plain float64
+    # decodes a missing or null field as 0 and would print an all-zero report as a
+    # fact: pointers keep presence, and the command refuses a nil (cli#2533 review).
+    # @genqlient(pointer: true)
+    slotLimit
+    # @genqlient(pointer: true)
+    highestSlotUsed
+    # @genqlient(pointer: true)
+    slotsRemaining
+  }
+}
+
+mutation DeleteAgentRevision($agentRef: ID!, $revisionLoc: String!) {
+  deleteAgentRevision(agentRef: $agentRef, revisionLoc: $revisionLoc) {
+    revisionLoc
+    label
+    published
+    createdAt
+  }
+}
+
 # cli#58 (four-command cut): clear the Agent's AI service configuration, publish
 # and remove an Agent import, and repair an Agent's system-Memory pairing. Refs go
 # to the server verbatim (id or URN; no pre-resolve). publishAgentImport's
