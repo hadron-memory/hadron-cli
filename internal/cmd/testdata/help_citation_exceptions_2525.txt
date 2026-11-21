@@ -1,138 +1,141 @@
-# Help pages that still carry a spec citation, issue number or revision hash
+# Help pages that still carry a spec citation or an issue number (revision hashes are
+# banned outright and are not listed)
 # (cli#2525). A ratchet: a page may leave this list and never join it; a listed page
 # that is clean fails until it is removed. Regenerate with
 #   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -update-citation-exceptions
-auth token list
-channel post
-channel read
-chat read
-chat served-prompts
-chat tool-choice
-coding
-coding review create
-decision
-decision amend
-decision ask
-marketplace
-node list
-orca terminal status
-run
-run cancel
-run list
-run trigger
-schedule
-skill lint
-spec
-spec backlinks
-spec check-tools
-spec document
-spec edit
-spec extract
-spec get
-spec ledger
-spec link
-spec lint
-spec mint
-spec new
-spec renumber
-spec replace
-spec rescind
-spec reserve
-spec supersede
-spec unresolved
-team
-team alarms
-team app sweep-mode
-team attention
-team attention switchover
-team attention switchover apply
-team attention switchover preview
-team availability
-team availability set
-team chat
-team chat mark-read
-team chat post
-team chat read
-team events
-team grant action
-team grant actions
-team grant request
-team grant request-signature
-team grant signing-request
-team grant signing-request get
-team grant signing-request withdraw
-team health sweep
-team host import
-team host issue
-team host ops
-team host run
-team host up
-team init
-team register
-team review-stats
-team role
-team role create
-team role update
-team roster
-team router
-team router loop
-team router poll
-team router status
-team session
-team session end
-team session list
-team session log
-team session recover
-team session reset-context
-team session resume-claim
-team session set-model
-team session shed
-team session start
-team session sync-model
-team session whoami
-team stall-schedule
-team stall-schedule set
-team task
-team task add-blocker
-team task assign
-team task cancel
-team task clone
-team task create
-team task find-untracked
-team task finish
-team task get
-team task hand-back
-team task link-defect
-team task list
-team task park
-team task progress
-team task ready
-team task reassign
-team task release
-team task remove-blocker
-team task set-priority
-team task start
-team task tree
-team task update
-team wake-settings
-team wake-settings set
-team wakes
-team wakes ack
-team wakes due
-team worker
-team worker cast
-team worker change-agent
-team worker compile
-team worker get
-team worker leave-alone
-team worker list
-team worker onboard
-team worker release
-team worker retire
-team worker rm
-team worker update
-ticker apply-templates
-usage activity
-user delete
-user merge
-user search
+# Each line: the page, then (after two spaces and a #) what it still carries.
+# The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
+auth token list  # issue
+channel post  # issue
+channel read  # issue
+chat read  # issue
+chat served-prompts  # issue
+chat tool-choice  # citation
+coding  # issue
+coding review create  # issue
+decision  # issue
+decision amend  # issue
+decision ask  # issue
+marketplace  # citation
+node list  # issue
+orca terminal status  # issue
+run  # citation
+run cancel  # citation
+run list  # citation
+run trigger  # citation
+schedule  # citation
+skill lint  # citation
+spec  # issue
+spec backlinks  # issue
+spec check-tools  # issue
+spec document  # citation
+spec edit  # citation, issue
+spec extract  # citation
+spec get  # citation
+spec ledger  # citation
+spec link  # citation
+spec lint  # citation, issue
+spec mint  # citation
+spec new  # issue
+spec renumber  # issue
+spec replace  # citation
+spec rescind  # citation
+spec reserve  # issue
+spec supersede  # citation
+spec unresolved  # issue
+team  # citation, issue
+team alarms  # citation
+team app sweep-mode  # issue
+team attention  # issue
+team attention switchover  # issue
+team attention switchover apply  # issue
+team attention switchover preview  # issue
+team availability  # citation
+team availability set  # issue
+team chat  # citation, issue
+team chat mark-read  # issue
+team chat post  # citation, issue
+team chat read  # citation, issue
+team events  # citation, issue
+team grant action  # citation
+team grant actions  # citation
+team grant request  # issue
+team grant request-signature  # issue
+team grant signing-request  # issue
+team grant signing-request get  # issue
+team grant signing-request withdraw  # issue
+team health sweep  # issue
+team host import  # issue
+team host issue  # issue
+team host ops  # issue
+team host run  # issue
+team host up  # issue
+team init  # citation, issue
+team register  # issue
+team review-stats  # citation, issue
+team role  # issue
+team role create  # issue
+team role update  # issue
+team roster  # citation, issue
+team router  # issue
+team router loop  # issue
+team router poll  # issue
+team router status  # issue
+team session  # citation, issue
+team session end  # citation, issue
+team session list  # issue
+team session log  # issue
+team session recover  # issue
+team session reset-context  # issue
+team session resume-claim  # citation, issue
+team session set-model  # issue
+team session shed  # issue
+team session start  # citation, issue
+team session sync-model  # issue
+team session whoami  # citation, issue
+team stall-schedule  # citation
+team stall-schedule set  # citation
+team task  # citation, issue
+team task add-blocker  # citation
+team task assign  # citation
+team task cancel  # citation
+team task clone  # citation, issue
+team task create  # citation, issue
+team task find-untracked  # issue
+team task finish  # citation, issue
+team task get  # citation, issue
+team task hand-back  # citation
+team task link-defect  # issue
+team task list  # citation, issue
+team task park  # citation
+team task progress  # citation
+team task ready  # citation
+team task reassign  # citation
+team task release  # citation, issue
+team task remove-blocker  # citation
+team task set-priority  # citation
+team task start  # citation
+team task tree  # citation
+team task update  # citation, issue
+team wake-settings  # citation
+team wake-settings set  # citation
+team wakes  # citation
+team wakes ack  # citation
+team wakes due  # citation
+team worker  # citation, issue
+team worker cast  # citation, issue
+team worker change-agent  # issue
+team worker compile  # citation, issue
+team worker get  # citation, issue
+team worker leave-alone  # issue
+team worker list  # citation, issue
+team worker onboard  # citation, issue
+team worker release  # citation, issue
+team worker retire  # citation
+team worker rm  # citation, issue
+team worker update  # citation
+ticker apply-templates  # citation, issue
+usage activity  # citation
+user delete  # issue
+user merge  # citation, issue
+user search  # citation

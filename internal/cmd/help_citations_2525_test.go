@@ -129,6 +129,9 @@ func loadExceptions2525(t *testing.T) map[string]bool {
 	m := map[string]bool{}
 	for _, l := range strings.Split(string(raw), "\n") {
 		if l = strings.TrimSpace(l); l != "" && !strings.HasPrefix(l, "#") {
+			if i := strings.Index(l, "  # "); i >= 0 {
+				l = strings.TrimSpace(l[:i])
+			}
 			m[l] = true
 		}
 	}
@@ -163,6 +166,7 @@ func TestHelpCarriesNoNewCitationsNumbersOrHashes2525(t *testing.T) {
 	allowed := loadExceptions2525(t)
 	seen := map[string]bool{}
 	var rewritten []string
+	reasons := map[string]string{}
 	for _, group := range groups {
 		pages := helpTree2508(t, group)
 		names := make([]string, 0, len(pages))
@@ -174,6 +178,16 @@ func TestHelpCarriesNoNewCitationsNumbersOrHashes2525(t *testing.T) {
 			hits := bannedHits2525(pages[name])
 			if len(hits) > 0 {
 				rewritten = append(rewritten, name)
+				kinds := map[string]bool{}
+				for _, h := range hits {
+					kinds[h.kind] = true
+				}
+				var ks []string
+				for k := range kinds {
+					ks = append(ks, k)
+				}
+				sort.Strings(ks)
+				reasons[name] = strings.Join(ks, ", ")
 			}
 			seen[name] = true
 			t.Run(name, func(t *testing.T) {
@@ -191,11 +205,16 @@ func TestHelpCarriesNoNewCitationsNumbersOrHashes2525(t *testing.T) {
 	}
 	if *updateExceptions2525 {
 		sort.Strings(rewritten)
-		body := "# Help pages that still carry a spec citation, issue number or revision hash\n" +
+		body := "# Help pages that still carry a spec citation or an issue number (revision hashes are\n" +
+			"# banned outright and are not listed)\n" +
 			"# (cli#2525). A ratchet: a page may leave this list and never join it; a listed page\n" +
 			"# that is clean fails until it is removed. Regenerate with\n" +
 			"#   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -update-citation-exceptions\n" +
-			strings.Join(rewritten, "\n") + "\n"
+			"# Each line: the page, then (after two spaces and a #) what it still carries.\n" +
+			"# The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.\n"
+		for _, name := range rewritten {
+			body += name + "  # " + reasons[name] + "\n"
+		}
 		if err := os.WriteFile(exceptionsFile2525, []byte(body), 0o644); err != nil {
 			t.Fatal(err)
 		}
