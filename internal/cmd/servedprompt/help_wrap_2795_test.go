@@ -2,6 +2,7 @@ package servedprompt
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -32,22 +33,11 @@ func TestLintHelpWrap78(t *testing.T) {
 func linesOver78(text string) []string {
 	var bad []string
 	for i, line := range strings.Split(text, "\n") {
-		if n := len(line); n > 78 {
-			bad = append(bad, "line "+itoa2880(i+1)+" is "+itoa2880(n)+" columns (want <=78): "+line)
+		if n := utf8.RuneCountInString(line); n > 78 {
+			bad = append(bad, fmt.Sprintf("line %d is %d columns (want <=78): %s", i+1, n, line))
 		}
 	}
 	return bad
-}
-
-func itoa2880(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b []byte
-	for ; n > 0; n /= 10 {
-		b = append([]byte{byte('0' + n%10)}, b...)
-	}
-	return string(b)
 }
 
 // cli#2880 item 1: a line of exactly 78 non-ASCII characters is 78 columns, though it is more
