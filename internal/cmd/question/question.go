@@ -438,12 +438,13 @@ EOF
 			if err != nil {
 				return err
 			}
+			readBack := "list the log with `hadron question list --log " + cmdutil.ShellQuote(logRef) + "` to see whether the question was created before asking again"
 			resp, err := gen.AskQuestion(cmd.Context(), client, logRef, &input)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "askQuestion", "ask", readBack, resp != nil && resp.AskQuestion != nil)
 			}
-			if resp.AskQuestion == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.AskQuestion == nil {
+				return questionWriteNotConfirmed("ask", readBack, "the server returned no question", nil)
 			}
 			return writeQuestion(f, questionFrom(&resp.AskQuestion.QuestionFields), "✓ asked")
 		},
@@ -550,12 +551,13 @@ EOF
 			if err != nil {
 				return err
 			}
+			readBack := readBackQuestion(ref)
 			resp, err := gen.AmendQuestion(cmd.Context(), client, ref, &input, expected, reason)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "amendQuestion", "amend", readBack, resp != nil && resp.AmendQuestion != nil)
 			}
-			if resp.AmendQuestion == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.AmendQuestion == nil {
+				return questionWriteNotConfirmed("amend", readBack, "the server returned no question", nil)
 			}
 			return writeQuestion(f, questionFrom(&resp.AmendQuestion.QuestionFields), "✓ amended")
 		},
@@ -683,10 +685,10 @@ may have been recorded.`,
 			}
 			resp, err := gen.AnswerQuestion(cmd.Context(), client, ref, &input, expected)
 			if err != nil {
-				return questionWriteError(err, "answerQuestion", "answer", ref, resp != nil && resp.AnswerQuestion != nil)
+				return questionWriteError(err, "answerQuestion", "answer", readBackQuestion(ref), resp != nil && resp.AnswerQuestion != nil)
 			}
 			if resp == nil || resp.AnswerQuestion == nil {
-				return questionWriteNotConfirmed("answer", ref, "the server returned no question", nil)
+				return questionWriteNotConfirmed("answer", readBackQuestion(ref), "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.AnswerQuestion.QuestionFields)
 			// Success is only claimed when the returned question carries a standing
@@ -768,10 +770,10 @@ about the retraction. In the unknown cases the retraction may have been recorded
 			}
 			resp, err := gen.RetractQuestionAnswer(cmd.Context(), client, ref, expected, optString(cmd, "reason", reason), &via)
 			if err != nil {
-				return questionWriteError(err, "retractQuestionAnswer", "retraction", ref, resp != nil && resp.RetractQuestionAnswer != nil)
+				return questionWriteError(err, "retractQuestionAnswer", "retraction", readBackQuestion(ref), resp != nil && resp.RetractQuestionAnswer != nil)
 			}
 			if resp == nil || resp.RetractQuestionAnswer == nil {
-				return questionWriteNotConfirmed("retraction", ref, "the server returned no question", nil)
+				return questionWriteNotConfirmed("retraction", readBackQuestion(ref), "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.RetractQuestionAnswer.QuestionFields)
 			// "Pending again" is only claimed when the returned question has no
@@ -1080,12 +1082,13 @@ Prompts on a terminal; --yes is required otherwise.`,
 			if err := cmdutil.Confirm(f.IOStreams, yes, "Withdraw question "+output.SafeCell(ref)+"? Withdrawal is final and its code is never reused."); err != nil {
 				return err
 			}
+			readBack := readBackQuestion(ref)
 			resp, err := gen.WithdrawQuestion(cmd.Context(), client, ref, reason, expected)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "withdrawQuestion", "withdrawal", readBack, resp != nil && resp.WithdrawQuestion != nil)
 			}
-			if resp.WithdrawQuestion == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.WithdrawQuestion == nil {
+				return questionWriteNotConfirmed("withdrawal", readBack, "the server returned no question", nil)
 			}
 			return writeQuestion(f, questionFrom(&resp.WithdrawQuestion.QuestionFields), "✓ withdrew")
 		},
@@ -1126,9 +1129,12 @@ terminal; --yes is required otherwise.`,
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent; the server refuses it for a question that was ever answered, including one in the older question format whose payload holds an answer)"); err != nil {
 				return err
 			}
+			// A purged question no longer exists, so reading it back is how the outcome shows:
+			// "not found" means the purge happened.
+			readBack := "read it with `hadron question get " + cmdutil.ShellQuote(ref) + "`: not found means the purge happened, a question that is still there means it did not"
 			resp, err := gen.PurgeUnansweredQuestion(cmd.Context(), client, ref, reason)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "purgeUnansweredQuestion", "purge", readBack, resp != nil && resp.PurgeUnansweredQuestion)
 			}
 			if !resp.PurgeUnansweredQuestion {
 				return exitcode.Newf(exitcode.Error, "the server did not confirm the purge of %s", ref)
@@ -1239,7 +1245,7 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 	return q.Answers[len(q.Answers)-1].Kind == string(gen.QuestionAnswerKindRetraction) && q.Revision > expectedRevision
 }
 
-// questionWriteError maps a failed answer or retract. A coded refusal at the mutation's
+// questionWriteError maps a failed question write (ask, amend, answer, retract, withdraw, purge). A coded refusal at the mutation's
 // own level (no path, or exactly [field]), an HTTP 400/401/403/404/405/413/415/429 whose
 // body shows no data and no error below the mutation, and a connection that never opened
 // are definitive: nothing was written, so the ordinary typed exit applies. When the reply
@@ -1248,11 +1254,11 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 // (cli#398, cli#2680), and a reset or timeout after the request left, a 5xx, an internal
 // error or an unusable answer may follow the commit too: those are an unknown outcome,
 // exit 7, never resent, with the read-back sentence.
-func questionWriteError(err error, field, what, ref string, dataSeen bool) error {
+func questionWriteError(err error, field, what, readBack string, dataSeen bool) error {
 	// The server returned the question beside the error: a resolver ran and the write may
 	// have followed, whatever the error says.
 	if dataSeen || api.ErrorShowsData(err) {
-		return questionWriteNotConfirmed(what, ref, api.MapError(err).Error(), err)
+		return questionWriteNotConfirmed(what, readBack, api.MapError(err).Error(), err)
 	}
 	// A refusal of the mutation itself, an HTTP answer from the allowlist in
 	// api.RequestNotProcessed (a refused credential, a rate limit, an invalid request) or a
@@ -1260,16 +1266,23 @@ func questionWriteError(err error, field, what, ref string, dataSeen bool) error
 	if api.IsDefiniteRefusalAt(err, field) || api.RequestNotProcessed(err) {
 		return api.MapError(err)
 	}
-	return questionWriteNotConfirmed(what, ref, api.MapError(err).Error(), err)
+	return questionWriteNotConfirmed(what, readBack, api.MapError(err).Error(), err)
 }
 
-// questionWriteNotConfirmed builds the unknown-outcome error. The read-back command is a
-// copy-paste line, so the ref is shell-quoted (cmdutil.ShellQuote), not just made inert for
-// the terminal (output.SafeCell): a ref with a space or a quote must still paste as one word.
-func questionWriteNotConfirmed(what, ref, why string, cause error) error {
-	e := exitcode.Newf(exitcode.Unavailable, "%s not confirmed (%s): the outcome is unknown and the call is not resent; read the question with `hadron question get %s` before trying again", what, why, cmdutil.ShellQuote(ref))
+// questionWriteNotConfirmed builds the unknown-outcome error. readBack is the sentence that
+// tells the operator how to see what happened before trying again, worded per verb (a read of
+// the question, a listing of the log for an ask that has no ref yet, a not-found read for a purge).
+func questionWriteNotConfirmed(what, readBack, why string, cause error) error {
+	e := exitcode.Newf(exitcode.Unavailable, "%s not confirmed (%s): the outcome is unknown and the call is not resent; %s", what, why, readBack)
 	if cause != nil {
 		return api.WithServerCode(e, cause)
 	}
 	return e
+}
+
+// readBackQuestion is the read-back sentence for a write on an existing question. The command is
+// a copy-paste line, so the ref is shell-quoted (cmdutil.ShellQuote), not just made inert for the
+// terminal (output.SafeCell): a ref with a space or a quote must still paste as one word.
+func readBackQuestion(ref string) string {
+	return "read the question with `hadron question get " + cmdutil.ShellQuote(ref) + "` before trying again"
 }
