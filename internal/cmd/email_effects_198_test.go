@@ -1063,6 +1063,11 @@ func TestEmailAmbiguousDraftSaveKeyGuidance198(t *testing.T) {
 		if !strings.Contains(got, "same --idempotency-key") || strings.Contains(got, "no idempotency key") {
 			t.Errorf("a non-empty key (%q) must get the same-key guidance: %s", odd, got)
 		}
+		// The CLI cannot tell whether the server accepted the key, so the promise is
+		// conditional on that and on the deduplication window (Bruno's P2 F1).
+		if !strings.Contains(got, "if the server accepted that key") || !strings.Contains(got, "deduplication window") {
+			t.Errorf("the same-key guidance is not conditional on the server accepting the key: %s", got)
+		}
 	}
 }
 

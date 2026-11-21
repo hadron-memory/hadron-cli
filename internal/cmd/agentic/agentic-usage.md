@@ -5199,7 +5199,7 @@ existing fallback with no reconnect advice.
 server decides ownership (owner, or an App with a covering grant; impersonated sessions and an org
 admin who is not the owner are refused) and its refusals pass through (FORBIDDEN exit 8), unknown
 tool failures keep the existing fallback with no reconnect advice, and a false answer exits 7 "not
-confirmed". A missing or blank `--connection` or id exits 2 with no request; ids are sent exactly as given (not trimmed).
+confirmed". A missing or blank `--connection` or id exits 2 with no request; ids and string flags are sent exactly as given (not trimmed), so invalid UTF-8 in one exits 2 with no request.
 - `email reply MESSAGE-ID --connection ID --body-file PATH|-` calls exchangeReply and replies to
   the SENDER only (the server takes no recipient: no `--all`, no `--to`). It SENDS MAIL: asks y/N on
   a terminal, else exit 2 with ZERO requests unless `--yes` (refused before stdin is read). The body

@@ -50,7 +50,20 @@ func idArg(what, v string) (string, error) {
 	if strings.TrimSpace(v) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "give a nonempty %s (check for an unset variable)", what)
 	}
+	if err := requireUTF8(what, v); err != nil {
+		return "", err
+	}
 	return v, nil
+}
+
+// requireUTF8 refuses, before any request, a string that is sent exactly as given but
+// is not valid UTF-8: JSON encoding would replace the invalid bytes (U+FFFD) and the
+// request would address a different value.
+func requireUTF8(what, v string) error {
+	if !utf8.ValidString(v) {
+		return exitcode.Newf(exitcode.Usage, "%s is not valid UTF-8 (it is sent exactly as given, and JSON would alter it)", what)
+	}
+	return nil
 }
 
 // readBody reads the message body from --body-file (a path, or - for stdin). It
@@ -174,10 +187,10 @@ func allowlistedServerCode(code string) string {
 	return ""
 }
 
-// effectiveKey reports whether an idempotency key counts as one: an empty or
+// hasNonblankKey reports whether an idempotency key counts as one: an empty or
 // whitespace-only value is sent unchanged (the server judges it) but enables no
 // deduplication, so it is no key for the retry guidance.
-func effectiveKey(key string) bool { return strings.TrimSpace(key) != "" }
+func hasNonblankKey(key string) bool { return strings.TrimSpace(key) != "" }
 
 // draftMayExist is the guidance for an unclear draft save: the draft may have been
 // created. Whether a retry is safe depends on the ORIGINAL request: only the same
@@ -188,7 +201,7 @@ func effectiveKey(key string) bool { return strings.TrimSpace(key) != "" }
 func draftMayExist(hadKey bool) string {
 	const lead = "outcome unknown: a draft may have been created; check the Drafts folder before trying again (the CLI does not retry"
 	if hadKey {
-		return lead + "; retry with the same --idempotency-key, within the server's deduplication window, so it cannot make a second draft)"
+		return lead + "; retrying with the same --idempotency-key, within the server's deduplication window and if the server accepted that key, does not make a second draft)"
 	}
 	return lead + "; this request had no idempotency key, so a retry may make a second draft: adding a key to the retry does not protect against the first request having succeeded)"
 }
@@ -359,6 +372,9 @@ Details:
 			default:
 				return exitcode.Newf(exitcode.Usage, "give --reply-to <message-id> (a reply-draft) or --to and --subject (a fresh draft)")
 			}
+			if err := checkUTF8Flags(cmd, map[string]string{"reply-to": replyTo, "subject": subject, "idempotency-key": key}, map[string][]string{"to": to}); err != nil {
+				return err
+			}
 			body, err := readBody(f, bodyFile)
 			if err != nil {
 				return err
@@ -369,10 +385,10 @@ Details:
 			}
 			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, stringFlagIfSet(cmd, "reply-to", replyTo), stringFlagIfSet(cmd, "subject", subject), optList(cmd, "to", to), stringFlagIfSet(cmd, "idempotency-key", key))
 			if err != nil {
-				return bodyFailure(err, draftMayExist(effectiveKey(key)))
+				return bodyFailure(err, draftMayExist(hasNonblankKey(key)))
 			}
 			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
-				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist(effectiveKey(key)))
+				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist(hasNonblankKey(key)))
 			}
 			d := r.EmailSaveDraft
 			// The ids are the server's own opaque values, printed as returned: the draft
@@ -461,6 +477,9 @@ Details:
 			}
 			id, err := idArg("draft id", args[0])
 			if err != nil {
+				return err
+			}
+			if err := checkUTF8Flags(cmd, map[string]string{"idempotency-key": key}, nil); err != nil {
 				return err
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, "Send draft "+quotePromptID(id)+"? This sends mail."); err != nil {
@@ -593,6 +612,9 @@ Details:
 			if clear == (len(categories) > 0) {
 				return exitcode.Newf(exitcode.Usage, "give --category <name> (repeatable) or --clear, not neither and not both")
 			}
+			if err := checkUTF8Flags(cmd, nil, map[string][]string{"category": categories}); err != nil {
+				return err
+			}
 			list := []string{}
 			for _, c := range categories {
 				if strings.TrimSpace(c) == "" {
@@ -697,6 +719,26 @@ func stringFlagIfSet(cmd *cobra.Command, name, v string) *string {
 		return nil
 	}
 	return &v
+}
+
+// checkUTF8Flags refuses invalid UTF-8 in the named string flags (and list flags) the
+// caller set, before anything is read or sent.
+func checkUTF8Flags(cmd *cobra.Command, strs map[string]string, lists map[string][]string) error {
+	for name, v := range strs {
+		if cmd.Flags().Changed(name) {
+			if err := requireUTF8("--"+name, v); err != nil {
+				return err
+			}
+		}
+	}
+	for name, vs := range lists {
+		for _, v := range vs {
+			if err := requireUTF8("--"+name, v); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func optList(cmd *cobra.Command, name string, v []string) []string {

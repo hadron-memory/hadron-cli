@@ -761,7 +761,7 @@ section between the markers.
 | `drive export` |  |  | y | #1184 | 3468ddd99455 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `drive get` |  |  | y | #1184 | 80b2db9255fc | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `drive list` | ls |  | y | #1184 | b317b27405d6 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
-| `email` |  |  | y | #1184 | 2430683de1c3 |  | unread |  |
+| `email` |  |  | y | #1184 | bdf0d942c985 |  | unread |  |
 | `email categorize` |  |  | y | #1184 | d3a4ef11cc64 |  | unread |  |
 | `email connections` |  |  | y | #1184 | e7b093ff93aa |  | unread |  |
 | `email delete` |  |  | y | #1184 | 857be1e64c57 |  | unread |  |
