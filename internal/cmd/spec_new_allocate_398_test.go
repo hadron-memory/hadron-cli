@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -243,8 +245,8 @@ func TestSpecNewFillFailuresReportReservation398(t *testing.T) {
 		wantFilled string
 		wantExit   int
 	}{
-		"refused":  {alloc398Reply{body: alloc398Err("BAD_USER_INPUT")}, "false", exitcode.Error},
-		"conflict": {alloc398Reply{body: alloc398Err("NODE_WRITE_CONFLICT")}, "false", exitcode.Error},
+		"refused":  {alloc398Reply{body: alloc398Err("BAD_USER_INPUT")}, "refused", exitcode.Error},
+		"conflict": {alloc398Reply{body: alloc398Err("NODE_WRITE_CONFLICT")}, "refused", exitcode.Error},
 		"lost":     {alloc398Reply{drop: true}, "unknown", exitcode.Unavailable},
 		"readback": {alloc398Reply{body: alloc398ErrAt("FORBIDDEN", "updateSpecNode", "id")}, "unknown", exitcode.Unavailable},
 	} {
@@ -274,12 +276,12 @@ func TestSpecNewFillFailuresReportReservation398(t *testing.T) {
 				t.Errorf("a failed fill must not claim the node is blank (another writer may have filled it): %s", errText)
 			}
 			var dto struct {
-				Citation  string `json:"citation"`
-				Allocated bool   `json:"allocated"`
-				Filled    string `json:"filled"`
+				Citation   string `json:"citation"`
+				Allocated  bool   `json:"allocated"`
+				FillStatus string `json:"fillStatus"`
 			}
-			if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil || dto.Citation != "msg:010:07" || !dto.Allocated || dto.Filled != tc.wantFilled {
-				t.Errorf("--json = %s (%v), want allocated:true filled:%q at msg:010:07", out, jerr, tc.wantFilled)
+			if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil || dto.Citation != "msg:010:07" || !dto.Allocated || dto.FillStatus != tc.wantFilled {
+				t.Errorf("--json = %s (%v), want allocated:true fillStatus:%q at msg:010:07", out, jerr, tc.wantFilled)
 			}
 		})
 	}
@@ -357,6 +359,9 @@ func TestSpecNewNoClientFallbackOnSchemaSkew398(t *testing.T) {
 	if err == nil {
 		t.Fatal("a server without allocateSpecNode must refuse")
 	}
+	if exitCodeFor(err) == exitcode.Unavailable && strings.Contains(err.Error(), "outcome unknown") {
+		t.Errorf("schema skew is a refusal, not an unknown allocation outcome: %v", err)
+	}
 	for _, op := range []string{"UpdateSpecNode", "CreateSpecNode"} {
 		if fk.count(op) != 0 {
 			t.Errorf("fell back to a client write (%s)", op)
@@ -399,5 +404,171 @@ func TestSpecNewCopiedPrefixRefusedBeforeAllocation398(t *testing.T) {
 	}
 	if fk.count("AllocateSpecNode") != 0 {
 		t.Error("the prefix refusal must happen before anything is reserved")
+	}
+}
+
+// A blank body would leave the placeholder unfilled while the command reports
+// success: refused before any number is reserved.
+func TestSpecNewBlankBodyReservesNothing398(t *testing.T) {
+	dir := t.TempDir()
+	for name, body := range map[string]string{"empty": "", "whitespace": " \n\t\n"} {
+		t.Run(name, func(t *testing.T) {
+			file := dir + "/" + name + ".md"
+			if err := os.WriteFile(file, []byte(body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+				"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:07", 1)},
+			}, "--module", "msg", "--feature", "010", "--title", "Test", "--content-file", file)
+			if err == nil || exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("a blank body is a usage refusal, got %v", err)
+			}
+			if fk.count("AllocateSpecNode") != 0 {
+				t.Errorf("a number was reserved for a blank body (%s)", errText)
+			}
+		})
+	}
+}
+
+// An unusable allocation answer is an unknown outcome and no fill is sent on it.
+func TestSpecNewMalformedAllocationSendsNoFill398(t *testing.T) {
+	node := func(id, loc string, rev int, ph bool) string {
+		return fmt.Sprintf(`{"data":{"allocateSpecNode":{"id":%q,"memoryId":"mem1","loc":%q,"name":"Test","revision":%d,"isPlaceholder":%t}}}`, id, loc, rev, ph)
+	}
+	for name, body := range map[string]string{
+		"other parent":    node("n1", "msg:020:07", 3, true),
+		"missing id":      node("", "msg:010:07", 3, true),
+		"zero revision":   node("n1", "msg:010:07", 0, true),
+		"not placeholder": node("n1", "msg:010:07", 3, false),
+		"wrong tier":      node("n1", "msg:010", 3, true),
+		"unparseable":     node("n1", "not a loc", 3, true),
+	} {
+		t.Run(name, func(t *testing.T) {
+			fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+				"AllocateSpecNode": {body: body},
+			}, "--module", "msg", "--feature", "010", "--title", "Test")
+			if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+				t.Fatalf("an unusable answer exits %d, got %v", exitcode.Unavailable, err)
+			}
+			for _, op := range []string{"UpdateSpecNode", "CreateSpecNode", "CreateEdge"} {
+				if fk.count(op) != 0 {
+					t.Errorf("%s was sent on an unvalidated allocation", op)
+				}
+			}
+			if !strings.Contains(errText, "outcome unknown") || !strings.Contains(errText, "spec ls -m") {
+				t.Errorf("missing unknown-outcome guidance: %s", errText)
+			}
+		})
+	}
+}
+
+// A refused fill's recovery restores everything the fill carried, and a failed
+// feature fill also names the contract that was never attempted.
+func TestSpecNewRecoveryRestoresFilledFields398(t *testing.T) {
+	scan := alloc398Scan + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
+	_, out, errText, err := alloc398Run(t, map[string]alloc398Reply{
+		"FindNodes":        {body: scan},
+		"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:020", 1)},
+		"UpdateSpecNode":   {body: alloc398Err("BAD_USER_INPUT")},
+	}, "--new-feature", "--module", "msg", "--title", "Palette", "--json")
+	if err == nil {
+		t.Fatal("a refused fill must fail")
+	}
+	var dto struct {
+		FillStatus string   `json:"fillStatus"`
+		Recovery   []string `json:"recovery"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil || dto.FillStatus != "refused" {
+		t.Fatalf("--json = %s (%v)", out, jerr)
+	}
+	all := strings.Join(dto.Recovery, "\n")
+	for _, s := range []string{"spec get msg:020", "spec edit msg:020", `--title "Palette"`, "--abstract-file", "node update msg:020", "--tag spec", "--role spec", "--seq 20", "edge add", "--from msg:020", "spec new -m", "msg:020:00"} {
+		if !strings.Contains(all, s) {
+			t.Errorf("recovery missing %q:\n%s", s, all)
+		}
+	}
+	if strings.Contains(all, "--new-feature") {
+		t.Errorf("recovery must never allocate again:\n%s", all)
+	}
+	_ = errText
+}
+
+// The feature is complete when only its contract fails: a structured partial
+// result and a recovery that inspects the contract loc, never a rerun.
+func TestSpecNewContractFailureIsStructured398(t *testing.T) {
+	for name, tc := range map[string]struct {
+		reply      alloc398Reply
+		wantStatus string
+		wantExit   int
+	}{
+		"refused": {alloc398Reply{body: alloc398Err("BAD_USER_INPUT")}, "refused", exitcode.Error},
+		"lost":    {alloc398Reply{drop: true}, "unknown", exitcode.Unavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			scan := alloc398Scan + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
+			fk, out, errText, err := alloc398Run(t, map[string]alloc398Reply{
+				"FindNodes":        {body: scan},
+				"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:020", 1)},
+				"UpdateSpecNode":   {body: alloc398Fill},
+				"CreateSpecNode":   tc.reply,
+			}, "--new-feature", "--module", "msg", "--title", "Palette", "--json")
+			if err == nil || exitCodeFor(err) != tc.wantExit {
+				t.Fatalf("exit = %d, want %d (%v)", exitCodeFor(err), tc.wantExit, err)
+			}
+			if fk.count("AllocateSpecNode") != 1 {
+				t.Errorf("no second feature: %d allocations", fk.count("AllocateSpecNode"))
+			}
+			var dto struct {
+				Citation, ContractCitation, ContractStatus, FillStatus string
+				Allocated                                              bool
+				Recovery                                               []string
+			}
+			dec := map[string]any{}
+			if jerr := json.Unmarshal([]byte(out), &dec); jerr != nil {
+				t.Fatalf("--json = %s (%v)", out, jerr)
+			}
+			b, _ := json.Marshal(dec)
+			_ = json.Unmarshal(b, &dto)
+			if dec["citation"] != "msg:020" || dec["contractCitation"] != "msg:020:00" || dec["contractStatus"] != tc.wantStatus || dec["fillStatus"] != "filled" || dec["allocated"] != true {
+				t.Errorf("partial result = %s", out)
+			}
+			for _, s := range []string{"msg:020:00", "do NOT rerun the original", "spec get msg:020:00"} {
+				if !strings.Contains(errText, s) {
+					t.Errorf("message missing %q: %s", s, errText)
+				}
+			}
+		})
+	}
+}
+
+// The dry-run preview carries every field that does not depend on the number.
+func TestSpecNewDryRunPreviewsNumberIndependentFields398(t *testing.T) {
+	scan := alloc398Scan + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
+	fk, out, _, err := alloc398Run(t, map[string]alloc398Reply{
+		"FindNodes":       {body: scan},
+		"AuthContext":     {body: authUserJSON},
+		"EffectiveAccess": {body: effectiveAccessJSON(true)},
+	}, "--new-feature", "--module", "msg", "--title", "Palette", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		Name     string `json:"name"`
+		Abstract string `json:"abstract"`
+		Also     []struct {
+			Citation string `json:"citation"`
+			Name     string `json:"name"`
+		} `json:"also"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil {
+		t.Fatal(jerr, out)
+	}
+	if dto.Name == "" || dto.Abstract == "" || len(dto.Also) != 1 || dto.Also[0].Name == "" {
+		t.Errorf("preview must carry name, abstract and the planned contract: %s", out)
+	}
+	for _, op := range []string{"AllocateSpecNode", "UpdateSpecNode", "CreateSpecNode"} {
+		if fk.count(op) != 0 {
+			t.Errorf("--dry-run sent %s", op)
+		}
 	}
 }

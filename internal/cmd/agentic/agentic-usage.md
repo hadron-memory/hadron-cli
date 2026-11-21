@@ -2122,8 +2122,7 @@ Conventions:
   Without a `<loc>`, `spec new` allocates the next number in the
   legacy numbering (for `--new-feature` and `--feature` without `--rule`/`--flow` the SERVER picks it, cli#398: one
   `allocateSpecNode`, then one revision-guarded fill of that node; no retry, no local fallback; a failed fill leaves the
-  number reserved and `--json` reports `{citation, allocated: true, filled: false|unknown}` with exit 1/7 — finish it with
-  `spec edit <citation>`, never rerun `spec new`; a lost allocation answer exits 7 and a placeholder may exist; `--dry-run`
+  number reserved and `--json` reports `{citation, allocated: true, fillStatus: "refused"|"unknown", reason, recovery: [commands]}` with exit 1/7 — read it, then resume with the `recovery` commands (title, abstract, body, tags, role, edges, the feature's contract), never rerun `spec new`; a filled feature whose contract fails reports `{citation, contractCitation, contractStatus: "refused"|"unknown", fillStatus: "filled", recovery}`; a blank body is a usage error before any number is reserved; a lost or unusable allocation answer exits 7 and a placeholder may exist; `--dry-run`
   reports `allocatesUnder` instead of a citation) and scaffolds a **tier-appropriate** skeleton — a `## Modules`/`## Features`
   index for a product/module root, a load-bearing-point + rule list for a
   feature root, a general-provisions skeleton for a contract, or the

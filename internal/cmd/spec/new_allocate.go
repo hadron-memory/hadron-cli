@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -33,15 +34,34 @@ type allocatedInput struct {
 
 // allocatedOutcomeDTO is the `--json` answer when the node was reserved but the
 // fill did not (or may not have) landed. The number is real and stays
-// reserved; the caller finishes it with `spec edit`, never by rerunning.
+// reserved; the caller finishes it with the Recovery commands, never by
+// rerunning `spec new`.
 type allocatedOutcomeDTO struct {
 	Citation  string `json:"citation"`
 	MemoryID  string `json:"memoryId"`
 	Allocated bool   `json:"allocated"`
-	// Filled is "false" when the server refused the fill, "unknown" when its
-	// answer was lost or unusable (it may have been applied).
-	Filled string `json:"filled"`
-	Reason string `json:"reason"`
+	// FillStatus is "refused" when the server refused the fill, "unknown" when
+	// its answer was lost or unusable (it may have been applied).
+	FillStatus string `json:"fillStatus"`
+	Reason     string `json:"reason"`
+	// Recovery resumes authoring at the reserved citation: everything the
+	// failed fill carried (title, abstract, body, tags, role, edges) and, for
+	// a feature, its general-provisions contract.
+	Recovery []string `json:"recovery"`
+}
+
+// contractOutcomeDTO is the `--json` answer when a new feature was reserved AND
+// filled but its general-provisions contract (an explicit loc) was refused or
+// lost. The feature is complete; only the contract needs inspecting.
+type contractOutcomeDTO struct {
+	Citation         string   `json:"citation"`
+	MemoryID         string   `json:"memoryId"`
+	Allocated        bool     `json:"allocated"`
+	FillStatus       string   `json:"fillStatus"`
+	ContractCitation string   `json:"contractCitation"`
+	ContractStatus   string   `json:"contractStatus"` // "refused" | "unknown"
+	Reason           string   `json:"reason"`
+	Recovery         []string `json:"recovery"`
 }
 
 // pendingCopyPrefix matches a title that already starts with a "<parent>:NN — "
@@ -76,6 +96,11 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	if err != nil {
 		return err
 	}
+	if bodyGiven && strings.TrimSpace(userBody) == "" {
+		// A blank body is accepted by the server but leaves the placeholder
+		// unfilled (cor:dmo:120:07): refuse BEFORE reserving a number.
+		return exitcode.Newf(exitcode.Usage, "the supplied body is empty or blank, which would leave the reserved spec an unfilled placeholder: give real content, or omit --content/--content-file to get the scaffold")
+	}
 	userAbs, err := cmdutil.ResolveTextInput("abstract", in.abstract, in.abstractFile, f.IOStreams.In)
 	if err != nil {
 		return err
@@ -95,14 +120,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
 			return err
 		}
-		res := newResultDTO{
-			MemoryID: memURN, Tags: in.tags, Abstract: userAbs, Edges: append([]plannedEdgeDTO{}, edgePlan...), DryRun: true,
-			Citation: "", AllocatesUnder: in.alloc.parent.Format(), AfterFloor: in.alloc.after,
-		}
-		if res.Edges == nil {
-			res.Edges = []plannedEdgeDTO{}
-		}
-		// The scaffold is shown against a placeholder citation, never a guessed
+		// The preview is built against a symbolic citation, never a guessed
 		// number: the server picks the real one at write time.
 		ph := in.alloc.parent
 		if in.newFeature {
@@ -110,10 +128,32 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		} else {
 			ph.Rule = "NN"
 		}
+		previewAbs := userAbs
+		if previewAbs == "" {
+			previewAbs = tierAbstract(ph, in.title)
+		}
+		res := newResultDTO{
+			MemoryID: memURN, Name: specName(ph, in.title), Tags: in.tags, Abstract: previewAbs,
+			Edges: append([]plannedEdgeDTO{}, edgePlan...), DryRun: true,
+			Citation: "", AllocatesUnder: in.alloc.parent.Format(), AfterFloor: in.alloc.after,
+		}
 		if bodyGiven {
 			res.Content = userBody
 		} else {
 			res.Content = tierBody(ph, in.title)
+		}
+		if in.newFeature && !in.noContract {
+			if cc, ok := ph.ChildContract(); ok {
+				ctitle := in.title + " general provisions"
+				cr := newResultDTO{
+					Citation: cc.Format(), MemoryID: memURN, Name: specName(cc, ctitle), Tags: in.tags,
+					Abstract: tierAbstract(cc, ctitle), Content: tierBody(cc, ctitle), Edges: []plannedEdgeDTO{}, DryRun: true,
+				}
+				if !in.noEdges {
+					cr.Edges = append(cr.Edges, plannedEdgeDTO{Label: ctitle, Target: ph.Format()})
+				}
+				res.Also = append(res.Also, cr)
+			}
 		}
 		return output.Write(f.IOStreams, f.JSON, res, func(w io.Writer) error { return renderNewResult(w, res) })
 	}
@@ -133,14 +173,13 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		if api.IsDefiniteRefusalAt(aerr, "allocateSpecNode") {
 			return api.MapError(aerr) // refused: zero writes, nothing reserved
 		}
-		return exitcode.Newf(exitcode.Unavailable,
-			"allocation outcome unknown (%v): a placeholder may have been reserved under %s. Nothing was retried. Check `hadron spec ls -m %s --prefix %s` for an unfilled placeholder named %q before rerunning; rerunning allocates another number",
-			api.MapError(aerr), in.alloc.parent.Format(), memURN, in.alloc.parent.Format(), in.title)
+		return allocationUnknown(memURN, in, api.MapError(aerr))
 	}
-
-	target, perr := ParseCitation(a.Loc)
-	if perr != nil {
-		return reservedUnfilled(f, memURN, a.Loc, "unknown", fmt.Errorf("the server returned a loc this CLI cannot parse: %v", perr))
+	target, verr := validateAllocation(a, in.alloc.parent, in.newFeature)
+	if verr != nil {
+		// An unusable answer to a call that may have committed: unknown, and no
+		// fill is sent on a node this CLI cannot vouch for.
+		return allocationUnknown(memURN, in, verr)
 	}
 	name := specName(target, in.title)
 	abs := userAbs
@@ -171,9 +210,15 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	if _, uerr := api.UpdateSpecNode(cmd.Context(), client, &fill); uerr != nil {
 		state := "unknown"
 		if api.IsDefiniteRefusalAt(uerr, "updateSpecNode") {
-			state = "false"
+			state = "refused"
 		}
-		return reservedUnfilled(f, memURN, a.Loc, state, api.MapError(uerr))
+		rc := recoveryContext{memURN: memURN, loc: a.Loc, title: in.title, tags: in.tags, edges: edgePlan, target: target}
+		if in.newFeature && !in.noContract {
+			if cc, ok := target.ChildContract(); ok {
+				rc.contract = cc.Format()
+			}
+		}
+		return reservedUnfilled(f, rc, state, api.MapError(uerr))
 	}
 
 	res := newResultDTO{
@@ -210,7 +255,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 				cr.Edges = append(cr.Edges, plannedEdgeDTO{Label: ctitle, Target: target.Format()})
 			}
 			if _, cErr := api.CreateSpecNode(cmd.Context(), client, &cIn); cErr != nil {
-				return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), cc.Format(), api.MapError(cErr))
+				return contractFailed(f, memURN, target, cc, ctitle, cErr)
 			}
 			res.Also = append(res.Also, cr)
 		}
@@ -218,21 +263,117 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	return output.Write(f.IOStreams, f.JSON, res, func(w io.Writer) error { return renderNewResult(w, res) })
 }
 
+// recoveryContext is what the failed fill carried, so recovery can restore it.
+type recoveryContext struct {
+	memURN, loc, title string
+	tags               []string
+	edges              []plannedEdgeDTO
+	target             Citation
+	contract           string // the feature's contract loc still to create, or ""
+}
+
+// recoveryCommands resumes authoring at the reserved citation with the existing
+// commands: every field the failed fill carried, then the contract if one was
+// still to be created. None of them allocates a number.
+func recoveryCommands(rc recoveryContext) []string {
+	cmds := []string{fmt.Sprintf("hadron spec get %s -m %s", rc.loc, rc.memURN),
+		fmt.Sprintf("hadron spec edit %s -m %s --title %q --abstract-file <file> --content-file <file>", rc.loc, rc.memURN, rc.title)}
+	node := fmt.Sprintf("hadron node update %s -m %s --role %s", rc.loc, rc.memURN, api.SpecNodeRole)
+	for _, t := range rc.tags {
+		node += fmt.Sprintf(" --tag %s", t)
+	}
+	if n := specSeq(rc.target); n != nil {
+		node += fmt.Sprintf(" --seq %d", *n)
+	}
+	node += fmt.Sprintf(" --data %s", string(*specDataRaw()))
+	cmds = append(cmds, node)
+	for _, e := range rc.edges {
+		cmds = append(cmds, fmt.Sprintf("hadron edge add -m %s --from %s --to %s --name %q", rc.memURN, rc.loc, e.Target, e.Label))
+	}
+	if rc.contract != "" {
+		cmds = append(cmds, fmt.Sprintf("hadron spec new -m %s %s --title %q", rc.memURN, rc.contract, rc.title+" general provisions"))
+	}
+	return cmds
+}
+
 // reservedUnfilled reports a node the server reserved (a real, unminted
 // placeholder at loc) whose one guarded fill was refused or lost. It never
 // suggests rerunning `spec new`: that would allocate another number.
-func reservedUnfilled(f *cmdutil.Factory, memURN, loc, filled string, cause error) error {
+func reservedUnfilled(f *cmdutil.Factory, rc recoveryContext, filled string, cause error) error {
 	var what string
 	exit := exitcode.Error
 	if filled == "unknown" {
-		what = fmt.Sprintf("the fill's outcome is unknown (%v), so %s may or may not hold your content: read it with `hadron spec get %s -m %s` first", cause, loc, loc, memURN)
+		what = fmt.Sprintf("the fill's outcome is unknown (%v), so %s may or may not hold your content", cause, rc.loc)
 		exit = exitcode.Unavailable
 	} else {
-		what = fmt.Sprintf("this fill was refused (%v), so it did not write your content; %s may still be empty or another writer may have filled it since: read it with `hadron spec get %s -m %s` first", cause, loc, loc, memURN)
+		what = fmt.Sprintf("this fill was refused (%v), so it did not write your content; %s may still be empty, or another writer may have filled it since", cause, rc.loc)
 	}
-	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. If it is still empty, finish it with `hadron spec edit %s -m %s --content-file <file>`; do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)", loc, what, loc, memURN)
+	recovery := recoveryCommands(rc)
+	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. Read it first (`hadron spec get %s -m %s`); if it is still a placeholder, resume authoring at that citation, restoring what the failed fill carried (title, abstract, body, tags, role, edges%s):\n  %s\nThen, do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)",
+		rc.loc, what, rc.loc, rc.memURN, map[bool]string{true: ", and the feature's contract", false: ""}[rc.contract != ""], strings.Join(recovery[1:], "\n  "))
 	if f.JSON {
-		_ = output.Write(f.IOStreams, true, allocatedOutcomeDTO{Citation: loc, MemoryID: memURN, Allocated: true, Filled: filled, Reason: cause.Error()}, nil)
+		_ = output.Write(f.IOStreams, true, allocatedOutcomeDTO{Citation: rc.loc, MemoryID: rc.memURN, Allocated: true, FillStatus: filled, Reason: cause.Error(), Recovery: recovery}, nil)
 	}
 	return exitcode.Newf(exit, "%s", msg)
+}
+
+// contractFailed reports a feature that is allocated and filled whose explicit
+// general-provisions contract was refused or lost. Rerunning the original
+// command would allocate ANOTHER feature, so recovery names the contract loc.
+func contractFailed(f *cmdutil.Factory, memURN string, feature, contract Citation, ctitle string, cause error) error {
+	status, exit := "unknown", exitcode.Unavailable
+	if api.IsDefiniteRefusalAt(cause, "createSpecNode") {
+		status, exit = "refused", exitcode.Error
+	}
+	recovery := []string{
+		fmt.Sprintf("hadron spec get %s -m %s", contract.Format(), memURN),
+		fmt.Sprintf("hadron spec new -m %s %s --title %q", memURN, contract.Format(), ctitle),
+	}
+	if f.JSON {
+		_ = output.Write(f.IOStreams, true, contractOutcomeDTO{Citation: feature.Format(), MemoryID: memURN, Allocated: true, FillStatus: "filled",
+			ContractCitation: contract.Format(), ContractStatus: status, Reason: api.MapError(cause).Error(), Recovery: recovery}, nil)
+	}
+	return exitcode.Newf(exit, "created %s, but its contract %s was %s (%v). The feature is complete and stays: do NOT rerun the original `spec new`, which would allocate another feature. Check whether %s exists (`%s`); if it does not, create just the contract (`%s`)",
+		feature.Format(), contract.Format(), status, api.MapError(cause), contract.Format(), recovery[0], recovery[1])
+}
+
+// allocationUnknown reports an allocation whose outcome the CLI cannot vouch
+// for (lost or unusable answer, or an error after the write): a placeholder may
+// exist, nothing was retried and no fill was sent.
+func allocationUnknown(memURN string, in allocatedInput, cause error) error {
+	return exitcode.Newf(exitcode.Unavailable,
+		"allocation outcome unknown (%v): a placeholder may have been reserved under %s. Nothing was retried. Check `hadron spec ls -m %s --prefix %s` for an unfilled placeholder named %q before rerunning; rerunning allocates another number",
+		cause, in.alloc.parent.Format(), memURN, in.alloc.parent.Format(), in.title)
+}
+
+// validateAllocation checks the server's answer before anything is written on
+// it: an id, a positive revision, a placeholder, and a numbered child of the
+// requested parent at the expected tier. It returns the parsed citation.
+func validateAllocation(a *api.AllocatedSpec, parent Citation, newFeature bool) (Citation, error) {
+	if a.Id == "" {
+		return Citation{}, fmt.Errorf("the server returned no node id")
+	}
+	if a.Revision <= 0 {
+		return Citation{}, fmt.Errorf("the server returned revision %d for %s", a.Revision, a.Loc)
+	}
+	if !a.IsPlaceholder {
+		return Citation{}, fmt.Errorf("the server returned %s as not a placeholder", a.Loc)
+	}
+	target, perr := ParseCitation(a.Loc)
+	if perr != nil {
+		return Citation{}, fmt.Errorf("the server returned a loc this CLI cannot parse: %v", perr)
+	}
+	if p, ok := target.Parent(); !ok || p != parent {
+		return Citation{}, fmt.Errorf("the server returned %s, which is not a child of %s", a.Loc, parent.Format())
+	}
+	if newFeature && (target.Feature == "" || target.Rule != "" || target.Flow != "") {
+		return Citation{}, fmt.Errorf("the server returned %s, which is not a feature", a.Loc)
+	}
+	if !newFeature && (target.Rule == "" || target.Flow != "") {
+		return Citation{}, fmt.Errorf("the server returned %s, which is not a rule", a.Loc)
+	}
+	if _, ok := target.Seq(); !ok {
+		return Citation{}, fmt.Errorf("the server returned %s, which has no sequence number", a.Loc)
+	}
+	return target, nil
 }

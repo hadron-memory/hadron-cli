@@ -108,10 +108,14 @@ unminted placeholder, then the CLI fills that same node once, guarded on the
 revision it was handed. --rule-after <n> raises the start (the number lands
 strictly above n). There is no retry and no local fallback: a server without
 the operation refuses. If the fill fails, the number stays reserved (the output
-names it, says allocated: true and filled: false or unknown, and points at
-"spec edit <loc>"); do not rerun spec new, which would allocate another
-number. If the allocation answer is lost, a placeholder may exist: check "spec
-ls --prefix <parent>" before rerunning. A number is not reused while a row or
+names it, says allocated: true and fillStatus: refused or unknown, and lists
+the recovery commands that restore the title, abstract, body, tags, role and
+edges, and the feature's contract); read the node first, and do not rerun spec
+new, which would allocate another number. A blank body is refused before any
+number is reserved. If a feature is filled but its contract fails, the output
+says so and names the contract loc to inspect. If the allocation answer is lost
+or unusable, a placeholder may exist: check "spec ls --prefix <parent>" before
+rerunning. A number is not reused while a row or
 alias of it remains. An explicit --rule, --flow, --contract, a positional <loc>
 and the --new-* roots name their loc and never ask the allocator. A --dry-run
 cannot name the number and does not guess it.
