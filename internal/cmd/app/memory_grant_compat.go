@@ -11,7 +11,8 @@ import (
 // Only an explicit validation refusal permits the second document. No network,
 // runtime, partial-result or auth error is retried. Legacy metadata is unknown.
 func legacyGrantFields(g gen.AppMemoryGrantLegacyFields) gen.AppMemoryGrantFields {
-	return gen.AppMemoryGrantFields{Id: g.Id, AppId: g.AppId, MemoryUrn: g.MemoryUrn, Prefix: g.Prefix, RegisterNodeUrn: g.RegisterNodeUrn, GrantedBy: g.GrantedBy, CreatedAt: g.CreatedAt, RevokedAt: g.RevokedAt, RevokedBy: g.RevokedBy}
+	prefix := g.Prefix // the legacy document comes from a server that always sends it
+	return gen.AppMemoryGrantFields{Id: g.Id, AppId: g.AppId, MemoryUrn: g.MemoryUrn, Prefix: &prefix, RegisterNodeUrn: g.RegisterNodeUrn, GrantedBy: g.GrantedBy, CreatedAt: g.CreatedAt, RevokedAt: g.RevokedAt, RevokedBy: g.RevokedBy}
 }
 
 func setMemoryGrant(ctx context.Context, c graphql.Client, app, memory, prefix string, citation *string) (*gen.SetAppMemoryWriteGrantResponse, error) {

@@ -44,6 +44,28 @@ func failIfUnclaimed2786() {
 	}
 }
 
+// disablePrimaryGuardEnv2786 makes runInertSweepOrca2404 return at once. It
+// stands for a regression that removes or breaks that guard, so the test below
+// can show the SECOND, independent guard still stops a private inert Orca.
+const disablePrimaryGuardEnv2786 = "HADRON_TEST_2786_DISABLE_PRIMARY_GUARD"
+
+// failIfPrivateOrca2786 is the second guard, keyed on the executable's own
+// directory and nothing else: a test binary that is running from a private
+// inert-Orca directory (hadron-test-orca-2404-*) is a hard link made for the
+// sweep client to exec, and must never run the suite. Without it a regression in
+// the primary guard (or a seeded fault removing it) lets every private copy run
+// the 2404 tests, each of which makes and execs the next copy: a fork loop that
+// outlives the test, leaks a temp directory per generation, and filled the host
+// disk. It runs after the primary guard, so a healthy run never reaches it.
+func failIfPrivateOrca2786() {
+	exe, err := os.Executable()
+	if err != nil || !strings.HasPrefix(filepath.Base(filepath.Dir(exe)), inertSweepOrcaDirPrefix2404) {
+		return
+	}
+	fmt.Fprintln(os.Stderr, "a private inert Orca must never run the test suite; the primary guard did not claim this process")
+	os.Exit(3)
+}
+
 // cleanEnv2786 is the parent's environment without anything that could point a
 // child at a real host Orca or carry a credential (HADRON_*, ORCA_*).
 func cleanEnv2786() []string {
@@ -198,6 +220,29 @@ func TestPrivateInertOrcaRefusesUnsupportedArgv2786(t *testing.T) {
 
 // A child no guard claims must not run the suite: with the sentinel it exits 3.
 // This is what makes every pin above fail fast, not recurse, if a guard goes.
+// With the primary guard "removed", a private inert Orca is still stopped by the
+// second guard: exit 3 at once, never the suite (which is what forks the next
+// copy).
+func TestAPrivateInertOrcaIsStoppedByTheSecondGuardWhenThePrimaryIsGone2786(t *testing.T) {
+	bin := privateOrca2786(t)
+	// Every argv carries -test.run=^$ so that, were this guard ever missing too, the
+	// child would run no test (and fail this pin) instead of forking the next copy.
+	for _, args := range [][]string{{"-test.run=^$"}, {"-test.run=^$", "terminal", "list", "--json"}} {
+		env := append(cleanEnv2786(), noReentryEnv2786+"=1", disablePrimaryGuardEnv2786+"=1", inertSweepOrcaEnv2404+"="+bin)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		cmd := exec.CommandContext(ctx, bin, args...)
+		cmd.Env = env
+		var out, errb bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &out, &errb
+		err := cmd.Run()
+		cancel()
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) || ee.ExitCode() != 3 || !strings.Contains(errb.String(), "must never run the test suite") || out.String() != "" {
+			t.Errorf("args %q: want exit 3 from the second guard and no output, got %v / %q / %q", args, err, errb.String(), out.String())
+		}
+	}
+}
+
 func TestAChildNoGuardClaimsDoesNotReenterTheRunner2786(t *testing.T) {
 	exe, err := os.Executable()
 	if err != nil {

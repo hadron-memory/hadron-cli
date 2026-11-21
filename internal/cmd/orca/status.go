@@ -131,8 +131,10 @@ contract:
   status  busy   a turn is running
           idle   an empty prompt, safe to push one line
           locked an identifiable block (reason menu_or_question, or rate_limited
-                 for a usage-limit screen: waiting on a reset, see resetAt) or,
-                 fail closed, a screen no rule recognizes (reason unrecognized)
+                 for a usage-limit screen: waiting on a reset, see resetAt), no
+                 rendered screen from Orca (no_screen), several agent terminals
+                 bound to one worker (multiple_terminals) or, fail closed, a
+                 real screen no rule recognizes (reason unrecognized)
           dark   broken: a ticker owed this worker a turn and none came
                  (no_turn_for_due_ticker), or no terminal / a bare shell / no
                  agent (no_terminal, bare_shell, no_agent)
@@ -464,7 +466,7 @@ func observe(ctx context.Context, client *orcaterm.Client, env Env, terms []orca
 	switch {
 	case len(agents) > 1:
 		res.Terminal = "" // ambiguous: no single terminal to name
-		res.Status, res.Prompt, res.Reason = ts.Locked, ts.PromptUnknown, reasonPtr(ts.Unrecognized)
+		res.Status, res.Prompt, res.Reason = ts.Locked, ts.PromptUnknown, reasonPtr(ts.MultipleTerminals)
 		res.Detail = "more than one agent terminal is bound to this worker"
 		return res
 	case len(agents) == 1:
