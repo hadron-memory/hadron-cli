@@ -386,13 +386,45 @@ type clientDTO struct {
 	SelfIssued   bool    `json:"selfIssued"`
 	EndReason    *string `json:"endReason"`
 	CreatedAt    string  `json:"createdAt"`
+	// RevealURL is the server's own link for a person holder (cli#2758), null for any other viewer.
+	RevealURL *string `json:"revealUrl"`
 }
 
-// fetchClientPage reads one page of the caller's read clients. The list is declared
-// non-null with non-null rows: a missing or null list, or a null row, is a
-// malformed answer, never an empty success (and a dropped row would shift the --all
-// offsets).
-func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+// fetchClientPage reads one page of the caller's read clients WITH the server's revealUrl
+// (`client list` and the reveal link lookup). The list is declared non-null with non-null rows:
+// a missing or null list, or a null row, is a malformed answer, never an empty success (and a
+// dropped row would shift the --all offsets). A server that does not have revealUrl rejects the
+// document at validation naming only that field; then, and only then, the page is read again
+// without it (the link is null) and noLink is set so later pages skip the rejected document.
+func fetchClientPage(ctx context.Context, client graphql.Client, noLink *bool, limit, offset *int) ([]clientDTO, error) {
+	if !*noLink {
+		resp, err := gen.ListSecretReadClients(ctx, client, limit, offset)
+		if err == nil {
+			if resp == nil || resp.MySecretReadClients == nil {
+				return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
+			}
+			page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+			for _, c := range resp.MySecretReadClients {
+				if c == nil {
+					return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
+				}
+				page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+					SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, RevealURL: c.RevealUrl})
+			}
+			return page, nil
+		}
+		if !api.IsFrameworkValidationOnlyFor(err, "revealUrl") {
+			return nil, api.MapErrorKeepingCode(err)
+		}
+		*noLink = true
+	}
+	return fetchLookupPage(ctx, client, limit, offset)
+}
+
+// fetchLookupPage reads one page of the caller's read clients WITHOUT revealUrl: `client revoke`'s
+// exact-id lookup (a safety action must not depend on a display field a server may not have) and
+// the fallback for a server that lacks the field. The rows carry no link.
+func fetchLookupPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
 	resp, err := gen.MySecretReadClients(ctx, client, limit, offset)
 	if err != nil {
 		return nil, api.MapErrorKeepingCode(err)
@@ -461,7 +493,8 @@ use --limit and --offset beyond that).`,
 					return err
 				}
 			}
-			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, l, o) }
+			noLink := false
+			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, &noLink, l, o) }
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
