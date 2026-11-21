@@ -2311,6 +2311,82 @@ var AllAgentProcessKind = []AgentProcessKind{
 	AgentProcessKindStarts,
 }
 
+// AgentRevisionsAgentRevisionsAgentRevisionList includes the requested fields of the GraphQL type AgentRevisionList.
+// The GraphQL type's documentation follows.
+//
+// An Agent's revisions, newest first, with the slot facts. Slot numbers are never reused: the next save takes
+// 1 + the highest ever used, deleted revisions included, so a delete does not raise slotsRemaining. #4488
+type AgentRevisionsAgentRevisionsAgentRevisionList struct {
+	Revisions       []*AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision `json:"revisions"`
+	SlotLimit       float64                                                                `json:"slotLimit"`
+	HighestSlotUsed float64                                                                `json:"highestSlotUsed"`
+	SlotsRemaining  float64                                                                `json:"slotsRemaining"`
+}
+
+// GetRevisions returns AgentRevisionsAgentRevisionsAgentRevisionList.Revisions, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetRevisions() []*AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision {
+	return v.Revisions
+}
+
+// GetSlotLimit returns AgentRevisionsAgentRevisionsAgentRevisionList.SlotLimit, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetSlotLimit() float64 { return v.SlotLimit }
+
+// GetHighestSlotUsed returns AgentRevisionsAgentRevisionsAgentRevisionList.HighestSlotUsed, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetHighestSlotUsed() float64 {
+	return v.HighestSlotUsed
+}
+
+// GetSlotsRemaining returns AgentRevisionsAgentRevisionsAgentRevisionList.SlotsRemaining, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetSlotsRemaining() float64 {
+	return v.SlotsRemaining
+}
+
+// AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision includes the requested fields of the GraphQL type AgentRevision.
+// The GraphQL type's documentation follows.
+//
+// One revision in an Agent's list. #4488
+type AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision struct {
+	RevisionLoc string `json:"revisionLoc"`
+	Label       string `json:"label"`
+	// True for the revision the Agent is pinned to (publishRevision).
+	Published bool   `json:"published"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// GetRevisionLoc returns AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision) GetRevisionLoc() string {
+	return v.RevisionLoc
+}
+
+// GetLabel returns AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision.Label, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision) GetLabel() string {
+	return v.Label
+}
+
+// GetPublished returns AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision.Published, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision) GetPublished() bool {
+	return v.Published
+}
+
+// GetCreatedAt returns AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// AgentRevisionsResponse is returned by AgentRevisions on success.
+type AgentRevisionsResponse struct {
+	// An Agent's revisions, newest first, with the slot limit, the highest slot used and the saves left (#4488).
+	// Read by whoever may restore a revision: the Agent's manager.
+	//
+	// Accepts the entity's ID or URN.
+	AgentRevisions *AgentRevisionsAgentRevisionsAgentRevisionList `json:"agentRevisions"`
+}
+
+// GetAgentRevisions returns AgentRevisionsResponse.AgentRevisions, and is useful for accessing the field via an interface.
+func (v *AgentRevisionsResponse) GetAgentRevisions() *AgentRevisionsAgentRevisionsAgentRevisionList {
+	return v.AgentRevisions
+}
+
 // AgentScheduleFields includes the GraphQL fields of AgentSchedule requested by the fragment AgentScheduleFields.
 // The GraphQL type's documentation follows.
 //
@@ -51077,6 +51153,48 @@ type DeleteAgentResponse struct {
 
 // GetDeleteAgent returns DeleteAgentResponse.DeleteAgent, and is useful for accessing the field via an interface.
 func (v *DeleteAgentResponse) GetDeleteAgent() bool { return v.DeleteAgent }
+
+// DeleteAgentRevisionDeleteAgentRevisionRevisionResult includes the requested fields of the GraphQL type RevisionResult.
+type DeleteAgentRevisionDeleteAgentRevisionRevisionResult struct {
+	RevisionLoc string `json:"revisionLoc"`
+	Label       string `json:"label"`
+	Published   bool   `json:"published"`
+	CreatedAt   string `json:"createdAt"`
+}
+
+// GetRevisionLoc returns DeleteAgentRevisionDeleteAgentRevisionRevisionResult.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *DeleteAgentRevisionDeleteAgentRevisionRevisionResult) GetRevisionLoc() string {
+	return v.RevisionLoc
+}
+
+// GetLabel returns DeleteAgentRevisionDeleteAgentRevisionRevisionResult.Label, and is useful for accessing the field via an interface.
+func (v *DeleteAgentRevisionDeleteAgentRevisionRevisionResult) GetLabel() string { return v.Label }
+
+// GetPublished returns DeleteAgentRevisionDeleteAgentRevisionRevisionResult.Published, and is useful for accessing the field via an interface.
+func (v *DeleteAgentRevisionDeleteAgentRevisionRevisionResult) GetPublished() bool {
+	return v.Published
+}
+
+// GetCreatedAt returns DeleteAgentRevisionDeleteAgentRevisionRevisionResult.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DeleteAgentRevisionDeleteAgentRevisionRevisionResult) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// DeleteAgentRevisionResponse is returned by DeleteAgentRevision on success.
+type DeleteAgentRevisionResponse struct {
+	// Delete one of an Agent's revisions by loc (#4488). Same gate as restoreRevision: the Agent's manager.
+	// Refuses, before any write, the published (pinned) revision (REVISION_PUBLISHED) and the Agent's only
+	// revision (REVISION_ONLY). A deleted revision leaves the list and can no longer be restored; its slot
+	// number is not reused, so a delete does not free a slot (see agentRevisions).
+	//
+	// Accepts the entity's ID or URN.
+	DeleteAgentRevision *DeleteAgentRevisionDeleteAgentRevisionRevisionResult `json:"deleteAgentRevision"`
+}
+
+// GetDeleteAgentRevision returns DeleteAgentRevisionResponse.DeleteAgentRevision, and is useful for accessing the field via an interface.
+func (v *DeleteAgentRevisionResponse) GetDeleteAgentRevision() *DeleteAgentRevisionDeleteAgentRevisionRevisionResult {
+	return v.DeleteAgentRevision
+}
 
 // DeleteAgentScheduleResponse is returned by DeleteAgentSchedule on success.
 type DeleteAgentScheduleResponse struct {
@@ -126527,6 +126645,14 @@ type __AgentProcessIndexListInput struct {
 // GetRef returns __AgentProcessIndexListInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AgentProcessIndexListInput) GetRef() string { return v.Ref }
 
+// __AgentRevisionsInput is used internally by genqlient
+type __AgentRevisionsInput struct {
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAgentRef returns __AgentRevisionsInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentRevisionsInput) GetAgentRef() string { return v.AgentRef }
+
 // __AgentSchedulesInput is used internally by genqlient
 type __AgentSchedulesInput struct {
 	AppRef string `json:"appRef"`
@@ -131046,6 +131172,18 @@ func (v *__DeleteAgentModelGroupInput) GetAgentRef() string { return v.AgentRef 
 
 // GetName returns __DeleteAgentModelGroupInput.Name, and is useful for accessing the field via an interface.
 func (v *__DeleteAgentModelGroupInput) GetName() string { return v.Name }
+
+// __DeleteAgentRevisionInput is used internally by genqlient
+type __DeleteAgentRevisionInput struct {
+	AgentRef    string `json:"agentRef"`
+	RevisionLoc string `json:"revisionLoc"`
+}
+
+// GetAgentRef returns __DeleteAgentRevisionInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentRevisionInput) GetAgentRef() string { return v.AgentRef }
+
+// GetRevisionLoc returns __DeleteAgentRevisionInput.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentRevisionInput) GetRevisionLoc() string { return v.RevisionLoc }
 
 // __DeleteAgentScheduleInput is used internally by genqlient
 type __DeleteAgentScheduleInput struct {
@@ -140625,6 +140763,52 @@ func AgentProcessIndexList(
 	}
 
 	data_ = &AgentProcessIndexListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentRevisions.
+const AgentRevisions_Operation = `
+query AgentRevisions ($agentRef: ID!) {
+	agentRevisions(agentRef: $agentRef) {
+		revisions {
+			revisionLoc
+			label
+			published
+			createdAt
+		}
+		slotLimit
+		highestSlotUsed
+		slotsRemaining
+	}
+}
+`
+
+// cli#2533 (server #4488): an Agent's revisions, newest first, with the slot facts,
+// and deleting one. agentRef goes to the server verbatim (id or URN; no
+// pre-resolve). Slot numbers are never reused, so a delete does NOT raise
+// slotsRemaining (the server's contract; the CLI help says so).
+func AgentRevisions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+) (data_ *AgentRevisionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentRevisions",
+		Query:  AgentRevisions_Operation,
+		Variables: &__AgentRevisionsInput{
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &AgentRevisionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -158131,6 +158315,45 @@ func DeleteAgentModelGroup(
 	}
 
 	data_ = &DeleteAgentModelGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteAgentRevision.
+const DeleteAgentRevision_Operation = `
+mutation DeleteAgentRevision ($agentRef: ID!, $revisionLoc: String!) {
+	deleteAgentRevision(agentRef: $agentRef, revisionLoc: $revisionLoc) {
+		revisionLoc
+		label
+		published
+		createdAt
+	}
+}
+`
+
+func DeleteAgentRevision(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	revisionLoc string,
+) (data_ *DeleteAgentRevisionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgentRevision",
+		Query:  DeleteAgentRevision_Operation,
+		Variables: &__DeleteAgentRevisionInput{
+			AgentRef:    agentRef,
+			RevisionLoc: revisionLoc,
+		},
+	}
+
+	data_ = &DeleteAgentRevisionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
