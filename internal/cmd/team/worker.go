@@ -1372,7 +1372,7 @@ prompts, never retries and never falls back to another operation. Refusals
 keep their exit codes: WORKER_NOT_FOUND and WORKER_REFERENCE_NOT_FOUND 4,
 WORKER_IN_USE 5, FORBIDDEN 8. The preview's --json is
 {id, name, attestationRequired, status: "preview"}. Needs a server containing
-hadron-server 8bbf82dd (merged, not necessarily served: an older server
+hadron-server 2026-11-06 (merged, not necessarily served: an older server
 refuses the unknown field and the command stops, as it must). With
 --instruction the preview is NOT write-free: it records one claim event and
 bumps the fences, as an instructed cast preview does.

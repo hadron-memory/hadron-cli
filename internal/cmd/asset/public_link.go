@@ -22,6 +22,9 @@ type publicLinkDTO struct {
 	PublicURL           *string `json:"publicUrl"`
 }
 
+// publicLinkServerFloor is the server release date the instructed public-link call needs.
+const publicLinkServerFloor = "2026-11-03"
+
 func newCmdPublicLink(f *cmdutil.Factory) *cobra.Command {
 	var on, off, yes bool
 	var instructionRaw string
@@ -48,7 +51,7 @@ URL on this server"). asset url --help explains each case.
 --instruction <kind>:<ref> supplies a server-validated instruction for a worker
 session on an App memory. The server decides admission; the CLI does not
 calculate management authority or retry a refused call. Without this flag,
-the existing person call is unchanged. Requires server 5fd87dcc or later.`,
+the existing person call is unchanged. Requires server ` + publicLinkServerFloor + ` or later.`,
 		Example: `  hadron asset public-link hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 --on --yes
   hadron asset public-link 01a189a840f4717c98af75cf4d7aed09 --off`,
 		Args: cobra.ExactArgs(1),
@@ -124,7 +127,7 @@ the existing person call is unchanged. Requires server 5fd87dcc or later.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("5fd87dcc"))
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer(publicLinkServerFloor))
 	cmd.Flags().BoolVar(&on, "on", false, "record the anonymous-download opt-in")
 	cmd.Flags().BoolVar(&off, "off", false, "disable the anonymous public link")
 	cmd.Flags().BoolVar(&yes, "yes", false, "confirm allowing anyone with the link to download")

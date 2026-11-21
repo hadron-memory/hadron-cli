@@ -180,9 +180,9 @@ Only whoever manages the App may set it (APP_MANAGER_REQUIRED otherwise).
 Without --instruction the write is the signed-in person's, including from a
 bound worktree. --instruction opens the App-manager's held-worker path; the
 server decides admission. Only set accepts this flag; get stays a read.
-Needs server ba077810 or later.
+Needs server 2026-11-04 or later.
 
-` + instructionHelpFor("ba077810"),
+` + instructionHelpFor(managerInstructionMinimum),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

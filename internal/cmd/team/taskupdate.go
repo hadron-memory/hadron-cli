@@ -70,7 +70,7 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   verbatim for the server to trim and drop empties.
   --min-tier low|mid|high sets a minimum: the lowest sufficient tier is preferred;
   an unknown tier is ineligible when a minimum is set. Requires a server
-  containing hadron-server#2983 (31d63828 or later).
+  containing hadron-server#2983 (2026-10-31 or later).
 - --start-by <RFC 3339 time> or --clear-start-by. --start-by re-anchors only the
   not-started clock (cor:agt:050:14): it moves the deadline that task list
   --overdue and the not-started alarm read. An alarm already raised stays raised.
@@ -107,7 +107,7 @@ properties (--properties, --clear-properties) and references (--ref,
 --clear-refs), alone or together in one call; if the call names any other field,
 even beside those, the whole edit is refused (TASK_NOT_OWNER) and nothing
 changes. The assignee's reference edit needs a server at or after
-hadron-server#3718 (f4db15e0); an older server refuses it with TASK_NOT_OWNER.
+hadron-server#3718 (2026-11-08); an older server refuses it with TASK_NOT_OWNER.
 A finished or cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
 a stall alarm. Success prints the task as task get does; --json returns it.
 

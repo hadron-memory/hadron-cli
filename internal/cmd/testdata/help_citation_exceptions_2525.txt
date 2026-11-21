@@ -1,1 +1,138 @@
-# empty
+# Help pages that still carry a spec citation, issue number or revision hash
+# (cli#2525). A ratchet: a page may leave this list and never join it; a listed page
+# that is clean fails until it is removed. Regenerate with
+#   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -update-citation-exceptions
+auth token list
+channel post
+channel read
+chat read
+chat served-prompts
+chat tool-choice
+coding
+coding review create
+decision
+decision amend
+decision ask
+marketplace
+node list
+orca terminal status
+run
+run cancel
+run list
+run trigger
+schedule
+skill lint
+spec
+spec backlinks
+spec check-tools
+spec document
+spec edit
+spec extract
+spec get
+spec ledger
+spec link
+spec lint
+spec mint
+spec new
+spec renumber
+spec replace
+spec rescind
+spec reserve
+spec supersede
+spec unresolved
+team
+team alarms
+team app sweep-mode
+team attention
+team attention switchover
+team attention switchover apply
+team attention switchover preview
+team availability
+team availability set
+team chat
+team chat mark-read
+team chat post
+team chat read
+team events
+team grant action
+team grant actions
+team grant request
+team grant request-signature
+team grant signing-request
+team grant signing-request get
+team grant signing-request withdraw
+team health sweep
+team host import
+team host issue
+team host ops
+team host run
+team host up
+team init
+team register
+team review-stats
+team role
+team role create
+team role update
+team roster
+team router
+team router loop
+team router poll
+team router status
+team session
+team session end
+team session list
+team session log
+team session recover
+team session reset-context
+team session resume-claim
+team session set-model
+team session shed
+team session start
+team session sync-model
+team session whoami
+team stall-schedule
+team stall-schedule set
+team task
+team task add-blocker
+team task assign
+team task cancel
+team task clone
+team task create
+team task find-untracked
+team task finish
+team task get
+team task hand-back
+team task link-defect
+team task list
+team task park
+team task progress
+team task ready
+team task reassign
+team task release
+team task remove-blocker
+team task set-priority
+team task start
+team task tree
+team task update
+team wake-settings
+team wake-settings set
+team wakes
+team wakes ack
+team wakes due
+team worker
+team worker cast
+team worker change-agent
+team worker compile
+team worker get
+team worker leave-alone
+team worker list
+team worker onboard
+team worker release
+team worker retire
+team worker rm
+team worker update
+ticker apply-templates
+usage activity
+user delete
+user merge
+user search

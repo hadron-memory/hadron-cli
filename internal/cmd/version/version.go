@@ -29,7 +29,7 @@ func NewCmdVersion(f *cmdutil.Factory) *cobra.Command {
 		Long: `Print this CLI's version, the commit it was built from and the build date,
 for example:
 
-  hadron 0.29.0 (decec03, 2026-10-29)
+  hadron 0.29.0 (1234567, 2026-10-29)
 
 'hadron -v' and 'hadron --version' print the same line. --json adds the Go
 version, operating system and architecture. Needs no network or sign-in.

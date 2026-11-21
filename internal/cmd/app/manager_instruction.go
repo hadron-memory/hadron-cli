@@ -11,7 +11,7 @@ import (
 )
 
 // managerInstructionMinimum is the app door's server minimum for --instruction.
-const managerInstructionMinimum = "2026-11-04"
+const managerInstructionMinimum = instruction.ServerFloorManager
 
 func addManagerInstruction(cmd *cobra.Command) {
 	instruction.AddManagerFlag(cmd, managerInstructionMinimum)

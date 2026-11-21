@@ -193,7 +193,7 @@ future) bounds an unavailable record.
 With --instruction, the binding is captured before lookups and checked again
 before the one write. An unusable or changed binding sends the claim as the
 signed-in person instead, with no worker session. Refusals are never retried.
-The instructed path requires server ba077810 (hadron-server#3376).
+The instructed path requires server 2026-11-04 (hadron-server#3376).
 
 --instruction <kind>:<ref> claims that the holder told this worker to make
 this one change. kind is team-chat-message, task or live-chat. ref names the

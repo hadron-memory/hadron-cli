@@ -22,7 +22,7 @@ import (
 const Prefix = "[hadron chat"
 
 // MaxTextRunes bounds a batch's text by S1's own rule (renderBatch.ts at
-// server main ad7f1c2): at most 10 messages within a 6,000-character body
+// server main 2026-10-19): at most 10 messages within a 6,000-character body
 // budget, except that the first message is always delivered whole and
 // alone, up to the 65,536-character chat body. The header, authors, parent
 // context, overflow lines and reply hint come on top; 4,096 covers them. A

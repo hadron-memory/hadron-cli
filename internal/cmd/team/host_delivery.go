@@ -43,7 +43,7 @@ func (s *hostServer) clock() time.Time {
 
 // deliveryCodes are the server codes a delivery error may carry into a log:
 // S1's refusals (resolvers.deliveryBatch.ts and acknowledge.ts at server
-// main ad7f1c2) and the generic auth refusals. Any other code is
+// main 2026-10-19) and the generic auth refusals. Any other code is
 // server-refused.
 var deliveryCodes = []string{
 	"APP_KEY_SCOPE_REQUIRED", "HOST_KEY_REQUIRED", "APP_NOT_FOUND", "APP_KEY_SESSION_BOUND",

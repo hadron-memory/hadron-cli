@@ -588,7 +588,7 @@ due tick and task wakes (dueWakes) and types each as one line through the
 same path, then hands its proof back (hadron-cli#1178). A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
 Set delivery.ack_mixed: true only when the server carries A-prime (#2072,
-ad7f1c2): its mixed acknowledgment records ticks/tasks without moving chat
+2026-10-19): its mixed acknowledgment records ticks/tasks without moving chat
 marks. Mention text still arrives through its own batch. ack_mixed must be a
 real boolean wherever it is written, including through a YAML merge (<<) or an
 alias: null, ~, yes and on are refused with the line. A merged non-boolean is

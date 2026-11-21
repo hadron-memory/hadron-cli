@@ -17,7 +17,7 @@ import (
 // instruction.FlagUsageForServer prints it after "Needs server" and nothing
 // compares it with a server build. It is deliberately independent of the app
 // door's.
-const managerInstructionMinimum = "2026-11-04"
+const managerInstructionMinimum = instruction.ServerFloorManager
 
 // deliverySettingsInstructionMinimum is the same requirement, kept as its own
 // name for delivery-settings set.

@@ -14,8 +14,8 @@ func TestInstructionMinimumHelp1602(t *testing.T) {
 		path            []string
 		minimum, absent string
 	}{
-		{"S1_update", []string{"team", "worker", "update"}, "17ef5905", "2026-11-03"},
-		{"S1_change", []string{"team", "worker", "change-agent"}, "17ef5905", "2026-11-03"},
+		{"S1_update", []string{"team", "worker", "update"}, "2026-11-03", "17ef5905"},
+		{"S1_change", []string{"team", "worker", "change-agent"}, "2026-11-03", "17ef5905"},
 		{"S3_keys", []string{"app", "key", "list"}, "2026-11-03", "17ef5905"},
 		{"S3_revoke", []string{"app", "key", "revoke"}, "2026-11-03", "17ef5905"},
 		{"S3_scope", []string{"app", "key", "scope", "revoke"}, "2026-11-03", "17ef5905"},
