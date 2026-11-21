@@ -91,3 +91,16 @@ func TestRateLimitedAndResetAtAdditiveKey2676(t *testing.T) {
 		t.Fatalf("an @1 consumer must still parse: %v %+v", err, old)
 	}
 }
+
+// cli#2677: hadron-server#4558 added both values to the closed list, and the
+// contract stays terminal-status@1 (the list grows, no key is added or renamed).
+func TestNoScreenAndMultipleTerminalsAreOnTheClosedList2677(t *testing.T) {
+	for _, r := range []Reason{NoScreen, MultipleTerminals} {
+		if !r.Valid() {
+			t.Errorf("%q must be on the closed list", r)
+		}
+	}
+	if string(NoScreen) != "no_screen" || string(MultipleTerminals) != "multiple_terminals" || Contract != "terminal-status@1" {
+		t.Errorf("wire values changed: %q %q %q", NoScreen, MultipleTerminals, Contract)
+	}
+}
