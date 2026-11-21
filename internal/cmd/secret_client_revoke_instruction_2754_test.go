@@ -1,10 +1,16 @@
 package cmd
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	gql "github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 const instructedRevoke2754 = "RevokeSecretReadClientGrantInstructed"
@@ -44,6 +50,22 @@ func TestSecretClientRevokeInstructionCarriesBoundSession2754(t *testing.T) {
 					if c.Session != "s-new" || c.Vars["ref"] != "gr-c1" {
 						t.Errorf("mutation: %+v", c)
 					}
+					doc, parseErr := parser.ParseQuery(&gql.Source{Input: c.Query})
+					if parseErr != nil {
+						t.Fatal(parseErr)
+					}
+					op := doc.Operations.ForName(instructedRevoke2754)
+					if op == nil || len(op.SelectionSet) != 1 {
+						t.Fatal("missing single instructed mutation")
+					}
+					field, ok := op.SelectionSet[0].(*gql.Field)
+					if !ok || field.Name != "revokeGrant" {
+						t.Fatal("wrong mutation root")
+					}
+					arg := field.Arguments.ForName("instruction")
+					if arg == nil || arg.Value.Kind != gql.Variable || arg.Value.Raw != "instruction" {
+						t.Fatal("claim not wired to revokeGrant")
+					}
 					claim, ok := c.Vars["instruction"].(map[string]any)
 					wantKind := map[string]string{"task": "TASK", "team-chat-message": "TEAM_CHAT_MESSAGE", "live-chat": "LIVE_CHAT"}[kind]
 					if !ok || claim["kind"] != wantKind || claim["ref"] != ref {
@@ -53,7 +75,11 @@ func TestSecretClientRevokeInstructionCarriesBoundSession2754(t *testing.T) {
 					t.Error("person fallback")
 				}
 			}
-			if reads != 1 || writes != 1 || !strings.Contains(out, `"state":"REVOKED"`) {
+			var result map[string]any
+			if err := json.Unmarshal([]byte(out), &result); err != nil {
+				t.Fatal(err)
+			}
+			if reads != 1 || writes != 1 || result["state"] != "REVOKED" {
 				t.Fatalf("reads %d writes %d out %s", reads, writes, out)
 			}
 		})
@@ -166,9 +192,42 @@ func TestSecretClientRevokeInstructionUniformRefusalAndLostAnswer2754(t *testing
 			if tc.name == "uniform-grant-refusal" && (!strings.Contains(err.Error(), "GRANT_NOT_MANAGER") || strings.Contains(err.Error(), "not found")) {
 				t.Fatalf("nonuniform refusal: %v", err)
 			}
-			if tc.name == "lost-answer" && !strings.Contains(err.Error(), "secret client list --all") {
+			if tc.name == "lost-answer" && !strings.Contains(err.Error(), "secret client list --all --as-worker") {
 				t.Fatalf("missing recovery: %v", err)
 			}
 		})
+	}
+}
+
+func TestSecretClientRevokeInstructionWrongAppStopsAtIdentity2754(t *testing.T) {
+	writeTeamBinding(t)
+	responses := revokeResponses2754()
+	responses["TeamAppIdentity"] = strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", "capp900000000000000000000")
+	srv, calls := attnServer(t, responses)
+	setTeamBindingServer(t, srv.URL)
+	_, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--instruction", "task:ref", "--app", "hrn:app:acme.com:other")
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("wrong App: %v", err)
+	}
+	for _, c := range *calls {
+		if c.Op != "TeamAppIdentity" || c.Session != "" {
+			t.Fatalf("refused App sent %+v", c)
+		}
+	}
+}
+
+func TestSecretClientRevokeInstructionNeedsYesBeforeAnyRequest2754(t *testing.T) {
+	writeTeamBinding(t)
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+	setTeamBindingServer(t, srv.URL)
+	_, err := runRevoke2680(t, srv.URL, "c1", "--instruction", "task:ref")
+	if exitCodeFor(err) != exitcode.Usage || calls.Load() != 0 {
+		t.Fatalf("confirmation refusal sent %d requests: %v", calls.Load(), err)
 	}
 }

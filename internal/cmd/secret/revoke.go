@@ -1,6 +1,7 @@
 package secret
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -32,14 +34,18 @@ type revokeDTO struct {
 // matched exactly as given. A client the caller neither issued nor holds never
 // lists, so it is not found here even where the server would let a manager revoke
 // its grant.
-func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string) (*clientDTO, error) {
+func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string, worker cmdutil.WorkerWriteContext) (*clientDTO, error) {
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return nil, err
 	}
 	for off, pages := 0, 0; ; pages++ {
 		l, o := clientsPageSize, off
-		page, err := fetchClientPage(cmd.Context(), client, &l, &o)
+		ctx, err := revokeContext(cmd.Context(), worker)
+		if err != nil {
+			return nil, err
+		}
+		page, err := fetchClientPage(ctx, client, &l, &o)
 		if err != nil {
 			return nil, err
 		}
@@ -60,8 +66,9 @@ func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string) (*clien
 
 func newCmdClientRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
+	var claimRaw string
 	cmd := &cobra.Command{
-		Use:   "revoke <client-id> [--yes]",
+		Use:   "revoke <client-id> [--yes] [--instruction <kind>:<ref>]",
 		Short: "Revoke a read client now",
 		Long: `Revoke a read client: its grant ends now, unsigned, and the holder can no longer
 read the secret. This cannot be undone: a new client needs a new issue and a
@@ -72,13 +79,27 @@ up among the clients you issued or hold, then sends one revoke on its grant. A
 client you do not see there (unknown, or someone else's) is a not-found (exit 4)
 and nothing is sent.
 
-You act as yourself: this never sends a worker session, even from a bound
-worktree. The server decides who may revoke: the person who issued it (while still
-a member of the App's Org) or whoever manages the App. A refusal is reported as it
+Without --instruction you act as yourself: no worker session is sent, even from
+a bound worktree. With --instruction <kind>:<ref>, the lookup and revoke use this
+worktree's bound worker session; only the revoke carries the instruction. kind
+is team-chat-message, task or live-chat; ref is a reference, never instruction
+text, sent unchanged after the first colon. The CLI does not read that reference.
+A missing, incomplete, other-server or other-App binding refuses (exit 2);
+it never falls back to you. A binding change during the command stops it before
+another request. The server validates the instruction and whether the holder may
+revoke this grant in the worker's App. Needs server 2026-11-10 or later; an older
+server's refusal is passed through, never retried without the flag.
+
+The server decides who may revoke: the person who issued it (while still
+a member of the App's Org), whoever manages the App, or a held worker on a
+validated instruction from a holder who may. Grant refusals (not allowed, unknown
+or unseen) all have the same GRANT_NOT_MANAGER code. A refusal is reported as it
 came (exit 8). A grant that had already ended is returned as it is and is not
 changed (the first end stands): the command prints its state and exits 0. One
 revoked earlier reads REVOKED exactly as one revoked now; one that ended another
 way (withdrawn, expired, spent, its holder gone) says it was already ended.
+For an instructed revoke, check its outcome with
+'hadron secret client list --all --as-worker' so the lookup uses the same worker.
 
 On a terminal it asks first; off one it needs --yes and sends nothing without it.
 
@@ -88,18 +109,35 @@ resent, so run 'hadron secret client list --all' (the grant id is in the error) 
 whether the client ended (this includes a grant answered in a state that is not an
 end, or one that still allows reads); 8 not permitted.`,
 		Example: `  hadron secret client revoke cl_123 --yes
-  hadron secret client revoke cl_123 --yes --json`,
+  hadron secret client revoke cl_123 --yes --json
+  hadron secret client revoke cl_123 --yes --instruction task:<task-URN>`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			if strings.TrimSpace(id) == "" {
 				return exitcode.Newf(exitcode.Usage, "client id is required")
 			}
+			var claim *gen.ActInstructionInput
+			var worker cmdutil.WorkerWriteContext
+			if cmd.Flags().Changed("instruction") {
+				var err error
+				claim, err = instruction.Parse(claimRaw)
+				if err != nil {
+					return err
+				}
+			}
 			// Nothing is sent, not even the read, when the answer cannot be asked for.
 			if !yes && !f.IOStreams.IsInputTerminal() {
 				return cmdutil.Confirm(f.IOStreams, false, "")
 			}
-			c, err := findClient(cmd, f, id)
+			if claim != nil {
+				var err error
+				worker, err = f.ResolveWorkerWrite(cmd.Context())
+				if err != nil {
+					return revokeBindingError(err)
+				}
+			}
+			c, err := findClient(cmd, f, id, worker)
 			if err != nil {
 				return err
 			}
@@ -116,17 +154,31 @@ end, or one that still allows reads); 8 not permitted.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.RevokeSecretReadClientGrant(cmd.Context(), client, c.GrantID)
+			ctx, err := revokeContext(cmd.Context(), worker)
 			if err != nil {
-				return revokeError(err, c.GrantID)
+				return err
 			}
 			var g *gen.RevokeSecretReadClientGrantRevokeGrant
-			if resp != nil {
-				g = resp.RevokeGrant
+			if claim != nil {
+				resp, err := gen.RevokeSecretReadClientGrantInstructed(ctx, client, c.GrantID, claim)
+				if err != nil {
+					return revokeFailure(revokeError(err, c.GrantID), worker != nil)
+				}
+				if resp != nil {
+					g = (*gen.RevokeSecretReadClientGrantRevokeGrant)(resp.RevokeGrant)
+				}
+			} else {
+				resp, err := gen.RevokeSecretReadClientGrant(ctx, client, c.GrantID)
+				if err != nil {
+					return revokeFailure(revokeError(err, c.GrantID), worker != nil)
+				}
+				if resp != nil {
+					g = resp.RevokeGrant
+				}
 			}
 			state, err := confirmedEndedState(g, c.GrantID)
 			if err != nil {
-				return err
+				return revokeFailure(err, worker != nil)
 			}
 			d := revokeDTO{ClientID: c.ClientID, GrantID: c.GrantID, State: state, RevokedAt: g.RevokedAt, Allows: false}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
@@ -143,6 +195,7 @@ end, or one that still allows reads); 8 not permitted.`,
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "revoke without asking (required off a terminal)")
+	cmd.Flags().StringVar(&claimRaw, "instruction", "", instruction.FlagUsageForServer("2026-11-10"))
 	return cmd
 }
 
@@ -195,4 +248,30 @@ func confirmedEndedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID 
 		return "", notConfirmed(grantID, "the server returned the grant still "+string(g.State))
 	}
 	return "", notConfirmed(grantID, "the server returned no usable state")
+}
+
+// The shared strict resolver names its usual --as-worker flag. This command
+// selects the same strict contract with --instruction, so keep its remedy true.
+func revokeBindingError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return exitcode.Newf(exitcode.FromError(err), "%s", strings.ReplaceAll(err.Error(), "--as-worker", "--instruction"))
+}
+
+func revokeContext(ctx context.Context, worker cmdutil.WorkerWriteContext) (context.Context, error) {
+	if worker == nil {
+		return ctx, nil
+	}
+	ctx, err := worker(ctx)
+	return ctx, revokeBindingError(err)
+}
+
+// Recovery must read the same principal's clients; preserve typed server codes.
+func revokeFailure(err error, instructed bool) error {
+	if !instructed || exitcode.FromError(err) != exitcode.Unavailable {
+		return err
+	}
+	message := strings.ReplaceAll(err.Error(), "secret client list --all", "secret client list --all --as-worker")
+	return api.WithServerCode(exitcode.Newf(exitcode.FromError(err), "%s", message), err)
 }
