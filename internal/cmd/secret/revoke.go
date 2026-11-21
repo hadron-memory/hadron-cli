@@ -45,7 +45,7 @@ func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string, worker 
 		if err != nil {
 			return nil, err
 		}
-		page, err := fetchClientPage(ctx, client, &l, &o)
+		page, err := fetchLookupPage(ctx, client, &l, &o)
 		if err != nil {
 			return nil, err
 		}

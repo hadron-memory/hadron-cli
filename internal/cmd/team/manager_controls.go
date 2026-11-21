@@ -30,8 +30,8 @@ still reaches a paused worker is a stop-signal notice, which travels alone
 already open, and "hadron team roster" shows each worker's state.
 
 App scope comes from --app, the active context or this worktree's binding.
-This is the signed-in person's write: no worker session is attached; the
-server checks permission.
+Without --instruction this is the signed-in person's write: no worker
+session is attached; the server checks permission.
 
 Which pause to use:
   team pause: hold regular wakes across this App, without interrupting sessions.
@@ -55,11 +55,17 @@ func newCmdTeamPause(f *cmdutil.Factory, paused bool) *cobra.Command {
 		short = "Pause the App's regular worker wakes"
 		opening = "Pause the App's regular worker wakes as its manager, without interrupting open sessions."
 	}
-	return &cobra.Command{
+	c := &cobra.Command{
 		Use: verb, Short: short, Long: opening + "\n\n" + teamPauseHelp,
 		Example: "  hadron team " + verb + " --app <app>\n  hadron team " + verb + " --app <app> --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#2774: parse the claim and snapshot the binding before the
+			// first lookup, so an instructed write can verify what it read.
+			claim, instructed, err := managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -73,7 +79,11 @@ func newCmdTeamPause(f *cmdutil.Factory, paused bool) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SetTeamPause(ctx, client, scope.Ref, paused)
+			ctx, err = managerWriteContext(cmd, scope.Ref, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := sendTeamPause(ctx, client, scope.Ref, paused, claim)
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
@@ -96,6 +106,8 @@ func newCmdTeamPause(f *cmdutil.Factory, paused bool) *cobra.Command {
 			})
 		},
 	}
+	addManagerInstruction(c)
+	return c
 }
 
 func newCmdWorkerChangeAgent(f *cmdutil.Factory) *cobra.Command {

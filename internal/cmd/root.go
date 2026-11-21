@@ -500,6 +500,12 @@ func renderError(f *cmdutil.Factory, err error) int {
 			failure["requestId"] = output.ExactJSONString(id)
 			failure["ceremonyUrl"] = output.ExactJSONString(url)
 		}
+		// cli#2758: a refused person reveal carries the server's own link to its passkey page
+		// (SecretReadClient.revealUrl), byte for byte; absent for every other refusal.
+		var reveal interface{ RevealURL() string }
+		if errors.As(err, &reveal) {
+			failure["revealUrl"] = output.ExactJSONString(reveal.RevealURL())
+		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
 		var batch interface{ BatchPosition() int }
@@ -556,6 +562,12 @@ func renderError(f *cmdutil.Factory, err error) int {
 			id, url := staged.StagedSecretChange()
 			failure["requestId"] = output.ExactJSONString(id)
 			failure["ceremonyUrl"] = output.ExactJSONString(url)
+		}
+		// cli#2758 likewise: a person's passkey-page link (revealUrl) decodes to the server's exact
+		// bytes (a pin of #2882), and goes on the wire as ExactJSONString too. The neutralising loop
+		// above must not turn it into spaces.
+		if errors.As(err, &reveal) {
+			failure["revealUrl"] = output.ExactJSONString(reveal.RevealURL())
 		}
 		envelope := map[string]any{"error": failure}
 		switch {

@@ -118,8 +118,9 @@ later than now, sent as UTC; without it the signal lasts until lifted.
 
 Whoever manages the App may set any level and scope. A host's own key may set
 only a halt, and only on that host. Find host ids with "hadron team host list".
-This is the person's write: a bound worktree's worker session is never
-attached. The server decides who may set what and refuses the rest.
+Without --instruction this is the person's write: a bound worktree's worker
+session is never attached. The server decides who may set what and refuses
+the rest.
 
 On success it prints the stored signal, including its id for "team stop lift",
 and says the signal is stored, not delivered or acknowledged. If the server
@@ -133,6 +134,12 @@ host to check it is running, then repeat the command.
   hadron team stop set --scope host --host <host-id> --level pause-dispatch`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#2774: parse the claim and snapshot the binding before the
+			// first lookup, so an instructed write can verify what it read.
+			claim, instructed, err := managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			lv, ok := stopLevels[strings.ToLower(level)]
 			if !ok {
 				return exitcode.Newf(exitcode.Usage, "--level takes pause-dispatch, pause or halt, got %q", level)
@@ -183,7 +190,11 @@ host to check it is running, then repeat the command.
 			if err != nil {
 				return err
 			}
-			resp, err := gen.TeamStopSignalSet(ctx, client, &input)
+			ctx, err = managerWriteContext(cmd, appScope.Ref, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := sendTeamStopSignalSet(ctx, client, &input, claim)
 			if err != nil {
 				return stopFailure(err, "set")
 			}
@@ -205,11 +216,12 @@ host to check it is running, then repeat the command.
 	c.Flags().StringVar(&worker, "worker", "", "worker and team scopes: the worker's id, URN or name (a team by its head)")
 	c.Flags().StringVar(&host, "host", "", "host scope: the host's id (a host key may omit it for its own host)")
 	c.Flags().StringVar(&until, "until", "", "RFC 3339 time with an offset when the signal ends on its own; omitted, until lifted")
+	addManagerInstruction(c)
 	return c
 }
 
 func newCmdTeamStopLift(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	c := &cobra.Command{
 		Use:   "lift <signal-id>",
 		Short: "Lift one stop signal by its id",
 		Long: `Lift exactly one stop signal. Other stop signals may still cover the same
@@ -219,11 +231,18 @@ The receipt displays the signal id without controls, capped at 256 runes;
 --json preserves the original id.
 
 Whoever manages the App may lift any signal; a host key, a HALT on its own host.
-This is the person's write: a bound worktree's worker session is never attached.
+Without --instruction this is the person's write: a bound worktree's worker
+session is never attached.
 
 ` + stopHelp,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#2774: parse the claim and snapshot the binding before the
+			// first lookup, so an instructed write can verify what it read.
+			claim, instructed, err := managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			id := strings.TrimSpace(args[0])
 			if id == "" {
 				return exitcode.Newf(exitcode.Usage, "the signal id is empty (an unset variable?); lift takes the id hadron team stop list prints")
@@ -241,7 +260,11 @@ This is the person's write: a bound worktree's worker session is never attached.
 			if err != nil {
 				return err
 			}
-			resp, err := gen.TeamStopSignalLift(ctx, client, appScope.Ref, id)
+			ctx, err = managerWriteContext(cmd, appScope.Ref, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := sendTeamStopSignalLift(ctx, client, appScope.Ref, id, claim)
 			if err != nil {
 				return stopFailure(err, "lift")
 			}
@@ -262,6 +285,8 @@ This is the person's write: a bound worktree's worker session is never attached.
 			})
 		},
 	}
+	addManagerInstruction(c)
+	return c
 }
 
 // stopListPageSize is the server's maximum page.

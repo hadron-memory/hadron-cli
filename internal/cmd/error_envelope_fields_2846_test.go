@@ -299,3 +299,30 @@ func TestEnvelopeStagedSecretChangeStaysByteForByte2846(t *testing.T) {
 		t.Errorf("the characters are escaped, not dropped: %q", stdout)
 	}
 }
+
+// #2882 pins that --json carries the person's reveal link exactly once decoded; #2846 adds that the
+// bytes on the wire carry no raw C1 or format character (they are \uXXXX escapes).
+func TestEnvelopeRevealURLDecodesExactlyWithNoRawControlOnTheWire2846(t *testing.T) {
+	bad := url2758 + "\u200b\u009b\u202e"
+	srv, _ := attnServer(t, map[string]string{
+		"RevealSecret": gqlErrorJSON(notFound2758),
+		listOp2758:     list2758(clientRow2758(withURL2758(bad))),
+	})
+	f, out := testFactory(t)
+	var errOut strings.Builder
+	f.IOStreams.ErrOut = &errOut
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "secret", "reveal", "cl-1", "--allow-non-terminal", "--json"})
+	renderError(f, root.Execute())
+	var env struct {
+		Error struct {
+			RevealURL string `json:"revealUrl"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &env); err != nil || env.Error.RevealURL != bad {
+		t.Fatalf("revealUrl must decode to the exact bytes: %v %q", err, out.String())
+	}
+	if r, raw := rawFormat2846(out.String()); raw {
+		t.Errorf("raw %U on the wire: %q", r, out.String())
+	}
+}
