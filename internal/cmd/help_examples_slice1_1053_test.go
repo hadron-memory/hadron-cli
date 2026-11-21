@@ -433,3 +433,31 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 		t.Fatalf("only %d examples found across the app and agent pages; expected the ~119 the inventory implies", len(results))
 	}
 }
+
+// George's #2812 P2 (F3): the guard also resolves symlinks. A relative path under the fixture
+// directory that goes through a symlink pointing OUTSIDE it is unsafe, though lexically it is
+// inside; a symlink that points inside the fixture is fine, and so is a path that does not
+// exist yet (its longest existing parent is resolved).
+func TestUnsafeExamplePathGuardResolvesSymlinks2525(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "run")
+	if err := os.MkdirAll(filepath.Join(dir, "real"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(dir, "out")); err != nil {
+		t.Skipf("symlinks unavailable here: %v", err)
+	}
+	if err := os.Symlink(filepath.Join(dir, "real"), filepath.Join(dir, "in")); err != nil {
+		t.Fatal(err)
+	}
+	for _, a := range []string{"out", "out/x.json", "out/deep/new.json", "--file=out/x", "-oout/x", "a.json,out/x"} {
+		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got == "" {
+			t.Errorf("%q goes through a symlink that leaves the fixture and must be unsafe", a)
+		}
+	}
+	for _, a := range []string{"in", "in/x.json", "real/x.json", "new/x.json", "--file=in/x"} {
+		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got != "" {
+			t.Errorf("%q stays inside the fixture and must be safe (reported %q)", a, got)
+		}
+	}
+}
