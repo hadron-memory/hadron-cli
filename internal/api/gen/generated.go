@@ -81149,11 +81149,11 @@ func (v *PublishRevisionResponse) GetPublishRevision() *PublishRevisionPublishRe
 // PurgeUnansweredQuestionResponse is returned by PurgeUnansweredQuestion on success.
 type PurgeUnansweredQuestionResponse struct {
 	// #1641 — a platform admin hard-deletes a question that was never answered (or one stranded in the pre-#4426 format), recorded on its log (QUESTION_ANSWERED otherwise). The code stays consumed.
-	PurgeUnansweredQuestion bool `json:"purgeUnansweredQuestion"`
+	PurgeUnansweredQuestion *bool `json:"purgeUnansweredQuestion"`
 }
 
 // GetPurgeUnansweredQuestion returns PurgeUnansweredQuestionResponse.PurgeUnansweredQuestion, and is useful for accessing the field via an interface.
-func (v *PurgeUnansweredQuestionResponse) GetPurgeUnansweredQuestion() bool {
+func (v *PurgeUnansweredQuestionResponse) GetPurgeUnansweredQuestion() *bool {
 	return v.PurgeUnansweredQuestion
 }
 

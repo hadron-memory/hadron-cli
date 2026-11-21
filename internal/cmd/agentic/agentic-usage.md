@@ -6618,6 +6618,13 @@ only usage mistakes (exit 2) before any call.
   413, 415 or 429 (401 is 3, 404 is 4, the others 1 with the server's message); a connection that never opened is
   "could not reach the server" (7) with no "not confirmed" claim. In the unknown cases read the question with
   `question get` before trying again.
+  **The other four writes follow the same rule (cli#2854):** `ask`, `amend`, `withdraw` and `purge` send one
+  mutation, never resent, and map a failure the same way: a coded refusal of the mutation itself keeps its typed
+  exit; a coded error below the mutation field, a null result, a 5xx, a dropped connection or any other failure
+  after the request left is exit **7** "ask|amend|withdrawal|purge not confirmed ... not resent", with the
+  read-back worded per verb: `amend` and `withdraw` read the question (`question get <ref>`); `ask` has no ref
+  yet, so it lists the log (`question list --log <log>`) to see whether the question was created; `purge` reads
+  `question get <ref>` where "not found" means the purge happened. A purge answered `false` is the server saying no and is exit 1; a null or absent purge answer is exit 7 like the others.
 - `list` needs a scope: `--app` (every question in that App's Memories you can read),
   `--log` or `--awaiting-me` (exit 2, no request, when none is given, when `--awaiting-me=false` is the only one, or
   when `--app` and `--log` both are; `--awaiting-me` may combine with `--app` or `--log`). Every filter is sent only when its flag was given (`--answered` alone is `true`,
