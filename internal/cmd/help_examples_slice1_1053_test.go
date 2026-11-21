@@ -131,6 +131,10 @@ type exampleResult struct {
 // read wherever a path can sit — a bare word, after --flag= or -f=, or after
 // an @file's @ — and cleaned first, so "a/.." and "./.." are judged as the
 // parent paths they resolve to, not as strings unlike "../".
+//
+// Confinement beyond the lexical check (a symlink under the fixture that points outside) was
+// cli#2813; resolveExistingPath1053 below closes it at the point of use, so every runner that
+// calls this guard gets it. The runners also run each example in a throwaway directory.
 func unsafeExamplePath1053(args []string, dir string) string {
 	dir = filepath.Clean(dir)
 	realDir := resolveExistingPath1053(dir)

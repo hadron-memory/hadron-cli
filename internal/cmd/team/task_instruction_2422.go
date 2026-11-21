@@ -18,7 +18,7 @@ import (
 // server decides admission. A refusal is shown once and never retried without it.
 
 // taskInstructionFloor is the task writes' shared server floor (hadron-server#3323).
-const taskInstructionFloor = instruction.ServerFloorManager
+const taskInstructionFloor = instruction.ServerFloorInstructionManagerWrites
 
 const taskInstructionFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server " + taskInstructionFloor + " or later"
 

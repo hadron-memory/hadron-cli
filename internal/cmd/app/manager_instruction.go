@@ -11,7 +11,7 @@ import (
 )
 
 // managerInstructionMinimum is the app door's server minimum for --instruction.
-const managerInstructionMinimum = instruction.ServerFloorManager
+const managerInstructionMinimum = instruction.ServerFloorInstructionManagerWrites
 
 func addManagerInstruction(cmd *cobra.Command) {
 	instruction.AddManagerFlag(cmd, managerInstructionMinimum)

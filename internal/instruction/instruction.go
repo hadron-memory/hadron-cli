@@ -18,15 +18,16 @@ const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-
 // is the capability check: an older server refuses the flag with its own error, which the CLI
 // passes through and never retries without the flag.
 const (
-	// ServerFloorStaffing is the merge of hadron-server#3307 and #3308: the base --instruction
-	// flag, the staffing and member doors and the credential acts.
-	ServerFloorStaffing = "2026-11-03"
-	// ServerFloorManager is the merge of hadron-server#3323 and #3398: the App-manager writes
-	// and the task writes.
-	ServerFloorManager = "2026-11-04"
+	// ServerFloorInstructionActs is the floor for the instructed person/worker acts: the base
+	// --instruction flag, the staffing and member doors and the credential acts (the merge of
+	// hadron-server#3307 and #3308).
+	ServerFloorInstructionActs = "2026-11-03"
+	// ServerFloorInstructionManagerWrites is the floor for the instructed App-manager writes
+	// and the task writes (the merge of hadron-server#3323 and #3398).
+	ServerFloorInstructionManagerWrites = "2026-11-04"
 )
 
-const FlagUsage = flagUsagePrefix + ServerFloorStaffing + " or later"
+const FlagUsage = flagUsagePrefix + ServerFloorInstructionActs + " or later"
 
 // FlagUsageForServer shares the instruction syntax while keeping each door's
 // minimum independent of the text or server revision chosen by another door.
@@ -45,7 +46,7 @@ may make the change with it; the server records the worker, the holder and
 the reference, and the holder answers for the claim. The server checks the
 reference (a missing, unreadable or other-App one is refused, for a person
 too), never that an instruction really happened. A host-launched session is
-refused whatever it claims. The flag needs server ` + ServerFloorStaffing + ` or later; an
+refused whatever it claims. The flag needs server ` + ServerFloorInstructionActs + ` or later; an
 older server's refusal is passed through, never retried without it. The MCP
 tools take no instruction, so this is the way to make the call from a
 worktree.`
@@ -77,7 +78,7 @@ func Parse(raw string) (*gen.ActInstructionInput, error) {
 
 // StaffingFlagUsage is the flag line for the staffing and member doors
 // (cli#1594), whose minimum server is hadron-server#3308's merge.
-const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server " + ServerFloorStaffing + " or later"
+const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server " + ServerFloorInstructionActs + " or later"
 
 // StaffingHelp is the help paragraph `team worker cast|retire|rm` and
 // `app member add|remove` share (cli#1594, hadron-server#3308). grant is the
@@ -100,7 +101,7 @@ right to make the change themselves; the server checks the reference, never
 that an instruction really happened. A host-launched session's instruction is
 ignored: it acts only on its own ` + grant + ` grant, which nobody holds by
 default; a worker session with no instruction needs the same grant. The MCP
-tools take no instruction. Needs server ` + ServerFloorStaffing + ` or later; an older server's
+tools take no instruction. Needs server ` + ServerFloorInstructionActs + ` or later; an older server's
 refusal is passed through and never retried without the flag; a FORBIDDEN
 refusal is exit 8. More: "hadron agentic-usage", "Instructed staffing and
 member acts".`
@@ -134,5 +135,5 @@ the App, and a host-launched session is refused. The server checks the
 reference, never that an instruction really happened. A change made with an
 instruction records one event naming only ids; a call that changes nothing
 records none. A server refusal is never retried as you or without the claim.
-The MCP tools take no instruction. Needs server ` + ServerFloorManager + ` or later. More:
+The MCP tools take no instruction. Needs server ` + ServerFloorInstructionManagerWrites + ` or later. More:
 "hadron agentic-usage", "App-manager writes with an instruction".`

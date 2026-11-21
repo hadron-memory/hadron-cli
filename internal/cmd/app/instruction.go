@@ -24,7 +24,7 @@ claims.
 Without the flag the call acts as you. With it, the call goes out through the
 worker session of the bound working directory; a missing, incomplete or
 foreign-server binding refuses locally (exit 2) and never falls back to you;
-nothing is retried or downgraded. Needs server ` + instruction.ServerFloorStaffing + ` or later. Minting,
+nothing is retried or downgraded. Needs server ` + instruction.ServerFloorInstructionActs + ` or later. Minting,
 rotating and granting stay person-only and have no flag. More: "hadron
 agentic-usage", "Instructed credential acts".`
 
@@ -52,7 +52,7 @@ func addCredentialInstructionRevoke(cmd *cobra.Command) {
 // addCredentialInstructionWith is the one place the flag and its help are added;
 // the two acts differ only in what an instructed call records.
 func addCredentialInstructionWith(cmd *cobra.Command, record string) {
-	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer(instruction.ServerFloorStaffing))
+	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer(instruction.ServerFloorInstructionActs))
 	cmd.Long += "\n\n" + credentialInstructionHelp + "\n\n" + record
 }
 
