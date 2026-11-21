@@ -71,7 +71,7 @@ unusable answer) nothing is retried: check with "hadron agent subscription list
 			}
 			resp, err := gen.SubscribeOrgToAgent(cmd.Context(), client, agent, org)
 			if err != nil {
-				return orgGrantWriteError(err, "subscribe", org)
+				return orgGrantWriteError(err, "subscribe", org, "createAgentOrgGrant")
 			}
 			if resp == nil || resp.CreateAgentOrgGrant == nil {
 				return orgGrantUnknown("subscribe", org, nil)
@@ -103,7 +103,9 @@ proof it does not exist. It asks for confirmation on a terminal and needs --yes
 without one.
 
 The call is sent once. If its outcome cannot be known nothing is retried: check
-with "hadron agent subscription list --org <org>" before running it again.`,
+with "hadron agent subscription list --org <org>" before running it again. That
+list is readable only by an admin or owner of the organization; an Agent admin
+who is not one gets an empty list, which does not settle it.`,
 		Example: `  hadron agent subscription revoke --org hrn:org:acme.com --agent <agent-id> --yes
   hadron agent subscription unsubscribe --org hrn:org:acme.com --agent <agent-id> --yes --json`,
 		Args: cobra.NoArgs,
@@ -121,7 +123,7 @@ with "hadron agent subscription list --org <org>" before running it again.`,
 			}
 			resp, err := gen.UnsubscribeOrgFromAgent(cmd.Context(), client, agent, org)
 			if err != nil {
-				return orgGrantWriteError(err, "revoke", org)
+				return orgGrantWriteError(err, "revoke", org, "revokeAgentOrgGrant")
 			}
 			if resp == nil || resp.RevokeAgentOrgGrant == nil {
 				return orgGrantUnknown("revoke", org, nil)
@@ -137,11 +139,13 @@ with "hadron agent subscription list --org <org>" before running it again.`,
 	return c
 }
 
-// orgGrantWriteError maps a failed write. Only a coded server refusal says it
-// did not take effect; anything else may follow a commit and is reported as an
-// unknown outcome, never retried.
-func orgGrantWriteError(err error, verb, org string) error {
-	if api.IsDefiniteRefusal(err) {
+// orgGrantWriteError maps a failed write. Only a coded server refusal of the
+// mutation field itself (no path, or exactly [field]) says it did not take
+// effect; an error below the field came from resolving the returned object after
+// the write committed, and anything else may follow a commit too: both are
+// reported as an unknown outcome, never retried.
+func orgGrantWriteError(err error, verb, org, field string) error {
+	if api.IsDefiniteRefusalAt(err, field) {
 		return api.MapError(err)
 	}
 	return orgGrantUnknown(verb, org, err)

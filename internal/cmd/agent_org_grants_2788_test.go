@@ -417,3 +417,56 @@ func TestSubscriptionSinglePageCompleteNeedsLenEqualToTotal2788(t *testing.T) {
 		t.Errorf("2 rows against a total of 5 must not be complete: %s", out)
 	}
 }
+
+func refusalAt2788(code string, path ...string) grants2788Reply {
+	ps := make([]string, len(path))
+	for i, p := range path {
+		ps[i] = `"` + p + `"`
+	}
+	return grants2788Reply{body: `{"errors":[{"message":"refused","path":[` + strings.Join(ps, ",") + `],"extensions":{"code":"` + code + `"}}],"data":null}`}
+}
+
+// LOCAL P2 (Jill, cli#2788 round 1): a coded error BELOW the mutation field came
+// from resolving the returned object after the write committed, so the outcome is
+// unknown (exit 7), however well coded. Only a refusal with no path or exactly
+// [field] is definite.
+func TestSubscriptionWriteErrorBelowTheFieldIsUnknownOutcome2788(t *testing.T) {
+	for _, c := range []struct {
+		verb, op, field string
+		args            []string
+	}{
+		{"add", "SubscribeOrgToAgent", "createAgentOrgGrant", []string{"add", "--org", "o", "--agent", "a"}},
+		{"revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", []string{"revoke", "--org", "o", "--agent", "a", "--yes"}},
+	} {
+		below := refusalAt2788("FORBIDDEN", c.field, "agentId")
+		mixed := grants2788Reply{body: `{"errors":[{"message":"refused","path":["` + c.field + `"],"extensions":{"code":"FORBIDDEN"}},{"message":"x","path":["` + c.field + `","agentId"],"extensions":{"code":"NOT_FOUND"}}],"data":null}`}
+		for name, reply := range map[string]grants2788Reply{"below the field": below, "at and below": mixed} {
+			t.Run(c.verb+" "+name, func(t *testing.T) {
+				fk, _, err := grants2788Run(t, map[string][]grants2788Reply{c.op: {reply}}, c.args...)
+				if err == nil || !strings.Contains(err.Error(), "outcome unknown") || exitCodeFor(err) != exitcode.Unavailable {
+					t.Fatalf("exit %d and an unknown-outcome message expected: %v", exitcode.Unavailable, err)
+				}
+				if fk.count(c.op) != 1 {
+					t.Errorf("exactly one request expected, got %d", fk.count(c.op))
+				}
+			})
+		}
+		t.Run(c.verb+" at the field is definite", func(t *testing.T) {
+			_, _, err := grants2788Run(t, map[string][]grants2788Reply{c.op: {refusalAt2788("FORBIDDEN", c.field)}}, c.args...)
+			if err == nil || strings.Contains(err.Error(), "outcome unknown") || exitCodeFor(err) != exitcode.Forbidden {
+				t.Fatalf("a refusal at exactly [%s] is definite, exit %d: %v", c.field, exitcode.Forbidden, err)
+			}
+		})
+	}
+}
+
+// LOCAL P3 (Jill): an explicit --offset 0 is sent; an unset one is omitted.
+func TestSubscriptionExplicitOffsetZeroIsSent2788(t *testing.T) {
+	fk, _, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {page2788("myAgentSubscriptionsPage", 0, false)}}, "list", "--mine", "--offset", "0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, has := fk.vars["MyAgentSubscriptionsPage"][0]["offset"]; !has || v != float64(0) {
+		t.Errorf("an explicit --offset 0 must be sent, got %v", fk.vars["MyAgentSubscriptionsPage"][0])
+	}
+}
