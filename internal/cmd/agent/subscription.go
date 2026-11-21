@@ -48,10 +48,12 @@ array, with the dates as null when they do not apply.
 
 --agent <id|urn> lists the users subscribed to one Agent (you must be its
 admin), and --mine lists your own Agent subscriptions (a run or impersonated
-caller gets an empty list, which does not prove there are none). These two
-read one server page by default (--limit/--offset choose it) and say, in the
-table and as "complete": false in --json, that the list is NOT the whole set;
---all follows every page to the end. --json for them is
+caller gets an empty list, which does not prove there are none, so an empty
+--mine list is never "complete": true). These two read one server page by
+default (--limit/--offset choose it) and say, in the table and as "complete":
+false in --json, that the list is NOT the whole set; --all follows every page to
+the end, and stops with an error that says where it was cut if the set is longer
+than 10000 rows. --json for them is
 {"items":[...],"total":N,"hasMore":bool,"complete":bool}.
 
 These are subscriptions, not the grants of "hadron grant". This command only

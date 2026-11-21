@@ -5168,13 +5168,16 @@ inventory. The report covers caller-visible data only.
   apply to the paged two (unset is omitted), `--all` follows pages to the end and
   conflicts with them (exit 2). One page prints "NOT the whole set"; `--json` is
   `{"items":[{agentId,userId,isActive,createdAt,activatedAt,expiresAt,revokedAt}],
-  "total","hasMore","complete"}` (`complete:false` for a truncated page; a server that
+  "total","hasMore","complete"}` (`complete:false` for a truncated page, and for an
+  EMPTY `--mine` list, which proves nothing about the person (cli#2855); a server that
   claims more yet returns an empty page under `--all` is exit 1, never a complete
-  list). `--org` keeps its bare-array shape.
+  list). `--all` stops at 10000 rows with exit 1 naming where the walk was cut (never
+  a long prefix passed off as the set). `--org` keeps its bare-array shape.
 - `agent subscription add --org <ref> --agent <ref>` (createAgentOrgGrant) sends ONE
   write and never replays. A coded refusal keeps its normal exit (nothing changed);
   a lost answer, INTERNAL error or null payload is exit 7 "outcome unknown" with a
-  check-first `agent subscription list --org <org>`. `--json` is the grant
+  check-first `agent subscription list --org <org>` (a server cause keeps its `serverCode`
+  and `requestId` in the `--json` envelope, cli#2855). `--json` is the grant
   `{agentId,orgId,isActive,createdAt,activatedAt,expiresAt,revokedAt}`. A returned grant
   that is inactive or revoked is exit 1 (the server never returns one).
 - `agent subscription revoke <agent> --org <ref> [--yes]` (cli#2788, revokeAgentOrgGrant)
