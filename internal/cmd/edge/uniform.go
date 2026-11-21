@@ -1,6 +1,7 @@
 package edge
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -33,6 +34,9 @@ type uniformEdgeDTO struct {
 	SourceLoc   string  `json:"sourceLoc"`
 	TargetID    string  `json:"targetId"`
 	TargetLoc   string  `json:"targetLoc"`
+	// Data is the edge's own data object (the cross-memory route marker among it),
+	// verbatim; null when the edge has none (cli#2844).
+	Data *json.RawMessage `json:"data"`
 	// The attribution read (hadron-cli#1513, hadron-server#3092): all four keys
 	// are always present. updatedAt and each author are pointers WITHOUT
 	// omitempty, so null stays null — never omitted, never "". An author is the
@@ -56,7 +60,7 @@ const uniformEdgePageSize = 200
 
 func uniformEdgeFrom(e gen.UniformEdge) uniformEdgeDTO {
 	d := uniformEdgeDTO{ID: e.Id, URN: e.Urn, Loc: e.Loc, Description: e.Description, Priority: e.Priority,
-		CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt}
+		CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt, Data: e.Data}
 	if u := e.CreatedByUser; u != nil {
 		d.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
 	}
@@ -93,7 +97,10 @@ createdByUser and updatedByUser (--json) are the server's {handle, urn} for the
 user behind the edge, or null. A null author means "not shown to you or not
 known" (for example, the edge lives in a memory you cannot read, or it was
 written before authors were recorded), never "nobody". The human table prints
-the CREATED BY and UPDATED BY rows only when there is a handle or URN to show.`,
+the CREATED BY and UPDATED BY rows only when there is a handle or URN to show.
+
+data (--json) is the edge's own data object (for example the cross-memory
+route marker {"crossMemory": true}), verbatim, or null when the edge has none.`,
 		Example: `  hadron edge get hrn:edge:acme.com:kb:findings:flaky-ci:routes-to:start-here
   hadron edge get <edge-id> --json`,
 		Args: cobra.ExactArgs(1),

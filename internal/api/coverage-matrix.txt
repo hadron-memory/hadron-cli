@@ -113,7 +113,7 @@ dashboardWidgetData  excluded graphical: the data feed for the widgets placed on
 dashboardWidgetPresets  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgetPresetsPage  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
-dashboardWidgetsPage  gap #2787
+dashboardWidgetsPage  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan); the paged spelling of dashboardWidgets, which is excluded for the same reason
 deleteWorkerPreview  command team worker rm
 deliveryBatches  command team chat inbox
 driveFile  command drive get

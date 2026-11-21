@@ -2307,12 +2307,25 @@ type logResultDTO struct {
 // arrives when it still changes a decision. That is the same argument as
 // #468/#469/#470: put it in the reader's path.
 //
+// WHERE "UNREAD" COMES FROM (cli#2858, cor:dmo:090:06). Unread is derived: the gap
+// between the channel's head and the attendee's SERVER-side read state. So the count
+// starts at the bound worker's server read cursor, the one `team chat read` and
+// `team chat mark-read` move, and never at the worktree's local hint (the binding's
+// ChatSeenSeq), which only some reads move and so lags or is absent: it once produced
+// "111213 new messages" and `--since 20250` against a true gap of about 136. The server
+// wins where they disagree, so the hint plays no part here.
+//
+// WHEN IT CANNOT KNOW. If the cursor cannot be read (no worker, no channel, the read
+// failed, no row, or a legacy / previous-incarnation cursor that is not a watermark: the
+// rule `team chat check` and `session shed` apply), the note says so and states no count
+// and no `--since` remedy: a guessed start is how a worker is sent into a bogus catch-up.
+//
 // STDERR, always: the --json stdout contract is untouched, and an agent piping
 // a milestone write is exactly the caller most likely to have missed a ruling.
 //
 // BEST-EFFORT, always: a milestone is already recorded server-side by the time
 // this runs. A courtesy read that fails, or a worktree with no App, must not
-// turn a successful write into a failure — so every path here returns silently.
+// turn a successful write into a failure — so no path here returns an error.
 func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	if b == nil || b.AppID == "" {
 		return // pre-#399 binding: no App to address the chat with.
@@ -2321,32 +2334,18 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	if err != nil {
 		return
 	}
-	// Never read through this binding is a LOUDER state than "nothing new", and
-	// a distinct one: it is what Gil was in when a ratified commit-trailer
-	// change had been in the chat four hours before he merged with the retired
-	// form. Say so plainly rather than reporting a count against seq 0, which
-	// would read as ordinary backlog.
-	if b.ChatSeenSeq == nil {
-		// Says only what the CLI KNOWS. The watermark lives in this worktree's
-		// binding, and only `team chat read` run from this worktree writes it
-		// (recordChatWatermark), so a read made anywhere else — the portal, or
-		// another worktree's binding — never reaches it, and asserting "you
-		// have not read" to a worker who just did is a FALSE nudge. Reported
-		// live against this feature before it merged (team chat seq 102) by a
-		// worker in exactly that mixed mode.
-		//
-		// The distinction is not pedantry: a nudge that is sometimes wrong
-		// trains people to ignore the one that is right, which is the whole
-		// value being built here.
+	if b.SessionID != "" {
+		ctx = api.WithSession(ctx, b.SessionID)
+	}
+	seen, known := serverReadCursor(ctx, client, b)
+	if !known {
 		fmt.Fprintf(f.IOStreams.ErrOut,
-			"note: session log includes this reminder because team chat carries decisions; this worktree has no contiguous team-chat read cursor; unfiltered `hadron team chat read --all` reads from the oldest page, or `hadron team chat read --since 0` starts at the oldest page (continue with nextSince); "+
-				"bare `hadron team chat read` shows only the newest page; filtered reads and `hadron team chat mark-read` do not set this cursor "+
-				"(a read made in the portal or under another binding is not visible here)\n")
+			"note: session log includes this reminder because team chat carries decisions; it cannot read your server-side team-chat read position, so it states no unread count; "+
+				"`hadron team chat read --all` reads the chat from the oldest page, and the portal shows what is unread\n")
 		return
 	}
-	seen := *b.ChatSeenSeq
 	one := 1
-	// No beforeSeq: this asks "how many since the watermark", and `total` is
+	// No beforeSeq: this asks "how many since the cursor", and `total` is
 	// the count of everything matching — collection-scoped precisely BECAUSE
 	// there is no backward cursor here (see the operation's note on #1121).
 	resp, err := gen.TeamChatMessages(ctx, client, b.AppID, &seen, nil, &one, nil, nil)
@@ -2386,6 +2385,30 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	fmt.Fprintf(f.IOStreams.ErrOut,
 		"note: %s in the team chat since you last read%s — `hadron team chat read --since %d`\n",
 		pluralMessages(total), detail, seen)
+}
+
+// serverReadCursor reads the bound worker's server-side read cursor on the App's team chat
+// (the one `team chat read` and `mark-read` move). known is false whenever it cannot be
+// trusted as a watermark: no worker on the binding, no team Channel, a failed or empty read,
+// or a cursor whose incarnation is missing or is not the channel's (a legacy or
+// previous-incarnation cursor).
+func serverReadCursor(ctx context.Context, client graphql.Client, b *binding) (seq int, known bool) {
+	if b.WorkerID == "" {
+		return 0, false
+	}
+	ch, err := gen.TeamDefaultChannel(ctx, client, b.AppID)
+	if err != nil || ch.App == nil || ch.App.DefaultChannel == nil {
+		return 0, false
+	}
+	c, err := gen.CheckChatCursor(ctx, client, ch.App.DefaultChannel.Id, b.WorkerID, b.AppID)
+	if err != nil || c.ChannelReadState == nil {
+		return 0, false
+	}
+	r := c.ChannelReadState
+	if r.CursorIncarnation == nil || *r.CursorIncarnation != r.ChannelIncarnation {
+		return 0, false
+	}
+	return r.LastSeenSeq, true
 }
 
 func pluralMessages(n int) string {
@@ -2435,17 +2458,19 @@ wins; display convenience only). Every logged milestone — issue and
 commit included — is a heartbeat feeding the server's liveness
 derivation, so logging keeps the worker taken while work is in flight.
 
-It also tells you what landed in the TEAM CHAT while you were heads-down
-(#474): a stderr note counting messages since you last ran
-` + "`chat read`" + `, and how many mention you. This fires here because it is
-the moment before you publish something durable, which is the last point a
-decision you missed can still change what you do. Best-effort and on
+It also tells you what landed in the TEAM CHAT while you were heads-down: a
+stderr note counting messages since your server-side read position (the one
+` + "`chat read`" + ` and ` + "`chat mark-read`" + ` move), and how many mention you. This fires
+here because it is the moment before you publish something durable, which is the
+last point a decision you missed can still change what you do. Best-effort and on
 stderr: the milestone is already recorded by the time it runs, so it never
 fails the write, and --json is untouched.
 
-The watermark is this WORKTREE's: a read made in the portal or under another
-binding does not reach it, so the note reports what this worktree knows rather than
-what you have read. A cross-surface watermark is a server-side question.
+The count starts at your read position on the server, never at a local file, so a
+read made in the portal or under another binding counts. When that position
+cannot be read (no worker on the binding, no team chat, a failed read, or a
+cursor from before the chat was reset) the note says so and states no count and
+no --since remedy.
 
 --model reports the LLM that produced THIS milestone, for a model switch or a
 late record. Without it the server uses the recording session's initial model,

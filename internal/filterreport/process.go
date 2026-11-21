@@ -139,7 +139,8 @@ func treeState(all []process, worktree string) string {
 	foreign, cwdAnomaly := false, false
 	for _, p := range all {
 		byPID[p.pid] = p
-		in := within(resolvedPath(p.cwd), root)
+		cwd := resolvedPath(p.cwd) // once per process: EvalSymlinks stats the path
+		in := within(cwd, root)
 		inside[p.pid] = in
 		if !in {
 			continue
@@ -149,7 +150,7 @@ func treeState(all []process, worktree string) string {
 			continue
 		}
 		if p.wrapper {
-			if resolvedPath(p.cwd) != root {
+			if cwd != root {
 				cwdAnomaly = true
 			}
 			wrappers = append(wrappers, p)

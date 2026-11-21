@@ -476,3 +476,115 @@ func TestReconcileReleasedWhoseOwnTaskStillShowsAsHolderIsAStaleReadError2265(t 
 		t.Fatalf("holder lookups: %v", c.holderCalls)
 	}
 }
+
+// cli#2869: an adapter that DECLARES notMine in describe and answers "not my
+// item" (exit intakecontract.ExitNotMine) must not pin the reconcile cursor.
+// The adapter decides what is foreign, never the CLI (Victor's FIT: cor:agt:120
+// is source-agnostic). An adapter that does not declare it keeps v1: exit 20 is
+// an ordinary refusal.
+func notMineAdapter(t *testing.T, untrack string) (*intake.Runner, intake.Describe, string) {
+	r, desc, log := scriptAdapter(t, untrack)
+	desc.NotMine = true
+	return r, desc, log
+}
+
+func TestReconcileNotMineIsRecordedAndSkippedPastTheCursor2869(t *testing.T) {
+	r, desc, log := notMineAdapter(t, `case "$req" in *https://x/2*) echo foreign >&2; exit 20;; *) echo '{}';; esac`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+
+	first := &feedClient{pages: []string{page(
+		releasedChange("https://x/1", "c1"), releasedChange("https://x/2", "c2"), releasedChange("https://x/3", "c3"))}}
+	d, aerr, ferr := reconcile(context.Background(), first, store, key, "app", r, desc)
+	if aerr != nil || ferr != nil || !d.Complete || d.Error != nil {
+		t.Fatalf("a not-mine answer must not stop the pass: %+v %v %v", d, aerr, ferr)
+	}
+	if d.Untracked != 2 || d.SkippedNotMine != 1 || d.Skipped != 1 || untrackCalls(t, log) != 3 {
+		t.Fatalf("the change after the foreign one must be reconciled: %+v", d)
+	}
+	if len(d.NotMine) != 1 || d.NotMine[0] != "https://x/2" {
+		t.Fatalf("the skipped id must be visible: %+v", d.NotMine)
+	}
+	if !strings.Contains(humanReconcile(d), "https://x/2") {
+		t.Fatalf("the text line must name the skipped id: %q", humanReconcile(d))
+	}
+}
+
+// The foreign change is the LAST one: only its own skip can move the cursor
+// past it (a following owned change would advance the cursor anyway).
+func TestReconcileNotMineAloneMovesTheCursorPastItself2869(t *testing.T) {
+	r, desc, _ := notMineAdapter(t, `echo foreign >&2; exit 20`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+	first := &feedClient{pages: []string{page(releasedChange("https://x/9", "c9"))}}
+	if d, aerr, ferr := reconcile(context.Background(), first, store, key, "app", r, desc); aerr != nil || ferr != nil || d.SkippedNotMine != 1 {
+		t.Fatalf("%+v %v %v", d, aerr, ferr)
+	}
+	second := &feedClient{pages: []string{page()}}
+	if _, _, ferr := reconcile(context.Background(), second, store, key, "app", r, desc); ferr != nil {
+		t.Fatal(ferr)
+	}
+	if second.after[0] != "c9" {
+		t.Fatalf("the cursor must be past the lone foreign change: %v", second.after)
+	}
+}
+
+// An adapter that does not declare notMine keeps the v1 meaning: exit 20 is a
+// refusal that holds the cursor (BLIND P2, #2884).
+func TestReconcileExit20WithoutTheDeclarationStillHoldsTheCursor2869(t *testing.T) {
+	r, desc, _ := scriptAdapter(t, `case "$req" in *https://x/2*) exit 20;; *) echo '{}';; esac`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+	c := &feedClient{pages: []string{page(releasedChange("https://x/1", "c1"), releasedChange("https://x/2", "c2"))}}
+	d, aerr, ferr := reconcile(context.Background(), c, store, key, "app", r, desc)
+	if ferr != nil || aerr == nil || d.Complete || d.SkippedNotMine != 0 || len(d.NotMine) != 0 {
+		t.Fatalf("%+v %v %v", d, aerr, ferr)
+	}
+	next := &feedClient{pages: []string{page()}}
+	_, _, _ = reconcile(context.Background(), next, store, key, "app", r, desc)
+	if next.after[0] != "c1" {
+		t.Fatalf("the cursor must stay after the last answered change: %v", next.after)
+	}
+}
+
+// A refusal for an adapter-owned id (any other exit) still holds the cursor,
+// even when the adapter declares notMine.
+func TestReconcileOrdinaryRefusalStillHoldsTheCursor2869(t *testing.T) {
+	r, desc, _ := notMineAdapter(t, `case "$req" in *https://x/2*) echo nope >&2; exit 1;; *) echo '{}';; esac`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	key := intake.CursorKey("https://s", "app", "fake")
+	c := &feedClient{pages: []string{page(
+		releasedChange("https://x/1", "c1"), releasedChange("https://x/2", "c2"), releasedChange("https://x/3", "c3"))}}
+	d, aerr, ferr := reconcile(context.Background(), c, store, key, "app", r, desc)
+	if ferr != nil || aerr == nil || d.Complete || d.SkippedNotMine != 0 || len(d.NotMine) != 0 {
+		t.Fatalf("%+v %v %v", d, aerr, ferr)
+	}
+	next := &feedClient{pages: []string{page()}}
+	_, _, _ = reconcile(context.Background(), next, store, key, "app", r, desc)
+	if next.after[0] != "c1" {
+		t.Fatalf("the cursor must stay after the last answered change: %v", next.after)
+	}
+}
+
+func TestReconcileNotMineListIsInitializedAndBounded2869(t *testing.T) {
+	d := newReconcileDTO()
+	b, _ := json.Marshal(d)
+	if !strings.Contains(string(b), `"notMine":[]`) {
+		t.Fatalf("empty notMine must render []: %s", b)
+	}
+	// 60 foreign ids: the count is exact, --json lists 50, the text line 5 and "...".
+	r, desc, _ := notMineAdapter(t, `echo foreign >&2; exit 20`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	var ch []string
+	for i := 0; i < 60; i++ {
+		ch = append(ch, releasedChange(fmt.Sprintf("https://x/%d", i), fmt.Sprintf("c%d", i)))
+	}
+	got, aerr, ferr := reconcile(context.Background(), &feedClient{pages: []string{page(ch...)}}, store, "k", "app", r, desc)
+	if aerr != nil || ferr != nil || got.SkippedNotMine != 60 || got.Skipped != 60 || len(got.NotMine) != 50 {
+		t.Fatalf("%+v %v %v", got, aerr, ferr)
+	}
+	line := humanReconcile(got)
+	if !strings.Contains(line, "60 not this adapter's") || !strings.Contains(line, "https://x/4") || strings.Contains(line, "https://x/5,") || !strings.Contains(line, "https://x/4, ...)") {
+		t.Fatalf("the text line names 5 ids and an ellipsis: %q", line)
+	}
+}

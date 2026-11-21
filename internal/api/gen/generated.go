@@ -56521,6 +56521,9 @@ func (v *GetEdgeEdge) GetIsRunnable() *bool { return v.UniformEdge.IsRunnable }
 // GetPriority returns GetEdgeEdge.Priority, and is useful for accessing the field via an interface.
 func (v *GetEdgeEdge) GetPriority() int { return v.UniformEdge.Priority }
 
+// GetData returns GetEdgeEdge.Data, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetData() *json.RawMessage { return v.UniformEdge.Data }
+
 // GetCreatedAt returns GetEdgeEdge.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetEdgeEdge) GetCreatedAt() string { return v.UniformEdge.CreatedAt }
 
@@ -56583,6 +56586,8 @@ type __premarshalGetEdgeEdge struct {
 
 	Priority int `json:"priority"`
 
+	Data *json.RawMessage `json:"data"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -56614,6 +56619,7 @@ func (v *GetEdgeEdge) __premarshalJSON() (*__premarshalGetEdgeEdge, error) {
 	retval.Description = v.UniformEdge.Description
 	retval.IsRunnable = v.UniformEdge.IsRunnable
 	retval.Priority = v.UniformEdge.Priority
+	retval.Data = v.UniformEdge.Data
 	retval.CreatedAt = v.UniformEdge.CreatedAt
 	retval.UpdatedAt = v.UniformEdge.UpdatedAt
 	retval.CreatedByUser = v.UniformEdge.CreatedByUser
@@ -66966,6 +66972,9 @@ func (v *ListEdgesEdgesEdgesPageItemsEdge) GetIsRunnable() *bool { return v.Unif
 // GetPriority returns ListEdgesEdgesEdgesPageItemsEdge.Priority, and is useful for accessing the field via an interface.
 func (v *ListEdgesEdgesEdgesPageItemsEdge) GetPriority() int { return v.UniformEdge.Priority }
 
+// GetData returns ListEdgesEdgesEdgesPageItemsEdge.Data, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetData() *json.RawMessage { return v.UniformEdge.Data }
+
 // GetCreatedAt returns ListEdgesEdgesEdgesPageItemsEdge.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ListEdgesEdgesEdgesPageItemsEdge) GetCreatedAt() string { return v.UniformEdge.CreatedAt }
 
@@ -67032,6 +67041,8 @@ type __premarshalListEdgesEdgesEdgesPageItemsEdge struct {
 
 	Priority int `json:"priority"`
 
+	Data *json.RawMessage `json:"data"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -67063,6 +67074,7 @@ func (v *ListEdgesEdgesEdgesPageItemsEdge) __premarshalJSON() (*__premarshalList
 	retval.Description = v.UniformEdge.Description
 	retval.IsRunnable = v.UniformEdge.IsRunnable
 	retval.Priority = v.UniformEdge.Priority
+	retval.Data = v.UniformEdge.Data
 	retval.CreatedAt = v.UniformEdge.CreatedAt
 	retval.UpdatedAt = v.UniformEdge.UpdatedAt
 	retval.CreatedByUser = v.UniformEdge.CreatedByUser
@@ -67229,6 +67241,230 @@ type ListResendSendersResponse struct {
 // GetResendSenders returns ListResendSendersResponse.ResendSenders, and is useful for accessing the field via an interface.
 func (v *ListResendSendersResponse) GetResendSenders() *ListResendSendersResendSendersResendSendersPage {
 	return v.ResendSenders
+}
+
+// ListSecretReadClientsLinkMySecretReadClientsSecretReadClient includes the requested fields of the GraphQL type SecretReadClient.
+type ListSecretReadClientsLinkMySecretReadClientsSecretReadClient struct {
+	// Full id only for the current issuer or holder; managers otherwise see a prefix.
+	ClientId     *string `json:"clientId"`
+	ClientPrefix string  `json:"clientPrefix"`
+	GrantId      string  `json:"grantId"`
+	SecretId     string  `json:"secretId"`
+	SecretName   string  `json:"secretName"`
+	SelfIssued   bool    `json:"selfIssued"`
+	// Null while live, else one of SECRET_DELETED, PROTECTED, REVOKED, PENDING, SPENT, EXPIRED, NOT_STARTED, ISSUER_GONE (nothing else ended it) or ENDED. A stored end wins; otherwise the grant's own state, in the order the reveal door answers.
+	EndReason *string `json:"endReason"`
+	CreatedAt string  `json:"createdAt"`
+	// #4545 (hrn:node:hadronmemory.com:specs:cor:sec:060:02): the server-hosted page where the person who holds this client reveals the value with a passkey: the server origin plus /secret-reveal/<clientId>, with no token. Copy it verbatim; never compose it. Returned only to that person holder in their own session. Null for a client a worker holds, and for a worker session, an App key or anyone viewing a client they do not hold.
+	RevealUrl *string `json:"revealUrl"`
+}
+
+// GetClientId returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.ClientId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetClientId() *string {
+	return v.ClientId
+}
+
+// GetClientPrefix returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.ClientPrefix, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetClientPrefix() string {
+	return v.ClientPrefix
+}
+
+// GetGrantId returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.GrantId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetGrantId() string {
+	return v.GrantId
+}
+
+// GetSecretId returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.SecretId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetSecretId() string {
+	return v.SecretId
+}
+
+// GetSecretName returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.SecretName, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetSecretName() string {
+	return v.SecretName
+}
+
+// GetSelfIssued returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.SelfIssued, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetSelfIssued() bool {
+	return v.SelfIssued
+}
+
+// GetEndReason returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.EndReason, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetEndReason() *string {
+	return v.EndReason
+}
+
+// GetCreatedAt returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetRevealUrl returns ListSecretReadClientsLinkMySecretReadClientsSecretReadClient.RevealUrl, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkMySecretReadClientsSecretReadClient) GetRevealUrl() *string {
+	return v.RevealUrl
+}
+
+// ListSecretReadClientsLinkResponse is returned by ListSecretReadClientsLink on success.
+type ListSecretReadClientsLinkResponse struct {
+	// The read clients the caller issued or holds (hrn:node:hadronmemory.com:specs:cor:sec:060): a client id is shown only to its issuer and
+	// its holder. Empty for an App key, a run and an impersonation. Revoke one with revokeGrant on its grantId.
+	MySecretReadClients []*ListSecretReadClientsLinkMySecretReadClientsSecretReadClient `json:"mySecretReadClients"`
+}
+
+// GetMySecretReadClients returns ListSecretReadClientsLinkResponse.MySecretReadClients, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsLinkResponse) GetMySecretReadClients() []*ListSecretReadClientsLinkMySecretReadClientsSecretReadClient {
+	return v.MySecretReadClients
+}
+
+// ListSecretReadClientsMarkMySecretReadClientsSecretReadClient includes the requested fields of the GraphQL type SecretReadClient.
+type ListSecretReadClientsMarkMySecretReadClientsSecretReadClient struct {
+	// Full id only for the current issuer or holder; managers otherwise see a prefix.
+	ClientId     *string `json:"clientId"`
+	ClientPrefix string  `json:"clientPrefix"`
+	GrantId      string  `json:"grantId"`
+	SecretId     string  `json:"secretId"`
+	SecretName   string  `json:"secretName"`
+	SelfIssued   bool    `json:"selfIssued"`
+	// Null while live, else one of SECRET_DELETED, PROTECTED, REVOKED, PENDING, SPENT, EXPIRED, NOT_STARTED, ISSUER_GONE (nothing else ended it) or ENDED. A stored end wins; otherwise the grant's own state, in the order the reveal door answers.
+	EndReason    *string `json:"endReason"`
+	CreatedAt    string  `json:"createdAt"`
+	DestroyOnEnd *bool   `json:"destroyOnEnd"`
+}
+
+// GetClientId returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.ClientId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetClientId() *string {
+	return v.ClientId
+}
+
+// GetClientPrefix returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.ClientPrefix, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetClientPrefix() string {
+	return v.ClientPrefix
+}
+
+// GetGrantId returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.GrantId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetGrantId() string {
+	return v.GrantId
+}
+
+// GetSecretId returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.SecretId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetSecretId() string {
+	return v.SecretId
+}
+
+// GetSecretName returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.SecretName, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetSecretName() string {
+	return v.SecretName
+}
+
+// GetSelfIssued returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.SelfIssued, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetSelfIssued() bool {
+	return v.SelfIssued
+}
+
+// GetEndReason returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.EndReason, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetEndReason() *string {
+	return v.EndReason
+}
+
+// GetCreatedAt returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetDestroyOnEnd returns ListSecretReadClientsMarkMySecretReadClientsSecretReadClient.DestroyOnEnd, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkMySecretReadClientsSecretReadClient) GetDestroyOnEnd() *bool {
+	return v.DestroyOnEnd
+}
+
+// ListSecretReadClientsMarkResponse is returned by ListSecretReadClientsMark on success.
+type ListSecretReadClientsMarkResponse struct {
+	// The read clients the caller issued or holds (hrn:node:hadronmemory.com:specs:cor:sec:060): a client id is shown only to its issuer and
+	// its holder. Empty for an App key, a run and an impersonation. Revoke one with revokeGrant on its grantId.
+	MySecretReadClients []*ListSecretReadClientsMarkMySecretReadClientsSecretReadClient `json:"mySecretReadClients"`
+}
+
+// GetMySecretReadClients returns ListSecretReadClientsMarkResponse.MySecretReadClients, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMarkResponse) GetMySecretReadClients() []*ListSecretReadClientsMarkMySecretReadClientsSecretReadClient {
+	return v.MySecretReadClients
+}
+
+// ListSecretReadClientsMySecretReadClientsSecretReadClient includes the requested fields of the GraphQL type SecretReadClient.
+type ListSecretReadClientsMySecretReadClientsSecretReadClient struct {
+	// Full id only for the current issuer or holder; managers otherwise see a prefix.
+	ClientId     *string `json:"clientId"`
+	ClientPrefix string  `json:"clientPrefix"`
+	GrantId      string  `json:"grantId"`
+	SecretId     string  `json:"secretId"`
+	SecretName   string  `json:"secretName"`
+	SelfIssued   bool    `json:"selfIssued"`
+	// Null while live, else one of SECRET_DELETED, PROTECTED, REVOKED, PENDING, SPENT, EXPIRED, NOT_STARTED, ISSUER_GONE (nothing else ended it) or ENDED. A stored end wins; otherwise the grant's own state, in the order the reveal door answers.
+	EndReason *string `json:"endReason"`
+	CreatedAt string  `json:"createdAt"`
+	// #4545 (hrn:node:hadronmemory.com:specs:cor:sec:060:02): the server-hosted page where the person who holds this client reveals the value with a passkey: the server origin plus /secret-reveal/<clientId>, with no token. Copy it verbatim; never compose it. Returned only to that person holder in their own session. Null for a client a worker holds, and for a worker session, an App key or anyone viewing a client they do not hold.
+	RevealUrl    *string `json:"revealUrl"`
+	DestroyOnEnd *bool   `json:"destroyOnEnd"`
+}
+
+// GetClientId returns ListSecretReadClientsMySecretReadClientsSecretReadClient.ClientId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetClientId() *string {
+	return v.ClientId
+}
+
+// GetClientPrefix returns ListSecretReadClientsMySecretReadClientsSecretReadClient.ClientPrefix, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetClientPrefix() string {
+	return v.ClientPrefix
+}
+
+// GetGrantId returns ListSecretReadClientsMySecretReadClientsSecretReadClient.GrantId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetGrantId() string {
+	return v.GrantId
+}
+
+// GetSecretId returns ListSecretReadClientsMySecretReadClientsSecretReadClient.SecretId, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetSecretId() string {
+	return v.SecretId
+}
+
+// GetSecretName returns ListSecretReadClientsMySecretReadClientsSecretReadClient.SecretName, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetSecretName() string {
+	return v.SecretName
+}
+
+// GetSelfIssued returns ListSecretReadClientsMySecretReadClientsSecretReadClient.SelfIssued, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetSelfIssued() bool {
+	return v.SelfIssued
+}
+
+// GetEndReason returns ListSecretReadClientsMySecretReadClientsSecretReadClient.EndReason, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetEndReason() *string {
+	return v.EndReason
+}
+
+// GetCreatedAt returns ListSecretReadClientsMySecretReadClientsSecretReadClient.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetRevealUrl returns ListSecretReadClientsMySecretReadClientsSecretReadClient.RevealUrl, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetRevealUrl() *string {
+	return v.RevealUrl
+}
+
+// GetDestroyOnEnd returns ListSecretReadClientsMySecretReadClientsSecretReadClient.DestroyOnEnd, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetDestroyOnEnd() *bool {
+	return v.DestroyOnEnd
+}
+
+// ListSecretReadClientsResponse is returned by ListSecretReadClients on success.
+type ListSecretReadClientsResponse struct {
+	// The read clients the caller issued or holds (hrn:node:hadronmemory.com:specs:cor:sec:060): a client id is shown only to its issuer and
+	// its holder. Empty for an App key, a run and an impersonation. Revoke one with revokeGrant on its grantId.
+	MySecretReadClients []*ListSecretReadClientsMySecretReadClientsSecretReadClient `json:"mySecretReadClients"`
+}
+
+// GetMySecretReadClients returns ListSecretReadClientsResponse.MySecretReadClients, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsResponse) GetMySecretReadClients() []*ListSecretReadClientsMySecretReadClientsSecretReadClient {
+	return v.MySecretReadClients
 }
 
 // ListTickersPageResponse is returned by ListTickersPage on success.
@@ -73696,7 +73932,8 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
 	Priority int `json:"priority"`
 	// If true, this edge can be executed/run (task automation, conversation
 	// transitions). Mirrors Node.isRunnable.
-	IsRunnable *bool `json:"isRunnable"`
+	IsRunnable *bool            `json:"isRunnable"`
+	Data       *json.RawMessage `json:"data"`
 	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
@@ -73720,6 +73957,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetPriorit
 // GetIsRunnable returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetIsRunnable() *bool {
 	return v.IsRunnable
+}
+
+// GetData returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Data, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetData() *json.RawMessage {
+	return v.Data
 }
 
 // GetSource returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
@@ -73792,6 +74034,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
 	// one of them — a count and a category error in one sentence.
 	// See hadron-docs/docs/reference/edge-conditions.md.
 	Condition *json.RawMessage `json:"condition"`
+	Data      *json.RawMessage `json:"data"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
@@ -73825,6 +74068,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetPriorit
 // GetCondition returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Condition, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetCondition() *json.RawMessage {
 	return v.Condition
+}
+
+// GetData returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Data, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetData() *json.RawMessage {
+	return v.Data
 }
 
 // GetTarget returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
@@ -117092,7 +117340,8 @@ type UniformEdge struct {
 	IsRunnable *bool `json:"isRunnable"`
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
-	Priority int `json:"priority"`
+	Priority int              `json:"priority"`
+	Data     *json.RawMessage `json:"data"`
 	// #1151 - when the edge was created.
 	CreatedAt string `json:"createdAt"`
 	// #1151 - when the edge row last changed (stamped on create too; null only for a row inserted outside the API).
@@ -117127,6 +117376,9 @@ func (v *UniformEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns UniformEdge.Priority, and is useful for accessing the field via an interface.
 func (v *UniformEdge) GetPriority() int { return v.Priority }
+
+// GetData returns UniformEdge.Data, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetData() *json.RawMessage { return v.Data }
 
 // GetCreatedAt returns UniformEdge.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UniformEdge) GetCreatedAt() string { return v.CreatedAt }
@@ -138179,6 +138431,42 @@ func (v *__ListResendSendersInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __ListResendSendersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ListResendSendersInput) GetOffset() *int { return v.Offset }
+
+// __ListSecretReadClientsInput is used internally by genqlient
+type __ListSecretReadClientsInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+// GetLimit returns __ListSecretReadClientsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ListSecretReadClientsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ListSecretReadClientsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ListSecretReadClientsInput) GetOffset() *int { return v.Offset }
+
+// __ListSecretReadClientsLinkInput is used internally by genqlient
+type __ListSecretReadClientsLinkInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+// GetLimit returns __ListSecretReadClientsLinkInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ListSecretReadClientsLinkInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ListSecretReadClientsLinkInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ListSecretReadClientsLinkInput) GetOffset() *int { return v.Offset }
+
+// __ListSecretReadClientsMarkInput is used internally by genqlient
+type __ListSecretReadClientsMarkInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+// GetLimit returns __ListSecretReadClientsMarkInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ListSecretReadClientsMarkInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ListSecretReadClientsMarkInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ListSecretReadClientsMarkInput) GetOffset() *int { return v.Offset }
 
 // __ListTickersInput is used internally by genqlient
 type __ListTickersInput struct {
@@ -167810,6 +168098,7 @@ fragment UniformEdge on Edge {
 	description
 	isRunnable
 	priority
+	data
 	createdAt
 	updatedAt
 	createdByUser {
@@ -171993,6 +172282,7 @@ fragment UniformEdge on Edge {
 	description
 	isRunnable
 	priority
+	data
 	createdAt
 	updatedAt
 	createdByUser {
@@ -172090,6 +172380,152 @@ func ListResendSenders(
 	}
 
 	data_ = &ListResendSendersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListSecretReadClients.
+const ListSecretReadClients_Operation = `
+query ListSecretReadClients ($limit: Int, $offset: Int) {
+	mySecretReadClients(limit: $limit, offset: $offset) {
+		clientId
+		clientPrefix
+		grantId
+		secretId
+		secretName
+		selfIssued
+		endReason
+		createdAt
+		revealUrl
+		destroyOnEnd
+	}
+}
+`
+
+// The list documents (cli#2758 revealUrl, cli#2720 destroyOnEnd). A server may have one of the two
+// fields without the other, and each field is a separate server change, so the CLI keeps one
+// document per combination and steps down only as far as the server's validation error forces:
+// ListSecretReadClients      both fields (the first try)
+// ListSecretReadClientsLink  the passkey link only (a server with the link but not the mark)
+// ListSecretReadClientsMark  the auto-delete mark only (a server with the mark but not the link)
+// MySecretReadClients        neither: `client revoke`'s lookup, a safety action that never
+// depends on a display field, and the last step of the ladder.
+// revealUrl (cor:sec:060:02) is the server-built link to the passkey page where the PERSON holder
+// reveals (null for every other viewer), printed byte for byte, never composed. destroyOnEnd is the
+// auto-delete mark (the secret is deleted at the last read or when the window ends); it is a
+// pointer, so that a row the server answered without the field is seen as malformed, never read as
+// "no mark".
+func ListSecretReadClients(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit *int,
+	offset *int,
+) (data_ *ListSecretReadClientsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSecretReadClients",
+		Query:  ListSecretReadClients_Operation,
+		Variables: &__ListSecretReadClientsInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ListSecretReadClientsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListSecretReadClientsLink.
+const ListSecretReadClientsLink_Operation = `
+query ListSecretReadClientsLink ($limit: Int, $offset: Int) {
+	mySecretReadClients(limit: $limit, offset: $offset) {
+		clientId
+		clientPrefix
+		grantId
+		secretId
+		secretName
+		selfIssued
+		endReason
+		createdAt
+		revealUrl
+	}
+}
+`
+
+func ListSecretReadClientsLink(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit *int,
+	offset *int,
+) (data_ *ListSecretReadClientsLinkResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSecretReadClientsLink",
+		Query:  ListSecretReadClientsLink_Operation,
+		Variables: &__ListSecretReadClientsLinkInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ListSecretReadClientsLinkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListSecretReadClientsMark.
+const ListSecretReadClientsMark_Operation = `
+query ListSecretReadClientsMark ($limit: Int, $offset: Int) {
+	mySecretReadClients(limit: $limit, offset: $offset) {
+		clientId
+		clientPrefix
+		grantId
+		secretId
+		secretName
+		selfIssued
+		endReason
+		createdAt
+		destroyOnEnd
+	}
+}
+`
+
+func ListSecretReadClientsMark(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit *int,
+	offset *int,
+) (data_ *ListSecretReadClientsMarkResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListSecretReadClientsMark",
+		Query:  ListSecretReadClientsMark_Operation,
+		Variables: &__ListSecretReadClientsMarkInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ListSecretReadClientsMarkResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -174236,6 +174672,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 				isRunnable
 				priority
 				condition
+				data
 				target {
 					id
 					loc
@@ -174248,6 +174685,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 				loc
 				priority
 				isRunnable
+				data
 				source {
 					id
 					loc

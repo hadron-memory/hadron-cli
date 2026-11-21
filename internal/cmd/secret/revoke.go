@@ -31,9 +31,11 @@ type revokeDTO struct {
 }
 
 // findClient pages the caller's read clients until it finds clientID. The id is
-// matched exactly as given. A client the caller neither issued nor holds never
-// lists, so it is not found here even where the server would let a manager revoke
-// its grant.
+// matched exactly as given. A manager of the App can LIST a client they neither
+// issued nor hold, but only as a prefix-only row (null clientId, clientPrefix
+// only); an exact client-id match cannot select such a row, so it is not found
+// here even where the server would let that manager revoke its grant. The CLI
+// never completes an id from a prefix: that selection would be ambiguous.
 func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string, worker cmdutil.WorkerWriteContext) (*clientDTO, error) {
 	client, err := f.GraphQLClient()
 	if err != nil {
@@ -45,7 +47,7 @@ func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string, worker 
 		if err != nil {
 			return nil, err
 		}
-		page, err := fetchClientPage(ctx, client, &l, &o)
+		page, err := fetchLookupPage(ctx, client, &l, &o)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +108,8 @@ On a terminal it asks first; off one it needs --yes and sends nothing without it
 
 Exit codes: 0 the grant is REVOKED, or had already ended; 2 usage; 3 not signed in; 4 client not
 found; 7 the answer was lost or did not confirm a revoke: the revoke is not
-resent, so run 'hadron secret client list --all' (the grant id is in the error) to see
+resent, so run 'hadron secret client list --all' (an instructed revoke:
+'hadron secret client list --all --as-worker'; the grant id is in the error) to see
 whether the client ended (this includes a grant answered in a state that is not an
 end, or one that still allows reads); 8 not permitted.`,
 		Example: `  hadron secret client revoke cl_123 --yes
