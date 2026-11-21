@@ -187,9 +187,11 @@ func allowlistedServerCode(code string) string {
 	return ""
 }
 
-// hasNonblankKey reports whether an idempotency key counts as one: an empty or
-// whitespace-only value is sent unchanged (the server judges it) but enables no
-// deduplication, so it is no key for the retry guidance.
+// hasNonblankKey reports whether an idempotency key counts as one for the retry
+// guidance. CLI policy, deliberately conservative: an empty or whitespace-only value is
+// sent unchanged (the server judges it) but is treated as no key. The server dedups an
+// empty string never and may dedup a whitespace-only one, but the CLI does not rely on
+// that, so such a request gets the no-protection warning.
 func hasNonblankKey(key string) bool { return strings.TrimSpace(key) != "" }
 
 // draftMayExist is the guidance for an unclear draft save: the draft may have been
