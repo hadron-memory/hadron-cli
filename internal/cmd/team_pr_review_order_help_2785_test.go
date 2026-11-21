@@ -22,7 +22,7 @@ func TestTeamPRSeatVerdictHelpStatesReviewOrder2785(t *testing.T) {
 			for _, s := range []string{
 				"schedule, freeze, seat, verdict, finish",
 				"binds only while its own task is live (STARTED)",
-				"a finished seat cannot take one",
+				"a finished seat cannot take a verdict",
 				"A negative verdict at a head blocks every slot there until the head moves or its own reviewer re-rates it",
 				"TASK_ENDED, REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH",
 				"only a verdict recorded with pr verdict counts",
