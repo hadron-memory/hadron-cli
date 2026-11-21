@@ -1,5 +1,11 @@
 fragment AppMemoryGrantFields on AppMemoryWriteGrant {
-  id appId memoryUrn prefix registerNodeUrn grantedBy createdAt revokedAt revokedBy
+  id appId memoryUrn
+  # prefix and registerNodeUrn are null when the target memory is concealed from the
+  # viewer (hadron-server#4734, cor:agt:010:01), whatever the SDL says today, so
+  # prefix is read as a pointer: null stays null instead of decoding to "" (cli#2868).
+  # @genqlient(pointer: true)
+  prefix
+  registerNodeUrn grantedBy createdAt revokedAt revokedBy
   notEffective notEffectiveReason
 }
 

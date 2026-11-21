@@ -24240,7 +24240,7 @@ type AppMemoryGrantFields struct {
 	// The granted memory. Null when the grant is on someone's personal or private memory and the caller is not its owner.
 	MemoryUrn *string `json:"memoryUrn"`
 	// The loc prefix: the loc itself and its colon-boundary descendants (reports:team-progress does not cover reports:team-progressX).
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 	// The register line this grant cites. A citation only, never evidence that the line exists.
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 	// The person who set it.
@@ -24264,7 +24264,7 @@ func (v *AppMemoryGrantFields) GetAppId() string { return v.AppId }
 func (v *AppMemoryGrantFields) GetMemoryUrn() *string { return v.MemoryUrn }
 
 // GetPrefix returns AppMemoryGrantFields.Prefix, and is useful for accessing the field via an interface.
-func (v *AppMemoryGrantFields) GetPrefix() string { return v.Prefix }
+func (v *AppMemoryGrantFields) GetPrefix() *string { return v.Prefix }
 
 // GetRegisterNodeUrn returns AppMemoryGrantFields.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *AppMemoryGrantFields) GetRegisterNodeUrn() *string { return v.RegisterNodeUrn }
@@ -24643,7 +24643,7 @@ func (v *AppMemoryWriteGrantsRows1595) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns AppMemoryWriteGrantsRows1595.Prefix, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsRows1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
+func (v *AppMemoryWriteGrantsRows1595) GetPrefix() *string { return v.AppMemoryGrantFields.Prefix }
 
 // GetRegisterNodeUrn returns AppMemoryWriteGrantsRows1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *AppMemoryWriteGrantsRows1595) GetRegisterNodeUrn() *string {
@@ -24708,7 +24708,7 @@ type __premarshalAppMemoryWriteGrantsRows1595 struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -91962,7 +91962,7 @@ func (v *RevokeAppMemoryWriteGrantRow1595) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns RevokeAppMemoryWriteGrantRow1595.Prefix, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRow1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
+func (v *RevokeAppMemoryWriteGrantRow1595) GetPrefix() *string { return v.AppMemoryGrantFields.Prefix }
 
 // GetRegisterNodeUrn returns RevokeAppMemoryWriteGrantRow1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *RevokeAppMemoryWriteGrantRow1595) GetRegisterNodeUrn() *string {
@@ -92031,7 +92031,7 @@ type __premarshalRevokeAppMemoryWriteGrantRow1595 struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -92620,6 +92620,43 @@ type RevokePrincipalGrantResponse struct {
 
 // GetRevokePrincipalGrant returns RevokePrincipalGrantResponse.RevokePrincipalGrant, and is useful for accessing the field via an interface.
 func (v *RevokePrincipalGrantResponse) GetRevokePrincipalGrant() bool { return v.RevokePrincipalGrant }
+
+// RevokeSecretReadClientGrantInstructedResponse is returned by RevokeSecretReadClientGrantInstructed on success.
+type RevokeSecretReadClientGrantInstructedResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, :03) — revoke a grant now, unsigned, in any state but ended. By the issuer (while still a member of the App's Org), by whoever manages the App, or by a held worker on a validated instruction from a holder who may. Returns the grant as appGrants reads it. The first end stands: a grant already revoked, withdrawn or whose holder departed is returned as it is, with no second stamp and no second REVOKE event. Judged on the locked current row. Refusals: GRANT_NOT_MANAGER (not allowed, and a grant that does not exist or cannot be seen: the same answer).
+	RevokeGrant *RevokeSecretReadClientGrantInstructedRevokeGrant `json:"revokeGrant"`
+}
+
+// GetRevokeGrant returns RevokeSecretReadClientGrantInstructedResponse.RevokeGrant, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedResponse) GetRevokeGrant() *RevokeSecretReadClientGrantInstructedRevokeGrant {
+	return v.RevokeGrant
+}
+
+// RevokeSecretReadClientGrantInstructedRevokeGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type RevokeSecretReadClientGrantInstructedRevokeGrant struct {
+	Id string `json:"id"`
+	// #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+	State     GrantState `json:"state"`
+	RevokedAt *string    `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows *bool `json:"allows"`
+}
+
+// GetId returns RevokeSecretReadClientGrantInstructedRevokeGrant.Id, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetId() string { return v.Id }
+
+// GetState returns RevokeSecretReadClientGrantInstructedRevokeGrant.State, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetState() GrantState { return v.State }
+
+// GetRevokedAt returns RevokeSecretReadClientGrantInstructedRevokeGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns RevokeSecretReadClientGrantInstructedRevokeGrant.Allows, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetAllows() *bool { return v.Allows }
 
 // RevokeSecretReadClientGrantResponse is returned by RevokeSecretReadClientGrant on success.
 type RevokeSecretReadClientGrantResponse struct {
@@ -98081,7 +98118,7 @@ func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns SetAppMemoryWriteGrantSetAppMemoryWriteGrant.Prefix, and is useful for accessing the field via an interface.
-func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetPrefix() string {
+func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetPrefix() *string {
 	return v.AppMemoryGrantFields.Prefix
 }
 
@@ -98152,7 +98189,7 @@ type __premarshalSetAppMemoryWriteGrantSetAppMemoryWriteGrant struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -139008,6 +139045,20 @@ type __RevokeSecretReadClientGrantInput struct {
 // GetRef returns __RevokeSecretReadClientGrantInput.Ref, and is useful for accessing the field via an interface.
 func (v *__RevokeSecretReadClientGrantInput) GetRef() string { return v.Ref }
 
+// __RevokeSecretReadClientGrantInstructedInput is used internally by genqlient
+type __RevokeSecretReadClientGrantInstructedInput struct {
+	Ref         string               `json:"ref"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetRef returns __RevokeSecretReadClientGrantInstructedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RevokeSecretReadClientGrantInstructedInput) GetRef() string { return v.Ref }
+
+// GetInstruction returns __RevokeSecretReadClientGrantInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RevokeSecretReadClientGrantInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __RevokeUserApiKeyInput is used internally by genqlient
 type __RevokeUserApiKeyInput struct {
 	Id string `json:"id"`
@@ -179669,6 +179720,46 @@ func RevokeSecretReadClientGrant(
 	}
 
 	data_ = &RevokeSecretReadClientGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeSecretReadClientGrantInstructed.
+const RevokeSecretReadClientGrantInstructed_Operation = `
+mutation RevokeSecretReadClientGrantInstructed ($ref: ID!, $instruction: ActInstructionInput!) {
+	revokeGrant(ref: $ref, instruction: $instruction) {
+		id
+		state
+		revokedAt
+		allows
+	}
+}
+`
+
+// cli#2754: only the explicit instructed path carries the claim and session.
+func RevokeSecretReadClientGrantInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	instruction *ActInstructionInput,
+) (data_ *RevokeSecretReadClientGrantInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeSecretReadClientGrantInstructed",
+		Query:  RevokeSecretReadClientGrantInstructed_Operation,
+		Variables: &__RevokeSecretReadClientGrantInstructedInput{
+			Ref:         ref,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RevokeSecretReadClientGrantInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
