@@ -67,8 +67,8 @@ func newCmdKeyScope(f *cmdutil.Factory) *cobra.Command {
 		Long: `A scope is one thing an App key may do beyond authenticating as its App. A key
 holds no scope until one is granted; a new or rotated key starts with none.
 "hadron app key scope catalogue" lists every scope the server defines: its name,
-what holding it permits, and whether granting it needs --host-id. The CLI keeps
-no copy of that list, so the catalogue is the only place to read it.
+what holding it permits, and whether granting it needs --host-id. Read the list
+there: this help does not repeat it, so it cannot go stale when a scope is added.
 Only whoever manages the App may change a key's scopes. Granting stays
 person-only; revoking also admits their held worker with --instruction. App keys
 and impersonation are refused (FORBIDDEN, exit 8). "hadron app key list

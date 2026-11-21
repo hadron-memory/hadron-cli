@@ -374,7 +374,7 @@ section between the markers.
 | `app key list` | ls |  | y | #1053 | d9e40167f038 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app key revoke` |  |  | y | #1053 | 4ed42bafe369 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app key rotate` |  |  | y | #1053 | 3dd0492515f9 |  | unread |  |
-| `app key scope` |  |  | n | #1053 | bbaec3c92727 |  | unread |  |
+| `app key scope` |  |  | n | #1053 | 1560c1960003 |  | unread |  |
 | `app key scope catalogue` |  |  | y | #1053 | 34dd986e92f3 |  | unread |  |
 | `app key scope grant` |  |  | y | #1053 | 34016274e9b8 |  | unread |  |
 | `app key scope revoke` |  |  | y | #1053 | dd5130e280df |  | unread |  |
