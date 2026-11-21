@@ -709,17 +709,17 @@ section between the markers.
 <!-- group:1056 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `(root)` |  |  | n | #1056 | 8d8308f9cf19 |  | unread |  |
+| `(root)` |  |  | n | #1056 | 14c8b70b67aa |  | unread |  |
 | `agentic-usage` |  |  | y | #1056 | a77cfb7385c1 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `api` |  |  | y | #1056 | ecff45e61c3a | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `completion` |  | generated | n | #1056 | 532ef0768ca4 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `config` |  |  | n | #1056 | b45cd824b251 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
-| `config get` |  |  | y | #1056 | 226ece8f02be | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
-| `config list` | ls |  | y | #1056 | 7bcde719abdb | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
-| `config set` |  |  | y | #1056 | 56679edca714 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
+| `config get` |  |  | y | #1056 | ee0d0b072cb2 |  | unread |  |
+| `config list` | ls |  | y | #1056 | 0b827a3e5ab0 |  | unread |  |
+| `config set` |  |  | y | #1056 | cd59e51ad9ab |  | unread |  |
 | `help` |  | generated | y | #1056 | c86d29522fe2 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
-| `server-info` | serverinfo |  | y | #1056 | 874d42459e06 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
-| `version` |  |  | y | #1056 | c8f9fc1b8cc7 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
+| `server-info` | serverinfo |  | y | #1056 | fad1f0fed789 |  | unread |  |
+| `version` |  |  | y | #1056 | a299b2aec282 |  | unread |  |
 <!-- group:1056 end -->
 
 ## Group: integration and account commands (#1184)
