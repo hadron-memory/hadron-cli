@@ -52,7 +52,9 @@ URL on this server"). asset url --help explains each case.
 --instruction <kind>:<ref> supplies a server-validated instruction for a worker
 session on an App memory. The server decides admission; the CLI does not
 calculate management authority or retry a refused call. Without this flag,
-the existing person call is unchanged. Requires server ` + publicLinkServerFloor + ` or later.`,
+the existing person call is unchanged. The instructed call (--instruction on
+public-link) needs a server from ` + publicLinkServerFloor + ` or later; an older server
+refuses the flag with its own error, which is passed through, never retried without it.`,
 		Example: `  hadron asset public-link hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 --on --yes
   hadron asset public-link 01a189a840f4717c98af75cf4d7aed09 --off`,
 		Args: cobra.ExactArgs(1),

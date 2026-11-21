@@ -132,12 +132,12 @@ type exampleResult struct {
 // an @file's @ — and cleaned first, so "a/.." and "./.." are judged as the
 // parent paths they resolve to, not as strings unlike "../".
 //
-// Confinement beyond the lexical check (a symlink under the fixture that points outside) was
-// cli#2813; resolveExistingPath1053 below closes it at the point of use, so every runner that
-// calls this guard gets it. The runners also run each example in a throwaway directory.
+// The check is LEXICAL. Confinement against a symlink under the fixture that points outside
+// it is cli#2813 (deferred by ruling: the runners execute each example in a throwaway
+// directory, and a correct resolver has its own corner cases: `..` after a link, dangling
+// links, names containing a comma).
 func unsafeExamplePath1053(args []string, dir string) string {
 	dir = filepath.Clean(dir)
-	realDir := resolveExistingPath1053(dir)
 	for _, a := range args {
 		for _, v := range examplePathCandidates1053(a) {
 			p := filepath.Clean(v)
@@ -146,36 +146,9 @@ func unsafeExamplePath1053(args []string, dir string) string {
 				p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
 				return v
 			}
-			// cli#2525 (George's #2812 F3): lexically inside is not enough. Resolve symlinks, so a
-			// path through a link that points outside the fixture is unsafe too.
-			full := p
-			if !filepath.IsAbs(full) {
-				full = filepath.Join(dir, p)
-			}
-			if r := resolveExistingPath1053(full); r != realDir && !strings.HasPrefix(r, realDir+string(filepath.Separator)) {
-				return v
-			}
 		}
 	}
 	return ""
-}
-
-// resolveExistingPath1053 resolves symlinks in the longest existing prefix of path and appends the
-// rest, so a path that does not exist yet is judged by where its existing parent really is.
-func resolveExistingPath1053(path string) string {
-	path = filepath.Clean(path)
-	rest := ""
-	for {
-		if r, err := filepath.EvalSymlinks(path); err == nil {
-			return filepath.Join(r, rest)
-		}
-		parent := filepath.Dir(path)
-		if parent == path {
-			return filepath.Join(path, rest)
-		}
-		rest = filepath.Join(filepath.Base(path), rest)
-		path = parent
-	}
 }
 
 // examplePathCandidates1053 lists every value an example argument could make a command
@@ -463,33 +436,5 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 	}
 	if len(results) < minSlice1Examples {
 		t.Fatalf("only %d examples found across the app and agent pages; expected the ~119 the inventory implies", len(results))
-	}
-}
-
-// George's #2812 P2 (F3): the guard also resolves symlinks. A relative path under the fixture
-// directory that goes through a symlink pointing OUTSIDE it is unsafe, though lexically it is
-// inside; a symlink that points inside the fixture is fine, and so is a path that does not
-// exist yet (its longest existing parent is resolved).
-func TestUnsafeExamplePathGuardResolvesSymlinks2525(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "run")
-	if err := os.MkdirAll(filepath.Join(dir, "real"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	outside := t.TempDir()
-	if err := os.Symlink(outside, filepath.Join(dir, "out")); err != nil {
-		t.Skipf("symlinks unavailable here: %v", err)
-	}
-	if err := os.Symlink(filepath.Join(dir, "real"), filepath.Join(dir, "in")); err != nil {
-		t.Fatal(err)
-	}
-	for _, a := range []string{"out", "out/x.json", "out/deep/new.json", "--file=out/x", "-oout/x", "a.json,out/x"} {
-		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got == "" {
-			t.Errorf("%q goes through a symlink that leaves the fixture and must be unsafe", a)
-		}
-	}
-	for _, a := range []string{"in", "in/x.json", "real/x.json", "new/x.json", "--file=in/x"} {
-		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got != "" {
-			t.Errorf("%q stays inside the fixture and must be safe (reported %q)", a, got)
-		}
 	}
 }

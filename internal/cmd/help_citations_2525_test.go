@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"github.com/spf13/cobra"
 	"os"
 	"regexp"
 	"sort"
@@ -344,11 +345,40 @@ func helpPagesInScope2525(t *testing.T) map[string]string {
 	return pages
 }
 
-func TestHelpWalkCoversEveryTopLevelGroup2525(t *testing.T) {
-	groups := topGroups2525(t)
-	for _, want := range []string{"app", "agent", "team", "secret", "spec", "node", "email"} {
-		if i := sort.SearchStrings(groups, want); i >= len(groups) || groups[i] != want {
-			t.Errorf("group %q is not walked: %v", want, groups)
+// George's/Dara's #2812 P3: the walked page set is compared with the visible command TREE, not with
+// a list of names: every visible command (generated help and completion included, with their
+// visible descendants) has a page, and every page is a command, the root, or the root itself.
+func TestHelpWalkCoversTheWholeVisibleCommandTree2525(t *testing.T) {
+	pages := helpPagesInScope2525(t)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--help"})
+	root.SetOut(out)
+	root.SetErr(out)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{"hadron": true}
+	var walk func(prefix []string, c *cobra.Command)
+	walk = func(prefix []string, c *cobra.Command) {
+		for _, sub := range c.Commands() {
+			if sub.Hidden || (len(prefix) > 0 && sub.Name() == "help") {
+				continue
+			}
+			path := append(append([]string{}, prefix...), sub.Name())
+			want[strings.Join(path, " ")] = true
+			walk(path, sub)
+		}
+	}
+	walk(nil, root)
+	for name := range want {
+		if _, ok := pages[name]; !ok {
+			t.Errorf("visible command %q has no page in the walked set", name)
+		}
+	}
+	for name := range pages {
+		if !want[name] {
+			t.Errorf("walked page %q is not a visible command", name)
 		}
 	}
 }
