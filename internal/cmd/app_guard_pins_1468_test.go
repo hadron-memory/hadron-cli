@@ -221,7 +221,7 @@ func TestAppWhoami1468IncompleteIdentityRefused(t *testing.T) {
 	}
 }
 
-// cli#2414: the current list guard refuses the WHOLE list, in either order.
+// hadron-cli#2414: the current list guard refuses the WHOLE list, in either order.
 func TestMemoryGrant2414MixedListRefusesTheWholeAnswer(t *testing.T) {
 	for _, field := range []string{"id", "appId", "prefix"} {
 		for _, badFirst := range []bool{true, false} {
