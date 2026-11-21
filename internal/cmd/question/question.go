@@ -438,7 +438,7 @@ EOF
 			if err != nil {
 				return err
 			}
-			readBack := "list the log with `hadron question list --log " + cmdutil.ShellQuote(logRef) + "` to see whether the question was created before asking again"
+			readBack := "list the log with `hadron question list --log " + cmdutil.ShellQuote(logRef) + "` and look for the title you sent (the listing is paged: use --limit and --offset) before asking again"
 			resp, err := gen.AskQuestion(cmd.Context(), client, logRef, &input)
 			if err != nil {
 				return questionWriteError(err, "askQuestion", "ask", readBack, resp != nil && resp.AskQuestion != nil)
@@ -1131,12 +1131,16 @@ terminal; --yes is required otherwise.`,
 			}
 			// A purged question no longer exists, so reading it back is how the outcome shows:
 			// "not found" means the purge happened.
-			readBack := "read it with `hadron question get " + cmdutil.ShellQuote(ref) + "`: not found means the purge happened, a question that is still there means it did not"
+			readBack := "read it with `hadron question get " + cmdutil.ShellQuote(ref) + "`: a question that is not found most likely means the purge happened (check that the ref is the one you meant), one that is still there means it did not"
 			resp, err := gen.PurgeUnansweredQuestion(cmd.Context(), client, ref, reason)
 			if err != nil {
-				return questionWriteError(err, "purgeUnansweredQuestion", "purge", readBack, resp != nil && resp.PurgeUnansweredQuestion)
+				return questionWriteError(err, "purgeUnansweredQuestion", "purge", readBack, resp != nil && resp.PurgeUnansweredQuestion != nil && *resp.PurgeUnansweredQuestion)
 			}
-			if !resp.PurgeUnansweredQuestion {
+			// A null or absent answer is not "no": the purge may have run, so it is an unknown outcome.
+			if resp == nil || resp.PurgeUnansweredQuestion == nil {
+				return questionWriteNotConfirmed("purge", readBack, "the server returned no answer", nil)
+			}
+			if !*resp.PurgeUnansweredQuestion {
 				return exitcode.Newf(exitcode.Error, "the server did not confirm the purge of %s", ref)
 			}
 			dto := purgeDTO{Ref: ref, Purged: true}
@@ -1245,15 +1249,16 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 	return q.Answers[len(q.Answers)-1].Kind == string(gen.QuestionAnswerKindRetraction) && q.Revision > expectedRevision
 }
 
-// questionWriteError maps a failed question write (ask, amend, answer, retract, withdraw, purge). A coded refusal at the mutation's
-// own level (no path, or exactly [field]), an HTTP 400/401/403/404/405/413/415/429 whose
-// body shows no data and no error below the mutation, and a connection that never opened
-// are definitive: nothing was written, so the ordinary typed exit applies. When the reply
-// carries the question beside the error (dataSeen) a resolver ran, so it is never definitive. A coded error
-// BELOW the field comes from resolving the returned question and so may follow the write
-// (cli#398, cli#2680), and a reset or timeout after the request left, a 5xx, an internal
-// error or an unusable answer may follow the commit too: those are an unknown outcome,
-// exit 7, never resent, with the read-back sentence.
+// questionWriteError maps a failed question write (ask, amend, answer, retract, withdraw,
+// purge; cli#2680, cli#2854). A coded refusal at the mutation's own level (no path, or exactly
+// [field]), an HTTP 400/401/403/404/405/413/415/429 whose body shows no data and no error
+// below the mutation, and a connection that never opened are definitive: nothing was written,
+// so the ordinary typed exit applies. When the reply carries the result beside the error
+// (dataSeen) a resolver ran, so it is never definitive. A coded error BELOW the field comes
+// from resolving the returned value and so may follow the write (cli#398, cli#2680), and a
+// reset or timeout after the request left, a 5xx, an internal error or an unusable answer may
+// follow the commit too: those are an unknown outcome, exit 7, never resent, with the
+// read-back sentence.
 func questionWriteError(err error, field, what, readBack string, dataSeen bool) error {
 	// The server returned the question beside the error: a resolver ran and the write may
 	// have followed, whatever the error says.
