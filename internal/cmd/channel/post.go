@@ -45,7 +45,7 @@ If the server refuses a post with TEAM_CHAT_DUPLICATE or
 TEAM_CHAT_POST_RATE_LIMITED, exit 5 keeps the server's message; --json adds
 error.serverCode beside numeric error.code. Read that message for the earlier
 seq or reset time before trying again. The CLI never retries these refusals.`,
-		Example: `  hadron channel post <address> "shipped #594" --session 01a0a78c…
+		Example: `  hadron channel post <address> "shipped the fix" --session 01a0a78c…
   hadron channel post <address> - --as-me < note.md`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -24404,7 +24404,7 @@ type AppMemoryGrantFields struct {
 	// The granted memory. Null when the grant is on someone's personal or private memory and the caller is not its owner.
 	MemoryUrn *string `json:"memoryUrn"`
 	// The loc prefix: the loc itself and its colon-boundary descendants (reports:team-progress does not cover reports:team-progressX).
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 	// The register line this grant cites. A citation only, never evidence that the line exists.
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 	// The person who set it.
@@ -24428,7 +24428,7 @@ func (v *AppMemoryGrantFields) GetAppId() string { return v.AppId }
 func (v *AppMemoryGrantFields) GetMemoryUrn() *string { return v.MemoryUrn }
 
 // GetPrefix returns AppMemoryGrantFields.Prefix, and is useful for accessing the field via an interface.
-func (v *AppMemoryGrantFields) GetPrefix() string { return v.Prefix }
+func (v *AppMemoryGrantFields) GetPrefix() *string { return v.Prefix }
 
 // GetRegisterNodeUrn returns AppMemoryGrantFields.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *AppMemoryGrantFields) GetRegisterNodeUrn() *string { return v.RegisterNodeUrn }
@@ -24807,7 +24807,7 @@ func (v *AppMemoryWriteGrantsRows1595) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns AppMemoryWriteGrantsRows1595.Prefix, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsRows1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
+func (v *AppMemoryWriteGrantsRows1595) GetPrefix() *string { return v.AppMemoryGrantFields.Prefix }
 
 // GetRegisterNodeUrn returns AppMemoryWriteGrantsRows1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *AppMemoryWriteGrantsRows1595) GetRegisterNodeUrn() *string {
@@ -24872,7 +24872,7 @@ type __premarshalAppMemoryWriteGrantsRows1595 struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -65562,6 +65562,210 @@ func (v *IssueHostOperationInput) GetType() string { return v.Type }
 // GetWorker returns IssueHostOperationInput.Worker, and is useful for accessing the field via an interface.
 func (v *IssueHostOperationInput) GetWorker() string { return v.Worker }
 
+// IssueHostOperationInstructedIssueHostOperation includes the requested fields of the GraphQL type HostOperation.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
+// worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
+// arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
+// label}; worker.start {workerId, worktree, family, taskId?}; worker.deliver {workerId, sessionId, eventId}; worker.end
+// {workerId, sessionId}; worktree.remove {workerId, worktree}; worker.reset-context {workerId, sessionId, taskId,
+// resetId} (#2162). The per-type arguments are #1709's design, Proposed.
+type IssueHostOperationInstructedIssueHostOperation struct {
+	HostOperationFields `json:"-"`
+}
+
+// GetId returns IssueHostOperationInstructedIssueHostOperation.Id, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetId() string {
+	return v.HostOperationFields.Id
+}
+
+// GetAppId returns IssueHostOperationInstructedIssueHostOperation.AppId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetAppId() string {
+	return v.HostOperationFields.AppId
+}
+
+// GetHostId returns IssueHostOperationInstructedIssueHostOperation.HostId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetHostId() string {
+	return v.HostOperationFields.HostId
+}
+
+// GetType returns IssueHostOperationInstructedIssueHostOperation.Type, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetType() string {
+	return v.HostOperationFields.Type
+}
+
+// GetArgs returns IssueHostOperationInstructedIssueHostOperation.Args, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetArgs() json.RawMessage {
+	return v.HostOperationFields.Args
+}
+
+// GetWorkerId returns IssueHostOperationInstructedIssueHostOperation.WorkerId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetWorkerId() string {
+	return v.HostOperationFields.WorkerId
+}
+
+// GetWorker returns IssueHostOperationInstructedIssueHostOperation.Worker, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetWorker() *HostOperationFieldsWorker {
+	return v.HostOperationFields.Worker
+}
+
+// GetStatus returns IssueHostOperationInstructedIssueHostOperation.Status, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetStatus() HostOperationStatus {
+	return v.HostOperationFields.Status
+}
+
+// GetIssuedBy returns IssueHostOperationInstructedIssueHostOperation.IssuedBy, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetIssuedBy() HostOperationIssuer {
+	return v.HostOperationFields.IssuedBy
+}
+
+// GetIssuedByUserId returns IssueHostOperationInstructedIssueHostOperation.IssuedByUserId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetIssuedByUserId() *string {
+	return v.HostOperationFields.IssuedByUserId
+}
+
+// GetIssuedByWorkerId returns IssueHostOperationInstructedIssueHostOperation.IssuedByWorkerId, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetIssuedByWorkerId() *string {
+	return v.HostOperationFields.IssuedByWorkerId
+}
+
+// GetIssuedAt returns IssueHostOperationInstructedIssueHostOperation.IssuedAt, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetIssuedAt() string {
+	return v.HostOperationFields.IssuedAt
+}
+
+// GetCollectedAt returns IssueHostOperationInstructedIssueHostOperation.CollectedAt, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetCollectedAt() *string {
+	return v.HostOperationFields.CollectedAt
+}
+
+// GetFinishedAt returns IssueHostOperationInstructedIssueHostOperation.FinishedAt, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetFinishedAt() *string {
+	return v.HostOperationFields.FinishedAt
+}
+
+// GetResult returns IssueHostOperationInstructedIssueHostOperation.Result, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetResult() *json.RawMessage {
+	return v.HostOperationFields.Result
+}
+
+// GetFailureReason returns IssueHostOperationInstructedIssueHostOperation.FailureReason, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedIssueHostOperation) GetFailureReason() *string {
+	return v.HostOperationFields.FailureReason
+}
+
+func (v *IssueHostOperationInstructedIssueHostOperation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*IssueHostOperationInstructedIssueHostOperation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.IssueHostOperationInstructedIssueHostOperation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HostOperationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalIssueHostOperationInstructedIssueHostOperation struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	HostId string `json:"hostId"`
+
+	Type string `json:"type"`
+
+	Args json.RawMessage `json:"args"`
+
+	WorkerId string `json:"workerId"`
+
+	Worker *HostOperationFieldsWorker `json:"worker"`
+
+	Status HostOperationStatus `json:"status"`
+
+	IssuedBy HostOperationIssuer `json:"issuedBy"`
+
+	IssuedByUserId *string `json:"issuedByUserId"`
+
+	IssuedByWorkerId *string `json:"issuedByWorkerId"`
+
+	IssuedAt string `json:"issuedAt"`
+
+	CollectedAt *string `json:"collectedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	Result *json.RawMessage `json:"result"`
+
+	FailureReason *string `json:"failureReason"`
+}
+
+func (v *IssueHostOperationInstructedIssueHostOperation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *IssueHostOperationInstructedIssueHostOperation) __premarshalJSON() (*__premarshalIssueHostOperationInstructedIssueHostOperation, error) {
+	var retval __premarshalIssueHostOperationInstructedIssueHostOperation
+
+	retval.Id = v.HostOperationFields.Id
+	retval.AppId = v.HostOperationFields.AppId
+	retval.HostId = v.HostOperationFields.HostId
+	retval.Type = v.HostOperationFields.Type
+	retval.Args = v.HostOperationFields.Args
+	retval.WorkerId = v.HostOperationFields.WorkerId
+	retval.Worker = v.HostOperationFields.Worker
+	retval.Status = v.HostOperationFields.Status
+	retval.IssuedBy = v.HostOperationFields.IssuedBy
+	retval.IssuedByUserId = v.HostOperationFields.IssuedByUserId
+	retval.IssuedByWorkerId = v.HostOperationFields.IssuedByWorkerId
+	retval.IssuedAt = v.HostOperationFields.IssuedAt
+	retval.CollectedAt = v.HostOperationFields.CollectedAt
+	retval.FinishedAt = v.HostOperationFields.FinishedAt
+	retval.Result = v.HostOperationFields.Result
+	retval.FailureReason = v.HostOperationFields.FailureReason
+	return &retval, nil
+}
+
+// IssueHostOperationInstructedResponse is returned by IssueHostOperationInstructed on success.
+type IssueHostOperationInstructedResponse struct {
+	// #1709 — issue an operation to one of the App's registered hosts (hrn:node:hadronmemory.com:specs:cor:agt:070:05).
+	// A type outside the closed set is HOST_OPERATION_TYPE_UNKNOWN (hrn:node:hadronmemory.com:specs:cor:agt:070:03), a
+	// missing, extra or malformed argument BAD_HOST_OPERATION_ARGS. worktree.create and worktree.remove: the worker's
+	// holder, the worker it reports to directly (not further up the chain), or whoever manages the App (else HOST_OPERATION_NOT_PERMITTED). worker.start:
+	// whoever manages the App only, with an optional taskId, for a held worker with no live session and no start in
+	// flight, in a worktree and family the live host registers for it (WORKER_NOT_HELD, WORKER_LIVE,
+	// WORKER_START_PENDING). worker.end: whoever manages the App only (else HOST_OPERATION_NOT_PERMITTED), naming an open
+	// session of the worker on a host that registers it (else BAD_HOST_OPERATION_ARGS). worker.deliver is the one type
+	// not issued yet, HOST_OPERATION_NOT_ISSUABLE until a host has a delivery path for it (hadron-cli#829).
+	// worker.reset-context is HOST_OPERATION_NOT_ISSUABLE here: the platform issues it when a task ends (#2162). An App key
+	// issues nothing (FORBIDDEN). An unregistered host is HOST_NOT_FOUND.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	IssueHostOperation *IssueHostOperationInstructedIssueHostOperation `json:"issueHostOperation"`
+}
+
+// GetIssueHostOperation returns IssueHostOperationInstructedResponse.IssueHostOperation, and is useful for accessing the field via an interface.
+func (v *IssueHostOperationInstructedResponse) GetIssueHostOperation() *IssueHostOperationInstructedIssueHostOperation {
+	return v.IssueHostOperation
+}
+
 // IssueHostOperationIssueHostOperation includes the requested fields of the GraphQL type HostOperation.
 // The GraphQL type's documentation follows.
 //
@@ -92168,7 +92372,7 @@ func (v *RevokeAppMemoryWriteGrantRow1595) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns RevokeAppMemoryWriteGrantRow1595.Prefix, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRow1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
+func (v *RevokeAppMemoryWriteGrantRow1595) GetPrefix() *string { return v.AppMemoryGrantFields.Prefix }
 
 // GetRegisterNodeUrn returns RevokeAppMemoryWriteGrantRow1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *RevokeAppMemoryWriteGrantRow1595) GetRegisterNodeUrn() *string {
@@ -92237,7 +92441,7 @@ type __premarshalRevokeAppMemoryWriteGrantRow1595 struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -92826,6 +93030,43 @@ type RevokePrincipalGrantResponse struct {
 
 // GetRevokePrincipalGrant returns RevokePrincipalGrantResponse.RevokePrincipalGrant, and is useful for accessing the field via an interface.
 func (v *RevokePrincipalGrantResponse) GetRevokePrincipalGrant() bool { return v.RevokePrincipalGrant }
+
+// RevokeSecretReadClientGrantInstructedResponse is returned by RevokeSecretReadClientGrantInstructed on success.
+type RevokeSecretReadClientGrantInstructedResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, :03) — revoke a grant now, unsigned, in any state but ended. By the issuer (while still a member of the App's Org), by whoever manages the App, or by a held worker on a validated instruction from a holder who may. Returns the grant as appGrants reads it. The first end stands: a grant already revoked, withdrawn or whose holder departed is returned as it is, with no second stamp and no second REVOKE event. Judged on the locked current row. Refusals: GRANT_NOT_MANAGER (not allowed, and a grant that does not exist or cannot be seen: the same answer).
+	RevokeGrant *RevokeSecretReadClientGrantInstructedRevokeGrant `json:"revokeGrant"`
+}
+
+// GetRevokeGrant returns RevokeSecretReadClientGrantInstructedResponse.RevokeGrant, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedResponse) GetRevokeGrant() *RevokeSecretReadClientGrantInstructedRevokeGrant {
+	return v.RevokeGrant
+}
+
+// RevokeSecretReadClientGrantInstructedRevokeGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type RevokeSecretReadClientGrantInstructedRevokeGrant struct {
+	Id string `json:"id"`
+	// #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+	State     GrantState `json:"state"`
+	RevokedAt *string    `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows *bool `json:"allows"`
+}
+
+// GetId returns RevokeSecretReadClientGrantInstructedRevokeGrant.Id, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetId() string { return v.Id }
+
+// GetState returns RevokeSecretReadClientGrantInstructedRevokeGrant.State, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetState() GrantState { return v.State }
+
+// GetRevokedAt returns RevokeSecretReadClientGrantInstructedRevokeGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns RevokeSecretReadClientGrantInstructedRevokeGrant.Allows, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantInstructedRevokeGrant) GetAllows() *bool { return v.Allows }
 
 // RevokeSecretReadClientGrantResponse is returned by RevokeSecretReadClientGrant on success.
 type RevokeSecretReadClientGrantResponse struct {
@@ -98287,7 +98528,7 @@ func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns SetAppMemoryWriteGrantSetAppMemoryWriteGrant.Prefix, and is useful for accessing the field via an interface.
-func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetPrefix() string {
+func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetPrefix() *string {
 	return v.AppMemoryGrantFields.Prefix
 }
 
@@ -98358,7 +98599,7 @@ type __premarshalSetAppMemoryWriteGrantSetAppMemoryWriteGrant struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -99775,6 +100016,28 @@ func (v *SetSecretProtectedSetSecretProtectedSecret) __premarshalJSON() (*__prem
 	return &retval, nil
 }
 
+// SetTeamPauseInstructedResponse is returned by SetTeamPauseInstructed on success.
+type SetTeamPauseInstructedResponse struct {
+	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #4223: while paused, the platform issues no worker.start for an assignment; lifting the pause starts the held workers with no open session whose tasks were assigned during it, and no others. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetTeamPause *SetTeamPauseInstructedSetTeamPause `json:"setTeamPause"`
+}
+
+// GetSetTeamPause returns SetTeamPauseInstructedResponse.SetTeamPause, and is useful for accessing the field via an interface.
+func (v *SetTeamPauseInstructedResponse) GetSetTeamPause() *SetTeamPauseInstructedSetTeamPause {
+	return v.SetTeamPause
+}
+
+// SetTeamPauseInstructedSetTeamPause includes the requested fields of the GraphQL type TeamPause.
+// The GraphQL type's documentation follows.
+//
+// #2138: the App's team pause. teamPausedAt is null when the team is not paused.
+type SetTeamPauseInstructedSetTeamPause struct {
+	TeamPausedAt *string `json:"teamPausedAt"`
+}
+
+// GetTeamPausedAt returns SetTeamPauseInstructedSetTeamPause.TeamPausedAt, and is useful for accessing the field via an interface.
+func (v *SetTeamPauseInstructedSetTeamPause) GetTeamPausedAt() *string { return v.TeamPausedAt }
+
 // SetTeamPauseResponse is returned by SetTeamPause on success.
 type SetTeamPauseResponse struct {
 	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #4223: while paused, the platform issues no worker.start for an assignment; lifting the pause starts the held workers with no open session whose tasks were assigned during it, and no others. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -100629,6 +100892,116 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
 	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// SetWorkerWakeSettingsInstructedResponse is returned by SetWorkerWakeSettingsInstructed on success.
+type SetWorkerWakeSettingsInstructedResponse struct {
+	// #1747 — change a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03, :21): the worker itself, its holder, or whoever manages
+	// the App, in either direction. Never the may-subscribe-workers grant.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetWorkerWakeSettings *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings `json:"setWorkerWakeSettings"`
+}
+
+// GetSetWorkerWakeSettings returns SetWorkerWakeSettingsInstructedResponse.SetWorkerWakeSettings, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsInstructedResponse) GetSetWorkerWakeSettings() *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings {
+	return v.SetWorkerWakeSettings
+}
+
+// SetWorkerWakeSettingsInstructedSetWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+type SetWorkerWakeSettingsInstructedSetWorkerWakeSettings struct {
+	WorkerWakeSettingsFields `json:"-"`
+}
+
+// GetWorker returns SetWorkerWakeSettingsInstructedSetWorkerWakeSettings.Worker, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) GetWorker() *WorkerWakeSettingsFieldsWorker {
+	return v.WorkerWakeSettingsFields.Worker
+}
+
+// GetMentions returns SetWorkerWakeSettingsInstructedSetWorkerWakeSettings.Mentions, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) GetMentions() MentionWake {
+	return v.WorkerWakeSettingsFields.Mentions
+}
+
+// GetPausedUntil returns SetWorkerWakeSettingsInstructedSetWorkerWakeSettings.PausedUntil, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) GetPausedUntil() *string {
+	return v.WorkerWakeSettingsFields.PausedUntil
+}
+
+// GetSubscriptions returns SetWorkerWakeSettingsInstructedSetWorkerWakeSettings.Subscriptions, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
+	return v.WorkerWakeSettingsFields.Subscriptions
+}
+
+// GetEffectiveCadenceSeconds returns SetWorkerWakeSettingsInstructedSetWorkerWakeSettings.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) GetEffectiveCadenceSeconds() *int {
+	return v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+}
+
+// GetDormant returns SetWorkerWakeSettingsInstructedSetWorkerWakeSettings.Dormant, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) GetDormant() bool {
+	return v.WorkerWakeSettingsFields.Dormant
+}
+
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetWorkerWakeSettingsInstructedSetWorkerWakeSettings
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetWorkerWakeSettingsInstructedSetWorkerWakeSettings = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerWakeSettingsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetWorkerWakeSettingsInstructedSetWorkerWakeSettings struct {
+	Worker *WorkerWakeSettingsFieldsWorker `json:"worker"`
+
+	Mentions MentionWake `json:"mentions"`
+
+	PausedUntil *string `json:"pausedUntil"`
+
+	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
+
+	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
+
+	Dormant bool `json:"dormant"`
+}
+
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetWorkerWakeSettingsInstructedSetWorkerWakeSettings) __premarshalJSON() (*__premarshalSetWorkerWakeSettingsInstructedSetWorkerWakeSettings, error) {
+	var retval __premarshalSetWorkerWakeSettingsInstructedSetWorkerWakeSettings
+
+	retval.Worker = v.WorkerWakeSettingsFields.Worker
+	retval.Mentions = v.WorkerWakeSettingsFields.Mentions
+	retval.PausedUntil = v.WorkerWakeSettingsFields.PausedUntil
+	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
+	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
 	return &retval, nil
 }
 
@@ -108678,6 +109051,114 @@ func (v *TeamDueWakesDueWakesDueWakePage) __premarshalJSON() (*__premarshalTeamD
 	return &retval, nil
 }
 
+// TeamDueWakesInstructedDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
+// The GraphQL type's documentation follows.
+//
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type TeamDueWakesInstructedDueWakesDueWakePage struct {
+	DueWakesPageFields `json:"-"`
+}
+
+// GetStatus returns TeamDueWakesInstructedDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) GetStatus() DueWakeStatus {
+	return v.DueWakesPageFields.Status
+}
+
+// GetWithheld returns TeamDueWakesInstructedDueWakesDueWakePage.Withheld, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) GetWithheld() int {
+	return v.DueWakesPageFields.Withheld
+}
+
+// GetDormant returns TeamDueWakesInstructedDueWakesDueWakePage.Dormant, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) GetDormant() []*DueWakesPageFieldsDormantDormantWithheld {
+	return v.DueWakesPageFields.Dormant
+}
+
+// GetWakes returns TeamDueWakesInstructedDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) GetWakes() []*DueWakesPageFieldsWakesDueWake {
+	return v.DueWakesPageFields.Wakes
+}
+
+// GetPageInfo returns TeamDueWakesInstructedDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) GetPageInfo() *DueWakesPageFieldsPageInfoDueWakePageInfo {
+	return v.DueWakesPageFields.PageInfo
+}
+
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamDueWakesInstructedDueWakesDueWakePage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamDueWakesInstructedDueWakesDueWakePage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DueWakesPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamDueWakesInstructedDueWakesDueWakePage struct {
+	Status DueWakeStatus `json:"status"`
+
+	Withheld int `json:"withheld"`
+
+	Dormant []*DueWakesPageFieldsDormantDormantWithheld `json:"dormant"`
+
+	Wakes []*DueWakesPageFieldsWakesDueWake `json:"wakes"`
+
+	PageInfo *DueWakesPageFieldsPageInfoDueWakePageInfo `json:"pageInfo"`
+}
+
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamDueWakesInstructedDueWakesDueWakePage) __premarshalJSON() (*__premarshalTeamDueWakesInstructedDueWakesDueWakePage, error) {
+	var retval __premarshalTeamDueWakesInstructedDueWakesDueWakePage
+
+	retval.Status = v.DueWakesPageFields.Status
+	retval.Withheld = v.DueWakesPageFields.Withheld
+	retval.Dormant = v.DueWakesPageFields.Dormant
+	retval.Wakes = v.DueWakesPageFields.Wakes
+	retval.PageInfo = v.DueWakesPageFields.PageInfo
+	return &retval, nil
+}
+
+// TeamDueWakesInstructedResponse is returned by TeamDueWakesInstructed on success.
+type TeamDueWakesInstructedResponse struct {
+	// #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+	// accepts (#2169, hrn:node:hadronmemory.com:specs:cor:agt:090:04): the reason kinds this caller can deliver. Omit it and no STOP notice is
+	// ever returned (the shipped ticker-wake). A call that lists STOP is offered the worker's newest undelivered stop notice, and
+	// declares the lane it serves (a host key: its own registration; a person who manages the App, or a key without a host:
+	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
+	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
+	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
+	// #3455: preview: true is the no-spend read (default false = the read above, unchanged). It reserves no wake and counts no budget use (hrn:node:hadronmemory.com:specs:cor:agt:080:15), withholds nothing and posts no budget notice, declares no stop lane, and returns an empty proof, which acknowledges nothing. It reads exactly what the spending read may read, with the same reach and refusals; an App key's preview is still a read the key is recorded for (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
+	DueWakes *TeamDueWakesInstructedDueWakesDueWakePage `json:"dueWakes"`
+}
+
+// GetDueWakes returns TeamDueWakesInstructedResponse.DueWakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesInstructedResponse) GetDueWakes() *TeamDueWakesInstructedDueWakesDueWakePage {
+	return v.DueWakes
+}
+
 // TeamDueWakesPreviewDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
 // The GraphQL type's documentation follows.
 //
@@ -108765,6 +109246,114 @@ func (v *TeamDueWakesPreviewDueWakesDueWakePage) __premarshalJSON() (*__premarsh
 	retval.Wakes = v.DueWakesPageFields.Wakes
 	retval.PageInfo = v.DueWakesPageFields.PageInfo
 	return &retval, nil
+}
+
+// TeamDueWakesPreviewInstructedDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
+// The GraphQL type's documentation follows.
+//
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type TeamDueWakesPreviewInstructedDueWakesDueWakePage struct {
+	DueWakesPageFields `json:"-"`
+}
+
+// GetStatus returns TeamDueWakesPreviewInstructedDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) GetStatus() DueWakeStatus {
+	return v.DueWakesPageFields.Status
+}
+
+// GetWithheld returns TeamDueWakesPreviewInstructedDueWakesDueWakePage.Withheld, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) GetWithheld() int {
+	return v.DueWakesPageFields.Withheld
+}
+
+// GetDormant returns TeamDueWakesPreviewInstructedDueWakesDueWakePage.Dormant, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) GetDormant() []*DueWakesPageFieldsDormantDormantWithheld {
+	return v.DueWakesPageFields.Dormant
+}
+
+// GetWakes returns TeamDueWakesPreviewInstructedDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) GetWakes() []*DueWakesPageFieldsWakesDueWake {
+	return v.DueWakesPageFields.Wakes
+}
+
+// GetPageInfo returns TeamDueWakesPreviewInstructedDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) GetPageInfo() *DueWakesPageFieldsPageInfoDueWakePageInfo {
+	return v.DueWakesPageFields.PageInfo
+}
+
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamDueWakesPreviewInstructedDueWakesDueWakePage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamDueWakesPreviewInstructedDueWakesDueWakePage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DueWakesPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamDueWakesPreviewInstructedDueWakesDueWakePage struct {
+	Status DueWakeStatus `json:"status"`
+
+	Withheld int `json:"withheld"`
+
+	Dormant []*DueWakesPageFieldsDormantDormantWithheld `json:"dormant"`
+
+	Wakes []*DueWakesPageFieldsWakesDueWake `json:"wakes"`
+
+	PageInfo *DueWakesPageFieldsPageInfoDueWakePageInfo `json:"pageInfo"`
+}
+
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamDueWakesPreviewInstructedDueWakesDueWakePage) __premarshalJSON() (*__premarshalTeamDueWakesPreviewInstructedDueWakesDueWakePage, error) {
+	var retval __premarshalTeamDueWakesPreviewInstructedDueWakesDueWakePage
+
+	retval.Status = v.DueWakesPageFields.Status
+	retval.Withheld = v.DueWakesPageFields.Withheld
+	retval.Dormant = v.DueWakesPageFields.Dormant
+	retval.Wakes = v.DueWakesPageFields.Wakes
+	retval.PageInfo = v.DueWakesPageFields.PageInfo
+	return &retval, nil
+}
+
+// TeamDueWakesPreviewInstructedResponse is returned by TeamDueWakesPreviewInstructed on success.
+type TeamDueWakesPreviewInstructedResponse struct {
+	// #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+	// accepts (#2169, hrn:node:hadronmemory.com:specs:cor:agt:090:04): the reason kinds this caller can deliver. Omit it and no STOP notice is
+	// ever returned (the shipped ticker-wake). A call that lists STOP is offered the worker's newest undelivered stop notice, and
+	// declares the lane it serves (a host key: its own registration; a person who manages the App, or a key without a host:
+	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
+	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
+	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
+	// #3455: preview: true is the no-spend read (default false = the read above, unchanged). It reserves no wake and counts no budget use (hrn:node:hadronmemory.com:specs:cor:agt:080:15), withholds nothing and posts no budget notice, declares no stop lane, and returns an empty proof, which acknowledges nothing. It reads exactly what the spending read may read, with the same reach and refusals; an App key's preview is still a read the key is recorded for (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
+	DueWakes *TeamDueWakesPreviewInstructedDueWakesDueWakePage `json:"dueWakes"`
+}
+
+// GetDueWakes returns TeamDueWakesPreviewInstructedResponse.DueWakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesPreviewInstructedResponse) GetDueWakes() *TeamDueWakesPreviewInstructedDueWakesDueWakePage {
+	return v.DueWakes
 }
 
 // TeamDueWakesPreviewResponse is returned by TeamDueWakesPreview on success.
@@ -113126,6 +113715,197 @@ func (v *TeamStallScheduleSetSetAgentTaskStallSchedule) __premarshalJSON() (*__p
 	return &retval, nil
 }
 
+// TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult includes the requested fields of the GraphQL type LiftStopSignalResult.
+type TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult struct {
+	// False when it had already ended: nothing changed and nobody was told again.
+	Changed bool                                                                                `json:"changed"`
+	Signal  *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal `json:"signal"`
+}
+
+// GetChanged returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult.Changed, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult) GetChanged() bool {
+	return v.Changed
+}
+
+// GetSignal returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult.Signal, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult) GetSignal() *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal {
+	return v.Signal
+}
+
+// TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal includes the requested fields of the GraphQL type StopSignal.
+// The GraphQL type's documentation follows.
+//
+// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal. Ids and times only; it never changes once set, except that its end is recorded.
+type TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal struct {
+	StopSignalFields `json:"-"`
+}
+
+// GetId returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Id, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetId() string {
+	return v.StopSignalFields.Id
+}
+
+// GetLevel returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Level, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetLevel() StopSignalLevel {
+	return v.StopSignalFields.Level
+}
+
+// GetScope returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Scope, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetScope() StopSignalScope {
+	return v.StopSignalFields.Scope
+}
+
+// GetTargetWorkerId returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.TargetWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetTargetWorkerId() *string {
+	return v.StopSignalFields.TargetWorkerId
+}
+
+// GetTargetHostId returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.TargetHostId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetTargetHostId() *string {
+	return v.StopSignalFields.TargetHostId
+}
+
+// GetSetAt returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.SetAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetSetAt() string {
+	return v.StopSignalFields.SetAt
+}
+
+// GetUntil returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Until, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetUntil() *string {
+	return v.StopSignalFields.Until
+}
+
+// GetSetByUserId returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.SetByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetSetByUserId() *string {
+	return v.StopSignalFields.SetByUserId
+}
+
+// GetSetByHostKey returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.SetByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetSetByHostKey() bool {
+	return v.StopSignalFields.SetByHostKey
+}
+
+// GetLive returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.Live, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetLive() bool {
+	return v.StopSignalFields.Live
+}
+
+// GetEndedAt returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndedAt() *string {
+	return v.StopSignalFields.EndedAt
+}
+
+// GetEndKind returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndKind, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndKind() *StopSignalEndKind {
+	return v.StopSignalFields.EndKind
+}
+
+// GetEndedByUserId returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndedByUserId() *string {
+	return v.StopSignalFields.EndedByUserId
+}
+
+// GetEndedByHostKey returns TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal.EndedByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) GetEndedByHostKey() bool {
+	return v.StopSignalFields.EndedByHostKey
+}
+
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.StopSignalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal struct {
+	Id string `json:"id"`
+
+	Level StopSignalLevel `json:"level"`
+
+	Scope StopSignalScope `json:"scope"`
+
+	TargetWorkerId *string `json:"targetWorkerId"`
+
+	TargetHostId *string `json:"targetHostId"`
+
+	SetAt string `json:"setAt"`
+
+	Until *string `json:"until"`
+
+	SetByUserId *string `json:"setByUserId"`
+
+	SetByHostKey bool `json:"setByHostKey"`
+
+	Live bool `json:"live"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndKind *StopSignalEndKind `json:"endKind"`
+
+	EndedByUserId *string `json:"endedByUserId"`
+
+	EndedByHostKey bool `json:"endedByHostKey"`
+}
+
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal) __premarshalJSON() (*__premarshalTeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal, error) {
+	var retval __premarshalTeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResultSignalStopSignal
+
+	retval.Id = v.StopSignalFields.Id
+	retval.Level = v.StopSignalFields.Level
+	retval.Scope = v.StopSignalFields.Scope
+	retval.TargetWorkerId = v.StopSignalFields.TargetWorkerId
+	retval.TargetHostId = v.StopSignalFields.TargetHostId
+	retval.SetAt = v.StopSignalFields.SetAt
+	retval.Until = v.StopSignalFields.Until
+	retval.SetByUserId = v.StopSignalFields.SetByUserId
+	retval.SetByHostKey = v.StopSignalFields.SetByHostKey
+	retval.Live = v.StopSignalFields.Live
+	retval.EndedAt = v.StopSignalFields.EndedAt
+	retval.EndKind = v.StopSignalFields.EndKind
+	retval.EndedByUserId = v.StopSignalFields.EndedByUserId
+	retval.EndedByHostKey = v.StopSignalFields.EndedByHostKey
+	return &retval, nil
+}
+
+// TeamStopSignalLiftInstructedResponse is returned by TeamStopSignalLiftInstructed on success.
+type TeamStopSignalLiftInstructedResponse struct {
+	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:05, :06) — lift a stop signal. Whoever manages the App, any; a host key, a HALT on its own host.
+	// Lifting one never ends another. changed is false when it had already ended. Refusals as setTeamStopSignal.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	LiftTeamStopSignal *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult `json:"liftTeamStopSignal"`
+}
+
+// GetLiftTeamStopSignal returns TeamStopSignalLiftInstructedResponse.LiftTeamStopSignal, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalLiftInstructedResponse) GetLiftTeamStopSignal() *TeamStopSignalLiftInstructedLiftTeamStopSignalLiftStopSignalResult {
+	return v.LiftTeamStopSignal
+}
+
 // TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult includes the requested fields of the GraphQL type LiftStopSignalResult.
 type TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult struct {
 	// False when it had already ended: nothing changed and nobody was told again.
@@ -113315,6 +114095,180 @@ type TeamStopSignalLiftResponse struct {
 // GetLiftTeamStopSignal returns TeamStopSignalLiftResponse.LiftTeamStopSignal, and is useful for accessing the field via an interface.
 func (v *TeamStopSignalLiftResponse) GetLiftTeamStopSignal() *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult {
 	return v.LiftTeamStopSignal
+}
+
+// TeamStopSignalSetInstructedResponse is returned by TeamStopSignalSetInstructed on success.
+type TeamStopSignalSetInstructedResponse struct {
+	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01, :06) — set a stop signal. Whoever manages the App: any level and
+	// scope. A host key: a HALT on its own host only. Never replaces another signal. Refusals: APP_MANAGER_REQUIRED,
+	// HOST_SCOPE_REQUIRED, STOP_SIGNAL_SCOPE_FORBIDDEN, STOP_SIGNAL_NOT_FOUND (the target), BAD_USER_INPUT, APP_NOT_FOUND.
+	// #2173/#2169 (R95): setting ANY signal is refused with STOP_SIGNAL_UNAVAILABLE while a worker it would cover is on a lane with
+	// no fresh stop-consumer declaration (a worker would be stopped without being told; the extensions name the worker count and the
+	// lanes). A consumer declares a lane by polling dueWakes with accepts: [STOP]. Lifting and listing are unaffected.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	SetTeamStopSignal *TeamStopSignalSetInstructedSetTeamStopSignal `json:"setTeamStopSignal"`
+}
+
+// GetSetTeamStopSignal returns TeamStopSignalSetInstructedResponse.SetTeamStopSignal, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedResponse) GetSetTeamStopSignal() *TeamStopSignalSetInstructedSetTeamStopSignal {
+	return v.SetTeamStopSignal
+}
+
+// TeamStopSignalSetInstructedSetTeamStopSignal includes the requested fields of the GraphQL type StopSignal.
+// The GraphQL type's documentation follows.
+//
+// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:01) — a stop signal. Ids and times only; it never changes once set, except that its end is recorded.
+type TeamStopSignalSetInstructedSetTeamStopSignal struct {
+	StopSignalFields `json:"-"`
+}
+
+// GetId returns TeamStopSignalSetInstructedSetTeamStopSignal.Id, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetId() string { return v.StopSignalFields.Id }
+
+// GetLevel returns TeamStopSignalSetInstructedSetTeamStopSignal.Level, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetLevel() StopSignalLevel {
+	return v.StopSignalFields.Level
+}
+
+// GetScope returns TeamStopSignalSetInstructedSetTeamStopSignal.Scope, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetScope() StopSignalScope {
+	return v.StopSignalFields.Scope
+}
+
+// GetTargetWorkerId returns TeamStopSignalSetInstructedSetTeamStopSignal.TargetWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetTargetWorkerId() *string {
+	return v.StopSignalFields.TargetWorkerId
+}
+
+// GetTargetHostId returns TeamStopSignalSetInstructedSetTeamStopSignal.TargetHostId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetTargetHostId() *string {
+	return v.StopSignalFields.TargetHostId
+}
+
+// GetSetAt returns TeamStopSignalSetInstructedSetTeamStopSignal.SetAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetSetAt() string {
+	return v.StopSignalFields.SetAt
+}
+
+// GetUntil returns TeamStopSignalSetInstructedSetTeamStopSignal.Until, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetUntil() *string {
+	return v.StopSignalFields.Until
+}
+
+// GetSetByUserId returns TeamStopSignalSetInstructedSetTeamStopSignal.SetByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetSetByUserId() *string {
+	return v.StopSignalFields.SetByUserId
+}
+
+// GetSetByHostKey returns TeamStopSignalSetInstructedSetTeamStopSignal.SetByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetSetByHostKey() bool {
+	return v.StopSignalFields.SetByHostKey
+}
+
+// GetLive returns TeamStopSignalSetInstructedSetTeamStopSignal.Live, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetLive() bool { return v.StopSignalFields.Live }
+
+// GetEndedAt returns TeamStopSignalSetInstructedSetTeamStopSignal.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetEndedAt() *string {
+	return v.StopSignalFields.EndedAt
+}
+
+// GetEndKind returns TeamStopSignalSetInstructedSetTeamStopSignal.EndKind, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetEndKind() *StopSignalEndKind {
+	return v.StopSignalFields.EndKind
+}
+
+// GetEndedByUserId returns TeamStopSignalSetInstructedSetTeamStopSignal.EndedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetEndedByUserId() *string {
+	return v.StopSignalFields.EndedByUserId
+}
+
+// GetEndedByHostKey returns TeamStopSignalSetInstructedSetTeamStopSignal.EndedByHostKey, and is useful for accessing the field via an interface.
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) GetEndedByHostKey() bool {
+	return v.StopSignalFields.EndedByHostKey
+}
+
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamStopSignalSetInstructedSetTeamStopSignal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamStopSignalSetInstructedSetTeamStopSignal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.StopSignalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamStopSignalSetInstructedSetTeamStopSignal struct {
+	Id string `json:"id"`
+
+	Level StopSignalLevel `json:"level"`
+
+	Scope StopSignalScope `json:"scope"`
+
+	TargetWorkerId *string `json:"targetWorkerId"`
+
+	TargetHostId *string `json:"targetHostId"`
+
+	SetAt string `json:"setAt"`
+
+	Until *string `json:"until"`
+
+	SetByUserId *string `json:"setByUserId"`
+
+	SetByHostKey bool `json:"setByHostKey"`
+
+	Live bool `json:"live"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndKind *StopSignalEndKind `json:"endKind"`
+
+	EndedByUserId *string `json:"endedByUserId"`
+
+	EndedByHostKey bool `json:"endedByHostKey"`
+}
+
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamStopSignalSetInstructedSetTeamStopSignal) __premarshalJSON() (*__premarshalTeamStopSignalSetInstructedSetTeamStopSignal, error) {
+	var retval __premarshalTeamStopSignalSetInstructedSetTeamStopSignal
+
+	retval.Id = v.StopSignalFields.Id
+	retval.Level = v.StopSignalFields.Level
+	retval.Scope = v.StopSignalFields.Scope
+	retval.TargetWorkerId = v.StopSignalFields.TargetWorkerId
+	retval.TargetHostId = v.StopSignalFields.TargetHostId
+	retval.SetAt = v.StopSignalFields.SetAt
+	retval.Until = v.StopSignalFields.Until
+	retval.SetByUserId = v.StopSignalFields.SetByUserId
+	retval.SetByHostKey = v.StopSignalFields.SetByHostKey
+	retval.Live = v.StopSignalFields.Live
+	retval.EndedAt = v.StopSignalFields.EndedAt
+	retval.EndKind = v.StopSignalFields.EndKind
+	retval.EndedByUserId = v.StopSignalFields.EndedByUserId
+	retval.EndedByHostKey = v.StopSignalFields.EndedByHostKey
+	return &retval, nil
 }
 
 // TeamStopSignalSetResponse is returned by TeamStopSignalSet on success.
@@ -137084,6 +138038,20 @@ type __IssueHostOperationInput struct {
 // GetInput returns __IssueHostOperationInput.Input, and is useful for accessing the field via an interface.
 func (v *__IssueHostOperationInput) GetInput() *IssueHostOperationInput { return v.Input }
 
+// __IssueHostOperationInstructedInput is used internally by genqlient
+type __IssueHostOperationInstructedInput struct {
+	Input       *IssueHostOperationInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput     `json:"instruction,omitempty"`
+}
+
+// GetInput returns __IssueHostOperationInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__IssueHostOperationInstructedInput) GetInput() *IssueHostOperationInput { return v.Input }
+
+// GetInstruction returns __IssueHostOperationInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__IssueHostOperationInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __IssueSecretReadClientInput is used internally by genqlient
 type __IssueSecretReadClientInput struct {
 	Input *IssueSecretReadClientInput `json:"input,omitempty"`
@@ -139230,6 +140198,20 @@ type __RevokeSecretReadClientGrantInput struct {
 // GetRef returns __RevokeSecretReadClientGrantInput.Ref, and is useful for accessing the field via an interface.
 func (v *__RevokeSecretReadClientGrantInput) GetRef() string { return v.Ref }
 
+// __RevokeSecretReadClientGrantInstructedInput is used internally by genqlient
+type __RevokeSecretReadClientGrantInstructedInput struct {
+	Ref         string               `json:"ref"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetRef returns __RevokeSecretReadClientGrantInstructedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RevokeSecretReadClientGrantInstructedInput) GetRef() string { return v.Ref }
+
+// GetInstruction returns __RevokeSecretReadClientGrantInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RevokeSecretReadClientGrantInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __RevokeUserApiKeyInput is used internally by genqlient
 type __RevokeUserApiKeyInput struct {
 	Id string `json:"id"`
@@ -140038,6 +141020,22 @@ func (v *__SetTeamPauseInput) GetAppRef() string { return v.AppRef }
 // GetPaused returns __SetTeamPauseInput.Paused, and is useful for accessing the field via an interface.
 func (v *__SetTeamPauseInput) GetPaused() bool { return v.Paused }
 
+// __SetTeamPauseInstructedInput is used internally by genqlient
+type __SetTeamPauseInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Paused      bool                 `json:"paused"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __SetTeamPauseInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetTeamPauseInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetPaused returns __SetTeamPauseInstructedInput.Paused, and is useful for accessing the field via an interface.
+func (v *__SetTeamPauseInstructedInput) GetPaused() bool { return v.Paused }
+
+// GetInstruction returns __SetTeamPauseInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SetTeamPauseInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
 // __SetUserApiKeyHiddenInput is used internally by genqlient
 type __SetUserApiKeyHiddenInput struct {
 	Id     string `json:"id"`
@@ -140097,6 +141095,24 @@ func (v *__SetWorkerWakeSettingsInput) GetWorkerRef() string { return v.WorkerRe
 
 // GetInput returns __SetWorkerWakeSettingsInput.Input, and is useful for accessing the field via an interface.
 func (v *__SetWorkerWakeSettingsInput) GetInput() *WorkerWakeSettingsInput { return v.Input }
+
+// __SetWorkerWakeSettingsInstructedInput is used internally by genqlient
+type __SetWorkerWakeSettingsInstructedInput struct {
+	WorkerRef   string                   `json:"workerRef"`
+	Input       *WorkerWakeSettingsInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput     `json:"instruction,omitempty"`
+}
+
+// GetWorkerRef returns __SetWorkerWakeSettingsInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__SetWorkerWakeSettingsInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetInput returns __SetWorkerWakeSettingsInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetWorkerWakeSettingsInstructedInput) GetInput() *WorkerWakeSettingsInput { return v.Input }
+
+// GetInstruction returns __SetWorkerWakeSettingsInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SetWorkerWakeSettingsInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __SkillExportPlanInput is used internally by genqlient
 type __SkillExportPlanInput struct {
@@ -140990,6 +142006,34 @@ func (v *__TeamDueWakesInput) GetAfter() *string { return v.After }
 // GetAccepts returns __TeamDueWakesInput.Accepts, and is useful for accessing the field via an interface.
 func (v *__TeamDueWakesInput) GetAccepts() []WakeKind { return v.Accepts }
 
+// __TeamDueWakesInstructedInput is used internally by genqlient
+type __TeamDueWakesInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	WorkerRefs  []string             `json:"workerRefs,omitempty"`
+	First       *int                 `json:"first,omitempty"`
+	After       *string              `json:"after,omitempty"`
+	Accepts     []WakeKind           `json:"accepts,omitempty"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamDueWakesInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRefs returns __TeamDueWakesInstructedInput.WorkerRefs, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInstructedInput) GetWorkerRefs() []string { return v.WorkerRefs }
+
+// GetFirst returns __TeamDueWakesInstructedInput.First, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInstructedInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __TeamDueWakesInstructedInput.After, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInstructedInput) GetAfter() *string { return v.After }
+
+// GetAccepts returns __TeamDueWakesInstructedInput.Accepts, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInstructedInput) GetAccepts() []WakeKind { return v.Accepts }
+
+// GetInstruction returns __TeamDueWakesInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
 // __TeamDueWakesPreviewInput is used internally by genqlient
 type __TeamDueWakesPreviewInput struct {
 	AppRef     string     `json:"appRef"`
@@ -141013,6 +142057,36 @@ func (v *__TeamDueWakesPreviewInput) GetAfter() *string { return v.After }
 
 // GetAccepts returns __TeamDueWakesPreviewInput.Accepts, and is useful for accessing the field via an interface.
 func (v *__TeamDueWakesPreviewInput) GetAccepts() []WakeKind { return v.Accepts }
+
+// __TeamDueWakesPreviewInstructedInput is used internally by genqlient
+type __TeamDueWakesPreviewInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	WorkerRefs  []string             `json:"workerRefs,omitempty"`
+	First       *int                 `json:"first,omitempty"`
+	After       *string              `json:"after,omitempty"`
+	Accepts     []WakeKind           `json:"accepts,omitempty"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamDueWakesPreviewInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRefs returns __TeamDueWakesPreviewInstructedInput.WorkerRefs, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInstructedInput) GetWorkerRefs() []string { return v.WorkerRefs }
+
+// GetFirst returns __TeamDueWakesPreviewInstructedInput.First, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInstructedInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __TeamDueWakesPreviewInstructedInput.After, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInstructedInput) GetAfter() *string { return v.After }
+
+// GetAccepts returns __TeamDueWakesPreviewInstructedInput.Accepts, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInstructedInput) GetAccepts() []WakeKind { return v.Accepts }
+
+// GetInstruction returns __TeamDueWakesPreviewInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesPreviewInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __TeamGrantInput is used internally by genqlient
 type __TeamGrantInput struct {
@@ -141392,6 +142466,24 @@ func (v *__TeamStopSignalLiftInput) GetAppRef() string { return v.AppRef }
 // GetId returns __TeamStopSignalLiftInput.Id, and is useful for accessing the field via an interface.
 func (v *__TeamStopSignalLiftInput) GetId() string { return v.Id }
 
+// __TeamStopSignalLiftInstructedInput is used internally by genqlient
+type __TeamStopSignalLiftInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Id          string               `json:"id"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamStopSignalLiftInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalLiftInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetId returns __TeamStopSignalLiftInstructedInput.Id, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalLiftInstructedInput) GetId() string { return v.Id }
+
+// GetInstruction returns __TeamStopSignalLiftInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalLiftInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __TeamStopSignalSetInput is used internally by genqlient
 type __TeamStopSignalSetInput struct {
 	Input *SetTeamStopSignalInput `json:"input,omitempty"`
@@ -141399,6 +142491,20 @@ type __TeamStopSignalSetInput struct {
 
 // GetInput returns __TeamStopSignalSetInput.Input, and is useful for accessing the field via an interface.
 func (v *__TeamStopSignalSetInput) GetInput() *SetTeamStopSignalInput { return v.Input }
+
+// __TeamStopSignalSetInstructedInput is used internally by genqlient
+type __TeamStopSignalSetInstructedInput struct {
+	Input       *SetTeamStopSignalInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput    `json:"instruction,omitempty"`
+}
+
+// GetInput returns __TeamStopSignalSetInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalSetInstructedInput) GetInput() *SetTeamStopSignalInput { return v.Input }
+
+// GetInstruction returns __TeamStopSignalSetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamStopSignalSetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __TeamStopSignalsInput is used internally by genqlient
 type __TeamStopSignalsInput struct {
@@ -170402,6 +171508,63 @@ func IssueHostOperation(
 	return data_, err_
 }
 
+// The mutation executed by IssueHostOperationInstructed.
+const IssueHostOperationInstructed_Operation = `
+mutation IssueHostOperationInstructed ($input: IssueHostOperationInput!, $instruction: ActInstructionInput!) {
+	issueHostOperation(input: $input, instruction: $instruction) {
+		... HostOperationFields
+	}
+}
+fragment HostOperationFields on HostOperation {
+	id
+	appId
+	hostId
+	type
+	args
+	workerId
+	worker {
+		id
+		name
+	}
+	status
+	issuedBy
+	issuedByUserId
+	issuedByWorkerId
+	issuedAt
+	collectedAt
+	finishedAt
+	result
+	failureReason
+}
+`
+
+func IssueHostOperationInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *IssueHostOperationInput,
+	instruction *ActInstructionInput,
+) (data_ *IssueHostOperationInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IssueHostOperationInstructed",
+		Query:  IssueHostOperationInstructed_Operation,
+		Variables: &__IssueHostOperationInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &IssueHostOperationInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by IssueSecretReadClient.
 const IssueSecretReadClient_Operation = `
 mutation IssueSecretReadClient ($input: IssueSecretReadClientInput!) {
@@ -179944,6 +181107,46 @@ func RevokeSecretReadClientGrant(
 	return data_, err_
 }
 
+// The mutation executed by RevokeSecretReadClientGrantInstructed.
+const RevokeSecretReadClientGrantInstructed_Operation = `
+mutation RevokeSecretReadClientGrantInstructed ($ref: ID!, $instruction: ActInstructionInput!) {
+	revokeGrant(ref: $ref, instruction: $instruction) {
+		id
+		state
+		revokedAt
+		allows
+	}
+}
+`
+
+// cli#2754: only the explicit instructed path carries the claim and session.
+func RevokeSecretReadClientGrantInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	instruction *ActInstructionInput,
+) (data_ *RevokeSecretReadClientGrantInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeSecretReadClientGrantInstructed",
+		Query:  RevokeSecretReadClientGrantInstructed_Operation,
+		Variables: &__RevokeSecretReadClientGrantInstructedInput{
+			Ref:         ref,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RevokeSecretReadClientGrantInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RevokeUserApiKey.
 const RevokeUserApiKey_Operation = `
 mutation RevokeUserApiKey ($id: ID!) {
@@ -182734,6 +183937,44 @@ func SetTeamPause(
 	return data_, err_
 }
 
+// The mutation executed by SetTeamPauseInstructed.
+const SetTeamPauseInstructed_Operation = `
+mutation SetTeamPauseInstructed ($appRef: String!, $paused: Boolean!, $instruction: ActInstructionInput!) {
+	setTeamPause(appRef: $appRef, paused: $paused, instruction: $instruction) {
+		teamPausedAt
+	}
+}
+`
+
+func SetTeamPauseInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	paused bool,
+	instruction *ActInstructionInput,
+) (data_ *SetTeamPauseInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetTeamPauseInstructed",
+		Query:  SetTeamPauseInstructed_Operation,
+		Variables: &__SetTeamPauseInstructedInput{
+			AppRef:      appRef,
+			Paused:      paused,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SetTeamPauseInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetUserApiKeyHidden.
 const SetUserApiKeyHidden_Operation = `
 mutation SetUserApiKeyHidden ($id: ID!, $hidden: Boolean!) {
@@ -183039,6 +184280,67 @@ func SetWorkerWakeSettings(
 	}
 
 	data_ = &SetWorkerWakeSettingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetWorkerWakeSettingsInstructed.
+const SetWorkerWakeSettingsInstructed_Operation = `
+mutation SetWorkerWakeSettingsInstructed ($workerRef: String!, $input: WorkerWakeSettingsInput!, $instruction: ActInstructionInput!) {
+	setWorkerWakeSettings(workerRef: $workerRef, input: $input, instruction: $instruction) {
+		... WorkerWakeSettingsFields
+	}
+}
+fragment WorkerWakeSettingsFields on WorkerWakeSettings {
+	worker {
+		id
+		name
+		urn
+	}
+	mentions
+	pausedUntil
+	subscriptions {
+		id
+		ticker {
+			id
+			urn
+			name
+			cadenceSeconds
+			enabled
+		}
+		viaGrant
+		createdAt
+	}
+	effectiveCadenceSeconds
+	dormant
+}
+`
+
+func SetWorkerWakeSettingsInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	input *WorkerWakeSettingsInput,
+	instruction *ActInstructionInput,
+) (data_ *SetWorkerWakeSettingsInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetWorkerWakeSettingsInstructed",
+		Query:  SetWorkerWakeSettingsInstructed_Operation,
+		Variables: &__SetWorkerWakeSettingsInstructedInput{
+			WorkerRef:   workerRef,
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SetWorkerWakeSettingsInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -185985,6 +187287,110 @@ func TeamDueWakes(
 	return data_, err_
 }
 
+// The query executed by TeamDueWakesInstructed.
+const TeamDueWakesInstructed_Operation = `
+query TeamDueWakesInstructed ($appRef: String!, $workerRefs: [String!], $first: Int, $after: String, $accepts: [WakeKind!], $instruction: ActInstructionInput!) {
+	dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts, instruction: $instruction) {
+		... DueWakesPageFields
+	}
+}
+fragment DueWakesPageFields on DueWakePage {
+	status
+	withheld
+	dormant {
+		worker {
+			id
+			name
+		}
+		mentions
+	}
+	wakes {
+		proof
+		worker {
+			id
+			name
+		}
+		tickText
+		unread
+		unreadMentions
+		anchorAt
+		deliverAfter
+		busyDeadline
+		channels {
+			channel {
+				id
+				loc
+			}
+			fromSeq
+			throughSeq
+			latestMentionSeq
+		}
+		reasons {
+			kind
+			tickDueAt
+			ticker {
+				id
+				name
+			}
+			task {
+				id
+				handle
+				title
+				event
+				chainIndex
+				eventId
+			}
+			stop {
+				eventId
+				signalId
+				level
+				notice
+				interrupt
+			}
+		}
+	}
+	pageInfo {
+		hasNextPage
+		endCursor
+	}
+}
+`
+
+func TeamDueWakesInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRefs []string,
+	first *int,
+	after *string,
+	accepts []WakeKind,
+	instruction *ActInstructionInput,
+) (data_ *TeamDueWakesInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamDueWakesInstructed",
+		Query:  TeamDueWakesInstructed_Operation,
+		Variables: &__TeamDueWakesInstructedInput{
+			AppRef:      appRef,
+			WorkerRefs:  workerRefs,
+			First:       first,
+			After:       after,
+			Accepts:     accepts,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamDueWakesInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamDueWakesPreview.
 const TeamDueWakesPreview_Operation = `
 query TeamDueWakesPreview ($appRef: String!, $workerRefs: [String!], $first: Int, $after: String, $accepts: [WakeKind!]) {
@@ -186077,6 +187483,110 @@ func TeamDueWakesPreview(
 	}
 
 	data_ = &TeamDueWakesPreviewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamDueWakesPreviewInstructed.
+const TeamDueWakesPreviewInstructed_Operation = `
+query TeamDueWakesPreviewInstructed ($appRef: String!, $workerRefs: [String!], $first: Int, $after: String, $accepts: [WakeKind!], $instruction: ActInstructionInput!) {
+	dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts, preview: true, instruction: $instruction) {
+		... DueWakesPageFields
+	}
+}
+fragment DueWakesPageFields on DueWakePage {
+	status
+	withheld
+	dormant {
+		worker {
+			id
+			name
+		}
+		mentions
+	}
+	wakes {
+		proof
+		worker {
+			id
+			name
+		}
+		tickText
+		unread
+		unreadMentions
+		anchorAt
+		deliverAfter
+		busyDeadline
+		channels {
+			channel {
+				id
+				loc
+			}
+			fromSeq
+			throughSeq
+			latestMentionSeq
+		}
+		reasons {
+			kind
+			tickDueAt
+			ticker {
+				id
+				name
+			}
+			task {
+				id
+				handle
+				title
+				event
+				chainIndex
+				eventId
+			}
+			stop {
+				eventId
+				signalId
+				level
+				notice
+				interrupt
+			}
+		}
+	}
+	pageInfo {
+		hasNextPage
+		endCursor
+	}
+}
+`
+
+func TeamDueWakesPreviewInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRefs []string,
+	first *int,
+	after *string,
+	accepts []WakeKind,
+	instruction *ActInstructionInput,
+) (data_ *TeamDueWakesPreviewInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamDueWakesPreviewInstructed",
+		Query:  TeamDueWakesPreviewInstructed_Operation,
+		Variables: &__TeamDueWakesPreviewInstructedInput{
+			AppRef:      appRef,
+			WorkerRefs:  workerRefs,
+			First:       first,
+			After:       after,
+			Accepts:     accepts,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamDueWakesPreviewInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -187601,6 +189111,63 @@ func TeamStopSignalLift(
 	return data_, err_
 }
 
+// The mutation executed by TeamStopSignalLiftInstructed.
+const TeamStopSignalLiftInstructed_Operation = `
+mutation TeamStopSignalLiftInstructed ($appRef: String!, $id: ID!, $instruction: ActInstructionInput!) {
+	liftTeamStopSignal(appRef: $appRef, id: $id, instruction: $instruction) {
+		changed
+		signal {
+			... StopSignalFields
+		}
+	}
+}
+fragment StopSignalFields on StopSignal {
+	id
+	level
+	scope
+	targetWorkerId
+	targetHostId
+	setAt
+	until
+	setByUserId
+	setByHostKey
+	live
+	endedAt
+	endKind
+	endedByUserId
+	endedByHostKey
+}
+`
+
+func TeamStopSignalLiftInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	id string,
+	instruction *ActInstructionInput,
+) (data_ *TeamStopSignalLiftInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStopSignalLiftInstructed",
+		Query:  TeamStopSignalLiftInstructed_Operation,
+		Variables: &__TeamStopSignalLiftInstructedInput{
+			AppRef:      appRef,
+			Id:          id,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamStopSignalLiftInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by TeamStopSignalSet.
 const TeamStopSignalSet_Operation = `
 mutation TeamStopSignalSet ($input: SetTeamStopSignalInput!) {
@@ -187640,6 +189207,58 @@ func TeamStopSignalSet(
 	}
 
 	data_ = &TeamStopSignalSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamStopSignalSetInstructed.
+const TeamStopSignalSetInstructed_Operation = `
+mutation TeamStopSignalSetInstructed ($input: SetTeamStopSignalInput!, $instruction: ActInstructionInput!) {
+	setTeamStopSignal(input: $input, instruction: $instruction) {
+		... StopSignalFields
+	}
+}
+fragment StopSignalFields on StopSignal {
+	id
+	level
+	scope
+	targetWorkerId
+	targetHostId
+	setAt
+	until
+	setByUserId
+	setByHostKey
+	live
+	endedAt
+	endKind
+	endedByUserId
+	endedByHostKey
+}
+`
+
+func TeamStopSignalSetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetTeamStopSignalInput,
+	instruction *ActInstructionInput,
+) (data_ *TeamStopSignalSetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamStopSignalSetInstructed",
+		Query:  TeamStopSignalSetInstructed_Operation,
+		Variables: &__TeamStopSignalSetInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamStopSignalSetInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -147,7 +147,7 @@ Details:
 				}
 				t := output.NewTable(w, "ID", "ORG ID", "APP ID", "STATUS", "TEAM ID", "TEAM", "BOT ID", "BOT USER", "UPDATED")
 				for _, v := range dto.Items {
-					t.Row(output.SafeCell(strconv.Quote(v.ID)), output.SafeCell(strconv.Quote(v.OrganizationID)), output.SafeCell(strconv.Quote(v.DefaultAppID)), v.Status, output.SafeCell(strconv.Quote(v.TeamID)), output.SafeCell(strconv.Quote(v.TeamName)), output.SafeCell(strconv.Quote(v.BotID)), output.SafeCell(strconv.Quote(v.BotUserID)), output.SafeCell(strconv.Quote(v.UpdatedAt)))
+					t.Row(output.SafeCell(strconv.Quote(v.ID)), output.SafeCell(strconv.Quote(v.OrganizationID)), output.SafeCell(strconv.Quote(v.DefaultAppID)), output.SafeCell(strconv.Quote(v.Status)), output.SafeCell(strconv.Quote(v.TeamID)), output.SafeCell(strconv.Quote(v.TeamName)), output.SafeCell(strconv.Quote(v.BotID)), output.SafeCell(strconv.Quote(v.BotUserID)), output.SafeCell(strconv.Quote(v.UpdatedAt)))
 				}
 				return t.Flush()
 			})

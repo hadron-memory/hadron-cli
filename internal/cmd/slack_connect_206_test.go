@@ -402,7 +402,7 @@ func TestSlackConnectScrubKeepsClassCodeAndRecoveryGuidance(t *testing.T) {
 	}
 	noSecret(t, "the rendered output", all)
 	all, _, e = runSlackRendered(t, `{"errors":[{"message":"boom `+appTok+`","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, false, connectArgs(t)...)
-	for _, want := range []string{"outcome unknown", "not retried", "hadron slack status --org", "--offset", withheldText} {
+	for _, want := range []string{"outcome unknown", "not retried", "hadron slack status --org", "--offset", redactedPlaceholder} {
 		if !strings.Contains(all, want) {
 			t.Errorf("an echoed token must not cost the recovery guidance, missing %q:\n%s", want, all)
 		}
@@ -413,7 +413,9 @@ func TestSlackConnectScrubKeepsClassCodeAndRecoveryGuidance(t *testing.T) {
 	}
 }
 
-const withheldText = "[redacted]"
+// redactedPlaceholder is what the shared redactor substitutes for a matched
+// secret spelling (not the withheld-answer message, which names no marker).
+const redactedPlaceholder = "[redacted]"
 
 // The success answer is the server's text too: a field repeating a submitted
 // token is never rendered (text or JSON), and not even the id is quoted back.
@@ -543,24 +545,23 @@ func TestSlackConnectRecoveryTextNeverPrintsATokenTypedAsTheOrg(t *testing.T) {
 // George (blind P2): success needs a usable id; an ERROR row is a recorded
 // failure, not "connected"; an unknown status names the real `slack get` command.
 func TestSlackConnectValidatesTheSuccessAnswer(t *testing.T) {
-	args := func(t *testing.T) []string { return connectArgs(t) }
-	_, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"id":"c1"`, `"id":""`, 1)+`}}`, false, args(t)...)
+	_, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"id":"c1"`, `"id":""`, 1)+`}}`, false, connectArgs(t)...)
 	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), "carried no connection id") {
 		t.Fatalf("an empty id is unconfirmed, never success: %v", e)
 	}
-	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":{}}}`, false, args(t)...)
+	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":{}}}`, false, connectArgs(t)...)
 	if e == nil || exitCodeFor(e) != exitcode.Unavailable {
 		t.Fatalf("an empty object is unconfirmed: %v", e)
 	}
-	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"WAT"`, 1)+`}}`, false, args(t)...)
+	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"WAT"`, 1)+`}}`, false, connectArgs(t)...)
 	if e == nil || exitCodeFor(e) != exitcode.Unavailable || !strings.Contains(e.Error(), "hadron slack disconnect -- c1") || strings.Contains(e.Error(), "hadron slack get") {
 		t.Fatalf("an unknown status is unconfirmed and ends in the one command that cannot loop (disconnect): %v", e)
 	}
-	all, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"ERROR"`, 1)+`}}`, false, args(t)...)
+	all, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":`+strings.Replace(connectedRow, `"status":"ACTIVE"`, `"status":"ERROR"`, 1)+`}}`, false, connectArgs(t)...)
 	if e != nil || strings.Contains(all, "✓ connected") || !strings.Contains(all, "recorded a failure") || !strings.Contains(all, "status ERROR") {
 		t.Fatalf("ERROR is not '✓ connected': err=%v\n%s", e, all)
 	}
-	all, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+connectedRow+`}}`, false, args(t)...)
+	all, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+connectedRow+`}}`, false, connectArgs(t)...)
 	if e != nil || !strings.Contains(all, "✓ connected Slack workspace") {
 		t.Fatalf("ACTIVE keeps the success banner: err=%v\n%s", e, all)
 	}
@@ -768,6 +769,10 @@ func TestSlackDisconnectSuggestionsEndWithTheCommandAloneOnTheLastLine(t *testin
 		"newline":     "x\nrm -rf injected-line",
 		"carriage":    "x\rrm -rf injected-line",
 		"format char": "x\u202ejected-line",
+		// cli#2756 P3-1: U+2028/U+2029 (Zl/Zp) render as line breaks in some
+		// terminals and clipboards, so the guard refuses them like Cc/Cf.
+		"line sep": "x\u2028injected-line",
+		"para sep": "x\u2029injected-line",
 	} {
 		t.Run(name, func(t *testing.T) {
 			// Rendered through the real (text-mode) renderer, from ONE invocation each.
@@ -783,7 +788,7 @@ func TestSlackDisconnectSuggestionsEndWithTheCommandAloneOnTheLastLine(t *testin
 				if !strings.Contains(all, "follow its --offset hint") {
 					t.Errorf("the listing fallback must say it is paged:\n%s", all)
 				}
-				if strings.Contains(all, "injected-line") || strings.ContainsAny(all, "\x1b\r\u202e") {
+				if strings.Contains(all, "injected-line") || strings.ContainsAny(all, "\x1b\r\u202e\u2028\u2029") {
 					t.Errorf("nothing from the id may reach the output:\n%q", all)
 				}
 			}

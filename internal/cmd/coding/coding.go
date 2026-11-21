@@ -113,7 +113,7 @@ never matches again.
 Triage itself is the reader's, not this command's. Some memories also carry a
 ` + "`tasks:review-changes`" + ` node describing how to walk the tree, but it is a
 convenience and not a requirement: nothing here depends on that node existing,
-and ` + "`review list`" + ` shows every check and its trigger without it (#551).
+and ` + "`review list`" + ` shows every check and its trigger without it.
 
 ` + "`list`" + ` shows the tree or the router as its readers see it; ` + "`create`" + ` adds
 a node with every edge that makes it discoverable, in one run; ` + "`preflight route`" + `

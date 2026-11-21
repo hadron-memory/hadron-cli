@@ -164,6 +164,14 @@ func (c *Client) listCall(ctx context.Context, extra []string) (terms []Terminal
 	return result.Terminals, result.TotalCount, short, nil
 }
 
+// SourceScreen and SourceScreenUnavailable are Orca's own `source` values on a
+// screen read, copied verbatim from its JSON: a full rendered frame, and "no
+// rendered screen was available, so this is accumulated output" (cli#2677).
+const (
+	SourceScreen            = "screen"
+	SourceScreenUnavailable = "screen-unavailable"
+)
+
 // Screen is one `orca terminal read --screen` result: the rendered tail, the
 // optional draft field, and the source (only "screen" is a full frame).
 // Draft is held only to be tested; it is never logged or reported.
@@ -173,7 +181,7 @@ type Screen struct {
 	Draft  string
 }
 
-func (sc *Screen) usable() bool { return sc != nil && sc.Source == "screen" && sc.Tail != nil }
+func (sc *Screen) usable() bool { return sc != nil && sc.Source == SourceScreen && sc.Tail != nil }
 
 // ReadScreen is the terminal's rendered full-frame screen, or nil when
 // unreadable.
