@@ -474,17 +474,25 @@ func TestRawGraphQLNeverRendersAnUnlockEcho(t *testing.T) {
 // chain, and the true Go-then-Go spelling (two consecutive Go encodings also
 // double the backslash before u2028) is required; U+2029 is covered here too
 // because the API generator is separate from the CLI one. The raw separators
-// appear as Go \uXXXX escapes, never as source bytes.
+// and the literal escape text appear as Go \uXXXX / \\uXXXX escapes, never
+// as source bytes (cli#2714 round 3, Dara P2: the mangled source bytes made
+// the Go depth-1 and Node-then-Go entries duplicate the Node expectations,
+// leaving both true Go spellings untested; the final entry is the
+// Node-then-Node derivation).
 func TestEscapedSpellingsNodeLineSeparatorSet2704(t *testing.T) {
-	pass := "p\"q r"
+	pass := "p\"q\u2028r"
 	got := escapedSpellings([]string{pass})
+	sep := "\u2028"  // the raw separator, as a Go escape (never a source byte)
+	esc := "\\u2028" // the six literal characters Go's encoder writes for it
+	q := `\"`        // the JSON escape of the quote
+	qq := `\\\"`     // Go's re-encode of q: the backslash doubles and the quote escapes, so three backslashes precede the quote
 	want := []string{
-		pass,             // the literal
-		`p\"q r`,         // Go depth 1 (both HTML forms agree here)
-		"p\\\"q r",       // Node depth 1: \" with the raw separator
-		`p\\\"q r`,       // Node-then-Go: Go re-encodes Node depth 1
-		`p\\\"q\\u2028r`, // Go-then-Go: the backslash before u2028 doubles too
-		"p\\\\\\\"q r",   // Go-then-Go, separators unfolded
+		pass,                              // the literal
+		"p" + q + "q" + esc + "r",         // Go depth 1 (both HTML forms agree here)
+		"p" + q + "q" + sep + "r",         // Node depth 1: the separator stays raw
+		"p" + qq + "q" + esc + "r",        // Node-then-Go: Go re-encodes Node depth 1
+		"p" + qq + "q" + "\\" + esc + "r", // Go-then-Go: u2028's backslash doubles too
+		"p" + qq + "q" + sep + "r",        // Node-then-Node: separators unfolded
 	}
 	for _, w := range want {
 		if !containsExactly(got, w) {
@@ -497,8 +505,8 @@ func TestEscapedSpellingsNodeLineSeparatorSet2704(t *testing.T) {
 		}
 	}
 	// The U+2029 sibling: Node depth 1 writes the raw character.
-	got = escapedSpellings([]string{"p\"q r"})
-	if !containsExactly(got, "p\\\"q r") {
+	got = escapedSpellings([]string{"p\"q\u2029r"})
+	if !containsExactly(got, "p"+q+"q"+"\u2029"+"r") {
 		t.Errorf("the U+2029 Node depth-1 spelling is missing: %q", got)
 	}
 }

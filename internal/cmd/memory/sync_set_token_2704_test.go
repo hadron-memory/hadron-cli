@@ -189,6 +189,53 @@ func TestEscapedSpellingsLiteralBackslashU2714(t *testing.T) {
 	}
 }
 
+// TestSetTokenNoReplacementRecreatesToken2714 pins the round-4 rule (Bruno
+// P2, Dara P2, Eden's ruling): the scrubber's only replacement is the marker
+// "[REDACTED]", and any replacement can itself (re)create token text — a
+// token contained in the marker is re-created inside every replacement
+// ("REDACTED" → "[REDACTED]"), a token spanning a seam re-forms around it
+// ("x[" in "xx[" → "x[REDACTED]"), a token containing the marker replaces to
+// itself, and a token-free-looking message may still carry an escaped
+// spelling. Partial redaction of the message is therefore only allowed when
+// the message provably carries no covered spelling AND no replacement can
+// recreate the token; every other message renders the fixed refusal.
+func TestSetTokenNoReplacementRecreatesToken2714(t *testing.T) {
+	const refusal = "the server refused the source token"
+	mkErr := func(msg string) error {
+		return &gqlerror.Error{Message: msg, Extensions: map[string]any{"code": "FORBIDDEN"}}
+	}
+	for _, c := range []struct{ name, token, msg string }{
+		{"token equals the marker text", "[REDACTED]", "refused: [REDACTED] echo"},
+		{"token is a substring of the marker", "REDACTED", "refused: REDACTED echo"},
+		{"marker prefix", "[REDACT", "refused: [REDACT echo"},
+		{"marker suffix", "ED]", "refused: ED] echo"},
+		{"token spans the replacement seam", "x[", "refused: xx[ echo"},
+		{"token contains the marker", "tok[REDACTED]", "refused: tok[REDACTED] echo"},
+		{"escaped spelling only, literal absent", `a"b`, `refused: a\"b echo`},
+		{"substring token, message itself clean", "REDACTED", "refused: quota exceeded"},
+	} {
+		err := setTokenError(mkErr(c.msg), c.token)
+		if strings.Contains(err.Error(), c.token) {
+			t.Errorf("%s: the token survives in the rendered error %q", c.name, err.Error())
+		}
+		if !strings.Contains(err.Error(), refusal) {
+			t.Errorf("%s: this message must render the fixed refusal, got %q", c.name, err.Error())
+		}
+		if got := carriedCode(err); got != "FORBIDDEN" {
+			t.Errorf("%s: an ordinary server code must be kept, got %q", c.name, got)
+		}
+	}
+	// A code carrying the token is dropped on the same path.
+	if got := carriedCode(setTokenError(mkErr("BAD REDACTED"), "REDACTED")); got != "" {
+		t.Errorf("a code carrying the token must be dropped, got %q", got)
+	}
+	// The negative space: a token disjoint from the marker over a message
+	// carrying no spelling keeps the server's own text (never over-redact).
+	if got := setTokenError(mkErr("refused: quota exceeded"), "tok-2704").Error(); !strings.Contains(got, "refused: quota exceeded") || strings.Contains(got, refusal) {
+		t.Errorf("a token-free message must keep the server's own text, got %q", got)
+	}
+}
+
 // TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704 pins Jack F1: the URN
 // guard was redactToken(u, token) == u, a fixpoint for EVERY u when the token
 // equals the sentinel "[REDACTED]" (replacing the sentinel with itself is
