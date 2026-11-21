@@ -285,7 +285,7 @@ it is, so a terminal sees it raw.
 This is a worker session's act, like exec: the read client must name the worker
 whose session is bound here. Unbound it still asks, with a stderr note, and a
 person gets the server's uniform answer (a person reveals on the server's passkey
-page). One call, never retried: if its answer is lost the read may be spent, so
+page; this command gives a person no link to it yet). One call, never retried: if its answer is lost the read may be spent, so
 check 'hadron secret client list' before trying again. Exit codes as for exec
 before the child: 2 usage, 4 not found, 5 not live (spent, expired, revoked, not
 yet started, pending, issuer gone) or the secret deleted, 8 not permitted.`,
