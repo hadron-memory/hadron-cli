@@ -64,7 +64,10 @@ must finish within 15 minutes (a CLI-set limit, not a server rule); on
 timeout it exits 6 and stores nothing. Where the server has you add a first
 passkey (with its second link), that can take longer than 15 minutes; if it
 does, the CLI stops and stores nothing: finish adding the passkey in the
-browser, then rerun `hadron auth login`. A refused STORED credential exits 3
+browser, then rerun `hadron auth login`. When the server rate-limits the browser sign-in at its
+token step (HTTP 429, hadron-server#4659), `auth login` exits 1 with "wait N seconds, then run
+`hadron auth login` again", following the server's Retry-After: nothing was signed in or stored,
+it is not a rejected credential, and the CLI does not retry by itself. A refused STORED credential exits 3
 with "your stored credential was refused; run `hadron auth login`": the CLI
 does not retry, does not delete the stored token, and does not claim why it
 was refused. The hint follows the credential actually sent: only when every
