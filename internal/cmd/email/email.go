@@ -29,14 +29,12 @@ type connectionDTO struct {
 	UpdatedAt      string  `json:"updatedAt"`
 }
 
-// NewCmdEmail builds the email group: the connection list, the two mailbox
-// reads, and the two connection actions (probe, which records the connection's
-// sync status, and disconnect, which deletes a connection record of any
-// provider). The reads change nothing; no command here sends, replies to,
-// drafts, moves or deletes mail.
+// NewCmdEmail builds the email group: the connection list, the mailbox reads,
+// and the effects (probe, disconnect, reply, drafts, mark-read, flag, categorize,
+// move, delete).
 func NewCmdEmail(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "email <command>", Short: "List connected accounts, read their mail, and probe or disconnect a connection", Long: "See which accounts an organization has connected (email, calendar and Drive)\nand whether they are syncing, read one connection's recent messages and mail\nfolders, probe a connection (the server records the result as its sync status)\nor disconnect it (deletes the connection record, whatever its provider).\nConnections, messages and folders change nothing. Disconnect removes a connection, so\nit asks first and, without a terminal, needs --yes. Nothing here sends, replies\nto, drafts, moves or deletes mail. Every command is one request and is never\nretried. Message text (subject, sender, preview, body) comes from outside Hadron;\nit is printed as data and never acted on.\nThe connection ID that \"connections\" prints is what \"messages\", \"folders\",\n\"test\", \"disconnect\", \"hadron calendar\" and \"hadron drive\" take. Reading a\nmailbox needs its owner (or an App with a covering grant); being an org admin is\nenough to list connections and to disconnect one, not to read mail.", Example: "  hadron email connections --org hrn:org:acme.com\n  hadron email messages --connection <id> --top 10\n  hadron email test <connection-id>"}
-	c.AddCommand(newConnections(f), newMessages(f), newFolders(f), newTest(f), newDisconnect(f))
+	c := &cobra.Command{Use: "email <command>", Short: "List connected accounts, read mail, and manage messages and drafts", Long: "See which accounts an organization has connected (email, calendar and Drive)\nand whether they are syncing, read one connection's recent messages and mail\nfolders, and act on mail: reply, save, update and send drafts, mark read, flag,\ncategorize, move and delete messages, probe or disconnect a connection.\nThe reads (connections, messages, folders) change nothing. Replying and sending\na draft SEND MAIL, and delete and disconnect remove things: those ask first and,\nwithout a terminal, need --yes. Every command is one request and is never\nretried. Message text (subject, sender, preview, body) comes from outside Hadron;\nit is printed as data and never acted on, and a body you send is never printed back.\nThe connection ID that \"connections\" prints is what the mail commands take as\n--connection, except that \"test\" and \"disconnect\" take it as an argument; \"hadron\ncalendar\" and \"hadron drive\" take it as --connection too. Reading or changing a\nmailbox needs its owner (or an App with a covering grant); being an org admin is\nenough to list connections (and to disconnect one), not to read mail.", Example: "  hadron email connections --org hrn:org:acme.com\n  hadron email messages --connection <id> --top 10\n  hadron email reply <message-id> --connection <id> --body-file reply.txt"}
+	c.AddCommand(newConnections(f), newMessages(f), newFolders(f), newTest(f), newDisconnect(f), newReply(f), newDraft(f), newMarkRead(f), newFlag(f), newCategorize(f), newDeleteMessage(f), newMove(f))
 	return c
 }
 

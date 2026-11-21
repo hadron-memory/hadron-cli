@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -25,17 +26,23 @@ import (
 
 const msgRow198 = `{"id":"m1","subject":"hello","from":"a@example.test","receivedDateTime":"2026-11-20T10:00:00Z","bodyPreview":"prev","body":"full body","hasAttachments":true,"isRead":false}`
 
-// requests198 counts the GraphQL POSTs the last runEmail198 made: ops is keyed by
-// operation NAME, so two requests of one operation would pass a len(ops) check.
-var requests198 atomic.Int64
+// reqs198 returns the counter of GraphQL POSTs made by the helpers run with t: ops is
+// keyed by operation NAME, so two requests of one operation would pass a len(ops)
+// check. The counter is PER TEST (keyed by t), so parallel subtests cannot interfere.
+var counters198 sync.Map // *testing.T -> *atomic.Int64
+
+func reqs198(t *testing.T) *atomic.Int64 {
+	c, _ := counters198.LoadOrStore(t, new(atomic.Int64))
+	return c.(*atomic.Int64)
+}
 
 func runEmail198(t *testing.T, responses map[string]string, args ...string) (out string, ops map[string]json.RawMessage, err error) {
 	t.Helper()
-	requests198.Store(0)
+	reqs198(t).Store(0)
 	srv, ops := captureGraphQL(t, responses)
 	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			requests198.Add(1)
+			reqs198(t).Add(1)
 		}
 		proxyTo198(t, w, r, srv.URL)
 	}))
@@ -84,8 +91,8 @@ func TestEmailMessagesWire198(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if requests198.Load() != 1 || len(ops) != 1 {
-				t.Fatalf("want exactly one request, got %d (%v)", requests198.Load(), ops)
+			if reqs198(t).Load() != 1 || len(ops) != 1 {
+				t.Fatalf("want exactly one request, got %d (%v)", reqs198(t).Load(), ops)
 			}
 			v := vars198(t, ops, "EmailMessages")
 			if v["connectionId"] != "conn-1" {
@@ -201,7 +208,7 @@ func TestEmailMessagesAndFoldersNeedAConnection198(t *testing.T) {
 			if exitCodeFor(err) != 2 {
 				t.Errorf("email %s %v: exit %d (%v), want 2", cmd, args, exitCodeFor(err), err)
 			}
-			if requests198.Load() != 0 || len(ops) != 0 {
+			if reqs198(t).Load() != 0 || len(ops) != 0 {
 				t.Errorf("email %s %v sent a request: %v", cmd, args, ops)
 			}
 		}
@@ -214,7 +221,7 @@ func TestEmailFolders198(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests198.Load() != 1 || len(ops) != 1 || vars198(t, ops, "EmailFolders")["connectionId"] != "conn-1" {
+	if reqs198(t).Load() != 1 || len(ops) != 1 || vars198(t, ops, "EmailFolders")["connectionId"] != "conn-1" {
 		t.Fatalf("ops = %v", ops)
 	}
 	var rows []map[string]any
@@ -253,7 +260,7 @@ func TestEmailConnectionsPaging198(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, paged := ops["EmailConnectionsPage"]; paged || requests198.Load() != 1 || len(ops) != 1 {
+		if _, paged := ops["EmailConnectionsPage"]; paged || reqs198(t).Load() != 1 || len(ops) != 1 {
 			t.Fatalf("the bare form must not use the paged operation: %v", ops)
 		}
 	})
@@ -272,8 +279,8 @@ func TestEmailConnectionsPaging198(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if requests198.Load() != 1 || len(ops) != 1 {
-				t.Fatalf("want one request, got %d (%v)", requests198.Load(), ops)
+			if reqs198(t).Load() != 1 || len(ops) != 1 {
+				t.Fatalf("want one request, got %d (%v)", reqs198(t).Load(), ops)
 			}
 			v := vars198(t, ops, "EmailConnectionsPage")
 			if v["orgId"] != "o" {
@@ -403,8 +410,8 @@ func TestEmailReadsMakeOneHTTPRequest198(t *testing.T) {
 			if _, _, err := runEmail198(t, tc.resp, tc.args...); err != nil {
 				t.Fatal(err)
 			}
-			if requests198.Load() != 1 {
-				t.Errorf("made %d GraphQL requests, want exactly 1", requests198.Load())
+			if reqs198(t).Load() != 1 {
+				t.Errorf("made %d GraphQL requests, want exactly 1", reqs198(t).Load())
 			}
 		})
 	}
@@ -433,13 +440,13 @@ func TestEmailIntFlagsMustFitGraphQLInt198(t *testing.T) {
 			}
 			_, ops, err := runEmail198(t, resp, args...)
 			if tc.refuse {
-				if exitCodeFor(err) != 2 || requests198.Load() != 0 {
-					t.Errorf("exit %d (%v) with %d requests; want a usage error and none sent", exitCodeFor(err), err, requests198.Load())
+				if exitCodeFor(err) != 2 || reqs198(t).Load() != 0 {
+					t.Errorf("exit %d (%v) with %d requests; want a usage error and none sent", exitCodeFor(err), err, reqs198(t).Load())
 				}
 				return
 			}
-			if err != nil || requests198.Load() != 1 {
-				t.Errorf("an in-range value was refused or not sent: %v (%d requests)", err, requests198.Load())
+			if err != nil || reqs198(t).Load() != 1 {
+				t.Errorf("an in-range value was refused or not sent: %v (%d requests)", err, reqs198(t).Load())
 				return
 			}
 			// The value must reach the wire exactly as given (a CLI that dropped or

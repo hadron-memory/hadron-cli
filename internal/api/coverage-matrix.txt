@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 316 command, 31 gap, 12 excluded
+[Mutation] 359: 325 command, 22 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -406,20 +406,20 @@ deleteUserApiKey  command auth token delete
 deleteWorker  command team worker rm
 disposeAgentTaskFinding  command team task dispose-finding
 editComment  command comment edit
-emailCategorizeMessage  gap #198
-emailDeleteMessage  gap #198
-emailFlagMessage  gap #198
-emailMarkRead  gap #198
-emailSaveDraft  gap #198
-emailSendDraft  gap #198
-emailUpdateDraft  gap #198
+emailCategorizeMessage  command email categorize
+emailDeleteMessage  command email delete
+emailFlagMessage  command email flag
+emailMarkRead  command email mark-read
+emailSaveDraft  command email draft save
+emailSendDraft  command email draft send
+emailUpdateDraft  command email draft update
 encryptMemory  command memory encrypt
 endAgentSession  gap #58
 endAgentlessSession  command team host run
 endSession  command team session end
 ensureAppMember  command app member add
-exchangeMoveMessage  gap #198
-exchangeReply  gap #198
+exchangeMoveMessage  command email move
+exchangeReply  command email reply
 exportNodeToGoogleDoc  command drive create-doc
 extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish

@@ -706,7 +706,7 @@ section between the markers.
 <!-- group:1056 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `(root)` |  |  | n | #1056 | 40e28656c299 |  | unread |  |
+| `(root)` |  |  | n | #1056 | 3104c86c18db |  | unread |  |
 | `agentic-usage` |  |  | y | #1056 | a77cfb7385c1 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `api` |  |  | y | #1056 | ecff45e61c3a | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `completion` |  | generated | n | #1056 | 532ef0768ca4 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
@@ -761,11 +761,21 @@ section between the markers.
 | `drive export` |  |  | y | #1184 | 3468ddd99455 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `drive get` |  |  | y | #1184 | 80b2db9255fc | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `drive list` | ls |  | y | #1184 | b317b27405d6 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
-| `email` |  |  | y | #1184 | 569f079ff5f8 |  | unread |  |
+| `email` |  |  | y | #1184 | bdf0d942c985 |  | unread |  |
+| `email categorize` |  |  | y | #1184 | d3a4ef11cc64 |  | unread |  |
 | `email connections` |  |  | y | #1184 | e7b093ff93aa |  | unread |  |
+| `email delete` |  |  | y | #1184 | 857be1e64c57 |  | unread |  |
 | `email disconnect` |  |  | y | #1184 | 6e33c89c4b91 |  | unread |  |
+| `email draft` |  |  | n | #1184 | 72a2a54f161c |  | unread |  |
+| `email draft save` |  |  | y | #1184 | 53ebf6184d5c |  | unread |  |
+| `email draft send` |  |  | y | #1184 | e49aa054d1a6 |  | unread |  |
+| `email draft update` |  |  | y | #1184 | 5a699482870a |  | unread |  |
+| `email flag` |  |  | y | #1184 | 312e56b06c5c |  | unread |  |
 | `email folders` |  |  | y | #1184 | db3262aa8275 |  | unread |  |
+| `email mark-read` |  |  | y | #1184 | 205480bda8dd |  | unread |  |
 | `email messages` |  |  | y | #1184 | 915687038e25 |  | unread |  |
+| `email move` |  |  | y | #1184 | fd58d515a787 |  | unread |  |
+| `email reply` |  |  | y | #1184 | e91e0ab11b47 |  | unread |  |
 | `email test` |  |  | y | #1184 | ee16c8a83812 |  | unread |  |
 | `ha` |  |  | y | #1184 | 1e8e5f9d4584 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `ha create` |  |  | y | #1184 | 9252b418b210 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
