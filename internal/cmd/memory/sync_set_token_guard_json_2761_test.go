@@ -13,7 +13,8 @@ import (
 // appends (renderError's stored-credential hint). The table pins the predicate
 // itself, one case per way it can be wrong: a predicate reduced to
 // `return jsonOut`, one that drops the plain-spelling test, and one that drops
-// the --json envelope test each fail a different row. The render path is pinned
+// the --json envelope test each fail a different row, and one weakened from
+// the covered-spelling test to a plain substring fails the escaped-spelling rows. The render path is pinned
 // in package cmd (TestSetTokenStoredHintEnvelopeSeam2761).
 func TestSetTokenOutputGuardPredicate2761(t *testing.T) {
 	const token = `a\"b`
@@ -29,6 +30,8 @@ func TestSetTokenOutputGuardPredicate2761(t *testing.T) {
 		{"benign hint, --json", token, `refused — a stored credential hint`, true, false},
 		{"literal token, text", token, `refused — ` + token, false, true},
 		{"literal token, --json", token, `refused — ` + token, true, true},
+		{"escaped spelling, text", token, `refused — a\\\"b`, false, true},
+		{"escaped spelling, --json", token, `refused — a\\\"b`, true, true},
 		{"envelope form only, text", token, `stored credential a"b hint`, false, false},
 		{"envelope form only, --json", token, `stored credential a"b hint`, true, true},
 		{"empty token has no guard, text", ``, `anything`, false, false},

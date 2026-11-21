@@ -54,18 +54,31 @@ func TestSetTokenStoredHintNeverEchoesTheToken2761(t *testing.T) {
 }
 
 // The remedy is kept for every token it cannot carry, so the guard is not a
-// blanket removal of the hint.
+// blanket removal of the hint. The --json row is the control for the guard's
+// absence assertions: it fails if the hint is never rendered under --json.
 func TestSetTokenStoredHintKeptForAnUnrelatedToken2761(t *testing.T) {
-	srv, _ := refusingServer1624(t, nil)
-	f, out := testFactory(t)
-	withStoredLogin1624(t, f, srv.URL, nil)
-	file := filepath.Join(t.TempDir(), "tok")
-	if err := os.WriteFile(file, []byte("zz-unrelated-2761"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, errText := run1624(t, f, []string{"memory", "sync", "set-token", "acme.com:kb", "--token-file", file, "--server", srv.URL})
-	if all := outputs1624(out, errText); !strings.Contains(all, storedHint1624) {
-		t.Fatalf("the remedy was dropped for a token it cannot carry: %q", all)
+	for _, asJSON := range []bool{false, true} {
+		name := "text"
+		if asJSON {
+			name = "json"
+		}
+		t.Run(name, func(t *testing.T) {
+			srv, _ := refusingServer1624(t, nil)
+			f, out := testFactory(t)
+			withStoredLogin1624(t, f, srv.URL, nil)
+			file := filepath.Join(t.TempDir(), "tok")
+			if err := os.WriteFile(file, []byte("zz-unrelated-2761"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			args := []string{"memory", "sync", "set-token", "acme.com:kb", "--token-file", file, "--server", srv.URL}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			_, errText := run1624(t, f, args)
+			if all := outputs1624(out, errText); !strings.Contains(all, storedHint1624) {
+				t.Fatalf("the remedy was dropped for a token it cannot carry: %q", all)
+			}
+		})
 	}
 }
 
