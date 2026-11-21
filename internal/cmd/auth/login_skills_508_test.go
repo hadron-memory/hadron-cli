@@ -44,6 +44,10 @@ type login508Env struct {
 func setupLogin508(t *testing.T, tty, jsonMode bool, answer string, dirs, bins []string, enabled bool) *login508Env {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// config.Dir() falls back to $HOME/.config/hadron when XDG_CONFIG_HOME is
+	// empty, so HOME is sandboxed too: no resolver branch can reach the
+	// developer's real config (#2500 BLIND review).
+	t.Setenv("HOME", t.TempDir())
 	t.Setenv("HADRON_TOKEN", envTok)
 	keyring.MockInit()
 	home, err := filepath.EvalSymlinks(t.TempDir())
@@ -186,10 +190,13 @@ func (e *login508Env) countRequests(op, host string) int {
 }
 
 // assertRequests asserts each detected host got exactly one availability query
-// and — only with consent — exactly one export plan, and that no other host was
-// contacted at all.
+// and — only with consent — exactly one export plan, and that NOTHING else was
+// requested: the total counts every recorded call, so an extra request — an
+// undetected host, an empty host, a duplicate of any shape — fails even when
+// the per-host buckets above still match (#2500).
 func (e *login508Env) assertRequests(t *testing.T, claude, codex, export bool) {
 	t.Helper()
+	wantTotal := 0
 	for key, detected := range map[string]bool{"claudeSkill": claude, "codexSkill": codex} {
 		wantAvail, wantExport := 0, 0
 		if detected {
@@ -204,6 +211,10 @@ func (e *login508Env) assertRequests(t *testing.T, claude, codex, export bool) {
 		if got := e.countRequests("SkillExportPlan", key); got != wantExport {
 			t.Errorf("%s: %d export plans, want %d (writes happen only with consent)", key, got, wantExport)
 		}
+		wantTotal += wantAvail + wantExport
+	}
+	if got := len(e.snapshotCalls()); got != wantTotal {
+		t.Errorf("%d requests in total, want %d — no undetected host, empty host or other request may be sent (calls: %+v)", got, wantTotal, e.snapshotCalls())
 	}
 }
 
@@ -257,9 +268,10 @@ func TestLogin508PromptAndSilence(t *testing.T) {
 		configOff, prompt, installed, hint bool
 		// avail/export: the request budget for the one detected host
 		// (codexSkill, from the .agents dir below). Every case pins that the
-		// hint, config-off and --no-install-skills paths send NOTHING, and
-		// that an export plan follows only an accepted offer or the explicit
-		// flag (#2500).
+		// hint, config-off and --no-install-skills paths send NOTHING — of any
+		// request kind, not just these two operations for codexSkill (the
+		// total check below counts every recorded call) — and that an export
+		// plan follows only an accepted offer or the explicit flag (#2500).
 		avail, export int
 	}{
 		{name: "accept", answer: "y\n", tty: true, enabled: true, prompt: true, installed: true, avail: 1, export: 1},
@@ -306,6 +318,13 @@ func TestLogin508PromptAndSilence(t *testing.T) {
 				t.Errorf("request budget: %d availability queries (want %d), %d export plans (want %d) — an export plan must follow only consent (calls: %+v)",
 					e.countRequests("LoginSkillAvailability", "codexSkill"), c.avail, e.countRequests("SkillExportPlan", "codexSkill"), c.export, snapshot)
 			}
+			// The total closes "and nothing else": every recorded call counts,
+			// so a request to claudeSkill, an empty host or any other shape
+			// fails the row even when the codexSkill buckets above still match.
+			if got := len(e.snapshotCalls()); got != c.avail+c.export {
+				t.Errorf("request budget: %d requests in total, want %d — a silent path sends NOTHING, an accepted offer exactly its queries (calls: %+v)",
+					got, c.avail+c.export, e.snapshotCalls())
+			}
 		})
 	}
 }
@@ -314,6 +333,18 @@ func btoi508(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// #2500 pin (two-host decline): with BOTH hosts detected, a declined offer
+// sends each host exactly one availability query and no export plan — per-host
+// budgets, not one merged count.
+func TestLogin508TwoHostDeclineBudgets(t *testing.T) {
+	e := setupLogin508(t, true, false, "n\n", []string{".claude", ".agents"}, nil, true)
+	if err := e.run(); err != nil {
+		t.Fatal(err)
+	}
+	e.assertInstalled(t, false, false)
+	e.assertRequests(t, true, true, false)
 }
 
 func TestLogin508FlagsRefuseBeforeLogin(t *testing.T) {

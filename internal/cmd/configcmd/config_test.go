@@ -2,6 +2,8 @@ package configcmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -9,7 +11,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// runConfig executes one `hadron config ...` invocation against a fresh command
+// runConfigCmd executes one `hadron config ...` invocation against a fresh command
 // tree and returns stdout. config never talks to the server, so the factory
 // needs only isolated streams and an isolated config dir.
 func runConfigCmd(t *testing.T, jsonMode bool, args ...string) string {
@@ -37,7 +39,13 @@ func runConfigCmd(t *testing.T, jsonMode bool, args ...string) string {
 // file. Together these pin the get/list surface users silence the offer
 // through; SkillsInstallPrompt() itself is pinned in internal/config.
 func TestConfigGetListSkillsInstallPrompt(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	// Isolation covers every branch of config.Dir(): XDG_CONFIG_HOME wins, but
+	// Dir() falls back to $HOME/.config/hadron when it is empty, so HOME is
+	// sandboxed too — on distinct roots, so the asserts below also prove which
+	// branch actually served (#2500 BLIND review).
+	xdg, home := t.TempDir(), t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	t.Setenv("HOME", home)
 
 	if got := runConfigCmd(t, false, "get", "skills.installPrompt"); got != "true\n" {
 		t.Fatalf("get before any set = %q, want the default true\n", got)
@@ -46,14 +54,32 @@ func TestConfigGetListSkillsInstallPrompt(t *testing.T) {
 
 	runConfigCmd(t, false, "set", "skills.installPrompt", "false")
 
+	if _, err := os.Stat(filepath.Join(xdg, "hadron", "config.toml")); err != nil {
+		t.Fatalf("the set must write inside the isolated XDG_CONFIG_HOME: %v\n", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "hadron", "config.toml")); !os.IsNotExist(err) {
+		t.Fatalf("the HOME fallback must stay untouched while XDG_CONFIG_HOME is set: %v\n", err)
+	}
+
 	if got := runConfigCmd(t, false, "get", "skills.installPrompt"); got != "false\n" {
 		t.Fatalf("get after set false = %q, want false\n", got)
 	}
 	oneJSONString(t, "get", runConfigCmd(t, true, "get", "skills.installPrompt"), "false")
 
+	// The text check is tied to the key's own row: another key rendering
+	// "false" must not satisfy it.
 	list := runConfigCmd(t, false, "list")
-	if !strings.Contains(list, "skills.installPrompt") || !strings.Contains(list, "false") {
-		t.Fatalf("config list must show the skills.installPrompt row with false:\n%s", list)
+	row := ""
+	for _, line := range strings.Split(list, "\n") {
+		if strings.Contains(line, "skills.installPrompt") {
+			if row != "" {
+				t.Fatalf("config list must show skills.installPrompt exactly once:\n%s", list)
+			}
+			row = line
+		}
+	}
+	if row == "" || !strings.Contains(row, "false") {
+		t.Fatalf("config list's own skills.installPrompt row must show false:\n%s", list)
 	}
 	var all map[string]string
 	if err := json.Unmarshal([]byte(runConfigCmd(t, true, "list")), &all); err != nil {
