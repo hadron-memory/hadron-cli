@@ -4,7 +4,9 @@ package cmd
 // --org/--app, the malformed --app refusal, the short --app form, disconnect's
 // text-mode success line, and the Zl/Zp line/paragraph separators the control
 // character guard must refuse (pinned beside the U+202E case in the #206 file).
-// Fake HTTP only.
+// The #2827 rounds added the hostile-status refusal (one refused rune of every
+// guarded class, exit code pinned) and the happy-path status table whose every
+// cell renders quoted. Fake HTTP only.
 
 import (
 	"strings"
@@ -93,21 +95,50 @@ func TestSlackDisconnectTextModeSuccessLine(t *testing.T) {
 // allowlist ever widen. This pin holds the reachable guard: nothing raw
 // reaches the terminal, and the refusal quotes what it names.
 func TestSlackStatusRefusesAHostileStatusSafely(t *testing.T) {
-	// A Zl separator and an RLO override inside the server-supplied status,
-	// carried as JSON escapes so this file stays pure ASCII.
-	hostile := "\"ACTIVE\\u2028rm -rf\\u202einjected\""
+	// One refused rune of every guarded class inside the server-supplied
+	// status \u2014 a Zl and a Zp separator, a CR and an ESC (Cc) and an RLO
+	// override (Cf) \u2014 carried as JSON escapes so this file stays pure ASCII.
+	// Every rune below also appears in the raw-leak check, so no arm of that
+	// check is vacuous (#2827 review, Jonas N3).
+	hostile := "\"A\\u2028b\\u2029c\\u000dd\\u001be\\u202ef\""
 	row := `{"id":"c1","organizationId":"o1","defaultAppId":"a1","provider":"slack","status":` + hostile + `,"teamId":"T1","teamName":"Acme","botId":"B1","botUserId":"U1","createdAt":"c","updatedAt":"u"}`
-	out, _, n, e := runSlackWrite(t, "SlackConnections", `{"data":{"slackConnections":{"total":1,"items":[`+row+`]}}}`, "", "status")
+	out, ops, n, e := runSlackWrite(t, "SlackConnections", `{"data":{"slackConnections":{"total":1,"items":[`+row+`]}}}`, "", "status")
 	if e == nil || n != 1 {
 		t.Fatalf("the hostile status is refused after the one read: err=%v requests=%d", e, n)
 	}
+	if len(ops) != 1 || ops["SlackConnections"] == nil {
+		t.Fatalf("the one request is the connections read: %v", ops)
+	}
+	// The refusal is Unavailable (a row this CLI will not render), pinned
+	// (#2827 review, Jonas N5).
+	if exitCodeFor(e) != exitcode.Unavailable {
+		t.Fatalf("the hostile status refuses Unavailable, got exit %d: %v", exitCodeFor(e), e)
+	}
 	// Nothing hostile reaches the terminal raw, in the rendered output or the
-	// error: no separator, no override, no escape, no CR.
+	// error: every carried rune \u2014 separators, override, CR, ESC \u2014 appears only
+	// as its quoted escape, never itself.
 	if strings.ContainsAny(out+"\n"+e.Error(), "\x1b\r\u202e\u2028\u2029") {
 		t.Fatalf("a hostile status must not reach the terminal raw:\n%q", out)
 	}
 	// The refusal quotes the value: the separator renders as its escape.
-	if !strings.Contains(e.Error(), "\\u2028") || !strings.Contains(e.Error(), "\"ACTIVE") {
+	if !strings.Contains(e.Error(), "\\u2028") || !strings.Contains(e.Error(), "\"A") {
 		t.Fatalf("the refusal quotes the hostile status:\n%q", e.Error())
+	}
+}
+
+// #2827 fold (Jonas N1): the happy path reaches the table. Every cell of the
+// status table renders quoted \u2014 the table's own idiom \u2014 and the status cell
+// is wrapped like its siblings, so this pin makes the wrap reachable: reverting
+// the status cell to a raw render goes red here.
+func TestSlackStatusTableQuotesEveryCell(t *testing.T) {
+	row := `{"id":"c1","organizationId":"o1","defaultAppId":"a1","provider":"slack","status":"ACTIVE","teamId":"T1","teamName":"Acme","botId":"B1","botUserId":"U1","createdAt":"c","updatedAt":"u"}`
+	out, _, n, e := runSlackWrite(t, "SlackConnections", `{"data":{"slackConnections":{"total":1,"items":[`+row+`]}}}`, "", "status")
+	if e != nil || n != 1 {
+		t.Fatalf("err=%v requests=%d", e, n)
+	}
+	for _, want := range []string{`"c1"`, `"ACTIVE"`, `"T1"`, `"Acme"`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("every cell of the status table renders quoted, missing %s:\n%s", want, out)
+		}
 	}
 }
