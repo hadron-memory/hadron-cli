@@ -7065,14 +7065,16 @@ worker command JSON DTOs and `worker get` text stay unchanged.
 ### Explicit authoring attestation
 
 `node create` (`add`), `node update` (including `--data` and `--data-merge`),
-`node set-properties`, `node merge`, `replace text`, `spec new`, `spec edit`,
+`node set-properties`, `node merge`, `node import` (cli#2790), `replace text`, `spec new`, `spec edit`,
 `spec replace`, `spec rescind`, `spec supersede` and `spec extract` accept
 `--authored-with <task URN or id> --authored-revision <n>`. Pass both or neither;
 one alone exits 2 before any request. Neither sends no `authoredWith` key.
 For this slice the CLI never infers the task from a binding, role or content.
 Multi-write commands carry the same claim on every node write that accepts it;
-edge-only mutations have no such argument. `node import` keeps forwarding the
-bundle's own claim and has no override flags.
+edge-only mutations have no such argument. `node import` sends the claim on its
+content import (`importNode`) and on each node write of a restore (the update and
+the create fallback). A node document cannot carry a claim: without the flags no
+claim is sent. A half pair is refused before the target is looked up.
 
 This is attested authorship, not verified compliance: a successful check does
 not prove that the task was read or followed. The server judges the claim.
