@@ -213,8 +213,13 @@ was lost: the error says which, and how to ask again).`,
 			if err == nil {
 				if sr == nil || sr.RequestGrantSignature == nil {
 					err = cmdutil.ErrNoSigningRequest
+				} else if r := &sr.RequestGrantSignature.TeamGrantSigningRequestFields; strings.TrimSpace(r.Id) == "" || strings.TrimSpace(r.CeremonyUrl) == "" {
+					// An answer with no request id or no ceremony URL names nothing a
+					// person can sign: not a success. The issue is kept and the same
+					// recovery as an empty answer is given.
+					err = cmdutil.ErrNoSigningRequest
 				} else {
-					req = &sr.RequestGrantSignature.TeamGrantSigningRequestFields
+					req = r
 				}
 			}
 			if err != nil {

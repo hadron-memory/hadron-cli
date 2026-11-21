@@ -705,3 +705,56 @@ func TestSecretClientIssueWaitPollErrorDoesNotEchoTheClientID2631(t *testing.T) 
 		})
 	}
 }
+
+// Baloo's P2: a signing request with an empty or missing id or ceremony URL is
+// not a success. The issue is preserved on stdout (signingRequest null), nothing
+// is polled, and the error (exit 1) says a request may exist and how to ask again.
+func TestSecretClientIssueIncompleteSigningRequestIsNotSuccess2631(t *testing.T) {
+	for name, mutate := range map[string]func(string) string{
+		"empty id": func(s string) string { return strings.Replace(s, `"id":"sr-2631"`, `"id":""`, 1) },
+		"empty url": func(s string) string {
+			return strings.Replace(s, `"ceremonyUrl":"`+ceremonyURL2631+`"`, `"ceremonyUrl":""`, 1)
+		},
+		"blank url": func(s string) string {
+			return strings.Replace(s, `"ceremonyUrl":"`+ceremonyURL2631+`"`, `"ceremonyUrl":"  "`, 1)
+		},
+	} {
+		for _, wait := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/wait=%t", name, wait), func(t *testing.T) {
+				resp := issueResponses2631("OPEN")
+				resp["TeamRequestGrantSignature"] = `{"data":{"requestGrantSignature":` + mutate(signingRequest2631("OPEN", ceremonyURL2631)) + `}}`
+				srv, calls := attnServer(t, resp)
+				args := []string{"issue", "s1", "--reason", "r", "--json"}
+				if wait {
+					args = append(args, "--wait", "--wait-timeout", "30s")
+				}
+				start := time.Now()
+				out, _, err := runSecretClient2631(t, srv.URL, args...)
+				if exitCodeFor(err) != 1 || time.Since(start) > 5*time.Second {
+					t.Fatalf("an incomplete signing request must be an error (exit 1), at once: exit=%d err=%v", exitCodeFor(err), err)
+				}
+				for _, op := range opsOf2631(calls) {
+					if op == "TeamGrantSigningRequest" {
+						t.Fatalf("nothing may be polled: %v", opsOf2631(calls))
+					}
+				}
+				var d struct {
+					ClientID       string `json:"clientId"`
+					GrantID        string `json:"grantId"`
+					SigningRequest any    `json:"signingRequest"`
+				}
+				if e := json.Unmarshal([]byte(out), &d); e != nil || d.ClientID != "cl-2631" || d.GrantID != "gr-2631" || d.SigningRequest != nil {
+					t.Errorf("the issue must be preserved with signingRequest null: %v\n%s", e, out)
+				}
+				for _, want := range []string{"gr-2631", "may exist", "request-signature"} {
+					if !strings.Contains(err.Error(), want) {
+						t.Errorf("the error must give recovery guidance (%q): %v", want, err)
+					}
+				}
+				if strings.Contains(err.Error(), "cl-2631") {
+					t.Errorf("the client id must not be in the error: %v", err)
+				}
+			})
+		}
+	}
+}
