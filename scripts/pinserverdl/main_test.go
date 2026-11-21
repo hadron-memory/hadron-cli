@@ -394,3 +394,53 @@ func readFile(t *testing.T, p string) string {
 	}
 	return string(b)
 }
+
+// cli#2762: SOURCE may name several overlay= patches; the script applies them
+// in file order, each to the result of the one before. The second patch here
+// anchors on the line the first adds, so it applies only after it: in order the
+// run verifies green; swapped, the second patch does not apply and the run
+// fails before comparing anything.
+func TestOverlaysApplyInFileOrder2762(t *testing.T) {
+	const (
+		after1 = stubExport + "overlay one\n"
+		after2 = after1 + "overlay two\n"
+		patch1 = "--- schema.graphql\n+++ schema.graphql\n@@ -1 +1,2 @@\n stubbed SDL export\n+overlay one\n"
+		patch2 = "--- schema.graphql\n+++ schema.graphql\n@@ -1,2 +1,3 @@\n stubbed SDL export\n overlay one\n+overlay two\n"
+	)
+	hexSum := func(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
+	run := func(t *testing.T, order []string) (string, int) {
+		f := newPinFixture(t)
+		writeNpmStub(t, f.bin, false)
+		root := filepath.Dir(filepath.Dir(f.scriptPath))
+		for name, body := range map[string]string{"one.patch": patch1, "two.patch": patch2} {
+			if err := os.MkdirAll(filepath.Join(root, "schema", "overlay"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "schema", "overlay", name), []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		src, err := os.ReadFile(filepath.Join(root, "schema", "SOURCE"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		s := regexp.MustCompile(`(?m)^sdl_(sha256|lines)=.*\n`).ReplaceAllString(string(src), "")
+		for _, o := range order {
+			s += "overlay=schema/overlay/" + o + "\n"
+		}
+		s += "pre_overlay_sdl_sha256=" + hexSum(stubExport) + "\nsdl_sha256=" + hexSum(after2) + "\nsdl_lines=3\n"
+		if err := os.WriteFile(filepath.Join(root, "schema", "SOURCE"), []byte(s), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "schema", "schema.graphql"), []byte(after2), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return f.verify(t, filepath.Join(f.tmp, "verify-out"))
+	}
+	if log, code := run(t, []string{"one.patch", "two.patch"}); code != 0 {
+		t.Fatalf("overlays in order exited %d:\n%s", code, redact(log))
+	}
+	if log, code := run(t, []string{"two.patch", "one.patch"}); code == 0 || !strings.Contains(log, "does not apply") {
+		t.Fatalf("swapped overlays exited %d, want a refusal naming the patch:\n%s", code, redact(log))
+	}
+}

@@ -29,10 +29,15 @@ merge_sha=3dedeab1783ea6554145c693fd70b7c5b24e9236
 # of the merge above. It adds GrantSigningRequest.lastRefusedAt, byte-identical
 # to hadron-server c9d7820e (#4581) typeDefs; that commit sits after S2 (#4513),
 # so it cannot be merged into this pin. pre_overlay_sdl_sha256 is the export
-# before the overlay (the old sdl_sha256), sdl_sha256/sdl_lines are after it.
+# before the overlays (the old sdl_sha256), sdl_sha256/sdl_lines are after all.
 overlay=schema/overlay/4581-lastRefusedAt.patch
+# overlay= (cli#2762, retire with #2658): the second patch, applied after the
+# first. It adds TaskWakeEvent.ANSWERED and DueTaskReason.questionCode, both
+# byte-identical to hadron-server 50532f6a (#4644) typeDefs; that merge sits
+# after S2 (#4513), so it cannot be merged into this pin either.
+overlay=schema/overlay/4644-answered-wake.patch
 pre_overlay_sdl_sha256=67c6459430ade0373dfac3864a4ea8fe2d1c2e73044d679b40f29d777385b7c1
-sdl_lines=22715
-sdl_sha256=8758ee19b900ecc8387a8eeca6a898ac5468cbdab854b7233a09abe78143c50b
+sdl_lines=22725
+sdl_sha256=385e7780118854da8b70b109b621c3b1073e05c89bc863971c7fbaf6665c60e7
 tsx=4.23.15
 graphql=16.15.0
