@@ -186,7 +186,7 @@ withheld, wakes[], dormant[], hasNextPage, endCursor}; dormant lists workers
 whose mentions are held back, never dropped.
 
 --instruction <kind>:<ref> claims, for this one read, that the worker's
-holder told it to read the manager's scope (cor:dmo:050:12): the verified
+holder told it to read the manager's scope: the verified
 worktree worker session reads the manager's lane, never the holder's
 personal scope, and never acknowledges. kind is team-chat-message, task or
 live-chat; ref is a reference to where the instruction was given (a

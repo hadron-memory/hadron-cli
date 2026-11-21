@@ -25341,6 +25341,312 @@ func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTempl
 	return &retval, nil
 }
 
+// ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult includes the requested fields of the GraphQL type ApplyAgentTickerTemplatesResult.
+// The GraphQL type's documentation follows.
+//
+// #2096 — what applyAgentTickerTemplates did: what it created, and the templates the worker already had (a second call is a visible no-op).
+type ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult struct {
+	Created        []*ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker  `json:"created"`
+	AlreadyPresent []*ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate `json:"alreadyPresent"`
+}
+
+// GetCreated returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult.Created, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult) GetCreated() []*ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker {
+	return v.Created
+}
+
+// GetAlreadyPresent returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult.AlreadyPresent, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult) GetAlreadyPresent() []*ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate {
+	return v.AlreadyPresent
+}
+
+// ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate includes the requested fields of the GraphQL type AppliedTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2096 — a template as the apply operation reports it: its id and name only. Deliberately NOT AgentTickerTemplate:
+// that type's agent field default-resolves the whole Agent, and whoever manages an App need not be able to read
+// the Agent it installed (the same reason ReleasedFromUser is not User, hrn:node:hadronmemory.com:specs:cor:acl:110:01).
+type ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate) GetId() string {
+	return v.Id
+}
+
+// GetName returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate) GetName() string {
+	return v.Name
+}
+
+// ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker includes the requested fields of the GraphQL type AppliedTickerTemplateTicker.
+// The GraphQL type's documentation follows.
+//
+// #2096 — one ticker an apply created, with the template it came from and its effective cadence (the App's floor may have raised it, R92).
+type ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker struct {
+	Ticker                  *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker                        `json:"ticker"`
+	Template                *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate `json:"template"`
+	EffectiveCadenceSeconds int                                                                                                                                                         `json:"effectiveCadenceSeconds"`
+}
+
+// GetTicker returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker.Ticker, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker) GetTicker() *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker {
+	return v.Ticker
+}
+
+// GetTemplate returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker.Template, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker) GetTemplate() *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate {
+	return v.Template
+}
+
+// GetEffectiveCadenceSeconds returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker) GetEffectiveCadenceSeconds() int {
+	return v.EffectiveCadenceSeconds
+}
+
+// ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate includes the requested fields of the GraphQL type AppliedTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2096 — a template as the apply operation reports it: its id and name only. Deliberately NOT AgentTickerTemplate:
+// that type's agent field default-resolves the whole Agent, and whoever manages an App need not be able to read
+// the Agent it installed (the same reason ReleasedFromUser is not User, hrn:node:hadronmemory.com:specs:cor:acl:110:01).
+type ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate) GetId() string {
+	return v.Id
+}
+
+// GetName returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate) GetName() string {
+	return v.Name
+}
+
+// ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker struct {
+	TickerFields `json:"-"`
+}
+
+// GetId returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Id, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetId() string {
+	return v.TickerFields.Id
+}
+
+// GetUrn returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Urn, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetUrn() *string {
+	return v.TickerFields.Urn
+}
+
+// GetName returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Name, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetName() string {
+	return v.TickerFields.Name
+}
+
+// GetSlug returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Slug, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetSlug() string {
+	return v.TickerFields.Slug
+}
+
+// GetApp returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.App, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetApp() *TickerFieldsApp {
+	return v.TickerFields.App
+}
+
+// GetCadenceSeconds returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetCadenceSeconds() int {
+	return v.TickerFields.CadenceSeconds
+}
+
+// GetAnchorAt returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.AnchorAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetAnchorAt() string {
+	return v.TickerFields.AnchorAt
+}
+
+// GetQuietHours returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.QuietHours, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetQuietHours() *json.RawMessage {
+	return v.TickerFields.QuietHours
+}
+
+// GetChannels returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Channels, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetChannels() []*TickerFieldsChannelsChannel {
+	return v.TickerFields.Channels
+}
+
+// GetRelevance returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Relevance, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetRelevance() TickerRelevance {
+	return v.TickerFields.Relevance
+}
+
+// GetReasons returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Reasons, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetReasons() []TickerReason {
+	return v.TickerFields.Reasons
+}
+
+// GetEnabled returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Enabled, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetEnabled() bool {
+	return v.TickerFields.Enabled
+}
+
+// GetOwner returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Owner, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetOwner() *TickerFieldsOwnerActorRef {
+	return v.TickerFields.Owner
+}
+
+// GetNextTickAt returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.NextTickAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetNextTickAt() *string {
+	return v.TickerFields.NextTickAt
+}
+
+// GetLastTickAt returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetLastTickAt() *string {
+	return v.TickerFields.LastTickAt
+}
+
+// GetCreatedAt returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetCreatedAt() string {
+	return v.TickerFields.CreatedAt
+}
+
+// GetUpdatedAt returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetUpdatedAt() *string {
+	return v.TickerFields.UpdatedAt
+}
+
+// GetTickCode returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetTickCode() string {
+	return v.TickerFields.TickCode
+}
+
+// GetRegisterTaskLoc returns ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetRegisterTaskLoc() *string {
+	return v.TickerFields.RegisterTaskLoc
+}
+
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TickerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Slug string `json:"slug"`
+
+	App *TickerFieldsApp `json:"app"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	AnchorAt string `json:"anchorAt"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Channels []*TickerFieldsChannelsChannel `json:"channels"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	Enabled bool `json:"enabled"`
+
+	Owner *TickerFieldsOwnerActorRef `json:"owner"`
+
+	NextTickAt *string `json:"nextTickAt"`
+
+	LastTickAt *string `json:"lastTickAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
+}
+
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) __premarshalJSON() (*__premarshalApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker, error) {
+	var retval __premarshalApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker
+
+	retval.Id = v.TickerFields.Id
+	retval.Urn = v.TickerFields.Urn
+	retval.Name = v.TickerFields.Name
+	retval.Slug = v.TickerFields.Slug
+	retval.App = v.TickerFields.App
+	retval.CadenceSeconds = v.TickerFields.CadenceSeconds
+	retval.AnchorAt = v.TickerFields.AnchorAt
+	retval.QuietHours = v.TickerFields.QuietHours
+	retval.Channels = v.TickerFields.Channels
+	retval.Relevance = v.TickerFields.Relevance
+	retval.Reasons = v.TickerFields.Reasons
+	retval.Enabled = v.TickerFields.Enabled
+	retval.Owner = v.TickerFields.Owner
+	retval.NextTickAt = v.TickerFields.NextTickAt
+	retval.LastTickAt = v.TickerFields.LastTickAt
+	retval.CreatedAt = v.TickerFields.CreatedAt
+	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
+	return &retval, nil
+}
+
+// ApplyAgentTickerTemplatesInstructedResponse is returned by ApplyAgentTickerTemplatesInstructed on success.
+type ApplyAgentTickerTemplatesInstructedResponse struct {
+	// #2096 — apply the Agent's current ticker templates to ONE existing worker (the repair for workers cast before the
+	// templates existed; hrn:node:hadronmemory.com:specs:cor:agt:080:33, :20). Whoever manages the App:
+	// not the worker on its own, not its holder as such, not a reportsTo chain. Creates only the template tickers the worker is missing,
+	// each owned by and subscribed to it, and never edits or deletes any existing ticker or subscription; a template the
+	// worker already has a live ticker for is reported under alreadyPresent and left as it is. A template below the App's
+	// cadence floor is created at the floor; if the App's live-ticker cap cannot take every missing ticker, or a generated
+	// name is already a live ticker's, the whole call is refused and nothing is created. Never automatic, never across workers.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	ApplyAgentTickerTemplates *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult `json:"applyAgentTickerTemplates"`
+}
+
+// GetApplyAgentTickerTemplates returns ApplyAgentTickerTemplatesInstructedResponse.ApplyAgentTickerTemplates, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesInstructedResponse) GetApplyAgentTickerTemplates() *ApplyAgentTickerTemplatesInstructedApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult {
+	return v.ApplyAgentTickerTemplates
+}
+
 // ApplyAgentTickerTemplatesResponse is returned by ApplyAgentTickerTemplates on success.
 type ApplyAgentTickerTemplatesResponse struct {
 	// #2096 — apply the Agent's current ticker templates to ONE existing worker (the repair for workers cast before the
@@ -52146,6 +52452,15 @@ func (v *DeleteTeamRoleResponse) GetDeleteTeamRole() *DeleteTeamRoleDeleteTeamRo
 	return v.DeleteTeamRole
 }
 
+// DeleteTickerInstructedResponse is returned by DeleteTickerInstructed on success.
+type DeleteTickerInstructedResponse struct {
+	// #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	DeleteTicker bool `json:"deleteTicker"`
+}
+
+// GetDeleteTicker returns DeleteTickerInstructedResponse.DeleteTicker, and is useful for accessing the field via an interface.
+func (v *DeleteTickerInstructedResponse) GetDeleteTicker() bool { return v.DeleteTicker }
+
 // DeleteTickerResponse is returned by DeleteTicker on success.
 type DeleteTickerResponse struct {
 	// #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -53762,6 +54077,8 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason s
 	Handle string `json:"handle"`
 	// The task's title, for the nudge text.
 	Title string `json:"title"`
+	// #4431 — for ANSWERED, the code of the question that was answered (e.g. QA3), for the nudge: a question this task asked was answered: <code>. Never the answer. Null for every other event (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+	QuestionCode *string `json:"questionCode"`
 }
 
 // GetEventId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.EventId, and is useful for accessing the field via an interface.
@@ -53792,6 +54109,11 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReas
 // GetTitle returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Title, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetTitle() string {
 	return v.Title
+}
+
+// GetQuestionCode returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.QuestionCode, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetQuestionCode() *string {
+	return v.QuestionCode
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
@@ -101226,6 +101548,148 @@ var AllStopSignalScope = []StopSignalScope{
 	StopSignalScopeWorker,
 }
 
+// SubscribeTickerInstructedResponse is returned by SubscribeTickerInstructed on success.
+type SubscribeTickerInstructedResponse struct {
+	// #1747 — subscribe a worker to a ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:20, :25). Its holder and whoever manages
+	// the App, to any ticker; the worker itself only at or slower than the App self-subscription cadence
+	// (SUBSCRIBE_CADENCE_NEEDS_HOLDER); a worker holding the may-subscribe-workers grant, with a person
+	// behind the call, for OTHER workers only. Idempotent for a live subscription. A grant use is announced
+	// to the team chat, best-effort: announcement says POSTED or FAILED, and the subscription stands either way.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	// #4234: a worker of a SHORT_LIVED Agent is refused TICKER_ON_SHORT_LIVED, after authorization and before anything is
+	// written (it runs only while it holds a task, so a ticker could not wake it). The refusal comes before the idempotent
+	// answer: re-subscribing such a worker that already has a live subscription is refused too, not answered changed false.
+	// Unsubscribing it stays allowed.
+	SubscribeWorker *SubscribeTickerInstructedSubscribeWorkerSubscribeResult `json:"subscribeWorker"`
+}
+
+// GetSubscribeWorker returns SubscribeTickerInstructedResponse.SubscribeWorker, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedResponse) GetSubscribeWorker() *SubscribeTickerInstructedSubscribeWorkerSubscribeResult {
+	return v.SubscribeWorker
+}
+
+// SubscribeTickerInstructedSubscribeWorkerSubscribeResult includes the requested fields of the GraphQL type SubscribeResult.
+type SubscribeTickerInstructedSubscribeWorkerSubscribeResult struct {
+	Subscription *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription `json:"subscription"`
+	// Set only when the call used the grant: whether the team-chat post went out.
+	Announcement *GrantAnnouncement `json:"announcement"`
+}
+
+// GetSubscription returns SubscribeTickerInstructedSubscribeWorkerSubscribeResult.Subscription, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResult) GetSubscription() *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription {
+	return v.Subscription
+}
+
+// GetAnnouncement returns SubscribeTickerInstructedSubscribeWorkerSubscribeResult.Announcement, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResult) GetAnnouncement() *GrantAnnouncement {
+	return v.Announcement
+}
+
+// SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription includes the requested fields of the GraphQL type TickerSubscription.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker subscription to one ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:02).
+type SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription struct {
+	TickerSubscriptionFields `json:"-"`
+}
+
+// GetId returns SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription.Id, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetId() string {
+	return v.TickerSubscriptionFields.Id
+}
+
+// GetWorker returns SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription.Worker, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetWorker() *TickerSubscriptionFieldsWorker {
+	return v.TickerSubscriptionFields.Worker
+}
+
+// GetCreatedBy returns SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetCreatedBy() *TickerSubscriptionFieldsCreatedByActorRef {
+	return v.TickerSubscriptionFields.CreatedBy
+}
+
+// GetViaGrant returns SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription.ViaGrant, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetViaGrant() bool {
+	return v.TickerSubscriptionFields.ViaGrant
+}
+
+// GetCreatedAt returns SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetCreatedAt() string {
+	return v.TickerSubscriptionFields.CreatedAt
+}
+
+// GetEndedAt returns SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription.EndedAt, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetEndedAt() *string {
+	return v.TickerSubscriptionFields.EndedAt
+}
+
+// GetEndedReason returns SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription.EndedReason, and is useful for accessing the field via an interface.
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetEndedReason() *TickerSubscriptionEndReason {
+	return v.TickerSubscriptionFields.EndedReason
+}
+
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TickerSubscriptionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription struct {
+	Id string `json:"id"`
+
+	Worker *TickerSubscriptionFieldsWorker `json:"worker"`
+
+	CreatedBy *TickerSubscriptionFieldsCreatedByActorRef `json:"createdBy"`
+
+	ViaGrant bool `json:"viaGrant"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndedReason *TickerSubscriptionEndReason `json:"endedReason"`
+}
+
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription) __premarshalJSON() (*__premarshalSubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription, error) {
+	var retval __premarshalSubscribeTickerInstructedSubscribeWorkerSubscribeResultSubscriptionTickerSubscription
+
+	retval.Id = v.TickerSubscriptionFields.Id
+	retval.Worker = v.TickerSubscriptionFields.Worker
+	retval.CreatedBy = v.TickerSubscriptionFields.CreatedBy
+	retval.ViaGrant = v.TickerSubscriptionFields.ViaGrant
+	retval.CreatedAt = v.TickerSubscriptionFields.CreatedAt
+	retval.EndedAt = v.TickerSubscriptionFields.EndedAt
+	retval.EndedReason = v.TickerSubscriptionFields.EndedReason
+	return &retval, nil
+}
+
 // SubscribeTickerResponse is returned by SubscribeTicker on success.
 type SubscribeTickerResponse struct {
 	// #1747 — subscribe a worker to a ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:20, :25). Its holder and whoever manages
@@ -101613,7 +102077,9 @@ type TaskWakeEvent string
 
 const (
 	// An unacknowledged alarm's currently-woken chain position (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Delivering it never acknowledges the alarm.
-	TaskWakeEventAlarm    TaskWakeEvent = "ALARM"
+	TaskWakeEventAlarm TaskWakeEvent = "ALARM"
+	// #4431 — a question that blocks the task was answered (a question.answered event on the task); the nudge names the task, never the answer. Due to the task's current assignee until delivered or that worker acts on the task (hrn:node:hadronmemory.com:specs:cor:agt:050:11). A take-back wakes nobody.
+	TaskWakeEventAnswered TaskWakeEvent = "ANSWERED"
 	TaskWakeEventAssigned TaskWakeEvent = "ASSIGNED"
 	// #4234 — a child task was cancelled; the reason names the child. Due to the same two as CHILD_FINISHED (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
 	TaskWakeEventChildCancelled TaskWakeEvent = "CHILD_CANCELLED"
@@ -101628,6 +102094,7 @@ const (
 
 var AllTaskWakeEvent = []TaskWakeEvent{
 	TaskWakeEventAlarm,
+	TaskWakeEventAnswered,
 	TaskWakeEventAssigned,
 	TaskWakeEventChildCancelled,
 	TaskWakeEventChildFinished,
@@ -114881,6 +115348,139 @@ func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryCo
 	return &retval, nil
 }
 
+// UnsubscribeTickerInstructedResponse is returned by UnsubscribeTickerInstructed on success.
+type UnsubscribeTickerInstructedResponse struct {
+	// #1747 — end a worker subscription. The same callers as subscribeWorker, and the worker itself, always. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	UnsubscribeWorker *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult `json:"unsubscribeWorker"`
+}
+
+// GetUnsubscribeWorker returns UnsubscribeTickerInstructedResponse.UnsubscribeWorker, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedResponse) GetUnsubscribeWorker() *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult {
+	return v.UnsubscribeWorker
+}
+
+// UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult includes the requested fields of the GraphQL type SubscribeResult.
+type UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult struct {
+	Subscription *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription `json:"subscription"`
+	// Set only when the call used the grant: whether the team-chat post went out.
+	Announcement *GrantAnnouncement `json:"announcement"`
+}
+
+// GetSubscription returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult.Subscription, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult) GetSubscription() *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription {
+	return v.Subscription
+}
+
+// GetAnnouncement returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult.Announcement, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResult) GetAnnouncement() *GrantAnnouncement {
+	return v.Announcement
+}
+
+// UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription includes the requested fields of the GraphQL type TickerSubscription.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker subscription to one ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:02).
+type UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription struct {
+	TickerSubscriptionFields `json:"-"`
+}
+
+// GetId returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription.Id, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetId() string {
+	return v.TickerSubscriptionFields.Id
+}
+
+// GetWorker returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription.Worker, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetWorker() *TickerSubscriptionFieldsWorker {
+	return v.TickerSubscriptionFields.Worker
+}
+
+// GetCreatedBy returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetCreatedBy() *TickerSubscriptionFieldsCreatedByActorRef {
+	return v.TickerSubscriptionFields.CreatedBy
+}
+
+// GetViaGrant returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription.ViaGrant, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetViaGrant() bool {
+	return v.TickerSubscriptionFields.ViaGrant
+}
+
+// GetCreatedAt returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetCreatedAt() string {
+	return v.TickerSubscriptionFields.CreatedAt
+}
+
+// GetEndedAt returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription.EndedAt, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetEndedAt() *string {
+	return v.TickerSubscriptionFields.EndedAt
+}
+
+// GetEndedReason returns UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription.EndedReason, and is useful for accessing the field via an interface.
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) GetEndedReason() *TickerSubscriptionEndReason {
+	return v.TickerSubscriptionFields.EndedReason
+}
+
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TickerSubscriptionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription struct {
+	Id string `json:"id"`
+
+	Worker *TickerSubscriptionFieldsWorker `json:"worker"`
+
+	CreatedBy *TickerSubscriptionFieldsCreatedByActorRef `json:"createdBy"`
+
+	ViaGrant bool `json:"viaGrant"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndedReason *TickerSubscriptionEndReason `json:"endedReason"`
+}
+
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription) __premarshalJSON() (*__premarshalUnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription, error) {
+	var retval __premarshalUnsubscribeTickerInstructedUnsubscribeWorkerSubscribeResultSubscriptionTickerSubscription
+
+	retval.Id = v.TickerSubscriptionFields.Id
+	retval.Worker = v.TickerSubscriptionFields.Worker
+	retval.CreatedBy = v.TickerSubscriptionFields.CreatedBy
+	retval.ViaGrant = v.TickerSubscriptionFields.ViaGrant
+	retval.CreatedAt = v.TickerSubscriptionFields.CreatedAt
+	retval.EndedAt = v.TickerSubscriptionFields.EndedAt
+	retval.EndedReason = v.TickerSubscriptionFields.EndedReason
+	return &retval, nil
+}
+
 // UnsubscribeTickerResponse is returned by UnsubscribeTicker on success.
 type UnsubscribeTickerResponse struct {
 	// #1747 — end a worker subscription. The same callers as subscribeWorker, and the worker itself, always. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -122674,6 +123274,199 @@ func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdate
 	return &retval, nil
 }
 
+// UpdateTickerInstructedResponse is returned by UpdateTickerInstructed on success.
+type UpdateTickerInstructedResponse struct {
+	// #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
+	UpdateTicker *UpdateTickerInstructedUpdateTicker `json:"updateTicker"`
+}
+
+// GetUpdateTicker returns UpdateTickerInstructedResponse.UpdateTicker, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedResponse) GetUpdateTicker() *UpdateTickerInstructedUpdateTicker {
+	return v.UpdateTicker
+}
+
+// UpdateTickerInstructedUpdateTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type UpdateTickerInstructedUpdateTicker struct {
+	TickerFields `json:"-"`
+}
+
+// GetId returns UpdateTickerInstructedUpdateTicker.Id, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetId() string { return v.TickerFields.Id }
+
+// GetUrn returns UpdateTickerInstructedUpdateTicker.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetUrn() *string { return v.TickerFields.Urn }
+
+// GetName returns UpdateTickerInstructedUpdateTicker.Name, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetName() string { return v.TickerFields.Name }
+
+// GetSlug returns UpdateTickerInstructedUpdateTicker.Slug, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetSlug() string { return v.TickerFields.Slug }
+
+// GetApp returns UpdateTickerInstructedUpdateTicker.App, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetApp() *TickerFieldsApp { return v.TickerFields.App }
+
+// GetCadenceSeconds returns UpdateTickerInstructedUpdateTicker.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetCadenceSeconds() int {
+	return v.TickerFields.CadenceSeconds
+}
+
+// GetAnchorAt returns UpdateTickerInstructedUpdateTicker.AnchorAt, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetAnchorAt() string { return v.TickerFields.AnchorAt }
+
+// GetQuietHours returns UpdateTickerInstructedUpdateTicker.QuietHours, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetQuietHours() *json.RawMessage {
+	return v.TickerFields.QuietHours
+}
+
+// GetChannels returns UpdateTickerInstructedUpdateTicker.Channels, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetChannels() []*TickerFieldsChannelsChannel {
+	return v.TickerFields.Channels
+}
+
+// GetRelevance returns UpdateTickerInstructedUpdateTicker.Relevance, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetRelevance() TickerRelevance {
+	return v.TickerFields.Relevance
+}
+
+// GetReasons returns UpdateTickerInstructedUpdateTicker.Reasons, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetReasons() []TickerReason {
+	return v.TickerFields.Reasons
+}
+
+// GetEnabled returns UpdateTickerInstructedUpdateTicker.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetEnabled() bool { return v.TickerFields.Enabled }
+
+// GetOwner returns UpdateTickerInstructedUpdateTicker.Owner, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetOwner() *TickerFieldsOwnerActorRef {
+	return v.TickerFields.Owner
+}
+
+// GetNextTickAt returns UpdateTickerInstructedUpdateTicker.NextTickAt, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetNextTickAt() *string {
+	return v.TickerFields.NextTickAt
+}
+
+// GetLastTickAt returns UpdateTickerInstructedUpdateTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetLastTickAt() *string {
+	return v.TickerFields.LastTickAt
+}
+
+// GetCreatedAt returns UpdateTickerInstructedUpdateTicker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetCreatedAt() string { return v.TickerFields.CreatedAt }
+
+// GetUpdatedAt returns UpdateTickerInstructedUpdateTicker.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetUpdatedAt() *string { return v.TickerFields.UpdatedAt }
+
+// GetTickCode returns UpdateTickerInstructedUpdateTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetTickCode() string { return v.TickerFields.TickCode }
+
+// GetRegisterTaskLoc returns UpdateTickerInstructedUpdateTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *UpdateTickerInstructedUpdateTicker) GetRegisterTaskLoc() *string {
+	return v.TickerFields.RegisterTaskLoc
+}
+
+func (v *UpdateTickerInstructedUpdateTicker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateTickerInstructedUpdateTicker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateTickerInstructedUpdateTicker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TickerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateTickerInstructedUpdateTicker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Slug string `json:"slug"`
+
+	App *TickerFieldsApp `json:"app"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	AnchorAt string `json:"anchorAt"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Channels []*TickerFieldsChannelsChannel `json:"channels"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	Enabled bool `json:"enabled"`
+
+	Owner *TickerFieldsOwnerActorRef `json:"owner"`
+
+	NextTickAt *string `json:"nextTickAt"`
+
+	LastTickAt *string `json:"lastTickAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
+}
+
+func (v *UpdateTickerInstructedUpdateTicker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateTickerInstructedUpdateTicker) __premarshalJSON() (*__premarshalUpdateTickerInstructedUpdateTicker, error) {
+	var retval __premarshalUpdateTickerInstructedUpdateTicker
+
+	retval.Id = v.TickerFields.Id
+	retval.Urn = v.TickerFields.Urn
+	retval.Name = v.TickerFields.Name
+	retval.Slug = v.TickerFields.Slug
+	retval.App = v.TickerFields.App
+	retval.CadenceSeconds = v.TickerFields.CadenceSeconds
+	retval.AnchorAt = v.TickerFields.AnchorAt
+	retval.QuietHours = v.TickerFields.QuietHours
+	retval.Channels = v.TickerFields.Channels
+	retval.Relevance = v.TickerFields.Relevance
+	retval.Reasons = v.TickerFields.Reasons
+	retval.Enabled = v.TickerFields.Enabled
+	retval.Owner = v.TickerFields.Owner
+	retval.NextTickAt = v.TickerFields.NextTickAt
+	retval.LastTickAt = v.TickerFields.LastTickAt
+	retval.CreatedAt = v.TickerFields.CreatedAt
+	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
+	return &retval, nil
+}
+
 // UpdateTickerResponse is returned by UpdateTicker on success.
 type UpdateTickerResponse struct {
 	// #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -129632,6 +130425,20 @@ type __ApplyAgentTickerTemplatesInput struct {
 // GetWorkerRef returns __ApplyAgentTickerTemplatesInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__ApplyAgentTickerTemplatesInput) GetWorkerRef() string { return v.WorkerRef }
 
+// __ApplyAgentTickerTemplatesInstructedInput is used internally by genqlient
+type __ApplyAgentTickerTemplatesInstructedInput struct {
+	WorkerRef   string               `json:"workerRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetWorkerRef returns __ApplyAgentTickerTemplatesInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__ApplyAgentTickerTemplatesInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetInstruction returns __ApplyAgentTickerTemplatesInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__ApplyAgentTickerTemplatesInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __ApplyMemoryConfigTemplateInput is used internally by genqlient
 type __ApplyMemoryConfigTemplateInput struct {
 	TemplateRef              string `json:"templateRef"`
@@ -132975,6 +133782,18 @@ type __DeleteTickerInput struct {
 
 // GetRef returns __DeleteTickerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteTickerInput) GetRef() string { return v.Ref }
+
+// __DeleteTickerInstructedInput is used internally by genqlient
+type __DeleteTickerInstructedInput struct {
+	Ref         string               `json:"ref"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetRef returns __DeleteTickerInstructedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteTickerInstructedInput) GetRef() string { return v.Ref }
+
+// GetInstruction returns __DeleteTickerInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__DeleteTickerInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __DeleteUserApiKeyInput is used internally by genqlient
 type __DeleteUserApiKeyInput struct {
@@ -137756,6 +138575,24 @@ func (v *__SubscribeTickerInput) GetTickerRef() string { return v.TickerRef }
 // GetWorkerRef returns __SubscribeTickerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__SubscribeTickerInput) GetWorkerRef() string { return v.WorkerRef }
 
+// __SubscribeTickerInstructedInput is used internally by genqlient
+type __SubscribeTickerInstructedInput struct {
+	TickerRef   string               `json:"tickerRef"`
+	WorkerRef   string               `json:"workerRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetTickerRef returns __SubscribeTickerInstructedInput.TickerRef, and is useful for accessing the field via an interface.
+func (v *__SubscribeTickerInstructedInput) GetTickerRef() string { return v.TickerRef }
+
+// GetWorkerRef returns __SubscribeTickerInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__SubscribeTickerInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetInstruction returns __SubscribeTickerInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SubscribeTickerInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __SyncMemoryInput is used internally by genqlient
 type __SyncMemoryInput struct {
 	Ref string `json:"ref"`
@@ -139291,6 +140128,24 @@ func (v *__UnsubscribeTickerInput) GetTickerRef() string { return v.TickerRef }
 
 // GetWorkerRef returns __UnsubscribeTickerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__UnsubscribeTickerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __UnsubscribeTickerInstructedInput is used internally by genqlient
+type __UnsubscribeTickerInstructedInput struct {
+	TickerRef   string               `json:"tickerRef"`
+	WorkerRef   string               `json:"workerRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetTickerRef returns __UnsubscribeTickerInstructedInput.TickerRef, and is useful for accessing the field via an interface.
+func (v *__UnsubscribeTickerInstructedInput) GetTickerRef() string { return v.TickerRef }
+
+// GetWorkerRef returns __UnsubscribeTickerInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__UnsubscribeTickerInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetInstruction returns __UnsubscribeTickerInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__UnsubscribeTickerInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __UntrackedTaskItemsInput is used internally by genqlient
 type __UntrackedTaskItemsInput struct {
@@ -141399,6 +142254,22 @@ func (v *__UpdateTickerInput) GetRef() string { return v.Ref }
 
 // GetInput returns __UpdateTickerInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateTickerInput) GetInput() *TickerPatch { return v.Input }
+
+// __UpdateTickerInstructedInput is used internally by genqlient
+type __UpdateTickerInstructedInput struct {
+	Ref         string               `json:"ref"`
+	Input       *TickerPatch         `json:"input,omitempty"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetRef returns __UpdateTickerInstructedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateTickerInstructedInput) GetRef() string { return v.Ref }
+
+// GetInput returns __UpdateTickerInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateTickerInstructedInput) GetInput() *TickerPatch { return v.Input }
+
+// GetInstruction returns __UpdateTickerInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__UpdateTickerInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __UpdateUserRolesInput is used internally by genqlient
 type __UpdateUserRolesInput struct {
@@ -150820,6 +151691,85 @@ func ApplyAgentTickerTemplates(
 	}
 
 	data_ = &ApplyAgentTickerTemplatesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ApplyAgentTickerTemplatesInstructed.
+const ApplyAgentTickerTemplatesInstructed_Operation = `
+mutation ApplyAgentTickerTemplatesInstructed ($workerRef: String!, $instruction: ActInstructionInput!) {
+	applyAgentTickerTemplates(workerRef: $workerRef, instruction: $instruction) {
+		created {
+			ticker {
+				... TickerFields
+			}
+			template {
+				id
+				name
+			}
+			effectiveCadenceSeconds
+		}
+		alreadyPresent {
+			id
+			name
+		}
+	}
+}
+fragment TickerFields on Ticker {
+	id
+	urn
+	name
+	slug
+	app {
+		id
+	}
+	cadenceSeconds
+	anchorAt
+	quietHours
+	channels {
+		id
+		name
+	}
+	relevance
+	reasons
+	enabled
+	owner {
+		id
+		name
+		urn
+	}
+	nextTickAt
+	lastTickAt
+	createdAt
+	updatedAt
+	tickCode
+	registerTaskLoc
+}
+`
+
+func ApplyAgentTickerTemplatesInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	instruction *ActInstructionInput,
+) (data_ *ApplyAgentTickerTemplatesInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ApplyAgentTickerTemplatesInstructed",
+		Query:  ApplyAgentTickerTemplatesInstructed_Operation,
+		Variables: &__ApplyAgentTickerTemplatesInstructedInput{
+			WorkerRef:   workerRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &ApplyAgentTickerTemplatesInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -161229,6 +162179,40 @@ func DeleteTicker(
 	return data_, err_
 }
 
+// The mutation executed by DeleteTickerInstructed.
+const DeleteTickerInstructed_Operation = `
+mutation DeleteTickerInstructed ($ref: String!, $instruction: ActInstructionInput!) {
+	deleteTicker(ref: $ref, instruction: $instruction)
+}
+`
+
+func DeleteTickerInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	instruction *ActInstructionInput,
+) (data_ *DeleteTickerInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteTickerInstructed",
+		Query:  DeleteTickerInstructed_Operation,
+		Variables: &__DeleteTickerInstructedInput{
+			Ref:         ref,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &DeleteTickerInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteUser.
 const DeleteUser_Operation = `
 mutation DeleteUser ($reason: String, $userRef: ID) {
@@ -161882,6 +162866,7 @@ query DueWakes ($appRef: String!, $first: Int!, $accepts: [WakeKind!]!, $after: 
 					id
 					handle
 					title
+					questionCode
 				}
 				action {
 					code
@@ -180758,6 +181743,64 @@ func SubscribeTicker(
 	return data_, err_
 }
 
+// The mutation executed by SubscribeTickerInstructed.
+const SubscribeTickerInstructed_Operation = `
+mutation SubscribeTickerInstructed ($tickerRef: String!, $workerRef: String!, $instruction: ActInstructionInput!) {
+	subscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef, instruction: $instruction) {
+		subscription {
+			... TickerSubscriptionFields
+		}
+		announcement
+	}
+}
+fragment TickerSubscriptionFields on TickerSubscription {
+	id
+	worker {
+		id
+		name
+		urn
+	}
+	createdBy {
+		id
+		name
+		urn
+	}
+	viaGrant
+	createdAt
+	endedAt
+	endedReason
+}
+`
+
+func SubscribeTickerInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	tickerRef string,
+	workerRef string,
+	instruction *ActInstructionInput,
+) (data_ *SubscribeTickerInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SubscribeTickerInstructed",
+		Query:  SubscribeTickerInstructed_Operation,
+		Variables: &__SubscribeTickerInstructedInput{
+			TickerRef:   tickerRef,
+			WorkerRef:   workerRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SubscribeTickerInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SyncMemory.
 const SyncMemory_Operation = `
 mutation SyncMemory ($ref: ID!) {
@@ -185706,6 +186749,64 @@ func UnsubscribeTicker(
 	return data_, err_
 }
 
+// The mutation executed by UnsubscribeTickerInstructed.
+const UnsubscribeTickerInstructed_Operation = `
+mutation UnsubscribeTickerInstructed ($tickerRef: String!, $workerRef: String!, $instruction: ActInstructionInput!) {
+	unsubscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef, instruction: $instruction) {
+		subscription {
+			... TickerSubscriptionFields
+		}
+		announcement
+	}
+}
+fragment TickerSubscriptionFields on TickerSubscription {
+	id
+	worker {
+		id
+		name
+		urn
+	}
+	createdBy {
+		id
+		name
+		urn
+	}
+	viaGrant
+	createdAt
+	endedAt
+	endedReason
+}
+`
+
+func UnsubscribeTickerInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	tickerRef string,
+	workerRef string,
+	instruction *ActInstructionInput,
+) (data_ *UnsubscribeTickerInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UnsubscribeTickerInstructed",
+		Query:  UnsubscribeTickerInstructed_Operation,
+		Variables: &__UnsubscribeTickerInstructedInput{
+			TickerRef:   tickerRef,
+			WorkerRef:   workerRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &UnsubscribeTickerInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by UntrackedTaskItems.
 const UntrackedTaskItems_Operation = `
 query UntrackedTaskItems ($appRef: ID!, $integration: String!, $team: ID, $repository: String, $ready: ReadyFilter, $skip: Int, $limit: Int) {
@@ -189480,6 +190581,77 @@ func UpdateTicker(
 	}
 
 	data_ = &UpdateTickerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateTickerInstructed.
+const UpdateTickerInstructed_Operation = `
+mutation UpdateTickerInstructed ($ref: String!, $input: TickerPatch!, $instruction: ActInstructionInput!) {
+	updateTicker(ref: $ref, input: $input, instruction: $instruction) {
+		... TickerFields
+	}
+}
+fragment TickerFields on Ticker {
+	id
+	urn
+	name
+	slug
+	app {
+		id
+	}
+	cadenceSeconds
+	anchorAt
+	quietHours
+	channels {
+		id
+		name
+	}
+	relevance
+	reasons
+	enabled
+	owner {
+		id
+		name
+		urn
+	}
+	nextTickAt
+	lastTickAt
+	createdAt
+	updatedAt
+	tickCode
+	registerTaskLoc
+}
+`
+
+// TickerPatch is one generated type shared with UpdateTicker, so its omitempty
+// pragmas must be stated here too, or an omitted field is sent as an explicit null
+// (which the server reads as "clear").
+func UpdateTickerInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	input *TickerPatch,
+	instruction *ActInstructionInput,
+) (data_ *UpdateTickerInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateTickerInstructed",
+		Query:  UpdateTickerInstructed_Operation,
+		Variables: &__UpdateTickerInstructedInput{
+			Ref:         ref,
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &UpdateTickerInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
