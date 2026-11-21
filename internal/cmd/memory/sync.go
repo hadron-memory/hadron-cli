@@ -255,9 +255,11 @@ checks. The token is never printed: not in the output, --json or an error.
 // server code that reflects the token — the literal token or one of its
 // generated JSON spellings (cli#2704 Jack F2) — is dropped, and the message
 // is only partially redacted when that provably writes the token nowhere
-// (cli#2714 round 4). Otherwise the fixed refusal replaces the whole
-// message: the scrubber's only replacement is the marker, and any
-// replacement can itself (re)create token text.
+// (cli#2714 round 4). Otherwise a fixed refusal replaces the whole message:
+// the scrubber's only replacement is the marker, and any replacement can
+// itself (re)create token text. The refusal is itself output, so it is
+// chosen by the same test — a fixed text that carries this token is never
+// printed (cli#2714 round 5; see tokenSafeRefusal).
 func setTokenError(err error, token string) error {
 	mapped := api.MapError(err)
 	if token == "" {
@@ -273,7 +275,7 @@ func setTokenError(err error, token string) error {
 	// nothing from it. The code (and, in the receipt path, the URN) is kept
 	// only when it itself carries no spelling.
 	if replacementCanRecreateToken(token) || containsAnySpelling(mapped.Error(), token) {
-		safe := exitcode.Newf(exitcode.FromError(mapped), "%s", fixedTokenRefusal)
+		safe := exitcode.Newf(exitcode.FromError(mapped), "%s", tokenSafeRefusal(token))
 		if containsAnySpelling(api.ServerCodeOf(err), token) {
 			return safe
 		}
@@ -298,9 +300,35 @@ func replacementCanRecreateToken(token string) bool {
 	return strings.Contains(token, redactionMarker) || strings.Contains(redactionMarker, token)
 }
 
-// fixedTokenRefusal is the only message rendered when the server's answer may
-// not be partially redacted: it carries nothing from the server's message.
-const fixedTokenRefusal = "the server refused the source token"
+// The drop path's message is a cascade of fixed refusals, not one constant:
+// any fixed text can itself carry the token (cli#2714 round 5, Bruno's
+// round-4 delta P2: a token "server refused" sits inside "the server refused
+// the source token"), so every tier is checked with the same predicate before
+// it is used, and the last resort is no echo at all — the empty message
+// provably carries no spelling of a non-empty token, which this path
+// guarantees.
+const (
+	// fullTokenRefusal is the message whenever it provably carries no
+	// spelling of the token.
+	fullTokenRefusal = "the server refused the source token"
+	// secondTokenRefusal shares no word with fullTokenRefusal, so a token
+	// equal to (or inside) a word of the first refusal still gets a
+	// readable answer instead of silence.
+	secondTokenRefusal = "input declined"
+)
+
+// tokenSafeRefusal picks the drop path's message for this token: the full
+// refusal, then a second fixed text sharing no word with it, then no echo at
+// all (Eden's round-5 rule: the fixed refusal is the drop path's output, so
+// the token check must hold against the refusal text too).
+func tokenSafeRefusal(token string) string {
+	for _, refusal := range [...]string{fullTokenRefusal, secondTokenRefusal, ""} {
+		if !containsAnySpelling(refusal, token) {
+			return refusal
+		}
+	}
+	return "" // unreachable: no spelling of a non-empty token fits the empty text
+}
 
 // redactionMarker is what redactToken writes over every spelling of the
 // token. Exported nowhere: a caller cannot choose the marker, because a
