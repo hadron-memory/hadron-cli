@@ -141,6 +141,18 @@ func TestEnvelopeKeysAreNeutralisedAndNullsStayNull2846(t *testing.T) {
 	}
 }
 
+// Two keys that neutralise to the same text keep the first in sorted order, and a cyclic value
+// ends at the depth cap instead of overflowing the stack.
+func TestNeutraliseEnvelopeValueCollidingKeysAndCycles2846(t *testing.T) {
+	out := neutraliseEnvelopeValue(map[string]any{"a\u200bb": "first", "a\u200cb": "second"}).(map[string]any)
+	if len(out) != 1 || out["a b"] != "first" {
+		t.Errorf("colliding keys: %v", out)
+	}
+	cyc := map[string]any{}
+	cyc["self"] = cyc
+	_ = neutraliseEnvelopeValue(cyc) // must return
+}
+
 // A typed nil map or slice stays nil (it marshals as null, not {} or []).
 func TestNeutraliseEnvelopeValueKeepsTypedNilsNil2846(t *testing.T) {
 	var m map[string]any
@@ -237,7 +249,7 @@ func TestNeutraliseEnvelopeValueKeepsTypesAndOnlyChangesStrings2846(t *testing.T
 		"typed":    []inner{{Name: bad, Count: 7, Ptr: &p, Flag: true, hid: bad}},
 		"list":     []string{bad, "ok"},
 		"nested":   map[string]any{"x": []any{bad, 1.5, nil, true}},
-		"raw":      []byte(bad),
+		"raw":      []byte(bad), // encodes as base64, so left alone
 		"nilptr":   (*string)(nil),
 		"num":      float64(4),
 	}
@@ -277,6 +289,13 @@ func TestEnvelopeStagedSecretChangeStaysByteForByte2846(t *testing.T) {
 	}
 	e := envelope2738(t, stdout, stderr)
 	if e["requestId"] != req2738 || e["ceremonyUrl"] != "https://hadronmemory.com"+tail {
-		t.Errorf("the staged request id and ceremony URL are carried exactly as sent: %v", e)
+		t.Errorf("the staged request id and ceremony URL decode to exactly what was sent: %v", e)
+	}
+	// ...while the bytes on the wire carry no raw C1 or format character (cli#2846 blind N1).
+	if r, bad := rawFormat2846(stdout); bad {
+		t.Errorf("raw %U on the wire; it must be a \\uXXXX escape: %q", r, stdout)
+	}
+	if !strings.Contains(stdout, `\u200b`) || !strings.Contains(stdout, `\u009b`) {
+		t.Errorf("the characters are escaped, not dropped: %q", stdout)
 	}
 }

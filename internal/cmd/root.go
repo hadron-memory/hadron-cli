@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -496,8 +497,8 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var staged interface{ StagedSecretChange() (string, string) }
 		if errors.As(err, &staged) {
 			id, url := staged.StagedSecretChange()
-			failure["requestId"] = id
-			failure["ceremonyUrl"] = url
+			failure["requestId"] = output.ExactJSONString(id)
+			failure["ceremonyUrl"] = output.ExactJSONString(url)
 		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
@@ -548,12 +549,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 			failure[k] = neutraliseEnvelopeValue(v)
 		}
 		// A staged secret change's request id and ceremony URL are the one exception: they go in
-		// exactly as the server sent them (cli#2738: a script hands the URL to the person who
-		// signs, and the text path withholds a URL with control or format characters).
+		// exactly as the server sent them once decoded (cli#2738: a script hands the URL to the
+		// person who signs), but with any C1 control or format character written as a \uXXXX
+		// escape so the raw bytes cannot act on a terminal that shows the document.
 		if errors.As(err, &staged) {
 			id, url := staged.StagedSecretChange()
-			failure["requestId"] = id
-			failure["ceremonyUrl"] = url
+			failure["requestId"] = output.ExactJSONString(id)
+			failure["ceremonyUrl"] = output.ExactJSONString(url)
 		}
 		envelope := map[string]any{"error": failure}
 		switch {
@@ -684,16 +686,23 @@ func isUsageError(err error) bool {
 // array, struct or interface holding them (the typed PR slots, the clone-agent blockers and
 // their subjects, a decoded server detail). Types are preserved, so a number, a boolean, a
 // nil and the field order of a struct come out as they went in; only string contents change.
-// A []byte (a raw JSON value) is left as it is.
+// A []byte is left as it is (it encodes as base64; the envelope holds no json.RawMessage).
 func neutraliseEnvelopeValue(v any) any {
 	if v == nil {
 		return nil
 	}
-	out := neutraliseReflect(reflect.ValueOf(v))
+	out := neutraliseReflect(reflect.ValueOf(v), 0)
 	return out.Interface()
 }
 
-func neutraliseReflect(v reflect.Value) reflect.Value {
+// envelopeMaxDepth bounds the walk: a server detail is a shallow document, and a cyclic value
+// must end in a refusal to descend, not a stack overflow (cli#2846 blind N4).
+const envelopeMaxDepth = 32
+
+func neutraliseReflect(v reflect.Value, depth int) reflect.Value {
+	if depth > envelopeMaxDepth {
+		return reflect.Zero(v.Type())
+	}
 	switch v.Kind() {
 	case reflect.String:
 		r := reflect.New(v.Type()).Elem()
@@ -704,22 +713,31 @@ func neutraliseReflect(v reflect.Value) reflect.Value {
 			return v
 		}
 		r := reflect.New(v.Type().Elem())
-		r.Elem().Set(neutraliseReflect(v.Elem()))
+		r.Elem().Set(neutraliseReflect(v.Elem(), depth+1))
 		return r
 	case reflect.Interface:
 		if v.IsNil() {
 			return v
 		}
 		r := reflect.New(v.Type()).Elem()
-		r.Set(neutraliseReflect(v.Elem()))
+		r.Set(neutraliseReflect(v.Elem(), depth+1))
 		return r
 	case reflect.Map:
 		if v.IsNil() {
 			return v
 		}
 		r := reflect.MakeMapWithSize(v.Type(), v.Len())
-		for it := v.MapRange(); it.Next(); {
-			r.SetMapIndex(neutraliseReflect(it.Key()), neutraliseReflect(it.Value())) // a server-chosen key is a server string too
+		// A server-chosen key is a server string too. Two keys that differ only by characters
+		// neutralised to the same text would collide, so visit them in sorted order and keep the
+		// first, which makes the surviving value deterministic.
+		keys := v.MapKeys()
+		sort.Slice(keys, func(i, j int) bool { return fmt.Sprint(keys[i].Interface()) < fmt.Sprint(keys[j].Interface()) })
+		for _, k := range keys {
+			nk := neutraliseReflect(k, depth+1)
+			if r.MapIndex(nk).IsValid() {
+				continue
+			}
+			r.SetMapIndex(nk, neutraliseReflect(v.MapIndex(k), depth+1))
 		}
 		return r
 	case reflect.Slice:
@@ -728,13 +746,13 @@ func neutraliseReflect(v reflect.Value) reflect.Value {
 		}
 		r := reflect.MakeSlice(v.Type(), v.Len(), v.Len())
 		for i := 0; i < v.Len(); i++ {
-			r.Index(i).Set(neutraliseReflect(v.Index(i)))
+			r.Index(i).Set(neutraliseReflect(v.Index(i), depth+1))
 		}
 		return r
 	case reflect.Array:
 		r := reflect.New(v.Type()).Elem()
 		for i := 0; i < v.Len(); i++ {
-			r.Index(i).Set(neutraliseReflect(v.Index(i)))
+			r.Index(i).Set(neutraliseReflect(v.Index(i), depth+1))
 		}
 		return r
 	case reflect.Struct:
@@ -742,7 +760,7 @@ func neutraliseReflect(v reflect.Value) reflect.Value {
 		r.Set(v)
 		for i := 0; i < v.NumField(); i++ {
 			if r.Field(i).CanSet() {
-				r.Field(i).Set(neutraliseReflect(v.Field(i)))
+				r.Field(i).Set(neutraliseReflect(v.Field(i), depth+1))
 			}
 		}
 		return r

@@ -1,6 +1,11 @@
 package output
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+	"unicode"
+)
 
 func TestSafeError2739(t *testing.T) {
 	for _, tc := range []struct{ name, in, want string }{
@@ -93,5 +98,25 @@ func TestSafeErrorSplitsZeroWidthJoinerSequences2846(t *testing.T) {
 	}
 	if got := SafeError("\U0001F680 \u2713 \U0001F468"); got != "\U0001F680 \u2713 \U0001F468" {
 		t.Errorf("ordinary emoji pass unchanged: %q", got)
+	}
+}
+
+func TestExactJSONStringDecodesExactlyAndCarriesNoRawControl2846(t *testing.T) {
+	in := "a\u009bb\u200bc\u202ed\U000e0001e plain é"
+	b, err := json.Marshal(ExactJSONString(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back string
+	if err := json.Unmarshal(b, &back); err != nil || back != in {
+		t.Fatalf("must decode to the original: %q %v", back, err)
+	}
+	for _, r := range string(b) {
+		if (r >= 0x80 && r <= 0x9f) || unicode.In(r, unicode.Cf) {
+			t.Errorf("raw %U in %s", r, b)
+		}
+	}
+	if !strings.Contains(string(b), "é") {
+		t.Errorf("an ordinary non-ASCII letter stays as it is: %s", b)
 	}
 }

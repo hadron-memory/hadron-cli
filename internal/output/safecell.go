@@ -1,10 +1,13 @@
 package output
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf16"
 )
 
 // cellMaxRunes is the RENDERED limit of one text-table cell, the ellipsis
@@ -156,4 +159,31 @@ func SafeJSONText(s string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// ExactJSONString is a string that marshals to a JSON string which DECODES to exactly the
+// original, while its bytes carry no C1 control or format character raw: each is written as a
+// \uXXXX escape, so a terminal showing the document cannot act on it (cli#2846). It is for the
+// few values a caller must copy byte for byte (a staged secret change's request id and ceremony
+// URL, cli#2738), where SafeJSONText's replacement with a space would corrupt the value.
+type ExactJSONString string
+
+func (s ExactJSONString) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(string(s))
+	if err != nil {
+		return nil, err
+	}
+	var out strings.Builder
+	for _, r := range string(b) {
+		if (r >= 0x80 && r <= 0x9f) || unicode.In(r, unicode.Cf) {
+			if r1, r2 := utf16.EncodeRune(r); r1 != unicode.ReplacementChar { // beyond the BMP: a surrogate pair
+				fmt.Fprintf(&out, `\u%04x\u%04x`, r1, r2)
+			} else {
+				fmt.Fprintf(&out, `\u%04x`, r)
+			}
+			continue
+		}
+		out.WriteRune(r)
+	}
+	return []byte(out.String()), nil
 }
