@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -34,10 +35,14 @@ type agentRevisionDeletedDTO struct {
 	Status      string `json:"status"`
 }
 
-// slotCount turns the server's Float! slot number into an int, refusing anything
-// that is not a whole non-negative number: a count is shown exactly or not at all.
-func slotCount(name string, v float64) (int, error) {
-	if v < 0 || v != math.Trunc(v) || v > math.MaxInt32 {
+// parseSlotCount turns the server's Float! slot number into an int, refusing
+// anything that is not a whole non-negative number that fits: a count is shown
+// exactly or not at all. The two refusals say which of the two it was.
+func parseSlotCount(name string, v float64) (int, error) {
+	if v > math.MaxInt32 {
+		return 0, exitcode.Newf(exitcode.Unavailable, "the server returned %s %v, which is larger than this CLI can show", name, v)
+	}
+	if v < 0 || v != math.Trunc(v) {
 		return 0, exitcode.Newf(exitcode.Unavailable, "the server returned %s %v, which is not a whole non-negative count", name, v)
 	}
 	return int(v), nil
@@ -85,17 +90,26 @@ Agent with none. Needs ADMIN on the Agent; the server decides.`,
 			list := resp.AgentRevisions
 			// The SDL makes all four required. A missing or null one must not read as
 			// zero (an all-zero report would be a false fact): refuse the answer.
-			if list.Revisions == nil || list.SlotLimit == nil || list.HighestSlotUsed == nil || list.SlotsRemaining == nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server's revision list is missing a required field (revisions, slotLimit, highestSlotUsed or slotsRemaining), so nothing is shown")
+			var missing []string
+			for _, f := range []struct {
+				name string
+				nil  bool
+			}{{"revisions", list.Revisions == nil}, {"slotLimit", list.SlotLimit == nil}, {"highestSlotUsed", list.HighestSlotUsed == nil}, {"slotsRemaining", list.SlotsRemaining == nil}} {
+				if f.nil {
+					missing = append(missing, f.name)
+				}
+			}
+			if len(missing) > 0 {
+				return exitcode.Newf(exitcode.Unavailable, "the server's revision list is missing a required field (%s), so nothing is shown", strings.Join(missing, ", "))
 			}
 			dto := agentRevisionListDTO{Revisions: []agentRevisionDTO{}}
-			if dto.SlotLimit, err = slotCount("slotLimit", *list.SlotLimit); err != nil {
+			if dto.SlotLimit, err = parseSlotCount("slotLimit", *list.SlotLimit); err != nil {
 				return err
 			}
-			if dto.HighestSlotUsed, err = slotCount("highestSlotUsed", *list.HighestSlotUsed); err != nil {
+			if dto.HighestSlotUsed, err = parseSlotCount("highestSlotUsed", *list.HighestSlotUsed); err != nil {
 				return err
 			}
-			if dto.SlotsRemaining, err = slotCount("slotsRemaining", *list.SlotsRemaining); err != nil {
+			if dto.SlotsRemaining, err = parseSlotCount("slotsRemaining", *list.SlotsRemaining); err != nil {
 				return err
 			}
 			for _, r := range list.Revisions {
@@ -141,7 +155,7 @@ is still there. Use it to remove a revision you do not want kept.
 The server refuses, before changing anything, to delete the published revision
 (REVISION_PUBLISHED: publish another first) and an Agent's only revision
 (REVISION_ONLY); both exit 5. A loc that is not one of the Agent's revisions is
-refused as bad input (exit 2). Needs ADMIN on the Agent; the server decides.
+refused by the server as bad input (BAD_USER_INPUT, "Revision not found"; exit 2). Needs ADMIN on the Agent; the server decides.
 
 On a terminal this asks first; without one, --yes is required and nothing is
 sent without it. One request is sent and never retried: if its answer is lost,

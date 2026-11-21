@@ -412,3 +412,60 @@ func TestAgentRevisionRmAnInternalFaultWithNoIDOmitsTheField(t *testing.T) {
 		t.Fatalf("no id was returned, so none is invented: %v", env.Error)
 	}
 }
+
+// Joshua's BLIND P3s (#2800), the cheap ones.
+func TestAgentRevisionListNamesTheMissingField(t *testing.T) {
+	for wire, want := range map[string]string{
+		`{"data":{"agentRevisions":{}}}`: "(revisions, slotLimit, highestSlotUsed, slotsRemaining)",
+		`{"data":{"agentRevisions":{"revisions":[],"slotLimit":5,"highestSlotUsed":0,"slotsRemaining":null}}}`:    "(slotsRemaining)",
+		`{"data":{"agentRevisions":{"revisions":[],"slotLimit":null,"highestSlotUsed":null,"slotsRemaining":1}}}`: "(slotLimit, highestSlotUsed)",
+	} {
+		_, _, err := runAgentSub(t, map[string]string{"AgentRevisions": wire}, "revision", "list", "agt1")
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal must name the missing field %s: %v", want, err)
+		}
+	}
+}
+
+func TestAgentRevisionListOverflowAndFractionHaveTheirOwnMessage(t *testing.T) {
+	big := `{"data":{"agentRevisions":{"revisions":[],"slotLimit":99999999999,"highestSlotUsed":1,"slotsRemaining":1}}}`
+	_, _, err := runAgentSub(t, map[string]string{"AgentRevisions": big}, "revision", "list", "agt1")
+	if err == nil || !strings.Contains(err.Error(), "larger than this CLI can show") || strings.Contains(err.Error(), "whole non-negative") {
+		t.Errorf("overflow message: %v", err)
+	}
+	frac := `{"data":{"agentRevisions":{"revisions":[],"slotLimit":5.5,"highestSlotUsed":1,"slotsRemaining":1}}}`
+	_, _, err = runAgentSub(t, map[string]string{"AgentRevisions": frac}, "revision", "list", "agt1")
+	if err == nil || !strings.Contains(err.Error(), "not a whole non-negative count") {
+		t.Errorf("fraction message: %v", err)
+	}
+}
+
+func TestAgentRevisionListLsAliasWorks(t *testing.T) {
+	calls, out, err := runAgentSub(t, map[string]string{"AgentRevisions": revList2533}, "revision", "ls", "agt1", "--json")
+	if err != nil || len(calls.ops) != 1 || calls.ops[0] != "AgentRevisions" || !strings.Contains(out, `"revisions"`) {
+		t.Fatalf("ls is the same command: err=%v ops=%v", err, calls.ops)
+	}
+}
+
+// The wrap applies to an AMBIGUOUS failure only: a transport-class Unavailable (a
+// gateway 503, whose delete may have committed) is wrapped with the recovery
+// guidance and keeps exit 7; a definitive refusal (FORBIDDEN) is NOT wrapped.
+func TestAgentRevisionRmWrapsAnUnavailableAndNeverAnythingDefinitive(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "upstream down", http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "revision", "rm", "agt1", "revisions:rev-2", "--yes", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable || !strings.Contains(err.Error(), "delete outcome unknown (sent once, not retried)") {
+		t.Fatalf("an unavailable delete is wrapped with the recovery guidance, exit 7: err=%v exit=%d", err, exitCodeFor(err))
+	}
+	_, _, err = runAgentSub(t, map[string]string{
+		"DeleteAgentRevision": `{"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
+	}, "revision", "rm", "agt1", "revisions:rev-2", "--yes")
+	if err == nil || exitCodeFor(err) != exitcode.Forbidden || strings.Contains(err.Error(), "outcome unknown") {
+		t.Fatalf("a definitive refusal must not claim an unknown outcome: %v", err)
+	}
+}

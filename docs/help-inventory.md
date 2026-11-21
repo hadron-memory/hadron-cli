@@ -310,7 +310,7 @@ section between the markers.
 | `agent revision list` | ls |  | y | #1053 | 56adb45289e2 |  | unread |  |
 | `agent revision publish` |  |  | y | #1053 | ba835fa3aa30 |  | unread |  |
 | `agent revision restore` |  |  | y | #1053 | 599bc52aa9b2 |  | unread |  |
-| `agent revision rm` |  |  | y | #1053 | 40b58a72abe0 |  | unread |  |
+| `agent revision rm` |  |  | y | #1053 | 3fb2015bcda1 |  | unread |  |
 | `agent rm` | delete |  | y | #1053 | 5e410603db21 |  | unread |  |
 | `agent set-base` |  |  | n | #1053 | 262c332aec88 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
