@@ -299,7 +299,7 @@ func TestSubscriptionAllRefusesAServerThatIgnoresTheOffset2788(t *testing.T) {
 			same := page2788(mode.field, 3, true, sub2788(1), sub2788(2))
 			fk, out, err := grants2788Run(t, map[string][]grants2788Reply{mode.op: {same, same, same, same, same}},
 				append(append([]string{"list"}, sel...), "--all", "--json")...)
-			if err == nil || !strings.Contains(err.Error(), "more rows than") || exitCodeFor(err) != exitcode.Error {
+			if err == nil || (!strings.Contains(err.Error(), "more rows than") && !strings.Contains(err.Error(), "twice")) || exitCodeFor(err) != exitcode.Error {
 				t.Fatalf("a server repeating page 1 must fail with exit %d and say so: %v", exitcode.Error, err)
 			}
 			if fk.count(mode.op) > 3 {
@@ -478,7 +478,7 @@ func TestSubscriptionAllPinsTotalAndRejectsRepeatedRows2788(t *testing.T) {
 	t.Run("total moved mid-walk", func(t *testing.T) {
 		_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
 			page2788("myAgentSubscriptionsPage", 3, true, sub2788(1), sub2788(2)),
-			page2788("myAgentSubscriptionsPage", 4, false, sub2788(2), sub2788(3)),
+			page2788("myAgentSubscriptionsPage", 4, false, sub2788(3), sub2788(4)),
 		}}, "list", "--mine", "--all", "--json")
 		if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "changed") {
 			t.Fatalf("a total that moved mid-walk must be refused: %v", err)
@@ -528,5 +528,13 @@ func TestSubscriptionOffsetZeroHintNotCircular2788(t *testing.T) {
 	}
 	if strings.Contains(out, "Use --offset 0") {
 		t.Errorf("circular advice at offset 0: %q", out)
+	}
+}
+
+// BLIND P3: a blank selector is a usage error, not a dropped flag.
+func TestSubscriptionBlankSelectorIsUsageError2788(t *testing.T) {
+	fk, _, err := grants2788Run(t, map[string][]grants2788Reply{}, "list", "--org", " ", "--mine")
+	if err == nil || exitCodeFor(err) != exitcode.Usage || len(fk.calls) != 0 {
+		t.Errorf("want usage error and no request, got %v (%v)", err, fk.calls)
 	}
 }

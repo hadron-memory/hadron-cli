@@ -77,6 +77,9 @@ unusable answer) nothing is retried: check with "hadron agent subscription list
 				return orgGrantUnknown("subscribe", org, nil)
 			}
 			g := resp.CreateAgentOrgGrant
+			if g.RevokedAt != nil {
+				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s comes back revoked (%s); it was not left subscribed", org, agent, *g.RevokedAt)
+			}
 			return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Subscribed")
 		}}
 	c.Flags().StringVar(&org, "org", "", "organization id or URN (required)")
@@ -129,6 +132,9 @@ who is not one gets an empty list, which does not settle it.`,
 				return orgGrantUnknown("revoke", org, nil)
 			}
 			g := resp.RevokeAgentOrgGrant
+			if g.IsActive || g.RevokedAt == nil {
+				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s does not come back revoked (active: %v); check with `hadron agent subscription list --org %s`", org, agent, g.IsActive, cmdutil.ShellQuote(org))
+			}
 			return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Revoked")
 		}}
 	c.Flags().StringVar(&org, "org", "", "organization id or URN (required)")
@@ -231,13 +237,29 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 	}
 	var items []userAgentSubscriptionDTO
 	total := 0
+	seen := map[[2]string]bool{}
 	for o := 0; ; {
 		p, err := fetch(api.PageLimit, o)
 		if err != nil {
 			return subscriptionPageDTO{}, err
 		}
+		// Offset paging over a newest-first list: a row created mid-walk shifts
+		// the rest down and raises the total. Pin the first page's total and
+		// refuse a repeated row, or len==total could hold with a duplicate and
+		// a missing row.
+		if o == 0 {
+			total = p.total
+		} else if p.total != total {
+			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the set changed during the read (total %d, then %d); run it again", total, p.total)
+		}
+		for _, it := range p.items {
+			k := [2]string{it.AgentID, it.UserID}
+			if seen[k] {
+				return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned a subscription twice (Agent %s, user %s): the set changed during the read; run it again", output.SafeCell(it.AgentID), output.SafeCell(it.UserID))
+			}
+			seen[k] = true
+		}
 		items = append(items, p.items...)
-		total = p.total
 		o += len(p.items)
 		// A server that ignores the offset (or a set that moved under the walk)
 		// hands back more rows than its own total: stop rather than spin and
@@ -297,6 +319,10 @@ func renderSubscriptionPage(f *cmdutil.Factory, pg subscriptionPageDTO, mine boo
 		}
 		if pg.HasMore {
 			_, err := fmt.Fprintf(w, "Showing %d of %d (from offset %d); this is NOT the whole set. Page on with --offset %d, or use --all.\n", len(pg.Items), pg.Total, offset, offset+len(pg.Items))
+			return err
+		}
+		if offset == 0 {
+			_, err := fmt.Fprintf(w, "Showing %d of %d (from offset 0); this is NOT the whole set: the server's answer is inconsistent with its own total. Run it again, or use --all.\n", len(pg.Items), pg.Total)
 			return err
 		}
 		_, err := fmt.Fprintf(w, "Showing %d of %d (from offset %d); this is NOT the whole set: the rows before this offset are not shown. Use --offset 0, or --all.\n", len(pg.Items), pg.Total, offset)

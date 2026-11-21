@@ -63,6 +63,13 @@ reads: "add" and "revoke" change organization subscriptions.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			org, agent = strings.TrimSpace(org), strings.TrimSpace(agent)
+			// A blank selector is not "absent": --org "" next to --mine must
+			// not silently run --mine alone.
+			for _, n := range []string{"org", "agent"} {
+				if cmd.Flags().Changed(n) && (n == "org" && org == "" || n == "agent" && agent == "") {
+					return exitcode.Newf(exitcode.Usage, "--%s is empty: give a value or omit the flag", n)
+				}
+			}
 			sel := 0
 			for _, on := range []bool{org != "", agent != "", mine} {
 				if on {
