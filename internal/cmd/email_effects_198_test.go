@@ -30,11 +30,11 @@ const secretBody198 = "BODY-SECRET-<b>hi</b>"
 // and the error.
 func runEffect198(t *testing.T, responses map[string]string, stdin string, args ...string) (string, map[string]json.RawMessage, int, error) {
 	t.Helper()
-	requests198.Store(0)
+	reqs198(t).Store(0)
 	srv, ops := captureGraphQL(t, responses)
 	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			requests198.Add(1)
+			reqs198(t).Add(1)
 		}
 		proxyTo198(t, w, r, srv.URL)
 	}))
@@ -44,7 +44,7 @@ func runEffect198(t *testing.T, responses map[string]string, stdin string, args 
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{"email"}, args...), "--server", counter.URL))
 	err := root.Execute()
-	return o.String(), ops, int(requests198.Load()), err
+	return o.String(), ops, int(reqs198(t).Load()), err
 }
 
 func bodyFile198(t *testing.T, content string) string {
@@ -415,11 +415,11 @@ func TestEmailEffectsAbsentAnswerIsNotConfirmed198(t *testing.T) {
 // given lines.
 func runEffectTTY198(t *testing.T, responses map[string]string, answers string, args ...string) (stderr string, n int, ops map[string]json.RawMessage, err error) {
 	t.Helper()
-	requests198.Store(0)
+	reqs198(t).Store(0)
 	srv, ops := captureGraphQL(t, responses)
 	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			requests198.Add(1)
+			reqs198(t).Add(1)
 		}
 		proxyTo198(t, w, r, srv.URL)
 	}))
@@ -428,7 +428,7 @@ func runEffectTTY198(t *testing.T, responses map[string]string, answers string, 
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{"email"}, args...), "--server", counter.URL))
 	err = root.Execute()
-	return errOut.String(), int(requests198.Load()), ops, err
+	return errOut.String(), int(reqs198(t).Load()), ops, err
 }
 
 // The prompts of reply, draft send and delete show the id made visible, never raw

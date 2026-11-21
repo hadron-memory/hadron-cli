@@ -29,8 +29,8 @@ func TestEmailTest198(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests198.Load() != 1 || vars198(t, ops, "EmailTestConnection")["id"] != "conn-1" {
-		t.Fatalf("want one request with id conn-1, got %d: %v", requests198.Load(), ops)
+	if reqs198(t).Load() != 1 || vars198(t, ops, "EmailTestConnection")["id"] != "conn-1" {
+		t.Fatalf("want one request with id conn-1, got %d: %v", reqs198(t).Load(), ops)
 	}
 	if !strings.Contains(out, `"connectionId": "conn-1"`) || !strings.Contains(out, `"ok": true`) {
 		t.Errorf("DTO = %s", out)
@@ -45,8 +45,8 @@ func TestEmailTest198(t *testing.T) {
 // nonzero exit, never as success, and with no reconnect advice of the CLI's own.
 func TestEmailTestFalseIsAFailedProbe198(t *testing.T) {
 	out, _, err := runEmail198(t, map[string]string{"EmailTestConnection": testFail198}, "test", "conn-1", "--json")
-	if exitCodeFor(err) != 1 || requests198.Load() != 1 {
-		t.Fatalf("a failed probe: exit %d (%v) with %d requests; want exit 1 and one request: %s", exitCodeFor(err), err, requests198.Load(), out)
+	if exitCodeFor(err) != 1 || reqs198(t).Load() != 1 {
+		t.Fatalf("a failed probe: exit %d (%v) with %d requests; want exit 1 and one request: %s", exitCodeFor(err), err, reqs198(t).Load(), out)
 	}
 	if !strings.Contains(out, `"ok": false`) {
 		t.Errorf("the failed probe is not in the output: %s", out)
@@ -86,8 +86,8 @@ func TestEmailManageErrors198(t *testing.T) {
 				if exitCodeFor(err) != e.want {
 					t.Fatalf("exit %d (%v), want %d", exitCodeFor(err), err, e.want)
 				}
-				if requests198.Load() != 1 {
-					t.Errorf("%d requests: a failed call is never retried", requests198.Load())
+				if reqs198(t).Load() != 1 {
+					t.Errorf("%d requests: a failed call is never retried", reqs198(t).Load())
 				}
 				if err != nil {
 					low := strings.ToLower(err.Error())
@@ -112,8 +112,8 @@ func TestEmailManageNeedsAConnectionID198(t *testing.T) {
 				full = append(full, "--yes")
 			}
 			_, _, err := runEmail198(t, map[string]string{}, full...)
-			if exitCodeFor(err) != 2 || requests198.Load() != 0 {
-				t.Errorf("email %v: exit %d (%v) with %d requests; want a usage error and none sent", full, exitCodeFor(err), err, requests198.Load())
+			if exitCodeFor(err) != 2 || reqs198(t).Load() != 0 {
+				t.Errorf("email %v: exit %d (%v) with %d requests; want a usage error and none sent", full, exitCodeFor(err), err, reqs198(t).Load())
 			}
 		}
 	}
@@ -124,15 +124,15 @@ func TestEmailManageNeedsAConnectionID198(t *testing.T) {
 // server confirmed.
 func TestEmailDisconnectConfirmation198(t *testing.T) {
 	_, _, err := runEmail198(t, map[string]string{"EmailDisconnect": discOK198}, "disconnect", "conn-1")
-	if exitCodeFor(err) != 2 || requests198.Load() != 0 {
-		t.Fatalf("without --yes: exit %d (%v) with %d requests; want exit 2 and none", exitCodeFor(err), err, requests198.Load())
+	if exitCodeFor(err) != 2 || reqs198(t).Load() != 0 {
+		t.Fatalf("without --yes: exit %d (%v) with %d requests; want exit 2 and none", exitCodeFor(err), err, reqs198(t).Load())
 	}
 	out, ops, err := runEmail198(t, map[string]string{"EmailDisconnect": discOK198}, "disconnect", " conn-1 ", "--yes", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if requests198.Load() != 1 || vars198(t, ops, "EmailDisconnect")["id"] != "conn-1" {
-		t.Fatalf("want one request with id conn-1, got %d: %v", requests198.Load(), ops)
+	if reqs198(t).Load() != 1 || vars198(t, ops, "EmailDisconnect")["id"] != "conn-1" {
+		t.Fatalf("want one request with id conn-1, got %d: %v", reqs198(t).Load(), ops)
 	}
 	if !strings.Contains(out, `"connectionId": "conn-1"`) || !strings.Contains(out, `"disconnected": true`) {
 		t.Errorf("DTO = %s", out)
@@ -168,11 +168,11 @@ func TestEmailDisconnectNotConfirmed198(t *testing.T) {
 // request count, the captured variables and the error.
 func runEmailTTY198(t *testing.T, responses map[string]string, answers string, args ...string) (stderr string, n int, ops map[string]json.RawMessage, err error) {
 	t.Helper()
-	requests198.Store(0)
+	reqs198(t).Store(0)
 	srv, ops := captureGraphQL(t, responses)
 	counter := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			requests198.Add(1)
+			reqs198(t).Add(1)
 		}
 		proxyTo198(t, w, r, srv.URL)
 	}))
@@ -181,7 +181,7 @@ func runEmailTTY198(t *testing.T, responses map[string]string, answers string, a
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{"email"}, args...), "--server", counter.URL))
 	err = root.Execute()
-	return errOut.String(), int(requests198.Load()), ops, err
+	return errOut.String(), int(reqs198(t).Load()), ops, err
 }
 
 // The #2735 blind and local P2: a missing or null answer to the probe is NOT an
@@ -197,14 +197,14 @@ func TestEmailTestMissingResultIsNotAFailedProbe198(t *testing.T) {
 			if strings.Contains(out, `"ok"`) {
 				t.Errorf("a missing result printed a definitive probe DTO: %s", out)
 			}
-			if requests198.Load() != 1 {
-				t.Errorf("%d requests", requests198.Load())
+			if reqs198(t).Load() != 1 {
+				t.Errorf("%d requests", reqs198(t).Load())
 			}
 		})
 	}
 	out, _, err := runEmail198(t, map[string]string{"EmailTestConnection": testFail198}, "test", "conn-1", "--json")
-	if exitCodeFor(err) != 1 || requests198.Load() != 1 || !strings.Contains(out, `"ok": false`) {
-		t.Errorf("an explicit false: exit %d (%v), %d requests, out %s; want exit 1, one request, ok:false", exitCodeFor(err), err, requests198.Load(), out)
+	if exitCodeFor(err) != 1 || reqs198(t).Load() != 1 || !strings.Contains(out, `"ok": false`) {
+		t.Errorf("an explicit false: exit %d (%v), %d requests, out %s; want exit 1, one request, ok:false", exitCodeFor(err), err, reqs198(t).Load(), out)
 	}
 }
 

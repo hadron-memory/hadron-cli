@@ -5225,8 +5225,8 @@ confirmed". A missing or blank `--connection` or id exits 2 with no request; ids
   before trying again". A retry is protected from a second draft only when the ORIGINAL request carried
   the same valid `--idempotency-key` too (within the server's deduplication window); the message says
   which case applies, and says a key added only on the retry does not protect. An explicitly empty or
-  whitespace-only key is sent unchanged but counts as no key for this guidance (the server dedups only
-  on a real key).
+  whitespace-only key is sent unchanged but counts as no key for this guidance (CLI policy, deliberately
+  conservative: the server dedups only on a real key, and the CLI cannot tell whether it accepted one).
   `--idempotency-key` is passed unchanged (an empty value too) and omitted when unset: the CLI never
   invents or replays one, and retry protection needs the same valid key reused within the server's
   deduplication window. `draft update DRAFT-ID` calls
