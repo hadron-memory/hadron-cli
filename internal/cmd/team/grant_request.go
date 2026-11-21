@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -50,10 +49,6 @@ no longer in a state that allows it (GRANT_NOT_PENDING, GRANT_EXPIRED,
 GRANT_TERMS_UNREPRESENTABLE, SIGNING_REQUEST_ENDED); 8 not permitted
 (GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED,
 SIGNING_REQUEST_NOT_REQUESTER, FORBIDDEN). --json errors carry serverCode.`
-
-// errNoSigningRequest is a mutation that answered null where it must answer a
-// request: a malformed server answer, reported as one rather than dereferenced.
-var errNoSigningRequest = errors.New("server returned no signing request")
 
 const unboundNote = "no worker binding in this worktree; sent without a worker session"
 
@@ -99,95 +94,21 @@ func workerGrantWriteClient(ctx context.Context, f *cmdutil.Factory, b *binding)
 	return api.WithSession(ctx, b.SessionID), client, nil
 }
 
-// grantSigningFields are the schema names a grant-request operation can be
-// refused by when the server has no signing surface (its switch off, or older).
-var grantSigningFields = []string{
-	"createGrant", "CreateGrantInput", "requestGrantSignature", "withdrawGrantSigningRequest",
-	"grantSigningRequest", "GrantSigningRequest", "GrantSigningRequestState",
-}
-
-// mapGrantSigningError is api.MapErrorKeepingCode, except that a server whose
-// every error is a missing signing name gets its own sentence: the generic
-// skew advice (upgrade) is wrong where signing is simply not offered. A mixed
-// envelope (a missing name beside a real refusal) is not swallowed.
-func mapGrantSigningError(err error) error {
-	if errors.Is(err, errNoSigningRequest) {
-		return exitcode.Newf(exitcode.Error, "server returned no signing request")
-	}
-	if api.IsGraphQLValidationOnlyFor(err, grantSigningFields...) {
-		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "this server does not offer grant requests and grant signing"), err)
-	}
-	return api.MapErrorKeepingCode(err)
-}
-
-// grantSigningRequestDTO is the stable --json shape of a grant signing request.
-type grantSigningRequestDTO struct {
-	ID             string                   `json:"id"`
-	GrantID        string                   `json:"grantId"`
-	Version        int                      `json:"version"`
-	TermsHash      string                   `json:"termsHash"`
-	PayloadVersion string                   `json:"payloadVersion"`
-	State          string                   `json:"state"`
-	RequestedBy    grantSigningRequesterDTO `json:"requestedBy"`
-	CreatedAt      string                   `json:"createdAt"`
-	ExpiresAt      string                   `json:"expiresAt"`
-	EndedAt        *string                  `json:"endedAt"`
-	LastRefusedAt  *string                  `json:"lastRefusedAt"` // latest observed refused signing attempt; null = none observed (cli#2727)
-	CeremonyURL    string                   `json:"ceremonyUrl"`
-}
-
-type grantSigningRequesterDTO struct {
-	UserID    *string `json:"userId"`
-	AppID     *string `json:"appId"`
-	WorkerID  *string `json:"workerId"`
-	SessionID *string `json:"sessionId"`
-}
-
-func grantSigningRequestFrom(r *gen.TeamGrantSigningRequestFields) grantSigningRequestDTO {
-	d := grantSigningRequestDTO{
-		ID: r.Id, GrantID: r.GrantId, Version: r.Version, TermsHash: r.TermsHash, PayloadVersion: r.PayloadVersion,
-		State: string(r.State), CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, EndedAt: r.EndedAt, LastRefusedAt: r.LastRefusedAt, CeremonyURL: r.CeremonyUrl,
-	}
-	if rb := r.RequestedBy; rb != nil {
-		d.RequestedBy = grantSigningRequesterDTO{rb.UserId, rb.AppId, rb.WorkerId, rb.SessionId}
-	}
-	return d
-}
-
-// unsafeForTerminal reports a character that could act on a terminal when
-// printed: C0, DEL and C1 controls (Cc), format characters (Cf) and the line
-// and paragraph separators (Zl, Zp).
-func unsafeForTerminal(s string) bool {
-	for _, r := range s {
-		if unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r) {
-			return true
-		}
-	}
-	return false
-}
-
-func grantOrDash(p *string) string {
-	if p == nil {
-		return "—"
-	}
-	return output.SafeCell(*p)
-}
-
 // renderGrantSigningRequest prints the request. ceremonyUrl is never routed
 // through SafeCell (it would truncate or rewrite it): it is printed exactly as
 // returned, or the text render is refused when it could act on a terminal.
-func renderGrantSigningRequest(f *cmdutil.Factory, d grantSigningRequestDTO) error {
+func renderGrantSigningRequest(f *cmdutil.Factory, d cmdutil.GrantSigningRequestDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		if unsafeForTerminal(d.CeremonyURL) {
-			return exitcode.Newf(exitcode.Error, "the ceremony URL contains control or format characters and is not printed as text; use --json to read it exactly")
+		if cmdutil.UnsafeForTerminal(d.CeremonyURL) {
+			return cmdutil.CeremonyURLRefusal()
 		}
 		rows := [][2]string{
 			{"id", output.SafeCell(d.ID)}, {"grantId", output.SafeCell(d.GrantID)}, {"version", fmt.Sprint(d.Version)},
 			{"termsHash", output.SafeCell(d.TermsHash)}, {"payloadVersion", output.SafeCell(d.PayloadVersion)}, {"state", output.SafeCell(d.State)},
-			{"requestedBy.userId", grantOrDash(d.RequestedBy.UserID)}, {"requestedBy.appId", grantOrDash(d.RequestedBy.AppID)},
-			{"requestedBy.workerId", grantOrDash(d.RequestedBy.WorkerID)}, {"requestedBy.sessionId", grantOrDash(d.RequestedBy.SessionID)},
-			{"createdAt", output.SafeCell(d.CreatedAt)}, {"expiresAt", output.SafeCell(d.ExpiresAt)}, {"endedAt", grantOrDash(d.EndedAt)},
-			{"lastRefusedAt", grantOrDash(d.LastRefusedAt)},
+			{"requestedBy.userId", cmdutil.DashOrCell(d.RequestedBy.UserID)}, {"requestedBy.appId", cmdutil.DashOrCell(d.RequestedBy.AppID)},
+			{"requestedBy.workerId", cmdutil.DashOrCell(d.RequestedBy.WorkerID)}, {"requestedBy.sessionId", cmdutil.DashOrCell(d.RequestedBy.SessionID)},
+			{"createdAt", output.SafeCell(d.CreatedAt)}, {"expiresAt", output.SafeCell(d.ExpiresAt)}, {"endedAt", cmdutil.DashOrCell(d.EndedAt)},
+			{"lastRefusedAt", cmdutil.DashOrCell(d.LastRefusedAt)},
 			{"ceremonyUrl", d.CeremonyURL},
 		}
 		for _, r := range rows {
@@ -294,7 +215,7 @@ person.
 			}
 			resp, err := gen.TeamCreateGrant(ctx, client, &in)
 			if err != nil {
-				return mapGrantSigningError(err)
+				return cmdutil.MapGrantSigningError(err)
 			}
 			if resp == nil || resp.CreateGrant == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no grant result")
@@ -346,12 +267,12 @@ func signingRequestVerb(f *cmdutil.Factory, use, short, what, example string, ca
 			}
 			r, err := call(ctx, client, id)
 			if err != nil {
-				return mapGrantSigningError(err)
+				return cmdutil.MapGrantSigningError(err)
 			}
 			if r == nil {
 				return exitcode.Newf(exitcode.NotFound, "signing request %q not found (or not visible to this caller)", id)
 			}
-			return renderGrantSigningRequest(f, grantSigningRequestFrom(r))
+			return renderGrantSigningRequest(f, cmdutil.GrantSigningRequestFrom(r))
 		},
 	}
 }
@@ -366,7 +287,7 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 				return nil, err
 			}
 			if resp == nil || resp.RequestGrantSignature == nil {
-				return nil, errNoSigningRequest
+				return nil, cmdutil.ErrNoSigningRequest
 			}
 			return &resp.RequestGrantSignature.TeamGrantSigningRequestFields, nil
 		})
@@ -393,7 +314,7 @@ func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 				return nil, err
 			}
 			if resp == nil || resp.WithdrawGrantSigningRequest == nil {
-				return nil, errNoSigningRequest
+				return nil, cmdutil.ErrNoSigningRequest
 			}
 			return &resp.WithdrawGrantSigningRequest.TeamGrantSigningRequestFields, nil
 		})
