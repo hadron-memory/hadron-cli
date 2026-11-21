@@ -299,7 +299,7 @@ func TestSubscriptionAllRefusesAServerThatIgnoresTheOffset2788(t *testing.T) {
 			same := page2788(mode.field, 3, true, sub2788(1), sub2788(2))
 			fk, out, err := grants2788Run(t, map[string][]grants2788Reply{mode.op: {same, same, same, same, same}},
 				append(append([]string{"list"}, sel...), "--all", "--json")...)
-			if err == nil || (!strings.Contains(err.Error(), "more rows than") && !strings.Contains(err.Error(), "twice")) || exitCodeFor(err) != exitcode.Error {
+			if err == nil || !strings.Contains(err.Error(), "more rows than") || exitCodeFor(err) != exitcode.Error {
 				t.Fatalf("a server repeating page 1 must fail with exit %d and say so: %v", exitcode.Error, err)
 			}
 			if fk.count(mode.op) > 3 {
@@ -492,7 +492,7 @@ func TestSubscriptionAllPinsTotalAndRejectsRepeatedRows2788(t *testing.T) {
 			page2788("myAgentSubscriptionsPage", 3, true, sub2788(1), sub2788(2)),
 			page2788("myAgentSubscriptionsPage", 3, false, sub2788(2)),
 		}}, "list", "--mine", "--all", "--json")
-		if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "twice") {
+		if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "identical subscription row twice") {
 			t.Fatalf("a repeated row must be refused: %v", err)
 		}
 		if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
@@ -536,5 +536,44 @@ func TestSubscriptionBlankSelectorIsUsageError2788(t *testing.T) {
 	fk, _, err := grants2788Run(t, map[string][]grants2788Reply{}, "list", "--org", " ", "--mine")
 	if err == nil || exitCodeFor(err) != exitcode.Usage || len(fk.calls) != 0 {
 		t.Errorf("want usage error and no request, got %v (%v)", err, fk.calls)
+	}
+}
+
+// BLIND P2 (round 3): the state rule per field, and one user holding two
+// distinct rows for an Agent must not fail --all.
+func TestSubscriptionStateRulePerField2788(t *testing.T) {
+	g := func(active bool, revoked string) string { return fmt.Sprintf(grant2788, active, revoked) }
+	cases := []struct {
+		name, verb, op, field, body string
+		wantErr                     bool
+	}{
+		{"add revoked-but-active", "add", "SubscribeOrgToAgent", "createAgentOrgGrant", g(true, `"2026-02-01T00:00:00Z"`), true},
+		{"add inactive not revoked is the server's call", "add", "SubscribeOrgToAgent", "createAgentOrgGrant", g(false, "null"), false},
+		{"revoke active though revoked", "revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", g(true, `"2026-02-01T00:00:00Z"`), true},
+		{"revoke inactive but no revokedAt", "revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", g(false, "null"), true},
+		{"revoke both", "revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", g(false, `"2026-02-01T00:00:00Z"`), false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			args := []string{c.verb, "--org", "o", "--agent", "a"}
+			if c.verb == "revoke" {
+				args = append(args, "--yes")
+			}
+			_, _, err := grants2788Run(t, map[string][]grants2788Reply{c.op: {{body: `{"data":{"` + c.field + `":` + c.body + `}}`}}}, args...)
+			if (err != nil) != c.wantErr || (err != nil && exitCodeFor(err) != exitcode.Error) {
+				t.Errorf("wantErr=%v got %v", c.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestSubscriptionAllAcceptsTwoDistinctRowsForOneUser2788(t *testing.T) {
+	second := `{"agentId":"ag1","userId":"u1","isActive":false,"createdAt":"c0","activatedAt":null,"expiresAt":null,"revokedAt":"r"}`
+	_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
+		page2788("myAgentSubscriptionsPage", 2, true, sub2788(1)),
+		page2788("myAgentSubscriptionsPage", 2, false, second),
+	}}, "list", "--mine", "--all", "--json")
+	if err != nil || !strings.Contains(out, `"complete": true`) && !strings.Contains(out, `"complete":true`) {
+		t.Fatalf("two distinct rows for one (agent,user) must be a complete walk: %v %s", err, out)
 	}
 }

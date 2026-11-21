@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -77,8 +78,10 @@ unusable answer) nothing is retried: check with "hadron agent subscription list
 				return orgGrantUnknown("subscribe", org, nil)
 			}
 			g := resp.CreateAgentOrgGrant
+			// Rule: a subscribe may not come back REVOKED (revokedAt set). Whether
+			// it is active yet (pending activation, expiry) is the server's call.
 			if g.RevokedAt != nil {
-				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s comes back revoked (%s); it was not left subscribed", org, agent, *g.RevokedAt)
+				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s comes back revoked; it was not left subscribed", org, agent)
 			}
 			return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Subscribed")
 		}}
@@ -132,6 +135,7 @@ who is not one gets an empty list, which does not settle it.`,
 				return orgGrantUnknown("revoke", org, nil)
 			}
 			g := resp.RevokeAgentOrgGrant
+			// Rule: a revoke must come back revoked (revokedAt set) AND inactive.
 			if g.IsActive || g.RevokedAt == nil {
 				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s does not come back revoked (active: %v); check with `hadron agent subscription list --org %s`", org, agent, g.IsActive, cmdutil.ShellQuote(org))
 			}
@@ -237,7 +241,7 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 	}
 	var items []userAgentSubscriptionDTO
 	total := 0
-	seen := map[[2]string]bool{}
+	seen := map[string]bool{}
 	for o := 0; ; {
 		p, err := fetch(api.PageLimit, o)
 		if err != nil {
@@ -252,20 +256,27 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		} else if p.total != total {
 			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the set changed during the read (total %d, then %d); run it again", total, p.total)
 		}
+		// A repeated row is keyed on the WHOLE row, not (agent, user): the list
+		// carries no row id, and a user may hold more than one row for an Agent
+		// (a revoked one and a later one), which must not fail every walk.
+		dup := ""
 		for _, it := range p.items {
-			k := [2]string{it.AgentID, it.UserID}
-			if seen[k] {
-				return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned a subscription twice (Agent %s, user %s): the set changed during the read; run it again", output.SafeCell(it.AgentID), output.SafeCell(it.UserID))
+			b, _ := json.Marshal(it)
+			if seen[string(b)] && dup == "" {
+				dup = it.AgentID + "/" + it.UserID
 			}
-			seen[k] = true
+			seen[string(b)] = true
 		}
 		items = append(items, p.items...)
 		o += len(p.items)
-		// A server that ignores the offset (or a set that moved under the walk)
-		// hands back more rows than its own total: stop rather than spin and
-		// grow without bound.
+		// A server that ignores the offset hands back more rows than its own
+		// total: stop rather than spin and grow without bound. This is judged
+		// BEFORE the repeated-row rule, which would otherwise misname it.
 		if len(items) > total {
-			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned more rows than its total (%d rows against a total of %d); the list is inconsistent", len(items), total)
+			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned more rows than its total (%d rows against a total of %d); the list is inconsistent (a server that ignores --offset does this)", len(items), total)
+		}
+		if dup != "" {
+			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned an identical subscription row twice (Agent/user %s) without exceeding its total: a row created during the walk shifted the pages; run it again", output.SafeCell(dup))
 		}
 		if !p.hasMore || len(p.items) == 0 {
 			// An empty page that still claims more is a server bug: say so
