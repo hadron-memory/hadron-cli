@@ -45,8 +45,9 @@ func slotCount(name string, v float64) (int, error) {
 
 func newCmdAgentRevisionList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "list <agent>",
-		Short: "List an Agent's revisions and its revision slots",
+		Use:     "list <agent>",
+		Aliases: []string{"ls"},
+		Short:   "List an Agent's revisions and its revision slots",
 		Long: `List the revisions saved for an Agent's system memory, newest first, with the
 slot facts the server reports. This is where "create" and "restore" get the
 loc they need.

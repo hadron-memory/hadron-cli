@@ -305,7 +305,7 @@ section between the markers.
 | `agent repair-system-memory` |  |  | y | #1053 | fb66d8689403 |  | unread |  |
 | `agent revision` |  |  | n | #1053 | fd038d84dbb7 |  | unread |  |
 | `agent revision create` |  |  | y | #1053 | 2e20a9e10e23 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `agent revision list` |  |  | y | #1053 | f86932662724 |  | unread |  |
+| `agent revision list` | ls |  | y | #1053 | 56adb45289e2 |  | unread |  |
 | `agent revision publish` |  |  | y | #1053 | ba835fa3aa30 |  | unread |  |
 | `agent revision restore` |  |  | y | #1053 | 599bc52aa9b2 |  | unread |  |
 | `agent revision rm` |  |  | y | #1053 | 40b58a72abe0 |  | unread |  |
