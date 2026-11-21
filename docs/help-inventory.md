@@ -415,7 +415,7 @@ section between the markers.
 | `schedule preview` |  |  | y | #1053 | dc1f367e2c08 | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `schedule rm` | delete |  | y | #1053 | cf15a655d415 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `schedule update` |  |  | y | #1053 | 1f13247df1bf | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
-| `task` |  |  | n | #1053 | f69b42e707a0 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
+| `task` |  |  | n | #1053 | e5b97bd1b745 |  | unread |  |
 | `task render` |  |  | y | #1053 | e987b15a0172 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `task run` |  |  | y | #1053 | fec884ed55b4 | Charles | pass | [round 3](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-7000738848) |
 | `ticker` |  |  | n | #1053 | 3f5fe3163136 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
