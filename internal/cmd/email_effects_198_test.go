@@ -1117,3 +1117,69 @@ func TestEmailGroupHelpSaysHowEachCommandTakesTheConnection198(t *testing.T) {
 		t.Errorf("the group help claims every mail command takes --connection: %q", help)
 	}
 }
+
+// errWriter198 fails every write, like a closed stdout.
+type errWriter198 struct{}
+
+func (errWriter198) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+// George's #2740 P2 F1: the server CONFIRMED the effect, then the CLI failed to write
+// the result. The error says the effect happened and where to check, so the caller
+// does not retry blindly (a retry could create a second draft or send twice).
+func TestEmailConfirmedEffectSurvivesAFailedResultWrite198(t *testing.T) {
+	body := bodyFile198(t, "x")
+	for _, tc := range []struct {
+		name, op, wire, want string
+		args                 []string
+	}{
+		{"draft save", "EmailSaveDraft", `{"data":{"emailSaveDraft":{"draftId":"d7","conversationId":null}}}`, "drafts folder",
+			[]string{"draft", "save", "--connection", "c", "--reply-to", "m1", "--body-file", body}},
+		{"reply", "EmailReply", boolResp198("exchangeReply", ok198), "sent folder",
+			[]string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
+		{"draft send", "EmailSendDraft", boolResp198("emailSendDraft", ok198), "sent folder",
+			[]string{"draft", "send", "--connection", "c", "d1", "--yes"}},
+		{"delete", "EmailDeleteMessage", boolResp198("emailDeleteMessage", ok198), "confirmed",
+			[]string{"delete", "--connection", "c", "m1", "--yes"}},
+	} {
+		for _, jsonOut := range []bool{false, true} {
+			t.Run(tc.name, func(t *testing.T) {
+				srv, _ := captureGraphQL(t, map[string]string{tc.op: tc.wire})
+				f, _ := testFactory(t)
+				f.IOStreams.Out = errWriter198{}
+				args := append(append([]string{"email"}, tc.args...), "--server", srv.URL)
+				if jsonOut {
+					args = append(args, "--json")
+				}
+				root := NewRootCmd(f)
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("a failed result write reported success")
+				}
+				msg := strings.ToLower(err.Error())
+				if !strings.Contains(msg, "confirmed") || !strings.Contains(msg, tc.want) {
+					t.Errorf("(json=%v) the error must say the server confirmed the effect and where to check (%q): %v", jsonOut, tc.want, err)
+				}
+			})
+		}
+	}
+}
+
+// George's P3 F3: --flag is case-insensitive and trims surrounding whitespace; that is
+// the documented behaviour and it is pinned.
+func TestEmailFlagValueIsNormalised198(t *testing.T) {
+	for _, in := range []string{"complete", " COMPLETE ", "Complete"} {
+		_, ops, _, err := runEffect198(t, map[string]string{"EmailFlagMessage": boolResp198("emailFlagMessage", ok198)}, "", "flag", "--connection", "c", "m1", "--flag", in)
+		if err != nil || vars198(t, ops, "EmailFlagMessage")["flag"] != "COMPLETE" {
+			t.Errorf("--flag %q: %v %v", in, err, ops)
+		}
+	}
+	f, _ := testFactory(t)
+	cmd, _, err := NewRootCmd(f).Find([]string{"email", "flag"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if help := strings.Join(strings.Fields(cmd.Long), " "); !strings.Contains(help, "any case") {
+		t.Errorf("the flag help does not say the value is accepted in any case: %q", help)
+	}
+}
