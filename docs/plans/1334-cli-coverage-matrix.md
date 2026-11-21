@@ -15,8 +15,9 @@ maps every Query and Mutation field to one of:
 - `excluded <class>: <reason>`: deliberately left out. The classes are the
   scanner's five accepted labels: `internal`, `host-protocol`, `deprecated`,
   `not-a-capability` and `graphical`. Graphical exceptions excuse only the view.
-  Acceptance of the non-graphical classes remains Holger's open question under
-  cor:api:240:02; a syntactically accepted label is not a ruling.
+  The [Open Questions in cor:api:240:02](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:specs:cor:api:240:02)
+  (read at revision 14) leave acceptance of the non-graphical classes to Holger;
+  a syntactically accepted label is not a ruling.
 
 Two more sections go below the operation level:
 
@@ -107,9 +108,16 @@ engineer's check against cor:api:240:02.
 
 ## Residual reconciliation (2026-11-21, #1334)
 
-Source snapshot: CLI main `acb0bb95f593a69a1afce130cccf9a3d14089a56`; server
-main `ef26d5856de6c33f99e4b29a5e9af2bee6875f75`. This is a dated audit, not
-a promise that issue states or counts stay current. The matrix's reachability
+Two independent source baselines were used: CLI main
+`acb0bb95f593a69a1afce130cccf9a3d14089a56` and its committed
+`schema/schema.graphql` for the matrix counts below; server main
+`ef26d5856de6c33f99e4b29a5e9af2bee6875f75` only for the MCP/HTTP-to-GraphQL
+source audit. The committed schema is not a complete inventory of that server
+revision: for example, `answerQuestion`, `retractQuestionAnswer` and
+`deleteAgentRevision` are absent from the matrix. Counts and reconciled gap
+pointers therefore apply only to the committed schema, not to all current
+server GraphQL capabilities. This is a dated audit, not a promise that issue
+states or counts stay current. The matrix's reachability
 scanner and offline guard are unchanged. No schema refresh or command build is
 part of this reconciliation.
 
@@ -143,13 +151,31 @@ entry points and the server-built person reveal URL. Assertion completion stays
 on the browser ceremony, as the SDL requires, just as OAuth follow-on protocol
 was excluded from GraphQL by the original audit. One is mailbox browser-bound
 confirmation after the existing GraphQL connection start. One is operational
-`GET /ready`. No newly unreachable server-only capability was found; no
+`GET /ready`. No added MCP/HTTP capability lacking a GraphQL surface was found in this
+bounded comparison. This does not establish CLI reachability for those
+GraphQL operations or completeness of the committed schema. No
 assertion-bearing GraphQL endpoint is proposed. These are static source checks,
-not live-deployment or user-journey validation. The issue thread is the evidence record for the
-complete tool-to-resolver map, route-family inventory, issue-state table and
-specs-engineer verdict on new/changed exclusions; freeze waits for that verdict.
+not live-deployment or user-journey validation. The issue thread records the complete tool-to-resolver map, route-family
+inventory and issue-state table. [Vera's row check](https://github.com/hadron-memory/hadron-cli/issues/1334#issuecomment-7056961507)
+and [confirmation](https://github.com/hadron-memory/hadron-cli/issues/1334#issuecomment-7057026765)
+cover the 33-row exclusion delta and the checkpoint/retirement corrections.
 
 The optional network issue-liveness guard was not added: offline CI continues
 to check scanner/file consistency without calling GitHub. No new guard means
 no red-first behavioral test is needed for this bookkeeping change. There is
 still no global parity claim while any row is a gap.
+
+### Scope of the Proposed annotations
+
+`Proposed class unruled under #1334 (33-row review)` annotates the 32
+non-graphical rows in the 33-row exclusion delta from `0a9024df` reviewed at
+`acb0bb95`. The graphical `dashboardWidgetData` row is the remaining member of
+that delta and carries no unruled marker. The annotations record this audit's
+scope; unmarked historical rows are not a ruling or a verdict that their class
+is decided. All non-graphical classes still have the open question cited above.
+
+The five retired attention surfaces keep the scanner's existing `deprecated`
+label, with reasons explicitly saying retired API and no replacement. Vera's
+confirmation accepts that format: the label is not a claim of a replacement or
+a new exception ruling. Likewise the distinct `checkpointNode` input is marked
+as a Proposed host-plane exclusion, not withdrawn or equivalent to `checkpoint`.
