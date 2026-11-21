@@ -82,7 +82,7 @@ func TestDrainStopsWhenTheBudgetIsSpent(t *testing.T) {
 	}
 }
 
-func TestBudgetRequestCapAndDeadline(t *testing.T) {
+func TestBudgetRequestCapAndCanceledParent(t *testing.T) {
 	b := NewBudget(context.Background())
 	defer b.Close()
 	for i := 0; i < MaxRequests; i++ {
@@ -100,6 +100,9 @@ func TestBudgetRequestCapAndDeadline(t *testing.T) {
 	if late.Allow() {
 		t.Error("a spent deadline refuses every further request")
 	}
+}
+
+func TestBudgetConstructorInstallsDeadline2227(t *testing.T) {
 	nb := NewBudget(context.Background())
 	defer nb.Close()
 	if dl, ok := nb.Ctx().Deadline(); !ok || time.Until(dl) > ReadTimeout {
@@ -214,7 +217,7 @@ func TestLineNeutralisesControlCharacters(t *testing.T) {
 }
 
 // Expire the real deadline after page one starts, without a wall-clock sleep.
-func TestDrain2014DeadlineMidPagination(t *testing.T) {
+func TestDrainExpiredContextInstalledAfterFirstPageStarts2227(t *testing.T) {
 	// Start with a live budget; install an expired deadline only once the first
 	// page is in flight. Scheduler delays before Drain cannot skip the page.
 	b := &Budget{ctx: context.Background()}

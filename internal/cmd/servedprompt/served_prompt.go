@@ -292,9 +292,7 @@ compile. With --json, "currentLint" is {items, total, nextCursor} or null.
 null means unavailable (an older server, a record or lint the server would not
 answer, a lint page that changed while reading, or the budget ran out), never
 "no warnings": items [] with total 0 is the one clean answer. An unavailable
-read prints one advisory line on stderr naming current lint. Retry only if a
-page changed while reading or the budget ran out; rerunning does not resolve an
-older server or an unreadable record. The record, its exit code and its
+read prints one advisory line on stderr naming current lint. Run the command again to retry the advisory read. The record, its exit code and its
 provenance paging are unaffected.`
 }
 
@@ -358,9 +356,7 @@ unavailable for THAT record, never "no warnings" (items [] with total 0 is the
 one clean answer): an older server, a record or lint the server would not
 answer, a history or lint page that changed while reading, or the budget ran
 out. A record is whole or null, never partial and never another record's
-warnings. One advisory line on stderr names current lint when unavailable. Retry
-only if a page changed while reading or the budget ran out; rerunning does not
-resolve an older server or an unreadable record. The history and its exit code
+warnings. One advisory line on stderr names current lint when unavailable. Run the command again to retry the advisory read. The history and its exit code
 are unaffected.`
 
 // readHistoryLint fills CurrentLint on every shown record: each is whole or null.
