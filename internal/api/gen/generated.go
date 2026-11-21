@@ -170829,7 +170829,8 @@ query ListSecretReadClients ($limit: Int, $offset: Int) {
 // cli#2720: the same page with the auto-delete mark (the secret is deleted at the last read or when
 // the window ends), for `secret client list` only. A separate document so that `client revoke`, a
 // safety action, never depends on a display column: a server that lacks destroyOnEnd rejects THIS
-// query at validation and leaves the revoke lookup above working. A pointer, so that a row the
+// query at validation; `client revoke` uses the mark-free MySecretReadClients document instead,
+// and `client list` falls back to it (the mark shown as unknown). A pointer, so that a row the
 // server answered without the field is seen as malformed, never read as "no mark".
 func ListSecretReadClients(
 	ctx_ context.Context,

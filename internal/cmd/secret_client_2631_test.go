@@ -342,7 +342,7 @@ func TestSecretClientIssueLocalRefusalsSendNothing2631(t *testing.T) {
 	}
 }
 
-// Acceptance 7: ls prints [] for none, the seven fields, never null; paging
+// Acceptance 7: ls prints [] for none, the nine fields, never null; paging
 // flags pass through; --all walks until an empty page.
 func TestSecretClientLs2631(t *testing.T) {
 	srv, _ := attnServer(t, map[string]string{"ListSecretReadClients": `{"data":{"mySecretReadClients":[]}}`})

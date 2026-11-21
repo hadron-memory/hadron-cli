@@ -141,9 +141,9 @@ set it; on a secret that does not exist or that you cannot see the refusal is th
 same "not permitted" (exit 8), never "not found". The mark is one of
 the grant's terms, and a grant's terms are what the person signs: nothing is
 deleted until a person has signed the grant, and a client that is never signed
-deletes nothing. The command prints a note on stderr saying so when --auto-delete
-was sent; the issue answer itself does not carry the mark, so 'secret client list'
-(AUTO-DELETE) is where to read it back.
+deletes nothing. When --auto-delete was sent the command prints a note on stderr stating the
+requested deletion; the issue answer itself does not carry the mark, so
+'secret client list' (AUTO-DELETE) is where to read it back.
 
 What cancels the deletion depends on the window. With --expires-at the deletion
 is a signed deadline: once signed, it happens at the end of the window whatever
@@ -228,6 +228,19 @@ was lost: the error says which, and how to ask again).`,
 				return exitcode.Newf(exitcode.Error, "server returned an unusable read client (no client or grant id); no signing request was made, and a pending read client may exist: check `hadron secret client list`")
 			}
 			dto := issueDTO{ClientID: issued.ClientId, GrantID: issued.GrantId, SecretName: issued.SecretName, SelfIssued: issued.SelfIssued}
+			if autoDelete {
+				// The mutation's answer does not carry the mark, so this states what was ASKED
+				// (never what the server recorded). It is printed as soon as the client exists,
+				// before the signing step, so a failure after it (the client is left pending
+				// with the mark armed) still shows it. stderr only: stdout and the --json shape
+				// are unchanged. What revoking does depends on the window (the CLI knows which
+				// flags it sent).
+				effect := "revoking the client before its last read cancels it (no window)"
+				if fl.Changed("expires-at") {
+					effect = "revoking the client will not stop it (the window is a signed deadline)"
+				}
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: --auto-delete was sent: once a person signs this grant, the secret %s is deleted at this client's last read or when its window ends; %s; read the mark back with `hadron secret client list`\n", output.SafeCell(issued.SecretName), effect)
+			}
 
 			sr, err := gen.TeamRequestGrantSignature(ctx, client, issued.GrantId)
 			var req *gen.TeamGrantSigningRequestFields
@@ -254,13 +267,6 @@ was lost: the error says which, and how to ask again).`,
 			dto.SigningRequest = signingFrom(req)
 			if !f.JSON {
 				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "pending: the grant allows nothing until a person signs it on the ceremony page")
-			}
-			if autoDelete {
-				// The mutation's answer does not carry the mark, so this states what was ASKED
-				// (never what the server recorded): a person who sets an irreversible deletion
-				// sees it, in text and --json alike, on stderr only (stdout and the --json
-				// shape are unchanged).
-				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: --auto-delete was sent: once a person signs this grant, the secret %s is deleted at this client's last read or when its window ends, and revoking the client may not stop it (see `hadron secret client issue --help`); check the mark with `hadron secret client list`\n", output.SafeCell(issued.SecretName))
 			}
 			if !wait {
 				return renderIssue(f, dto)
@@ -415,18 +421,29 @@ type clientDTO struct {
 	EndReason    *string `json:"endReason"`
 	CreatedAt    string  `json:"createdAt"`
 	// DestroyOnEnd is the auto-delete mark: the secret is deleted at the client's last
-	// read or when its window ends (a person must have signed the grant first).
-	DestroyOnEnd bool `json:"destroyOnEnd"`
+	// read or when its window ends (a person must have signed the grant first). It is
+	// null only when the server does not report the mark at all (a server older than
+	// the mark; the list says so on stderr): never false for "unknown".
+	DestroyOnEnd *bool `json:"destroyOnEnd"`
 }
 
-// fetchClientPage reads one page of the caller's read clients WITH the auto-delete mark
+// errMarkUnsupported means the server rejected the list document because it has no
+// destroyOnEnd field (a server older than the auto-delete mark).
+var errMarkUnsupported = errors.New("the server does not report the auto-delete mark")
+
+// fetchListPage reads one page of the caller's read clients WITH the auto-delete mark
 // (the list command). The list is declared non-null with non-null rows: a missing or null
 // list, a null row, or a row without the mark, is a malformed answer, never an empty
 // success (and a dropped row would shift the --all offsets); a row answered without
 // destroyOnEnd must not read as "no auto-delete" when the mark is the destructive one.
-func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+func fetchListPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
 	resp, err := gen.ListSecretReadClients(ctx, client, limit, offset)
 	if err != nil {
+		// A server that does not know the mark rejects THIS document at validation, naming
+		// the field: the list then falls back to the mark-free document (see markUnsupported).
+		if api.IsSchemaSkew(err) && strings.Contains(err.Error(), "destroyOnEnd") {
+			return nil, errMarkUnsupported
+		}
 		return nil, api.MapErrorKeepingCode(err)
 	}
 	if resp == nil || resp.MySecretReadClients == nil {
@@ -441,15 +458,15 @@ func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *
 			return nil, exitcode.Newf(exitcode.Error, "server returned a read-client row without its auto-delete mark; the answer is malformed, and a missing mark is not \"no\"")
 		}
 		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
-			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, DestroyOnEnd: *c.DestroyOnEnd})
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, DestroyOnEnd: c.DestroyOnEnd})
 	}
 	return page, nil
 }
 
 // fetchLookupPage reads one page of the caller's read clients WITHOUT the auto-delete mark,
 // for `client revoke`'s exact-id lookup (revoke is a safety action and must not depend on a
-// display column a server may not have). The rows carry no mark (DestroyOnEnd is false and
-// unused by the caller).
+// display column a server may not have). The rows carry no mark: DestroyOnEnd stays nil
+// (unknown), never false.
 func fetchLookupPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
 	resp, err := gen.MySecretReadClients(ctx, client, limit, offset)
 	if err != nil {
@@ -521,7 +538,20 @@ use --limit and --offset beyond that).`,
 					return err
 				}
 			}
-			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, l, o) }
+			// A server that lacks the auto-delete mark rejects the list document: read the
+			// mark-free one instead and show the mark as unknown (never "no"), so the check
+			// the recovery advice points at still works on such a server.
+			markUnknown := false
+			fetch := func(l, o *int) ([]clientDTO, error) {
+				if !markUnknown {
+					page, err := fetchListPage(sendCtx, client, l, o)
+					if !errors.Is(err, errMarkUnsupported) {
+						return page, err
+					}
+					markUnknown = true
+				}
+				return fetchLookupPage(sendCtx, client, l, o)
+			}
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
@@ -548,6 +578,9 @@ use --limit and --offset beyond that).`,
 				}
 				rows = append(rows, page...)
 			}
+			if markUnknown {
+				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "note: this server does not report the auto-delete mark, so AUTO-DELETE is unknown (? in the table, destroyOnEnd null in --json), not \"no\"")
+			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				if len(rows) == 0 {
 					_, err := fmt.Fprintln(w, "no read clients")
@@ -555,7 +588,7 @@ use --limit and --offset beyond that).`,
 				}
 				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "AUTO-DELETE", "END REASON", "CREATED", "GRANT")
 				for _, r := range rows {
-					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued), yesNo(r.DestroyOnEnd),
+					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued), markCell(r.DestroyOnEnd),
 						output.SafeCell(output.Dash(r.EndReason)), output.SafeCell(r.CreatedAt), output.SafeCell(r.GrantID))
 				}
 				return t.Flush()
@@ -580,10 +613,14 @@ func clientColumn(r clientDTO) string {
 	return r.ClientPrefix + "…"
 }
 
-// yesNo renders the auto-delete mark.
-func yesNo(b bool) string {
-	if b {
+// markCell renders the auto-delete mark: yes, no, or ? when the server did not report it.
+func markCell(b *bool) string {
+	switch {
+	case b == nil:
+		return "?"
+	case *b:
 		return "yes"
+	default:
+		return "no"
 	}
-	return "no"
 }
