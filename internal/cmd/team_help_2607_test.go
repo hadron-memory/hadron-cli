@@ -113,11 +113,12 @@ func TestTeamGrantRegisterHelpUsesHadronPrefix2607(t *testing.T) {
 
 // bareTeamCommandRefs2607 returns the bare (no "hadron" prefix) team grant and
 // team register references in a help page's prose, whitespace-normalized so a
-// line wrap cannot split one.
+// line wrap cannot split one. A reference ends in a space, or in the closing
+// quote when the command name is the whole quoted text (cli#2752).
 func bareTeamCommandRefs2607(long string) []string {
 	prose := strings.Join(strings.Fields(long), " ")
 	found := []string{}
-	for _, bare := range []string{"'team grant ", "('team grant", "'team register ", "('team register"} {
+	for _, bare := range []string{"'team grant ", "('team grant", "'team grant'", "'team register ", "('team register", "'team register'"} {
 		if strings.Contains(prose, bare) {
 			found = append(found, bare)
 		}
