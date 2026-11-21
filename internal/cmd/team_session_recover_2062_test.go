@@ -62,6 +62,39 @@ func TestSessionRecoverIsReadOnly2062(t *testing.T) {
 	}
 }
 
+// TestSessionRecoverTasksMoreIsTheServersHasMore2734: BLIND round 3 (F9)
+// kept open the wiring pin — recover's tasksMore is the server's hasMore
+// carried through, not a full-page guess: a short page that claims more rows
+// reports true, a page that ends reports false. The text rendering of the
+// field is pinned in team/session_recover_test.go; this pins the extraction.
+func TestSessionRecoverTasksMoreIsTheServersHasMore2734(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		page string
+		more bool
+	}{
+		{"short page claims more", taskPage2734(startedTaskFieldsJSON, 2, true), true},
+		{"page ends", taskPage2734(startedTaskFieldsJSON, 1, false), false},
+	} {
+		r := recoverResponses2062()
+		r["AgentTaskList"] = tc.page
+		out, _, err := runRecover2062(t, r, "--json")
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		var dto struct {
+			Tasks     []map[string]any `json:"tasks"`
+			TasksMore bool             `json:"tasksMore"`
+		}
+		if err := json.Unmarshal([]byte(out), &dto); err != nil {
+			t.Fatalf("%s: not JSON: %v\n%s", tc.name, err, out)
+		}
+		if len(dto.Tasks) != 1 || dto.TasksMore != tc.more {
+			t.Errorf("%s: tasks=%d tasksMore=%v, want the one served row carrying the server's hasMore=%v", tc.name, len(dto.Tasks), dto.TasksMore, tc.more)
+		}
+	}
+}
+
 func TestSessionRecoverJSONShape2062(t *testing.T) {
 	out, calls, err := runRecover2062(t, recoverResponses2062(), "--json")
 	if err != nil {

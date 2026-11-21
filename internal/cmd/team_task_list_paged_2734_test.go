@@ -369,22 +369,22 @@ func TestAdapterHeldReadOldServerHintNamesTheActualFloor2734(t *testing.T) {
 		name, message, want, notWant string
 	}{
 		{
-			name:     "no paged read",
-			message:  `Cannot query field \"agentTasksPage\" on type \"Query\". Did you mean \"agentTasks\"?`,
-			want:     "predates hadron-server#4622",
-			notWant:  "predates hadron-server#4084",
+			name:    "no paged read",
+			message: `Cannot query field \"agentTasksPage\" on type \"Query\". Did you mean \"agentTasks\"?`,
+			want:    "predates hadron-server#4622",
+			notWant: "predates hadron-server#4084",
 		},
 		{
-			name:     "error naming both fields",
-			message:  `Unknown argument \"externalIds\" on field \"agentTasksPage\" of type \"Query\".`,
-			want:     "predates hadron-server#4622",
-			notWant:  "predates hadron-server#4084",
+			name:    "error naming both fields",
+			message: `Unknown argument \"externalIds\" on field \"agentTasksPage\" of type \"Query\".`,
+			want:    "predates hadron-server#4622",
+			notWant: "predates hadron-server#4084",
 		},
 		{
-			name:     "error naming only the argument",
-			message:  `Unknown argument \"externalIds\" on field \"tasks\" of type \"Query\".`,
-			want:     "predates hadron-server#4084",
-			notWant:  "predates hadron-server#4622",
+			name:    "error naming only the argument",
+			message: `Unknown argument \"externalIds\" on field \"tasks\" of type \"Query\".`,
+			want:    "predates hadron-server#4084",
+			notWant: "predates hadron-server#4622",
 		},
 	}
 	for _, c := range cases {

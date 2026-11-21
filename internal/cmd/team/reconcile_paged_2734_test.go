@@ -40,6 +40,20 @@ func (c *pagedHoldersClient) MakeRequest(ctx context.Context, req *graphql.Reque
 	if req.OpName != "IntakeItemHolders" {
 		return c.feedClient.MakeRequest(ctx, req, resp)
 	}
+	// The offset is recorded before any scripted refusal so refusal-shape
+	// tests can pin "the first read, not paged to the bound" — recorded only
+	// after the rawBody return instead, that pin was vacuously true (BLIND
+	// round 3).
+	b, _ := json.Marshal(req.Variables)
+	var v struct {
+		Offset *float64 `json:"offset"`
+	}
+	_ = json.Unmarshal(b, &v)
+	off := 0
+	if v.Offset != nil {
+		off = int(*v.Offset)
+	}
+	c.offsets = append(c.offsets, float64(off))
 	if c.validationErr != "" {
 		msg := c.validationErr
 		c.validationErr = ""
@@ -53,16 +67,6 @@ func (c *pagedHoldersClient) MakeRequest(ctx context.Context, req *graphql.Reque
 	if c.rawBody != "" {
 		return json.Unmarshal([]byte(c.rawBody), resp.Data)
 	}
-	b, _ := json.Marshal(req.Variables)
-	var v struct {
-		Offset *float64 `json:"offset"`
-	}
-	_ = json.Unmarshal(b, &v)
-	off := 0
-	if v.Offset != nil {
-		off = int(*v.Offset)
-	}
-	c.offsets = append(c.offsets, float64(off))
 	if off < 0 || off > len(c.rows) {
 		return fmt.Errorf("unscripted holder offset %d", off)
 	}
@@ -156,8 +160,8 @@ func TestReconcileHolderLookupRefusesMalformedPage2734(t *testing.T) {
 		if aerr != nil || ferr == nil || !strings.Contains(ferr.Error(), "malformed agentTasksPage") {
 			t.Errorf("%s: a malformed holder page is a refused server failure: aerr=%v ferr=%v", name, aerr, ferr)
 		}
-		if len(c.offsets) != 0 {
-			t.Errorf("%s: the malformed body is served without paging: %v", name, c.offsets)
+		if len(c.offsets) != 1 {
+			t.Errorf("%s: the refusal fires on the first read, it does not page to the bound: %v", name, c.offsets)
 		}
 	}
 }
