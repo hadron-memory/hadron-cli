@@ -62,7 +62,7 @@ func TestSessionRecoverIsReadOnly2062(t *testing.T) {
 	}
 }
 
-// TestSessionRecoverTasksMoreIsTheServersHasMore2734: BLIND round 3 (F9)
+// TestSessionRecoverTasksMoreIsTheServersHasMore2734: cli#2734 BLIND round 3
 // kept open the wiring pin — recover's tasksMore is the server's hasMore
 // carried through, not a full-page guess: a short page that claims more rows
 // reports true, a page that ends reports false. The text rendering of the
