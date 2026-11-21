@@ -17,6 +17,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -180,15 +181,35 @@ covered worker's lane has a fresh one. Leave it off unless you deliver stop
 notices.
 
 Everything here runs as you, the person: a worker session cannot read wakes,
-and this command never sends one. --json returns {status, withheld, wakes[],
-dormant[], hasNextPage, endCursor}; dormant lists workers whose mentions are
-held back, never dropped.`,
+and without --instruction this command never sends one. --json returns {status,
+withheld, wakes[], dormant[], hasNextPage, endCursor}; dormant lists workers
+whose mentions are held back, never dropped.
+
+--instruction <kind>:<ref> claims, for this one read, that the worker's
+holder told it to read the manager's scope (cor:dmo:050:12): the verified
+worktree worker session reads the manager's lane, never the holder's
+personal scope, and never acknowledges. kind is team-chat-message, task or
+live-chat; ref is a reference to where the instruction was given (a
+team-chat message URN, a task URN, or an opaque client address), never its
+text, and it is sent exactly as given. The claim rides the query itself,
+and the server records every admitted instructed read, so an empty page is
+still a claimed read — the instruction is never dropped for a quieter
+call. With an unusable binding the read goes out as the signed-in person
+with the claim still sent (a note on stderr says why). Needs server
+2026-11-04 or later. More: "hadron agentic-usage".`,
 		Example: `  hadron team wakes due --preview --worker Iris
   hadron team wakes due --worker Iris
   hadron team wakes due --app acme.com:eng-team --json
   hadron team wakes due --first 50 --after <endCursor>`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#2774: parse the claim and snapshot the binding before the
+			// first lookup (worker names resolve before the read), so an
+			// instructed read can verify what it read.
+			claim, instructed, err := managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -234,9 +255,16 @@ held back, never dropped.`,
 			if acceptStop {
 				accepts = []gen.WakeKind{gen.WakeKindMention, gen.WakeKindTick, gen.WakeKindTask, gen.WakeKindStop}
 			}
+			if claim != nil {
+				var e error
+				ctx, _, e = instructed(ctx, "", scope.Ref)
+				if e != nil {
+					return e
+				}
+			}
 			var page *gen.DueWakesPageFields
 			if preview {
-				resp, e := gen.TeamDueWakesPreview(ctx, client, scope.Ref, workerIDs, firstPtr, afterIn, accepts)
+				resp, e := sendTeamDueWakesPreview(ctx, client, scope.Ref, workerIDs, firstPtr, afterIn, accepts, claim)
 				if e != nil {
 					return wakeFailure(e)
 				}
@@ -244,7 +272,7 @@ held back, never dropped.`,
 					page = &resp.DueWakes.DueWakesPageFields
 				}
 			} else {
-				resp, e := gen.TeamDueWakes(ctx, client, scope.Ref, workerIDs, firstPtr, afterIn, accepts)
+				resp, e := sendTeamDueWakes(ctx, client, scope.Ref, workerIDs, firstPtr, afterIn, accepts, claim)
 				if e != nil {
 					return wakeFailure(e)
 				}
@@ -278,6 +306,9 @@ held back, never dropped.`,
 	cmd.Flags().StringVar(&after, "after", "", "continue from a previous page's endCursor")
 	cmd.Flags().BoolVar(&preview, "preview", false, "look without reserving wake capacity or declaring a stop lane; no acknowledgment proof")
 	cmd.Flags().BoolVar(&acceptStop, "accept-stop", false, "also ask for stop notices; declares the lane you read (cor:agt:090:04)")
+	// cli#2774: a read, not a manager write, so the flag keeps the shared
+	// usage line but its help paragraph above is the read's own.
+	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer(managerInstructionMinimum))
 	return cmd
 }
 

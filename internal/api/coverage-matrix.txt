@@ -627,7 +627,7 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 40: 17 gap, 23 excluded
+[Arguments] 34: 11 gap, 23 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #2773
@@ -641,16 +641,11 @@ Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use gra
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteTicker(instruction)  gap #2773
 Mutation.importNode(input.authoredWith)  gap #2790
-Mutation.issueHostOperation(instruction)  gap #2774
-Mutation.liftTeamStopSignal(instruction)  gap #2774
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.registerContextResetRecovery(input.checkpointNode)  excluded host-protocol: registering an existing checkpoint node is a distinct host-plane input; this CLI writes a new checkpoint through input.checkpoint (ruling 0090 A, cli#1043), which does not retire checkpointNode; Proposed class unruled under #1334 (33-row review)
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.revokeGrant(instruction)  gap #2754
-Mutation.setTeamPause(instruction)  gap #2774
-Mutation.setTeamStopSignal(instruction)  gap #2774
-Mutation.setWorkerWakeSettings(instruction)  gap #2774
 Mutation.subscribeWorker(instruction)  gap #2773
 Mutation.unsubscribeWorker(instruction)  gap #2773
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -664,7 +659,6 @@ Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use
 Mutation.updateTicker(instruction)  gap #2773
 Query.automationTeamSnapshotGrants(triggerId)  gap #2775
 Query.automationTeamSnapshotGrants(triggerKind)  gap #2775
-Query.dueWakes(instruction)  gap #2774
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); Proposed class unruled under #1334 (33-row review)

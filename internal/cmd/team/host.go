@@ -491,12 +491,20 @@ the holder and the reports-to worker are refused (else
 HOST_OPERATION_NOT_PERMITTED, exit 8). In a worktree bound to a worker, the
 operation is that worker's: it qualifies only as the target's reports-to.
 Pass --as-person to issue it as yourself instead — as the target's holder or
-the App's manager — with no worker session.`,
+the App's manager — with no worker session. With --instruction the write
+goes out through a verified manager-held worker session with the holder's
+claim, as the shared instruction help below describes.`,
 		Example: `  hadron team host issue worktree.create --host orca1 --worker Jonas \
     --arg repo=hadron-memory/hadron-cli --arg baseBranch=main --arg branchName=jonas/871 --arg label=jonas-3
   hadron team host issue worktree.remove --host orca1 --worker Jonas --arg worktree=hadron-memory/hadron-cli/jonas-3 --as-person`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#2774: parse the claim and snapshot the binding before the
+			// first lookup, so an instructed write can verify what it read.
+			claim, instructed, err := managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			opType := strings.TrimSpace(args[0])
 			if opType == "" {
@@ -528,13 +536,25 @@ the App's manager — with no worker session.`,
 			if asPersonFlag {
 				ctx = withAsPerson(ctx)
 			}
-			resp, err := gen.IssueHostOperation(ctx, client, &gen.IssueHostOperationInput{
+			if claim != nil {
+				// cli#2491 F1: an explicit instruction owns attribution, so the
+				// authored-write middleware must not attach a binding the claim
+				// did not verify; the instructed context attaches the verified
+				// session (or none, with the claim still sent, as the person).
+				ctx = withAsPerson(ctx)
+				var e error
+				ctx, _, e = instructed(ctx, "", scope.Ref)
+				if e != nil {
+					return e
+				}
+			}
+			resp, err := sendIssueHostOperation(ctx, client, &gen.IssueHostOperationInput{
 				AppRef: scope.Ref,
 				HostId: strings.TrimSpace(hostID),
 				Worker: strings.TrimSpace(worker),
 				Type:   opType,
 				Args:   opArgs,
-			})
+			}, claim)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -553,5 +573,6 @@ the App's manager — with no worker session.`,
 	cmd.Flags().StringVar(&worker, "worker", "", "the worker it is for: id, URN or name (required)")
 	cmd.Flags().StringArrayVar(&argPairs, "arg", nil, "an argument as key=value, repeatable")
 	cmd.Flags().BoolVar(&asPersonFlag, "as-person", false, "issue as yourself, not as the bound worktree's worker")
+	addManagerInstruction(cmd)
 	return cmd
 }
