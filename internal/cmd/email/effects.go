@@ -177,7 +177,9 @@ func allowlistedServerCode(code string) string {
 // draftMayExist is the guidance for an unclear draft save: the draft may have been
 // created. Whether a retry is safe depends on the ORIGINAL request: only the same
 // idempotency key on the original request and on the retry (within the server's
-// deduplication window) protects against a second draft.
+// deduplication window) protects against a second draft. hadKey is EFFECTIVE key
+// presence: an explicitly empty key is sent unchanged but the server treats it as no
+// key, so it gets the no-protection warning.
 func draftMayExist(hadKey bool) string {
 	const lead = "outcome unknown: a draft may have been created; check the Drafts folder before trying again (the CLI does not retry"
 	if hadKey {
@@ -362,10 +364,10 @@ Details:
 			}
 			r, err := gen.EmailSaveDraft(cmd.Context(), client, conn, body, stringFlagIfSet(cmd, "reply-to", replyTo), stringFlagIfSet(cmd, "subject", subject), optList(cmd, "to", to), stringFlagIfSet(cmd, "idempotency-key", key))
 			if err != nil {
-				return bodyFailure(err, draftMayExist(cmd.Flags().Changed("idempotency-key")))
+				return bodyFailure(err, draftMayExist(key != ""))
 			}
 			if r == nil || r.EmailSaveDraft == nil || strings.TrimSpace(r.EmailSaveDraft.DraftId) == "" {
-				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist(cmd.Flags().Changed("idempotency-key")))
+				return exitcode.Newf(exitcode.Unavailable, "server returned no usable draft; %s", draftMayExist(key != ""))
 			}
 			d := r.EmailSaveDraft
 			// The ids are the server's own opaque values, printed as returned: the draft

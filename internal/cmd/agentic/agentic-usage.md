@@ -5224,7 +5224,8 @@ confirmed". A missing or blank `--connection` or id exits 2 with no request; ids
   usable draft id) is exit 7 "outcome unknown: a draft may have been created; check the Drafts folder
   before trying again". A retry is protected from a second draft only when the ORIGINAL request carried
   the same valid `--idempotency-key` too (within the server's deduplication window); the message says
-  which case applies, and says a key added only on the retry does not protect.
+  which case applies, and says a key added only on the retry does not protect. An explicitly empty key
+  is sent unchanged but counts as no key (the server treats it as none).
   `--idempotency-key` is passed unchanged (an empty value too) and omitted when unset: the CLI never
   invents or replays one, and retry protection needs the same valid key reused within the server's
   deduplication window. `draft update DRAFT-ID` calls
