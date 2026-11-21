@@ -33,8 +33,8 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   held-delta P2, Jane) and dropped, so the pointer is the unfiltered `hadron slack status`, which runs as
   printed. A server id with control characters is not named either (`ShellQuote` does not escape them, unlike
   the Go quoting it replaced; SEC10 P3, Rodolfo), and the `slack get` suggestion carries no outer prose quotes
-  (single quotes are literal inside double quotes). A suggested command is the LAST thing in its message (connect's `status` pointer and disconnect's
-  `get` pointer alike: prose and any server text first), never followed by punctuation or a parenthetical (a colon after a quoted id pastes as part of the id; blind P2, Bruno), and an id this
+  (single quotes are literal inside double quotes). A suggested command sits ALONE on the last line of its message, indented under a "Check with:" label (connect's `status` pointer and disconnect's
+  `get` pointer alike: prose and any server text first), so copying a whole line copies only the command (blind delta P2, Beckett), never followed by punctuation or a parenthetical (a colon after a quoted id pastes as part of the id; blind P2, Bruno), and an id this
   CLI will not print gets no command at all, only "upgrade hadron, or ask the server's administrator" (get and
   status refuse the same unknown status, so pointing there would loop). A success answer whose any field holds a token is withheld whole (Unavailable,
   nothing quoted back, not even the id). Limit: exact and URL-encoded spellings only, not an arbitrary

@@ -53,16 +53,17 @@ func hasControlOrFormatCharacter(s string) bool {
 }
 
 // getConnectionSuggestion is the closing sentence of a disconnect message: how to
-// check whether the connection still exists. The command is the last thing in it
-// and is runnable as printed: shell-quoted, with the -- terminator (a leading
+// check whether the connection still exists. The command sits ALONE on the last
+// line (an indented line of its own, so copying a whole line is the command) and
+// is runnable as printed: shell-quoted, with the -- terminator (a leading
 // dash is a flag to cobra), and no outer prose quotes (single quotes are literal
 // inside double quotes, so $( ) would expand again when pasted). An id with
 // control characters is never named; the runnable listing command stands in.
 func getConnectionSuggestion(id string) string {
 	if hasControlOrFormatCharacter(id) {
-		return "Check whether it still exists by listing connections with: hadron slack status"
+		return "The listing is paged, so follow its --offset hint before concluding it is gone. Check whether it still exists by listing connections with:\n  hadron slack status"
 	}
-	return "Check whether it still exists with: hadron slack get -- " + cmdutil.ShellQuote(id)
+	return "Check whether it still exists with:\n  hadron slack get -- " + cmdutil.ShellQuote(id)
 }
 
 // readToken reads one token from its file flag. "-" is stdin and is refused on
@@ -164,7 +165,7 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 				statusCmd += " --org=" + cmdutil.ShellQuote(orgRef)
 			}
 			// Prose first, the command last: nothing may follow it on the line.
-			where := fmt.Sprintf("The listing is paged, so follow its --offset hint before deciding the workspace is not connected. Check with: %s", statusCmd)
+			where := fmt.Sprintf("The listing is paged, so follow its --offset hint before deciding the workspace is not connected. Check with:\n  %s", statusCmd)
 			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, appRef, bot, appTok)
 			if err != nil {
 				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried)", where)

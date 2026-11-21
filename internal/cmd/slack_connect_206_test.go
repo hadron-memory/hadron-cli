@@ -526,7 +526,7 @@ func TestSlackConnectRecoveryTextNeverPrintsATokenTypedAsTheOrg(t *testing.T) {
 				// Dara (blind P2): a value holding a token is not printed at all, so the
 				// pointer asks for the real reference instead of a "[redacted]" command.
 				// Jane/Eden: no --org filter at all, so the command runs as printed.
-				if !strings.Contains(all, "Check with: hadron slack status") || strings.Contains(all, "slack status (") || strings.Contains(all, "--org") || strings.Contains(all, "[redacted]") {
+				if !strings.Contains(unJSONNewlines(all), "Check with:\n  hadron slack status") || strings.Contains(all, "slack status (") || strings.Contains(all, "--org") || strings.Contains(all, "[redacted]") {
 					t.Errorf("the recovery pointer must be the unfiltered, runnable command and token-free: %s", all)
 				}
 			})
@@ -643,7 +643,7 @@ func TestSlackConnectApostropheTokenTypedAsTheOrgIsNeverPrinted(t *testing.T) {
 						t.Errorf("a fragment of the token (%q) reached the output:\n%s", frag, all)
 					}
 				}
-				if !strings.Contains(all, "Check with: hadron slack status") {
+				if !strings.Contains(unJSONNewlines(all), "Check with:\n  hadron slack status") {
 					t.Errorf("the unfiltered command must survive: %s", all)
 				}
 			})
@@ -670,7 +670,7 @@ func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
 		t.Fatalf("a control-character --org is never printed: %v", e)
 	}
 	_, _, _, e = runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "--yes", id)
-	if e == nil || strings.ContainsAny(e.Error(), "\x1b\n") {
+	if e == nil || strings.Contains(e.Error(), "\x1b") || strings.Contains(e.Error(), "a\x1bb") {
 		t.Fatalf("disconnect's pointer does not print the raw id: %v", e)
 	}
 }
@@ -679,7 +679,7 @@ func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
 // with the terminator and no prose double quotes around the command.
 func TestSlackDisconnectOutcomeUnknownSuggestsOneQuotedCommand(t *testing.T) {
 	_, _, n, e := runSlackWrite(t, "DeleteSlackConnection", `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, "", "disconnect", "--yes", "a b$(x)")
-	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "Check whether it still exists with: hadron slack get -- 'a b$(x)'") || strings.Contains(e.Error(), `"hadron slack get`) {
+	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "Check whether it still exists with:\n  hadron slack get -- 'a b$(x)'") || strings.Contains(e.Error(), `"hadron slack get`) {
 		t.Fatalf("err=%v requests=%d", e, n)
 	}
 }
@@ -696,11 +696,21 @@ func TestSlackConnectRecoveryCommandIsLastEvenWithAServerError(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, _, e := runSlackRendered(t, wire, false, args...)
-			if e == nil || !strings.HasSuffix(e.Error(), "Check with: hadron slack status --org=acme.com") {
+			if e == nil || !strings.HasSuffix(e.Error(), "Check with:\n  hadron slack status --org=acme.com") {
 				t.Fatalf("the command must end the message:\n%v", e)
 			}
-			if name == "ambiguous" && strings.Index(e.Error(), "upstream boom") > strings.Index(e.Error(), "Check with:") {
-				t.Errorf("the server's text must come before the command: %v", e)
+			if name == "ambiguous" {
+				boom, check := strings.Index(e.Error(), "upstream boom"), strings.Index(e.Error(), "Check with:")
+				if boom < 0 || check < 0 || boom > check {
+					t.Errorf("the server's text must be present and come before the command: %v", e)
+				}
+			}
+			// Beckett (delta P2): the command is ALONE on the final line of what the
+			// operator sees, so copying a whole line copies only the command.
+			all, _, _ := runSlackRendered(t, wire, false, args...)
+			lines := strings.Split(strings.TrimRight(all, "\n"), "\n")
+			if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron slack status --org=acme.com" {
+				t.Errorf("the final rendered line must be exactly the command, got %q\n%s", last, all)
 			}
 		})
 	}
@@ -735,7 +745,36 @@ func TestSlackConnectRefusesStdinFromATerminalInEitherPositionBeforeOpeningAnyth
 // command, never an angle-bracket placeholder (shell syntax).
 func TestSlackDisconnectUnprintableIDFallbackIsRunnable(t *testing.T) {
 	_, _, _, e := runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "--yes", "a\x1bb")
-	if e == nil || strings.ContainsAny(e.Error(), "<>\x1b") || !strings.HasSuffix(e.Error(), "by listing connections with: hadron slack status") {
+	if e == nil || strings.ContainsAny(e.Error(), "<>\x1b") || !strings.HasSuffix(e.Error(), "by listing connections with:\n  hadron slack status") {
 		t.Fatalf("err=%v", e)
 	}
 }
+
+// Beckett (delta P2/P3): disconnect's suggestions put the command alone on the
+// last line too, and the unfiltered fallback reminds the operator the listing is paged.
+func TestSlackDisconnectSuggestionsEndWithTheCommandAloneOnTheLastLine(t *testing.T) {
+	for name, id := range map[string]string{"plain": "a b$(x)", "unprintable": "a\x1bb"} {
+		t.Run(name, func(t *testing.T) {
+			_, _, _, e := runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "--yes", id)
+			if e == nil {
+				t.Fatal("must fail")
+			}
+			lines := strings.Split(e.Error(), "\n")
+			last := strings.TrimSpace(lines[len(lines)-1])
+			want := "hadron slack get -- 'a b$(x)'"
+			if name == "unprintable" {
+				want = "hadron slack status"
+				if !strings.Contains(e.Error(), "follow its --offset hint") {
+					t.Errorf("the listing fallback must say it is paged: %v", e)
+				}
+			}
+			if last != want {
+				t.Errorf("last line %q, want %q (full: %q)", last, want, e.Error())
+			}
+		})
+	}
+}
+
+// unJSONNewlines turns the JSON envelope's escaped newlines back into newlines so
+// one assertion reads the same in text and JSON mode.
+func unJSONNewlines(s string) string { return strings.ReplaceAll(s, `\n`, "\n") }
