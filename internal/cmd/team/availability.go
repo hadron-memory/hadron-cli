@@ -193,7 +193,7 @@ future) bounds an unavailable record.
 With --instruction, the binding is captured before lookups and checked again
 before the one write. An unusable or changed binding sends the claim as the
 signed-in person instead, with no worker session. Refusals are never retried.
-The instructed path requires server 2026-11-04 (hadron-server#3376).
+The instructed path requires server ` + instruction.ServerFloorInstructionManagerWrites + ` (merged as hadron-server#3376).
 
 --instruction <kind>:<ref> claims that the holder told this worker to make
 this one change. kind is team-chat-message, task or live-chat. ref names the
@@ -398,7 +398,7 @@ reference and admission, not whether an instruction really happened.`,
 	cmd.Flags().StringVar(&state, "state", "", "available or unavailable (required)")
 	cmd.Flags().StringVar(&reason, "reason", "", "HOST_DOWN, OTHER, OUT_OF_TOKENS or STALLED (required with unavailable)")
 	cmd.Flags().StringVar(&until, "until", "", "RFC 3339 time the unavailable record lapses at")
-	cmd.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer("hadron-server#3376"))
+	cmd.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer(instruction.ServerFloorInstructionManagerWrites))
 	return cmd
 }
 

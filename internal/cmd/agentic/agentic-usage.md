@@ -733,7 +733,7 @@ including through a YAML merge (`<<`) or an alias of `delivery`: `null`, `~`,
 `yes` and `on` are refused at config load (exit 2) naming the line, and a
 merged non-boolean is refused even when an explicit `ack_mixed: true` beside it
 would win. The strictness is deliberate (cli#1263); relaxing it needs its own gate. Set true only after the operator verifies server
-A′ (#2072, 2026-10-19; the date is for orientation, since a build from that day can predate the merge: confirm the deployed build includes that change) is deployed. It permits tick/task acknowledgment in a mixed
+A′ (issue #2072, merged as hadron-server#2102 on 2026-10-19; the date is for orientation, since a build from that day can predate the merge: confirm the deployed build includes that change) is deployed. It permits tick/task acknowledgment in a mixed
 wake without moving channel delivered-through or worker read marks (R53);
 mention text still needs its own batch. Off retains `ack-held`; mention-only
 wakes are never acknowledged here. Previously typed wakes reconcile with a
@@ -5705,7 +5705,7 @@ assignee alone may edit properties and references (--properties/--clear-properti
 --ref/--clear-refs; references need a server at or after hadron-server#3718
 2026-11-08), and naming any other field, even beside those, refuses the whole
 edit TASK_NOT_OWNER (8). Needs a server at or after hadron-server
-2026-10-30 (the #2420 contract).
+2026-10-30 (the #2420 contract, merged as hadron-server#2877).
 
 ## Task priority and dependencies (cli#1135)
 `hadron team task create <title> --priority 2 --blocked-by AT1.2 --blocked-by <id>`

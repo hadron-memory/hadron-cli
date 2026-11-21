@@ -52,7 +52,7 @@ team attention switchover  # issue #2027 x3
 team attention switchover apply  # issue #2027 x1
 team attention switchover preview  # issue #2027 x1
 team availability  # citation cor:agt:060:05 x1 | citation cor:agt:060:08 x1 | citation cor:agt:060:09 x1
-team availability set  # issue #3376 x2
+team availability set  # issue #3376 x1
 team chat  # citation cor:agt:020:03 x1 | issue #470 x1
 team chat mark-read  # issue #1353 x1
 team chat post  # citation cor:agt:020:03 x1 | issue #842 x1

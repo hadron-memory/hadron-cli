@@ -21,10 +21,10 @@ const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-
 // Provenance of the dates (cli#2525 removed the revision hashes the help used to carry; this is
 // where they are kept): ba077810 = hadron-server#3376 = 2026-11-04; 17ef5905 = #3314 = 2026-11-03;
 // c3ca05b5 = #3340 = 2026-11-03; 5fd87dcc = #3368 = 2026-11-03 (the asset public-link call);
-// e09a1653 = #2877 = 2026-10-30 (task properties); cf9bcfece = #2726 = 2026-10-29 (task
+// e09a1653 = #2877 (issue #2420) = 2026-10-30 (task properties); cf9bcfece = #2726 = 2026-10-29 (task
 // blockers and priority); 6b3f1e15 = #2865 = 2026-10-30; 31d63828 = #2983 = 2026-10-31;
 // 27671b4b = #3189 = 2026-11-02; f4db15e0 = #3718 = 2026-11-08; 696ed50c8 = #4284 = 2026-11-16;
-// 8bbf82dd = #3605 = 2026-11-06 (the worker delete preview); ad7f1c2 = #2102 = 2026-10-19 (A-prime).
+// 8bbf82dd = #3605 = 2026-11-06 (the worker delete preview); ad7f1c2 = #2102 (issue #2072) = 2026-10-19 (A-prime).
 // Every row is the server merge commit's UTC committer date.
 const (
 	// ServerFloorInstructionActs is the floor, in UTC, for the instructed person/worker acts: the

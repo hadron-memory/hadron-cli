@@ -587,8 +587,8 @@ carry on throughout. It also reads this host's
 due tick and task wakes (dueWakes) and types each as one line through the
 same path, then hands its proof back (hadron-cli#1178). A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
-Set delivery.ack_mixed: true only when the server carries A-prime (#2072,
-2026-10-19: the date is for orientation, since a build from that day can predate the merge, so
+Set delivery.ack_mixed: true only when the server carries A-prime (issue
+#2072, merged 2026-10-19: the date is for orientation, since a build from that day can predate the merge, so
 confirm the deployed build includes that change): its mixed acknowledgment records
 ticks/tasks without moving chat marks. Mention text still arrives through its own batch. ack_mixed must be a
 real boolean wherever it is written, including through a YAML merge (<<) or an
