@@ -43859,7 +43859,8 @@ type CreateEdgeCreateEdge struct {
 	IsRunnable *bool `json:"isRunnable"`
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
-	Priority int `json:"priority"`
+	Priority int              `json:"priority"`
+	Data     *json.RawMessage `json:"data"`
 	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *CreateEdgeCreateEdgeSourceNode `json:"source"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
@@ -43880,6 +43881,9 @@ func (v *CreateEdgeCreateEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns CreateEdgeCreateEdge.Priority, and is useful for accessing the field via an interface.
 func (v *CreateEdgeCreateEdge) GetPriority() int { return v.Priority }
+
+// GetData returns CreateEdgeCreateEdge.Data, and is useful for accessing the field via an interface.
+func (v *CreateEdgeCreateEdge) GetData() *json.RawMessage { return v.Data }
 
 // GetSource returns CreateEdgeCreateEdge.Source, and is useful for accessing the field via an interface.
 func (v *CreateEdgeCreateEdge) GetSource() *CreateEdgeCreateEdgeSourceNode { return v.Source }
@@ -58655,7 +58659,8 @@ type GetNodeNodeIncomingEdgesEdge struct {
 	IsRunnable *bool `json:"isRunnable"`
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
-	Priority int `json:"priority"`
+	Priority int              `json:"priority"`
+	Data     *json.RawMessage `json:"data"`
 	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *GetNodeNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
@@ -58674,6 +58679,9 @@ func (v *GetNodeNodeIncomingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnab
 
 // GetPriority returns GetNodeNodeIncomingEdgesEdge.Priority, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIncomingEdgesEdge) GetPriority() int { return v.Priority }
+
+// GetData returns GetNodeNodeIncomingEdgesEdge.Data, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeIncomingEdgesEdge) GetData() *json.RawMessage { return v.Data }
 
 // GetSource returns GetNodeNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeIncomingEdgesEdge) GetSource() *GetNodeNodeIncomingEdgesEdgeSourceNode {
@@ -58743,7 +58751,8 @@ type GetNodeNodeOutgoingEdgesEdge struct {
 	IsRunnable *bool `json:"isRunnable"`
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
-	Priority int `json:"priority"`
+	Priority int              `json:"priority"`
+	Data     *json.RawMessage `json:"data"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *GetNodeNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
@@ -58762,6 +58771,9 @@ func (v *GetNodeNodeOutgoingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnab
 
 // GetPriority returns GetNodeNodeOutgoingEdgesEdge.Priority, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOutgoingEdgesEdge) GetPriority() int { return v.Priority }
+
+// GetData returns GetNodeNodeOutgoingEdgesEdge.Data, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdge) GetData() *json.RawMessage { return v.Data }
 
 // GetTarget returns GetNodeNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOutgoingEdgesEdge) GetTarget() *GetNodeNodeOutgoingEdgesEdgeTargetNode {
@@ -116254,7 +116266,8 @@ type UpdateEdgeUpdateEdge struct {
 	IsRunnable *bool `json:"isRunnable"`
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
-	Priority int `json:"priority"`
+	Priority int              `json:"priority"`
+	Data     *json.RawMessage `json:"data"`
 	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
@@ -116275,6 +116288,9 @@ func (v *UpdateEdgeUpdateEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns UpdateEdgeUpdateEdge.Priority, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdge) GetPriority() int { return v.Priority }
+
+// GetData returns UpdateEdgeUpdateEdge.Data, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetData() *json.RawMessage { return v.Data }
 
 // GetSource returns UpdateEdgeUpdateEdge.Source, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdge) GetSource() *UpdateEdgeUpdateEdgeSourceNode { return v.Source }
@@ -156069,6 +156085,7 @@ mutation CreateEdge ($sourceRef: ID!, $targetRef: ID!, $name: String!, $loc: Str
 		loc
 		isRunnable
 		priority
+		data
 		source {
 			id
 			loc
@@ -162678,6 +162695,7 @@ query GetNode ($ref: ID!) {
 			loc
 			isRunnable
 			priority
+			data
 			target {
 				id
 				name
@@ -162691,6 +162709,7 @@ query GetNode ($ref: ID!) {
 			loc
 			isRunnable
 			priority
+			data
 			source {
 				id
 				loc
@@ -162821,6 +162840,7 @@ query GetNodeRaw ($ref: ID!) {
 			loc
 			isRunnable
 			priority
+			data
 			target {
 				id
 				name
@@ -162834,6 +162854,7 @@ query GetNodeRaw ($ref: ID!) {
 			loc
 			isRunnable
 			priority
+			data
 			source {
 				id
 				loc
@@ -168628,6 +168649,7 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 			loc
 			isRunnable
 			priority
+			data
 			target {
 				id
 				name
@@ -168641,6 +168663,7 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 			loc
 			isRunnable
 			priority
+			data
 			source {
 				id
 				loc
@@ -184492,6 +184515,7 @@ mutation UpdateEdge ($edgeId: ID!, $name: String, $loc: String, $description: St
 		loc
 		isRunnable
 		priority
+		data
 		source {
 			id
 			loc
