@@ -234,8 +234,20 @@ checks. The token is never printed: not in the output, --json or an error.
 			// the memory instead. For a degenerate one-character token the typed
 			// ref is what the user typed on their own command line, so "never
 			// printed" is strict only for real tokens.
+			// The receipt is not the raw urn: text mode prints strconv.Quote's
+			// re-formed spelling and --json encodes it, and either can spell
+			// the token the raw urn never carried (cli#2843: token a\"b over a
+			// decoded a"b urn), so the printed forms are judged before the
+			// splice too (quoteCapped for the terminal, envelopeReformsToken
+			// for the JSON receipt). A token-free urn passes all three and
+			// splices byte-identically.
 			named := ref
-			if u := resp.SetMemorySourceToken.Urn; u != "" && !containsAnySpelling(u, token) {
+			// The parenthesized mode arm matters: without the parens the ||
+			// splits the chain (&& binds tighter), the urn-empty and spelling
+			// vetoes stop binding, and an empty urn splices named = "".
+			if u := resp.SetMemorySourceToken.Urn; u != "" && !containsAnySpelling(u, token) &&
+				!containsAnySpelling(quoteCapped(u, 300), token) &&
+				(!f.JSON || !envelopeReformsToken(u, token)) {
 				named = u
 			}
 			dto := syncSetTokenDTO{Memory: named, Operation: "set-token", TokenSet: true, ExpiresAt: exp}
