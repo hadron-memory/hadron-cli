@@ -35,10 +35,10 @@ func runRevoke2680(t *testing.T, srvURL string, args ...string) (string, error) 
 	return out, err
 }
 
-func countOp2680(calls *[]attnCall, op string) int {
+func revokes2680(calls *[]attnCall) int {
 	n := 0
 	for _, c := range *calls {
-		if c.Op == op {
+		if c.Op == "RevokeSecretReadClientGrant" {
 			n++
 		}
 	}
@@ -51,16 +51,16 @@ func countOp2680(calls *[]attnCall, op string) int {
 func TestSecretClientRevokeSendsOnceWithTheGrantID2680(t *testing.T) {
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, map[string]string{
-		"MySecretReadClients": readClients2680(clientRow2680("c0", "gr-c0"), clientRow2680("c1", "gr-c1")),
-		"RevokeSecretReadClientGrant":         revoked2680("REVOKED"),
-		"TeamAppIdentity":     teamAppIdentityJSON,
+		"MySecretReadClients":         readClients2680(clientRow2680("c0", "gr-c0"), clientRow2680("c1", "gr-c1")),
+		"RevokeSecretReadClientGrant": revoked2680("REVOKED"),
+		"TeamAppIdentity":             teamAppIdentityJSON,
 	})
 	setTeamBindingServer(t, srv.URL)
 	out, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n := countOp2680(calls, "RevokeSecretReadClientGrant"); n != 1 {
+	if n := revokes2680(calls); n != 1 {
 		t.Fatalf("revokeGrant must be sent exactly once, got %d (%v)", n, opsOf2631(calls))
 	}
 	for _, c := range *calls {
@@ -92,16 +92,36 @@ func TestSecretClientRevokeSendsOnceWithTheGrantID2680(t *testing.T) {
 // Acceptance 2: an unknown client (or someone else's, which never lists) is a
 // not-found (exit 4) and sends no revokeGrant. A client on a later page is found.
 func TestSecretClientRevokeUnknownClientSendsNothing2680(t *testing.T) {
-	srv, calls := attnServer(t, map[string]string{
-		"MySecretReadClients": readClients2680(clientRow2680("c0", "gr-c0")),
-		"RevokeSecretReadClientGrant":         revoked2680("REVOKED"),
-	})
+	var mu sync.Mutex
+	var ops []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var b struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.Unmarshal(raw, &b)
+		mu.Lock()
+		ops = append(ops, b.OperationName)
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if off, _ := b.Variables["offset"].(float64); off == 0 {
+			_, _ = w.Write([]byte(readClients2680(clientRow2680("c0", "gr-c0"))))
+			return
+		}
+		_, _ = w.Write([]byte(readClients2680()))
+	}))
+	defer srv.Close()
 	_, err := runRevoke2680(t, srv.URL, "nope", "--yes")
+	mu.Lock()
+	defer mu.Unlock()
 	if exitCodeFor(err) != exitcode.NotFound {
 		t.Fatalf("exit %d, want 4: %v", exitCodeFor(err), err)
 	}
-	if countOp2680(calls, "RevokeSecretReadClientGrant") != 0 {
-		t.Fatalf("no revokeGrant for an unknown client: %v", opsOf2631(calls))
+	for _, op := range ops {
+		if op == "RevokeSecretReadClientGrant" {
+			t.Fatalf("no revokeGrant for an unknown client: %v", ops)
+		}
 	}
 	if !strings.Contains(err.Error(), "secret client list") {
 		t.Errorf("the error says where clients are listed: %v", err)
@@ -214,8 +234,8 @@ func TestSecretClientRevokeStatesAndMalformedAnswers2680(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": tc.resp})
 			out, err := runRevoke2680(t, srv.URL, "c1", "--yes")
-			if exitCodeFor(err) != tc.exit || countOp2680(calls, "RevokeSecretReadClientGrant") != 1 {
-				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), tc.exit, countOp2680(calls, "RevokeSecretReadClientGrant"), err)
+			if exitCodeFor(err) != tc.exit || revokes2680(calls) != 1 {
+				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), tc.exit, revokes2680(calls), err)
 			}
 			got := out
 			if err != nil {
@@ -236,8 +256,8 @@ func TestSecretClientRevokeRefusals2680(t *testing.T) {
 		t.Run(code, func(t *testing.T) {
 			srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": gqlErrorJSON(code)})
 			_, err := runRevoke2680(t, srv.URL, "c1", "--yes")
-			if exitCodeFor(err) != want || countOp2680(calls, "RevokeSecretReadClientGrant") != 1 {
-				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), want, countOp2680(calls, "RevokeSecretReadClientGrant"), err)
+			if exitCodeFor(err) != want || revokes2680(calls) != 1 {
+				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), want, revokes2680(calls), err)
 			}
 		})
 	}
@@ -256,7 +276,7 @@ func TestSecretClientRevokeConfirmation2680(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"secret", "client", "revoke", "c1", "--server", srv.URL})
 	err = root.Execute()
-	if err == nil || countOp2680(calls, "RevokeSecretReadClientGrant") != 0 {
+	if err == nil || revokes2680(calls) != 0 {
 		t.Fatalf("an answer of no must send no revokeGrant: %v %v", err, opsOf2631(calls))
 	}
 	if p := errOut.String(); !strings.Contains(p, "c1") || !strings.Contains(p, "deploy-token") {
@@ -265,7 +285,7 @@ func TestSecretClientRevokeConfirmation2680(t *testing.T) {
 	f, _, _ = testFactoryTTY(t, "y\n")
 	root = NewRootCmd(f)
 	root.SetArgs([]string{"secret", "client", "revoke", "c1", "--server", srv.URL})
-	if err := root.Execute(); err != nil || countOp2680(calls, "RevokeSecretReadClientGrant") != 1 {
+	if err := root.Execute(); err != nil || revokes2680(calls) != 1 {
 		t.Fatalf("yes: %v %v", err, opsOf2631(calls))
 	}
 }

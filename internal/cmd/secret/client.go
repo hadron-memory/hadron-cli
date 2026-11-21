@@ -39,7 +39,7 @@ const (
 func newCmdClient(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "client <command>",
-		Short: "Issue and list read clients for an App secret",
+		Short: "Issue, list and revoke read clients for an App secret",
 		Long: `A read client lets one holder read an App secret's value, within a window and a
 read budget you choose. It is one grant that a person signs: nothing reads until
 then. The holder is you, or a live worker of the App.
@@ -49,7 +49,7 @@ impersonated session and an App key, and decides who may issue (whoever manages
 the App, or wrote the secret's current version). Revealing the value is a worker
 session's act and is not part of these commands.`,
 	}
-	cmd.AddCommand(newCmdClientIssue(f), newCmdClientList(f))
+	cmd.AddCommand(newCmdClientIssue(f), newCmdClientList(f), newCmdClientRevoke(f))
 	return cmd
 }
 
@@ -385,6 +385,29 @@ type clientDTO struct {
 	CreatedAt  string  `json:"createdAt"`
 }
 
+// fetchClients reads one page of the caller's read clients. The list is declared
+// non-null with non-null rows: a missing or null list, or a null row, is a
+// malformed answer, never an empty success (and a dropped row would shift the --all
+// offsets).
+func fetchClients(ctx context.Context, client graphql.Client, l, o *int) ([]clientDTO, error) {
+	resp, err := gen.MySecretReadClients(ctx, client, l, o)
+	if err != nil {
+		return nil, api.MapErrorKeepingCode(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
+	}
+	return page, nil
+}
+
 func newCmdClientList(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
 	var all, asWorker bool
@@ -435,27 +458,7 @@ use --limit and --offset beyond that).`,
 					return err
 				}
 			}
-			fetch := func(l, o *int) ([]clientDTO, error) {
-				resp, err := gen.MySecretReadClients(sendCtx, client, l, o)
-				if err != nil {
-					return nil, api.MapErrorKeepingCode(err)
-				}
-				// The list is declared non-null with non-null rows. A missing or null
-				// list, or a null row, is a malformed answer, never an empty success
-				// (and a dropped row would shift the --all offsets).
-				if resp == nil || resp.MySecretReadClients == nil {
-					return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
-				}
-				page := make([]clientDTO, 0, len(resp.MySecretReadClients))
-				for _, c := range resp.MySecretReadClients {
-					if c == nil {
-						return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
-					}
-					page = append(page, clientDTO{ClientID: c.ClientId, GrantID: c.GrantId, SecretID: c.SecretId,
-						SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
-				}
-				return page, nil
-			}
+			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClients(sendCtx, client, l, o) }
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
