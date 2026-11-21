@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -65,43 +66,87 @@ func TestNodeExportSendsRefNotID2899(t *testing.T) {
 // The server's one refusal for a missing, soft-deleted, unreadable or concealed node
 // (NODE_NOT_FOUND, one uniform message from the server) is exit 4 with the message the
 // old NOT_FOUND code gave, the CLI adds no text of its own, and it makes no follow-up
-// read to tell the cases apart (cor:api:040:03, :140:03). The null-answer path
-// ("node is not readable") keeps the same exit.
+// read to tell the cases apart (cor:api:040:03, :140:03): the whole conversation is the
+// resolve and the one export document. Same on every export path. A null export answer
+// (not a shape a conforming server sends: nodeExport is NodeExportResult!, so this is a
+// defensive path) keeps the same exit.
 func TestNodeExportNodeNotFoundIsOneAnswer2899(t *testing.T) {
 	refusal := func(code string) string {
 		return `{"errors":[{"message":"node not found","extensions":{"code":"` + code + `"}}]}`
 	}
-	run := func(t *testing.T, resp string) (*[]attnCall, error) {
-		srv, calls := attnServer(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeExport": resp})
-		f, _ := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
-		err := root.Execute()
-		return calls, err
+	for name, tc := range map[string]struct {
+		args []string
+		op   string
+	}{
+		"canonical":      {[]string{"node", "export", nodeURN}, "NodeExport"},
+		"sectioned":      {[]string{"node", "export", nodeURN, "--section", "content"}, "NodeExportSections"},
+		"to a file (-o)": {[]string{"node", "export", nodeURN, "-o", "OUT"}, "NodeExport"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			run := func(resp string) (*[]attnCall, error) {
+				srv, calls := attnServer(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeExport": resp, "NodeExportSections": resp})
+				f, _ := testFactory(t)
+				root := NewRootCmd(f)
+				args := append([]string{}, tc.args...)
+				for i, a := range args {
+					if a == "OUT" {
+						args[i] = filepath.Join(t.TempDir(), "out.md")
+					}
+				}
+				root.SetArgs(append(args, "--server", srv.URL))
+				err := root.Execute()
+				return calls, err
+			}
+			_, oldErr := run(refusal("NOT_FOUND"))
+			calls, newErr := run(refusal("NODE_NOT_FOUND"))
+			if oldErr == nil || newErr == nil {
+				t.Fatalf("a missing node refuses: old=%v new=%v", oldErr, newErr)
+			}
+			if exitCodeFor(newErr) != exitcode.NotFound || exitCodeFor(newErr) != exitCodeFor(oldErr) {
+				t.Errorf("NODE_NOT_FOUND exits %d, want %d (what NOT_FOUND gave)", exitCodeFor(newErr), exitCodeFor(oldErr))
+			}
+			if newErr.Error() != oldErr.Error() {
+				t.Errorf("one message: NODE_NOT_FOUND %q vs NOT_FOUND %q", newErr, oldErr)
+			}
+			if !strings.Contains(newErr.Error(), "node not found") || strings.Contains(newErr.Error(), "soft-deleted") || strings.Contains(newErr.Error(), "unreadable") {
+				t.Errorf("the server's one message, and no cause the CLI invents: %v", newErr)
+			}
+			var ops []string
+			for _, c := range *calls {
+				ops = append(ops, c.Op)
+			}
+			if strings.Join(ops, ",") != "ResolveUrn,"+tc.op {
+				t.Errorf("no follow-up read to tell the cases apart: the conversation is %v, want [ResolveUrn %s]", ops, tc.op)
+			}
+		})
 	}
-	_, oldErr := run(t, refusal("NOT_FOUND"))
-	calls, newErr := run(t, refusal("NODE_NOT_FOUND"))
-	if oldErr == nil || newErr == nil {
-		t.Fatalf("a missing node refuses: old=%v new=%v", oldErr, newErr)
+	srv, _ := attnServer(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeExport": `{"data":{"nodeExport":null}}`})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
+	if err := root.Execute(); err == nil || exitCodeFor(err) != exitcode.NotFound {
+		t.Errorf("a null answer exits %d, want %d: %v", exitCodeFor(err), exitcode.NotFound, err)
 	}
-	if exitCodeFor(newErr) != exitcode.NotFound || exitCodeFor(newErr) != exitCodeFor(oldErr) {
-		t.Errorf("NODE_NOT_FOUND exits %d, want %d (what NOT_FOUND gave)", exitCodeFor(newErr), exitCodeFor(oldErr))
+}
+
+// A node the resolve step cannot find (the node is missing, soft-deleted or concealed before
+// nodeExport is ever sent) ends the same way: exit 4, no export request, no cause named. The CLI
+// still resolves the ref first (cmdutil.ResolveNodeRef); passing a URN straight to nodeExport(ref:)
+// is a possible follow-up, not this companion.
+func TestNodeExportANodeTheResolveStepCannotFindIsTheSameExit2899(t *testing.T) {
+	srv, calls := attnServer(t, map[string]string{"ResolveUrn": resolveNullJSON, "NodeExport": nodeExportResp("MD", "text/markdown", "f.md", "# x\n")})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("a node the resolve step cannot find exits %d, want %d: %v", exitCodeFor(err), exitcode.NotFound, err)
 	}
-	if newErr.Error() != oldErr.Error() {
-		t.Errorf("one message: NODE_NOT_FOUND %q vs NOT_FOUND %q", newErr, oldErr)
+	if strings.Contains(err.Error(), "soft-deleted") || strings.Contains(err.Error(), "unreadable") || strings.Contains(err.Error(), "concealed") {
+		t.Errorf("no cause is named: %v", err)
 	}
-	if !strings.Contains(newErr.Error(), "node not found") || strings.Contains(newErr.Error(), "soft-deleted") || strings.Contains(newErr.Error(), "unreadable") {
-		t.Errorf("the server's one message, and no cause the CLI invents: %v", newErr)
-	}
-	for _, c := range *calls {
-		if c.Op == "NodeExportMeta" || c.Op == "GetNode" {
-			t.Errorf("no follow-up read to tell the cases apart: %s", c.Op)
-		}
-	}
-	// A null answer (today's other not-found shape) keeps the same exit.
-	_, nullErr := run(t, `{"data":{"nodeExport":null}}`)
-	if nullErr == nil || exitCodeFor(nullErr) != exitcode.NotFound {
-		t.Errorf("a null answer exits %d, want %d: %v", exitCodeFor(nullErr), exitcode.NotFound, nullErr)
+	if len(exportCalls2899(calls)) != 0 {
+		t.Errorf("no export request is sent for a node that does not resolve")
 	}
 }
 
@@ -153,20 +198,26 @@ func TestNodeExportUnknownRefArgumentOverHTTP400IsOutOfSyncNotTooOld2899(t *test
 		}
 	}))
 	t.Cleanup(srv.Close)
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
-	err := root.Execute()
-	if err == nil || exitCodeFor(err) != exitcode.Usage {
-		t.Fatalf("an old server fails loud (exit 2): exit=%d err=%v", exitCodeFor(err), err)
-	}
-	if !strings.Contains(err.Error(), "out of sync") {
-		t.Errorf("an unknown ARGUMENT is a version mismatch: %v", err)
-	}
-	if strings.Contains(err.Error(), "too old") || strings.Contains(err.Error(), "#386") || strings.Contains(err.Error(), "no nodeExport field") {
-		t.Errorf("the server HAS nodeExport; it must not be called too old to have it: %v", err)
-	}
-	if exportAttempts != 1 {
-		t.Errorf("one attempt, no retry with the old name: %d", exportAttempts)
+	for name, args := range map[string][]string{
+		"canonical": {"node", "export", nodeURN},
+		"sectioned": {"node", "export", nodeURN, "--section", "content"},
+	} {
+		exportAttempts = 0
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--server", srv.URL))
+		err := root.Execute()
+		if err == nil || exitCodeFor(err) != exitcode.Usage {
+			t.Fatalf("%s: an old server fails loud (exit 2): exit=%d err=%v", name, exitCodeFor(err), err)
+		}
+		if !strings.Contains(err.Error(), "out of sync") {
+			t.Errorf("%s: an unknown ARGUMENT is a version mismatch: %v", name, err)
+		}
+		if strings.Contains(err.Error(), "too old") || strings.Contains(err.Error(), "#386") || strings.Contains(err.Error(), "no nodeExport field") {
+			t.Errorf("%s: the server HAS nodeExport; it must not be called too old to have it: %v", name, err)
+		}
+		if exportAttempts != 1 {
+			t.Errorf("%s: one attempt, no retry with the old name: %d", name, exportAttempts)
+		}
 	}
 }
