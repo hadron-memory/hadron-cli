@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -153,8 +154,8 @@ func TestSecretClientIssueHelpStatesTheShippedAutoDelete2720(t *testing.T) {
 // not fail: it reads the mark-free document and shows the mark as UNKNOWN ("?" in the table,
 // null in --json, a stderr note), never "no", so the recovery advice that points at the list
 // still works on such a server.
-func TestSecretClientOnAServerWithoutTheMark2720(t *testing.T) {
-	validation := `{"errors":[{"message":"Cannot query field \"destroyOnEnd\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+func TestSecretClientOnAServerWithoutTheMarkOrTheLink2720(t *testing.T) {
+	validation := `{"errors":[{"message":"Cannot query field \"revealUrl\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"Cannot query field \"destroyOnEnd\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 	srv, calls := attnServer(t, map[string]string{
 		"ListSecretReadClients":       validation,
 		"MySecretReadClients":         readClients2680(clientRow2680("c1", "gr-c1")),
@@ -217,13 +218,62 @@ func TestSecretClientOnAServerWithoutTheMark2720(t *testing.T) {
 	if rejected != 1 || mine != 2 {
 		t.Errorf("one rejected list request, then two mark-free pages (a row and the empty one): rejected=%d lookups=%d %v", rejected, mine, opsOf2631(calls2))
 	}
-	// A server that lacks only the reveal link (cli#2758) takes the same road.
-	noLinkErr := `{"errors":[{"message":"Cannot query field \"revealUrl\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
-	srv3, _ := attnServer(t, map[string]string{"ListSecretReadClients": noLinkErr, "MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1"))})
-	out3, errOut3, err := runSecretClient2631(t, srv3.URL, "list", "--json")
-	var rows3 []map[string]any
-	if err != nil || json.Unmarshal([]byte(out3), &rows3) != nil || len(rows3) != 1 || rows3[0]["destroyOnEnd"] != nil || rows3[0]["revealUrl"] != nil || !strings.Contains(errOut3, "does not report the auto-delete mark") {
-		t.Errorf("a server without the link still lists, mark unknown, with the note: err=%v out=%s note=%q", err, out3, errOut3)
+}
+
+// Joran's P2-1 (a cli#2758 regression): a server that has the passkey link but not the mark
+// rejects the one-document list naming only destroyOnEnd. The list steps down to the link-only
+// document, so the link survives (the mark unknown, with the note), and the same holds for the
+// reveal link lookup; a server with the mark but not the link keeps the mark.
+func TestSecretClientOnAServerWithOnlyOneOfTheMarkAndTheLink2720(t *testing.T) {
+	rejects := func(field string) string {
+		return `{"errors":[{"message":"Cannot query field \"` + field + `\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	}
+	link := `https://example.test/reveal/c1`
+	rowLink := `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","revealUrl":"` + link + `"}`
+	rowMark := `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","destroyOnEnd":true}`
+
+	// Has the link, lacks the mark.
+	srv, calls := attnServer(t, map[string]string{
+		"ListSecretReadClients":     rejects("destroyOnEnd"),
+		"ListSecretReadClientsLink": readClients2680(rowLink),
+	})
+	out, errOut, err := runSecretClient2631(t, srv.URL, "list", "--json")
+	var rows []map[string]any
+	if err != nil || json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 1 || rows[0]["revealUrl"] != link || rows[0]["destroyOnEnd"] != nil {
+		t.Fatalf("the link must survive a server without the mark, the mark unknown: err=%v out=%s", err, out)
+	}
+	if !strings.Contains(errOut, "does not report the auto-delete mark") {
+		t.Errorf("a stderr note must say the mark is unknown: %q", errOut)
+	}
+	if ops := strings.Join(opsOf2631(calls), ","); ops != "ListSecretReadClients,ListSecretReadClientsLink" {
+		t.Errorf("the rejected document once, then the link-only one: %s", ops)
+	}
+
+	// Has the mark, lacks the link.
+	srv2, calls2 := attnServer(t, map[string]string{
+		"ListSecretReadClients":     rejects("revealUrl"),
+		"ListSecretReadClientsMark": readClients2680(rowMark),
+	})
+	out2, errOut2, err := runSecretClient2631(t, srv2.URL, "list", "--json")
+	var rows2 []map[string]any
+	if err != nil || json.Unmarshal([]byte(out2), &rows2) != nil || len(rows2) != 1 || rows2[0]["destroyOnEnd"] != true || rows2[0]["revealUrl"] != nil || errOut2 != "" {
+		t.Fatalf("the mark must survive a server without the link, silently: err=%v out=%s note=%q", err, out2, errOut2)
+	}
+	if ops := strings.Join(opsOf2631(calls2), ","); ops != "ListSecretReadClients,ListSecretReadClientsMark" {
+		t.Errorf("the rejected document once, then the mark-only one: %s", ops)
+	}
+
+	// The other tier rejecting its own remaining field ends at the lookup document.
+	srv3, calls3 := attnServer(t, map[string]string{
+		"ListSecretReadClients":     rejects("destroyOnEnd"),
+		"ListSecretReadClientsLink": rejects("revealUrl"),
+		"MySecretReadClients":       readClients2680(clientRow2680("c1", "gr-c1")),
+	})
+	if _, _, err := runSecretClient2631(t, srv3.URL, "list", "--json"); err != nil {
+		t.Fatal(err)
+	}
+	if ops := strings.Join(opsOf2631(calls3), ","); ops != "ListSecretReadClients,ListSecretReadClientsLink,MySecretReadClients" {
+		t.Errorf("each document is tried once on the way down: %s", ops)
 	}
 }
 
@@ -326,5 +376,47 @@ func TestSecretClientIssueAutoDeleteNoteNeutralisesTheSecretName2720(t *testing.
 	}
 	if strings.ContainsAny(errOut, "\x1b") || strings.Contains(errOut, "\nforged: line") {
 		t.Errorf("the secret name must be neutralised in the note: %q", errOut)
+	}
+}
+
+// Joran's P2-2: the `secret client` entry of the agentic contract is ONE line (a hard break
+// inside it splits the entry and the reader of the contract loses the rest). The entry starts at
+// its "# **secret client (cli#2631" marker and runs to the next line, which is a different entry.
+func TestAgenticSecretClientEntryIsOneLine2720(t *testing.T) {
+	data, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(string(data), "\n")
+	for i, l := range lines {
+		if !strings.HasPrefix(l, "# **secret client (cli#2631") {
+			continue
+		}
+		for _, want := range []string{"client revoke <client-id> [--yes]", "# **secret exec / reveal (cli#2664", "destroyOnEnd", "revealUrl"} {
+			if !strings.Contains(l, want) {
+				t.Errorf("the secret client entry (line %d) is split or lost %q; the next line starts %.60q", i+1, want, lines[i+1])
+			}
+		}
+		if next := lines[i+1]; !strings.HasPrefix(next, "hadron ") && !strings.HasPrefix(next, "# ") {
+			t.Errorf("the line after the entry continues it (a hard break): %.80q", next)
+		}
+		return
+	}
+	t.Fatal("no secret client entry found")
+}
+
+// Joran's P2-1, the reveal side: on a server that has the passkey link but not the auto-delete mark
+// (the one-document list is rejected naming only destroyOnEnd), a refused person reveal still prints
+// the server's link, as it did before the mark was added to the list.
+func TestSecretRevealLinkSurvivesAServerWithoutTheMark2720(t *testing.T) {
+	rejects := `{"errors":[{"message":"Cannot query field \"destroyOnEnd\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	srv, _ := attnServer(t, map[string]string{
+		"RevealSecret":              gqlErrorJSON(notFound2758),
+		"ListSecretReadClients":     rejects,
+		"ListSecretReadClientsLink": list2758(clientRow2758(withURL2758(url2758))),
+	})
+	r := runSecretReveal2664(t, srv.URL, true, "reveal", "cl-1")
+	if exitCodeFor(r.err) != 4 || r.err == nil || !strings.Contains(r.err.Error(), url2758) {
+		t.Fatalf("the passkey link must still be printed on a server without the mark: exit=%d err=%v", exitCodeFor(r.err), r.err)
 	}
 }

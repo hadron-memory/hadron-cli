@@ -429,42 +429,184 @@ type clientDTO struct {
 	RevealURL *string `json:"revealUrl"`
 }
 
-// fetchClientPage reads one page of the caller's read clients WITH the auto-delete mark
-// (cli#2720) and the server's revealUrl (cli#2758): `client list` and the reveal link lookup.
-// The list is declared non-null with non-null rows: a missing or null list, a null row, or a
-// row without the mark, is a malformed answer, never an empty success (and a dropped row
-// would shift the --all offsets); a row answered without destroyOnEnd must not read as "no
-// auto-delete" when the mark is the destructive one. A server that lacks either field rejects
-// the document at validation naming only those fields; then, and only then, the page is read
-// again without them (the mark unknown, the link null) and noLink is set so later pages skip
-// the rejected document.
-func fetchClientPage(ctx context.Context, client graphql.Client, noLink *bool, limit, offset *int) ([]clientDTO, error) {
-	if !*noLink {
-		resp, err := gen.ListSecretReadClients(ctx, client, limit, offset)
+// listTier is how much of the list the server has shown it can answer: each field is a separate
+// server change, so a server may have the link without the mark or the mark without the link.
+type listTier int
+
+const (
+	tierBoth     listTier = iota // revealUrl and destroyOnEnd: the first try
+	tierLinkOnly                 // the server rejected destroyOnEnd only: the link, the mark unknown
+	tierMarkOnly                 // the server rejected revealUrl only: the mark, the link null
+	tierNeither                  // the mark-free, link-free page (revoke's lookup)
+)
+
+// markKnown and linkKnown say what a page read at this tier carries.
+func (t listTier) markKnown() bool { return t == tierBoth || t == tierMarkOnly }
+
+// fetchClientPage reads one page of the caller's read clients (`client list` and the reveal link
+// lookup) with as much as the server has: the auto-delete mark (cli#2720) and the server's
+// revealUrl (cli#2758). The list is declared non-null with non-null rows: a missing or null list,
+// a null row, or (where the mark is read) a row without the mark, is a malformed answer, never an
+// empty success (and a dropped row would shift the --all offsets); a row answered without
+// destroyOnEnd must not read as "no auto-delete" when the mark is the destructive one.
+//
+// A server that lacks a field rejects the document at validation naming only the rejected
+// fields; then, and only then, the ladder steps down, to the document without exactly the field(s)
+// it named: both rejected reads the page with neither (the mark unknown, the link null), only the
+// mark leaves the link, only the link leaves the mark. tier is kept so later pages skip the
+// documents already rejected.
+func fetchClientPage(ctx context.Context, client graphql.Client, tier *listTier, limit, offset *int) ([]clientDTO, error) {
+	for {
+		var (
+			page []clientDTO
+			err  error
+		)
+		switch *tier {
+		case tierBoth:
+			page, err = fetchBothPage(ctx, client, limit, offset)
+		case tierLinkOnly:
+			page, err = fetchLinkOnlyPage(ctx, client, limit, offset)
+		case tierMarkOnly:
+			page, err = fetchMarkOnlyPage(ctx, client, limit, offset)
+		default:
+			return fetchLookupPage(ctx, client, limit, offset)
+		}
 		if err == nil {
-			if resp == nil || resp.MySecretReadClients == nil {
-				return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
-			}
-			page := make([]clientDTO, 0, len(resp.MySecretReadClients))
-			for _, c := range resp.MySecretReadClients {
-				if c == nil {
-					return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
-				}
-				if c.DestroyOnEnd == nil {
-					return nil, exitcode.Newf(exitcode.Error, "server returned a read-client row without its auto-delete mark; the answer is malformed, and a missing mark is not \"no\"")
-				}
-				page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
-					SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt,
-					DestroyOnEnd: c.DestroyOnEnd, RevealURL: c.RevealUrl})
-			}
 			return page, nil
 		}
-		if !api.IsFrameworkValidationOnlyFor(err, "revealUrl", "destroyOnEnd") {
-			return nil, api.MapErrorKeepingCode(err)
+		next, stepped := stepDown(*tier, err)
+		if !stepped {
+			var r rejectedErr
+			if errors.As(err, &r) {
+				return nil, api.MapErrorKeepingCode(r.err)
+			}
+			return nil, err
 		}
-		*noLink = true
+		*tier = next
 	}
-	return fetchLookupPage(ctx, client, limit, offset)
+}
+
+// rejectedErr marks a list failure that is a validation rejection of the fields the list
+// documents add, so the ladder may step down on it; it is mapped to the caller's error
+// only when no step applies.
+type rejectedErr struct{ err error }
+
+func (e rejectedErr) Error() string { return e.err.Error() }
+
+// stepDown is the next tier for a rejected document, or false when the failure is not a
+// validation rejection of exactly the field(s) the document at this tier selects beyond the
+// next tier's.
+func stepDown(t listTier, err error) (listTier, bool) {
+	var r rejectedErr
+	if !errors.As(err, &r) {
+		return t, false
+	}
+	raw := r.err
+	switch t {
+	case tierBoth:
+		switch {
+		case api.IsFrameworkValidationOnlyFor(raw, "destroyOnEnd"):
+			return tierLinkOnly, true
+		case api.IsFrameworkValidationOnlyFor(raw, "revealUrl"):
+			return tierMarkOnly, true
+		case api.IsFrameworkValidationOnlyFor(raw, "revealUrl", "destroyOnEnd"):
+			return tierNeither, true
+		}
+	case tierLinkOnly:
+		if api.IsFrameworkValidationOnlyFor(raw, "revealUrl") {
+			return tierNeither, true
+		}
+	case tierMarkOnly:
+		if api.IsFrameworkValidationOnlyFor(raw, "destroyOnEnd") {
+			return tierNeither, true
+		}
+	}
+	return t, false
+}
+
+// listFailure is the three list documents' shared failure handling: a GraphQL failure is
+// returned as a rejectedErr when the ladder might step down on it, else as the mapped error.
+func listFailure(err error) error {
+	if api.IsFrameworkValidationOnlyFor(err, "revealUrl", "destroyOnEnd") {
+		return rejectedErr{err}
+	}
+	return api.MapErrorKeepingCode(err)
+}
+
+func malformedList() error {
+	return exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
+}
+
+func malformedRow() error {
+	return exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
+}
+
+func markMissing() error {
+	return exitcode.Newf(exitcode.Error, "server returned a read-client row without its auto-delete mark; the answer is malformed, and a missing mark is not \"no\"")
+}
+
+func fetchBothPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.ListSecretReadClients(ctx, client, limit, offset)
+	if err != nil {
+		return nil, listFailure(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, malformedList()
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, malformedRow()
+		}
+		if c.DestroyOnEnd == nil {
+			return nil, markMissing()
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt,
+			DestroyOnEnd: c.DestroyOnEnd, RevealURL: c.RevealUrl})
+	}
+	return page, nil
+}
+
+func fetchLinkOnlyPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.ListSecretReadClientsLink(ctx, client, limit, offset)
+	if err != nil {
+		return nil, listFailure(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, malformedList()
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, malformedRow()
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, RevealURL: c.RevealUrl})
+	}
+	return page, nil
+}
+
+func fetchMarkOnlyPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.ListSecretReadClientsMark(ctx, client, limit, offset)
+	if err != nil {
+		return nil, listFailure(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, malformedList()
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, malformedRow()
+		}
+		if c.DestroyOnEnd == nil {
+			return nil, markMissing()
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, DestroyOnEnd: c.DestroyOnEnd})
+	}
+	return page, nil
 }
 
 // fetchLookupPage reads one page of the caller's read clients WITHOUT the mark and the link:
@@ -543,10 +685,11 @@ use --limit and --offset beyond that).`,
 				}
 			}
 			// A server that lacks the auto-delete mark or the reveal link rejects the list
-			// document: read the mark-free one instead and show the mark as unknown (never
-			// "no"), so the check the recovery advice points at still works on such a server.
-			noLink := false
-			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, &noLink, l, o) }
+			// document: fetchClientPage steps down only as far as the rejection forces, so the
+			// field the server does have is kept and the mark is unknown (never "no") when it
+			// is missing; the check the recovery advice points at works on such a server.
+			tier := tierBoth
+			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, &tier, l, o) }
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
@@ -573,8 +716,8 @@ use --limit and --offset beyond that).`,
 				}
 				rows = append(rows, page...)
 			}
-			if noLink {
-				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "note: this server does not report the auto-delete mark (or the reveal link), so AUTO-DELETE is unknown (? in the table, destroyOnEnd null in --json), not \"no\"")
+			if !tier.markKnown() {
+				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "note: this server does not report the auto-delete mark, so AUTO-DELETE is unknown (? in the table, destroyOnEnd null in --json), not \"no\"")
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				if len(rows) == 0 {

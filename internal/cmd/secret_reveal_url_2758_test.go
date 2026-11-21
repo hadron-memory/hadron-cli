@@ -308,8 +308,8 @@ const noRevealUrlField2758 = `{"errors":[{"message":"Cannot query field \"reveal
 
 func TestSecretClientListOnAServerWithoutRevealUrl2758(t *testing.T) {
 	srv, calls := attnServer(t, map[string]string{
-		listOp2758:            noRevealUrlField2758,
-		"MySecretReadClients": list2758(clientRow2758("")),
+		listOp2758:                  noRevealUrlField2758,
+		"ListSecretReadClientsMark": list2758(clientRow2758("")),
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -321,8 +321,8 @@ func TestSecretClientListOnAServerWithoutRevealUrl2758(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil || len(rows) != 1 || rows[0]["revealUrl"] != nil {
 		t.Fatalf("one row with a null revealUrl: %v %q", err, out.String())
 	}
-	if ops := opsOf2631(calls); len(ops) != 2 || ops[0] != listOp2758 || ops[1] != "MySecretReadClients" {
-		t.Errorf("the rejected document is tried once, then the one without the field: %v", ops)
+	if ops := opsOf2631(calls); len(ops) != 2 || ops[0] != listOp2758 || ops[1] != "ListSecretReadClientsMark" {
+		t.Errorf("the rejected document is tried once, then the mark-only document (the server has the mark, not the link): %v", ops)
 	}
 }
 
@@ -352,9 +352,9 @@ func TestSecretClientListDoesNotFallBackOnOtherErrors2758(t *testing.T) {
 // On such a server a refused person reveal is exactly today's refusal (no link, no error).
 func TestSecretRevealOnAServerWithoutRevealUrlIsUnchanged2758(t *testing.T) {
 	srv, _ := attnServer(t, map[string]string{
-		"RevealSecret":        gqlErrorJSON(notFound2758),
-		listOp2758:            noRevealUrlField2758,
-		"MySecretReadClients": list2758(clientRow2758("")),
+		"RevealSecret":              gqlErrorJSON(notFound2758),
+		listOp2758:                  noRevealUrlField2758,
+		"ListSecretReadClientsMark": list2758(clientRow2758("")),
 	})
 	r := runSecretReveal2664(t, srv.URL, true, "reveal", "cl-1")
 	const wantText = "refused: SECRET_READ_CLIENT_NOT_FOUND; a read client is revealed by the worker it names, in that worker's session; a person reveals on the server's passkey page"
@@ -416,13 +416,13 @@ func TestSecretRevealOtherEnvelopesHaveNoRevealUrl2758(t *testing.T) {
 // After the rejection the later pages go straight to the document without the field (one
 // rejected request per command, not one per page).
 func TestSecretClientListAllRemembersTheRejectedDocument2758(t *testing.T) {
-	responses := map[string]string{listOp2758: noRevealUrlField2758, "MySecretReadClients": list2758(clientRow2758(""))}
+	responses := map[string]string{listOp2758: noRevealUrlField2758, "ListSecretReadClientsMark": list2758(clientRow2758(""))}
 	bases := 0
 	srv, calls := attnServerHook(t, responses, func(op string) {
-		if op == "MySecretReadClients" {
+		if op == "ListSecretReadClientsMark" {
 			bases++
 			if bases == 2 {
-				setAttnResponse(responses, "MySecretReadClients", list2758())
+				setAttnResponse(responses, "ListSecretReadClientsMark", list2758())
 			}
 		}
 	})
@@ -432,7 +432,7 @@ func TestSecretClientListAllRemembersTheRejectedDocument2758(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if ops := opsOf2631(calls); strings.Join(ops, ",") != listOp2758+",MySecretReadClients,MySecretReadClients" {
+	if ops := opsOf2631(calls); strings.Join(ops, ",") != listOp2758+",ListSecretReadClientsMark,ListSecretReadClientsMark" {
 		t.Errorf("the rejected document is tried once, then each page is read without the field: %v (%q)", ops, out.String())
 	}
 }
