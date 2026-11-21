@@ -45,7 +45,14 @@ on:
 
 permissions:
   contents: read
-  issues: write # file a tracking issue when drift is found
+  issues: write # file a tracking issue when drift is found or the job fails
+
+# One run at a time: the issue de-duplication below (list, then create) is
+# best-effort, and two overlapping runs (a dispatch during the nightly) could
+# both see no open issue and both file one.
+concurrency:
+  group: schema-drift
+  cancel-in-progress: false
 
 jobs:
   schema-drift:
@@ -99,6 +106,42 @@ jobs:
       # typeDefs.ts is a self-contained SDL string, so a throwaway local install
       # of just tsx + graphql (the export script's only runtime deps) suffices.
       # Install chatter goes to stderr so stdout stays clean SDL for the redirect.
+      # tsx and graphql are pinned to the exact versions schema/SOURCE records
+      # as tsx=/graphql= (read below from that one place — the same keys
+      # scripts/pin-server-sdl.sh reads): a floating graphql minor can change
+      # printSchema bytes and fire this job for a non-drift reason (#2679
+      # review). Bump in SOURCE, then re-run that script's --verify.
+      #
+      # Read in a step of their own, NOT inside the drift step: an empty key
+      # would otherwise become `tsx@` and npm would resolve the latest, quietly
+      # undoing the pin (the script's own exit-2 guard never runs on this path),
+      # and a failure inside the drift step reads as a drift verdict. Here an
+      # empty key fails the job outright, before any check, as the
+      # infrastructure fault it is (#2712).
+      - name: Read the tool pins
+        id: pins
+        if: steps.gate.outputs.enabled == 'true'
+        run: bash scripts/read-tool-pins.sh schema/SOURCE >> "$GITHUB_OUTPUT"
+
+      # The export is its own step, NOT part of the drift step: an install or
+      # exporter failure (a registry outage, a broken exporter) is an
+      # infrastructure fault, and inside the continue-on-error drift step it
+      # read as a drift verdict, so the infrastructure reporter skipped it.
+      # Here a failure fails the job with no drift verdict, and the reporter
+      # below fires. The SDL is exported from .hadron-server, where the script
+      # and its imports live (what `make schema-check` does itself).
+      - name: Export the hadron-server SDL
+        id: export
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          PIN_TSX: ${{ steps.pins.outputs.tsx }}
+          PIN_GRAPHQL: ${{ steps.pins.outputs.graphql }}
+        run: |
+          cd .hadron-server
+          npm install --no-save --no-package-lock --silent --ignore-scripts "tsx@$PIN_TSX" "graphql@$PIN_GRAPHQL" 1>&2
+          node_modules/.bin/tsx scripts/export-graphql-sdl.mjs > "$RUNNER_TEMP/server-sdl.graphql"
+          [ -s "$RUNNER_TEMP/server-sdl.graphql" ] || { echo "::error::the exporter produced no SDL"; exit 1; }
+
       - name: Check for schema drift
         id: check
         if: steps.gate.outputs.enabled == 'true'
@@ -106,7 +149,7 @@ jobs:
         run: |
           make schema-check \
             HADRON_SERVER_DIR=.hadron-server \
-            SDL_EXPORT="npm install --no-save --no-package-lock --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
+            SDL_EXPORT="cat $RUNNER_TEMP/server-sdl.graphql"
 
       # Same cross-repo checkout, second drift axis: the registered-tool manifest
       # `hadron spec check-tools` embeds. Pure grep over the tool-source files (every module
@@ -186,6 +229,133 @@ jobs:
         run: |
           echo "Drift detected — see the steps above and any filed issue(s)."
           exit 1
+
+      # The other kind of red: the job failed WITHOUT a drift verdict — a bad
+      # credential at checkout, an unreadable pin, a broken runner. The drift
+      # steps above file only on genuine drift, so before this step such a
+      # failure was silent: #2710's nightly died at checkout for six days and
+      # nobody was told (#2712). One open issue, de-duplicated like the drift
+      # ones; a later failure comments instead of stacking another.
+      - name: File an infrastructure-failure issue
+        if: failure() && steps.check.outcome != 'failure' && steps.tools.outcome != 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly schema-drift job failed (infrastructure, not drift)"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Infrastructure issue already open (#$existing); adding a note instead."
+            gh issue comment "$existing" --body "Failed again as of $RUN_URL"
+            exit 0
+          fi
+          {
+            echo "The nightly \`schema-drift\` job failed before it could reach a drift verdict, so"
+            echo "the drift detector did not run. The usual causes: the \`HADRON_SERVER_RO_TOKEN\`"
+            echo "secret was rejected at the hadron-server checkout (\`Bad credentials\`, #2710), the"
+            echo "tool pins in \`schema/SOURCE\` are unreadable, or the runner or network failed."
+            echo
+            echo "Open the failing step in the run below and fix its cause; this issue is"
+            echo "commented on by each later failed run and can be closed once one is green."
+            echo
+            echo "Failing run: $RUN_URL"
+          } > infra-issue-body.md
+          gh issue create --title "$title" --body-file infra-issue-body.md
+
+  # The pin question, asked nightly since #2679: the drift job above asks
+  # whether our copies match hadron-server MAIN; this one asks whether the PIN
+  # still reproduces. schema/SOURCE names two hadron-server commits whose merge
+  # the committed snapshot was exported from (until #2658 retires the pin), and
+  # `scripts/pin-server-sdl.sh --verify` re-merges them, re-exports the SDL and
+  # checks merge_sha/sdl_sha256/sdl_lines and the snapshot diff. Nothing else
+  # exercised --verify (#2679 blind review), so a pinned commit becoming
+  # unfetchable, a graphql print change, or a broken exporter would otherwise
+  # surface only when a human re-pinned.
+  #
+  # The server checkout needs just a git repo the script can fetch the two SHAs
+  # into (it fetches them itself, authenticating with HADRON_SERVER_FETCH_TOKEN
+  # — a credential the script scopes to its git calls and unsets again, header
+  # and environment variable both, before any npm command runs, which is
+  # exactly the property this job relies on; scripts/pinserverdl pins it).
+  # Nightly/dispatch only, like its neighbours: it needs the cross-repo
+  # credential, so it is a heads-up detector, not a PR gate. A red run IS the
+  # signal for this job — it means "the pin no longer reproduces", not "drift
+  # was detected", so it deliberately does not feed the drift job's
+  # issue-filing step (which would file the wrong report); a missing token
+  # skips green, exactly like the drift job's own gate above.
+  pin-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+
+      - name: Gate on server-access token
+        id: gate
+        env:
+          TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::HADRON_SERVER_RO_TOKEN not set — skipping pin-verify."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out hadron-server (git only)
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          repository: hadron-memory/hadron-server
+          token: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+          path: .hadron-server
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/export-graphql-sdl.mjs
+            src/api/graphql/schema/typeDefs.ts
+          sparse-checkout-cone-mode: false
+
+      - name: Verify the pinned snapshot
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          HADRON_SERVER_FETCH_TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+        run: |
+          out="$RUNNER_TEMP/pin-worktree"
+          scripts/pin-server-sdl.sh .hadron-server "$out" --verify
+          # The script's trap removes the worktree on failure; on success it
+          # is ours to clean up.
+          git -C .hadron-server worktree remove --force "$out"
+
+      # A red run of this job is its own signal ("the pin no longer
+      # reproduces"), but a red nobody is told about is as silent as the drift
+      # job's was in #2710. Same de-duplicated issue, its own title.
+      - name: File a pin-verify failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly pin-verify job failed"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Pin-verify issue already open (#$existing); adding a note instead."
+            gh issue comment "$existing" --body "Failed again as of $RUN_URL"
+            exit 0
+          fi
+          {
+            echo "The nightly \`pin-verify\` job failed: either the pinned snapshot no longer"
+            echo "reproduces (see \`scripts/pin-server-sdl.sh --verify\`) or the job could not run"
+            echo "(a rejected \`HADRON_SERVER_RO_TOKEN\` at the checkout, #2710, or a runner fault)."
+            echo
+            echo "Open the failing step in the run below. This issue is commented on by each"
+            echo "later failed run and can be closed once one is green."
+            echo
+            echo "Failing run: $RUN_URL"
+          } > pin-issue-body.md
+          gh issue create --title "$title" --body-file pin-issue-body.md
 
   # The third question, and the one that had never been asked (#641): the checks
   # above keep our COPIES of the server's contract current; this one asks whether

@@ -6,9 +6,33 @@
 # (workedFromRoleTaskRefs) but cannot yet regenerate against S2 (#4513, which
 # removed fields the old-shape decision.graphql selects).
 #
-# scripts/pin-server-sdl.sh reproduces that merge; the nightly schema-drift job
-# checks the snapshot against it.
+# scripts/pin-server-sdl.sh reproduces that merge byte-deterministically, and
+# its --verify checks the export against merge_sha/sdl_sha256/sdl_lines below
+# and against the committed snapshot. The nightly schema-drift job checks the
+# pin the same way (its pin-verify job); the drift job proper does something
+# else: it compares the snapshot against hadron-server main, which the pin
+# deliberately differs from until #2658 retires it.
+#
+# head= is the commit merged INTO base= (the merge's second parent), not the
+# resulting merge commit — whose SHA the script reproduces deterministically
+# and records as merge_sha=.
+#
+# sdl_sha256/sdl_lines were produced with the tool versions recorded below as
+# tsx= and graphql= — the single place they live: scripts/pin-server-sdl.sh
+# reads them here, and the schema-drift job's SDL_EXPORT interpolates the same
+# keys (a graphql minor can change printSchema bytes, so a silent float trips
+# the sha for a non-pin reason). Bump deliberately, then re-run --verify.
 base=2d1cd5c669be735eeeecf44941d86ad3f4f7688f
-merge=47b0672fb5270123bd2d4c49a9b5365106cb3b22
-sdl_lines=22710
-sdl_sha256=67c6459430ade0373dfac3864a4ea8fe2d1c2e73044d679b40f29d777385b7c1
+head=47b0672fb5270123bd2d4c49a9b5365106cb3b22
+merge_sha=3dedeab1783ea6554145c693fd70b7c5b24e9236
+# overlay= (cli#2727, retire with #2658): a unified diff applied to the export
+# of the merge above. It adds GrantSigningRequest.lastRefusedAt, byte-identical
+# to hadron-server c9d7820e (#4581) typeDefs; that commit sits after S2 (#4513),
+# so it cannot be merged into this pin. pre_overlay_sdl_sha256 is the export
+# before the overlay (the old sdl_sha256), sdl_sha256/sdl_lines are after it.
+overlay=schema/overlay/4581-lastRefusedAt.patch
+pre_overlay_sdl_sha256=67c6459430ade0373dfac3864a4ea8fe2d1c2e73044d679b40f29d777385b7c1
+sdl_lines=22715
+sdl_sha256=8758ee19b900ecc8387a8eeca6a898ac5468cbdab854b7233a09abe78143c50b
+tsx=4.23.15
+graphql=16.15.0

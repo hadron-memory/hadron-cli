@@ -10,7 +10,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -69,7 +68,7 @@ func sameReadGrantScope(d readGrantDTO, mem string, pfx *string) bool {
 }
 
 func newCmdGrant(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "grant <command>", Short: "Give an automation read-only access to one memory or loc prefix", Long: `Manage per-automation READ grants (cor:agt:010:01, rulings 0079/0081). A live
+	cmd := &cobra.Command{Use: "grant <command>", Short: "Give an automation read-only access to one memory or loc prefix", Long: `Manage per-automation READ grants. A live
 schedule or webhook of an App may read one memory, or one loc prefix of it,
 only while it holds this grant; none is given by default. Grants are read-only
 (never writes, listing or search), carried by the trigger a run executes, and
@@ -103,7 +102,8 @@ mutation. Without --prefix the grant covers the whole memory; with it, the
 loc itself and its colon-boundary descendants. A blank --prefix is refused
 here (it is a mistake, not the whole memory). An identical repeat returns the
 live row. Scripts must pass --yes. No request is retried: if an answer is
-lost, list grants to check before trying again.
+lost, list grants to check before trying again. The App is the <app-ref>
+argument: the global --app and the active App do not apply to set.
 
 --trigger-id is the ID column of "hadron schedule list" (with --trigger-kind
 SCHEDULE) or "hadron webhook list" (with --trigger-kind WEBHOOK), run for the
@@ -186,8 +186,8 @@ worktree. With --instruction (a held worker acting on its holder's
 instruction), the list uses this worktree's verified session and --app is
 required: an instructed list is scoped to the worker's own App, memory-only
 lists included, and the server refuses another App. Each admitted instructed
-list records one team event (ids only). Instruction needs server 7907d93d or
-later. With no usable worker binding (none, another server's, or one that
+list records one team event (ids only). An older server refuses --instruction.
+With no usable worker binding (none, another server's, or one that
 changed since the command started) the one call goes out as the signed-in
 person with no worker session and no instruction recorded; a binding that does
 not fit prints a note on stderr, an absent binding is silent.`,
@@ -280,7 +280,7 @@ not fit prints a note on stderr, an absent binding is silent.`,
 			})
 		}}
 	cmd.Flags().StringVar(&memory, "memory", "", "only grants on this memory")
-	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instructionFlagUsage)
 	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include ended grants; false keeps live grants only")
 	return cmd
 }
@@ -299,8 +299,8 @@ Without --instruction, no worker session header is sent even from a bound
 worktree. With --instruction (a held worker acting on its holder's
 instruction), the one revoke mutation uses this worktree's verified session and
 is attributed to the worker and its holder; the server allows it only within the
-worker's own App and shows its refusal as is. Instruction needs server 7907d93d
-or later. With no usable worker binding (none, another server's, or one that
+worker's own App and shows its refusal as is. An older server refuses
+--instruction. With no usable worker binding (none, another server's, or one that
 changed since the command started) the one revoke goes out as the signed-in
 person: it is attributed to that person, not to the worker, and records no
 worker claim. A binding that does not fit prints a note on stderr; an absent
@@ -358,7 +358,7 @@ matters.`,
 			}
 			return writeReadGrant(f, d)
 		}}
-	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instructionFlagUsage)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	return cmd
 }

@@ -262,7 +262,10 @@ func setTokenError(err error, token string) error {
 	}
 	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
-	if containsAnySpelling(api.ServerCodeOf(err), token) {
+	// containsAnySpelling, not a redactToken(code) != code fixpoint: a
+	// sentinel-equal token leaves redactToken the identity, so the fixpoint
+	// form (main's cli#2671 shape) would keep a code carrying it.
+	if code := api.ServerCodeOf(err); containsAnySpelling(code, token) {
 		return safe
 	}
 	return api.WithServerCode(safe, err)

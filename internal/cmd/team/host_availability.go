@@ -37,9 +37,11 @@ the host.
 
 --reason OUT_OF_TOKENS or HOST_DOWN marks the worker unavailable, optionally
 until an RFC 3339 time (--until; when it passes, the mark lapses on its
-own). --clear sets it available again. On success one line prints:
-"<worker>: unavailable (set by <this host>)" (the state and setter named;
---json prints the full record). A host can clear or replace only its own
+own). --clear sets it available again. On success one line prints the
+worker, the state and the setter, whichever you did:
+  "Iris": unavailable (set by HOST)    after --reason
+  "Iris": available (set by HOST)      after --clear
+(--json prints the full record). A host can clear or replace only its own
 mark; another setter's mark, including a stall, is refused with
 AVAILABILITY_NOT_PERMITTED (exit 8). No automatic failure classification.
 The server decides ownership and whether --until is in the future.
@@ -90,7 +92,7 @@ key_file and app.`,
 			}
 			dto := hostAvailabilityDTO{workerAvailabilityDTO: workerAvailabilityDTO{Worker: *party, State: string(v.State), Reason: reasonPtr(v.Reason), Until: v.Until, SetAt: v.SetAt, SetBy: string(v.SetBy), SetByParty: partyDTO(v.SetByParty), InEffect: v.InEffect}, SetByHostID: v.SetByHostId}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "%s: %s (set by %s)\n", strconv.Quote(args[0]), output.SafeCell(dto.State), output.SafeCell(dto.SetBy))
+				_, err := fmt.Fprintln(w, hostAvailabilityLine(args[0], dto.State, dto.SetBy))
 				return err
 			})
 		}}
@@ -99,4 +101,10 @@ key_file and app.`,
 	cmd.Flags().StringVar(&until, "until", "", "optional unavailable-until time (RFC 3339)")
 	cmd.Flags().BoolVar(&clear, "clear", false, "clear this host's own mark, setting the worker available")
 	return cmd
+}
+
+// hostAvailabilityLine is the one line a successful `team host availability`
+// prints; the page quotes it (cli#2617 P3-4).
+func hostAvailabilityLine(worker, state, setBy string) string {
+	return fmt.Sprintf("%s: %s (set by %s)", strconv.Quote(worker), output.SafeCell(state), output.SafeCell(setBy))
 }

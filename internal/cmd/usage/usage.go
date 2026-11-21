@@ -67,7 +67,7 @@ type summaryDTO struct {
 }
 
 func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "usage <command>", Short: "Read activity counts and AI usage events, or record one (not billing balances)", Long: "Look at read/write activity counts with \"usage activity\", or AI-call events\n(model, tokens and recorded cost) with \"usage events\". To record one usage event, use \"usage record\". For organization\ncredit, use \"hadron billing balance\". For a model subscription account's 5h/7d allowance, use \"hadron team usage\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
+	cmd := &cobra.Command{Use: "usage <command>", Short: "Read activity counts and AI usage events, or record one (not billing balances)", Long: "Look at read/write activity counts with \"usage activity\", or AI-call events\n(model, tokens and recorded cost) with \"usage events\". To record one usage\nevent, use \"usage record\".\n\nFor organization credit, use \"hadron billing balance\". For a model\nsubscription account's 5h/7d allowance, use \"hadron team usage\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
 	cmd.AddCommand(newEvents(f), newActivity(f), newRecord(f))
 	return cmd
 }
@@ -80,6 +80,11 @@ func newEvents(f *cmdutil.Factory) *cobra.Command {
 		Long: `List recent AI usage events, newest first: when each happened, its type, the
 memory and node it was for, the provider and model, tokens in and out, and what
 it cost.
+
+COST is in micro-cents: 100000000 micro-cents = 1 USD (so 5000000 is 5 cents).
+"unpriced" means the event has no price recorded; it does not mean free.
+"unknown" under TOKENS IN or TOKENS OUT means the count was not recorded; a "-"
+under MEMORY ID, LOC, PROVIDER or MODEL means the event has none.
 
 What you see depends on what you name. With no --memory, --node or --loc you
 get your own activity (an App key, which has none of its own, gets none). Naming
@@ -117,18 +122,10 @@ a node PK or fully-qualified node URN; it cannot be combined with --loc. The
 CLI does not resolve a loc to a node; pass a PK or fully-qualified node URN. --type is an exact
 event type. Leave a flag out for no filter; an empty value is refused.
 
-COST is in micro-cents: 1 USD = 100,000,000 micro-cents (so 5000000 is 0.05 USD,
-five cents). "unpriced" means the event has no price recorded; it does not mean
-free. "unknown" under TOKENS IN or TOKENS OUT means the count was not recorded;
-a "-" under MEMORY ID, LOC, PROVIDER or MODEL means the event has none.
-
-Details:
-  Cost is an arbitrary-size base-10 integer kept as a string in --json
-  (costMicroCents), never a floating point number; null is unpriced. Token
-  counts that are null stay unknown. --json prints an array of event objects
-  (empty is []). If the server returns a malformed row, the command fails
-  before printing any rows. The action's arguments and caller identity are not
-  requested. Nothing is recorded and no model or provider is called.`,
+--json prints an array of event objects (empty is []); costMicroCents is a
+string (an arbitrary-size integer, null when unpriced) and token counts are null
+when unknown. If the server returns a malformed row, the command fails before
+printing any rows. Nothing is recorded and no model or provider is called.`,
 		Example: `  hadron usage events
   hadron usage events --memory hrn:mem:acme.com:notes --limit 100
   hadron usage events --since 2026-10-22T00:00:00Z --until 2026-10-23T00:00:00Z

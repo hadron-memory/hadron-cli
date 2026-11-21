@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"os"
 	"path/filepath"
@@ -17,6 +18,48 @@ func alarmStallCases2451() []taskInstructionCase2422 {
 		{"set", []string{"team", "stall-schedule", "set", "--assignment-minutes", "30"}, "TeamStallScheduleSet", "TeamStallScheduleSetInstructed", `{"data":{"setAgentTaskStallSchedule":` + stallScheduleJSON + `}}`},
 	}
 }
+
+// alarmStallCase2451 looks one case up by name, so a test does not couple to
+// the slice's order (#2505 F5e: [0]/[1] silently meant ack/set).
+func alarmStallCase2451(t *testing.T, name string) taskInstructionCase2422 {
+	t.Helper()
+	for _, c := range alarmStallCases2451() {
+		if c.name == name {
+			return c
+		}
+	}
+	t.Fatalf("no alarm/stall case named %q", name)
+	return taskInstructionCase2422{}
+}
+
+// stderrOf2552 reads the factory's stderr builder, failing the test (not
+// panicking) if the stream is something else (#2552 item 2).
+func stderrOf2552(t *testing.T, f *cmdutil.Factory) string {
+	t.Helper()
+	sb, ok := f.IOStreams.ErrOut.(*strings.Builder)
+	if !ok {
+		t.Fatalf("ErrOut is %T, not *strings.Builder", f.IOStreams.ErrOut)
+	}
+	return sb.String()
+}
+
+// withWarning2552 returns response with extensions.warnings = [warning],
+// marshalled in rather than spliced before the closing brace (#2552 item 8:
+// TrimSuffix silently no-ops on trailing whitespace).
+func withWarning2552(t *testing.T, response, warning string) string {
+	t.Helper()
+	var doc map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(response), &doc); err != nil {
+		t.Fatalf("response is not a JSON object: %v", err)
+	}
+	doc["extensions"] = json.RawMessage(`{"warnings":[` + warning + `]}`)
+	out, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
 func TestAlarmStallInstruction2451(t *testing.T) {
 	for _, c := range alarmStallCases2451() {
 		t.Run(c.name, func(t *testing.T) {
@@ -127,13 +170,18 @@ func TestAlarmStallInstructionPersonFallback2451(t *testing.T) {
 				// The fallback note is per-cause (#2505 F5d): a binding that
 				// is present but unusable says why on stderr; no binding at
 				// all stays silent (the person's call needs no apology).
-				stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+				stderr := stderrOf2552(t, f)
 				if mode == "unbound" {
 					if strings.Contains(stderr, "not used") {
 						t.Fatalf("no binding means no fallback note: %q", stderr)
 					}
 				} else {
-					wantWord := map[string]string{"other-server": "belongs to", "incomplete": "incomplete"}[mode]
+					// A mode with no entry fails loudly: Contains(x, "") is
+					// always true, so a silent miss would pass vacuously (#2552 item 1).
+					wantWord, known := map[string]string{"other-server": "belongs to", "incomplete": "incomplete"}[mode]
+					if !known || wantWord == "" {
+						t.Fatalf("no expected fallback wording for mode %q", mode)
+					}
 					if !strings.Contains(stderr, "not used") || !strings.Contains(stderr, wantWord) {
 						t.Fatalf("fallback note must say %q: %q", wantWord, stderr)
 					}
@@ -149,7 +197,7 @@ func TestAlarmInstructionWarnings2451(t *testing.T) {
 	// the task-create warning shape — code, text, register {state, taskLoc,
 	// taskUrn} — not just be counted.
 	warning := `{"path":"acknowledgeAlarm","code":"alarm.ack.outside-chain","text":"Outside chain.","register":{"state":"MAPPED","taskLoc":"reviews:blind","taskUrn":null}}`
-	r[c.instrOp] = strings.TrimSuffix(c.response, "}") + `,"extensions":{"warnings":[` + warning + `]}}`
+	r[c.instrOp] = withWarning2552(t, c.response, warning)
 	args := append(append([]string{}, c.args...), "--instruction", "live-chat:opaque")
 	out, stderr, err := runTeamTaskStreams(t, r, args...)
 	if err != nil || !strings.Contains(out, "acknowledged alarm") || !strings.Contains(stderr, "warning: [alarm.ack.outside-chain] Outside chain.") {
@@ -229,7 +277,7 @@ func TestStallInstructionChangedBinding2451(t *testing.T) {
 	if !changed || got.Session != "" || got.Vars["instruction"] == nil {
 		t.Fatalf("changed=%v call=%+v", changed, got)
 	}
-	if !strings.Contains(f.IOStreams.ErrOut.(*strings.Builder).String(), "changed") {
+	if !strings.Contains(stderrOf2552(t, f), "changed") {
 		t.Fatal("no binding-change diagnostic")
 	}
 }
@@ -273,7 +321,7 @@ func TestAlarmStallInstructionRefusalCode2451(t *testing.T) {
 						Message    string `json:"message"`
 					} `json:"error"`
 				}
-				rendered := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
+				rendered := out.String() + stderrOf2552(t, f)
 				if err := json.Unmarshal([]byte(rendered), &envelope); err != nil {
 					t.Fatal(err)
 				}

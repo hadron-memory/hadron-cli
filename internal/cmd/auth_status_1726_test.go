@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	authpkg "github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/auth/store"
@@ -464,6 +465,103 @@ func TestAuthStatusStoreEmptyAndAbsent1754(t *testing.T) {
 			value, err := st.Get("fixture-host")
 			if value != "" || errors.Is(err, store.ErrNotFound) != tc.wantMissing || (!tc.wantMissing && err != nil) {
 				t.Fatalf("value=%q err=%v missing=%t", value, err, tc.wantMissing)
+			}
+		})
+	}
+}
+
+// cli#1752: a scope refusal before field resolution is not an enum answer, so
+// `auth status` still exits 1 with no status DTO and no REFUSED line, but it
+// keeps the fixed scope remedy the shared mapper knows. Only fixed text keyed on
+// the typed reason is shown: never the server's own sentence, a request id, the
+// credential, or the REFUSED wording. Other 401/UNAUTHENTICATED and check-failed
+// envelopes keep the generic message with no remedy.
+func TestAuthStatusScopeRefusalKeepsTheRemedy1752(t *testing.T) {
+	const serverSentence = "private-scope-sentence-1752 req-1752"
+	for _, tc := range []struct {
+		name     string
+		httpCode int
+		body     string
+		remedy   string // the fixed remedy that must appear
+		lead     string // a fixed sentence naming the cause, from the typed reason
+	}{
+		{"mcp-only by reason", 200, `{"errors":[{"message":"` + serverSentence + `","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_INSUFFICIENT"}}]}`, api.MCPOnlyRemedy, ""},
+		{"unsupported by reason", 403, `{"errors":[{"message":"` + serverSentence + `","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_UNSUPPORTED"}}]}`, api.UnsupportedScopeRemedy, "OAuth scope is not supported"},
+		{"mcp-only legacy sentence", 500, mcpOnlyRefusalBody, api.MCPOnlyRemedy, ""},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", tc.name, asJSON), func(t *testing.T) {
+				var calls atomic.Int32
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(tc.httpCode)
+					_, _ = w.Write([]byte(tc.body))
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				t.Setenv("HADRON_TOKEN", "fixture-secret-1752")
+				var stderr strings.Builder
+				f.IOStreams.ErrOut = &stderr
+				root := NewRootCmd(f)
+				args := []string{"auth", "status", "--server", srv.URL}
+				if asJSON {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if exitCodeFor(err) != 1 || calls.Load() != 1 || out.Len() != 0 {
+					t.Fatalf("code=%d calls=%d stdout=%q err=%v", exitCodeFor(err), calls.Load(), out.String(), err)
+				}
+				if got := renderError(f, err); got != 1 {
+					t.Fatalf("render exit=%d", got)
+				}
+				shown := err.Error() + "\n" + stderr.String()
+				if !strings.Contains(shown, tc.remedy) {
+					t.Errorf("the typed scope remedy must be kept:\n%s", shown)
+				}
+				if !strings.Contains(shown, "authentication status check failed") {
+					t.Errorf("the failure must still read as a failed check:\n%s", shown)
+				}
+				if tc.lead != "" && !strings.Contains(shown, tc.lead) {
+					t.Errorf("missing the fixed cause sentence %q:\n%s", tc.lead, shown)
+				}
+				for _, forbidden := range []string{
+					"REFUSED", "did not accept", "not accepted", "a credential was presented",
+					"private-scope-sentence-1752", "req-1752", "fixture-secret",
+				} {
+					if strings.Contains(shown, forbidden) {
+						t.Errorf("the scope case must not show %q:\n%s", forbidden, shown)
+					}
+				}
+			})
+		}
+	}
+}
+
+// The other no-answer envelopes keep the generic message: no scope remedy leaks
+// into a plain 401, an UNAUTHENTICATED envelope, a FORBIDDEN that is not a scope
+// refusal, an unknown reason, or an internal fault.
+func TestAuthStatusOtherFaultsHaveNoScopeRemedy1752(t *testing.T) {
+	for name, body := range map[string]string{
+		"unauthenticated": `{"errors":[{"message":"token expired","extensions":{"code":"UNAUTHENTICATED"}}]}`,
+		"plain forbidden": `{"errors":[{"message":"no access","extensions":{"code":"FORBIDDEN"}}]}`,
+		"unknown reason":  `{"errors":[{"message":"x","extensions":{"code":"FORBIDDEN","reason":"SOMETHING_ELSE"}}]}`,
+		"internal":        `{"errors":[{"message":"private-cause-1752","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := graphQLAlways(t, 200, body)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"auth", "status", "--server", srv.URL})
+			err := root.Execute()
+			if err == nil || out.Len() != 0 {
+				t.Fatalf("err=%v stdout=%q", err, out.String())
+			}
+			for _, remedy := range []string{api.MCPOnlyRemedy, api.UnsupportedScopeRemedy, "account` scope", "OAuth scope"} {
+				if strings.Contains(err.Error(), remedy) {
+					t.Errorf("%s: scope remedy leaked into a non-scope fault: %v", name, err)
+				}
 			}
 		})
 	}
