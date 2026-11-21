@@ -4505,7 +4505,7 @@ keeps the server event, and unknown events print as returned by the server.
 An ANSWERED task wake (a question that blocked the task was answered, hadron-server#4431) is
 delivered as `[hadron task] <handle> a question this task asked was answered: <code>`: the task
 handle, fixed words and the question code (`DueTaskReason.questionCode`; the sentence ends after
-"answered" when there is none), never the title or the answer. `team wakes due` keeps its format; the event word there now reads `answered` (it printed the server's `ANSWERED` verbatim before).
+"answered" when there is none), never the title or the answer. `team wakes due` is unchanged.
 A merged wake (a tick plus a mention, a task or another ticker's tick) is judged per ticker by those times. A tick reason without `tickDueAt` (a server before hadron-server#2790, or withheld), with a malformed one (anything outside strict RFC 3339 with `Z` or an offset up to ±23:59), or without its `ticker` has no age evidence, so an otherwise-idle worker fails closed to `locked`/`unrecognized`. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
