@@ -239,6 +239,10 @@ manages the App.`,
 				// the helper below falls back to the person (then this write
 				// carries the claim, headerless, never the unverified session).
 				ctx = withAsPerson(ctx)
+				// Order: withAsPerson only makes the middleware skip its own
+				// ambient binding (it is a flag the middleware reads per request);
+				// it does not remove a session already on ctx, so the session header
+				// instructed attaches next still goes out with the claim.
 				var e error
 				ctx, _, e = instructed(ctx)
 				if e != nil {
