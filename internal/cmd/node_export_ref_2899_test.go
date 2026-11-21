@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -125,5 +128,45 @@ func TestNodeExportOnAServerThatStillHasIDFailsLoudWithoutAFallback2899(t *testi
 	}
 	if strings.Contains(sent[0].Query, "nodeExport(id:") {
 		t.Errorf("never falls back to the old argument name: %s", sent[0].Query)
+	}
+}
+
+// Apollo answers a validation error with HTTP 400. An old server's "Unknown argument ref on
+// field Query.nodeExport" is then NOT "the server has no nodeExport field" (it has one, under
+// the old argument name): the CLI must say the two are out of sync, not that the server is too
+// old to render exports and needs hadron-server #386 (Cooper's P3 on #2918).
+func TestNodeExportUnknownRefArgumentOverHTTP400IsOutOfSyncNotTooOld2899(t *testing.T) {
+	var exportAttempts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		w.Header().Set("Content-Type", "application/json")
+		switch body.OperationName {
+		case "NodeExport", "NodeExportSections":
+			exportAttempts++
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`))
+		default:
+			_, _ = w.Write([]byte(resolveNodeJSON))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("an old server fails loud (exit 2): exit=%d err=%v", exitCodeFor(err), err)
+	}
+	if !strings.Contains(err.Error(), "out of sync") {
+		t.Errorf("an unknown ARGUMENT is a version mismatch: %v", err)
+	}
+	if strings.Contains(err.Error(), "too old") || strings.Contains(err.Error(), "#386") || strings.Contains(err.Error(), "no nodeExport field") {
+		t.Errorf("the server HAS nodeExport; it must not be called too old to have it: %v", err)
+	}
+	if exportAttempts != 1 {
+		t.Errorf("one attempt, no retry with the old name: %d", exportAttempts)
 	}
 }
