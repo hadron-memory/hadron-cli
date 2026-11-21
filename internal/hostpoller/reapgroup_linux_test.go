@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -506,6 +508,82 @@ func stopAndWait(t *testing.T, a Agent) {
 	}
 }
 
+// groupOnlyProc2744 is a per-launch /proc lister for the tests whose precondition is "the
+// leader exited and a member of ITS group still runs": it lists only the entries of that
+// group (and the leader), so the host's unrelated short-lived processes never reach the
+// scan. On a busy host (a whole-suite run, other workers' jobs) those processes are
+// listed and gone before their stat read, which voids every pass (why=unseen-pid, the
+// conservative answer; #2042) until the scan gives up and the stop reports the group as
+// not exited within 2s of SIGKILL: the cli#2744 flake, reproduced with a plain
+// process-churn load (24 spawners of /bin/true: every run failed, always
+// why=unseen-pid). The production scan is NOT changed and still answers "members" under
+// unbounded churn: that limitation is tracked as #2853.
+//
+// This lister is deliberately a little MORE lenient than the production scan, in exactly
+// one way: a pid that is gone before the lister's own stat read and was never seen as a
+// member of this group is dropped, where the scan would void the pass over it (it could
+// have been born into the group and died inside one pass). A pid that WAS seen as a
+// member and then vanishes is kept, so the scan still voids over it, which is the
+// vanished-member rule these tests rely on the scan to apply. The born-and-dead case is
+// pinned by the modelled /proc tests of #2042, and the real-process default-lister
+// coverage stays in TestHeldZombieWithALateMemberIsStillStopped and its neighbours,
+// which do not use this lister.
+//
+// The lister reads only the package's own seams and replaces no package variable, so no
+// other test sees it. Set pgid after Launch; until then (the watcher cannot scan before
+// the leader exits) it lists everything.
+func groupOnlyProc2744(pgid *atomic.Int64) procLister {
+	var mu sync.Mutex
+	seen := map[int]bool{} // pids observed as members of the group
+	return func(dir string) ([]os.DirEntry, error) {
+		entries, err := readProcDir(dir)
+		want := int(pgid.Load())
+		if err != nil || want == 0 {
+			return entries, err
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		kept := entries[:0:0]
+		for _, e := range entries {
+			pid, convErr := strconv.Atoi(e.Name())
+			if convErr != nil {
+				continue
+			}
+			if pid == want {
+				kept = append(kept, e)
+				continue
+			}
+			pgrp, _, _, statErr := readGroupStatFn(filepath.Join(dir, e.Name(), "stat"))
+			switch {
+			case statErr == nil && pgrp == want:
+				seen[pid] = true
+				kept = append(kept, e)
+			case statErr != nil && seen[pid]:
+				kept = append(kept, e) // a known member vanished: the scan must void over it
+			}
+		}
+		return kept, nil
+	}
+}
+
+// launchHeldGroup2744 launches argv with a group-only lister (see groupOnlyProc2744).
+func launchHeldGroup2744(t *testing.T, argv []string) Agent {
+	t.Helper()
+	var pgid atomic.Int64
+	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond, procList: groupOnlyProc2744(&pgid)}.Launch(context.Background(), LaunchSpec{
+		Argv: argv, Dir: t.TempDir(), Env: os.Environ(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ea, ok := a.(*execAgent)
+	if !ok {
+		t.Fatalf("ExecHost.Launch returned %T, want *execAgent", a)
+	}
+	pgid.Store(int64(ea.pid))
+	return a
+}
+
 // A held exit's detail is the leader's REAL outcome, read from the hold's
 // waitid answer at Done time — not a placeholder about the group's shape
 // (#1474: the operator reading the exit reason must see the leader's own
@@ -517,12 +595,7 @@ func TestHeldExitCarriesTheLeadersRealExit(t *testing.T) {
 	if _, err := os.Stat("/proc/self/cwd"); err != nil {
 		t.Skip("no /proc")
 	}
-	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
-		Argv: []string{"sh", "-c", `sleep 30 & exit 7`}, Dir: t.TempDir(), Env: os.Environ(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	a := launchHeldGroup2744(t, []string{"sh", "-c", `sleep 30 & exit 7`})
 	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
@@ -559,12 +632,7 @@ func TestHeldExitReportsASignalDeath(t *testing.T) {
 	if _, err := os.Stat("/proc/self/cwd"); err != nil {
 		t.Skip("no /proc")
 	}
-	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
-		Argv: []string{"sh", "-c", `sleep 30 & kill -KILL $$`}, Dir: t.TempDir(), Env: os.Environ(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	a := launchHeldGroup2744(t, []string{"sh", "-c", `sleep 30 & kill -KILL $$`})
 	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
@@ -599,12 +667,7 @@ func TestHeldExitReportsACoreDumpingDeath(t *testing.T) {
 	if _, err := os.Stat("/proc/self/cwd"); err != nil {
 		t.Skip("no /proc")
 	}
-	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(), LaunchSpec{
-		Argv: []string{"sh", "-c", `ulimit -c unlimited 2>/dev/null; sleep 30 & kill -ABRT $$`}, Dir: t.TempDir(), Env: os.Environ(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	a := launchHeldGroup2744(t, []string{"sh", "-c", `ulimit -c unlimited 2>/dev/null; sleep 30 & kill -ABRT $$`})
 	defer stopAndWait(t, a)
 	select {
 	case <-a.Done():
