@@ -259,30 +259,220 @@ func TestPreflightRouteCrossMemoryRefusesASameMemoryTarget2736(t *testing.T) {
 	}
 }
 
-// createEdge is idempotent on the derived loc: an existing unmarked route comes
-// back as it was. Marking it then takes an UpdateEdge that keeps the edge's other
-// data keys; an already-marked route takes no write.
-func TestPreflightRouteCrossMemoryMarksAnExistingEdge2736(t *testing.T) {
-	existing := strings.Replace(newRouteEdgeJSON, `"isRunnable":false`, `"isRunnable":false,"data":{"note":"keep"}`, 1)
+// A real server refuses createEdge on an existing route ("Edge loc ... is already
+// occupied", QA on #2814), so marking an EXISTING route never creates: the edge
+// the router already reads is updated, keeping its other data EXACTLY (including
+// numbers a float64 would round). Same for the target's existing back-edge.
+func existingRouter2736(data string) string {
+	edge := `{"id":"e_route","name":"to mint a spec","loc":"preflight:to-mint-a-spec:tasks:mint","isRunnable":false,"priority":0,"data":` + data + `,
+		"target":{"id":"n_target","name":"tasks:mint","loc":"tasks:mint","memoryId":"mem2"}}`
+	return strings.Replace(codingRouterWithBody(flatRouterBody), `"outgoingEdges":[]`, `"outgoingEdges":[`+edge+`]`, 1)
+}
+
+func existingTarget2736(data string) string {
+	back := `{"id":"e_back","name":"to mint a spec","loc":"tasks:mint:to-mint-a-spec:preflight","isRunnable":false,"priority":0,"data":` + data + `,
+		"target":{"id":"root","name":"preflight","loc":"preflight","memoryId":"mem1"}}`
+	return strings.Replace(crossTarget2736(), `"outgoingEdges":[]`, `"outgoingEdges":[`+back+`]`, 1)
+}
+
+func runExisting2736(t *testing.T, data string, updateAnswer string) (map[string][]json.RawMessage, error) {
+	t.Helper()
 	gql, captured := queueGraphQL(t, map[string][]string{
-		"GetNodeRaw": {codingRouterWithBody(flatRouterBody), codingRouterWithBody(flatRouterBody)},
-		"GetNode":    {crossTarget2736()},
+		"GetNodeRaw": {existingRouter2736(data), existingRouter2736(data)},
+		"GetNode":    {existingTarget2736(data)},
 		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
-		"CreateEdge": {`{"data":{"createEdge":` + existing + `}}`},
-		"UpdateEdge": {`{"data":{"updateEdge":` + existing + `}}`},
+		"UpdateEdge": {updateAnswer},
 		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory"))
-	if err := root.Execute(); err != nil {
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--json"))
+	return captured, root.Execute()
+}
+
+func updated2736(data string) string {
+	return `{"data":{"updateEdge":{"id":"e","name":"to mint a spec","loc":"l","isRunnable":false,"priority":0,"data":` + data + `,"source":{"id":"root","loc":"preflight"},"target":{"id":"n_target","loc":"tasks:mint"}}}}`
+}
+
+func TestPreflightRouteCrossMemoryMarksExistingEdgesWithoutCreating2736(t *testing.T) {
+	const big = `{"note":"keep","counter":9007199254740993,"nested":{"a":[1,2.50,3e2]}}`
+	captured, err := runExisting2736(t, big, updated2736(`{"note":"keep","counter":9007199254740993,"nested":{"a":[1,2.50,3e2]},"crossMemory":true}`))
+	if err != nil {
 		t.Fatalf("marking an existing route should succeed, got %v", err)
 	}
-	if len(captured["UpdateEdge"]) == 0 {
-		t.Fatal("an existing unmarked edge must be updated to carry the marker")
+	if n := len(captured["CreateEdge"]); n != 0 {
+		t.Fatalf("an existing route must not be re-created (a real server refuses it), got %d CreateEdge calls", n)
 	}
-	var data map[string]any
-	if err := json.Unmarshal([]byte(dataVar2736(t, captured["UpdateEdge"][0])), &data); err != nil || data["crossMemory"] != true || data["note"] != "keep" {
-		t.Errorf("the update must add the marker and keep the other data keys, got %v (%v)", data, err)
+	if n := len(captured["UpdateEdge"]); n != 2 {
+		t.Fatalf("want one update for the route edge and one for the back-edge, got %d", n)
+	}
+	for i, raw := range captured["UpdateEdge"] {
+		d := dataVar2736(t, raw)
+		var m map[string]json.RawMessage
+		if json.Unmarshal([]byte(d), &m) != nil || string(m["crossMemory"]) != "true" || string(m["counter"]) != "9007199254740993" ||
+			string(m["note"]) != `"keep"` || string(m["nested"]) != `{"a":[1,2.50,3e2]}` {
+			t.Errorf("UpdateEdge #%d must add the marker and keep every other value EXACTLY, got %s", i, d)
+		}
+	}
+}
+
+func TestPreflightRouteCrossMemoryAlreadyMarkedWritesNothing2736(t *testing.T) {
+	captured, err := runExisting2736(t, crossMemoryMarker2736, updated2736(crossMemoryMarker2736))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range []string{"CreateEdge", "UpdateEdge"} {
+		if _, wrote := captured[op]; wrote {
+			t.Errorf("an already-marked route needs no %s", op)
+		}
+	}
+}
+
+// The write may have committed: an unconfirmed answer is an unknown outcome, never
+// "marked", and is not retried.
+func TestPreflightRouteCrossMemoryUnconfirmedUpdateIsAnUnknownOutcome2736(t *testing.T) {
+	for name, answer := range map[string]string{
+		"null result":         `{"data":{"updateEdge":null}}`,
+		"result without data": updated2736(`null`),
+		"data without marker": updated2736(`{"note":"keep"}`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			captured, err := runExisting2736(t, `{"note":"keep"}`, answer)
+			if err == nil || !strings.Contains(err.Error(), "may not have been") || !strings.Contains(err.Error(), "preflight list") {
+				t.Fatalf("an unconfirmed marker update must fail with a read-back instruction, got %v", err)
+			}
+			if n := len(captured["UpdateEdge"]); n != 1 {
+				t.Errorf("no retry: want one UpdateEdge, got %d", n)
+			}
+		})
+	}
+}
+
+// Edge data that is not an object cannot take a key without losing what it holds.
+func TestPreflightRouteCrossMemoryRefusesNonObjectEdgeData2736(t *testing.T) {
+	captured, err := runExisting2736(t, `[1,2]`, updated2736(crossMemoryMarker2736))
+	if err == nil || !strings.Contains(err.Error(), "not an object") {
+		t.Fatalf("non-object edge data must be refused, got %v", err)
+	}
+	if _, wrote := captured["UpdateEdge"]; wrote {
+		t.Error("nothing may be overwritten")
+	}
+}
+
+// --dry-run says what would be marked and writes nothing.
+func TestPreflightRouteCrossMemoryDryRun2736(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {crossTarget2736()},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--dry-run"))
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "marked") || !strings.Contains(out.String(), "cross-memory") {
+		t.Errorf("a dry run says the route would be marked, got %q", out.String())
+	}
+	for _, op := range []string{"CreateEdge", "UpdateEdge", "UpdateNode"} {
+		if _, wrote := captured[op]; wrote {
+			t.Errorf("a dry run writes nothing, saw %s", op)
+		}
+	}
+}
+
+// Leaf model: the ONE edge belongs to the target and runs target -> router, and it
+// carries the marker; nothing else is written and no back-edge exists.
+func TestPreflightRouteCrossMemoryLeafModelWritesOneMarkedEdge2736(t *testing.T) {
+	gql, captured := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {crossTarget2736()},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + strings.Replace(newRouteEdgeJSON, `"isRunnable":false`, `"isRunnable":false,"data":`+crossMemoryMarker2736, 1) + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--route-model", "leaf"))
+	if err := root.Execute(); err != nil {
+		t.Fatalf("leaf --cross-memory should succeed, got %v", err)
+	}
+	if n := len(captured["CreateEdge"]); n != 1 {
+		t.Fatalf("the leaf model writes exactly one edge, got %d", n)
+	}
+	var e struct {
+		SourceRef string `json:"sourceRef"`
+		TargetRef string `json:"targetRef"`
+	}
+	_ = json.Unmarshal(captured["CreateEdge"][0], &e)
+	if e.SourceRef != "n_target" || e.TargetRef != "root" || dataVar2736(t, captured["CreateEdge"][0]) != crossMemoryMarker2736 {
+		t.Errorf("the leaf edge runs target -> router and carries the marker, got %+v data %s", e, dataVar2736(t, captured["CreateEdge"][0]))
+	}
+}
+
+// A marker that is not confirmed on the BACK-edge is reported as exactly that: the
+// back-edge exists, only its marker is unconfirmed (not "did not land").
+func TestPreflightRouteCrossMemoryBackEdgeMarkerFailureIsNotMisreported2736(t *testing.T) {
+	back := `{"id":"e_back","name":"to mint a spec","loc":"tasks:mint:to-mint-a-spec:preflight","isRunnable":false,"priority":0,"data":{"note":"keep"},
+		"target":{"id":"root","name":"preflight","loc":"preflight","memoryId":"mem1"}}`
+	targetWithBack := strings.Replace(crossTarget2736(), `"outgoingEdges":[]`, `"outgoingEdges":[`+back+`]`, 1)
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {targetWithBack},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + strings.Replace(newRouteEdgeJSON, `"isRunnable":false`, `"isRunnable":false,"data":`+crossMemoryMarker2736, 1) + `}}`},
+		"UpdateEdge": {`{"data":{"updateEdge":null}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--no-body-line"))
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "back-edge") || !strings.Contains(err.Error(), "exists") || strings.Contains(err.Error(), "did not land") {
+		t.Fatalf("an unconfirmed back-edge marker must not be reported as the back-edge missing, got %v", err)
+	}
+}
+
+// Under the leaf model the unconfirmed-marker message names the route in its real
+// direction (target -> router).
+func TestPreflightRouteCrossMemoryLeafMessageDirection2736(t *testing.T) {
+	existing := `{"id":"e_leaf","name":"to mint a spec","loc":"tasks:mint:to-mint-a-spec:preflight","isRunnable":false,"priority":0,"data":null,
+		"target":{"id":"root","name":"preflight","loc":"preflight","memoryId":"mem1"}}`
+	targetWithEdge := strings.Replace(crossTarget2736(), `"outgoingEdges":[]`, `"outgoingEdges":[`+existing+`]`, 1)
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {targetWithEdge},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+		"UpdateEdge": {`{"data":{"updateEdge":null}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--route-model", "leaf"))
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "tasks:mint → preflight") {
+		t.Fatalf("the leaf edge runs target -> router, and the message must say so, got %v", err)
+	}
+}
+
+// route --json reports the edge's state: a re-run WITHOUT the flag on a marked
+// route still says crossMemory true.
+func TestPreflightRouteReportsAnExistingMarker2736(t *testing.T) {
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {existingRouter2736(crossMemoryMarker2736), existingRouter2736(crossMemoryMarker2736)},
+		"GetNode":    {existingTarget2736(crossMemoryMarker2736)},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + strings.Replace(newRouteEdgeJSON, `"isRunnable":false`, `"isRunnable":false,"data":`+crossMemoryMarker2736, 1) + `}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--json", "--dry-run"))
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		CrossMemory bool `json:"crossMemory"`
+	}
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil || !dto.CrossMemory {
+		t.Errorf("the report must reflect the edge's marker, not only this run's flag: %v %s", err, out.String())
 	}
 }
