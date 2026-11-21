@@ -35,7 +35,9 @@ person completes it there with a passkey. `secretChangeRequest(id)` is the reque
   person can sign it, and names `change withdraw` (it still counts against the open-request cap).
 - **Never completes the ceremony**: no code path requests the ceremony URL; a test proves it.
 - No value, and no staged value, reaches output or an error: the CLI selects neither, and does not
-  echo the server's refusal prose.
+  echo the server's refusal prose, on the fallback paths too (LOCAL review): the limit refusal and a
+  protected-change code inside a mixed, nested or 5xx answer print a fixed sentence (`withholdServerText`,
+  `staged.go`) while the exit class, the server code and an internal fault's request id are kept.
 
 ## Choices that are the CLI owner's (not law)
 

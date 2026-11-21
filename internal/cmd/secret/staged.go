@@ -51,7 +51,7 @@ func mapChange(err error, what string) error {
 	// mutation, or a gateway's 5xx is not proof of what the server did, so it
 	// maps as any other error and keeps its own request id.
 	if !api.OnlyErrorCodesAtRoot(err, codeNeedsPasskey) {
-		return api.MapErrorKeepingCode(err)
+		return withholdServerText(err, what)
 	}
 	id, _ := api.ErrorCodeExtension(err, codeNeedsPasskey, "requestId")
 	if strings.TrimSpace(id) == "" {
@@ -90,4 +90,37 @@ func stagedText(what, id, url string) string {
 	b.WriteString("Give the URL to the person who must sign; hadron never completes the ceremony itself.\n")
 	fmt.Fprintf(&b, "Check it: hadron secret change get %s --wait\nWithdraw it: hadron secret change withdraw %s", q, q)
 	return b.String()
+}
+
+// codeChangeLimit is the server's refusal of one more open change request on a
+// secret (hadron-server#3999 S4): too many are already waiting for a person.
+const codeChangeLimit = "SECRET_CHANGE_REQUEST_LIMIT"
+
+// withheld is an error whose text is fixed here, not the server's: Error() is the
+// fixed sentence, while Unwrap() keeps the mapped error underneath so the exit
+// code, the server code and an internal fault's request id still reach the root
+// renderer.
+type withheld struct {
+	msg string
+	err error
+}
+
+func (w *withheld) Error() string { return w.msg }
+func (w *withheld) Unwrap() error { return w.err }
+
+// withholdServerText maps an error of a door that can stage a change when it is
+// NOT a clean staged refusal. For the two protected-change codes the server's
+// message can repeat a value the caller submitted (LOCAL review of cli#2738), and
+// the answer may be a limit refusal, a mixed envelope, an error below the
+// mutation or an HTTP 5xx, so the message is replaced by a fixed sentence while
+// the exit class and the server code are kept. Any other error maps as before.
+func withholdServerText(err error, what string) error {
+	mapped := api.MapErrorKeepingCode(err)
+	switch {
+	case api.HasErrorCode(err, codeChangeLimit) && !api.HasErrorCode(err, codeNeedsPasskey):
+		return &withheld{"too many change requests are already open on this secret, so " + what + " was not staged; withdraw one (hadron secret change withdraw <request-id>) or wait for a person to sign or decline them", mapped}
+	case api.HasErrorCode(err, codeNeedsPasskey) || api.HasErrorCode(err, codeChangeLimit):
+		return &withheld{what + ": the server answered with a protected-secret refusal inside an answer that does not prove what was staged (several errors, an error below the mutation, or an HTTP 5xx), so a change request may or may not have been opened. The server's message is withheld because it can repeat a submitted value; read --json for the server code, and check any request id you were given with hadron secret change get", mapped}
+	}
+	return mapped
 }

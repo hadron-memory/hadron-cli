@@ -559,3 +559,56 @@ func TestChangeGetNeutralisesServerFieldsInText2738(t *testing.T) {
 		t.Errorf("text rows must be neutralised: exit %d %q", code, stdout)
 	}
 }
+
+// Jane's LOCAL F1 (P2) on cli#2738: the fallback and non-200 paths of the
+// protected-change errors repeated the server's message, which can carry a
+// submitted value. The server message here CONTAINS the canary (gqlErr2738), so a
+// path that echoes it fails. Exit and server code are kept; text and --json are
+// both checked, through the real renderer.
+func TestProtectedChangeErrorsNeverEchoTheServerMessage2738(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		body   string
+		serv   string
+	}{
+		{"limit 200", 200, gqlErr2738("SECRET_CHANGE_REQUEST_LIMIT", nil), "SECRET_CHANGE_REQUEST_LIMIT"},
+		{"limit 502", 502, gqlErr2738("SECRET_CHANGE_REQUEST_LIMIT", nil), "SECRET_CHANGE_REQUEST_LIMIT"},
+		{"staged code 502", 502, staged2738(), "SECRET_PROTECTED_NEEDS_PASSKEY"},
+		{"limit 502 beside staged", 502, gqlErr2738("SECRET_PROTECTED_NEEDS_PASSKEY", map[string]any{"requestId": req2738}), "SECRET_PROTECTED_NEEDS_PASSKEY"},
+	}
+	for _, c := range cases {
+		for _, door := range []string{"update", "set"} {
+			for _, asJSON := range []bool{false, true} {
+				t.Run(c.name+"/"+door+map[bool]string{false: "/text", true: "/json"}[asJSON], func(t *testing.T) {
+					srv, calls := fake2738(t, only2738(c.status, c.body))
+					args := []string{door, "sec-1", "--value-file", valueFile2738(t)}
+					if asJSON {
+						args = append(args, "--json")
+					}
+					stdout, stderr, code := run2738(t, srv.URL, args...)
+					if code == 0 {
+						t.Fatalf("must fail\n%s%s", stdout, stderr)
+					}
+					if strings.Contains(stdout+stderr, value2738) {
+						t.Errorf("the server's message (which carries the value) must never be echoed:\n%s%s", stdout, stderr)
+					}
+					if got := ops2738(calls); len(got) != 1 || got[0] != "UpdateSecret" {
+						t.Errorf("one mutation, never retried: %v", got)
+					}
+					noCeremonyRequest2738(t, calls)
+					if asJSON {
+						if e := envelope2738(t, stdout, stderr); e["serverCode"] != c.serv {
+							t.Errorf("the server code is kept for scripts: %v", e)
+						}
+					}
+				})
+			}
+		}
+	}
+	// The exit class of a definite limit refusal is kept: 5.
+	srv, _ := fake2738(t, only2738(200, gqlErr2738("SECRET_CHANGE_REQUEST_LIMIT", nil)))
+	if _, _, code := run2738(t, srv.URL, "update", "sec-1", "--meta", "k=v"); code != exitcode.Conflict {
+		t.Errorf("limit refusal exit = %d, want 5", code)
+	}
+}
