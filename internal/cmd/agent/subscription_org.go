@@ -42,6 +42,10 @@ type rawSubPage struct {
 	hasMore bool
 }
 
+// MaxSubscriptionRows is the hard row cap of one --all read (cli#2855). It is a variable only so
+// a test can lower it.
+var MaxSubscriptionRows = 10000
+
 func newCmdSubscriptionAdd(f *cmdutil.Factory) *cobra.Command {
 	var org, agent string
 	c := &cobra.Command{
@@ -131,11 +135,13 @@ func orgGrantWriteError(err error, verb, org, field string) error {
 }
 
 func orgGrantUnknown(verb, org string, cause error) error {
-	why := "the answer was unusable"
-	if cause != nil {
-		why = api.MapError(cause).Error()
+	check := fmt.Sprintf("Nothing was retried. Check with `hadron agent subscription list --org %s` before running it again", cmdutil.ShellQuote(org))
+	if cause == nil {
+		return exitcode.Newf(exitcode.Unavailable, "%s outcome unknown (the answer was unusable). %s", verb, check)
 	}
-	return exitcode.Newf(exitcode.Unavailable, "%s outcome unknown (%s). Nothing was retried. Check with `hadron agent subscription list --org %s` before running it again", verb, why, cmdutil.ShellQuote(org))
+	// The cause stays wrapped, not flattened to text (cli#2855): what the server sent, its code and
+	// request id, reaches the --json envelope, and the message adds nothing it did not say.
+	return exitcode.New(exitcode.Unavailable, fmt.Errorf("%s outcome unknown (%w). %s", verb, api.MapError(cause), check))
 }
 
 func renderGrant(f *cmdutil.Factory, g orgAgentGrantDTO, verb string) error {
@@ -206,7 +212,10 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		if err != nil {
 			return subscriptionPageDTO{}, err
 		}
-		return subscriptionPageDTO{Items: p.items, Total: p.total, HasMore: p.hasMore, Complete: !p.hasMore && offset == 0 && len(p.items) == p.total}, nil
+		// An empty --mine list is no whole-set claim: a run or impersonated caller has no personal
+		// subscriptions, so "none" says nothing about the person (cli#2855).
+		complete := !p.hasMore && offset == 0 && len(p.items) == p.total && (!mine || p.total != 0)
+		return subscriptionPageDTO{Items: p.items, Total: p.total, HasMore: p.hasMore, Complete: complete}, nil
 	}
 	var items []userAgentSubscriptionDTO
 	total := 0
@@ -257,6 +266,11 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		if dup != "" {
 			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned an identical subscription row twice (Agent/user %s) without exceeding its total: a row created during the walk shifted the pages; run it again", output.SafeCell(dup))
 		}
+		// The hard cap (cli#2855): a walk that would go on past MaxSubscriptionRows stops here and says
+		// where it was cut, never returning a long prefix as if it were the set.
+		if p.hasMore && len(items) >= MaxSubscriptionRows {
+			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the walk was cut at %d rows (--all stops at a page boundary once it holds %d or more) of a total of %d; this is NOT the whole set. Page with --limit and --offset instead of --all (rows created meanwhile shift the pages), starting at --offset %d", len(items), MaxSubscriptionRows, total, len(items))
+		}
 		if !p.hasMore || len(p.items) == 0 {
 			// An empty page that still claims more is a server bug: say so
 			// rather than present a truncated set as the whole.
@@ -274,7 +288,7 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 	if len(items) != total {
 		return subscriptionPageDTO{Items: items, Total: total}, exitcode.Newf(exitcode.Error, "the server's total is %d but %d rows were returned; the list is inconsistent", total, len(items))
 	}
-	return subscriptionPageDTO{Items: items, Total: total, Complete: true}, nil
+	return subscriptionPageDTO{Items: items, Total: total, Complete: !mine || total != 0}, nil
 }
 
 func renderSubscriptionPage(f *cmdutil.Factory, pg subscriptionPageDTO, mine bool, offset int) error {
@@ -285,9 +299,8 @@ func renderSubscriptionPage(f *cmdutil.Factory, pg subscriptionPageDTO, mine boo
 			if mine {
 				msg += " (A run or impersonated caller has no personal subscriptions, so an empty list does not prove there are none.)"
 			}
-			if _, err := fmt.Fprintln(w, msg); err != nil {
-				return err
-			}
+			_, err := fmt.Fprintln(w, msg)
+			return err
 		case len(pg.Items) == 0:
 			// Past the end (or a set that shrank): the page is empty, which says
 			// nothing about whether subscriptions exist.
