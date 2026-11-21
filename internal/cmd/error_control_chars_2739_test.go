@@ -14,7 +14,7 @@ import (
 // (or the --json envelope's message), while the server's code, a request id and an
 // ordinary message stay exactly as they were.
 
-const hostile2739 = "boom \x1b[31mred\x1b[0m \x1b]0;pwned\x07 bell\x07 c1\u009b31m bidi‮evil nul\x00 end"
+const hostile2739 = "boom \x1b[31mred\x1b[0m \x1b]0;pwned\x07 bell\x07 c1\u009b31m bidi\u202eevil nul\x00 end"
 
 // errTextHasControl2739 reports a character a terminal could act on or that could forge text.
 func errTextHasControl2739(s string) (rune, bool) {

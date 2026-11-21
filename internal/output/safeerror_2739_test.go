@@ -19,7 +19,7 @@ func TestSafeError2739(t *testing.T) {
 		{"BEL NUL DEL become spaces", "a\x07b\x00c\x7fd", "a b c d"},
 		{"a newline is kept (the renderer's own messages are multi-line); a carriage return is not", "a\nb\r\nc", "a\nb \nc"},
 		{"a tab becomes a space", "a\tb", "a b"},
-		{"bidi overrides and separators become spaces", "a‮b c d", "a b c d"},
+		{"bidi overrides and separators become spaces", "a\u202eb\u2028c\u2029d", "a b c d"},
 		{"empty", "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
