@@ -33,7 +33,6 @@ import (
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
-	decisioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/decision"
 	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
 	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
@@ -47,6 +46,7 @@ import (
 	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
 	policycmd "github.com/hadron-memory/hadron-cli/internal/cmd/policy"
+	questioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/question"
 	quotacmd "github.com/hadron-memory/hadron-cli/internal/cmd/quota"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
@@ -185,7 +185,8 @@ never ran that command, this does not apply to you.`,
 	root.AddCommand(channelcmd.NewCmdChannel(f))
 	root.AddCommand(replacecmd.NewCmdReplace(f))
 	root.AddCommand(speccmd.NewCmdSpec(f))
-	root.AddCommand(decisioncmd.NewCmdDecision(f))
+	root.AddCommand(questioncmd.NewCmdQuestion(f))
+	root.AddCommand(questioncmd.NewCmdRetiredDecision(f))
 	root.AddCommand(skillcmd.NewCmdSkill(f))
 	root.AddCommand(codingcmd.NewCmdCoding(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
@@ -608,6 +609,11 @@ func withStoredCredentialHint(f *cmdutil.Factory, code int, err error) error {
 		return err
 	}
 	if !f.Credentials().Only(api.CredentialStoredUser) {
+		return err
+	}
+	// cli#2761: an already-redacted refusal carries a guard; the appended text is
+	// output too, so the candidate in its final form must pass the same test.
+	if api.OutputCarriesGuarded(err, err.Error()+" — "+storedCredentialHint) {
 		return err
 	}
 	return fmt.Errorf("%w — %s", err, storedCredentialHint)

@@ -269,7 +269,7 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
   retry without the selection, nothing typed, the wake left due.
 - `acknowledgeWakes` sends one proof per call.
 - `AckMixed` follows `delivery.ack_mixed` (cli#1229), default false. An
-  operator sets true only after verifying A′ (#2072, ad7f1c2) is deployed.
+  operator sets true only after verifying A′ (issue #2072, PR #2102, ad7f1c2) is deployed.
   Mixed wake acknowledgment records tick/task receipts without moving chat
   delivered-through or read position; mention text still uses its own batch.
   The setting is shown as text `ack-mixed on|off` and JSON `delivery.ackMixed`.

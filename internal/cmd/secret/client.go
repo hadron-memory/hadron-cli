@@ -376,13 +376,16 @@ func pollSigning(parent context.Context, client graphql.Client, id, clientID str
 
 // clientDTO is the --json shape of one row of `client list`.
 type clientDTO struct {
-	ClientID   string  `json:"clientId"`
-	GrantID    string  `json:"grantId"`
-	SecretID   string  `json:"secretId"`
-	SecretName string  `json:"secretName"`
-	SelfIssued bool    `json:"selfIssued"`
-	EndReason  *string `json:"endReason"`
-	CreatedAt  string  `json:"createdAt"`
+	// ClientID is the full id only for the current issuer or holder: the server
+	// shows a manager who is neither the prefix alone, so it is null then.
+	ClientID     *string `json:"clientId"`
+	ClientPrefix string  `json:"clientPrefix"`
+	GrantID      string  `json:"grantId"`
+	SecretID     string  `json:"secretId"`
+	SecretName   string  `json:"secretName"`
+	SelfIssued   bool    `json:"selfIssued"`
+	EndReason    *string `json:"endReason"`
+	CreatedAt    string  `json:"createdAt"`
 }
 
 // fetchClientPage reads one page of the caller's read clients. The list is declared
@@ -402,7 +405,7 @@ func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *
 		if c == nil {
 			return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
 		}
-		page = append(page, clientDTO{ClientID: c.ClientId, GrantID: c.GrantId, SecretID: c.SecretId,
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
 			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
 	}
 	return page, nil
@@ -492,7 +495,7 @@ use --limit and --offset beyond that).`,
 				}
 				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "END REASON", "CREATED", "GRANT")
 				for _, r := range rows {
-					t.Row(output.SafeCell(r.ClientID), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued),
+					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued),
 						output.SafeCell(output.Dash(r.EndReason)), output.SafeCell(r.CreatedAt), output.SafeCell(r.GrantID))
 				}
 				return t.Flush()
@@ -505,4 +508,14 @@ use --limit and --offset beyond that).`,
 	fl.BoolVar(&all, "all", false, "read every page")
 	fl.BoolVar(&asWorker, "as-worker", false, "send this worktree's bound worker session, so the list is the clients that worker holds (default: act as you, no session header)")
 	return cmd
+}
+
+// clientColumn is the CLIENT cell: the full id when the server gave it, else the
+// prefix with an ellipsis (a manager who is neither the issuer nor the holder
+// sees only a prefix, so it is never mistaken for an id).
+func clientColumn(r clientDTO) string {
+	if r.ClientID != nil {
+		return *r.ClientID
+	}
+	return r.ClientPrefix + "…"
 }

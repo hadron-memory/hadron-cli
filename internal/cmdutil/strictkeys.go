@@ -1,7 +1,7 @@
 package cmdutil
 
 // Strict JSON key checking shared by the commands that read a JSON file into a
-// generated input type (decision --input-file, team task create --batch-file).
+// generated input type (question --input-file, team task create --batch-file).
 // encoding/json alone accepts a duplicate key (the last wins) and a mis-cased
 // one ("Title" for "title"); CheckKeys refuses both against the target type's
 // exact JSON names.
