@@ -6357,6 +6357,29 @@ Groups resolve live.
   `serverCode` and the message are the server's, unchanged.
 
 
+## Agent App sessions (cli#2510)
+
+```
+hadron agent session start <agent> [--external-user <id>] [--timeout-seconds <n>]
+hadron agent session end <session-id>
+```
+
+Each verb sends exactly one mutation (`startAgentSession`, `endAgentSession`)
+with refs as typed; authority is the server's, and a refusal maps through the
+usual exit codes (FORBIDDEN 8, not found 4, BAD_USER_INPUT 2) with no retry or
+follow-up call. A blank ref is exit 2 with nothing sent. These are an App's
+sessions with its installed Agents for its end users, NOT worker sessions
+(`team session`). They need an App key as the credential (e.g.
+`HADRON_TOKEN`). The server looks the Agent up by ID, so a URN is resolved
+first with one `agent` read (an unreadable URN is exit 4, nothing started: pass
+the ID). `--external-user` and `--timeout-seconds` unset are omitted. `--json`
+is `{id, agentId, appId, memoryId, userId, type, state, isLive, startedAt,
+expiresAt}`; no key material is printed, and Apps that identify users by a
+secret key are not supported (no operation-key header is ever sent). `end` of
+an already-ended session succeeds; `--json` is `{sessionId, ended: true}`. The
+other #58 agent commands (ai-config clear, import publish|rm,
+repair-system-memory) are described with the agent group (cli#2729).
+
 ## Task integrations: App properties and task externalId (cli#1524)
 
 hadron-server#3125; plan `plans:1524-find-untracked`. Specs `cor:dmo:050:02`,
