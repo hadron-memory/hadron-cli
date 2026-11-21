@@ -124,7 +124,7 @@ func newCmdKeyRotate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Revoke EVERY active key of an App and mint one replacement",
 		Long: `Rotate an App's keys: the server revokes EVERY active key of the App and mints
 one replacement. The new key holds NO scopes, so every scope and host grant
-(attention:deliver, host:operate) must be granted again:
+must be granted again ("hadron app key scope catalogue" lists the scopes):
   hadron app key scope grant <key-id> <scope> [--host-id <host>]
 Anything still running on an old key stops working at its next call.
 
