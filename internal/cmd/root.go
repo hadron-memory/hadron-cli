@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -495,8 +497,8 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var staged interface{ StagedSecretChange() (string, string) }
 		if errors.As(err, &staged) {
 			id, url := staged.StagedSecretChange()
-			failure["requestId"] = id
-			failure["ceremonyUrl"] = url
+			failure["requestId"] = output.ExactJSONString(id)
+			failure["ceremonyUrl"] = output.ExactJSONString(url)
 		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
@@ -538,6 +540,22 @@ func renderError(f *cmdutil.Factory, err error) int {
 		}
 		if details != nil {
 			failure["extensions"] = details
+		}
+		// cli#2846: every server-derived STRING in the envelope gets the message's treatment, not
+		// only the message. A valid id, a number and a null are unchanged (SafeJSONText only
+		// replaces C1 controls and format characters), so an id copied into a later command still
+		// round-trips.
+		for k, v := range failure {
+			failure[k] = neutraliseEnvelopeValue(v)
+		}
+		// A staged secret change's request id and ceremony URL are the one exception: they go in
+		// exactly as the server sent them once decoded (cli#2738: a script hands the URL to the
+		// person who signs), but with any C1 control or format character written as a \uXXXX
+		// escape so the raw bytes cannot act on a terminal that shows the document.
+		if errors.As(err, &staged) {
+			id, url := staged.StagedSecretChange()
+			failure["requestId"] = output.ExactJSONString(id)
+			failure["ceremonyUrl"] = output.ExactJSONString(url)
 		}
 		envelope := map[string]any{"error": failure}
 		switch {
@@ -661,4 +679,91 @@ func isUsageError(err error) bool {
 		// group (chat post/read, auth login, mcpserver update, …).
 		strings.HasPrefix(msg, "if any flags in the group") ||
 		strings.HasPrefix(msg, "at least one of the flags in the group")
+}
+
+// neutraliseEnvelopeValue applies output.SafeJSONText to every string inside a failure
+// envelope value (cli#2846), whatever its Go type: a string, a *string, and any map, slice,
+// array, struct or interface holding them (the typed PR slots, the clone-agent blockers and
+// their subjects, a decoded server detail). Types are preserved, so a number, a boolean, a
+// nil and the field order of a struct come out as they went in; only string contents change.
+// A []byte is left as it is (it encodes as base64; the envelope holds no json.RawMessage).
+func neutraliseEnvelopeValue(v any) any {
+	if v == nil {
+		return nil
+	}
+	out := neutraliseReflect(reflect.ValueOf(v), 0)
+	return out.Interface()
+}
+
+// envelopeMaxDepth bounds the walk: a server detail is a shallow document, and a cyclic value
+// must end in a refusal to descend, not a stack overflow (cli#2846 blind N4).
+const envelopeMaxDepth = 32
+
+func neutraliseReflect(v reflect.Value, depth int) reflect.Value {
+	if depth > envelopeMaxDepth {
+		return reflect.Zero(v.Type())
+	}
+	switch v.Kind() {
+	case reflect.String:
+		r := reflect.New(v.Type()).Elem()
+		r.SetString(output.SafeJSONText(v.String()))
+		return r
+	case reflect.Pointer:
+		if v.IsNil() {
+			return v
+		}
+		r := reflect.New(v.Type().Elem())
+		r.Elem().Set(neutraliseReflect(v.Elem(), depth+1))
+		return r
+	case reflect.Interface:
+		if v.IsNil() {
+			return v
+		}
+		r := reflect.New(v.Type()).Elem()
+		r.Set(neutraliseReflect(v.Elem(), depth+1))
+		return r
+	case reflect.Map:
+		if v.IsNil() {
+			return v
+		}
+		r := reflect.MakeMapWithSize(v.Type(), v.Len())
+		// A server-chosen key is a server string too. Two keys that differ only by characters
+		// neutralised to the same text would collide, so visit them in sorted order and keep the
+		// first, which makes the surviving value deterministic.
+		keys := v.MapKeys()
+		sort.Slice(keys, func(i, j int) bool { return fmt.Sprint(keys[i].Interface()) < fmt.Sprint(keys[j].Interface()) })
+		for _, k := range keys {
+			nk := neutraliseReflect(k, depth+1)
+			if r.MapIndex(nk).IsValid() {
+				continue
+			}
+			r.SetMapIndex(nk, neutraliseReflect(v.MapIndex(k), depth+1))
+		}
+		return r
+	case reflect.Slice:
+		if v.IsNil() || v.Type().Elem().Kind() == reflect.Uint8 {
+			return v
+		}
+		r := reflect.MakeSlice(v.Type(), v.Len(), v.Len())
+		for i := 0; i < v.Len(); i++ {
+			r.Index(i).Set(neutraliseReflect(v.Index(i), depth+1))
+		}
+		return r
+	case reflect.Array:
+		r := reflect.New(v.Type()).Elem()
+		for i := 0; i < v.Len(); i++ {
+			r.Index(i).Set(neutraliseReflect(v.Index(i), depth+1))
+		}
+		return r
+	case reflect.Struct:
+		r := reflect.New(v.Type()).Elem()
+		r.Set(v)
+		for i := 0; i < v.NumField(); i++ {
+			if r.Field(i).CanSet() {
+				r.Field(i).Set(neutraliseReflect(v.Field(i), depth+1))
+			}
+		}
+		return r
+	}
+	return v
 }
