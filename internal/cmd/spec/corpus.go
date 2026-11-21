@@ -103,7 +103,7 @@ func newCmdReserve(f *cmdutil.Factory) *cobra.Command {
 		Short: "Reserve a citation as a placeholder spec",
 		Long: `Reserve a citation in any spec corpus: the server creates an unminted
 placeholder spec at <citation>, marked as a placeholder by the server (not by
-an empty body). Draft rights are per node (hadron-server#1591): every new node
+an empty body). Draft rights are per node: every new node
 starts unminted, in any memory, until its first mint. Other specs can link
 to the placeholder now, so ` + "`spec backlinks`" + ` sees those links, and the
 placeholders still left are the corpus's to-do list.
@@ -185,7 +185,7 @@ Results are read to completion in pages of 20 before output; a failed page
 fails the command. Older servers may use the full legacy read only when the
 page field itself is unsupported. Pages are not a cross-request snapshot.
 
-Any memory answers, minted or not (hadron-server#1591).`,
+Any memory answers, minted or not.`,
 		Example: `  hadron spec backlinks pas:010:01 -m hrn:mem:micromentor.org:specs-draft
   hadron spec backlinks pas:010:01 --json`,
 		Args: cobra.ExactArgs(1),
@@ -245,7 +245,7 @@ Results are read to completion in pages of 20 before output; a failed page
 fails the command. Older servers may use the full legacy read only when the
 page field itself is unsupported. Pages are not a cross-request snapshot.
 
-Any memory answers, minted or not (hadron-server#1591).`,
+Any memory answers, minted or not.`,
 		Example: `  hadron spec unresolved -m hrn:mem:micromentor.org:specs-draft
   hadron spec unresolved --json`,
 		Args: cobra.NoArgs,
@@ -326,7 +326,7 @@ func newCmdRenumber(f *cmdutil.Factory) *cobra.Command {
 		Long: `Renumber an UNMINTED spec, in any memory: move the spec at <from-citation>,
 and its subtree, to <to-citation>, then rewrite every node URN in the corpus
 that names one of the moved specs. Each rewrite is a normal edit with revision
-history. Draft rights are per node (hadron-server#1591): a node is a draft
+history. Draft rights are per node: a node is a draft
 until its first mint, so the move records no URN alias for the old citation —
 nothing may cite an unminted spec as permanent yet.
 
@@ -592,7 +592,7 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 		Use:   "mint",
 		Short: "Mint every approved, unminted node of a memory (not only specs)",
 		Long: `Mint the approved, unminted nodes of the whole memory. One call covers
-every eligible node of the memory, not only specs (cor:dmo:120:06): a fact
+every eligible node of the memory, not only specs: a fact
 node, an object node or a spec alike; only comments are outside it. The
 report's "eligible nodes" line lists what this call would mint, with any
 blockers. Minting records a per-node

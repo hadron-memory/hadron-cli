@@ -50,7 +50,7 @@ extract" work in that numbering; nothing else requires it.
 Mint state is recorded per node. Minted nodes cannot be renumbered by the
 spec door; other citation permanence enforcement is currently off.
 
-Draft rights are per node (hadron-server#1591): every new node starts
+Draft rights are per node: every new node starts
 unminted, in any memory, until its first mint. "spec reserve" holds a citation
 as a placeholder, "spec renumber" moves an unminted spec and
 rewrites references to it, and "spec backlinks" and "spec unresolved" read

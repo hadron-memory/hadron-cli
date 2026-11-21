@@ -292,7 +292,7 @@ the title (the part of its name after "<citation> — ") is edited with
 --title, through the same guarded write; the citation prefix is composed from
 the spec itself and kept, so pass the title text only. --title alone is a
 complete non-interactive edit (no editor opens), and a title equal to the stored
-one writes nothing. The title is an approval-hash field (cor:dmo:120:01): a
+one writes nothing. The title is an approval-hash field: a
 retitle supersedes an existing approval, and after a save the command prints the
 approval status the server reports. --dry-run shows the name change as a field
 diff and reads no status. Blank or multi-line titles are refused.
@@ -304,7 +304,7 @@ Both --dry-run and a save refuse an over-limit proposal before writing.
 A changed body that starts with the metadata header a text-mode ` + "`spec get`" + ` or
 ` + "`node get`" + ` prints is REFUSED (exit 2, nothing written) unless --force: saving it
 would store the header in the body. Read the body to edit with
-` + "`spec get <citation> --body-only`" + `, the stored body byte for byte (#873). A body
+` + "`spec get <citation> --body-only`" + `, the stored body byte for byte. A body
 that drops a {{…}} tag the stored one has (a placeholder, or a {{=…=}}
 delimiter change) is saved with a warning on stderr, also listed under
 "warnings" in --json.
@@ -314,7 +314,7 @@ delimiter change) is saved with a warning on stderr, also listed under
 It is a preview, not an approval; applying it is a separate run without
 --dry-run, recomputed against the spec as stored at that moment.
 
-EVERY SAVE IS GUARDED (cli#738). The write targets the immutable node ID read
+EVERY SAVE IS GUARDED. The write targets the immutable node ID read
 with the body and carries that node's revision. A changed node is refused by
 the server, and a replacement at the same citation cannot receive the write.
 To save a proposal previewed and APPROVED earlier (another turn or process),
@@ -325,7 +325,7 @@ pre-write refusal writes nothing. On a server-reported write-time conflict,
 the server may record out-of-band drift as a revision while refusing your edit;
 your proposed text is saved to a file when possible. A failed file save is
 reported explicitly. Re-read, reconcile, and get the proposal approved again.
-A server that cannot guard a save (predating hadron-server#1339 or #1352) is
+A server that cannot guard a save is
 refused, never written to unguarded.
 
 Editing the body alone ARMS the abstract-stale marker: the abstract was
@@ -353,15 +353,15 @@ used for. It is refused alongside --abstract/--abstract-file (replacing the
 abstract re-fingerprints it anyway), on a spec with no abstract at all, and on
 a legacy abstract past the server cap — re-affirming replaces it, and a
 replacement over the cap is rejected.`,
-		Example: `  hadron spec edit cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs
+		Example: `  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id <id-from-preview> --expected-proposal-hash <hash-from-preview>
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --description-file description.md
-  hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
-  hadron spec edit cor:agt:020 -m hrn:mem:hadronmemory.com:specs --abstract-still-accurate
-  hadron spec edit cor:dmo:110:03 -m hrn:mem:hadronmemory.com:specs --title "Writers may comment" --dry-run`,
+  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
+  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs --abstract-still-accurate
+  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs --title "Writers may comment" --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := validateSpecLoc(args[0]); err != nil {

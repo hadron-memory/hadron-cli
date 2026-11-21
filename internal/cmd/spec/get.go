@@ -39,7 +39,7 @@ added when piped. It is the read to edit from: save it to a file, edit, and
 without it prints a header and a rendered body; neither belongs in a write. --json emits
 one object for a single citation, an array for --prefix.`,
 		Example: `  hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs
-  hadron spec get cor:dmo:060:02 -m hrn:mem:hadronmemory.com:platform-specs --body-only
+  hadron spec get <citation> -m hrn:mem:hadronmemory.com:platform-specs --body-only
   hadron spec get --prefix cor:cht -m hrn:mem:hadronmemory.com:platform-specs
   hadron spec get --prefix cor:dmo -m hrn:mem:hadronmemory.com:platform-specs --abstract-only --json`,
 		Args: cobra.MaximumNArgs(1),
