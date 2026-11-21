@@ -19,6 +19,9 @@ const inertSweepOrcaDirPrefix2404 = "hadron-test-orca-2404-"
 // (or a copy across filesystems). Recognize only that exact installed path,
 // before TestMain initializes anything or enters the test runner again.
 func runInertSweepOrca2404() {
+	if os.Getenv(disablePrimaryGuardEnv2786) == "1" { // a test-only knob that stands for "this guard was removed" (cli#2786 fork-loop pin)
+		return
+	}
 	installed := os.Getenv(inertSweepOrcaEnv2404)
 	// exec.Command("orca", ...) resolves PATH into Cmd.Path but keeps the
 	// original short name in argv[0]. Compare the actual executable path.

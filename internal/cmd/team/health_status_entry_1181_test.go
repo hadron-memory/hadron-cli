@@ -29,6 +29,7 @@ import (
 // Explicit delivery.orca_bin fixtures still execute normally.
 func TestMain(m *testing.M) {
 	runInertSweepOrca2404()
+	failIfPrivateOrca2786()
 	runAmbientTrap2786()
 	failIfUnclaimed2786()
 	if os.Getenv("HADRON_TEST_HEALTH_CHILD") == "1" && len(os.Args) > 1 && os.Args[1] == "orca" {

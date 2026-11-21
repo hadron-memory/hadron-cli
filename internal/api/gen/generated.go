@@ -24240,7 +24240,7 @@ type AppMemoryGrantFields struct {
 	// The granted memory. Null when the grant is on someone's personal or private memory and the caller is not its owner.
 	MemoryUrn *string `json:"memoryUrn"`
 	// The loc prefix: the loc itself and its colon-boundary descendants (reports:team-progress does not cover reports:team-progressX).
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 	// The register line this grant cites. A citation only, never evidence that the line exists.
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 	// The person who set it.
@@ -24264,7 +24264,7 @@ func (v *AppMemoryGrantFields) GetAppId() string { return v.AppId }
 func (v *AppMemoryGrantFields) GetMemoryUrn() *string { return v.MemoryUrn }
 
 // GetPrefix returns AppMemoryGrantFields.Prefix, and is useful for accessing the field via an interface.
-func (v *AppMemoryGrantFields) GetPrefix() string { return v.Prefix }
+func (v *AppMemoryGrantFields) GetPrefix() *string { return v.Prefix }
 
 // GetRegisterNodeUrn returns AppMemoryGrantFields.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *AppMemoryGrantFields) GetRegisterNodeUrn() *string { return v.RegisterNodeUrn }
@@ -24643,7 +24643,7 @@ func (v *AppMemoryWriteGrantsRows1595) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns AppMemoryWriteGrantsRows1595.Prefix, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsRows1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
+func (v *AppMemoryWriteGrantsRows1595) GetPrefix() *string { return v.AppMemoryGrantFields.Prefix }
 
 // GetRegisterNodeUrn returns AppMemoryWriteGrantsRows1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *AppMemoryWriteGrantsRows1595) GetRegisterNodeUrn() *string {
@@ -24708,7 +24708,7 @@ type __premarshalAppMemoryWriteGrantsRows1595 struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -92166,7 +92166,7 @@ func (v *RevokeAppMemoryWriteGrantRow1595) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns RevokeAppMemoryWriteGrantRow1595.Prefix, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRow1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
+func (v *RevokeAppMemoryWriteGrantRow1595) GetPrefix() *string { return v.AppMemoryGrantFields.Prefix }
 
 // GetRegisterNodeUrn returns RevokeAppMemoryWriteGrantRow1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *RevokeAppMemoryWriteGrantRow1595) GetRegisterNodeUrn() *string {
@@ -92235,7 +92235,7 @@ type __premarshalRevokeAppMemoryWriteGrantRow1595 struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 
@@ -98285,7 +98285,7 @@ func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetMemoryUrn() *string {
 }
 
 // GetPrefix returns SetAppMemoryWriteGrantSetAppMemoryWriteGrant.Prefix, and is useful for accessing the field via an interface.
-func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetPrefix() string {
+func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) GetPrefix() *string {
 	return v.AppMemoryGrantFields.Prefix
 }
 
@@ -98356,7 +98356,7 @@ type __premarshalSetAppMemoryWriteGrantSetAppMemoryWriteGrant struct {
 
 	MemoryUrn *string `json:"memoryUrn"`
 
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	RegisterNodeUrn *string `json:"registerNodeUrn"`
 

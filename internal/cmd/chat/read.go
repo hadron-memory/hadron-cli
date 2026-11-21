@@ -52,7 +52,7 @@ session of a worker post, and authorWorkerId / authorUserId / authorAppId are
 the platform envelope's identity — which is how you tell a WORKER post from a
 human one, and a cross-App post from a local one.
 
-` + "`author`" + ` IS THE NAME THE SERVER RECORDED (#630). It reads the envelope's
+` + "`author`" + ` IS THE NAME THE SERVER RECORDED. It reads the envelope's
 ` + "`authorName`" + ` first, then the retired academy dialect's ` + "`author`" + `, and only
 then falls back to parsing the message loc — which is what legacy rows with no
 envelope author need. The loc suffix is a lowercase mention TOKEN rather than a
@@ -61,9 +61,9 @@ name, so reading it first rendered "jonas" where the server had written
 
 The OUTPUT KEY stays ` + "`author`" + `: the canonical team chat
 (` + "`hadron team chat read`" + `) names it ` + "`authorName`" + `, and both commands emit
-` + "`author`" + `, so a filter written here keeps working there (#406) — a filter
-written for ` + "`authorName`" + ` still finds nothing in THIS output. Since #630 the
-two agree on the VALUE as well as on that key.`,
+` + "`author`" + `, so a filter written here keeps working there — a filter
+written for ` + "`authorName`" + ` still finds nothing in THIS output. The two
+now agree on the VALUE as well as on that key.`,
 		Example: `  hadron chat read --since 42
   hadron chat read --node hrn:node:acme.com:team-chats:team-chat:api:messages --json`,
 		Args: cobra.NoArgs,

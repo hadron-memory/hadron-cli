@@ -276,10 +276,10 @@ section between the markers.
 | `ticket list` | ls |  | y | #1052 | e3708e782d3e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `ticket mint` |  |  | y | #1052 | cbd16a7320a9 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: make expiry timezone requirement explicit; count-cap P3 CLOSED |
 | `user` | users |  | y | #1052 | 41487100b810 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `user delete` |  |  | y | #1052 | f27a9b09df4f | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `user delete` |  |  | y | #1052 | 76f5df9c00a4 |  | unread |  |
 | `user invite` |  |  | y | #1052 | cc2918067fc0 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
-| `user merge` |  |  | y | #1052 | 632f11d138a1 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: put current CLI consent limitation earlier. Product gap cli1304 explicit; no successful merge attested |
-| `user search` | ls, list |  | y | #1052 | 64beaf629235 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: numeric explicit-page default/bounds delegated to server |
+| `user merge` |  |  | y | #1052 | 6de466ea4a64 |  | unread |  |
+| `user search` | ls, list |  | y | #1052 | e04a65686a7d |  | unread |  |
 | `user set-roles` |  |  | y | #1052 | 5dff1f031295 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary confirmation/noninteractive refusal example would help; replacement/authority clear |
 <!-- group:1052 end -->
 
@@ -383,9 +383,9 @@ section between the markers.
 | `app member roles` |  |  | y | #1053 | 4a1072988065 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app memories` |  |  | y | #1053 | 1877e6d3e647 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app memory-grant` |  |  | n | #1053 | e1fd79661c5c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
-| `app memory-grant add` |  |  | y | #1053 | 774ec5429d36 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
-| `app memory-grant list` | ls |  | y | #1053 | f93c0bca073b | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
-| `app memory-grant rm` |  |  | y | #1053 | 3fc8787ce145 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
+| `app memory-grant add` |  |  | y | #1053 | 32e9325979b5 |  | unread |  |
+| `app memory-grant list` | ls |  | y | #1053 | 8dfd92b83837 |  | unread |  |
+| `app memory-grant rm` |  |  | y | #1053 | 52962eeb5203 |  | unread |  |
 | `app model-group` | model-groups |  | n | #1053 | eb47548b0394 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `app model-group clear` |  |  | y | #1053 | 406c4a097acc | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app model-group list` | ls |  | y | #1053 | 9aabafbce112 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
@@ -462,8 +462,8 @@ section between the markers.
 | `channel get` |  |  | y | #1054 | 86d9ea5a15b4 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
 | `channel list` | ls |  | y | #1054 | c947f7172ac7 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
 | `channel mark-read` |  |  | y | #1054 | a047ea7e7d1e | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
-| `channel post` |  |  | y | #1054 | 5c5190955ad4 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
-| `channel read` |  |  | y | #1054 | eae328c92ee4 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
+| `channel post` |  |  | y | #1054 | f1eef0e1083e |  | unread |  |
+| `channel read` |  |  | y | #1054 | 3ff3a815c375 |  | unread |  |
 | `channel read-state` |  |  | y | #1054 | 714fc8e84738 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
 | `channel register` |  |  | n | #1054 | 661766a86d20 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
 | `channel register add` |  |  | y | #1054 | a04d7847f25e | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
@@ -479,9 +479,9 @@ section between the markers.
 | `chat config show` |  |  | y | #1054 | 2763619e2223 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
 | `chat doctor` |  |  | y | #1054 | 2f238e03fe37 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
 | `chat post` |  |  | y | #1054 | 7dbaaa941d53 | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
-| `chat read` | pull |  | y | #1054 | 6eba1782948b | Cameron | pass | [pass 3](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:cameron-pass3) |
-| `chat served-prompts` |  |  | y | #1054 | c5e8360790c8 |  | unread |  |
-| `chat tool-choice` |  |  | y | #1054 | 2cc7a5f10b02 |  | unread |  |
+| `chat read` | pull |  | y | #1054 | 837e2e5a8bcb |  | unread |  |
+| `chat served-prompts` |  |  | y | #1054 | 2f06d5c54da5 |  | unread |  |
+| `chat tool-choice` |  |  | y | #1054 | 7579a9d1656b |  | unread |  |
 | `team` |  |  | n | #1054 | be215c430bd0 |  | unread |  |
 | `team alarm` |  |  | y | #1054 | d05b0126d4f8 |  | unread |  |
 | `team alarm ack` |  |  | y | #1054 | 29d38a098bfe |  | unread |  |
@@ -664,14 +664,14 @@ section between the markers.
 <!-- group:1055 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `coding` |  |  | n | #1055 | edf864cc00d2 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
+| `coding` |  |  | n | #1055 | 373a8149a64e |  | unread |  |
 | `coding preflight` |  |  | n | #1055 | 18abafa1eb3a | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `coding preflight create` | add |  | y | #1055 | 467f87794bc8 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `coding preflight lint` | check, validate |  | y | #1055 | c87cb2bcfa37 |  | unread |  |
 | `coding preflight list` | ls |  | y | #1055 | b51cba534fd6 |  | unread |  |
 | `coding preflight route` |  |  | y | #1055 | 2e3555e7b1d0 |  | unread |  |
 | `coding review` |  |  | n | #1055 | 38f3548a9e27 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `coding review create` | add |  | y | #1055 | 6e3a909e8e2b | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
+| `coding review create` | add |  | y | #1055 | 73dabfaa7167 |  | unread |  |
 | `coding review lint` | check, validate |  | y | #1055 | 6cda36132814 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `coding review list` | ls |  | y | #1055 | 33751eace0a9 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `coding review run` |  |  | y | #1055 | b52a5b535d4f | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
@@ -824,7 +824,7 @@ section between the markers.
 | `orca host` |  |  | n | #1396 | e77c3c207ec4 |  | unread |  |
 | `orca host plan` |  |  | n | #1396 | 262800770765 |  | unread |  |
 | `orca terminal` |  |  | n | #1396 | 10be515f1d47 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
-| `orca terminal status` |  |  | y | #1396 | b61334b2b45c | Cooper | pass | [reassessment](https://github.com/hadron-memory/hadron-cli/issues/1398#issuecomment-7056901374) |
+| `orca terminal status` |  |  | y | #1396 | f062c86bbce8 |  | unread |  |
 | `slack` |  |  | y | #1396 | baba7964884b | Cooper | pass | [reassessment](https://github.com/hadron-memory/hadron-cli/issues/1399#issuecomment-7056901601) |
 | `slack connect` |  |  | y | #1396 | 38c56732986c |  | unread |  |
 | `slack disconnect` |  |  | y | #1396 | 8c3d825bd291 |  | unread |  |

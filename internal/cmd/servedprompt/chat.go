@@ -47,8 +47,8 @@ Use the returned total to choose another offset. Independent --provenance-limit
 revision numbers, hashes and pruning flags, never source bodies. servedRevSeq
 is the compiled node's served revision; provenanceRevSeq is the compile behind
 it. Pruned revisions remain recorded. Separate page requests do not promise
-one database snapshot. Requires a server containing hadron-server#2865
-(2026-10-30); an older provider refuses the query as schema skew.
+one database snapshot. Requires a server released on or after
+2026-10-30; an older server refuses the query as schema skew.
 ` + historyLintHelp,
 		Example: `  # Replace the id with the chatbot chat's id from the application.
   hadron chat served-prompts 01234567-89ab-4cde-8f01-23456789abcd --json
