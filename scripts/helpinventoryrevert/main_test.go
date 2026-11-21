@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmd"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/helpinventory"
 )
 
 const hdr = "| path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |\n|---|---|---|---|---|---|---|---|---|\n"
@@ -49,7 +53,7 @@ func TestMergeBaseNotMainIsTheComparison2648(t *testing.T) {
 	run(t, dir, "checkout", "-q", "main")
 	commit(t, dir, inv("pass", "Gil", "[x](u)"), "main: row flipped to pass")
 
-	bad, mb, err := check(dir, "main", "pr")
+	bad, mb, err := check(dir, "main", "pr", nil)
 	if err != nil || mb == "" {
 		t.Fatalf("check: %v", err)
 	}
@@ -69,7 +73,7 @@ func TestRevertSinceTheMergeBaseIsCaught2648(t *testing.T) {
 	run(t, dir, "checkout", "-q", "main")
 	commit(t, dir, inv("pass", "Gil", "[x](u)")+"\n<!-- main edit -->\n", "main: unrelated edit")
 
-	bad, _, err := check(dir, "main", "pr")
+	bad, _, err := check(dir, "main", "pr", nil)
 	if err != nil || len(bad) != 1 || !strings.Contains(bad[0], "`a`") {
 		t.Fatalf("want the one reverted row: %v %v", bad, err)
 	}
@@ -81,7 +85,7 @@ func TestUnreadableRevisionIsAnError2648(t *testing.T) {
 	dir := t.TempDir()
 	run(t, dir, "init", "-q", "-b", "main")
 	commit(t, dir, inv("pass", "Gil", "[x](u)"), "base")
-	if _, _, err := check(dir, "main", "no-such-ref"); err == nil {
+	if _, _, err := check(dir, "main", "no-such-ref", nil); err == nil {
 		t.Fatal("a ref git cannot resolve must fail the check")
 	}
 	if _, err := readInventory(dir, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"); err == nil || err == errNoFile {
@@ -97,7 +101,66 @@ func TestUnreadableRevisionIsAnError2648(t *testing.T) {
 	run(t, d2, "commit", "-q", "-m", "no inventory")
 	run(t, d2, "checkout", "-q", "-b", "pr")
 	commit(t, d2, inv("pass", "Gil", "[x](u)"), "pr adds the inventory")
-	if bad, _, err := check(d2, "main", "pr"); err != nil || len(bad) != 0 {
+	if bad, _, err := check(d2, "main", "pr", nil); err != nil || len(bad) != 0 {
 		t.Fatalf("a new inventory is not a revert: %v %v", bad, err)
+	}
+}
+
+// cli#2699 through the real git read: the PR deletes an assessed row. With the command
+// still in the live tree the check fails and names the row and the command (red on main,
+// where Reverts skipped any base row absent from head); with the command gone from the tree
+// the deletion passes. A mutant that ignores the live set turns the first red; one that
+// names every deleted row turns the second red.
+func TestDeletedAssessedRowIsCaughtOnlyWhileItsCommandExists2699(t *testing.T) {
+	dir := t.TempDir()
+	run(t, dir, "init", "-q", "-b", "main")
+	commit(t, dir, inv("pass", "Gil", "[x](u)"), "base: row passed")
+	run(t, dir, "checkout", "-q", "-b", "pr")
+	commit(t, dir, hdr+"| `other` |  |  | y | #1 | h9 |  | unread |  |\n", "pr: a bad resolution drops the assessed row")
+
+	bad, _, err := check(dir, "main", "pr", map[string]bool{"a": true, "other": true})
+	if err != nil || len(bad) != 1 || !strings.Contains(bad[0], "`a`") || !strings.Contains(bad[0], "hadron a") || !strings.Contains(bad[0], "deleted") {
+		t.Fatalf("a deleted assessed row for a surviving command must be named with its command: %v %v", bad, err)
+	}
+	bad, _, err = check(dir, "main", "pr", map[string]bool{"other": true})
+	if err != nil || len(bad) != 0 {
+		t.Fatalf("a row deleted together with its command must pass: %v %v", bad, err)
+	}
+}
+
+// The live tree is the real one: the pages the real root reports include the generated
+// pages and the root under the spelling the inventory uses, and a few stable commands.
+// (Not an equality with docs/help-inventory.md: that file legitimately lags a PR that adds a
+// command, cli#2310.)
+func TestRealCommandTreeSpellingMatchesTheInventory2699(t *testing.T) {
+	live := helpinventory.LivePaths(cmd.NewRootCmd(cmdutil.NewFactory()))
+	for _, want := range []string{"(root)", "help", "completion", "node", "node get", "memory", "auth login", "agent subscription"} {
+		if !live[want] {
+			t.Errorf("the live tree lacks the page %q", want)
+		}
+	}
+	doc, err := os.ReadFile(filepath.Join("..", "..", file))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := helpinventory.Parse(string(doc))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Every generated row and every group row the inventory lists that the tree still has
+	// must read as live: the spelling of a path in a row is the spelling LivePaths uses.
+	for _, r := range []string{"(root)", "help", "completion"} {
+		if _, ok := rows[r]; !ok {
+			t.Errorf("the inventory has no %q row", r)
+		}
+	}
+	missing := 0
+	for path := range rows {
+		if !live[path] {
+			missing++
+		}
+	}
+	if missing > len(rows)/10 {
+		t.Errorf("%d of %d inventory paths are not in the live tree: the path spelling disagrees", missing, len(rows))
 	}
 }

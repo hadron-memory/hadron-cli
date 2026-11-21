@@ -133,11 +133,9 @@ func TestHelpInventoryCheckComparesTheWholeFile2310(t *testing.T) {
 	}
 }
 
-// cli#2648 (blind P2-2): the revert check ignores a row that is GONE from the
-// head (a command may legitimately be removed), so a merge that deletes an
-// assessed row is left to help-inventory-check. Pinned here as the CI pipeline
-// runs it: the deletion is invisible to the revert check and fails the drift
-// check, because the generator re-emits every command-tree row (as unread, with
+// cli#2648 (blind P2-2): a merge that deletes an assessed row. Pinned here as the CI
+// pipeline runs it: since cli#2699 the revert check names it when the command still
+// exists, and it also fails the drift check, because the generator re-emits every command-tree row (as unread, with
 // the human columns carried over only from a row that still exists). A mutant
 // that dropped the whole-file diff, or made the generator skip rows absent from
 // the committed file, turns the last assertion red.
@@ -170,8 +168,14 @@ func TestDeletedAssessedRowFailsTheCheckPipeline2648(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := helpinventory.Reverts(baseRows, headRows); len(got) != 0 {
-		t.Fatalf("the revert check must leave a deleted row to the drift check: %v", got)
+	// cli#2699: with the live command tree the revert check now names the deletion too (the
+	// row's command still exists), so a bad resolution fails per-PR CI, not only the
+	// drift check; a command that is really gone is still left alone.
+	if got := helpinventory.Reverts(baseRows, headRows, map[string]bool{"alpha two": true}); len(got) != 1 || !strings.Contains(got[0], "`alpha two`") {
+		t.Fatalf("the revert check must name a deleted assessed row whose command still exists: %v", got)
+	}
+	if got := helpinventory.Reverts(baseRows, headRows, map[string]bool{}); len(got) != 0 {
+		t.Fatalf("a deleted row for a removed command must pass the revert check: %v", got)
 	}
 	if out, err := check2310(t, dir, head); err == nil || !strings.Contains(out, "help-inventory drift") {
 		t.Fatalf("a deleted assessed row must fail help-inventory-check: %v\n%s", err, out)

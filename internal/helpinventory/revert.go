@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/spf13/cobra"
 )
 
 // Row is one inventory row: the command path, its help hash and the three
@@ -66,22 +68,70 @@ func Parse(doc string) (map[string]Row, error) {
 	return rows, nil
 }
 
+// rootPath is the inventory path of the root command page.
+const rootPath = "(root)"
+
+// LivePaths returns the inventory paths of the command pages that exist in the live
+// cobra command tree built from the CLI's own root (cli#2699): the same set of pages
+// the generator walks with `hadron <path> --help`, spelled the way an inventory row
+// spells them. A page is a command cobra lists (cobra's own IsAvailableCommand: not
+// hidden, not deprecated, runnable or with a listed child), found by its canonical
+// name (an alias is a column of its target's row, never a path); the root is "(root)".
+// cobra adds the help and completion commands when a command runs, not when the root
+// is built, so the two `generated` pages the inventory lists are added by name.
+func LivePaths(root *cobra.Command) map[string]bool {
+	live := map[string]bool{rootPath: true, "help": true, "completion": true}
+	var walk func(c *cobra.Command, prefix string)
+	walk = func(c *cobra.Command, prefix string) {
+		for _, ch := range c.Commands() {
+			if !ch.IsAvailableCommand() {
+				continue
+			}
+			path := ch.Name()
+			if prefix != "" {
+				path = prefix + " " + ch.Name()
+			}
+			live[path] = true
+			walk(ch, path)
+		}
+	}
+	walk(root, "")
+	return live
+}
+
 // Reverts lists the rows a change put back from an assessed state while the
-// help text did not change. base is the inventory at the merge base, head the
-// inventory under check. A row is a revert when its help-hash is the same in
-// both, base had it assessed (result pass or fail), and head now reads unread or
-// has lost its evaluator or finding. A changed hash is the one legitimate reset
-// (the help really changed), and unread to pass stays allowed. Measuring against
-// the merge base, not current main, is what keeps a PR that is merely behind
-// main from failing for main's newer flips.
-func Reverts(base, head map[string]Row) []string {
+// help text did not change, and the assessed rows it deleted while their command
+// still exists. base is the inventory at the merge base, head the inventory under
+// check, live the command pages of the live command tree (LivePaths).
+//
+// A row is a revert when its help-hash is the same in both, base had it assessed
+// (result pass or fail), and head now reads unread or has lost its evaluator or
+// finding. A changed hash is the one legitimate reset (the help really changed),
+// and unread to pass stays allowed. Measuring against the merge base, not current
+// main, is what keeps a PR that is merely behind main from failing for main's
+// newer flips.
+//
+// A base row that is assessed and ABSENT from head is a deletion. When its command
+// path is still live it is a bad merge resolution (a regeneration would have kept the
+// row, as unread, so only a hand edit or a bad resolution can drop it): the check names
+// the row and the command. When the command is no longer live (a command may be
+// removed) the deletion is allowed. A nil live set means the command tree is unknown,
+// and the deletion rule is then inert (every command reads as removed), so a caller
+// that wants the rule must pass the tree.
+func Reverts(base, head map[string]Row, live map[string]bool) []string {
 	var out []string
 	for path, b := range base {
-		h, ok := head[path]
-		if !ok || b.Hash == "" || h.Hash != b.Hash {
+		if b.Result != "pass" && b.Result != "fail" {
 			continue
 		}
-		if b.Result != "pass" && b.Result != "fail" {
+		h, ok := head[path]
+		if !ok {
+			if live[path] {
+				out = append(out, fmt.Sprintf("`%s`: assessed row (%s by %s) deleted while the command `%s` still exists in the command tree, help hash %s at the merge base", path, b.Result, evaluatorOrDash(b.Evaluator), commandOf(path), b.Hash))
+			}
+			continue
+		}
+		if b.Hash == "" || h.Hash != b.Hash {
 			continue
 		}
 		switch {
@@ -95,4 +145,19 @@ func Reverts(base, head map[string]Row) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+func evaluatorOrDash(e string) string {
+	if e == "" {
+		return "-"
+	}
+	return e
+}
+
+// commandOf names the command a row path stands for, as a user types it.
+func commandOf(path string) string {
+	if path == rootPath {
+		return "hadron"
+	}
+	return "hadron " + path
 }
