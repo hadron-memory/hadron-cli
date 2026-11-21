@@ -27,7 +27,7 @@ type catalogueDTO struct {
 func NewCmdMarketplace(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "marketplace <command>", Short: "Browse the public resource catalogue", Long: `Browse agents, memories and organizations advertised in the public catalogue.
 Listing is opt-in and separate from access: unlisted but public resources can
-still be opened by link, but do not appear here (cor:acl:080:04). The server
+still be opened by link, but do not appear here. The server
 applies every eligibility rule. No App/org/worktree filter is inherited.
 
 To list or unlist your own, use "hadron agent update --listed-on-marketplace",

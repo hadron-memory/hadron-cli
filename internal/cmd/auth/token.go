@@ -321,8 +321,8 @@ A revoked token you hid with "hide" is left out; --include-hidden brings it
 back (the JSON hiddenAt says when you hid it, null for a visible one).
 
 Automatically reads every page. A later-page error fails
-without a partial inventory. Requires server 2026-11-02 (hadron-server#3189)
-or later; there is no unpaged fallback.
+without a partial inventory. Requires a server released on or after
+2026-11-02; there is no unpaged fallback.
 
 This is not a snapshot: concurrent key changes can shift pages. A changed
 count or repeated ID fails without a partial inventory; equal-count changes
