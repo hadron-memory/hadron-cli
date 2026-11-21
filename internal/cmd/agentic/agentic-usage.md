@@ -5215,7 +5215,7 @@ confirmed". A missing or blank `--connection` or id exits 2 with no request; ids
   BAD_USER_INPUT, GraphQL validation) is definitive; any other GraphQL error, and any answer with no
   usable GraphQL error at all (a dropped connection, a timeout, a bad HTTP answer), carries "outcome
   unknown ... check the Sent folder" (never "failed": the mail may have been sent) and the CLI does
-  not retry. Draft send has no body and keeps the server's words. There is no idempotency key on reply.
+  not retry. Draft send has no body and keeps the server's words. If the SERVER confirmed an effect but writing the result then fails (a closed stdout), the error says the server confirmed it and where to check (Drafts or Sent folder) before any retry. There is no idempotency key on reply.
 - `email draft save` calls emailSaveDraft: a reply-draft with `--reply-to` ALONE, or a fresh one with
   `--to` (repeatable) AND `--subject` (any other combination exits 2 with no request and before the
   body is read); the body is HTML sent as written. It prints {draftId,conversationId}
@@ -5235,8 +5235,8 @@ confirmed". A missing or blank `--connection` or id exits 2 with no request; ids
   `--idempotency-key` passed unchanged, an ambiguous result is "outcome unknown, check the Sent
   folder".
 - `email mark-read` (emailMarkRead; `--unread` sends isRead:false, unset omits it), `email flag`
-  (emailFlagMessage; `--flag FLAGGED|NONE|COMPLETE`, unset omits it, anything else exits 2 with no
-  request), `email categorize` (emailCategorizeMessage; repeatable `--category`, or `--clear` for an
+  (emailFlagMessage; `--flag FLAGGED|NONE|COMPLETE`, accepted in any case with surrounding space ignored, unset omits it,
+  anything else exits 2 with no request), `email categorize` (emailCategorizeMessage; repeatable `--category`, or `--clear` for an
   explicit empty list; neither or both exits 2), `email move --folder FOLDER-ID` (exchangeMoveMessage;
   the folder id is the one `email folders` prints), `email delete` (emailDeleteMessage, provider
   trash semantics; asks y/N, else `--yes` or exit 2 with no request). `--json` for these is

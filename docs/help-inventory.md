@@ -770,7 +770,7 @@ section between the markers.
 | `email draft save` |  |  | y | #1184 | 53ebf6184d5c |  | unread |  |
 | `email draft send` |  |  | y | #1184 | e49aa054d1a6 |  | unread |  |
 | `email draft update` |  |  | y | #1184 | 5a699482870a |  | unread |  |
-| `email flag` |  |  | y | #1184 | abb9353538e5 |  | unread |  |
+| `email flag` |  |  | y | #1184 | 312e56b06c5c |  | unread |  |
 | `email folders` |  |  | y | #1184 | db3262aa8275 |  | unread |  |
 | `email mark-read` |  |  | y | #1184 | 205480bda8dd |  | unread |  |
 | `email messages` |  |  | y | #1184 | 915687038e25 |  | unread |  |

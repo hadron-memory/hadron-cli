@@ -237,15 +237,25 @@ type actionDTO struct {
 }
 
 // writeConfirmedAction renders a confirmed action, or the unconfirmed refusal.
-func writeConfirmedAction(f *cmdutil.Factory, confirmed bool, dto actionDTO, line string, unconfirmed string) error {
+func writeConfirmedAction(f *cmdutil.Factory, confirmed bool, where string, dto actionDTO, line string, unconfirmed string) error {
 	if !confirmed {
 		return exitcode.Newf(exitcode.Unavailable, "%s", unconfirmed)
 	}
 	dto.OK = true
-	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		_, e := fmt.Fprintln(w, line)
 		return e
-	})
+	}); err != nil {
+		return confirmedButUnwritten(err, where)
+	}
+	return nil
+}
+
+// confirmedButUnwritten is the failure of writing a result AFTER the server confirmed
+// the effect: the effect happened, so the error says so and where to check, and the
+// caller does not retry blindly (a retry could send twice or make a second draft).
+func confirmedButUnwritten(err error, where string) error {
+	return exitcode.Newf(exitcode.Error, "the server confirmed the action, but writing the result failed (%v); do not retry blindly: check %s first", err, where)
 }
 
 func connFlag(c *cobra.Command, v *string) {
@@ -304,7 +314,7 @@ Details:
 			if err != nil {
 				return bodyFailure(err, unknownOutcome("Sent folder"))
 			}
-			return writeConfirmedAction(f, r != nil && r.ExchangeReply, actionDTO{ConnectionID: conn, MessageID: msg, Action: "reply"},
+			return writeConfirmedAction(f, r != nil && r.ExchangeReply, "the Sent folder", actionDTO{ConnectionID: conn, MessageID: msg, Action: "reply"},
 				fmt.Sprintf("reply to message %q sent (server confirmed)", msg),
 				"the server did not confirm the reply: outcome unknown, check the Sent folder before trying again")
 		}}
@@ -399,10 +409,13 @@ Details:
 			// never prints back is the body, in anything it renders itself or takes from
 			// a server error.
 			dto := draftDTO{DraftID: d.DraftId, ConversationID: d.ConversationId}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, e := fmt.Fprintf(w, "draft saved: %q (not sent)\n", dto.DraftID)
 				return e
-			})
+			}); err != nil {
+				return exitcode.Newf(exitcode.Error, "the server confirmed it created the draft %q, but writing the result failed (%v); do not retry blindly: check the Drafts folder first", dto.DraftID, err)
+			}
+			return nil
 		}}
 	connFlag(c, &connection)
 	c.Flags().StringVar(&bodyFile, "body-file", "", "file holding the HTML body, or - for stdin (required)")
@@ -445,7 +458,7 @@ Details:
 			if err != nil {
 				return bodyFailure(err, "")
 			}
-			return writeConfirmedAction(f, r != nil && r.EmailUpdateDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-update"},
+			return writeConfirmedAction(f, r != nil && r.EmailUpdateDraft, "the draft", actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-update"},
 				fmt.Sprintf("draft %q updated (not sent)", id), "the server did not confirm the draft update; read the draft back to see its body")
 		}}
 	connFlag(c, &connection)
@@ -495,7 +508,7 @@ Details:
 			if err != nil {
 				return sendFailure(err, "Sent folder")
 			}
-			return writeConfirmedAction(f, r != nil && r.EmailSendDraft, actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-send"},
+			return writeConfirmedAction(f, r != nil && r.EmailSendDraft, "the Sent folder", actionDTO{ConnectionID: conn, DraftID: id, Action: "draft-send"},
 				fmt.Sprintf("draft %q sent (server confirmed)", id),
 				"the server did not confirm the send: outcome unknown, check the Sent folder before trying again")
 		}}
@@ -534,7 +547,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return writeConfirmedAction(f, r != nil && r.EmailMarkRead, actionDTO{ConnectionID: conn, MessageID: msg, Action: "mark-read"},
+			return writeConfirmedAction(f, r != nil && r.EmailMarkRead, "the message", actionDTO{ConnectionID: conn, MessageID: msg, Action: "mark-read"},
 				fmt.Sprintf("message %q updated (server confirmed)", msg), "the server did not confirm the change; read the message back to see its state")
 		}}
 	connFlag(c, &connection)
@@ -555,7 +568,8 @@ func newFlag(f *cmdutil.Factory) *cobra.Command {
 	var connection, flag string
 	c := &cobra.Command{Use: "flag <message-id> --connection <id> [--flag FLAGGED|NONE|COMPLETE]", Short: "Flag, unflag or complete a message", Args: cobra.ExactArgs(1),
 		Long: `Set a message's flag: FLAGGED (the default when you give none), NONE to clear it, or
-COMPLETE to mark it done. Only the mailbox's owner (or an App with a covering
+COMPLETE to mark it done. The value is accepted in any case and surrounding whitespace
+is ignored; anything else exits 2 with no request. Only the mailbox's owner (or an App with a covering
 grant) may. One request, never retried.
 
 Details:
@@ -585,7 +599,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return writeConfirmedAction(f, r != nil && r.EmailFlagMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "flag"},
+			return writeConfirmedAction(f, r != nil && r.EmailFlagMessage, "the message", actionDTO{ConnectionID: conn, MessageID: msg, Action: "flag"},
 				fmt.Sprintf("message %q flag updated (server confirmed)", msg), "the server did not confirm the change; read the message back to see its flag")
 		}}
 	connFlag(c, &connection)
@@ -632,7 +646,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return writeConfirmedAction(f, r != nil && r.EmailCategorizeMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "categorize"},
+			return writeConfirmedAction(f, r != nil && r.EmailCategorizeMessage, "the message", actionDTO{ConnectionID: conn, MessageID: msg, Action: "categorize"},
 				fmt.Sprintf("message %q categories set (server confirmed)", msg), "the server did not confirm the change; read the message back to see its categories")
 		}}
 	connFlag(c, &connection)
@@ -669,7 +683,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return writeConfirmedAction(f, r != nil && r.EmailDeleteMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "delete"},
+			return writeConfirmedAction(f, r != nil && r.EmailDeleteMessage, "the mailbox", actionDTO{ConnectionID: conn, MessageID: msg, Action: "delete"},
 				fmt.Sprintf("message %q deleted (server confirmed)", msg), "the server did not confirm the delete; read the folder to see whether the message is still there")
 		}}
 	connFlag(c, &connection)
@@ -704,7 +718,7 @@ Details:
 			if err != nil {
 				return api.MapError(err)
 			}
-			return writeConfirmedAction(f, r != nil && r.ExchangeMoveMessage, actionDTO{ConnectionID: conn, MessageID: msg, Action: "move"},
+			return writeConfirmedAction(f, r != nil && r.ExchangeMoveMessage, "the folders", actionDTO{ConnectionID: conn, MessageID: msg, Action: "move"},
 				fmt.Sprintf("message %q moved (server confirmed)", msg), "the server did not confirm the move; read the folders to see where the message is")
 		}}
 	connFlag(c, &connection)
