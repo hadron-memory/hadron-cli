@@ -163,11 +163,11 @@ section between the markers.
 | `object get` |  |  | y | #1051 | b1d69137efe0 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `object update` |  |  | y | #1051 | b8cd5b0de76d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `question` |  |  | n | #1051 | 37558d6abc67 |  | unread |  |
-| `question amend` |  |  | y | #1051 | 03b8d226aed8 |  | unread |  |
+| `question amend` |  |  | y | #1051 | 6d263898d9cf |  | unread |  |
 | `question answer` |  |  | y | #1051 | 5989dc360e50 |  | unread |  |
 | `question ask` |  |  | y | #1051 | a5f46124c8df |  | unread |  |
 | `question get` |  |  | y | #1051 | d2cc5b6b5cc8 |  | unread |  |
-| `question list` | ls |  | y | #1051 | e71259ddda66 |  | unread |  |
+| `question list` | ls |  | y | #1051 | 5226b26a4ef3 |  | unread |  |
 | `question log` |  |  | n | #1051 | c71966a00115 |  | unread |  |
 | `question log create` |  |  | y | #1051 | 5e8e2792eb41 |  | unread |  |
 | `question log get` |  |  | y | #1051 | ea1ba800ff9d |  | unread |  |

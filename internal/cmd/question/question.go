@@ -315,15 +315,13 @@ type inputFlags struct {
 	file, title, background, tier, priority, assignee string
 }
 
-func addInputFlags(cmd *cobra.Command, in *inputFlags, withAssignee bool) {
+func addInputFlags(cmd *cobra.Command, in *inputFlags) {
 	cmd.Flags().StringVar(&in.file, "input-file", "", `a JSON object of input fields ("-" reads piped stdin); unknown, mis-cased and duplicate keys are refused`)
 	cmd.Flags().StringVar(&in.title, "title", "", "the question's title (overrides the file's)")
 	cmd.Flags().StringVar(&in.background, "background", "", "the background for the deciders, in markdown (overrides the file's)")
 	cmd.Flags().StringVar(&in.tier, "tier", "", "ANSWERED, APPROVED or SIGNED (overrides the file's; the server validates)")
 	cmd.Flags().StringVar(&in.priority, "priority", "", "LOW, NORMAL, HIGH or URGENT (overrides the file's)")
-	if withAssignee {
-		cmd.Flags().StringVar(&in.assignee, "assignee", "", "the user the question is routed to, by user ID (overrides the file's; must be one of its deciders)")
-	}
+	cmd.Flags().StringVar(&in.assignee, "assignee", "", "the user the question is routed to, by user ID (overrides the file's; must be one of its deciders)")
 }
 
 // fileData reads --input-file once, before any call; nil when it was not given.
@@ -428,6 +426,9 @@ EOF
 				input.Priority = &p
 			}
 			if cmd.Flags().Changed("assignee") {
+				if strings.TrimSpace(in.assignee) == "" {
+					return exitcode.Newf(exitcode.Usage, "--assignee is empty: give a user id")
+				}
 				input.Assignee = &in.assignee
 			}
 			client, err := f.GraphQLClient()
@@ -444,7 +445,7 @@ EOF
 			return writeQuestion(f, questionFrom(&resp.AskQuestion.QuestionFields), "✓ asked")
 		},
 	}
-	addInputFlags(cmd, &in, true)
+	addInputFlags(cmd, &in)
 	return cmd
 }
 
@@ -466,9 +467,10 @@ passed through unchanged:
              entry a reference: {"ref": "hadron-server#1640"}, {"node": "<id or
              URN>"} or {"spec": "<citation>"}
 
-An empty list ([]) clears that list, and "background", "whyNow", "assignee",
-"neededBy" or "defaultAction": null clears that value; leaving a key out keeps
-it. Answers never change here (question answer and question retract do that).
+An empty list ([]) clears that list ("options": [] makes the question free text),
+and "background", "whyNow", "assignee", "neededBy" or "defaultAction": null clears
+that value; leaving a key out keeps it. A null on any other key changes nothing and
+is refused (exit 2) naming the key. Answers never change here (question answer and question retract do that).
 Keys are exact and case-sensitive, and a key given twice is refused.
 --title, --background, --tier, --priority and --assignee set that field
 (overriding the file).
@@ -511,8 +513,14 @@ EOF
 				if err := finishInput(dec, dec.Decode(&input)); err != nil {
 					return err
 				}
+				if err := refuseAmendNulls(data); err != nil {
+					return err
+				}
 			}
 			fl := cmd.Flags()
+			if fl.Changed("assignee") && strings.TrimSpace(in.assignee) == "" {
+				return exitcode.Newf(exitcode.Usage, "--assignee is empty: give a user id (put \"assignee\": null in the file to clear it)")
+			}
 			if fl.Changed("title") {
 				input.Title = &in.title
 			}
@@ -549,7 +557,7 @@ EOF
 			return writeQuestion(f, questionFrom(&resp.AmendQuestion.QuestionFields), "✓ amended")
 		},
 	}
-	addInputFlags(cmd, &in, true)
+	addInputFlags(cmd, &in)
 	cmd.Flags().IntVar(&expected, "expected-revision", 0, "the question revision you read (required)")
 	cmd.Flags().StringVar(&reason, "reason", "", "why it changes (required)")
 	return cmd
@@ -783,8 +791,8 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List the questions of an App or a log, or those awaiting you",
 		Long: `List the questions of one App (--app: every question in the Memories of that App
 that you can read), of one log (--log), or with --awaiting-me the open questions
-you decide across every Memory you can read. Give one of the three, and not --app
-with --log. One page per call: --limit (server default 20) and --offset page
+you decide across every Memory you can read. Give at least one of the three (--awaiting-me
+may be combined with another), and not --app with --log. One page per call: --limit (server default 20) and --offset page
 through; total counts every match. The server derives each state before
 filtering; a list above 5000 candidates refuses a filter
 (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
@@ -824,8 +832,10 @@ The table is CODE STATE PRIORITY TIER ASSIGNEE REV TITLE; "N of M" goes to stder
 					}
 				}
 			}
-			if fl.Changed("assignee") && strings.TrimSpace(assignee) == "" {
-				return exitcode.Newf(exitcode.Usage, "--assignee is empty: give a user id")
+			for _, b := range []struct{ name, val string }{{"assignee", assignee}, {"asked-by-worker", askedByWorker}, {"asked-by-app", askedByApp}} {
+				if fl.Changed(b.name) && strings.TrimSpace(b.val) == "" {
+					return exitcode.Newf(exitcode.Usage, "--%s is empty: give an id", b.name)
+				}
 			}
 			var sinceVar *string
 			if fl.Changed("answered-since") {

@@ -6533,6 +6533,7 @@ only usage mistakes (exit 2) before any call.
   `background`, `whyNow`, `assignee`, `neededBy`, `defaultAction` (left out: unchanged);
   `blocks`, `sources`, `specsTouched`, `specsMustChange` are sent as `null` when left out
   ("unchanged") and an explicit `[]` clears; `"options": []` makes the question free text.
+  A `null` on any other key changes nothing and is refused (exit 2, before the call) naming the key.
   Ask's `deciders` is `null` when left out (the log's defaults). `ask` requires `--input-file`;
   `amend` refuses a change set with no fields (a `[]` clear counts as a change).
 - `answer` and `retract` are a decider's act: both send `via: CLI` themselves (not a flag) and

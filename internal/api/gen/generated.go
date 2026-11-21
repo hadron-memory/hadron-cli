@@ -22272,7 +22272,7 @@ type AmendQuestionInput struct {
 	DefaultAction    json.RawMessage                `json:"defaultAction,omitempty"`
 	NeededBy         json.RawMessage                `json:"neededBy,omitempty"`
 	NoRecommendation *QuestionNoRecommendationInput `json:"noRecommendation,omitempty"`
-	Options          []*QuestionOptionInput         `json:"options,omitempty"`
+	Options          []*QuestionOptionInput         `json:"options"`
 	Priority         *QuestionPriority              `json:"priority,omitempty"`
 	Recommendation   *QuestionRecommendationInput   `json:"recommendation,omitempty"`
 	Sources          []*QuestionRefInput            `json:"sources"`
@@ -149609,7 +149609,7 @@ fragment QuestionRefFields on QuestionRef {
 }
 `
 
-// blocks, sources, specsTouched and specsMustChange carry NO omitempty on purpose:
+// options, blocks, sources, specsTouched and specsMustChange carry NO omitempty on purpose:
 // the server reads null as "unchanged" and [] as "clear", so an absent key decodes
 // to nil and is sent as null, and an explicit [] clears. (omitempty: false is
 // explicit because use_struct_references adds it by default.)

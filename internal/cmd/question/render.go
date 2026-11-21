@@ -160,6 +160,7 @@ func writeLog(f *cmdutil.Factory, l questionLogDTO, verb string) error {
 		fmt.Fprintln(&b, head)
 		fmt.Fprintf(&b, "  prefix: %s  codes issued: %d  revision: %d\n", output.SafeCell(l.Prefix), l.LastCode, l.Revision)
 		fmt.Fprintf(&b, "  urn: %s\n", output.SafeCell(l.URN))
+		fmt.Fprintf(&b, "  memory: %s\n", output.SafeCell(l.MemoryID))
 		if l.PortalURL != nil {
 			fmt.Fprintf(&b, "  URL: %s\n", output.SafeCell(*l.PortalURL))
 		}

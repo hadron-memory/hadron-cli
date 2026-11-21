@@ -295,7 +295,7 @@ mutation AskQuestion(
   askQuestion(logRef: $logRef, input: $input) { ...QuestionFields }
 }
 
-# blocks, sources, specsTouched and specsMustChange carry NO omitempty on purpose:
+# options, blocks, sources, specsTouched and specsMustChange carry NO omitempty on purpose:
 # the server reads null as "unchanged" and [] as "clear", so an absent key decodes
 # to nil and is sent as null, and an explicit [] clears. (omitempty: false is
 # explicit because use_struct_references adds it by default.)
@@ -313,7 +313,7 @@ mutation AskQuestion(
 # @genqlient(for: "AmendQuestionInput.neededBy", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "AmendQuestionInput.defaultAction", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "AmendQuestionInput.noRecommendation", omitempty: true)
-# @genqlient(for: "AmendQuestionInput.options", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.options", omitempty: false)
 # @genqlient(for: "AmendQuestionInput.priority", omitempty: true)
 # @genqlient(for: "AmendQuestionInput.recommendation", omitempty: true)
 # @genqlient(for: "AmendQuestionInput.tier", omitempty: true)

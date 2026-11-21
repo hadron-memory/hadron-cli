@@ -644,3 +644,70 @@ func runQuestionRoot(t *testing.T, args ...string) (*questionCall, string, error
 	err := root.Execute()
 	return calls, out.String(), err
 }
+
+// Joshua's BLIND P2: "options": [] makes the question free text, so it must reach
+// the server as an empty list, not be omitted (omitempty would drop it and the
+// amend would report success having changed nothing).
+func TestQuestionAmendEmptyOptionsClearsAndAbsentLeavesThemAlone(t *testing.T) {
+	c, _, err := runQuestion(t, map[string]string{"AmendQuestion": `{"data":{"amendQuestion":` + questionJSON + `}}`},
+		"amend", "QA", "--expected-revision", "3", "--reason", "free text", "--input-file", writeJSONFile(t, `{"options":[]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := questionOnlyOp(t, c, "AmendQuestion")["input"].(map[string]any)
+	if got, ok := in["options"].([]any); !ok || len(got) != 0 {
+		t.Fatalf(`"options": [] must be sent as an empty list: %v`, in)
+	}
+	c, _, err = runQuestion(t, map[string]string{"AmendQuestion": `{"data":{"amendQuestion":` + questionJSON + `}}`},
+		"amend", "QA", "--expected-revision", "3", "--reason", "r", "--title", "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in = questionOnlyOp(t, c, "AmendQuestion")["input"].(map[string]any)
+	// An absent list is sent as null ("unchanged" on the server), never as [].
+	if v, ok := in["options"]; ok && v != nil {
+		t.Fatalf("an absent options must not clear: %v", in)
+	}
+}
+
+// Joshua's BLIND P2: a null on a key that clears nothing is refused, naming the
+// key, before any call (a key the file gives is sent or refused, never dropped);
+// the five clearable keys pass.
+func TestQuestionAmendRefusesANullThatClearsNothing(t *testing.T) {
+	for _, k := range []string{"title", "priority", "tier", "options", "blocks", "sources", "specsTouched", "specsMustChange", "recommendation", "noRecommendation", "yesno"} {
+		t.Run(k, func(t *testing.T) {
+			c, _, err := runQuestion(t, nil, "amend", "QA", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"`+k+`":null,"title":"t2"}`))
+			if k == "title" {
+				// title: null with a title given twice is a duplicate-key refusal: use a clean file.
+				c, _, err = runQuestion(t, nil, "amend", "QA", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"title":null,"tier":"APPROVED"}`))
+			}
+			if exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 || err == nil || !strings.Contains(err.Error(), `"`+k+`" is null`) {
+				t.Fatalf("want a usage error naming %q and no call: %v ops=%v", k, err, c.ops)
+			}
+		})
+	}
+	for _, k := range []string{"background", "whyNow", "assignee", "neededBy", "defaultAction"} {
+		c, _, err := runQuestion(t, map[string]string{"AmendQuestion": `{"data":{"amendQuestion":` + questionJSON + `}}`},
+			"amend", "QA", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"`+k+`":null}`))
+		if err != nil || len(c.ops) != 1 {
+			t.Fatalf("%s clears with null: %v ops=%v", k, err, c.ops)
+		}
+	}
+}
+
+// Joshua's BLIND P3: a blank id flag is refused before any call, like --assignee.
+func TestQuestionBlankIDFlagsAreRefusedBeforeAnyCall(t *testing.T) {
+	for name, args := range map[string][]string{
+		"list asked-by-worker": {"list", "--log", "l", "--asked-by-worker", " "},
+		"list asked-by-app":    {"list", "--log", "l", "--asked-by-app", ""},
+		"ask assignee":         {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t"}`), "--assignee", " "},
+		"amend assignee":       {"amend", "QA", "--expected-revision", "3", "--reason", "r", "--assignee", " "},
+	} {
+		t.Run(name, func(t *testing.T) {
+			c, _, err := runQuestion(t, nil, args...)
+			if exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+				t.Fatalf("want a usage error and no call: %v ops=%v", err, c.ops)
+			}
+		})
+	}
+}
