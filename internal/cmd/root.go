@@ -618,10 +618,14 @@ func renderError(f *cmdutil.Factory, err error) int {
 	return code
 }
 
-// writeBlockerLines prints a clone refusal's blocker lines, one per line, indented. (cli#2857)
+// writeBlockerLines prints a clone refusal's blocker lines, one per line, indented. Each line
+// goes through output.SafeError at this render site (cli#2857), like the message and the details
+// above it: api.CloneAgentBlockerLines already neutralises each part (defense in depth), and the
+// escape sequences and control characters it could miss become nothing or a space, never a
+// dropped line or a blanked name (cor:dmo:050:18).
 func writeBlockerLines(w io.Writer, lines []string) {
 	for _, line := range lines {
-		fmt.Fprintf(w, "  %s\n", line)
+		fmt.Fprintf(w, "  %s\n", output.SafeError(line))
 	}
 }
 
