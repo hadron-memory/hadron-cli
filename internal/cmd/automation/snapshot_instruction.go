@@ -78,8 +78,8 @@ type snapshotRawPage struct {
 	hasMore bool
 }
 
-// rawSnapshotPage collects a generated page's rows as their shared fragment.
-func rawSnapshotPage[T any](items []*T, fields func(*T) *gen.AutomationTeamSnapshotGrantFields, total int, hasMore bool) *snapshotRawPage {
+// snapshotPageOf collects a generated page's rows as their shared fragment.
+func snapshotPageOf[T any](items []*T, fields func(*T) *gen.AutomationTeamSnapshotGrantFields, total int, hasMore bool) *snapshotRawPage {
 	p := &snapshotRawPage{total: total, hasMore: hasMore}
 	for _, g := range items {
 		if g == nil {
@@ -93,7 +93,9 @@ func rawSnapshotPage[T any](items []*T, fields func(*T) *gen.AutomationTeamSnaps
 
 // fetchSnapshotPage sends one list request: the legacy person or instructed
 // document when no trigger filter is set (their bytes unchanged), else the
-// matching ByTrigger document. A nil page is the server returning none.
+// matching ByTrigger document. The result is (nil, nil) when the server answers
+// without a page or without the list field; page turns that into an error, so
+// no caller sees a nil page as success.
 func (i actInstruction) fetchSnapshotPage(ctx context.Context, client graphql.Client, app string, include *bool, trigger snapshotTriggerFilter, limit, offset int) (*snapshotRawPage, error) {
 	switch {
 	case i.input == nil && !trigger.set():
@@ -102,7 +104,7 @@ func (i actInstruction) fetchSnapshotPage(ctx context.Context, client graphql.Cl
 			return nil, e
 		}
 		p := r.AutomationTeamSnapshotGrants
-		return rawSnapshotPage(p.Items, func(g *gen.AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
+		return snapshotPageOf(p.Items, func(g *gen.AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
 			return &g.AutomationTeamSnapshotGrantFields
 		}, p.Total, p.HasMore), nil
 	case i.input == nil:
@@ -111,7 +113,7 @@ func (i actInstruction) fetchSnapshotPage(ctx context.Context, client graphql.Cl
 			return nil, e
 		}
 		p := r.AutomationTeamSnapshotGrants
-		return rawSnapshotPage(p.Items, func(g *gen.AutomationTeamSnapshotGrantsByTriggerAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
+		return snapshotPageOf(p.Items, func(g *gen.AutomationTeamSnapshotGrantsByTriggerAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
 			return &g.AutomationTeamSnapshotGrantFields
 		}, p.Total, p.HasMore), nil
 	case !trigger.set():
@@ -120,7 +122,7 @@ func (i actInstruction) fetchSnapshotPage(ctx context.Context, client graphql.Cl
 			return nil, e
 		}
 		p := r.AutomationTeamSnapshotGrants
-		return rawSnapshotPage(p.Items, func(g *gen.AutomationTeamSnapshotGrantsInstructedAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
+		return snapshotPageOf(p.Items, func(g *gen.AutomationTeamSnapshotGrantsInstructedAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
 			return &g.AutomationTeamSnapshotGrantFields
 		}, p.Total, p.HasMore), nil
 	default:
@@ -129,7 +131,7 @@ func (i actInstruction) fetchSnapshotPage(ctx context.Context, client graphql.Cl
 			return nil, e
 		}
 		p := r.AutomationTeamSnapshotGrants
-		return rawSnapshotPage(p.Items, func(g *gen.AutomationTeamSnapshotGrantsByTriggerInstructedAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
+		return snapshotPageOf(p.Items, func(g *gen.AutomationTeamSnapshotGrantsByTriggerInstructedAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) *gen.AutomationTeamSnapshotGrantFields {
 			return &g.AutomationTeamSnapshotGrantFields
 		}, p.Total, p.HasMore), nil
 	}

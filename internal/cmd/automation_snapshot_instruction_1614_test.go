@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -93,6 +94,11 @@ func TestSnapshotInstruction1614RevokeWire(t *testing.T) {
 		case "AutomationTeamSnapshotGrantsInstructed":
 			if c.Variables["includeRevoked"] != true || len(c.Variables) != 5 {
 				t.Errorf("lookup vars: %+v", c.Variables)
+			}
+			// cli#2850: the revoke lookup passes an empty trigger filter, so it still
+			// sends the legacy instructed document, not a ByTrigger one.
+			if c.Query != gen.AutomationTeamSnapshotGrantsInstructed_Operation || strings.Contains(c.Query, "$trigger") {
+				t.Errorf("lookup is not the legacy instructed document: %q", c.Query)
 			}
 			return `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`
 		case "RevokeAutomationTeamSnapshotGrantInstructed":
