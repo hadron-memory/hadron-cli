@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,12 +17,39 @@ import (
 )
 
 // cli#2786: pins for the cli#2404 private-child guards. Everything here runs a
-// private copy of THIS test binary (never a real host Orca) under a hard bound,
-// and every refusal case passes `-test.run=^$` as its argv so a guard that
-// fails open falls into an empty test run and exits instead of recursing into
-// the suite or hanging.
+// private copy of THIS test binary (never a real host Orca) under a hard bound.
+// Every such child carries noReentryEnv2786: if a guard regresses and lets the
+// process fall through to the test runner, TestMain (failIfUnclaimed2786) exits
+// 3 before m.Run, so a fail-open guard FAILS a pin quickly instead of recursing
+// into the suite. The bound is a backstop for a child that hangs.
 
-const ambientTrapEnv2786 = "HADRON_TEST_2786_TRAP_MARKER"
+const (
+	ambientTrapEnv2786 = "HADRON_TEST_2786_TRAP_MARKER"
+	noReentryEnv2786   = "HADRON_TEST_2786_NO_REENTRY"
+)
+
+// failIfUnclaimed2786 runs in TestMain after every guard: a process started with
+// the no-reentry sentinel that reaches it was claimed by no guard, so it must
+// not run the suite.
+func failIfUnclaimed2786() {
+	if os.Getenv(noReentryEnv2786) == "1" {
+		fmt.Fprintln(os.Stderr, "no guard claimed this private child; refusing to re-enter the test runner")
+		os.Exit(3)
+	}
+}
+
+// cleanEnv2786 is the parent's environment without anything that could point a
+// child at a real host Orca or carry a credential (HADRON_*, ORCA_*).
+func cleanEnv2786() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "HADRON_") || strings.HasPrefix(kv, "ORCA_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return env
+}
 
 // runAmbientTrap2786 makes a copy of the test binary named orca/orca.exe, in a
 // directory that is not the private inert one, behave as an "ambient" Orca: it
@@ -30,10 +58,14 @@ const ambientTrapEnv2786 = "HADRON_TEST_2786_TRAP_MARKER"
 func runAmbientTrap2786() {
 	marker := os.Getenv(ambientTrapEnv2786)
 	exe, err := os.Executable()
-	if marker == "" || err != nil || strings.TrimSuffix(strings.ToLower(filepath.Base(exe)), ".exe") != "orca" {
+	if marker == "" || err != nil || strings.TrimSuffix(strings.ToLower(filepath.Base(exe)), ".exe") != "orca" ||
+		strings.HasPrefix(filepath.Base(filepath.Dir(exe)), inertSweepOrcaDirPrefix2404) { // never the private inert Orca
 		return
 	}
-	_ = os.WriteFile(marker, []byte("x"), 0o600)
+	if err := os.WriteFile(marker, []byte("x"), 0o600); err != nil {
+		fmt.Fprintln(os.Stderr, "ambient trap could not record that it was reached:", err)
+		os.Exit(4)
+	}
 	_, _ = os.Stdout.WriteString(`{"ok":true,"result":{"terminals":[{"handle":"path-trap"}]}}`)
 	os.Exit(0)
 }
@@ -49,7 +81,7 @@ func orcaName2786() string {
 // directory the inert guard recognizes by prefix, the way the installer does.
 func privateOrca2786(t *testing.T) string {
 	t.Helper()
-	dir, err := os.MkdirTemp("", "hadron-test-orca-2404-")
+	dir, err := os.MkdirTemp("", inertSweepOrcaDirPrefix2404)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,19 +105,14 @@ type child2786 struct {
 }
 
 // runChild2786 runs bin with args, with the path-marker env set to marker (not
-// set at all when marker is nil), under a hard 15s bound.
+// set at all when marker is nil), under a hard 30s bound, with the no-reentry sentinel set.
 func runChild2786(t *testing.T, bin string, marker *string, args ...string) child2786 {
 	t.Helper()
-	var env []string
-	for _, kv := range os.Environ() {
-		if !strings.HasPrefix(kv, inertSweepOrcaEnv2404+"=") {
-			env = append(env, kv)
-		}
-	}
+	env := append(cleanEnv2786(), noReentryEnv2786+"=1")
 	if marker != nil {
 		env = append(env, inertSweepOrcaEnv2404+"="+*marker)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.WaitDelay = time.Second
@@ -106,36 +133,44 @@ func runChild2786(t *testing.T, bin string, marker *string, args ...string) chil
 	return child2786{code: code, stdout: out.String(), stderr: errb.String()}
 }
 
-func TestPrivateInertOrcaAnswersOnlyTheOneListCall2786(t *testing.T) {
+const markerRefusal2786 = "path marker is missing or mismatched"
+
+func TestPrivateInertOrcaAnswersTheOneListCall2786(t *testing.T) {
 	bin := privateOrca2786(t)
 	got := runChild2786(t, bin, &bin, "terminal", "list", "--json")
-	if got.code != 0 || strings.TrimSpace(got.stdout) != `{"ok":true,"result":{"terminals":[]}}` {
+	if got.code != 0 || strings.TrimSpace(got.stdout) != `{"ok":true,"result":{"terminals":[]}}` || got.stderr != "" {
 		t.Fatalf("the sentinel must answer an empty world: %+v", got)
 	}
 }
 
-func TestPrivateInertOrcaRefusesAMissingPathMarker2786(t *testing.T) {
+// The marker guard is judged with the ONE argv that would otherwise be
+// answered, so a guard that answers regardless of the marker fails here; the
+// answer is asserted absent, not just the exit code.
+func TestPrivateInertOrcaRefusesAnUnrecognisedPathMarker2786(t *testing.T) {
 	bin := privateOrca2786(t)
-	got := runChild2786(t, bin, nil, "-test.run=^$")
-	if got.code != 2 || !strings.Contains(got.stderr, "path marker is missing or mismatched") || strings.Contains(got.stdout+got.stderr, "PASS") {
-		t.Fatalf("want exit 2 and the marker refusal, never the runner: %+v", got)
-	}
-	// An empty marker is the same as none.
 	empty := ""
-	got = runChild2786(t, bin, &empty, "-test.run=^$")
-	if got.code != 2 || !strings.Contains(got.stderr, "path marker is missing or mismatched") {
-		t.Fatalf("an empty marker must refuse too: %+v", got)
+	otherDir := privateOrca2786(t) // a second REAL private orca: right prefix, wrong path
+	caseVariant := strings.ToUpper(bin)
+	cases := map[string]*string{
+		"no marker":                 nil,
+		"an empty marker":           &empty,
+		"a nonexistent sibling":     ptr2786(filepath.Join(filepath.Dir(bin), "not-"+orcaName2786())),
+		"another private orca path": &otherDir,
+	}
+	if runtime.GOOS == "windows" {
+		cases["a case variant (Windows paths are case-insensitive, the guard compares exactly)"] = &caseVariant
+	}
+	for name, marker := range cases {
+		for _, args := range [][]string{{"terminal", "list", "--json"}, {"-test.run=^$"}} {
+			got := runChild2786(t, bin, marker, args...)
+			if got.code != 2 || !strings.Contains(got.stderr, markerRefusal2786) || got.stdout != "" {
+				t.Errorf("%s, args %q: want exit 2, the marker refusal and no stdout, got %+v", name, args, got)
+			}
+		}
 	}
 }
 
-func TestPrivateInertOrcaRefusesAMismatchedPathMarker2786(t *testing.T) {
-	bin := privateOrca2786(t)
-	other := filepath.Join(filepath.Dir(bin), "not-"+orcaName2786())
-	got := runChild2786(t, bin, &other, "-test.run=^$")
-	if got.code != 2 || !strings.Contains(got.stderr, "path marker is missing or mismatched") || strings.Contains(got.stdout+got.stderr, "PASS") {
-		t.Fatalf("want exit 2 and the marker refusal, never the runner: %+v", got)
-	}
-}
+func ptr2786(s string) *string { return &s }
 
 func TestPrivateInertOrcaRefusesUnsupportedArgv2786(t *testing.T) {
 	bin := privateOrca2786(t)
@@ -153,12 +188,41 @@ func TestPrivateInertOrcaRefusesUnsupportedArgv2786(t *testing.T) {
 	}
 }
 
-// The default dupe-pass client must reach the private inert Orca and never one
-// found on the ambient PATH. Unlike the !windows shell-trap test, the trap here
-// is a copy of the test binary, so this runs natively on Windows too.
-func TestHealthDupeDefaultNeverExecutesAmbientOrcaNatively2786(t *testing.T) {
+// A child no guard claims must not run the suite: with the sentinel it exits 3.
+// This is what makes every pin above fail fast, not recurse, if a guard goes.
+func TestAChildNoGuardClaimsDoesNotReenterTheRunner2786(t *testing.T) {
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := runChild2786(t, exe, nil, "-test.run=^$") // not under the private prefix: no guard claims it
+	if got.code != 3 || !strings.Contains(got.stderr, "no guard claimed") {
+		t.Fatalf("want exit 3 before the runner, got %+v", got)
+	}
+}
+
+// The trap is a real, reachable executable: run directly (with its marker env),
+// it records that it was reached and answers a terminal. Without this the
+// ambient-PATH pin below could pass by the trap never being able to fire.
+func TestTheAmbientTrapCanFire2786(t *testing.T) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "called")
+	trap := installTrap2786(t, dir)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, trap, "terminal", "list", "--json")
+	cmd.Env = append(cleanEnv2786(), noReentryEnv2786+"=1", ambientTrapEnv2786+"="+marker)
+	out, err := cmd.Output()
+	if err != nil || !strings.Contains(string(out), "path-trap") {
+		t.Fatalf("the trap must answer: %v %q", err, out)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatalf("the trap must record that it was reached: %v", err)
+	}
+}
+
+func installTrap2786(t *testing.T, dir string) string {
+	t.Helper()
 	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
@@ -169,14 +233,32 @@ func TestHealthDupeDefaultNeverExecutesAmbientOrcaNatively2786(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	return trap
+}
+
+// The default dupe-pass client must reach the private inert Orca and never one
+// found on the ambient PATH. Unlike the !windows shell-trap test, the trap here
+// is a copy of the test binary, so this runs natively on Windows too. The child
+// test must be seen to PASS (not be skipped or renamed away).
+func TestHealthDupeDefaultNeverExecutesAmbientOrcaNatively2786(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(dir, "called")
+	installTrap2786(t, dir)
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, exe, "-test.run=^TestHealthDupeDefaultChild2786$")
+	cmd := exec.CommandContext(ctx, exe, "-test.v", "-test.run=^TestHealthDupeDefaultChild2786$")
 	cmd.WaitDelay = time.Second
-	cmd.Env = append(os.Environ(), "PATH="+dir, "HADRON_TEST_2786_CHILD=1", ambientTrapEnv2786+"="+marker)
+	cmd.Env = append(cleanEnv2786(), "PATH="+dir, "HADRON_TEST_2786_CHILD=1", ambientTrapEnv2786+"="+marker)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("the unconfigured dupe client must see the inert world: %v\n%s", err, out)
+	}
+	if !strings.Contains(string(out), "--- PASS: TestHealthDupeDefaultChild2786") {
+		t.Fatalf("the child test did not run and pass (skipped or renamed?):\n%s", out)
 	}
 	if _, err := os.Stat(marker); !os.IsNotExist(err) {
 		t.Fatalf("an ambient PATH Orca was reached (stat: %v)", err)
@@ -191,7 +273,13 @@ func TestHealthDupeDefaultChild2786(t *testing.T) {
 	if len(terms) != 0 {
 		t.Fatalf("the unconfigured default must be inert, got %+v", terms)
 	}
-	if _, err := client.List(context.Background()); err != nil {
+	// sweepOrcaClient degrades an exec failure to no terminals; a direct read
+	// tells a real empty world from a missing or broken executable.
+	got, err := client.List(context.Background())
+	if err != nil {
 		t.Fatalf("the inert executable must answer successfully: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("the inert world is empty, got %+v", got)
 	}
 }
