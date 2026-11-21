@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cli#2422 (child of #1617; hadron-server#3323, merged as ba077810 by #3376,
+// cli#2422 (child of #1617; hadron-server#3323, merged 2026-11-04 by #3376,
 // cor:dmo:050:12): --instruction <kind>:<ref> on the twelve `team task` writes.
 // The claim rides only the mutation, in its own document (agenttask_instruction_
 // 2422.graphql), so a no-flag request is what it always was. The worker session
@@ -17,7 +17,10 @@ import (
 // the binding for every authored write); this adds only the claim, and the
 // server decides admission. A refusal is shown once and never retried without it.
 
-const taskInstructionFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server ba077810 or later"
+// taskInstructionFloor is the task writes' shared server floor (hadron-server#3323).
+const taskInstructionFloor = instruction.ServerFloorInstructionManagerWrites
+
+const taskInstructionFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server " + taskInstructionFloor + " or later"
 
 // taskInstructionHelp is the paragraph every instructed task write shares.
 const taskInstructionHelp = `--instruction <kind>:<ref> claims, for this one call, that the worker's holder
@@ -29,20 +32,20 @@ refused (exit 2) before any request. The claim rides this one write: the
 worker session attaches as it does without the flag, and any lookup the
 command makes first carries no claim. The server checks the reference and
 decides whether the claim is admitted; its refusal is shown once and the call
-is never retried without the flag. The flag needs server ba077810 or later;
+is never retried without the flag. The flag needs server ` + taskInstructionFloor + ` or later;
 an older server's refusal is passed through. The MCP tools take no
 instruction, so this is the way to make the call from a worktree.`
 
 // taskInstructionHelpShort is the short form for pages where the flag is a side
 // note: what it is, who leaves it out, the minimum server, and where the full
-// rules are. serverMin is the revision the command's instructed path needs.
-func taskInstructionHelpShort(serverMin string) string {
+// rules are. floor is the server floor the command's instructed path needs.
+func taskInstructionHelpShort(floor string) string {
 	return `--instruction <kind>:<ref> is for an AI worker acting on its holder's say-so
 (the holder is the person responsible for the worker). kind is
 team-chat-message, task or live-chat; ref says where the holder gave it (a
 team-chat message URN, a task URN, or a client address), never its text. A
 person, or a worker acting on its own authority, leaves it out. It needs server
-` + serverMin + ` or later; an older server refuses the flag. The full rules are in
+` + floor + ` or later; an older server refuses the flag. The full rules are in
 "hadron agentic-usage".`
 }
 
@@ -52,23 +55,23 @@ func addTaskInstructionFlag(cmd *cobra.Command, raw *string) {
 
 // taskInstructionHelpFor and taskInstructionFlagUsageFor render the shared
 // task-write instruction help and flag line for a command whose instructed
-// path needs server revision serverMin instead of ba077810 (cli#2504,
+// path needs the server floor `floor` instead of taskInstructionFloor (cli#2504,
 // mirroring instructionHelpFor for the non-task help). Like it, they panic
-// when the shared text no longer names ba077810: a silent no-op replace would
+// when the shared text no longer names taskInstructionFloor: a silent no-op replace would
 // print the wrong minimum server with no test failing, and the panic fires
 // while the command tree is built, so every test run sees it.
-func taskInstructionHelpFor(serverMin string) string {
-	if !strings.Contains(taskInstructionHelp, "ba077810") {
-		panic("taskInstructionHelpFor: the shared task instruction help no longer names ba077810")
+func taskInstructionHelpFor(floor string) string {
+	if !strings.Contains(taskInstructionHelp, taskInstructionFloor) {
+		panic("taskInstructionHelpFor: the shared task instruction help no longer names its floor")
 	}
-	return strings.ReplaceAll(taskInstructionHelp, "ba077810", serverMin)
+	return strings.ReplaceAll(taskInstructionHelp, taskInstructionFloor, floor)
 }
 
-func taskInstructionFlagUsageFor(serverMin string) string {
-	if !strings.Contains(taskInstructionFlagUsage, "ba077810") {
-		panic("taskInstructionFlagUsageFor: the shared task instruction flag usage no longer names ba077810")
+func taskInstructionFlagUsageFor(floor string) string {
+	if !strings.Contains(taskInstructionFlagUsage, taskInstructionFloor) {
+		panic("taskInstructionFlagUsageFor: the shared task instruction flag usage no longer names its floor")
 	}
-	return strings.ReplaceAll(taskInstructionFlagUsage, "ba077810", serverMin)
+	return strings.ReplaceAll(taskInstructionFlagUsage, taskInstructionFloor, floor)
 }
 
 // taskClaim reads --instruction: nil when the flag is absent (the command then

@@ -25,7 +25,7 @@ type orgAgentGrantDTO struct {
 }
 
 func newCmdSubscription(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "subscription", Short: "Read organization Agent licenses"}
+	cmd := &cobra.Command{Use: "subscription", Short: "Read organization Agent licenses; revoke a user's Agent subscription"}
 	var org string
 	list := &cobra.Command{
 		Use: "list --org <id|urn>", Aliases: []string{"ls"}, Short: "List Agent licenses visible for one organization",
@@ -86,5 +86,6 @@ revoke or install anything.`,
 	list.Flags().StringVar(&org, "org", "", "organization id or URN (required)")
 	_ = list.MarkFlagRequired("org")
 	cmd.AddCommand(list)
+	cmd.AddCommand(newCmdSubscriptionRevoke(f))
 	return cmd
 }

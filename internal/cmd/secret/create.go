@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -87,7 +86,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			}
 			resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
 			if err != nil {
-				return api.MapErrorKeepingCode(err)
+				return mapChange(err, "the creation of secret "+output.SafeCell(name))
 			}
 			if resp == nil || resp.CreateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")

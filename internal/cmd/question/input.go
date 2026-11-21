@@ -1,4 +1,4 @@
-package decision
+package question
 
 import (
 	"bytes"
@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -86,4 +88,50 @@ func finishInput(dec *json.Decoder, decodeErr error) error {
 		return exitcode.Newf(exitcode.Usage, "parsing --input-file: unexpected data after the JSON object")
 	}
 	return nil
+}
+
+// readText reads --text-file from a path, or "-" for piped stdin (refused from a
+// terminal, where it would hang waiting).
+func readText(ios *output.IOStreams, path string) ([]byte, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, exitcode.Newf(exitcode.Usage, "--text-file is empty: give a path, or - for piped stdin")
+	}
+	if path == "-" {
+		if ios.IsInputTerminal() {
+			return nil, exitcode.Newf(exitcode.Usage, `--text-file - reads piped stdin; stdin is a terminal`)
+		}
+		data, err := io.ReadAll(ios.In)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "reading --text-file: %v", err)
+		}
+		return data, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, exitcode.Newf(exitcode.Usage, "reading --text-file: %v", err)
+	}
+	return data, nil
+}
+
+// CheckInputFile runs data through the same strict decode `question ask` (ask true)
+// or `question amend` (ask false) applies to --input-file, for the tests that check
+// the help's example files against the production parser. It sends nothing.
+func CheckInputFile(data string, ask bool) error {
+	if ask {
+		var in gen.AskQuestionInput
+		dec, err := inputDecoder([]byte(data), &in)
+		if err != nil {
+			return err
+		}
+		return finishInput(dec, dec.Decode(&in))
+	}
+	var in gen.AmendQuestionInput
+	dec, err := inputDecoder([]byte(data), &in)
+	if err != nil {
+		return err
+	}
+	if err := finishInput(dec, dec.Decode(&in)); err != nil {
+		return err
+	}
+	return refuseAmendNulls([]byte(data))
 }

@@ -107,10 +107,9 @@ jobs:
       # of just tsx + graphql (the export script's only runtime deps) suffices.
       # Install chatter goes to stderr so stdout stays clean SDL for the redirect.
       # tsx and graphql are pinned to the exact versions schema/SOURCE records
-      # as tsx=/graphql= (read below from that one place — the same keys
-      # scripts/pin-server-sdl.sh reads): a floating graphql minor can change
-      # printSchema bytes and fire this job for a non-drift reason (#2679
-      # review). Bump in SOURCE, then re-run that script's --verify.
+      # as tsx=/graphql= (read below from that one place): a floating graphql
+      # minor can change printSchema bytes and fire this job for a non-drift
+      # reason (#2679 review). Bump in SOURCE.
       #
       # Read in a step of their own, NOT inside the drift step: an empty key
       # would otherwise become `tsx@` and npm would resolve the latest, quietly
@@ -263,99 +262,112 @@ jobs:
           } > infra-issue-body.md
           gh issue create --title "$title" --body-file infra-issue-body.md
 
-  # The pin question, asked nightly since #2679: the drift job above asks
-  # whether our copies match hadron-server MAIN; this one asks whether the PIN
-  # still reproduces. schema/SOURCE names two hadron-server commits whose merge
-  # the committed snapshot was exported from (until #2658 retires the pin), and
-  # `scripts/pin-server-sdl.sh --verify` re-merges them, re-exports the SDL and
-  # checks merge_sha/sdl_sha256/sdl_lines and the snapshot diff. Nothing else
-  # exercised --verify (#2679 blind review), so a pinned commit becoming
-  # unfetchable, a graphql print change, or a broken exporter would otherwise
-  # surface only when a human re-pinned.
-  #
-  # The server checkout needs just a git repo the script can fetch the two SHAs
-  # into (it fetches them itself, authenticating with HADRON_SERVER_FETCH_TOKEN
-  # — a credential the script scopes to its git calls and unsets again, header
-  # and environment variable both, before any npm command runs, which is
-  # exactly the property this job relies on; scripts/pinserverdl pins it).
-  # Nightly/dispatch only, like its neighbours: it needs the cross-repo
-  # credential, so it is a heads-up detector, not a PR gate. A red run IS the
-  # signal for this job — it means "the pin no longer reproduces", not "drift
-  # was detected", so it deliberately does not feed the drift job's
-  # issue-filing step (which would file the wrong report); a missing token
-  # skips green, exactly like the drift job's own gate above.
-  pin-verify:
+  # The snapshot must be the export of the commit schema/SOURCE names (#2465, Dara's
+  # BLIND P2): the nightly job above compares against moving server main and only for
+  # operations the CLI uses, so a wrong recorded server_sha, or unused-SDL drift in the
+  # snapshot, would pass it. This one checks out EXACTLY server_sha, exports with the
+  # recorded tool versions and compares the bytes. A mismatch fails the job (and files
+  # the issue below). It runs nightly and on dispatch, not on pull requests (it needs the
+  # cross-repo token), so a wrong server_sha is caught after merge, not before it; the
+  # token never reaches npm or tsx (the checkout does not persist it and the export step
+  # has no secret in its environment, pinned by scripts/workflowguards).
+  snapshot-reproduces:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: 22
-
       - name: Gate on server-access token
         id: gate
         env:
           TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
         run: |
           if [ -z "$TOKEN" ]; then
-            echo "::notice::HADRON_SERVER_RO_TOKEN not set — skipping pin-verify."
+            echo "::notice::HADRON_SERVER_RO_TOKEN not set — skipping the snapshot reproduction check."
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Check out hadron-server (git only)
+      - name: Read the recorded server revision and tool pins
+        id: pins
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          n=$(grep -c '^server_sha=' schema/SOURCE || true)
+          [ "$n" = 1 ] || { echo "schema/SOURCE must name server_sha= exactly once (found $n)" >&2; exit 2; }
+          sha=$(sed -n 's/^server_sha=//p' schema/SOURCE)
+          printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$' || { echo "server_sha=$sha is not a full commit SHA" >&2; exit 2; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          bash scripts/read-tool-pins.sh schema/SOURCE >> "$GITHUB_OUTPUT"
+      - name: Check out hadron-server at the recorded commit
         if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           repository: hadron-memory/hadron-server
           token: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+          ref: ${{ steps.pins.outputs.sha }}
           path: .hadron-server
           persist-credentials: false
           sparse-checkout: |
             scripts/export-graphql-sdl.mjs
             src/api/graphql/schema/typeDefs.ts
+            src/mcp
+            src/lib/runner/tools
+            src/lib/hostOperations/types.ts
           sparse-checkout-cone-mode: false
-
-      - name: Verify the pinned snapshot
+      - name: Export at that commit
         if: steps.gate.outputs.enabled == 'true'
         env:
-          HADRON_SERVER_FETCH_TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+          PIN_TSX: ${{ steps.pins.outputs.tsx }}
+          PIN_GRAPHQL: ${{ steps.pins.outputs.graphql }}
         run: |
-          out="$RUNNER_TEMP/pin-worktree"
-          scripts/pin-server-sdl.sh .hadron-server "$out" --verify
-          # The script's trap removes the worktree on failure; on success it
-          # is ours to clean up.
-          git -C .hadron-server worktree remove --force "$out"
-
-      # A red run of this job is its own signal ("the pin no longer
-      # reproduces"), but a red nobody is told about is as silent as the drift
-      # job's was in #2710. Same de-duplicated issue, its own title.
-      - name: File a pin-verify failure issue
+          cd .hadron-server
+          npm install --no-save --no-package-lock --silent --ignore-scripts "tsx@$PIN_TSX" "graphql@$PIN_GRAPHQL" 1>&2
+          ./node_modules/.bin/tsx scripts/export-graphql-sdl.mjs > "$RUNNER_TEMP/exported.graphql"
+          [ -s "$RUNNER_TEMP/exported.graphql" ] || { echo "::error::the exporter produced no SDL"; exit 1; }
+      # cmp exits 1 for differing bytes and 2 for a trouble reading them: only the first
+      # is a verdict about the snapshot, so the two are told apart.
+      - name: Compare the bytes
+        id: compare
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          rc=0
+          cmp "$RUNNER_TEMP/exported.graphql" schema/schema.graphql || rc=$?
+          case "$rc" in
+            0) ;;
+            1) echo "::error::SNAPSHOT MISMATCH: schema/schema.graphql is not the export of server_sha in schema/SOURCE (refresh it with the refresh-the-schema-snapshot skill and record the commit)"; exit 1 ;;
+            *) echo "::error::the comparison itself failed (cmp exit $rc): an infrastructure fault, not a verdict on the snapshot"; exit 2 ;;
+          esac
+      # A red nobody is told about is silent (#2710): one deduplicated issue, its own title,
+      # saying which kind of red this was (the failing step is the Compare step for a
+      # mismatch and any other step for an infrastructure fault).
+      - name: File a snapshot-reproduces failure issue
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMPARE: ${{ steps.compare.outcome }}
         run: |
-          title="Nightly pin-verify job failed"
+          title="Nightly snapshot-reproduces job failed"
+          if [ "$COMPARE" = "failure" ]; then
+            kind="the committed schema/schema.graphql does not reproduce from server_sha in schema/SOURCE (or the comparison could not run: open the Compare step)"
+          else
+            kind="the job could not run to a verdict (a rejected HADRON_SERVER_RO_TOKEN at the checkout, #2710, an install or exporter fault, or a bad schema/SOURCE): open the failing step"
+          fi
           existing=$(gh issue list --state open --search "\"$title\" in:title" \
             --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
           if [ -n "$existing" ]; then
-            echo "Pin-verify issue already open (#$existing); adding a note instead."
-            gh issue comment "$existing" --body "Failed again as of $RUN_URL"
+            gh issue comment "$existing" --body "Failed again as of $RUN_URL ($kind)"
             exit 0
           fi
           {
-            echo "The nightly \`pin-verify\` job failed: either the pinned snapshot no longer"
-            echo "reproduces (see \`scripts/pin-server-sdl.sh --verify\`) or the job could not run"
-            echo "(a rejected \`HADRON_SERVER_RO_TOKEN\` at the checkout, #2710, or a runner fault)."
+            echo "The nightly \`snapshot-reproduces\` job failed: $kind."
             echo
-            echo "Open the failing step in the run below. This issue is commented on by each"
-            echo "later failed run and can be closed once one is green."
+            echo "This issue is commented on by each later failed run and can be closed once one is green."
             echo
             echo "Failing run: $RUN_URL"
-          } > pin-issue-body.md
-          gh issue create --title "$title" --body-file pin-issue-body.md
+          } > snapshot-issue-body.md
+          gh issue create --title "$title" --body-file snapshot-issue-body.md
 
   # The third question, and the one that had never been asked (#641): the checks
   # above keep our COPIES of the server's contract current; this one asks whether

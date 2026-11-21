@@ -7,7 +7,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -127,7 +126,7 @@ the same fields as hadron secret get.`,
 			}
 			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value)
 			if err != nil {
-				return api.MapErrorKeepingCode(err)
+				return mapChange(err, "the update of secret "+output.SafeCell(args[0]))
 			}
 			if resp == nil || resp.UpdateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")

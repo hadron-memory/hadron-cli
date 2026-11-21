@@ -167,7 +167,7 @@ type DeliveryConfig struct {
 	// Enabled turns delivery on. The host key then also needs
 	// attention:deliver; without it delivery switches off until a re-check succeeds.
 	Enabled bool `yaml:"enabled"`
-	// AckMixed asserts that the server carries A-prime (#2072): mixed wake
+	// AckMixed asserts that the server carries A-prime (issue #2072, PR #2102): mixed wake
 	// acknowledgment records ticks/tasks without advancing any chat mark.
 	AckMixed bool `yaml:"ack_mixed"`
 	// OrcaBin is the absolute path of the orca CLI.

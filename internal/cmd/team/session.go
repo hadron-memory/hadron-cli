@@ -832,7 +832,7 @@ BEFORE YOU START:
   3. Pick a worker that EXISTS: ` + "`hadron team worker list --app <app>`" + `. If
      none fits, cast one first (` + "`hadron team worker cast --help`" + `).
   4. Start: ` + "`--as <worker> --tool <tool>`" + `, plus --repo owner/repo and --branch
-     if you want ` + "`session log`" + ` to accept bare refs (#371, a sha, a branch name).
+     if you want ` + "`session log`" + ` to accept bare refs (a bare number, a sha, a branch name).
      Neither is guessed from git: omitted, nothing is recorded.
 
 THREE DIFFERENT STARTS — pick one:
@@ -2456,7 +2456,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 		Example: `  hadron team session log --pr acme/widgets#7 --action merged
   # bare refs need the repo recorded at ` + "`session start --repo acme/widgets`" + `
   hadron team session log --pr 371
-  hadron team session log --commit 93200b2 --action pushed
+  hadron team session log --commit 1234567 --action pushed
   hadron team session log --branch team-chat --action pushed`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -3271,7 +3271,7 @@ from a later milestone's REPORTED MODEL.`,
   hadron team session list --repo acme/widgets
   # which sessions produced a PR or commit (refs as ` + "`session log`" + ` recorded them)
   hadron team session list --pr acme/widgets#371 --app acme.com:eng-team
-  hadron team session list --commit acme/widgets@93200b2 --app acme.com:eng-team`,
+  hadron team session list --commit acme/widgets@1234567 --app acme.com:eng-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

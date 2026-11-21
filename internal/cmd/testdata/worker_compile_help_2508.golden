@@ -104,10 +104,3 @@ Flags:
       --no-set-pointer   compile without changing the boot-prompt pointer
       --only strings     with no worker: compile only these workers (comma-separated names, ids or URNs)
 
-Global Flags:
-      --app string                           App context for this invocation: hrn:app:<root>:<slug>, <root>:<slug>, or an App id (overrides config)
-      --json                                 output JSON instead of text
-      --server string                        Hadron server base URL (overrides config)
-      --unlock stringArray                   read an encrypted memory you own for this invocation (repeatable, up to 8); the passphrase is prompted, never an argument
-      --unlock-passphrase-file stringArray   file holding the --unlock passphrase, one per --unlock in the same order; refused unless only you can read it (chmod 600)
-      --unlock-passphrase-stdin              read the passphrase for a single --unlock memory from stdin

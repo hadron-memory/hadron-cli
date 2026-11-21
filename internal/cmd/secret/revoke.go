@@ -56,7 +56,7 @@ func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string, worker 
 			return nil, exitcode.Newf(exitcode.Error, "stopped looking for the client after %d pages", maxClientPages)
 		}
 		for i := range page {
-			if page[i].ClientID == clientID {
+			if page[i].ClientID != nil && *page[i].ClientID == clientID {
 				return &page[i], nil
 			}
 		}
@@ -143,12 +143,12 @@ end, or one that still allows reads); 8 not permitted.`,
 				return err
 			}
 			if c == nil {
-				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client you neither issued nor hold does not list here, even where the server would let you revoke its grant as the App's manager); see `hadron secret client list --all`", output.SafeCell(fmt.Sprintf("%q", id)))
+				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client you neither issued nor hold lists only by its prefix, which this exact-id lookup does not match, even where the server would let you revoke its grant as the App's manager); see `hadron secret client list --all`", output.SafeCell(fmt.Sprintf("%q", id)))
 			}
 			if strings.TrimSpace(c.GrantID) == "" {
-				return exitcode.Newf(exitcode.Error, "the server returned read client %s with no grant id, so it cannot be revoked; nothing was sent", output.SafeCell(c.ClientID))
+				return exitcode.Newf(exitcode.Error, "the server returned read client %s with no grant id, so it cannot be revoked; nothing was sent", output.SafeCell(*c.ClientID))
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke read client %s for secret %s? This cannot be undone.", output.SafeCell(c.ClientID), output.SafeCell(c.SecretName))); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke read client %s for secret %s? This cannot be undone.", output.SafeCell(*c.ClientID), output.SafeCell(c.SecretName))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -183,7 +183,7 @@ end, or one that still allows reads); 8 not permitted.`,
 			if err != nil {
 				return err
 			}
-			d := revokeDTO{ClientID: c.ClientID, GrantID: c.GrantID, State: state, RevokedAt: g.RevokedAt, Allows: false}
+			d := revokeDTO{ClientID: *c.ClientID, GrantID: c.GrantID, State: state, RevokedAt: g.RevokedAt, Allows: false}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				if state != string(gen.GrantStateRevoked) {
 					_, e := fmt.Fprintf(w, "read client %s was already ended (%s); nothing changed\n", output.SafeCell(d.ClientID), output.SafeCell(state))

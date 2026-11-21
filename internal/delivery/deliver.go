@@ -148,7 +148,7 @@ type Deliverer struct {
 	// Wakes acknowledges wake proofs; nil leaves wakes unacknowledged.
 	Wakes       WakeServer
 	WakeRecords *WakeRecords
-	// AckMixed is set only once A′ (hadron-server#2072) is verified
+	// AckMixed is set only once A′ (hadron-server issue #2072, PR #2102) is verified
 	// deployed: a wake carrying a MENTION, or naming channels, may then be
 	// acknowledged once all its TICK and TASK reasons are typed. Off, C1
 	// acknowledges only a proof with no MENTION reason and no channels.

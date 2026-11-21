@@ -14,6 +14,11 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// linkDefectInstructionFloor is the server floor, in UTC, of link-defect's instructed
+// path (hadron-server#4284, merge commit 696ed50c8, 2026-11-16). It is later than
+// the other task writes' taskInstructionFloor, so this door keeps its own name.
+const linkDefectInstructionFloor = "2026-11-16"
+
 // defectLinkDTO is the stable --json shape of `team task link-defect`: the
 // server's DefectLink, all six fields, exactly as returned.
 type defectLinkDTO struct {
@@ -63,7 +68,7 @@ Refusals, each sent once and never retried:
 
 --json is {taskId, defect, introducedAtHead, eventId, linkedAt, created};
 introducedAtHead is null when the link names no head, and created is false
-for an existing link.` + "\n\n" + taskInstructionHelpFor("696ed50c8") + "\nAn unavailable or changed worktree binding sends as the signed-in person,\nwith the instruction checked but not recorded; it borrows no worker session.",
+for an existing link.` + "\n\n" + taskInstructionHelpFor(linkDefectInstructionFloor) + "\nAn unavailable or changed worktree binding sends as the signed-in person,\nwith the instruction checked but not recorded; it borrows no worker session.",
 		Example: "  hadron team task link-defect AT0.7850 --defect https://github.com/acme/app/issues/77 --introduced-at-head 0123456789abcdef0123456789abcdef01234567",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -139,7 +144,7 @@ for an existing link.` + "\n\n" + taskInstructionHelpFor("696ed50c8") + "\nAn un
 	c.Flags().StringVar(&defect, "defect", "", "required: the defect's issue URL")
 	c.Flags().StringVar(&head, "introduced-at-head", "", "the full 40-hex PR head, frozen on the task, that introduced the defect")
 	addTaskInstructionFlag(c, &rawInstruction)
-	c.Flags().Lookup("instruction").Usage = taskInstructionFlagUsageFor("696ed50c8")
+	c.Flags().Lookup("instruction").Usage = taskInstructionFlagUsageFor(linkDefectInstructionFloor)
 	return c
 }
 

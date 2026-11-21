@@ -8,7 +8,7 @@ import (
 )
 
 // cli#2505 F1: the instruction help these two commands print names the server
-// revision their instructed path needs (ba077810), not the shared text's
+// revision their instructed path needs (2026-11-04), not the shared text's
 // original revision. The pin renders the real help, so a shared text that drops
 // the original revision (a silent no-op replace) or a command that stops
 // deriving it fails here.
@@ -21,8 +21,8 @@ func TestAlarmStallHelpNamesTheirMinimumServer2505(t *testing.T) {
 			t.Fatalf("%v: %v", args, err)
 		}
 		help := out.String()
-		if !strings.Contains(help, "ba077810") || strings.Contains(help, "17ef5905") {
-			t.Errorf("%v: help must name ba077810 and not 17ef5905:\n%s", args, help)
+		if !namesServerFloor2849(help, "2026-11-04") || namesServerFloor2849(help, "2026-11-03") {
+			t.Errorf("%v: help must state \"server 2026-11-04 or later\" and not \"server 2026-11-03 or later\":\n%s", args, help)
 		}
 	}
 }
