@@ -84,7 +84,7 @@ On a terminal it asks first; off one it needs --yes and sends nothing without it
 
 Exit codes: 0 the grant is REVOKED, or had already ended; 2 usage; 3 not signed in; 4 client not
 found; 7 the answer was lost or did not confirm a revoke: the revoke is not
-resent, so run 'hadron secret client list' (the grant id is in the error) to see
+resent, so run 'hadron secret client list --all' (the grant id is in the error) to see
 whether the client ended (this includes a grant answered in a state that is not an
 end, or one that still allows reads); 8 not permitted.`,
 		Example: `  hadron secret client revoke cl_123 --yes
@@ -104,7 +104,7 @@ end, or one that still allows reads); 8 not permitted.`,
 				return err
 			}
 			if c == nil {
-				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client someone else issued does not list here); see `hadron secret client list`", output.SafeCell(fmt.Sprintf("%q", id)))
+				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client you neither issued nor hold does not list here, even where the server would let you revoke its grant as the App's manager); see `hadron secret client list --all`", output.SafeCell(fmt.Sprintf("%q", id)))
 			}
 			if strings.TrimSpace(c.GrantID) == "" {
 				return exitcode.Newf(exitcode.Error, "the server returned read client %s with no grant id, so it cannot be revoked; nothing was sent", output.SafeCell(c.ClientID))
@@ -124,11 +124,11 @@ end, or one that still allows reads); 8 not permitted.`,
 			if resp != nil {
 				g = resp.RevokeGrant
 			}
-			state, err := revokedState(g, c.GrantID)
+			state, err := confirmedEndedState(g, c.GrantID)
 			if err != nil {
 				return err
 			}
-			d := revokeDTO{ClientID: c.ClientID, GrantID: c.GrantID, State: state, RevokedAt: g.RevokedAt, Allows: g.Allows}
+			d := revokeDTO{ClientID: c.ClientID, GrantID: c.GrantID, State: state, RevokedAt: g.RevokedAt, Allows: false}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				if state != string(gen.GrantStateRevoked) {
 					_, e := fmt.Fprintf(w, "read client %s was already ended (%s); nothing changed\n", output.SafeCell(d.ClientID), output.SafeCell(state))
@@ -159,7 +159,7 @@ var definitiveRevokeRefusals = []string{
 // notConfirmed is the unknown-outcome error: the revoke may have ended the grant,
 // so it is never resent, and the caller is told where to look.
 func notConfirmed(grantID, why string) error {
-	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, grant %s may have been revoked. It is not resent: run `hadron secret client list` to check", why, output.SafeCell(grantID))
+	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, grant %s may have been revoked. It is not resent: run `hadron secret client list --all` to check", why, output.SafeCell(grantID))
 }
 
 // revokeError maps a failed revoke. A definitive pre-write refusal keeps its typed
@@ -174,8 +174,8 @@ func revokeError(err error, grantID string) error {
 	return api.WithServerCode(notConfirmed(grantID, mapped.Error()), err)
 }
 
-// revokedState checks the answer is the SAME grant in an explicit ended state.
-func revokedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID string) (string, error) {
+// confirmedEndedState checks the answer is the SAME grant in an explicit ended state.
+func confirmedEndedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID string) (string, error) {
 	if g == nil || g.Id == "" {
 		return "", notConfirmed(grantID, "the server returned no grant")
 	}
@@ -184,7 +184,10 @@ func revokedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID string)
 	}
 	switch g.State {
 	case gen.GrantStateRevoked, gen.GrantStateExpired, gen.GrantStateWithdrawn, gen.GrantStateSpent, gen.GrantStateHolderGone:
-		if g.Allows {
+		if g.Allows == nil {
+			return "", notConfirmed(grantID, "the server did not say whether the grant still allows reads")
+		}
+		if *g.Allows {
 			return "", notConfirmed(grantID, "the server returned the grant "+string(g.State)+" yet still allowing reads")
 		}
 		return string(g.State), nil

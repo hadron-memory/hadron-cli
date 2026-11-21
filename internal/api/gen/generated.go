@@ -89901,7 +89901,7 @@ type RevokeSecretReadClientGrantRevokeGrant struct {
 	State     GrantState `json:"state"`
 	RevokedAt *string    `json:"revokedAt"`
 	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
-	Allows bool `json:"allows"`
+	Allows *bool `json:"allows"`
 }
 
 // GetId returns RevokeSecretReadClientGrantRevokeGrant.Id, and is useful for accessing the field via an interface.
@@ -89914,7 +89914,7 @@ func (v *RevokeSecretReadClientGrantRevokeGrant) GetState() GrantState { return 
 func (v *RevokeSecretReadClientGrantRevokeGrant) GetRevokedAt() *string { return v.RevokedAt }
 
 // GetAllows returns RevokeSecretReadClientGrantRevokeGrant.Allows, and is useful for accessing the field via an interface.
-func (v *RevokeSecretReadClientGrantRevokeGrant) GetAllows() bool { return v.Allows }
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetAllows() *bool { return v.Allows }
 
 // RevokeUserApiKeyResponse is returned by RevokeUserApiKey on success.
 type RevokeUserApiKeyResponse struct {
