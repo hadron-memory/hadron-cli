@@ -14,16 +14,9 @@ chat served-prompts  # issue #2865 x1
 chat tool-choice  # citation cor:dmo:050:10 x1
 coding  # issue #551 x1
 coding review create  # issue #1201 x1
-decision  # issue #4513 x1
-decision amend  # issue #1640 x1
-decision ask  # issue #1640 x1
 marketplace  # citation cor:acl:080:04 x1
 node list  # issue #3494 x1 | issue #3520 x1
 orca terminal status  # issue #3755 x1
-run  # citation cor:agt:010:02 x1
-run cancel  # citation cor:agt:010:02 x1
-run list  # citation cor:agt:010:02 x1
-run trigger  # citation cor:agt:010:01 x1 | citation cor:agt:010:02 x1
 schedule  # citation cor:agt:010 x1
 skill lint  # citation cor:agt:030:06 x1
 spec  # issue #1591 x1

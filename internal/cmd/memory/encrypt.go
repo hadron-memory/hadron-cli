@@ -64,7 +64,7 @@ What changes afterwards:
   - memory clone refuses it, and memory validate skips its stale-abstract
     check.
 
-It is refused while the memory holds a decision log, or while its vector
+It is refused while the memory holds a question log, or while its vector
 index is on. It asks "Encrypt memory <memoryRef>? This rewrites ALL node
 content as ciphertext and cannot be undone from the CLI" on a terminal; --yes
 skips the question and is required when input is not a terminal (otherwise
