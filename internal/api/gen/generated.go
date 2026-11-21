@@ -65477,7 +65477,7 @@ type IssueSecretReadClientInput struct {
 	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refused (SECRET_AUTO_DELETE_NOT_AVAILABLE) until the deletion is available.
 	AutoDelete bool    `json:"autoDelete"`
 	ExpiresAt  *string `json:"expiresAt,omitempty"`
-	// WORKER: a live worker of the App (holderRef is its id). USER: the issuer themself (holderRef omitted). AGENT and APP are refused (GRANT_HOLDER_NOT_ALLOWED): a read client is held by a person or a worker.
+	// WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path, and an App holder for use is not supported.
 	HolderKind GrantHolderKind `json:"holderKind"`
 	HolderRef  *string         `json:"holderRef,omitempty"`
 	MaxReads   *int            `json:"maxReads,omitempty"`
@@ -94707,6 +94707,49 @@ func (v *SearchUsersUsersUsersPageItemsUser) __premarshalJSON() (*__premarshalSe
 	return &retval, nil
 }
 
+// SecretChangeRequestResponse is returned by SecretChangeRequest on success.
+type SecretChangeRequestResponse struct {
+	// Your own change request; null for every other caller. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+	SecretChangeRequest *SecretChangeRequestSecretChangeRequest `json:"secretChangeRequest"`
+}
+
+// GetSecretChangeRequest returns SecretChangeRequestResponse.SecretChangeRequest, and is useful for accessing the field via an interface.
+func (v *SecretChangeRequestResponse) GetSecretChangeRequest() *SecretChangeRequestSecretChangeRequest {
+	return v.SecretChangeRequest
+}
+
+// SecretChangeRequestSecretChangeRequest includes the requested fields of the GraphQL type SecretChangeRequest.
+// The GraphQL type's documentation follows.
+//
+// Requester-only state, never the value or ciphertext. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+type SecretChangeRequestSecretChangeRequest struct {
+	// The change request id.
+	Id string `json:"id"`
+	// The effective state, with expiry judged on the server clock.
+	State string `json:"state"`
+	// The requested operation.
+	Operation string `json:"operation"`
+	// Creation time.
+	CreatedAt string `json:"createdAt"`
+	// Expiry time.
+	ExpiresAt string `json:"expiresAt"`
+}
+
+// GetId returns SecretChangeRequestSecretChangeRequest.Id, and is useful for accessing the field via an interface.
+func (v *SecretChangeRequestSecretChangeRequest) GetId() string { return v.Id }
+
+// GetState returns SecretChangeRequestSecretChangeRequest.State, and is useful for accessing the field via an interface.
+func (v *SecretChangeRequestSecretChangeRequest) GetState() string { return v.State }
+
+// GetOperation returns SecretChangeRequestSecretChangeRequest.Operation, and is useful for accessing the field via an interface.
+func (v *SecretChangeRequestSecretChangeRequest) GetOperation() string { return v.Operation }
+
+// GetCreatedAt returns SecretChangeRequestSecretChangeRequest.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SecretChangeRequestSecretChangeRequest) GetCreatedAt() string { return v.CreatedAt }
+
+// GetExpiresAt returns SecretChangeRequestSecretChangeRequest.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *SecretChangeRequestSecretChangeRequest) GetExpiresAt() string { return v.ExpiresAt }
+
 // SecretEventsResponse is returned by SecretEvents on success.
 type SecretEventsResponse struct {
 	// The audit events of ONE App secret, newest first, for any member of the App (hrn:node:hadronmemory.com:specs:cor:sec:010:05).
@@ -94740,7 +94783,7 @@ func (v *SecretEventsSecretEventsSecretEventsPage) GetTotal() int { return v.Tot
 type SecretEventsSecretEventsSecretEventsPageItemsSecretEvent struct {
 	Id string `json:"id"`
 	At string `json:"at"`
-	// STORE | VERSION | METADATA | DELETE | PURGE (a superseded version removed by retention or the kept-versions cap).
+	// STORE | VERSION | METADATA | DELETE | PROTECT | UNPROTECT | REVEAL | PURGE (a superseded version removed by retention or the kept-versions cap).
 	Kind        string  `json:"kind"`
 	Outcome     string  `json:"outcome"`
 	SecretId    string  `json:"secretId"`
@@ -99197,6 +99240,153 @@ func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) __premarshalJSON() (*__premarsh
 	retval.Used = v.QuotaCounterFields.Used
 	retval.Limit = v.QuotaCounterFields.Limit
 	retval.ResetAt = v.QuotaCounterFields.ResetAt
+	return &retval, nil
+}
+
+// SetSecretProtectedResponse is returned by SetSecretProtected on success.
+type SetSecretProtectedResponse struct {
+	// Open a protection change for your own passkey ceremony. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+	SetSecretProtected *SetSecretProtectedSetSecretProtectedSecret `json:"setSecretProtected"`
+}
+
+// GetSetSecretProtected returns SetSecretProtectedResponse.SetSecretProtected, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedResponse) GetSetSecretProtected() *SetSecretProtectedSetSecretProtectedSecret {
+	return v.SetSecretProtected
+}
+
+// SetSecretProtectedSetSecretProtectedSecret includes the requested fields of the GraphQL type Secret.
+type SetSecretProtectedSetSecretProtectedSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns SetSecretProtectedSetSecretProtectedSecret.Id, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns SetSecretProtectedSetSecretProtectedSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetOwnerType() string {
+	return v.SecretFields.OwnerType
+}
+
+// GetOwnerId returns SetSecretProtectedSetSecretProtectedSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetOwnerId() string {
+	return v.SecretFields.OwnerId
+}
+
+// GetName returns SetSecretProtectedSetSecretProtectedSecret.Name, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns SetSecretProtectedSetSecretProtectedSecret.Kind, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns SetSecretProtectedSetSecretProtectedSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCurrentVersion returns SetSecretProtectedSetSecretProtectedSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns SetSecretProtectedSetSecretProtectedSecret.Protected, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetProtected() bool {
+	return v.SecretFields.Protected
+}
+
+// GetCreatedAt returns SetSecretProtectedSetSecretProtectedSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetCreatedAt() string {
+	return v.SecretFields.CreatedAt
+}
+
+// GetCreatedBy returns SetSecretProtectedSetSecretProtectedSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetCreatedBy() *string {
+	return v.SecretFields.CreatedBy
+}
+
+// GetUpdatedAt returns SetSecretProtectedSetSecretProtectedSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetUpdatedAt() string {
+	return v.SecretFields.UpdatedAt
+}
+
+// GetUpdatedBy returns SetSecretProtectedSetSecretProtectedSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *SetSecretProtectedSetSecretProtectedSecret) GetUpdatedBy() *string {
+	return v.SecretFields.UpdatedBy
+}
+
+func (v *SetSecretProtectedSetSecretProtectedSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetSecretProtectedSetSecretProtectedSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetSecretProtectedSetSecretProtectedSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetSecretProtectedSetSecretProtectedSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *SetSecretProtectedSetSecretProtectedSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetSecretProtectedSetSecretProtectedSecret) __premarshalJSON() (*__premarshalSetSecretProtectedSetSecretProtectedSecret, error) {
+	var retval __premarshalSetSecretProtectedSetSecretProtectedSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
 	return &retval, nil
 }
 
@@ -126574,6 +126764,17 @@ func (v *WithdrawQuestionWithdrawQuestion) __premarshalJSON() (*__premarshalWith
 	return &retval, nil
 }
 
+// WithdrawSecretChangeRequestResponse is returned by WithdrawSecretChangeRequest on success.
+type WithdrawSecretChangeRequestResponse struct {
+	// Withdraw your own open change request and clear its staged value. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+	WithdrawSecretChangeRequest *bool `json:"withdrawSecretChangeRequest"`
+}
+
+// GetWithdrawSecretChangeRequest returns WithdrawSecretChangeRequestResponse.WithdrawSecretChangeRequest, and is useful for accessing the field via an interface.
+func (v *WithdrawSecretChangeRequestResponse) GetWithdrawSecretChangeRequest() *bool {
+	return v.WithdrawSecretChangeRequest
+}
+
 // WithdrawSigningRequestResponse is returned by WithdrawSigningRequest on success.
 type WithdrawSigningRequestResponse struct {
 	// #1632 — withdraw an open signing request. Only the requester account, from any of its sessions (#10397). Refusals (hrn:node:hadronmemory.com:specs:cor:dmo:130:03, Holger #10430): SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
@@ -138760,6 +138961,14 @@ func (v *__SearchUsersInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __SearchUsersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SearchUsersInput) GetOffset() *int { return v.Offset }
 
+// __SecretChangeRequestInput is used internally by genqlient
+type __SecretChangeRequestInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __SecretChangeRequestInput.Id, and is useful for accessing the field via an interface.
+func (v *__SecretChangeRequestInput) GetId() string { return v.Id }
+
 // __SecretEventsInput is used internally by genqlient
 type __SecretEventsInput struct {
 	Ref    string `json:"ref"`
@@ -139275,6 +139484,18 @@ type __SetQuotaLimitInput struct {
 
 // GetInput returns __SetQuotaLimitInput.Input, and is useful for accessing the field via an interface.
 func (v *__SetQuotaLimitInput) GetInput() *SetQuotaLimitInput { return v.Input }
+
+// __SetSecretProtectedInput is used internally by genqlient
+type __SetSecretProtectedInput struct {
+	Ref       string `json:"ref"`
+	Protected bool   `json:"protected"`
+}
+
+// GetRef returns __SetSecretProtectedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SetSecretProtectedInput) GetRef() string { return v.Ref }
+
+// GetProtected returns __SetSecretProtectedInput.Protected, and is useful for accessing the field via an interface.
+func (v *__SetSecretProtectedInput) GetProtected() bool { return v.Protected }
 
 // __SetTeamPauseInput is used internally by genqlient
 type __SetTeamPauseInput struct {
@@ -143379,6 +143600,14 @@ func (v *__WithdrawQuestionInput) GetReason() string { return v.Reason }
 
 // GetExpectedRevision returns __WithdrawQuestionInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__WithdrawQuestionInput) GetExpectedRevision() int { return v.ExpectedRevision }
+
+// __WithdrawSecretChangeRequestInput is used internally by genqlient
+type __WithdrawSecretChangeRequestInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __WithdrawSecretChangeRequestInput.Id, and is useful for accessing the field via an interface.
+func (v *__WithdrawSecretChangeRequestInput) GetId() string { return v.Id }
 
 // __WithdrawSigningRequestInput is used internally by genqlient
 type __WithdrawSigningRequestInput struct {
@@ -179936,6 +180165,46 @@ func Secret(
 	return data_, err_
 }
 
+// The query executed by SecretChangeRequest.
+const SecretChangeRequest_Operation = `
+query SecretChangeRequest ($id: ID!) {
+	secretChangeRequest(id: $id) {
+		id
+		state
+		operation
+		createdAt
+		expiresAt
+	}
+}
+`
+
+// The requester's own change request; null for anyone else. Never carries the
+// staged value.
+func SecretChangeRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *SecretChangeRequestResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SecretChangeRequest",
+		Query:  SecretChangeRequest_Operation,
+		Variables: &__SecretChangeRequestInput{
+			Id: id,
+		},
+	}
+
+	data_ = &SecretChangeRequestResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SecretEvents.
 const SecretEvents_Operation = `
 query SecretEvents ($ref: ID!, $limit: Int, $offset: Int) {
@@ -181673,6 +181942,61 @@ func SetQuotaLimit(
 	}
 
 	data_ = &SetQuotaLimitResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetSecretProtected.
+const SetSecretProtected_Operation = `
+mutation SetSecretProtected ($ref: ID!, $protected: Boolean!) {
+	setSecretProtected(ref: $ref, protected: $protected) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	currentVersion
+	protected
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// Protected-secret changes (hadron-server#3999 S4, cor:sec:070:02). On a
+// protected secret every change is STAGED, never applied: setSecretProtected
+// and the other doors refuse with SECRET_PROTECTED_NEEDS_PASSKEY carrying
+// extensions.requestId and extensions.ceremonyUrl, and a person completes it on
+// that page. These operations are absent from a server whose signing is off.
+func SetSecretProtected(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	protected bool,
+) (data_ *SetSecretProtectedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetSecretProtected",
+		Query:  SetSecretProtected_Operation,
+		Variables: &__SetSecretProtectedInput{
+			Ref:       ref,
+			Protected: protected,
+		},
+	}
+
+	data_ = &SetSecretProtectedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -192462,6 +192786,40 @@ func WithdrawQuestion(
 	}
 
 	data_ = &WithdrawQuestionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by WithdrawSecretChangeRequest.
+const WithdrawSecretChangeRequest_Operation = `
+mutation WithdrawSecretChangeRequest ($id: ID!) {
+	withdrawSecretChangeRequest(id: $id)
+}
+`
+
+// true: the open request was withdrawn (its staged value cleared); false: it
+// was not open. An unknown or someone else's request is NOT_FOUND.
+func WithdrawSecretChangeRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *WithdrawSecretChangeRequestResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WithdrawSecretChangeRequest",
+		Query:  WithdrawSecretChangeRequest_Operation,
+		Variables: &__WithdrawSecretChangeRequestInput{
+			Id: id,
+		},
+	}
+
+	data_ = &WithdrawSecretChangeRequestResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -7154,7 +7154,7 @@ input IssueSecretReadClientInput {
   expiresAt: DateTime
 
   """
-  WORKER: a live worker of the App (holderRef is its id). USER: the issuer themself (holderRef omitted). AGENT and APP are refused (GRANT_HOLDER_NOT_ALLOWED): a read client is held by a person or a worker.
+  WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path, and an App holder for use is not supported.
   """
   holderKind: GrantHolderKind!
   holderRef: ID
@@ -9664,7 +9664,7 @@ type Mutation {
   (user -> org) at entitled scopes only; an App secret is never resolved
   by a run (hrn:node:hadronmemory.com:specs:cor:sec:020:02).
   """
-  createSecret(kind: String!, metadata: JSON, name: String!, ownerRef: ID, ownerType: String!, value: JSON!): Secret!
+  createSecret(kind: String!, metadata: JSON, name: String!, ownerRef: ID, ownerType: String!, protected: Boolean, value: JSON!): Secret!
 
   """
   Register a Slack workspace install (spec 043). orgRef/appRef accept ID
@@ -11750,6 +11750,11 @@ type Mutation {
   setReviewSchedule(slots: [String!]!, taskRef: ID!): PrProtocolResult!
 
   """
+  Open a protection change for your own passkey ceremony. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+  """
+  setSecretProtected(protected: Boolean!, ref: ID!): Secret!
+
+  """
   #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #4223: while paused, the platform issues no worker.start for an assignment; lifting the pause starts the held workers with no open session whose tasks were assigned during it, and no others. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
   setTeamPause(appRef: String!, instruction: ActInstructionInput, paused: Boolean!): TeamPause!
@@ -12502,7 +12507,7 @@ type Mutation {
   the cascade and flow config reference the name; create a new name
   instead. The effective (metadata, value) pair is re-validated per kind.
   """
-  updateSecret(metadata: JSON, ref: ID!, value: JSON): Secret!
+  updateSecret(metadata: JSON, protected: Boolean, ref: ID!, value: JSON): Secret!
 
   """
   #931: update a live session's mutable provenance fields (a PR is usually
@@ -12665,6 +12670,11 @@ type Mutation {
   #1641 — withdraw a question (terminal; the code stays consumed): the asker or a decider, a decider once answered, whatever its state.
   """
   withdrawQuestion(expectedRevision: Int!, reason: String!, ref: ID!): Question!
+
+  """
+  Withdraw your own open change request and clear its staged value. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+  """
+  withdrawSecretChangeRequest(id: ID!): Boolean!
 
   """
   #1632 — withdraw an open signing request. Only the requester account, from any of its sessions (#10397). Refusals (hrn:node:hadronmemory.com:specs:cor:dmo:130:03, Holger #10430): SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
@@ -16706,6 +16716,11 @@ type Query {
   secret(ref: ID!): Secret
 
   """
+  Your own change request; null for every other caller. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+  """
+  secretChangeRequest(id: ID!): SecretChangeRequest
+
+  """
   The audit events of ONE App secret, newest first, for any member of the App (hrn:node:hadronmemory.com:specs:cor:sec:010:05).
   A non-member, an App key, a run and an impersonated session get an empty page, the same as a missing secret. Never a value.
   """
@@ -18916,6 +18931,26 @@ type Secret {
 }
 
 """
+Requester-only state, never the value or ciphertext. hrn:node:hadronmemory.com:specs:cor:sec:070:02
+"""
+type SecretChangeRequest {
+  """Creation time."""
+  createdAt: DateTime!
+
+  """Expiry time."""
+  expiresAt: DateTime!
+
+  """The change request id."""
+  id: ID!
+
+  """The requested operation."""
+  operation: String!
+
+  """The effective state, with expiry judged on the server clock."""
+  state: String!
+}
+
+"""
 One audit event of an App secret: who did what, when, with what outcome. Never a value.
 """
 type SecretEvent {
@@ -18924,7 +18959,7 @@ type SecretEvent {
   id: ID!
 
   """
-  STORE | VERSION | METADATA | DELETE | PURGE (a superseded version removed by retention or the kept-versions cap).
+  STORE | VERSION | METADATA | DELETE | PROTECT | UNPROTECT | REVEAL | PURGE (a superseded version removed by retention or the kept-versions cap).
   """
   kind: String!
   outcome: String!
@@ -18957,6 +18992,11 @@ type SecretReadClient {
   endReason: String
   expiresAt: DateTime
   grantId: ID!
+
+  """
+  The worker holder was held by the actual signer at issuance (R22); null for a pending or legacy client, sealed once captured.
+  """
+  issuedToOwnWorker: Boolean
   maxReads: Int
   readCount: Int!
 
@@ -18973,6 +19013,11 @@ type SecretReadClient {
 type SecretReadClientIssued {
   clientId: ID!
   grantId: ID!
+
+  """
+  The worker holder was held by the actual signer at issuance (R22); null for a pending or legacy client, sealed once captured.
+  """
+  issuedToOwnWorker: Boolean
   secretName: String!
   selfIssued: Boolean!
 }
