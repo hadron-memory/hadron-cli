@@ -394,3 +394,24 @@ func TestModelGroup1503HTMLOn200Rows(t *testing.T) {
 		}
 	}
 }
+
+// cli#2421 (local P3): withJSON1503 must copy. A slice with spare capacity is
+// the case where a plain append would write into the caller's backing array;
+// this pins that the helper never does, so an append-based regression fails
+// here even though today's table rows have no spare capacity.
+func TestWithJSON1503DoesNotAliasItsArgument(t *testing.T) {
+	backing := make([]string, 2, 8) // spare capacity: append would reuse it
+	backing[0], backing[1] = "agent", "model-group"
+	got := withJSON1503(backing)
+	if len(got) != 3 || got[2] != "--json" {
+		t.Fatalf("withJSON1503 = %v", got)
+	}
+	if len(backing) != 2 || backing[:3][2] != "" {
+		t.Fatalf("the caller's backing array was written into: %v", backing[:3])
+	}
+	other := withJSON1503(backing[:2])
+	other[0] = "changed"
+	if backing[0] != "agent" || got[0] != "agent" {
+		t.Fatalf("results share storage with the argument or each other: %v %v %v", backing, got, other)
+	}
+}
