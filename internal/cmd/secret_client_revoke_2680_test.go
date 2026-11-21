@@ -1,0 +1,283 @@
+package cmd
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+// cli#2680: `secret client revoke <client-id>`. A read client is backed by one
+// grant (cor:sec:060), so revoking it is revokeGrant(ref: <grantId>), once. Fake
+// HTTP only.
+
+func readClients2680(rows ...string) string {
+	return `{"data":{"mySecretReadClients":[` + strings.Join(rows, ",") + `]}}`
+}
+
+func clientRow2680(client, grant string) string {
+	return `{"clientId":"` + client + `","grantId":"` + grant + `","secretId":"s1","secretName":"deploy-token","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
+}
+
+func revoked2680(state string) string {
+	return `{"data":{"revokeGrant":{"id":"gr-c1","state":"` + state + `","revokedAt":"2026-11-21T02:00:00Z","allows":false}}}`
+}
+
+func runRevoke2680(t *testing.T, srvURL string, args ...string) (string, error) {
+	t.Helper()
+	out, _, err := runSecretClient2631(t, srvURL, append([]string{"revoke"}, args...)...)
+	return out, err
+}
+
+func countOp2680(calls *[]attnCall, op string) int {
+	n := 0
+	for _, c := range *calls {
+		if c.Op == op {
+			n++
+		}
+	}
+	return n
+}
+
+// Acceptance 1: read the clients, send revokeGrant with THAT client's grant id
+// exactly once, print the revoked state. No worker session, even when bound.
+// Red on main: the command does not exist.
+func TestSecretClientRevokeSendsOnceWithTheGrantID2680(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, map[string]string{
+		"MySecretReadClients": readClients2680(clientRow2680("c0", "gr-c0"), clientRow2680("c1", "gr-c1")),
+		"RevokeSecretReadClientGrant":         revoked2680("REVOKED"),
+		"TeamAppIdentity":     teamAppIdentityJSON,
+	})
+	setTeamBindingServer(t, srv.URL)
+	out, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := countOp2680(calls, "RevokeSecretReadClientGrant"); n != 1 {
+		t.Fatalf("revokeGrant must be sent exactly once, got %d (%v)", n, opsOf2631(calls))
+	}
+	for _, c := range *calls {
+		if c.Session != "" {
+			t.Errorf("%s: revoke acts as you and must not send a worker session, got %q", c.Op, c.Session)
+		}
+		if c.Op == "RevokeSecretReadClientGrant" {
+			if c.Vars["ref"] != "gr-c1" {
+				t.Errorf("revokeGrant must name the client's grant id (gr-c1), not the client id: %v", c.Vars)
+			}
+			if _, has := c.Vars["instruction"]; has {
+				t.Errorf("no instruction is sent: %v", c.Vars)
+			}
+		}
+	}
+	var d map[string]any
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatalf("--json: %v\n%s", err, out)
+	}
+	if d["clientId"] != "c1" || d["grantId"] != "gr-c1" || d["state"] != "REVOKED" || d["revokedAt"] != "2026-11-21T02:00:00Z" || d["allows"] != false {
+		t.Errorf("DTO: %v", d)
+	}
+	text, _, err := runSecretClient2631(t, srv.URL, "revoke", "c1", "--yes")
+	if err != nil || !strings.Contains(text, "REVOKED") || !strings.Contains(text, "c1") {
+		t.Errorf("text must name the client and the state: %v %q", err, text)
+	}
+}
+
+// Acceptance 2: an unknown client (or someone else's, which never lists) is a
+// not-found (exit 4) and sends no revokeGrant. A client on a later page is found.
+func TestSecretClientRevokeUnknownClientSendsNothing2680(t *testing.T) {
+	srv, calls := attnServer(t, map[string]string{
+		"MySecretReadClients": readClients2680(clientRow2680("c0", "gr-c0")),
+		"RevokeSecretReadClientGrant":         revoked2680("REVOKED"),
+	})
+	_, err := runRevoke2680(t, srv.URL, "nope", "--yes")
+	if exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("exit %d, want 4: %v", exitCodeFor(err), err)
+	}
+	if countOp2680(calls, "RevokeSecretReadClientGrant") != 0 {
+		t.Fatalf("no revokeGrant for an unknown client: %v", opsOf2631(calls))
+	}
+	if !strings.Contains(err.Error(), "secret client list") {
+		t.Errorf("the error says where clients are listed: %v", err)
+	}
+}
+
+func TestSecretClientRevokeFindsAClientOnALaterPage2680(t *testing.T) {
+	var mu sync.Mutex
+	var offsets []float64
+	var revokes int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var b struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.Unmarshal(raw, &b)
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		switch b.OperationName {
+		case "MySecretReadClients":
+			off, _ := b.Variables["offset"].(float64)
+			offsets = append(offsets, off)
+			switch off {
+			case 0:
+				rows := make([]string, 200)
+				for i := range rows {
+					rows[i] = clientRow2680(fmt.Sprintf("x%d", i), fmt.Sprintf("gx%d", i))
+				}
+				_, _ = w.Write([]byte(readClients2680(rows...)))
+			case 200:
+				_, _ = w.Write([]byte(readClients2680(clientRow2680("c-late", "gr-late"))))
+			default:
+				_, _ = w.Write([]byte(readClients2680()))
+			}
+		case "RevokeSecretReadClientGrant":
+			revokes++
+			if b.Variables["ref"] != "gr-late" {
+				t.Errorf("ref %v", b.Variables["ref"])
+			}
+			_, _ = w.Write([]byte(revoked2680("REVOKED")))
+		}
+	}))
+	defer srv.Close()
+	if _, err := runRevoke2680(t, srv.URL, "c-late", "--yes"); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if revokes != 1 || len(offsets) < 2 {
+		t.Fatalf("revokes=%d offsets=%v", revokes, offsets)
+	}
+}
+
+// Acceptance 3: a lost revokeGrant answer is not resent, exits 7, and says to
+// check `secret client list` (and names the grant). Never called "failed".
+func TestSecretClientRevokeLostAnswerIsNotResent2680(t *testing.T) {
+	var mu sync.Mutex
+	revokes := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var b struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.Unmarshal(raw, &b)
+		mu.Lock()
+		defer mu.Unlock()
+		if b.OperationName == "RevokeSecretReadClientGrant" {
+			revokes++
+			w.WriteHeader(502)
+			_, _ = w.Write([]byte("bad gateway"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(readClients2680(clientRow2680("c1", "gr-c1"))))
+	}))
+	defer srv.Close()
+	_, err := runRevoke2680(t, srv.URL, "c1", "--yes")
+	mu.Lock()
+	defer mu.Unlock()
+	if exitCodeFor(err) != exitcode.Unavailable || revokes != 1 {
+		t.Fatalf("exit=%d revokes=%d err=%v", exitCodeFor(err), revokes, err)
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "secret client list") || !strings.Contains(msg, "gr-c1") || !strings.Contains(strings.ToLower(msg), "unknown") {
+		t.Errorf("a lost answer is an unknown outcome: name `secret client list` and the grant: %v", err)
+	}
+	if strings.Contains(strings.ToLower(msg), "failed") {
+		t.Errorf("an unknown outcome is not 'failed': %v", err)
+	}
+}
+
+// A state that is not an end (ACTIVE, PENDING) is NOT a confirmed revoke (exit 7);
+// a grant that had already ended is returned as it is and is a success that says
+// nothing changed (the first end stands); a null answer is not a success.
+func TestSecretClientRevokeStatesAndMalformedAnswers2680(t *testing.T) {
+	for _, tc := range []struct {
+		name, resp string
+		exit       int
+		want       string
+	}{
+		{"active is not revoked", revoked2680("ACTIVE"), exitcode.Unavailable, "not confirmed"},
+		{"pending is not revoked", revoked2680("PENDING"), exitcode.Unavailable, "not confirmed"},
+		{"already expired stands", revoked2680("EXPIRED"), 0, "already ended"},
+		{"already withdrawn stands", revoked2680("WITHDRAWN"), 0, "already ended"},
+		{"null answer", `{"data":{"revokeGrant":null}}`, exitcode.Unavailable, "not confirmed"},
+		{"missing answer", `{"data":{}}`, exitcode.Unavailable, "not confirmed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": tc.resp})
+			out, err := runRevoke2680(t, srv.URL, "c1", "--yes")
+			if exitCodeFor(err) != tc.exit || countOp2680(calls, "RevokeSecretReadClientGrant") != 1 {
+				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), tc.exit, countOp2680(calls, "RevokeSecretReadClientGrant"), err)
+			}
+			got := out
+			if err != nil {
+				got = err.Error()
+			}
+			if !strings.Contains(got, tc.want) {
+				t.Errorf("want %q in %q", tc.want, got)
+			}
+		})
+	}
+}
+
+// Refusals keep their exit class and send revokeGrant once. The server answers a
+// grant that is not the caller's to revoke with GRANT_NOT_MANAGER (not allowed
+// and not visible are one answer), which is a permission refusal (8).
+func TestSecretClientRevokeRefusals2680(t *testing.T) {
+	for code, want := range map[string]int{"GRANT_NOT_MANAGER": 8, "FORBIDDEN": 8, "UNAUTHENTICATED": 3} {
+		t.Run(code, func(t *testing.T) {
+			srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": gqlErrorJSON(code)})
+			_, err := runRevoke2680(t, srv.URL, "c1", "--yes")
+			if exitCodeFor(err) != want || countOp2680(calls, "RevokeSecretReadClientGrant") != 1 {
+				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), want, countOp2680(calls, "RevokeSecretReadClientGrant"), err)
+			}
+		})
+	}
+}
+
+// Revoke ends access and cannot be undone (a new client needs a new signature):
+// off a terminal it needs --yes and sends nothing; on one it asks, naming the
+// client and the secret, and "no" sends nothing.
+func TestSecretClientRevokeConfirmation2680(t *testing.T) {
+	srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": revoked2680("REVOKED")})
+	_, err := runRevoke2680(t, srv.URL, "c1")
+	if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
+		t.Fatalf("without --yes off a terminal: exit=%d requests=%v err=%v", exitCodeFor(err), opsOf2631(calls), err)
+	}
+	f, _, errOut := testFactoryTTY(t, "n\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"secret", "client", "revoke", "c1", "--server", srv.URL})
+	err = root.Execute()
+	if err == nil || countOp2680(calls, "RevokeSecretReadClientGrant") != 0 {
+		t.Fatalf("an answer of no must send no revokeGrant: %v %v", err, opsOf2631(calls))
+	}
+	if p := errOut.String(); !strings.Contains(p, "c1") || !strings.Contains(p, "deploy-token") {
+		t.Errorf("the prompt names the client and the secret: %q", p)
+	}
+	f, _, _ = testFactoryTTY(t, "y\n")
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"secret", "client", "revoke", "c1", "--server", srv.URL})
+	if err := root.Execute(); err != nil || countOp2680(calls, "RevokeSecretReadClientGrant") != 1 {
+		t.Fatalf("yes: %v %v", err, opsOf2631(calls))
+	}
+}
+
+// The client id is sent as given in the read and never composed into anything
+// else; a blank id is a usage error with no request.
+func TestSecretClientRevokeBlankIDSendsNothing2680(t *testing.T) {
+	srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(), "RevokeSecretReadClientGrant": revoked2680("REVOKED")})
+	for _, id := range []string{"", "  "} {
+		_, err := runRevoke2680(t, srv.URL, id, "--yes")
+		if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
+			t.Errorf("id %q: exit=%d requests=%v err=%v", id, exitCodeFor(err), opsOf2631(calls), err)
+		}
+	}
+}
