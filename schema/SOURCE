@@ -21,8 +21,11 @@
 # full re-vendor from a post-#4705 server breaks genqlient on ReadyFilter until cli#1964. #4782 is not on main, so the
 # snapshot-reproduces job cannot match these bytes. internal/api/gen/generated.go is covered by the
 # generate-drift check against this snapshot.
-# Before the ready call, after server#4782 merges: re-export at the MERGE SHA, set server_sha to it,
-# delete this block and regenerate. A ready call at this pin is refused; the CLI merges after the server.
+# server_sha ef26d585 is BEFORE #4705 (hadron-server 4d82f4fa merged 2026-11-21, ahead of it). Exit: after server#4782
+# merges, re-diff the #4782 head against this block (it is a mutable PR head), then re-export at the MERGE SHA, set
+# server_sha to it, delete this block and regenerate. That re-export is post-#4705, so it REQUIRES cli#1964 merged first
+# (genqlient breaks on ReadyFilter otherwise); if cli#1964 is not in, re-apply the delta onto a pre-#4705 pin instead.
+# Do not call the PR ready at this pin: the CLI merges after the server (ruling 0274).
 server_sha=ef26d5856de6c33f99e4b29a5e9af2bee6875f75
 tsx=4.23.15
 graphql=16.15.0

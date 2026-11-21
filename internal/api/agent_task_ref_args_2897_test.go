@@ -23,8 +23,8 @@ import (
 // comparing versions, and never by resending a write that may have executed
 // (cor:api:220:01); it is deliberately not built.
 
-// retiredAgentTaskArg matches the pre-hadron-server#4782 spelling of the 15
-// agent-task arguments (cli#2897): the mutations' `taskId:`, `agentTask(id:)`,
+// retiredAgentTaskArg matches the pre-hadron-server#4782 spelling of the 16
+// agent-task argument spellings (cli#2897): the mutations' `taskId:`, `agentTask(id:)`,
 // the list reads' `parentTaskId:` filter, and the events reads' `taskId:`
 // filter. The server renamed them to taskRef / ref / parentTaskRef with no
 // alias, so a document that still sends the old name fails on a current server
@@ -50,19 +50,31 @@ func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if m := retiredAgentTaskArg.FindString(string(raw)); m != "" {
+		for _, m := range retiredAgentTaskArg.FindAllString(string(raw), -1) {
 			t.Errorf("%s still sends a retired agent-task argument: %q", f, strings.TrimSpace(m))
 		}
 	}
 
 	// The operation strings actually sent live in the generated client; sweep
 	// them too, so a stale generate (documents fixed, generated.go not) is red.
-	gensrc, err := os.ReadFile("gen/generated.go")
-	if err != nil {
-		t.Fatal(err)
+	genFiles, err := filepath.Glob("gen/*.go")
+	if err != nil || len(genFiles) == 0 {
+		t.Fatalf("no generated client found: %v", err)
 	}
-	if m := retiredAgentTaskArg.FindString(string(gensrc)); m != "" {
-		t.Errorf("gen/generated.go still sends a retired agent-task argument: %q (run make generate)", strings.TrimSpace(m))
+	newSpelling := false
+	for _, f := range genFiles {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, m := range retiredAgentTaskArg.FindAllString(string(raw), -1) {
+			t.Errorf("%s still sends a retired agent-task argument: %q (run make generate)", f, strings.TrimSpace(m))
+		}
+		// Positive control: a silent non-match must not pass.
+		newSpelling = newSpelling || strings.Contains(string(raw), "startAgentTask(taskRef:")
+	}
+	if !newSpelling {
+		t.Error("gen/*.go never sends startAgentTask(taskRef:): the sweep matched nothing, or the client is stale")
 	}
 
 	sdl, err := os.ReadFile("../../schema/schema.graphql")
