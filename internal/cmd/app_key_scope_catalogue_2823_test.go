@@ -159,12 +159,12 @@ func TestAppKeyScopeCatalogue2823NeedsHostMapping(t *testing.T) {
 // scope or description never reach the terminal as control characters.
 func TestAppKeyScopeCatalogue2823HostileCellsAreSanitized(t *testing.T) {
 	calls := 0
-	hostile := `{"data":{"appKeyScopeCatalogue":[{"scope":"x\u001b[31m:evil","description":"a\nb\tc‮d","requiresHostId":false}]}}`
+	hostile := `{"data":{"appKeyScopeCatalogue":[{"scope":"x\u001b[31m:evil","description":"a\nb\tc\u202ed","requiresHostId":false}]}}`
 	r := runCatalogue2823(t, countingServer2823(t, hostile, &calls))
 	if r.err != nil {
 		t.Fatalf("unexpected error: %v", r.err)
 	}
-	if strings.ContainsAny(r.out, "\x1b\t‮") {
+	if strings.ContainsAny(r.out, "\x1b\t\u202e") {
 		t.Fatalf("control characters reached stdout: %q", r.out)
 	}
 	if strings.Count(r.out, "\n") != 2 { // header + one row, no injected line
