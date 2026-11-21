@@ -18,7 +18,7 @@ const listOp2758 = "ListSecretReadClients" // the list and the link lookup; revo
 
 const (
 	url2758     = "https://hadron.example/secret-reveal/cl-1?x=1&y=%7E"
-	rowHead2758 = `{"clientId":"cl-1","clientPrefix":"cl-1","grantId":"g1","secretId":"s1","secretName":"deploy","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"`
+	rowHead2758 = `{"clientId":"cl-1","clientPrefix":"cl-1","grantId":"g1","secretId":"s1","secretName":"deploy","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","destroyOnEnd":false`
 
 	notFound2758 = "SECRET_READ_CLIENT_NOT_FOUND"
 )

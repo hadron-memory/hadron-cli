@@ -87,6 +87,8 @@ func TestMapError(t *testing.T) {
 		// requestGrantSignature). No GRANT_* case existed, so all exited 1.
 		{"GRANT_REQUESTER_NOT_WORKER", gqlErr("GRANT_REQUESTER_NOT_WORKER"), exitcode.Forbidden},
 		{"GRANT_HOLDER_NOT_ALLOWED", gqlErr("GRANT_HOLDER_NOT_ALLOWED"), exitcode.Forbidden},
+		{"SECRET_AUTO_DELETE_NOT_ALLOWED", gqlErr("SECRET_AUTO_DELETE_NOT_ALLOWED"), exitcode.Forbidden},
+		{"SECRET_AUTO_DELETE_NEEDS_LIMIT", gqlErr("SECRET_AUTO_DELETE_NEEDS_LIMIT"), exitcode.Usage},
 		{"GRANT_ACTION_UNKNOWN", gqlErr("GRANT_ACTION_UNKNOWN"), exitcode.Usage},
 		{"GRANT_VALUES_INVALID", gqlErr("GRANT_VALUES_INVALID"), exitcode.Usage},
 		{"GRANT_TERMS_INVALID", gqlErr("GRANT_TERMS_INVALID"), exitcode.Usage},

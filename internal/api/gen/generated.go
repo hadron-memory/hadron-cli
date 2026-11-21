@@ -67038,7 +67038,8 @@ type ListSecretReadClientsMySecretReadClientsSecretReadClient struct {
 	EndReason *string `json:"endReason"`
 	CreatedAt string  `json:"createdAt"`
 	// #4545 (hrn:node:hadronmemory.com:specs:cor:sec:060:02): the server-hosted page where the person who holds this client reveals the value with a passkey: the server origin plus /secret-reveal/<clientId>, with no token. Copy it verbatim; never compose it. Returned only to that person holder in their own session. Null for a client a worker holds, and for a worker session, an App key or anyone viewing a client they do not hold.
-	RevealUrl *string `json:"revealUrl"`
+	RevealUrl    *string `json:"revealUrl"`
+	DestroyOnEnd *bool   `json:"destroyOnEnd"`
 }
 
 // GetClientId returns ListSecretReadClientsMySecretReadClientsSecretReadClient.ClientId, and is useful for accessing the field via an interface.
@@ -67084,6 +67085,11 @@ func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetCreatedAt(
 // GetRevealUrl returns ListSecretReadClientsMySecretReadClientsSecretReadClient.RevealUrl, and is useful for accessing the field via an interface.
 func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetRevealUrl() *string {
 	return v.RevealUrl
+}
+
+// GetDestroyOnEnd returns ListSecretReadClientsMySecretReadClientsSecretReadClient.DestroyOnEnd, and is useful for accessing the field via an interface.
+func (v *ListSecretReadClientsMySecretReadClientsSecretReadClient) GetDestroyOnEnd() *bool {
+	return v.DestroyOnEnd
 }
 
 // ListSecretReadClientsResponse is returned by ListSecretReadClients on success.
@@ -171935,6 +171941,7 @@ query ListSecretReadClients ($limit: Int, $offset: Int) {
 		endReason
 		createdAt
 		revealUrl
+		destroyOnEnd
 	}
 }
 `
@@ -171944,6 +171951,12 @@ query ListSecretReadClients ($limit: Int, $offset: Int) {
 // lookup only. A separate document, so that `client revoke` (a safety action) never depends on a
 // display field, and so a server that lacks revealUrl rejects THIS document at validation and the
 // CLI falls back to the one above with the link null. Printed byte for byte, never composed.
+// cli#2720 adds the auto-delete mark to the same document (the secret is deleted at the last read or when
+// the window ends), for `secret client list` only. A separate document so that `client revoke`, a
+// safety action, never depends on a display column: a server that lacks destroyOnEnd rejects THIS
+// query at validation; `client revoke` uses the mark-free MySecretReadClients document instead,
+// and `client list` falls back to it (the mark shown as unknown). A pointer, so that a row the
+// server answered without the field is seen as malformed, never read as "no mark".
 func ListSecretReadClients(
 	ctx_ context.Context,
 	client_ graphql.Client,
