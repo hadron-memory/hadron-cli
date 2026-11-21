@@ -65,3 +65,22 @@ past. An empty page that still says `hasMore` stops the pass as incomplete rathe
 `internal/cmd/find_untracked_reconcile_1962_test.go` (the mapping, report only when declared, paging, failure, old server,
 JSON), `internal/cmd/team/reconcile_test.go` (across runs: second run after the cursor, idempotence, per-adapter cursor,
 retry of a refused change; a command test cannot span two runs because the cursor is keyed by server).
+
+## Not-mine answer (cli#2869)
+
+A change whose external id the adapter will not act on used to be retried every
+run and pinned the cursor (46 foreign ids in 28,579 tasks). The adapter now says
+so: an adapter whose `describe` sets `"notMine": true` answers a write call
+(`mark-tracked`, `untrack`, `report`) for an id that is not its item with exit 20
+(`intakecontract.ExitNotMine`). Reconcile records the id in `reconcile.notMine`
+(at most 50 in `--json`, 5 on the text line; `skippedNotMine` counts all), moves
+the cursor past the change and carries on. The CLI never decides "foreign" itself
+(cor:agt:120 is source-agnostic).
+
+- **Opt-in, version 1 unchanged.** An adapter that does not declare it keeps the
+  v1 meaning: exit 20 is an ordinary refusal that holds the cursor. `notMine` is
+  an optional field of `describe`; nothing existing is reinterpreted.
+- **Every other refusal still holds the cursor**, declared or not.
+- **Reconcile only.** In the `--track` claim walk exit 20 is an ordinary failure.
+- Only `untrack` is pinned end to end in the tests; the three write calls share
+  one path (`reconcileOne` returns the runner's error unchanged).

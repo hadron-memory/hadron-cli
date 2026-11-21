@@ -84,6 +84,15 @@ type SkewError = intakecontract.SkewError
 type RefusedError struct {
 	Call   string
 	Detail string // already terminal-safe
+	// ExitCode is the adapter's exit status, 0 when it did not run to an exit.
+	ExitCode int
+}
+
+// IsNotMine reports an adapter's "not my item" answer: it exited with
+// intakecontract.ExitNotMine (hadron-cli#2869).
+func IsNotMine(err error) bool {
+	var re *RefusedError
+	return errors.As(err, &re) && re.ExitCode == intakecontract.ExitNotMine
 }
 
 func (e *RefusedError) Error() string {
@@ -198,8 +207,10 @@ func (r *Runner) call(ctx context.Context, name string, req map[string]any, out 
 		}
 		detail := output.SafeLine(strings.TrimSpace(stderr.buf.String()), 300)
 		var ee *exec.ExitError
+		exit := 0
 		switch {
 		case errors.As(runErr, &ee):
+			exit = ee.ExitCode()
 			if detail == "" {
 				detail = fmt.Sprintf("exit status %d", ee.ExitCode())
 			} else {
@@ -208,7 +219,7 @@ func (r *Runner) call(ctx context.Context, name string, req map[string]any, out 
 		default:
 			detail = output.SafeLine(runErr.Error(), 300)
 		}
-		return &RefusedError{Call: name, Detail: detail}
+		return &RefusedError{Call: name, Detail: detail, ExitCode: exit}
 	}
 	if err := intakecontract.DecodeAnswer(stdout.buf.Bytes(), out); err != nil {
 		return &OutputError{Call: name, Reason: err.Error()}
