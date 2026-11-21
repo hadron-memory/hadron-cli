@@ -16,7 +16,7 @@ import (
 // neutralised like the message (C1 controls and format characters become a space;
 // the C0 controls the encoder already escapes stay as sent), while a valid
 // identifier, a number and a null stay exactly as the server sent them, because a
-// caller copies ids into its next command (cor:agt:120 FIT condition, Victor).
+// caller copies ids into its next command (the spec review's round-trip condition).
 
 const hostileField2846 = "id\u009b31m\u202e\u200bX"
 
@@ -43,9 +43,8 @@ func walkStrings2846(t *testing.T, path string, v any) {
 			walkStrings2846(t, path+"."+k, e)
 		}
 	case []any:
-		for i, e := range x {
+		for _, e := range x {
 			walkStrings2846(t, path+"[]", e)
-			_ = i
 		}
 	}
 }
@@ -64,36 +63,95 @@ func envelope2846(t *testing.T, err error) map[string]any {
 	return e
 }
 
+// want2846 is hostileField2846 after neutralisation: each C1 control and format character is one space.
+const want2846 = "id 31m  X"
+
 func TestEnvelopeStringFieldsAreNeutralisedLikeTheMessage2846(t *testing.T) {
 	for name, tc := range map[string]struct {
 		err  error
-		keys []string // the envelope keys that must exist, to prove the case reached its field
+		path []string // where the neutralised value must be, with its exact text
 	}{
 		"a superseded session's id": {
 			err: exitcode.New(exitcode.Conflict, gqlerror.List{{Message: "superseded", Extensions: map[string]any{
 				"code": "SESSION_SUPERSEDED", "sessionId": hostileField2846, "startedAt": "2026-11-21T10:00:00Z"}}}),
-			keys: []string{"sessionId"},
+			path: []string{"sessionId"},
 		},
-		"a comment recovery thread id and class": {
+		"a comment recovery thread id": {
 			err: exitcode.New(exitcode.Conflict, gqlerror.List{{Message: "conflict", Extensions: map[string]any{
-				"code": "COMMENT_THREAD_OPEN", "threadId": hostileField2846, "class": hostileField2846, "currentRevision": 4}}}),
-			keys: []string{"extensions"},
+				"code": "COMMENT_THREAD_OPEN", "threadId": hostileField2846, "currentRevision": 4}}}),
+			path: []string{"extensions", "threadId"},
+		},
+		"a comment recovery class": {
+			err: exitcode.New(exitcode.Conflict, gqlerror.List{{Message: "conflict", Extensions: map[string]any{
+				"code": "COMMENT_THREAD_OPEN", "class": hostileField2846, "currentRevision": 4}}}),
+			path: []string{"extensions", "class"},
 		},
 		"a resume mismatch's names": {
 			err: exitcode.New(exitcode.Error, gqlerror.List{{Message: "refused", Extensions: map[string]any{
-				"code": "RESUME_REFUSED", "reason": "WORKER_MISMATCH", "foundWorkerName": hostileField2846, "picked": hostileField2846}}}),
-			keys: []string{"extensions"},
+				"code": "RESUME_REFUSED", "reason": "WORKER_MISMATCH", "foundWorkerName": hostileField2846, "picked": "p"}}}),
+			path: []string{"extensions", "foundWorkerName"},
+		},
+		"a server code carried by the error": {
+			err:  exitcode.New(exitcode.Error, hostileErr2846{code: hostileField2846}),
+			path: []string{"serverCode"},
+		},
+		"a batch reason carried by the error": {
+			err:  exitcode.New(exitcode.Error, hostileErr2846{reason: hostileField2846}),
+			path: []string{"reason"},
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			e := envelope2846(t, tc.err)
-			for _, k := range tc.keys {
-				if _, ok := e[k]; !ok {
-					t.Fatalf("the case did not reach %q: %v", k, e)
+			var cur any = e
+			for _, k := range tc.path {
+				m, ok := cur.(map[string]any)
+				if !ok {
+					t.Fatalf("no object before %q: %v", k, cur)
 				}
+				cur = m[k]
+			}
+			if cur != want2846 {
+				t.Errorf("%v = %q, want exactly %q (the whole value, not an emptied one)", tc.path, cur, want2846)
 			}
 			walkStrings2846(t, "error", e)
 		})
+	}
+}
+
+// hostileErr2846 is a CLI error carrying a server code and a batch reason, the two ways those
+// reach the envelope besides the typed refusals.
+type hostileErr2846 struct{ code, reason string }
+
+func (hostileErr2846) Error() string         { return "refused" }
+func (e hostileErr2846) ServerCode() string  { return e.code }
+func (e hostileErr2846) BatchReason() string { return e.reason }
+func (hostileErr2846) BatchPosition() int    { return 3 }
+
+// A server-chosen KEY is a server string too, and a null stays null.
+func TestEnvelopeKeysAreNeutralisedAndNullsStayNull2846(t *testing.T) {
+	e := envelope2846(t, exitcode.New(exitcode.Error, gqlerror.List{{Message: "refused", Extensions: map[string]any{
+		"code": "RESUME_REFUSED", "reason": "WORKER_MISMATCH", "expectedWorkerName": nil, "picked": "p"}}}))
+	ext, _ := e["extensions"].(map[string]any)
+	if v, present := ext["expectedWorkerName"]; !present || v != nil {
+		t.Errorf("a null the server sent must come back as a null: %v", ext)
+	}
+	bad := neutraliseEnvelopeValue(map[string]any{"k\u202e\u009bx": "v"}).(map[string]any)
+	if _, ok := bad["k  x"]; !ok || len(bad) != 1 {
+		t.Errorf("a map key holding a bidi override or a C1 control must be neutralised: %v", bad)
+	}
+}
+
+// A typed nil map or slice stays nil (it marshals as null, not {} or []).
+func TestNeutraliseEnvelopeValueKeepsTypedNilsNil2846(t *testing.T) {
+	var m map[string]any
+	var sl []string
+	var ms []map[string]any
+	for name, v := range map[string]any{"map": m, "slice": sl, "slice of maps": ms} {
+		out := neutraliseEnvelopeValue(v)
+		b, _ := json.Marshal(out)
+		if string(b) != "null" {
+			t.Errorf("%s: a typed nil must marshal as null, got %s", name, b)
+		}
 	}
 }
 
@@ -134,9 +192,9 @@ func TestEnvelopeSlotStringsAreNeutralisedAndAValidSlotIsUnchanged2846(t *testin
 		t.Fatalf("slots: %s", out)
 	}
 	walkStrings2846(t, "error.slots", slots)
-	ok, _ := slots[1].(map[string]any)
-	if ok["slot"] != "local" || ok["currentTaskId"] != "s2" || ok["state"] != "FINISHED" || ok["verdict"] != "APPROVE" || ok["head"] != prHead1664 || ok["counts"] != true {
-		t.Errorf("a valid slot must be unchanged: %v", ok)
+	valid, _ := slots[1].(map[string]any)
+	if valid["slot"] != "local" || valid["currentTaskId"] != "s2" || valid["state"] != "FINISHED" || valid["verdict"] != "APPROVE" || valid["head"] != prHead1664 || valid["counts"] != true {
+		t.Errorf("a valid slot must be unchanged: %v", valid)
 	}
 }
 

@@ -69,6 +69,8 @@ func TestSafeErrorBoundsAnUnterminatedOSCAtTheEndOfItsLine2846(t *testing.T) {
 		{"a terminated OSC (BEL) is still removed whole", "a\x1b]0;title\x07b\nnext", "ab\nnext"},
 		{"a terminated OSC (ST) is still removed whole", "a\x1b]8;;http://x\x1b\\b\nnext", "ab\nnext"},
 		{"an unterminated OSC on the last line still ends the string", "ok\nbad\x1b]0;title", "ok\nbad"},
+		{"a terminated OSC spanning a newline is cut at it (policy): its first line goes, the rest shows", "a\x1b]0;ti\ntle\x07b", "a\ntle b"},
+		{"CRLF after an unterminated OSC: the CR is part of the OSC line", "a\x1b]0;t\r\nnext", "a\nnext"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := SafeError(tc.in); got != tc.want {

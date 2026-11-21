@@ -719,7 +719,7 @@ func neutraliseReflect(v reflect.Value) reflect.Value {
 		}
 		r := reflect.MakeMapWithSize(v.Type(), v.Len())
 		for it := v.MapRange(); it.Next(); {
-			r.SetMapIndex(it.Key(), neutraliseReflect(it.Value()))
+			r.SetMapIndex(neutraliseReflect(it.Key()), neutraliseReflect(it.Value())) // a server-chosen key is a server string too
 		}
 		return r
 	case reflect.Slice:
