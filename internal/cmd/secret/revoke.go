@@ -106,7 +106,8 @@ On a terminal it asks first; off one it needs --yes and sends nothing without it
 
 Exit codes: 0 the grant is REVOKED, or had already ended; 2 usage; 3 not signed in; 4 client not
 found; 7 the answer was lost or did not confirm a revoke: the revoke is not
-resent, so run 'hadron secret client list --all' (the grant id is in the error) to see
+resent, so run 'hadron secret client list --all' (an instructed revoke:
+'hadron secret client list --all --as-worker'; the grant id is in the error) to see
 whether the client ended (this includes a grant answered in a state that is not an
 end, or one that still allows reads); 8 not permitted.`,
 		Example: `  hadron secret client revoke cl_123 --yes
