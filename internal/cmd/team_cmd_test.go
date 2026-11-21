@@ -3239,15 +3239,18 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 // a worker who read the chat and was then told it had not). Both halves were
 // tested in isolation; the handover between them was not, which is exactly
 // where the reported failure lives.
-func TestTeamChatReadThenSessionLogSeesTheWatermark(t *testing.T) {
+func TestTeamChatReadThenSessionLogFollowsTheServerCursor(t *testing.T) {
 	dir := teamGitDir(t)
 	path := filepath.Join(dir, "hadron-team-session.json")
 	if err := os.WriteFile(path, []byte(bindingWithTeamFixture), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` + teamChatMsgJSON + `]}}}`,
-		"TeamAppIdentity":  teamAppIdentityJSON,
+		// total 0: once read, nothing is newer than the server cursor below.
+		"TeamChatMessages":   `{"data":{"teamChatMessages":{"total":0,"items":[` + teamChatMsgJSON + `]}}}`,
+		"TeamAppIdentity":    teamAppIdentityJSON,
+		"TeamDefaultChannel": `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
+		"CheckChatCursor":    `{"data":{"channelReadState":{"channelId":"ch1","channelIncarnation":3,"cursorIncarnation":3,"lastSeenSeq":1}}}`,
 		"UpdateTeamSession": `{"data":{"updateSession":{"id":"s-new","agentId":"agt1","workerId":"wkr1","userId":"u1",
 			"type":"DEVELOPER","repo":null,"branch":null,"prNumber":371,
 			"startedAt":"2026-08-11T10:00:00Z","endedAt":null,"host":null,"tool":null,
@@ -3273,8 +3276,10 @@ func TestTeamChatReadThenSessionLogSeesTheWatermark(t *testing.T) {
 	if err := r2.Execute(); err != nil {
 		t.Fatalf("session log: %v", err)
 	}
-	if strings.Contains(errOut.String(), "no contiguous team-chat read cursor") {
-		t.Errorf("a read in this same worker session must count — false nudge:\n%s", errOut.String())
+	// cli#2858: the advisory follows the SERVER cursor, so after a read the worker is caught
+	// up and `session log` says nothing about the chat (no false nudge, seq 102).
+	if strings.Contains(errOut.String(), "team chat") || strings.Contains(errOut.String(), "team-chat") {
+		t.Errorf("a worker whose server cursor is at the head must get no chat nudge:\n%s", errOut.String())
 	}
 }
 
@@ -3287,6 +3292,10 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 		"RecordTeamWork": `{"data":{"recordTeamWork":{"nodeId":"w1","sessionId":"s-new","workerId":"wkr1","workerName":"Iris",
 			"tool":"claude-code","kind":"pr","ref":"hadron-memory/hadron-cli#371","action":"worked-on",
 			"at":"2026-08-13T10:00:00Z","detail":null}}}`,
+		// cli#2858: the advisory counts from the worker's SERVER read cursor (90 here), not
+		// from the binding's local hint.
+		"TeamDefaultChannel": `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
+		"CheckChatCursor":    `{"data":{"channelReadState":{"channelId":"ch1","channelIncarnation":3,"cursorIncarnation":3,"lastSeenSeq":90}}}`,
 	}
 	bind := func(t *testing.T, fixture string) {
 		t.Helper()
@@ -3306,9 +3315,13 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 		return m
 	}
 
-	t.Run("never read is a louder state than nothing new", func(t *testing.T) {
+	// cli#2858: where the worker's server read position cannot be read (here: no cursor row),
+	// the note says so and states no count and no --since remedy, whatever the local hint holds.
+	t.Run("an unreadable server cursor says it cannot know", func(t *testing.T) {
 		bind(t, bindingWithTeamFixture) // no chatSeenSeq
-		gql, captured := captureGraphQL(t, stubs(nil))
+		gql, captured := captureGraphQL(t, stubs(map[string]string{
+			"CheckChatCursor": `{"data":{"channelReadState":null}}`,
+		}))
 		// Repeat in the same binding, including JSON mode: the note remains
 		// per log write and does not establish a cursor of its own.
 		for _, asJSON := range []bool{false, true} {
@@ -3325,7 +3338,7 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 			}
 			note := ""
 			for _, line := range strings.Split(errOut.String(), "\n") {
-				if strings.Contains(line, "this worktree has no contiguous team-chat read cursor") {
+				if strings.Contains(line, "cannot read your server-side team-chat read position") {
 					if note != "" {
 						t.Errorf("duplicate chat note: %q", errOut.String())
 					}
@@ -3334,15 +3347,16 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 			}
 			for _, want := range []string{
 				"session log includes this reminder because team chat carries decisions",
-				"this worktree has no contiguous team-chat read cursor",
-				"unfiltered `hadron team chat read --all` reads from the oldest page",
-				"`hadron team chat read --since 0` starts at the oldest page (continue with nextSince)",
-				"bare `hadron team chat read` shows only the newest page",
-				"filtered reads and `hadron team chat mark-read` do not set this cursor",
+				"cannot read your server-side team-chat read position",
+				"states no unread count",
+				"`hadron team chat read --all` reads the chat from the oldest page",
 			} {
 				if !strings.Contains(note, want) {
 					t.Errorf("note lacks %q: %q", want, errOut.String())
 				}
+			}
+			if strings.Contains(note, "--since") {
+				t.Errorf("no --since remedy from an unknown position: %q", note)
 			}
 
 			if strings.Contains(out.String(), "team-chat") {
@@ -3357,15 +3371,9 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 					t.Errorf("worklog receipt changed: %s", out.String())
 				}
 			}
-			// Claims only what the CLI knows — a portal or other-binding read is
-			// invisible here, so asserting the worker never read would be a false
-			// nudge (seq 102).
-			if !strings.Contains(note, "portal or under another binding is not visible here") {
-				t.Errorf("the note must name its own blind spot: %q", errOut.String())
-			}
-			// And it costs nothing: no count query is worth issuing for that answer.
+			// And it costs nothing more: no count query is worth issuing for that answer.
 			if _, called := captured["TeamChatMessages"]; called {
-				t.Error("the never-read branch must not query the chat")
+				t.Error("an unknown position must not query the chat")
 			}
 		}
 	})
