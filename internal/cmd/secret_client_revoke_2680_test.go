@@ -25,8 +25,10 @@ func clientRow2680(client, grant string) string {
 	return `{"clientId":"` + client + `","grantId":"` + grant + `","secretId":"s1","secretName":"deploy-token","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
 }
 
-func revoked2680(state string) string {
-	return `{"data":{"revokeGrant":{"id":"gr-c1","state":"` + state + `","revokedAt":"2026-11-21T02:00:00Z","allows":false}}}`
+func revoked2680(state string) string { return revokedFor2680("gr-c1", state) }
+
+func revokedFor2680(grant, state string) string {
+	return `{"data":{"revokeGrant":{"id":"` + grant + `","state":"` + state + `","revokedAt":"2026-11-21T02:00:00Z","allows":false}}}`
 }
 
 func runRevoke2680(t *testing.T, srvURL string, args ...string) (string, error) {
@@ -163,7 +165,7 @@ func TestSecretClientRevokeFindsAClientOnALaterPage2680(t *testing.T) {
 			if b.Variables["ref"] != "gr-late" {
 				t.Errorf("ref %v", b.Variables["ref"])
 			}
-			_, _ = w.Write([]byte(revoked2680("REVOKED")))
+			_, _ = w.Write([]byte(revokedFor2680("gr-late", "REVOKED")))
 		}
 	}))
 	defer srv.Close()
@@ -299,5 +301,68 @@ func TestSecretClientRevokeBlankIDSendsNothing2680(t *testing.T) {
 		if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
 			t.Errorf("id %q: exit=%d requests=%v err=%v", id, exitCodeFor(err), opsOf2631(calls), err)
 		}
+	}
+}
+
+// Joost's F1: success needs the SAME grant back in an explicit ended state. A
+// missing, empty or unknown state, or an answer for another grant, is "not
+// confirmed" (exit 7, the grant named, `secret client list`), sent once, and the
+// DTO never claims the requested grant ended on the strength of another's answer.
+func TestSecretClientRevokeNeedsTheSameGrantInAnEndedState2680(t *testing.T) {
+	for name, resp := range map[string]string{
+		"another grant":  revokedFor2680("gr-other", "REVOKED"),
+		"empty id":       revokedFor2680("", "REVOKED"),
+		"empty state":    revokedFor2680("gr-c1", ""),
+		"unknown state":  revokedFor2680("gr-c1", "SURPRISE"),
+		"missing state":  `{"data":{"revokeGrant":{"id":"gr-c1","revokedAt":null,"allows":false}}}`,
+		"missing fields": `{"data":{"revokeGrant":{}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": resp})
+			out, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--json")
+			if exitCodeFor(err) != exitcode.Unavailable || revokes2680(calls) != 1 || out != "" {
+				t.Fatalf("exit=%d sends=%d out=%q err=%v", exitCodeFor(err), revokes2680(calls), out, err)
+			}
+			if m := err.Error(); !strings.Contains(m, "not confirmed") || !strings.Contains(m, "gr-c1") || !strings.Contains(m, "secret client list") {
+				t.Errorf("name the grant and where to check: %v", err)
+			}
+		})
+	}
+}
+
+// Joost's F2: a GraphQL error BENEATH revokeGrant (a result field failing after
+// the write committed), or any code that is not a definitive pre-write refusal, is
+// an unknown outcome: exit 7 with the recovery, sent once. The definitive refusals
+// keep their typed exits only at the mutation's own level.
+func TestSecretClientRevokeErrorsBelowTheWriteAreUnknown2680(t *testing.T) {
+	at := func(code string, path string) string {
+		return `{"data":{"revokeGrant":null},"errors":[{"message":"x","path":` + path + `,"extensions":{"code":"` + code + `"}}]}`
+	}
+	for name, tc := range map[string]struct {
+		resp string
+		exit int
+	}{
+		"result field fails after the write":   {at("INTERNAL_SERVER_ERROR", `["revokeGrant","state"]`), exitcode.Unavailable},
+		"internal error at the mutation":       {at("INTERNAL_SERVER_ERROR", `["revokeGrant"]`), exitcode.Unavailable},
+		"unlisted code with no path":           {`{"errors":[{"message":"x","extensions":{"code":"SOMETHING_ELSE"}}]}`, exitcode.Unavailable},
+		"definitive code below the write":      {at("FORBIDDEN", `["revokeGrant","state"]`), exitcode.Unavailable},
+		"not manager at the mutation":          {at("GRANT_NOT_MANAGER", `["revokeGrant"]`), exitcode.Forbidden},
+		"forbidden at the mutation":            {at("FORBIDDEN", `["revokeGrant"]`), exitcode.Forbidden},
+		"validation failure has no path":       {`{"errors":[{"message":"x","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, exitcode.Usage},
+		"unauthenticated at the mutation":      {at("UNAUTHENTICATED", `["revokeGrant"]`), exitcode.AuthRequired},
+		"mixed definitive and unlisted errors": {`{"errors":[{"message":"x","path":["revokeGrant"],"extensions":{"code":"FORBIDDEN"}},{"message":"y","path":["revokeGrant","state"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, exitcode.Unavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": tc.resp})
+			_, err := runRevoke2680(t, srv.URL, "c1", "--yes")
+			if exitCodeFor(err) != tc.exit || revokes2680(calls) != 1 {
+				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), tc.exit, revokes2680(calls), err)
+			}
+			if tc.exit == exitcode.Unavailable {
+				if m := err.Error(); !strings.Contains(m, "gr-c1") || !strings.Contains(m, "secret client list") || !strings.Contains(strings.ToLower(m), "unknown") {
+					t.Errorf("an unknown outcome names the grant and `secret client list`: %v", err)
+				}
+			}
+		})
 	}
 }
