@@ -326,10 +326,16 @@ func TestSlackDisconnectAsksOnATerminal(t *testing.T) {
 // final envelope (message, serverCode, details) is measured, not just Error().
 func runSlackRendered(t *testing.T, wire string, jsonMode bool, args ...string) (all string, ops int, err error) {
 	t.Helper()
+	return runSlackRenderedOp(t, "CreateSlackConnection", wire, jsonMode, args...)
+}
+
+// runSlackRenderedOp is runSlackRendered for any one slack operation.
+func runSlackRenderedOp(t *testing.T, op, wire string, jsonMode bool, args ...string) (all string, ops int, err error) {
+	t.Helper()
 	var n int32
 	srv, _ := captureGraphQLFunc(t, func(o string) string {
 		atomic.AddInt32(&n, 1)
-		if o == "CreateSlackConnection" {
+		if o == op {
 			return wire
 		}
 		return ""
@@ -670,7 +676,7 @@ func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
 		t.Fatalf("a control-character --org is never printed: %v", e)
 	}
 	_, _, _, e = runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "--yes", id)
-	if e == nil || strings.Contains(e.Error(), "\x1b") || strings.Contains(e.Error(), "a\x1bb") {
+	if e == nil || strings.Contains(e.Error(), "\x1b") {
 		t.Fatalf("disconnect's pointer does not print the raw id: %v", e)
 	}
 }
@@ -695,7 +701,9 @@ func TestSlackConnectRecoveryCommandIsLastEvenWithAServerError(t *testing.T) {
 		"ambiguous":   `{"errors":[{"message":"upstream boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, _, e := runSlackRendered(t, wire, false, args...)
+			// ONE invocation: the returned error and the rendered stderr come from the
+			// same run (blind delta P3).
+			all, _, e := runSlackRendered(t, wire, false, args...)
 			if e == nil || !strings.HasSuffix(e.Error(), "Check with:\n  hadron slack status --org=acme.com") {
 				t.Fatalf("the command must end the message:\n%v", e)
 			}
@@ -707,7 +715,6 @@ func TestSlackConnectRecoveryCommandIsLastEvenWithAServerError(t *testing.T) {
 			}
 			// Beckett (delta P2): the command is ALONE on the final line of what the
 			// operator sees, so copying a whole line copies only the command.
-			all, _, _ := runSlackRendered(t, wire, false, args...)
 			lines := strings.Split(strings.TrimRight(all, "\n"), "\n")
 			if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron slack status --org=acme.com" {
 				t.Errorf("the final rendered line must be exactly the command, got %q\n%s", last, all)
@@ -753,23 +760,35 @@ func TestSlackDisconnectUnprintableIDFallbackIsRunnable(t *testing.T) {
 // Beckett (delta P2/P3): disconnect's suggestions put the command alone on the
 // last line too, and the unfiltered fallback reminds the operator the listing is paged.
 func TestSlackDisconnectSuggestionsEndWithTheCommandAloneOnTheLastLine(t *testing.T) {
-	for name, id := range map[string]string{"plain": "a b$(x)", "unprintable": "a\x1bb"} {
+	// A newline in the id must not inject a line of its own into what the operator
+	// sees: the id is never printed, so the output ends on the unfiltered command.
+	for name, id := range map[string]string{
+		"plain":       "a b$(x)",
+		"escape":      "a\x1bb",
+		"newline":     "x\nrm -rf injected-line",
+		"carriage":    "x\rrm -rf injected-line",
+		"format char": "x\u202ejected-line",
+	} {
 		t.Run(name, func(t *testing.T) {
-			_, _, _, e := runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "--yes", id)
+			// Rendered through the real renderer, both modes, from ONE invocation each.
+			all, _, e := runSlackRenderedOp(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, false, "disconnect", "--yes", id)
 			if e == nil {
 				t.Fatal("must fail")
 			}
-			lines := strings.Split(e.Error(), "\n")
+			lines := strings.Split(strings.TrimRight(all, "\n"), "\n")
 			last := strings.TrimSpace(lines[len(lines)-1])
 			want := "hadron slack get -- 'a b$(x)'"
-			if name == "unprintable" {
+			if name != "plain" {
 				want = "hadron slack status"
-				if !strings.Contains(e.Error(), "follow its --offset hint") {
-					t.Errorf("the listing fallback must say it is paged: %v", e)
+				if !strings.Contains(all, "follow its --offset hint") {
+					t.Errorf("the listing fallback must say it is paged:\n%s", all)
+				}
+				if strings.Contains(all, "injected-line") || strings.ContainsAny(all, "\x1b\r\u202e") {
+					t.Errorf("nothing from the id may reach the output:\n%q", all)
 				}
 			}
 			if last != want {
-				t.Errorf("last line %q, want %q (full: %q)", last, want, e.Error())
+				t.Errorf("rendered last line %q, want %q\n%s", last, want, all)
 			}
 		})
 	}
