@@ -69,7 +69,7 @@ func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	// Field by field (cli#2707 F4), so a claim that gains a field does not
 	// break this pin while one that loses or changes kind/ref still does.
 	claim, ok := mutation.Variables["instruction"].(map[string]any)
-	if !ok || claim["kind"] != "TASK" || claim["ref"] != "one" {
+	if !ok || claim["kind"] != "TASK" || claim["ref"] != "one" || len(claim) != 2 {
 		t.Fatalf("the person fallback lost or reshaped the instruction claim: %v", mutation.Variables["instruction"])
 	}
 	if input, ok := mutation.Variables["input"].(map[string]any); !ok || input["appRef"] != appB {
@@ -81,7 +81,7 @@ func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	// the receipt's key names come from the CLI's output, so a rename there fails
 	// here instead of being mirrored by a hand-written tag.
 	receipt := receiptFields2707(t, []byte(out.String()))
-	wantParty2707(t, "the fallback receipt's worker", receipt["worker"], "wkr2", "Rufus", "hrn:worker:acme.com:eng:rufus")
+	wantParty2707(t, "the fallback receipt's worker", receipt["worker"], "WORKER", "wkr2", "Rufus", "hrn:worker:acme.com:eng:rufus")
 	wantString2707(t, "the fallback receipt", receipt, "state", "UNAVAILABLE")
 	wantString2707(t, "the fallback receipt", receipt, "reason", "OUT_OF_TOKENS")
 	wantString2707(t, "the fallback receipt", receipt, "setBy", "APP_MANAGER")
