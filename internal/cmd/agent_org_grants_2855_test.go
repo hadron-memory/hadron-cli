@@ -55,7 +55,7 @@ func TestSubscriptionAllStopsLoudlyAtTheRowCap2855(t *testing.T) {
 		page2788("agentSubscriptionsPage", 9, true, sub2788(3), sub2788(4)),
 		page2788("agentSubscriptionsPage", 9, true, sub2788(5), sub2788(6)),
 	}}, "list", "--agent", "ag1", "--all", "--json")
-	if err == nil || exitcode.FromError(err) == exitcode.OK {
+	if err == nil || exitCodeFor(err) == exitcode.OK {
 		t.Fatalf("a cut walk must fail, got %v\n%s", err, out)
 	}
 	for _, want := range []string{"cut at 4", "total of 9", "NOT the whole set"} {
