@@ -140,7 +140,7 @@ they are not additions to the original 33-row Proposed-class review.
 Closed-stale #890's unbuilt residuals now have fresh tracking children #2788
 (org grants and paged subscription reads) and #2789 (personal subscription
 revoke, including its memory-deletion side effect). Closed #684's still-unreached
-`importNode(input.authoredWith)` now names #2790; this does not reopen its
+`importNode(input.authoredWith)` is closed by #2790 (the paired attestation flags on `node import`); this does not reopen its
 declined scaffolding. Filing those children is not a gate or a build dispatch.
 
 Compared MCP registrations and Express routes against server `94d33f45`. The

@@ -239,7 +239,7 @@ func TestAgentSubscriptionRevokeHelpNamesTheMemorySideEffect2789(t *testing.T) {
 		t.Fatalf("no revoke command: %v", err)
 	}
 	long := strings.Join(strings.Fields(c.Long), " ")
-	for _, want := range []string{"DELETE a memory", "personal memory", "has no nodes", "keeps it if it has any", "decides which", "hadron memory list", "never resent", "not an organization license", "does not list a user's Agent subscriptions yet"} {
+	for _, want := range []string{"DELETE a memory", "personal memory", "has no nodes", "keeps it if it has any", "decides which", "hadron memory list", "never resent", "not an organization license", "subscription list --agent"} {
 		if !strings.Contains(long, want) {
 			t.Errorf("the help lacks %q", want)
 		}

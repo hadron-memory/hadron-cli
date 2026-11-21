@@ -49,7 +49,7 @@ var definitiveSubscriptionRevokeRefusals = []string{
 // empty-memory deletion after it, may have happened, so it is never resent and the
 // caller is told where to look.
 func subscriptionRevokeNotConfirmed(agent, user, why string) error {
-	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, the subscription of %s to %s may have been revoked and its empty personal memory deleted. It is not resent: check with `hadron memory list` whether that user's memory for the Agent is still there (the CLI does not list a user's Agent subscriptions yet), then decide whether to run it again", why, output.SafeCell(user), output.SafeCell(agent))
+	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, the subscription of %s to %s may have been revoked and its empty personal memory deleted. It is not resent: check with `hadron memory list` whether that user's memory for the Agent is still there (or `hadron agent subscription list --agent <agent>`, which shows whether the subscription is revoked), then decide whether to run it again", why, output.SafeCell(user), output.SafeCell(agent))
 }
 
 func subscriptionRevokeError(err error, agent, user string) error {
@@ -79,12 +79,15 @@ func confirmedRevoked(s *gen.RevokeAgentSubscriptionRevokeAgentSubscription, age
 }
 
 func newCmdSubscriptionRevoke(f *cmdutil.Factory) *cobra.Command {
-	var user string
+	var user, org string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "revoke <agent> --user <ref> [--yes]",
-		Short: "Revoke a user's subscription to an Agent (may delete their empty personal memory)",
-		Long: `Revoke one user's subscription to an Agent: the user can no longer use the Agent
+		Use:   "revoke <agent> (--user <ref> | --org <ref>) [--yes]",
+		Short: "Revoke a user's subscription to an Agent (may delete their empty personal memory) or an organization's",
+		Long: `Exactly one of --user and --org. --org revokes an ORGANIZATION's subscription
+(the license "subscription list --org" shows) and is described at the end.
+
+With --user, revoke one user's subscription to an Agent: the user can no longer use the Agent
 through that subscription. This is not an organization license (that is the
 'subscription list --org' of the same group) and it does not remove the Agent.
 
@@ -107,16 +110,39 @@ Exit codes: 0 the subscription reads as ended; 2 usage; 3 not signed in; 4 the
 Agent or user was not found; 7 the answer was lost, or did not show an ended
 subscription: the revoke may or may not have happened, and the empty-memory
 deletion after it may or may not have run. It is not resent: check with
-'hadron memory list' (the CLI does not list a user's Agent subscriptions yet)
-and decide; 8 not permitted.`,
+'hadron memory list' (or "hadron agent subscription list --agent <agent>", which shows whether the subscription is revoked)
+and decide; 8 not permitted.
+
+With --org <id|urn> (revokeAgentOrgGrant) it revokes the organization's subscription
+to the Agent. The organization's install state is left as it is, and a revoked
+subscription is NOT reactivated by subscribing again (the server refuses a second
+subscribe), so treat it as one-way. Allowed for an admin of the subscribing
+organization or an admin of the Agent; the server may answer "not found" for
+something you cannot see. It asks on a terminal and needs --yes without one. The
+call is sent once; if its outcome cannot be known (exit 7) nothing is retried: check
+with "hadron agent subscription list --org <org>" first (readable only by an admin
+or owner of the organization; an Agent admin who is not one gets an empty list,
+which does not settle it). --json is the grant {agentId,orgId,isActive,createdAt,
+activatedAt,expiresAt,revokedAt}.`,
 		Example: `  hadron agent subscription revoke hrn:agent:acme.com:helper --user alice@acme.com
-  hadron agent subscription revoke hrn:agent:acme.com:helper --user hrn:user:alice --yes --json`,
+  hadron agent subscription revoke hrn:agent:acme.com:helper --user hrn:user:alice --yes --json
+  hadron agent subscription revoke hrn:agent:acme.com:helper --org hrn:org:acme.com --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			agentRef := strings.TrimSpace(args[0])
 			userRef := strings.TrimSpace(user)
+			orgRef := strings.TrimSpace(org)
 			if agentRef == "" {
 				return exitcode.Newf(exitcode.Usage, "give the Agent's ID or URN")
+			}
+			if cmd.Flags().Changed("user") == cmd.Flags().Changed("org") {
+				return exitcode.Newf(exitcode.Usage, "give exactly one of --user and --org")
+			}
+			if cmd.Flags().Changed("org") {
+				if orgRef == "" {
+					return exitcode.Newf(exitcode.Usage, "--org is empty: give the organization's ID or URN")
+				}
+				return runOrgRevoke(f, cmd, agentRef, orgRef, yes)
 			}
 			if userRef == "" {
 				return exitcode.Newf(exitcode.Usage, "give --user: the user's ID, email, handle or hrn:user URN")
@@ -149,8 +175,8 @@ and decide; 8 not permitted.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "the user: ID, email, handle or hrn:user URN (required)")
-	_ = cmd.MarkFlagRequired("user")
+	cmd.Flags().StringVar(&user, "user", "", "revoke this user's subscription: ID, email, handle or hrn:user URN")
+	cmd.Flags().StringVar(&org, "org", "", "revoke this organization's subscription: id or URN")
 	cmd.Flags().BoolVar(&yes, "yes", false, "revoke without asking (required off a terminal)")
 	return cmd
 }
