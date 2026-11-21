@@ -1076,10 +1076,9 @@ mutation AgentTaskDisposeFinding(
 ) {
   disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference) {
     id
-    # Findings are capped at 100 per task; this reads the full latest disposition set.
-    findingDispositions(limit: 200, offset: 0) {
-      items { ...TaskFindingDispositionFields }
-    }
+    # cli#1709: one targeted readback of the finding just written (latest at
+    # field resolution, not atomic with the commit), not a scan of the paged list.
+    findingDisposition(findingId: $findingId) { ...TaskFindingDispositionFields }
   }
 }
 

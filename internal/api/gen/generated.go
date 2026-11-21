@@ -6696,65 +6696,52 @@ func (v *AgentTaskDependencyFields) GetStatus() AgentTaskStatus { return v.Statu
 // workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask struct {
 	Id string `json:"id"`
-	// #2663: dispositions beside the result, same readers; default20/max200/limit0 count-only (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
-	FindingDispositions *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage `json:"findingDispositions"`
+	// #3325: the one current disposition stored for this finding id on THIS task, or null (undisposed, unknown and other-task ids are indistinguishable). Exact id match; same readers as findingDispositions.
+	FindingDisposition *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition `json:"findingDisposition"`
 }
 
 // GetId returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask) GetId() string { return v.Id }
 
-// GetFindingDispositions returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask.FindingDispositions, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask) GetFindingDispositions() *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage {
-	return v.FindingDispositions
+// GetFindingDisposition returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask.FindingDisposition, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask) GetFindingDisposition() *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition {
+	return v.FindingDisposition
 }
 
-// AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage includes the requested fields of the GraphQL type AgentTaskFindingDispositionPage.
-// The GraphQL type's documentation follows.
-//
-// #2663: current dispositions, ordered by finding order, capped pages.
-type AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage struct {
-	Items []*AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition `json:"items"`
-}
-
-// GetItems returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage.Items, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage) GetItems() []*AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition {
-	return v.Items
-}
-
-// AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition includes the requested fields of the GraphQL type AgentTaskFindingDisposition.
+// AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition includes the requested fields of the GraphQL type AgentTaskFindingDisposition.
 // The GraphQL type's documentation follows.
 //
 // #2663: latest disposition, separate from immutable findings. Every code, including deferred, resolves the finding.
-type AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+type AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition struct {
 	TaskFindingDispositionFields `json:"-"`
 }
 
-// GetFindingId returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.FindingId, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetFindingId() string {
+// GetFindingId returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition.FindingId, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition) GetFindingId() string {
 	return v.TaskFindingDispositionFields.FindingId
 }
 
-// GetDisposition returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Disposition, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetDisposition() AgentTaskFindingDispositionCode {
+// GetDisposition returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition.Disposition, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition) GetDisposition() AgentTaskFindingDispositionCode {
 	return v.TaskFindingDispositionFields.Disposition
 }
 
-// GetReference returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Reference, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetReference() *TaskFindingDispositionFieldsReferenceAgentTaskReference {
+// GetReference returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition.Reference, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition) GetReference() *TaskFindingDispositionFieldsReferenceAgentTaskReference {
 	return v.TaskFindingDispositionFields.Reference
 }
 
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) UnmarshalJSON(b []byte) error {
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+		*AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition = v
+	firstPass.AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -6769,7 +6756,7 @@ func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositi
 	return nil
 }
 
-type __premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+type __premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition struct {
 	FindingId string `json:"findingId"`
 
 	Disposition AgentTaskFindingDispositionCode `json:"disposition"`
@@ -6777,7 +6764,7 @@ type __premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingD
 	Reference *TaskFindingDispositionFieldsReferenceAgentTaskReference `json:"reference"`
 }
 
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) MarshalJSON() ([]byte, error) {
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -6785,8 +6772,8 @@ func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositi
 	return json.Marshal(premarshaled)
 }
 
-func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) __premarshalJSON() (*__premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition, error) {
-	var retval __premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition) __premarshalJSON() (*__premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition, error) {
+	var retval __premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDisposition
 
 	retval.FindingId = v.TaskFindingDispositionFields.FindingId
 	retval.Disposition = v.TaskFindingDispositionFields.Disposition
@@ -6803,8 +6790,8 @@ func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositi
 // workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTask struct {
 	Id string `json:"id"`
-	// #2663: dispositions beside the result, same readers; default20/max200/limit0 count-only (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
-	FindingDispositions *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage `json:"findingDispositions"`
+	// #3325: the one current disposition stored for this finding id on THIS task, or null (undisposed, unknown and other-task ids are indistinguishable). Exact id match; same readers as findingDispositions.
+	FindingDisposition *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition `json:"findingDisposition"`
 }
 
 // GetId returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTask.Id, and is useful for accessing the field via an interface.
@@ -6812,58 +6799,45 @@ func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTask) GetI
 	return v.Id
 }
 
-// GetFindingDispositions returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTask.FindingDispositions, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTask) GetFindingDispositions() *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage {
-	return v.FindingDispositions
+// GetFindingDisposition returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTask.FindingDisposition, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTask) GetFindingDisposition() *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition {
+	return v.FindingDisposition
 }
 
-// AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage includes the requested fields of the GraphQL type AgentTaskFindingDispositionPage.
-// The GraphQL type's documentation follows.
-//
-// #2663: current dispositions, ordered by finding order, capped pages.
-type AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage struct {
-	Items []*AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition `json:"items"`
-}
-
-// GetItems returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage.Items, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage) GetItems() []*AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition {
-	return v.Items
-}
-
-// AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition includes the requested fields of the GraphQL type AgentTaskFindingDisposition.
+// AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition includes the requested fields of the GraphQL type AgentTaskFindingDisposition.
 // The GraphQL type's documentation follows.
 //
 // #2663: latest disposition, separate from immutable findings. Every code, including deferred, resolves the finding.
-type AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+type AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition struct {
 	TaskFindingDispositionFields `json:"-"`
 }
 
-// GetFindingId returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.FindingId, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetFindingId() string {
+// GetFindingId returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition.FindingId, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition) GetFindingId() string {
 	return v.TaskFindingDispositionFields.FindingId
 }
 
-// GetDisposition returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Disposition, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetDisposition() AgentTaskFindingDispositionCode {
+// GetDisposition returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition.Disposition, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition) GetDisposition() AgentTaskFindingDispositionCode {
 	return v.TaskFindingDispositionFields.Disposition
 }
 
-// GetReference returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Reference, and is useful for accessing the field via an interface.
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetReference() *TaskFindingDispositionFieldsReferenceAgentTaskReference {
+// GetReference returns AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition.Reference, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition) GetReference() *TaskFindingDispositionFieldsReferenceAgentTaskReference {
 	return v.TaskFindingDispositionFields.Reference
 }
 
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) UnmarshalJSON(b []byte) error {
+func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+		*AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition = v
+	firstPass.AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -6878,7 +6852,7 @@ func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindin
 	return nil
 }
 
-type __premarshalAgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+type __premarshalAgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition struct {
 	FindingId string `json:"findingId"`
 
 	Disposition AgentTaskFindingDispositionCode `json:"disposition"`
@@ -6886,7 +6860,7 @@ type __premarshalAgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTa
 	Reference *TaskFindingDispositionFieldsReferenceAgentTaskReference `json:"reference"`
 }
 
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) MarshalJSON() ([]byte, error) {
+func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -6894,8 +6868,8 @@ func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindin
 	return json.Marshal(premarshaled)
 }
 
-func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) __premarshalJSON() (*__premarshalAgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition, error) {
-	var retval __premarshalAgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+func (v *AgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition) __premarshalJSON() (*__premarshalAgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition, error) {
+	var retval __premarshalAgentTaskDisposeFindingInstructedDisposeAgentTaskFindingAgentTaskFindingDisposition
 
 	retval.FindingId = v.TaskFindingDispositionFields.FindingId
 	retval.Disposition = v.TaskFindingDispositionFields.Disposition
@@ -142013,10 +141987,8 @@ const AgentTaskDisposeFinding_Operation = `
 mutation AgentTaskDisposeFinding ($taskRef: ID!, $findingId: String!, $disposition: AgentTaskFindingDispositionCode!, $reference: AgentTaskReferenceInput) {
 	disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference) {
 		id
-		findingDispositions(limit: 200, offset: 0) {
-			items {
-				... TaskFindingDispositionFields
-			}
+		findingDisposition(findingId: $findingId) {
+			... TaskFindingDispositionFields
 		}
 	}
 }
@@ -142067,10 +142039,8 @@ const AgentTaskDisposeFindingInstructed_Operation = `
 mutation AgentTaskDisposeFindingInstructed ($taskRef: ID!, $findingId: String!, $disposition: AgentTaskFindingDispositionCode!, $reference: AgentTaskReferenceInput, $instruction: ActInstructionInput!) {
 	disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference, instruction: $instruction) {
 		id
-		findingDispositions(limit: 200, offset: 0) {
-			items {
-				... TaskFindingDispositionFields
-			}
+		findingDisposition(findingId: $findingId) {
+			... TaskFindingDispositionFields
 		}
 	}
 }
