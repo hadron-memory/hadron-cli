@@ -133,14 +133,21 @@ required and is shown to the signer. --max-reads 1 makes a one-use client.
 server parses it).
 
 --auto-delete marks the client: the server then deletes the secret at the client's
-last read or when its window ends, whichever comes first. It needs
---expires-at or --max-reads (the server refuses it without a window or a read
-budget, and the CLI does not check that itself: the refusal comes back as the
-server wrote it). Only whoever manages the App, or the writer of the secret's
-current version, may set it. Nothing is deleted until a person has signed the
-grant: a client that is never signed deletes nothing. Once signed, the deletion
-cannot be called off by revoking the client, or by the holder leaving: revoking a
-marked client does not cancel the deletion. A deleted secret is gone for good.
+last read or when its window ends, whichever comes first. It needs --expires-at
+or --max-reads (the server refuses it without a window or a read budget, and the
+CLI does not check that itself: the refusal comes back as the server wrote it).
+Only whoever manages the App, or the writer of the secret's current version, may
+set it; on a secret that does not exist or that you cannot see the refusal is the
+same "not permitted" (exit 8), never "not found". Nothing is deleted until a
+person has signed the grant: a client that is never signed deletes nothing.
+
+What cancels the deletion depends on the window. With --expires-at the deletion
+is a signed deadline: once signed, it happens at the end of the window whatever
+becomes of the client, so revoking a marked client (or the holder leaving) does
+not cancel the deletion. With only --max-reads there is no deadline: the secret
+is deleted at the client's LAST READ, and a client revoked (or whose holder left)
+before its last read never makes it, so revoking cancels the deletion. A deleted
+secret is gone for good.
 
 This is a person's act and never sends a worker session, even from a bound
 worktree. Whoever manages the App, or wrote the secret's current version, may
@@ -283,7 +290,7 @@ was lost: the error says which, and how to ask again).`,
 	fl.StringVar(&startsAt, "starts-at", "", "when the client starts to allow reads, a timestamp the server parses")
 	fl.StringVar(&expiresAt, "expires-at", "", "when the client stops allowing reads, a timestamp the server parses")
 	fl.IntVar(&maxReads, "max-reads", 0, "how many reads the client allows (1 = one-use)")
-	fl.BoolVar(&autoDelete, "auto-delete", false, "the server deletes the secret at the client's last read or when its window ends (needs --expires-at or --max-reads; once signed, revoking the client does not cancel it)")
+	fl.BoolVar(&autoDelete, "auto-delete", false, "the server deletes the secret at the client's last read or when its window ends (needs --expires-at or --max-reads; with --expires-at a signed deletion survives revoking the client, with only --max-reads revoking cancels it)")
 	fl.BoolVar(&wait, "wait", false, "poll the signing request until it ends")
 	fl.DurationVar(&waitTimeout, "wait-timeout", defaultSignWait, "max time to wait with --wait")
 	return cmd

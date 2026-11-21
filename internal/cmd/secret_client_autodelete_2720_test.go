@@ -111,10 +111,27 @@ func TestSecretClientIssueHelpStatesTheShippedAutoDelete2720(t *testing.T) {
 	}
 	for _, want := range []string{
 		"deletes the secret", "last read", "when its window ends", "--expires-at or --max-reads",
-		"revoking a marked client does not cancel the deletion", "writer of the secret's current version",
+		"With --expires-at the deletion is a signed deadline",
+		"revoking a marked client (or the holder leaving) does not cancel the deletion",
+		"With only --max-reads there is no deadline",
+		"revoking cancels the deletion",
+		"writer of the secret's current version",
+		`the refusal is the same "not permitted" (exit 8), never "not found"`,
 	} {
 		if !strings.Contains(long, want) {
 			t.Errorf("the help lacks %q:\n%s", want, long)
+		}
+	}
+	// Jessie's P2: "revoking does not cancel" is only true with a window. It must NOT be
+	// stated unconditionally anywhere (the issue help, the flag usage).
+	for _, over := range []string{"revoking a marked client does not cancel the deletion.", "once signed, revoking the client does not cancel it"} {
+		if strings.Contains(long, over) || strings.Contains(usage, over) {
+			t.Errorf("the help states unconditionally %q: it holds only with --expires-at", over)
+		}
+	}
+	for _, want := range []string{"with --expires-at a signed deletion survives revoking the client", "with only --max-reads revoking cancels it"} {
+		if !strings.Contains(usage, want) {
+			t.Errorf("the --auto-delete usage lacks %q: %s", want, usage)
 		}
 	}
 	for _, want := range []string{"deletes the secret", "needs --expires-at or --max-reads"} {
