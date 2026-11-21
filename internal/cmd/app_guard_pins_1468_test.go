@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -261,31 +262,50 @@ func TestGrantFixture2414RejectsInvalidEdits(t *testing.T) {
 
 // cli#2784 F7: the common helper and the App identity fixture reject the same
 // bad edits directly (the App wrapper reports through t.Fatalf, so its base
-// helper is tested here), and a malformed base row is an error too.
+// helper is tested here), and a malformed base row is an error too. Each case
+// asserts the error its own check raises, so one check cannot stand in for
+// another: an unknown key is the helper's own refusal, an invalid value is the
+// re-encode's *json.MarshalerError, a malformed base is the decode's
+// *json.SyntaxError (with an otherwise valid edit, so only the base can fail).
 func TestFixtureObject2784RejectsBadEditsDirectly(t *testing.T) {
-	for _, tc := range []struct{ name, base, field, value string }{
-		{"App unknown key", app1338, "not-an-app-field", `"x"`},
-		{"App invalid JSON value, rejected at re-encode", app1338, "id", `not-json`},
-		{"grant invalid JSON value, rejected at re-encode", grant1338, "prefix", `{`},
-		{"malformed base row", `{"id":`, "", ""},
+	unknownKey := func(err error) bool { return err != nil && strings.Contains(err.Error(), "unknown fixture field") }
+	badValue := func(err error) bool { var m *json.MarshalerError; return errors.As(err, &m) }
+	badBase := func(err error) bool { var syn *json.SyntaxError; return errors.As(err, &syn) }
+	for _, tc := range []struct {
+		name, base, field, value string
+		want                     func(error) bool
+	}{
+		{"App unknown key", app1338, "not-an-app-field", `"x"`, unknownKey},
+		{"App invalid value", app1338, "id", `not-json`, badValue},
+		{"grant invalid value", grant1338, "prefix", `{`, badValue},
+		{"malformed base row", `{"id":`, "id", `"a9"`, badBase},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if row, err := fixtureObject1468(tc.base, tc.field, tc.value); err == nil {
-				t.Fatalf("bad fixture produced %q without an error", row)
+			row, err := fixtureObject1468(tc.base, tc.field, tc.value)
+			if !tc.want(err) {
+				t.Fatalf("bad fixture: got %q, %v (%T); want this case's own error", row, err, err)
 			}
 		})
 	}
-	// Positive control: a valid edit of a known field round-trips.
+	// Positive control: a valid edit of a known field changes that field.
+	var before, after struct {
+		ID string `json:"id"`
+	}
 	row, err := fixtureObject1468(app1338, "id", `"a9"`)
-	if err != nil || !strings.Contains(row, `"id":"a9"`) {
+	if err != nil || json.Unmarshal([]byte(app1338), &before) != nil || json.Unmarshal([]byte(row), &after) != nil {
 		t.Fatalf("valid edit: %q %v", row, err)
+	}
+	if before.ID == "a9" || after.ID != "a9" {
+		t.Fatalf("valid edit did not change id: before %q after %q", before.ID, after.ID)
 	}
 }
 
 // cli#2784 F1: the checked stderr read fails with the writer's type instead of
 // panicking, and reads a capturing writer unchanged.
+type noCapture2784 struct{ io.Writer }
+
 func TestCapturedText2784NamesAWrongWriterType(t *testing.T) {
-	if _, err := capturedText1468(io.Discard); err == nil || !strings.Contains(err.Error(), "io.discard") {
+	if _, err := capturedText1468(noCapture2784{io.Discard}); err == nil || !strings.Contains(err.Error(), "noCapture2784") {
 		t.Fatalf("a non-capturing writer must be an error naming its type, got %v", err)
 	}
 	var b strings.Builder
