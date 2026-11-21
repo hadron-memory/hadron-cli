@@ -527,7 +527,11 @@ func TestSecretClientRevokeConnectionClosedAfterTheSend2680(t *testing.T) {
 				t.Error("no hijacker")
 				return
 			}
-			conn, _, _ := hj.Hijack()
+			conn, _, err := hj.Hijack()
+			if err != nil {
+				t.Errorf("hijack: %v", err)
+				return
+			}
 			_ = conn.Close()
 			return
 		}
