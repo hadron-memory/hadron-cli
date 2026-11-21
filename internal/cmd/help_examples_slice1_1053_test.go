@@ -159,7 +159,8 @@ func TestUnsafeExamplePathGuard1053(t *testing.T) {
 		t.Fatal(err)
 	}
 	sibling := dir + "-sibling"
-	safe := []string{"notes.txt", "a/b.json", "a/..", "@data.json", "--file=spec.json", "-o=out.json", dir + "/x", dir}
+	safe := []string{"notes.txt", "a/b.json", "a/..", "@data.json", "--file=spec.json", "-o=out.json", dir + "/x", dir,
+		"-oout.json", "-n5", "--set=key=value", "a.json,b.json", "--files=a.json,b/c.json", "k=v", dir + "/../run/x"}
 	for _, a := range safe {
 		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got != "" {
 			t.Errorf("%q judged unsafe, want safe (reported %q)", a, got)
@@ -170,6 +171,9 @@ func TestUnsafeExamplePathGuard1053(t *testing.T) {
 		"@/etc/passwd", "@/~/x",
 		"--payload-file=/etc/secret", "-o=/home/me/keys",
 		sibling + "/f",
+		// cli#2525 F6: a short-flag value glued to its flag, a key=path inside a value,
+		// and a comma list that carries a path.
+		"-o/etc/x", "-o../x", "-o~/x", "--set=key=/etc/x", "--meta=k=../x", "a.json,/etc/x", "--files=a.json,../b.json",
 	}
 	for _, a := range unsafe {
 		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got == "" {
