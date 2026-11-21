@@ -351,15 +351,15 @@ func TestSecretClientLs2631(t *testing.T) {
 	if err != nil || strings.TrimSpace(out) != "[]" {
 		t.Fatalf("an empty answer must print []: err=%v out=%q", err, out)
 	}
-	row := `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
+	row := `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","destroyOnEnd":false}`
 	srv2, calls := attnServer(t, map[string]string{listOp2758: `{"data":{"mySecretReadClients":[` + row + `]}}`})
 	out, _, err = runSecretClient2631(t, srv2.URL, "ls", "--json", "--limit", "5", "--offset", "2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var rows []map[string]any
-	if e := json.Unmarshal([]byte(out), &rows); e != nil || len(rows) != 1 || len(rows[0]) != 9 || rows[0]["endReason"] != nil || rows[0]["clientPrefix"] == nil || rows[0]["revealUrl"] != nil {
-		t.Fatalf("nine fields (clientPrefix added by the server, revealUrl by cli#2758), endReason and revealUrl null: %v\n%s", e, out)
+	if e := json.Unmarshal([]byte(out), &rows); e != nil || len(rows) != 1 || len(rows[0]) != 10 || rows[0]["endReason"] != nil || rows[0]["clientPrefix"] == nil || rows[0]["revealUrl"] != nil || rows[0]["destroyOnEnd"] != false {
+		t.Fatalf("ten fields (clientPrefix added by the server, revealUrl by cli#2758, destroyOnEnd by cli#2720), endReason and revealUrl null: %v\n%s", e, out)
 	}
 	if (*calls)[0].Vars["limit"] != float64(5) || (*calls)[0].Vars["offset"] != float64(2) {
 		t.Errorf("paging must pass through: %v", (*calls)[0].Vars)
@@ -388,7 +388,7 @@ func TestSecretClientLsAllWalksPages2631(t *testing.T) {
 		if off == 0 {
 			var rows []string
 			for i := 0; i < 3; i++ {
-				rows = append(rows, fmt.Sprintf(`{"clientId":"c%d","grantId":"g","secretId":"s","secretName":"n","selfIssued":true,"endReason":null,"createdAt":"t"}`, i))
+				rows = append(rows, fmt.Sprintf(`{"clientId":"c%d","grantId":"g","secretId":"s","secretName":"n","selfIssued":true,"endReason":null,"createdAt":"t","destroyOnEnd":false}`, i))
 			}
 			_, _ = fmt.Fprintf(w, `{"data":{"mySecretReadClients":[%s]}}`, strings.Join(rows, ","))
 			return
@@ -411,7 +411,7 @@ func TestSecretClientLsAllWalksPages2631(t *testing.T) {
 // Text output is neutralised: a control character in a server-authored secret
 // name must not reach the terminal.
 func TestSecretClientLsNeutralisesText2631(t *testing.T) {
-	row := `{"clientId":"c1","grantId":"g1","secretId":"s1","secretName":"to\u001b[31mk\nx","selfIssued":true,"endReason":"PROTECTED","createdAt":"t"}`
+	row := `{"clientId":"c1","grantId":"g1","secretId":"s1","secretName":"to\u001b[31mk\nx","selfIssued":true,"endReason":"PROTECTED","createdAt":"t","destroyOnEnd":false}`
 	srv, _ := attnServer(t, map[string]string{listOp2758: `{"data":{"mySecretReadClients":[` + row + `]}}`})
 	out, _, err := runSecretClient2631(t, srv.URL, "ls")
 	if err != nil || strings.ContainsAny(out, "\x1b") || strings.Count(out, "\n") != 2 {
@@ -662,7 +662,7 @@ func TestSecretClientLsAllAtThePageCap2631(t *testing.T) {
 		off, _ := body.Variables["offset"].(float64)
 		w.Header().Set("Content-Type", "application/json")
 		if off < 1000 {
-			_, _ = fmt.Fprintf(w, `{"data":{"mySecretReadClients":[{"clientId":"c%d","grantId":"g","secretId":"s","secretName":"n","selfIssued":true,"endReason":null,"createdAt":"t"}]}}`, int(off))
+			_, _ = fmt.Fprintf(w, `{"data":{"mySecretReadClients":[{"clientId":"c%d","grantId":"g","secretId":"s","secretName":"n","selfIssued":true,"endReason":null,"createdAt":"t","destroyOnEnd":false}]}}`, int(off))
 			return
 		}
 		_, _ = w.Write([]byte(`{"data":{"mySecretReadClients":[]}}`))
@@ -764,7 +764,7 @@ func TestSecretClientIssueIncompleteSigningRequestIsNotSuccess2631(t *testing.T)
 // prefix from the server: clientId is null, clientPrefix is distinct. The JSON
 // carries both fields and the table shows the prefix with an ellipsis.
 func TestSecretClientLsManagerRowHasANullIDAndAPrefix2631(t *testing.T) {
-	row := `{"clientId":null,"clientPrefix":"cl-ab12","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
+	row := `{"clientId":null,"clientPrefix":"cl-ab12","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","destroyOnEnd":false}`
 	srv, _ := attnServer(t, map[string]string{listOp2758: `{"data":{"mySecretReadClients":[` + row + `]}}`})
 	out, _, err := runSecretClient2631(t, srv.URL, "list", "--json")
 	var rows []map[string]any

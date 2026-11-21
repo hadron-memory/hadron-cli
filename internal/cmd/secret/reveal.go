@@ -229,10 +229,10 @@ func withRevealLink(cmd *cobra.Command, f *cmdutil.Factory, clientID string, err
 // session) and returns the revealUrl of the one whose full id is clientID, or "". A short page is
 // the end of the list, so the lookup stops there; a failed read is not an error here.
 func findRevealURL(ctx context.Context, client graphql.Client, clientID string) string {
-	noLink := false
+	var tier listTier
 	for off, pages := 0, 0; pages < revealLookupMaxPages; pages++ {
 		l, o := clientsPageSize, off
-		page, err := fetchClientPage(ctx, client, &noLink, &l, &o)
+		page, err := fetchClientPage(ctx, client, &tier, &l, &o)
 		if err != nil {
 			return ""
 		}

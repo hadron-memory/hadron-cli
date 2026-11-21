@@ -261,8 +261,8 @@ section between the markers.
 | `secret change get` |  |  | y | #1052 | 8b86ef8c679d |  | unread |  |
 | `secret change withdraw` |  |  | y | #1052 | ef6db9541a93 |  | unread |  |
 | `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
-| `secret client issue` |  |  | y | #1052 | ef58b95049c8 |  | unread |  |
-| `secret client list` | ls |  | y | #1052 | e8cce8fc81e3 |  | unread |  |
+| `secret client issue` |  |  | y | #1052 | 1807021a758c |  | unread |  |
+| `secret client list` | ls |  | y | #1052 | ba1baa933224 |  | unread |  |
 | `secret client revoke` |  |  | y | #1052 | 4fbcb5fade17 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 230d9394ff41 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
@@ -303,9 +303,9 @@ section between the markers.
 | `agent import publish` |  |  | y | #1053 | fb410acbb4be |  | unread |  |
 | `agent import rm` | remove |  | y | #1053 | 18821a1377f0 |  | unread |  |
 | `agent list` | ls |  | n | #1053 | cf8a7a7b08c2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `agent lock` |  |  | n | #1053 | 1984178d701c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
-| `agent lock acquire` |  |  | y | #1053 | 5c94841490ed | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
-| `agent lock release` |  |  | y | #1053 | bb8debad9b68 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
+| `agent lock` |  |  | n | #1053 | 370ecdf9377f |  | unread |  |
+| `agent lock acquire` |  |  | y | #1053 | af31423ce4cf |  | unread |  |
+| `agent lock release` |  |  | y | #1053 | 584a25100c48 |  | unread |  |
 | `agent memory` |  |  | n | #1053 | 6e65a58d5667 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `agent memory add` |  |  | y | #1053 | 8470d04b2cf3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `agent memory rm` | remove |  | y | #1053 | a9e619d0a6f5 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
