@@ -171,7 +171,11 @@ Only the flags you give are sent: a setting you do not name is kept. --mentions
 is immediate or off. --paused-until (RFC 3339, a time in the future) pauses the worker's wakes until
 that time; --clear-pause ends a pause and cannot be combined with
 --paused-until. At least one of the three is required. Without --instruction
-this is the person's write. Who may change them is
+this is the person's write. With --instruction the write goes out through this
+worktree's worker session when that binding is complete, for this server and
+the worker's own App, and unchanged since the command started; otherwise it
+goes out as the signed-in person with the claim still sent (a note on stderr
+says why). Who may change them is
 the server's rule (cor:agt:080:21): the worker itself, its holder or whoever
 manages the App.`,
 		Example: `  hadron team wake-settings set --worker hrn:worker:acme.com:ops:iris --mentions off
@@ -185,8 +189,10 @@ manages the App.`,
 			var claim *gen.ActInstructionInput
 			var instructed func(context.Context) (context.Context, bool, error)
 			if cmd.Flags().Changed("instruction") {
-				raw, _ := cmd.Flags().GetString("instruction")
-				var err error
+				raw, err := cmd.Flags().GetString("instruction")
+				if err != nil {
+					return err
+				}
 				if claim, err = parseInstruction(raw); err != nil {
 					return err
 				}
@@ -225,6 +231,12 @@ manages the App.`,
 			}
 			ctx := cmd.Context()
 			if claim != nil {
+				// cli#2491 F1, as on host issue: an explicit instruction owns
+				// attribution, so the authored-write middleware must not
+				// attach a binding the claim did not verify — including when
+				// the helper below falls back to the person (then this write
+				// carries the claim, headerless, never the unverified session).
+				ctx = withAsPerson(ctx)
 				var e error
 				ctx, _, e = instructed(ctx)
 				if e != nil {

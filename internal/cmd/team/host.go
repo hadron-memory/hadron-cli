@@ -574,5 +574,10 @@ claim, as the shared instruction help below describes.`,
 	cmd.Flags().StringArrayVar(&argPairs, "arg", nil, "an argument as key=value, repeatable")
 	cmd.Flags().BoolVar(&asPersonFlag, "as-person", false, "issue as yourself, not as the bound worktree's worker")
 	addManagerInstruction(cmd)
+	// --as-person promises no worker session on this write; --instruction
+	// claims the verified session's attribution. Together they contradict
+	// each other, and before this the claim silently won (#2774 review):
+	// refuse the pair instead of picking a winner.
+	cmd.MarkFlagsMutuallyExclusive("as-person", "instruction")
 	return cmd
 }

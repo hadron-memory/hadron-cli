@@ -185,17 +185,20 @@ and without --instruction this command never sends one. --json returns {status,
 withheld, wakes[], dormant[], hasNextPage, endCursor}; dormant lists workers
 whose mentions are held back, never dropped.
 
---instruction <kind>:<ref> claims, for this one read, that the worker's
-holder told it to read the manager's scope: the verified
-worktree worker session reads the manager's lane, never the holder's
-personal scope, and never acknowledges. kind is team-chat-message, task or
-live-chat; ref is a reference to where the instruction was given (a
-team-chat message URN, a task URN, or an opaque client address), never its
-text, and it is sent exactly as given. The claim rides the query itself,
+--instruction claims, for this one read, that the worker's holder told it
+to read the manager's scope: the verified worktree worker session reads
+the manager's lane, never the holder's personal scope, and never
+acknowledges. The value is <kind>:<ref> exactly as the flag's shared usage
+defines it, sent exactly as given. The claim rides the query itself,
 and the server records every admitted instructed read, so an empty page is
 still a claimed read — the instruction is never dropped for a quieter
-call. With an unusable binding the read goes out as the signed-in person
-with the claim still sent (a note on stderr says why). Needs server
+call. The claim rides this worktree's verified worker session when that
+binding is complete, for this server and the App being read, and unchanged
+since the command started. A readable binding that cannot carry it (a
+different server or App, or it changed while the command ran) sends the
+read out as the signed-in person with the claim still sent, and a note on
+stderr says why; a binding too broken to even name the App is refused
+before any request. Needs server
 2026-11-04 or later. More: "hadron agentic-usage".`,
 		Example: `  hadron team wakes due --preview --worker Iris
   hadron team wakes due --worker Iris

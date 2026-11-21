@@ -45,15 +45,22 @@ func sendTeamStopSignalLift(ctx context.Context, client graphql.Client, appRef, 
 	if claim == nil {
 		return gen.TeamStopSignalLift(ctx, client, appRef, id)
 	}
+	// A null liftTeamStopSignal result with no error mirrors the plain
+	// twin's shape (a non-nil response with a nil field), never (nil, nil)
+	// — the caller only checks err before reading resp (#2774 review P2-1).
 	r, err := gen.TeamStopSignalLiftInstructed(ctx, client, appRef, id, claim)
-	if r == nil || r.LiftTeamStopSignal == nil {
+	if r == nil {
 		return nil, err
 	}
-	lift := &gen.TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult{Changed: r.LiftTeamStopSignal.Changed}
-	if r.LiftTeamStopSignal.Signal != nil {
-		lift.Signal = (*gen.TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal)(r.LiftTeamStopSignal.Signal)
+	out := &gen.TeamStopSignalLiftResponse{}
+	if r.LiftTeamStopSignal != nil {
+		lift := &gen.TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult{Changed: r.LiftTeamStopSignal.Changed}
+		if r.LiftTeamStopSignal.Signal != nil {
+			lift.Signal = (*gen.TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSignal)(r.LiftTeamStopSignal.Signal)
+		}
+		out.LiftTeamStopSignal = lift
 	}
-	return &gen.TeamStopSignalLiftResponse{LiftTeamStopSignal: lift}, err
+	return out, err
 }
 
 func sendWorkerWakeSettings(ctx context.Context, client graphql.Client, workerRef string, input *gen.WorkerWakeSettingsInput, claim *gen.ActInstructionInput) (*gen.SetWorkerWakeSettingsResponse, error) {

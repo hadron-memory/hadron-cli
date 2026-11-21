@@ -17,6 +17,9 @@ mutation SetTeamPauseInstructed($appRef: String!, $paused: Boolean!, $instructio
 # omitted keeps, null clears. The variable list sits on its own lines so the
 # directives bind to the operation, not the arguments (genqlient walks
 # preceding comments upward from each node; `for:` is invalid on a variable).
+# The blank line keeps this explanation out of the generated godoc: only the
+# directive lines below may sit adjacent to the operation.
+
 # @genqlient(for: "SetTeamStopSignalInput.host", omitempty: true)
 # @genqlient(for: "SetTeamStopSignalInput.until", omitempty: true)
 # @genqlient(for: "SetTeamStopSignalInput.worker", omitempty: true)
@@ -36,7 +39,9 @@ mutation TeamStopSignalLiftInstructed($appRef: String!, $id: ID!, $instruction: 
 
 # Repeated from wake_settings.graphql for the same reason as the stop-signal
 # directives above: keep omitted-keeps/null-clears on the shared input struct,
-# and keep the variable list off the directive lines.
+# and keep the variable list off the directive lines. The blank line below
+# keeps this explanation out of the generated godoc.
+
 # @genqlient(for: "WorkerWakeSettingsInput.clearPause", omitempty: true)
 # @genqlient(for: "WorkerWakeSettingsInput.mentions", omitempty: true)
 # @genqlient(for: "WorkerWakeSettingsInput.pausedUntil", omitempty: true)
