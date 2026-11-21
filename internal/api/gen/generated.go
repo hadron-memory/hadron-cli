@@ -146632,7 +146632,7 @@ func AgentTaskAddBlockerInstructed(
 // The mutation executed by AgentTaskAssign.
 const AgentTaskAssign_Operation = `
 mutation AgentTaskAssign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
-	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+	assignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
 		... AgentTaskFields
 	}
 }
@@ -146782,7 +146782,7 @@ func AgentTaskAssign(
 // The mutation executed by AgentTaskAssignInstructed.
 const AgentTaskAssignInstructed_Operation = `
 mutation AgentTaskAssignInstructed ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean, $instruction: ActInstructionInput!) {
-	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+	assignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -146932,7 +146932,7 @@ func AgentTaskAssignInstructed(
 // The mutation executed by AgentTaskCancel.
 const AgentTaskCancel_Operation = `
 mutation AgentTaskCancel ($taskId: ID!) {
-	cancelAgentTask(taskId: $taskId) {
+	cancelAgentTask(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -147076,7 +147076,7 @@ func AgentTaskCancel(
 // The mutation executed by AgentTaskCancelInstructed.
 const AgentTaskCancelInstructed_Operation = `
 mutation AgentTaskCancelInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	cancelAgentTask(taskId: $taskId, instruction: $instruction) {
+	cancelAgentTask(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -147222,7 +147222,7 @@ func AgentTaskCancelInstructed(
 // The mutation executed by AgentTaskClone.
 const AgentTaskClone_Operation = `
 mutation AgentTaskClone ($taskId: ID!, $input: CloneAgentTaskInput!) {
-	cloneAgentTask(taskId: $taskId, input: $input) {
+	cloneAgentTask(taskRef: $taskId, input: $input) {
 		... AgentTaskFields
 	}
 }
@@ -147862,7 +147862,7 @@ func AgentTaskCreateInstructed(
 // The query executed by AgentTaskDependencies.
 const AgentTaskDependencies_Operation = `
 query AgentTaskDependencies ($taskRef: ID!, $limit: Int!, $offset: Int!) {
-	agentTask(id: $taskRef) {
+	agentTask(ref: $taskRef) {
 		id
 		blockedBy(limit: $limit, offset: $offset) {
 			total
@@ -148029,7 +148029,7 @@ func AgentTaskDisposeFindingInstructed(
 // The query executed by AgentTaskFindingDispositions.
 const AgentTaskFindingDispositions_Operation = `
 query AgentTaskFindingDispositions ($taskRef: ID!, $limit: Int!, $offset: Int!) {
-	agentTask(id: $taskRef) {
+	agentTask(ref: $taskRef) {
 		findingDispositions(limit: $limit, offset: $offset) {
 			items {
 				... TaskFindingDispositionFields
@@ -148082,7 +148082,7 @@ func AgentTaskFindingDispositions(
 // The mutation executed by AgentTaskFinish.
 const AgentTaskFinish_Operation = `
 mutation AgentTaskFinish ($taskId: ID!, $result: AgentTaskResultInput!) {
-	finishAgentTask(taskId: $taskId, result: $result) {
+	finishAgentTask(taskRef: $taskId, result: $result) {
 		... AgentTaskFields
 	}
 }
@@ -148230,7 +148230,7 @@ func AgentTaskFinish(
 // The mutation executed by AgentTaskFinishWithFindings.
 const AgentTaskFinishWithFindings_Operation = `
 mutation AgentTaskFinishWithFindings ($taskId: ID!, $outcome: String!, $summary: String, $evidence: String, $workedFrom: [ID!], $findings: [AgentTaskFindingInput!]!) {
-	finishAgentTask(taskId: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings,workedFromRoleTaskRefs:$workedFrom}) {
+	finishAgentTask(taskRef: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings,workedFromRoleTaskRefs:$workedFrom}) {
 		... AgentTaskFields
 		findingsResult: result {
 			findings(limit: 20, offset: 0) {
@@ -148400,7 +148400,7 @@ func AgentTaskFinishWithFindings(
 // The query executed by AgentTaskGet.
 const AgentTaskGet_Operation = `
 query AgentTaskGet ($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
-	agentTask(id: $id) {
+	agentTask(ref: $id) {
 		... AgentTaskFields
 		clonedFrom {
 			... AgentTaskDependencyFields
@@ -148751,7 +148751,7 @@ func AgentTaskIndexList(
 // The query executed by AgentTaskList.
 const AgentTaskList_Operation = `
 query AgentTaskList ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, $offset: Int, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $status: [AgentTaskStatus!], $tag: String) {
-	agentTasks(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag) {
+	agentTasks(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag) {
 		... AgentTaskFields
 	}
 }
@@ -148915,7 +148915,7 @@ func AgentTaskList(
 // The query executed by AgentTaskListCreator.
 const AgentTaskListCreator_Operation = `
 query AgentTaskListCreator ($appRef: ID!, $unresolvedFindings: Boolean, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String, $creator: AgentTaskPartyInput) {
-	agentTasks(appRef: $appRef, creator: $creator, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+	agentTasks(appRef: $appRef, creator: $creator, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -149110,7 +149110,7 @@ func AgentTaskListCreator(
 // The query executed by AgentTaskListFiltered.
 const AgentTaskListFiltered_Operation = `
 query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -149304,7 +149304,7 @@ func AgentTaskListFiltered(
 // The query executed by AgentTaskListText.
 const AgentTaskListText_Operation = `
 query AgentTaskListText ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, $offset: Int, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $status: [AgentTaskStatus!], $tag: String, $text: String) {
-	agentTasks(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag, text: $text) {
+	agentTasks(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -149469,7 +149469,7 @@ func AgentTaskListText(
 // The query executed by AgentTaskListUnresolved.
 const AgentTaskListUnresolved_Operation = `
 query AgentTaskListUnresolved ($appRef: ID!, $unresolvedFindings: Boolean, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasks(appRef: $appRef, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+	agentTasks(appRef: $appRef, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -149662,7 +149662,7 @@ func AgentTaskListUnresolved(
 // The mutation executed by AgentTaskPark.
 const AgentTaskPark_Operation = `
 mutation AgentTaskPark ($taskId: ID!) {
-	parkAgentTask(taskId: $taskId) {
+	parkAgentTask(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -149810,7 +149810,7 @@ func AgentTaskPark(
 // The mutation executed by AgentTaskParkInstructed.
 const AgentTaskParkInstructed_Operation = `
 mutation AgentTaskParkInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	parkAgentTask(taskId: $taskId, instruction: $instruction) {
+	parkAgentTask(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -149956,7 +149956,7 @@ func AgentTaskParkInstructed(
 // The mutation executed by AgentTaskProgress.
 const AgentTaskProgress_Operation = `
 mutation AgentTaskProgress ($taskId: ID!) {
-	recordAgentTaskProgress(taskId: $taskId) {
+	recordAgentTaskProgress(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -150100,7 +150100,7 @@ func AgentTaskProgress(
 // The mutation executed by AgentTaskReady.
 const AgentTaskReady_Operation = `
 mutation AgentTaskReady ($taskId: ID!) {
-	makeAgentTaskReady(taskId: $taskId) {
+	makeAgentTaskReady(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -150247,7 +150247,7 @@ func AgentTaskReady(
 // The mutation executed by AgentTaskReadyInstructed.
 const AgentTaskReadyInstructed_Operation = `
 mutation AgentTaskReadyInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	makeAgentTaskReady(taskId: $taskId, instruction: $instruction) {
+	makeAgentTaskReady(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -150393,7 +150393,7 @@ func AgentTaskReadyInstructed(
 // The mutation executed by AgentTaskReassign.
 const AgentTaskReassign_Operation = `
 mutation AgentTaskReassign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
-	reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+	reassignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
 		... AgentTaskFields
 	}
 }
@@ -150541,7 +150541,7 @@ func AgentTaskReassign(
 // The mutation executed by AgentTaskReassignInstructed.
 const AgentTaskReassignInstructed_Operation = `
 mutation AgentTaskReassignInstructed ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean, $instruction: ActInstructionInput!) {
-	reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+	reassignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -150691,7 +150691,7 @@ func AgentTaskReassignInstructed(
 // The mutation executed by AgentTaskRelease.
 const AgentTaskRelease_Operation = `
 mutation AgentTaskRelease ($taskId: ID!) {
-	releaseAgentTaskExternalId(taskId: $taskId) {
+	releaseAgentTaskExternalId(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -150839,7 +150839,7 @@ func AgentTaskRelease(
 // The mutation executed by AgentTaskReleaseInstructed.
 const AgentTaskReleaseInstructed_Operation = `
 mutation AgentTaskReleaseInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	releaseAgentTaskExternalId(taskId: $taskId, instruction: $instruction) {
+	releaseAgentTaskExternalId(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -151281,7 +151281,7 @@ func AgentTaskRemoveBlockerInstructed(
 // The query executed by AgentTaskResultFindings.
 const AgentTaskResultFindings_Operation = `
 query AgentTaskResultFindings ($id: ID!, $limit: Int!, $offset: Int!) {
-	agentTask(id: $id) {
+	agentTask(ref: $id) {
 		id
 		result {
 			findings(limit: $limit, offset: $offset) {
@@ -151629,7 +151629,7 @@ func AgentTaskSetPriorityInstructed(
 // The mutation executed by AgentTaskStart.
 const AgentTaskStart_Operation = `
 mutation AgentTaskStart ($taskId: ID!) {
-	startAgentTask(taskId: $taskId) {
+	startAgentTask(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -151971,7 +151971,7 @@ func AgentTaskTree(
 // The mutation executed by AgentTaskUpdate.
 const AgentTaskUpdate_Operation = `
 mutation AgentTaskUpdate ($taskId: ID!, $input: UpdateAgentTaskInput!) {
-	updateAgentTask(taskId: $taskId, input: $input) {
+	updateAgentTask(taskRef: $taskId, input: $input) {
 		... AgentTaskFields
 	}
 }
@@ -152131,7 +152131,7 @@ func AgentTaskUpdate(
 // The mutation executed by AgentTaskUpdateInstructed.
 const AgentTaskUpdateInstructed_Operation = `
 mutation AgentTaskUpdateInstructed ($taskId: ID!, $input: UpdateAgentTaskInput!, $instruction: ActInstructionInput!) {
-	updateAgentTask(taskId: $taskId, input: $input, instruction: $instruction) {
+	updateAgentTask(taskRef: $taskId, input: $input, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -152280,7 +152280,7 @@ func AgentTaskUpdateInstructed(
 // The query executed by AgentTeamEventsPage.
 const AgentTeamEventsPage_Operation = `
 query AgentTeamEventsPage ($appRef: ID!, $after: ID, $before: ID, $newestFirst: Boolean, $codePrefix: String, $alarmsOnly: Boolean, $alarmsInEffect: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
-	agentTeamEventsPage(appRef: $appRef, after: $after, before: $before, newestFirst: $newestFirst, codePrefix: $codePrefix, alarmsOnly: $alarmsOnly, alarmsInEffect: $alarmsInEffect, limit: $limit, since: $since, taskId: $taskId, types: $types) {
+	agentTeamEventsPage(appRef: $appRef, after: $after, before: $before, newestFirst: $newestFirst, codePrefix: $codePrefix, alarmsOnly: $alarmsOnly, alarmsInEffect: $alarmsInEffect, limit: $limit, since: $since, taskRef: $taskId, types: $types) {
 		events {
 			... AgentTeamEventFields
 		}
@@ -171284,7 +171284,7 @@ func IntakeItemHolders(
 // The mutation executed by IntakeStartTask.
 const IntakeStartTask_Operation = `
 mutation IntakeStartTask ($taskId: ID!) {
-	startAgentTask(taskId: $taskId) {
+	startAgentTask(taskRef: $taskId) {
 		id
 		status
 	}
@@ -171320,7 +171320,7 @@ func IntakeStartTask(
 // The query executed by IntakeTaskExternalId.
 const IntakeTaskExternalId_Operation = `
 query IntakeTaskExternalId ($id: ID!) {
-	agentTask(id: $id) {
+	agentTask(ref: $id) {
 		externalId
 	}
 }

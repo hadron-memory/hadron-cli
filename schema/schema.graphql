@@ -8589,7 +8589,7 @@ type Mutation {
   reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
@@ -8685,7 +8685,7 @@ type Mutation {
   `extensions.warnings` (see createAgentTask); it does not end them.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  cancelAgentTask(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  cancelAgentTask(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
@@ -8907,7 +8907,7 @@ type Mutation {
   (an unknown, unreadable or cross-App source or parent), BAD_USER_INPUT (AT0 cannot be cloned), TASK_NOT_ASSIGNEE,
   TASK_NOT_OWNER (a priority you name and may not set), TASK_ENDED (a named parent that has ended).
   """
-  cloneAgentTask(input: CloneAgentTaskInput, taskId: ID!): AgentTask!
+  cloneAgentTask(input: CloneAgentTaskInput, taskRef: ID!): AgentTask!
 
   """
   Clone a Memory into a new Memory at `targetUrn`.
@@ -10412,7 +10412,7 @@ type Mutation {
   every finish. Both are judged after the assignee and status checks and before any write or event: the task
   stays started. With no set, any one word is accepted. The set is read only at finish.
   """
-  finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
+  finishAgentTask(result: AgentTaskResultInput!, taskRef: ID!): AgentTask!
 
   """
   #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding.
@@ -10618,7 +10618,7 @@ type Mutation {
   TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  makeAgentTaskReady(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  makeAgentTaskReady(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #3818 / hrn:node:hadronmemory.com:specs:cor:agt:020:03: an acting superseded sessionRef refuses SESSION_SUPERSEDED.
@@ -10770,7 +10770,7 @@ type Mutation {
   SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  parkAgentTask(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  parkAgentTask(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   Plan with the real move's gates and raised refusals, without locks, reconciliation, writes or mirror effects. Nodes in loc order; limit clamps to 1–1000 (default 100), with total and truncation disclosed. No edges. A point-in-time answer, not a reservation. This plan-only call is on the mutation root by rulings 0210/0211, so impersonation sessions are refused even though planning writes nothing. hrn:node:hadronmemory.com:specs:cor:api:190:03.
@@ -10836,14 +10836,14 @@ type Mutation {
   TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  reassignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  reassignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #1705 — record progress on a started task: its assignee only
   (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. #3267: may succeed with a
   warning, as startAgentTask does. Refusals as startAgentTask.
   """
-  recordAgentTaskProgress(taskId: ID!): AgentTask!
+  recordAgentTaskProgress(taskRef: ID!): AgentTask!
 
   """
   #3449: App action app.<current-app-slug>.<name>, lower-case legal URN atom, at most 64 characters.
@@ -11012,7 +11012,7 @@ type Mutation {
   changes, and a refusal writes nothing. One task.external-id-released team event names the released id. The id is never
   set again on this task. #3323's instruction arm applies as on cancelAgentTask.
   """
-  releaseAgentTaskExternalId(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  releaseAgentTaskExternalId(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   Release the editor lock for an Agent's system memory.
@@ -11851,7 +11851,7 @@ type Mutation {
   Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
   TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
-  startAgentTask(taskId: ID!): AgentTask!
+  startAgentTask(taskRef: ID!): AgentTask!
 
   """
   Start an AGENT CHAT (creates chat nodes, loads conversation, returns
@@ -12127,7 +12127,7 @@ type Mutation {
   Source is fixed. Event carries changed field names only (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  updateAgentTask(input: UpdateAgentTaskInput!, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  updateAgentTask(input: UpdateAgentTaskInput!, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #2024 — change a template; absent fields are unchanged. expectedRevision must be the revision you read, else
@@ -14551,7 +14551,7 @@ type Query {
   not read it (no existence oracle). Readers: the App's participants, workers
   acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
   """
-  agentTask(id: ID!): AgentTask
+  agentTask(ref: ID!): AgentTask
 
   """
   #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120, minimal write-back) — what changed on this App's tasks that carry an
@@ -14662,7 +14662,7 @@ type Query {
     """
     overdue: Boolean
     owner: AgentTaskPartyInput
-    parentTaskId: ID
+    parentTaskRef: ID
     queued: Boolean
 
     """
@@ -14759,7 +14759,7 @@ type Query {
     """
     overdue: Boolean
     owner: AgentTaskPartyInput
-    parentTaskId: ID
+    parentTaskRef: ID
     queued: Boolean
 
     """
@@ -14841,7 +14841,7 @@ type Query {
     """
     newestFirst: Boolean
     since: DateTime
-    taskId: ID
+    taskRef: ID
     types: [String!]
   ): [AgentTeamEvent!]!
 
@@ -14868,7 +14868,7 @@ type Query {
     limit: Int
     newestFirst: Boolean
     since: DateTime
-    taskId: ID
+    taskRef: ID
     types: [String!]
   ): AgentTeamEventsPage!
 

@@ -59,7 +59,7 @@ mutation IntakeClaimTask(
 
 # The claimant starts a task it assigned to itself (assignee-only).
 mutation IntakeStartTask($taskId: ID!) {
-  startAgentTask(taskId: $taskId) {
+  startAgentTask(taskRef: $taskId) {
     id
     status
   }

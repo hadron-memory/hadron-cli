@@ -1,7 +1,7 @@
 # cli#1962 (hadron-server#4084, cor:agt:120:02): `task release` reads the task's
 # external id BEFORE the release clears it, so the receipt can give the URL back.
 query IntakeTaskExternalId($id: ID!) {
-  agentTask(id: $id) {
+  agentTask(ref: $id) {
     externalId
   }
 }
@@ -11,7 +11,7 @@ query IntakeTaskExternalId($id: ID!) {
 # Proposed). The server owns every refusal (TASK_NOT_FOUND, TASK_NOT_OWNER,
 # APP_UNINSTALLED, TASK_EXTERNAL_ID_NONE).
 mutation AgentTaskRelease($taskId: ID!) {
-  releaseAgentTaskExternalId(taskId: $taskId) {
+  releaseAgentTaskExternalId(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
