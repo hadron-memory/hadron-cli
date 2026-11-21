@@ -687,7 +687,7 @@ hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [
 hadron schedule preview --app <ref> --entry <node-urn> (--cron '<expr>' | --run-at <RFC3339>) [--tz <zone>] [--agent <ref>] [--as-self] [--ai-config <n>] [--arg k=v]... [--disabled] [--budget-tokens N] [--budget-actions N] [--json]
 hadron schedule create [--scope <id|name>] --app <ref> --name <n> (--cron '<expr>' | --run-at <RFC3339>) [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> [--run-at <RFC3339>] [--scope <id|name|"">] [--agent <ref>] ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
 hadron automation preview <kind> <ref> | re-adopt <kind> <ref> --expected-hash <digest> [--yes] | list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
-hadron automation team-snapshot-grant set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes] | revoke <grant-id> [--yes] [--instruction <kind>:<ref>] | list <app-ref> [--include-revoked] [--limit n] [--offset n] [--instruction <kind>:<ref>]
+hadron automation team-snapshot-grant set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes] | revoke <grant-id> [--yes] [--instruction <kind>:<ref>] | list <app-ref> [--include-revoked] [--trigger-kind <k>] [--trigger-id <id>] [--limit n] [--offset n] [--instruction <kind>:<ref>]
 hadron automation grant set <app-ref> --memory <ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--prefix <loc>] [--yes] | revoke <grant-id> [--yes] [--instruction <kind>:<ref>] | list [--app <ref>] [--memory <ref>] [--include-revoked] [--instruction <kind>:<ref>]
 hadron webhook create [--scope <id|name>] --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
@@ -6857,6 +6857,10 @@ Only a person managing the App may give a schedule/webhook read-only own-App
 roster/task access; no default grant, no manual-run grant and no writes.
 set sends appRef, triggerKind (SCHEDULE|WEBHOOK), triggerId; an identical repeat
 returns the live row. It sends no worker session header even in a bound worktree.
+list --trigger-kind/--trigger-id (cli#2775) keep only that trigger's grants: each is
+sent as given only when set (the server validates triggerKind; the CLI pre-checks
+nothing), on every page and with or without --instruction; without them the
+request is unchanged.
 list/revoke accept --instruction <kind>:<ref> (server7907d93d or later); set
 stays person-only with no instruction flag. Shared parser accepts team-chat-message,
 task or live-chat and preserves everything after the first colon. Bad instructions

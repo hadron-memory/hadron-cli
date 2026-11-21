@@ -72,9 +72,15 @@ func TestSnapshotListTriggerFiltersPassThrough2775(t *testing.T) {
 							t.Errorf("%s: %s not wired to the field: %s", c.OperationName, k, c.Query)
 						}
 					}
-					_, hasInstruction := c.Variables["instruction"]
+					claim, hasInstruction := c.Variables["instruction"].(map[string]any)
 					if hasInstruction != instructed || strings.Contains(c.Query, "instruction: $instruction") != instructed {
 						t.Errorf("%s: instruction carried=%v, want %v", c.OperationName, hasInstruction, instructed)
+					}
+					if instructed && (claim["kind"] != "TASK" || claim["ref"] != "t1" || c.Session != "s-new") {
+						t.Errorf("%s: instruction or session lost: %v session %q", c.OperationName, claim, c.Session)
+					}
+					if !instructed && c.Session != "" {
+						t.Errorf("%s: person list sent a worker session %q", c.OperationName, c.Session)
 					}
 				}
 			})
