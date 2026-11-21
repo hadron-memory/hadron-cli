@@ -23802,6 +23802,46 @@ var AllAppGrantName = []AppGrantName{
 	AppGrantNameWorkersStaff,
 }
 
+// AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo includes the requested fields of the GraphQL type AppKeyScopeInfo.
+// The GraphQL type's documentation follows.
+//
+// #4489 — one scope of the closed App key scope list (Query.appKeyScopeCatalogue).
+type AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo struct {
+	// The name grantAppKeyScope and revokeAppKeyScope take.
+	Scope string `json:"scope"`
+	// One line on what holding the scope permits.
+	Description string `json:"description"`
+	// True when granting it needs hostId (host:operate); false when hostId is refused.
+	RequiresHostId bool `json:"requiresHostId"`
+}
+
+// GetScope returns AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo.Scope, and is useful for accessing the field via an interface.
+func (v *AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo) GetScope() string { return v.Scope }
+
+// GetDescription returns AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo.Description, and is useful for accessing the field via an interface.
+func (v *AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo) GetDescription() string {
+	return v.Description
+}
+
+// GetRequiresHostId returns AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo.RequiresHostId, and is useful for accessing the field via an interface.
+func (v *AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo) GetRequiresHostId() bool {
+	return v.RequiresHostId
+}
+
+// AppKeyScopeCatalogueResponse is returned by AppKeyScopeCatalogue on success.
+type AppKeyScopeCatalogueResponse struct {
+	// #4489 — the closed list of App key scopes a client may grant, as data: name, one line on what it permits, and
+	// whether granting it needs a hostId (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Static platform metadata, no
+	// tenant data: any signed-in caller (a person or an App key) may read it; anonymous is UNAUTHENTICATED. Adding a scope
+	// stays a spec change.
+	AppKeyScopeCatalogue []*AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo `json:"appKeyScopeCatalogue"`
+}
+
+// GetAppKeyScopeCatalogue returns AppKeyScopeCatalogueResponse.AppKeyScopeCatalogue, and is useful for accessing the field via an interface.
+func (v *AppKeyScopeCatalogueResponse) GetAppKeyScopeCatalogue() []*AppKeyScopeCatalogueAppKeyScopeCatalogueAppKeyScopeInfo {
+	return v.AppKeyScopeCatalogue
+}
+
 // The key's id, label and scopes only — never its preview or any key material.
 type AppKeyScopesFields struct {
 	Id        string  `json:"id"`
@@ -154106,6 +154146,40 @@ func AppAgentRoster(
 	}
 
 	data_ = &AppAgentRosterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppKeyScopeCatalogue.
+const AppKeyScopeCatalogue_Operation = `
+query AppKeyScopeCatalogue {
+	appKeyScopeCatalogue {
+		scope
+		description
+		requiresHostId
+	}
+}
+`
+
+// cli#2823: the server's closed list of App key scopes (cor:aut:010:03). The CLI
+// keeps no copy of it, so a scope added server-side shows up without a release.
+func AppKeyScopeCatalogue(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *AppKeyScopeCatalogueResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppKeyScopeCatalogue",
+		Query:  AppKeyScopeCatalogue_Operation,
+	}
+
+	data_ = &AppKeyScopeCatalogueResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

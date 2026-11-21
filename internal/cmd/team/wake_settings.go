@@ -172,10 +172,12 @@ is immediate or off. --paused-until (RFC 3339, a time in the future) pauses the 
 that time; --clear-pause ends a pause and cannot be combined with
 --paused-until. At least one of the three is required. Without --instruction
 this is the person's write. With --instruction the write goes out through this
-worktree's worker session when that binding is complete, for this server and
-the worker's own App, and unchanged since the command started; otherwise it
-goes out as the signed-in person with the claim still sent (a note on stderr
-says why). Who may change them is
+worktree's worker session when that binding is complete, for this server, and
+unchanged since the command started; otherwise it goes out as the signed-in
+person with the claim still sent (a note on stderr says why). This command
+names no App: the server resolves the target, so the CLI cannot check the
+worker's App here. A binding for another App is sent as it is, with no note,
+and the server accepts or refuses it. Who may change them is
 the server's rule (cor:agt:080:21): the worker itself, its holder or whoever
 manages the App.`,
 		Example: `  hadron team wake-settings set --worker hrn:worker:acme.com:ops:iris --mentions off

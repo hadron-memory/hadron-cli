@@ -65,21 +65,16 @@ func newCmdKeyScope(f *cmdutil.Factory) *cobra.Command {
 		Use:   "scope <command>",
 		Short: "Grant or revoke what an App key may do",
 		Long: `A scope is one thing an App key may do beyond authenticating as its App. A key
-holds no scope until one is granted; a new or rotated key starts with none. There
-are two:
-  attention:deliver  read and acknowledge the due wakes (the reasons a worker is
-                     due a turn) of the key's own App.
-  host:operate       act as ONE host: register the workers that host can run,
-                     collect the operations issued to it and report them done,
-                     and read the tickers and subscriptions of its workers. A
-                     host is a machine that launches a team App's workers; see
-                     "hadron team host --help". A key with this scope is a host
-                     key.
+holds no scope until one is granted; a new or rotated key starts with none.
+"hadron app key scope catalogue" lists every scope the server defines: its name,
+what holding it permits, and whether granting it needs --host-id. Read the list
+there: this help does not repeat it, so it cannot go stale when a scope is added.
 Only whoever manages the App may change a key's scopes. Granting stays
 person-only; revoking also admits their held worker with --instruction. App keys
 and impersonation are refused (FORBIDDEN, exit 8). "hadron app key list
 --scopes" shows what each key holds now.`,
 	}
+	cmd.AddCommand(newCmdKeyScopeCatalogue(f))
 	cmd.AddCommand(newCmdKeyScopeGrant(f))
 	cmd.AddCommand(newCmdKeyScopeRevoke(f))
 	return cmd
@@ -90,16 +85,17 @@ func newCmdKeyScopeGrant(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "grant <key-id> <scope> [--host-id <host>]",
 		Short: "Grant an App key a scope",
-		Long: `Grant an App key a scope: attention:deliver (read and acknowledge the App's due
-wakes) or host:operate (act as one host); "hadron app key scope --help" says what
-each lets the key do. Granting a scope the key already holds changes nothing.
+		Long: `Grant an App key a scope, by key id and scope name. "hadron app key scope
+catalogue" lists the scopes, what each permits and which need --host-id.
+Granting a scope the key already holds changes nothing.
 
-host:operate is granted for ONE host, named with --host-id: the id the host is
-registered under (each host's id is shown by "hadron team host list"). The key then
-registers, collects and reports as that host and no other. A key already
-operating as another host is refused APP_KEY_SCOPE_HOST_CONFLICT (exit 5): revoke
-host:operate first, or use another key. --host-id is refused for every other
-scope (exit 2). Prints which scope the key now holds, then the key's scopes.`,
+A scope that needs a host (host:operate today) is granted for ONE host, named with
+--host-id: the id the host is registered under (each host's id is shown by
+"hadron team host list"). The key then registers, collects and reports as that
+host and no other. A key already operating as another host is refused
+APP_KEY_SCOPE_HOST_CONFLICT (exit 5): revoke host:operate first, or use another
+key. --host-id is refused for every other scope (exit 2). Prints which scope the
+key now holds, then the key's scopes.`,
 		Example: `  hadron app key scope grant key_123 host:operate --host-id orca1
   hadron app key scope grant key_123 attention:deliver`,
 		Args: cobra.ExactArgs(2),
@@ -154,8 +150,8 @@ func newCmdKeyScopeRevoke(f *cmdutil.Factory) *cobra.Command {
 		Use:   "revoke <key-id> <scope>",
 		Short: "Take a scope back from an App key",
 		Long: `Take a scope back from an App key, by key id and scope name. A scope is
-something a key may do beyond authenticating as its App: attention:deliver or
-host:operate ("hadron app key scope --help" says what each lets a key do).
+something a key may do beyond authenticating as its App; "hadron app key scope
+catalogue" lists the scopes and what each permits.
 "hadron app key list <app-ref> --scopes" shows which scopes each key holds now.
 
 The key's next call that needs the scope is refused. Revoking a scope the key
