@@ -283,3 +283,123 @@ func TestSubscriptionListOrgUnchanged2788(t *testing.T) {
 		t.Errorf("--org --json must stay an array: %v %q", err, out)
 	}
 }
+
+// BLIND P2 #1 (cli#2788 round 1): --all must not trust a server that ignores
+// the offset. Page 1 repeated would grow the list past the server's own total.
+func TestSubscriptionAllRefusesAServerThatIgnoresTheOffset2788(t *testing.T) {
+	for _, mode := range []struct{ name, op, field string }{
+		{"agent", "AgentSubscriptionsPage", "agentSubscriptionsPage"},
+		{"mine", "MyAgentSubscriptionsPage", "myAgentSubscriptionsPage"},
+	} {
+		sel := []string{"--agent", "ag1"}
+		if mode.name == "mine" {
+			sel = []string{"--mine"}
+		}
+		t.Run(mode.name, func(t *testing.T) {
+			same := page2788(mode.field, 3, true, sub2788(1), sub2788(2))
+			fk, out, err := grants2788Run(t, map[string][]grants2788Reply{mode.op: {same, same, same, same, same}},
+				append(append([]string{"list"}, sel...), "--all", "--json")...)
+			if err == nil || !strings.Contains(err.Error(), "more rows than") || exitCodeFor(err) != exitcode.Error {
+				t.Fatalf("a server repeating page 1 must fail with exit %d and say so: %v", exitcode.Error, err)
+			}
+			if fk.count(mode.op) > 3 {
+				t.Errorf("the walk must stop as soon as it passes the total, made %d requests", fk.count(mode.op))
+			}
+			if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+				t.Errorf("never complete:true on this path: %s", out)
+			}
+		})
+	}
+}
+
+// --all ends with complete:true only when it holds exactly the rows the server
+// says there are.
+func TestSubscriptionAllNeedsLenEqualToTotal2788(t *testing.T) {
+	_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
+		page2788("myAgentSubscriptionsPage", 5, true, sub2788(1), sub2788(2)),
+		page2788("myAgentSubscriptionsPage", 5, false, sub2788(3)),
+	}}, "list", "--mine", "--all", "--json")
+	if err == nil || !strings.Contains(err.Error(), "inconsistent") || exitCodeFor(err) != exitcode.Error {
+		t.Fatalf("3 rows against a total of 5 must not pass as complete: %v", err)
+	}
+	if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+		t.Errorf("never complete:true here: %s", out)
+	}
+}
+
+// BLIND P2 #2: a page past the end is not "none visible", and a last page has
+// nothing to page on to.
+func TestSubscriptionEmptyPastTheEndAndLastPageWording2788(t *testing.T) {
+	op, field := "MyAgentSubscriptionsPage", "myAgentSubscriptionsPage"
+	_, out, err := grants2788Run(t, map[string][]grants2788Reply{op: {page2788(field, 10, false)}}, "list", "--mine", "--offset", "50")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "No subscriptions are visible") || strings.Contains(out, "Page on") || !strings.Contains(out, "offset 50") || !strings.Contains(out, "10") {
+		t.Errorf("past the end: say the page is empty at that offset, no 'none visible', no page-on hint:\n%s", out)
+	}
+	_, out, err = grants2788Run(t, map[string][]grants2788Reply{op: {page2788(field, 3, false, sub2788(3))}}, "list", "--mine", "--offset", "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "Page on") || !strings.Contains(out, "NOT the whole set") || !strings.Contains(out, "--offset 0") {
+		t.Errorf("a last page at offset>0 is not the whole set but has nothing to page on to; point at --offset 0/--all:\n%s", out)
+	}
+	_, out, err = grants2788Run(t, map[string][]grants2788Reply{op: {page2788(field, 0, false)}}, "list", "--mine")
+	if err != nil || !strings.Contains(out, "No subscriptions are visible") {
+		t.Errorf("a truly empty first page still says none visible: %v\n%s", err, out)
+	}
+}
+
+// BLIND P3 #3: every row field is mapped from its own server field.
+func TestSubscriptionRowFieldsMapFromTheirOwnFields2788(t *testing.T) {
+	row := `{"agentId":"AG","userId":"US","isActive":true,"createdAt":"CR","activatedAt":"AC","expiresAt":"EX","revokedAt":"RV"}`
+	for _, mode := range []struct{ name, op, field string }{
+		{"agent", "AgentSubscriptionsPage", "agentSubscriptionsPage"},
+		{"mine", "MyAgentSubscriptionsPage", "myAgentSubscriptionsPage"},
+	} {
+		sel := []string{"--agent", "ag1"}
+		if mode.name == "mine" {
+			sel = []string{"--mine"}
+		}
+		t.Run(mode.name, func(t *testing.T) {
+			_, out, err := grants2788Run(t, map[string][]grants2788Reply{mode.op: {page2788(mode.field, 1, false, row)}},
+				append(append([]string{"list"}, sel...), "--json")...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got struct {
+				Items []map[string]any `json:"items"`
+			}
+			if jerr := json.Unmarshal([]byte(out), &got); jerr != nil || len(got.Items) != 1 {
+				t.Fatal(jerr, out)
+			}
+			for k, want := range map[string]any{"agentId": "AG", "userId": "US", "isActive": true, "createdAt": "CR", "activatedAt": "AC", "expiresAt": "EX", "revokedAt": "RV"} {
+				if got.Items[0][k] != want {
+					t.Errorf("%s = %v, want %v", k, got.Items[0][k], want)
+				}
+			}
+		})
+	}
+}
+
+// BLIND P3 #4: a coded refusal on either write maps to its exit, one request.
+func TestSubscriptionWriteRefusalExitAndSingleRequest2788(t *testing.T) {
+	for _, c := range []struct {
+		verb, op string
+		args     []string
+	}{
+		{"add", "SubscribeOrgToAgent", []string{"add", "--org", "o", "--agent", "a"}},
+		{"revoke", "UnsubscribeOrgFromAgent", []string{"revoke", "--org", "o", "--agent", "a", "--yes"}},
+	} {
+		t.Run(c.verb, func(t *testing.T) {
+			fk, _, err := grants2788Run(t, map[string][]grants2788Reply{c.op: {refusal2788("FORBIDDEN")}}, c.args...)
+			if err == nil || strings.Contains(err.Error(), "outcome unknown") || exitCodeFor(err) != exitcode.Forbidden {
+				t.Fatalf("exit %d and no unknown-outcome text expected: %v", exitcode.Forbidden, err)
+			}
+			if fk.count(c.op) != 1 {
+				t.Errorf("exactly one request expected, got %d", fk.count(c.op))
+			}
+		})
+	}
+}
