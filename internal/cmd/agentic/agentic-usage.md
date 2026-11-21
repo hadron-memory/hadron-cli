@@ -6058,7 +6058,12 @@ hadron app memory-grant rm <grant-id> [--yes] [--instruction <kind>:<ref>]
   # list/add/rm grant JSON adds server-derived notEffective (bool|null) and
   # notEffectiveReason (string|null). Text marks true rows as not-effective,
   # with the reason when returned; false/null rows have no mark. A concealed
-  # memoryUrn has both fields null. A not-effective grant is still unrevoked:
+  # memoryUrn has both fields null, and so do prefix and registerNodeUrn
+  # (hadron-server#4734, cor:agt:010:01; cli#2868): JSON `prefix` is a string or
+  # null, never "" (an empty prefix from the server is refused as an incomplete
+  # grant, exit 1), and a null prefix never rejects the row. Text shows ? for
+  # memory, prefix and register on a concealed row (a null register on a visible
+  # row stays -); the CLI never infers a withheld value. A not-effective grant is still unrevoked:
   # it stays in the default list until a manager revokes it; the mark can go
   # away if its target qualifies again. Older providers lacking the fields
   # still support list/add/rm; both metadata fields are then null (unknown).
