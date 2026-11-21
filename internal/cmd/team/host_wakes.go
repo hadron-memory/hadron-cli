@@ -120,6 +120,9 @@ func reasonFrom(r *genWakeReason) delivery.WakeReason {
 	}
 	if t := r.Task; t != nil {
 		out.Task = &delivery.TaskReason{EventID: t.EventId, ChainIndex: t.ChainIndex, Event: wakeEventWords(string(t.Event)), ID: t.Id, Title: t.Title, Handle: t.Handle}
+		if t.QuestionCode != nil {
+			out.Task.QuestionCode = *t.QuestionCode
+		}
 	}
 	// WakeReason.action as the server answered (cor:agt:080:23): code, state,
 	// loc and URN verbatim, never resolved or rendered here. WITHHELD stays
@@ -142,11 +145,13 @@ func reasonFrom(r *genWakeReason) delivery.WakeReason {
 }
 
 // wakeEventWords is a TaskWakeEvent as the typed line words it: ASSIGNED is
-// "assigned", CHILD_FINISHED "child finished". A value this build does not
-// know is kept verbatim rather than guessed or refused.
+// "assigned", CHILD_FINISHED "child finished"; ANSWERED is "answered", which
+// the delivery line then words as a sentence naming the question code
+// (cli#2762). A value this build does not know is kept verbatim rather than
+// guessed or refused.
 func wakeEventWords(ev string) string {
 	switch ev {
-	case "ASSIGNED", "CHILD_FINISHED", "CHILD_CANCELLED", "ALARM", "END_SESSION", "MATCHED", "REASSIGNED":
+	case "ASSIGNED", "CHILD_FINISHED", "CHILD_CANCELLED", "ALARM", "END_SESSION", "MATCHED", "REASSIGNED", "ANSWERED":
 		return strings.ToLower(strings.ReplaceAll(ev, "_", " "))
 	default:
 		return ev

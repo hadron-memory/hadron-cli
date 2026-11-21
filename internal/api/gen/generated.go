@@ -53762,6 +53762,8 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason s
 	Handle string `json:"handle"`
 	// The task's title, for the nudge text.
 	Title string `json:"title"`
+	// #4431 — for ANSWERED, the code of the question that was answered (e.g. QA3), for the nudge: a question this task asked was answered: <code>. Never the answer. Null for every other event (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+	QuestionCode *string `json:"questionCode"`
 }
 
 // GetEventId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.EventId, and is useful for accessing the field via an interface.
@@ -53792,6 +53794,11 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReas
 // GetTitle returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Title, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetTitle() string {
 	return v.Title
+}
+
+// GetQuestionCode returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.QuestionCode, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetQuestionCode() *string {
+	return v.QuestionCode
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
@@ -101277,7 +101284,9 @@ type TaskWakeEvent string
 
 const (
 	// An unacknowledged alarm's currently-woken chain position (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Delivering it never acknowledges the alarm.
-	TaskWakeEventAlarm    TaskWakeEvent = "ALARM"
+	TaskWakeEventAlarm TaskWakeEvent = "ALARM"
+	// #4431 — a question that blocks the task was answered (a question.answered event on the task); the nudge names the task, never the answer. Due to the task's current assignee until delivered or that worker acts on the task (hrn:node:hadronmemory.com:specs:cor:agt:050:11). A take-back wakes nobody.
+	TaskWakeEventAnswered TaskWakeEvent = "ANSWERED"
 	TaskWakeEventAssigned TaskWakeEvent = "ASSIGNED"
 	// #4234 — a child task was cancelled; the reason names the child. Due to the same two as CHILD_FINISHED (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
 	TaskWakeEventChildCancelled TaskWakeEvent = "CHILD_CANCELLED"
@@ -101292,6 +101301,7 @@ const (
 
 var AllTaskWakeEvent = []TaskWakeEvent{
 	TaskWakeEventAlarm,
+	TaskWakeEventAnswered,
 	TaskWakeEventAssigned,
 	TaskWakeEventChildCancelled,
 	TaskWakeEventChildFinished,
@@ -160827,6 +160837,7 @@ query DueWakes ($appRef: String!, $first: Int!, $accepts: [WakeKind!]!, $after: 
 					id
 					handle
 					title
+					questionCode
 				}
 				action {
 					code

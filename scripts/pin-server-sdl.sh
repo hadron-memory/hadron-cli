@@ -4,11 +4,14 @@
 # schema/SOURCE (base= and head=). A checkout of "main" would not do: it carries
 # S2, which the committed old-shape decision operations cannot typecheck against.
 #
-# An optional overlay (schema/SOURCE: overlay=, pre_overlay_sdl_sha256=) is a
-# unified diff applied to the exported SDL before sdl_sha256/sdl_lines are
-# checked, for a field whose server commit cannot be merged into the pin without
-# S2 (cli#2727: GrantSigningRequest.lastRefusedAt, hadron-server#4581). It is
-# retired with the pin (#2658). No overlay= key means no overlay.
+# Optional overlays (schema/SOURCE: one overlay= line per patch, applied in
+# order; pre_overlay_sdl_sha256=) are unified diffs applied to the exported SDL
+# before sdl_sha256/sdl_lines are checked, for a field whose server commit
+# cannot be merged into the pin without S2 (cli#2727: GrantSigningRequest.lastRefusedAt, hadron-server#4581; cli#2762:
+# TaskWakeEvent.ANSWERED and DueTaskReason.questionCode, hadron-server#4644).
+# They are retired with the pin (#2658). No overlay= key means no overlay.
+# --verify is the ONLY reader of overlay= (the script has no regenerate path: it
+# prints the merged worktree and stops), so the ordered-apply loop lives there once.
 #
 # usage: scripts/pin-server-sdl.sh <server-git-checkout> <out-dir> [--verify]
 #   <server-git-checkout>  a git checkout of hadron-server (a sparse, blobless
@@ -166,13 +169,17 @@ if [ -n "$verify" ]; then
   ( cd "$out" && "$vtmp/node_modules/.bin/tsx" scripts/export-graphql-sdl.mjs ) > "$vtmp/exported.graphql" ||
     { echo "the exporter failed — its scratch dir is kept for inspection at $vtmp" >&2; exit 1; }
   rm "$out/node_modules"
-  overlay=$(sed -n 's/^overlay=//p' "$here/schema/SOURCE")
-  if [ -n "$overlay" ]; then
+  overlays=$(sed -n 's/^overlay=//p' "$here/schema/SOURCE")
+  if [ -n "$overlays" ]; then
     want_pre=$(sed -n 's/^pre_overlay_sdl_sha256=//p' "$here/schema/SOURCE")
     pre_sha=$(sha256 "$vtmp/exported.graphql")
     [ "$pre_sha" = "$want_pre" ] || { echo "pre_overlay_sdl_sha256 mismatch: SOURCE says $want_pre, the merged export is $pre_sha" >&2; ok=0; }
-    patch --quiet "$vtmp/exported.graphql" < "$here/$overlay" ||
-      { echo "overlay $overlay does not apply to the export — kept at $vtmp" >&2; exit 1; }
+    # One overlay= line per patch, applied in file order (cli#2762 added the
+    # second); each applies to the result of the one before.
+    while IFS= read -r overlay; do
+      patch --quiet "$vtmp/exported.graphql" < "$here/$overlay" ||
+        { echo "overlay $overlay does not apply to the export — kept at $vtmp" >&2; exit 1; }
+    done <<< "$overlays"
   fi
   got_sha=$(sha256 "$vtmp/exported.graphql")
   got_lines=$(wc -l < "$vtmp/exported.graphql" | tr -d ' ')

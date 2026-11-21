@@ -91,6 +91,10 @@ type TaskReason struct {
 	// AlarmType is a task-less alarm's closed type code from the server
 	// (e.g. delivery.stuck), shown as given.
 	AlarmType string
+	// QuestionCode is, for an ANSWERED event, the code of the question that
+	// was answered (DueTaskReason.questionCode, e.g. QA3). Never the answer:
+	// the server does not send it. Empty for every other event.
+	QuestionCode string
 }
 
 // WakeReason is one reason a wake is due.
@@ -324,6 +328,9 @@ const shortIDRunes = 12
 // renderTask is one TASK reason. A task-less alarm says its alarm type, or
 // just that it has no task: a title without a task is never shown as one.
 func renderTask(t *TaskReason) string {
+	if t.Event == answeredEvent && t.ID != "" {
+		return renderAnswered(t)
+	}
 	if t.ID != "" {
 		ref := oneLine(t.ID)
 		if h := oneLine(t.Handle); h != "" {
@@ -339,6 +346,26 @@ func renderTask(t *TaskReason) string {
 		return fmt.Sprintf("%s %s: %s (no task)", TaskPrefix, oneLine(t.Event), at)
 	}
 	return fmt.Sprintf("%s %s (no task)", TaskPrefix, oneLine(t.Event))
+}
+
+// answeredEvent is the wording wakeEventWords gives TaskWakeEvent.ANSWERED.
+const answeredEvent = "answered"
+
+// renderAnswered is the ANSWERED line (hadron-server#4431 §3, cli#2762): the
+// task handle (the id when it has none), then fixed words and the answered
+// question's code. Nothing else of the task is on it: the title is left out,
+// and the answer is never on the wire. Without a code it is the same sentence
+// without one.
+func renderAnswered(t *TaskReason) string {
+	ref := oneLine(t.Handle)
+	if ref == "" {
+		ref = oneLine(t.ID)
+	}
+	line := fmt.Sprintf("%s %s a question this task asked was answered", TaskPrefix, ref)
+	if code := oneLine(t.QuestionCode); code != "" {
+		line += ": " + code
+	}
+	return line
 }
 
 // oneLine folds control characters (a newline would submit early), the format
