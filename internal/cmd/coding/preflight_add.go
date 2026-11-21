@@ -40,6 +40,9 @@ type newRouteDTO struct {
 	Links    []linkDTO `json:"links"`
 	DryRun   bool      `json:"dryRun"`
 	Model    string    `json:"model,omitempty"` // "leaf" only; absent under the default mirrored model
+	// CrossMemory is true when the route was written (or confirmed) with the
+	// intentional cross-memory marker (cli#2736); absent otherwise.
+	CrossMemory bool `json:"crossMemory,omitempty"`
 }
 
 func newCmdPreflightAdd(f *cmdutil.Factory) *cobra.Command {
@@ -439,6 +442,9 @@ func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
 		from, to = dto.Loc, dto.Router
 	}
 	t.Row("  route", output.SafeCell(from+" → "+to), output.SafeCell(dto.EdgeID))
+	if dto.CrossMemory {
+		t.Row("  marked", "cross-memory", "")
+	}
 	if dto.BackEdge {
 		t.Row("  back-edge", output.SafeCell(dto.Loc+" → "+dto.Router), "")
 	}

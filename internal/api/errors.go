@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -820,6 +821,27 @@ func IsDefiniteRefusal(err error) bool {
 	for _, e := range list {
 		c := extensionCode(e)
 		if e == nil || c == "" || c == "INTERNAL_SERVER_ERROR" {
+			return false
+		}
+	}
+	return true
+}
+
+// IsDefiniteRefusalAt is IsDefiniteRefusal narrowed to the refusal of ONE
+// mutation field: every error must be coded AND carry either no path (it was
+// refused before the resolver ran) or exactly [field] (the resolver itself
+// refused). An error below the field (path [field, "revision"], ...) came from
+// resolving the RETURNED object, which happens after the write committed, so
+// the outcome is unknown, however well coded it is (cli#398).
+func IsDefiniteRefusalAt(err error, field string) bool {
+	if !IsDefiniteRefusal(err) {
+		return false
+	}
+	for _, e := range graphQLErrors(err) {
+		if len(e.Path) == 0 {
+			continue
+		}
+		if len(e.Path) != 1 || e.Path[0] != ast.PathName(field) {
 			return false
 		}
 	}
@@ -1808,7 +1830,11 @@ func codeForExtension(code string) int {
 	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
 		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
 		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" || code == "TICKER_TEMPLATE_REVISION_MISMATCH" ||
-		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED":
+		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED" ||
+		// An Agent's revision delete (hadron-server#4488, cli#2533): the published
+		// (pinned) revision and the Agent's only revision refuse, before any write,
+		// as state conflicts (publish another first / there is nothing else to keep).
+		code == "REVISION_PUBLISHED" || code == "REVISION_ONLY":
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
 		return exitcode.Usage
