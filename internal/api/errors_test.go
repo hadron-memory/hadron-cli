@@ -60,6 +60,11 @@ func TestMapError(t *testing.T) {
 		err  error
 		want int
 	}{
+		// cli#2738: a protected secret STAGES a change for a passkey; too many open
+		// requests on one secret. The secret's state: 5, never the default 1.
+		{"SECRET_PROTECTED_NEEDS_PASSKEY 2738", gqlErr("SECRET_PROTECTED_NEEDS_PASSKEY"), exitcode.Conflict},
+		{"SECRET_CHANGE_REQUEST_LIMIT 2738", gqlErr("SECRET_CHANGE_REQUEST_LIMIT"), exitcode.Conflict},
+
 		// #2308: a worker without a signed schedule.create grant.
 		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
 

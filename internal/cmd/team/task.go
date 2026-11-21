@@ -303,13 +303,12 @@ task released or reassigned after its start-by gets a fresh window.
 --finish-by <RFC 3339 time> sets a deadline to finish. While set, ordinary
 stall windows do not apply; stall.finish-by is the deadline alarm for an
 unfinished task (a backlog task raises none, a blocked task waits for release).
-Once the finish-by passes, ` + "`task list --overdue`" + ` also lists the task,
-pending or started, until it ends — the same filter, not an alarm (this arm
-needs a provider containing hadron-server#2654; an older one filters by
-start-by only). The server refuses a past value or one earlier than start-by
-(BAD_USER_INPUT, exit 2); equal times are allowed. It owns the clock and all
-alarm behavior. With no flag the key is omitted. Change or clear it with task
-update.
+Once the finish-by passes, ` + "`task list --overdue`" + ` also lists the task, pending
+or started, until it ends — the same filter, not an alarm (this arm needs a
+provider containing hadron-server#2654; an older one filters by start-by only).
+The server refuses a past value or one earlier than start-by (BAD_USER_INPUT,
+exit 2); equal times are allowed. It owns the clock and all alarm behavior.
+With no flag the key is omitted. Change or clear it with task update.
 
 --family, --model or --tier, and --effort set the task's run settings
 (cor:agt:050:01): what to launch, not whom to match (that is --family-in and
