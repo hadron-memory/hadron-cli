@@ -71405,6 +71405,65 @@ type MergeNodesResponse struct {
 // GetMergeNodes returns MergeNodesResponse.MergeNodes, and is useful for accessing the field via an interface.
 func (v *MergeNodesResponse) GetMergeNodes() *MergeNodesMergeNodesNode { return v.MergeNodes }
 
+// MergeTaskNodePropertiesResponse is returned by MergeTaskNodeProperties on success.
+type MergeTaskNodePropertiesResponse struct {
+	// #1201 — the UPDATE door for the task kind, and the counterpart of
+	// createTaskNode. Same posture: pure routing, exempt from its own kind only;
+	// its MCP counterpart is hadron_update_task.
+	//
+	// It is needed because the gate reads the RESULTING state: editing a node that
+	// already carries this kind still produces one, so the generic updateNode
+	// refuses it even when the edit touches neither signal. That is the point — a
+	// task node must not be rewritable through the generic surface.
+	//
+	// Identical to updateNode otherwise, selectors included ('id' XOR 'memoryId' +
+	// 'loc'); it never creates and never moves.
+	//
+	// #1291 — 'mergeExports: true' makes the WHOLE 'input.properties' bag a PATCH
+	// (not only 'exports') instead of a replacement: named top-level keys are replaced whole, except 'exports', which
+	// merges per host and per field ('null' removes a host); unnamed keys stay.
+	// It is the merge 'updateNodeProperties' applies, run under the node's lock on
+	// the row read after it, so two concurrent patches to different hosts both
+	// land. The gate, task and schema validation judge the MERGED result;
+	// 'expectedRevision' still applies; who may write is unchanged. 'properties'
+	// must then be an object (anything else is BAD_USER_INPUT). Omit or pass false
+	// for today's whole-bag replace. Only this door has it.
+	UpdateTaskNode *MergeTaskNodePropertiesUpdateTaskNode `json:"updateTaskNode"`
+}
+
+// GetUpdateTaskNode returns MergeTaskNodePropertiesResponse.UpdateTaskNode, and is useful for accessing the field via an interface.
+func (v *MergeTaskNodePropertiesResponse) GetUpdateTaskNode() *MergeTaskNodePropertiesUpdateTaskNode {
+	return v.UpdateTaskNode
+}
+
+// MergeTaskNodePropertiesUpdateTaskNode includes the requested fields of the GraphQL type Node.
+type MergeTaskNodePropertiesUpdateTaskNode struct {
+	Id         string           `json:"id"`
+	MemoryId   string           `json:"memoryId"`
+	Loc        string           `json:"loc"`
+	Name       string           `json:"name"`
+	Properties *json.RawMessage `json:"properties"`
+	UpdatedAt  string           `json:"updatedAt"`
+}
+
+// GetId returns MergeTaskNodePropertiesUpdateTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *MergeTaskNodePropertiesUpdateTaskNode) GetId() string { return v.Id }
+
+// GetMemoryId returns MergeTaskNodePropertiesUpdateTaskNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MergeTaskNodePropertiesUpdateTaskNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns MergeTaskNodePropertiesUpdateTaskNode.Loc, and is useful for accessing the field via an interface.
+func (v *MergeTaskNodePropertiesUpdateTaskNode) GetLoc() string { return v.Loc }
+
+// GetName returns MergeTaskNodePropertiesUpdateTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *MergeTaskNodePropertiesUpdateTaskNode) GetName() string { return v.Name }
+
+// GetProperties returns MergeTaskNodePropertiesUpdateTaskNode.Properties, and is useful for accessing the field via an interface.
+func (v *MergeTaskNodePropertiesUpdateTaskNode) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetUpdatedAt returns MergeTaskNodePropertiesUpdateTaskNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MergeTaskNodePropertiesUpdateTaskNode) GetUpdatedAt() string { return v.UpdatedAt }
+
 // MergeUsersMergeUsersUser includes the requested fields of the GraphQL type User.
 type MergeUsersMergeUsersUser struct {
 	UserFields `json:"-"`
@@ -74961,6 +75020,52 @@ var AllNodeIntegrityState = []NodeIntegrityState{
 	NodeIntegrityStateSuperseded,
 	NodeIntegrityStateTampered,
 }
+
+// NodeKindNode includes the requested fields of the GraphQL type Node.
+type NodeKindNode struct {
+	Id string `json:"id"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+}
+
+// GetId returns NodeKindNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeKindNode) GetId() string { return v.Id }
+
+// GetIsRunnable returns NodeKindNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeKindNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// NodeKindResponse is returned by NodeKind on success.
+type NodeKindResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *NodeKindNode `json:"node"`
+}
+
+// GetNode returns NodeKindResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodeKindResponse) GetNode() *NodeKindNode { return v.Node }
 
 // NodeLiveRevisionsApprovedNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
 // The GraphQL type's documentation follows.
@@ -138538,6 +138643,18 @@ type __MergeNodesInput struct {
 // GetInput returns __MergeNodesInput.Input, and is useful for accessing the field via an interface.
 func (v *__MergeNodesInput) GetInput() *MergeNodesInput { return v.Input }
 
+// __MergeTaskNodePropertiesInput is used internally by genqlient
+type __MergeTaskNodePropertiesInput struct {
+	Input        *UpdateNodeInput `json:"input,omitempty"`
+	MergeExports bool             `json:"mergeExports"`
+}
+
+// GetInput returns __MergeTaskNodePropertiesInput.Input, and is useful for accessing the field via an interface.
+func (v *__MergeTaskNodePropertiesInput) GetInput() *UpdateNodeInput { return v.Input }
+
+// GetMergeExports returns __MergeTaskNodePropertiesInput.MergeExports, and is useful for accessing the field via an interface.
+func (v *__MergeTaskNodePropertiesInput) GetMergeExports() bool { return v.MergeExports }
+
 // __MergeUsersInput is used internally by genqlient
 type __MergeUsersInput struct {
 	Source string `json:"source"`
@@ -138787,6 +138904,14 @@ func (v *__NodeExportSectionsInput) GetFormat() NodeExportFormat { return v.Form
 
 // GetSections returns __NodeExportSectionsInput.Sections, and is useful for accessing the field via an interface.
 func (v *__NodeExportSectionsInput) GetSections() []NodeExportSection { return v.Sections }
+
+// __NodeKindInput is used internally by genqlient
+type __NodeKindInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __NodeKindInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeKindInput) GetRef() string { return v.Ref }
 
 // __NodeLiveRevisionsApprovedInput is used internally by genqlient
 type __NodeLiveRevisionsApprovedInput struct {
@@ -173608,6 +173733,53 @@ func MergeNodes(
 	return data_, err_
 }
 
+// The mutation executed by MergeTaskNodeProperties.
+const MergeTaskNodeProperties_Operation = `
+mutation MergeTaskNodeProperties ($input: UpdateNodeInput!, $mergeExports: Boolean!) {
+	updateTaskNode(input: $input, mergeExports: $mergeExports) {
+		id
+		memoryId
+		loc
+		name
+		properties
+		updatedAt
+	}
+}
+`
+
+// cli#2826: `node set-properties` on a TASK node. The generic merge mutations refuse a governed
+// task node (governedMerge), so the merge goes through the task door: mergeExports makes the whole
+// `input.properties` a patch under the node's lock (named keys replaced, `exports` merged per host
+// and field), the semantics node set-properties documents. The answer carries the merged
+// properties so the output is the same as the generic route's. The input's omitempty annotations
+// are declared once, on UpdateTaskNode above.
+func MergeTaskNodeProperties(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *UpdateNodeInput,
+	mergeExports bool,
+) (data_ *MergeTaskNodePropertiesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MergeTaskNodeProperties",
+		Query:  MergeTaskNodeProperties_Operation,
+		Variables: &__MergeTaskNodePropertiesInput{
+			Input:        input,
+			MergeExports: mergeExports,
+		},
+	}
+
+	data_ = &MergeTaskNodePropertiesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MergeUsers.
 const MergeUsers_Operation = `
 mutation MergeUsers ($source: String!, $target: String!) {
@@ -174840,6 +175012,44 @@ func NodeExportSections(
 	}
 
 	data_ = &NodeExportSectionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeKind.
+const NodeKind_Operation = `
+query NodeKind ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		isRunnable
+	}
+}
+`
+
+// cli#2826: the kind of a node, and nothing else: `node set-properties` reads it once to choose
+// the write door (a runnable node is a task). Not GetNode: the command needs no body, edges or
+// properties, and the properties it would return must never become part of what is written.
+func NodeKind(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *NodeKindResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeKind",
+		Query:  NodeKind_Operation,
+		Variables: &__NodeKindInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &NodeKindResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

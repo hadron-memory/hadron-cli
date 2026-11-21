@@ -148,7 +148,7 @@ section between the markers.
 | `node revision label` |  |  | y | #1051 | 7f7c1aff220f | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node revision list` | ls |  | y | #1051 | c1850041b82b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node revision restore` |  |  | y | #1051 | 6b274739363b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
-| `node set-properties` |  |  | y | #1051 | d9415c5805a5 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2565#issuecomment-7001730520) |
+| `node set-properties` |  |  | y | #1051 | f84e08665ddc |  | unread |  |
 | `node sign` |  |  | y | #1051 | 1b7cde5ce156 |  | unread |  |
 | `node signatures` |  |  | y | #1051 | 9563d3879939 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node signing-request` | signing-requests |  | n | #1051 | 85d8d57d9c39 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
