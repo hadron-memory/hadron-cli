@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
@@ -85,7 +88,16 @@ both the same). Exit 2 is a server that does not offer protected-secret changes.
 			var dto *changeDTO
 			var outcome error
 			if wait {
-				dto, outcome = pollChange(cmd.Context(), client, id, waitTimeout)
+				// Nothing else in the CLI turns an interrupt into a context cancel, so
+				// without this Ctrl-C kills the process and never reaches the documented
+				// Cancelled exit (6): QA on cli#2738, as on cli#1269.
+				root := cmd.Context()
+				if root == nil {
+					root = context.Background()
+				}
+				parent, stopSignals := signal.NotifyContext(root, os.Interrupt, syscall.SIGTERM)
+				defer stopSignals()
+				dto, outcome = pollChange(parent, client, id, waitTimeout)
 			} else {
 				dto, outcome = readChange(cmd.Context(), client, id)
 			}
