@@ -1109,8 +1109,8 @@ func answerHeading(a *answerDTO) string {
 
 // answerConfirmed reports whether the returned question shows the answer that was
 // asked for as its standing answer: an ANSWER entry (not a retraction) whose option
-// key is the requested one and, when text was given, whose text is the given text
-// (compared trimmed, the server normalising whitespace). A reply that shows some
+// key is the requested one and, when text was given, whose text is the given
+// text as the server normalises it. A reply that shows some
 // other standing answer, or none, does not confirm this one.
 func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput) bool {
 	a := q.Answer
@@ -1123,10 +1123,28 @@ func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput) bool {
 	if in.OptionKey == nil && a.Key != nil {
 		return false
 	}
-	if in.Text != nil && (a.Text == nil || strings.TrimSpace(*a.Text) != strings.TrimSpace(*in.Text)) {
-		return false
+	// The text compares as the server stores it (parseAnswerInput): CRLF and CR become LF
+	// and a blank note is absent, nothing else is trimmed. Absent must match absent, so a
+	// same-key answer carrying an unexpected note is not this answer.
+	want := ""
+	if in.Text != nil {
+		want = normalizeAnswerText(*in.Text)
 	}
-	return true
+	got := ""
+	if a.Text != nil {
+		got = normalizeAnswerText(*a.Text)
+	}
+	return want == got
+}
+
+// normalizeAnswerText is the server's rule for an answer's text: CRLF and CR become LF,
+// and a text of only whitespace is no text at all.
+func normalizeAnswerText(t string) string {
+	t = strings.ReplaceAll(strings.ReplaceAll(t, "\r\n", "\n"), "\r", "\n")
+	if strings.TrimSpace(t) == "" {
+		return ""
+	}
+	return t
 }
 
 // retractionConfirmed reports whether the returned question shows the retraction: no

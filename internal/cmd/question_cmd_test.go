@@ -35,9 +35,6 @@ var questionAnsweredJSON = strings.NewReplacer(
 	`"answer":null,"answers":[]`, `"answer":{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null},"key":"pg","text":null,"reason":null,"via":"CLI"},"answers":[{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","by":null,"key":"pg","text":null,"reason":null,"via":"CLI"}]`,
 ).Replace(questionJSON)
 
-// questionTextAnsweredJSON is questionJSON after a free-text answer (no option key).
-var questionTextAnsweredJSON = strings.Replace(questionAnsweredJSON, `"key":"pg","text":null`, `"key":null,"text":"free text"`, 2)
-
 // answeredAs is questionAnsweredJSON with the standing answer's key and text replaced,
 // for a reply that shows the answer the test asked for.
 func answeredAs(key, text string) string {
@@ -46,7 +43,8 @@ func answeredAs(key, text string) string {
 		k = `"key":"` + key + `"`
 	}
 	if text != "" {
-		tx = `"text":"` + text + `"`
+		b, _ := json.Marshal(text)
+		tx = `"text":` + string(b)
 	}
 	return strings.ReplaceAll(strings.ReplaceAll(questionAnsweredJSON, `"key":"pg"`, k), `"text":null`, tx)
 }
@@ -361,7 +359,7 @@ func TestQuestionAnswerTextFromFileAndStdin(t *testing.T) {
 	if err := os.WriteFile(p, []byte("free text\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionTextAnsweredJSON + `}}`}, "answer", "QA", "--expected-revision", "3", "--text-file", p)
+	c, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + answeredAs("", "free text\n") + `}}`}, "answer", "QA", "--expected-revision", "3", "--text-file", p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -829,5 +827,32 @@ func TestQuestionAnswerAndRetractAreConfirmedByTheirOwnEvidence(t *testing.T) {
 	_, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`}, "answer", "QA", "--expected-revision", "3", "--option", "pg")
 	if err != nil || !strings.HasPrefix(out, "✓ answered QA: pg") {
 		t.Fatalf("the confirmed answer succeeds: %v %q", err, out)
+	}
+}
+
+// Julius's P2: the text a reply must show is the text as the server stores it
+// (CRLF/CR to LF, a blank note absent, nothing else trimmed), compared both ways.
+func TestQuestionAnswerConfirmationFollowsTheServersTextNormalization(t *testing.T) {
+	for name, tc := range map[string]struct {
+		args    []string
+		reply   string
+		success bool
+	}{
+		"CRLF text, LF returned":           {[]string{"--text", "line-one\r\nline-two"}, answeredAs("", "line-one\nline-two"), true},
+		"bare CR text, LF returned":        {[]string{"--text", "a\rb"}, answeredAs("", "a\nb"), true},
+		"blank note beside an option":      {[]string{"--option", "pg", "--text", "  \n "}, answeredAs("pg", ""), true},
+		"surrounding space kept as given":  {[]string{"--text", " keep "}, answeredAs("", " keep "), true},
+		"no text asked, an old note shown": {[]string{"--option", "pg"}, answeredAs("pg", "an old note"), false},
+		"text asked, none shown":           {[]string{"--option", "pg", "--text", "a note"}, answeredAs("pg", ""), false},
+		"different text shown":             {[]string{"--option", "pg", "--text", "a note"}, answeredAs("pg", "another"), false},
+	} {
+		args := append([]string{"answer", "QA", "--expected-revision", "3"}, tc.args...)
+		_, _, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + tc.reply + `}}`}, args...)
+		if tc.success && err != nil {
+			t.Errorf("%s: want success, got %v", name, err)
+		}
+		if !tc.success && (err == nil || !strings.Contains(err.Error(), "unconfirmed")) {
+			t.Errorf("%s: want unconfirmed, got %v", name, err)
+		}
 	}
 }
