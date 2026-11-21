@@ -13,12 +13,17 @@ import (
 const revokedGrant1468 = `"revokedAt":"2026-10-31T01:00:00Z"`
 
 func grant1468(field, value string) string {
+	row, _ := grantFixture1468(field, value)
+	return row
+}
+
+func grantFixture1468(field, value string) (string, error) {
 	g := strings.Replace(grant1338, `"revokedAt":null`, revokedGrant1468, 1)
 	if field == "" {
-		return g
+		return g, nil
 	}
 	old := map[string]string{"id": `"id":"g1"`, "appId": `"appId":"a1"`, "prefix": `"prefix":"reports"`, "revokedAt": revokedGrant1468}[field]
-	return strings.Replace(g, old, `"`+field+`":`+value, 1)
+	return strings.Replace(g, old, `"`+field+`":`+value, 1), nil
 }
 
 // refused1468 asserts exit 1, empty stdout and exactly one request of op.
@@ -79,6 +84,40 @@ func TestAppWhoami1468IncompleteIdentityRefused(t *testing.T) {
 		t.Run(field, func(t *testing.T) {
 			app := strings.Replace(app1338, old, `"`+field+`":""`, 1)
 			refused1468(t, "MyApp", `{"data":{"myApp":`+app+`}}`, whoami...)
+		})
+	}
+}
+
+// cli#2414: a typo or malformed replacement must not forge a plausible fixture.
+func TestGrantFixture2414RejectsInvalidEdits(t *testing.T) {
+	for _, tc := range []struct{ name, field, value string }{
+		{"unknown key", "not-a-grant-field", `"x"`},
+		{"invalid JSON", "id", `not-json`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if row, err := grantFixture1468(tc.field, tc.value); err == nil {
+				t.Fatalf("invalid fixture edit produced %q without an error", row)
+			}
+		})
+	}
+}
+
+// A spare-capacity argument slice belongs to the caller, including its tail.
+func TestAppGuardHelpers2414PreserveCallerArguments(t *testing.T) {
+	for _, accepted := range []bool{false, true} {
+		t.Run(map[bool]string{false: "refused", true: "accepted"}[accepted], func(t *testing.T) {
+			backing := []string{"app", "whoami", "caller-owned-tail"}
+			args := backing[:2]
+			response := `{"data":{"myApp":` + app1338 + `}}`
+			if accepted {
+				accepted1468(t, "MyApp", response, args...)
+			} else {
+				response = strings.Replace(response, `"id":"a1"`, `"id":""`, 1)
+				refused1468(t, "MyApp", response, args...)
+			}
+			if backing[2] != "caller-owned-tail" {
+				t.Fatalf("helper overwrote caller backing array: %q", backing)
+			}
 		})
 	}
 }
