@@ -94,6 +94,7 @@ func TestSecretClientRevokeInstructionRefusesBeforeRequests2754(t *testing.T) {
 	}{
 		{name: "unbound", instruction: "task:ref"},
 		{name: "empty", instruction: "", bound: true},
+		{name: "missing-colon", instruction: "task", bound: true},
 		{name: "blank-ref", instruction: "task: ", bound: true},
 		{name: "unknown-kind", instruction: "unknown:ref", bound: true},
 		{name: "incomplete", instruction: "task:ref", bound: true, mutate: func(b map[string]any) { b["sessionId"] = "" }},
@@ -166,6 +167,9 @@ func TestSecretClientRevokeInstructionUniformRefusalAndLostAnswer2754(t *testing
 		{"uniform-grant-refusal", gqlErrorJSON("GRANT_NOT_MANAGER"), exitcode.Forbidden},
 		{"old-server", gqlErrorJSON("GRAPHQL_VALIDATION_FAILED"), exitcode.Usage},
 		{"lost-answer", `{"data":{"revokeGrant":null}}`, exitcode.Unavailable},
+		{"other-grant", revokedFor2680("other", "REVOKED"), exitcode.Unavailable},
+		{"active", revoked2680("ACTIVE"), exitcode.Unavailable},
+		{"allows", revokedAllows2680("gr-c1", "REVOKED", true), exitcode.Unavailable},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writeTeamBinding(t)
@@ -192,7 +196,7 @@ func TestSecretClientRevokeInstructionUniformRefusalAndLostAnswer2754(t *testing
 			if tc.name == "uniform-grant-refusal" && (!strings.Contains(err.Error(), "GRANT_NOT_MANAGER") || strings.Contains(err.Error(), "not found")) {
 				t.Fatalf("nonuniform refusal: %v", err)
 			}
-			if tc.name == "lost-answer" && !strings.Contains(err.Error(), "secret client list --all --as-worker") {
+			if tc.code == exitcode.Unavailable && !strings.Contains(err.Error(), "secret client list --all --as-worker") {
 				t.Fatalf("missing recovery: %v", err)
 			}
 		})
@@ -208,6 +212,9 @@ func TestSecretClientRevokeInstructionWrongAppStopsAtIdentity2754(t *testing.T) 
 	_, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--instruction", "task:ref", "--app", "hrn:app:acme.com:other")
 	if exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("wrong App: %v", err)
+	}
+	if len(*calls) != 1 {
+		t.Fatalf("wrong-App refusal must perform exactly one identity read: %v", opsOf2631(calls))
 	}
 	for _, c := range *calls {
 		if c.Op != "TeamAppIdentity" || c.Session != "" {
@@ -229,5 +236,93 @@ func TestSecretClientRevokeInstructionNeedsYesBeforeAnyRequest2754(t *testing.T)
 	_, err := runRevoke2680(t, srv.URL, "c1", "--instruction", "task:ref")
 	if exitCodeFor(err) != exitcode.Usage || calls.Load() != 0 {
 		t.Fatalf("confirmation refusal sent %d requests: %v", calls.Load(), err)
+	}
+}
+
+func TestSecretClientRevokeInstructionBindingErrorPreservesInputs2754(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, revokeResponses2754())
+	const boundServer = "https://--as-worker.example"
+	setTeamBindingServer(t, boundServer)
+	_, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--instruction", "task:ref")
+	if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
+		t.Fatalf("binding refusal: calls %v err %v", opsOf2631(calls), err)
+	}
+	if !strings.Contains(err.Error(), boundServer) || !strings.Contains(err.Error(), "--instruction cannot send through it") || strings.Contains(err.Error(), "drop --as-worker") {
+		t.Fatalf("binding values must stay exact; remedy names the invoked flag: %v", err)
+	}
+}
+
+func TestSecretClientRevokeInstructionRecoveryPreservesServerWords2754(t *testing.T) {
+	writeTeamBinding(t)
+	responses := revokeResponses2754()
+	const serverWords = "server quoted secret client list --all without attribution"
+	responses[instructedRevoke2754] = `{"errors":[{"message":"` + serverWords + `","extensions":{"code":"CONFLICT"}}]}`
+	srv, calls := attnServer(t, responses)
+	setTeamBindingServer(t, srv.URL)
+	_, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--instruction", "task:ref")
+	if exitCodeFor(err) != exitcode.Unavailable || !strings.Contains(err.Error(), serverWords) || !strings.Contains(err.Error(), "`hadron secret client list --all --as-worker`") {
+		t.Fatalf("unknown outcome must preserve server words and append its own recovery: %v", err)
+	}
+	f, out := testFactory(t)
+	f.JSON = true
+	if code := renderError(f, err); code != exitcode.Unavailable {
+		t.Fatalf("rendered exit %d", code)
+	}
+	var envelope struct {
+		Error struct {
+			Code       int    `json:"code"`
+			ServerCode string `json:"serverCode"`
+			Message    string `json:"message"`
+		} `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+		t.Fatal(e)
+	}
+	if envelope.Error.Code != 7 || envelope.Error.ServerCode != "CONFLICT" || !strings.Contains(envelope.Error.Message, serverWords) {
+		t.Fatalf("rendered error: %s", out.String())
+	}
+	writes := 0
+	for _, c := range *calls {
+		if c.Op == instructedRevoke2754 {
+			writes++
+		}
+	}
+	if writes != 1 {
+		t.Fatalf("replayed revoke %d times", writes)
+	}
+}
+
+func TestSecretClientRevokeInstructionFindsLaterPage2754(t *testing.T) {
+	writeTeamBinding(t)
+	responses := revokeResponses2754()
+	responses["MySecretReadClients"] = readClients2680(clientRow2680("other", "other-grant"))
+	reads := 0
+	srv, calls := attnServerHook(t, responses, func(op string) {
+		if op == "MySecretReadClients" {
+			reads++
+			if reads == 2 {
+				setAttnResponse(responses, "MySecretReadClients", readClients2680(clientRow2680("c1", "gr-c1")))
+			}
+		}
+	})
+	setTeamBindingServer(t, srv.URL)
+	_, err := runRevoke2680(t, srv.URL, "c1", "--yes", "--instruction", "task:ref")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writes := 0
+	for _, c := range *calls {
+		if c.Op == "MySecretReadClients" || c.Op == instructedRevoke2754 {
+			if c.Session != "s-new" {
+				t.Fatalf("lost attribution: %+v", c)
+			}
+		}
+		if c.Op == instructedRevoke2754 {
+			writes++
+		}
+	}
+	if reads != 2 || writes != 1 {
+		t.Fatalf("reads %d writes %d", reads, writes)
 	}
 }
