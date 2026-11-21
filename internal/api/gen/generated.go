@@ -2815,6 +2815,97 @@ func (v *AgentServedBootPromptResponse) GetAgentServedBootPrompt() *AgentServedB
 	return v.AgentServedBootPrompt
 }
 
+// AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage includes the requested fields of the GraphQL type AgentSubscriptionPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of agent subscriptions.
+type AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage struct {
+	Total   int                                                                                        `json:"total"`
+	HasMore bool                                                                                       `json:"hasMore"`
+	Items   []*AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription `json:"items"`
+}
+
+// GetTotal returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage) GetItems() []*AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription {
+	return v.Items
+}
+
+// AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription includes the requested fields of the GraphQL type AgentSubscription.
+type AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription struct {
+	AgentId     string  `json:"agentId"`
+	UserId      string  `json:"userId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+}
+
+// GetAgentId returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetUserId returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.UserId, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetUserId() string {
+	return v.UserId
+}
+
+// GetIsActive returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.IsActive, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetIsActive() bool {
+	return v.IsActive
+}
+
+// GetCreatedAt returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetActivatedAt returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetActivatedAt() *string {
+	return v.ActivatedAt
+}
+
+// GetExpiresAt returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// GetRevokedAt returns AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetRevokedAt() *string {
+	return v.RevokedAt
+}
+
+// AgentSubscriptionsPageResponse is returned by AgentSubscriptionsPage on success.
+type AgentSubscriptionsPageResponse struct {
+	// #2213 — `agentSubscriptions` as a page: the same gate and refusals (an Agent the
+	// caller cannot read answers as absent; otherwise ADMIN of its owning org), the same
+	// rows, newest first with userId ascending on a tie, and the real total
+	// (hrn:node:hadronmemory.com:specs:cor:api:120:04). A refused caller gets the old
+	// field's error, never a total. `limit` defaults to 20, 0 returns the count only, a
+	// negative limit is 0 and a limit over 200 is served as 200 (never refused). `offset`
+	// below 0 is 0. A consumer that decides on this list (who is subscribed) must follow the
+	// pages to the end; `agentSubscriptions` stays the complete set.
+	//
+	// Accepts the entity's ID or URN.
+	AgentSubscriptionsPage *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage `json:"agentSubscriptionsPage"`
+}
+
+// GetAgentSubscriptionsPage returns AgentSubscriptionsPageResponse.AgentSubscriptionsPage, and is useful for accessing the field via an interface.
+func (v *AgentSubscriptionsPageResponse) GetAgentSubscriptionsPage() *AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage {
+	return v.AgentSubscriptionsPage
+}
+
 // AgentSystemMemoryMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -71852,6 +71943,94 @@ type MoveNodeResponse struct {
 // GetMoveNode returns MoveNodeResponse.MoveNode, and is useful for accessing the field via an interface.
 func (v *MoveNodeResponse) GetMoveNode() *MoveNodeMoveNode { return v.MoveNode }
 
+// MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage includes the requested fields of the GraphQL type AgentSubscriptionPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of agent subscriptions.
+type MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage struct {
+	Total   int                                                                                            `json:"total"`
+	HasMore bool                                                                                           `json:"hasMore"`
+	Items   []*MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription `json:"items"`
+}
+
+// GetTotal returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage.Total, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage.Items, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage) GetItems() []*MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription {
+	return v.Items
+}
+
+// MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription includes the requested fields of the GraphQL type AgentSubscription.
+type MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription struct {
+	AgentId     string  `json:"agentId"`
+	UserId      string  `json:"userId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+}
+
+// GetAgentId returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.AgentId, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetUserId returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.UserId, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetUserId() string {
+	return v.UserId
+}
+
+// GetIsActive returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.IsActive, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetIsActive() bool {
+	return v.IsActive
+}
+
+// GetCreatedAt returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetActivatedAt returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetActivatedAt() *string {
+	return v.ActivatedAt
+}
+
+// GetExpiresAt returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// GetRevokedAt returns MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription.RevokedAt, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPageItemsAgentSubscription) GetRevokedAt() *string {
+	return v.RevokedAt
+}
+
+// MyAgentSubscriptionsPageResponse is returned by MyAgentSubscriptionsPage on success.
+type MyAgentSubscriptionsPageResponse struct {
+	// #2213 — `myAgentSubscriptions` as a page: the same rows (no user or an impersonated
+	// request gets the empty page where the old field gives []), newest first with agentId
+	// ascending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	// `limit` defaults to 20, 0 returns the count only, a negative limit is 0 and a limit
+	// over 200 is served as 200 (never refused). `offset` below 0 is 0. A consumer that
+	// decides on this list must follow the pages to the end; `myAgentSubscriptions` stays
+	// the complete set.
+	MyAgentSubscriptionsPage *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage `json:"myAgentSubscriptionsPage"`
+}
+
+// GetMyAgentSubscriptionsPage returns MyAgentSubscriptionsPageResponse.MyAgentSubscriptionsPage, and is useful for accessing the field via an interface.
+func (v *MyAgentSubscriptionsPageResponse) GetMyAgentSubscriptionsPage() *MyAgentSubscriptionsPageMyAgentSubscriptionsPageAgentSubscriptionPage {
+	return v.MyAgentSubscriptionsPage
+}
+
 // MyAppMyApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -103112,6 +103291,56 @@ var AllStopSignalScope = []StopSignalScope{
 	StopSignalScopeWorker,
 }
 
+// SubscribeOrgToAgentCreateAgentOrgGrant includes the requested fields of the GraphQL type AgentOrgGrant.
+// The GraphQL type's documentation follows.
+//
+// 008-agent-installation: Org↔Agent license. Authorizes (a) creating an App
+// in this Org that uses this Agent, and (b) bundling this Agent in an
+// AgentImport edge of an Agent the Org owns. Sibling to AgentSubscription.
+type SubscribeOrgToAgentCreateAgentOrgGrant struct {
+	AgentId     string  `json:"agentId"`
+	OrgId       string  `json:"orgId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+}
+
+// GetAgentId returns SubscribeOrgToAgentCreateAgentOrgGrant.AgentId, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentCreateAgentOrgGrant) GetAgentId() string { return v.AgentId }
+
+// GetOrgId returns SubscribeOrgToAgentCreateAgentOrgGrant.OrgId, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentCreateAgentOrgGrant) GetOrgId() string { return v.OrgId }
+
+// GetIsActive returns SubscribeOrgToAgentCreateAgentOrgGrant.IsActive, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentCreateAgentOrgGrant) GetIsActive() bool { return v.IsActive }
+
+// GetCreatedAt returns SubscribeOrgToAgentCreateAgentOrgGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentCreateAgentOrgGrant) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns SubscribeOrgToAgentCreateAgentOrgGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentCreateAgentOrgGrant) GetActivatedAt() *string { return v.ActivatedAt }
+
+// GetExpiresAt returns SubscribeOrgToAgentCreateAgentOrgGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentCreateAgentOrgGrant) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetRevokedAt returns SubscribeOrgToAgentCreateAgentOrgGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentCreateAgentOrgGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// SubscribeOrgToAgentResponse is returned by SubscribeOrgToAgent on success.
+type SubscribeOrgToAgentResponse struct {
+	// Subscribe an organization to a PUBLIC Agent without creating an App.
+	//
+	// Accepts the entity's ID or URN.
+	CreateAgentOrgGrant *SubscribeOrgToAgentCreateAgentOrgGrant `json:"createAgentOrgGrant"`
+}
+
+// GetCreateAgentOrgGrant returns SubscribeOrgToAgentResponse.CreateAgentOrgGrant, and is useful for accessing the field via an interface.
+func (v *SubscribeOrgToAgentResponse) GetCreateAgentOrgGrant() *SubscribeOrgToAgentCreateAgentOrgGrant {
+	return v.CreateAgentOrgGrant
+}
+
 // SubscribeTickerInstructedResponse is returned by SubscribeTickerInstructed on success.
 type SubscribeTickerInstructedResponse struct {
 	// #1747 — subscribe a worker to a ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:20, :25). Its holder and whoever manages
@@ -116330,6 +116559,56 @@ func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryCo
 	retval.TaskState = v.MemoryConfigWarningFields.TaskState
 	return &retval, nil
 }
+
+// UnsubscribeOrgFromAgentResponse is returned by UnsubscribeOrgFromAgent on success.
+type UnsubscribeOrgFromAgentResponse struct {
+	// Revoke an organization's Agent subscription without deleting install state.
+	//
+	// Accepts the entity's ID or URN.
+	RevokeAgentOrgGrant *UnsubscribeOrgFromAgentRevokeAgentOrgGrant `json:"revokeAgentOrgGrant"`
+}
+
+// GetRevokeAgentOrgGrant returns UnsubscribeOrgFromAgentResponse.RevokeAgentOrgGrant, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentResponse) GetRevokeAgentOrgGrant() *UnsubscribeOrgFromAgentRevokeAgentOrgGrant {
+	return v.RevokeAgentOrgGrant
+}
+
+// UnsubscribeOrgFromAgentRevokeAgentOrgGrant includes the requested fields of the GraphQL type AgentOrgGrant.
+// The GraphQL type's documentation follows.
+//
+// 008-agent-installation: Org↔Agent license. Authorizes (a) creating an App
+// in this Org that uses this Agent, and (b) bundling this Agent in an
+// AgentImport edge of an Agent the Org owns. Sibling to AgentSubscription.
+type UnsubscribeOrgFromAgentRevokeAgentOrgGrant struct {
+	AgentId     string  `json:"agentId"`
+	OrgId       string  `json:"orgId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+}
+
+// GetAgentId returns UnsubscribeOrgFromAgentRevokeAgentOrgGrant.AgentId, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentRevokeAgentOrgGrant) GetAgentId() string { return v.AgentId }
+
+// GetOrgId returns UnsubscribeOrgFromAgentRevokeAgentOrgGrant.OrgId, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentRevokeAgentOrgGrant) GetOrgId() string { return v.OrgId }
+
+// GetIsActive returns UnsubscribeOrgFromAgentRevokeAgentOrgGrant.IsActive, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentRevokeAgentOrgGrant) GetIsActive() bool { return v.IsActive }
+
+// GetCreatedAt returns UnsubscribeOrgFromAgentRevokeAgentOrgGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentRevokeAgentOrgGrant) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns UnsubscribeOrgFromAgentRevokeAgentOrgGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentRevokeAgentOrgGrant) GetActivatedAt() *string { return v.ActivatedAt }
+
+// GetExpiresAt returns UnsubscribeOrgFromAgentRevokeAgentOrgGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentRevokeAgentOrgGrant) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetRevokedAt returns UnsubscribeOrgFromAgentRevokeAgentOrgGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *UnsubscribeOrgFromAgentRevokeAgentOrgGrant) GetRevokedAt() *string { return v.RevokedAt }
 
 // UnsubscribeTickerInstructedResponse is returned by UnsubscribeTickerInstructed on success.
 type UnsubscribeTickerInstructedResponse struct {
@@ -130027,6 +130306,22 @@ func (v *__AgentServedBootPromptInput) GetAppRef() *string { return v.AppRef }
 // GetLlmModel returns __AgentServedBootPromptInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *__AgentServedBootPromptInput) GetLlmModel() *string { return v.LlmModel }
 
+// __AgentSubscriptionsPageInput is used internally by genqlient
+type __AgentSubscriptionsPageInput struct {
+	AgentRef string `json:"agentRef"`
+	Limit    *int   `json:"limit,omitempty"`
+	Offset   *int   `json:"offset,omitempty"`
+}
+
+// GetAgentRef returns __AgentSubscriptionsPageInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentSubscriptionsPageInput) GetAgentRef() string { return v.AgentRef }
+
+// GetLimit returns __AgentSubscriptionsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentSubscriptionsPageInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentSubscriptionsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentSubscriptionsPageInput) GetOffset() *int { return v.Offset }
+
 // __AgentSystemMemoryInput is used internally by genqlient
 type __AgentSystemMemoryInput struct {
 	Ref string `json:"ref"`
@@ -137073,6 +137368,18 @@ func (v *__MoveNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 // GetTargetMemoryRef returns __MoveNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
+// __MyAgentSubscriptionsPageInput is used internally by genqlient
+type __MyAgentSubscriptionsPageInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+// GetLimit returns __MyAgentSubscriptionsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MyAgentSubscriptionsPageInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __MyAgentSubscriptionsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MyAgentSubscriptionsPageInput) GetOffset() *int { return v.Offset }
+
 // __MyGrantsInput is used internally by genqlient
 type __MyGrantsInput struct {
 	Limit  int `json:"limit"`
@@ -139765,6 +140072,18 @@ type __StopImpersonationInput struct {
 // GetId returns __StopImpersonationInput.Id, and is useful for accessing the field via an interface.
 func (v *__StopImpersonationInput) GetId() *string { return v.Id }
 
+// __SubscribeOrgToAgentInput is used internally by genqlient
+type __SubscribeOrgToAgentInput struct {
+	AgentRef string `json:"agentRef"`
+	OrgRef   string `json:"orgRef"`
+}
+
+// GetAgentRef returns __SubscribeOrgToAgentInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__SubscribeOrgToAgentInput) GetAgentRef() string { return v.AgentRef }
+
+// GetOrgRef returns __SubscribeOrgToAgentInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__SubscribeOrgToAgentInput) GetOrgRef() string { return v.OrgRef }
+
 // __SubscribeTickerInput is used internally by genqlient
 type __SubscribeTickerInput struct {
 	TickerRef string `json:"tickerRef"`
@@ -141228,6 +141547,18 @@ func (v *__UnlockNodeRoleRuleInput) GetRef() string { return v.Ref }
 
 // GetExpectedRevision returns __UnlockNodeRoleRuleInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__UnlockNodeRoleRuleInput) GetExpectedRevision() int { return v.ExpectedRevision }
+
+// __UnsubscribeOrgFromAgentInput is used internally by genqlient
+type __UnsubscribeOrgFromAgentInput struct {
+	AgentRef string `json:"agentRef"`
+	OrgRef   string `json:"orgRef"`
+}
+
+// GetAgentRef returns __UnsubscribeOrgFromAgentInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__UnsubscribeOrgFromAgentInput) GetAgentRef() string { return v.AgentRef }
+
+// GetOrgRef returns __UnsubscribeOrgFromAgentInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__UnsubscribeOrgFromAgentInput) GetOrgRef() string { return v.OrgRef }
 
 // __UnsubscribeTickerInput is used internally by genqlient
 type __UnsubscribeTickerInput struct {
@@ -144540,6 +144871,54 @@ func AgentServedBootPrompt(
 	}
 
 	data_ = &AgentServedBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentSubscriptionsPage.
+const AgentSubscriptionsPage_Operation = `
+query AgentSubscriptionsPage ($agentRef: ID!, $limit: Int, $offset: Int) {
+	agentSubscriptionsPage(agentRef: $agentRef, limit: $limit, offset: $offset) {
+		total
+		hasMore
+		items {
+			agentId
+			userId
+			isActive
+			createdAt
+			activatedAt
+			expiresAt
+			revokedAt
+		}
+	}
+}
+`
+
+func AgentSubscriptionsPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	limit *int,
+	offset *int,
+) (data_ *AgentSubscriptionsPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentSubscriptionsPage",
+		Query:  AgentSubscriptionsPage_Operation,
+		Variables: &__AgentSubscriptionsPageInput{
+			AgentRef: agentRef,
+			Limit:    limit,
+			Offset:   offset,
+		},
+	}
+
+	data_ = &AgentSubscriptionsPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -171998,6 +172377,52 @@ func MoveNode(
 	return data_, err_
 }
 
+// The query executed by MyAgentSubscriptionsPage.
+const MyAgentSubscriptionsPage_Operation = `
+query MyAgentSubscriptionsPage ($limit: Int, $offset: Int) {
+	myAgentSubscriptionsPage(limit: $limit, offset: $offset) {
+		total
+		hasMore
+		items {
+			agentId
+			userId
+			isActive
+			createdAt
+			activatedAt
+			expiresAt
+			revokedAt
+		}
+	}
+}
+`
+
+func MyAgentSubscriptionsPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit *int,
+	offset *int,
+) (data_ *MyAgentSubscriptionsPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MyAgentSubscriptionsPage",
+		Query:  MyAgentSubscriptionsPage_Operation,
+		Variables: &__MyAgentSubscriptionsPageInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MyAgentSubscriptionsPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by MyApp.
 const MyApp_Operation = `
 query MyApp {
@@ -183299,6 +183724,48 @@ func StopImpersonation(
 	return data_, err_
 }
 
+// The mutation executed by SubscribeOrgToAgent.
+const SubscribeOrgToAgent_Operation = `
+mutation SubscribeOrgToAgent ($agentRef: ID!, $orgRef: ID!) {
+	createAgentOrgGrant(agentRef: $agentRef, orgRef: $orgRef) {
+		agentId
+		orgId
+		isActive
+		createdAt
+		activatedAt
+		expiresAt
+		revokedAt
+	}
+}
+`
+
+func SubscribeOrgToAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	orgRef string,
+) (data_ *SubscribeOrgToAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SubscribeOrgToAgent",
+		Query:  SubscribeOrgToAgent_Operation,
+		Variables: &__SubscribeOrgToAgentInput{
+			AgentRef: agentRef,
+			OrgRef:   orgRef,
+		},
+	}
+
+	data_ = &SubscribeOrgToAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SubscribeTicker.
 const SubscribeTicker_Operation = `
 mutation SubscribeTicker ($tickerRef: String!, $workerRef: String!) {
@@ -187970,6 +188437,48 @@ func UnlockNodeRoleRule(
 	}
 
 	data_ = &UnlockNodeRoleRuleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UnsubscribeOrgFromAgent.
+const UnsubscribeOrgFromAgent_Operation = `
+mutation UnsubscribeOrgFromAgent ($agentRef: ID!, $orgRef: ID!) {
+	revokeAgentOrgGrant(agentRef: $agentRef, orgRef: $orgRef) {
+		agentId
+		orgId
+		isActive
+		createdAt
+		activatedAt
+		expiresAt
+		revokedAt
+	}
+}
+`
+
+func UnsubscribeOrgFromAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	orgRef string,
+) (data_ *UnsubscribeOrgFromAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UnsubscribeOrgFromAgent",
+		Query:  UnsubscribeOrgFromAgent_Operation,
+		Variables: &__UnsubscribeOrgFromAgentInput{
+			AgentRef: agentRef,
+			OrgRef:   orgRef,
+		},
+	}
+
+	data_ = &UnsubscribeOrgFromAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
