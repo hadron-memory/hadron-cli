@@ -240,7 +240,7 @@ func runSessionRecover(cmd *cobra.Command, f *cmdutil.Factory, mentionsLimit int
 
 	// Tasks: `task mine`'s fixed filters.
 	worker := b.WorkerID
-	if tasks, count, err := taskListPage(ctx, client, b.AppID, taskListQuery{
+	if tasks, info, err := taskListPage(ctx, client, b.AppID, taskListQuery{
 		assignee: &gen.AgentTaskPartyInput{Worker: &worker},
 		status:   []gen.AgentTaskStatus{gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted},
 		limit:    recoverTaskCap,
@@ -251,7 +251,8 @@ func runSessionRecover(cmd *cobra.Command, f *cmdutil.Factory, mentionsLimit int
 			dto.Tasks = append(dto.Tasks, recoverTaskDTO{ID: t.ID, Handle: t.Handle, Status: t.Status, Priority: t.Priority,
 				Title: t.Title, Blocked: t.Blocked, WaitingOnChildren: t.WaitingOnChildren, ParentTaskID: t.ParentTaskID})
 		}
-		dto.TasksMore = count >= recoverTaskCap
+		// The server's answer, not a full-page guess (cli#2734).
+		dto.TasksMore = info.HasMore
 	}
 
 	// State note and standing directions, from the worker's own working
@@ -353,7 +354,9 @@ func renderRecover(w io.Writer, d recoverDTO) error {
 		}
 	}
 	if d.TasksMore {
-		p("  (a full page: more tasks may exist)\n")
+		// The server's hasMore, not a full-page guess (cli#2734): the page can
+		// be short and still not be the end.
+		p("  (the task page did not end: more tasks may exist)\n")
 	}
 
 	p("\nstate note: ")

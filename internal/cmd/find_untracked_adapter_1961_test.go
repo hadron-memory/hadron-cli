@@ -74,7 +74,7 @@ func held1961(ids ...string) string {
 	for _, id := range ids {
 		rows = append(rows, fmt.Sprintf(`{"id":"held-%d","externalId":%q}`, len(rows), id))
 	}
-	return `{"data":{"agentTasks":[` + strings.Join(rows, ",") + `]}}`
+	return fmt.Sprintf(`{"data":{"agentTasksPage":{"items":[%s],"total":%d,"hasMore":false}}}`, strings.Join(rows, ","), len(rows))
 }
 
 func claimed1961(id, ext, assigneeID, assigneeName, portal, status string) string {
@@ -657,7 +657,7 @@ func withEmptyChanges1962(responses map[string]string) map[string]string {
 	}
 	// cli#2265: nobody holds the item now unless a test says so.
 	if _, ok := responses["IntakeItemHolders"]; !ok {
-		responses["IntakeItemHolders"] = `{"data":{"agentTasks":[]}}`
+		responses["IntakeItemHolders"] = `{"data":{"agentTasksPage":{"items":[],"total":0,"hasMore":false}}}`
 	}
 	return responses
 }

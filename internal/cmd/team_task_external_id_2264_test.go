@@ -18,12 +18,17 @@ const startedExternalIDTaskJSON = `{"id":"task2","appId":"capp100000000000000000
 
 func taskIDsFromJSON(t *testing.T, out string) []string {
 	t.Helper()
-	var rows []struct {
-		ID string `json:"id"`
+	// cli#2734: `task list --json` is the page object {tasks, total, hasMore}
+	// (was a bare array; the cli#1919 precedent).
+	var page struct {
+		Tasks []struct {
+			ID string `json:"id"`
+		} `json:"tasks"`
 	}
-	if err := json.Unmarshal([]byte(out), &rows); err != nil {
-		t.Fatalf("not a task list: %v\n%s", err, out)
+	if err := json.Unmarshal([]byte(out), &page); err != nil {
+		t.Fatalf("not a task page: %v\n%s", err, out)
 	}
+	rows := page.Tasks
 	ids := []string{}
 	for _, r := range rows {
 		ids = append(ids, r.ID)
@@ -35,7 +40,7 @@ func taskIDsFromJSON(t *testing.T, out string) []string {
 // list prints both, in that order, in text and --json.
 func TestTaskListExternalIDShowsHistoryNewestFirst2264(t *testing.T) {
 	r := taskResponses()
-	both := `{"data":{"agentTasks":[` + startedExternalIDTaskJSON + `,` + finishedTaskFieldsJSON + `]}}`
+	both := taskPage2734(startedExternalIDTaskJSON+","+finishedTaskFieldsJSON, 2, false)
 	r["AgentTaskListFiltered"], r["AgentTaskList"] = both, both
 	calls, out, err := runTeamTask(t, r, "team", "task", "list", "--external-id", "https://github.com/acme/repo/issues/1", "--json")
 	if err != nil {
@@ -72,7 +77,7 @@ func TestTaskListExternalIDShowsHistoryNewestFirst2264(t *testing.T) {
 // The status filter is sent as given and the CLI never picks "the first row".
 func TestTaskListExternalIDActiveHolderIsTheStatusFilter2264(t *testing.T) {
 	r := taskResponses()
-	only := `{"data":{"agentTasks":[` + startedExternalIDTaskJSON + `]}}`
+	only := taskPage2734(startedExternalIDTaskJSON, 1, false)
 	r["AgentTaskListFiltered"], r["AgentTaskList"] = only, only
 	calls, out, err := runTeamTask(t, r, "team", "task", "list", "--external-id", "x",
 		"--status", "BACKLOG", "--status", "PENDING", "--status", "STARTED", "--json")
@@ -102,7 +107,7 @@ func TestTaskListExternalIDActiveHolderIsTheStatusFilter2264(t *testing.T) {
 // task.
 func TestTaskListExternalIDNoActiveHolderIsEmpty2264(t *testing.T) {
 	r := taskResponses()
-	none := `{"data":{"agentTasks":[]}}`
+	none := taskPage2734("", 0, false)
 	r["AgentTaskListFiltered"], r["AgentTaskList"] = none, none
 	calls, out, err := runTeamTask(t, r, "team", "task", "list", "--external-id", "x", "--status", "BACKLOG", "--status", "PENDING", "--status", "STARTED", "--json")
 	if err != nil {

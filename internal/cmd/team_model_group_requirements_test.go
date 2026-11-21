@@ -149,7 +149,7 @@ func TestTaskModelGroupOutput1485(t *testing.T) {
 			for _, jsonMode := range []bool{false, true} {
 				resp := taskResponses()
 				resp["AgentTaskGet"] = `{"data":{"agentTask":` + row + `}}`
-				resp["AgentTaskList"] = `{"data":{"agentTasks":[` + row + `]}}`
+				resp["AgentTaskList"] = taskPage2734(row, 1, false)
 				args := []string{"team", "task", verb}
 				if verb == "get" {
 					args = append(args, "AT1.2")
@@ -184,7 +184,8 @@ func TestTaskModelGroupOutput1485(t *testing.T) {
 					if verb == "get" {
 						task = val.(map[string]any)
 					} else {
-						task = val.([]any)[0].(map[string]any)
+						// cli#2734: list --json is the page object.
+						task = val.(map[string]any)["tasks"].([]any)[0].(map[string]any)
 					}
 					req := task["requirements"].(map[string]any)
 					for _, k := range []string{"modelGroupIn", "modelGroupNotIn"} {
@@ -337,7 +338,7 @@ func TestTaskModelGroupNullRequirements1485(t *testing.T) {
 	for _, verb := range []string{"get", "list"} {
 		resp := taskResponses()
 		resp["AgentTaskGet"] = `{"data":{"agentTask":` + startedTaskFieldsJSON + `}}`
-		resp["AgentTaskList"] = `{"data":{"agentTasks":[` + startedTaskFieldsJSON + `]}}`
+		resp["AgentTaskList"] = taskPage2734(startedTaskFieldsJSON, 1, false)
 		args := []string{"team", "task", verb}
 		if verb == "get" {
 			args = append(args, "AT1.2")
@@ -353,14 +354,16 @@ func TestTaskModelGroupNullRequirements1485(t *testing.T) {
 				t.Fatal(err)
 			}
 		} else {
-			var tasks []map[string]json.RawMessage
-			if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+			var page struct {
+				Tasks []map[string]json.RawMessage `json:"tasks"`
+			}
+			if err := json.Unmarshal([]byte(out), &page); err != nil {
 				t.Fatal(err)
 			}
-			if len(tasks) != 1 {
+			if len(page.Tasks) != 1 {
 				t.Fatalf("tasks=%s", out)
 			}
-			task = tasks[0]
+			task = page.Tasks[0]
 		}
 		if string(task["requirements"]) != "null" {
 			t.Fatalf("requirements=%s", task["requirements"])

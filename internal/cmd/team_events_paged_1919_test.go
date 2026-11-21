@@ -412,7 +412,7 @@ func list1919(t *testing.T, pages func(int) string, argv ...string) (out, errOut
 	t.Helper()
 	responses := rosterResponses993(roster1044()...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
-	responses["AgentTaskList"] = taskPage1044(tasks1044())
+	responses["AgentTaskList"] = taskPage1044(tasks1044(), false)
 	out, errOut, _, err = pagesServer1919(t, responses, pages, append([]string{"team", "task", "list", "--team=worker:Marco"}, argv...)...)
 	return out, errOut, err
 }
