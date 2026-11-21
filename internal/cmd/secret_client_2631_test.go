@@ -357,8 +357,8 @@ func TestSecretClientLs2631(t *testing.T) {
 		t.Fatal(err)
 	}
 	var rows []map[string]any
-	if e := json.Unmarshal([]byte(out), &rows); e != nil || len(rows) != 1 || len(rows[0]) != 8 || rows[0]["endReason"] != nil || rows[0]["clientPrefix"] == nil {
-		t.Fatalf("eight fields (clientPrefix added by the server), endReason null: %v\n%s", e, out)
+	if e := json.Unmarshal([]byte(out), &rows); e != nil || len(rows) != 1 || len(rows[0]) != 9 || rows[0]["endReason"] != nil || rows[0]["destroyOnEnd"] != false || rows[0]["clientPrefix"] == nil {
+		t.Fatalf("nine fields (clientPrefix, then destroyOnEnd added by the server), endReason null, the mark false: %v\n%s", e, out)
 	}
 	if (*calls)[0].Vars["limit"] != float64(5) || (*calls)[0].Vars["offset"] != float64(2) {
 		t.Errorf("paging must pass through: %v", (*calls)[0].Vars)

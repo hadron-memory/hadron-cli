@@ -72313,8 +72313,9 @@ type MySecretReadClientsMySecretReadClientsSecretReadClient struct {
 	SecretName   string  `json:"secretName"`
 	SelfIssued   bool    `json:"selfIssued"`
 	// Null while live, else one of SECRET_DELETED, PROTECTED, REVOKED, PENDING, SPENT, EXPIRED, NOT_STARTED, ISSUER_GONE (nothing else ended it) or ENDED. A stored end wins; otherwise the grant's own state, in the order the reveal door answers.
-	EndReason *string `json:"endReason"`
-	CreatedAt string  `json:"createdAt"`
+	EndReason    *string `json:"endReason"`
+	CreatedAt    string  `json:"createdAt"`
+	DestroyOnEnd bool    `json:"destroyOnEnd"`
 }
 
 // GetClientId returns MySecretReadClientsMySecretReadClientsSecretReadClient.ClientId, and is useful for accessing the field via an interface.
@@ -72355,6 +72356,11 @@ func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetEndReason() 
 // GetCreatedAt returns MySecretReadClientsMySecretReadClientsSecretReadClient.CreatedAt, and is useful for accessing the field via an interface.
 func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetCreatedAt() string {
 	return v.CreatedAt
+}
+
+// GetDestroyOnEnd returns MySecretReadClientsMySecretReadClientsSecretReadClient.DestroyOnEnd, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetDestroyOnEnd() bool {
+	return v.DestroyOnEnd
 }
 
 // MySecretReadClientsResponse is returned by MySecretReadClients on success.
@@ -172581,6 +172587,7 @@ query MySecretReadClients ($limit: Int, $offset: Int) {
 		selfIssued
 		endReason
 		createdAt
+		destroyOnEnd
 	}
 }
 `

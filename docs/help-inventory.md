@@ -258,8 +258,8 @@ section between the markers.
 | `secret change get` |  |  | y | #1052 | 8b86ef8c679d |  | unread |  |
 | `secret change withdraw` |  |  | y | #1052 | ef6db9541a93 |  | unread |  |
 | `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
-| `secret client issue` |  |  | y | #1052 | ef58b95049c8 |  | unread |  |
-| `secret client list` | ls |  | y | #1052 | e8cce8fc81e3 |  | unread |  |
+| `secret client issue` |  |  | y | #1052 | c363be2b9495 |  | unread |  |
+| `secret client list` | ls |  | y | #1052 | ba1baa933224 |  | unread |  |
 | `secret client revoke` |  |  | y | #1052 | 13c61fc12c70 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 230d9394ff41 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |

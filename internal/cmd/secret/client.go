@@ -130,8 +130,17 @@ The holder is you (the default, marked selfIssued) or, with --worker, a live
 worker of the App by its id. The server refuses any other holder. --reason is
 required and is shown to the signer. --max-reads 1 makes a one-use client.
 --starts-at and --expires-at take a timestamp such as 2026-12-01T09:00:00Z (the
-server parses it). --auto-delete is passed as given: the server refuses it until
-it is built.
+server parses it).
+
+--auto-delete marks the client: the server then deletes the secret at the client's
+last read or when its window ends, whichever comes first. It needs
+--expires-at or --max-reads (the server refuses it without a window or a read
+budget, and the CLI does not check that itself: the refusal comes back as the
+server wrote it). Only whoever manages the App, or the writer of the secret's
+current version, may set it. Nothing is deleted until a person has signed the
+grant: a client that is never signed deletes nothing. Once signed, the deletion
+cannot be called off by revoking the client, or by the holder leaving: revoking a
+marked client does not cancel the deletion. A deleted secret is gone for good.
 
 This is a person's act and never sends a worker session, even from a bound
 worktree. Whoever manages the App, or wrote the secret's current version, may
@@ -140,11 +149,12 @@ issue; the server decides, and its refusal is reported as it came.
 --wait polls the signing request every 2 seconds until it ends, up to
 --wait-timeout (10 minutes; not the request's own 24-hour life). The URL goes to
 stderr first so you can pass it on while waiting. Exit codes: 0 done (with
---wait: signed); 2 usage, a server without signing, or auto-delete not yet
-available; 4 not found; 5 the request ended without a signature (DECLINED,
+--wait: signed); 2 usage, a server without signing, or --auto-delete without
+--expires-at or --max-reads (or a time the server cannot parse); 4 not found; 5 the request ended without a signature (DECLINED,
 EXPIRED, STALE, WITHDRAWN), the issuer was superseded as writer, or the secret
-has too many live clients; 7 the answer to the issue was lost; 8 not permitted;
-13 --wait timed out. A timeout leaves the grant and the request as they are;
+has too many live clients; 7 the answer to the issue was lost; 8 not permitted
+(including --auto-delete on a secret you neither manage nor wrote the current
+version of); 13 --wait timed out. A timeout leaves the grant and the request as they are;
 nothing is withdrawn. A signer the server refuses leaves the request OPEN, so
 that wait ends by timeout: the request's lastRefusedAt, in 'hadron team grant
 signing-request get <request-id>', may show it.
@@ -273,7 +283,7 @@ was lost: the error says which, and how to ask again).`,
 	fl.StringVar(&startsAt, "starts-at", "", "when the client starts to allow reads, a timestamp the server parses")
 	fl.StringVar(&expiresAt, "expires-at", "", "when the client stops allowing reads, a timestamp the server parses")
 	fl.IntVar(&maxReads, "max-reads", 0, "how many reads the client allows (1 = one-use)")
-	fl.BoolVar(&autoDelete, "auto-delete", false, "ask the server to delete the secret at the client's last read (the server refuses until it is built)")
+	fl.BoolVar(&autoDelete, "auto-delete", false, "the server deletes the secret at the client's last read or when its window ends (needs --expires-at or --max-reads; once signed, revoking the client does not cancel it)")
 	fl.BoolVar(&wait, "wait", false, "poll the signing request until it ends")
 	fl.DurationVar(&waitTimeout, "wait-timeout", defaultSignWait, "max time to wait with --wait")
 	return cmd
@@ -386,6 +396,9 @@ type clientDTO struct {
 	SelfIssued   bool    `json:"selfIssued"`
 	EndReason    *string `json:"endReason"`
 	CreatedAt    string  `json:"createdAt"`
+	// DestroyOnEnd is the auto-delete mark: the secret is deleted at the client's last
+	// read or when its window ends (a person must have signed the grant first).
+	DestroyOnEnd bool `json:"destroyOnEnd"`
 }
 
 // fetchClientPage reads one page of the caller's read clients. The list is declared
@@ -406,7 +419,7 @@ func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *
 			return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
 		}
 		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
-			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, DestroyOnEnd: c.DestroyOnEnd})
 	}
 	return page, nil
 }
@@ -419,10 +432,12 @@ func newCmdClientList(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List the read clients you issued or hold",
 		Long: `List the read clients the caller issued or holds: client id, secret, whether it
-was self-issued, the end reason the server reported (SECRET_DELETED or PROTECTED;
-a dash means no reason reported, not that the client is live) and when it was
-created. The server returns nothing else: there is no window, read budget or
-live/spent column here.
+was self-issued, whether it carries the auto-delete mark (AUTO-DELETE yes: the
+secret is deleted at the client's last read or when its window ends, see
+'secret client issue --help'; --json destroyOnEnd), the end reason the server
+reported (SECRET_DELETED or PROTECTED; a dash means no reason reported, not that
+the client is live) and when it was created. The server returns nothing else:
+there is no window, read budget or live/spent column here.
 
 Acting as you (the default, no worker session) lists the clients you issued or
 hold. --as-worker sends this worktree's bound worker session and so lists the
@@ -493,9 +508,9 @@ use --limit and --offset beyond that).`,
 					_, err := fmt.Fprintln(w, "no read clients")
 					return err
 				}
-				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "END REASON", "CREATED", "GRANT")
+				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "AUTO-DELETE", "END REASON", "CREATED", "GRANT")
 				for _, r := range rows {
-					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued),
+					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued), yesNo(r.DestroyOnEnd),
 						output.SafeCell(output.Dash(r.EndReason)), output.SafeCell(r.CreatedAt), output.SafeCell(r.GrantID))
 				}
 				return t.Flush()
@@ -518,4 +533,12 @@ func clientColumn(r clientDTO) string {
 		return *r.ClientID
 	}
 	return r.ClientPrefix + "…"
+}
+
+// yesNo renders the auto-delete mark.
+func yesNo(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
 }
