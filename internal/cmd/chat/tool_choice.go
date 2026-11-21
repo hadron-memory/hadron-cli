@@ -25,7 +25,7 @@ func newCmdToolChoice(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read the server's decision on how this chat's next turn offers its respond
 tool: AUTO or FORCED. The server decides it once, by the chat's stored choice,
 else the App's chatbot config, else the default; this command only reads it and
-keeps no list of its own. The decision is Proposed in cor:dmo:050:10 and may
+keeps no list of its own. This behaviour is still proposed and may
 change.
 
 "tool choice: not resolved" (--json: toolChoice null) means the server resolved
