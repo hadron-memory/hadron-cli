@@ -38,8 +38,8 @@ func TestTaskRenderRefusesMissingOrNullData2268(t *testing.T) {
 				if out.Len() != 0 || strings.Contains(out.String(), "rendered") {
 					t.Fatalf("nothing may be rendered on a refusal, stdout=%q", out.String())
 				}
-				if len(*requests) != 1 {
-					t.Fatalf("no retry and no fallback: requests=%d, want exactly 1", len(*requests))
+				if len(requests.snapshot()) != 1 {
+					t.Fatalf("no retry and no fallback: requests=%d, want exactly 1", len(requests.snapshot()))
 				}
 				if !strings.Contains(err.Error(), "renderRunNode") || !strings.Contains(err.Error(), "nothing was rendered") {
 					t.Fatalf("the refusal names the field and says nothing was rendered: %v", err)
@@ -64,8 +64,8 @@ func TestTaskRenderValidEmptyStaysASuccess2268(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatalf("a valid empty render must succeed: %v", err)
 			}
-			if len(*requests) != 1 {
-				t.Fatalf("requests=%d", len(*requests))
+			if len(requests.snapshot()) != 1 {
+				t.Fatalf("requests=%d", len(requests.snapshot()))
 			}
 			if !asJSON {
 				if out.String() != "" {
