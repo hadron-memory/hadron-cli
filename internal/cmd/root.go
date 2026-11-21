@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"sort"
@@ -611,12 +612,17 @@ func renderError(f *cmdutil.Factory, err error) int {
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", output.SafeError(message))
 			// cli#1264: a clone refusal's blockers, one per line, after the answer.
-			for _, line := range api.CloneAgentBlockerLines(err) {
-				fmt.Fprintf(f.IOStreams.ErrOut, "  %s\n", line)
-			}
+			writeBlockerLines(f.IOStreams.ErrOut, api.CloneAgentBlockerLines(err))
 		}
 	}
 	return code
+}
+
+// writeBlockerLines prints a clone refusal's blocker lines, one per line, indented. (cli#2857)
+func writeBlockerLines(w io.Writer, lines []string) {
+	for _, line := range lines {
+		fmt.Fprintf(w, "  %s\n", line)
+	}
 }
 
 // storedCredentialHint is appended to an exit-3 failure when the refused key
