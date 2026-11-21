@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -163,17 +164,29 @@ func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 	// Positive control for EVERY renamed operation, order- and whitespace-
 	// tolerant like the retired-argument sweep: the operation's own argument
 	// list carries the new spelling, so a silent non-match cannot pass and a
-	// dropped operation (including the events and list reads) goes red.
+	// dropped operation goes red. Scope, stated exactly: the CLI sends no legacy
+	// agentTeamEvents and no second list read, so the table is the 11 mutations,
+	// agentTask(ref:), agentTasks(parentTaskRef:) and agentTeamEventsPage(taskRef:).
+	// [^)]* spans only the call's own argument list (no argument value holds a
+	// ")"); the argument must start after "(", whitespace or ",", so a "$taskRef:"
+	// variable declaration cannot satisfy it.
 	all := strings.Join(generated, "\n")
-	for op, arg := range map[string]string{
+	controls := map[string]string{
 		"assignAgentTask": "taskRef", "reassignAgentTask": "taskRef", "startAgentTask": "taskRef",
 		"cancelAgentTask": "taskRef", "parkAgentTask": "taskRef", "finishAgentTask": "taskRef",
 		"cloneAgentTask": "taskRef", "updateAgentTask": "taskRef", "recordAgentTaskProgress": "taskRef",
 		"makeAgentTaskReady": "taskRef", "releaseAgentTaskExternalId": "taskRef",
 		"agentTask": "ref", "agentTasks": "parentTaskRef",
 		"agentTeamEventsPage": "taskRef",
-	} {
-		re := regexp.MustCompile(`\b` + op + `\s*\([^)]*\b` + arg + `\s*:`)
+	}
+	ops := make([]string, 0, len(controls))
+	for op := range controls {
+		ops = append(ops, op)
+	}
+	sort.Strings(ops)
+	for _, op := range ops {
+		arg := controls[op]
+		re := regexp.MustCompile(`\b` + op + `\s*\((?:[^)]*[\s,])?` + arg + `\s*:`)
 		if !re.MatchString(all) {
 			t.Errorf("the generated client never sends %s(%s:): stale client or the sweep is blind", op, arg)
 		}
