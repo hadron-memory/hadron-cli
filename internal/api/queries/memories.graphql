@@ -580,16 +580,9 @@ mutation ExtractParentNodeToMemory(
 # provides the data key and all node content/data is rewritten as ciphertext in
 # a single transaction. There is no decrypt mutation, so the command gates like a
 # destructive op.
-# cli#1340 — exactly one of dataKey / passphrase is sent (the server refuses
-# both or neither); the other stays omitted.
-mutation EncryptMemory(
-  $memoryRef: ID!
-  # @genqlient(omitempty: true)
-  $dataKey: String
-  # @genqlient(omitempty: true)
-  $passphrase: String
-) {
-  encryptMemory(memoryRef: $memoryRef, dataKey: $dataKey, passphrase: $passphrase) {
+# cli#1650: key material is per-call HTTP header data, NEVER GraphQL arguments.
+mutation EncryptMemory($memoryRef: ID!) {
+  encryptMemory(memoryRef: $memoryRef) {
     id
     urn
     name

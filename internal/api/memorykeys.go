@@ -14,9 +14,9 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// MemoryKeysHeader carries caller-held passphrases for encrypted memories
+// MemoryKeysHeader carries caller-held keys/passphrases for memory operations
 // (hadron-server src/lib/memoryUnlock.ts, stageRequestMemoryKeys). The value is
-// a JSON array of {memory, passphrase}: at most MaxMemoryKeys entries and
+// a JSON array of {memory, passphrase} (or encryption-only {memory, dataKey}): at most MaxMemoryKeys entries and
 // MaxMemoryKeysBytes bytes. cor:sec:040:04: a key is never a field on a query
 // or mutation; it travels beside the operation and lasts that one request.
 const MemoryKeysHeader = "X-Hadron-Memory-Keys"
@@ -28,11 +28,12 @@ const (
 	MaxMemoryKeysBytes = 16 * 1024
 )
 
-// MemoryKey is one --unlock entry (hadron-cli#1234). v1 is passphrase-only:
-// the header's raw dataKey form is deliberately not offered (Victor delta 3).
+// MemoryKey carries one caller-held secret. --unlock remains passphrase-only;
+// memory encrypt uses the dataKey form only for its single mutation (#1650).
 type MemoryKey struct {
 	Memory     string `json:"memory"`
-	Passphrase string `json:"passphrase"`
+	Passphrase string `json:"passphrase,omitempty"`
+	DataKey    string `json:"dataKey,omitempty"`
 }
 
 type memoryKeysCtx struct{}
@@ -65,7 +66,7 @@ func WithMemoryKeys(ctx context.Context, keys []MemoryKey) (context.Context, err
 	v := memoryKeysValue{header: string(encoded)}
 	bases := []string{v.header}
 	for _, k := range keys {
-		bases = append(bases, k.Passphrase)
+		bases = append(bases, k.Passphrase, k.DataKey)
 	}
 	v.secrets = escapedSpellings(bases)
 	return context.WithValue(ctx, memoryKeysCtx{}, v), nil
@@ -209,6 +210,9 @@ var unlockCodeText = map[string]string{
 // from a resolver and keeps its ordinary mapping. The server's message is NOT
 // repeated: a fixed sentence per code cannot carry a secret back.
 func unlockRefusal(ctx context.Context, list gqlerror.List) error {
+	if isEncryption(ctx) {
+		return encryptionRefusal(list)
+	}
 	if !HasMemoryKeys(ctx) {
 		return nil
 	}
