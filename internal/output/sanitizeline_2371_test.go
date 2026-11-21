@@ -43,9 +43,10 @@ func TestSanitizeLineNeutralisesLikeSafeLineAndNeverTruncates2371(t *testing.T) 
 			inputs = append(inputs, "a"+string(r)+"b", string(r), strings.Repeat(string(r), 3))
 		}
 		inputs = append(inputs, "a\x1b[31mb\nc", "plain", "日本語\t語", "")
-		// A few lengths, with a neutralised rune at the end of each.
+		// A few TOTAL rune counts, the last rune being a neutralised one, so
+		// 255, 256 and 257 are the real lengths around the boundary.
 		for _, n := range []int{1, 255, 256, 257, 1000} {
-			inputs = append(inputs, strings.Repeat("é", n)+"\x1b")
+			inputs = append(inputs, strings.Repeat("é", n-1)+"\x1b")
 		}
 		for _, s := range inputs {
 			if a, b := SanitizeLine(s), SafeLine(s, utf8.RuneCountInString(s)); a != b {

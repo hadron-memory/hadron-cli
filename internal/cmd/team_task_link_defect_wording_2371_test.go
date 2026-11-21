@@ -83,17 +83,26 @@ func TestAgenticUsageLinkDefectRefWording2371(t *testing.T) {
 func TestAgenticUsageLinkDefectRecoveryTextIsWrapped2417(t *testing.T) {
 	lines, first := linkDefectParagraph2440(t)
 	const marker = "A response with no link"
+	// Match the marker in the paragraph's whitespace-normalized text and map its
+	// start back to the original line, so a rewrap anywhere inside it (even
+	// between "A" and "response") cannot hide it.
 	from := -1
+	var norm strings.Builder
+	var starts []int // starts[k]: the line that holds the k-th normalized byte
 	for i, l := range lines {
-		at := strings.Index(l, "A response")
-		if at < 0 {
-			continue
+		for _, w := range strings.Fields(l) {
+			if norm.Len() > 0 {
+				norm.WriteByte(' ')
+				starts = append(starts, i)
+			}
+			norm.WriteString(w)
+			for k := 0; k < len(w); k++ {
+				starts = append(starts, i)
+			}
 		}
-		rest := strings.Join(strings.Fields(l[at:]+" "+strings.Join(lines[i+1:], " ")), " ")
-		if strings.HasPrefix(rest, marker) {
-			from = i
-			break
-		}
+	}
+	if at := strings.Index(norm.String(), marker); at >= 0 {
+		from = starts[at]
 	}
 	if from < 0 {
 		t.Fatalf("the recovery text (%q) is missing from the paragraph", marker)
