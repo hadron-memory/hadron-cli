@@ -228,8 +228,7 @@ func TestAPrivateInertOrcaIsStoppedByTheSecondGuardWhenThePrimaryIsGone2786(t *t
 	// Every argv carries -test.run=^$ so that, were this guard ever missing too, the
 	// child would run no test (and fail this pin) instead of forking the next copy.
 	for _, args := range [][]string{{"-test.run=^$"}, {"-test.run=^$", "terminal", "list", "--json"}} {
-		var env []string
-		env = append(cleanEnv2786(), noReentryEnv2786+"=1", disablePrimaryGuardEnv2786+"=1", inertSweepOrcaEnv2404+"="+bin)
+		env := append(cleanEnv2786(), noReentryEnv2786+"=1", disablePrimaryGuardEnv2786+"=1", inertSweepOrcaEnv2404+"="+bin)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		cmd := exec.CommandContext(ctx, bin, args...)
 		cmd.Env = env
