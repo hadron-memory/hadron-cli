@@ -47,6 +47,8 @@ func (s *settingsFlags) flags(cmd *cobra.Command, install bool) {
 		f.BoolVar(&s.clearTools, "clear-agent-tools", false, "replace Agent tools with an empty list")
 		f.BoolVar(&s.clearSurfaces, "clear-surfaces", false, "replace surfaces with an empty list")
 	}
+	// Every command that takes the settings flags also refuses the removed one.
+	retireAppRole(cmd)
 }
 
 // retireAppRole refuses --role on app install and app update (cli#2515). The App's

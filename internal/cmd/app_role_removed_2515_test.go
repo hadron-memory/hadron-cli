@@ -19,6 +19,10 @@ func TestAppRoleFlagRemoved2515(t *testing.T) {
 					t.Fatalf("err=%v calls=%+v", err, *calls)
 				}
 				msg := err.Error()
+				// The release note quotes this prefix.
+				if !strings.HasPrefix(msg, "--role was retired: the App's own role setting was removed") {
+					t.Fatalf("the refusal no longer matches the release note: %q", msg)
+				}
 				if !strings.Contains(msg, "--role") || !strings.Contains(msg, "removed") || strings.Contains(msg, "unknown flag") || strings.Contains(msg, "invalid --role") {
 					t.Fatalf("the refusal must say the flag was removed: %q", msg)
 				}
@@ -58,6 +62,39 @@ func TestAppRequestsNeverCarryARole2515(t *testing.T) {
 			c := appSettingsMutation(t, *calls)
 			if _, present := c.Vars["role"]; present || strings.Contains(c.Query, "$role") || strings.Contains(c.Query, "role:") || strings.Contains(c.Query, "AppMembershipRole") {
 				t.Fatalf("the document or variables still carry a role: vars=%v\n%s", c.Vars, c.Query)
+			}
+		})
+	}
+}
+
+// The refusal comes before the confirmation prompt and before any request, so a
+// script that forgot --yes is told the flag is gone, not asked to confirm.
+func TestAppRoleFlagRefusedBeforeConfirmation2515(t *testing.T) {
+	for _, mode := range []string{"install", "update"} {
+		t.Run(mode, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			out, err := appSettingsRun(t, srv, mode, "--role", "READER")
+			if exitCodeFor(err) != 2 || len(*calls) != 0 || strings.Contains(out, "?") {
+				t.Fatalf("err=%v calls=%+v out=%q", err, *calls, out)
+			}
+		})
+	}
+}
+
+// The policy variants of the documents are role-free too.
+func TestAppPolicyRequestsNeverCarryARole2515(t *testing.T) {
+	for _, mode := range []string{"install", "update"} {
+		t.Run(mode, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			if _, err := appSettingsRun(t, srv, mode, "--training-mode=false", "--policy-file", policyFile1640(t, `{"allow":[]}`), "--yes"); err != nil {
+				t.Fatal(err)
+			}
+			c := appSettingsMutation(t, *calls)
+			if !strings.Contains(c.Query, "policy") {
+				t.Fatalf("this must exercise the policy document: %s", c.Query)
+			}
+			if _, present := c.Vars["role"]; present || strings.Contains(c.Query, "$role") || strings.Contains(c.Query, "role:") || strings.Contains(c.Query, "AppMembershipRole") {
+				t.Fatalf("the policy document or variables still carry a role: vars=%v\n%s", c.Vars, c.Query)
 			}
 		})
 	}

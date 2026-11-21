@@ -178,7 +178,6 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 	cmd.Flags().StringVar(&appType, "type", "", "App type: AGENT|AUTOMATION|CHATBOT|CLOUD|IOT|WORKSTATION")
 	cmd.Flags().StringVar(&description, "description", "", "App description")
 	settings.flags(cmd, true)
-	retireAppRole(cmd)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip settings confirmation")
 	_ = cmd.MarkFlagRequired("agent")
 	_ = cmd.MarkFlagRequired("name")

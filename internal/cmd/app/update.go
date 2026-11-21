@@ -249,7 +249,6 @@ before trying again.`,
 		},
 	}
 	settings.flags(cmd, false)
-	retireAppRole(cmd)
 	fl := cmd.Flags()
 	fl.StringVar(&newURN, "urn", "", "new App slug; confirmation names the old and new full URNs")
 	fl.StringVar(&appType, "type", "", "App type: AGENT|AUTOMATION|CHATBOT|CLOUD|IOT|WORKSTATION; leaves surfaces unchanged")

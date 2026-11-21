@@ -3,7 +3,7 @@
 Unreleased (cli#2515, stage 2 of the ruled removal of the App's own role; stage 1
 is hadron-server#4469, merged). **BREAKING for scripts that pass the flag.**
 
-The App's own role never had a defined effect, and Holger ruled it removed
+The App's own role never had a defined effect, and it was ruled removed
 (cli#2497). The server still accepts a `role` on `createApp` and `updateApp` and
 ignores it for a notice period (no earlier than 2026-12-21); the CLI no longer
 sends it.
