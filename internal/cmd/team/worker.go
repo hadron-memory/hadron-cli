@@ -1335,6 +1335,10 @@ type removePreviewDTO struct {
 	Status              string `json:"status"`
 }
 
+// workerRmPreviewServerFloor is the server floor, in UTC, of the delete preview
+// (the dry run): hadron-server#3605, merge commit 8bbf82dd, 2026-11-06.
+const workerRmPreviewServerFloor = "2026-11-06"
+
 func newCmdWorkerRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var confirmNoExternalAttribution bool
@@ -1370,7 +1374,7 @@ held for the delete, and the real rm re-checks and may still refuse. It never
 prompts, never retries and never falls back to another operation. Refusals
 keep their exit codes: WORKER_NOT_FOUND and WORKER_REFERENCE_NOT_FOUND 4,
 WORKER_IN_USE 5, FORBIDDEN 8. The preview's --json is
-{id, name, attestationRequired, status: "preview"}. Needs a server from 2026-11-06
+{id, name, attestationRequired, status: "preview"}. Needs a server from ` + workerRmPreviewServerFloor + `
 or later, the date the delete preview (the dry run) was merged into the server. Merged
 is not necessarily served: an older server refuses the unknown field and the command
 stops, as it must. With
