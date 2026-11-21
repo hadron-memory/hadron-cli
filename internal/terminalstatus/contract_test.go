@@ -55,6 +55,11 @@ func ptr[T any](v T) *T { return &v }
 // cli#2676: rate_limited is on the closed list, and resetAt is an additive
 // key inside @1: always present (null when not known), UTC, every @1 key kept.
 func TestRateLimitedAndResetAtAdditiveKey2676(t *testing.T) {
+	for _, r := range []Reason{"no_screen", "multiple_terminals"} {
+		if !r.Valid() {
+			t.Errorf("%q must be on the closed list (cli#2677; hadron-server#4558 added both)", r)
+		}
+	}
 	if !RateLimited.Valid() {
 		t.Fatal("rate_limited must be on the closed list")
 	}

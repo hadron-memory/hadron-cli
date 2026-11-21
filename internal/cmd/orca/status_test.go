@@ -32,6 +32,7 @@ type fakeOrca struct {
 	down     bool
 	terms    []map[string]any
 	screens  map[string][]string
+	sources  map[string]string // a read's `source`, "screen" unless named here (cli#2677)
 	commands []string
 }
 
@@ -49,7 +50,11 @@ func (o *fakeOrca) run(_ context.Context, argv []string) orcaterm.Result {
 		if !ok {
 			return orcaterm.Result{Code: 1}
 		}
-		b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"source": "screen", "tail": tail}}})
+		source := "screen"
+		if v, named := o.sources[argv[3]]; named {
+			source = v
+		}
+		b, _ := json.Marshal(map[string]any{"ok": true, "result": map[string]any{"terminal": map[string]any{"source": source, "tail": tail}}})
 		return orcaterm.Result{Stdout: string(b)}
 	}
 	return orcaterm.Result{Code: 1}
@@ -337,8 +342,28 @@ func TestStatusTwoAgentsFailClosed(t *testing.T) {
 	r.orca.terms = []map[string]any{term("term_1", "/w/joshua", "claude"), term("term_2", "/w/joshua", "claude")}
 	r.orca.screens["term_1"], r.orca.screens["term_2"] = idleScreen, idleScreen
 	_, out := r.run(t, true, "Joshua")
-	if m := decode(t, out); m["status"] != "locked" || m["reason"] != "unrecognized" {
-		t.Fatalf("%v", m)
+	if m := decode(t, out); m["status"] != "locked" || m["reason"] != "multiple_terminals" || m["terminal"] != nil && m["terminal"] != "" {
+		t.Fatalf("two agent terminals must read multiple_terminals, no single terminal named: %v", m)
+	}
+	// Today's message text is kept.
+	if _, text := r.run(t, false, "Joshua"); !strings.Contains(text, "locked (multiple_terminals)") || !strings.Contains(text, "more than one agent terminal is bound to this worker") {
+		t.Fatalf("text: %q", text)
+	}
+}
+
+// cli#2677: Orca having no rendered screen is not a screen nobody could match.
+func TestStatusScreenUnavailableIsNoScreen2677(t *testing.T) {
+	r := newRig(t)
+	r.orca.terms = []map[string]any{term("term_1", "/w/joshua", "claude")}
+	r.orca.screens["term_1"] = []string{"Ran 5 shell commands"}
+	r.orca.sources = map[string]string{"term_1": "screen-unavailable"}
+	code, out := r.run(t, true, "Joshua")
+	m := decode(t, out)
+	if code != 0 || m["status"] != "locked" || m["reason"] != "no_screen" || m["prompt"] != "unknown" || m["contract"] != "terminal-status@1" {
+		t.Fatalf("code=%d %v", code, m)
+	}
+	if _, text := r.run(t, false, "Joshua"); !strings.HasPrefix(text, "Joshua locked (no_screen)") || strings.Contains(text, "unrecognized") {
+		t.Fatalf("text: %q", text)
 	}
 }
 
