@@ -5,13 +5,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
 func dispositionResponse1556(code string, ref any) string {
 	b, _ := json.Marshal(map[string]any{"data": map[string]any{"disposeAgentTaskFinding": map[string]any{
-		"id": "task1", "findingDispositions": map[string]any{"total": 1, "hasMore": false, "items": []any{map[string]any{"findingId": "F1", "disposition": code, "reference": ref}}},
+		"id": "task1", "findingDisposition": map[string]any{"findingId": "F1", "disposition": code, "reference": ref},
 	}}})
 	return string(b)
 }
@@ -328,7 +335,320 @@ func TestFindingDispositions1556OperationDocuments(t *testing.T) {
 	if strings.Contains(gen.AgentTaskDisposeFinding_Operation, "result {") || strings.Contains(gen.AgentTaskFindingDispositions_Operation, "result {") {
 		t.Fatal("must not fetch immutable result text")
 	}
-	if !strings.Contains(gen.AgentTaskDisposeFinding_Operation, "findingDispositions(limit: 200, offset: 0)") {
-		t.Fatal("mutation readback must cover the capped finding set")
+	for name, doc := range map[string]string{"plain": gen.AgentTaskDisposeFinding_Operation, "instructed": gen.AgentTaskDisposeFindingInstructed_Operation} {
+		// cli#1709: parse the document: the mutation's result selects id and
+		// exactly the one targeted field, bound to the write's own $findingId
+		// (and never the paged field).
+		q, perr := parser.ParseQuery(&ast.Source{Input: doc})
+		if perr != nil || len(q.Operations) != 1 {
+			t.Fatalf("%s: unparsable document: %v", name, perr)
+		}
+		var write *ast.Field
+		for _, sel := range q.Operations[0].SelectionSet {
+			if f, ok := sel.(*ast.Field); ok && f.Name == "disposeAgentTaskFinding" {
+				write = f
+			}
+		}
+		if write == nil {
+			t.Fatalf("%s: no disposeAgentTaskFinding selection", name)
+		}
+		var sharesVar bool
+		for _, arg := range write.Arguments {
+			if arg.Name == "findingId" && arg.Value.Kind == ast.Variable && arg.Value.Raw == "findingId" {
+				sharesVar = true
+			}
+		}
+		if !sharesVar {
+			t.Fatalf("%s: the write's findingId argument must be the $findingId variable the readback shares", name)
+		}
+		var names []string
+		var targeted *ast.Field
+		for _, sel := range write.SelectionSet {
+			if f, ok := sel.(*ast.Field); ok {
+				names = append(names, f.Name)
+				if f.Name == "findingDisposition" {
+					targeted = f
+				}
+			}
+		}
+		if !reflect.DeepEqual(names, []string{"id", "findingDisposition"}) || targeted == nil {
+			t.Fatalf("%s: the write's result must select exactly id and findingDisposition, got %v", name, names)
+		}
+		if len(targeted.Arguments) != 1 || targeted.Arguments[0].Name != "findingId" || targeted.Arguments[0].Value.Kind != ast.Variable || targeted.Arguments[0].Value.Raw != "findingId" {
+			t.Fatalf("%s: findingDisposition must be bound to $findingId", name)
+		}
+		if strings.Contains(doc, "result {") {
+			t.Fatalf("%s: must not fetch immutable result text", name)
+		}
+		// The readback's projection is the shared fragment: the targeted field
+		// spreads it, and it selects the finding id, code and reference.
+		var spread bool
+		for _, sel := range targeted.SelectionSet {
+			if fs, ok := sel.(*ast.FragmentSpread); ok && fs.Name == "TaskFindingDispositionFields" {
+				spread = true
+			}
+		}
+		frag := q.Fragments.ForName("TaskFindingDispositionFields")
+		if !spread || frag == nil {
+			t.Fatalf("%s: the targeted field must spread TaskFindingDispositionFields (defined in the document)", name)
+		}
+		var fnames []string
+		for _, sel := range frag.SelectionSet {
+			if f, ok := sel.(*ast.Field); ok {
+				fnames = append(fnames, f.Name)
+			}
+		}
+		if !reflect.DeepEqual(fnames, []string{"findingId", "disposition", "reference"}) {
+			t.Fatalf("%s: fragment fields %v", name, fnames)
+		}
+	}
+}
+
+// cli#1709: the readback is one targeted field. A response that carries only
+// the targeted disposition of F100 (a page scan over 100 findings would never
+// have found it in a 200-item window it was not sent) is enough; exactly one
+// request goes out and the operation never asks for the paged list.
+func TestFindingDispositions1709TargetedReadback(t *testing.T) {
+	r := taskResponses()
+	r["AgentTaskDisposeFinding"] = `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F100","disposition":"deferred","reference":{"kind":"ISSUE","target":"https://example.invalid/9","label":null}}}}}`
+	calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F100", "--disposition", "fixed", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 1 || (*calls)[0].Op != "AgentTaskDisposeFinding" {
+		t.Fatalf("exactly one mutation, no follow-up read: %v", *calls)
+	}
+	var got map[string]any
+	if json.Unmarshal([]byte(out), &got) != nil || len(got) != 4 || got["findingId"] != "F100" || got["taskId"] != "task1" {
+		t.Fatalf("receipt: %s", out)
+	}
+	// The server's value, not the submitted one (a later replacement is shown), reference kept.
+	gotRef, isMap := got["reference"].(map[string]any)
+	if got["disposition"] != "deferred" || !isMap || gotRef["target"] != "https://example.invalid/9" {
+		t.Fatalf("must print the server's value: %s", out)
+	}
+	q := (*calls)[0].Query
+	if !strings.Contains(q, "findingDisposition(findingId: $findingId)") || strings.Contains(q, "findingDispositions") {
+		t.Fatalf("outgoing document is not the targeted readback: %s", q)
+	}
+}
+
+// Every unusable readback is the same unconfirmed-write failure: exit 1, no
+// success output, one request (no retry), and guidance that does not claim the
+// write failed.
+func TestFindingDispositions1709UnusableReadback(t *testing.T) {
+	ok := `{"findingId":"F1","disposition":"fixed","reference":null}`
+	for name, body := range map[string]string{
+		"null mutation":        `{"data":{"disposeAgentTaskFinding":null}}`,
+		"omitted target":       `{"data":{"disposeAgentTaskFinding":{"id":"task1"}}}`,
+		"null target":          `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}}}`,
+		"empty task id":        `{"data":{"disposeAgentTaskFinding":{"id":"","findingDisposition":` + ok + `}}}`,
+		"wrong finding id":     `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F2","disposition":"fixed","reference":null}}}}`,
+		"case-folded id":       `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"f1","disposition":"fixed","reference":null}}}}`,
+		"empty disposition":    `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":"","reference":null}}}}`,
+		"unknown disposition":  `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":"wontfix","reference":null}}}}`,
+		"reference no target":  `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":"fixed","reference":{"kind":"ISSUE","target":"","label":null}}}}}`,
+		"wrong field type":     `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":7,"disposition":"fixed","reference":null}}}}`,
+		"disposition not text": `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F1","disposition":["fixed"],"reference":null}}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json")
+			if err == nil || out != "" || len(*calls) != 1 {
+				t.Fatalf("must fail once with no success output: err=%v out=%q calls=%d", err, out, len(*calls))
+			}
+			if exitCodeFor(err) != 1 {
+				t.Fatalf("exit %d, want 1: %v", exitCodeFor(err), err)
+			}
+			if !strings.Contains(err.Error(), "may have been recorded") || !strings.Contains(err.Error(), "read finding-dispositions before retrying") {
+				t.Fatalf("recovery guidance missing or claims failure: %v", err)
+			}
+		})
+	}
+}
+
+// A provider without the field refuses the document (a typed GraphQL
+// validation error): that is not an unconfirmed write, the selection is not
+// dropped, and nothing is sent twice.
+func TestFindingDispositions1709ProviderWithoutField(t *testing.T) {
+	r := taskResponses()
+	r["AgentTaskDisposeFinding"] = `{"errors":[{"message":"Cannot query field \"findingDisposition\" on type \"AgentTask\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed")
+	if err == nil || out != "" || len(*calls) != 1 {
+		t.Fatalf("err=%v out=%q calls=%d", err, out, len(*calls))
+	}
+	if strings.Contains(err.Error(), "may have been recorded") {
+		t.Fatalf("a refused document is not an unconfirmed write: %v", err)
+	}
+}
+
+// The submitted and returned values vary independently, for all four codes and
+// with/without a reference: the receipt is always the returned one.
+func TestFindingDispositions1709ReturnedNotSubmitted(t *testing.T) {
+	for _, ret := range []string{"fixed", "accepted", "deferred", "rejected"} {
+		for _, withRef := range []bool{false, true} {
+			var ref any
+			if withRef {
+				ref = map[string]any{"kind": "NODE", "target": "hrn:node:x", "label": nil}
+			}
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = dispositionResponse1556(ret, ref)
+			_, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--ref", "issue=https://example.invalid/1", "--json")
+			if err != nil {
+				t.Fatal(err)
+			}
+			var got map[string]any
+			if json.Unmarshal([]byte(out), &got) != nil || got["disposition"] != ret {
+				t.Fatalf("returned %s must win: %s", ret, out)
+			}
+			if _, has := got["reference"]; !has || (got["reference"] == nil) == withRef {
+				t.Fatalf("reference must follow the server (none stays an explicit null): %s", out)
+			}
+		}
+	}
+}
+
+// cli#1709 (blind round 1): the readback field can fail after the write
+// committed. A GraphQL error whose path runs through findingDisposition is an
+// unconfirmed write (recovery guidance, one request); one on the write field
+// itself, or a pre-execution validation refusal, keeps its typed mapping and
+// is never described as "may have been recorded".
+func TestFindingDispositions1709ReadbackFieldError(t *testing.T) {
+	partial := `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+	nested := `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition","reference","target"]}]}`
+	for name, tc := range map[string]struct {
+		body        string
+		unconfirmed bool
+		wantExit    int
+	}{
+		"readback field error":                 {partial, true, 1},
+		"readback nested error":                {nested, true, 1},
+		"write field refusal":                  {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"pathless refusal":                     {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"id field error":                       {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"root generic plus readback":           {`{"data":null,"errors":[{"message":"boom","path":["disposeAgentTaskFinding"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}},{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]}]}`, true, 1},
+		"readback plus root generic":           {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"boom","path":["disposeAgentTaskFinding"]}]}`, true, 1},
+		"root generic alone":                   {`{"data":null,"errors":[{"message":"boom","path":["disposeAgentTaskFinding"]}]}`, true, 1},
+		"root typed plus readback":             {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}},{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]}]}`, false, 8},
+		"foreign root path":                    {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["somethingElse","x"],"extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"readback plus pathless":               {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"other"}]}`, true, 1},
+		"readback plus foreign":                {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"x","path":["somethingElse"]},{"message":"a","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"readback plus write":                  {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"write plus readback (reverse order)":  {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}},{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]}]}`, false, 8},
+		"pathless typed refusal plus readback": {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","id"]},{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, true, 1},
+		"pathless typed refusal alone":         {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_FINDING_NOT_FOUND"}}]}`, false, 4},
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = tc.body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json")
+			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) != tc.wantExit {
+				t.Fatalf("err=%v out=%q calls=%d exit=%d want %d", err, out, len(*calls), exitCodeFor(err), tc.wantExit)
+			}
+			if got := strings.Contains(err.Error(), "may have been recorded"); got != tc.unconfirmed {
+				t.Fatalf("unconfirmed guidance = %v, want %v: %v", got, tc.unconfirmed, err)
+			}
+		})
+	}
+}
+
+// The instructed command (--instruction) handles an unusable readback, a
+// malformed body and a readback-field error the same way: exit 1, empty
+// output, one request, guidance that does not claim the write failed.
+func TestFindingDispositions1709InstructedUnusableReadback(t *testing.T) {
+	for name, body := range map[string]string{
+		"wrong finding id": `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":"F2","disposition":"fixed","reference":null}}}}`,
+		"null target":      `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}}}`,
+		"truncated body":   `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":`,
+		"blank body":       ` `,
+		"wrong type":       `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":{"findingId":1,"disposition":"fixed"}}}}`,
+		"readback error":   `{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"]}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFindingInstructed"] = body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json", "--instruction", "team-chat-message:"+taskInstructionRef2422)
+			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) != 1 {
+				t.Fatalf("err=%v out=%q calls=%d exit=%d", err, out, len(*calls), exitCodeFor(err))
+			}
+			if !strings.Contains(err.Error(), "may have been recorded") || !strings.Contains(err.Error(), "read finding-dispositions before retrying") {
+				t.Fatalf("recovery guidance missing: %v", err)
+			}
+		})
+	}
+}
+
+// cli#1709 (local round 1): a 200 whose body is blank or truncated JSON reaches
+// the client as a decoder EOF. It is an unusable success body, so the plain
+// command gives exit 1 and the recovery guidance (not the generic connection
+// advice), with one request and no output.
+func TestFindingDispositions1709DecoderEOF(t *testing.T) {
+	for name, body := range map[string]string{
+		"blank":     ` `,
+		"truncated": `{"data":{"disposeAgentTaskFinding":`,
+		"empty":     ``,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AgentTaskDisposeFinding"] = body
+			calls, out, err := runTeamTask(t, r, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json")
+			if err == nil || out != "" || len(*calls) != 1 || exitCodeFor(err) != 1 || !strings.Contains(err.Error(), "read finding-dispositions before retrying") {
+				t.Fatalf("err=%v out=%q calls=%d exit=%d", err, out, len(*calls), exitCodeFor(err))
+			}
+		})
+	}
+}
+
+// The same classes arrive with HTTP 500 when the server answers an execution
+// error with a non-200 status carrying the GraphQL errors (cli#1709, local
+// round 2): errors beneath the write's result are an unconfirmed write, an
+// error on the write field itself stays a typed refusal.
+func TestFindingDispositions1709HTTP500(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body        string
+		unconfirmed bool
+		wantExit    int
+	}{
+		"readback field":              {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","findingDisposition"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, 1},
+		"id field":                    {`{"data":{"disposeAgentTaskFinding":null},"errors":[{"message":"boom","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
+		"write refusal":               {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		"root generic alone":          {`{"data":null,"errors":[{"message":"boom","path":["disposeAgentTaskFinding"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, true, 1},
+		"write refusal plus readback": {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
+		// No GraphQL error to classify: a gateway-style 500 keeps the transport
+		// layer's own mapping (exit 7), not the readback recovery class.
+		"empty errors": {`{"errors":[]}`, false, 7},
+		"no body":      {``, false, 7},
+	} {
+		t.Run(name, func(t *testing.T) {
+			writeTeamBinding(t)
+			base, calls := attnServer(t, taskResponses())
+			var sent atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				raw, _ := io.ReadAll(r.Body)
+				if strings.Contains(string(raw), `"operationName":"AgentTaskDisposeFinding"`) {
+					sent.Add(1)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					_, _ = w.Write([]byte(tc.body))
+					return
+				}
+				r.Body = io.NopCloser(bytes.NewReader(raw))
+				base.Config.Handler.ServeHTTP(w, r)
+			}))
+			t.Cleanup(srv.Close)
+			_ = calls
+			setTeamBindingServer(t, srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json"})
+			err := root.Execute()
+			if err == nil || out.String() != "" || sent.Load() != 1 || exitCodeFor(err) != tc.wantExit {
+				t.Fatalf("err=%v out=%q sent=%d exit=%d want %d", err, out.String(), sent.Load(), exitCodeFor(err), tc.wantExit)
+			}
+			if got := strings.Contains(err.Error(), "may have been recorded"); got != tc.unconfirmed {
+				t.Fatalf("unconfirmed guidance = %v, want %v: %v", got, tc.unconfirmed, err)
+			}
+		})
 	}
 }
