@@ -266,8 +266,11 @@ jobs:
   # BLIND P2): the nightly job above compares against moving server main and only for
   # operations the CLI uses, so a wrong recorded server_sha, or unused-SDL drift in the
   # snapshot, would pass it. This one checks out EXACTLY server_sha, exports with the
-  # recorded tool versions and compares the bytes. It is a hard check (a mismatch fails
-  # the job); an infrastructure fault (no token, checkout, install) is not a verdict.
+  # recorded tool versions and compares the bytes. A mismatch fails the job (and files
+  # the issue below). It runs nightly and on dispatch, not on pull requests (it needs the
+  # cross-repo token), so a wrong server_sha is caught after merge, not before it; the
+  # token never reaches npm or tsx (the checkout does not persist it and the export step
+  # has no secret in its environment, pinned by scripts/workflowguards).
   snapshot-reproduces:
     runs-on: ubuntu-latest
     steps:

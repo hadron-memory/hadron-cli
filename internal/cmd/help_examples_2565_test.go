@@ -3,8 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
-	questioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/question"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	questioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/question"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -27,8 +27,10 @@ import (
 // documents. It does not assert output shape. The mode/outcome table the PR
 // body cites is written by HELP_EXAMPLES_REPORT_2565=<path>.
 
-// pages2565 is the row list of the issue: every unread group:1051 page at main
-// 3b858969. A page is named by its command path under `hadron`.
+// pages2565 is the row list of the issue (every unread group:1051 page at main
+// 3b858969) as it stands now: the pages the question group replaced (cli#2465) are
+// named by their new path, and one that never was on that list may sit here too.
+// A page is named by its command path under `hadron`.
 var pages2565 = []string{
 	"comment add",
 	"question",

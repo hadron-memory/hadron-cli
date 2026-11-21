@@ -14,6 +14,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -365,7 +366,9 @@ AskQuestionInput, passed through unchanged:
                     it), APPROVED (it counts once a decider has approved the
                     answered question) or SIGNED (a decider's passkey signature;
                     forced when authorizes is true, and a lower tier is then
-                    refused: QUESTION_TIER_TOO_LOW)
+                    refused: QUESTION_TIER_TOO_LOW). Passkey signing is not
+                    available yet, so a SIGNED question stays
+                    ANSWERED_UNCONFIRMED
   authorizes        true when this question grants an authorization
   grant             the authorization a grant question carries, as JSON
                     (authorizes: true only)
@@ -607,7 +610,18 @@ An option key the question does not have is refused (QUESTION_UNKNOWN_OPTION,
 exit 2); a withdrawn question is refused (QUESTION_WITHDRAWN, exit 5).
 
 On success it prints "✓ answered <code>: <option key or (text)>" and the question
-as question get shows it; --json prints the question as one object.`,
+as question get shows it; --json prints the question as one object. Success is
+claimed only when the server's reply shows an answer written for this call: an
+answer (not a retraction) with the option key you gave, on a revision that did not
+go back, and a newer revision when you gave a reason. The text and the reason are
+not compared (the server normalises them): when they differ from what you gave, a
+note on stderr says so.
+
+Exit 1 is also the answer when the server replied but its reply does not show
+that outcome: nothing is printed on stdout, the call is NOT resent, and the error
+tells you to read the question with question get before trying again. Exit 7 is
+reserved for a reply that never arrived; either way the answer may have been
+recorded.`,
 		Example: `  hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --option pg
   hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 4 --option my --reason "the team prefers it now" --text "MySQL, with a read replica"
   echo "needs a different approach" | hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --text-file -`,
@@ -677,6 +691,9 @@ as question get shows it; --json prints the question as one object.`,
 			// The heading names the standing answer the server RETURNED, not what was
 			// requested.
 			given := answerHeading(q.Answer)
+			for _, n := range answerNotes(q, input) {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", n)
+			}
 			return output.Write(f.IOStreams, f.JSON, q, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ answered %s: %s\n", output.SafeCell(q.Code), given); err != nil {
 					return err
@@ -710,7 +727,14 @@ exit 8). A question with no standing answer is refused (QUESTION_NOT_ANSWERED,
 exit 5).
 
 On success it prints "✓ answer taken back; <code> is pending again" and the
-question; --json prints the question as one object.`,
+question; --json prints the question as one object. Success is claimed only when
+the server's reply shows the retraction: no standing answer, a retraction as the
+last answer entry, and a revision newer than the one you read.
+
+Exit 1 is also the answer when the server replied but its reply does not show
+that: nothing is printed on stdout, the call is NOT resent, and the error tells you
+to read the question with question get before trying again. Exit 7 is reserved for
+a reply that never arrived; either way the retraction may have been recorded.`,
 		Example: `  hadron question retract hrn:node:acme.com:eng:questions:QA --expected-revision 4 --reason "wrong click"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1112,11 +1136,16 @@ func answerHeading(a *answerDTO) string {
 	return "(text)"
 }
 
-// answerConfirmed reports whether the returned question shows the answer that was
-// asked for as its standing answer: an ANSWER entry (not a retraction) whose option
-// key is the requested one and, when text was given, whose text is the given
-// text as the server normalises it. A reply that shows some
-// other standing answer, or none, does not confirm this one.
+// answerConfirmed reports whether the returned question shows an answer written for
+// this call: its standing answer is an ANSWER entry (not a retraction) with the option
+// key that was asked for, on a revision that did not go backwards, and a revision that
+// moved when a reason was given (a reason is only ever stored by a write; the same
+// answer without a reason is the one documented no-op and may return unchanged).
+//
+// It does NOT compare text or reason: those pass through the server's own
+// normalisation, which the CLI does not copy into its gate (a trailing newline, a cap or
+// a canonical form would turn a write that happened into a reported failure). A
+// difference there is a note on stderr (answerNotes), never a refusal.
 func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput, expectedRevision int) bool {
 	a := q.Answer
 	if !q.Answered || a == nil || a.Kind != string(gen.QuestionAnswerKindAnswer) {
@@ -1128,36 +1157,53 @@ func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput, expectedRevision
 	if in.OptionKey == nil && a.Key != nil {
 		return false
 	}
-	// A write advances the revision. The one documented exception is the same answer
-	// given again without a reason, which the server leaves untouched; so a reply that
-	// did not move the revision confirms only that case, and a reason can only be
-	// confirmed by a newer revision whose standing answer carries it.
 	if q.Revision < expectedRevision {
 		return false
 	}
-	if in.Reason != nil {
-		// The reason is normalized as the server's shortOrNull does, the same rule as the
-		// text: CRLF/CR to LF, blank is absent, nothing else trimmed.
-		if want := normalizeAnswerText(*in.Reason); want != "" && (q.Revision <= expectedRevision || a.Reason == nil || normalizeAnswerText(*a.Reason) != want) {
-			return false
-		}
+	if in.Reason != nil && hasVisibleText(*in.Reason) && q.Revision <= expectedRevision {
+		return false
 	}
-	// The text compares as the server stores it (parseAnswerInput): CRLF and CR become LF
-	// and a blank note is absent, nothing else is trimmed. Absent must match absent, so a
-	// same-key answer carrying an unexpected note is not this answer.
-	want := ""
-	if in.Text != nil {
-		want = normalizeAnswerText(*in.Text)
-	}
-	got := ""
-	if a.Text != nil {
-		got = normalizeAnswerText(*a.Text)
-	}
-	return want == got
+	return true
 }
 
-// normalizeAnswerText is the server's rule for an answer's text: CRLF and CR become LF,
-// and a text of only whitespace is no text at all.
+// hasVisibleText is true when s certainly holds something the server will keep as text:
+// an ASCII graphic character, or a letter or digit. It is deliberately conservative (an
+// exotic whitespace-only string is "unknown", and unknown is never a refusal).
+func hasVisibleText(s string) bool {
+	for _, r := range s {
+		if (r > 0x20 && r < 0x7f) || unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return true
+		}
+	}
+	return false
+}
+
+// answerNotes are the differences between what was given and the standing answer the
+// server returned that a person may want to know about: they never fail the command.
+func answerNotes(q questionDTO, in gen.AnswerQuestionInput) []string {
+	a := q.Answer
+	if a == nil {
+		return nil
+	}
+	var notes []string
+	given := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return normalizeAnswerText(*p)
+	}
+	if want, got := given(in.Text), given(a.Text); want != got {
+		notes = append(notes, "the stored text is not exactly the text you gave (the server normalises it, and a note you did not give may be an earlier one): see `question get`")
+	}
+	if want, got := given(in.Reason), given(a.Reason); want != "" && want != got {
+		notes = append(notes, "the stored reason is not exactly the reason you gave (the server normalises it): see `question get`")
+	}
+	return notes
+}
+
+// normalizeAnswerText is the server's rule for an answer's text, used only to word a
+// note (never to gate success): CRLF and CR become LF, and a text of only whitespace
+// is no text at all.
 func normalizeAnswerText(t string) string {
 	t = strings.ReplaceAll(strings.ReplaceAll(t, "\r\n", "\n"), "\r", "\n")
 	if strings.TrimSpace(t) == "" {

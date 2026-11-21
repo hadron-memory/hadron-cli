@@ -41,6 +41,7 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 			"is AskQuestionInput in the server's schema",
 			"APPROVED (it counts once a decider has approved the",
 			"SIGNED (a decider's passkey signature",
+			"Passkey signing is not available yet, so a SIGNED question stays",
 			"question get <code> --log <log> reads it back",
 			`prefixed "✓ asked"`,
 			"cat > ask.json <<'EOF'",

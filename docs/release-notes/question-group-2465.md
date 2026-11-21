@@ -48,3 +48,13 @@ on such a record as a ruling unless `hadron question verify` says it is DECIDED.
 - `hadron question purge` removes a never-answered question (platform admins only). A question left
   in the format before hadron-server#4426 counts as never answered only while its payload holds no
   answer or answer history; the server refuses one that does. The help and the confirmation say so.
+
+## When a reply does not confirm
+
+`question answer` and `question retract` claim success only when the server's reply shows the
+outcome (an answer with your option key, on a revision that did not go back and, for a reason, a
+newer one; or no standing answer with a retraction last and a newer revision). Otherwise they
+exit **1** with nothing on stdout, name `question get`, and do not resend; the write may have been
+recorded. Exit 7 is reserved for a reply that never arrived (the other unknown-outcome commands,
+`secret client revoke` and `ha`, use 7 for both). Text and reason differences are a note on
+stderr, not a failure.

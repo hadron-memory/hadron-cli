@@ -3,6 +3,7 @@ package question
 import (
 	"bytes"
 	"encoding/json"
+	"sort"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -23,8 +24,14 @@ func refuseAmendNulls(data []byte) error {
 	if err := json.Unmarshal(data, &keys); err != nil {
 		return exitcode.Newf(exitcode.Usage, "parsing --input-file: %v", err)
 	}
-	for k, v := range keys {
-		if string(bytes.TrimSpace(v)) == "null" && !amendNullClears[k] {
+	// In key order, so that when several are null the one named is always the same.
+	names := make([]string, 0, len(keys))
+	for k := range keys {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	for _, k := range names {
+		if v := keys[k]; string(bytes.TrimSpace(v)) == "null" && !amendNullClears[k] {
 			return exitcode.Newf(exitcode.Usage,
 				"parsing --input-file: %q is null, which changes nothing here: leave the key out to keep it (only background, whyNow, assignee, neededBy and defaultAction clear with null; options, blocks, sources, specsTouched and specsMustChange clear with [])", k)
 		}

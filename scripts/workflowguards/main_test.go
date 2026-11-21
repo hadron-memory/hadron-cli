@@ -10,6 +10,7 @@
 package workflowguards
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -323,10 +324,12 @@ func TestWorkflowStepsAreWellFormedAndSnapshotJobReports2465(t *testing.T) {
 	var wf struct {
 		Jobs map[string]struct {
 			Steps []struct {
-				Name string `yaml:"name"`
-				Uses string `yaml:"uses"`
-				Run  string `yaml:"run"`
-				If   string `yaml:"if"`
+				Name string            `yaml:"name"`
+				Uses string            `yaml:"uses"`
+				Run  string            `yaml:"run"`
+				If   string            `yaml:"if"`
+				With map[string]any    `yaml:"with"`
+				Env  map[string]string `yaml:"env"`
 			} `yaml:"steps"`
 		} `yaml:"jobs"`
 	}
@@ -341,6 +344,18 @@ func TestWorkflowStepsAreWellFormedAndSnapshotJobReports2465(t *testing.T) {
 		}
 	}
 	snap, ok := wf.Jobs["snapshot-reproduces"]
+	for _, s := range snap.Steps {
+		if strings.HasPrefix(s.Uses, "actions/checkout@") && s.With["repository"] == "hadron-memory/hadron-server" && fmt.Sprint(s.With["persist-credentials"]) != "false" {
+			t.Errorf("the server checkout must not persist the token (persist-credentials: false), step %q", s.Name)
+		}
+		if s.Name == "Export at that commit" {
+			for k, v := range s.Env {
+				if strings.Contains(v, "secrets.") {
+					t.Errorf("the export step reaches npm and tsx: its env %s must carry no secret (%s)", k, v)
+				}
+			}
+		}
+	}
 	if !ok {
 		t.Fatal("no snapshot-reproduces job")
 	}

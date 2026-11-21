@@ -26,7 +26,8 @@ func NewCmdRetiredDecision(_ *cmdutil.Factory) *cobra.Command {
 		Long: `hadron decision was renamed to hadron question (hadron-server#1641), with the same
 verbs plus answer, retract and log list. This stub is kept so that an old script
 or habit gets this answer rather than "unknown command". Any arguments and old
-flags are ignored; it reads no config or credentials and makes no request.`,
+flags are ignored (--json too: the notice is always plain text); it reads no config
+or credentials and makes no request.`,
 		DisableFlagParsing: true,
 		Args:               cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

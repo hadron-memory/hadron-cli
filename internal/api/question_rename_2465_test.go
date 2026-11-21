@@ -46,10 +46,7 @@ func TestQueryDocumentsUseTheQuestionSurfaceNames2465(t *testing.T) {
 
 // retiredServerName matches a retired server identifier in a query document:
 // a call to a renamed field, a type condition or variable type, or a quoted
-// genqlient `for:` directive target. The client-chosen names that keep the
-// Decision spelling are not matched, because they are
-// never called with `(`, never follow `on`/`:`, and never open a `for:` string
-// as a server input type (AskQuestionInput etc. are the live ones).
+// genqlient `for:` directive target (AskQuestionInput etc. are the live names).
 var retiredServerName = regexp.MustCompile(
 	`\b(decisionLog|decision|decisions|verifyDecision|createDecisionLog|setDecisionLogDeciders|askDecision|amendDecision|withdrawDecision|purgeUnansweredDecision)\(` +
 		`|\bon Decision\w*\b` +

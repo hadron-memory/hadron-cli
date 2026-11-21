@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -34,6 +35,17 @@ func TestScanErrorFailsClosed(t *testing.T) {
 	} {
 		if got := scanError(err); got != nil {
 			t.Errorf("%s: want it left to the strict decode, got %v", name, got)
+		}
+	}
+}
+
+// A file with several null keys always names the same one (the first in key order), so
+// the error does not change from run to run.
+func TestRefuseAmendNullsNamesTheFirstKeyInOrder(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		err := refuseAmendNulls([]byte(`{"title":null,"blocks":null,"sources":null}`))
+		if err == nil || !strings.Contains(err.Error(), `"blocks"`) {
+			t.Fatalf("run %d: want the first key in order (blocks) named: %v", i, err)
 		}
 	}
 }

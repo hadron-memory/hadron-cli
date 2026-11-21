@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -37,28 +36,50 @@ var questionAnsweredJSON = strings.NewReplacer(
 ).Replace(questionJSON)
 
 // answeredAs is questionAnsweredJSON with the standing answer's key and text replaced,
-// for a reply that shows the answer the test asked for.
+// for a reply that shows the answer the test asked for. Only the answer entries change:
+// the options and the recommendation keep their own keys.
 func answeredAs(key, text string) string {
-	k, tx := `"key":null`, `"text":null`
-	if key != "" {
-		k = `"key":"` + key + `"`
+	var q map[string]any
+	if err := json.Unmarshal([]byte(questionAnsweredJSON), &q); err != nil {
+		panic(err)
 	}
-	if text != "" {
-		b, _ := json.Marshal(text)
-		tx = `"text":` + string(b)
+	set := func(e map[string]any) {
+		e["key"], e["text"] = nil, nil
+		if key != "" {
+			e["key"] = key
+		}
+		if text != "" {
+			e["text"] = text
+		}
 	}
-	return strings.ReplaceAll(strings.ReplaceAll(questionAnsweredJSON, `"key":"pg"`, k), `"text":null`, tx)
+	set(q["answer"].(map[string]any))
+	for _, e := range q["answers"].([]any) {
+		set(e.(map[string]any))
+	}
+	b, _ := json.Marshal(q)
+	return string(b)
 }
 
 // answeredWrite is answeredAs for a reply to a real write: the revision advanced to
 // rev and the standing answer carries the reason it was given with.
 func answeredWrite(key, text, reason string, rev int) string {
-	r := strings.ReplaceAll(answeredAs(key, text), `"revSeq":3`, `"revSeq":`+strconv.Itoa(rev))
-	if reason != "" {
-		b, _ := json.Marshal(reason)
-		r = strings.ReplaceAll(r, `"reason":null`, `"reason":`+string(b))
+	var q map[string]any
+	if err := json.Unmarshal([]byte(answeredAs(key, text)), &q); err != nil {
+		panic(err)
 	}
-	return r
+	q["revSeq"] = rev
+	set := func(e map[string]any) {
+		e["reason"] = nil
+		if reason != "" {
+			e["reason"] = reason
+		}
+	}
+	set(q["answer"].(map[string]any))
+	for _, e := range q["answers"].([]any) {
+		set(e.(map[string]any))
+	}
+	b, _ := json.Marshal(q)
+	return string(b)
 }
 
 // questionRetractedJSON is questionJSON after a retraction: no standing answer, a
@@ -664,6 +685,19 @@ func TestDecisionIsRetiredAndSendsNothing(t *testing.T) {
 
 // runQuestionRoot runs args as given (no `question` prefix) against a fake that
 // records every operation, so a stub that sent anything would show.
+// runQuestionErr is runQuestion that returns what the command wrote to stderr, and the error.
+func runQuestionErr(t *testing.T, responses map[string]string, args ...string) (stderr string, err error) {
+	t.Helper()
+	gql, _ := captureGraphQLFunc(t, func(op string) string { return responses[op] })
+	f, _ := testFactory(t)
+	var errOut strings.Builder
+	f.IOStreams.ErrOut = &errOut
+	root := NewRootCmd(f)
+	root.SetArgs(append(append([]string{"question"}, args...), "--server", gql.URL))
+	err = root.Execute()
+	return errOut.String(), err
+}
+
 func runQuestionRoot(t *testing.T, args ...string) (*questionCall, string, error) {
 	t.Helper()
 	calls := &questionCall{vars: map[string]map[string]any{}, raw: map[string]json.RawMessage{}}
@@ -823,7 +857,6 @@ func TestQuestionAnswerAndRetractAreConfirmedByTheirOwnEvidence(t *testing.T) {
 			args            []string
 		}{
 			"answer: a different standing answer": {"AnswerQuestion", "answerQuestion", questionAnsweredJSON, []string{"answer", "QA", "--expected-revision", "3", "--option", "other"}},
-			"answer: text not shown":              {"AnswerQuestion", "answerQuestion", questionAnsweredJSON, []string{"answer", "QA", "--expected-revision", "3", "--option", "pg", "--text", "a note"}},
 			"answer: an empty object":             {"AnswerQuestion", "answerQuestion", `{}`, []string{"answer", "QA", "--expected-revision", "3", "--option", "pg"}},
 			"retract: an unchanged open question": {"RetractQuestionAnswer", "retractQuestionAnswer", questionJSON, []string{"retract", "QA", "--expected-revision", "4"}},
 			"retract: a stale revision":           {"RetractQuestionAnswer", "retractQuestionAnswer", questionRetractedJSON, []string{"retract", "QA", "--expected-revision", "5"}},
@@ -842,29 +875,34 @@ func TestQuestionAnswerAndRetractAreConfirmedByTheirOwnEvidence(t *testing.T) {
 	}
 }
 
-// Julius's P2: the text a reply must show is the text as the server stores it
-// (CRLF/CR to LF, a blank note absent, nothing else trimmed), compared both ways.
-func TestQuestionAnswerConfirmationFollowsTheServersTextNormalization(t *testing.T) {
+// Jonas's P2: success never depends on a client copy of the server's text normalisation.
+// A text or reason that differs from what was given (CRLF stored as LF, a trailing newline
+// trimmed, a blank note stored as none, an earlier note still standing) succeeds when the
+// reply shows an answer with the option key, and says so in a note on stderr; only a
+// text the server did NOT change is silent.
+func TestQuestionAnswerNeverGatesOnTextNormalisation(t *testing.T) {
 	for name, tc := range map[string]struct {
-		args    []string
-		reply   string
-		success bool
+		args     []string
+		reply    string
+		wantNote bool
 	}{
-		"CRLF text, LF returned":           {[]string{"--text", "line-one\r\nline-two"}, answeredAs("", "line-one\nline-two"), true},
-		"bare CR text, LF returned":        {[]string{"--text", "a\rb"}, answeredAs("", "a\nb"), true},
-		"blank note beside an option":      {[]string{"--option", "pg", "--text", "  \n "}, answeredAs("pg", ""), true},
-		"surrounding space kept as given":  {[]string{"--text", " keep "}, answeredAs("", " keep "), true},
-		"no text asked, an old note shown": {[]string{"--option", "pg"}, answeredAs("pg", "an old note"), false},
-		"text asked, none shown":           {[]string{"--option", "pg", "--text", "a note"}, answeredAs("pg", ""), false},
-		"different text shown":             {[]string{"--option", "pg", "--text", "a note"}, answeredAs("pg", "another"), false},
+		"CRLF text, LF returned":           {[]string{"--text", "line-one\r\nline-two"}, answeredAs("", "line-one\nline-two"), false},
+		"bare CR text, LF returned":        {[]string{"--text", "a\rb"}, answeredAs("", "a\nb"), false},
+		"trailing newline trimmed":         {[]string{"--text", "needs a different approach\n"}, answeredAs("", "needs a different approach"), true},
+		"blank note beside an option":      {[]string{"--option", "pg", "--text", "  \n "}, answeredAs("pg", ""), false},
+		"surrounding space kept as given":  {[]string{"--text", " keep "}, answeredAs("", " keep "), false},
+		"no text asked, an old note shown": {[]string{"--option", "pg"}, answeredAs("pg", "an old note"), true},
+		"text asked, none shown":           {[]string{"--option", "pg", "--text", "a note"}, answeredAs("pg", ""), true},
+		"a different text shown":           {[]string{"--option", "pg", "--text", "a note"}, answeredAs("pg", "another"), true},
 	} {
 		args := append([]string{"answer", "QA", "--expected-revision", "3"}, tc.args...)
-		_, _, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + tc.reply + `}}`}, args...)
-		if tc.success && err != nil {
+		stderr, err := runQuestionErr(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + tc.reply + `}}`}, args...)
+		if err != nil {
 			t.Errorf("%s: want success, got %v", name, err)
+			continue
 		}
-		if !tc.success && (err == nil || !strings.Contains(err.Error(), "unconfirmed")) {
-			t.Errorf("%s: want unconfirmed, got %v", name, err)
+		if has := strings.Contains(stderr, "note: the stored text"); has != tc.wantNote {
+			t.Errorf("%s: note on stderr = %v, want %v (%q)", name, has, tc.wantNote, stderr)
 		}
 	}
 }
@@ -876,29 +914,31 @@ func TestQuestionAnswerConfirmationFollowsTheServersTextNormalization(t *testing
 func TestQuestionAnswerReasonNeedsAWriteAndBlankTextIsRefusedLocally(t *testing.T) {
 	args := []string{"answer", "QA", "--expected-revision", "3", "--option", "pg"}
 	for name, tc := range map[string]struct {
-		extra   []string
-		reply   string
-		success bool
+		extra    []string
+		reply    string
+		success  bool
+		wantNote bool
 	}{
-		"reason given, reply unchanged and without it": {[]string{"--reason", "why"}, answeredAs("pg", ""), false},
-		"reason given, revision up but reason absent":  {[]string{"--reason", "why"}, answeredWrite("pg", "", "", 4), false},
-		"reason given, a different reason shown":       {[]string{"--reason", "why"}, answeredWrite("pg", "", "other", 4), false},
-		"reason given, written with it":                {[]string{"--reason", "why"}, answeredWrite("pg", "", "why", 4), true},
-		"no reason, the documented no-op unchanged":    {nil, answeredAs("pg", ""), true},
-		"no reason, a write":                           {nil, answeredWrite("pg", "", "", 4), true},
-		"reason CRLF, written as LF":                   {[]string{"--reason", "line-one\r\nline-two"}, answeredWrite("pg", "", "line-one\nline-two", 4), true},
-		"reason bare CR, written as LF":                {[]string{"--reason", "a\rb"}, answeredWrite("pg", "", "a\nb", 4), true},
-		"reason spaces kept as given":                  {[]string{"--reason", " why "}, answeredWrite("pg", "", " why ", 4), true},
-		"reason spaces changed in the reply":           {[]string{"--reason", " why "}, answeredWrite("pg", "", "why", 4), false},
-		"blank reason, written without one":            {[]string{"--reason", "  "}, answeredWrite("pg", "", "", 4), true},
-		"reply older than the revision read":           {nil, strings.ReplaceAll(answeredAs("pg", ""), `"revSeq":3`, `"revSeq":2`), false},
+		"reason given, reply unchanged and without it": {[]string{"--reason", "why"}, answeredAs("pg", ""), false, false},
+		"reason given, revision up, reason absent":     {[]string{"--reason", "why"}, answeredWrite("pg", "", "", 4), true, true},
+		"reason given, a different reason shown":       {[]string{"--reason", "why"}, answeredWrite("pg", "", "other", 4), true, true},
+		"reason given, written with it":                {[]string{"--reason", "why"}, answeredWrite("pg", "", "why", 4), true, false},
+		"no reason, the documented no-op unchanged":    {nil, answeredAs("pg", ""), true, false},
+		"no reason, a write":                           {nil, answeredWrite("pg", "", "", 4), true, false},
+		"reason CRLF, written as LF":                   {[]string{"--reason", "line-one\r\nline-two"}, answeredWrite("pg", "", "line-one\nline-two", 4), true, false},
+		"reason spaces changed in the reply":           {[]string{"--reason", " why "}, answeredWrite("pg", "", "why", 4), true, true},
+		"blank reason, written without one":            {[]string{"--reason", "  "}, answeredWrite("pg", "", "", 4), true, false},
+		"reply older than the revision read":           {nil, strings.ReplaceAll(answeredAs("pg", ""), `"revSeq":3`, `"revSeq":2`), false, false},
 	} {
-		_, _, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + tc.reply + `}}`}, append(append([]string{}, args...), tc.extra...)...)
+		stderr, err := runQuestionErr(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + tc.reply + `}}`}, append(append([]string{}, args...), tc.extra...)...)
 		if tc.success && err != nil {
 			t.Errorf("%s: want success, got %v", name, err)
 		}
 		if !tc.success && (err == nil || !strings.Contains(err.Error(), "unconfirmed")) {
 			t.Errorf("%s: want unconfirmed, got %v", name, err)
+		}
+		if tc.success && strings.Contains(stderr, "note: the stored reason") != tc.wantNote {
+			t.Errorf("%s: reason note = %v, want %v (%q)", name, !tc.wantNote, tc.wantNote, stderr)
 		}
 	}
 	empty := filepath.Join(t.TempDir(), "empty.txt")
@@ -922,5 +962,121 @@ func TestQuestionAnswerReasonNeedsAWriteAndBlankTextIsRefusedLocally(t *testing.
 		if exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
 			t.Errorf("%s: want a usage refusal before any call: %v ops=%v", name, err, c.ops)
 		}
+	}
+}
+
+// Jonas's P2 (the pin dropped in the port): every field of the populated question reaches
+// the --json contract under its own name, with nothing crossed or lost: assignee versus
+// effectiveAssignee, the identity merges, the withdrawal, the approval, the actors of the
+// answers, the four reference lists. Each value carries a marker of its own so a swap shows.
+const questionFullGQL = `{"id":"q9","urn":"hrn:node:acme.com:kb:questions:DB","code":"DB","n":2,"logId":"l1",
+"title":"T","background":"bg","whyNow":"wn","state":"DECIDED","tier":"APPROVED","priority":"URGENT","answered":true,
+"authorizes":true,"revSeq":7,"portalUrl":"https://example.test/q/DB","viewerIsDecider":false,"viewerMayAnswer":false,
+"askedAt":"2026-11-01T00:00:00Z","answeredAt":"2026-11-02T00:00:00Z","neededBy":"2026-12-01T00:00:00Z","defaultAction":"ship pg","taskId":"t9",
+"askedBy":{"userId":null,"user":null,"workerId":"w1","worker":{"id":"w1","name":"Ada","handle":null,"urn":"hrn:worker:acme.com:t:ada"},"appId":"a1","app":{"id":"a1","name":"Team","handle":null,"urn":"hrn:app:acme.com:t"}},
+"assigneeId":"u-asg","assignee":{"id":"u-asg","name":"Asg","handle":"asg","urn":null},
+"effectiveAssigneeId":"u-eff","effectiveAssignee":{"id":"u-eff","name":"Eff","handle":"eff","urn":null},
+"deciderIds":["u2"],"deciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
+"identityMerges":[{"fromUserId":"u7","from":{"id":"u7","name":"Old","handle":"old","urn":null},"toUserId":"u2","to":{"id":"u2","name":"Bo","handle":"bo","urn":null},"mergedAt":"2026-10-30T00:00:00Z"}],
+"options":[{"key":"pg","label":"Postgres","whyChoose":"wc","whyNot":"wn2","risks":"rk"},{"key":"my","label":"MySQL","whyChoose":null,"whyNot":null,"risks":null}],
+"recommendation":{"key":"pg","reason":"boring","by":{"userId":"u1","user":{"id":"u1","name":"Ann","handle":"ann","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"noRecommendationReason":"nr",
+"answer":{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null},"key":"pg","text":"t1","reason":"r1","via":"PORTAL"},
+"answers":[{"kind":"ANSWER","at":"2026-11-01T12:00:00Z","byUserId":"u3","by":{"id":"u3","name":"Cy","handle":"cy","urn":null},"key":null,"text":"maybe","reason":null,"via":"CLI"},{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","by":null,"key":"pg","text":"t1","reason":"r1","via":"PORTAL"}],
+"blocks":[{"ref":"hadron-server#1","node":null,"spec":null}],
+"sources":[{"ref":null,"node":null,"spec":"cor:api:240:01"}],
+"specsTouched":[{"ref":null,"node":"hrn:node:acme.com:kb:x","spec":null}],
+"specsMustChange":[{"ref":"hadron-cli#2","node":null,"spec":null}],
+"withdrawn":{"at":"2026-11-03T00:00:00Z","reason":"moot","by":{"userId":"u4","user":{"id":"u4","name":"Dee","handle":"dee","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"evidence":{"approval":{"approvedAt":"2026-11-02T01:00:00Z","revision":6,"integrity":"INTACT","byDecider":true,"byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null}}}}`
+
+func TestQuestionGetJSONMapsPopulatedValues(t *testing.T) {
+	_, out, err := runQuestion(t, map[string]string{"Question": `{"data":{"question":` + questionFullGQL + `}}`}, "get", "q9", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("json: %v\n%s", err, out)
+	}
+	const want = `{"id":"q9","urn":"hrn:node:acme.com:kb:questions:DB","code":"DB","n":2,"logId":"l1",
+"title":"T","background":"bg","whyNow":"wn","state":"DECIDED","tier":"APPROVED","priority":"URGENT","answered":true,
+"authorizes":true,"revision":7,"portalUrl":"https://example.test/q/DB","viewerIsDecider":false,"viewerMayAnswer":false,
+"askedAt":"2026-11-01T00:00:00Z","answeredAt":"2026-11-02T00:00:00Z","neededBy":"2026-12-01T00:00:00Z","defaultAction":"ship pg","taskId":"t9",
+"askedBy":{"userId":null,"user":null,"workerId":"w1","worker":{"id":"w1","name":"Ada","handle":null,"urn":"hrn:worker:acme.com:t:ada"},"appId":"a1","app":{"id":"a1","name":"Team","handle":null,"urn":"hrn:app:acme.com:t"}},
+"assigneeId":"u-asg","assignee":{"id":"u-asg","name":"Asg","handle":"asg","urn":null},
+"effectiveAssigneeId":"u-eff","effectiveAssignee":{"id":"u-eff","name":"Eff","handle":"eff","urn":null},
+"deciderIds":["u2"],"deciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
+"identityMerges":[{"fromUserId":"u7","from":{"id":"u7","name":"Old","handle":"old","urn":null},"toUserId":"u2","to":{"id":"u2","name":"Bo","handle":"bo","urn":null},"mergedAt":"2026-10-30T00:00:00Z"}],
+"options":[{"key":"pg","label":"Postgres","whyChoose":"wc","whyNot":"wn2","risks":"rk"},{"key":"my","label":"MySQL","whyChoose":null,"whyNot":null,"risks":null}],
+"recommendation":{"key":"pg","reason":"boring","by":{"userId":"u1","user":{"id":"u1","name":"Ann","handle":"ann","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"noRecommendationReason":"nr",
+"answer":{"kind":"ANSWER","key":"pg","text":"t1","reason":"r1","byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null},"at":"2026-11-02T00:00:00Z","via":"PORTAL"},
+"answers":[{"kind":"ANSWER","key":null,"text":"maybe","reason":null,"byUserId":"u3","by":{"id":"u3","name":"Cy","handle":"cy","urn":null},"at":"2026-11-01T12:00:00Z","via":"CLI"},{"kind":"ANSWER","key":"pg","text":"t1","reason":"r1","byUserId":"u2","by":null,"at":"2026-11-02T00:00:00Z","via":"PORTAL"}],
+"blocks":[{"ref":"hadron-server#1","node":null,"spec":null}],
+"sources":[{"ref":null,"node":null,"spec":"cor:api:240:01"}],
+"specsTouched":[{"ref":null,"node":"hrn:node:acme.com:kb:x","spec":null}],
+"specsMustChange":[{"ref":"hadron-cli#2","node":null,"spec":null}],
+"withdrawn":{"at":"2026-11-03T00:00:00Z","reason":"moot","by":{"userId":"u4","user":{"id":"u4","name":"Dee","handle":"dee","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"approval":{"approvedAt":"2026-11-02T01:00:00Z","revision":6,"integrity":"INTACT","byDecider":true,"byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null}}}`
+	var wantV map[string]any
+	if err := json.Unmarshal([]byte(want), &wantV); err != nil {
+		t.Fatal(err)
+	}
+	for k, w := range wantV {
+		if !reflect.DeepEqual(got[k], w) {
+			t.Errorf("%s:\n got %v\nwant %v", k, got[k], w)
+		}
+	}
+	for k := range got {
+		if _, ok := wantV[k]; !ok {
+			t.Errorf("unexpected key %s", k)
+		}
+	}
+}
+
+// The ones the port also dropped: set-deciders needs its three flags (exit 2, nothing
+// sent), --eligible "" clears the set with [] (the server reads null as keep), and a number out of float64
+// range inside the opaque grant reaches the server verbatim (#1558).
+func TestQuestionLogSetDecidersRequiredFlagsAndEmptyEligibleClears(t *testing.T) {
+	for _, args := range [][]string{
+		{"log", "set-deciders", "l1", "--decider", "u2", "--reason", "r"},
+		{"log", "set-deciders", "l1", "--decider", "u2", "--expected-revision", "2"},
+		{"log", "set-deciders", "l1", "--expected-revision", "2", "--reason", "r"},
+	} {
+		c, _, err := runQuestion(t, nil, args...)
+		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+			t.Fatalf("%v: want a usage error and no call: err=%v ops=%v", args, err, c.ops)
+		}
+	}
+	c, _, err := runQuestion(t, map[string]string{"SetQuestionLogDeciders": `{"data":{"setQuestionLogDeciders":` + questionLogJSON + `}}`},
+		"log", "set-deciders", "l1", "--decider", "u2", "--eligible", "", "--expected-revision", "2", "--reason", "clear")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := questionOnlyOp(t, c, "SetQuestionLogDeciders")
+	if e, ok := v["eligibleDeciders"].([]any); !ok || len(e) != 0 {
+		t.Fatalf(`--eligible "" must send eligibleDeciders [] (clear), got %v`, v["eligibleDeciders"])
+	}
+}
+
+func TestQuestionAskPassesAHugeNumberInGrantVerbatim(t *testing.T) {
+	c, _, err := runQuestion(t, map[string]string{"AskQuestion": `{"data":{"askQuestion":` + questionJSON + `}}`},
+		"ask", "l1", "--input-file", writeJSONFile(t, `{"grant":{"n":1e999},"title":"a"}`))
+	if err != nil {
+		t.Fatalf("a huge number in grant must not be refused: %v", err)
+	}
+	questionOnlyOp(t, c, "AskQuestion")
+	var vars struct {
+		Input struct {
+			Title string          `json:"title"`
+			Grant json.RawMessage `json:"grant"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(c.raw["AskQuestion"], &vars); err != nil {
+		t.Fatalf("variables: %v", err)
+	}
+	if vars.Input.Title != "a" || string(vars.Input.Grant) != `{"n":1e999}` {
+		t.Fatalf("grant must reach the server verbatim, got title=%q grant=%s", vars.Input.Title, vars.Input.Grant)
 	}
 }

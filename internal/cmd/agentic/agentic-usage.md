@@ -6547,7 +6547,19 @@ only usage mistakes (exit 2) before any call.
   Text after an answer: `✓ answered <code>: <option key or (text)>` then the question;
   after a retract: `✓ answer taken back; <code> is pending again`; `--json` prints only the
   question.
-- `list` needs exactly one scope: `--app` (every question in that App's Memories you can read),
+  **Success is claimed only on evidence in the reply.** `answer`: the standing answer is an ANSWER
+  entry (not a retraction) with the `--option` key you gave, on a revision that did not go back, and
+  a NEWER revision when you gave a non-blank `--reason` (the same answer again without a reason is the
+  server's no-op and may return unchanged). `retract`: no standing answer, a RETRACTION as the last
+  `answers` entry, and a revision newer than `--expected-revision`. The text and the reason are NOT
+  compared (the server normalises them): a difference prints a `note:` on stderr and never fails.
+  A reply that does not show the outcome exits **1** with nothing on stdout (text mode) or the
+  standard error envelope (`--json`), names `question get`, and is **not resent**. This is the one
+  place exit 1 means "the server answered but the outcome is not shown", where `secret client
+  revoke`, `agent subscription revoke` and `ha` use exit 7 for the same doubt: exit 7 here is only
+  a reply that never arrived. Either way the write may have been recorded, so read the question
+  with `question get` before trying again.
+- `list` needs a scope: `--app` (every question in that App's Memories you can read),
   `--log` or `--awaiting-me` (exit 2, no request, when none is given, when `--awaiting-me=false` is the only one, or
   when `--app` and `--log` both are; `--awaiting-me` may combine with `--app` or `--log`). Every filter is sent only when its flag was given (`--answered` alone is `true`,
   `--answered=false` keeps the OPEN ones (no standing answer), `--authorizes=false` is sent as false); `--answered-since`
@@ -6567,7 +6579,7 @@ only usage mistakes (exit 2) before any call.
   `QUESTION_NOT_FOUND`, `QUESTION_LOG_NOT_FOUND` exit 4.
 - `state` is derived by the server on every read. Rely on a question as a ruling only while it is
   `DECIDED`; `verify` returns the findings behind the state. Approval of a question node goes
-  through `hadron node approve <question node> --revision <n>` once hadron-server#4429 has merged.
+  through `hadron node approve <question node> --revision <n>`.
 - Deciders (`--decider`, `--eligible`, and `deciders` in the input file) are user IDs: the server
   accepts only a user who can write the log's Memory (`QUESTION_DECIDER_NOT_ELIGIBLE`). An empty
   `--input-file ""` is refused.
