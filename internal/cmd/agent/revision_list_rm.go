@@ -83,14 +83,19 @@ Agent with none. Needs ADMIN on the Agent; the server decides.`,
 				return exitcode.Newf(exitcode.Unavailable, "the server returned no revision list")
 			}
 			list := resp.AgentRevisions
+			// The SDL makes all four required. A missing or null one must not read as
+			// zero (an all-zero report would be a false fact): refuse the answer.
+			if list.Revisions == nil || list.SlotLimit == nil || list.HighestSlotUsed == nil || list.SlotsRemaining == nil {
+				return exitcode.Newf(exitcode.Unavailable, "the server's revision list is missing a required field (revisions, slotLimit, highestSlotUsed or slotsRemaining), so nothing is shown")
+			}
 			dto := agentRevisionListDTO{Revisions: []agentRevisionDTO{}}
-			if dto.SlotLimit, err = slotCount("slotLimit", list.SlotLimit); err != nil {
+			if dto.SlotLimit, err = slotCount("slotLimit", *list.SlotLimit); err != nil {
 				return err
 			}
-			if dto.HighestSlotUsed, err = slotCount("highestSlotUsed", list.HighestSlotUsed); err != nil {
+			if dto.HighestSlotUsed, err = slotCount("highestSlotUsed", *list.HighestSlotUsed); err != nil {
 				return err
 			}
-			if dto.SlotsRemaining, err = slotCount("slotsRemaining", list.SlotsRemaining); err != nil {
+			if dto.SlotsRemaining, err = slotCount("slotsRemaining", *list.SlotsRemaining); err != nil {
 				return err
 			}
 			for _, r := range list.Revisions {
@@ -169,7 +174,10 @@ Prints "✓ deleted revision <loc>"; --json is {"revisionLoc", "status": "delete
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "delete outcome unknown (sent once, not retried): %s. %s", mapped, check), err)
+					// Wrap, never reformat: %w keeps the typed metadata of the mapped
+					// error (an internal fault's request id for the --json envelope, the
+					// server code) while the message gains the recovery guidance.
+					mapped = api.WithServerCode(exitcode.New(code, fmt.Errorf("delete outcome unknown (sent once, not retried): %w. %s", mapped, check)), err)
 				}
 				return mapped
 			}

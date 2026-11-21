@@ -2318,9 +2318,9 @@ var AllAgentProcessKind = []AgentProcessKind{
 // 1 + the highest ever used, deleted revisions included, so a delete does not raise slotsRemaining. #4488
 type AgentRevisionsAgentRevisionsAgentRevisionList struct {
 	Revisions       []*AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision `json:"revisions"`
-	SlotLimit       float64                                                                `json:"slotLimit"`
-	HighestSlotUsed float64                                                                `json:"highestSlotUsed"`
-	SlotsRemaining  float64                                                                `json:"slotsRemaining"`
+	SlotLimit       *float64                                                               `json:"slotLimit"`
+	HighestSlotUsed *float64                                                               `json:"highestSlotUsed"`
+	SlotsRemaining  *float64                                                               `json:"slotsRemaining"`
 }
 
 // GetRevisions returns AgentRevisionsAgentRevisionsAgentRevisionList.Revisions, and is useful for accessing the field via an interface.
@@ -2329,15 +2329,15 @@ func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetRevisions() []*AgentR
 }
 
 // GetSlotLimit returns AgentRevisionsAgentRevisionsAgentRevisionList.SlotLimit, and is useful for accessing the field via an interface.
-func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetSlotLimit() float64 { return v.SlotLimit }
+func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetSlotLimit() *float64 { return v.SlotLimit }
 
 // GetHighestSlotUsed returns AgentRevisionsAgentRevisionsAgentRevisionList.HighestSlotUsed, and is useful for accessing the field via an interface.
-func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetHighestSlotUsed() float64 {
+func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetHighestSlotUsed() *float64 {
 	return v.HighestSlotUsed
 }
 
 // GetSlotsRemaining returns AgentRevisionsAgentRevisionsAgentRevisionList.SlotsRemaining, and is useful for accessing the field via an interface.
-func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetSlotsRemaining() float64 {
+func (v *AgentRevisionsAgentRevisionsAgentRevisionList) GetSlotsRemaining() *float64 {
 	return v.SlotsRemaining
 }
 

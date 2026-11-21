@@ -448,8 +448,14 @@ query AgentRevisions($agentRef: ID!) {
       published
       createdAt
     }
+    # The three slot counts are required by the SDL (Float!), but a plain float64
+    # decodes a missing or null field as 0 and would print an all-zero report as a
+    # fact: pointers keep presence, and the command refuses a nil (cli#2533 review).
+    # @genqlient(pointer: true)
     slotLimit
+    # @genqlient(pointer: true)
     highestSlotUsed
+    # @genqlient(pointer: true)
     slotsRemaining
   }
 }

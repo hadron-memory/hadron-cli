@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -262,5 +264,151 @@ func TestAgentRevisionListRefusalsKeepTheirClass(t *testing.T) {
 				t.Fatalf("err=%v exit=%d ops=%v out=%q", err, exitCodeFor(err), calls.ops, out)
 			}
 		})
+	}
+}
+
+// agentRendered2533 runs `agent <args>` through the real error renderer and
+// returns stdout, stderr and the command's error, so a field the renderer adds
+// from the error's typed metadata is measured, not just err.Error().
+func agentRendered2533(t *testing.T, responses map[string]string, jsonMode bool, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
+	srv, _ := captureGraphQLFunc(t, func(op string) string { return responses[op] })
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	a := append(append([]string{"agent"}, args...), "--server", srv.URL)
+	if jsonMode {
+		a = append(a, "--json")
+	}
+	root.SetArgs(a)
+	err = root.Execute()
+	if err != nil {
+		renderError(f, err)
+	}
+	se, ok := f.IOStreams.ErrOut.(interface{ String() string })
+	if !ok {
+		t.Fatal("stderr cannot be inspected")
+	}
+	return out.String(), se.String(), err
+}
+
+// Jibril's local P2-1 (#2800): a missing or null REQUIRED field decodes as zero in
+// a plain float64 and would print an all-zero report as a fact. Presence is kept at
+// the generated boundary (pointers) and a missing/null required field is refused
+// (exit 7, nothing printed); a genuine all-zero answer is still a success.
+func TestAgentRevisionListRefusesAMissingOrNullRequiredField(t *testing.T) {
+	for name, wire := range map[string]string{
+		"empty object":           `{"data":{"agentRevisions":{}}}`,
+		"slotLimit null":         `{"data":{"agentRevisions":{"revisions":[],"slotLimit":null,"highestSlotUsed":0,"slotsRemaining":0}}}`,
+		"highestSlotUsed absent": `{"data":{"agentRevisions":{"revisions":[],"slotLimit":5,"slotsRemaining":5}}}`,
+		"slotsRemaining null":    `{"data":{"agentRevisions":{"revisions":[],"slotLimit":5,"highestSlotUsed":0,"slotsRemaining":null}}}`,
+		"revisions null":         `{"data":{"agentRevisions":{"revisions":null,"slotLimit":5,"highestSlotUsed":0,"slotsRemaining":5}}}`,
+		"revisions absent":       `{"data":{"agentRevisions":{"slotLimit":5,"highestSlotUsed":0,"slotsRemaining":5}}}`,
+	} {
+		for _, jsonMode := range []bool{true, false} {
+			t.Run(name, func(t *testing.T) {
+				calls := 0
+				srv, _ := captureGraphQLFunc(t, func(string) string { calls++; return wire })
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				args := []string{"agent", "revision", "list", "agt1", "--server", srv.URL}
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil || exitCodeFor(err) != exitcode.Unavailable || out.Len() != 0 || calls != 1 {
+					t.Fatalf("a missing/null required field is refused, one request, nothing printed: err=%v exit=%d out=%q calls=%d", err, exitCodeFor(err), out.String(), calls)
+				}
+			})
+		}
+	}
+}
+
+func TestAgentRevisionListAGenuineAllZeroAnswerIsStillASuccess(t *testing.T) {
+	zero := `{"data":{"agentRevisions":{"revisions":[],"slotLimit":0,"highestSlotUsed":0,"slotsRemaining":0}}}`
+	_, out, err := runAgentSub(t, map[string]string{"AgentRevisions": zero}, "revision", "list", "agt1", "--json")
+	if err != nil || !strings.Contains(out, `"slotLimit": 0`) || !strings.Contains(out, `"slotsRemaining": 0`) || !strings.Contains(out, `"revisions": []`) {
+		t.Fatalf("zero is a real value: err=%v\n%s", err, out)
+	}
+	_, out, err = runAgentSub(t, map[string]string{"AgentRevisions": zero}, "revision", "list", "agt1")
+	if err != nil || !strings.Contains(out, "highest used 0 of 0; 0 saves left") {
+		t.Fatalf("err=%v\n%s", err, out)
+	}
+}
+
+// Jibril's local P2-2 (#2800): an internal fault's request id travels as typed
+// metadata that the --json envelope adds (requestId, serverCode). Reformatting the
+// error into a fresh message dropped it; the delete's recovery guidance now WRAPS
+// the mapped error, so the field survives, from the body and from the header.
+func TestAgentRevisionRmKeepsAnInternalFaultsTypedRequestID(t *testing.T) {
+	fault := `{"errors":[{"message":"secret stack","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"r-123"}}],"data":null}`
+	stdout, stderr, err := agentRendered2533(t, map[string]string{"DeleteAgentRevision": fault}, true, "revision", "rm", "hrn:agent:acme.com:bot", "revisions:rev-2", "--yes")
+	if err == nil || exitCodeFor(err) != exitcode.Error {
+		t.Fatalf("err=%v exit=%d", err, exitCodeFor(err))
+	}
+	var env struct {
+		Error map[string]any `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(stdout), &env); e != nil {
+		t.Fatalf("envelope: %v\nstdout=%q stderr=%q", e, stdout, stderr)
+	}
+	if env.Error["requestId"] != "r-123" || env.Error["serverCode"] != "INTERNAL_SERVER_ERROR" {
+		t.Fatalf("the typed request id and server code must survive the guidance: %v", env.Error)
+	}
+	msg, _ := env.Error["message"].(string)
+	if !strings.Contains(msg, "delete outcome unknown (sent once, not retried)") || strings.Contains(msg, "secret stack") {
+		t.Fatalf("the guidance is added and the server's raw text stays out: %q", msg)
+	}
+	lines := strings.Split(msg, "\n")
+	if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron agent revision list hrn:agent:acme.com:bot" {
+		t.Fatalf("the check command is still alone on the last line: %q", last)
+	}
+	// Text mode keeps the id in prose too.
+	_, stderr, err = agentRendered2533(t, map[string]string{"DeleteAgentRevision": fault}, false, "revision", "rm", "agt1", "revisions:rev-2", "--yes")
+	if err == nil || !strings.Contains(stderr, "r-123") {
+		t.Fatalf("text mode names the request id: err=%v stderr=%q", err, stderr)
+	}
+}
+
+func TestAgentRevisionRmKeepsAHeaderRequestIDToo(t *testing.T) {
+	// A fault whose body carries no id: the transport falls back to the response's
+	// X-Request-Id header and the typed field must survive the recovery guidance.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Request-Id", "h-1")
+		_, _ = w.Write([]byte(`{"errors":[{"message":"x","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`))
+	}))
+	defer srv.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "revision", "rm", "agt1", "revisions:rev-2", "--yes", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("must fail")
+	}
+	renderError(f, err)
+	var env struct {
+		Error map[string]any `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(out.String()), &env); e != nil || env.Error["requestId"] != "h-1" || env.Error["serverCode"] != "INTERNAL_SERVER_ERROR" {
+		t.Fatalf("the header's request id must reach the envelope: %v %v\n%q", e, env.Error, out.String())
+	}
+}
+
+// With no id anywhere the field is omitted, never invented.
+func TestAgentRevisionRmAnInternalFaultWithNoIDOmitsTheField(t *testing.T) {
+	fault := `{"errors":[{"message":"x","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`
+	stdout, _, err := agentRendered2533(t, map[string]string{"DeleteAgentRevision": fault}, true, "revision", "rm", "agt1", "revisions:rev-2", "--yes")
+	if err == nil {
+		t.Fatal("must fail")
+	}
+	var env struct {
+		Error map[string]any `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(stdout), &env); e != nil || env.Error["serverCode"] != "INTERNAL_SERVER_ERROR" {
+		t.Fatalf("the typed internal-fault fields survive without an id too: %v %v", e, env.Error)
+	}
+	if _, has := env.Error["requestId"]; has {
+		t.Fatalf("no id was returned, so none is invented: %v", env.Error)
 	}
 }
