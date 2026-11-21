@@ -108,6 +108,16 @@ spec amendments cor:api:020:01 and cor:agt:020:04; a CLI release. The v0.34.0
 tag still carries every removed operation, so the first release after this
 merges is the one to scan for released no-caller evidence.
 
+## Server removal landed (hadron-server#4498)
+
+The three server fields (`teamAttentionPage`, `teamAttentionPreviewPage`,
+`confirmTeamAttentionSwitchover`) are gone as of hadron-server#4498, merged
+as `08dd60a5f71f3afad20b096c90c740589beaac63`. The committed schema snapshot
+no longer declares them and the coverage matrix no longer carries their
+`excluded deprecated` rows; both went with the snapshot refresh in the
+cli#2465 build (PR #2801), so this note is the only change cli#2610 needed.
+CLI v0.34.0 and earlier still call them and error once #4498 deploys.
+
 ## Release-note draft (CLI)
 
 **Changed**

@@ -33,7 +33,6 @@ import (
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
-	decisioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/decision"
 	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
 	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
@@ -47,6 +46,7 @@ import (
 	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
 	policycmd "github.com/hadron-memory/hadron-cli/internal/cmd/policy"
+	questioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/question"
 	quotacmd "github.com/hadron-memory/hadron-cli/internal/cmd/quota"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
@@ -185,7 +185,8 @@ never ran that command, this does not apply to you.`,
 	root.AddCommand(channelcmd.NewCmdChannel(f))
 	root.AddCommand(replacecmd.NewCmdReplace(f))
 	root.AddCommand(speccmd.NewCmdSpec(f))
-	root.AddCommand(decisioncmd.NewCmdDecision(f))
+	root.AddCommand(questioncmd.NewCmdQuestion(f))
+	root.AddCommand(questioncmd.NewCmdRetiredDecision(f))
 	root.AddCommand(skillcmd.NewCmdSkill(f))
 	root.AddCommand(codingcmd.NewCmdCoding(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
@@ -485,6 +486,17 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var readiness interface{ PRReadinessSlots() []api.PRSlotFailure }
 		if errors.As(err, &readiness) && readiness.PRReadinessSlots() != nil {
 			failure["slots"] = readiness.PRReadinessSlots()
+		}
+		// cli#2738: a change a protected secret STAGED instead of applying.
+		// The request id and the ceremony URL go in exactly as the server sent
+		// them (the text neutralises them), because a script hands the URL to
+		// the person who signs. `requestId` here is the change request's id, not
+		// a server-fault request id: the two never occur together.
+		var staged interface{ StagedSecretChange() (string, string) }
+		if errors.As(err, &staged) {
+			id, url := staged.StagedSecretChange()
+			failure["requestId"] = id
+			failure["ceremonyUrl"] = url
 		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.

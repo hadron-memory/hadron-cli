@@ -40,7 +40,7 @@ request that could change the meaning of the user's claim.
 | spec replace | SpecSearchReplaceInput or SearchReplaceInNodesInput | preview and apply on both routes |
 | spec supersede | CreateNodeInput + UpdateNodeInput | successor and retirement |
 | spec extract | CreateNodeInput + UpdateNodeInput | extraction and optional source trim |
-| node import | existing bundle claim | unchanged, no override flags |
+| node import | none (the document format carries no claim) | the paired flags, cli#2790: sent on the importNode content import and on each node write of a restore |
 
 The issue's labels “node setproperties” and “node replace” refer to the
 existing commands node set-properties and replace text; no spelling or alias

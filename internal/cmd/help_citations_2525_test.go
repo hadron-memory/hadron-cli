@@ -166,6 +166,8 @@ func TestBanRegexesCatchTheShapesThePolicyBans2525(t *testing.T) {
 
 var updateExceptions2525 = flag.Bool("update-citation-exceptions", false, "shrink testdata/help_citation_exceptions_2525.txt to what the help still carries (never adds)")
 
+var renameException2525 = flag.String("rename-citation-exception", "", "move a renamed page's entry in testdata/help_citation_exceptions_2525.txt: 'old page=>new page' (a rename only: see renameBaselineEntry2525)")
+
 const exceptionsFile2525 = "testdata/help_citation_exceptions_2525.txt"
 
 // refCounts2525 counts the spec citations and issue numbers on one page, keyed "<kind> <text>".
@@ -249,6 +251,36 @@ func shrink2525(actual, base baseline2525) (baseline2525, []string) {
 	return out, errs
 }
 
+// renameBaselineEntry2525 moves one page's baseline entry to the page's new name, for a command
+// that was renamed or moved (cli#2849 F14). Without it a rename fails twice, as the old name no
+// longer being a page and the new page carrying references no entry lists, and the only way out
+// would be a hand edit of the file. It moves an entry and nothing else, in exactly the case a
+// rename produces: the old name is listed and is no longer a help page, the new name is a help
+// page and is not listed yet. The moved entry is then held to the ordinary ratchet, so a renamed
+// page that carries more than its entry allowed still fails, and one that carries less shrinks.
+func renameBaselineEntry2525(base baseline2525, pages map[string]bool, from, to string) (baseline2525, error) {
+	switch {
+	case from == "" || to == "" || from == to:
+		return nil, fmt.Errorf("a rename needs two different page names, as 'old page=>new page'")
+	case base[from] == nil:
+		return nil, fmt.Errorf("%q is not listed in %s: there is no entry to move", from, exceptionsFile2525)
+	case pages[from]:
+		return nil, fmt.Errorf("%q is still a help page: this moves the entry of a page that was renamed; to shrink it use -update-citation-exceptions", from)
+	case !pages[to]:
+		return nil, fmt.Errorf("%q is not a help page: name the page the command has now", to)
+	case base[to] != nil:
+		return nil, fmt.Errorf("%q is already listed in %s: the rename would merge two entries", to, exceptionsFile2525)
+	}
+	out := baseline2525{}
+	for p, refs := range base {
+		if p == from {
+			p = to
+		}
+		out[p] = refs
+	}
+	return out, nil
+}
+
 func formatBaseline2525(b baseline2525) string {
 	var sb strings.Builder
 	sb.WriteString("# Help pages that still carry a spec citation or an issue number, and exactly which\n" +
@@ -257,7 +289,9 @@ func formatBaseline2525(b baseline2525) string {
 		"# and never one that is not listed; a listed reference the page no longer carries must\n" +
 		"# be removed. Shrink it with\n" +
 		"#   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -update-citation-exceptions\n" +
-		"# which never adds. Line: <page>  # <kind> <reference> x<count> | ...\n" +
+		"# which never adds. A renamed command's entry moves with\n" +
+		"#   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -rename-citation-exception 'old page=>new page'\n" +
+		"# (never by hand). Line: <page>  # <kind> <reference> x<count> | ...\n" +
 		"# The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.\n")
 	pages := make([]string, 0, len(b))
 	for p := range b {
@@ -416,6 +450,21 @@ func TestHelpCarriesNoNewCitationsNumbersOrHashes2525(t *testing.T) {
 	actual := baseline2525{}
 	seen := map[string]bool{}
 	pages := helpPagesInScope2525(t)
+	if *renameException2525 != "" {
+		from, to, _ := strings.Cut(*renameException2525, "=>")
+		isPage := map[string]bool{}
+		for n := range pages {
+			isPage[n] = true
+		}
+		moved, err := renameBaselineEntry2525(base, isPage, strings.TrimSpace(from), strings.TrimSpace(to))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(exceptionsFile2525, []byte(formatBaseline2525(moved)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		base = moved
+	}
 	names := make([]string, 0, len(pages))
 	for n := range pages {
 		names = append(names, n)
@@ -451,7 +500,7 @@ func TestHelpCarriesNoNewCitationsNumbersOrHashes2525(t *testing.T) {
 	}
 	for name := range base {
 		if !seen[name] {
-			t.Errorf("%s is listed in %s but is not a help page", name, exceptionsFile2525)
+			t.Errorf("%s is listed in %s but is not a help page: if the command was renamed, move its entry with -rename-citation-exception 'old page=>new page'", name, exceptionsFile2525)
 		}
 	}
 }
@@ -633,5 +682,49 @@ func TestWithoutGlobalFlagsDropsOnlyThatBlock2525(t *testing.T) {
 	noBlock := "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n"
 	if got := withoutGlobalFlags2508(noBlock); got != noBlock {
 		t.Errorf("a page without the block must be unchanged: %q", got)
+	}
+}
+
+// cli#2849 F14: a renamed command's entry moves with the rename tool, and only in the case a
+// rename produces. Every refusal below is a way the move could be used to launder a reference.
+func TestRenameBaselineEntryMovesOnlyARenamedPage2525(t *testing.T) {
+	base := baseline2525{
+		"team old":  {"issue #1": 2},
+		"team keep": {"issue #2": 1},
+	}
+	pages := map[string]bool{"team new": true, "team keep": true, "team other": true}
+
+	moved, err := renameBaselineEntry2525(base, pages, "team old", "team new")
+	if err != nil {
+		t.Fatalf("a rename must be accepted: %v", err)
+	}
+	if moved["team new"]["issue #1"] != 2 || moved["team old"] != nil || moved["team keep"]["issue #2"] != 1 || len(moved) != 2 {
+		t.Errorf("the entry must move whole and nothing else change: %v", moved)
+	}
+	if base["team old"] == nil || base["team new"] != nil {
+		t.Errorf("the input baseline must not be modified: %v", base)
+	}
+	// The moved entry is held to the ordinary ratchet at its new name.
+	if errs := pageRatchetErrors2525("team new", refCounts2525{"issue #1": 3}, moved["team new"]); len(errs) != 1 {
+		t.Errorf("a renamed page that carries more than its entry allowed must still fail: %v", errs)
+	}
+
+	for _, tc := range []struct {
+		name     string
+		from, to string
+	}{
+		{"an unlisted source", "team nothing", "team new"},
+		{"a source that is still a page (a shrink, not a rename)", "team keep", "team new"},
+		{"a target that is not a page", "team old", "team missing"},
+		{"a target that is already listed (would merge entries)", "team old", "team keep"},
+		{"the same name", "team old", "team old"},
+		{"an empty target", "team old", ""},
+		{"an empty source", "", "team new"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got, err := renameBaselineEntry2525(base, pages, tc.from, tc.to); err == nil {
+				t.Errorf("must be refused, got %v", got)
+			}
+		})
 	}
 }

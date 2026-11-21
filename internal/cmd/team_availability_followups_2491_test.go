@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -68,8 +66,10 @@ func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	// The claim survives the fallback, checked by the server, not recorded —
 	// and it is the typed reference the flag spelled, not just a non-nil
 	// variable (cli#2560 F6).
-	wantClaim := map[string]any{"kind": "TASK", "ref": "one"}
-	if !reflect.DeepEqual(mutation.Variables["instruction"], wantClaim) {
+	// Field by field (cli#2707 F4), so a claim that gains a field does not
+	// break this pin while one that loses or changes kind/ref still does.
+	claim, ok := mutation.Variables["instruction"].(map[string]any)
+	if !ok || claim["kind"] != "TASK" || claim["ref"] != "one" || len(claim) != 2 {
 		t.Fatalf("the person fallback lost or reshaped the instruction claim: %v", mutation.Variables["instruction"])
 	}
 	if input, ok := mutation.Variables["input"].(map[string]any); !ok || input["appRef"] != appB {
@@ -77,28 +77,16 @@ func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	}
 	// The --json receipt is the written record, not merely non-empty output
 	// (cli#2560 F6): the person fallback's write round-trips the DTO.
-	var receipt struct {
-		Worker struct {
-			Name *string `json:"name"`
-			Urn  *string `json:"urn"`
-		} `json:"worker"`
-		State    string  `json:"state"`
-		Reason   *string `json:"reason"`
-		SetBy    string  `json:"setBy"`
-		InEffect bool    `json:"inEffect"`
-	}
-	if err := json.Unmarshal([]byte(out.String()), &receipt); err != nil {
-		t.Fatalf("the fallback write's --json output is not the record (%v): %s", err, out.String())
-	}
-	if receipt.Worker.Name == nil || *receipt.Worker.Name != "Rufus" ||
-		receipt.Worker.Urn == nil || *receipt.Worker.Urn != "hrn:worker:acme.com:eng:rufus" {
-		t.Fatalf("wrong worker party in the receipt: %+v", receipt.Worker)
-	}
-	if receipt.State != "UNAVAILABLE" || receipt.Reason == nil || *receipt.Reason != "OUT_OF_TOKENS" {
-		t.Fatalf("wrong state/reason in the receipt: %+v", receipt)
-	}
-	if receipt.SetBy != "APP_MANAGER" || !receipt.InEffect {
-		t.Fatalf("wrong setBy/inEffect in the receipt: %+v", receipt)
+	// Decoded to raw keys, not into a struct of this test's own (cli#2707 F3):
+	// the receipt's key names come from the CLI's output, so a rename there fails
+	// here instead of being mirrored by a hand-written tag.
+	receipt := receiptFields2707(t, []byte(out.String()))
+	wantParty2707(t, "the fallback receipt's worker", receipt["worker"], "WORKER", "wkr2", "Rufus", "hrn:worker:acme.com:eng:rufus")
+	wantString2707(t, "the fallback receipt", receipt, "state", "UNAVAILABLE")
+	wantString2707(t, "the fallback receipt", receipt, "reason", "OUT_OF_TOKENS")
+	wantString2707(t, "the fallback receipt", receipt, "setBy", "APP_MANAGER")
+	if string(receipt["inEffect"]) != "true" {
+		t.Fatalf("wrong inEffect in the receipt: %s", receipt["inEffect"])
 	}
 }
 
@@ -222,7 +210,14 @@ func TestAvailabilityPlainCrossAppFamilySetNotAttributed(t *testing.T) {
 	if !seen {
 		t.Fatalf("no plain ModelFamilyAvailabilitySet observed: %+v", *calls)
 	}
-	if strings.Contains(stderr.String(), "worker session") {
-		t.Fatalf("unexpected session note on a cross-App plain family write: %q", stderr.String())
+	// Deliberately NOT asserted (cli#2707 F5): a TeamAppIdentity request. A plain
+	// family write is not in the authored-write list (see the header), so the
+	// middleware never asks for the App identity on this path; the worker twin
+	// above is the pin that goes through that check. What proves this pin reached
+	// its branch is the loaded binding and the write that targets App B.
+	// No note of any kind on a plain cross-App family write, rather than the
+	// absence of one message defined elsewhere (cli#2707 F5).
+	if stderr.String() != "" {
+		t.Fatalf("unexpected note on a cross-App plain family write: %q", stderr.String())
 	}
 }
