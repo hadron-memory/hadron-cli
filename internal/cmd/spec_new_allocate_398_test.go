@@ -222,6 +222,14 @@ func TestSpecNewAllocationRefusalsWriteNothing398(t *testing.T) {
 					t.Errorf("%s was sent after the allocation was refused (%s)", op, errText)
 				}
 			}
+			// A definite refusal is a refusal (exit 1/usage-class), never the
+			// unknown-outcome path (exit 7 with "outcome unknown").
+			if got := exitCodeFor(err); got == exitcode.Unavailable {
+				t.Errorf("refusal %s exited %d (unknown-outcome path)", code, got)
+			}
+			if strings.Contains(errText, "outcome unknown") {
+				t.Errorf("refusal %s reported as unknown outcome: %s", code, errText)
+			}
 		})
 	}
 }
@@ -293,6 +301,26 @@ func TestSpecNewAllocationReadbackErrorIsUnknown398(t *testing.T) {
 		if !strings.Contains(errText, s) {
 			t.Errorf("message missing %q: %s", s, errText)
 		}
+	}
+}
+
+// Unreadable input is refused BEFORE any number is reserved.
+func TestSpecNewUnreadableInputReservesNothing398(t *testing.T) {
+	for name, extra := range map[string][]string{
+		"abstract-file": {"--abstract-file", "/nonexistent/abs.txt"},
+		"content-file":  {"--content-file", "/nonexistent/body.md"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fk, _, _, err := alloc398Run(t, map[string]alloc398Reply{
+				"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:07", 1)},
+			}, append([]string{"--module", "msg", "--feature", "010", "--title", "Test"}, extra...)...)
+			if err == nil {
+				t.Fatal("an unreadable input file must fail")
+			}
+			if fk.count("AllocateSpecNode") != 0 {
+				t.Errorf("a number was reserved for unreadable input: %d allocations", fk.count("AllocateSpecNode"))
+			}
+		})
 	}
 }
 
