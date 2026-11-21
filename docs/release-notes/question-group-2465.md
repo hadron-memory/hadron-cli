@@ -56,7 +56,8 @@ outcome (an answer with your option key, on a revision that did not go back and,
 newer one; or no standing answer with a retraction last and a newer revision). Otherwise they
 exit **1** with nothing on stdout, name `question get`, and do not resend; the write may have been
 recorded. Exit 7 is the answer when the reply never arrived, was a null question, or carried a coded error
-beneath the mutation (after the write committed); only a coded refusal of the mutation itself keeps
-its typed exit (the other unknown-outcome commands, `secret client revoke` and `ha`, use 7 for the
+beneath the mutation (which may follow the write); what the server refused before writing (a coded
+refusal of the mutation itself, an HTTP 4xx such as a refused credential or a rate limit) keeps its
+typed exit, and a connection that never opened is "could not reach the server" without a claim about the write (the other unknown-outcome commands, `secret client revoke` and `ha`, use 7 for the
 doubt itself). Text and reason differences are a note on
 stderr, not a failure.

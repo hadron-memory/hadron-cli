@@ -2,10 +2,14 @@ package cmd
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -1116,12 +1120,88 @@ func TestQuestionAnswerAndRetractErrorsBelowTheMutationAreUnknown(t *testing.T) 
 				t.Errorf("%s %s: exit=%d want=%d sends=%d err=%v", c.args[0], name, exitCodeFor(err), r.exit, len(calls.ops), err)
 				continue
 			}
+			if r.exit != exitcode.Unavailable && strings.Contains(err.Error(), "not confirmed") {
+				t.Errorf("%s %s: a refusal must not claim an unknown outcome: %v", c.args[0], name, err)
+			}
 			if r.exit == exitcode.Unavailable {
 				m := err.Error()
 				if !strings.Contains(m, "not confirmed") || !strings.Contains(m, "not resent") || !strings.Contains(m, "hadron question get QA") || out != "" {
 					t.Errorf("%s %s: an unknown outcome says so, is not resent and names question get: %v out=%q", c.args[0], name, err, out)
 				}
 			}
+		}
+	}
+}
+
+// Joran's P2: what the server refused BEFORE writing is not an unknown outcome. An HTTP 4xx
+// (a refused credential, a rate limit, an invalid request) and a connection that never opened
+// keep the ordinary mapping and never say "not confirmed"; a reset or timeout after the request
+// left, a 5xx gateway page and a cut-off body are the unknown ones (exit 7, "not confirmed",
+// not resent). Both verbs, one request at most.
+func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T) {
+	serve := func(t *testing.T, h func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *int32) {
+		var n int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&n, 1)
+			h(w, r)
+		}))
+		t.Cleanup(srv.Close)
+		return srv, &n
+	}
+	run := func(t *testing.T, url string, args ...string) error {
+		t.Helper()
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{"question"}, args...), "--server", url))
+		return root.Execute()
+	}
+	status := func(code int, body string) func(w http.ResponseWriter, r *http.Request) {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(code)
+			_, _ = w.Write([]byte(body))
+		}
+	}
+	hangup := func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.ReadAll(r.Body)
+		if hj, ok := w.(http.Hijacker); ok {
+			conn, _, _ := hj.Hijack()
+			_ = conn.Close()
+		}
+	}
+	for _, verb := range [][]string{
+		{"answer", "QA", "--expected-revision", "3", "--option", "pg"},
+		{"retract", "QA", "--expected-revision", "4"},
+	} {
+		for name, tc := range map[string]struct {
+			h       func(w http.ResponseWriter, r *http.Request)
+			unknown bool
+		}{
+			"HTTP 401 a refused credential": {status(401, `{"errors":[{"message":"no","extensions":{"code":"UNAUTHENTICATED"}}]}`), false},
+			"HTTP 403 not coded":            {status(403, `forbidden`), false},
+			"HTTP 429 a rate limit":         {status(429, `{"errors":[{"message":"slow","extensions":{"code":"RATE_LIMITED"}}]}`), false},
+			"HTTP 400 an invalid request":   {status(400, `{"errors":[{"message":"bad","extensions":{"code":"BAD_USER_INPUT"}}]}`), false},
+			"HTTP 502 a gateway page":       {status(502, `<html>bad gateway</html>`), true},
+			"the connection dropped":        {hangup, true},
+		} {
+			srv, n := serve(t, tc.h)
+			err := run(t, srv.URL, verb...)
+			if err == nil || atomic.LoadInt32(n) != 1 {
+				t.Errorf("%s %s: err=%v requests=%d, want an error after exactly one request", verb[0], name, err, atomic.LoadInt32(n))
+				continue
+			}
+			has := strings.Contains(err.Error(), "not confirmed")
+			if has != tc.unknown || (tc.unknown && exitCodeFor(err) != exitcode.Unavailable) {
+				t.Errorf("%s %s: exit=%d 'not confirmed'=%v want unknown=%v: %v", verb[0], name, exitCodeFor(err), has, tc.unknown, err)
+			}
+		}
+		// A connection that never opened: nothing was sent, and nothing is claimed about the write.
+		dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+		url := dead.URL
+		dead.Close()
+		err := run(t, url, verb...)
+		if err == nil || strings.Contains(err.Error(), "not confirmed") {
+			t.Errorf("%s a connection that never opened: want the plain could-not-reach error, got %v", verb[0], err)
 		}
 	}
 }

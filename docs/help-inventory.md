@@ -164,7 +164,7 @@ section between the markers.
 | `object update` |  |  | y | #1051 | b8cd5b0de76d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `question` |  |  | n | #1051 | 37558d6abc67 |  | unread |  |
 | `question amend` |  |  | y | #1051 | 39319266c04d |  | unread |  |
-| `question answer` |  |  | y | #1051 | d2d378afc54a |  | unread |  |
+| `question answer` |  |  | y | #1051 | 9346181687cc |  | unread |  |
 | `question ask` |  |  | y | #1051 | d6ddf298d259 |  | unread |  |
 | `question get` |  |  | y | #1051 | d2cc5b6b5cc8 |  | unread |  |
 | `question list` | ls |  | y | #1051 | d2604e0ce70c |  | unread |  |
@@ -174,7 +174,7 @@ section between the markers.
 | `question log list` | ls |  | y | #1051 | 48290b08bbf4 |  | unread |  |
 | `question log set-deciders` |  |  | y | #1051 | b9cf029fce8b |  | unread |  |
 | `question purge` |  |  | y | #1051 | 32e08e8eadae |  | unread |  |
-| `question retract` |  |  | y | #1051 | 2e79a41a37cc |  | unread |  |
+| `question retract` |  |  | y | #1051 | 96baf7f5b0f1 |  | unread |  |
 | `question verify` |  |  | y | #1051 | 22a4d8cae72c |  | unread |  |
 | `question withdraw` |  |  | y | #1051 | 8ae70cff2cea |  | unread |  |
 | `replace` |  |  | y | #1051 | 369a60e32405 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |

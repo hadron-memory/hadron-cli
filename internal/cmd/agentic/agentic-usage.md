@@ -6573,8 +6573,10 @@ only usage mistakes (exit 2) before any call.
   revoke`, `agent subscription revoke` and `ha` use exit 7 for the same doubt: exit 7 here is only
   a reply that never arrived, an unusable one (a null question), or one with a coded error BELOW the
   mutation field (beside committed data: the write may have been recorded; the message is "answer|retraction not
-  confirmed ... not resent; read the question with `hadron question get <ref>`"). Only a coded refusal of the
-  mutation itself (no path, or exactly the mutation field) keeps its typed exit (2, 4, 5, 8). Either way the write
+  confirmed ... not resent; read the question with `hadron question get <ref>`"). What the server
+  refused before writing keeps its typed exit: a coded refusal of the mutation itself (no path, or exactly the
+  mutation field: 2, 4, 5, 8) and an HTTP 4xx (a refused credential is 3; a rate limit); a connection that never
+  opened is "could not reach the server" (7) with no "not confirmed" claim. Either way the write
   may have been recorded, so read the question with `question get` before trying again.
 - `list` needs a scope: `--app` (every question in that App's Memories you can read),
   `--log` or `--awaiting-me` (exit 2, no request, when none is given, when `--awaiting-me=false` is the only one, or
