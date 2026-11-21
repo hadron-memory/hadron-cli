@@ -534,3 +534,52 @@ func TestOrgGithub2512TextOutput(t *testing.T) {
 		t.Fatal("key in text output")
 	}
 }
+
+// cli#2654: "-" on a terminal would echo the pasted PEM, so set-app refuses
+// it before reading, with a file-path hint, and sends nothing.
+func TestOrgGithub2654SetAppDashOnTerminalRefused(t *testing.T) {
+	srv, calls, _ := countingGraphQL(t, nil)
+	f, _, errOut := testFactoryTTY(t, keySentinel2512+"\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "github", "set-app", "acme.com", "--app-id", "12345", "--private-key-file", "-", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected a refusal of - on a terminal")
+	}
+	if exitCodeFor(err) != 2 {
+		t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
+	}
+	for _, want := range []string{"--private-key-file", "stdin is a terminal", "file path"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal lacks %q: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), keySentinel2512) || strings.Contains(errOut.String(), keySentinel2512) {
+		t.Error("the pasted key must never be echoed")
+	}
+	if calls("UpdateOrgGithubApp") != 0 {
+		t.Errorf("a refusal must send nothing; %d calls", calls("UpdateOrgGithubApp"))
+	}
+}
+
+// The terminal refusal no longer advertises "- for stdin", and an empty piped
+// stream is not steered to "run interactively" (set-app refuses that mode).
+func TestOrgGithub2654SetAppHintsDoNotAdvertiseRefusedModes(t *testing.T) {
+	srv, _, _ := countingGraphQL(t, nil)
+	f, _, _ := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "github", "set-app", "acme.com", "--app-id", "12345", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || strings.Contains(err.Error(), "stdin") {
+		t.Errorf("the terminal refusal must not advertise stdin: %v", err)
+	}
+
+	f2, _ := testFactory(t)
+	f2.IOStreams.In = strings.NewReader("")
+	root = NewRootCmd(f2)
+	root.SetArgs([]string{"org", "github", "set-app", "acme.com", "--app-id", "12345", "--private-key-file", "-", "--server", srv.URL})
+	err = root.Execute()
+	if err == nil || strings.Contains(err.Error(), "interactively") || !strings.Contains(err.Error(), "--private-key-file") {
+		t.Errorf("empty piped stdin must get a hint without the interactive mode: %v", err)
+	}
+}
