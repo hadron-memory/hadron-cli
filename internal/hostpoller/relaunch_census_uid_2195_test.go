@@ -223,7 +223,7 @@ func TestCensusForeignSkipIdentityAndDisappearance2195(t *testing.T) {
 // host, under a hard watchdog. The old gate was 2s waits, completion within 3s
 // and a 5s watchdog, which left one second for the child to start. The failure
 // proof stays bounded: the child must still refuse inside the budget, and the
-// watchdog kills a child that does not. TestFIFOBudgetAcceptance2225 pins these.
+// watchdog kills a child that does not. TestFIFOBudgetAcceptance2225 pins their ordering.
 const (
 	fifoWait2197        = 2 * time.Second
 	fifoChildBudget2197 = 6 * time.Second
@@ -237,19 +237,28 @@ func fifoSwitch2197(name string) bool {
 	return os.Getenv("HADRON_TEST_FIFO_CHILD_2197") == "1" && os.Getenv(name) == "1"
 }
 
+// fifoChildCmd2197 is the one place the child test process is built (cli#2384
+// F4): the stable fixture, run once, under ctx, with exactly the given
+// environment. The callers differ only in that environment.
+func fifoChildCmd2197(ctx context.Context, env []string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCensusForeignSkipIdentityAndDisappearance2195$/^stable$", "-test.count=1")
+	cmd.Env = env
+	return cmd
+}
+
 // runFIFOChild2197 runs the stable fixture in a child with the child-mode guard
 // and exactly one scenario switch; every inherited scenario switch is scrubbed.
 func runFIFOChild2197(t *testing.T, scenario string) ([]byte, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), fifoWatchdog2197)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCensusForeignSkipIdentityAndDisappearance2195$/^stable$", "-test.count=1")
+	var env []string
 	for _, kv := range os.Environ() {
 		if !strings.HasPrefix(kv, "HADRON_TEST_FIFO_") {
-			cmd.Env = append(cmd.Env, kv)
+			env = append(env, kv)
 		}
 	}
-	cmd.Env = append(cmd.Env, "HADRON_TEST_FIFO_CHILD_2197=1", scenario)
+	cmd := fifoChildCmd2197(ctx, append(env, "HADRON_TEST_FIFO_CHILD_2197=1", scenario))
 	began := time.Now()
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() != nil {
