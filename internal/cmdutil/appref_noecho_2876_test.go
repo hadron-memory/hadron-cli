@@ -41,8 +41,11 @@ func TestCanonicalAppRefNeverEchoesTheValue2876(t *testing.T) {
 			msg := err.Error()
 			// Not the whole value, and not any run of it long enough to be a credential's
 			// body (the first and last ten characters are the usual leak by truncation).
-			head, tail := []rune(in)[:10], []rune(in)[len([]rune(in))-10:]
-			for _, leak := range []string{in, string(head), string(tail)} {
+			leaks := []string{in}
+			if r := []rune(in); len(r) >= 10 {
+				leaks = append(leaks, string(r[:10]), string(r[len(r)-10:]))
+			}
+			for _, leak := range leaks {
 				if strings.Contains(msg, leak) {
 					t.Errorf("CanonicalAppRef(%q, %q) leaks %q:\n%s", what, in, leak, msg)
 				}

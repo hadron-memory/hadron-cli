@@ -83,6 +83,8 @@ const appRefForms = "hrn:app:<root>:<slug> (canonical, e.g. hrn:app:acme.com:dev
 // An id passes through verbatim (the server dispatches PKs); an empty ref
 // returns "" with no error, since whether an App is REQUIRED is the caller's
 // question, not this function's.
+// `what` names the flag or the source of the value ("--app", "the configured App
+// context") and must never contain user input: a refusal never echoes `ref` (cli#2876).
 func CanonicalAppRef(what, ref string) (string, error) {
 	trimmed := strings.TrimSpace(ref)
 	if trimmed == "" {

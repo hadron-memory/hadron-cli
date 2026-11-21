@@ -72,7 +72,7 @@ func TestAppRefRefusedClientSideBeforeAnyRoundTrip(t *testing.T) {
 			if strings.Contains(msg, `"`+bare+`"`) {
 				t.Errorf("message echoes the value:\n%s", msg)
 			}
-			for _, want := range []string{tc.source + " ", "hrn:app:<root>:<slug>", "<root>:<slug>", "an App id"} {
+			for _, want := range []string{tc.source + " is not org-qualified", "hrn:app:<root>:<slug>", "<root>:<slug>", "an App id"} {
 				if !strings.Contains(msg, want) {
 					t.Errorf("message lacks %q:\n%s", want, msg)
 				}

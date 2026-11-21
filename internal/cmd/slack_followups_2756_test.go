@@ -156,15 +156,18 @@ func TestSlackConnectNeverEchoesATokenGivenAsApp2876(t *testing.T) {
 	if e == nil || n != 0 || exitCodeFor(e) != exitcode.Usage {
 		t.Fatalf("a token as --app refuses with zero requests: err=%v requests=%d", e, n)
 	}
-	if strings.Contains(e.Error(), pasted) || strings.Contains(e.Error(), pasted[:10]) {
+	if strings.Contains(e.Error(), pasted) || strings.Contains(e.Error(), pasted[:10]) || strings.Contains(e.Error(), pasted[len(pasted)-10:]) {
 		t.Errorf("the refusal echoes the pasted token: %v", e)
+	}
+	if !strings.Contains(e.Error(), "not org-qualified") {
+		t.Errorf("the refusal comes from --app validation: %v", e)
 	}
 	f, out := testFactory(t)
 	var stderr strings.Builder
 	f.IOStreams.ErrOut = &stderr
 	f.JSON = true
 	renderError(f, e)
-	if strings.Contains(out.String()+stderr.String(), pasted[:10]) {
+	if strings.Contains(out.String()+stderr.String(), pasted[:10]) || strings.Contains(out.String()+stderr.String(), pasted[len(pasted)-10:]) {
 		t.Errorf("the --json envelope echoes the pasted token: %q %q", out.String(), stderr.String())
 	}
 }
