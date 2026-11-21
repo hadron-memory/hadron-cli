@@ -569,6 +569,23 @@ func OnlyErrorCodes(err error, codes ...string) bool {
 	return true
 }
 
+// OnlyErrorCodesAtRoot is OnlyErrorCodes that also requires every error to sit at
+// the operation's own level: no path, or a path of one segment (the mutation
+// field itself). An error beneath it (path [revokeGrant, state]) is a result field
+// failing AFTER the write may have committed, so it is never a proof that nothing
+// happened, whatever its code.
+func OnlyErrorCodesAtRoot(err error, codes ...string) bool {
+	if !OnlyErrorCodes(err, codes...) {
+		return false
+	}
+	for _, e := range graphQLErrors(err) {
+		if e != nil && len(e.Path) > 1 {
+			return false
+		}
+	}
+	return true
+}
+
 // ErrorCodeExtension reads a named string extension off the GraphQL error
 // carrying code — the typed-error contract: a client reads extensions,
 // never the message text. ok is false when no error carries the code, or

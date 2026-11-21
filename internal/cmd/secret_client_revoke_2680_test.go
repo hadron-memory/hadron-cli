@@ -226,8 +226,8 @@ func TestSecretClientRevokeStatesAndMalformedAnswers2680(t *testing.T) {
 		exit       int
 		want       string
 	}{
-		{"active is not revoked", revoked2680("ACTIVE"), exitcode.Unavailable, "not confirmed"},
-		{"pending is not revoked", revoked2680("PENDING"), exitcode.Unavailable, "not confirmed"},
+		{"active is not revoked", revoked2680("ACTIVE"), exitcode.Unavailable, "still ACTIVE"},
+		{"pending is not revoked", revoked2680("PENDING"), exitcode.Unavailable, "still PENDING"},
 		{"already expired stands", revoked2680("EXPIRED"), 0, "already ended"},
 		{"already withdrawn stands", revoked2680("WITHDRAWN"), 0, "already ended"},
 		{"null answer", `{"data":{"revokeGrant":null}}`, exitcode.Unavailable, "not confirmed"},

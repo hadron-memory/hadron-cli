@@ -115,13 +115,13 @@ whether the client ended; 8 not permitted.`,
 			if err != nil {
 				return revokeError(err, c.GrantID)
 			}
-			if resp == nil || resp.RevokeGrant == nil || resp.RevokeGrant.Id == "" {
-				return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed: the server returned no grant; the revoke is not resent. Run `hadron secret client list` (grant %s) to see whether it ended", output.SafeCell(c.GrantID))
+			var g *gen.RevokeSecretReadClientGrantRevokeGrant
+			if resp != nil {
+				g = resp.RevokeGrant
 			}
-			g := resp.RevokeGrant
-			state := string(g.State)
-			if state == string(gen.GrantStateActive) || state == string(gen.GrantStatePending) {
-				return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed: the server returned grant %s still %s; the revoke is not resent. Run `hadron secret client list` to check", output.SafeCell(c.GrantID), state)
+			state, err := revokedState(g, c.GrantID)
+			if err != nil {
+				return err
 			}
 			d := revokeDTO{ClientID: c.ClientID, GrantID: c.GrantID, State: state, RevokedAt: g.RevokedAt, Allows: g.Allows}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
@@ -138,14 +138,47 @@ whether the client ended; 8 not permitted.`,
 	return cmd
 }
 
-// revokeError maps a failed revoke. A lost answer (the 7 class) is an unknown
-// outcome: the revoke may have ended the grant, so it says so, names the grant and
-// `client list`, and the call is never resent.
+// definitiveRevokeRefusals are the GraphQL codes that are refusals BEFORE the
+// grant is touched: the caller may not revoke it (GRANT_NOT_MANAGER, judged on the
+// locked row before any write), is not signed in, or sent an unusable request. Only
+// these, at the mutation's own level, keep their typed exit; every other failure
+// after the request left may follow the write and is an unknown outcome.
+var definitiveRevokeRefusals = []string{
+	"GRANT_NOT_MANAGER", "FORBIDDEN", "UNAUTHENTICATED", "BAD_USER_INPUT",
+	"GRAPHQL_VALIDATION_FAILED", "GRAPHQL_PARSE_FAILED",
+}
+
+// notConfirmed is the unknown-outcome error: the revoke may have ended the grant,
+// so it is never resent, and the caller is told where to look.
+func notConfirmed(grantID, why string) error {
+	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, grant %s may have been revoked. It is not resent: run `hadron secret client list` to check", why, output.SafeCell(grantID))
+}
+
+// revokeError maps a failed revoke. A definitive pre-write refusal keeps its typed
+// exit. Anything else (a lost answer, a 5xx, an error beneath the mutation, a code
+// that can follow the write) is an unknown outcome: exit 7 naming the grant and
+// `client list`, never resent, with the server's code kept for --json.
 func revokeError(err error, grantID string) error {
 	mapped := api.MapErrorKeepingCode(err)
-	if exitcode.FromError(mapped) == exitcode.Unavailable {
-		msg := fmt.Sprintf("%s; the outcome is unknown: grant %s may have been revoked. It is not resent: run `hadron secret client list` to check", mapped.Error(), output.SafeCell(grantID))
-		return api.WithServerCode(exitcode.Newf(exitcode.Unavailable, "%s", msg), err)
+	if api.OnlyErrorCodesAtRoot(err, definitiveRevokeRefusals...) {
+		return mapped
 	}
-	return mapped
+	return api.WithServerCode(notConfirmed(grantID, mapped.Error()), err)
+}
+
+// revokedState checks the answer is the SAME grant in an explicit ended state.
+func revokedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID string) (string, error) {
+	if g == nil || g.Id == "" {
+		return "", notConfirmed(grantID, "the server returned no grant")
+	}
+	if g.Id != grantID {
+		return "", notConfirmed(grantID, "the server answered for a different grant")
+	}
+	switch g.State {
+	case gen.GrantStateRevoked, gen.GrantStateExpired, gen.GrantStateWithdrawn, gen.GrantStateSpent, gen.GrantStateHolderGone:
+		return string(g.State), nil
+	case gen.GrantStateActive, gen.GrantStatePending:
+		return "", notConfirmed(grantID, "the server returned the grant still "+string(g.State))
+	}
+	return "", notConfirmed(grantID, "the server returned no usable state")
 }
