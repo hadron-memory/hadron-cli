@@ -62,8 +62,10 @@ func TestSetToken2650EscapedEchoIsRedacted(t *testing.T) {
 		t.Fatal("want error")
 	}
 	all := err.Error() + errOut
-	if !strings.Contains(all, "rejected") || !strings.Contains(all, "[REDACTED]") {
-		t.Fatalf("the server message must go through the redaction path: %q", all)
+	// cli#2714 round 4: a message carrying the token in any covered spelling
+	// is not partially redacted at all — the fixed refusal replaces it.
+	if !strings.Contains(all, "the server refused the source token") {
+		t.Fatalf("the server message must render the fixed refusal: %q", all)
 	}
 	if strings.Contains(all, tok) || strings.Contains(all, escaped) {
 		t.Errorf("the token (literal or escaped) leaked: %q", all)
