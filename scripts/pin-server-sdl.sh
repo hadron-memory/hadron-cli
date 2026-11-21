@@ -171,8 +171,12 @@ if [ -n "$verify" ]; then
     want_pre=$(sed -n 's/^pre_overlay_sdl_sha256=//p' "$here/schema/SOURCE")
     pre_sha=$(sha256 "$vtmp/exported.graphql")
     [ "$pre_sha" = "$want_pre" ] || { echo "pre_overlay_sdl_sha256 mismatch: SOURCE says $want_pre, the merged export is $pre_sha" >&2; ok=0; }
-    patch --quiet "$vtmp/exported.graphql" < "$here/$overlay" ||
-      { echo "overlay $overlay does not apply to the export — kept at $vtmp" >&2; exit 1; }
+    # overlay= may repeat (cli#2677): apply each patch in the order listed.
+    while IFS= read -r one; do
+      [ -n "$one" ] || continue
+      patch --quiet "$vtmp/exported.graphql" < "$here/$one" ||
+        { echo "overlay $one does not apply to the export — kept at $vtmp" >&2; exit 1; }
+    done <<< "$overlay"
   fi
   got_sha=$(sha256 "$vtmp/exported.graphql")
   got_lines=$(wc -l < "$vtmp/exported.graphql" | tr -d ' ')

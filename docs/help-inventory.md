@@ -809,7 +809,7 @@ section between the markers.
 | `orca host` |  |  | n | #1396 | e77c3c207ec4 |  | unread |  |
 | `orca host plan` |  |  | n | #1396 | 262800770765 |  | unread |  |
 | `orca terminal` |  |  | n | #1396 | 10be515f1d47 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
-| `orca terminal status` |  |  | y | #1396 | b61334b2b45c |  | unread |  |
+| `orca terminal status` |  |  | y | #1396 | f062c86bbce8 |  | unread |  |
 | `slack` |  |  | y | #1396 | baba7964884b |  | unread |  |
 | `slack connect` |  |  | y | #1396 | 38c56732986c |  | unread |  |
 | `slack disconnect` |  |  | y | #1396 | 8c3d825bd291 |  | unread |  |

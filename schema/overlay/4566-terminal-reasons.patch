@@ -1,0 +1,20 @@
+--- schema.graphql
++++ schema.graphql
+@@ -22512,7 +22512,17 @@
+   guardrail_triggered
+   menu_or_question
+   model_at_capacity
++
++  """
++  #4558 (hadron-cli#2677): more than one agent terminal is bound to the worker. The CLI reports it with status locked, as it does unrecognized; like every reason, it is accepted with locked or dark.
++  """
++  multiple_terminals
+   no_agent
++
++  """
++  #4558 (hadron-cli#2677): Orca gives no rendered screen for the terminal (screen-unavailable). The CLI reports it with status locked, as it does unrecognized; like every reason, it is accepted with locked or dark.
++  """
++  no_screen
+   no_terminal
+   no_turn_for_due_ticker
+   rate_limited

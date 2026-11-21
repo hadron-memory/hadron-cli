@@ -63,6 +63,13 @@ const (
 	// RateLimited: the harness shows a usage-limit screen (cli#2676). Locked:
 	// the agent is waiting on a reset, not stopped; Result.ResetAt carries it.
 	RateLimited Reason = "rate_limited"
+	// NoScreen: Orca gave no rendered screen for the terminal (a read whose
+	// source is screen-unavailable), so nothing could be matched. Locked, as
+	// unrecognized is (cli#2677; hadron-server#4558).
+	NoScreen Reason = "no_screen"
+	// MultipleTerminals: more than one agent terminal is bound to the worker, so
+	// no single terminal can be judged. Locked (cli#2677; hadron-server#4558).
+	MultipleTerminals Reason = "multiple_terminals"
 )
 
 // Deferred reasons (token_budget_exhausted, guardrail_triggered,
@@ -72,7 +79,7 @@ const (
 // Valid reports whether r is on the closed list.
 func (r Reason) Valid() bool {
 	switch r {
-	case Unrecognized, MenuOrQuestion, NoTurnForDueTicker, NoTerminal, BareShell, NoAgent, RateLimited:
+	case Unrecognized, MenuOrQuestion, NoTurnForDueTicker, NoTerminal, BareShell, NoAgent, RateLimited, NoScreen, MultipleTerminals:
 		return true
 	}
 	return false

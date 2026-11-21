@@ -125453,11 +125453,15 @@ var AllWorkerTerminalPrompt = []WorkerTerminalPrompt{
 type WorkerTerminalReason string
 
 const (
-	WorkerTerminalReasonBareShell               WorkerTerminalReason = "bare_shell"
-	WorkerTerminalReasonGuardrailTriggered      WorkerTerminalReason = "guardrail_triggered"
-	WorkerTerminalReasonMenuOrQuestion          WorkerTerminalReason = "menu_or_question"
-	WorkerTerminalReasonModelAtCapacity         WorkerTerminalReason = "model_at_capacity"
-	WorkerTerminalReasonNoAgent                 WorkerTerminalReason = "no_agent"
+	WorkerTerminalReasonBareShell          WorkerTerminalReason = "bare_shell"
+	WorkerTerminalReasonGuardrailTriggered WorkerTerminalReason = "guardrail_triggered"
+	WorkerTerminalReasonMenuOrQuestion     WorkerTerminalReason = "menu_or_question"
+	WorkerTerminalReasonModelAtCapacity    WorkerTerminalReason = "model_at_capacity"
+	// #4558 (hadron-cli#2677): more than one agent terminal is bound to the worker. The CLI reports it with status locked, as it does unrecognized; like every reason, it is accepted with locked or dark.
+	WorkerTerminalReasonMultipleTerminals WorkerTerminalReason = "multiple_terminals"
+	WorkerTerminalReasonNoAgent           WorkerTerminalReason = "no_agent"
+	// #4558 (hadron-cli#2677): Orca gives no rendered screen for the terminal (screen-unavailable). The CLI reports it with status locked, as it does unrecognized; like every reason, it is accepted with locked or dark.
+	WorkerTerminalReasonNoScreen                WorkerTerminalReason = "no_screen"
 	WorkerTerminalReasonNoTerminal              WorkerTerminalReason = "no_terminal"
 	WorkerTerminalReasonNoTurnForDueTicker      WorkerTerminalReason = "no_turn_for_due_ticker"
 	WorkerTerminalReasonRateLimited             WorkerTerminalReason = "rate_limited"
@@ -125471,7 +125475,9 @@ var AllWorkerTerminalReason = []WorkerTerminalReason{
 	WorkerTerminalReasonGuardrailTriggered,
 	WorkerTerminalReasonMenuOrQuestion,
 	WorkerTerminalReasonModelAtCapacity,
+	WorkerTerminalReasonMultipleTerminals,
 	WorkerTerminalReasonNoAgent,
+	WorkerTerminalReasonNoScreen,
 	WorkerTerminalReasonNoTerminal,
 	WorkerTerminalReasonNoTurnForDueTicker,
 	WorkerTerminalReasonRateLimited,
