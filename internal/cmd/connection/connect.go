@@ -235,7 +235,11 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 				return exitcode.Newf(exitcode.Unavailable, "server returned no connection start")
 			}
 			start := resp.StartConnection
-			if start.AuthorizeUrl == "" {
+			// A blank link means no link, and the CLI hands over the server's
+			// link verbatim — it never composes a replacement (cli#2845 F2,
+			// cor:api:230:01) — so a whitespace-only URL is refused, like the
+			// empty one, as the server's to fix.
+			if strings.TrimSpace(start.AuthorizeUrl) == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned a connection start with no authorize link")
 			}
 			if strings.TrimSpace(start.FlowId) == "" {
@@ -374,12 +378,19 @@ const (
 	lookupListed                        // the read listed the row
 )
 
-// cause is the note's parenthetical: the one cause that applied.
+// cause is the note's parenthetical: the one cause that applied. It is asked
+// only of a degraded result — a lookupListed outcome is not degraded and never
+// reaches here — so the default arm answers the one remaining outcome; the
+// switch makes that visible instead of a silent fallback (cli#2845 F1).
 func (l detailsLookup) cause() string {
-	if l == lookupFailed {
+	switch l {
+	case lookupFailed:
 		return "the connections read failed"
+	case lookupUnlisted:
+		return "the connections read did not list it"
+	default: // lookupListed never asks for a cause
+		return "the connections read did not list it"
 	}
-	return "the connections read did not list it"
 }
 
 // awaitFlow polls connectionFlow(flowId) until it is CONNECTED or FAILED, or the
