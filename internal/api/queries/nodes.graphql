@@ -238,6 +238,8 @@ query NodeBatch(
         isRunnable
         priority
         condition
+        # cli#2844: the edge's data, selected on GetNode and NodeBatch alike so single and batch node get agree.
+        data
         target {
           id
           loc
@@ -250,6 +252,7 @@ query NodeBatch(
         loc
         priority
         isRunnable
+        data
         source {
           id
           loc

@@ -43,6 +43,8 @@ fragment UniformEdge on Edge {
   description
   isRunnable
   priority
+  # cli#2844: the edge's own data (the cross-memory route marker among it), verbatim; null when none.
+  data
   # hadron-cli#1513: the provider's values, verbatim. A null author is the provider's null (not shown to you or not known), never "nobody".
   createdAt
   updatedAt

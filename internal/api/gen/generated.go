@@ -56357,6 +56357,9 @@ func (v *GetEdgeEdge) GetIsRunnable() *bool { return v.UniformEdge.IsRunnable }
 // GetPriority returns GetEdgeEdge.Priority, and is useful for accessing the field via an interface.
 func (v *GetEdgeEdge) GetPriority() int { return v.UniformEdge.Priority }
 
+// GetData returns GetEdgeEdge.Data, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetData() *json.RawMessage { return v.UniformEdge.Data }
+
 // GetCreatedAt returns GetEdgeEdge.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetEdgeEdge) GetCreatedAt() string { return v.UniformEdge.CreatedAt }
 
@@ -56419,6 +56422,8 @@ type __premarshalGetEdgeEdge struct {
 
 	Priority int `json:"priority"`
 
+	Data *json.RawMessage `json:"data"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -56450,6 +56455,7 @@ func (v *GetEdgeEdge) __premarshalJSON() (*__premarshalGetEdgeEdge, error) {
 	retval.Description = v.UniformEdge.Description
 	retval.IsRunnable = v.UniformEdge.IsRunnable
 	retval.Priority = v.UniformEdge.Priority
+	retval.Data = v.UniformEdge.Data
 	retval.CreatedAt = v.UniformEdge.CreatedAt
 	retval.UpdatedAt = v.UniformEdge.UpdatedAt
 	retval.CreatedByUser = v.UniformEdge.CreatedByUser
@@ -66760,6 +66766,9 @@ func (v *ListEdgesEdgesEdgesPageItemsEdge) GetIsRunnable() *bool { return v.Unif
 // GetPriority returns ListEdgesEdgesEdgesPageItemsEdge.Priority, and is useful for accessing the field via an interface.
 func (v *ListEdgesEdgesEdgesPageItemsEdge) GetPriority() int { return v.UniformEdge.Priority }
 
+// GetData returns ListEdgesEdgesEdgesPageItemsEdge.Data, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetData() *json.RawMessage { return v.UniformEdge.Data }
+
 // GetCreatedAt returns ListEdgesEdgesEdgesPageItemsEdge.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ListEdgesEdgesEdgesPageItemsEdge) GetCreatedAt() string { return v.UniformEdge.CreatedAt }
 
@@ -66826,6 +66835,8 @@ type __premarshalListEdgesEdgesEdgesPageItemsEdge struct {
 
 	Priority int `json:"priority"`
 
+	Data *json.RawMessage `json:"data"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -66857,6 +66868,7 @@ func (v *ListEdgesEdgesEdgesPageItemsEdge) __premarshalJSON() (*__premarshalList
 	retval.Description = v.UniformEdge.Description
 	retval.IsRunnable = v.UniformEdge.IsRunnable
 	retval.Priority = v.UniformEdge.Priority
+	retval.Data = v.UniformEdge.Data
 	retval.CreatedAt = v.UniformEdge.CreatedAt
 	retval.UpdatedAt = v.UniformEdge.UpdatedAt
 	retval.CreatedByUser = v.UniformEdge.CreatedByUser
@@ -73714,7 +73726,8 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge struct {
 	Priority int `json:"priority"`
 	// If true, this edge can be executed/run (task automation, conversation
 	// transitions). Mirrors Node.isRunnable.
-	IsRunnable *bool `json:"isRunnable"`
+	IsRunnable *bool            `json:"isRunnable"`
+	Data       *json.RawMessage `json:"data"`
 	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdgeSourceNode `json:"source"`
 }
@@ -73738,6 +73751,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetPriorit
 // GetIsRunnable returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetIsRunnable() *bool {
 	return v.IsRunnable
+}
+
+// GetData returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Data, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge) GetData() *json.RawMessage {
+	return v.Data
 }
 
 // GetSource returns NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
@@ -73810,6 +73828,7 @@ type NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge struct {
 	// one of them — a count and a category error in one sentence.
 	// See hadron-docs/docs/reference/edge-conditions.md.
 	Condition *json.RawMessage `json:"condition"`
+	Data      *json.RawMessage `json:"data"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdgeTargetNode `json:"target"`
 }
@@ -73843,6 +73862,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetPriorit
 // GetCondition returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Condition, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetCondition() *json.RawMessage {
 	return v.Condition
+}
+
+// GetData returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Data, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) GetData() *json.RawMessage {
+	return v.Data
 }
 
 // GetTarget returns NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
@@ -117116,7 +117140,8 @@ type UniformEdge struct {
 	IsRunnable *bool `json:"isRunnable"`
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
-	Priority int `json:"priority"`
+	Priority int              `json:"priority"`
+	Data     *json.RawMessage `json:"data"`
 	// #1151 - when the edge was created.
 	CreatedAt string `json:"createdAt"`
 	// #1151 - when the edge row last changed (stamped on create too; null only for a row inserted outside the API).
@@ -117151,6 +117176,9 @@ func (v *UniformEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns UniformEdge.Priority, and is useful for accessing the field via an interface.
 func (v *UniformEdge) GetPriority() int { return v.Priority }
+
+// GetData returns UniformEdge.Data, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetData() *json.RawMessage { return v.Data }
 
 // GetCreatedAt returns UniformEdge.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UniformEdge) GetCreatedAt() string { return v.CreatedAt }
@@ -167833,6 +167861,7 @@ fragment UniformEdge on Edge {
 	description
 	isRunnable
 	priority
+	data
 	createdAt
 	updatedAt
 	createdByUser {
@@ -171995,6 +172024,7 @@ fragment UniformEdge on Edge {
 	description
 	isRunnable
 	priority
+	data
 	createdAt
 	updatedAt
 	createdByUser {
@@ -174384,6 +174414,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 				isRunnable
 				priority
 				condition
+				data
 				target {
 					id
 					loc
@@ -174396,6 +174427,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 				loc
 				priority
 				isRunnable
+				data
 				source {
 					id
 					loc

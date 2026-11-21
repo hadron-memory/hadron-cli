@@ -2,6 +2,7 @@ package node
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -441,6 +442,9 @@ type edgeRefDTO struct {
 	NodeID     string `json:"nodeId"`
 	Loc        string `json:"loc"`
 	MemoryID   string `json:"memoryId"`
+	// Data is the edge's own data object (the cross-memory route marker among it),
+	// verbatim; null when the edge has none (cli#2844).
+	Data *json.RawMessage `json:"data"`
 }
 
 // edgeRel is the relationship shown for an edge: its name, or its loc when the
@@ -452,7 +456,7 @@ func edgeRel(e edgeRefDTO) string {
 	return e.EdgeLoc
 }
 
-func edgeRefOf(edgeID string, name *string, edgeLoc string, isRunnable *bool, priority int, nodeID, loc, memoryID string) edgeRefDTO {
+func edgeRefOf(edgeID string, name *string, edgeLoc string, isRunnable *bool, priority int, data *json.RawMessage, nodeID, loc, memoryID string) edgeRefDTO {
 	n := ""
 	if name != nil {
 		n = *name
@@ -463,7 +467,7 @@ func edgeRefOf(edgeID string, name *string, edgeLoc string, isRunnable *bool, pr
 	}
 	return edgeRefDTO{
 		EdgeID: edgeID, Name: n, EdgeLoc: edgeLoc, IsRunnable: run, Priority: priority,
-		NodeID: nodeID, Loc: loc, MemoryID: memoryID,
+		NodeID: nodeID, Loc: loc, MemoryID: memoryID, Data: data,
 	}
 }
 
@@ -507,7 +511,7 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			tid, tloc, tmem = e.Target.Id, e.Target.Loc, e.Target.MemoryId
 		}
 		dto.OutgoingEdges = append(dto.OutgoingEdges,
-			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, tid, tloc, tmem))
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Data, tid, tloc, tmem))
 	}
 	for _, e := range n.IncomingEdges {
 		sid, sloc, smem := "", "", ""
@@ -515,7 +519,7 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			sid, sloc, smem = e.Source.Id, e.Source.Loc, e.Source.MemoryId
 		}
 		dto.IncomingEdges = append(dto.IncomingEdges,
-			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Data, sid, sloc, smem))
 	}
 	if u := n.CreatedByUser; u != nil {
 		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)

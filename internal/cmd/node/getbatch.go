@@ -205,7 +205,7 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 			tid, tloc, tmem = e.Target.Id, e.Target.Loc, e.Target.MemoryId
 		}
 		dto.OutgoingEdges = append(dto.OutgoingEdges,
-			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, tid, tloc, tmem))
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Data, tid, tloc, tmem))
 	}
 	for _, e := range n.IncomingEdges {
 		sid, sloc, smem := "", "", ""
@@ -213,7 +213,7 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 			sid, sloc, smem = e.Source.Id, e.Source.Loc, e.Source.MemoryId
 		}
 		dto.IncomingEdges = append(dto.IncomingEdges,
-			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
+			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, e.Data, sid, sloc, smem))
 	}
 	// Same rule as detailDTO (hadron-cli#1513): the provider's object or null.
 	if u := n.CreatedByUser; u != nil {
