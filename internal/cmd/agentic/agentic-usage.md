@@ -697,7 +697,7 @@ hadron quota list --org <ref> [--app <ref>] | set --org <ref> [--app <ref>] --ac
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
 hadron drive create-doc <node-id-or-qualified-URN> --connection <ref> [--folder <id>] [--title <text>] [--yes]   # one exportNodeToGoogleDoc mutation, never retried; creates a NEW Google Doc in the connection owner's external account, never updates an existing one. Content copied out cannot be recalled from Hadron. Requires confirmation: without a terminal, omitting --yes exits 2 with zero requests; declining the terminal prompt exits 6 with zero requests. Only the connection owner acting as themselves can create; drive.read, App/headless and impersonated callers do not authorize it. Server reads/resolves the node with the caller's access; locked encrypted nodes need global --unlock. Omitted folder/title are absent on the wire (Drive root/node name defaults); empty supplied values refuse locally. Success returns the same file DTO as drive get, including nullable size, parents[], and nullable times/webLink. An unanswered/malformed response exits 7: the outcome is unknown; check the drive before retrying, since a repeat creates another Doc. Server refusals and unknown-code fallback retain normal mapping. drive export stays read-only to local stdout; it never calls this mutation.
-hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json] | test <connection-id> [--json] | disconnect <connection-id> [--yes] [--json]   # reads (cli#198 Slice A) plus test/disconnect (Slice B): nothing sends, replies, drafts, moves, flags or deletes mail
+hadron email connections --org <id|urn> [--limit N] [--offset N] [--json] | messages --connection <id> [--top N] [--unread] [--json] | folders --connection <id> [--json] | test <connection-id> [--json] | disconnect <connection-id> [--yes] [--json] | reply <message-id> --connection <id> --body-file <path|-> [--yes] | draft save --connection <id> (--reply-to <message-id> | --to <addr>... --subject <s>) --body-file <path|-> [--idempotency-key <k>] | draft update <draft-id> --connection <id> --body-file <path|-> | draft send <draft-id> --connection <id> [--idempotency-key <k>] [--yes] | mark-read <message-id> --connection <id> [--unread] | flag <message-id> --connection <id> [--flag FLAGGED|NONE|COMPLETE] | categorize <message-id> --connection <id> (--category <name>... | --clear) | delete <message-id> --connection <id> [--yes] | move <message-id> --connection <id> --folder <folder-id>   # cli#198: reads (Slice A), test/disconnect (Slice B), mailbox effects (Slice C); every command is ONE request, never retried
 hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id> | connect --org <ref> --app <ref> --bot-token-file <path|-> --app-token-file <path|-> | disconnect <connection-id> [--yes]   # status/get are read-only Slack workspace connections; one page (server default 20), stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4; status is a recorded value, not a health check: ACTIVE = registered, not proof it works (a failed token is not always recorded), ERROR = recorded as failed, reason not shown; recovery is an org admin running disconnect on the ERROR connection first and then connect again (the server refuses a workspace that is still registered, whatever its status); --app and the saved org do not apply to status. connect: one request, never retried, tokens ONLY from files (one flag per token; "-" = stdin for at most ONE of them, both "-" or "-" on a terminal or a missing flag is refused before any request; a token is never a flag value or in any output/error/JSON), --org/--app take an ID or URN (--app also <root>:<slug>), the server decides org ADMIN/OWNER, App-in-org and one connection per workspace (refusals pass through: 8 not admin, 4 not found, 2 bad input), prints the connection like get (11 fields, never a token or lastError; an answer without an id or with an unknown status is unconfirmed, exit 7 (an unknown status names "hadron slack disconnect <id>" inline, since get/status refuse the same status); suggested commands are shell-quoted, use --org=<value> and "--" before an id (a leading-dash id), and never print a --org value that holds a token or a control character (the pointer is then the unfiltered "hadron slack status") or an id with control characters (then no command, only "upgrade hadron / ask the administrator", since get/status refuse the same unknown status); a suggested command is alone on the last line of connect's status pointer and of disconnect's get/status pointer (the unknown-status recovery names its disconnect command inline, mid-sentence); connect refuses "-" on a terminal for EITHER token flag before opening any source; status ERROR is shown as "registered, but ... recorded a failure", not "connected"), a lost answer is "outcome unknown": check hadron slack status --org (one page: follow its --offset hint); every server-supplied string (message, serverCode, success fields) is scrubbed of the submitted tokens before it is shown; disconnect: one request, never retried, asks on a terminal (prompt says soft delete, best-effort token teardown, reconnect registers anew) else --yes is required (nothing sent without it), NOT_FOUND passes through unchanged (an unknown id and another org look the same, no pre-read), the server soft-deletes and tears down the tool side best-effort (not reported), --json {connectionId,disconnected:true}
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
 hadron connection flow <flow-id> [--json]
@@ -5200,6 +5200,53 @@ is {connectionId,disconnected}. "Disconnected" means Hadron's record: the
 provider-side teardown is the server's best effort and is not reported. A missing
 or blank id exits 2 with no request. Both commands: unknown tool failures keep the
 existing fallback with no reconnect advice.
+
+**Mailbox effects (cli#198 Slice C)** — each is one GraphQL request and is never retried; the
+server decides ownership (owner, or an App with a covering grant; impersonated sessions and an org
+admin who is not the owner are refused) and its refusals pass through (FORBIDDEN exit 8), unknown
+tool failures keep the existing fallback with no reconnect advice, and a false answer exits 7 "not
+confirmed". A missing or blank `--connection` or id exits 2 with no request; ids and string flags are sent exactly as given (not trimmed), so invalid UTF-8 in one exits 2 with no request.
+- `email reply MESSAGE-ID --connection ID --body-file PATH|-` calls exchangeReply and replies to
+  the SENDER only (the server takes no recipient: no `--all`, no `--to`). It SENDS MAIL: asks y/N on
+  a terminal, else exit 2 with ZERO requests unless `--yes` (refused before stdin is read). The body
+  (file, or `-` for stdin; required, nonempty, valid UTF-8, 1 MiB max; `--body-file -` on an
+  interactive terminal exits 2) exits 2 with no request when invalid. Error text and server codes
+  from FAILED writes are never printed: a failure of the commands that SUBMIT a body (reply, draft
+  save, draft update) does not show the server's error message, an HTTP body or a decode error (any
+  of them can quote the body); it shows the CLI's own words plus the HTTP status, or the server's
+  error CODE when it is on a fixed allowlist of protocol codes (an unknown or body-derived code is
+  dropped, in the message and in the --json serverCode), and keeps the exit class. Ids in a
+  SUCCESS are shown as the server returned them.
+  For the SEND (reply, and draft send): only a pre-send refusal (FORBIDDEN, UNAUTHENTICATED,
+  BAD_USER_INPUT, GraphQL validation) is definitive; any other GraphQL error, and any answer with no
+  usable GraphQL error at all (a dropped connection, a timeout, a bad HTTP answer), carries "outcome
+  unknown ... check the Sent folder" (never "failed": the mail may have been sent) and the CLI does
+  not retry. Draft send has no body and keeps the server's words. If the SERVER confirmed an effect but writing the result then fails (a closed stdout), the error says the server confirmed it and where to check (Drafts or Sent folder) before any retry. There is no idempotency key on reply.
+- `email draft save` calls emailSaveDraft: a reply-draft with `--reply-to` ALONE, or a fresh one with
+  `--to` (repeatable) AND `--subject` (any other combination exits 2 with no request and before the
+  body is read); the body is HTML sent as written. It prints {draftId,conversationId}
+  (conversationId may be null), printed as the server returned them: a draft that was created is never
+  refused or altered on a guess about its id. An unclear save (no usable answer, or a success with no
+  usable draft id) is exit 7 "outcome unknown: a draft may have been created; check the Drafts folder
+  before trying again". A retry is protected from a second draft only when the ORIGINAL request carried
+  the same valid `--idempotency-key` too (within the server's deduplication window); the message says
+  which case applies, and says a key added only on the retry does not protect. An explicitly empty or
+  whitespace-only key is sent unchanged but counts as no key for this guidance (CLI policy, deliberately
+  conservative: the server dedups only on a real key, and the CLI cannot tell whether it accepted one).
+  `--idempotency-key` is passed unchanged (an empty value too) and omitted when unset: the CLI never
+  invents or replays one, and retry protection needs the same valid key reused within the server's
+  deduplication window. `draft update DRAFT-ID` calls
+  emailUpdateDraft and replaces the body only; it has no idempotency key because the server has
+  none. `draft send DRAFT-ID` calls emailSendDraft: SENDS MAIL (confirmation or `--yes`),
+  `--idempotency-key` passed unchanged, an ambiguous result is "outcome unknown, check the Sent
+  folder".
+- `email mark-read` (emailMarkRead; `--unread` sends isRead:false, unset omits it), `email flag`
+  (emailFlagMessage; `--flag FLAGGED|NONE|COMPLETE`, accepted in any case with surrounding space ignored, unset omits it,
+  anything else exits 2 with no request), `email categorize` (emailCategorizeMessage; repeatable `--category`, or `--clear` for an
+  explicit empty list; neither or both exits 2), `email move --folder FOLDER-ID` (exchangeMoveMessage;
+  the folder id is the one `email folders` prints), `email delete` (emailDeleteMessage, provider
+  trash semantics; asks y/N, else `--yes` or exit 2 with no request). `--json` for these is
+  {connectionId,messageId|draftId,action,ok}.
 
 
 `hadron connection connect <provider> --org REF` starts the OAuth flow that
