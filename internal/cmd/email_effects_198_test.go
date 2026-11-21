@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // hadron-cli#198 Slice C: the mailbox effects. Fake HTTP only: no mailbox, no
@@ -1207,9 +1209,22 @@ func TestEmailDefinitiveRefusalCodesTable198(t *testing.T) {
 		{"reply", "EmailReply", []string{"reply", "--connection", "c", "m1", "--body-file", body, "--yes"}},
 		{"draft send", "EmailSendDraft", []string{"draft", "send", "--connection", "c", "d1", "--yes"}},
 	}
-	definitive := []string{"FORBIDDEN", "UNAUTHENTICATED", "BAD_USER_INPUT", "GRAPHQL_VALIDATION_FAILED", "GRAPHQL_PARSE_FAILED"}
+	// The exact exit per definitive code (the mapping api.MapError applies): a refusal
+	// mapped to any other class must fail here, not just one that happens to be 0 or 7.
+	// A GraphQL parse failure has no dedicated class and maps to the generic error (1).
+	definitive := []struct {
+		code string
+		exit int
+	}{
+		{"FORBIDDEN", exitcode.Forbidden},
+		{"UNAUTHENTICATED", exitcode.AuthRequired},
+		{"BAD_USER_INPUT", exitcode.Usage},
+		{"GRAPHQL_VALIDATION_FAILED", exitcode.Usage},
+		{"GRAPHQL_PARSE_FAILED", exitcode.Error},
+	}
 	for _, s := range sends {
-		for _, code := range definitive {
+		for _, d := range definitive {
+			code := d.code
 			t.Run(s.name+" definitive "+code, func(t *testing.T) {
 				wire := `{"errors":[{"message":"x","extensions":{"code":"` + code + `"}}]}`
 				_, _, n, err := runEffect198(t, map[string]string{s.op: wire}, "", s.args...)
@@ -1219,8 +1234,8 @@ func TestEmailDefinitiveRefusalCodesTable198(t *testing.T) {
 				if strings.Contains(strings.ToLower(err.Error()), "outcome unknown") {
 					t.Errorf("%s is a definitive pre-send refusal but carries the unknown-outcome guidance: %v", code, err)
 				}
-				if exitCodeFor(err) == 0 || exitCodeFor(err) == 7 {
-					t.Errorf("%s: exit %d, want the mapped refusal class (not 0, not the unknown-outcome 7)", code, exitCodeFor(err))
+				if got := exitCodeFor(err); got != d.exit {
+					t.Errorf("%s: exit %d, want exactly %d", code, got, d.exit)
 				}
 			})
 		}
