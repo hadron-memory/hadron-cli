@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
@@ -26,7 +27,10 @@ func TestHealthDupeDefaultNeverExecutesAmbientOrca2404(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(exe, "-test.run=^TestHealthDupeDefaultChild2404$")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, exe, "-test.run=^TestHealthDupeDefaultChild2404$")
+	cmd.WaitDelay = time.Second
 	cmd.Env = append(os.Environ(), "PATH="+dir, "HADRON_TEST_2404_CHILD=1", "HADRON_TEST_2404_MARKER="+marker)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
