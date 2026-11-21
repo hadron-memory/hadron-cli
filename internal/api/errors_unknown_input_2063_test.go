@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
@@ -55,6 +56,32 @@ func TestIsDefiniteRefusal(t *testing.T) {
 		"empty list":     {gqlerror.List{}, false},
 	} {
 		if got := IsDefiniteRefusal(tc.err); got != tc.want {
+			t.Errorf("%s: %v, want %v", name, got, tc.want)
+		}
+	}
+}
+
+func TestIsDefiniteRefusalAt398(t *testing.T) {
+	at := func(code string, path ...string) *gqlerror.Error {
+		var p ast.Path
+		for _, e := range path {
+			p = append(p, ast.PathName(e))
+		}
+		return &gqlerror.Error{Message: "m", Path: p, Extensions: map[string]any{"code": code}}
+	}
+	for name, tc := range map[string]struct {
+		err  error
+		want bool
+	}{
+		"no path":           {gqlerror.List{at("FORBIDDEN")}, true},
+		"at the field":      {gqlerror.List{at("BAD_USER_INPUT", "allocateSpecNode")}, true},
+		"below the field":   {gqlerror.List{at("FORBIDDEN", "allocateSpecNode", "revision")}, false},
+		"mixed below":       {gqlerror.List{at("FORBIDDEN"), at("FORBIDDEN", "allocateSpecNode", "id")}, false},
+		"another field":     {gqlerror.List{at("FORBIDDEN", "other")}, false},
+		"internal at field": {gqlerror.List{at("INTERNAL_SERVER_ERROR", "allocateSpecNode")}, false},
+		"http envelope":     {&graphql.HTTPError{StatusCode: 200, Response: graphql.Response{Errors: gqlerror.List{at("FORBIDDEN", "allocateSpecNode", "id")}}}, false},
+	} {
+		if got := IsDefiniteRefusalAt(tc.err, "allocateSpecNode"); got != tc.want {
 			t.Errorf("%s: %v, want %v", name, got, tc.want)
 		}
 	}

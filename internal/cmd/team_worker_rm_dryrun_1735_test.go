@@ -17,7 +17,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// cli#1735 (provider hadron-server#3605 at 8bbf82dd, CHECKED Option A):
+// cli#1735 (provider hadron-server#3605 at 8bbf82dd, merged 2026-11-06, CHECKED Option A):
 // `team worker rm --dry-run` is ONE deleteWorkerPreview Query after the worker
 // lookup. It never sends the attestation, never calls deleteWorker, never
 // prompts, never retries and never falls back; it is advisory, not a
@@ -266,7 +266,7 @@ func TestWorkerRmDryRunHelp1735(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, phrase := range []string{"--dry-run", "8bbf82dd", "deleteWorkerPreview", "not a reservation", "never replaces"} {
+	for _, phrase := range []string{"--dry-run", "2026-11-06", "deleteWorkerPreview", "not a reservation", "never replaces"} {
 		if !strings.Contains(out.String(), phrase) {
 			t.Errorf("help lacks %q:\n%s", phrase, out)
 		}

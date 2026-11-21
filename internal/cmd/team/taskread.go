@@ -486,20 +486,20 @@ finished tasks only, so with it the lookup cannot find an active holder.
 --ref <target> lists tasks carrying a typed reference with exactly that target
 (never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
 node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
---overdue lists tasks overdue on the server clock (the database clock).
-Two arms: a pending, not-started task whose start-by has passed, or a
-pending or started task whose finish-by has passed. An ended (finished or
-cancelled) task and a backlog task are never overdue, and neither is a task
-with neither time. Blocking is ignored and a person-assigned task counts
-like any other; --overdue=false lists all other tasks. This is a filter,
-not an alarm (the stall.finish-by deadline alarm is separate and
-unchanged). The finish-by arm needs a provider containing
-hadron-server#2654; an older one filters by start-by only.
+--overdue lists tasks overdue on the server clock (the database clock). Two
+arms: a pending, not-started task whose start-by has passed, or a pending or
+started task whose finish-by has passed. An ended (finished or cancelled)
+task and a backlog task are never overdue, and neither is a task with
+neither time. Blocking is ignored and a person-assigned task counts like any
+other; --overdue=false lists all other tasks. This is a filter, not an alarm
+(the stall.finish-by deadline alarm is separate and unchanged). The
+finish-by arm needs a provider containing hadron-server#2654; an older one
+filters by start-by only.
 --created-/--started-/--finished-after and -before take RFC 3339 times
 with Z or an offset and are inclusive bounds; a task with no start or
 finish time never matches a range on it. A malformed time is a usage
-error (exit 2) and nothing is sent. These
-filters AND with the rest and do not combine with --team.
+error (exit 2) and nothing is sent. These filters AND with the rest and
+do not combine with --team.
 
 --team is a coordinator's view of work in flight (#1044). The team is the
 coordinator — the bound worker for a bare --team, or --team=worker:<id, URN

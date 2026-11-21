@@ -1,0 +1,370 @@
+# Questions: the logs and the questions in them (hadron-server#1641, slices S1-S4:
+# #4425 rename, #4426 shape, #4427 answer and retract, #4428 lists and filters;
+# hadron-cli#2465). This replaces the decision.graphql of hadron-cli#1335.
+#
+# Every operation is passed through: refs go to the server exactly as typed and
+# who may do what is the server's rule (cor:api:240:01). Optional fields of the
+# ask/amend input objects carry omitempty (except the presence-sensitive lists
+# noted at each operation), so a field the caller left out stays omitted: amend
+# reads an omitted field as "unchanged", and QuestionRefInput is exactly one of
+# ref/node/spec, so a sent null for the other two would be a different request.
+
+fragment QuestionActorRefFields on CommentActorRef { id name handle urn }
+
+fragment QuestionActorFields on QuestionActor {
+  userId
+  user { ...QuestionActorRefFields }
+  workerId
+  worker { ...QuestionActorRefFields }
+  appId
+  app { ...QuestionActorRefFields }
+}
+
+fragment QuestionRefFields on QuestionRef { ref node spec }
+
+fragment QuestionIdentityMergeFields on QuestionIdentityMerge {
+  fromUserId
+  from { ...QuestionActorRefFields }
+  toUserId
+  to { ...QuestionActorRefFields }
+  mergedAt
+}
+
+fragment QuestionAnswerFields on QuestionAnswer {
+  kind
+  at
+  byUserId
+  by { ...QuestionActorRefFields }
+  key
+  text
+  reason
+  via
+}
+
+fragment QuestionFields on Question {
+  id
+  urn
+  code
+  n
+  logId
+  title
+  background
+  whyNow
+  state
+  tier
+  priority
+  answered
+  authorizes
+  revSeq
+  portalUrl
+  viewerIsDecider
+  viewerMayAnswer
+  askedAt
+  answeredAt
+  neededBy
+  defaultAction
+  taskId
+  askedBy { ...QuestionActorFields }
+  assigneeId
+  assignee { ...QuestionActorRefFields }
+  effectiveAssigneeId
+  effectiveAssignee { ...QuestionActorRefFields }
+  deciderIds
+  deciders { ...QuestionActorRefFields }
+  identityMerges { ...QuestionIdentityMergeFields }
+  options { key label whyChoose whyNot risks }
+  recommendation { key reason by { ...QuestionActorFields } }
+  noRecommendationReason
+  answer { ...QuestionAnswerFields }
+  answers { ...QuestionAnswerFields }
+  blocks { ...QuestionRefFields }
+  sources { ...QuestionRefFields }
+  specsTouched { ...QuestionRefFields }
+  specsMustChange { ...QuestionRefFields }
+  withdrawn { at reason by { ...QuestionActorFields } }
+  evidence {
+    approval {
+      approvedAt
+      revision
+      integrity
+      byDecider
+      byUserId
+      by { ...QuestionActorRefFields }
+    }
+  }
+}
+
+fragment QuestionLogFields on QuestionLog {
+  id
+  urn
+  loc
+  name
+  prefix
+  lastCode
+  revSeq
+  portalUrl
+  memoryId
+  defaultDeciderIds
+  defaultDeciders { ...QuestionActorRefFields }
+  eligibleDeciderIds
+  eligibleDeciders { ...QuestionActorRefFields }
+  identityMerges { ...QuestionIdentityMergeFields }
+  purges {
+    code
+    at
+    reason
+    contentHash
+    byUserId
+    by { ...QuestionActorRefFields }
+  }
+}
+
+query QuestionLog($ref: ID!) {
+  questionLog(ref: $ref) { ...QuestionLogFields }
+}
+
+# The logs of one App or one memory. Each argument is omitted when unset, so the
+# server sees exactly the selector the caller gave.
+query QuestionLogs(
+  # @genqlient(omitempty: true)
+  $appRef: ID,
+  # @genqlient(omitempty: true)
+  $memoryRef: ID
+) {
+  questionLogs(appRef: $appRef, memoryRef: $memoryRef) { ...QuestionLogFields }
+}
+
+# By ref, or by code within logRef. Each argument is omitted when unset so the
+# server sees exactly the selector the caller gave.
+query Question(
+  # @genqlient(omitempty: true)
+  $ref: ID,
+  # @genqlient(omitempty: true)
+  $code: String,
+  # @genqlient(omitempty: true)
+  $logRef: ID
+) {
+  question(ref: $ref, code: $code, logRef: $logRef) { ...QuestionFields }
+}
+
+# The server pages (limit/offset, QuestionPage.total); every filter is sent only
+# when the caller gave it, so an omitted one keeps the server default (limit 20,
+# offset 0, sort PORTAL_DEFAULT).
+query Questions(
+  # @genqlient(omitempty: true)
+  $appRef: ID,
+  # @genqlient(omitempty: true)
+  $logRef: ID,
+  # @genqlient(omitempty: true)
+  $awaitingMe: Boolean,
+  # @genqlient(omitempty: true)
+  $authorizes: Boolean,
+  # @genqlient(omitempty: true)
+  $answered: Boolean,
+  # @genqlient(omitempty: true)
+  $answeredSince: DateTime,
+  # @genqlient(omitempty: true)
+  $askedByMe: Boolean,
+  # @genqlient(omitempty: true)
+  $askedByWorkerId: ID,
+  # @genqlient(omitempty: true)
+  $askedByAppId: ID,
+  # @genqlient(omitempty: true)
+  $assigneeId: ID,
+  # @genqlient(omitempty: true)
+  $unassigned: Boolean,
+  # @genqlient(omitempty: true)
+  $state: [QuestionState!],
+  # @genqlient(omitempty: true)
+  $tier: QuestionTier,
+  # @genqlient(omitempty: true)
+  $priority: [QuestionPriority!],
+  # @genqlient(omitempty: true)
+  $sort: QuestionSort,
+  # @genqlient(omitempty: true)
+  $limit: Int,
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  questions(
+    appRef: $appRef
+    logRef: $logRef
+    awaitingMe: $awaitingMe
+    authorizes: $authorizes
+    answered: $answered
+    answeredSince: $answeredSince
+    askedByMe: $askedByMe
+    askedByWorkerId: $askedByWorkerId
+    askedByAppId: $askedByAppId
+    assigneeId: $assigneeId
+    unassigned: $unassigned
+    state: $state
+    tier: $tier
+    priority: $priority
+    sort: $sort
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items { ...QuestionFields }
+  }
+}
+
+query VerifyQuestion($ref: ID!) {
+  verifyQuestion(ref: $ref) {
+    state
+    revision
+    approvedRevision
+    approvalIntegrity
+    approvalByDecider
+    codec
+    renderer
+    findings
+  }
+}
+
+mutation CreateQuestionLog(
+  $memoryRef: ID!,
+  $loc: String!,
+  # @genqlient(omitempty: true)
+  $name: String,
+  # @genqlient(omitempty: true)
+  $prefix: String,
+  $defaultDeciders: [ID!]!,
+  # @genqlient(omitempty: true)
+  $eligibleDeciders: [ID!]
+) {
+  createQuestionLog(
+    memoryRef: $memoryRef
+    loc: $loc
+    name: $name
+    prefix: $prefix
+    defaultDeciders: $defaultDeciders
+    eligibleDeciders: $eligibleDeciders
+  ) { ...QuestionLogFields }
+}
+
+mutation SetQuestionLogDeciders(
+  $logRef: ID!,
+  $defaultDeciders: [ID!]!,
+  # NO omitempty on purpose: nil is sent as null, which keeps the log's
+  # eligible set, and [] clears it (eligibleDeciders == null ? prior : given).
+  $eligibleDeciders: [ID!],
+  $expectedRevision: Int!,
+  $reason: String!
+) {
+  setQuestionLogDeciders(
+    logRef: $logRef
+    defaultDeciders: $defaultDeciders
+    eligibleDeciders: $eligibleDeciders
+    expectedRevision: $expectedRevision
+    reason: $reason
+  ) { ...QuestionLogFields }
+}
+
+# deciders carries NO omitempty: null means the log's defaults, while an explicit
+# [] is the caller's own (refused) request, so it must reach the server as sent.
+# @genqlient(for: "AskQuestionInput.assignee", omitempty: true)
+# @genqlient(for: "AskQuestionInput.authorizes", omitempty: true)
+# @genqlient(for: "AskQuestionInput.background", omitempty: true)
+# @genqlient(for: "AskQuestionInput.blocks", omitempty: true)
+# @genqlient(for: "AskQuestionInput.defaultAction", omitempty: true)
+# @genqlient(for: "AskQuestionInput.grant", omitempty: true)
+# @genqlient(for: "AskQuestionInput.neededBy", omitempty: true)
+# @genqlient(for: "AskQuestionInput.noRecommendation", omitempty: true)
+# @genqlient(for: "AskQuestionInput.options", omitempty: true)
+# @genqlient(for: "AskQuestionInput.priority", omitempty: true)
+# @genqlient(for: "AskQuestionInput.recommendation", omitempty: true)
+# @genqlient(for: "AskQuestionInput.sources", omitempty: true)
+# @genqlient(for: "AskQuestionInput.specsMustChange", omitempty: true)
+# @genqlient(for: "AskQuestionInput.specsTouched", omitempty: true)
+# @genqlient(for: "AskQuestionInput.tier", omitempty: true)
+# @genqlient(for: "AskQuestionInput.whyNow", omitempty: true)
+# @genqlient(for: "AskQuestionInput.yesno", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.risks", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.whyChoose", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.whyNot", omitempty: true)
+# @genqlient(for: "QuestionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "QuestionRefInput.node", omitempty: true)
+# @genqlient(for: "QuestionRefInput.ref", omitempty: true)
+# @genqlient(for: "QuestionRefInput.spec", omitempty: true)
+mutation AskQuestion(
+  $logRef: ID!,
+  $input: AskQuestionInput!
+) {
+  askQuestion(logRef: $logRef, input: $input) { ...QuestionFields }
+}
+
+# options, blocks, sources, specsTouched and specsMustChange carry NO omitempty on purpose:
+# the server reads null as "unchanged" and [] as "clear", so an absent key decodes
+# to nil and is sent as null, and an explicit [] clears. (omitempty: false is
+# explicit because use_struct_references adds it by default.)
+# background, whyNow, assignee, neededBy and defaultAction are tri-state on the
+# server (absent keeps, null clears, a value sets), which a pointer cannot carry:
+# RawMessage keeps the file's literal null (non-nil "null") apart from an absent
+# key (nil, omitted).
+# @genqlient(for: "AmendQuestionInput.blocks", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.sources", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.specsTouched", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.specsMustChange", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.background", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "AmendQuestionInput.whyNow", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "AmendQuestionInput.assignee", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "AmendQuestionInput.neededBy", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "AmendQuestionInput.defaultAction", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "AmendQuestionInput.noRecommendation", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.options", omitempty: false)
+# @genqlient(for: "AmendQuestionInput.priority", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.recommendation", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.tier", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.title", omitempty: true)
+# @genqlient(for: "AmendQuestionInput.yesno", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.risks", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.whyChoose", omitempty: true)
+# @genqlient(for: "QuestionOptionInput.whyNot", omitempty: true)
+# @genqlient(for: "QuestionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "QuestionRefInput.node", omitempty: true)
+# @genqlient(for: "QuestionRefInput.ref", omitempty: true)
+# @genqlient(for: "QuestionRefInput.spec", omitempty: true)
+mutation AmendQuestion(
+  $ref: ID!,
+  $input: AmendQuestionInput!,
+  $expectedRevision: Int!,
+  $reason: String!
+) {
+  amendQuestion(ref: $ref, input: $input, expectedRevision: $expectedRevision, reason: $reason) { ...QuestionFields }
+}
+
+# via is always CLI (set by the command, never a flag): where the answer was
+# given, as the answering caller states it. optionKey, text and reason are sent
+# only when given.
+# @genqlient(for: "AnswerQuestionInput.optionKey", omitempty: true)
+# @genqlient(for: "AnswerQuestionInput.reason", omitempty: true)
+# @genqlient(for: "AnswerQuestionInput.text", omitempty: true)
+# @genqlient(for: "AnswerQuestionInput.via", omitempty: true)
+mutation AnswerQuestion(
+  $ref: ID!,
+  $input: AnswerQuestionInput!,
+  $expectedRevision: Int!
+) {
+  answerQuestion(ref: $ref, input: $input, expectedRevision: $expectedRevision) { ...QuestionFields }
+}
+
+mutation RetractQuestionAnswer(
+  $ref: ID!,
+  $expectedRevision: Int!,
+  # @genqlient(omitempty: true)
+  $reason: String,
+  # @genqlient(omitempty: true)
+  $via: QuestionAnswerVia
+) {
+  retractQuestionAnswer(ref: $ref, expectedRevision: $expectedRevision, reason: $reason, via: $via) { ...QuestionFields }
+}
+
+mutation WithdrawQuestion($ref: ID!, $reason: String!, $expectedRevision: Int!) {
+  withdrawQuestion(ref: $ref, reason: $reason, expectedRevision: $expectedRevision) { ...QuestionFields }
+}
+
+mutation PurgeUnansweredQuestion($ref: ID!, $reason: String!) {
+  purgeUnansweredQuestion(ref: $ref, reason: $reason)
+}

@@ -128,26 +128,70 @@ type exampleResult struct {
 // the harness does not redirect into the test directory: absolute and outside
 // it (a prefix match on the directory itself does not count — a SIBLING
 // directory shares the prefix), a home path, or a parent path. Values are
-// read wherever a path can sit — a bare word, after --flag= or -f=, or after
-// an @file's @ — and cleaned first, so "a/.." and "./.." are judged as the
+// read from the argument shapes examplePathCandidates1053 names (a bare word, after
+// --flag= or -f=, a glued short-flag value or cluster, after an @file's @, in
+// key=value at any depth, in a comma list) and cleaned first, so "a/.." and "./.." are judged as the
 // parent paths they resolve to, not as strings unlike "../".
+//
+// The check is LEXICAL. Confinement against a symlink under the fixture that points outside
+// it is cli#2813 (deferred by ruling: the runners execute each example in a throwaway
+// directory, and a correct resolver has its own corner cases: `..` after a link, dangling
+// links, names containing a comma).
 func unsafeExamplePath1053(args []string, dir string) string {
+	dir = filepath.Clean(dir)
 	for _, a := range args {
-		v := a
-		if strings.HasPrefix(v, "-") {
-			if i := strings.Index(v, "="); i >= 0 {
-				v = v[i+1:]
+		for _, v := range examplePathCandidates1053(a) {
+			p := filepath.Clean(v)
+			if strings.HasPrefix(v, "~") ||
+				(filepath.IsAbs(p) && p != dir && !strings.HasPrefix(p, dir+string(filepath.Separator))) ||
+				p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
+				return v
 			}
-		}
-		v = strings.TrimPrefix(v, "@")
-		p := filepath.Clean(v)
-		if strings.HasPrefix(v, "~") ||
-			(filepath.IsAbs(p) && p != dir && !strings.HasPrefix(p, dir+string(filepath.Separator))) ||
-			p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
-			return v
 		}
 	}
 	return ""
+}
+
+// examplePathCandidates1053 lists the values an example argument could make a command read
+// or write, for the argument shapes it understands (cli#2525 F6, cli#2849 F18): the argument
+// itself, the part after a long flag's "=", the glued value of a short flag or of a cluster
+// of them ("-o/etc/x", "-vo/etc/x": the value may start where a path does, so the text from
+// the first "/", "~" or "." after the flag letters is a candidate too), each item of a comma list, and the part after
+// EVERY "=" inside an item ("key=/etc/x", "a=b=/etc/x"), each without a leading "@". It is
+// a lexical reading of the shapes the examples use, not a parse of any command's flags: a
+// value in a shape this does not read (say a path inside a quoted JSON string) is not listed.
+func examplePathCandidates1053(a string) []string {
+	vals := []string{a}
+	if strings.HasPrefix(a, "--") {
+		if i := strings.Index(a, "="); i >= 0 {
+			vals = []string{a[i+1:]}
+		}
+	} else if strings.HasPrefix(a, "-") && len(a) > 2 {
+		// -o=value, -ovalue, or a cluster such as -vovalue: the text after the first flag
+		// letter, and, where a path starts later in the cluster (the first "/", "~" or "."
+		// after the flag letters: "-vo/etc/x" is -v -o /etc/x), the text from there. An "="
+		// that joins the flag to its value is dropped.
+		vals = []string{strings.TrimPrefix(a[2:], "=")}
+		if k := strings.IndexAny(a[2:], "/~."); k > 0 {
+			vals = append(vals, a[2+k:])
+		}
+	} else if strings.HasPrefix(a, "-") {
+		return nil
+	}
+	var out []string
+	for _, v := range vals {
+		for _, item := range strings.Split(v, ",") {
+			item = strings.TrimPrefix(item, "@")
+			out = append(out, item)
+			// key=value inside an item, at every "=": a=b=/etc/x offers b=/etc/x and /etc/x.
+			for j := 0; j < len(item); j++ {
+				if item[j] == '=' {
+					out = append(out, strings.TrimPrefix(item[j+1:], "@"))
+				}
+			}
+		}
+	}
+	return out
 }
 
 // The guard itself is pinned (Jonas's BLIND delta N4 on #2499): @values,
@@ -159,7 +203,9 @@ func TestUnsafeExamplePathGuard1053(t *testing.T) {
 		t.Fatal(err)
 	}
 	sibling := dir + "-sibling"
-	safe := []string{"notes.txt", "a/b.json", "a/..", "@data.json", "--file=spec.json", "-o=out.json", dir + "/x", dir}
+	safe := []string{"notes.txt", "a/b.json", "a/..", "@data.json", "--file=spec.json", "-o=out.json", dir + "/x", dir,
+		"-oout.json", "-n5", "--set=key=value", "a.json,b.json", "--files=a.json,b/c.json", "k=v", dir + "/../" + filepath.Base(dir) + "/x",
+		"-vn5", "-vvoout.json", "a=b=c", "--set=a=b=c", "-vo" + dir + "/x"}
 	for _, a := range safe {
 		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got != "" {
 			t.Errorf("%q judged unsafe, want safe (reported %q)", a, got)
@@ -170,6 +216,12 @@ func TestUnsafeExamplePathGuard1053(t *testing.T) {
 		"@/etc/passwd", "@/~/x",
 		"--payload-file=/etc/secret", "-o=/home/me/keys",
 		sibling + "/f",
+		// cli#2525 F6: a short-flag value glued to its flag, a key=path inside a value,
+		// and a comma list that carries a path.
+		"-o/etc/x", "-o../x", "-o~/x", "--set=key=/etc/x", "--meta=k=../x", "a.json,/etc/x", "--files=a.json,../b.json",
+		// cli#2849 F18: short flags clustered before a glued value (-v -o/etc/x as -vo/etc/x),
+		// and a value nested in more than one key=value (a=b=/etc/x).
+		"-vo/etc/x", "-vo../x", "-vo~/x", "-vvo/etc/x", "-vo=/etc/x", "a=b=/etc/x", "--set=a=b=/etc/x", "--set=a=b=../x", "x,a=b=/etc/x",
 	}
 	for _, a := range unsafe {
 		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got == "" {

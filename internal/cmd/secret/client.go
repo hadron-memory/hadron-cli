@@ -39,7 +39,7 @@ const (
 func newCmdClient(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "client <command>",
-		Short: "Issue and list read clients for an App secret",
+		Short: "Issue, list and revoke read clients for an App secret",
 		Long: `A read client lets one holder read an App secret's value, within a window and a
 read budget you choose. It is one grant that a person signs: nothing reads until
 then. The holder is you, or a live worker of the App.
@@ -49,7 +49,7 @@ impersonated session and an App key, and decides who may issue (whoever manages
 the App, or wrote the secret's current version). Revealing the value is a worker
 session's act and is not part of these commands.`,
 	}
-	cmd.AddCommand(newCmdClientIssue(f), newCmdClientList(f))
+	cmd.AddCommand(newCmdClientIssue(f), newCmdClientList(f), newCmdClientRevoke(f))
 	return cmd
 }
 
@@ -376,13 +376,39 @@ func pollSigning(parent context.Context, client graphql.Client, id, clientID str
 
 // clientDTO is the --json shape of one row of `client list`.
 type clientDTO struct {
-	ClientID   string  `json:"clientId"`
-	GrantID    string  `json:"grantId"`
-	SecretID   string  `json:"secretId"`
-	SecretName string  `json:"secretName"`
-	SelfIssued bool    `json:"selfIssued"`
-	EndReason  *string `json:"endReason"`
-	CreatedAt  string  `json:"createdAt"`
+	// ClientID is the full id only for the current issuer or holder: the server
+	// shows a manager who is neither the prefix alone, so it is null then.
+	ClientID     *string `json:"clientId"`
+	ClientPrefix string  `json:"clientPrefix"`
+	GrantID      string  `json:"grantId"`
+	SecretID     string  `json:"secretId"`
+	SecretName   string  `json:"secretName"`
+	SelfIssued   bool    `json:"selfIssued"`
+	EndReason    *string `json:"endReason"`
+	CreatedAt    string  `json:"createdAt"`
+}
+
+// fetchClientPage reads one page of the caller's read clients. The list is declared
+// non-null with non-null rows: a missing or null list, or a null row, is a
+// malformed answer, never an empty success (and a dropped row would shift the --all
+// offsets).
+func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.MySecretReadClients(ctx, client, limit, offset)
+	if err != nil {
+		return nil, api.MapErrorKeepingCode(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
+	}
+	return page, nil
 }
 
 func newCmdClientList(f *cmdutil.Factory) *cobra.Command {
@@ -435,27 +461,7 @@ use --limit and --offset beyond that).`,
 					return err
 				}
 			}
-			fetch := func(l, o *int) ([]clientDTO, error) {
-				resp, err := gen.MySecretReadClients(sendCtx, client, l, o)
-				if err != nil {
-					return nil, api.MapErrorKeepingCode(err)
-				}
-				// The list is declared non-null with non-null rows. A missing or null
-				// list, or a null row, is a malformed answer, never an empty success
-				// (and a dropped row would shift the --all offsets).
-				if resp == nil || resp.MySecretReadClients == nil {
-					return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
-				}
-				page := make([]clientDTO, 0, len(resp.MySecretReadClients))
-				for _, c := range resp.MySecretReadClients {
-					if c == nil {
-						return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
-					}
-					page = append(page, clientDTO{ClientID: c.ClientId, GrantID: c.GrantId, SecretID: c.SecretId,
-						SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
-				}
-				return page, nil
-			}
+			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, l, o) }
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
@@ -489,7 +495,7 @@ use --limit and --offset beyond that).`,
 				}
 				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "END REASON", "CREATED", "GRANT")
 				for _, r := range rows {
-					t.Row(output.SafeCell(r.ClientID), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued),
+					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued),
 						output.SafeCell(output.Dash(r.EndReason)), output.SafeCell(r.CreatedAt), output.SafeCell(r.GrantID))
 				}
 				return t.Flush()
@@ -502,4 +508,14 @@ use --limit and --offset beyond that).`,
 	fl.BoolVar(&all, "all", false, "read every page")
 	fl.BoolVar(&asWorker, "as-worker", false, "send this worktree's bound worker session, so the list is the clients that worker holds (default: act as you, no session header)")
 	return cmd
+}
+
+// clientColumn is the CLIENT cell: the full id when the server gave it, else the
+// prefix with an ellipsis (a manager who is neither the issuer nor the holder
+// sees only a prefix, so it is never mistaken for an id).
+func clientColumn(r clientDTO) string {
+	if r.ClientID != nil {
+		return *r.ClientID
+	}
+	return r.ClientPrefix + "…"
 }

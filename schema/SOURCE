@@ -1,43 +1,18 @@
-# Provenance of schema/schema.graphql (hadron-cli#2043, retire with #2658).
+# Provenance of schema/schema.graphql (hadron-cli#2465; retires the cli#2043 merge
+# pin, hadron-cli#2658).
 #
-# The snapshot is NOT an export of a commit on hadron-server main. It is the
-# export of the merge of these two named hadron-server commits, because the
-# CLI needs hadron-server#4219 (the S4+S6 renames) and #4414
-# (workedFromRoleTaskRefs) but cannot yet regenerate against S2 (#4513, which
-# removed fields the old-shape decision.graphql selects).
+# The snapshot is the export of ONE real hadron-server commit, server_sha below,
+# which is on hadron-server main and carries Questions S1-S4 (#4425-#4428) and
+# everything the CLI selects. It is no longer a merge of two commits with an overlay.
+# Refresh it with the skill refresh-the-schema-snapshot (a detached worktree of the
+# commit you name, `make schema HADRON_SERVER_DIR=... SDL_EXPORT=...`) and name the
+# new commit here and in the PR. `make schema-check` re-exports from a server
+# checkout and fails when the generated client would change for an operation the CLI
+# uses; the schema-drift workflow runs it nightly against server main, and its snapshot-reproduces job exports exactly server_sha with the tool versions below and compares the bytes.
 #
-# scripts/pin-server-sdl.sh reproduces that merge byte-deterministically, and
-# its --verify checks the export against merge_sha/sdl_sha256/sdl_lines below
-# and against the committed snapshot. The nightly schema-drift job checks the
-# pin the same way (its pin-verify job); the drift job proper does something
-# else: it compares the snapshot against hadron-server main, which the pin
-# deliberately differs from until #2658 retires it.
-#
-# head= is the commit merged INTO base= (the merge's second parent), not the
-# resulting merge commit — whose SHA the script reproduces deterministically
-# and records as merge_sha=.
-#
-# sdl_sha256/sdl_lines were produced with the tool versions recorded below as
-# tsx= and graphql= — the single place they live: scripts/pin-server-sdl.sh
-# reads them here, and the schema-drift job's SDL_EXPORT interpolates the same
-# keys (a graphql minor can change printSchema bytes, so a silent float trips
-# the sha for a non-pin reason). Bump deliberately, then re-run --verify.
-base=2d1cd5c669be735eeeecf44941d86ad3f4f7688f
-head=47b0672fb5270123bd2d4c49a9b5365106cb3b22
-merge_sha=3dedeab1783ea6554145c693fd70b7c5b24e9236
-# overlay= (cli#2727, retire with #2658): a unified diff applied to the export
-# of the merge above. It adds GrantSigningRequest.lastRefusedAt, byte-identical
-# to hadron-server c9d7820e (#4581) typeDefs; that commit sits after S2 (#4513),
-# so it cannot be merged into this pin. pre_overlay_sdl_sha256 is the export
-# before the overlay (the old sdl_sha256), sdl_sha256/sdl_lines are after it.
-# A second overlay (cli#2677, retire with #2658) adds WorkerTerminalReason
-# multiple_terminals and no_screen, byte-identical to hadron-server 6a22634c
-# (#4566, closes #4558); it too sits after S2. overlay= may repeat: the patches
-# apply in the order listed, and the sha/lines below are after all of them.
-overlay=schema/overlay/4581-lastRefusedAt.patch
-overlay=schema/overlay/4566-terminal-reasons.patch
-pre_overlay_sdl_sha256=67c6459430ade0373dfac3864a4ea8fe2d1c2e73044d679b40f29d777385b7c1
-sdl_lines=22725
-sdl_sha256=19c4be4b85b2692c473f3ce4dcb683628dfc8c799812648a620ab772ce04788a
+# tsx= and graphql= are the exporter's tool versions, the single place they live: the
+# schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
+# because a floating graphql minor can change printSchema bytes. Bump deliberately.
+server_sha=ef26d5856de6c33f99e4b29a5e9af2bee6875f75
 tsx=4.23.15
 graphql=16.15.0

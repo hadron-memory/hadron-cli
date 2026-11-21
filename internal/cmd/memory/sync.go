@@ -222,7 +222,7 @@ checks. The token is never printed: not in the output, --json or an error.
 			}
 			resp, err := gen.SetMemorySourceToken(cmd.Context(), client, ref, token, exp)
 			if err != nil {
-				return setTokenError(err, token)
+				return setTokenError(err, token, f.JSON)
 			}
 			// A null field with no error cannot establish that a token is stored.
 			if resp == nil || resp.SetMemorySourceToken == nil {
@@ -250,7 +250,29 @@ checks. The token is never printed: not in the output, --json or an error.
 	return cmd
 }
 
-// setTokenError maps a refusal without ever carrying the token: the server's
+// setTokenError is setTokenErrorUnguarded plus the output guard (cli#2761):
+// text a later layer appends (renderError's stored-credential hint) is output
+// too, so it is judged by the same predicate as the message
+// (outputGuardCarries), including the --json envelope form (cli#2777). An empty
+// token has nothing to guard, and a nil error stays nil.
+func setTokenError(err error, token string, jsonOut bool) error {
+	out := setTokenErrorUnguarded(err, token, jsonOut)
+	if token == "" {
+		return out
+	}
+	return api.WithOutputGuard(out, outputGuardCarries(token, jsonOut))
+}
+
+// outputGuardCarries is the one predicate for "this candidate output carries
+// the token": a covered spelling of it as the string, or, under --json, the
+// form the failure envelope's encoder would write it in.
+func outputGuardCarries(token string, jsonOut bool) func(string) bool {
+	return func(candidate string) bool {
+		return containsAnySpelling(candidate, token) || (jsonOut && envelopeReformsToken(candidate, token))
+	}
+}
+
+// setTokenErrorUnguarded maps a refusal without ever carrying the token: the server's
 // own answer is kept (an encrypted memory's refusal must reach the user), a
 // server code that reflects the token — the literal token or one of its
 // generated JSON spellings (cli#2704 Jack F2) — is dropped, and the message
@@ -260,7 +282,7 @@ checks. The token is never printed: not in the output, --json or an error.
 // itself (re)create token text. The refusal is itself output, so it is
 // chosen by the same test — a fixed text that carries this token is never
 // printed (cli#2714 round 5; see tokenSafeRefusal).
-func setTokenError(err error, token string) error {
+func setTokenErrorUnguarded(err error, token string, jsonOut bool) error {
 	mapped := api.MapError(err)
 	if token == "" {
 		// Nothing to redact, but the same cap and control-character guard as below.
@@ -279,9 +301,13 @@ func setTokenError(err error, token string) error {
 	// never carried (message "a\x00b", token "a b"). The code (and, in the
 	// receipt path, the URN) is kept only when it itself carries no spelling.
 	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
-	if tokenOverlapsMarker(token) || containsAnySpelling(mapped.Error(), token) || containsAnySpelling(msg, token) {
+	// Under --json the message is JSON-ENCODED on stdout, which can re-form a
+	// spelling the string never carried (cli#2777: token a\"b, message a"b ->
+	// a\"b in the envelope bytes). The candidate is judged in that form too.
+	if tokenOverlapsMarker(token) || containsAnySpelling(mapped.Error(), token) || containsAnySpelling(msg, token) ||
+		(jsonOut && envelopeReformsToken(msg, token)) {
 		safe := exitcode.Newf(exitcode.FromError(mapped), "%s", tokenSafeRefusal(token))
-		if containsAnySpelling(api.ServerCodeOf(err), token) {
+		if containsAnySpelling(api.ServerCodeOf(err), token) || (jsonOut && envelopeReformsToken(api.ServerCodeOf(err), token)) {
 			return safe
 		}
 		return api.WithServerCode(safe, err)
@@ -290,16 +316,41 @@ func setTokenError(err error, token string) error {
 	// containsAnySpelling, not a redactToken(code) != code fixpoint: a
 	// sentinel-equal token leaves redactToken the identity, so the fixpoint
 	// form (main's cli#2671 shape) would keep a code carrying it.
-	if code := api.ServerCodeOf(err); containsAnySpelling(code, token) {
+	if code := api.ServerCodeOf(err); containsAnySpelling(code, token) || (jsonOut && envelopeReformsToken(code, token)) {
 		return safe
 	}
 	return api.WithServerCode(safe, err)
 }
 
-// tokenOverlapsMarker reports MUTUAL containment only — the token contains
-// the marker (every replacement writes the token back) or the marker contains
-// the token (re-created inside every replacement, "REDACTED" ->
-// "[REDACTED]"). It is deliberately not named for every replacement hazard:
+// envelopeReformsToken reports whether s, JSON-encoded the way the --json
+// failure envelope writes it (output.WriteJSON: no HTML escaping), carries the
+// token or one of its spellings. The envelope encoder re-escapes quotes,
+// backslashes and control characters, so text that is clean as a string can
+// become the token's own spelling in the stdout bytes (cli#2777). The HTML-
+// escaped form is checked as well, so a change to the encoder cannot open it.
+func envelopeReformsToken(s, token string) bool {
+	if token == "" || s == "" {
+		return false
+	}
+	for _, escapeHTML := range [...]bool{false, true} {
+		var buf bytes.Buffer
+		enc := json.NewEncoder(&buf)
+		enc.SetEscapeHTML(escapeHTML)
+		if enc.Encode(s) != nil {
+			continue
+		}
+		raw := strings.TrimSuffix(buf.String(), "\n")
+		if containsAnySpelling(raw[1:len(raw)-1], token) {
+			return true
+		}
+	}
+	return false
+}
+
+// tokenOverlapsMarker reports containment in EITHER direction, nothing wider:
+// the token contains the marker (a token holding the marker is left untouched
+// by the replacement, so it stays in the output) or the marker contains the
+// token (re-created inside every replacement, "REDACTED" -> "[REDACTED]"). It is deliberately not named for every replacement hazard:
 // a seam-spanning token ("x[" over "xx[" -> "x[REDACTED]") is caught by the
 // message arm of the drop guard instead, which is why both arms stand
 // (cli#2714 round 4; rename per Dara's round-4 delta P3).
@@ -318,9 +369,11 @@ const (
 	// fullTokenRefusal is the message whenever it provably carries no
 	// spelling of the token.
 	fullTokenRefusal = "the server refused the source token"
-	// secondTokenRefusal shares no word with fullTokenRefusal, so a token
-	// equal to (or inside) a word of the first refusal still gets a
-	// readable answer instead of silence.
+	// secondTokenRefusal shares no whole word with fullTokenRefusal, so a token
+	// equal to a word of the first refusal usually still gets a readable
+	// answer instead of silence. A shared SUBSTRING is not ruled out ("ed" is
+	// in both), which is why tokenSafeRefusal tests this text against the
+	// token before using it.
 	secondTokenRefusal = "input declined"
 )
 

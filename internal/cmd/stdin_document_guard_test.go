@@ -164,8 +164,9 @@ func TestNodeContentFileWorksFromATerminal(t *testing.T) {
 // which is not what is under test here.
 func TestDataKeyStdinIsNotGuardedByTheDocumentRule(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"EncryptMemory": `{"data":{"encryptMemory":{"id":"m1","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
-		"GetMemory":     `{"data":{"memory":{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1","isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-09-20T00:00:00Z"}}}`,
+		"MemoryEncryptionPrincipal": `{"data":{"authContext":{"principalType":"USER"}}}`,
+		"EncryptMemory":             `{"data":{"encryptMemory":{"id":"m1","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
+		"GetMemory":                 `{"data":{"memory":{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1","isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-09-20T00:00:00Z"}}}`,
 	})
 	f, _, errOut := testFactoryTTY(t, "SGVsbG9LZXlIZWxsb0tleQ==\n")
 	root := NewRootCmd(f)

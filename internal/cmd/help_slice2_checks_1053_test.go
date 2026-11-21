@@ -29,10 +29,11 @@ func TestSlice2PagesSayWhatRound1FoundMissing1053(t *testing.T) {
 		page []string
 		want []string
 	}{
-		// where a <revision-loc> comes from, and that the CLI cannot list them
-		{[]string{"agent", "revision", "publish"}, []string{`"hadron agent revision create" printed it`}},
-		{[]string{"agent", "revision", "restore"}, []string{`"hadron agent revision create" printed it`, "REVISION_SLOTS_EXHAUSTED"}},
-		{[]string{"agent", "revision"}, []string{"Listing an Agent's revisions is not available from the CLI yet"}},
+		// where a <revision-loc> comes from (cli#2533: "list" now shows them) and the
+		// slot facts: deleting a revision does not free a slot
+		{[]string{"agent", "revision", "publish"}, []string{`"hadron agent revision list" or "create" printed it`}},
+		{[]string{"agent", "revision", "restore"}, []string{`as "list" or "create" printed it`, "REVISION_SLOTS_EXHAUSTED", "does not bring a save back"}},
+		{[]string{"agent", "revision"}, []string{"slot numbers are never reused, so deleting a revision does not free one"}},
 		// facts the shorter text must keep (the shorter uninstall and delete text still says them)
 		{[]string{"app", "uninstall"}, []string{"open dark-worker alarms", "Uninstall no longer deletes"}},
 		{[]string{"app", "delete"}, []string{"delete by id from the start"}},
