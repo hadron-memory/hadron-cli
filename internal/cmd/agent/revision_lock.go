@@ -219,10 +219,10 @@ who is editing it. While someone holds it, anyone else who asks for it is told
 "not acquired", who holds it and until when.
 
 When you need it: only when you want to tell others you are editing this
-Agent's system memory. No other hadron command takes, checks or waits for the
-lock, so editing nodes does not require holding it from this CLI. Whether the
-server refuses an edit from someone who does not hold it is the server's
-decision; this CLI does not enforce it.
+Agent's system memory. The lock is advisory: a coordination signal, not a
+guard. An edit from someone who does not hold it is not refused, by this CLI
+or by the server, and no other hadron command takes, checks or waits for the
+lock.
 
 A lock does not last forever: "lock acquire" prints the time it runs out
 ("until <time>"), asking again while you hold it renews it, and "lock release"
@@ -247,10 +247,12 @@ func newCmdAgentLockAcquire(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "acquire <agent>",
 		Short: "Acquire an Agent's editor lock",
-		Long: `Ask for the editor lock. If someone else holds it, the server says the lock
-was not acquired and names who holds it and until when (null when unknown): the
-result is printed and the command exits 5 (conflict). It does not retry.
-Asking for a lock you already hold renews it.
+		Long: `Ask for the editor lock. The lock is advisory: a coordination signal telling
+others you are editing this Agent's system memory. An edit from someone who
+does not hold it is not refused. If someone else holds it, the server says the
+lock was not acquired and names who holds it and until when (null when
+unknown): the result is printed and the command exits 5 (conflict). It does
+not retry. Asking for a lock you already hold renews it.
 
 Prints "✓ lock acquired until <time>" on success ("✓ lock acquired" when the
 server gives no expiry), or "✗ lock not acquired (held by <who>) until <time>"
@@ -316,9 +318,11 @@ func newCmdAgentLockRelease(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "release <agent>",
 		Short: "Release an Agent's editor lock",
-		Long: `Ask the server to release the lock and print its answer. A "false" answer is
-printed as not released and exits 5 (conflict); the CLI makes no claim about who
-held the lock.`,
+		Long: `Ask the server to release the lock and print its answer. The lock is
+advisory: an edit from someone who does not hold it is not refused, so
+releasing only clears the "someone is editing" signal. A "false" answer is
+printed as not released and exits 5 (conflict); the CLI makes no claim about
+who held the lock.`,
 		Example: `  hadron agent lock release hrn:agent:acme.com:bot`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
