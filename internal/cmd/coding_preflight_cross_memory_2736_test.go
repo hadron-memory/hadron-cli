@@ -476,3 +476,47 @@ func TestPreflightRouteReportsAnExistingMarker2736(t *testing.T) {
 		t.Errorf("the report must reflect the edge's marker, not only this run's flag: %v %s", err, out.String())
 	}
 }
+
+// An unconfirmed marker update keeps the exit class of what went wrong (cli#2736
+// LOCAL delta P2): a refusal is the refusal's exit, not a generic 1, so a script can
+// tell an auth failure from an outage. A null answer is an unknown outcome (7).
+func TestPreflightRouteCrossMemoryUpdateFailureKeepsItsExitClass2736(t *testing.T) {
+	for _, tc := range []struct {
+		name, answer string
+		want         int
+	}{
+		{"forbidden", `{"errors":[{"message":"no","extensions":{"code":"FORBIDDEN"}}],"data":null}`, exitcode.Forbidden},
+		{"not found", `{"errors":[{"message":"gone","extensions":{"code":"NOT_FOUND"}}],"data":null}`, exitcode.NotFound},
+		{"unauthenticated", `{"errors":[{"message":"who","extensions":{"code":"UNAUTHENTICATED"}}],"data":null}`, exitcode.AuthRequired},
+		{"null answer", `{"data":{"updateEdge":null}}`, exitcode.Unavailable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := runExisting2736(t, `{"note":"keep"}`, tc.answer)
+			if err == nil || exitCodeFor(err) != tc.want {
+				t.Fatalf("exit = %d (%v), want %d", exitCodeFor(err), err, tc.want)
+			}
+			if !strings.Contains(err.Error(), "may not have been") || !strings.Contains(err.Error(), "preflight list") {
+				t.Errorf("the read-back instruction stays: %v", err)
+			}
+		})
+	}
+}
+
+// createEdge answering nothing under --cross-memory is an unknown outcome too, not
+// exit 0 with the marker reported absent.
+func TestPreflightRouteCrossMemoryNullCreateIsAnUnknownOutcome2736(t *testing.T) {
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody), codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {crossTarget2736()},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+		"CreateEdge": {`{"data":{"createEdge":null}}`},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--json"))
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable || !strings.Contains(err.Error(), "may not have been") {
+		t.Fatalf("a null createEdge answer under --cross-memory must be an unknown outcome (exit 7), got %v (exit %d)", err, exitCodeFor(err))
+	}
+}
