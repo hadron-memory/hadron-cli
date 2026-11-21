@@ -175,7 +175,7 @@ hasGithubAppPrivateKey}.`,
 				return githubAppWriteError(err, nil)
 			}
 			if resp == nil || resp.LinkGithubApp == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no organization; nothing was linked")
+				return exitcode.Newf(exitcode.Error, "server returned no organization; whether the app was linked is unknown — check with the portal")
 			}
 			dto := orgGithubDTOFrom(resp.LinkGithubApp.OrgGithubFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

@@ -14,16 +14,18 @@ import (
 // (#2492 and the #2538/#2547 comment tests) pins this {}-envelope shape on
 // every other destructive verb. Each verb, for an empty data object AND an
 // explicit null result, in text and --json mode: exit 1 (Error) naming the
-// outcome-unknown state, empty stdout, and exactly ONE mutation sent with no
+// outcome-unknown state, nothing written to the command's output stream (the
+// error travels the error return; the compiled binary's --json renders the
+// shared error envelope on stdout), and exactly ONE mutation sent with no
 // follow-up call. D5: the unlink wording no longer advises a blind retry of a
 // destructive verb — the state is unknown, so the portal is where to look.
-func TestOrgGithub2694NoOrgEnvelopeExitsOneNamingIt(t *testing.T) {
+func TestOrgGithub2694MissingMutationResultExitsOneUnknownOutcome(t *testing.T) {
 	cases := []struct {
 		verb, op, field, want string
 		args                  []string
 	}{
 		{"link", "LinkGithubApp", "linkGithubApp",
-			"server returned no organization; nothing was linked",
+			"server returned no organization; whether the app was linked is unknown",
 			[]string{"github", "link", "acme.com", "--installation-id", "998877"}},
 		{"unlink", "UnlinkGithubApp", "unlinkGithubApp",
 			"server returned no organization; the link state is unknown — check with the portal",
@@ -33,11 +35,14 @@ func TestOrgGithub2694NoOrgEnvelopeExitsOneNamingIt(t *testing.T) {
 			[]string{"github", "set-app", "acme.com", "--app-id", "12345", "--private-key-file", "-"}},
 	}
 	for _, c := range cases {
-		for _, body := range []string{`{"data":{}}`, `{"data":{"` + c.field + `":null}}`} {
+		for _, body := range []struct{ kind, payload string }{
+			{"omitted", `{"data":{}}`},
+			{"null", `{"data":{"` + c.field + `":null}}`},
+		} {
 			for _, jsonMode := range []bool{false, true} {
-				name := fmt.Sprintf("%s/empty=%v/json=%v", c.verb, body == `{"data":{}}`, jsonMode)
+				name := fmt.Sprintf("%s/result=%s/json=%v", c.verb, body.kind, jsonMode)
 				t.Run(name, func(t *testing.T) {
-					srv, calls, _ := countingGraphQL(t, map[string]string{c.op: body})
+					srv, calls, _ := countingGraphQL(t, map[string]string{c.op: body.payload})
 					f, out := testFactory(t)
 					f.IOStreams.In = strings.NewReader(keySentinel2512 + "\n")
 					root := NewRootCmd(f)
@@ -62,8 +67,12 @@ func TestOrgGithub2694NoOrgEnvelopeExitsOneNamingIt(t *testing.T) {
 					if out.String() != "" {
 						t.Errorf("stdout must be empty, got %q", out.String())
 					}
+					// One request in total: this counts the expected mutation,
+					// and countingGraphQL's handler fails any other operation
+					// ("unexpected operation"), so no follow-up call of any
+					// kind can pass the pin.
 					if calls(c.op) != 1 {
-						t.Errorf("mutation sent %d times, want exactly once with no follow-up call", calls(c.op))
+						t.Errorf("mutation sent %d times, want exactly once (any other operation fails via countingGraphQL's unexpected-operation guard)", calls(c.op))
 					}
 				})
 			}
