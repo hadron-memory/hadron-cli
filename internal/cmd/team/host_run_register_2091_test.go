@@ -153,7 +153,7 @@ func TestRegisterReprobesAPinnedServerAfterTheInterval(t *testing.T) {
 		call string
 		docs []string
 	}{
-		{"1: first call, no pin yet: skew, then the plain document, pinned", []string{"RegisterHostWithRefused", "RegisterHost"}},
+		{"1: first call, no pin yet: schema skew, then the plain document, pinned", []string{"RegisterHostWithRefused", "RegisterHost"}},
 		{"2: inside the interval: pinned, plain only", []string{"RegisterHost"}},
 		{"3: interval over: asks the extended again, still old, plain again, re-pinned", []string{"RegisterHostWithRefused", "RegisterHost"}},
 		{"4: same instant: the renewed pin suppresses another extended request", []string{"RegisterHost"}},
@@ -223,7 +223,7 @@ func TestRegisterFallbackEdgeCases(t *testing.T) {
 		if !strings.Contains(err.Error(), "could not reach the server") {
 			t.Fatalf("not a transport diagnostic: %v", err)
 		}
-		if got := transport.returned(); len(got) != 1 || !errors.Is(got[0], errSyntheticTransport2091) {
+		if got := transport.returnedFailures(); len(got) != 1 || !errors.Is(got[0], errSyntheticTransport2091) {
 			t.Fatalf("the transport did not return the sentinel: %v", got)
 		}
 		if got := transport.attempts.Load(); got != 1 {
@@ -231,8 +231,21 @@ func TestRegisterFallbackEdgeCases(t *testing.T) {
 		}
 		// The one document sent is the extended one, never the plain one.
 		sent := transport.sentDocuments()
-		if len(sent) != 1 || !strings.Contains(sent[0], `"operationName":"RegisterHostWithRefused"`) || !strings.Contains(sent[0], "refusedWorkers") {
-			t.Fatalf("sent documents = %q, want exactly the extended registration", sent)
+		if len(sent) != 1 {
+			t.Fatalf("sent documents = %q, want exactly one registration", sent)
+		}
+		var document struct {
+			OperationName string `json:"operationName"`
+			Query         string `json:"query"`
+		}
+		if err := json.Unmarshal([]byte(sent[0]), &document); err != nil {
+			t.Fatalf("decode sent registration: %v", err)
+		}
+		if document.OperationName != "RegisterHostWithRefused" || !strings.Contains(document.Query, "refusedWorkers") {
+			t.Fatalf("sent document = %+v, want the extended registration", document)
+		}
+		if reads := transport.bodyReadErrors(); len(reads) != 1 || reads[0] != nil {
+			t.Fatalf("request-body read errors = %v, want one successful read", reads)
 		}
 		// A transport failure is never a refusal and never proves the field
 		// missing: nothing is pinned (cor:agt:070:01: a refusal is the
@@ -320,7 +333,7 @@ func (t *failingRegistrationTransport2091) bodyReadErrors() []error {
 	return append([]error{}, t.readErrors...)
 }
 
-func (t *failingRegistrationTransport2091) returned() []error {
+func (t *failingRegistrationTransport2091) returnedFailures() []error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return append([]error{}, t.failures...)
@@ -335,13 +348,15 @@ func (t *failingRegistrationTransport2091) sentDocuments() []string {
 func (t *failingRegistrationTransport2091) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.attempts.Add(1)
 	var body []byte
+	var readErr error
 	if req.Body != nil {
-		body, _ = io.ReadAll(req.Body)
+		body, readErr = io.ReadAll(req.Body)
 		// A RoundTripper must close the request body, even on failure.
 		_ = req.Body.Close()
 	}
 	t.mu.Lock()
 	t.sent = append(t.sent, string(body))
+	t.readErrors = append(t.readErrors, readErr)
 	t.failures = append(t.failures, errSyntheticTransport2091)
 	t.mu.Unlock()
 	return nil, errSyntheticTransport2091
