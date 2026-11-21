@@ -532,12 +532,12 @@ section between the markers.
 | `team host up` |  |  | y | #1054 | 4a83b9b6e9e9 |  | unread |  |
 | `team init` |  |  | y | #1054 | 36b43e94a913 |  | unread |  |
 | `team pause` |  |  | y | #1054 | 2c493fbe2875 | Gil | pass | [re-read](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7009034633) |
-| `team pr` |  |  | y | #1054 | ba351d8ac713 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
+| `team pr` |  |  | y | #1054 | 0c3918147cb8 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | a66755dff8eb | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team pr readiness` |  |  | y | #1054 | 978dcd7c3526 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | b7026a29bd46 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team pr schedule` |  |  | y | #1054 | e51b4a00796d |  | unread |  |
-| `team pr seat` |  |  | y | #1054 | bf2da05201c3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
+| `team pr seat` |  |  | y | #1054 | 28f95ec1d5d3 |  | unread |  |
 | `team pr verdict` |  |  | y | #1054 | b35f943e5866 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team push` |  |  | y | #1054 | 1576000c023d | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team register` |  |  | y | #1054 | 80106e4262e4 |  | unread |  |
