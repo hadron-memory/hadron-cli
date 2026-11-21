@@ -307,10 +307,17 @@ var errSyntheticTransport2091 = errors.New("synthetic registration transport fai
 // failingRegistrationTransport2091 counts attempts and records the document of
 // each at the failing boundary itself; no DNS or socket is used.
 type failingRegistrationTransport2091 struct {
-	attempts atomic.Int32
-	mu       sync.Mutex
-	sent     []string
-	failures []error
+	attempts   atomic.Int32
+	mu         sync.Mutex
+	sent       []string
+	failures   []error
+	readErrors []error
+}
+
+func (t *failingRegistrationTransport2091) bodyReadErrors() []error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]error{}, t.readErrors...)
 }
 
 func (t *failingRegistrationTransport2091) returned() []error {
@@ -339,3 +346,29 @@ func (t *failingRegistrationTransport2091) RoundTrip(req *http.Request) (*http.R
 	t.mu.Unlock()
 	return nil, errSyntheticTransport2091
 }
+
+// cli#2401: a failure to inspect the request must remain visible to the test,
+// even though this synthetic transport always returns its own transport error.
+func TestRegistrationTransportRecordsBodyReadError2401(t *testing.T) {
+	body := &failingRegistrationBody2401{}
+	transport := &failingRegistrationTransport2091{}
+	req, err := http.NewRequest(http.MethodPost, "http://registration.invalid/graphql", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = transport.RoundTrip(req)
+	reads := transport.bodyReadErrors()
+	if len(reads) != 1 || !errors.Is(reads[0], errSyntheticBodyRead2401) {
+		t.Fatalf("request-body read errors = %v, want the injected read failure", reads)
+	}
+	if !body.closed {
+		t.Fatal("the failing request body was not closed")
+	}
+}
+
+var errSyntheticBodyRead2401 = errors.New("synthetic request body read failure")
+
+type failingRegistrationBody2401 struct{ closed bool }
+
+func (*failingRegistrationBody2401) Read([]byte) (int, error) { return 0, errSyntheticBodyRead2401 }
+func (b *failingRegistrationBody2401) Close() error           { b.closed = true; return nil }
