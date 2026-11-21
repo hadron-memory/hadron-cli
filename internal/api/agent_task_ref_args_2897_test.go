@@ -164,9 +164,9 @@ func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 	// Positive control for EVERY renamed operation, order- and whitespace-
 	// tolerant like the retired-argument sweep: the operation's own argument
 	// list carries the new spelling, so a silent non-match cannot pass and a
-	// dropped operation goes red. Scope, stated exactly: the CLI sends no legacy
-	// agentTeamEvents and no second list read, so the table is the 11 mutations,
-	// agentTask(ref:), agentTasks(parentTaskRef:) and agentTeamEventsPage(taskRef:).
+	// dropped operation goes red. Scope, stated exactly: the CLI sends no unpaged
+	// agentTeamEvents (and agentTasks list reads moved to agentTasksPage, #2808), so the table is the 11 mutations,
+	// agentTask(ref:), agentTasksPage(parentTaskRef:) and agentTeamEventsPage(taskRef:).
 	// [^)]* spans only the call's own argument list (no argument value holds a
 	// ")"); the argument must start after "(", whitespace or ",", so a "$taskRef:"
 	// variable declaration cannot satisfy it.
@@ -176,7 +176,7 @@ func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 		"cancelAgentTask": "taskRef", "parkAgentTask": "taskRef", "finishAgentTask": "taskRef",
 		"cloneAgentTask": "taskRef", "updateAgentTask": "taskRef", "recordAgentTaskProgress": "taskRef",
 		"makeAgentTaskReady": "taskRef", "releaseAgentTaskExternalId": "taskRef",
-		"agentTask": "ref", "agentTasks": "parentTaskRef",
+		"agentTask": "ref", "agentTasksPage": "parentTaskRef",
 		"agentTeamEventsPage": "taskRef",
 	}
 	ops := make([]string, 0, len(controls))

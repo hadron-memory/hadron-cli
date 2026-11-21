@@ -366,5 +366,8 @@ mutation WithdrawQuestion($ref: ID!, $reason: String!, $expectedRevision: Int!) 
 }
 
 mutation PurgeUnansweredQuestion($ref: ID!, $reason: String!) {
+  # A pointer so an absent or null answer reads as nil (unknown outcome), not as false (the
+  # server said no): the two are told apart in the purge command (cli#2854).
+  # @genqlient(pointer: true)
   purgeUnansweredQuestion(ref: $ref, reason: $reason)
 }

@@ -10,7 +10,7 @@ const filters1250App = "capp100000000000000000000"
 
 func filters1250Run(t *testing.T, op string, args ...string) (map[string]any, bool, error) {
 	t.Helper()
-	srv, captured := captureGraphQL(t, map[string]string{op: `{"data":{"agentTasks":[]}}`, "AgentTaskList": `{"data":{"agentTasks":[]}}`})
+	srv, captured := captureGraphQL(t, map[string]string{op: taskPage2734("", 0, false), "AgentTaskList": taskPage2734("", 0, false)})
 	f, _ := testFactory(t)
 	r := NewRootCmd(f)
 	r.SetArgs(append([]string{"team", "task", "list", "--app", filters1250App, "--json", "--server", srv.URL}, args...))
