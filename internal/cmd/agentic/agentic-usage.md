@@ -517,6 +517,10 @@ that does not resolve refuses the command before anything is written. A `spec ne
 contract, or `--new-path`) writes each separately, so a failure part-way exits
 non-zero naming the nodes it already created, each complete with its edges.
 
+## Error text from the server (cli#2739)
+
+Server and provider error text reaches you through ONE renderer, which neutralises what a terminal could act on. On stderr (text mode) escape sequences (7-bit `ESC [`, `ESC ]` and the 8-bit C1 forms) are removed whole, and every other control, format and separator character (a carriage return, BEL, NUL, bidi overrides, zero-width characters) becomes a space; a newline is kept, since some of the CLI's own messages are multi-line, so a server message can still start an extra line. Ordinary text (accents, CJK, emoji), a server code, a request id and the exit code are unchanged. In the `--json` envelope the `message` keeps the text as sent where the JSON encoder already makes it inert (the C0 controls, an ESC among them, are written as `\u` escapes and decode to the original) and replaces only what the encoder leaves raw: the C1 controls and format characters (bidi overrides, zero-width characters). Do not print a decoded `message` to a terminal without your own filtering.
+
 ## Command surface (v1)
 
 ```
