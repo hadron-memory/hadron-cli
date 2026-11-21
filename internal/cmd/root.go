@@ -75,6 +75,7 @@ import (
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
 	f.WorkerWriteSession = teamcmd.WorkerWriteSession(f)
+	f.WorkerSessionIfBound = teamcmd.WorkerSessionIfBound(f)
 	f.NoteApprovingAsPerson = teamcmd.ApprovalAsPersonNote(f)
 	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
 	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
@@ -92,15 +93,16 @@ agents and settings for a team or product.
 
 Getting started:
   hadron auth login          sign in (opens your browser)
-  hadron auth status         ask whether this request's credential authenticates
+  hadron auth status         check that you are signed in
   hadron server-info         check the server answers (works signed out)
   hadron memory list         see the memories you can read
   hadron search "<words>"    find notes across them
 
 Which server, App and memory a command uses: by default the hosted server
 (https://srv.hadronmemory.com) and no App. A setting saved with
-'hadron config set' (or 'app set-active', 'memory set-active') applies to
-every later command until you change it; 'hadron config list' shows them. The
+'hadron config set' (or 'app set-active', 'memory set-active', 'org use',
+'scope use') applies to every later command until you change it, including
+the saved org and search scope; 'hadron config list' shows them. The
 --server and --app flags override the saved setting for one command; the
 HADRON_SERVER environment variable overrides the saved server too.
 
@@ -108,9 +110,10 @@ HADRON_SERVER environment variable overrides the saved server too.
 JSON form (most do); 'hadron agentic-usage' documents every shape. -v and
 --version print the same line as 'hadron version'.
 
-If you work as a team worker in a worktree bound with 'hadron team session',
-the node and edge writes you make are also recorded against that worker once
-the binding is verified. Otherwise this does not apply to you.`,
+If this directory was bound to a named worker with 'hadron team session
+start' (an automated teammate on a shared team), your node and edge writes
+are also recorded against that worker once the binding is verified. If you
+never ran that command, this does not apply to you.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		// #914's ended-binding check is armed HERE, on the root that actually
