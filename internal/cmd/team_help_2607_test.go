@@ -105,11 +105,48 @@ func TestTeamGrantRegisterHelpUsesHadronPrefix2607(t *testing.T) {
 		if got := strings.Fields(c.CommandPath()); strings.Join(got[1:], " ") != strings.Join(path, " ") {
 			t.Fatalf("Find(%v) returned %q", path, c.CommandPath())
 		}
-		prose := strings.Join(strings.Fields(c.Long), " ")
-		for _, bare := range []string{"'team grant ", "('team grant", "'team register ", "('team register"} {
-			if strings.Contains(prose, bare) {
-				t.Errorf("%v: bare command %q in prose", path, bare)
-			}
+		for _, bare := range bareTeamCommandRefs2607(c.Long) {
+			t.Errorf("%v: bare command %q in prose", path, bare)
+		}
+	}
+}
+
+// bareTeamCommandRefs2607 returns the bare (no "hadron" prefix) team grant and
+// team register references in a help page's prose, whitespace-normalized so a
+// line wrap cannot split one.
+func bareTeamCommandRefs2607(long string) []string {
+	prose := strings.Join(strings.Fields(long), " ")
+	found := []string{}
+	for _, bare := range []string{"'team grant ", "('team grant", "'team register ", "('team register"} {
+		if strings.Contains(prose, bare) {
+			found = append(found, bare)
+		}
+	}
+	return found
+}
+
+// cli#2752: the pin's patterns catch a bare reference however it is closed,
+// including the command name followed directly by the closing quote, and
+// never flag the "hadron"-prefixed forms.
+func TestBareTeamCommandRefs2752(t *testing.T) {
+	for _, tc := range []struct {
+		prose string
+		bare  bool
+	}{
+		{"run 'team grant' now", true},
+		{"run 'team register' now", true},
+		{"see ('team grant') first", true},
+		{"see ('team register') first", true},
+		{"run 'team\n  grant' now", true},
+		{"run 'team grant add --action a' now", true},
+		{"run 'team register pick' now", true},
+		{"run 'hadron team grant' now", false},
+		{"run 'hadron team register' now", false},
+		{"run 'hadron team grant add --action a' now", false},
+		{"see ('hadron team register pick') first", false},
+	} {
+		if got := len(bareTeamCommandRefs2607(tc.prose)) > 0; got != tc.bare {
+			t.Errorf("%q: bare reference found = %v, want %v", tc.prose, got, tc.bare)
 		}
 	}
 }
