@@ -590,9 +590,9 @@ func agenticUsageSection1054(t *testing.T, name string) string {
 
 // The three host writes (assign, unassign, setup) share hostSetupWriteHelp,
 // which points the reader at agentic-usage's "App-manager writes with an
-// instruction" for the instruction forms, the server revision they need and
+// instruction" for the instruction forms, the server floor they need and
 // the refusal codes. That section must name the trio and give them the flag's
-// base revision their --instruction usage names (2026-11-03) — not only the
+// base floor their --instruction usage names (2026-11-03) — not only the
 // dated minimum the cli#2448 six need (QA F2 on #2578: the section said
 // "exactly six" with one 2026-11-04 minimum, so the pointer landed the reader
 // on a list their command was not in).
@@ -603,8 +603,8 @@ func TestSliceAHostTrioNamedInAppManagerInstructionSection1054(t *testing.T) {
 			t.Errorf("the App-manager instruction section must name %s — the host pages point the reader here", "`"+cmd+"`")
 		}
 	}
-	if !strings.Contains(sec, "2026-11-03") {
-		t.Error("the section must give the host trio the flag's base revision 2026-11-03 (their pages' --instruction usage names it)")
+	if !namesFloorDate2849(sec, "2026-11-03") {
+		t.Error("the section must give the host trio the flag's base floor, \"2026-11-03 or later\" (their pages' --instruction usage names it)")
 	}
 }
 

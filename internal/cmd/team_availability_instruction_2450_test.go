@@ -252,12 +252,15 @@ func TestAvailabilityInstruction2450Help(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Without --instruction", "signed-in person", "With --instruction", "App-manager", "server decides", "2026-11-04", "--instruction"} {
+	for _, want := range []string{"Without --instruction", "signed-in person", "With --instruction", "App-manager", "server decides", "--instruction"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("missing help %q", want)
 		}
 	}
-	if strings.Contains(out.String(), "always made as the person") || strings.Contains(out.String(), "2026-11-03") {
+	if !namesServerFloor2849(out.String(), "2026-11-04") {
+		t.Errorf("help must state \"server 2026-11-04 or later\":\n%s", out.String())
+	}
+	if strings.Contains(out.String(), "always made as the person") || namesServerFloor2849(out.String(), "2026-11-03") {
 		t.Fatal("old family advice remains")
 	}
 }

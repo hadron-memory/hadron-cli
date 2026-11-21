@@ -21,8 +21,8 @@ func TestAlarmStallHelpNamesTheirMinimumServer2505(t *testing.T) {
 			t.Fatalf("%v: %v", args, err)
 		}
 		help := out.String()
-		if !strings.Contains(help, "2026-11-04") || strings.Contains(help, "2026-11-03") {
-			t.Errorf("%v: help must name 2026-11-04 and not 2026-11-03:\n%s", args, help)
+		if !namesServerFloor2849(help, "2026-11-04") || namesServerFloor2849(help, "2026-11-03") {
+			t.Errorf("%v: help must state \"server 2026-11-04 or later\" and not \"server 2026-11-03 or later\":\n%s", args, help)
 		}
 	}
 }
