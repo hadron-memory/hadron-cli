@@ -1,0 +1,77 @@
+# hadron-cli#198 Slice C: mailbox effects. Every document is one mutation, sent
+# once and never retried. Optional arguments are omitted when unset so the
+# server's defaults apply; a key the caller did not give is never made up.
+
+# Replies to the SENDER only: the server takes no recipient argument.
+mutation EmailReply($connectionId: ID!, $messageId: ID!, $body: String!) {
+  exchangeReply(connectionId: $connectionId, messageId: $messageId, body: $body)
+}
+
+mutation EmailSaveDraft(
+  $connectionRef: ID!
+  $bodyHtml: String!
+  # @genqlient(omitempty: true)
+  $replyToMessageId: ID
+  # @genqlient(omitempty: true)
+  $subject: String
+  # @genqlient(omitempty: true)
+  $to: [String!]
+  # @genqlient(omitempty: true)
+  $idempotencyKey: String
+) {
+  emailSaveDraft(
+    connectionRef: $connectionRef
+    bodyHtml: $bodyHtml
+    replyToMessageId: $replyToMessageId
+    subject: $subject
+    to: $to
+    idempotencyKey: $idempotencyKey
+  ) {
+    draftId
+    conversationId
+  }
+}
+
+# Replaces the draft's body only; the server has no idempotency key here.
+mutation EmailUpdateDraft($connectionRef: ID!, $draftId: ID!, $bodyHtml: String!) {
+  emailUpdateDraft(connectionRef: $connectionRef, draftId: $draftId, bodyHtml: $bodyHtml)
+}
+
+mutation EmailSendDraft(
+  $connectionRef: ID!
+  $draftId: ID!
+  # @genqlient(omitempty: true)
+  $idempotencyKey: String
+) {
+  emailSendDraft(connectionRef: $connectionRef, draftId: $draftId, idempotencyKey: $idempotencyKey)
+}
+
+mutation EmailMarkRead(
+  $connectionRef: ID!
+  $messageId: ID!
+  # @genqlient(omitempty: true)
+  $isRead: Boolean
+) {
+  emailMarkRead(connectionRef: $connectionRef, messageId: $messageId, isRead: $isRead)
+}
+
+mutation EmailFlagMessage(
+  $connectionRef: ID!
+  $messageId: ID!
+  # @genqlient(omitempty: true)
+  $flag: EmailFlag
+) {
+  emailFlagMessage(connectionRef: $connectionRef, messageId: $messageId, flag: $flag)
+}
+
+mutation EmailCategorizeMessage($connectionRef: ID!, $messageId: ID!, $categories: [String!]!) {
+  emailCategorizeMessage(connectionRef: $connectionRef, messageId: $messageId, categories: $categories)
+}
+
+mutation EmailDeleteMessage($connectionRef: ID!, $messageId: ID!) {
+  emailDeleteMessage(connectionRef: $connectionRef, messageId: $messageId)
+}
+
+mutation EmailMoveMessage($connectionId: ID!, $messageId: ID!, $folderId: String!) {
+  exchangeMoveMessage(connectionId: $connectionId, messageId: $messageId, folderId: $folderId)
+}
