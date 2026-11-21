@@ -521,7 +521,7 @@ section between the markers.
 | `team host list` | ls |  | n | #1054 | dfd9a3dc2325 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 15bd38de777e |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
-| `team host run` |  |  | y | #1054 | d211c6b9cffd |  | unread |  |
+| `team host run` |  |  | y | #1054 | 044e87f33d4e |  | unread |  |
 | `team host setup` |  |  | y | #1054 | f6c071f5cd86 |  | unread |  |
 | `team host status` |  |  | n | #1054 | 623c350ebccd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host sweep` |  |  | n | #1054 | 22ee75e32e51 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
@@ -639,7 +639,7 @@ section between the markers.
 | `team worker onboard` |  |  | y | #1054 | d9906ab0dbd2 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de); example limit: a successful dry-run is not yet verified (no host fixture) |
 | `team worker release` |  |  | y | #1054 | eaebebacfeb3 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker retire` |  |  | y | #1054 | a94a9bf650d6 |  | unread |  |
-| `team worker rm` | delete |  | y | #1054 | 0489ffe8764a |  | unread |  |
+| `team worker rm` | delete |  | y | #1054 | c751face18c3 |  | unread |  |
 | `team worker served-prompt` |  |  | y | #1054 | 811c42938f13 |  | unread |  |
 | `team worker set-boot-prompt` |  |  | y | #1054 | 448bcd0d9028 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker set-reports-to` |  |  | y | #1054 | f925fcd3b031 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |

@@ -10,20 +10,22 @@ import (
 
 const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server "
 
-// The server dates the --instruction doors are floored at, named once so a floor changes
-// in one place (cli#2525 F4). Each is the date the change was MERGED into hadron-server (the
-// server commit's date), never a revision hash and not a deployment date. It is for
+// The server dates the --instruction doors are floored at (cli#2525 F4). Each is the date, in
+// UTC, the change was MERGED into hadron-server (the server commit's date), never a revision
+// hash and not a deployment date. It is for
 // ORIENTATION: the date cannot prove a deployed build contains the change (a build from the
 // same day can predate the merge), so the exact change is named below, and the server itself
 // is the capability check: an older server refuses the flag with its own error, which the CLI
 // passes through and never retries without the flag.
 const (
-	// ServerFloorInstructionActs is the floor for the instructed person/worker acts: the base
-	// --instruction flag, the staffing and member doors and the credential acts (the merge of
+	// ServerFloorInstructionActs is the floor, in UTC, for the instructed person/worker acts: the
+	// base --instruction flag, the staffing and member doors and the credential acts (the merge of
 	// hadron-server#3307 and #3308).
 	ServerFloorInstructionActs = "2026-11-03"
-	// ServerFloorInstructionManagerWrites is the floor for the instructed App-manager writes
-	// and the task writes (the merge of hadron-server#3323 and #3398).
+	// ServerFloorInstructionManagerWrites is the floor for the instructed App-manager writes,
+	// the task writes and the alarm-acknowledgement, stall-schedule and availability writes: several
+	// server changes merged the same UTC day (hadron-server#3323 and #3398 for the manager doors,
+	// #3340 for the task writes, #3376 for the instructed availability and alarm paths).
 	ServerFloorInstructionManagerWrites = "2026-11-04"
 )
 

@@ -22,8 +22,8 @@ type publicLinkDTO struct {
 	PublicURL           *string `json:"publicUrl"`
 }
 
-// publicLinkServerFloor is the date the change behind the instructed public-link call was
-// merged into the server.
+// publicLinkServerFloor is the date (UTC) hadron-server#3368 (the instructed asset
+// public-link call, merge commit 5fd87dcc) was merged into the server.
 const publicLinkServerFloor = "2026-11-03"
 
 func newCmdPublicLink(f *cmdutil.Factory) *cobra.Command {

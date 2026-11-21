@@ -17,7 +17,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// cli#1735 (provider hadron-server#3605 at 2026-11-06, CHECKED Option A):
+// cli#1735 (provider hadron-server#3605 at 8bbf82dd, merged 2026-11-06, CHECKED Option A):
 // `team worker rm --dry-run` is ONE deleteWorkerPreview Query after the worker
 // lookup. It never sends the attestation, never calls deleteWorker, never
 // prompts, never retries and never falls back; it is advisory, not a

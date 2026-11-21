@@ -725,7 +725,7 @@ including through a YAML merge (`<<`) or an alias of `delivery`: `null`, `~`,
 `yes` and `on` are refused at config load (exit 2) naming the line, and a
 merged non-boolean is refused even when an explicit `ack_mixed: true` beside it
 would win. The strictness is deliberate (cli#1263); relaxing it needs its own gate. Set true only after the operator verifies server
-A′ (#2072, 2026-10-19) is deployed. It permits tick/task acknowledgment in a mixed
+A′ (#2072, 2026-10-19; the date is for orientation, since a build from that day can predate the merge: confirm the deployed build includes that change) is deployed. It permits tick/task acknowledgment in a mixed
 wake without moving channel delivered-through or worker read marks (R53);
 mention text still needs its own batch. Off retains `ack-held`; mention-only
 wakes are never acknowledged here. Previously typed wakes reconcile with a
@@ -5697,7 +5697,7 @@ assignee alone may edit properties and references (--properties/--clear-properti
 --ref/--clear-refs; references need a server at or after hadron-server#3718
 2026-11-08), and naming any other field, even beside those, refuses the whole
 edit TASK_NOT_OWNER (8). Needs a server at or after hadron-server
-e09a1653 (the #2420 contract).
+2026-10-30 (the #2420 contract).
 
 ## Task priority and dependencies (cli#1135)
 `hadron team task create <title> --priority 2 --blocked-by AT1.2 --blocked-by <id>`
@@ -5739,7 +5739,7 @@ hadron team task set-priority <task> <priority> | add-blocker|remove-blocker <ta
   the flag, the requests and `--json` are unchanged. Needs server 2026-11-04 or later. `team stall-schedule set` and `team alarm ack` take it too, with their own server floor: see
   "Instructed alarm acknowledgement and stall schedule" below.
 
-Task priority/blocker fields require server #2726 (cf9bcfece) or later on every
+Task priority/blocker fields require server #2726 (2026-10-29 or later) on every
 target deployment before releasing/installing this CLI; old servers reject the
 shared task GraphQL documents. This PR does not authorize a release or deploy.
 The task error mapper prefixes the known codes TASK_BLOCKED, TASK_BLOCKER_CYCLE,

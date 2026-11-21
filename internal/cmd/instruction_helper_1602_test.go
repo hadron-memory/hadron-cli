@@ -9,18 +9,21 @@ import (
 )
 
 func TestInstructionMinimumHelp1602(t *testing.T) {
+	// Every door states its floor as a date in the same words; none states a revision hash
+	// (cli#2525 F11: the old "absent" column held one fixed hash on every row and told the doors
+	// apart no more; the check is now the guard's own revision-hash rule).
 	for _, tc := range []struct {
-		name            string
-		path            []string
-		minimum, absent string
+		name    string
+		path    []string
+		minimum string
 	}{
-		{"S1_update", []string{"team", "worker", "update"}, "2026-11-03", "17ef5905"},
-		{"S1_change", []string{"team", "worker", "change-agent"}, "2026-11-03", "17ef5905"},
-		{"S3_keys", []string{"app", "key", "list"}, "2026-11-03", "17ef5905"},
-		{"S3_revoke", []string{"app", "key", "revoke"}, "2026-11-03", "17ef5905"},
-		{"S3_scope", []string{"app", "key", "scope", "revoke"}, "2026-11-03", "17ef5905"},
-		{"S3_grants", []string{"app", "memory-grant", "list"}, "2026-11-03", "17ef5905"},
-		{"S3_rm", []string{"app", "memory-grant", "rm"}, "2026-11-03", "17ef5905"},
+		{"S1_update", []string{"team", "worker", "update"}, "2026-11-03"},
+		{"S1_change", []string{"team", "worker", "change-agent"}, "2026-11-03"},
+		{"S3_keys", []string{"app", "key", "list"}, "2026-11-03"},
+		{"S3_revoke", []string{"app", "key", "revoke"}, "2026-11-03"},
+		{"S3_scope", []string{"app", "key", "scope", "revoke"}, "2026-11-03"},
+		{"S3_grants", []string{"app", "memory-grant", "list"}, "2026-11-03"},
+		{"S3_rm", []string{"app", "memory-grant", "rm"}, "2026-11-03"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f, _ := testFactory(t)
@@ -30,11 +33,16 @@ func TestInstructionMinimumHelp1602(t *testing.T) {
 				t.Fatal(err)
 			}
 			flag := c.Flags().Lookup("instruction")
-			if flag == nil || !strings.Contains(flag.Usage, "Needs server "+tc.minimum+" or later") || strings.Contains(flag.Usage, tc.absent) {
+			if flag == nil || !strings.Contains(flag.Usage, "Needs server "+tc.minimum+" or later") {
 				t.Fatalf("flag usage = %+v", flag)
 			}
-			if !strings.Contains(c.Long, "server "+tc.minimum+" or later") || strings.Contains(c.Long, tc.absent) {
+			if !strings.Contains(c.Long, "server "+tc.minimum+" or later") {
 				t.Fatalf("long help = %s", c.Long)
+			}
+			for _, h := range bannedHits2525(flag.Usage + "\n" + c.Long) {
+				if h.kind == "hash" {
+					t.Errorf("the page states a revision hash %q, not a date", h.text)
+				}
 			}
 		})
 	}

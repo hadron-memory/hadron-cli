@@ -84,8 +84,8 @@ team router poll  # issue #2027 x1 | issue #2138 x1
 team router status  # issue #2027 x1 | issue #2138 x1
 team session  # citation cor:agt:020:09 x1 | issue #1034 x1 | issue #1114 x1
 team session end  # citation cor:agt:020:03 x1 | citation cor:agt:020:09 x2 | citation cor:agt:020:10 x2 | issue #1029 x1 | issue #1114 x2 | issue #1157 x1 | issue #623 x2 | issue #842 x1
-team session list  # issue #1114 x1 | issue #371 x1 | issue #399 x1
-team session log  # issue #371 x1 | issue #399 x2 | issue #401 x1 | issue #474 x1 | issue #7 x1
+team session list  # issue #1114 x1 | issue #399 x1
+team session log  # issue #399 x2 | issue #401 x1 | issue #474 x1
 team session recover  # issue #2062 x1
 team session reset-context  # issue #2161 x1
 team session resume-claim  # citation cor:agt:020:03 x1 | issue #842 x1

@@ -3,35 +3,41 @@ package cmd
 import (
 	"flag"
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // cli#2525 (the deferred P3s of #2524): the #2508 guard, widened.
 //
-//   - F1: the walk covers EVERY top-level group, not only app and agent. Pages
-//     that still carry citations are listed in testdata/help_citation_exceptions_2525.txt,
-//     a ratchet: a page may leave the list, never join it, and a listed page that
-//     is clean is itself a failure, so the list only shrinks.
-//   - F2/L2: a revision hash is 7 to 40 lowercase hex characters between
-//     non-alphanumerics holding at least one digit and one letter (so dates, plain
-//     numbers and words like "deadbeef" are not hashes); an issue number is
-//     #<digits>, one digit included.
+//   - F1: the walk covers EVERY page: the root, every top-level group and the generated help
+//     and completion commands. Spec citations and issue numbers that pages still carry are
+//     listed, reference by reference with counts, in testdata/help_citation_exceptions_2525.txt:
+//     a ratchet. A page may carry fewer of a reference, never more and never one that is not
+//     listed; a listed reference the page no longer carries must be removed, and the update
+//     flag shrinks the list and never adds. Revision hashes are banned outright (no list).
+//   - F2/L2: a revision hash is 7 to 40 lowercase hex characters between non-alphanumerics
+//     holding at least one digit and one letter (so dates, plain numbers and words like
+//     "deadbeef" are not hashes); an issue number is #<digits>, one digit included, except
+//     the CLI's own owner/repo#N argument syntax. Limits are stated at isRevisionHash2525.
 //   - L2: pages are walked in sorted order, one t.Run each.
-//   - L3: a hit is found per line, so a hash that ends its line is reported with
-//     the line, never an empty example.
+//   - L3: a hit is found per line, so a hash that ends its line is reported with the line,
+//     never an empty example.
 
 type helpHit2525 struct{ kind, text, line string }
 
 var (
 	citationRE2525 = regexp.MustCompile(`cor:[a-z]+(?::[0-9]+)+`)
 	issueRE2525    = regexp.MustCompile(`#[0-9]+`)
-	hashRE2525     = regexp.MustCompile(`(?:^|[^0-9A-Za-z])([0-9a-f]{7,40})(?:$|[^0-9A-Za-z])`)
+	// ownerRepoBeforeRE2525 matches an "owner/repo" token ending right before a "#".
+	ownerRepoBeforeRE2525 = regexp.MustCompile(`[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+	hashRE2525            = regexp.MustCompile(`(?:^|[^0-9A-Za-z])([0-9a-f]{7,40})(?:$|[^0-9A-Za-z])`)
 )
 
 // placeholderHash2525 reports whether a hex run is an obvious placeholder (the
@@ -43,9 +49,9 @@ func placeholderHash2525(h string) bool {
 }
 
 // revisionContextRE2525 marks a line that says the token is a revision: a server floor,
-// a commit, a build. On such a line the id-shaped exemptions below do not apply. ("revision"
+// a commit, a build (not "release": it is also a command name, `team task release`). On such a line the id-shaped exemptions below do not apply. ("revision"
 // is not one: this product has node revisions and --expected-revision.)
-var revisionContextRE2525 = regexp.MustCompile(`(?i)\b(server|commit|sha|hash|build|built|merged|release)\b`)
+var revisionContextRE2525 = regexp.MustCompile(`(?i)\b(server|commit|sha|hash|build|built|merged)\b`)
 
 // isRevisionHash2525 decides whether a hex run is a revision hash. It is not when it lacks
 // a digit or a letter (a date, a number, a word) or is an obvious placeholder. Three shapes
@@ -64,7 +70,8 @@ func isRevisionHash2525(h, before, after, line string) bool {
 		return false
 	}
 	idShaped := len(h) == 32 || strings.HasSuffix(before, "-") || strings.HasPrefix(after, "-") || strings.HasPrefix(after, "…")
-	if idShaped && !revisionContextRE2525.MatchString(line) {
+	// A --server flag is not the word "server" in a floor sentence.
+	if idShaped && !revisionContextRE2525.MatchString(strings.ReplaceAll(line, "--server", "")) {
 		return false
 	}
 	return true
@@ -77,8 +84,13 @@ func bannedHits2525(help string) []helpHit2525 {
 		for _, m := range citationRE2525.FindAllString(l, -1) {
 			hits = append(hits, helpHit2525{"citation", m, strings.TrimSpace(l)})
 		}
-		for _, m := range issueRE2525.FindAllString(l, -1) {
-			hits = append(hits, helpHit2525{"issue", m, strings.TrimSpace(l)})
+		for _, loc := range issueRE2525.FindAllStringIndex(l, -1) {
+			// owner/repo#N is the CLI's own --pr argument syntax, not an issue citation; a
+			// bare or server-qualified number (hadron-server#3189, cli#2631) still is.
+			if ownerRepoBeforeRE2525.MatchString(l[:loc[0]]) {
+				continue
+			}
+			hits = append(hits, helpHit2525{"issue", l[loc[0]:loc[1]], strings.TrimSpace(l)})
 		}
 		// The boundary is consumed, so scan from each match's end to catch
 		// two hashes separated by one character.
@@ -311,7 +323,20 @@ func loadBaseline2525(t *testing.T) baseline2525 {
 // helpPagesInScope2525 renders every help page the guards cover, keyed by page name: the ROOT
 // page ("hadron --help") and, for every command directly under the root INCLUDING the generated
 // help and completion commands, that command's page and every visible page below it.
+var (
+	pagesOnce2525  sync.Once
+	pagesCache2525 map[string]string
+)
+
+// helpPagesInScope2525 returns the walked pages, rendered once per test binary (the tree is
+// large and several tests read it; none changes it).
 func helpPagesInScope2525(t *testing.T) map[string]string {
+	t.Helper()
+	pagesOnce2525.Do(func() { pagesCache2525 = renderHelpPages2525(t) })
+	return pagesCache2525
+}
+
+func renderHelpPages2525(t *testing.T) map[string]string {
 	t.Helper()
 	pages := map[string]string{}
 	f, out := testFactory(t)
@@ -342,7 +367,7 @@ func helpPagesInScope2525(t *testing.T) map[string]string {
 
 // George's/Dara's #2812 P3: the walked page set is compared with the visible command TREE, not with
 // a list of names: every visible command (generated help and completion included, with their
-// visible descendants) has a page, and every page is a command, the root, or the root itself.
+// visible descendants) has a page, and every walked page is a visible command or the root page.
 func TestHelpWalkCoversTheWholeVisibleCommandTree2525(t *testing.T) {
 	pages := helpPagesInScope2525(t)
 	f, out := testFactory(t)
@@ -594,7 +619,7 @@ func TestBaselineParserRejectsDuplicatesAndMalformedLines2525(t *testing.T) {
 // Jonas's #2812 P3 (F12): withoutGlobalFlags2508 drops the Global Flags block and nothing else.
 func TestWithoutGlobalFlagsDropsOnlyThatBlock2525(t *testing.T) {
 	page := "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n\nGlobal Flags:\n      --json   output JSON\n"
-	if got, want := withoutGlobalFlags2508(page), "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n"; got != want {
+	if got, want := withoutGlobalFlags2508(page), "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n\n"; got != want {
 		t.Errorf("got %q want %q", got, want)
 	}
 	noBlock := "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n"
