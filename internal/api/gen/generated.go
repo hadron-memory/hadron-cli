@@ -46684,6 +46684,83 @@ type CreateSecretResponse struct {
 // GetCreateSecret returns CreateSecretResponse.CreateSecret, and is useful for accessing the field via an interface.
 func (v *CreateSecretResponse) GetCreateSecret() *CreateSecretCreateSecret { return v.CreateSecret }
 
+// CreateSlackConnectionCreateSlackConnection includes the requested fields of the GraphQL type SlackConnection.
+// The GraphQL type's documentation follows.
+//
+// One Slack workspace install of the Hadron Slack app (spec 043).
+// Org-owned, workspace granularity: defaultAppId names the Hadron App that
+// serves /hadron commands from this workspace. The bot + app tokens live
+// ENCRYPTED IN THE TOOL (hadrontool-slack) — they are write-only inputs on
+// createSlackConnection and no field here ever returns them.
+type CreateSlackConnectionCreateSlackConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	DefaultAppId   string `json:"defaultAppId"`
+	// Slack provider backing this connection ('slack' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status string `json:"status"`
+	// Slack workspace (team) id, e.g. T0123456789.
+	TeamId   string `json:"teamId"`
+	TeamName string `json:"teamName"`
+	// The bot's BOT id (B…) — what bot message events carry. Distinct from botUserId; the bridge loop filter needs both.
+	BotId string `json:"botId"`
+	// The bot's Slack USER id (U…) — the sender on messages it posts.
+	BotUserId string `json:"botUserId"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// GetId returns CreateSlackConnectionCreateSlackConnection.Id, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns CreateSlackConnectionCreateSlackConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetDefaultAppId returns CreateSlackConnectionCreateSlackConnection.DefaultAppId, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetDefaultAppId() string { return v.DefaultAppId }
+
+// GetProvider returns CreateSlackConnectionCreateSlackConnection.Provider, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetProvider() string { return v.Provider }
+
+// GetStatus returns CreateSlackConnectionCreateSlackConnection.Status, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetStatus() string { return v.Status }
+
+// GetTeamId returns CreateSlackConnectionCreateSlackConnection.TeamId, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetTeamId() string { return v.TeamId }
+
+// GetTeamName returns CreateSlackConnectionCreateSlackConnection.TeamName, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetTeamName() string { return v.TeamName }
+
+// GetBotId returns CreateSlackConnectionCreateSlackConnection.BotId, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetBotId() string { return v.BotId }
+
+// GetBotUserId returns CreateSlackConnectionCreateSlackConnection.BotUserId, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetBotUserId() string { return v.BotUserId }
+
+// GetCreatedAt returns CreateSlackConnectionCreateSlackConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns CreateSlackConnectionCreateSlackConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionCreateSlackConnection) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateSlackConnectionResponse is returned by CreateSlackConnection on success.
+type CreateSlackConnectionResponse struct {
+	// Register a Slack workspace install (spec 043). orgRef/appRef accept ID
+	// or URN (cor:api:140); the App must belong to the org. Both tokens are
+	// validated live by the tool and stored encrypted THERE — core keeps
+	// identity only, and no field ever returns a token. Requires org
+	// ADMIN/OWNER.
+	CreateSlackConnection *CreateSlackConnectionCreateSlackConnection `json:"createSlackConnection"`
+}
+
+// GetCreateSlackConnection returns CreateSlackConnectionResponse.CreateSlackConnection, and is useful for accessing the field via an interface.
+func (v *CreateSlackConnectionResponse) GetCreateSlackConnection() *CreateSlackConnectionCreateSlackConnection {
+	return v.CreateSlackConnection
+}
+
 // CreateSpecNodeCreateSpecNode includes the requested fields of the GraphQL type Node.
 type CreateSpecNodeCreateSpecNode struct {
 	Id       string `json:"id"`
@@ -51553,6 +51630,17 @@ type DeleteSecretResponse struct {
 
 // GetDeleteSecret returns DeleteSecretResponse.DeleteSecret, and is useful for accessing the field via an interface.
 func (v *DeleteSecretResponse) GetDeleteSecret() bool { return v.DeleteSecret }
+
+// DeleteSlackConnectionResponse is returned by DeleteSlackConnection on success.
+type DeleteSlackConnectionResponse struct {
+	// Soft-delete a Slack connection (org ADMIN/OWNER); tears down the tool side best-effort.
+	DeleteSlackConnection bool `json:"deleteSlackConnection"`
+}
+
+// GetDeleteSlackConnection returns DeleteSlackConnectionResponse.DeleteSlackConnection, and is useful for accessing the field via an interface.
+func (v *DeleteSlackConnectionResponse) GetDeleteSlackConnection() bool {
+	return v.DeleteSlackConnection
+}
 
 // DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload includes the requested fields of the GraphQL type DeleteTeamRolePayload.
 // The GraphQL type's documentation follows.
@@ -130780,6 +130868,26 @@ func (v *__CreateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 // GetValue returns __CreateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__CreateSecretInput) GetValue() json.RawMessage { return v.Value }
 
+// __CreateSlackConnectionInput is used internally by genqlient
+type __CreateSlackConnectionInput struct {
+	OrgRef   string `json:"orgRef"`
+	AppRef   string `json:"appRef"`
+	BotToken string `json:"botToken"`
+	AppToken string `json:"appToken"`
+}
+
+// GetOrgRef returns __CreateSlackConnectionInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateSlackConnectionInput) GetOrgRef() string { return v.OrgRef }
+
+// GetAppRef returns __CreateSlackConnectionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateSlackConnectionInput) GetAppRef() string { return v.AppRef }
+
+// GetBotToken returns __CreateSlackConnectionInput.BotToken, and is useful for accessing the field via an interface.
+func (v *__CreateSlackConnectionInput) GetBotToken() string { return v.BotToken }
+
+// GetAppToken returns __CreateSlackConnectionInput.AppToken, and is useful for accessing the field via an interface.
+func (v *__CreateSlackConnectionInput) GetAppToken() string { return v.AppToken }
+
 // __CreateSpecNodeInput is used internally by genqlient
 type __CreateSpecNodeInput struct {
 	Input *CreateNodeInput `json:"input,omitempty"`
@@ -131273,6 +131381,14 @@ type __DeleteSecretInput struct {
 
 // GetRef returns __DeleteSecretInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteSecretInput) GetRef() string { return v.Ref }
+
+// __DeleteSlackConnectionInput is used internally by genqlient
+type __DeleteSlackConnectionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteSlackConnectionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteSlackConnectionInput) GetRef() string { return v.Ref }
 
 // __DeleteTeamRoleInput is used internally by genqlient
 type __DeleteTeamRoleInput struct {
@@ -157007,6 +157123,58 @@ func CreateSecret(
 	return data_, err_
 }
 
+// The mutation executed by CreateSlackConnection.
+const CreateSlackConnection_Operation = `
+mutation CreateSlackConnection ($orgRef: ID!, $appRef: ID!, $botToken: String!, $appToken: String!) {
+	createSlackConnection(orgRef: $orgRef, appRef: $appRef, botToken: $botToken, appToken: $appToken) {
+		id
+		organizationId
+		defaultAppId
+		provider
+		status
+		teamId
+		teamName
+		botId
+		botUserId
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// cli#206 connect/disconnect. The tokens are write-only inputs: the server's
+// SlackConnection type has no token field, and lastError is never requested.
+func CreateSlackConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	appRef string,
+	botToken string,
+	appToken string,
+) (data_ *CreateSlackConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSlackConnection",
+		Query:  CreateSlackConnection_Operation,
+		Variables: &__CreateSlackConnectionInput{
+			OrgRef:   orgRef,
+			AppRef:   appRef,
+			BotToken: botToken,
+			AppToken: appToken,
+		},
+	}
+
+	data_ = &CreateSlackConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateSpecNode.
 const CreateSpecNode_Operation = `
 mutation CreateSpecNode ($input: CreateNodeInput!) {
@@ -158994,6 +159162,38 @@ func DeleteSecret(
 	}
 
 	data_ = &DeleteSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteSlackConnection.
+const DeleteSlackConnection_Operation = `
+mutation DeleteSlackConnection ($ref: ID!) {
+	deleteSlackConnection(ref: $ref)
+}
+`
+
+func DeleteSlackConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteSlackConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteSlackConnection",
+		Query:  DeleteSlackConnection_Operation,
+		Variables: &__DeleteSlackConnectionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteSlackConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
