@@ -20,7 +20,8 @@ type unavailableKey struct{}
 // ReportUnavailable prints UnavailableClass with optional fixed field labels once
 // per command. Callers pass only labels they own, never server text: never expose the
 // provider error or infer why the advisory is unavailable. A diagnostic write
-// failure cannot undo the command's success.
+// failure cannot undo the command's success. The first call's labels win; callers
+// with several fields must aggregate their labels before calling.
 func ReportUnavailable(cmd *cobra.Command, fields ...string) {
 	if cmd.Context().Value(unavailableKey{}) != nil {
 		return

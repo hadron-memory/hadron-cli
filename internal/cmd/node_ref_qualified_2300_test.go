@@ -21,10 +21,13 @@ func nodeGetResolveSent2300(t *testing.T, resolve string, args ...string) (strin
 	var sent struct {
 		Urn string `json:"urn"`
 	}
-	if raw, ok := captured["ResolveUrn"]; ok {
-		if uerr := json.Unmarshal(raw, &sent); uerr != nil {
-			t.Fatal(uerr)
-		}
+	raw, ok := captured["ResolveUrn"]
+	if !ok {
+		// An empty capture would compare "" with "" and pass with nothing sent.
+		t.Fatalf("ResolveUrn was never sent (err=%v)", err)
+	}
+	if uerr := json.Unmarshal(raw, &sent); uerr != nil {
+		t.Fatal(uerr)
 	}
 	return sent.Urn, err
 }
@@ -70,24 +73,56 @@ func TestNodeGet2300UnknownQualifiedNamesURNAsGiven(t *testing.T) {
 	}
 }
 
-func TestNodeGet2300BatchQualifiedIgnoresMemory(t *testing.T) {
+// nodeGetBatchRefs2300 runs a batch `node get` with -m and returns the refs
+// sent in the one NodeBatch call.
+func nodeGetBatchRefs2300(t *testing.T, refs ...string) []string {
+	t.Helper()
 	gql, captured := captureGraphQL(t, map[string]string{
 		"NodeBatch": nodeBatchResult([]string{batchNodeJSON("n1", "alpha")}, ""),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"node", "get", "hrn:node:example.test:source:demo", "example.test::source::legacy", "alpha",
-		"-m", "example.test:other", "--json", "--server", gql.URL})
-	_ = root.Execute()
+	root.SetArgs(append(append([]string{"node", "get"}, refs...),
+		"-m", "example.test:other", "--json", "--server", gql.URL))
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	raw, ok := captured["NodeBatch"]
+	if !ok {
+		t.Fatal("NodeBatch was never sent")
+	}
 	var vars struct {
 		Refs []string `json:"refs"`
 	}
-	if err := json.Unmarshal(captured["NodeBatch"], &vars); err != nil {
-		t.Fatalf("NodeBatch not sent: %v", err)
+	if err := json.Unmarshal(raw, &vars); err != nil {
+		t.Fatal(err)
 	}
-	want := []string{"hrn:node:example.test:source:demo", "hrn:node:example.test::source::legacy", "hrn:node:example.test:other:alpha"}
-	if strings.Join(vars.Refs, " ") != strings.Join(want, " ") {
-		t.Fatalf("refs sent %q, want %q", vars.Refs, want)
+	return vars.Refs
+}
+
+func TestNodeGet2300BatchQualifiedIgnoresMemory(t *testing.T) {
+	const id = "019fce8418e8798285e7fc179f5bc8f4"
+	for _, tc := range []struct {
+		name string
+		refs []string
+		want []string
+	}{
+		{"mixed-with-bare-loc",
+			[]string{"hrn:node:example.test:source:demo", "example.test::source::legacy", "alpha"},
+			[]string{"hrn:node:example.test:source:demo", "hrn:node:example.test::source::legacy", "hrn:node:example.test:other:alpha"}},
+		{"all-qualified",
+			[]string{"hrn:node:example.test:source:demo", "example.test::source::legacy"},
+			[]string{"hrn:node:example.test:source:demo", "hrn:node:example.test::source::legacy"}},
+		{"with-node-id",
+			[]string{"hrn:node:example.test:source:demo", id, "alpha"},
+			[]string{"hrn:node:example.test:source:demo", id, "hrn:node:example.test:other:alpha"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := nodeGetBatchRefs2300(t, tc.refs...)
+			if strings.Join(got, " ") != strings.Join(tc.want, " ") {
+				t.Fatalf("refs sent %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

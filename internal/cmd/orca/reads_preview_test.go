@@ -242,14 +242,22 @@ func TestDueTicksPreviewHintOnlyForKnownRefusal(t *testing.T) {
 		{"wrong-code", []any{refusal(known, "INTERNAL_SERVER_ERROR")}, false},
 		{"bare-spelling", []any{refusal(`Unknown argument "preview" on field "dueWakes".`, "GRAPHQL_VALIDATION_FAILED")}, true},
 		{"missing-code", []any{map[string]any{"message": known}}, true},
-		// An absent code has three wire spellings — extensions omitted,
-		// present but empty, and null — and all map to the same upgrade
+		// An absent code has five wire spellings — extensions omitted,
+		// present but empty, `"extensions": null`, and present extensions
+		// whose code is `null` or `""` — and all map to the same upgrade
 		// hint: older servers predate the code, and gqlgen's unknown-
 		// argument wording alone is the refusal's identity (#2224). The
 		// bare `dueWakes` spelling pairs with an absent code the same way.
 		{"empty-extensions", []any{map[string]any{"message": known, "extensions": map[string]any{}}}, true},
 		{"null-extensions", []any{map[string]any{"message": known, "extensions": nil}}, true},
 		{"bare-spelling-missing-code", []any{map[string]any{"message": `Unknown argument "preview" on field "dueWakes".`}}, true},
+		{"null-code", []any{map[string]any{"message": known, "extensions": map[string]any{"code": nil}}}, true},
+		{"empty-code", []any{map[string]any{"message": known, "extensions": map[string]any{"code": ""}}}, true},
+		// The absent code is not message-blind: an unrelated message with
+		// no code (any spelling) gets no hint and stays at the MapError baseline.
+		{"missing-code-unrelated-message", []any{map[string]any{"message": "Something unrelated went wrong"}}, false},
+		{"null-code-unrelated-message", []any{map[string]any{"message": "Something unrelated went wrong", "extensions": map[string]any{"code": nil}}}, false},
+		{"empty-code-unrelated-message", []any{map[string]any{"message": "Something unrelated went wrong", "extensions": map[string]any{"code": ""}}}, false},
 	} {
 		for _, status := range []int{http.StatusOK, http.StatusBadRequest} {
 			t.Run(tc.name+"/"+http.StatusText(status), func(t *testing.T) {
