@@ -55,6 +55,16 @@ func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 		}
 	}
 
+	// The operation strings actually sent live in the generated client; sweep
+	// them too, so a stale generate (documents fixed, generated.go not) is red.
+	gensrc, err := os.ReadFile("gen/generated.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := retiredAgentTaskArg.FindString(string(gensrc)); m != "" {
+		t.Errorf("gen/generated.go still sends a retired agent-task argument: %q (run make generate)", strings.TrimSpace(m))
+	}
+
 	sdl, err := os.ReadFile("../../schema/schema.graphql")
 	if err != nil {
 		t.Fatal(err)
