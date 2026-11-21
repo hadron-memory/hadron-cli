@@ -170,11 +170,11 @@ func TestLinkDefectInstruction2449Help(t *testing.T) {
 		t.Fatal(err)
 	}
 	help := out.String()
-	if !strings.Contains(help, "2026-11-16") {
-		t.Fatalf("help must name this door's own server minimum 2026-11-16:\n%s", help)
+	if !namesServerFloor2849(help, "2026-11-16") {
+		t.Fatalf("help must state this door's own floor, \"server 2026-11-16 or later\":\n%s", help)
 	}
-	if strings.Contains(help, "2026-11-04") {
-		t.Fatalf("help must not name the shared task-write minimum 2026-11-04:\n%s", help)
+	if namesServerFloor2849(help, "2026-11-04") {
+		t.Fatalf("help must not state the shared task-write floor, \"server 2026-11-04 or later\":\n%s", help)
 	}
 	if !strings.Contains(help, "link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>] [--instruction <kind>:<ref>]") {
 		t.Fatalf("the synopsis must show the optional --instruction:\n%s", help)

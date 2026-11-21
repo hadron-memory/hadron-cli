@@ -21,7 +21,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List App runs (the audit surface)",
-		Long: `List App runs — status, trigger kind, and the run id (cor:agt:010:02).
+		Long: `List App runs — status, trigger kind, and the run id.
 
 Scope with --app or --org (mutually exclusive; --app defaults to the App
 context). Filter with --status (one of PENDING, RUNNING, COMPLETED, FAILED,
