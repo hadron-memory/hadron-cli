@@ -81,9 +81,12 @@ const escapedSpellingDepth = 2
 
 // escapedSpellings returns each base secret with its JSON-escaped spellings up
 // to escapedSpellingDepth levels, in Go's HTML-escaping form (\u003c) and in
-// the plain form JavaScript's JSON.stringify writes. They are ordered longest
-// first, so an echoed header is replaced whole before a passphrase inside it
-// is matched, and no shorter spelling can split a longer one.
+// the plain form JavaScript's JSON.stringify writes — which also leaves
+// U+2028/U+2029 raw where Go's encoder escapes them even with
+// SetEscapeHTML(false), so that spelling is generated too (cli#2704 Rook F1).
+// They are ordered longest first, so an echoed header is replaced whole before
+// a passphrase inside it is matched, and no shorter spelling can split a
+// longer one.
 func escapedSpellings(bases []string) []string {
 	seen := map[string]bool{}
 	var out []string
@@ -101,10 +104,18 @@ func escapedSpellings(bases []string) []string {
 		for d := 0; d < escapedSpellingDepth; d++ {
 			var next []string
 			for _, s := range level {
+				plain := jsonEscape(s, false)
 				for _, html := range []bool{true, false} {
 					if e := jsonEscape(s, html); add(e) {
 						next = append(next, e)
 					}
+				}
+				// The Node form derives from the non-HTML spelling:
+				// JSON.stringify leaves U+2028/U+2029 raw where Go escapes
+				// them, at every depth (cli#2704 Rook F1). It joins next so
+				// the following depth derives from it too.
+				if n := nodeJSONForm(plain); n != plain && add(n) {
+					next = append(next, n)
 				}
 			}
 			level = next
@@ -112,6 +123,39 @@ func escapedSpellings(bases []string) []string {
 	}
 	sort.SliceStable(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
 	return out
+}
+
+// nodeJSONForm rewrites a Go-encoded JSON string body into the form Node's
+// JSON.stringify writes: every \u2028/\u2029 escape becomes the raw character.
+// It scans by whole JSON escape units — an escaped backslash (\\) is consumed
+// as a unit, so the six characters \u2028 appearing as LITERAL text in the
+// token (Go-escaped to \\\u2028) are left alone; only Go's own
+// line-separator escapes are unfolded (cli#2704 Rook F1, cli#2714 Dara P2).
+func nodeJSONForm(goEscaped string) string {
+	var b strings.Builder
+	b.Grow(len(goEscaped))
+	for i := 0; i < len(goEscaped); {
+		if goEscaped[i] == '\\' && i+1 < len(goEscaped) {
+			next := goEscaped[i+1]
+			if next == '\\' { // an escaped backslash: one unit, never the start of uXXXX
+				b.WriteString(`\\`)
+				i += 2
+				continue
+			}
+			if rest := goEscaped[i:]; strings.HasPrefix(rest, `\u2028`) {
+				b.WriteString(" ")
+				i += 6
+				continue
+			} else if strings.HasPrefix(rest, `\u2029`) {
+				b.WriteString(" ")
+				i += 6
+				continue
+			}
+		}
+		b.WriteByte(goEscaped[i])
+		i++
+	}
+	return b.String()
 }
 
 // jsonEscape returns s as it appears inside a JSON string literal, without

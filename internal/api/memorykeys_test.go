@@ -466,3 +466,104 @@ func TestRawGraphQLNeverRendersAnUnlockEcho(t *testing.T) {
 		}
 	}
 }
+
+// cli#2704 (Rook F1): Go escapes U+2028/U+2029 even with SetEscapeHTML(false),
+// Node's JSON.stringify writes them raw — so the spellings a Node echo would
+// actually carry are distinct strings the generator on main never produces.
+// cli#2714 (Dara P3): the depth-2 entries are labeled by their derivation
+// chain, and the true Go-then-Go spelling (two consecutive Go encodings also
+// double the backslash before u2028) is required; U+2029 is covered here too
+// because the API generator is separate from the CLI one. The raw separators
+// and the literal escape text appear as Go \uXXXX / \\uXXXX escapes, never
+// as source bytes (cli#2714 round 3, Dara P2: the mangled source bytes made
+// the Go depth-1 and Node-then-Go entries duplicate the Node expectations,
+// leaving both true Go spellings untested; the final entry is the
+// Node-then-Node derivation).
+func TestEscapedSpellingsNodeLineSeparatorSet2704(t *testing.T) {
+	pass := "p\"q\u2028r"
+	got := escapedSpellings([]string{pass})
+	sep := "\u2028"  // the raw separator, as a Go escape (never a source byte)
+	esc := "\\u2028" // the six literal characters Go's encoder writes for it
+	q := `\"`        // the JSON escape of the quote
+	qq := `\\\"`     // Go's re-encode of q: the backslash doubles and the quote escapes, so three backslashes precede the quote
+	want := []string{
+		pass,                              // the literal
+		"p" + q + "q" + esc + "r",         // Go depth 1 (both HTML forms agree here)
+		"p" + q + "q" + sep + "r",         // Node depth 1: the separator stays raw
+		"p" + qq + "q" + esc + "r",        // Node-then-Go: Go re-encodes Node depth 1
+		"p" + qq + "q" + "\\" + esc + "r", // Go-then-Go: u2028's backslash doubles too
+		"p" + qq + "q" + sep + "r",        // Node-then-Node: separators unfolded
+	}
+	for _, w := range want {
+		if !containsExactly(got, w) {
+			t.Errorf("spelling %q missing from %q", w, got)
+		}
+	}
+	for i := 1; i < len(got); i++ {
+		if len(got[i-1]) < len(got[i]) {
+			t.Errorf("spellings not longest-first: %q before %q", got[i-1], got[i])
+		}
+	}
+	// The U+2029 sibling: Node depth 1 writes the raw character.
+	got = escapedSpellings([]string{"p\"q\u2029r"})
+	if !containsExactly(got, "p"+q+"q"+"\u2029"+"r") {
+		t.Errorf("the U+2029 Node depth-1 spelling is missing: %q", got)
+	}
+}
+
+// containsExactly is the spelling-set membership check the 2704/2714 pins use.
+func containsExactly(set []string, want string) bool {
+	for _, s := range set {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+// cli#2714 (Dara P2): a secret containing the six LITERAL characters
+// backslash-u-2028 must not derive a bogus raw-separator spelling from the
+// escaped backslash; the true Node spelling of a secret with BOTH literal
+// backslash-u text and a real separator must be generated.
+func TestEscapedSpellingsLiteralBackslashU2714(t *testing.T) {
+	got := escapedSpellings([]string{"x\\u2028y"})
+	bogus := "x\\" + "\u2028" + "y" // backslash, RAW U+2028 — never a real spelling here
+	if containsExactly(got, bogus) {
+		t.Errorf("bogus Node spelling generated from literal backslash-u: %q", got)
+	}
+	if !containsExactly(got, `x\\u2028y`) {
+		t.Errorf("the true escaped spelling of the literal text is missing: %q", got)
+	}
+	got = escapedSpellings([]string{"x\\u2028y" + "\u2028"})
+	if !containsExactly(got, `x\\u2028y`+"\u2028") {
+		t.Errorf("the true Node spelling of the mixed secret is missing: %q", got)
+	}
+}
+
+// cli#2704 (Rook F1), composed: an error body echoing the NODE-form spelling
+// of an --unlock passphrase (backslash-escaped quote with the RAW line
+// separator) must be scrubbed through the real secrets list (WithMemoryKeys →
+// keys.secrets → redactUnlockSecrets). The body is built with json.Marshal so
+// the decoded message carries the spelling exactly; the assertion is the
+// strong one — no spelling of the passphrase may survive, in any re-encoding
+// (the scrubber re-encodes with Go's encoder, which re-escapes U+2028).
+func TestUnlockNodeLineSeparatorEchoIsScrubbed2704(t *testing.T) {
+	pass := "S3\u2028NT\"K"
+	ctx, err := WithMemoryKeys(context.Background(), []MemoryKey{{Memory: "hrn:mem:acme.com:kb", Passphrase: pass}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, _ := memoryKeysFrom(ctx)
+	msg := "echo S3\u2028NT\\\"K back"
+	body, err := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": msg}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(redactUnlockSecrets(500, body, keys.secrets))
+	if strings.Contains(out, "S3") {
+		t.Fatalf("a spelling of the passphrase survived: %s", out)
+	}
+	if !hasGraphQLErrorsEnvelope([]byte(out)) {
+		t.Fatalf("envelope lost: %s", out)
+	}
+}

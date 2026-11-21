@@ -241,6 +241,38 @@ func TestNodeMovePlan741LinkWarningsText(t *testing.T) {
 	}
 }
 
+// A null linkWarnings without linkWarningsWithheld is the server not reporting
+// at all: the CLI says so (never "none", never "withheld") and --json keeps the
+// list null (cli#2400).
+func TestNodeMovePlan741LinkWarningsNotReported(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		t.Run(fmt.Sprintf("json=%v", asJSON), func(t *testing.T) {
+			extra := []string{"--to-memory", "hrn:mem:acme.com:archive"}
+			if asJSON {
+				extra = append(extra, "--json")
+			}
+			out, err := run741(t, &planFake741{plan: plan741(1, 1, false, nil, false)}, extra...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !asJSON {
+				if !strings.Contains(out, "Link warnings: not reported by the server") ||
+					strings.Contains(out, "Link warnings: none") || strings.Contains(out, "Link warnings: withheld") {
+					t.Errorf("null warnings without withheld must say not reported:\n%s", out)
+				}
+				return
+			}
+			var dto map[string]any
+			if err := json.Unmarshal([]byte(out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if w, ok := dto["linkWarnings"]; !ok || w != nil || dto["linkWarningsWithheld"] != false {
+				t.Errorf("not-reported JSON must carry linkWarnings null and linkWarningsWithheld false: %s", out)
+			}
+		})
+	}
+}
+
 // A truncated plan is shown with its label and the full count, and exits 1:
 // it is never presented as the whole subtree.
 func TestNodeMovePlan741Truncated(t *testing.T) {

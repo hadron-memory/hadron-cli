@@ -3,12 +3,13 @@
 package team
 
 import (
-	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 )
 
 // #2344: the sweep's fixing loop re-reads the poller state per worker, and an

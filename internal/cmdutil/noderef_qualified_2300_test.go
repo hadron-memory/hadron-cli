@@ -30,6 +30,7 @@ var memories2300 = []string{"example.test:other", "example.test::other", "exampl
 func resolveSent2300(t *testing.T, memory, ref string) string {
 	t.Helper()
 	var sent string
+	var seen bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string `json:"operationName"`
@@ -41,7 +42,7 @@ func resolveSent2300(t *testing.T, memory, ref string) string {
 		if body.OperationName != "ResolveUrn" {
 			t.Errorf("unexpected operation %q", body.OperationName)
 		}
-		sent = body.Variables.Urn
+		sent, seen = body.Variables.Urn, true
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`))
 	}))
@@ -50,6 +51,10 @@ func resolveSent2300(t *testing.T, memory, ref string) string {
 	cmd.SetContext(context.Background())
 	if _, err := ResolveNodeRef(cmd, graphql.NewClient(srv.URL, srv.Client()), memory, ref); err != nil {
 		t.Fatalf("ResolveNodeRef(%q, %q): %v", memory, ref, err)
+	}
+	if !seen {
+		// An empty capture would compare "" with "" and pass with nothing sent.
+		t.Fatalf("ResolveNodeRef(%q, %q) never sent ResolveUrn", memory, ref)
 	}
 	return sent
 }
