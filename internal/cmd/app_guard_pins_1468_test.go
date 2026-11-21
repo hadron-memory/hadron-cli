@@ -59,15 +59,17 @@ func appIdentity1468(t *testing.T, field, value string) string {
 	return row
 }
 
-// capturedText1468 reads what a test writer captured. A writer that does not
-// capture (a wrong fixture type) is an error naming its type, so a test fails
-// with a diagnosis instead of panicking on a type assertion (cli#2784 F1).
-func capturedText1468(w io.Writer) (string, error) {
-	c, ok := w.(interface{ String() string })
+// capturedText reads what a test writer captured. Only the *strings.Builder
+// that testFactory installs accumulates, so that is what it asserts: any other
+// writer (even one with a String method that returns stale text) is an error
+// naming its type, so a test fails with a diagnosis instead of panicking on a
+// type assertion or reading stale text. Introduced by hadron-cli#2784.
+func capturedText(w io.Writer) (string, error) {
+	b, ok := w.(*strings.Builder)
 	if !ok {
 		return "", fmt.Errorf("writer is %T, which does not capture output (want a *strings.Builder from testFactory)", w)
 	}
-	return c.String(), nil
+	return b.String(), nil
 }
 
 // refused1468 checks no success payload and one request in each mode, as a
@@ -75,17 +77,21 @@ func capturedText1468(w io.Writer) (string, error) {
 // renderer and pins its stderr message; JSON errors normally render on stdout,
 // so empty stdout is checked BEFORE error rendering, as in the original guard
 // pin. The scaffold is runTeamTask's (runTeamTaskFactory); only the
-// renderer-specific observations live here (cli#2784 F2).
+// renderer-specific observations live here. Subtests are named
+// <op>/json=<bool>, so two calls in one test stay distinct. t.Fatalf inside a
+// subtest ends only that subtest: the other mode still runs, and the parent
+// test fails when either does (hadron-cli#2852) (hadron-cli#2784).
 func refused1468(t *testing.T, op, response, message string, args ...string) {
 	t.Helper()
 	for _, jsonMode := range []bool{true, false} {
-		t.Run(fmt.Sprintf("json=%t", jsonMode), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s/json=%t", op, jsonMode), func(t *testing.T) {
 			t.Helper()
 			argv := append([]string{}, args...)
 			if jsonMode {
 				argv = append(argv, "--json")
 			}
-			f, calls, out, err := runTeamTaskFactory(t, map[string]string{op: response}, argv...)
+			run := runTeamTaskFactory(t, map[string]string{op: response}, argv...)
+			f, calls, out, err := run.Factory, run.Calls, run.Out, run.Err
 			if got := exitCodeFor(err); got != 1 {
 				t.Fatalf("exit=%d, want 1 (%v); stdout %q", got, err, out.String())
 			}
@@ -98,9 +104,25 @@ func refused1468(t *testing.T, op, response, message string, args ...string) {
 			if !strings.Contains(err.Error(), message) {
 				t.Fatalf("refusal %q lacks %q", err, message)
 			}
-			if !jsonMode {
+			if jsonMode {
+				// The JSON error envelope: rendered, it is one document on
+				// stdout carrying the exit code and the refusal text.
 				renderError(f, err)
-				stderr, cerr := capturedText1468(f.IOStreams.ErrOut)
+				var env struct {
+					Error struct {
+						Code    int    `json:"code"`
+						Message string `json:"message"`
+					} `json:"error"`
+				}
+				if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil {
+					t.Fatalf("rendered JSON error is not one JSON document: %q (%v)", out.String(), jerr)
+				}
+				if env.Error.Code != 1 || !strings.Contains(env.Error.Message, message) {
+					t.Fatalf("JSON error envelope %q: want code 1 and message containing %q", out.String(), message)
+				}
+			} else {
+				renderError(f, err)
+				stderr, cerr := capturedText(f.IOStreams.ErrOut)
 				if cerr != nil {
 					t.Fatal(cerr)
 				}
@@ -249,7 +271,7 @@ func TestAppWhoami2414OtherMetadataIsNotAnIdentityGuard(t *testing.T) {
 // A fixture edit that is not a known field, or whose value is not valid JSON,
 // is an error rather than a silently malformed fixture. An invalid value is
 // stored as a json.RawMessage, so it is rejected when the row is re-encoded
-// (json.Marshal validates RawMessage), not when it is assigned (cli#2784 F7).
+// (json.Marshal validates RawMessage), not when it is assigned (hadron-cli#2784).
 func TestGrantFixture2414RejectsInvalidEdits(t *testing.T) {
 	for _, tc := range []struct{ name, field, value string }{{"unknown key", "not-a-grant-field", `"x"`}, {"invalid JSON value, rejected at re-encode", "id", `not-json`}} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -260,7 +282,7 @@ func TestGrantFixture2414RejectsInvalidEdits(t *testing.T) {
 	}
 }
 
-// cli#2784 F7: the common helper and the App identity fixture reject the same
+// hadron-cli#2784: the common helper and the App identity fixture reject the same
 // bad edits directly (the App wrapper reports through t.Fatalf, so its base
 // helper is tested here), and a malformed base row is an error too. Each case
 // asserts the error its own check raises, so one check cannot stand in for
@@ -277,6 +299,7 @@ func TestFixtureObject2784RejectsBadEditsDirectly(t *testing.T) {
 	}{
 		{"App unknown key", app1338, "not-an-app-field", `"x"`, unknownKey},
 		{"App invalid value", app1338, "id", `not-json`, badValue},
+		{"grant unknown key", grant1338, "not-a-grant-field", `"x"`, unknownKey},
 		{"grant invalid value", grant1338, "prefix", `{`, badValue},
 		{"malformed base row", `{"id":`, "id", `"a9"`, badBase},
 	} {
@@ -287,30 +310,48 @@ func TestFixtureObject2784RejectsBadEditsDirectly(t *testing.T) {
 			}
 		})
 	}
-	// Positive control: a valid edit of a known field changes that field.
+	// Positive control: a valid edit of a known field changes that field. Each
+	// step has its own message, so a failure names the step that broke.
 	var before, after struct {
 		ID string `json:"id"`
 	}
-	row, err := fixtureObject1468(app1338, "id", `"a9"`)
-	if err != nil || json.Unmarshal([]byte(app1338), &before) != nil || json.Unmarshal([]byte(row), &after) != nil {
-		t.Fatalf("valid edit: %q %v", row, err)
+	if err := json.Unmarshal([]byte(app1338), &before); err != nil {
+		t.Fatalf("control: base App fixture is not JSON: %v", err)
 	}
-	if before.ID == "a9" || after.ID != "a9" {
-		t.Fatalf("valid edit did not change id: before %q after %q", before.ID, after.ID)
+	if before.ID == "a9" {
+		t.Fatalf("control precondition: base id is already %q, so the edit proves nothing", before.ID)
+	}
+	row, err := fixtureObject1468(app1338, "id", `"a9"`)
+	if err != nil {
+		t.Fatalf("control: a valid edit was rejected: %v", err)
+	}
+	if err := json.Unmarshal([]byte(row), &after); err != nil {
+		t.Fatalf("control: edited row %q is not JSON: %v", row, err)
+	}
+	if after.ID != "a9" {
+		t.Fatalf("control: edit did not change id: before %q after %q", before.ID, after.ID)
 	}
 }
 
-// cli#2784 F1: the checked stderr read fails with the writer's type instead of
-// panicking, and reads a capturing writer unchanged.
+// hadron-cli#2784: the checked stderr read fails with the writer's type instead
+// of panicking, and reads a capturing writer unchanged.
 type noCapture2784 struct{ io.Writer }
 
+// stale2784 has a String method but does not accumulate what is written.
+type stale2784 struct{ io.Writer }
+
+func (stale2784) String() string { return "stale" }
+
 func TestCapturedText2784NamesAWrongWriterType(t *testing.T) {
-	if _, err := capturedText1468(noCapture2784{io.Discard}); err == nil || !strings.Contains(err.Error(), "noCapture2784") {
+	if got, err := capturedText(stale2784{io.Discard}); err == nil || !strings.Contains(err.Error(), "stale2784") {
+		t.Fatalf("a String-method writer that does not capture must be refused, got %q, %v", got, err)
+	}
+	if _, err := capturedText(noCapture2784{io.Discard}); err == nil || !strings.Contains(err.Error(), "noCapture2784") {
 		t.Fatalf("a non-capturing writer must be an error naming its type, got %v", err)
 	}
 	var b strings.Builder
 	b.WriteString("refused")
-	if got, err := capturedText1468(&b); err != nil || got != "refused" {
+	if got, err := capturedText(&b); err != nil || got != "refused" {
 		t.Fatalf("capturing writer: %q %v", got, err)
 	}
 }
