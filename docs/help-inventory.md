@@ -538,7 +538,7 @@ section between the markers.
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host run` |  |  | y | #1054 | b97a670b3a75 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | f6c071f5cd86 |  | unread |  |
-| `team host status` |  |  | n | #1054 | 623c350ebccd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
+| `team host status` |  |  | n | #1054 | c3a3ecae8eed |  | unread |  |
 | `team host sweep` |  |  | n | #1054 | 22ee75e32e51 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host sweep install` |  |  | y | #1054 | 963f6f18deb7 |  | unread |  |
 | `team host sweep status` |  |  | y | #1054 | 49f6a1dd42c4 |  | unread |  |
@@ -757,7 +757,7 @@ section between the markers.
 | `automation preview` |  |  | n | #1184 | 0010cb874381 |  | unread |  |
 | `automation re-adopt` |  |  | n | #1184 | 873c41db9cef |  | unread |  |
 | `automation team-snapshot-grant` |  |  | n | #1184 | 43471523b35a |  | unread |  |
-| `automation team-snapshot-grant list` | ls |  | y | #1184 | ca091b188b78 |  | unread |  |
+| `automation team-snapshot-grant list` | ls |  | y | #1184 | b698c2bc6e37 |  | unread |  |
 | `automation team-snapshot-grant revoke` |  |  | y | #1184 | 649541714120 |  | unread |  |
 | `automation team-snapshot-grant set` |  |  | y | #1184 | 58877c715061 |  | unread |  |
 | `billing` |  |  | y | #1184 | 7e66fd0c12a2 |  | unread |  |

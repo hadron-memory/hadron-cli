@@ -32,6 +32,21 @@ import (
 // that describes another is refused with a SkewError.
 const ContractVersion = 1
 
+// ExitNotMine is the exit status with which an adapter answers a write call
+// (mark-tracked, untrack, report) for an external id that is not its item
+// (hadron-cli#2869). The adapter decides what is foreign, never the CLI
+// (cor:agt:120 is source-agnostic). The reconcile pass records the id, shows it
+// in its output and moves its cursor past the change; every other non-zero exit
+// is still a refusal that holds the cursor. An adapter may equally answer {} and
+// make no tracker request; this code is for one that wants the skip visible.
+//
+// The code carries this meaning only for an adapter whose `describe` sets
+// "notMine": true (Describe.NotMine). An adapter that does not declare it keeps
+// the v1 meaning: any non-zero exit is a refusal. The declaration is an optional
+// field of contract version 1, so no adapter is reinterpreted. It applies to the
+// reconcile pass only; in the `--track` claim walk exit 20 is an ordinary failure.
+const ExitNotMine = 20
+
 // Bounds on what an adapter may hand back. An answer outside one is refused;
 // nothing is truncated into a plausible answer.
 const (
@@ -60,6 +75,9 @@ type Describe struct {
 	Calls           []string `json:"calls"`
 	Filters         []string `json:"filters"`
 	Order           string   `json:"order"`
+	// NotMine declares that the adapter answers a write call for an id that is
+	// not its item with exit ExitNotMine (hadron-cli#2869). Absent means false.
+	NotMine bool `json:"notMine"`
 }
 
 // Has reports whether the adapter says it answers call.

@@ -1,10 +1,13 @@
 package output
 
 import (
+	"encoding/json"
+	"fmt"
 	"math"
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf16"
 )
 
 // cellMaxRunes is the RENDERED limit of one text-table cell, the ellipsis
@@ -106,7 +109,11 @@ var (
 // Terminal escape sequences, in their 7-bit (ESC-introduced) and 8-bit (C1) forms. An OSC
 // string ends at BEL, ST (ESC \) or the C1 ST; a CSI sequence ends at its final byte.
 var (
-	errOSC = regexp.MustCompile(`(?:\x1b\]|\x{9d})[^\x07\x1b\x{9c}]*(?:\x07|\x1b\\|\x{9c})?`)
+	// Policy (cli#2846), not a terminal rule: an OSC string is bounded at the end of its line, so
+	// one with no terminator cannot swallow the renderer's own lines after a server message. A
+	// terminated OSC that spans a newline is therefore cut at that newline: its first line is
+	// removed, the rest shows (with the stray terminator as a space).
+	errOSC = regexp.MustCompile(`(?:\x1b\]|\x{9d})[^\x07\x1b\x{9c}\n]*(?:\x07|\x1b\\|\x{9c})?`)
 	errCSI = regexp.MustCompile(`(?:\x1b\[|\x{9b})[0-?]*[ -/]*[@-~]?`)
 	errESC = regexp.MustCompile(`\x1b.?`)
 )
@@ -152,4 +159,31 @@ func SafeJSONText(s string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// ExactJSONString is a string that marshals to a JSON string which DECODES to exactly the
+// original, while its bytes carry no C1 control or format character raw: each is written as a
+// \uXXXX escape, so a terminal showing the document cannot act on it (cli#2846). It is for the
+// few values a caller must copy byte for byte (a staged secret change's request id and ceremony
+// URL, cli#2738), where SafeJSONText's replacement with a space would corrupt the value.
+type ExactJSONString string
+
+func (s ExactJSONString) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(string(s))
+	if err != nil {
+		return nil, err
+	}
+	var out strings.Builder
+	for _, r := range string(b) {
+		if (r >= 0x80 && r <= 0x9f) || unicode.In(r, unicode.Cf) {
+			if r1, r2 := utf16.EncodeRune(r); r1 != unicode.ReplacementChar { // beyond the BMP: a surrogate pair
+				fmt.Fprintf(&out, `\u%04x\u%04x`, r1, r2)
+			} else {
+				fmt.Fprintf(&out, `\u%04x`, r)
+			}
+			continue
+		}
+		out.WriteRune(r)
+	}
+	return []byte(out.String()), nil
 }

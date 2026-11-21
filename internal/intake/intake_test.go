@@ -359,3 +359,29 @@ func TestScrubAllHadronEnvironment1974(t *testing.T) {
 		t.Fatalf("unexpected environment: %v", got)
 	}
 }
+
+// cli#2869: the notMine declaration is read from the adapter's real `describe`
+// answer, not set by a test. true declares it; absent, false and null do not; a
+// non-boolean is refused (a wrong JSON tag on Describe.NotMine fails here).
+func TestDescribeReadsTheNotMineDeclaration2869(t *testing.T) {
+	for _, tc := range []struct {
+		field string
+		want  bool
+	}{
+		{`,"notMine":true`, true},
+		{``, false},
+		{`,"notMine":false`, false},
+		{`,"notMine":null`, false},
+	} {
+		r := adapter(t, `cat >/dev/null; echo '{"name":"fake","contractVersion":1,"calls":["describe"]`+tc.field+`}'`)
+		d, err := r.Describe(context.Background())
+		if err != nil || d.NotMine != tc.want {
+			t.Fatalf("describe%q: NotMine=%v err=%v, want %v", tc.field, d.NotMine, err, tc.want)
+		}
+	}
+	r := adapter(t, `cat >/dev/null; echo '{"name":"fake","contractVersion":1,"notMine":"yes"}'`)
+	var oe *OutputError
+	if _, err := r.Describe(context.Background()); !errors.As(err, &oe) {
+		t.Fatalf("a non-boolean notMine must be refused as an output error, got %v", err)
+	}
+}
