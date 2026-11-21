@@ -366,3 +366,57 @@ func TestSecretClientRevokeErrorsBelowTheWriteAreUnknown2680(t *testing.T) {
 		})
 	}
 }
+
+// pagedClients2680 serves rows on the first page and an empty list after it, and
+// answers revokeGrant with the given state, recording the refs it was sent.
+func pagedClients2680(t *testing.T, rows []string, refs *[]string) *httptest.Server {
+	t.Helper()
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var b struct {
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
+		}
+		_ = json.Unmarshal(raw, &b)
+		w.Header().Set("Content-Type", "application/json")
+		mu.Lock()
+		defer mu.Unlock()
+		switch b.OperationName {
+		case "MySecretReadClients":
+			if off, _ := b.Variables["offset"].(float64); off == 0 {
+				_, _ = w.Write([]byte(readClients2680(rows...)))
+				return
+			}
+			_, _ = w.Write([]byte(readClients2680()))
+		case "RevokeSecretReadClientGrant":
+			ref, _ := b.Variables["ref"].(string)
+			*refs = append(*refs, ref)
+			_, _ = w.Write([]byte(revokedFor2680(ref, "REVOKED")))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// Rook's #2757 P3: the client id is matched EXACTLY. With two clients sharing a
+// prefix, a partial id (or another case) is not found: exit 4, no revoke, so it
+// can never pick and irreversibly revoke a different client.
+func TestSecretClientRevokeMatchesTheClientIDExactly2680(t *testing.T) {
+	rows := []string{clientRow2680("c1-long", "gr-long"), clientRow2680("c1-other", "gr-other")}
+	for _, id := range []string{"c", "c1", "c-", "C1-LONG"} {
+		t.Run(id, func(t *testing.T) {
+			var refs []string
+			srv := pagedClients2680(t, rows, &refs)
+			_, err := runRevoke2680(t, srv.URL, id, "--yes")
+			if exitCodeFor(err) != exitcode.NotFound || len(refs) != 0 {
+				t.Fatalf("id %q: exit=%d refs=%v err=%v", id, exitCodeFor(err), refs, err)
+			}
+		})
+	}
+	var refs []string
+	srv := pagedClients2680(t, []string{clientRow2680("c1-long", "gr-long"), clientRow2680("c1", "gr-c1")}, &refs)
+	if _, err := runRevoke2680(t, srv.URL, "c1", "--yes"); err != nil || len(refs) != 1 || refs[0] != "gr-c1" {
+		t.Fatalf("the exact id must revoke its own grant: %v refs=%v", err, refs)
+	}
+}
