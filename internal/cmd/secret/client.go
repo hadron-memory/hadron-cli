@@ -49,7 +49,7 @@ impersonated session and an App key, and decides who may issue (whoever manages
 the App, or wrote the secret's current version). Revealing the value is a worker
 session's act and is not part of these commands.`,
 	}
-	cmd.AddCommand(newCmdClientIssue(f), newCmdClientLs(f))
+	cmd.AddCommand(newCmdClientIssue(f), newCmdClientList(f))
 	return cmd
 }
 
@@ -83,9 +83,10 @@ func signingFrom(r *gen.TeamGrantSigningRequestFields) *signingDTO {
 // text render is refused when it could act on a terminal.
 func renderIssue(f *cmdutil.Factory, d issueDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		if d.SigningRequest != nil && cmdutil.UnsafeForTerminal(d.SigningRequest.CeremonyURL) {
-			return cmdutil.CeremonyURLRefusal()
-		}
+		// The client and grant already exist, so an unsafe URL withholds only
+		// itself: every other field is printed first (the caller needs the ids to
+		// recover), and the text render then refuses with the URL's own error.
+		unsafeURL := d.SigningRequest != nil && cmdutil.UnsafeForTerminal(d.SigningRequest.CeremonyURL)
 		rows := [][2]string{
 			{"clientId", output.SafeCell(d.ClientID)}, {"secret", output.SafeCell(d.SecretName)},
 			{"selfIssued", fmt.Sprint(d.SelfIssued)}, {"grantId", output.SafeCell(d.GrantID)},
@@ -93,12 +94,18 @@ func renderIssue(f *cmdutil.Factory, d issueDTO) error {
 		if s := d.SigningRequest; s != nil {
 			rows = append(rows,
 				[2]string{"signingRequest", output.SafeCell(s.ID)}, [2]string{"state", output.SafeCell(s.State)},
-				[2]string{"expiresAt", output.SafeCell(s.ExpiresAt)}, [2]string{"ceremonyUrl", s.CeremonyURL})
+				[2]string{"expiresAt", output.SafeCell(s.ExpiresAt)})
+			if !unsafeURL {
+				rows = append(rows, [2]string{"ceremonyUrl", s.CeremonyURL})
+			}
 		}
 		for _, r := range rows {
 			if _, err := fmt.Fprintf(w, "%s: %s\n", r[0], r[1]); err != nil {
 				return err
 			}
+		}
+		if unsafeURL {
+			return cmdutil.CeremonyURLRefusal()
 		}
 		return nil
 	})
@@ -196,6 +203,9 @@ was lost: the error says which, and how to ask again).`,
 				return exitcode.Newf(exitcode.Error, "server returned no read client; a pending read client may exist: check `hadron secret client list` before issuing again")
 			}
 			issued := resp.IssueSecretReadClient
+			if strings.TrimSpace(issued.ClientId) == "" || strings.TrimSpace(issued.GrantId) == "" {
+				return exitcode.Newf(exitcode.Error, "server returned an unusable read client (no client or grant id); no signing request was made, and a pending read client may exist: check `hadron secret client list`")
+			}
 			dto := issueDTO{ClientID: issued.ClientId, GrantID: issued.GrantId, SecretName: issued.SecretName, SelfIssued: issued.SelfIssued}
 
 			sr, err := gen.TeamRequestGrantSignature(ctx, client, issued.GrantId)
@@ -232,7 +242,16 @@ was lost: the error says which, and how to ask again).`,
 				return exitcode.Newf(exitcode.Error, "not waiting: the ceremony URL contains control or format characters and cannot be shown while waiting; the signing request %s stays open (read it with `hadron team grant signing-request get %s`)",
 					output.SafeCell(dto.SigningRequest.ID), output.SafeCell(dto.SigningRequest.ID))
 			}
-			_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "waiting for a signature at %s\n", dto.SigningRequest.CeremonyURL)
+			if _, werr := fmt.Fprintf(f.IOStreams.ErrOut, "waiting for a signature at %s\n", dto.SigningRequest.CeremonyURL); werr != nil {
+				// The signer's link could not be delivered here, so do not wait for a
+				// signature nobody can be asked for: print the issue (its URL is on
+				// stdout) and stop; the request stays open.
+				if err := renderIssue(f, dto); err != nil {
+					return err
+				}
+				return exitcode.Newf(exitcode.Error, "not waiting: the ceremony URL could not be written to stderr (%v); the signing request %s stays open (read it with `hadron team grant signing-request get %s`)",
+					werr, output.SafeCell(dto.SigningRequest.ID), output.SafeCell(dto.SigningRequest.ID))
+			}
 			last, werr := pollSigning(ctx, client, req.Id, issued.ClientId, waitTimeout)
 			if last != nil {
 				dto.SigningRequest = last
@@ -272,7 +291,10 @@ func issueError(err error) error {
 // list output only). The exit code is kept; a server code that carries the id is
 // dropped, as setTokenError drops a code that carries a token.
 func withoutClientID(mapped, raw error, clientID string) error {
-	msg := strings.ReplaceAll(mapped.Error(), clientID, "[client id]")
+	msg := mapped.Error()
+	if clientID != "" {
+		msg = strings.ReplaceAll(msg, clientID, "[client id]")
+	}
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
 	if clientID != "" && strings.Contains(api.ServerCodeOf(raw), clientID) {
 		return safe
@@ -358,7 +380,7 @@ type clientDTO struct {
 	CreatedAt  string  `json:"createdAt"`
 }
 
-func newCmdClientLs(f *cmdutil.Factory) *cobra.Command {
+func newCmdClientList(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
 	var all, asWorker bool
 	cmd := &cobra.Command{
@@ -376,7 +398,8 @@ hold. --as-worker sends this worktree's bound worker session and so lists the
 clients that worker holds. An App key, a run or an impersonated session gets an
 empty list from the server, not an error, so an empty list is not proof that no
 client exists. The server pages the list; --limit and --offset pass straight
-through and --all walks every page.`,
+through and --all walks every page (it stops with an error after 1000 pages;
+use --limit and --offset beyond that).`,
 		Example: `  hadron secret client list
   hadron secret client list --as-worker --json`,
 		Args: cobra.NoArgs,
@@ -431,9 +454,6 @@ through and --all walks every page.`,
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
-					if pages >= maxClientPages {
-						return exitcode.Newf(exitcode.Error, "stopped after %d pages; use --limit and --offset", maxClientPages)
-					}
 					l, o := clientsPageSize, off
 					page, err := fetch(&l, &o)
 					if err != nil {
@@ -441,6 +461,11 @@ through and --all walks every page.`,
 					}
 					if len(page) == 0 {
 						break
+					}
+					// The cap is checked on a page that still has rows, so exactly
+					// maxClientPages pages plus the empty terminator succeed.
+					if pages >= maxClientPages {
+						return exitcode.Newf(exitcode.Error, "stopped after %d pages; use --limit and --offset", maxClientPages)
 					}
 					rows = append(rows, page...)
 					off += len(page)

@@ -208,8 +208,13 @@ func TestSecretClientIssueWaitTimeout2631(t *testing.T) {
 	}
 
 	release := make(chan struct{})
+	entered := make(chan struct{}, 1)
 	srv2, _ := attnServerHook(t, issueResponses2631("OPEN"), func(op string) {
 		if op == "TeamGrantSigningRequest" {
+			select {
+			case entered <- struct{}{}:
+			default:
+			}
 			<-release
 		}
 	})
@@ -220,6 +225,11 @@ func TestSecretClientIssueWaitTimeout2631(t *testing.T) {
 	_, _, err = runSecretClient2631(t, srv2.URL, "issue", "s1", "--reason", "r", "--wait", "--wait-timeout", "200ms")
 	if exitCodeFor(err) != exitcode.WaitTimeout || time.Since(start) > 5*time.Second {
 		t.Fatalf("a hung poll must be cut by the deadline: exit=%d after %s err=%v", exitCodeFor(err), time.Since(start), err)
+	}
+	select {
+	case <-entered:
+	default:
+		t.Fatal("the poll never reached the server, so the hung request was not what the deadline cut")
 	}
 }
 
@@ -293,6 +303,13 @@ func TestSecretClientIssueUnsafeURL2631(t *testing.T) {
 	out, _, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r")
 	if exitCodeFor(err) != 1 || strings.Contains(out, "\u202E") {
 		t.Fatalf("text must refuse an unsafe URL: exit=%d out=%q err=%v", exitCodeFor(err), out, err)
+	}
+	// The client and grant already exist: the safe fields are still printed, so
+	// the caller keeps the ids needed to recover (only the URL is withheld).
+	for _, want := range []string{"clientId: cl-2631", "grantId: gr-2631", "signingRequest: sr-2631"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("an unsafe URL must not hide the ids: stdout lacks %q:\n%s", want, out)
+		}
 	}
 	srv2, _ := attnServer(t, resp)
 	out, _, err = runSecretClient2631(t, srv2.URL, "issue", "s1", "--reason", "r", "--json")
@@ -435,15 +452,20 @@ func TestSecretClientIssueWaitDoesNotPollWithAnUnshowableURL2631(t *testing.T) {
 				if json.Unmarshal([]byte(out), &d) != nil || d.SigningRequest.CeremonyURL != evil {
 					t.Errorf("--json must carry the URL exactly, promptly: %s", out)
 				}
-			} else if strings.Contains(out, "\u202E") {
-				t.Errorf("text must not print the unsafe URL: %q", out)
+			} else {
+				if strings.Contains(out, "\u202E") {
+					t.Errorf("text must not print the unsafe URL: %q", out)
+				}
+				if !strings.Contains(out, "clientId: cl-2631") || !strings.Contains(out, "grantId: gr-2631") {
+					t.Errorf("text must still print the ids: %q", out)
+				}
 			}
 		})
 	}
 }
 
 // Dara's P2: cancelling the parent context while a poll is in flight is a
-// cancellation (exit 130), not a signing timeout, and says so.
+// cancellation (exit 6, exitcode.Cancelled), not a signing timeout, and says so.
 func TestSecretClientIssueWaitCancellationIsNotATimeout2631(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	release := make(chan struct{})
@@ -581,5 +603,73 @@ func TestSecretClientListMalformedAnswerIsAnError2631(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// George's P2: if the URL cannot be written to stderr under --wait, nothing is
+// polled: the issue goes to stdout and the error names the signing request.
+type failingWriter2631 struct{}
+
+func (failingWriter2631) Write([]byte) (int, error) { return 0, fmt.Errorf("stderr closed") }
+
+func TestSecretClientIssueWaitStderrWriteFailureStopsBeforeThePoll2631(t *testing.T) {
+	srv, calls := attnServer(t, issueResponses2631("OPEN"))
+	f, out := testFactory(t)
+	f.IOStreams.ErrOut = failingWriter2631{}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"secret", "client", "issue", "s1", "--reason", "r", "--wait", "--wait-timeout", "30s", "--server", srv.URL})
+	start := time.Now()
+	err := root.Execute()
+	if err == nil || time.Since(start) > 5*time.Second {
+		t.Fatalf("must stop at once with an error: after %s err=%v", time.Since(start), err)
+	}
+	for _, op := range opsOf2631(calls) {
+		if op == "TeamGrantSigningRequest" {
+			t.Fatalf("no poll may be sent when the link could not be delivered: %v", opsOf2631(calls))
+		}
+	}
+	if !strings.Contains(err.Error(), "sr-2631") || !strings.Contains(out.String(), "clientId: cl-2631") {
+		t.Errorf("the issue goes to stdout and the error names the request: out=%q err=%v", out.String(), err)
+	}
+}
+
+// George's P3: an issue answer with an empty client or grant id is unusable: no
+// signing request is asked for, and withoutClientID never replaces an empty id.
+func TestSecretClientIssueEmptyIDsAreRefused2631(t *testing.T) {
+	for name, body := range map[string]string{
+		"empty grant":  `{"data":{"issueSecretReadClient":{"clientId":"cl-2631","grantId":"","secretName":"n","selfIssued":true}}}`,
+		"empty client": `{"data":{"issueSecretReadClient":{"clientId":"","grantId":"gr-2631","secretName":"n","selfIssued":true}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, calls := attnServer(t, map[string]string{"IssueSecretReadClient": body})
+			_, _, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r")
+			if exitCodeFor(err) != 1 || len(*calls) != 1 || strings.Contains(err.Error(), "[client id]") {
+				t.Fatalf("exit=%d calls=%v err=%v", exitCodeFor(err), opsOf2631(calls), err)
+			}
+		})
+	}
+}
+
+// George's P3: exactly 1000 non-empty pages followed by the empty terminator is
+// success, not the page-cap error.
+func TestSecretClientLsAllAtThePageCap2631(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Variables map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		off, _ := body.Variables["offset"].(float64)
+		w.Header().Set("Content-Type", "application/json")
+		if off < 1000 {
+			_, _ = fmt.Fprintf(w, `{"data":{"mySecretReadClients":[{"clientId":"c%d","grantId":"g","secretId":"s","secretName":"n","selfIssued":true,"endReason":null,"createdAt":"t"}]}}`, int(off))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"mySecretReadClients":[]}}`))
+	}))
+	defer srv.Close()
+	out, _, err := runSecretClient2631(t, srv.URL, "list", "--all", "--json")
+	var rows []map[string]any
+	if err != nil || json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 1000 {
+		t.Fatalf("1000 pages then an empty terminator must succeed: err=%v rows=%d", err, len(rows))
 	}
 }

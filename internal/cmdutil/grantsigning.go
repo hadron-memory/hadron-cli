@@ -20,9 +20,9 @@ import (
 // request: a malformed server answer, reported as one rather than dereferenced.
 var ErrNoSigningRequest = errors.New("server returned no signing request")
 
-// GrantSigningFields are the schema names a grant-signing operation can be
+// grantSigningFields are the schema names a grant-signing operation can be
 // refused by when the server has no signing surface (its switch off, or older).
-var GrantSigningFields = []string{
+var grantSigningFields = []string{
 	"createGrant", "CreateGrantInput", "requestGrantSignature", "withdrawGrantSigningRequest",
 	"grantSigningRequest", "GrantSigningRequest", "GrantSigningRequestState",
 }
@@ -35,7 +35,7 @@ func MapGrantSigningError(err error) error {
 	if errors.Is(err, ErrNoSigningRequest) {
 		return exitcode.Newf(exitcode.Error, "server returned no signing request")
 	}
-	if api.IsGraphQLValidationOnlyFor(err, GrantSigningFields...) {
+	if api.IsGraphQLValidationOnlyFor(err, grantSigningFields...) {
 		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "this server does not offer grant requests and grant signing"), err)
 	}
 	return api.MapErrorKeepingCode(err)
