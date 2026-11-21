@@ -67085,7 +67085,7 @@ type IssueSecretReadClientInput struct {
 	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refused (SECRET_AUTO_DELETE_NOT_AVAILABLE) until the deletion is available.
 	AutoDelete bool    `json:"autoDelete"`
 	ExpiresAt  *string `json:"expiresAt,omitempty"`
-	// WORKER: a live worker of the App (holderRef is its id). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. AGENT and APP are refused (GRANT_HOLDER_NOT_ALLOWED): a read client is held by a person or a worker.
+	// WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path, and an App holder for use is not supported.
 	HolderKind GrantHolderKind `json:"holderKind"`
 	HolderRef  *string         `json:"holderRef,omitempty"`
 	MaxReads   *int            `json:"maxReads,omitempty"`
