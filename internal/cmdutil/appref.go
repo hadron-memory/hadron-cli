@@ -109,12 +109,18 @@ func CanonicalAppRef(what, ref string) (string, error) {
 			return u, nil
 		}
 	}
+	// The refusals below never echo the value (cli#2876). At flag validation no
+	// secret is known to redact, so a token pasted into --app (an easy slip beside
+	// --bot-token-file) would print to the terminal, the --json envelope and any CI
+	// log. The flag, what is wrong and the accepted forms still make the refusal
+	// actionable; the operator has the value in their own command line, or reads a
+	// configured one with `hadron config get app`.
 	if !strings.Contains(ref, ":") {
 		// The #540 shape: a bare slug, which reads as "I forgot the org" —
 		// say so, rather than only listing forms it does not match.
 		return "", exitcode.Newf(exitcode.Usage,
-			"%s %q is not org-qualified — name the App as %s", what, ref, appRefForms)
+			"%s is not org-qualified (the value given is not shown) — name the App as %s", what, appRefForms)
 	}
 	return "", exitcode.Newf(exitcode.Usage,
-		"%s %q does not name an App — expected %s", what, ref, appRefForms)
+		"%s does not name an App (the value given is not shown) — expected %s", what, appRefForms)
 }

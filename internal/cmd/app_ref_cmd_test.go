@@ -67,9 +67,12 @@ func TestAppRefRefusedClientSideBeforeAnyRoundTrip(t *testing.T) {
 				t.Errorf("the refusal must cost no round trip; sent: %v", captured)
 			}
 			msg := err.Error()
-			// Names what was typed and where, then the forms — and NOT the
-			// GraphQL field, the wire location, or the retired grammar.
-			for _, want := range []string{tc.source + ` "` + bare + `"`, "hrn:app:<root>:<slug>", "<root>:<slug>", "an App id"} {
+			// Names where the value came from, then the forms — and NOT the value
+			// (cli#2876), the GraphQL field, the wire location, or the retired grammar.
+			if strings.Contains(msg, `"`+bare+`"`) {
+				t.Errorf("message echoes the value:\n%s", msg)
+			}
+			for _, want := range []string{tc.source + " ", "hrn:app:<root>:<slug>", "<root>:<slug>", "an App id"} {
 				if !strings.Contains(msg, want) {
 					t.Errorf("message lacks %q:\n%s", want, msg)
 				}
@@ -156,7 +159,11 @@ func TestConfiguredAppContextRefusalNamesTheSourceAndTheRemedy(t *testing.T) {
 	if len(captured) != 0 {
 		t.Errorf("no round trip expected; sent: %v", captured)
 	}
-	for _, want := range []string{`the configured App context "hadron-dev-team"`, "hadron app set-active"} {
+	// The value is never echoed (cli#2876); the remedy says where to read it.
+	if strings.Contains(err.Error(), "hadron-dev-team") {
+		t.Errorf("the refusal echoes the configured value:\n%s", err)
+	}
+	for _, want := range []string{"the configured App context ", "hadron config get app", "hadron app set-active"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message lacks %q:\n%s", want, err)
 		}
