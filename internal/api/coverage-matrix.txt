@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 328 command, 19 gap, 12 excluded
+[Mutation] 359: 330 command, 17 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -501,7 +501,7 @@ restoreRevision  command agent revision restore
 resumeSession  command team session start
 retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
-revealSecret  gap #2664: secret exec and reveal (slice 2 of cli#2631)
+revealSecret  command secret exec
 revokeAgentOrgGrant  gap #2788
 revokeAgentSubscription  gap #2789
 revokeAppGrant  command team grant rm
@@ -511,7 +511,7 @@ revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeAutomationReadGrant  command automation grant revoke
 revokeAutomationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 revokeConnectionGrant  command connection grant revoke
-revokeGrant  gap #1846
+revokeGrant  command secret client revoke
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
 rotateAgentWebhook  command webhook rotate
@@ -627,13 +627,14 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 37: 16 gap, 21 excluded
+[Arguments] 40: 17 gap, 23 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #2773
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
 Mutation.createGrant(input.appRef)  gap #1846: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
@@ -646,6 +647,7 @@ Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.registerContextResetRecovery(input.checkpointNode)  excluded host-protocol: registering an existing checkpoint node is a distinct host-plane input; this CLI writes a new checkpoint through input.checkpoint (ruling 0090 A, cli#1043), which does not retire checkpointNode; Proposed class unruled under #1334 (33-row review)
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.revokeGrant(instruction)  gap #2754
 Mutation.setTeamPause(instruction)  gap #2774
 Mutation.setTeamStopSignal(instruction)  gap #2774
 Mutation.setWorkerWakeSettings(instruction)  gap #2774
@@ -654,6 +656,7 @@ Mutation.unsubscribeWorker(instruction)  gap #2773
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.updateApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership); Proposed class unruled under #1334 (33-row review)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).

@@ -109,8 +109,9 @@ engineer's check against cor:api:240:02.
 ## Residual reconciliation (2026-11-21, #1334)
 
 Two independent source baselines were used: CLI main
-`acb0bb95f593a69a1afce130cccf9a3d14089a56` and its committed
-`schema/schema.graphql` for the matrix counts below; server main
+`acb0bb95f593a69a1afce130cccf9a3d14089a56`, subsequently merged with main
+`670bbaf57f3edd32326433997cb2c5d655566ca9`, and the committed
+`schema/schema.graphql` for the recomputed matrix counts below; server main
 `ef26d5856de6c33f99e4b29a5e9af2bee6875f75` only for the MCP/HTTP-to-GraphQL
 source audit. The committed schema is not a complete inventory of that server
 revision: for example, `answerQuestion`, `retractQuestionAnswer` and
@@ -124,14 +125,18 @@ part of this reconciliation.
 | Section | Total | Command / flag | Gap | Excluded |
 |---|---:|---:|---:|---:|
 | Query | 237 | 203 | 8 | 26 |
-| Mutation | 359 | 328 | 19 | 12 |
-| Arguments | 37 | 0 | 16 | 21 |
+| Mutation | 359 | 330 | 17 | 12 |
+| Arguments | 40 | 0 | 17 | 23 |
 | Filters | 76 | 68 | 3 | 5 |
 
-The 46 gap rows name 16 open issues at this audit. Pointers use the most specific
+The 45 gap rows name 16 open issues at this audit. Pointers use the most specific
 open owning child: App-agent sessions #2510, git push #2513, ticker instruction
 #2773, team/host/wake instruction #2774, and snapshot-grant filters #2775. The
-parents remain trackers. Closed duplicate #1880's four rows now name #1846.
+parents remain trackers. Closed duplicate #1880's residual rows now name #1846.
+Main now reaches `revealSecret` through `secret exec` and `revokeGrant` through
+`secret client revoke`; the remaining revoke instruction is tracked by #2754.
+Two new main-side deprecated App-role arguments remain classified as on main;
+they are not additions to the original 33-row Proposed-class review.
 Closed-stale #890's unbuilt residuals now have fresh tracking children #2788
 (org grants and paged subscription reads) and #2789 (personal subscription
 revoke, including its memory-deletion side effect). Closed #684's still-unreached

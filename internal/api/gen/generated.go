@@ -23494,22 +23494,6 @@ type AppMembersResponse struct {
 // GetApp returns AppMembersResponse.App, and is useful for accessing the field via an interface.
 func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 
-type AppMembershipRole string
-
-const (
-	AppMembershipRoleAdmin       AppMembershipRole = "ADMIN"
-	AppMembershipRoleContributor AppMembershipRole = "CONTRIBUTOR"
-	AppMembershipRoleOwner       AppMembershipRole = "OWNER"
-	AppMembershipRoleReader      AppMembershipRole = "READER"
-)
-
-var AllAppMembershipRole = []AppMembershipRole{
-	AppMembershipRoleAdmin,
-	AppMembershipRoleContributor,
-	AppMembershipRoleOwner,
-	AppMembershipRoleReader,
-}
-
 // AppMemoryGrantFields includes the GraphQL fields of AppMemoryWriteGrant requested by the fragment AppMemoryGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -63035,6 +63019,38 @@ var AllGrantSigningRequestState = []GrantSigningRequestState{
 	GrantSigningRequestStateWithdrawn,
 }
 
+// #4173 (hrn:node:hadronmemory.com:specs:cor:acl:140:03): where a grant stands, worked out from its record on every read and never stored. An
+// ended grant keeps its first end. A grant withdrawn before #4173 shipped reads REVOKED (its withdrawal was not recorded separately). No
+// name exists yet for an end from a deleted secret or from protection being turned on.
+type GrantState string
+
+const (
+	// Signed and not ended. Allows its action once its start has come (allows says whether that is now).
+	GrantStateActive GrantState = "ACTIVE"
+	// Its expiry came first (a pending grant past its expiry too).
+	GrantStateExpired GrantState = "EXPIRED"
+	// The holder went (a person erased, a worker retired, an agent or App deleted).
+	GrantStateHolderGone GrantState = "HOLDER_GONE"
+	// Asked for and not yet signed. Allows nothing.
+	GrantStatePending GrantState = "PENDING"
+	// Ended by a person's revoke.
+	GrantStateRevoked GrantState = "REVOKED"
+	// Its use limit was reached.
+	GrantStateSpent GrantState = "SPENT"
+	// Its pending request was withdrawn.
+	GrantStateWithdrawn GrantState = "WITHDRAWN"
+)
+
+var AllGrantState = []GrantState{
+	GrantStateActive,
+	GrantStateExpired,
+	GrantStateHolderGone,
+	GrantStatePending,
+	GrantStateRevoked,
+	GrantStateSpent,
+	GrantStateWithdrawn,
+}
+
 // HealthSweepPauseResponse is returned by HealthSweepPause on success.
 type HealthSweepPauseResponse struct {
 	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
@@ -88890,6 +88906,39 @@ func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() *int {
 	return v.RetryFailedEmbeddings
 }
 
+// RevealSecretResponse is returned by RevealSecret on success.
+type RevealSecretResponse struct {
+	// Reveal an App secret's value through a read client (hrn:node:hadronmemory.com:specs:cor:sec:060), spending exactly one use. Only the
+	// worker session the client's grant names; a person, an App key, a run and an impersonation get SECRET_READ_CLIENT_NOT_FOUND, as does
+	// an unknown client id or another holder's; a wrong holder's read of a real client is recorded on the secret, an unknown id's is not. The
+	// use and the audit event commit before the value is returned. One operation may select this field once: two or more are all refused with
+	// SECRET_REVEAL_ONE_PER_OPERATION before any reads (send each as its own operation).
+	RevealSecret *RevealSecretRevealSecretSecretRevealed `json:"revealSecret"`
+}
+
+// GetRevealSecret returns RevealSecretResponse.RevealSecret, and is useful for accessing the field via an interface.
+func (v *RevealSecretResponse) GetRevealSecret() *RevealSecretRevealSecretSecretRevealed {
+	return v.RevealSecret
+}
+
+// RevealSecretRevealSecretSecretRevealed includes the requested fields of the GraphQL type SecretRevealed.
+type RevealSecretRevealSecretSecretRevealed struct {
+	SecretName string `json:"secretName"`
+	// The current value as JSON text.
+	Value string `json:"value"`
+	// Reads left on the grant, or null when it has no budget.
+	ReadsLeft *int `json:"readsLeft"`
+}
+
+// GetSecretName returns RevealSecretRevealSecretSecretRevealed.SecretName, and is useful for accessing the field via an interface.
+func (v *RevealSecretRevealSecretSecretRevealed) GetSecretName() string { return v.SecretName }
+
+// GetValue returns RevealSecretRevealSecretSecretRevealed.Value, and is useful for accessing the field via an interface.
+func (v *RevealSecretRevealSecretSecretRevealed) GetValue() string { return v.Value }
+
+// GetReadsLeft returns RevealSecretRevealSecretSecretRevealed.ReadsLeft, and is useful for accessing the field via an interface.
+func (v *RevealSecretRevealSecretSecretRevealed) GetReadsLeft() *int { return v.ReadsLeft }
+
 // #3448 — a typed review outcome; the command records it without finishing the task (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
 type ReviewVerdict string
 
@@ -89846,6 +89895,43 @@ type RevokePrincipalGrantResponse struct {
 
 // GetRevokePrincipalGrant returns RevokePrincipalGrantResponse.RevokePrincipalGrant, and is useful for accessing the field via an interface.
 func (v *RevokePrincipalGrantResponse) GetRevokePrincipalGrant() bool { return v.RevokePrincipalGrant }
+
+// RevokeSecretReadClientGrantResponse is returned by RevokeSecretReadClientGrant on success.
+type RevokeSecretReadClientGrantResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, :03) — revoke a grant now, unsigned, in any state but ended. By the issuer (while still a member of the App's Org), by whoever manages the App, or by a held worker on a validated instruction from a holder who may. Returns the grant as appGrants reads it. The first end stands: a grant already revoked, withdrawn or whose holder departed is returned as it is, with no second stamp and no second REVOKE event. Judged on the locked current row. Refusals: GRANT_NOT_MANAGER (not allowed, and a grant that does not exist or cannot be seen: the same answer).
+	RevokeGrant *RevokeSecretReadClientGrantRevokeGrant `json:"revokeGrant"`
+}
+
+// GetRevokeGrant returns RevokeSecretReadClientGrantResponse.RevokeGrant, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantResponse) GetRevokeGrant() *RevokeSecretReadClientGrantRevokeGrant {
+	return v.RevokeGrant
+}
+
+// RevokeSecretReadClientGrantRevokeGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type RevokeSecretReadClientGrantRevokeGrant struct {
+	Id string `json:"id"`
+	// #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+	State     GrantState `json:"state"`
+	RevokedAt *string    `json:"revokedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows *bool `json:"allows"`
+}
+
+// GetId returns RevokeSecretReadClientGrantRevokeGrant.Id, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetId() string { return v.Id }
+
+// GetState returns RevokeSecretReadClientGrantRevokeGrant.State, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetState() GrantState { return v.State }
+
+// GetRevokedAt returns RevokeSecretReadClientGrantRevokeGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetAllows returns RevokeSecretReadClientGrantRevokeGrant.Allows, and is useful for accessing the field via an interface.
+func (v *RevokeSecretReadClientGrantRevokeGrant) GetAllows() *bool { return v.Allows }
 
 // RevokeUserApiKeyResponse is returned by RevokeUserApiKey on success.
 type RevokeUserApiKeyResponse struct {
@@ -129977,7 +130063,6 @@ type __CreateAppSettingsInput struct {
 	Description           *string               `json:"description,omitempty"`
 	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
 	ExpiresAt             *string               `json:"expiresAt,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -130010,9 +130095,6 @@ func (v *__CreateAppSettingsInput) GetSessionTimeoutSeconds() *int { return v.Se
 
 // GetExpiresAt returns __CreateAppSettingsInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsInput) GetExpiresAt() *string { return v.ExpiresAt }
-
-// GetRole returns __CreateAppSettingsInput.Role, and is useful for accessing the field via an interface.
-func (v *__CreateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
 
 // GetCreateUserPermission returns __CreateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
@@ -130049,7 +130131,6 @@ type __CreateAppSettingsPolicyInput struct {
 	Description           *string               `json:"description,omitempty"`
 	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
 	ExpiresAt             *string               `json:"expiresAt,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -130085,9 +130166,6 @@ func (v *__CreateAppSettingsPolicyInput) GetSessionTimeoutSeconds() *int {
 
 // GetExpiresAt returns __CreateAppSettingsPolicyInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsPolicyInput) GetExpiresAt() *string { return v.ExpiresAt }
-
-// GetRole returns __CreateAppSettingsPolicyInput.Role, and is useful for accessing the field via an interface.
-func (v *__CreateAppSettingsPolicyInput) GetRole() *AppMembershipRole { return v.Role }
 
 // GetCreateUserPermission returns __CreateAppSettingsPolicyInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsPolicyInput) GetCreateUserPermission() *CreateUserPermission {
@@ -134859,6 +134937,14 @@ type __RetryFailedEmbeddingsInput struct {
 // GetMemoryRef returns __RetryFailedEmbeddingsInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__RetryFailedEmbeddingsInput) GetMemoryRef() string { return v.MemoryRef }
 
+// __RevealSecretInput is used internally by genqlient
+type __RevealSecretInput struct {
+	ClientId string `json:"clientId"`
+}
+
+// GetClientId returns __RevealSecretInput.ClientId, and is useful for accessing the field via an interface.
+func (v *__RevealSecretInput) GetClientId() string { return v.ClientId }
+
 // __RevokeAppKeyInput is used internally by genqlient
 type __RevokeAppKeyInput struct {
 	Id string `json:"id"`
@@ -135012,6 +135098,14 @@ type __RevokePrincipalGrantInput struct {
 
 // GetRef returns __RevokePrincipalGrantInput.Ref, and is useful for accessing the field via an interface.
 func (v *__RevokePrincipalGrantInput) GetRef() string { return v.Ref }
+
+// __RevokeSecretReadClientGrantInput is used internally by genqlient
+type __RevokeSecretReadClientGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __RevokeSecretReadClientGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RevokeSecretReadClientGrantInput) GetRef() string { return v.Ref }
 
 // __RevokeUserApiKeyInput is used internally by genqlient
 type __RevokeUserApiKeyInput struct {
@@ -137970,7 +138064,6 @@ type __UpdateAppSettingsInput struct {
 	ExpiresAt             json.RawMessage       `json:"expiresAt,omitempty"`
 	SessionDormancyDays   *int                  `json:"sessionDormancyDays,omitempty"`
 	AgentSessionsExpire   *bool                 `json:"agentSessionsExpire,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -138006,9 +138099,6 @@ func (v *__UpdateAppSettingsInput) GetSessionDormancyDays() *int { return v.Sess
 // GetAgentSessionsExpire returns __UpdateAppSettingsInput.AgentSessionsExpire, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsInput) GetAgentSessionsExpire() *bool { return v.AgentSessionsExpire }
 
-// GetRole returns __UpdateAppSettingsInput.Role, and is useful for accessing the field via an interface.
-func (v *__UpdateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
-
 // GetCreateUserPermission returns __UpdateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
 	return v.CreateUserPermission
@@ -138042,7 +138132,6 @@ type __UpdateAppSettingsPolicyInput struct {
 	ExpiresAt             json.RawMessage       `json:"expiresAt,omitempty"`
 	SessionDormancyDays   *int                  `json:"sessionDormancyDays,omitempty"`
 	AgentSessionsExpire   *bool                 `json:"agentSessionsExpire,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -138080,9 +138169,6 @@ func (v *__UpdateAppSettingsPolicyInput) GetSessionDormancyDays() *int { return 
 
 // GetAgentSessionsExpire returns __UpdateAppSettingsPolicyInput.AgentSessionsExpire, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsPolicyInput) GetAgentSessionsExpire() *bool { return v.AgentSessionsExpire }
-
-// GetRole returns __UpdateAppSettingsPolicyInput.Role, and is useful for accessing the field via an interface.
-func (v *__UpdateAppSettingsPolicyInput) GetRole() *AppMembershipRole { return v.Role }
 
 // GetCreateUserPermission returns __UpdateAppSettingsPolicyInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsPolicyInput) GetCreateUserPermission() *CreateUserPermission {
@@ -155209,8 +155295,8 @@ func CreateAppMemory(
 
 // The mutation executed by CreateAppSettings.
 const CreateAppSettings_Operation = `
-mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!]) {
-	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
+mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!]) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
 		id
 		urn
 		name
@@ -155234,7 +155320,6 @@ func CreateAppSettings(
 	description *string,
 	sessionTimeoutSeconds *int,
 	expiresAt *string,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -155255,7 +155340,6 @@ func CreateAppSettings(
 			Description:           description,
 			SessionTimeoutSeconds: sessionTimeoutSeconds,
 			ExpiresAt:             expiresAt,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
@@ -155280,8 +155364,8 @@ func CreateAppSettings(
 
 // The mutation executed by CreateAppSettingsPolicy.
 const CreateAppSettingsPolicy_Operation = `
-mutation CreateAppSettingsPolicy ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!], $policy: JSON) {
-	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
+mutation CreateAppSettingsPolicy ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!], $policy: JSON) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
 		id
 		urn
 		name
@@ -155309,7 +155393,6 @@ func CreateAppSettingsPolicy(
 	description *string,
 	sessionTimeoutSeconds *int,
 	expiresAt *string,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -155331,7 +155414,6 @@ func CreateAppSettingsPolicy(
 			Description:           description,
 			SessionTimeoutSeconds: sessionTimeoutSeconds,
 			ExpiresAt:             expiresAt,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
@@ -173850,6 +173932,45 @@ func RetryFailedEmbeddings(
 	return data_, err_
 }
 
+// The mutation executed by RevealSecret.
+const RevealSecret_Operation = `
+mutation RevealSecret ($clientId: ID!) {
+	revealSecret(clientId: $clientId) {
+		secretName
+		value
+		readsLeft
+	}
+}
+`
+
+// cli#2664 slice 2: reveal a value through a read client, spending one read. THE
+// ONLY place the CLI selects `value`: it must never reach a log, an error or an
+// output the command did not mean to print. One call per process, never retried.
+func RevealSecret(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	clientId string,
+) (data_ *RevealSecretResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevealSecret",
+		Query:  RevealSecret_Operation,
+		Variables: &__RevealSecretInput{
+			ClientId: clientId,
+		},
+	}
+
+	data_ = &RevealSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RevokeAppKey.
 const RevokeAppKey_Operation = `
 mutation RevokeAppKey ($id: ID!) {
@@ -174445,6 +174566,47 @@ func RevokePrincipalGrant(
 	}
 
 	data_ = &RevokePrincipalGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeSecretReadClientGrant.
+const RevokeSecretReadClientGrant_Operation = `
+mutation RevokeSecretReadClientGrant ($ref: ID!) {
+	revokeGrant(ref: $ref) {
+		id
+		state
+		revokedAt
+		allows
+	}
+}
+`
+
+// cli#2680: revoke a read client's grant. A read client is one grant (cor:sec:060),
+// so this is revokeGrant on its grantId, once. The answer is the grant as the App's
+// manager reads it; the first end stands, so an already-ended grant comes back as it
+// is. No instruction is sent: the CLI acts as the person.
+func RevokeSecretReadClientGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *RevokeSecretReadClientGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeSecretReadClientGrant",
+		Query:  RevokeSecretReadClientGrant_Operation,
+		Variables: &__RevokeSecretReadClientGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &RevokeSecretReadClientGrantResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -183931,8 +184093,8 @@ func UpdateApp(
 
 // The mutation executed by UpdateAppSettings.
 const UpdateAppSettings_Operation = `
-mutation UpdateAppSettings ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!]) {
-	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
+mutation UpdateAppSettings ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!]) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
 		id
 		urn
 		name
@@ -183953,7 +184115,6 @@ func UpdateAppSettings(
 	expiresAt json.RawMessage,
 	sessionDormancyDays *int,
 	agentSessionsExpire *bool,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -183974,7 +184135,6 @@ func UpdateAppSettings(
 			ExpiresAt:             expiresAt,
 			SessionDormancyDays:   sessionDormancyDays,
 			AgentSessionsExpire:   agentSessionsExpire,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
@@ -183998,8 +184158,8 @@ func UpdateAppSettings(
 
 // The mutation executed by UpdateAppSettingsPolicy.
 const UpdateAppSettingsPolicy_Operation = `
-mutation UpdateAppSettingsPolicy ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $policy: JSON) {
-	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, policy: $policy) {
+mutation UpdateAppSettingsPolicy ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $policy: JSON) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, policy: $policy) {
 		id
 		urn
 		name
@@ -184026,7 +184186,6 @@ func UpdateAppSettingsPolicy(
 	expiresAt json.RawMessage,
 	sessionDormancyDays *int,
 	agentSessionsExpire *bool,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -184048,7 +184207,6 @@ func UpdateAppSettingsPolicy(
 			ExpiresAt:             expiresAt,
 			SessionDormancyDays:   sessionDormancyDays,
 			AgentSessionsExpire:   agentSessionsExpire,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
