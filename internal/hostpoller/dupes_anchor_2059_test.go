@@ -98,3 +98,13 @@ func TestLaunchAnchorsAtReadsTheRecordedLaunches2059(t *testing.T) {
 		}
 	}
 }
+
+// A record with no start, against a process whose start also reads 0, is still
+// not a match: 0 equals 0 would otherwise prove a launch nobody observed.
+func TestSupervisedChainNeverMatchesAnUnobservedStart2059(t *testing.T) {
+	const agent = 710020
+	fakeProcs{agent: {ppid: 1, start: 0, in: true}}.install(t)
+	if supervisedChain(agent, t.TempDir(), []LaunchAnchor{{agent, 0}}) {
+		t.Fatal("a launch recorded with no start matched a process reading start 0")
+	}
+}
