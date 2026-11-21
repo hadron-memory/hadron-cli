@@ -27,8 +27,10 @@ func edgeCrossMemory(data *json.RawMessage) bool {
 }
 
 // withCrossMemoryMarker returns an edge's data with the marker set, keeping every
-// other key byte for byte: the values stay raw JSON, so a number a float64 would
-// round (9007199254740993) or a number written 2.50 comes back as it went in.
+// other key's VALUE exactly: the values stay raw JSON, so a number a float64 would
+// round (9007199254740993) or a number written 2.50 comes back as it went in. The
+// object around them is re-encoded: keys are sorted, insignificant whitespace is
+// dropped and < > & are escaped, which changes no value.
 // current is the data the edge already has. No data (nil or JSON null) starts an
 // empty object; data that is not an object is refused, because setting a key on
 // it would overwrite what it holds.

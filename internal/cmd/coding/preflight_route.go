@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 
@@ -371,9 +370,15 @@ type routeEdge struct {
 
 // markerNotConfirmedError says an edge exists but the marker update was not
 // confirmed: the write may have committed, so nothing is retried.
-type markerNotConfirmedError struct{ msg string }
+type markerNotConfirmedError struct{ error }
 
-func (e *markerNotConfirmedError) Error() string { return e.msg }
+// newMarkerNotConfirmed carries the exit class of what went wrong: a refusal exits
+// as the refusal does, an answer that says nothing is Unavailable (unknown outcome).
+func newMarkerNotConfirmed(code int, format string, args ...any) *markerNotConfirmedError {
+	return &markerNotConfirmedError{exitcode.Newf(code, format, args...)}
+}
+
+func (e *markerNotConfirmedError) Unwrap() error { return e.error }
 
 // writeRouteEdge writes one route edge and, when asked, makes sure it carries the
 // marker. It returns the edge id and whether the marker is CONFIRMED on it.
@@ -407,6 +412,14 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 			e.FromLoc, e.ToLoc, e.Memory, mapped)
 	}
 	if resp == nil || resp.CreateEdge == nil {
+		if e.Mark {
+			// An edge the server did not return cannot be shown to carry the marker, and
+			// it may have been written: an unknown outcome, never exit 0 with the marker
+			// reported absent (cli#2736 LOCAL delta P3).
+			return "", false, exitcode.Newf(exitcode.Unavailable,
+				"the route from %q to %s may not have been written (the server returned no edge) — check with `hadron coding preflight list -m %s`; nothing was retried",
+				e.FromLoc, e.ToLoc, e.Memory)
+		}
 		return "", false, nil
 	}
 	if !e.Mark || edgeCrossMemory(resp.CreateEdge.Data) {
@@ -430,14 +443,14 @@ func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, e route
 	resp, err := gen.UpdateEdge(ctx, client, edgeID, nil, nil, nil, nil, nil, nil, &merged)
 	if err != nil {
 		mapped := api.MapError(err)
-		return false, &markerNotConfirmedError{fmt.Sprintf(
+		return false, newMarkerNotConfirmed(exitcode.FromError(mapped),
 			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`: %v",
-			e.FromLoc, e.ToLoc, e.Memory, mapped)}
+			e.FromLoc, e.ToLoc, e.Memory, mapped)
 	}
 	if resp == nil || resp.UpdateEdge == nil || !edgeCrossMemory(resp.UpdateEdge.Data) {
-		return false, &markerNotConfirmedError{fmt.Sprintf(
+		return false, newMarkerNotConfirmed(exitcode.Unavailable,
 			"the route %s → %s exists, but the server did not confirm its cross-memory marker, so it may not have been written — check with `hadron coding preflight list -m %s`; nothing was retried",
-			e.FromLoc, e.ToLoc, e.Memory)}
+			e.FromLoc, e.ToLoc, e.Memory)
 	}
 	return true, nil
 }
