@@ -299,20 +299,6 @@ func loadBaseline2525(t *testing.T) baseline2525 {
 	return b
 }
 
-// topGroups2525 lists every visible top-level command, sorted.
-func topGroups2525(t *testing.T) []string {
-	t.Helper()
-	f, _ := testFactory(t)
-	var names []string
-	for _, c := range NewRootCmd(f).Commands() {
-		if !c.Hidden && c.Name() != "help" && c.Name() != "completion" {
-			names = append(names, c.Name())
-		}
-	}
-	sort.Strings(names)
-	return names
-}
-
 // helpPagesInScope2525 renders every help page the guards cover, keyed by page name: the ROOT
 // page ("hadron --help") and, for every command directly under the root INCLUDING the generated
 // help and completion commands, that command's page and every visible page below it.
