@@ -757,3 +757,35 @@ func TestOrcaLaunchRunsTheAgentPlainlyInOrcasScope2088(t *testing.T) {
 		t.Fatalf("closing the terminal did not end the agent: %s", detail)
 	}
 }
+
+// cli#2059: the census anchors on what the poller records at launch. The link
+// is pinned end to end on the production path: an Orca launch's recorded pid
+// and kernel start time are the live terminal process, so the duplicate scan
+// reads that process (and what runs under it) as the worker's own.
+func TestAnOrcaLaunchIsRecordedAsTheCensusAnchor2059(t *testing.T) {
+	wt, tools := t.TempDir(), t.TempDir()
+	bin := filepath.Join(tools, "agent")
+	if err := os.WriteFile(bin, []byte("#!/bin/bash\nexec sleep 30\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f := newFakeOrca(t)
+	l := orcaLauncherFor(t, f)
+	a, err := l.Launch(context.Background(), OrcaLaunchSpec{Argv: []string{bin, PromptArg}, Dir: wt, Prompt: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _, _ = a.TerminateWith(nil) })
+	p, _, _ := testPoller(t)
+	p.trackAgent("id-iris", "repo/iris", a)
+	root := t.TempDir()
+	anchors := p.state.LaunchAnchorsAt(root, filepath.Join(root, "repo", "iris"))
+	if len(anchors) != 1 || anchors[0].PID != a.PID() || anchors[0].StartTicks <= 0 {
+		t.Fatalf("the launch was not recorded as a usable anchor: %+v (agent pid %d)", anchors, a.PID())
+	}
+	if !isLaunch(a.PID(), anchors) {
+		t.Fatalf("the recorded anchor does not match the live launch process: %+v", anchors)
+	}
+	if isLaunch(a.PID(), []LaunchAnchor{{PID: a.PID(), StartTicks: anchors[0].StartTicks + 1}}) {
+		t.Fatal("a different start time must not match")
+	}
+}

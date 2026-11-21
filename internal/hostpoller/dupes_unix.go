@@ -200,7 +200,12 @@ var (
 // isLaunch reports whether pid is one of the recorded launches: the pid
 // matches AND its live start time is the recorded one. An anchor with no
 // recorded start cannot prove a pid is not a reused one, so it never
-// matches: the error is toward unsupervised, which only ever reports.
+// matches. A launch that cannot be proven leaves its agent unsupervised, and
+// the decision core (healthfix.Decide) stops an unsupervised agent only when
+// exactly ONE other agent in the worktree is supervised; with none supervised
+// it only alerts. So a lost or stale record can fail to stop a stray, and it
+// can stop a real agent only if a stray were the one process proven to be the
+// recorded launch's own.
 func isLaunch(pid int, anchors []LaunchAnchor) bool {
 	for _, a := range anchors {
 		if a.PID != pid || a.StartTicks <= 0 {
