@@ -78,8 +78,10 @@ are two:
 Only whoever manages the App may change a key's scopes. Granting stays
 person-only; revoking also admits their held worker with --instruction. App keys
 and impersonation are refused (FORBIDDEN, exit 8). "hadron app key list
---scopes" shows what each key holds now.`,
+--scopes" shows what each key holds now. "hadron app key scope catalogue" lists
+every scope the server defines.`,
 	}
+	cmd.AddCommand(newCmdKeyScopeCatalogue(f))
 	cmd.AddCommand(newCmdKeyScopeGrant(f))
 	cmd.AddCommand(newCmdKeyScopeRevoke(f))
 	return cmd
@@ -92,7 +94,7 @@ func newCmdKeyScopeGrant(f *cmdutil.Factory) *cobra.Command {
 		Short: "Grant an App key a scope",
 		Long: `Grant an App key a scope: attention:deliver (read and acknowledge the App's due
 wakes) or host:operate (act as one host); "hadron app key scope --help" says what
-each lets the key do. Granting a scope the key already holds changes nothing.
+each lets the key do, and "hadron app key scope catalogue" lists the scopes. Granting a scope the key already holds changes nothing.
 
 host:operate is granted for ONE host, named with --host-id: the id the host is
 registered under (each host's id is shown by "hadron team host list"). The key then
