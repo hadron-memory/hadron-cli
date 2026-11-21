@@ -1832,7 +1832,11 @@ func codeForExtension(code string) int {
 	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
 		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
 		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" || code == "TICKER_TEMPLATE_REVISION_MISMATCH" ||
-		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED":
+		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED" ||
+		// An Agent's revision delete (hadron-server#4488, cli#2533): the published
+		// (pinned) revision and the Agent's only revision refuse, before any write,
+		// as state conflicts (publish another first / there is nothing else to keep).
+		code == "REVISION_PUBLISHED" || code == "REVISION_ONLY":
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
 		return exitcode.Usage

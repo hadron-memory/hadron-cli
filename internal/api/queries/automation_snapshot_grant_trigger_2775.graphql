@@ -1,0 +1,40 @@
+# cli#2775 (server#3350): the trigger filters on the grant list. Separate
+# documents, sent only when --trigger-kind or --trigger-id is set, keep the
+# unfiltered requests byte-identical. Each filter is omitted when its flag is
+# unset and sent as given when set; the server validates triggerKind.
+query AutomationTeamSnapshotGrantsByTrigger(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+  # @genqlient(pointer: true, omitempty: true)
+  $triggerKind: String
+  # @genqlient(pointer: true, omitempty: true)
+  $triggerId: ID
+  $limit: Int!
+  $offset: Int!
+) {
+  automationTeamSnapshotGrants(appRef: $appRef, includeRevoked: $includeRevoked, triggerKind: $triggerKind, triggerId: $triggerId, limit: $limit, offset: $offset) {
+    items { ...AutomationTeamSnapshotGrantFields }
+    total
+    hasMore
+  }
+}
+
+query AutomationTeamSnapshotGrantsByTriggerInstructed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+  # @genqlient(pointer: true, omitempty: true)
+  $triggerKind: String
+  # @genqlient(pointer: true, omitempty: true)
+  $triggerId: ID
+  $limit: Int!
+  $offset: Int!
+  $instruction: ActInstructionInput!
+) {
+  automationTeamSnapshotGrants(appRef: $appRef, includeRevoked: $includeRevoked, triggerKind: $triggerKind, triggerId: $triggerId, limit: $limit, offset: $offset, instruction: $instruction) {
+    items { ...AutomationTeamSnapshotGrantFields }
+    total
+    hasMore
+  }
+}

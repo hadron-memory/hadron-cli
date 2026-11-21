@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 239: 204 command, 13 gap, 22 excluded
+[Query] 239: 205 command, 12 gap, 22 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -38,7 +38,7 @@ agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime t
 agentAssets  excluded deprecated: its description says "Deprecated; use memoryAssets", which `asset list` reaches
 agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
-agentRevisions  gap #2533
+agentRevisions  command agent revision list
 agentSchedules  command schedule list
 agentServedBootPrompt  command agent boot-prompt
 agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #2788 tracks the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
@@ -268,7 +268,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 361: 333 command, 17 gap, 11 excluded
+[Mutation] 361: 334 command, 16 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -372,7 +372,7 @@ createUserInvitation  command org invite create
 declineAutomation  command automation decline
 deleteAgent  command agent rm
 deleteAgentModelGroup  command agent model-group delete
-deleteAgentRevision  gap #2533
+deleteAgentRevision  command agent revision rm
 deleteAgentSchedule  command schedule rm
 deleteAgentTickerTemplate  command agent ticker-templates delete
 deleteAgentWebhook  command webhook rm
@@ -631,7 +631,7 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command question withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 43: 18 gap, 25 excluded
+[Arguments] 41: 16 gap, 25 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #2773
@@ -669,8 +669,6 @@ Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use u
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateTaskNode(mergeExports)  gap #2787
 Mutation.updateTicker(instruction)  gap #2773
-Query.automationTeamSnapshotGrants(triggerId)  gap #2775
-Query.automationTeamSnapshotGrants(triggerKind)  gap #2775
 Query.dueWakes(instruction)  gap #2774
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
