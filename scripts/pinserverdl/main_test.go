@@ -367,6 +367,25 @@ func redact(log string) string {
 	return strings.NewReplacer(tokenValue, "[REDACTED]", enc, "[REDACTED]").Replace(log)
 }
 
+// TestRedactBlanksBothCredentialForms pins redact() directly (#2728): it was
+// only exercised on failure paths, so a helper that stopped replacing one form
+// would go unnoticed until a leak reached the test output.
+func TestRedactBlanksBothCredentialForms(t *testing.T) {
+	enc := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + tokenValue))
+	in := "before " + tokenValue + " middle " + enc + " after " + tokenValue
+	got := redact(in)
+	want := "before [REDACTED] middle [REDACTED] after [REDACTED]"
+	if got != want {
+		t.Errorf("redact() = %q, want %q", got, want)
+	}
+	if strings.Contains(got, tokenValue) || strings.Contains(got, enc) {
+		t.Errorf("redact() left a credential form in %q", got)
+	}
+	if plain := "nothing secret here"; redact(plain) != plain {
+		t.Errorf("redact() changed text with no credential: %q", redact(plain))
+	}
+}
+
 func readFile(t *testing.T, p string) string {
 	t.Helper()
 	b, err := os.ReadFile(p)
