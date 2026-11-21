@@ -548,7 +548,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 				if currentSession == "" {
 					message = "Session superseded. No current-session details are available. No retry or rebind was attempted."
 				} else {
-					message = fmt.Sprintf("Session superseded. Current open session: %s (started %s). No retry or rebind was attempted.", output.SafeLine(currentSession, len(currentSession)+1), output.SafeLine(currentStarted, len(currentStarted)+1))
+					message = fmt.Sprintf("Session superseded. Current open session: %s (started %s). No retry or rebind was attempted.", output.SanitizeLine(currentSession), output.SanitizeLine(currentStarted))
 				}
 			}
 			if text, ok := authoredRefusalText(err); ok {

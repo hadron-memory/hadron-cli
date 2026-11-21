@@ -28,10 +28,10 @@ func ReadNodeBatch(ctx context.Context, client graphql.Client, refs []string, me
 	if memory != nil || prefix != nil || len(refs) < 2 {
 		subject := "the requested batch"
 		if len(refs) == 1 {
-			subject = "node " + output.SafeLine(refs[0], len(refs[0])+1)
+			subject = "node " + output.SanitizeLine(refs[0])
 		}
 		if prefix != nil {
-			subject = "prefix " + output.SafeLine(*prefix, len(*prefix)+1)
+			subject = "prefix " + output.SanitizeLine(*prefix)
 		}
 		return nil, &nodeBatchEdgeCapRefusal{exitcode.Newf(exitcode.Usage, "%s exceeds the nodeBatch selected-edge cap (%s); no complete edge set was read. Read each direction in pages with hadron edge list --source <node-ref> and hadron edge list --target <node-ref>; for a prefix, use narrower prefixes or explicit refs", subject, max)}
 	}
