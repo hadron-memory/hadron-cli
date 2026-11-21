@@ -80,7 +80,8 @@ Output, one line per field:
   hadron-server <version>   the server's API version (see below)
   url:      <url>           where this command sent its request
   base url: <url>           the address the server says it is reached at
-  (queried anonymously ...) shown when no sign-in was sent
+  (queried anonymously — server-info is public)
+                            shown when no sign-in was sent
 
 The version is the API version, raised when the server's commands or fields
 change. It is not the release number, so don't compare it with a release tag;

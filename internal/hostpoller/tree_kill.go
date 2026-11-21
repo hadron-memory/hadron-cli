@@ -26,7 +26,12 @@ func runTreeKill(pid int, timeout time.Duration, run func(context.Context, int) 
 		return false, fmt.Sprintf("taskkill for the launched process tree (pid %d): output collection incomplete; stop not confirmed, records kept", pid) + treeKillRunnerContext(out, err)
 	}
 	if err != nil {
-		return false, fmt.Sprintf("could not stop the launched process tree (pid %d): %v: %s", pid, err, strings.TrimSpace(string(out)))
+		// Runner text is untrusted: single-line and bounded, like the branches above.
+		msg := fmt.Sprintf("could not stop the launched process tree (pid %d): %s", pid, output.SafeLine(strings.TrimSpace(err.Error()), 512))
+		if detail := output.SafeLine(strings.TrimSpace(string(out)), 512); strings.TrimSpace(detail) != "" {
+			msg += ": " + detail
+		}
+		return false, msg
 	}
 	return true, fmt.Sprintf("terminated the launched process tree (pid %d)", pid)
 }

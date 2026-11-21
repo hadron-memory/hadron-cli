@@ -57,7 +57,7 @@ const discoveryCauseMaxRunes = 1024
 // the last maxRunes-1 runes behind a leading "…", because the end of a
 // discovery error is where its reason is.
 func oneLineTail(s string, maxRunes int) string {
-	r := []rune(output.SafeLine(s, len(s)+1))
+	r := []rune(output.SanitizeLine(s))
 	if len(r) <= maxRunes {
 		return string(r)
 	}

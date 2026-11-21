@@ -131,7 +131,7 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 			// rejected), so nil-omitted is exactly right.
 			var dto appDTO
 			if policyJSON != nil {
-				resp, err := gen.CreateAppSettingsPolicy(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional, policyJSON)
+				resp, err := gen.CreateAppSettingsPolicy(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional, policyJSON)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -141,7 +141,7 @@ memberCount stays present as null when withheld, distinct from a known 0.`,
 				a := resp.CreateApp
 				dto = appDTO{ID: a.Id, URN: a.Urn, Name: a.Name, AppType: string(a.AppType), AgentID: a.AgentId, MemberCount: a.MemberCount, CreatedAt: a.CreatedAt}
 			} else if len(prepared.changed) > 0 {
-				resp, err := gen.CreateAppSettings(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional)
+				resp, err := gen.CreateAppSettings(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional)
 				if err != nil {
 					return api.MapError(err)
 				}

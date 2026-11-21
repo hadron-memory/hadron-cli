@@ -822,8 +822,7 @@ Text mode prints a "Lint (advisory):" block. It prints nothing when you may not
 see the worker's signature (masked), says "nothing served" when the worker has
 no open session or the session has no record, and prints "unavailable" plus one
 line on stderr naming the failed lint fields; an unavailable read says nothing about
-warnings. Retry if a page changed while reading or the budget ran out; rerunning
-does not resolve an older server or an unreadable record. A quiet but open
+warnings. Run the command again to retry the advisory read. A quiet but open
 session still has a record, so its warnings show.
 --json always carries "signatureLint" and "promptLintWarnings":
 {items, total, nextCursor} or null. items [] with total 0 is the one clean

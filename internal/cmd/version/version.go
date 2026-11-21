@@ -36,7 +36,8 @@ version, operating system and architecture. Needs no network or sign-in.
 
 The server's version is a different number: see 'hadron server-info'. To
 update the CLI, use the package manager you installed it with (for example
-'brew upgrade --cask hadron').`,
+'brew upgrade --cask hadron'); if you installed from a release archive,
+download the newer one from https://github.com/hadron-memory/hadron-cli/releases.`,
 		Example: `  hadron version
   hadron version --json`,
 		Args: cobra.NoArgs,
