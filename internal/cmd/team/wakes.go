@@ -352,7 +352,7 @@ func reasonLabel(r dueWakeReasonDTO) string {
 		// len(event) counts BYTES, which is never fewer than the event's runes,
 		// so len(event)+1 is a bound no event reaches: unknown labels (Unicode
 		// included) are sanitized, never shortened (#2141).
-		return r.Kind + " " + taskRef(r.Task.Handle, r.Task.ID) + " " + output.SafeLine(r.Task.Event, len(r.Task.Event)+1)
+		return r.Kind + " " + taskRef(r.Task.Handle, r.Task.ID) + " " + output.SanitizeLine(r.Task.Event)
 	case r.Stop != nil:
 		return r.Kind + " " + r.Stop.Notice + " " + r.Stop.Level
 	}

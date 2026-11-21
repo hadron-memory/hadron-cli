@@ -3,7 +3,6 @@ package billing
 import (
 	"fmt"
 	"io"
-	"math"
 
 	"github.com/spf13/cobra"
 
@@ -28,7 +27,7 @@ import (
 // and format characters are neutralised (no forged line, no terminal tricks) but
 // the text is NEVER truncated. SafeCell's table-cell cut would let the operator
 // approve a shortened amount or org that differs from what is sent (cli#1560).
-func promptValue(s string) string { return output.SafeLine(s, math.MaxInt) }
+func promptValue(s string) string { return output.SanitizeLine(s) }
 
 // requireFlag refuses a required string flag that is absent or empty.
 func requireFlag(cmd *cobra.Command, name, val string) error {

@@ -249,10 +249,11 @@ section between the markers.
 | `policy set` |  |  | y | #1052 | 906a91fc14b5 | Charles | pass | [re-read](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7003187025) |
 | `profile` | me |  | y | #1052 | b85ae5fa148f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `profile set` |  |  | y | #1052 | 8819ddfa5cc6 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary taken-handle recovery could be clearer; legacy-handle server2868 separate |
-| `secret` | secrets |  | y | #1052 | 11fe94ba6cf8 |  | unread |  |
-| `secret client` |  |  | n | #1052 | aeb0471fcc0e |  | unread |  |
+| `secret` | secrets |  | y | #1052 | d4979d82d925 |  | unread |  |
+| `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
 | `secret client issue` |  |  | y | #1052 | ef58b95049c8 |  | unread |  |
 | `secret client list` | ls |  | y | #1052 | e8cce8fc81e3 |  | unread |  |
+| `secret client revoke` |  |  | y | #1052 | 13c61fc12c70 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 230d9394ff41 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret exec` |  |  | y | #1052 | 9676504c1659 |  | unread |  |
@@ -351,7 +352,7 @@ section between the markers.
 | `app chatbot-ai-config set` |  |  | y | #1053 | 51bf7d57002b | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app delete` | rm |  | y | #1053 | 5cc797131c70 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app get` |  |  | y | #1053 | 1a9a47ba2247 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `app install` |  |  | y | #1053 | 33b25b79fb5f | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
+| `app install` |  |  | y | #1053 | a68199f6d8cc |  | unread |  |
 | `app join` |  |  | y | #1053 | b2ccffb2153c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app key` |  |  | n | #1053 | 6c411a10b175 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app key create` |  |  | y | #1053 | 508872257ab9 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
@@ -385,7 +386,7 @@ section between the markers.
 | `app reinstall` |  |  | y | #1053 | d52b0b6ac1dc | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app set-active` | use |  | y | #1053 | ec8f5a4437c3 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app uninstall` |  |  | y | #1053 | 8a1cbb0911c7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
-| `app update` |  |  | y | #1053 | 27c42ed42f0a | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
+| `app update` |  |  | y | #1053 | a3d036d0c42c |  | unread |  |
 | `app user` |  |  | n | #1053 | 9e56971da68d | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app user create` |  |  | y | #1053 | a6f3faa2cf91 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app whoami` |  |  | y | #1053 | 41a52f0e0cc6 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
