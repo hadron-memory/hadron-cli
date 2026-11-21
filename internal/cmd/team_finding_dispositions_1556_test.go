@@ -75,12 +75,16 @@ func TestFindingDispositions1556Read(t *testing.T) {
 func TestFindingDispositions1556Unresolved(t *testing.T) {
 	for _, val := range []string{"true", "false"} {
 		r := taskResponses()
-		r["AgentTaskListUnresolved"] = `{"data":{"agentTasks":[]}}`
+		r["AgentTaskListUnresolved"] = taskPage2734("", 0, false)
 		calls, out, err := runTeamTask(t, r, "team", "task", "list", "--unresolved="+val, "--json")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if out != "[]\n" {
+		var compact bytes.Buffer
+		if e := json.Compact(&compact, []byte(out)); e != nil {
+			t.Fatal(e)
+		}
+		if compact.String() != "{\"tasks\":[],\"total\":0,\"hasMore\":false}" {
 			t.Fatalf("out=%q", out)
 		}
 		found := false
@@ -217,7 +221,7 @@ func TestFindingDispositions1556ReadOrderAndNull(t *testing.T) {
 func TestFindingDispositions1556OmittedFilterKeepsLegacy(t *testing.T) {
 	for _, args := range [][]string{{"list", "--json"}, {"list", "--match-failed", "--json"}} {
 		r := taskResponses()
-		r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[]}}`
+		r["AgentTaskListFiltered"] = taskPage2734("", 0, false)
 		calls, _, err := runTeamTask(t, r, append([]string{"team", "task"}, args...)...)
 		if err != nil {
 			t.Fatal(err)
@@ -283,7 +287,7 @@ func TestFindingDispositions1556CountOnlyAndCompoundFilter(t *testing.T) {
 	if err != nil || len(*calls) != 1 || (*calls)[0].Vars["limit"] != float64(0) {
 		t.Fatalf("err=%v calls=%v", err, *calls)
 	}
-	r["AgentTaskListUnresolved"] = `{"data":{"agentTasks":[]}}`
+	r["AgentTaskListUnresolved"] = taskPage2734("", 0, false)
 	calls, _, err = runTeamTask(t, r, "team", "task", "list", "--unresolved=false", "--status", "FINISHED", "--owner", "user:alex", "--text", "raw text", "--limit", "2", "--offset", "4", "--json")
 	if err != nil {
 		t.Fatal(err)

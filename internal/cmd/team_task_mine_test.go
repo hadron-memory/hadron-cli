@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,13 +95,17 @@ func TestTeamTaskMineMatchesTheExplicitList(t *testing.T) {
 
 func TestTeamTaskMineEmptyIsAnEmptyList(t *testing.T) {
 	r := taskResponses()
-	r["AgentTaskList"] = `{"data":{"agentTasks":[]}}`
+	r["AgentTaskList"] = taskPage2734("", 0, false)
 	_, out, err := runTeamTask(t, r, "team", "task", "mine", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(out) != "[]" {
-		t.Fatalf("empty result renders %q, want []", out)
+	// cli#2734: an empty mine is an empty page object, never a bare array.
+	var empty struct {
+		Tasks []json.RawMessage `json:"tasks"`
+	}
+	if e := json.Unmarshal([]byte(out), &empty); e != nil || len(empty.Tasks) != 0 {
+		t.Fatalf("empty result renders %q, want an empty page", out)
 	}
 }
 
