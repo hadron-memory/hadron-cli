@@ -87,9 +87,9 @@ func TestTreeStateOrderIndependentPrecedence2483(t *testing.T) {
 // path canonicalization in fixtures only; no native macOS process support
 // is claimed (there is no production /proc source there).
 func TestTreeStateSymlinkedWorktree2483(t *testing.T) {
-	real := t.TempDir()
+	realDir := t.TempDir()
 	linked := filepath.Join(t.TempDir(), "link")
-	if err := os.Symlink(real, linked); err != nil {
+	if err := os.Symlink(realDir, linked); err != nil {
 		t.Skip("symlinks unavailable", err)
 	}
 	procRoot := t.TempDir()
@@ -100,7 +100,7 @@ func TestTreeStateSymlinkedWorktree2483(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := treeState(all, real); got != "ok" {
+	if got := treeState(all, realDir); got != "ok" {
 		t.Fatalf("symlinked fixture classified %s, want ok", got)
 	}
 }
@@ -255,13 +255,15 @@ func TestImportAllowlistPerFile2483(t *testing.T) {
 }
 
 // TestUnixOpenReadOnlyFlags2483 pins #2483 F17: the one unix.Open in this
-// package may combine only read-safe flags, and no non-test file may call a
-// signal-capable unix selector however it is spelled.
+// package may combine only read-safe flags (any selector in the flags argument
+// that is not one of those unix flags fails, so os.O_RDWR or syscall.O_TRUNC
+// do too), and no non-test file may call one of the signal or kill selectors
+// listed below. That list is the guard, not a proof against every spelling.
 func TestUnixOpenReadOnlyFlags2483(t *testing.T) {
 	const file = "open_unix.go"
 	f, err := parser.ParseFile(token.NewFileSet(), file, nil, 0)
 	if err != nil {
-		t.Skip("no unix open on this build", err)
+		t.Fatalf("%s must exist and parse (a rename would otherwise hide the guard): %v", file, err)
 	}
 	allowed := map[string]bool{"O_RDONLY": true, "O_NONBLOCK": true, "O_NOFOLLOW": true, "O_CLOEXEC": true}
 	opens := 0
@@ -285,8 +287,8 @@ func TestUnixOpenReadOnlyFlags2483(t *testing.T) {
 		}
 		ast.Inspect(call.Args[1], func(m ast.Node) bool {
 			if sel, ok := m.(*ast.SelectorExpr); ok {
-				if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "unix" && !allowed[sel.Sel.Name] {
-					t.Errorf("unix.Open flag %s is not read-only", sel.Sel.Name)
+				if pkg, ok := sel.X.(*ast.Ident); !ok || pkg.Name != "unix" || !allowed[sel.Sel.Name] {
+					t.Errorf("unix.Open flag %s is not a read-only unix flag", types2483(sel))
 				}
 			}
 			return true
@@ -312,12 +314,61 @@ func TestUnixOpenReadOnlyFlags2483(t *testing.T) {
 			if call, ok := n.(*ast.CallExpr); ok {
 				if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
 					switch sel.Sel.Name {
-					case "Tgkill", "PidfdSendSignal":
+					case "Tgkill", "Tkill", "Kill", "Signal", "PidfdSendSignal":
 						t.Errorf("signal-capable selector %s in %s", sel.Sel.Name, e.Name())
 					}
 				}
 			}
 			return true
 		})
+	}
+}
+
+// types2483 renders a selector for a failure message ("os.O_RDWR").
+func types2483(sel *ast.SelectorExpr) string {
+	if pkg, ok := sel.X.(*ast.Ident); ok {
+		return pkg.Name + "." + sel.Sel.Name
+	}
+	return sel.Sel.Name
+}
+
+// TestTreeStatePrecedenceEdges2483 pins every adjacent edge of the documented
+// order (foreign_uid > cwd_outside_worktree > multiple_wrappers >
+// multiple_agents > no_wrapper > no_agent > ok): two problems present at once
+// give the higher one, whichever order the processes arrive in.
+func TestTreeStatePrecedenceEdges2483(t *testing.T) {
+	wt := t.TempDir()
+	sub := filepath.Join(wt, "sub")
+	if err := os.MkdirAll(sub, 0700); err != nil {
+		t.Fatal(err)
+	}
+	w := func(pid int, cwd string) process { return process{pid: pid, parent: 1, cwd: cwd, wrapper: true} }
+	a := func(pid, parent int) process { return process{pid: pid, parent: parent, cwd: wt, agent: true} }
+	for _, tc := range []struct {
+		name string
+		all  []process
+		want string
+	}{
+		{"foreign_uid over cwd anomaly", []process{w(9, sub), {pid: 5, parent: 1, cwd: wt, foreign: true}}, "foreign_uid"},
+		{"cwd anomaly over multiple wrappers", []process{w(1, sub), w(2, wt)}, "cwd_outside_worktree"},
+		{"multiple wrappers over multiple agents", []process{w(1, wt), w(2, wt), a(3, 1), a(4, 1)}, "multiple_wrappers"},
+		{"multiple agents over no wrapper", []process{a(3, 77), a(4, 77)}, "multiple_agents"},
+		{"no wrapper over no agent", []process{}, "no_wrapper"},
+		{"no agent alone", []process{w(1, wt)}, "no_agent"},
+		{"ok", []process{w(1, wt), a(3, 1)}, "ok"},
+	} {
+		for _, order := range []string{"given", "reversed"} {
+			t.Run(tc.name+"/"+order, func(t *testing.T) {
+				all := append([]process(nil), tc.all...)
+				if order == "reversed" {
+					for i, j := 0, len(all)-1; i < j; i, j = i+1, j-1 {
+						all[i], all[j] = all[j], all[i]
+					}
+				}
+				if got := treeState(all, wt); got != tc.want {
+					t.Fatalf("got %s, want %s", got, tc.want)
+				}
+			})
+		}
 	}
 }

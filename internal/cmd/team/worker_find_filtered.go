@@ -175,11 +175,11 @@ objects, including an empty array when there are no local workers.`,
 // of collapsing every failure into "unreachable", using the CLI's one
 // transport-vs-opinion rule (api.TransportCause): unreachable is exactly the
 // class where the request never got a server-formed answer — a transport
-// failure, or a gateway 5xx whose body is not a GraphQL envelope.
+// failure, or any 5xx whose body is not a GraphQL envelope (gateway or not).
 // Everything else DID get an answer that is not a usable roster — a 4xx from
 // the server or a proxy, a 200 carrying a GraphQL errors envelope, a 5xx
 // carrying one — and is unreadable. Both codes are fixed strings; the
-// backend's text never reaches the operator (cli#2483 F11; review round 2).
+// backend's text never reaches the operator (cli#2483 F11).
 func rosterReadError(err error) error {
 	if _, transport := api.TransportCause(err); transport {
 		return exitcode.Newf(exitcode.Error, "team_roster_unreachable")
@@ -194,8 +194,8 @@ func rosterReadError(err error) error {
 //
 // Failures carry distinct fixed codes, never backend text (cli#2483 F11):
 // team_roster_unauthenticated (no credential), team_roster_unreachable (the
-// call never got a server-formed answer: refused, reset, timed out, or a
-// gateway 5xx with no GraphQL body) and team_roster_unreadable (any answered
+// call never got a server-formed answer: refused, reset, timed out, or any
+// 5xx with no GraphQL body) and team_roster_unreadable (any answered
 // refusal — every other HTTP status, or any answer carrying GraphQL errors;
 // the roster never arrived in usable form). The split is the CLI's own
 // load-bearing transport-vs-opinion classification, so the codes follow what
