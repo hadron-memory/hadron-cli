@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 240: 208 command, 10 gap, 22 excluded
+[Query] 240: 208 command, 9 gap, 23 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -113,7 +113,7 @@ dashboardWidgetData  excluded graphical: the data feed for the widgets placed on
 dashboardWidgetPresets  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgetPresetsPage  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
-dashboardWidgetsPage  gap #2787
+dashboardWidgetsPage  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan); the paged spelling of dashboardWidgets, which is excluded for the same reason
 deleteWorkerPreview  command team worker rm
 deliveryBatches  command team chat inbox
 driveFile  command drive get
