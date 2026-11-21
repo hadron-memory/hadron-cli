@@ -428,7 +428,7 @@ func TestAgentRevisionListNamesTheMissingField(t *testing.T) {
 }
 
 func TestAgentRevisionListOverflowAndFractionHaveTheirOwnMessage(t *testing.T) {
-	big := `{"data":{"agentRevisions":{"revisions":[],"slotLimit":99999999999,"highestSlotUsed":1,"slotsRemaining":1}}}`
+	big := `{"data":{"agentRevisions":{"revisions":[],"slotLimit":1e16,"highestSlotUsed":1,"slotsRemaining":1}}}`
 	_, _, err := runAgentSub(t, map[string]string{"AgentRevisions": big}, "revision", "list", "agt1")
 	if err == nil || !strings.Contains(err.Error(), "larger than this CLI can show") || strings.Contains(err.Error(), "whole non-negative") {
 		t.Errorf("overflow message: %v", err)
@@ -467,5 +467,29 @@ func TestAgentRevisionRmWrapsAnUnavailableAndNeverAnythingDefinitive(t *testing.
 	}, "revision", "rm", "agt1", "revisions:rev-2", "--yes")
 	if err == nil || exitCodeFor(err) != exitcode.Forbidden || strings.Contains(err.Error(), "outcome unknown") {
 		t.Fatalf("a definitive refusal must not claim an unknown outcome: %v", err)
+	}
+}
+
+// QA (Charles) on #2800: a real server's slotLimit is the constant
+// MAX_REVISION_SLOT, 999999999999999 (15 digits, below Number.MAX_SAFE_INTEGER;
+// hadron-server src/lib/revisionSlot.ts), so `list` must show it, in text and
+// --json, instead of refusing it as too large for an int32.
+func TestAgentRevisionListShowsTheRealServersSlotLimit(t *testing.T) {
+	wire := `{"data":{"agentRevisions":{"revisions":[],"slotLimit":999999999999999,"highestSlotUsed":2,"slotsRemaining":999999999999997}}}`
+	_, out, err := runAgentSub(t, map[string]string{"AgentRevisions": wire}, "revision", "list", "agt1", "--json")
+	if err != nil {
+		t.Fatalf("the server's own constant must be accepted: %v", err)
+	}
+	var d struct {
+		SlotLimit       int64 `json:"slotLimit"`
+		HighestSlotUsed int64 `json:"highestSlotUsed"`
+		SlotsRemaining  int64 `json:"slotsRemaining"`
+	}
+	if e := json.Unmarshal([]byte(out), &d); e != nil || d.SlotLimit != 999999999999999 || d.HighestSlotUsed != 2 || d.SlotsRemaining != 999999999999997 {
+		t.Errorf("the numbers are shown exactly: %v %+v\n%s", e, d, out)
+	}
+	_, text, err := runAgentSub(t, map[string]string{"AgentRevisions": wire}, "revision", "list", "agt1")
+	if err != nil || !strings.Contains(text, "highest used 2 of 999999999999999; 999999999999997 saves left") {
+		t.Errorf("text: %v %q", err, text)
 	}
 }

@@ -25,9 +25,9 @@ import (
 
 type agentRevisionListDTO struct {
 	Revisions       []agentRevisionDTO `json:"revisions"`
-	SlotLimit       int                `json:"slotLimit"`
-	HighestSlotUsed int                `json:"highestSlotUsed"`
-	SlotsRemaining  int                `json:"slotsRemaining"`
+	SlotLimit       int64              `json:"slotLimit"`
+	HighestSlotUsed int64              `json:"highestSlotUsed"`
+	SlotsRemaining  int64              `json:"slotsRemaining"`
 }
 
 type agentRevisionDeletedDTO struct {
@@ -35,17 +35,23 @@ type agentRevisionDeletedDTO struct {
 	Status      string `json:"status"`
 }
 
-// parseSlotCount turns the server's Float! slot number into an int, refusing
-// anything that is not a whole non-negative number that fits: a count is shown
-// exactly or not at all. The two refusals say which of the two it was.
-func parseSlotCount(name string, v float64) (int, error) {
-	if v > math.MaxInt32 {
+// maxExactSlotCount is the largest whole number a JSON number (a float64) holds
+// exactly, 2^53-1. The server's own slotLimit is the constant MAX_REVISION_SLOT,
+// 999999999999999 (15 digits; hadron-server src/lib/revisionSlot.ts), well below
+// it: a count above this is no longer exact, so it is refused, not rounded.
+const maxExactSlotCount = 1<<53 - 1
+
+// parseSlotCount turns the server's Float! slot number into an int64, refusing
+// anything that is not a whole non-negative number it can show exactly: a count
+// is shown exactly or not at all. The two refusals say which of the two it was.
+func parseSlotCount(name string, v float64) (int64, error) {
+	if v > maxExactSlotCount {
 		return 0, exitcode.Newf(exitcode.Unavailable, "the server returned %s %v, which is larger than this CLI can show", name, v)
 	}
 	if v < 0 || v != math.Trunc(v) {
 		return 0, exitcode.Newf(exitcode.Unavailable, "the server returned %s %v, which is not a whole non-negative count", name, v)
 	}
-	return int(v), nil
+	return int64(v), nil
 }
 
 func newCmdAgentRevisionList(f *cmdutil.Factory) *cobra.Command {
