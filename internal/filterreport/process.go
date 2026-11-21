@@ -20,6 +20,10 @@ func within(path, root string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
+// This package is report-only: it reads /proc metadata and answers a
+// classification string. Nothing here signals, stops or writes, so a looser or
+// stricter wrapper() can change a report row and cannot drive any action.
+//
 // wrapper says argv is the worker's launcher: the login shell of the Orca
 // terminal the agent was started in (cli#2059; the host script that used to be
 // matched by name is retired, and the codes below keep their spelling because

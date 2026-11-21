@@ -229,7 +229,7 @@ func (s *State) LaunchAnchorsAt(worktreesRoot, path string) []LaunchAnchor {
 	defer s.mu.Unlock()
 	out := []LaunchAnchor{}
 	for _, a := range s.Agents {
-		if a.PID <= 0 || filepath.Clean(filepath.Join(worktreesRoot, a.Worktree)) != filepath.Clean(path) {
+		if a.PID <= 0 || !sameDir(filepath.Join(worktreesRoot, a.Worktree), path) {
 			continue
 		}
 		ticks, err := strconv.ParseInt(a.Start, 10, 64)
@@ -348,4 +348,17 @@ func (s *State) inFlightResets() []ResetRecord {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ResetID < out[j].ResetID })
 	return out
+}
+
+// sameDir says two spellings name one directory: the same cleaned path, or the
+// same path once symlinks are resolved (a worktrees root reached through a
+// link). A path that cannot be resolved is compared as cleaned, never wider.
+func sameDir(a, b string) bool {
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	if a == b {
+		return true
+	}
+	ra, errA := filepath.EvalSymlinks(a)
+	rb, errB := filepath.EvalSymlinks(b)
+	return errA == nil && errB == nil && ra == rb
 }

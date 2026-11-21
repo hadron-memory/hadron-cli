@@ -231,6 +231,11 @@ func isLaunch(pid int, anchors []LaunchAnchor) bool {
 // that is a recorded launch (orphan re-parenting goes to init or a
 // subreaper), so a read at census time can only be stale toward KEEPING an
 // agent.
+//
+// The boundary test runs BEFORE the anchor test on purpose: a recorded launch
+// that works outside the worktree is not this worker's own process tree, so it
+// is refused rather than honored (an earlier version honored the first
+// out-of-worktree ancestor).
 func supervisedChain(pid int, root string, anchors []LaunchAnchor) bool {
 	if len(anchors) == 0 {
 		return false

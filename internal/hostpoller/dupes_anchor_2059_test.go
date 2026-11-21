@@ -3,6 +3,7 @@
 package hostpoller
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -89,6 +90,18 @@ func TestLaunchAnchorsAtReadsTheRecordedLaunches2059(t *testing.T) {
 		got[a.PID] = a.StartTicks
 	}
 	want := map[int]int64{101: 777, 303: 0, 404: 0}
+	// A worktrees root reached through a symlink is the same worktree.
+	real := t.TempDir()
+	if err := os.Mkdir(filepath.Join(real, "wt-a"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(t.TempDir(), "link")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	if len(st.LaunchAnchorsAt(link, filepath.Join(real, "wt-a"))) != 3 {
+		t.Fatal("a symlinked worktrees root must match the real worktree path")
+	}
 	// A path spelled with a trailing slash or a dot segment is the same worktree.
 	if len(st.LaunchAnchorsAt(root+"/", filepath.Join(root, "wt-a")+"/./")) != 3 {
 		t.Fatal("anchors must match a worktree path however it is spelled")
