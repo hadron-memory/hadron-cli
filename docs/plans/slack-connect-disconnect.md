@@ -32,7 +32,7 @@ calls `createSlackConnection(orgRef, appRef, botToken, appToken)` once.
   (blind P2, Andi: `%q` leaves `$` and backticks live when pasted). `ShellQuote` emits POSIX single-quote
   quoting: paste-safe in POSIX shells (the README's own Windows guidance points at WSL or Git Bash), but
   not in cmd.exe, where single quotes are not quoting, and only partially in PowerShell (single quotes are
-  literal there, but the `'\\''` escape idiom is POSIX-only) — the Windows decision is cli#2822. Suggested commands also use `--org=<value>`
+  literal there, but the `'\''` escape idiom is POSIX-only) — the Windows decision is cli#2822. Suggested commands also use `--org=<value>`
   and put `--` before an id, because cobra reads a leading dash as a flag even when the word is quoted (blind
   P2, Dara); and a `--org` value that holds a token, or a control character, is never printed, quoted or not: it is
   checked on the ORIGINAL value (quoting splits an apostrophe-bearing token so exact redaction would miss it;
@@ -74,8 +74,10 @@ Unavailable.
 `internal/cmd/slack_connect_206_test.go`, fake HTTP only: request variables, one request, local refusals
 with zero requests, secret-negative checks on stdout, errors and help, refusal pass-through, the echoed-token
 case in message, code and success fields (rendered through the real error renderer), unknown outcome with
-guidance kept, the confirmation paths, and (cli#2756) the trimmed `--org`/`--app`, the short `--app` form,
-the malformed-`--app` refusal, disconnect's text success line, the case-flipped spellings, and the
-U+2028/U+2029 separators. Mutants killed: the redactor, the chain cut, the success-field
+guidance kept, the confirmation paths, and (cli#2756) the U+2028/U+2029 separators.
+`internal/cmd/slack_followups_2756_test.go` (cli#2756): the trimmed `--org`/`--app`, the short `--app` form,
+the malformed-`--app` refusal, disconnect's text success line, and the unknown-status refusal quoting a
+hostile status. `internal/api/secrettext_test.go` (cli#2756): the case-flipped spellings, from a mixed-case
+secret so either flip arm dropped fails. Mutants killed: the redactor, the chain cut, the success-field
 check, the recovery text, the code pass-through, a one-token secret list, the both-stdin refusal, the terminal refusal, the confirmation,
-the Zl/Zp guard, the once-trim, the case-flip spellings.
+the Zl/Zp guard, the once-trim, the case-flip spellings (either flip arm), the raw-status refusal.
