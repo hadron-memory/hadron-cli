@@ -44,6 +44,14 @@ const (
 	adapterMaxLimit     = 100
 	adapterTitleRunes   = 200
 	externalIDTaken     = "TASK_EXTERNAL_ID_TAKEN"
+	// intakeHeldPageSize is the page the held read asks for: server#4622 does
+	// not widen an externalIds batch past one 20-row page (the legacy field
+	// widened to 200), so the read walks hasMore at the same size.
+	intakeHeldPageSize = 20
+	// intakeReadPageLimit is the intake reads' loud bound: a held or holder
+	// read that never answers hasMore false is a server ignoring offsets, and
+	// is refused rather than read forever.
+	intakeReadPageLimit = 500
 )
 
 type adapterItemDTO struct {
@@ -109,25 +117,65 @@ func adapterErr(err error) error {
 	return exitcode.Newf(exitcode.Error, "%s", output.SafeLine(err.Error(), 400))
 }
 
-// heldExternalIDs asks Hadron which of ids a task of the App holds (any state).
+// heldExternalIDs asks Hadron which of ids a task of the App holds (any
+// state). server#4622 does not widen an externalIds batch past one 20-row
+// page, so the read follows hasMore to the end: an item is decided unheld only
+// after every page says so (cli#2734) — the legacy widening silently dropped
+// held history past its first page.
 func heldExternalIDs(ctx context.Context, client graphql.Client, appRef string, ids []string) (map[string]bool, error) {
 	held := map[string]bool{}
 	if len(ids) == 0 {
 		return held, nil
 	}
-	resp, err := gen.IntakeTasksByExternalIds(ctx, client, appRef, ids)
-	if err != nil {
-		if api.IsGraphQLValidationOnlyFor(err, "externalIds") {
-			return nil, exitcode.Newf(exitcode.Usage, "this server cannot check outside items against its tasks (it predates hadron-server#4084); nothing was claimed")
+	// The walk advances by the rows served (cor:api:120:04), not by the page
+	// size, so a short page with hasMore skips nothing.
+	limit, offset := intakeHeldPageSize, 0
+	for page := 0; ; page++ {
+		if page >= intakeReadPageLimit {
+			return nil, exitcode.Newf(exitcode.Error, "the held read did not end after %d pages of %d; nothing was claimed", page, intakeHeldPageSize)
 		}
-		return nil, mapTaskError(err)
-	}
-	for _, t := range resp.AgentTasks {
-		if t != nil && t.ExternalId != nil {
-			held[*t.ExternalId] = true
+		resp, err := gen.IntakeTasksByExternalIds(ctx, client, appRef, ids, &limit, &offset)
+		if err != nil {
+			// The newer floor is named first, on purpose (BLIND round 2,
+			// cli#2734): this document's own field is agentTasksPage, so every
+			// shipped server that rejects it predates hadron-server#4622 — and
+			// an error naming BOTH quoted names (an Unknown-argument error on
+			// the field itself) must take the #4622 hint, which names the
+			// release this read actually needs, not the older #4084 one. The
+			// externalIds branch stays for the narrower shape: a server that
+			// knows the paged read but rejects the filter argument itself.
+			if api.IsGraphQLValidationOnlyFor(err, "agentTasksPage") {
+				return nil, exitcode.Newf(exitcode.Usage, "this server cannot page its task reads (it predates hadron-server#4622); nothing was claimed")
+			}
+			if api.IsGraphQLValidationOnlyFor(err, "externalIds") {
+				return nil, exitcode.Newf(exitcode.Usage, "this server cannot check outside items against its tasks (it predates hadron-server#4084); nothing was claimed")
+			}
+			return nil, mapTaskError(err)
 		}
+		if resp.AgentTasksPage == nil {
+			return nil, malformedTaskPage("the page object is missing or null")
+		}
+		if resp.AgentTasksPage.Items == nil {
+			return nil, malformedTaskPage("items is missing or null")
+		}
+		// An empty page that claims more remain can never advance: offset+0
+		// would re-ask this page until the page bound. Refused at once.
+		if len(resp.AgentTasksPage.Items) == 0 && resp.AgentTasksPage.HasMore {
+			return nil, malformedTaskPage("an empty page claims more remain")
+		}
+		for i, t := range resp.AgentTasksPage.Items {
+			if t == nil {
+				return nil, exitcode.Newf(exitcode.Error, "server returned a malformed agentTasksPage answer: item %d of %d is empty", i+1, len(resp.AgentTasksPage.Items))
+			}
+			if t.ExternalId != nil {
+				held[*t.ExternalId] = true
+			}
+		}
+		if !resp.AgentTasksPage.HasMore {
+			return held, nil
+		}
+		offset += len(resp.AgentTasksPage.Items)
 	}
-	return held, nil
 }
 
 // requireCalls refuses, before Hadron is touched, an adapter that does not

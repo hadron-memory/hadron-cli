@@ -167,9 +167,12 @@ page (20 rows each) starting at --offset (default 0). With --limit, read exactly
 one page of 1..200 rows; a continuation note goes to stderr when more remain.
 Revoked grants are excluded unless --include-revoked is true. --trigger-kind
 and --trigger-id keep only the grants for that trigger kind or trigger ID; each
-is sent as given only when set, and the server checks the kind. A paged walk is
-not an atomic snapshot: concurrent changes can affect the list. A later-page
-refusal fails the command without printing a partial result.
+is sent as given only when set, and the server checks the kind. --trigger-id
+needs --trigger-kind: the server refuses an ID without a kind, and that refusal
+is shown as it is. Both flags need a server that has the trigger filter; an
+older server answers with an unknown argument error. A paged walk is not an
+atomic snapshot: concurrent changes can affect the list. A later-page refusal
+fails the command without printing a partial result.
 JSON is {items,total,hasMore}; empty items is [], and total is the server's
 count, not a count inferred by the CLI. Human output shows grant, App, trigger
 and revocation metadata. No credentials or task content are read.`, Example: `  hadron automation team-snapshot-grant list acme.com:ops --json
@@ -222,8 +225,8 @@ and revocation metadata. No credentials or task content are read.`, Example: `  
 	}}
 	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instructionFlagUsage)
 	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include ended grants; false keeps live grants only")
-	cmd.Flags().StringVar(&triggerKind, "trigger-kind", "", "only grants for this trigger kind (SCHEDULE or WEBHOOK; the server checks it)")
-	cmd.Flags().StringVar(&triggerID, "trigger-id", "", "only grants for this schedule or webhook ID")
+	cmd.Flags().StringVar(&triggerKind, "trigger-kind", "", "only grants for this trigger kind (SCHEDULE or WEBHOOK; the server checks it); needed with --trigger-id")
+	cmd.Flags().StringVar(&triggerID, "trigger-id", "", "only grants for this schedule or webhook ID; needs --trigger-kind")
 	cmd.Flags().IntVar(&limit, "limit", 20, "rows per page (1..200); given, reads just that one page; omitted, reads every page")
 	cmd.Flags().IntVar(&offset, "offset", 0, "skip this many rows before reading (nonnegative)")
 	return cmd

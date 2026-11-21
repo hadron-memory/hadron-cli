@@ -131,7 +131,7 @@ func TestTaskMatching1549ReadAndFilter(t *testing.T) {
 	r := taskResponses()
 	row := matchingFields1549(t)
 	r["AgentTaskGet"] = `{"data":{"agentTask":` + row + `}}`
-	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[` + row + `]}}`
+	r["AgentTaskListFiltered"] = taskPage2734(row, 1, false)
 	_, out, err := runTeamTask(t, r, "team", "task", "get", "task1", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -146,8 +146,11 @@ func TestTaskMatching1549ReadAndFilter(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasPrefix(out, "[") {
-			t.Fatal(out)
+		var page struct {
+			Tasks []map[string]any `json:"tasks"`
+		}
+		if err := json.Unmarshal([]byte(out), &page); err != nil || len(page.Tasks) != 1 || page.Tasks[0]["matchFailure"] == nil {
+			t.Fatalf("list --json is the page object with the row: %v: %s", err, out)
 		}
 		found := false
 		for _, c := range *calls {
@@ -234,9 +237,13 @@ func TestTaskMatching1549SuccessAndRefusals(t *testing.T) {
 		}
 	}
 	r = taskResponses()
-	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[]}}`
+	r["AgentTaskListFiltered"] = taskPage2734("", 0, false)
 	_, out, err = runTeamTask(t, r, "team", "task", "list", "--match-failed", "--json")
-	if err != nil || strings.TrimSpace(out) != "[]" {
+	// cli#2734: an empty list is an empty page object, never a bare array.
+	var empty2734 struct {
+		Tasks []json.RawMessage `json:"tasks"`
+	}
+	if err != nil || json.Unmarshal([]byte(out), &empty2734) != nil || len(empty2734.Tasks) != 0 {
 		t.Fatalf("err=%v out=%s", err, out)
 	}
 }
@@ -253,7 +260,7 @@ func TestTaskMatching1549HumanSafety(t *testing.T) {
 	r := taskResponses()
 	r["AgentTaskCreate"] = `{"data":{"createAgentTask":` + string(b) + `}}`
 	r["AgentTaskGet"] = `{"data":{"agentTask":` + string(b) + `}}`
-	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[` + string(b) + `]}}`
+	r["AgentTaskListFiltered"] = taskPage2734(string(b), 1, false)
 	for _, args := range [][]string{{"create", "example", "--match"}, {"get", "task1"}, {"list", "--match-failed"}} {
 		_, out, _ := runTeamTask(t, r, append([]string{"team", "task"}, args...)...)
 		if strings.ContainsAny(out, "\x1b\a") || !strings.Contains(out, "FUTURE") {
@@ -273,7 +280,7 @@ func TestTaskMatching1549HumanSafety(t *testing.T) {
 
 func TestTaskMatching1549AbsentFilter(t *testing.T) {
 	r := taskResponses()
-	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[]}}`
+	r["AgentTaskListFiltered"] = taskPage2734("", 0, false)
 	calls, _, err := runTeamTask(t, r, "team", "task", "list", "--external-id", "x", "--json")
 	if err != nil {
 		t.Fatal(err)

@@ -25,7 +25,7 @@ func TestTaskCount2053AsksForAlarmsInEffect(t *testing.T) {
 		"list-team": func() ([]attnCall, error) {
 			responses := rosterResponses993(roster1044()...)
 			responses["TeamReportingLines"] = responses["TeamRoster"]
-			responses["AgentTaskList"] = taskPage1044(tasks1044())
+			responses["AgentTaskList"] = taskPage1044(tasks1044(), false)
 			_, _, calls, err := pagesServer1919(t, responses, page, "team", "task", "list", "--team=worker:Marco")
 			return calls, err
 		},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -36,6 +37,8 @@ import (
 const (
 	reconcilePage     = 200 // the server's cap
 	reconcileMaxPages = 25  // per run; the cursor resumes the rest next run
+	maxNotMineListed  = 50  // foreign ids named in --json; the count is exact
+	maxNotMineShown   = 5   // foreign ids named on the text line
 )
 
 // reconcileDTO is the reconcile pass's --json shape, nested in the list and
@@ -57,6 +60,11 @@ type reconcileDTO struct {
 	SkippedNoAssignee    int `json:"skippedNoAssignee"`
 	SkippedNoTask        int `json:"skippedNoTask"`
 	SkippedHeldElsewhere int `json:"skippedHeldElsewhere"`
+	// SkippedNotMine counts changes the adapter answered "not my item"
+	// (intakecontract.ExitNotMine, cli#2869); NotMine lists those external ids
+	// (bounded) so the skip is visible, never silent. The cursor moved past them.
+	SkippedNotMine int      `json:"skippedNotMine"`
+	NotMine        []string `json:"notMine"`
 	// Complete is false when the pass stopped early (an adapter failure, or
 	// the per-run page bound); the next run resumes at the stored cursor.
 	Complete bool `json:"complete"`
@@ -64,12 +72,16 @@ type reconcileDTO struct {
 	Error *string `json:"error"`
 }
 
+// newReconcileDTO is the pass's starting summary: complete, with notMine the
+// empty list (so --json renders [] and never null).
+func newReconcileDTO() reconcileDTO { return reconcileDTO{Complete: true, NotMine: []string{}} }
+
 // reconcile runs the pass and returns the summary, then the adapter failure
 // (the run reports it at its end; the list and claim still proceed, as they do
 // not depend on the write-back), then a fatal error (server, store) that ends
 // the run.
 func reconcile(ctx context.Context, client graphql.Client, store *intake.CursorStore, key, appRef string, runner *intake.Runner, desc intake.Describe) (dto reconcileDTO, adapterFailure, fatal error) {
-	dto = reconcileDTO{Complete: true}
+	dto = newReconcileDTO()
 	// One run at a time per feed: the cursor read, the adapter's effects and the
 	// cursor write are one critical section (cli#1975, LOCAL P2).
 	serr := store.Serialize(ctx, key, func() error {
@@ -90,7 +102,7 @@ func reconcile(ctx context.Context, client graphql.Client, store *intake.CursorS
 }
 
 func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.CursorStore, key, appRef string, runner *intake.Runner, desc intake.Describe) (dto reconcileDTO, adapterFailure, fatal error) {
-	dto = reconcileDTO{Complete: true}
+	dto = newReconcileDTO()
 	cursor, err := store.Get(key)
 	if err != nil {
 		return dto, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
@@ -139,7 +151,17 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 			}
 			dto.Read++
 			holder := func(externalID string) (itemHolders, error) { return lookupHolders(ctx, client, appRef, externalID) }
-			if ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, holder, &dto); ferr != nil {
+			ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, holder, &dto)
+			if desc.NotMine && intake.IsNotMine(ferr) {
+				// The adapter says this id is not its item: record it, move on.
+				dto.Skipped++
+				dto.SkippedNotMine++
+				if len(dto.NotMine) < maxNotMineListed {
+					dto.NotMine = append(dto.NotMine, output.SafeLine(ch.ExternalId, 200))
+				}
+				ferr = nil
+			}
+			if ferr != nil {
 				// The cursor stays after the last answered change, so the
 				// next run retries this one.
 				if err := store.Set(key, cursor); err != nil {
@@ -282,26 +304,62 @@ type itemHolders struct {
 	IDs    map[string]bool // every task the lookup returned
 }
 
+// lookupHolders reads who holds an outside item in the App now, following
+// hasMore to the end (cli#2734, server#4622): an ended task keeps its external
+// id, so the holder history can outgrow one page and the ACTIVE holder can sit
+// past a page of finished predecessors — a lookup that stops early answers
+// "nobody holds it" about an item a later page holds. The read steps by the
+// rows served (the server's own continuation), and a malformed page ends the
+// run as a server failure, like any failed holder read.
 func lookupHolders(ctx context.Context, client graphql.Client, appRef, externalID string) (itemHolders, error) {
-	resp, err := gen.IntakeItemHolders(ctx, client, appRef, externalID)
-	if err != nil {
-		return itemHolders{}, &holderLookupError{err: mapTaskError(err)}
-	}
 	h := itemHolders{IDs: map[string]bool{}}
-	for _, t := range resp.AgentTasks {
-		if t == nil {
-			continue
+	for offset, page := 0, 0; ; page++ {
+		if page >= intakeReadPageLimit {
+			return itemHolders{}, &holderLookupError{err: exitcode.Newf(exitcode.Error, "the holder read did not end after %d pages; nothing was told and the cursor stays", page)}
 		}
-		h.Any = true
-		h.IDs[t.Id] = true
-		switch t.Status {
-		case gen.AgentTaskStatusBacklog, gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted:
-			if h.Active == "" {
-				h.Active = t.Id
+		var off *int
+		if offset > 0 {
+			o := offset
+			off = &o
+		}
+		resp, err := gen.IntakeItemHolders(ctx, client, appRef, externalID, nil, off)
+		if err != nil {
+			if api.IsGraphQLValidationOnlyFor(err, "agentTasksPage") {
+				return itemHolders{}, &holderLookupError{err: exitcode.Newf(exitcode.Usage, "this server cannot page its task reads (it predates hadron-server#4622); the holder of the outside item was not read")}
+			}
+			return itemHolders{}, &holderLookupError{err: mapTaskError(err)}
+		}
+		if resp.AgentTasksPage == nil {
+			return itemHolders{}, &holderLookupError{err: malformedTaskPage("the page object is missing or null")}
+		}
+		items := resp.AgentTasksPage.Items
+		if items == nil {
+			return itemHolders{}, &holderLookupError{err: malformedTaskPage("items is missing or null")}
+		}
+		// An empty page that claims more remain can never advance: the read
+		// steps by rows served, so offset+0 would re-ask this page until the
+		// page bound. Refused at once as a server failure (cli#2734).
+		if len(items) == 0 && resp.AgentTasksPage.HasMore {
+			return itemHolders{}, &holderLookupError{err: malformedTaskPage("an empty page claims more remain")}
+		}
+		for i, t := range items {
+			if t == nil {
+				return itemHolders{}, &holderLookupError{err: exitcode.Newf(exitcode.Error, "server returned a malformed agentTasksPage answer: item %d of %d is empty", i+1, len(items))}
+			}
+			h.Any = true
+			h.IDs[t.Id] = true
+			switch t.Status {
+			case gen.AgentTaskStatusBacklog, gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted:
+				if h.Active == "" {
+					h.Active = t.Id
+				}
 			}
 		}
+		if !resp.AgentTasksPage.HasMore {
+			return h, nil
+		}
+		offset += len(items)
 	}
-	return h, nil
 }
 
 // heldElsewhere reports (and counts) a change the pass must not tell the adapter.
@@ -340,6 +398,14 @@ func humanReconcile(d reconcileDTO) string {
 		return ""
 	}
 	s := fmt.Sprintf("reconcile: read %d change(s): %d marked, %d untracked, %d reported, %d skipped", d.Read, d.Marked, d.Untracked, d.Reported, d.Skipped)
+	if d.SkippedNotMine > 0 {
+		shown := d.NotMine[:min(len(d.NotMine), maxNotMineShown)]
+		s += fmt.Sprintf(" (%d not this adapter's: %s", d.SkippedNotMine, strings.Join(shown, ", "))
+		if d.SkippedNotMine > len(shown) {
+			s += ", ..."
+		}
+		s += ")"
+	}
 	if !d.Complete && d.Error == nil {
 		s += " (more next run)"
 	}
@@ -354,11 +420,11 @@ func humanReconcile(d reconcileDTO) string {
 func reconcileRun(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, runner *intake.Runner, desc intake.Describe) (reconcileDTO, error, error) {
 	store, err := intake.DefaultCursorStore()
 	if err != nil {
-		return reconcileDTO{Complete: true}, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
+		return newReconcileDTO(), nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
 	}
 	server, err := f.Server()
 	if err != nil {
-		return reconcileDTO{Complete: true}, nil, err
+		return newReconcileDTO(), nil, err
 	}
 	return reconcile(ctx, client, store, intake.CursorKey(server, appRef, desc.Name), appRef, runner, desc)
 }

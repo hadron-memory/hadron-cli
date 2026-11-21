@@ -47,9 +47,14 @@ func redactConnectError(raw error, secrets []string, lead, tail string) error {
 
 // hasControlOrFormatCharacter reports whether s carries a Unicode control or
 // format character (an id with ESC/CSI or a newline would reach the terminal
-// raw once it is no longer Go-quoted). Shell quoting is a separate step.
+// raw once it is no longer Go-quoted), or a line/paragraph separator
+// (U+2028/U+2029: Zl/Zp are not Cc, but some terminals and clipboards treat
+// them as line breaks — the same line-forgery the guard exists to stop). Shell
+// quoting is a separate step.
 func hasControlOrFormatCharacter(s string) bool {
-	return strings.IndexFunc(s, func(r rune) bool { return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) }) >= 0
+	return strings.IndexFunc(s, func(r rune) bool {
+		return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r)
+	}) >= 0
 }
 
 // getConnectionSuggestion is the closing sentence of a disconnect message: how to
@@ -115,10 +120,11 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			if orgRef == "" {
 				return exitcode.Newf(exitcode.Usage, "--org is required: name the organization (ID or URN)")
 			}
-			if strings.TrimSpace(app) == "" {
+			appRef := strings.TrimSpace(app)
+			if appRef == "" {
 				return exitcode.Newf(exitcode.Usage, "--app is required: name the App (ID or URN)")
 			}
-			appRef, err := cmdutil.CanonicalAppRef("--app", app)
+			canonicalAppRef, err := cmdutil.CanonicalAppRef("--app", appRef)
 			if err != nil {
 				return err
 			}
@@ -166,7 +172,7 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 			}
 			// Prose first, the command last: nothing may follow it on the line.
 			where := fmt.Sprintf("The listing is paged, so follow its --offset hint before deciding the workspace is not connected. Check with:\n  %s", statusCmd)
-			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, appRef, bot, appTok)
+			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, canonicalAppRef, bot, appTok)
 			if err != nil {
 				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried)", where)
 			}
@@ -200,12 +206,15 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 				return exitcode.Newf(exitcode.Unavailable, "the server answered with connection id %s and a status this CLI does not recognize (a newer server?), so it cannot be read back here: upgrade hadron, or remove the registration with: hadron slack disconnect -- %s", cmdutil.ShellQuote(v.Id), cmdutil.ShellQuote(v.Id))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				banner := "✓ connected Slack workspace %s\n"
+				// Two literal formats, never a variable format string (go vet's
+				// printf check; a variable would misrender any future % in it).
+				name := output.SafeCell(strconv.Quote(dto.TeamName))
 				if dto.Status == "ERROR" {
 					// ERROR is a recorded failure (see "hadron slack --help"), not success.
-					banner = "! registered Slack workspace %s, but the server has recorded a failure (status ERROR; see \"hadron slack --help\")\n"
-				}
-				if _, e := fmt.Fprintf(w, banner, output.SafeCell(strconv.Quote(dto.TeamName))); e != nil {
+					if _, e := fmt.Fprintf(w, "! registered Slack workspace %s, but the server has recorded a failure (status ERROR; see \"hadron slack --help\")\n", name); e != nil {
+						return e
+					}
+				} else if _, e := fmt.Fprintf(w, "✓ connected Slack workspace %s\n", name); e != nil {
 					return e
 				}
 				return writeConnection(w, dto)
@@ -229,7 +238,8 @@ The server marks the connection deleted and tries to remove the stored Slack
 tokens on its side (best effort; it does not say how far it got). Connecting
 the workspace again with "hadron slack connect" registers it anew.
 
-On a terminal this asks first; without one, --yes is required and nothing is
+On a terminal this asks first; declining the prompt exits 6 (Cancelled) and
+nothing is sent. Without one, --yes is required and nothing is
 sent without it. The server decides who may disconnect (organization ADMIN or
 OWNER); this command does not check it. An unknown ID and one in another
 organization are refused the same way (exit 4), so a refusal does not tell you

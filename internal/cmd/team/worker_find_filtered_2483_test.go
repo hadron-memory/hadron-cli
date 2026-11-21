@@ -92,11 +92,10 @@ func TestFindFilteredMalformedList2483(t *testing.T) {
 // TestFindFilteredTargetErrorCodes2483 pins F11: target-read failures carry
 // distinct fixed codes — unauthenticated, unreachable transport — instead of
 // every failure collapsing into team_roster_unreadable. No raw backend text.
-// The error KIND decides the code (a review round of the PR that added
-// this): only a transport failure
-// (never answered) is team_roster_unreachable; an HTTP status or a GraphQL
-// errors envelope is the server answering with something that is not a
-// usable roster — team_roster_unreadable.
+// The error KIND decides the code: only a transport failure (never answered)
+// is team_roster_unreachable; an HTTP status or a GraphQL errors envelope is
+// the server answering with something that is not a usable roster —
+// team_roster_unreadable.
 func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
 		root := t.TempDir()
@@ -127,8 +126,8 @@ func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 	// Answered failures keep the third code: whatever came back — an HTTP
 	// status carrying an answer, a GraphQL errors envelope — is not a usable
 	// roster, and saying "unreachable" about a server that answered would
-	// hide the difference. The one exception is the gateway 5xx with no
-	// GraphQL body: indistinguishable from a lost answer, so unreachable.
+	// hide the difference. The one exception is a 5xx with no GraphQL body,
+	// gateway or not: indistinguishable from a lost answer, so unreachable.
 	// The exact-match assertion on the fixed code is also the no-leak pin:
 	// the message IS the code, so backend text cannot be present.
 	// A 401 is unreadable, not unauthenticated: the credential existed and
@@ -142,6 +141,7 @@ func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 		{"200 GraphQL errors envelope", "application/json", `{"data":null,"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}}]}`, "team_roster_unreadable", 200},
 		{"404 proxy page", "text/plain", `no such upstream`, "team_roster_unreadable", 404},
 		{"502 gateway page", "text/html", `<html>502 Bad Gateway</html>`, "team_roster_unreachable", 502},
+		{"500 non-gateway, no GraphQL body", "text/plain", `internal error`, "team_roster_unreachable", 500},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("HADRON_TOKEN", "fake2483")

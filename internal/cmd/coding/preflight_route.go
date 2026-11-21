@@ -79,8 +79,15 @@ router's own memory is refused (there is nothing to mark). Marking an existing
 route needs a re-run with the flag, which adds the marker and keeps the edge's
 other data.
 
-Re-running is safe: an edge that already exists is not duplicated, and a body
-that already references the target is left alone.`,
+Re-running is safe: an edge that already exists (same label, same target) is
+reported as already routed and is not created again, and a body that already
+references the target is left alone. A different edge at the same loc is not
+that route: the server's refusal ("already occupied", exit 5) is passed through
+as it is.
+
+A write that lands only in part exits 1 after printing what was written: a
+back-edge that failed or whose cross-memory marker was not confirmed, or a
+router body that was not updated. The message says which part is missing.`,
 		Example: `  hadron coding preflight route findings:flaky-otp-timer -m hrn:mem:acme.com:kb \
     --route "fix a flaky OTP countdown test"
   hadron coding preflight route hrn:node:acme.com:specs:tasks:create-platform-spec \
@@ -242,6 +249,14 @@ that already references the target is left alone.`,
 				dto.CrossMemory = true
 			}
 
+			// Already routed: every edge this run would write is on the graph and none
+			// needs the marker added, so nothing is written to it (cli#2844).
+			needsMarker := func(e *existingEdge) bool { return crossMemory && e != nil && !edgeCrossMemory(e.Data) }
+			if !dryRun && existingFwd != nil && (leaf || noBackEdge || existingBack != nil) &&
+				!needsMarker(existingFwd) && !needsMarker(existingBack) {
+				dto.AlreadyRouted = true
+			}
+
 			if dryRun {
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderRoutePlan(w, dto, false)
@@ -287,8 +302,8 @@ that already references the target is left alone.`,
 					}
 					dto.BackEdge = false
 					return partialRoute(f, dto, false, err,
-						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
-						dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
+						"routed %s, but its back-edge to %q may not have landed (a refusal, or an answer that was lost) — without it the route only works from the index; check with `hadron coding preflight list -m %s`, and if it is missing add it with `hadron edge create -m %s --from %s --to %s --name %s`",
+						dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
 				}
 				_ = backMarked
 			}
@@ -383,7 +398,14 @@ func (e *markerNotConfirmedError) Unwrap() error { return e.error }
 // writeRouteEdge writes one route edge and, when asked, makes sure it carries the
 // marker. It returns the edge id and whether the marker is CONFIRMED on it.
 func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (string, bool, error) {
-	if e.Mark && e.Existing != nil {
+	if e.Existing != nil {
+		// The edge the command read is already on the graph: never re-create it. A
+		// real server refuses createEdge on an occupied loc (cli#2736 QA, cli#2844),
+		// so a plain re-run reports it instead (cli#2844). Only the marker, when
+		// asked for, is written, through updateEdge.
+		if !e.Mark {
+			return e.Existing.ID, false, nil
+		}
 		if edgeCrossMemory(e.Existing.Data) {
 			return e.Existing.ID, true, nil
 		}
@@ -412,15 +434,12 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 			e.FromLoc, e.ToLoc, e.Memory, mapped)
 	}
 	if resp == nil || resp.CreateEdge == nil {
-		if e.Mark {
-			// An edge the server did not return cannot be shown to carry the marker, and
-			// it may have been written: an unknown outcome, never exit 0 with the marker
-			// reported absent (cli#2736 LOCAL delta P3).
-			return "", false, exitcode.Newf(exitcode.Unavailable,
-				"the route from %q to %s may not have been written (the server returned no edge) — check with `hadron coding preflight list -m %s`; nothing was retried",
-				e.FromLoc, e.ToLoc, e.Memory)
-		}
-		return "", false, nil
+		// An edge the server did not return may still have been written: an unknown
+		// outcome with or without the marker, never exit 0 with no edge (cli#2736
+		// LOCAL delta P3, cli#2844).
+		return "", false, exitcode.Newf(exitcode.Unavailable,
+			"the route from %q to %s may not have been written (the server returned no edge) — check with `hadron coding preflight list -m %s`; nothing was retried",
+			e.FromLoc, e.ToLoc, e.Memory)
 	}
 	if !e.Mark || edgeCrossMemory(resp.CreateEdge.Data) {
 		return resp.CreateEdge.Id, e.Mark, nil
@@ -444,7 +463,7 @@ func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, e route
 	if err != nil {
 		mapped := api.MapError(err)
 		return false, newMarkerNotConfirmed(exitcode.FromError(mapped),
-			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`: %v",
+			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`; a re-run with --cross-memory only sets the marker: %v",
 			e.FromLoc, e.ToLoc, e.Memory, mapped)
 	}
 	if resp == nil || resp.UpdateEdge == nil || !edgeCrossMemory(resp.UpdateEdge.Data) {

@@ -152,7 +152,10 @@ func TestNodeRmCascadeCrossMemoryEdges1341(t *testing.T) {
 // node set-properties reaches updateNodeProperties.
 func TestNodeSetProperties1341(t *testing.T) {
 	responses := map[string]string{
-		"ResolveUrn":           resolveNodeJSON,
+		"ResolveUrn": resolveNodeJSON,
+		// cli#2826: the node's kind is read once to choose the door; an ordinary node (not a
+		// task) keeps the generic merge.
+		"NodeKind":             `{"data":{"node":{"id":"n1","isRunnable":false}}}`,
 		"UpdateNodeProperties": `{"data":{"updateNodeProperties":{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI","properties":{"a":1,"b":2},"updatedAt":"2026-10-31T00:00:00Z"}}}`,
 	}
 	captured, out, err := run1341(t, responses, "node", "set-properties", nodeURN, "--patch", `{"b":2}`, "--reason", "fix", "--json")

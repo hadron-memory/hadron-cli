@@ -108,8 +108,7 @@ func canonicalOrigin(raw string) string {
 	// re-bracketed before the port is appended — otherwise http://[::1]:8080
 	// (host ::1, port 8080) and http://[::1:8080] (the address ::1:8080, no
 	// port) both canonicalize to http://::1:8080 and two different origins
-	// compare equal (a review round of the PR that added this; cli#2483
-	// F15).
+	// compare equal (cli#2483 F15).
 	host := strings.ToLower(u.Hostname())
 	if strings.Contains(host, ":") {
 		host = "[" + host + "]"

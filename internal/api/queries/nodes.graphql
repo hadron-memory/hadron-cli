@@ -238,6 +238,8 @@ query NodeBatch(
         isRunnable
         priority
         condition
+        # cli#2844: the edge's data, selected on GetNode and NodeBatch alike so single and batch node get agree.
+        data
         target {
           id
           loc
@@ -250,6 +252,7 @@ query NodeBatch(
         loc
         priority
         isRunnable
+        data
         source {
           id
           loc
@@ -685,6 +688,36 @@ mutation UpdateTaskNode(
     seq
     isRunnable
     role
+    updatedAt
+  }
+}
+
+# cli#2826: the kind of a node, and nothing else: `node set-properties` reads it once to choose
+# the write door (a runnable node is a task). Not GetNode: the command needs no body, edges or
+# properties, and the properties it would return must never become part of what is written.
+query NodeKind($ref: ID!) {
+  node(ref: $ref) {
+    id
+    isRunnable
+  }
+}
+
+# cli#2826: `node set-properties` on a TASK node. The generic merge mutations refuse a governed
+# task node (governedMerge), so the merge goes through the task door: mergeExports makes the whole
+# `input.properties` a patch under the node's lock (named keys replaced, `exports` merged per host
+# and field), the semantics node set-properties documents. The answer carries the merged
+# properties so the output is the same as the generic route's. The input's omitempty annotations
+# are declared once, on UpdateTaskNode above.
+mutation MergeTaskNodeProperties(
+  $input: UpdateNodeInput!
+  $mergeExports: Boolean!
+) {
+  updateTaskNode(input: $input, mergeExports: $mergeExports) {
+    id
+    memoryId
+    loc
+    name
+    properties
     updatedAt
   }
 }

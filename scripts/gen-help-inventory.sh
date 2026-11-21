@@ -132,7 +132,10 @@ Rules for what is a row:
   \`--help\`.
 
 Columns: \`path\`, \`aliases\`, \`generated\`, \`has-examples\`, \`child\` (the audit
-issue that owns the page), \`help-hash\` (the first 12 hex characters of the
+issue that owns the page: the group section's issue for every row in that
+section, including a command a later issue added to the group — the
+implementing issue is cited in that row's finding link once assessed, not in
+\`child\`), \`help-hash\` (the first 12 hex characters of the
 sha256 of captured help text), then the three HUMAN columns \`evaluator\`, \`result\`
 (\`unread\` | \`pass\` | \`fail\`; \`unread\` is never a pass; \`pass\` needs a named
 evaluator who is not the author of the text) and \`finding\` (a link to the
