@@ -276,6 +276,41 @@ func TestSetTokenRefusalItselfCarriesNoToken2714(t *testing.T) {
 	}
 }
 
+// TestSetTokenSanitizationCannotManufactureSpelling2714 pins the output-side
+// arm of Eden's round-5 rule (flagged for verification by Dara's BLIND delta
+// note): the partial-redaction path judges the RAW message, but what is
+// rendered is output.SafeLine(redacted) — and SafeLine NEUTRALISES control
+// characters to a space and can append an ellipsis at the rune bound. Either
+// transform can join characters into a spelling the raw message never
+// carried (message "a\x00b", token "a b": clean raw, token visible after
+// sanitization). The FINAL candidate message must be judged, not the input:
+// a candidate that carries the token renders the refusal cascade like any
+// other unsafe message.
+func TestSetTokenSanitizationCannotManufactureSpelling2714(t *testing.T) {
+	mkErr := func(msg string) error {
+		return &gqlerror.Error{Message: msg, Extensions: map[string]any{"code": "FORBIDDEN"}}
+	}
+	// A control character between the token's halves: no covered spelling of
+	// "a b" is present raw, so the round-4 guards pass — but the rendered
+	// SafeLine form spells it.
+	err := setTokenError(mkErr("a\x00b is not allowed"), "a b")
+	if strings.Contains(err.Error(), "a b") {
+		t.Errorf("a token manufactured by control-character sanitization must not reach the output, got %q", err.Error())
+	}
+	if err.Error() != "the server refused the source token" {
+		t.Errorf("a sanitization-manufactured spelling must render the full refusal, got %q", err.Error())
+	}
+	if got := carriedCode(err); got != "FORBIDDEN" {
+		t.Errorf("an ordinary server code must be kept, got %q", got)
+	}
+	// The negative space: a message whose sanitization manufactures nothing
+	// keeps the partial redaction (the guard must not refuse every message
+	// with a control character in it).
+	if got := setTokenError(mkErr("a\x00b is not allowed"), "tok-2704").Error(); got != "a b is not allowed" {
+		t.Errorf("an unrelated token over a control-character message must keep the sanitized server text, got %q", got)
+	}
+}
+
 // TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704 pins Jack F1: the URN
 // guard was redactToken(u, token) == u, a fixpoint for EVERY u when the token
 // equals the sentinel "[REDACTED]" (replacing the sentinel with itself is
