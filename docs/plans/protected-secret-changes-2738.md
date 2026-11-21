@@ -1,7 +1,9 @@
 # Protected-secret changes (cli#2738) — design as built
 
-Companion to hadron-server#3999 S4 (PR #4177, frozen head `71997f19b948d73f4c1f6a3d06ad5d8da4d6af9f`);
-governing rule `cor:sec:070:02`. This PR merges after #4177.
+Companion to hadron-server#3999 S4 (PR #4177, built against head `71997f19b948d73f4c1f6a3d06ad5d8da4d6af9f`;
+the PR has since moved to `2946b7969496ab035d07619fe8dd6041ae6e1218` with main merged in, and its SDL delta
+against server main `99f4737d` is line-for-line the one applied here, so the snapshot and every operation
+stand unchanged); governing rule `cor:sec:070:02`. This PR merges after #4177.
 
 ## What the server does
 
