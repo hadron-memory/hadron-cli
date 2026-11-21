@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -636,6 +637,34 @@ type serverCodeError struct {
 func (e *serverCodeError) Unwrap() error      { return e.error }
 func (e *serverCodeError) ServerCode() string { return e.code }
 
+// outputGuardError carries a predicate that says whether a candidate output
+// string would carry text the error's producer proved it had removed (a
+// redacted secret). It exists for post-redaction text assembly: whatever a
+// later layer appends to the message must pass the same containment test the
+// message itself passed (cli#2761).
+type outputGuardError struct {
+	error
+	carries func(string) bool
+}
+
+func (e *outputGuardError) Unwrap() error { return e.error }
+
+// WithOutputGuard attaches carries to err. A nil err or nil carries returns err
+// unchanged. Error() and Unwrap() are err's, untouched.
+func WithOutputGuard(err error, carries func(string) bool) error {
+	if err == nil || carries == nil {
+		return err
+	}
+	return &outputGuardError{error: err, carries: carries}
+}
+
+// OutputCarriesGuarded reports whether err carries an output guard that
+// rejects candidate. An error with no guard rejects nothing.
+func OutputCarriesGuarded(err error, candidate string) bool {
+	var g *outputGuardError
+	return errors.As(err, &g) && g.carries(candidate)
+}
+
 // WithServerCode keeps the server's extensions.code of raw on mapped, for the
 // --json envelope's serverCode. A nil mapped stays nil whatever raw carries;
 // without a code mapped is returned as it was. Only mapped is wrapped, so
@@ -820,6 +849,27 @@ func IsDefiniteRefusal(err error) bool {
 	for _, e := range list {
 		c := extensionCode(e)
 		if e == nil || c == "" || c == "INTERNAL_SERVER_ERROR" {
+			return false
+		}
+	}
+	return true
+}
+
+// IsDefiniteRefusalAt is IsDefiniteRefusal narrowed to the refusal of ONE
+// mutation field: every error must be coded AND carry either no path (it was
+// refused before the resolver ran) or exactly [field] (the resolver itself
+// refused). An error below the field (path [field, "revision"], ...) came from
+// resolving the RETURNED object, which happens after the write committed, so
+// the outcome is unknown, however well coded it is (cli#398).
+func IsDefiniteRefusalAt(err error, field string) bool {
+	if !IsDefiniteRefusal(err) {
+		return false
+	}
+	for _, e := range graphQLErrors(err) {
+		if len(e.Path) == 0 {
+			continue
+		}
+		if len(e.Path) != 1 || e.Path[0] != ast.PathName(field) {
 			return false
 		}
 	}
@@ -1199,8 +1249,8 @@ func codeForExtension(code string) int {
 	// its locks: a state conflict, never a request to retry automatically.
 	case code == "INSTALL_TARGET_CHANGED":
 		return exitcode.Conflict
-	// Decision refusals (hadron-server #1641, src/lib/questions/index.ts
-	// QuestionRefusalCode; `hadron decision`, cli#1335). QUESTION_NOT_FOUND and
+	// Question refusals (hadron-server #1641, src/lib/questions/index.ts
+	// QuestionRefusalCode; `hadron question`, cli#1335, cli#2465). QUESTION_NOT_FOUND and
 	// QUESTION_LOG_NOT_FOUND ride the _NOT_FOUND suffix rule (4).
 	// Who-may refusals are permissions, so 8:
 	case code == "QUESTION_FORBIDDEN" || code == "QUESTION_NOT_DECIDER" ||
@@ -1208,22 +1258,24 @@ func codeForExtension(code string) int {
 		return exitcode.Forbidden
 	// Inputs the caller fixes: the ask/amend payload (QUESTION_INVALID names the
 	// bad field by JSON pointer), a decider outside the log's eligible set, a
-	// tier the request cannot use, a log placed in a Memory that cannot hold one
-	// (choose another), or a filter over a log too large to filter (drop it):
+	// tier the request cannot use, an answer naming an option the question does not
+	// have, an assignee who is not one of its deciders, a log placed in a Memory that
+	// cannot hold one (choose another), or a filter over a log too large to filter
+	// (drop it):
 	case code == "QUESTION_INVALID" || code == "QUESTION_TIER_TOO_LOW" ||
 		code == "QUESTION_DECIDER_NOT_ELIGIBLE" || code == "QUESTION_RECOMMENDATION_MISSING" ||
-		code == "QUESTION_PART_RENUMBER" || code == "QUESTION_LOG_ENCRYPTED" ||
+		code == "QUESTION_UNKNOWN_OPTION" || code == "QUESTION_ASSIGNEE_NOT_DECIDER" || code == "QUESTION_LOG_ENCRYPTED" ||
 		code == "QUESTION_LOG_MIRRORED" || code == "QUESTION_LOG_SYSTEM_MEMORY" ||
 		code == "QUESTION_LOG_ANONYMOUS_MEMORY" || code == "QUESTION_LOG_TOO_LARGE_FOR_FILTER":
 		return exitcode.Usage
-	// The decision's or log's state forbids the change until something else
-	// changes (already answered, withdrawn, superseded, decided; a log already
+	// The question's or log's state forbids the change until something else
+	// changes (already answered, withdrawn, no answer to take back; a log already
 	// at that loc): retrying blind will not help, so 5. QUESTION_CONTAINED and
 	// QUESTION_[LOG_]NOT_APPROVABLE come from node delete/move/approve, not from
-	// the decision group, and stay on the default until measured there.
+	// the question group, and stay on the default until measured there. (S2 removed
+	// QUESTION_PART_RENUMBER, QUESTION_SUPERSEDED and QUESTION_ANSWERED_DECIDED.)
 	case code == "QUESTION_LOG_EXISTS" || code == "QUESTION_ANSWER_IMMUTABLE" ||
-		code == "QUESTION_WITHDRAWN" || code == "QUESTION_SUPERSEDED" ||
-		code == "QUESTION_ANSWERED_DECIDED" || code == "QUESTION_ANSWERED":
+		code == "QUESTION_WITHDRAWN" || code == "QUESTION_NOT_ANSWERED" || code == "QUESTION_ANSWERED":
 		return exitcode.Conflict
 	// Task integrations (cli#1524, hadron-server#3125; plan
 	// plans:1524-find-untracked §4). Literal rows, ahead of the suffix rules:
@@ -1808,7 +1860,11 @@ func codeForExtension(code string) int {
 	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
 		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
 		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" || code == "TICKER_TEMPLATE_REVISION_MISMATCH" ||
-		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED":
+		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED" ||
+		// An Agent's revision delete (hadron-server#4488, cli#2533): the published
+		// (pinned) revision and the Agent's only revision refuse, before any write,
+		// as state conflicts (publish another first / there is nothing else to keep).
+		code == "REVISION_PUBLISHED" || code == "REVISION_ONLY":
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
 		return exitcode.Usage
@@ -1859,6 +1915,12 @@ func codeForExtension(code string) int {
 	case code == "SECRET_AUTO_DELETE_NOT_AVAILABLE" || code == "SECRET_AUTO_DELETE_NEEDS_LIMIT":
 		return exitcode.Usage
 	case code == "SECRET_READ_CLIENT_SUPERSEDED" || code == "SECRET_READ_CLIENT_LIMIT":
+		return exitcode.Conflict
+	// cli#2738 (protected-secret changes, hadron-server#3999 S4): a change of a
+	// protected secret is STAGED for a person's passkey instead of applied, and
+	// too many open requests on one secret is refused. Both are the secret's
+	// state, which no retry changes: 5. Unmapped they would fall to exit 1.
+	case code == "SECRET_PROTECTED_NEEDS_PASSKEY" || code == "SECRET_CHANGE_REQUEST_LIMIT":
 		return exitcode.Conflict
 	// cli#2664 (revealing a value): a known client that is not live now (spent,
 	// pending, not started, expired, revoked, its issuer gone) or whose secret was

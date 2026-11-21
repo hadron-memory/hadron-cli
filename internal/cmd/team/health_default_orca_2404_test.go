@@ -11,15 +11,22 @@ import (
 
 const inertSweepOrcaEnv2404 = "HADRON_TEST_INERT_SWEEP_ORCA"
 
+// inertSweepOrcaDirPrefix2404 is what the guard recognises a private inert
+// Orca's directory by; the cli#2786 tests build their private copies with it too.
+const inertSweepOrcaDirPrefix2404 = "hadron-test-orca-2404-"
+
 // The private PATH executable is this test binary, reached through a hard link
 // (or a copy across filesystems). Recognize only that exact installed path,
 // before TestMain initializes anything or enters the test runner again.
 func runInertSweepOrca2404() {
+	if os.Getenv(disablePrimaryGuardEnv2786) == "1" { // a test-only knob that stands for "this guard was removed" (cli#2786 fork-loop pin)
+		return
+	}
 	installed := os.Getenv(inertSweepOrcaEnv2404)
 	// exec.Command("orca", ...) resolves PATH into Cmd.Path but keeps the
 	// original short name in argv[0]. Compare the actual executable path.
 	exe, err := os.Executable()
-	if err != nil || !strings.HasPrefix(filepath.Base(filepath.Dir(exe)), "hadron-test-orca-2404-") {
+	if err != nil || !strings.HasPrefix(filepath.Base(filepath.Dir(exe)), inertSweepOrcaDirPrefix2404) {
 		return
 	}
 	// A private copy must never re-enter m.Run, even if its environment marker
@@ -40,7 +47,7 @@ func runInertSweepOrca2404() {
 // still uses ExecEnv and ScrubbedEnv, and an explicitly configured executable
 // still runs normally. A missing/broken default fails the suite, not open.
 func installInertSweepOrca2404() (func(), error) {
-	dir, err := os.MkdirTemp("", "hadron-test-orca-2404-")
+	dir, err := os.MkdirTemp("", inertSweepOrcaDirPrefix2404)
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +71,10 @@ func installInertSweepOrca2404() (func(), error) {
 	if runtime.GOOS == "windows" {
 		name += ".exe"
 	}
-	bin := filepath.Join(dir, name)
-	if err := os.Link(exe, bin); err != nil {
-		if err := copyTestOrca2404(exe, bin); err != nil {
-			cleanup()
-			return nil, err
-		}
+	bin, err := linkTestOrca2404(exe, dir, name)
+	if err != nil {
+		cleanup()
+		return nil, err
 	}
 	if err := os.Setenv(inertSweepOrcaEnv2404, bin); err != nil {
 		cleanup()
@@ -80,6 +85,19 @@ func installInertSweepOrca2404() (func(), error) {
 		return nil, err
 	}
 	return cleanup, nil
+}
+
+// linkTestOrca2404 puts the test binary at dir/name by hard link, falling back
+// to a copy across filesystems: the one way every private Orca is installed, by
+// the installer and by the cli#2786 fixtures alike.
+func linkTestOrca2404(exe, dir, name string) (string, error) {
+	bin := filepath.Join(dir, name)
+	if err := os.Link(exe, bin); err != nil {
+		if err := copyTestOrca2404(exe, bin); err != nil {
+			return "", err
+		}
+	}
+	return bin, nil
 }
 
 func copyTestOrca2404(src, dst string) error {

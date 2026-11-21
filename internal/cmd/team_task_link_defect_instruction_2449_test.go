@@ -158,7 +158,7 @@ func TestLinkDefectInstruction2449BindingChangesBeforeSend(t *testing.T) {
 }
 
 // cli#2504 F3/F7: the command's own help names the server minimum its
-// instructed path needs (696ed50c8, not the shared ba077810), and the synopsis
+// instructed path needs (2026-11-16, not the shared 2026-11-04), and the synopsis
 // shows the optional --instruction.
 func TestLinkDefectInstruction2449Help(t *testing.T) {
 	f, _ := testFactory(t)
@@ -170,11 +170,11 @@ func TestLinkDefectInstruction2449Help(t *testing.T) {
 		t.Fatal(err)
 	}
 	help := out.String()
-	if !strings.Contains(help, "696ed50c8") {
-		t.Fatalf("help must name this door's own server minimum 696ed50c8:\n%s", help)
+	if !namesServerFloor2849(help, "2026-11-16") {
+		t.Fatalf("help must state this door's own floor, \"server 2026-11-16 or later\":\n%s", help)
 	}
-	if strings.Contains(help, "ba077810") {
-		t.Fatalf("help must not name the shared task-write minimum ba077810:\n%s", help)
+	if namesServerFloor2849(help, "2026-11-04") {
+		t.Fatalf("help must not state the shared task-write floor, \"server 2026-11-04 or later\":\n%s", help)
 	}
 	if !strings.Contains(help, "link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>] [--instruction <kind>:<ref>]") {
 		t.Fatalf("the synopsis must show the optional --instruction:\n%s", help)
@@ -235,7 +235,7 @@ func TestLinkDefectInstruction2449RefusalCodes(t *testing.T) {
 	}
 }
 
-// cli#2504 F6: an older server (before 696ed50c8) refuses the instructed
+// cli#2504 F6: an older server (before 2026-11-16) refuses the instructed
 // document; the refusal is passed through, once, with no plain retry.
 func TestLinkDefectInstruction2449OldServerRefusal(t *testing.T) {
 	r := taskResponses()

@@ -18,7 +18,7 @@ type memoryGrantDTO struct {
 	ID                 string  `json:"id"`
 	AppID              string  `json:"appId"`
 	MemoryURN          *string `json:"memoryUrn"`
-	Prefix             string  `json:"prefix"`
+	Prefix             *string `json:"prefix"`
 	RegisterNodeURN    *string `json:"registerNodeUrn"`
 	GrantedBy          string  `json:"grantedBy"`
 	CreatedAt          string  `json:"createdAt"`
@@ -29,10 +29,31 @@ type memoryGrantDTO struct {
 }
 
 func memoryGrantFrom(g gen.AppMemoryGrantFields) (memoryGrantDTO, error) {
-	if g.Id == "" || g.AppId == "" || g.Prefix == "" {
+	// A null prefix is the concealed case and is shown; an EMPTY prefix is not: no grant covers
+	// an empty loc prefix, and the server withholds with null, never "". id and appId stay required.
+	if g.Id == "" || g.AppId == "" || (g.Prefix != nil && *g.Prefix == "") {
 		return memoryGrantDTO{}, exitcode.Newf(exitcode.Error, "the server returned an incomplete memory write grant")
 	}
 	return memoryGrantDTO{NotEffective: g.NotEffective, NotEffectiveReason: g.NotEffectiveReason, ID: g.Id, AppID: g.AppId, MemoryURN: g.MemoryUrn, Prefix: g.Prefix, RegisterNodeURN: g.RegisterNodeUrn, GrantedBy: g.GrantedBy, CreatedAt: g.CreatedAt, RevokedAt: g.RevokedAt, RevokedBy: g.RevokedBy}, nil
+}
+
+// A null prefix is the concealed case (hadron-server#4734, cor:agt:010:01), never an
+// incomplete row: it reads "?", like a null memory URN, and is never inferred.
+func memoryGrantPrefixText(d memoryGrantDTO) string {
+	if d.Prefix == nil {
+		return "?"
+	}
+	return *d.Prefix
+}
+
+// The register node of a CONCEALED row (memoryUrn null) is withheld with the target, so
+// "-" ("this grant has no register node") would claim what the viewer cannot know: it
+// reads "?" there. On a visible row a null register stays "-" (Victor's FIT on #2868).
+func memoryGrantRegisterText(d memoryGrantDTO) string {
+	if d.RegisterNodeURN == nil && d.MemoryURN == nil {
+		return "?"
+	}
+	return optionalReadText(d.RegisterNodeURN)
 }
 
 // A null memory URN may be concealed; distinguish it from absent optional metadata.
@@ -57,7 +78,7 @@ func memoryGrantMark(d memoryGrantDTO) string {
 
 func writeMemoryGrant(f *cmdutil.Factory, d memoryGrantDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		_, err := fmt.Fprintf(w, "id: %s\napp: %s\nmemory: %s\nprefix: %s\nregister: %s\ngranted by: %s\ncreated: %s\nrevoked: %s\nrevoked by: %s\n", output.SafeCell(d.ID), output.SafeCell(d.AppID), output.SafeCell(memoryGrantMemoryText(d.MemoryURN)), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(d.GrantedBy), output.SafeCell(d.CreatedAt), output.SafeCell(optionalReadText(d.RevokedAt)), output.SafeCell(optionalReadText(d.RevokedBy)))
+		_, err := fmt.Fprintf(w, "id: %s\napp: %s\nmemory: %s\nprefix: %s\nregister: %s\ngranted by: %s\ncreated: %s\nrevoked: %s\nrevoked by: %s\n", output.SafeCell(d.ID), output.SafeCell(d.AppID), output.SafeCell(memoryGrantMemoryText(d.MemoryURN)), output.SafeCell(memoryGrantPrefixText(d)), output.SafeCell(memoryGrantRegisterText(d)), output.SafeCell(d.GrantedBy), output.SafeCell(d.CreatedAt), output.SafeCell(optionalReadText(d.RevokedAt)), output.SafeCell(optionalReadText(d.RevokedBy)))
 		if err != nil {
 			return err
 		}
@@ -126,7 +147,10 @@ A lost answer is an unknown
 outcome: list the App's grants before retrying. The server decides whether an
 existing live grant is reused. No file, credential or source content is read.
 JSON is the returned grant metadata; nullable memory/citation/revoker fields
-stay null. Human output uses ? for a concealed/null memory and - for other null metadata.`, Example: `  hadron app memory-grant add acme.com:team --memory acme.com:notes --prefix reports:team --yes
+stay null. Where the target memory is concealed from you, the server also withholds
+the prefix and the register node: JSON shows memoryUrn, prefix and registerNodeUrn as
+null, and human output shows ? for all three (never "-", which would say "none"). On a
+visible row a missing register node still shows -.`, Example: `  hadron app memory-grant add acme.com:team --memory acme.com:notes --prefix reports:team --yes
   hadron app memory-grant add acme.com:team --memory acme.com:notes --prefix reports --register-node hrn:node:acme.com:notes:register:1 --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		ref, err := requiredReadAppRef(args[0])
 		if err != nil {
@@ -192,7 +216,8 @@ Pass the App explicitly, as an ID, a URN or root:slug; the global --app is not
 used. The table has the columns ID (what "memory-grant rm" takes), MEMORY,
 PREFIX (the loc prefix the grant covers), REGISTER (the register node the grant
 cites, if any) and REVOKED (when, if it was). Text shows ? for a memory you
-cannot see and - for any other empty value. --json is an array of the same
+cannot see, and for that row's prefix and register node (the server withholds
+them with it); any other empty value shows -. --json is an array of the same
 rows ([] when empty), with empty values as null. No keys or node content are
 read.`, Example: `  hadron app memory-grant list acme.com:team --json
   hadron app memory-grant list acme.com:team --include-revoked`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
@@ -234,7 +259,7 @@ read.`, Example: `  hadron app memory-grant list acme.com:team --json
 			t := output.NewTable(w)
 			t.Row("ID", "MEMORY", "PREFIX", "REGISTER", "REVOKED")
 			for _, d := range rows {
-				t.Row(output.SafeCell(d.ID), memoryGrantListMemory(d), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(optionalReadText(d.RevokedAt)))
+				t.Row(output.SafeCell(d.ID), memoryGrantListMemory(d), output.SafeCell(memoryGrantPrefixText(d)), output.SafeCell(memoryGrantRegisterText(d)), output.SafeCell(optionalReadText(d.RevokedAt)))
 			}
 			return t.Flush()
 		})
@@ -253,8 +278,9 @@ change is sent. A schema refusal for the new metadata can use an older
 compatible request; network and runtime failures are never retried. If the
 answer is lost, list with --include-revoked to check the outcome before
 retrying. JSON returns the grant
-metadata including revokedAt; text uses ? for a concealed/null memory and -
-for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+metadata including revokedAt; where the target memory is concealed from you the
+server withholds the prefix and register node too, and text uses ? for all three
+(memory, prefix, register) and - for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		instr, err := credentialInstruction(cmd, f)
 		if err != nil {
 			return err

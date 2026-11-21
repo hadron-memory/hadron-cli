@@ -18,7 +18,7 @@ func newCmdCancel(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cancel <id>",
 		Short: "Cancel a live run (the kill switch)",
-		Long: `Cancel a live run — transitions it to CANCELLED (cor:agt:010:02). Prompts on a
+		Long: `Cancel a live run — transitions it to CANCELLED. Prompts on a
 TTY; a non-interactive caller must pass --yes.`,
 		Example: `  hadron run cancel run_123 --yes`,
 		Args:    cobra.ExactArgs(1),

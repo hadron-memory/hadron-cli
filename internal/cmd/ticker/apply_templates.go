@@ -64,8 +64,8 @@ worker already has a live ticker for is listed as already present
 (alreadyPresent in --json) and left as it is, so a second run creates nothing.
 
 Run it as whoever manages the App, acting as yourself. It applies to one worker
-per call, never across workers, and never sends a worker session, even in a
-bound worktree: the server refuses a worker session for it.
+per call, never across workers. Without --instruction it never sends a worker
+session, even in a bound worktree: the server refuses a worker session for it.
 
 A created ticker shows its effective cadence, labelled "the App's floor" when
 it equals the App's cadence floor. If the App's live-ticker cap cannot take
@@ -81,7 +81,12 @@ effectiveCadenceSeconds) and alreadyPresent (id, name).`,
 	}
 	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	_ = c.MarkFlagRequired("worker")
+	addInstruction(c)
 	c.RunE = func(cmd *cobra.Command, _ []string) error {
+		inst, err := readInstruction(cmd, f)
+		if err != nil {
+			return err
+		}
 		wref, err := qualifiedRef(worker, "worker")
 		if err != nil {
 			return err
@@ -90,29 +95,26 @@ effectiveCadenceSeconds) and alreadyPresent (id, name).`,
 		if err != nil {
 			return err
 		}
-		r, err := gen.ApplyAgentTickerTemplates(cmd.Context(), client, wref)
+		mctx, err := inst.context(cmd.Context())
+		if err != nil {
+			return err
+		}
+		r, err := inst.applyTemplates(mctx, client, wref)
 		if err != nil {
 			return applyFailure(err)
 		}
-		if r == nil || r.ApplyAgentTickerTemplates == nil {
+		if !r.present {
 			return exitcode.Newf(exitcode.Error, "server returned no apply result; verify the worker's tickers before retrying")
 		}
 		dto := applyTemplatesDTO{Created: []appliedTickerDTO{}, AlreadyPresent: []appliedTemplateDTO{}}
-		for _, x := range r.ApplyAgentTickerTemplates.Created {
-			if x == nil || x.Ticker == nil {
-				continue
-			}
-			a := appliedTickerDTO{Ticker: tickerFrom(x.Ticker.TickerFields), EffectiveCadenceSeconds: x.EffectiveCadenceSeconds}
-			if x.Template != nil {
-				a.Template = appliedTemplateDTO{x.Template.Id, x.Template.Name}
+		for _, x := range r.created {
+			a := appliedTickerDTO{Ticker: tickerFrom(x.ticker), EffectiveCadenceSeconds: x.cadence}
+			if x.template != nil {
+				a.Template = *x.template
 			}
 			dto.Created = append(dto.Created, a)
 		}
-		for _, x := range r.ApplyAgentTickerTemplates.AlreadyPresent {
-			if x != nil {
-				dto.AlreadyPresent = append(dto.AlreadyPresent, appliedTemplateDTO{x.Id, x.Name})
-			}
-		}
+		dto.AlreadyPresent = append(dto.AlreadyPresent, r.alreadyPresent...)
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 			// The floor is read only to label the receipt, and only when
 			// something was created. The write already happened, so an

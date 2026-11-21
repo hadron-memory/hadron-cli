@@ -174,7 +174,7 @@ server now holds; --json is {taskId, findingId, disposition, reference}
 
 ` + findingDispositionWrite + `
 
-` + taskInstructionHelpShort("ba077810"),
+` + taskInstructionHelpShort(taskInstructionFloor),
 		Example: "  hadron team task dispose-finding AT1.2 F1 --disposition deferred --ref 'issue=https://example.com/issues/7|Follow-up' --json",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, a []string) error {
