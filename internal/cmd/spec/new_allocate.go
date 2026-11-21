@@ -180,9 +180,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		Citation: target.Format(), MemoryID: memURN, Name: name, Tags: in.tags, Abstract: abs,
 		Edges: []plannedEdgeDTO{}, DryRun: false,
 	}
-	for _, e := range edgePlan {
-		res.Edges = append(res.Edges, e)
-	}
+	res.Edges = append(res.Edges, edgePlan...)
 
 	// A new feature's general-provisions contract is an EXPLICIT loc
 	// (<feature>:00), which the allocator never hands out, so it stays on
