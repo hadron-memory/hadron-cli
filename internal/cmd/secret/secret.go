@@ -55,7 +55,10 @@ webfetch-auth secret is only injected into matching web requests and the model
 never sees it.
 
 Values are write-only: secret create and secret update send the value, and
-no command ever prints it (secret get shows only the metadata). Pass it on
+secret get shows only the metadata. The one way to read an App secret's value
+back is through a signed read client (secret client issue, signed by a person):
+secret exec puts it in a command's environment and prints nothing, and secret
+reveal prints it to a terminal or writes it to a new file. Pass a value on
 stdin, from a file or at a no-echo prompt, never as an argument. Typical flow:
 secret create, then secret list to see what exists, secret set to store a new
 value (an org or user secret is overwritten in place; an App secret gets a new
@@ -75,6 +78,8 @@ version), secret update for metadata, and secret rm when it is no longer needed.
 	cmd.AddCommand(newCmdVersions(f))
 	cmd.AddCommand(newCmdEvents(f))
 	cmd.AddCommand(newCmdClient(f))
+	cmd.AddCommand(newCmdExec(f))
+	cmd.AddCommand(newCmdReveal(f))
 	return cmd
 }
 

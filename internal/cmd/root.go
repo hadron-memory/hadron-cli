@@ -75,6 +75,7 @@ import (
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
 	f.WorkerWriteSession = teamcmd.WorkerWriteSession(f)
+	f.WorkerSessionIfBound = teamcmd.WorkerSessionIfBound(f)
 	f.NoteApprovingAsPerson = teamcmd.ApprovalAsPersonNote(f)
 	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
 	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
