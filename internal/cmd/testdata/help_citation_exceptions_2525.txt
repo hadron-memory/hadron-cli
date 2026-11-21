@@ -4,7 +4,9 @@
 # and never one that is not listed; a listed reference the page no longer carries must
 # be removed. Shrink it with
 #   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -update-citation-exceptions
-# which never adds. Line: <page>  # <kind> <reference> x<count> | ...
+# which never adds. A renamed command's entry moves with
+#   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -rename-citation-exception 'old page=>new page'
+# (never by hand). Line: <page>  # <kind> <reference> x<count> | ...
 # The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
 auth token list  # issue #3189 x1
 channel post  # issue #594 x1
