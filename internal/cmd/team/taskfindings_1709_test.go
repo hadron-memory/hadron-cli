@@ -29,6 +29,10 @@ func TestReadbackFieldFailed1709(t *testing.T) {
 	rootTyped.Extensions = map[string]any{"code": "TASK_NOT_OWNER"}
 	rootInternal := gqlAt("disposeAgentTaskFinding")
 	rootInternal.Extensions = map[string]any{"code": "INTERNAL_SERVER_ERROR"}
+	readTyped := gqlAt("disposeAgentTaskFinding", "findingDisposition")
+	readTyped.Extensions = map[string]any{"code": "TASK_NOT_OWNER"}
+	foreignTyped := gqlAt("somethingElse")
+	foreignTyped.Extensions = map[string]any{"code": "TASK_NOT_OWNER"}
 	pathless := &gqlerror.Error{Message: "validation"}
 	typedPathless := &gqlerror.Error{Message: "Refused", Extensions: map[string]any{"code": "TASK_NOT_OWNER"}}
 	foreign := gqlAt("somethingElse", "x")
@@ -36,31 +40,35 @@ func TestReadbackFieldFailed1709(t *testing.T) {
 		err  error
 		want bool
 	}{
-		"readback":                         {gqlerror.List{read}, true},
-		"id":                               {gqlerror.List{id}, true},
-		"nested":                           {gqlerror.List{gqlAt("disposeAgentTaskFinding", "findingDisposition", "reference")}, true},
-		"readback plus pathless":           {gqlerror.List{read, pathless}, true},
-		"pathless first":                   {gqlerror.List{pathless, id}, true},
-		"readback plus foreign":            {gqlerror.List{foreign, read}, true},
-		"root typed refusal":               {gqlerror.List{rootTyped}, false},
-		"readback plus root typed":         {gqlerror.List{read, rootTyped}, false},
-		"root typed plus readback":         {gqlerror.List{rootTyped, read}, false},
-		"root generic alone":               {gqlerror.List{rootGeneric}, true},
-		"root internal alone":              {gqlerror.List{rootInternal}, true},
-		"root generic plus readback":       {gqlerror.List{rootGeneric, read}, true},
-		"readback plus root generic":       {gqlerror.List{read, rootInternal}, true},
-		"root generic plus typed pathless": {gqlerror.List{rootGeneric, typedPathless}, true},
-		"typed pathless beside readback":   {gqlerror.List{read, typedPathless}, true},
-		"typed pathless first":             {gqlerror.List{typedPathless, id}, true},
-		"pathless only":                    {gqlerror.List{pathless}, false},
-		"foreign only":                     {gqlerror.List{foreign}, false},
-		"empty list":                       {gqlerror.List{}, false},
-		"http 500, empty errors":           {&graphql.HTTPError{StatusCode: 500}, false},
-		"http 500 with readback":           {&graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: gqlerror.List{read}}}, true},
-		"single error value":               {read, true},
-		"wrapped list":                     {errors.Join(errors.New("ctx"), gqlerror.List{id}), true},
-		"not a graphql error":              {errors.New("boom"), false},
-		"nil error":                        {nil, false},
+		"readback":                                      {gqlerror.List{read}, true},
+		"id":                                            {gqlerror.List{id}, true},
+		"nested":                                        {gqlerror.List{gqlAt("disposeAgentTaskFinding", "findingDisposition", "reference")}, true},
+		"readback plus pathless":                        {gqlerror.List{read, pathless}, true},
+		"pathless first":                                {gqlerror.List{pathless, id}, true},
+		"readback plus foreign":                         {gqlerror.List{foreign, read}, true},
+		"root typed refusal":                            {gqlerror.List{rootTyped}, false},
+		"readback plus root typed":                      {gqlerror.List{read, rootTyped}, false},
+		"root typed plus readback":                      {gqlerror.List{rootTyped, read}, false},
+		"root generic alone":                            {gqlerror.List{rootGeneric}, true},
+		"root internal alone":                           {gqlerror.List{rootInternal}, true},
+		"root generic plus readback":                    {gqlerror.List{rootGeneric, read}, true},
+		"readback plus root generic":                    {gqlerror.List{read, rootInternal}, true},
+		"root generic plus typed pathless":              {gqlerror.List{rootGeneric, typedPathless}, true},
+		"typed pathless beside readback":                {gqlerror.List{read, typedPathless}, true},
+		"typed pathless first":                          {gqlerror.List{typedPathless, id}, true},
+		"typed code beneath the write is not a refusal": {gqlerror.List{readTyped}, true},
+		"typed code at the readback beside root typed":  {gqlerror.List{readTyped, rootTyped}, false},
+		"foreign-root typed code alone":                 {gqlerror.List{foreignTyped}, false},
+		"foreign-root typed code beside readback":       {gqlerror.List{foreignTyped, read}, true},
+		"pathless only":                                 {gqlerror.List{pathless}, false},
+		"foreign only":                                  {gqlerror.List{foreign}, false},
+		"empty list":                                    {gqlerror.List{}, false},
+		"http 500, empty errors":                        {&graphql.HTTPError{StatusCode: 500}, false},
+		"http 500 with readback":                        {&graphql.HTTPError{StatusCode: 500, Response: graphql.Response{Errors: gqlerror.List{read}}}, true},
+		"single error value":                            {read, true},
+		"wrapped list":                                  {errors.Join(errors.New("ctx"), gqlerror.List{id}), true},
+		"not a graphql error":                           {errors.New("boom"), false},
+		"nil error":                                     {nil, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := hasUnconfirmedDisposeError(tc.err); got != tc.want {
@@ -79,6 +87,10 @@ func TestWriteRefusal1709(t *testing.T) {
 	write.Extensions = map[string]any{"code": "TASK_NOT_FINISHED"}
 	generic := gqlAt("disposeAgentTaskFinding")
 	typed := &gqlerror.Error{Message: "Refused", Extensions: map[string]any{"code": "TASK_NOT_OWNER"}}
+	readTyped := gqlAt("disposeAgentTaskFinding", "id")
+	readTyped.Extensions = map[string]any{"code": "TASK_NOT_OWNER"}
+	foreignTyped := gqlAt("somethingElse")
+	foreignTyped.Extensions = map[string]any{"code": "TASK_NOT_OWNER"}
 	for name, tc := range map[string]struct {
 		err  error
 		want bool
