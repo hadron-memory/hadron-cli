@@ -306,7 +306,7 @@ func TestAuthoredCommandFlows1685(t *testing.T) {
 				if c.op == "MergeNodes" {
 					answer = `{"data":{"mergeNodes":{"node":` + node + `,"mergedNodeId":"n2"}}}`
 				}
-				inner := fakeGraphQL(t, map[string]string{"ResolveUrn": `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`, "GetNode": `{"data":{"node":` + node + `}}`, c.op: answer})
+				inner := fakeGraphQL(t, map[string]string{"ResolveUrn": `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`, "GetNode": `{"data":{"node":` + node + `}}`, "NodeKind": `{"data":{"node":{"id":"n1","isRunnable":false}}}`, c.op: answer})
 				run(t, inner, c.args, "", c.op)
 			})
 		}
