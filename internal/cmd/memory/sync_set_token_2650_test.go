@@ -16,7 +16,7 @@ import (
 // empty value), so only a unit call can reach it.
 func TestSetTokenErrorEmptyTokenBranchIsCapped2650(t *testing.T) {
 	long := "boom\x1b[31m" + strings.Repeat("x", 3000) + "\n\x07tail"
-	err := setTokenError(&gqlerror.Error{Message: long}, "")
+	err := setTokenError(&gqlerror.Error{Message: long}, "", false)
 	msg := err.Error()
 	if n := len([]rune(msg)); n > 2000 {
 		t.Errorf("message is %d runes, want at most 2000", n)
@@ -37,10 +37,10 @@ func TestSetTokenErrorKeepsServerCodeUnlessItEchoesToken2650(t *testing.T) {
 	mk := func(code string) error {
 		return &gqlerror.Error{Message: "refused", Extensions: map[string]any{"code": code}}
 	}
-	if got := carriedCode(setTokenError(mk("BAD "+token), token)); got != "" {
+	if got := carriedCode(setTokenError(mk("BAD "+token), token, false)); got != "" {
 		t.Errorf("a server code that holds the token must be dropped, got %q", got)
 	}
-	if got := carriedCode(setTokenError(mk("FORBIDDEN"), token)); got != "FORBIDDEN" {
+	if got := carriedCode(setTokenError(mk("FORBIDDEN"), token, false)); got != "FORBIDDEN" {
 		t.Errorf("an ordinary server code must be kept, got %q", got)
 	}
 }
@@ -82,7 +82,7 @@ func TestSetTokenErrorTokenBranchIsCapped2650(t *testing.T) {
 	// refusal, so the cap is pinned where it applies — a long TOKEN-FREE
 	// server message on the partial-redaction path.
 	long := "boom\x1b[31m " + strings.Repeat("x", 3000) + "\n\x07tail"
-	msg := setTokenError(&gqlerror.Error{Message: long}, token).Error()
+	msg := setTokenError(&gqlerror.Error{Message: long}, token, false).Error()
 	if n := len([]rune(msg)); n > maxErrMsgRunes {
 		t.Errorf("message is %d runes, want at most %d", n, maxErrMsgRunes)
 	}
@@ -103,7 +103,7 @@ func TestSetTokenErrorDropsServerCodeThatEchoesAnEscapedToken2650(t *testing.T) 
 	const token = `tok"SENT\INEL`
 	code := `BAD tok\"SENT\\INEL`
 	err := &gqlerror.Error{Message: "refused", Extensions: map[string]any{"code": code}}
-	if got := carriedCode(setTokenError(err, token)); got != "" {
+	if got := carriedCode(setTokenError(err, token, false)); got != "" {
 		t.Errorf("a server code holding an escaped spelling of the token must be dropped, got %q", got)
 	}
 }
