@@ -143,7 +143,7 @@ func TestConnectionFlowRefusesAnEmptyIDBeforeAnyRequest1717(t *testing.T) {
 // cli#1717 item 7 (b): the flow id comes from the server's startConnection
 // reply. An empty one is a broken reply (not a usage error: there is no flag
 // to blame and the request has already been made), refused like an empty
-// authorize URL: Unavailable (exit 4), before the link is shown or opened and
+// authorize URL: Unavailable (exit 7), before the link is shown or opened and
 // before any poll or fill.
 func TestConnectRefusesAnEmptyFlowIDFromTheServer1717(t *testing.T) {
 	for name, flowID := range map[string]string{"empty": "", "blank": "  "} {
@@ -166,5 +166,52 @@ func TestConnectRefusesAnEmptyFlowIDFromTheServer1717(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Scoped §10 of the gate, adversarial case (Joost, F1 at 6f0d448f): the
+// connection id in the note comes from the server. SafeCell neutralizes
+// terminal controls but is not redaction, so a connectionId that is, or
+// contains the nonce of, the single-use authorize link must not reach stderr
+// through the degraded note, in any mode. The same redactor already scrubs
+// every error raised after the link was received.
+func TestConnectDegradedNoteRedactsAnIDThatEchoesTheLink1717(t *testing.T) {
+	ids := map[string]string{
+		"id is the full authorize URL": connectURL,
+		"id contains the nonce":        "conn-SECRETNONCE123456",
+	}
+	modes := map[string][]string{
+		"human, link printed": {"connection", "connect", "gmail", "--org", "org_1", "--no-browser"},
+		"human, browser open": {"connection", "connect", "gmail", "--org", "org_1"},
+		"json":                {"connection", "connect", "gmail", "--org", "org_1", "--json"},
+	}
+	for idName, id := range ids {
+		for modeName, args := range modes {
+			t.Run(idName+"/"+modeName, func(t *testing.T) {
+				r := runFlowConnect(t, []string{flowResp("CONNECTED", id, "")}, fillBoom, args...)
+				if r.err != nil || r.code != 0 {
+					t.Fatalf("exit %d err %v", r.code, r.err)
+				}
+				if !strings.Contains(r.errOut, "could not be filled") {
+					t.Fatalf("the note is gone, not redacted: %q", r.errOut)
+				}
+				if strings.Contains(r.errOut, connectURL) || strings.Contains(r.errOut, "SECRETNONCE123456") || strings.Contains(r.errOut, "nonce=") {
+					t.Fatalf("stderr carries the link or its nonce: %q", r.errOut)
+				}
+			})
+		}
+	}
+}
+
+// The marker's field names are fixed strings: nothing server-supplied can
+// reach "degradedFields", whatever the connection id says.
+func TestConnectDegradedFieldsAreFixedWhateverTheIDSays1717(t *testing.T) {
+	r := runFlowConnect(t, []string{flowResp("CONNECTED", connectURL, "")}, fillBoom, "connection", "connect", "gmail", "--org", "org_1", "--json")
+	var dto degradedDTO
+	if err := json.Unmarshal([]byte(r.out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if !dto.Degraded || strings.Join(dto.DegradedFields, ",") != "mailboxEmail,displayName" {
+		t.Fatalf("degraded marker %+v", dto)
 	}
 }

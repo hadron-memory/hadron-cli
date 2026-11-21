@@ -305,8 +305,11 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 				dto.Connection = res.connection
 				if res.degraded {
 					dto.Degraded, dto.DegradedFields = true, degradedFillFields
-					fmt.Fprintf(ioStreams.ErrOut, "note: connection %s was made, but its %s could not be filled (the connections read failed or did not list it); they are empty in this result.\n",
-						output.SafeCell(res.connection.ID), strings.Join(degradedFillFields, ", "))
+					// The connection id is the server's text: the whole note goes through
+					// the same redactor as every other output raised after the link was
+					// received, since SafeCell strips terminal controls, not credentials.
+					fmt.Fprintln(ioStreams.ErrOut, redact(fmt.Sprintf("note: connection %s was made, but its %s could not be filled (the connections read failed or did not list it); they are empty in this result.",
+						output.SafeCell(res.connection.ID), strings.Join(degradedFillFields, ", "))))
 				}
 			}
 
