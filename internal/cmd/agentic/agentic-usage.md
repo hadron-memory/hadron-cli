@@ -6737,13 +6737,12 @@ or head in the wrong form) exits 2, and an empty `--defect` or
 with no link exits 1: the link may have been recorded, so read the events of
 the task the message names (`hadron team events --task <ref>`) before
 retrying. The message's last line is that task ref alone, in full (control
-characters in the ref show as spaces), so copy it as one argument, and quote
-the ref when you pass it back to a POSIX shell: a ref can hold shell
-metacharacters. Single-quote it, writing each embedded `'` as `'\''`; double
-quotes still expand `$(...)` and backticks. No retry. `--json` is `{taskId,
-defect,
-introducedAtHead, eventId, linkedAt, created}`; `introducedAtHead` is null when
-the link names no head.
+characters in the ref show as spaces, so reuse the ref you passed in when you
+still hold it), so copy it as one argument, and quote the ref when you pass it
+back to a POSIX shell: a ref can hold shell metacharacters. Single-quote it,
+writing each embedded `'` as `'\''`; double quotes still expand `$(...)` and
+backticks. No retry. `--json` is `{taskId, defect, introducedAtHead, eventId,
+linkedAt, created}`; `introducedAtHead` is null when the link names no head.
 
 `finding-dispositions --json` is `{items:[{findingId,disposition,reference}],
 total,hasMore}` in finding order; empty items is `[]`. Default page 20, maximum
