@@ -57,3 +57,39 @@ func TestSafeJSONText2739(t *testing.T) {
 		})
 	}
 }
+
+// cli#2846 item 1: an OSC with no terminator ends at the end of ITS LINE, not the end of the
+// string, so the renderer's own lines after a server message (a recovery command on its own
+// last line) survive. A terminated OSC is still removed whole.
+func TestSafeErrorBoundsAnUnterminatedOSCAtTheEndOfItsLine2846(t *testing.T) {
+	for _, tc := range []struct{ name, in, want string }{
+		{"a recovery line after an unterminated 7-bit OSC", "server said \x1b]0;pwned\nrun: hadron auth login", "server said \nrun: hadron auth login"},
+		{"a recovery line after an unterminated 8-bit OSC", "server said \u009d0;pwned\nrun: hadron auth login", "server said \nrun: hadron auth login"},
+		{"several lines after it", "a\x1b]8;;http://x\nl2\nl3", "a\nl2\nl3"},
+		{"a terminated OSC (BEL) is still removed whole", "a\x1b]0;title\x07b\nnext", "ab\nnext"},
+		{"a terminated OSC (ST) is still removed whole", "a\x1b]8;;http://x\x1b\\b\nnext", "ab\nnext"},
+		{"an unterminated OSC on the last line still ends the string", "ok\nbad\x1b]0;title", "ok\nbad"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := SafeError(tc.in); got != tc.want {
+				t.Errorf("SafeError(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// cli#2846 item 2 (decided): a zero-width joiner or non-joiner is a format character and
+// becomes a space, so a ZWJ emoji sequence and ZWNJ text split. That is the documented cost
+// (as in SafeCell); ordinary emoji are unchanged. This pins the behaviour the agentic-usage
+// text now states.
+func TestSafeErrorSplitsZeroWidthJoinerSequences2846(t *testing.T) {
+	if got, want := SafeError("family \U0001F468\u200d\U0001F469\u200d\U0001F467 here"), "family \U0001F468 \U0001F469 \U0001F467 here"; got != want {
+		t.Errorf("a ZWJ emoji sequence splits: got %q want %q", got, want)
+	}
+	if got, want := SafeError("a\u200cb"), "a b"; got != want {
+		t.Errorf("a ZWNJ becomes a space: got %q want %q", got, want)
+	}
+	if got := SafeError("\U0001F680 \u2713 \U0001F468"); got != "\U0001F680 \u2713 \U0001F468" {
+		t.Errorf("ordinary emoji pass unchanged: %q", got)
+	}
+}

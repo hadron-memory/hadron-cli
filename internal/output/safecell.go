@@ -106,7 +106,9 @@ var (
 // Terminal escape sequences, in their 7-bit (ESC-introduced) and 8-bit (C1) forms. An OSC
 // string ends at BEL, ST (ESC \) or the C1 ST; a CSI sequence ends at its final byte.
 var (
-	errOSC = regexp.MustCompile(`(?:\x1b\]|\x{9d})[^\x07\x1b\x{9c}]*(?:\x07|\x1b\\|\x{9c})?`)
+	// An OSC string cannot hold a newline, so one with no terminator ends at the end of its own
+	// line (cli#2846): the renderer's own lines after a server message survive.
+	errOSC = regexp.MustCompile(`(?:\x1b\]|\x{9d})[^\x07\x1b\x{9c}\n]*(?:\x07|\x1b\\|\x{9c})?`)
 	errCSI = regexp.MustCompile(`(?:\x1b\[|\x{9b})[0-?]*[ -/]*[@-~]?`)
 	errESC = regexp.MustCompile(`\x1b.?`)
 )

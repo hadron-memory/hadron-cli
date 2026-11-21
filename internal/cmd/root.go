@@ -539,6 +539,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if details != nil {
 			failure["extensions"] = details
 		}
+		// cli#2846: every server-derived STRING in the envelope gets the message's treatment, not
+		// only the message. A valid id, a number and a null are unchanged (SafeJSONText only
+		// replaces C1 controls and format characters), so an id copied into a later command still
+		// round-trips.
+		for k, v := range failure {
+			failure[k] = neutraliseEnvelopeValue(v)
+		}
 		envelope := map[string]any{"error": failure}
 		switch {
 		case f.JSON && !f.IOStreams.Wrote():
@@ -661,4 +668,50 @@ func isUsageError(err error) bool {
 		// group (chat post/read, auth login, mcpserver update, …).
 		strings.HasPrefix(msg, "if any flags in the group") ||
 		strings.HasPrefix(msg, "at least one of the flags in the group")
+}
+
+// neutraliseEnvelopeValue applies output.SafeJSONText to every string inside a failure
+// envelope value (cli#2846): a string, a *string, a map or slice of them, the typed PR slot
+// failures. Numbers, booleans and nulls are returned as they are.
+func neutraliseEnvelopeValue(v any) any {
+	switch x := v.(type) {
+	case string:
+		return output.SafeJSONText(x)
+	case *string:
+		if x == nil {
+			return x
+		}
+		s := output.SafeJSONText(*x)
+		return &s
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, e := range x {
+			out[k] = neutraliseEnvelopeValue(e)
+		}
+		return out
+	case []any:
+		out := make([]any, len(x))
+		for i, e := range x {
+			out[i] = neutraliseEnvelopeValue(e)
+		}
+		return out
+	case []string:
+		out := make([]string, len(x))
+		for i, e := range x {
+			out[i] = output.SafeJSONText(e)
+		}
+		return out
+	case []api.PRSlotFailure:
+		out := make([]api.PRSlotFailure, len(x))
+		for i, e := range x {
+			e.Slot = output.SafeJSONText(e.Slot)
+			e.State = output.SafeJSONText(e.State)
+			e.CurrentTaskID = neutraliseEnvelopeValue(e.CurrentTaskID).(*string)
+			e.Verdict = neutraliseEnvelopeValue(e.Verdict).(*string)
+			e.Head = neutraliseEnvelopeValue(e.Head).(*string)
+			out[i] = e
+		}
+		return out
+	}
+	return v
 }
