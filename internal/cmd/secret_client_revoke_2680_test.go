@@ -318,6 +318,8 @@ func TestSecretClientRevokeNeedsTheSameGrantInAnEndedState2680(t *testing.T) {
 		"unknown state":            revokedFor2680("gr-c1", "SURPRISE"),
 		"missing state":            `{"data":{"revokeGrant":{"id":"gr-c1","revokedAt":null,"allows":false}}}`,
 		"missing fields":           `{"data":{"revokeGrant":{}}}`,
+		"missing allows":           `{"data":{"revokeGrant":{"id":"gr-c1","state":"REVOKED","revokedAt":"2026-11-21T02:00:00Z"}}}`,
+		"null allows":              `{"data":{"revokeGrant":{"id":"gr-c1","state":"REVOKED","revokedAt":"2026-11-21T02:00:00Z","allows":null}}}`,
 		"revoked but still allows": revokedAllows2680("gr-c1", "REVOKED", true),
 		"expired but still allows": revokedAllows2680("gr-c1", "EXPIRED", true),
 	} {
@@ -479,5 +481,67 @@ func TestSecretClientRevokeKeepsTheServerCode2680(t *testing.T) {
 				t.Errorf("the envelope must carry serverCode %s: %q", tc.code, env)
 			}
 		})
+	}
+}
+
+// Dara's #2757 P3: the not-found message and the recovery text follow the real
+// rule (clients you issued OR hold), and recovery points at `list --all`, which
+// reaches a client the revoke command found past the first page.
+func TestSecretClientRevokeMessagesNameTheRealRule2680(t *testing.T) {
+	var refs []string
+	srv := pagedClients2680(t, []string{clientRow2680("c0", "gr-c0")}, &refs)
+	_, err := runRevoke2680(t, srv.URL, "nope", "--yes")
+	if err == nil || !strings.Contains(err.Error(), "issued or hold") || !strings.Contains(err.Error(), "secret client list --all") {
+		t.Errorf("not-found names the issued-or-held rule and list --all: %v", err)
+	}
+	lost := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(raw), "RevokeSecretReadClientGrant") {
+			w.WriteHeader(502)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(readClients2680(clientRow2680("c1", "gr-c1"))))
+	}))
+	defer lost.Close()
+	_, err = runRevoke2680(t, lost.URL, "c1", "--yes")
+	if err == nil || !strings.Contains(err.Error(), "secret client list --all") {
+		t.Errorf("recovery points at list --all: %v", err)
+	}
+}
+
+// Dara's #2757 P3: the mutation reaches the server and the connection closes before
+// any answer (a transport error, not an HTTP status): exit 7, one send, the unknown
+// outcome and the recovery.
+func TestSecretClientRevokeConnectionClosedAfterTheSend2680(t *testing.T) {
+	var mu sync.Mutex
+	sends := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(raw), "RevokeSecretReadClientGrant") {
+			mu.Lock()
+			sends++
+			mu.Unlock()
+			hj, ok := w.(http.Hijacker)
+			if !ok {
+				t.Error("no hijacker")
+				return
+			}
+			conn, _, _ := hj.Hijack()
+			_ = conn.Close()
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(readClients2680(clientRow2680("c1", "gr-c1"))))
+	}))
+	defer srv.Close()
+	_, err := runRevoke2680(t, srv.URL, "c1", "--yes")
+	mu.Lock()
+	defer mu.Unlock()
+	if exitCodeFor(err) != exitcode.Unavailable || sends != 1 {
+		t.Fatalf("exit=%d sends=%d err=%v", exitCodeFor(err), sends, err)
+	}
+	if m := err.Error(); !strings.Contains(m, "gr-c1") || !strings.Contains(m, "secret client list --all") || !strings.Contains(strings.ToLower(m), "unknown") {
+		t.Errorf("an unknown outcome names the grant and the recovery: %v", err)
 	}
 }
