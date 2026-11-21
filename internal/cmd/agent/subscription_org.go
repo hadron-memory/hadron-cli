@@ -42,6 +42,10 @@ type rawSubPage struct {
 	hasMore bool
 }
 
+// MaxSubscriptionRows is the hard row cap of one --all read (cli#2855). It is a variable only so
+// a test can lower it.
+var MaxSubscriptionRows = 10000
+
 func newCmdSubscriptionAdd(f *cmdutil.Factory) *cobra.Command {
 	var org, agent string
 	c := &cobra.Command{
