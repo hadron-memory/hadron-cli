@@ -78,10 +78,10 @@ unusable answer) nothing is retried: check with "hadron agent subscription list
 				return orgGrantUnknown("subscribe", org, nil)
 			}
 			g := resp.CreateAgentOrgGrant
-			// Rule: a subscribe may not come back REVOKED (revokedAt set). Whether
-			// it is active yet (pending activation, expiry) is the server's call.
-			if g.RevokedAt != nil {
-				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s comes back revoked; it was not left subscribed", org, agent)
+			// Rule (same active predicate as revoke, mirrored): a subscribe must
+			// come back ACTIVE and not revoked.
+			if !g.IsActive || g.RevokedAt != nil {
+				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s does not come back active and unrevoked (active: %v); check with `hadron agent subscription list --org %s`", org, agent, g.IsActive, cmdutil.ShellQuote(org))
 			}
 			return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Subscribed")
 		}}

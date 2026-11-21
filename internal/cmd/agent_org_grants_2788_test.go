@@ -548,7 +548,8 @@ func TestSubscriptionStateRulePerField2788(t *testing.T) {
 		wantErr                     bool
 	}{
 		{"add revoked-but-active", "add", "SubscribeOrgToAgent", "createAgentOrgGrant", g(true, `"2026-02-01T00:00:00Z"`), true},
-		{"add inactive not revoked is the server's call", "add", "SubscribeOrgToAgent", "createAgentOrgGrant", g(false, "null"), false},
+		{"add inactive but not revoked", "add", "SubscribeOrgToAgent", "createAgentOrgGrant", g(false, "null"), true},
+		{"add active and unrevoked", "add", "SubscribeOrgToAgent", "createAgentOrgGrant", g(true, "null"), false},
 		{"revoke active though revoked", "revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", g(true, `"2026-02-01T00:00:00Z"`), true},
 		{"revoke inactive but no revokedAt", "revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", g(false, "null"), true},
 		{"revoke both", "revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", g(false, `"2026-02-01T00:00:00Z"`), false},

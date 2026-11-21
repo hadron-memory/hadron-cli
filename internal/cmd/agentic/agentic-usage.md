@@ -4513,6 +4513,10 @@ The host delivery poller keeps its spending read; the public team wakes due prev
 Task wakes include CHILD_CANCELLED beside CHILD_FINISHED. The due list keeps
 the TASK <handle> <id> <event> format; delivery says "child cancelled". JSON
 keeps the server event, and unknown events print as returned by the server.
+An ANSWERED task wake (a question that blocked the task was answered, hadron-server#4431) is
+delivered as `[hadron task] <handle> a question this task asked was answered: <code>`: the task
+handle, fixed words and the question code (`DueTaskReason.questionCode`; the sentence ends after
+"answered" when there is none), never the title or the answer. `team wakes due` is unchanged.
 A merged wake (a tick plus a mention, a task or another ticker's tick) is judged per ticker by those times. A tick reason without `tickDueAt` (a server before hadron-server#2790, or withheld), with a malformed one (anything outside strict RFC 3339 with `Z` or an offset up to ±23:59), or without its `ticker` has no age evidence, so an otherwise-idle worker fails closed to `locked`/`unrecognized`. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
@@ -7337,7 +7341,8 @@ No-flag request documents and JSON shapes remain unchanged.
 
 ## App-manager writes with an instruction (cli#2448)
 
-Exactly these nine commands accept `--instruction <kind>:<ref>`:
+These nine commands (and the five ticker writes at the end of this section)
+accept `--instruction <kind>:<ref>`:
 `app properties set`, `app model-group set`, `app model-group clear`,
 `team delivery-settings set`, `team ticker settings set`, `team grant rm`,
 `team host assign`, `team host unassign`, and `team host setup`. The first
@@ -7378,3 +7383,14 @@ binding carrying only teamMemory needs --app or a configured App on this one
 path: exit 2 before any prompt or request, since resolving its App would need
 a request before consent. Plain revocation and instructed --yes retain their
 existing scope resolution. (cli#2448, rulings #116456/#116489.)
+
+**Ticker writes (cli#2773, Refs #1617).** `ticker update`, `ticker delete`,
+`ticker subscribe`, `ticker unsubscribe` and `ticker apply-templates` take the
+same flag with the same meaning, help paragraph and exit-2 refusals; `ticker
+create` has no instruction argument and gains none. A ticker or worker ref does
+not name its App, so the CLI cannot match the binding to the target App: it
+verifies the binding locally and the server resolves the App and owns the
+admission (the holder must manage it). Without the flag the plain operation
+goes out unchanged, and `ticker apply-templates` still never sends a worker
+session; `ticker update` with only `--instruction` is still "nothing to update"
+(exit 2). Needs a server carrying hadron-server#3321.

@@ -5601,6 +5601,11 @@ type DueTaskReason {
   """The task's id (for CHILD_FINISHED and CHILD_CANCELLED, the child's)."""
   id: ID!
 
+  """
+  #4431 — for ANSWERED, the code of the question that was answered (e.g. QA3), for the nudge: a question this task asked was answered: <code>. Never the answer. Null for every other event (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+  """
+  questionCode: String
+
   """A stable label for the reason, e.g. TASK:<id>:assigned."""
   ref: String!
 
@@ -20215,6 +20220,11 @@ enum TaskWakeEvent {
   An unacknowledged alarm's currently-woken chain position (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Delivering it never acknowledges the alarm.
   """
   ALARM
+
+  """
+  #4431 — a question that blocks the task was answered (a question.answered event on the task); the nudge names the task, never the answer. Due to the task's current assignee until delivered or that worker acts on the task (hrn:node:hadronmemory.com:specs:cor:agt:050:11). A take-back wakes nobody.
+  """
+  ANSWERED
   ASSIGNED
 
   """

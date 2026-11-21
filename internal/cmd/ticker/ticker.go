@@ -461,8 +461,16 @@ ticker get" before trying again; this command never retries.`
 		_ = c.MarkFlagRequired("name")
 		_ = c.MarkFlagRequired("cadence-seconds")
 	}
+	if update {
+		addInstruction(c)
+	}
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		var inst instructed
 		if update {
+			var ierr error
+			if inst, ierr = readInstruction(cmd, f); ierr != nil {
+				return ierr
+			}
 			changed := false
 			for _, name := range []string{"name", "cadence-seconds", "anchor-at", "quiet-hours", "channel-ids", "relevance", "reasons", "enabled", "clear-quiet-hours", "clear-channels"} {
 				changed = changed || cmd.Flags().Changed(name)
@@ -489,14 +497,18 @@ ticker get" before trying again; this command never retries.`
 			return err
 		}
 		if update {
-			r, e := gen.UpdateTicker(cmd.Context(), client, ref, p)
+			mctx, e := inst.context(cmd.Context())
+			if e != nil {
+				return e
+			}
+			tf, e := inst.updateTicker(mctx, client, ref, p)
 			if e != nil {
 				return api.MapError(e)
 			}
-			if r.UpdateTicker == nil {
+			if tf == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no ticker")
 			}
-			return writeOne(cmd.Context(), client, f, r.UpdateTicker.TickerFields, "")
+			return writeOne(cmd.Context(), client, f, *tf, "")
 		}
 		in := &gen.TickerInput{Name: v.name, CadenceSeconds: v.cadence, AnchorAt: p.AnchorAt, QuietHours: p.QuietHours, ChannelIds: p.ChannelIds, Relevance: p.Relevance, Reasons: p.Reasons, Enabled: p.Enabled}
 		mctx, sink := api.WithWarningSinkForFields(cmd.Context(), "createTicker")
@@ -577,7 +589,12 @@ func newDelete(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "delete <id-or-URN>", Short: "Permanently delete a ticker and end its subscriptions", Long: `Delete a ticker. There is no restore. Recreating its name gives a new slug
 and URN; existing subscriptions do not transfer to the replacement.`, Args: cobra.ExactArgs(1)}
 	c.Flags().BoolVar(&yes, "yes", false, "Confirm permanent deletion without prompting")
+	addInstruction(c)
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		inst, err := readInstruction(cmd, f)
+		if err != nil {
+			return err
+		}
 		ref, err := qualifiedRef(args[0], "ticker")
 		if err != nil {
 			return err
@@ -589,17 +606,21 @@ and URN; existing subscriptions do not transfer to the replacement.`, Args: cobr
 		if err != nil {
 			return err
 		}
-		r, err := gen.DeleteTicker(cmd.Context(), client, ref)
+		mctx, err := inst.context(cmd.Context())
+		if err != nil {
+			return err
+		}
+		deleted, err := inst.deleteTicker(mctx, client, ref)
 		if err != nil {
 			return api.MapError(err)
 		}
-		if !r.DeleteTicker {
+		if !deleted {
 			return exitcode.Newf(exitcode.Error, "server did not delete ticker; verify the current state before retrying")
 		}
 		d := struct {
 			Ref     string `json:"ref"`
 			Deleted bool   `json:"deleted"`
-		}{ref, r.DeleteTicker}
+		}{ref, deleted}
 		return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 			_, e := fmt.Fprintf(w, "ticker %s · deleted %t\n", d.Ref, d.Deleted)
 			return e
@@ -640,7 +661,12 @@ command never retries.`
 	}
 	c.Flags().StringVar(&worker, "worker", "", "Worker ID or fully-qualified worker URN (required)")
 	_ = c.MarkFlagRequired("worker")
+	addInstruction(c)
 	c.RunE = func(cmd *cobra.Command, args []string) error {
+		inst, err := readInstruction(cmd, f)
+		if err != nil {
+			return err
+		}
 		ref, err := qualifiedRef(args[0], "ticker")
 		if err != nil {
 			return err
@@ -653,29 +679,18 @@ command never retries.`
 		if err != nil {
 			return err
 		}
-		var sub gen.TickerSubscriptionFields
-		var announcement *gen.GrantAnnouncement
-		if unsubscribe {
-			r, e := gen.UnsubscribeTicker(cmd.Context(), client, ref, wref)
-			if e != nil {
-				return api.MapError(e)
-			}
-			if r.UnsubscribeWorker == nil || r.UnsubscribeWorker.Subscription == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no subscription")
-			}
-			sub = r.UnsubscribeWorker.Subscription.TickerSubscriptionFields
-			announcement = r.UnsubscribeWorker.Announcement
-		} else {
-			r, e := gen.SubscribeTicker(cmd.Context(), client, ref, wref)
-			if e != nil {
-				return api.MapError(e)
-			}
-			if r.SubscribeWorker == nil || r.SubscribeWorker.Subscription == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no subscription")
-			}
-			sub = r.SubscribeWorker.Subscription.TickerSubscriptionFields
-			announcement = r.SubscribeWorker.Announcement
+		mctx, err := inst.context(cmd.Context())
+		if err != nil {
+			return err
 		}
+		got, e := inst.subscribe(mctx, client, ref, wref, unsubscribe)
+		if e != nil {
+			return api.MapError(e)
+		}
+		if got.fields == nil {
+			return exitcode.Newf(exitcode.Error, "server returned no subscription")
+		}
+		sub, announcement := *got.fields, got.announcement
 		var a *string
 		if announcement != nil {
 			s := string(*announcement)
