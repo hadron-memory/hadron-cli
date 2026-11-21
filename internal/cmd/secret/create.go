@@ -23,9 +23,10 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		username                 string
 		headerName               string
 		urlPrefix                string
+		protected                bool
 	)
 	cmd := &cobra.Command{
-		Use:   "create --name <name> --scope <user|org|app> [--owner <ref>] --kind <generic|webfetch-auth>",
+		Use:   "create --name <name> --scope <user|org|app> [--owner <ref>] --kind <generic|webfetch-auth> [--protected|--protected=false]",
 		Short: "Create an owner-scoped encrypted secret",
 		Long: `Create an encrypted secret and print its id. The value is never taken as an
 argument:
@@ -57,6 +58,13 @@ user info, query or fragment). --type says what the value is:
   header   a header value; also pass --header-name
 --meta and --meta-json are refused for this kind.
 
+--protected (App secrets only) asks for a protected secret from the start: the
+creation itself is staged for a passkey ceremony, so the command prints the
+request id and the ceremony URL and never says "created" — nothing exists
+until a person signs it. --protected=false is the default shape said aloud
+(unprotected). Protection is changed only through a signed request: hadron
+secret protect does that for an existing secret.
+
 Prints "✓ created secret <name>  <kind>/<id>  owner <type> <id>"; --json gives
 id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
@@ -84,7 +92,16 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
+			// cli#2815: tri-state by presence — omitted sends no field (the
+			// default unprotected create), --protected stages the whole creation
+			// for a passkey (App scope only; the server words the refusal for
+			// other scopes), --protected=false is the default shape said aloud.
+			var prot *bool
+			if cmd.Flags().Changed("protected") {
+				p := protected
+				prot = &p
+			}
+			resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value, prot)
 			if err != nil {
 				return mapChange(err, "the creation of secret "+output.SafeCell(name))
 			}
@@ -108,6 +125,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 	cmd.Flags().StringVar(&username, "username", "", "webfetch-auth basic username")
 	cmd.Flags().StringVar(&headerName, "header-name", "", "webfetch-auth header name")
 	cmd.Flags().StringVar(&urlPrefix, "url-prefix", "", "webfetch-auth URL origin/path scope")
+	cmd.Flags().BoolVar(&protected, "protected", false, "create it protected (App secrets only; staged for a signed request)")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("scope")
 	_ = cmd.MarkFlagRequired("kind")

@@ -1,6 +1,6 @@
 # `secret create|update --protected` (cli#2815)
 
-Status: building. Decision (Petra, on the issue, 2026-11-21): option (a) — a `--protected`
+Status: built (branch `jimmy/2815-protected-arg`). Decision (Petra, on the issue, 2026-11-21): option (a) — a `--protected`
 tri-state flag on `secret create` and `secret update`, closing the coverage-matrix gaps
 `Mutation.createSecret(protected)` / `Mutation.updateSecret(protected)`.
 

@@ -22,9 +22,10 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		username   string
 		headerName string
 		urlPrefix  string
+		protected  bool
 	)
 	cmd := &cobra.Command{
-		Use:   "update <id|urn> [--value-file <src>] [metadata flags]",
+		Use:   "update <id|urn> [--value-file <src>] [metadata flags] [--protected|--protected=false]",
 		Short: "Replace a secret's value or metadata (rotation)",
 		Long: `Replace a secret's value, its metadata, or both. Whatever you do not pass is
 kept. For an org or user secret a new value overwrites in place and the old
@@ -53,6 +54,15 @@ For a webfetch-auth secret, a new value needs --type (bearer; basic with
 --username; header with --header-name) together with --value-file, and
 --url-prefix replaces the URL prefix the credential is sent to. --meta and
 --meta-json are refused alongside these flags.
+
+--protected (App secrets only) changes protection in the same update:
+--protected turns it on, --protected=false turns it off (an App manager only;
+the server judges). The flag alone is a valid update, and any protection
+change is staged for a passkey ceremony like every change to a protected
+secret: the command prints the request id and the ceremony URL, never
+"updated". Without the flag no protected field is sent — a value or metadata
+update does not touch protection. Protection is changed only through a signed
+request: hadron secret protect changes protection and nothing else.
 
 The server checks the resulting value and metadata against the secret's kind;
 a mismatch (say, a plain value for a webfetch-auth secret) exits 2.
@@ -88,8 +98,8 @@ the same fields as hadron secret get.`,
 			if changed("type") && !changed("value-file") {
 				return exitcode.Newf(exitcode.Usage, "--type describes a new value; pass --value-file (- reads stdin, or prompts without echo on a terminal)")
 			}
-			if !changed("value-file") && !generic && !changed("url-prefix") {
-				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --value-file, --meta/--meta-json, or --url-prefix")
+			if !changed("value-file") && !generic && !changed("url-prefix") && !changed("protected") {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --value-file, --meta/--meta-json, --url-prefix, or --protected")
 			}
 
 			var metadata *json.RawMessage
@@ -124,7 +134,17 @@ the same fields as hadron secret get.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value)
+			// cli#2815: tri-state by presence — omitted sends no field (a
+			// value/metadata update does not touch protection and stays
+			// member-allowed), --protected/--protected=false stage turning it
+			// on/off on an App secret (false is manager-only; the server words
+			// both refusals, the CLI never pre-checks).
+			var prot *bool
+			if changed("protected") {
+				p := protected
+				prot = &p
+			}
+			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value, prot)
 			if err != nil {
 				return mapChange(err, "the update of secret "+output.SafeCell(args[0]))
 			}
@@ -144,6 +164,7 @@ the same fields as hadron secret get.`,
 	cmd.Flags().StringVar(&username, "username", "", "webfetch-auth basic username (with --type basic)")
 	cmd.Flags().StringVar(&headerName, "header-name", "", "webfetch-auth header name (with --type header)")
 	cmd.Flags().StringVar(&urlPrefix, "url-prefix", "", "replace the webfetch-auth URL prefix")
+	cmd.Flags().BoolVar(&protected, "protected", false, "change protection in this update (App secrets only; staged for a signed request)")
 	return cmd
 }
 

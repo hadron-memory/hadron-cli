@@ -135965,6 +135965,7 @@ type __CreateSecretInput struct {
 	Kind      string           `json:"kind"`
 	Metadata  *json.RawMessage `json:"metadata,omitempty"`
 	Value     json.RawMessage  `json:"value"`
+	Protected *bool            `json:"protected,omitempty"`
 }
 
 // GetOwnerType returns __CreateSecretInput.OwnerType, and is useful for accessing the field via an interface.
@@ -135984,6 +135985,9 @@ func (v *__CreateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 
 // GetValue returns __CreateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__CreateSecretInput) GetValue() json.RawMessage { return v.Value }
+
+// GetProtected returns __CreateSecretInput.Protected, and is useful for accessing the field via an interface.
+func (v *__CreateSecretInput) GetProtected() *bool { return v.Protected }
 
 // __CreateSlackConnectionInput is used internally by genqlient
 type __CreateSlackConnectionInput struct {
@@ -144707,9 +144711,10 @@ func (v *__UpdateScopeInput) GetInput() *UpdateScopeInput { return v.Input }
 
 // __UpdateSecretInput is used internally by genqlient
 type __UpdateSecretInput struct {
-	Ref      string           `json:"ref"`
-	Metadata *json.RawMessage `json:"metadata,omitempty"`
-	Value    *json.RawMessage `json:"value,omitempty"`
+	Ref       string           `json:"ref"`
+	Metadata  *json.RawMessage `json:"metadata,omitempty"`
+	Value     *json.RawMessage `json:"value,omitempty"`
+	Protected *bool            `json:"protected,omitempty"`
 }
 
 // GetRef returns __UpdateSecretInput.Ref, and is useful for accessing the field via an interface.
@@ -144720,6 +144725,9 @@ func (v *__UpdateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 
 // GetValue returns __UpdateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__UpdateSecretInput) GetValue() *json.RawMessage { return v.Value }
+
+// GetProtected returns __UpdateSecretInput.Protected, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretInput) GetProtected() *bool { return v.Protected }
 
 // __UpdateSpecNodeClearingRoleAuthoredInput is used internally by genqlient
 type __UpdateSpecNodeClearingRoleAuthoredInput struct {
@@ -163148,8 +163156,8 @@ func CreateScope(
 
 // The mutation executed by CreateSecret.
 const CreateSecret_Operation = `
-mutation CreateSecret ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!) {
-	createSecret(ownerType: $ownerType, ownerRef: $ownerRef, name: $name, kind: $kind, metadata: $metadata, value: $value) {
+mutation CreateSecret ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!, $protected: Boolean) {
+	createSecret(ownerType: $ownerType, ownerRef: $ownerRef, name: $name, kind: $kind, metadata: $metadata, value: $value, protected: $protected) {
 		... SecretFields
 	}
 }
@@ -163178,6 +163186,7 @@ func CreateSecret(
 	kind string,
 	metadata *json.RawMessage,
 	value json.RawMessage,
+	protected *bool,
 ) (data_ *CreateSecretResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateSecret",
@@ -163189,6 +163198,7 @@ func CreateSecret(
 			Kind:      kind,
 			Metadata:  metadata,
 			Value:     value,
+			Protected: protected,
 		},
 	}
 
@@ -193862,8 +193872,8 @@ func UpdateScope(
 
 // The mutation executed by UpdateSecret.
 const UpdateSecret_Operation = `
-mutation UpdateSecret ($ref: ID!, $metadata: JSON, $value: JSON) {
-	updateSecret(ref: $ref, metadata: $metadata, value: $value) {
+mutation UpdateSecret ($ref: ID!, $metadata: JSON, $value: JSON, $protected: Boolean) {
+	updateSecret(ref: $ref, metadata: $metadata, value: $value, protected: $protected) {
 		... SecretFields
 	}
 }
@@ -193884,21 +193894,25 @@ fragment SecretFields on Secret {
 `
 
 // Overwrite a secret's value and/or metadata (v1 rotation: no versions). An
-// omitted argument preserves the stored half, so both are omitempty.
+// omitted argument preserves the stored half, so all three are omitempty.
+// cli#2815: an explicit $protected stages a protection change on an App secret
+// (false is manager-only; the server judges, the CLI never pre-checks).
 func UpdateSecret(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
 	metadata *json.RawMessage,
 	value *json.RawMessage,
+	protected *bool,
 ) (data_ *UpdateSecretResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateSecret",
 		Query:  UpdateSecret_Operation,
 		Variables: &__UpdateSecretInput{
-			Ref:      ref,
-			Metadata: metadata,
-			Value:    value,
+			Ref:       ref,
+			Metadata:  metadata,
+			Value:     value,
+			Protected: protected,
 		},
 	}
 
