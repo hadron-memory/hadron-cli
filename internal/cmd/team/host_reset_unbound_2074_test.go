@@ -84,7 +84,7 @@ func TestResetIdleProofRefusesUnboundNoTTY2074(t *testing.T) {
 		// These are post-failure diagnostics, not the validator's own
 		// earlier census. Only this fixture's PID and private directory
 		// are inspected; no environment or real agent data is printed.
-		agents := hostpoller.ScanWorktreeAgents(dir)
+		agents := hostpoller.ScanWorktreeAgents(dir, nil)
 		pids := make([]int, 0, len(agents))
 		for _, a := range agents {
 			pids = append(pids, a.PID)

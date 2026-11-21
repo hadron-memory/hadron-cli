@@ -910,12 +910,12 @@ func TestWorkerStartRedeliveredAfterStartStuckRefusesWithoutStoppingTheAgent(t *
 func TestWorkerStartRefusesAnOccupiedTreeBeforeLaunching(t *testing.T) {
 	t.Run("occupied", func(t *testing.T) {
 		p, srv, host := testPoller(t)
-		host.occupant = "pid 4242, worker-supervise --wrapper cedric"
+		host.occupant = "pid 4242, launcher --worker cedric"
 		srv.notDone["s1"] = 1
 		srv.batches = [][]Operation{{startOp()}}
 		step(t, p)
 		r := only(t, srv)
-		if r.outcome != Failed || !strings.Contains(r.reason, "4242") || !strings.Contains(r.reason, "worker-supervise --wrapper cedric") {
+		if r.outcome != Failed || !strings.Contains(r.reason, "4242") || !strings.Contains(r.reason, "launcher --worker cedric") {
 			t.Errorf("the refusal must name the pid and the argv: %+v", r)
 		}
 		if len(host.launches) != 0 {

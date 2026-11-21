@@ -43,7 +43,7 @@ func TestProcessTree953(t *testing.T) {
 			root, wt, outside := t.TempDir(), t.TempDir(), t.TempDir()
 			uid := os.Getuid()
 			if want != "no_wrapper" {
-				proc(t, root, 10, 1, uid, wt, "/bin/bash", "/bin/worker-supervise", "codex")
+				proc(t, root, 10, 1, uid, wt, "/bin/bash")
 			}
 			if want != "no_agent" {
 				cwd := wt
@@ -60,7 +60,7 @@ func TestProcessTree953(t *testing.T) {
 				proc(t, root, 12, 10, uid, wt, "node", "/opt/bin/codex")
 			}
 			if want == "multiple_wrappers" {
-				proc(t, root, 13, 1, uid, wt, "bash", "/bin/worker-supervise")
+				proc(t, root, 13, 1, uid, wt, "-bash")
 			}
 			all, err := readProcesses(root, uid)
 			if err != nil {
@@ -117,7 +117,7 @@ func TestScanIsReadOnlyAndRedacted953(t *testing.T) {
 	}
 	write(t, filepath.Join(wt, ".hadron-team", "hadron-team-session.json"), `{"workerId":"w1","appId":"app1","server":"https://test"}`)
 	write(t, filepath.Join(root, "wrapper.prompt"), "DO NOT MODIFY PROMPT SENTINEL")
-	proc(t, procRoot, 10, 1, os.Getuid(), wt, "bash", "/bin/worker-supervise")
+	proc(t, procRoot, 10, 1, os.Getuid(), wt, "-bash")
 	proc(t, procRoot, 11, 10, os.Getuid(), wt, "node", "/opt/bin/codex")
 	sentinel := "RAW_SCREEN_DRAFT_SECRET_SENTINEL_953"
 	for _, unreadable := range []bool{false, true} {
@@ -256,9 +256,9 @@ func TestProcessIdentityGuards953(t *testing.T) {
 		wrapperArgs, agentArgs []string
 		want                   string
 	}{
-		{"wrong parent", 99, []string{"bash", "/bin/worker-supervise"}, []string{"node", "/bin/codex"}, "no_wrapper"},
-		{"mere wrapper mention", 10, []string{"bash", "-c", "echo worker-supervise"}, []string{"node", "/bin/codex"}, "no_wrapper"},
-		{"mere agent mention", 10, []string{"bash", "/bin/worker-supervise"}, []string{"echo", "node /bin/codex"}, "no_agent"},
+		{"wrong parent", 99, []string{"-bash"}, []string{"node", "/bin/codex"}, "no_wrapper"},
+		{"mere wrapper mention", 10, []string{"bash", "-c", "echo launcher"}, []string{"node", "/bin/codex"}, "no_wrapper"},
+		{"mere agent mention", 10, []string{"-bash"}, []string{"echo", "node /bin/codex"}, "no_agent"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root, wt := t.TempDir(), t.TempDir()
@@ -274,7 +274,7 @@ func TestProcessIdentityGuards953(t *testing.T) {
 
 func TestOutsideChildIsNotHiddenByInsideChild953(t *testing.T) {
 	root, wt := t.TempDir(), t.TempDir()
-	proc(t, root, 10, 1, os.Getuid(), wt, "bash", "/bin/worker-supervise")
+	proc(t, root, 10, 1, os.Getuid(), wt, "-bash")
 	proc(t, root, 11, 10, os.Getuid(), wt, "node", "/bin/codex")
 	proc(t, root, 12, 10, os.Getuid(), t.TempDir(), "node", "/bin/codex")
 	all, err := readProcesses(root, os.Getuid())

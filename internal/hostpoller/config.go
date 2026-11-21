@@ -185,7 +185,7 @@ type WorkerConfig struct {
 	// "exec" or empty (the default: Launch, as the poller's own child) or
 	// "orca" (through an Orca terminal, from Profile; G3: the agent is a
 	// child of the Orca daemon in Orca's capped per-terminal scope).
-	// TRANSITIONAL: the exec path goes with worker-supervise (C4).
+	// TRANSITIONAL: the exec path is the older one; workers move to "orca".
 	LaunchVia string `yaml:"launch_via"`
 	// Profile is the typed launcher profile an Orca launch builds its argv
 	// from (G1). TRANSITIONAL: S1b's server fields replace it.

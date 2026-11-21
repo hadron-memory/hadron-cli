@@ -16,7 +16,7 @@ func ValidateResetTarget(t ResetIdleTarget) error {
 	if err != nil || root.start != t.Process.StartTime || root.state == "Z" || root.pgrp != t.Process.PID {
 		return errors.New("PROCESS_CHANGED")
 	}
-	agents := ScanWorktreeAgents(t.Worktree)
+	agents := ScanWorktreeAgents(t.Worktree, nil)
 	if len(agents) != 1 {
 		return errors.New("PROCESS_AMBIGUOUS")
 	}

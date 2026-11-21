@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -207,6 +209,36 @@ func (s *State) agentPIDsIn(token string) []int {
 		}
 	}
 	return pids
+}
+
+// LaunchAnchor is a launch this poller recorded for a worker, by pid and the
+// kernel start time (clock ticks, /proc stat field 22) observed while it ran:
+// the process a census agent must be, or run under, to count as the worker's
+// own (cli#2059; it replaced the wrapper's name as the supervision anchor).
+type LaunchAnchor struct {
+	PID        int
+	StartTicks int64
+}
+
+// LaunchAnchorsAt is the recorded launches of the workers whose recorded
+// worktree is path (worktreesRoot joined with the recorded token). A record
+// with no pid, or a start that is not a tick count, yields an anchor that
+// cannot match (StartTicks 0): without the start a reused pid could pass.
+func (s *State) LaunchAnchorsAt(worktreesRoot, path string) []LaunchAnchor {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []LaunchAnchor{}
+	for _, a := range s.Agents {
+		if a.PID <= 0 || filepath.Join(worktreesRoot, a.Worktree) != path {
+			continue
+		}
+		ticks, err := strconv.ParseInt(a.Start, 10, 64)
+		if err != nil || ticks <= 0 {
+			ticks = 0
+		}
+		out = append(out, LaunchAnchor{PID: a.PID, StartTicks: ticks})
+	}
+	return out
 }
 
 // recordedAgent is the agent last recorded for the worker (zero when none).

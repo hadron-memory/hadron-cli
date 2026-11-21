@@ -82,7 +82,7 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 	candidates := map[string]bool{}
 	for _, tree := range inScope {
 		wt[tree.path] = tree
-		agents := hostpoller.ScanWorktreeAgents(tree.path)
+		agents := hostpoller.ScanWorktreeAgents(tree.path, state.LaunchAnchorsAt(cfg.WorktreesRoot, tree.path))
 		census[tree.path] = agents
 		tb := worktreeTabs(ctx, client, terms, tree.path)
 		tabs[tree.path] = tb

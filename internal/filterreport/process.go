@@ -20,19 +20,24 @@ func within(path, root string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
+// wrapper says argv is the worker's launcher: the login shell of the Orca
+// terminal the agent was started in (cli#2059; the host script that used to be
+// matched by name is retired, and the codes below keep their spelling because
+// they are part of the --json contract). It is a shell run with no script and
+// no command, so a shell that merely runs "-c ..." or a script is not one.
 func wrapper(argv []string) bool {
-	if len(argv) == 0 {
+	switch len(argv) {
+	case 1:
+	case 2:
+		if argv[1] != "-l" && argv[1] != "--login" {
+			return false
+		}
+	default:
 		return false
 	}
-	if filepath.Base(argv[0]) == "worker-supervise" {
-		return true
-	}
-	if len(argv) < 2 {
-		return false
-	}
-	switch filepath.Base(argv[0]) {
+	switch strings.TrimPrefix(filepath.Base(argv[0]), "-") {
 	case "bash", "sh", "dash", "zsh":
-		return filepath.Base(argv[1]) == "worker-supervise"
+		return true
 	}
 	return false
 }

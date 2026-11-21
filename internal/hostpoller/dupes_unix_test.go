@@ -36,7 +36,7 @@ func TestScanWorktreeAgentsScopesOnCwd(t *testing.T) {
 	}
 	inside := spawn(sub)
 	spawn(outside)
-	found := ScanWorktreeAgents(root)
+	found := ScanWorktreeAgents(root, nil)
 	if len(found) != 1 || found[0].PID != inside.Process.Pid || found[0].Base != "claude" || found[0].Supervised {
 		t.Fatalf("census = %+v, want exactly the process in %s", found, sub)
 	}
@@ -47,8 +47,8 @@ func TestScanWorktreeAgentsScopesOnCwd(t *testing.T) {
 
 // hadron-cli#2027 — the duplicate census's identification rules. agentBase is
 // the closed set: each row names an identification the sweep must NOT make
-// (the wrapper counted as its child's agent, a "-c" command line counted as
-// an invocation, a passing mention counted as a process).
+// (a "-c" command line counted as an invocation, a passing mention counted as
+// a process, a launcher script counted as the agent it starts).
 
 func TestAgentBaseIdentifiesOnlyAgents(t *testing.T) {
 	for _, tc := range []struct {
@@ -60,10 +60,8 @@ func TestAgentBaseIdentifiesOnlyAgents(t *testing.T) {
 		{"direct codex", []string{"codex"}, "codex"},
 		{"shebang shim names the agent", []string{"/bin/sh", "/home/u/bin/claude"}, "claude"},
 		{"bash shim", []string{"/bin/bash", "/opt/codex"}, "codex"},
-		{"the supervisor wrapper is never an agent", []string{"/bin/sh", "/home/u/bin/worker-supervise", "/home/u/bin/claude"}, ""},
-		{"direct supervisor is never an agent", []string{"/usr/local/bin/worker-supervise", "--family", "codex"}, ""},
+		{"a launcher run directly is never an agent", []string{"/usr/local/bin/launcher", "--family", "codex"}, ""},
 		{"-c is not an invocation", []string{"/bin/sh", "-c", "claude --help"}, ""},
-		{"a passing mention is not a process", []string{"/bin/sh", "/home/u/bin/worker-supervise", "--print", "claude"}, ""},
 		{"an unrelated script", []string{"/bin/sh", "/home/u/bin/tui"}, ""},
 		{"an unrelated binary", []string{"/bin/cat", "/home/u/bin/claude"}, ""},
 		{"empty", nil, ""},
@@ -94,11 +92,13 @@ func TestProcStatCountsAfterTheLastParen(t *testing.T) {
 	}
 }
 
-// hadron-cli#2027 review (P1): one logical agent can run as a CHAIN — the
-// supervisor wrapper launches a shim, the shim runs the real binary as a
-// child. Counting the chain's members as separate agents made the REAL agent
-// (the child, whose parent is the shim, not the wrapper) a stop subject of a
-// perfectly healthy worker. The census must answer ONE supervised agent.
+// hadron-cli#2027 review (P1): one logical agent can run as a CHAIN — a
+// launcher starts a shim, the shim runs the real binary as a child. Counting
+// the chain's members as separate agents made the REAL agent (the child, whose
+// parent is the shim, not the launcher) a stop subject of a perfectly healthy
+// worker. The census must answer ONE supervised agent: supervised because the
+// launcher is the launch the poller recorded (cli#2059), not because of any
+// process name.
 //
 // The leaf writes a ready file once it runs (#2037 N1): the whole chain is
 // provably up before the ONE scan, so a broken collapse cannot hide behind a
@@ -116,11 +116,11 @@ func TestScanWorktreeAgentsCollapsesAChainToOneSupervisedAgent(t *testing.T) {
 	if err := os.WriteFile(shim, []byte("#!/bin/sh\n\""+child+"\" &\nwait\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	wrap := filepath.Join(root, "worker-supervise")
-	if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\""+shim+"\" &\nwait\n"), 0o755); err != nil {
+	launcher := filepath.Join(root, "launcher")
+	if err := os.WriteFile(launcher, []byte("#!/bin/sh\n\""+shim+"\" &\nwait\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	c := exec.Command(wrap)
+	c := exec.Command(launcher)
 	c.Dir = root
 	startFixture2078(t, c)
 	for i := 0; i < 500 && !chainReady(ready); i++ {
@@ -129,15 +129,36 @@ func TestScanWorktreeAgentsCollapsesAChainToOneSupervisedAgent(t *testing.T) {
 	if !chainReady(ready) {
 		t.Fatal("the leaf never ran; the chain is not up")
 	}
-	found := ScanWorktreeAgents(root)
+	_, ticks, ok := procStat(c.Process.Pid)
+	if !ok {
+		t.Fatal("cannot read the launcher's start time")
+	}
+	recorded := []LaunchAnchor{{PID: c.Process.Pid, StartTicks: ticks}}
+	found := ScanWorktreeAgents(root, recorded)
 	if len(found) != 1 {
 		t.Fatalf("one scan after the chain is up counted %d agents: %+v", len(found), found)
 	}
 	if !found[0].Supervised {
-		t.Fatalf("the chain's agent must be supervised through its shim: %+v", found[0])
+		t.Fatalf("the chain's agent must be supervised through its recorded launcher: %+v", found[0])
 	}
 	if found[0].Base != "claude" || !strings.Contains(found[0].Display, string(os.PathSeparator)+"claude") {
 		t.Fatalf("the logical agent is the chain's oldest census member (the shim): %+v", found[0])
+	}
+	// The same chain with no record, a record that names another process, a
+	// record with the wrong start time, and one with no start at all is NOT
+	// supervised: only a record that proves this launch counts.
+	for name, anchors := range map[string][]LaunchAnchor{
+		"no record":          nil,
+		"another pid":        {{PID: 2000000000, StartTicks: ticks}},
+		"a reused pid":       {{PID: c.Process.Pid, StartTicks: ticks + 1}},
+		"no recorded start":  {{PID: c.Process.Pid}},
+		"a negative start":   {{PID: c.Process.Pid, StartTicks: -ticks}},
+		"the scanner itself": {{PID: os.Getpid(), StartTicks: ticks}},
+	} {
+		got := ScanWorktreeAgents(root, anchors)
+		if len(got) != 1 || got[0].Supervised {
+			t.Errorf("%s: want one unsupervised agent, got %+v", name, got)
+		}
 	}
 }
 
@@ -179,7 +200,7 @@ func TestScanWorktreeAgentsMergesANestedOneShotIntoItsAgent(t *testing.T) {
 	if !chainReady(ready) {
 		t.Fatal("the nested one-shot never ran; the chain is not up")
 	}
-	found := ScanWorktreeAgents(root)
+	found := ScanWorktreeAgents(root, nil)
 	if len(found) != 1 {
 		t.Fatalf("one scan after the chain is up counted %d agents: %+v", len(found), found)
 	}
@@ -187,7 +208,7 @@ func TestScanWorktreeAgentsMergesANestedOneShotIntoItsAgent(t *testing.T) {
 		t.Fatalf("the logical agent is the chain's oldest member: %+v", found[0])
 	}
 	if found[0].Supervised {
-		t.Fatalf("no worker-supervise anywhere in this chain: %+v", found[0])
+		t.Fatalf("no recorded launch was given: %+v", found[0])
 	}
 }
 
@@ -206,7 +227,7 @@ func TestCollapseChainsMergesDescendantsIntoTheOldestMember(t *testing.T) {
 		{agent: WorktreeAgent{PID: 410260, Base: "codex", Display: "/y/codex"}, ppid: 1},
 		{agent: WorktreeAgent{PID: 410234, Base: "claude", Display: "/x/claude"}, ppid: 1},
 	}
-	got := collapseChains(found, root)
+	got := collapseChains(found, root, nil)
 	if len(got) != 2 {
 		t.Fatalf("collapse answered %d logical agents for one chain and one stray: %+v", len(got), got)
 	}
@@ -233,7 +254,7 @@ func TestScanWorktreeAgentsExcludesOwnAncestry(t *testing.T) {
 		var out struct {
 			Found []WorktreeAgent `json:"found"`
 		}
-		out.Found = ScanWorktreeAgents(os.Getenv("DUPES_OWN_ANCESTRY_ROOT"))
+		out.Found = ScanWorktreeAgents(os.Getenv("DUPES_OWN_ANCESTRY_ROOT"), nil)
 		b, err := json.Marshal(out)
 		if err != nil {
 			t.Fatal(err)

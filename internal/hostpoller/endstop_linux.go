@@ -43,7 +43,7 @@ func stopWorktreeAgents(path string, grace time.Duration, authorize Authorize) (
 		return nil, fmt.Errorf("no /proc to identify processes by: %w", err)
 	}
 	out := []AgentStop{}
-	for _, a := range ScanWorktreeAgents(root) {
+	for _, a := range ScanWorktreeAgents(root, nil) {
 		out = append(out, stopAgentGroup(a, root, grace, authorize))
 	}
 	return out, nil
