@@ -267,7 +267,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 360: 330 command, 18 gap, 12 excluded
+[Mutation] 360: 331 command, 17 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -513,7 +513,7 @@ revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeAutomationReadGrant  command automation grant revoke
 revokeAutomationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 revokeConnectionGrant  command connection grant revoke
-revokeGrant  gap #1880
+revokeGrant  command secret client revoke
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
 rotateAgentWebhook  command webhook rotate
@@ -629,7 +629,7 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 39: 16 gap, 23 excluded
+[Arguments] 40: 17 gap, 23 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #1617
@@ -649,6 +649,7 @@ Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.registerContextResetRecovery(input.checkpointNode)  excluded not-a-capability: the host has the server write the checkpoint (input.checkpoint) and never names an existing node (ruling 0090 A, hadron-cli#1043); the written node comes back as ContextReset.checkpointNode
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.revokeGrant(instruction)  gap #2754
 Mutation.setTeamPause(instruction)  gap #1617
 Mutation.setTeamStopSignal(instruction)  gap #1617
 Mutation.setWorkerWakeSettings(instruction)  gap #1617
