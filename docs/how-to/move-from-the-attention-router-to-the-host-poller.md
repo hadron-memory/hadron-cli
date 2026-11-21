@@ -29,7 +29,9 @@ types the host's due tick and task wakes, so it replaces `ticker-wake` too.
 ## Acknowledge mixed tick/task wakes
 
 `delivery.ack_mixed` defaults to `false`. Set it to `true` only after verifying
-that the server carries A′ (hadron-server#2072, `2026-10-19`). This is the
+that the deployed server contains A′, the change hadron-server#2072 (merged
+`2026-10-19`; the date is for orientation, since a build from that day can
+predate the merge: confirm the deployed build includes that change). This is the
 operator's assertion of that deployed server behavior, not capability detection:
 
 ```yaml

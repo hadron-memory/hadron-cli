@@ -15,8 +15,9 @@ import (
 // stated as the date the shared instruction text on every page already uses,
 // so a page says it once (cli#2617). It is display text only:
 // instruction.FlagUsageForServer prints it after "Needs server" and nothing
-// compares it with a server build. It is deliberately independent of the app
-// door's.
+// compares it with a server build. Today it is the same date as the app door's
+// (both are instruction.ServerFloorManager); each door keeps its OWN constant name
+// so a floor that later differs for one door changes in one place.
 const managerInstructionMinimum = instruction.ServerFloorManager
 
 // deliverySettingsInstructionMinimum is the same requirement, kept as its own

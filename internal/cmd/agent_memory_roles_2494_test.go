@@ -83,9 +83,21 @@ func TestAgentMemoryGroupHelpNamesBothRoles2494(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"read", "read-write", "Memory's role on an Agent is"} {
-		if !hasWord2494(out.String(), want) && !strings.Contains(out.String(), want+"\n") {
-			t.Errorf("agent memory --help must name %q:\n%s", want, out.String())
+	// Scoped to the role explanation, so an unrelated mention elsewhere on the page cannot
+	// satisfy it: the paragraph that starts with the prose fragment, up to the next blank line.
+	help := out.String()
+	const lead = "Memory's role on an Agent is"
+	at := strings.Index(help, lead)
+	if at < 0 {
+		t.Fatalf("agent memory --help must carry the role explanation (%q):\n%s", lead, help)
+	}
+	para := help[at:]
+	if end := strings.Index(para, "\n\n"); end >= 0 {
+		para = para[:end]
+	}
+	for _, role := range []string{"read", "read-write"} {
+		if !hasWord2494(para, role) {
+			t.Errorf("the role explanation must name %q as a whole token:\n%s", role, para)
 		}
 	}
 }

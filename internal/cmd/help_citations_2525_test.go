@@ -28,7 +28,7 @@ import (
 type helpHit2525 struct{ kind, text, line string }
 
 var (
-	citationRE2525 = regexp.MustCompile(`cor:[a-z]+:[0-9]+`)
+	citationRE2525 = regexp.MustCompile(`cor:[a-z]+(?::[0-9]+)+`)
 	issueRE2525    = regexp.MustCompile(`#[0-9]+`)
 	hashRE2525     = regexp.MustCompile(`(?:^|[^0-9A-Za-z])([0-9a-f]{7,40})(?:$|[^0-9A-Za-z])`)
 )
@@ -251,27 +251,36 @@ func formatBaseline2525(b baseline2525) string {
 
 func parseBaseline2525(raw string) (baseline2525, error) {
 	b := baseline2525{}
-	for _, l := range strings.Split(raw, "\n") {
+	for i, l := range strings.Split(raw, "\n") {
+		n := i + 1
 		if l = strings.TrimSpace(l); l == "" || strings.HasPrefix(l, "#") {
 			continue
 		}
 		page, refs, ok := strings.Cut(l, "  # ")
+		page = strings.TrimSpace(page)
 		if !ok {
-			return nil, fmt.Errorf("line %q has no references: <page>  # <kind> <reference> x<count>", l)
+			return nil, fmt.Errorf("line %d: %q has no references: <page>  # <kind> <reference> x<count>", n, l)
+		}
+		if _, dup := b[page]; dup {
+			return nil, fmt.Errorf("line %d: page %q is listed twice", n, page)
 		}
 		c := refCounts2525{}
 		for _, item := range strings.Split(refs, " | ") {
 			f := strings.Fields(item)
 			if len(f) != 3 || !strings.HasPrefix(f[2], "x") {
-				return nil, fmt.Errorf("line %q: item %q is not <kind> <reference> x<count>", l, item)
+				return nil, fmt.Errorf("line %d: item %q is not <kind> <reference> x<count>", n, item)
 			}
-			n, err := strconv.Atoi(f[2][1:])
-			if err != nil || n < 1 {
-				return nil, fmt.Errorf("line %q: bad count in %q", l, item)
+			cnt, err := strconv.Atoi(f[2][1:])
+			if err != nil || cnt < 1 {
+				return nil, fmt.Errorf("line %d: bad count in %q", n, item)
 			}
-			c[f[0]+" "+f[1]] = n
+			key := f[0] + " " + f[1]
+			if _, dup := c[key]; dup {
+				return nil, fmt.Errorf("line %d: reference %q is listed twice on %q", n, key, page)
+			}
+			c[key] = cnt
 		}
-		b[strings.TrimSpace(page)] = c
+		b[page] = c
 	}
 	return b, nil
 }
@@ -303,11 +312,30 @@ func topGroups2525(t *testing.T) []string {
 	return names
 }
 
-// helpPagesInScope2525 renders every help page the guards cover, keyed by page name.
+// helpPagesInScope2525 renders every help page the guards cover, keyed by page name: the ROOT
+// page ("hadron --help") and, for every command directly under the root INCLUDING the generated
+// help and completion commands, that command's page and every visible page below it.
 func helpPagesInScope2525(t *testing.T) map[string]string {
 	t.Helper()
 	pages := map[string]string{}
-	for _, group := range topGroups2525(t) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--help"})
+	root.SetOut(out)
+	root.SetErr(out)
+	if err := root.Execute(); err != nil {
+		t.Fatalf("hadron --help: %v", err)
+	}
+	pages["hadron"] = out.String()
+	f2, _ := testFactory(t)
+	var tops []string
+	for _, c := range NewRootCmd(f2).Commands() {
+		if !c.Hidden {
+			tops = append(tops, c.Name())
+		}
+	}
+	sort.Strings(tops)
+	for _, group := range tops {
 		for n, h := range helpTree2508(t, group) {
 			pages[n] = h
 		}
@@ -328,28 +356,26 @@ func TestHelpCarriesNoNewCitationsNumbersOrHashes2525(t *testing.T) {
 	base := loadBaseline2525(t)
 	actual := baseline2525{}
 	seen := map[string]bool{}
-	for _, group := range topGroups2525(t) {
-		pages := helpTree2508(t, group)
-		names := make([]string, 0, len(pages))
-		for n := range pages {
-			names = append(names, n)
+	pages := helpPagesInScope2525(t)
+	names := make([]string, 0, len(pages))
+	for n := range pages {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		refs := pageRefs2525(pages[name])
+		if len(refs) > 0 {
+			actual[name] = refs
 		}
-		sort.Strings(names)
-		for _, name := range names {
-			refs := pageRefs2525(pages[name])
-			if len(refs) > 0 {
-				actual[name] = refs
+		seen[name] = true
+		t.Run(name, func(t *testing.T) {
+			if *updateExceptions2525 {
+				return
 			}
-			seen[name] = true
-			t.Run(name, func(t *testing.T) {
-				if *updateExceptions2525 {
-					return
-				}
-				for _, e := range pageRatchetErrors2525(name, refs, base[name]) {
-					t.Error(e)
-				}
-			})
-		}
+			for _, e := range pageRatchetErrors2525(name, refs, base[name]) {
+				t.Error(e)
+			}
+		})
 	}
 	if *updateExceptions2525 {
 		next, errs := shrink2525(actual, base)
@@ -421,18 +447,16 @@ func TestCitationRatchetIsPerReference2525(t *testing.T) {
 
 // Revision hashes are scrubbed everywhere (not ratcheted): a server floor is a date.
 func TestHelpCarriesNoRevisionHashAnywhere2525(t *testing.T) {
-	for _, group := range topGroups2525(t) {
-		pages := helpTree2508(t, group)
-		names := make([]string, 0, len(pages))
-		for n := range pages {
-			names = append(names, n)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			for _, h := range bannedHits2525(pages[name]) {
-				if h.kind == "hash" {
-					t.Errorf("%s --help carries the revision hash %q in %q: state a server floor as a date", name, h.text, h.line)
-				}
+	pages := helpPagesInScope2525(t)
+	names := make([]string, 0, len(pages))
+	for n := range pages {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		for _, h := range bannedHits2525(pages[name]) {
+			if h.kind == "hash" {
+				t.Errorf("%s --help carries the revision hash %q in %q: state a server floor as a date", name, h.text, h.line)
 			}
 		}
 	}
