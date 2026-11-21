@@ -4307,6 +4307,7 @@ hadron node rm hrn:node:acme.com:kb:findings --recursive --yes    # the branch +
 # restore is undoable by default; --truncate discards newer history (needs --yes).
 # Pass a bare node id to reach a soft-deleted node's history for cleanup.
 hadron node revision list hrn:node:acme.com:kb:findings:flaky-ci --json
+# <revision-id> is a revision id or an hrn:noderev:... URN, sent to the server as nodeRevRef (cli#2904); a server older than hadron-server#4766 refuses it at validation.
 hadron node revision get <revision-id>
 hadron node revision label <revision-id> --label "before the auth refactor"
 hadron node revision restore <revision-id>
