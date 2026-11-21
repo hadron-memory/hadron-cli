@@ -19,7 +19,7 @@ import (
 // withScanClock installs a modelled clock that advances `step` on every /proc listing (the
 // scan's unit of work) and sets the deadline, restoring both afterwards. It returns a
 // function reading the modelled time elapsed since install.
-func withScanClock(t *testing.T, f *churnProc, step, deadline time.Duration) func() time.Duration {
+func withScanClock(t *testing.T, step, deadline time.Duration) func() time.Duration {
 	t.Helper()
 	oldClock, oldDeadline, oldPause, oldDir := scanClock, groupScanDeadline, scanPause, readProcDir
 	t.Cleanup(func() { scanClock, groupScanDeadline, scanPause, readProcDir = oldClock, oldDeadline, oldPause, oldDir })
@@ -44,7 +44,7 @@ func TestAScanKeepsGoingPastThirtyTwoVoidPassesWhileInsideTheDeadline2853(t *tes
 	f := churnHost(3)
 	f.install(t)
 	withFreshVanisher(f, voidPasses)
-	withScanClock(t, f, time.Millisecond, time.Second) // 100 void passes take 100ms of 1s
+	withScanClock(t, time.Millisecond, time.Second) // 100 void passes take 100ms of 1s
 	members, why := groupMembership(churnPgid, churnPgid)
 	if members {
 		t.Fatalf("answered members (%s) after %d listings; a clean pass exists at %d, well inside the deadline", why, f.lists, voidPasses+1)
@@ -61,7 +61,7 @@ func TestEndlessChurnEndsAtTheDeadlineNotAtAPassCount2853(t *testing.T) {
 	f := churnHost(3)
 	f.install(t)
 	withFreshVanisher(f, 1<<30)
-	elapsed := withScanClock(t, f, 10*time.Millisecond, time.Second)
+	elapsed := withScanClock(t, 10*time.Millisecond, time.Second)
 	members, why := groupMembership(churnPgid, churnPgid)
 	if !members || why != whyUnseenPid {
 		t.Fatalf("a /proc that never holds still proves nothing: want members/unseen-pid, got %v/%s", members, why)
@@ -80,7 +80,7 @@ func TestALiveMemberAnswersAtOnceAndAnExpiredDeadlineNeverReadsAsEmpty2853(t *te
 	f := churnHost(1)
 	f.stats[churnMember] = churnStat{churnPgid, 'S', 1} // a running member
 	f.install(t)
-	withScanClock(t, f, 10*time.Millisecond, time.Second)
+	withScanClock(t, 10*time.Millisecond, time.Second)
 	members, why := groupMembership(churnPgid, churnPgid)
 	if !members || why != whyLiveMember || f.lists != 1 {
 		t.Fatalf("a running member answers on the first pass: members=%v why=%s lists=%d", members, why, f.lists)
@@ -90,7 +90,7 @@ func TestALiveMemberAnswersAtOnceAndAnExpiredDeadlineNeverReadsAsEmpty2853(t *te
 	g := churnHost(0)
 	g.stats[churnMember] = churnStat{churnPgid, 'Z', 1}
 	g.install(t)
-	withScanClock(t, g, time.Hour, time.Nanosecond)
+	withScanClock(t, time.Hour, time.Nanosecond)
 	if m, w := groupMembership(churnPgid, churnPgid); !m || w != whyLateFork {
 		// pass 0 reads the Z member for the first time: void (late-fork), and the deadline
 		// is already past, so the answer is members with that code, never empty.

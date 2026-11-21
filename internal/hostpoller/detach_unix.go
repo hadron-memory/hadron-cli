@@ -614,7 +614,13 @@ func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail st
 		}
 		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
 	}
-	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+	detail = fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+	if why := a.lastMembersWhy(); why != "" {
+		// cli#2853: say why the group could not be proven empty, a code and never /proc text
+		// (unseen-pid is churn, live-member is a member that still runs).
+		detail += fmt.Sprintf(" (last membership scan: %s)", why)
+	}
+	return false, detail
 }
 
 // errAuthorityLost: the launch's ownership of its group number ended while the

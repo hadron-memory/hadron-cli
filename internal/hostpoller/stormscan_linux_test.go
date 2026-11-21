@@ -111,6 +111,11 @@ func (f *stopFixture) install(t *testing.T) {
 		return err
 	}
 	if f.storm {
+		// cli#2853: the scan retries until a wall-clock deadline; a storm that never clears
+		// would spend the production second on every probe, so the fixture uses a short one.
+		oldDeadline := groupScanDeadline
+		groupScanDeadline = 20 * time.Millisecond
+		t.Cleanup(func() { groupScanDeadline = oldDeadline })
 		f.realRead = readProcDir
 		readProcDir = func(dir string) ([]os.DirEntry, error) {
 			entries, err := f.realRead(dir)
