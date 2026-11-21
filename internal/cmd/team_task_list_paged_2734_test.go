@@ -186,12 +186,14 @@ func TestTeamViewWalksHasMore2734(t *testing.T) {
 	}, ","), 4, true)
 	page2 := taskPage2734(taskWithID2734("v4"), 4, false)
 	seen := 0
+	// onOp fires before the arriving request's own response lookup: restage on
+	// the SECOND arrival, so page 1 answers page 1 and page 2 answers page 2.
 	stage := func(op string) {
 		if op != "AgentTaskList" {
 			return
 		}
 		seen++
-		if seen == 1 {
+		if seen == 2 {
 			setAttnResponse(r, "AgentTaskList", page2)
 		}
 	}
@@ -252,22 +254,29 @@ func run1961Staged2734(t *testing.T, path string, responses map[string]string, o
 func TestAdapterHeldReadFollowsHasMore2734(t *testing.T) {
 	list := `echo '{"items":[` + item1961(itemA1961, "one") + `,` + item1961(itemB1961, "two") + `]}'`
 	path, _ := fakeAdapter1961(t, "", list, "")
-	page1 := `{"data":{"agentTasksPage":{"items":[{"id":"held-0","externalId":` + fmt.Sprintf("%q", itemA1961) + `}],"total":2,"hasMore":true}}`
-	page2 := `{"data":{"agentTasksPage":{"items":[{"id":"held-1","externalId":` + fmt.Sprintf("%q", itemB1961) + `}],"total":2,"hasMore":false}}`
+	page1 := `{"data":{"agentTasksPage":{"items":[{"id":"held-0","externalId":` + fmt.Sprintf("%q", itemA1961) + `}],"total":2,"hasMore":true}}}`
+	page2 := `{"data":{"agentTasksPage":{"items":[{"id":"held-1","externalId":` + fmt.Sprintf("%q", itemB1961) + `}],"total":2,"hasMore":false}}}`
 	r := withEmptyChanges1962(map[string]string{"IntakeTasksByExternalIds": page1})
 	seen := 0
+	// onOp fires when a request arrives, BEFORE that request's response lookup:
+	// restage on the SECOND arrival so page 1 answers page 1 and page 2 page 2
+	// (restaging on the first would hand page 2's content to page 1).
 	stage := func(op string) {
 		if op != "IntakeTasksByExternalIds" {
 			return
 		}
 		seen++
-		if seen == 1 {
+		if seen == 2 {
 			setAttnResponse(r, "IntakeTasksByExternalIds", page2)
 		}
 	}
 	calls, out, _, err := run1961Staged2734(t, path, r, stage, "--json")
 	if err != nil {
-		t.Fatal(err)
+		ops := []string{}
+		for _, c := range *calls {
+			ops = append(ops, c.Op)
+		}
+		t.Fatal(err, "ops:", strings.Join(ops, ","), "out:", out)
 	}
 	reads := opsOf1961(calls, "IntakeTasksByExternalIds")
 	if len(reads) != 2 {

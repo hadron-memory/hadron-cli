@@ -54,7 +54,7 @@ func (c *pagedHoldersClient) MakeRequest(ctx context.Context, req *graphql.Reque
 		end = len(rest)
 	}
 	rows := rest[:end]
-	items := "null"
+	items := "[]"
 	if len(rows) > 0 {
 		items = "[" + strings.Join(rows, ",") + "]"
 	}
@@ -95,7 +95,10 @@ func TestReconcileHolderLookupFollowsHasMore2734(t *testing.T) {
 }
 
 // TestReconcileHolderLookupStopsAtHasMoreEnd2734: the history fits in one
-// page; exactly one read, and the finished-only history is not a holder.
+// page; exactly one read, and — the carried RELEASED rule (cor:agt:120:04,
+// cli#2265) — the finished-only history still HOLDS the id, so the release is
+// skipped, not untracked: RELEASED untracks only when no task of the App holds
+// the id in any state.
 func TestReconcileHolderLookupStopsAtHasMoreEnd2734(t *testing.T) {
 	r, desc, log := scriptAdapter(t, `echo '{}'`)
 	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
@@ -114,7 +117,7 @@ func TestReconcileHolderLookupStopsAtHasMoreEnd2734(t *testing.T) {
 	if len(c.offsets) != 1 {
 		t.Fatalf("one page is one read: %v", c.offsets)
 	}
-	if d.Untracked != 1 || !strings.Contains(func() string { b, _ := os.ReadFile(log); return string(b) }(), "untrack ") {
-		t.Fatalf("a finished-only history holds nothing: %+v", d)
+	if d.Skipped != 1 || d.SkippedHeldElsewhere != 1 || d.Untracked != 0 || strings.Contains(func() string { b, _ := os.ReadFile(log); return string(b) }(), "untrack ") {
+		t.Fatalf("a finished-only history still holds the id (any state, cor:agt:120:04): %+v", d)
 	}
 }

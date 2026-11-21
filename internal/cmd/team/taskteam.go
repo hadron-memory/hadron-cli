@@ -163,8 +163,9 @@ func resolveTeam(workers []rosterWorker, coordinatorRef string) (taskPartyDTO, [
 	return coordinator.party, members, true
 }
 
-// readAllTasks pages the App's task read to the end. A page that adds no new
-// task is a server ignoring the offset: refused, never silently repeated.
+// readAllTasks pages the App's task read to the end: it stops on the server's
+// hasMore, never a full-page guess (cli#2734). A page that adds no new task is
+// a server ignoring the offset: refused, never silently repeated.
 func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *string) ([]taskDTO, error) {
 	client, err := f.GraphQLClient()
 	if err != nil {
@@ -178,7 +179,7 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *
 			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not end after %d pages of %d; nothing shown", page, limit)
 		}
 		offset := page * limit
-		rows, count, err := taskListPage(ctx, client, appRef, taskListQuery{limit: limit, offset: offset, text: text})
+		rows, info, err := taskListPage(ctx, client, appRef, taskListQuery{limit: limit, offset: offset, text: text})
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +192,7 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *
 			added++
 			tasks = append(tasks, t)
 		}
-		if count < limit {
+		if !info.HasMore {
 			return tasks, nil
 		}
 		if added == 0 {

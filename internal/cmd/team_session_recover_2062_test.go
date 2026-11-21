@@ -20,7 +20,7 @@ func recoverResponses2062() map[string]string {
 		"GetTeamSession":       `{"data":{"session":` + startedSessionJSON + `}}`,
 		"RecoverWorker":        `{"data":{"worker":{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","name":"Iris","role":"backend-engineer","appId":"capp100000000000000000000","memoryId":"mw1"}}}`,
 		"GetMemory":            `{"data":{"memory":{"id":"mw1","urn":"hrn:mem:acme.com:iris-work","name":"Iris work"}}}`,
-		"AgentTaskList":        `{"data":{"agentTasks":[` + startedTaskFieldsJSON + `]}}`,
+		"AgentTaskList":        taskPage2734(startedTaskFieldsJSON, 1, false),
 		"GetNode":              `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:iris-work:state","memoryId":"mw1","loc":"state","name":"State","nodeType":"note","tags":[],"content":` + jsonStr1525(recoverNote2062) + `,"updatedAt":"2026-11-15T09:00:00Z"}}}`,
 		"TeamChatReadMetadata": `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1","lastSeq":9}}}}`,
 		"ChannelReadState":     `{"data":{"channelReadState":{"channelId":"ch1","lastSeenSeq":4,"updatedAt":"2026-11-15T08:00:00Z"}}}`,
@@ -108,7 +108,7 @@ func TestSessionRecoverJSONShape2062(t *testing.T) {
 func TestSessionRecoverAbsentNoteAndEmptyListsAre2062(t *testing.T) {
 	r := recoverResponses2062()
 	r["GetNode"] = `{"data":{"node":null}}`
-	r["AgentTaskList"] = `{"data":{"agentTasks":[]}}`
+	r["AgentTaskList"] = taskPage2734("", 0, false)
 	r["TeamChatMessages"] = teamChatPage(0)
 	out, _, err := runRecover2062(t, r, "--json")
 	if err != nil {

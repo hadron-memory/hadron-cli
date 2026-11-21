@@ -72,12 +72,12 @@ func TestMalformedDependencyItemIsRefusedNotSkipped1182(t *testing.T) {
 		}, true},
 		{"list", "blockedBy", []string{"team", "task", "list"}, func(task string) map[string]string {
 			r := taskResponses()
-			r["AgentTaskList"] = `{"data":{"agentTasks":[` + priorityTask1135() + `,` + task + `]}}`
+			r["AgentTaskList"] = taskPage2734(priorityTask1135()+","+task, 2, false)
 			return r
 		}, true},
 		{"list", "blocks", []string{"team", "task", "list"}, func(task string) map[string]string {
 			r := taskResponses()
-			r["AgentTaskList"] = `{"data":{"agentTasks":[` + priorityTask1135() + `,` + task + `]}}`
+			r["AgentTaskList"] = taskPage2734(priorityTask1135()+","+task, 2, false)
 			return r
 		}, true},
 		{"set-priority", "blockedBy", []string{"team", "task", "set-priority", "AT1.4", "2"}, func(task string) map[string]string {
@@ -243,7 +243,7 @@ func TestUnavailableDependencyPagesRender1182(t *testing.T) {
 	}
 	r := taskResponses()
 	r["AgentTaskGet"] = `{"data":{"agentTask":` + noPages + `}}`
-	r["AgentTaskList"] = `{"data":{"agentTasks":[` + noPages + `]}}`
+	r["AgentTaskList"] = taskPage2734(noPages, 1, false)
 	r["AgentTaskDependencies"] = `{"data":{"agentTask":{"id":"task1","blockedBy":null,"blocks":null}}}`
 
 	for _, cmd := range [][]string{{"team", "task", "get", "AT1.4"}, {"team", "task", "dependencies", "AT1.4"}} {
@@ -397,6 +397,10 @@ func TestEveryTaskVerbRefusesAMalformedDependencyPage1182(t *testing.T) {
 	many := func(key string) func(string) string {
 		return func(bad string) string { return `{"data":{"` + key + `":[` + good + `,` + bad + `]}}` }
 	}
+	// cli#2734: the list verbs read agentTasksPage, so their malformed item
+	// rides inside the page object's items (the legacy array shape is now a
+	// malformed-page refusal, which the 2734 file pins separately).
+	paged := func(bad string) string { return taskPage2734(good+","+bad, 2, false) }
 	verbs := []verb{
 		{"create", fixed("team", "task", "create", "Fix the flaky CI build"), "AgentTaskCreate", true, one("createAgentTask"), taskResponses},
 		{"assign", fixed("team", "task", "assign", "task1", "--assignee", "worker:Rufus"), "AgentTaskAssign", true, one("assignAgentTask"), taskResponses},
@@ -418,12 +422,12 @@ func TestEveryTaskVerbRefusesAMalformedDependencyPage1182(t *testing.T) {
 			return []string{"team", "task", "create", "--batch-file", writeBatch1565(t, `[{"task":{"title":"first"}}]`)}
 		}, "AgentTaskCreateBatch", true, func(bad string) string { return `{"data":{"createAgentTasks":[` + bad + `]}}` }, taskResponses},
 		{"get", fixed("team", "task", "get", "AT1.4"), "AgentTaskGet", false, func(bad string) string { return `{"data":{"agentTask":` + bad + `}}` }, taskResponses},
-		{"list", fixed("team", "task", "list"), "AgentTaskList", false, many("agentTasks"), taskResponses},
-		{"mine", fixed("team", "task", "mine"), "AgentTaskList", false, many("agentTasks"), taskResponses},
-		{"list --text", fixed("team", "task", "list", "--text", "flaky"), "AgentTaskListText", false, many("agentTasks"), taskResponses},
-		{"list --created-after", fixed("team", "task", "list", "--created-after", "2026-01-01T00:00:00Z"), "AgentTaskListFiltered", false, many("agentTasks"), taskResponses},
-		{"list --unresolved", fixed("team", "task", "list", "--unresolved"), "AgentTaskListUnresolved", false, many("agentTasks"), taskResponses},
-		{"list --creator", fixed("team", "task", "list", "--creator", "user:holger"), "AgentTaskListCreator", false, many("agentTasks"), taskResponses},
+		{"list", fixed("team", "task", "list"), "AgentTaskList", false, paged, taskResponses},
+		{"mine", fixed("team", "task", "mine"), "AgentTaskList", false, paged, taskResponses},
+		{"list --text", fixed("team", "task", "list", "--text", "flaky"), "AgentTaskListText", false, paged, taskResponses},
+		{"list --created-after", fixed("team", "task", "list", "--created-after", "2026-01-01T00:00:00Z"), "AgentTaskListFiltered", false, paged, taskResponses},
+		{"list --unresolved", fixed("team", "task", "list", "--unresolved"), "AgentTaskListUnresolved", false, paged, taskResponses},
+		{"list --creator", fixed("team", "task", "list", "--creator", "user:holger"), "AgentTaskListCreator", false, paged, taskResponses},
 		{"tree", fixed("team", "task", "tree", "task1"), "AgentTaskTree", false, many("agentTaskTree"), taskResponses},
 	}
 	for _, v := range verbs {
