@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -115,6 +116,15 @@ func leaderZombieAlone(pid int) bool {
 // pass, nothing is assumed about who a vanished process was, and no allocator
 // property is relied on (#2042).
 const maxGroupScanPasses = 32
+
+// groupScanDeadline and scanClock are the wall-clock bound of the scan (cli#2853) and the
+// clock it reads, as package vars so a test drives the bound with a modelled clock. Declared
+// here ahead of the change that makes the scan use them.
+var (
+	groupScanDeadline = time.Second
+	scanClock         = time.Now
+	scanPause         = 5 * time.Millisecond // between void passes: a retry loop, not a spin
+)
 
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).

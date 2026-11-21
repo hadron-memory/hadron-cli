@@ -411,7 +411,9 @@ func TestAForeverInconclusiveScanStopsUnconfirmedAndCleansUp(t *testing.T) {
 	if stopped {
 		t.Fatalf("a scan that could never decide is not a success: stopped=true %q", detail)
 	}
-	want := fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", a.PID(), postKillWait)
+	// cli#2853: an unconfirmed stop says WHY the group could not be proven empty (a code, never
+	// /proc text): here every pass is voided by a listed pid that vanished, churn, not a member.
+	want := fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL (last membership scan: %s)", a.PID(), postKillWait, whyUnseenPid)
 	if detail != want {
 		t.Fatalf("the bounded ladder's exhaustion wording: detail=%q want %q", detail, want)
 	}
@@ -491,6 +493,15 @@ func assertTruthfulStopLadder(t *testing.T, f *stopFixture, a Agent, stopped boo
 		fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, ea.grace): true,
 	}
 	exhaust := fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+	// cli#2853: the exhaustion wording may carry the code of the last membership scan.
+	exhaustWithCode := func(d string) bool {
+		for _, w := range []drainWhy{whyLiveMember, whyUnseenPid, whyVanishedMember, whyLateFork, whyUnreadable} {
+			if d == exhaust+" (last membership scan: "+string(w)+")" {
+				return true
+			}
+		}
+		return d == exhaust
+	}
 	if stopped {
 		if !confirm[detail] {
 			t.Fatalf("a confirmed stop carries one of the settled confirm wordings: %q", detail)
@@ -502,7 +513,7 @@ func assertTruthfulStopLadder(t *testing.T, f *stopFixture, a Agent, stopped boo
 			t.Fatalf("no /proc entry remains after a confirmed stop: %v", err)
 		}
 	} else {
-		if detail != exhaust {
+		if !exhaustWithCode(detail) {
 			t.Fatalf("an unconfirmed stop carries the exhaustion wording and keeps records: %q", detail)
 		}
 		if ea.confirmed.Load() || ea.reaped.Load() {
