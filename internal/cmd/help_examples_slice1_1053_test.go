@@ -133,10 +133,10 @@ type exampleResult struct {
 // key=value at any depth, in a comma list) and cleaned first, so "a/.." and "./.." are judged as the
 // parent paths they resolve to, not as strings unlike "../".
 //
-// The check is LEXICAL. Confinement against a symlink under the fixture that points outside
-// it is cli#2813 (deferred by ruling: the runners execute each example in a throwaway
-// directory, and a correct resolver has its own corner cases: `..` after a link, dangling
-// links, names containing a comma).
+// The check is LEXICAL, and that is enough (cli#2813, decided): each example runs in its own
+// empty throwaway directory that nothing seeds with a symlink, so no path under it can leave
+// it by a link. TestNoProductionCodeCreatesASymlink2813 pins the one premise a change could
+// break (a command that creates symlinks) and says what a resolving guard would need.
 func unsafeExamplePath1053(args []string, dir string) string {
 	dir = filepath.Clean(dir)
 	for _, a := range args {

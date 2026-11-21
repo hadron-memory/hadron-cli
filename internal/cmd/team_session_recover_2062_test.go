@@ -20,7 +20,7 @@ func recoverResponses2062() map[string]string {
 		"GetTeamSession":       `{"data":{"session":` + startedSessionJSON + `}}`,
 		"RecoverWorker":        `{"data":{"worker":{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","name":"Iris","role":"backend-engineer","appId":"capp100000000000000000000","memoryId":"mw1"}}}`,
 		"GetMemory":            `{"data":{"memory":{"id":"mw1","urn":"hrn:mem:acme.com:iris-work","name":"Iris work"}}}`,
-		"AgentTaskList":        `{"data":{"agentTasks":[` + startedTaskFieldsJSON + `]}}`,
+		"AgentTaskList":        taskPage2734(startedTaskFieldsJSON, 1, false),
 		"GetNode":              `{"data":{"node":{"id":"n1","urn":"hrn:node:acme.com:iris-work:state","memoryId":"mw1","loc":"state","name":"State","nodeType":"note","tags":[],"content":` + jsonStr1525(recoverNote2062) + `,"updatedAt":"2026-11-15T09:00:00Z"}}}`,
 		"TeamChatReadMetadata": `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1","lastSeq":9}}}}`,
 		"ChannelReadState":     `{"data":{"channelReadState":{"channelId":"ch1","lastSeenSeq":4,"updatedAt":"2026-11-15T08:00:00Z"}}}`,
@@ -58,6 +58,39 @@ func TestSessionRecoverIsReadOnly2062(t *testing.T) {
 		switch c.Op {
 		case "MarkOwnTeamChatRead", "AdvanceChannelReadState", "StartTeamSession", "EndTeamSession":
 			t.Errorf("recover issued %s", c.Op)
+		}
+	}
+}
+
+// TestSessionRecoverTasksMoreIsTheServersHasMore2734 pins the wiring —
+// recover's tasksMore is the server's hasMore carried through, not a
+// full-page guess: a short page that claims more rows reports true, a page
+// that ends reports false. The text rendering of the
+// field is pinned in team/session_recover_test.go; this pins the extraction.
+func TestSessionRecoverTasksMoreIsTheServersHasMore2734(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		page string
+		more bool
+	}{
+		{"short page claims more", taskPage2734(startedTaskFieldsJSON, 2, true), true},
+		{"page ends", taskPage2734(startedTaskFieldsJSON, 1, false), false},
+	} {
+		r := recoverResponses2062()
+		r["AgentTaskList"] = tc.page
+		out, _, err := runRecover2062(t, r, "--json")
+		if err != nil {
+			t.Fatalf("%s: %v", tc.name, err)
+		}
+		var dto struct {
+			Tasks     []map[string]any `json:"tasks"`
+			TasksMore bool             `json:"tasksMore"`
+		}
+		if err := json.Unmarshal([]byte(out), &dto); err != nil {
+			t.Fatalf("%s: not JSON: %v\n%s", tc.name, err, out)
+		}
+		if len(dto.Tasks) != 1 || dto.TasksMore != tc.more {
+			t.Errorf("%s: tasks=%d tasksMore=%v, want the one served row carrying the server's hasMore=%v", tc.name, len(dto.Tasks), dto.TasksMore, tc.more)
 		}
 	}
 }
@@ -108,7 +141,7 @@ func TestSessionRecoverJSONShape2062(t *testing.T) {
 func TestSessionRecoverAbsentNoteAndEmptyListsAre2062(t *testing.T) {
 	r := recoverResponses2062()
 	r["GetNode"] = `{"data":{"node":null}}`
-	r["AgentTaskList"] = `{"data":{"agentTasks":[]}}`
+	r["AgentTaskList"] = taskPage2734("", 0, false)
 	r["TeamChatMessages"] = teamChatPage(0)
 	out, _, err := runRecover2062(t, r, "--json")
 	if err != nil {

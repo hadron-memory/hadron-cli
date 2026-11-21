@@ -259,7 +259,7 @@ func TestTaskList2349CountWalkPinsItsAlarmFiltersByName(t *testing.T) {
 	}
 	responses := rosterResponses993(roster1044()...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
-	responses["AgentTaskList"] = taskPage1044(tasks1044())
+	responses["AgentTaskList"] = taskPage1044(tasks1044(), false)
 	_, _, calls, err := pagesServer1919(t, responses, pages, "team", "task", "list", "--team=worker:Marco")
 	if err != nil {
 		t.Fatal(err)
@@ -312,7 +312,7 @@ func TestTeamAlarms2349HostileCoordinatorNameIsSanitised(t *testing.T) {
 		"NAME2349", `Mar\u001b[31mco`, 1)
 	responses := taskResponses()
 	responses["TeamAlarmRoster"] = `{"data":{"teamRoster":{"appId":"capp100000000000000000000","workers":[` + row + `]}}}`
-	responses["AgentTaskList"] = taskPage1044([]task1044{{id: "t1", handle: "AT0.1", owner: `{"id":"wkr1","kind":"WORKER","name":"Iris","urn":null}`}})
+	responses["AgentTaskList"] = taskPage1044([]task1044{{id: "t1", handle: "AT0.1", owner: `{"id":"wkr1","kind":"WORKER","name":"Iris","urn":null}`}}, false)
 	page := alarmsPage1829(alarmEvent1829("a1", "t1", "stall.no-progress", "2026-11-17T18:00:00Z", "", "", ""))
 	out, _, _, err := pagesServer1919(t, responses, page, "team", "alarms", "--team")
 	if err != nil {
