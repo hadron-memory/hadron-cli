@@ -15,7 +15,7 @@
 # because a floating graphql minor can change printSchema bytes. Bump deliberately.
 # PRE-MERGE PIN (hadron-cli#2883): server_sha below is the hadron-server#4761 head (FINAL per Bruce, c731e6ac), not a
 # commit on main. The snapshot is NOT its raw export: it is the committed main snapshot
-# (ef26d585) plus the PR's own SDL delta (export at its merge base 9b3bd880 vs its head),
+# plus the PR's own SDL delta (export at its merge base 1d020c1b vs its head c731e6ac),
 # because that branch is based on an older main and a raw export would drop fields the
 # CLI uses. Before the ready call, re-export from the merge SHA, re-stamp this line and
 # regenerate; a ready call at this SHA is refused.
