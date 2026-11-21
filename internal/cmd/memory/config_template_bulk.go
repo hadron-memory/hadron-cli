@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -248,7 +247,7 @@ func writeBulkApplyResult(f *cmdutil.Factory, r bulkApplyDTO, inputRefs []string
 
 // Caller refs must remain complete in text (unlike capped server cells), but
 // file/stdin input can carry terminal controls too.
-func safeBulkLine(ref string) string { return output.SafeLine(ref, utf8.RuneCountInString(ref)+1) }
+func safeBulkLine(ref string) string { return output.SanitizeLine(ref) }
 
 func bulkReportError(dry bool, what string) error {
 	if dry {

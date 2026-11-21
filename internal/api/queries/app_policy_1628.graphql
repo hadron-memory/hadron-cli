@@ -19,8 +19,6 @@ mutation CreateAppSettingsPolicy(
   # @genqlient(omitempty: true)
   $expiresAt: String
   # @genqlient(omitempty: true)
-  $role: AppMembershipRole
-  # @genqlient(omitempty: true)
   $createUserPermission: CreateUserPermission
   # @genqlient(omitempty: true)
   $identifyUserMethod: IdentifyUserMethod
@@ -37,7 +35,7 @@ mutation CreateAppSettingsPolicy(
   # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
   $policy: JSON
 ) {
-  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
+  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
     id urn name appType agentId
     # @genqlient(pointer: true)
     memberCount
