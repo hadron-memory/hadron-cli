@@ -5336,9 +5336,9 @@ status:"connected",failureCode:null,connection:{id,provider,mailboxEmail,
 displayName}}. If the follow-up connections read failed or did not list the new connection, the
 connect still succeeds with mailboxEmail and displayName empty, one note on stderr
 says which of the two happened, and the document adds degraded:true and
-degradedFields:["mailboxEmail","displayName"] (absent otherwise). The marker means
-that failed or missing lookup, not empty fields: a listed row whose fields are
-themselves empty gets no marker and no note. Failed: the same document with status "failed", failureCode set
+degradedFields:["mailboxEmail","displayName"] (absent otherwise). The marker reports
+a failed or missing lookup, never empty fields themselves: a listed row whose
+own fields are empty gets no marker and no note. Failed: the same document with status "failed", failureCode set
 and connection null, then exit 1. --no-wait: status "started", flowId set, connection null. Not
 finished in time: exit 13 (WaitTimeout), "not found yet", after the record is
 printed with status "pending" and the flowId - the consent may still
