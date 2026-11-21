@@ -9,7 +9,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Khan/genqlient/graphql"
+
 	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -44,6 +47,11 @@ recursively, and a null value there removes that host or field,
 so {"exports":{"codexSkill":{"enable":false}}} changes one setting and keeps
 the rest. Let the server do this merge rather than reading, editing and
 writing the whole object back, which can lose another writer's change.
+
+A task node (a runnable node) is written through its own door, which is the
+only one that accepts a write to it; the merge is the same, and the output is
+too. A node that is a task and also a review or a spec is refused by the server,
+and its refusal is printed as sent.
 
 On a memory with a schema, the merged result is checked against it and a
 record that does not fit is refused. --reason is recorded in the node's
@@ -82,11 +90,29 @@ version history. node update --properties replaces every field instead.`,
 			if err != nil {
 				return err
 			}
-			n, err := api.UpdateNodePropertiesWithClaim(cmd.Context(), client, cmdutil.AuthoredWith(cmd.Context()), id, json.RawMessage(raw), reasonArg)
-			if err != nil {
-				return api.MapError(err)
+			// A task node is written through the task door (cli#2826): the generic merge
+			// mutations refuse a governed node, and the task door's mergeExports makes the
+			// patch a merge under the node's lock. Every other node keeps the generic merge.
+			var dto setPropertiesDTO
+			if isTaskNode(cmd, client, id) {
+				props := json.RawMessage(raw)
+				input := gen.UpdateNodeInput{AuthoredWith: cmdutil.AuthoredWith(cmd.Context()), Id: &id, Properties: &props, Reason: reasonArg}
+				resp, err := gen.MergeTaskNodeProperties(cmd.Context(), client, &input, true)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp == nil || resp.UpdateTaskNode == nil {
+					return exitcode.Newf(exitcode.Unavailable, "the server returned no node for updateTaskNode, so it is not confirmed that the properties were merged; read the node with `hadron node get` before trying again")
+				}
+				n := resp.UpdateTaskNode
+				dto = setPropertiesDTO{ID: n.Id, MemoryID: n.MemoryId, Loc: n.Loc, Name: n.Name, Properties: cmdutil.ProjectedColumn(n.Properties), UpdatedAt: n.UpdatedAt}
+			} else {
+				n, err := api.UpdateNodePropertiesWithClaim(cmd.Context(), client, cmdutil.AuthoredWith(cmd.Context()), id, json.RawMessage(raw), reasonArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				dto = setPropertiesDTO{ID: n.Id, MemoryID: n.MemoryId, Loc: n.Loc, Name: n.Name, Properties: cmdutil.ProjectedColumn(n.Properties), UpdatedAt: n.UpdatedAt}
 			}
-			dto := setPropertiesDTO{ID: n.Id, MemoryID: n.MemoryId, Loc: n.Loc, Name: n.Name, Properties: cmdutil.ProjectedColumn(n.Properties), UpdatedAt: n.UpdatedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ updated properties of %s\n%s\n", output.SafeCell(dto.Loc), string(dto.Properties))
 				return err
@@ -98,4 +124,17 @@ version history. node update --properties replaces every field instead.`,
 	cmd.Flags().StringVar(&patchFile, "patch-file", "", "read the JSON object to merge from a file")
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	return cmd
+}
+
+// isTaskNode reports whether the node is a task (a runnable node), the kind whose only write
+// door is updateTaskNode. It reads the node's kind alone (the NodeKind document selects no
+// properties, so nothing the node holds can become part of the write: `exports` is never read,
+// edited and written back). A failed read or a node that cannot be read answers false, which
+// keeps the generic route, where the server gives the authoritative refusal.
+func isTaskNode(cmd *cobra.Command, client graphql.Client, id string) bool {
+	resp, err := gen.NodeKind(cmd.Context(), client, id)
+	if err != nil || resp == nil || resp.Node == nil {
+		return false
+	}
+	return resp.Node.IsRunnable != nil && *resp.Node.IsRunnable
 }
