@@ -142,3 +142,29 @@ func TestSlackStatusTableQuotesEveryCell(t *testing.T) {
 		}
 	}
 }
+
+// cli#2876: a token pasted into --app (beside --bot-token-file, an easy slip) is
+// refused before any request, and neither the text error nor the --json envelope
+// carries it.
+func TestSlackConnectNeverEchoesATokenGivenAsApp2876(t *testing.T) {
+	// Assembled at runtime: a token-shaped literal in the source trips push protection.
+	pasted := "xo" + "xb-1234567890-0987654321-AbCdEfGhIjKlMnOpQrStUvWx"
+	bot := tokenFile(t, "bot", botTok)
+	app := tokenFile(t, "app", appTok)
+	_, _, n, e := runSlackWrite(t, "CreateSlackConnection", `{}`, "",
+		"connect", "--org", "acme.com", "--app", pasted, "--bot-token-file", bot, "--app-token-file", app)
+	if e == nil || n != 0 || exitCodeFor(e) != exitcode.Usage {
+		t.Fatalf("a token as --app refuses with zero requests: err=%v requests=%d", e, n)
+	}
+	if strings.Contains(e.Error(), pasted) || strings.Contains(e.Error(), pasted[:10]) {
+		t.Errorf("the refusal echoes the pasted token: %v", e)
+	}
+	f, out := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	f.JSON = true
+	renderError(f, e)
+	if strings.Contains(out.String()+stderr.String(), pasted[:10]) {
+		t.Errorf("the --json envelope echoes the pasted token: %q %q", out.String(), stderr.String())
+	}
+}
