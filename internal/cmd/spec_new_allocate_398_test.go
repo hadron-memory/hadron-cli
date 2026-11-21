@@ -88,6 +88,13 @@ const (
 	alloc398Res  = `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`
 )
 
+// alloc398ErrAt is a coded error raised BELOW the mutation field (resolving the
+// returned object), i.e. after the write may have committed.
+func alloc398ErrAt(code string, path ...string) string {
+	ps, _ := json.Marshal(path)
+	return `{"data":null,"errors":[{"message":"` + code + ` below","path":` + string(ps) + `,"extensions":{"code":"` + code + `"}}]}`
+}
+
 func alloc398Err(code string) string {
 	return `{"errors":[{"message":"` + code + ` refused","extensions":{"code":"` + code + `"}}]}`
 }
@@ -168,17 +175,29 @@ func TestSpecNewRuleAfterAndExplicitModes398(t *testing.T) {
 	}
 
 	create := `{"data":{"createSpecNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-11-21T00:00:00Z"}}}`
+	wantLoc := map[string]string{"--rule": "msg:010:09", "--contract": "msg:010:00", "positional": "msg:010:60"}
 	for name, args := range map[string][]string{
 		"--rule":     {"--module", "msg", "--feature", "010", "--rule", "09", "--title", "T"},
 		"--contract": {"--module", "msg", "--feature", "010", "--contract", "--title", "T"},
-		"positional": {"msg:010:55", "--title", "T"},
+		"positional": {"msg:010:60", "--no-edges", "--title", "T"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			fk, _, _, _ := alloc398Run(t, map[string]alloc398Reply{
-				"CreateSpecNode": {body: create},
-			}, args...)
+			reply := map[string]alloc398Reply{"CreateSpecNode": {body: create}}
+			if name == "positional" { // the free-loc check resolves the loc: not found
+				reply["ResolveUrn"] = alloc398Reply{body: `{"errors":[{"message":"not found","extensions":{"code":"NOT_FOUND"}}]}`}
+			}
+			fk, _, errText, err := alloc398Run(t, reply, args...)
+			if err != nil {
+				t.Fatalf("%s must succeed: %v (%s)", name, err, errText)
+			}
 			if fk.count("AllocateSpecNode") != 0 {
 				t.Errorf("%s names its loc, so it must send no allocation", name)
+			}
+			if fk.count("CreateSpecNode") != 1 {
+				t.Errorf("%s must send exactly one CreateSpecNode, got %d", name, fk.count("CreateSpecNode"))
+			}
+			if in, _ := fk.first(t, "CreateSpecNode")["input"].(map[string]any); in == nil || in["loc"] != wantLoc[name] {
+				t.Errorf("%s must create at %q, got %v", name, wantLoc[name], in)
 			}
 		})
 	}
@@ -219,6 +238,7 @@ func TestSpecNewFillFailuresReportReservation398(t *testing.T) {
 		"refused":  {alloc398Reply{body: alloc398Err("BAD_USER_INPUT")}, "false", exitcode.Error},
 		"conflict": {alloc398Reply{body: alloc398Err("NODE_WRITE_CONFLICT")}, "false", exitcode.Error},
 		"lost":     {alloc398Reply{drop: true}, "unknown", exitcode.Unavailable},
+		"readback": {alloc398Reply{body: alloc398ErrAt("FORBIDDEN", "updateSpecNode", "id")}, "unknown", exitcode.Unavailable},
 	} {
 		t.Run(name, func(t *testing.T) {
 			fk, out, errText, err := alloc398Run(t, map[string]alloc398Reply{
@@ -237,10 +257,13 @@ func TestSpecNewFillFailuresReportReservation398(t *testing.T) {
 			if fk.count("CreateSpecNode") != 0 {
 				t.Error("a failed fill must not fall back to a create")
 			}
-			for _, s := range []string{"msg:010:07", "spec edit msg:010:07", "do NOT rerun `spec new`", "cor:dmo:120:07"} {
+			for _, s := range []string{"msg:010:07", "spec edit msg:010:07", "do NOT rerun `spec new`", "cor:dmo:120:07", "spec get msg:010:07"} {
 				if !strings.Contains(errText, s) {
 					t.Errorf("message missing %q: %s", s, errText)
 				}
+			}
+			if strings.Contains(errText, "is an empty placeholder") {
+				t.Errorf("a failed fill must not claim the node is blank (another writer may have filled it): %s", errText)
 			}
 			var dto struct {
 				Citation  string `json:"citation"`
@@ -251,6 +274,25 @@ func TestSpecNewFillFailuresReportReservation398(t *testing.T) {
 				t.Errorf("--json = %s (%v), want allocated:true filled:%q at msg:010:07", out, jerr, tc.wantFilled)
 			}
 		})
+	}
+}
+
+// An error below allocateSpecNode (resolving the returned node) follows the
+// commit: unknown outcome, the recovery guidance, no fill and no retry.
+func TestSpecNewAllocationReadbackErrorIsUnknown398(t *testing.T) {
+	fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+		"AllocateSpecNode": {body: alloc398ErrAt("FORBIDDEN", "allocateSpecNode", "revision")},
+	}, "--module", "msg", "--feature", "010", "--title", "Test")
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("a readback error after allocation exits %d, got %v", exitcode.Unavailable, err)
+	}
+	if fk.count("AllocateSpecNode") != 1 || fk.count("UpdateSpecNode") != 0 {
+		t.Errorf("no retry, no fill: allocate=%d update=%d", fk.count("AllocateSpecNode"), fk.count("UpdateSpecNode"))
+	}
+	for _, s := range []string{"outcome unknown", "spec ls -m", "rerunning allocates another number"} {
+		if !strings.Contains(errText, s) {
+			t.Errorf("message missing %q: %s", s, errText)
+		}
 	}
 }
 

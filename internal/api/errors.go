@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -803,6 +804,27 @@ func IsDefiniteRefusal(err error) bool {
 	for _, e := range list {
 		c := extensionCode(e)
 		if e == nil || c == "" || c == "INTERNAL_SERVER_ERROR" {
+			return false
+		}
+	}
+	return true
+}
+
+// IsDefiniteRefusalAt is IsDefiniteRefusal narrowed to the refusal of ONE
+// mutation field: every error must be coded AND carry either no path (it was
+// refused before the resolver ran) or exactly [field] (the resolver itself
+// refused). An error below the field (path [field, "revision"], ...) came from
+// resolving the RETURNED object, which happens after the write committed, so
+// the outcome is unknown, however well coded it is (cli#398).
+func IsDefiniteRefusalAt(err error, field string) bool {
+	if !IsDefiniteRefusal(err) {
+		return false
+	}
+	for _, e := range graphQLErrors(err) {
+		if len(e.Path) == 0 {
+			continue
+		}
+		if len(e.Path) != 1 || e.Path[0] != ast.PathName(field) {
 			return false
 		}
 	}

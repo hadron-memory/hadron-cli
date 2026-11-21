@@ -130,7 +130,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 
 	a, aerr := api.AllocateSpecNode(cmd.Context(), client, memURN, in.alloc.parent.Format(), in.alloc.after, in.title)
 	if aerr != nil {
-		if api.IsDefiniteRefusal(aerr) {
+		if api.IsDefiniteRefusalAt(aerr, "allocateSpecNode") {
 			return api.MapError(aerr) // refused: zero writes, nothing reserved
 		}
 		return exitcode.Newf(exitcode.Unavailable,
@@ -170,7 +170,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	}
 	if _, uerr := api.UpdateSpecNode(cmd.Context(), client, &fill); uerr != nil {
 		state := "unknown"
-		if api.IsDefiniteRefusal(uerr) {
+		if api.IsDefiniteRefusalAt(uerr, "updateSpecNode") {
 			state = "false"
 		}
 		return reservedUnfilled(f, memURN, a.Loc, state, api.MapError(uerr))
@@ -228,9 +228,9 @@ func reservedUnfilled(f *cmdutil.Factory, memURN, loc, filled string, cause erro
 		what = fmt.Sprintf("the fill's outcome is unknown (%v), so %s may or may not hold your content: read it with `hadron spec get %s -m %s` first", cause, loc, loc, memURN)
 		exit = exitcode.Unavailable
 	} else {
-		what = fmt.Sprintf("the fill was refused (%v), so %s is an empty placeholder", cause, loc)
+		what = fmt.Sprintf("this fill was refused (%v), so it did not write your content; %s may still be empty or another writer may have filled it since: read it with `hadron spec get %s -m %s` first", cause, loc, loc, memURN)
 	}
-	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. Finish it with `hadron spec edit %s -m %s --content-file <file>`; do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)", loc, what, loc, memURN)
+	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. If it is still empty, finish it with `hadron spec edit %s -m %s --content-file <file>`; do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)", loc, what, loc, memURN)
 	if f.JSON {
 		_ = output.Write(f.IOStreams, true, allocatedOutcomeDTO{Citation: loc, MemoryID: memURN, Allocated: true, Filled: filled, Reason: cause.Error()}, nil)
 	}
