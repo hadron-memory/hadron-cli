@@ -27,8 +27,10 @@ func clientRow2680(client, grant string) string {
 
 func revoked2680(state string) string { return revokedFor2680("gr-c1", state) }
 
-func revokedFor2680(grant, state string) string {
-	return `{"data":{"revokeGrant":{"id":"` + grant + `","state":"` + state + `","revokedAt":"2026-11-21T02:00:00Z","allows":false}}}`
+func revokedFor2680(grant, state string) string { return revokedAllows2680(grant, state, false) }
+
+func revokedAllows2680(grant, state string, allows bool) string {
+	return `{"data":{"revokeGrant":{"id":"` + grant + `","state":"` + state + `","revokedAt":"2026-11-21T02:00:00Z","allows":` + fmt.Sprint(allows) + `}}}`
 }
 
 func runRevoke2680(t *testing.T, srvURL string, args ...string) (string, error) {
@@ -86,7 +88,7 @@ func TestSecretClientRevokeSendsOnceWithTheGrantID2680(t *testing.T) {
 		t.Errorf("DTO: %v", d)
 	}
 	text, _, err := runSecretClient2631(t, srv.URL, "revoke", "c1", "--yes")
-	if err != nil || !strings.Contains(text, "REVOKED") || !strings.Contains(text, "c1") {
+	if err != nil || !strings.Contains(text, "is REVOKED") || !strings.Contains(text, "c1") {
 		t.Errorf("text must name the client and the state: %v %q", err, text)
 	}
 }
@@ -310,12 +312,14 @@ func TestSecretClientRevokeBlankIDSendsNothing2680(t *testing.T) {
 // DTO never claims the requested grant ended on the strength of another's answer.
 func TestSecretClientRevokeNeedsTheSameGrantInAnEndedState2680(t *testing.T) {
 	for name, resp := range map[string]string{
-		"another grant":  revokedFor2680("gr-other", "REVOKED"),
-		"empty id":       revokedFor2680("", "REVOKED"),
-		"empty state":    revokedFor2680("gr-c1", ""),
-		"unknown state":  revokedFor2680("gr-c1", "SURPRISE"),
-		"missing state":  `{"data":{"revokeGrant":{"id":"gr-c1","revokedAt":null,"allows":false}}}`,
-		"missing fields": `{"data":{"revokeGrant":{}}}`,
+		"another grant":            revokedFor2680("gr-other", "REVOKED"),
+		"empty id":                 revokedFor2680("", "REVOKED"),
+		"empty state":              revokedFor2680("gr-c1", ""),
+		"unknown state":            revokedFor2680("gr-c1", "SURPRISE"),
+		"missing state":            `{"data":{"revokeGrant":{"id":"gr-c1","revokedAt":null,"allows":false}}}`,
+		"missing fields":           `{"data":{"revokeGrant":{}}}`,
+		"revoked but still allows": revokedAllows2680("gr-c1", "REVOKED", true),
+		"expired but still allows": revokedAllows2680("gr-c1", "EXPIRED", true),
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": resp})
@@ -418,5 +422,62 @@ func TestSecretClientRevokeMatchesTheClientIDExactly2680(t *testing.T) {
 	srv := pagedClients2680(t, []string{clientRow2680("c1-long", "gr-long"), clientRow2680("c1", "gr-c1")}, &refs)
 	if _, err := runRevoke2680(t, srv.URL, "c1", "--yes"); err != nil || len(refs) != 1 || refs[0] != "gr-c1" {
 		t.Fatalf("the exact id must revoke its own grant: %v refs=%v", err, refs)
+	}
+}
+
+// Dorian's #2757 P2: a client row with no grant id never reaches the prompt or the
+// mutation (an empty ref would be sent otherwise): refused, zero revoke calls.
+func TestSecretClientRevokeRefusesAClientWithoutAGrantID2680(t *testing.T) {
+	for _, grant := range []string{"", "   "} {
+		srv, calls := attnServer(t, map[string]string{
+			"MySecretReadClients":         readClients2680(clientRow2680("c1", grant)),
+			"RevokeSecretReadClientGrant": revoked2680("REVOKED"),
+		})
+		_, err := runRevoke2680(t, srv.URL, "c1", "--yes")
+		if exitCodeFor(err) != exitcode.Error || revokes2680(calls) != 0 {
+			t.Fatalf("grant %q: exit=%d revokes=%d err=%v", grant, exitCodeFor(err), revokes2680(calls), err)
+		}
+		if !strings.Contains(err.Error(), "no grant id") {
+			t.Errorf("say why nothing was sent: %v", err)
+		}
+	}
+	// The prompt is not shown for a row that cannot be revoked.
+	f, _, errOut := testFactoryTTY(t, "y\n")
+	srv, calls := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", ""))})
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"secret", "client", "revoke", "c1", "--server", srv.URL})
+	if err := root.Execute(); err == nil || revokes2680(calls) != 0 || strings.Contains(errOut.String(), "Revoke read client") {
+		t.Errorf("no prompt and no revoke for a row without a grant id: %v %q", err, errOut.String())
+	}
+}
+
+// Dorian's #2757 P3: the server's code rides to the --json error envelope on both
+// kinds of failure (a definitive refusal keeps its exit, an unknown outcome is
+// exit 7), so a script can tell them apart without parsing the message.
+func TestSecretClientRevokeKeepsTheServerCode2680(t *testing.T) {
+	for name, tc := range map[string]struct {
+		resp, code string
+		exit       int
+	}{
+		"refusal": {`{"errors":[{"message":"x","path":["revokeGrant"],"extensions":{"code":"GRANT_NOT_MANAGER"}}]}`, "GRANT_NOT_MANAGER", exitcode.Forbidden},
+		"unknown": {`{"data":{"revokeGrant":null},"errors":[{"message":"x","path":["revokeGrant","state"],"extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, "INTERNAL_SERVER_ERROR", exitcode.Unavailable},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, _ := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1")), "RevokeSecretReadClientGrant": tc.resp})
+			f, out := testFactory(t)
+			var errOut strings.Builder
+			f.IOStreams.ErrOut = &errOut
+			f.JSON = true
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"secret", "client", "revoke", "c1", "--yes", "--json", "--server", srv.URL})
+			err := root.Execute()
+			if exitCodeFor(err) != tc.exit {
+				t.Fatalf("exit=%d want=%d err=%v", exitCodeFor(err), tc.exit, err)
+			}
+			renderError(f, err)
+			if env := out.String() + errOut.String(); !strings.Contains(env, `"serverCode": "`+tc.code+`"`) {
+				t.Errorf("the envelope must carry serverCode %s: %q", tc.code, env)
+			}
+		})
 	}
 }
