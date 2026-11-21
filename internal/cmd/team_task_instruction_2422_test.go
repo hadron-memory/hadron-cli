@@ -229,7 +229,7 @@ func TestTaskInstructionHelpNamesTheFlagOnEveryCommand2422(t *testing.T) {
 				t.Fatal(err)
 			}
 			h := strings.Join(strings.Fields(out), " ")
-			for _, want := range []string{"--instruction string", "team-chat-message, task or live-chat", "Needs server ba077810 or later"} {
+			for _, want := range []string{"--instruction string", "team-chat-message, task or live-chat", "Needs server 2026-11-04 or later"} {
 				if !strings.Contains(h, want) {
 					t.Errorf("help lacks %q:\n%s", want, h)
 				}

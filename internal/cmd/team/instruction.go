@@ -24,7 +24,7 @@ var parseInstruction = instruction.Parse
 // instructionHelpMinServer is the revision instructionHelp names for the commands
 // that first shipped the flag (cli#1592); instructionHelpFor swaps it for the
 // revision a later command actually needs (cli#2505).
-const instructionHelpMinServer = "17ef5905"
+const instructionHelpMinServer = instruction.ServerFloorInstructionActs
 
 // instructionHelpFor renders the shared instruction help for a command whose
 // instructed path needs server revision serverMin instead of the shared one.
