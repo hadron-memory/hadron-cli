@@ -1080,3 +1080,48 @@ func TestQuestionAskPassesAHugeNumberInGrantVerbatim(t *testing.T) {
 		t.Fatalf("grant must reach the server verbatim, got title=%q grant=%s", vars.Input.Title, vars.Input.Grant)
 	}
 }
+
+// Jessie's P2: a coded error BELOW the mutation field (beside committed data) is not a
+// refusal: it comes from resolving the returned question after the write committed, so
+// answer and retract report an unknown outcome (exit 7, not resent, the read-back
+// sentence) instead of a typed refusal (exit 8/4). A coded refusal AT the field, or with
+// no path, still keeps its typed exit; a null result is an unknown outcome too.
+func TestQuestionAnswerAndRetractErrorsBelowTheMutationAreUnknown(t *testing.T) {
+	type tc struct {
+		op, field string
+		args      []string
+	}
+	for _, c := range []tc{
+		{"AnswerQuestion", "answerQuestion", []string{"answer", "QA", "--expected-revision", "3", "--option", "pg"}},
+		{"RetractQuestionAnswer", "retractQuestionAnswer", []string{"retract", "QA", "--expected-revision", "4"}},
+	} {
+		at := func(code, path string) string {
+			return `{"data":{"` + c.field + `":null},"errors":[{"message":"x","path":` + path + `,"extensions":{"code":"` + code + `"}}]}`
+		}
+		for name, r := range map[string]struct {
+			resp string
+			exit int
+		}{
+			"FORBIDDEN below the field, beside data": {`{"data":{"` + c.field + `":` + questionAnsweredJSON + `},"errors":[{"message":"x","path":["` + c.field + `","answers",0,"actor"],"extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Unavailable},
+			"NOT_FOUND below the field":              {at("NOT_FOUND", `["`+c.field+`","answer"]`), exitcode.Unavailable},
+			"mixed at and below the field":           {`{"errors":[{"message":"x","path":["` + c.field + `"],"extensions":{"code":"FORBIDDEN"}},{"message":"y","path":["` + c.field + `","answers"],"extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Unavailable},
+			"an internal error at the field":         {at("INTERNAL_SERVER_ERROR", `["`+c.field+`"]`), exitcode.Unavailable},
+			"a null result with no error":            {`{"data":{"` + c.field + `":null}}`, exitcode.Unavailable},
+			"FORBIDDEN at the field keeps its exit":  {at("FORBIDDEN", `["`+c.field+`"]`), exitcode.Forbidden},
+			"NOT_FOUND with no path keeps its exit":  {`{"errors":[{"message":"x","extensions":{"code":"NOT_FOUND"}}]}`, exitcode.NotFound},
+			"a conflict at the field keeps its exit": {at("NODE_WRITE_CONFLICT", `["`+c.field+`"]`), exitcode.Conflict},
+		} {
+			calls, out, err := runQuestion(t, map[string]string{c.op: r.resp}, c.args...)
+			if exitCodeFor(err) != r.exit || len(calls.ops) != 1 {
+				t.Errorf("%s %s: exit=%d want=%d sends=%d err=%v", c.args[0], name, exitCodeFor(err), r.exit, len(calls.ops), err)
+				continue
+			}
+			if r.exit == exitcode.Unavailable {
+				m := err.Error()
+				if !strings.Contains(m, "not confirmed") || !strings.Contains(m, "not resent") || !strings.Contains(m, "hadron question get QA") || out != "" {
+					t.Errorf("%s %s: an unknown outcome says so, is not resent and names question get: %v out=%q", c.args[0], name, err, out)
+				}
+			}
+		}
+	}
+}

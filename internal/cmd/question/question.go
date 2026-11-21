@@ -619,9 +619,12 @@ note on stderr says so.
 
 Exit 1 is also the answer when the server replied but its reply does not show
 that outcome: nothing is printed on stdout, the call is NOT resent, and the error
-tells you to read the question with question get before trying again. Exit 7 is
-reserved for a reply that never arrived; either way the answer may have been
-recorded.`,
+tells you to read the question with question get before trying again. Exit 7
+is the answer when the reply never arrived, was unusable (a null question), or
+came with an error beneath the mutation (a coded error on a field of the returned
+question, after the write committed): the same sentence, nothing resent. Only a
+coded refusal of the mutation itself keeps its own exit (2, 4, 5, 8). Either way
+the answer may have been recorded.`,
 		Example: `  hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --option pg
   hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 4 --option my --reason "the team prefers it now" --text "MySQL, with a read replica"
   echo "needs a different approach" | hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --text-file -`,
@@ -675,10 +678,10 @@ recorded.`,
 			}
 			resp, err := gen.AnswerQuestion(cmd.Context(), client, ref, &input, expected)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "answerQuestion", "answer", ref)
 			}
-			if resp.AnswerQuestion == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.AnswerQuestion == nil {
+				return questionWriteNotConfirmed("answer", ref, "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.AnswerQuestion.QuestionFields)
 			// Success is only claimed when the returned question carries a standing
@@ -733,8 +736,11 @@ last answer entry, and a revision newer than the one you read.
 
 Exit 1 is also the answer when the server replied but its reply does not show
 that: nothing is printed on stdout, the call is NOT resent, and the error tells you
-to read the question with question get before trying again. Exit 7 is reserved for
-a reply that never arrived; either way the retraction may have been recorded.`,
+to read the question with question get before trying again. Exit 7 is the
+answer when the reply never arrived, was unusable (a null question), or came with
+an error beneath the mutation (after the write committed): the same sentence,
+nothing resent. Only a coded refusal of the mutation itself keeps its own exit
+(2, 4, 5, 8). Either way the retraction may have been recorded.`,
 		Example: `  hadron question retract hrn:node:acme.com:eng:questions:QA --expected-revision 4 --reason "wrong click"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -752,10 +758,10 @@ a reply that never arrived; either way the retraction may have been recorded.`,
 			}
 			resp, err := gen.RetractQuestionAnswer(cmd.Context(), client, ref, expected, optString(cmd, "reason", reason), &via)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "retractQuestionAnswer", "retraction", ref)
 			}
-			if resp.RetractQuestionAnswer == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.RetractQuestionAnswer == nil {
+				return questionWriteNotConfirmed("retraction", ref, "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.RetractQuestionAnswer.QuestionFields)
 			// "Pending again" is only claimed when the returned question has no
@@ -1220,4 +1226,25 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 		return false
 	}
 	return q.Answers[len(q.Answers)-1].Kind == string(gen.QuestionAnswerKindRetraction) && q.Revision > expectedRevision
+}
+
+// questionWriteError maps a failed answer or retract. Only a coded refusal at the
+// mutation's own level (no path, or exactly [field]) is definitive: it keeps its typed
+// exit because the server refused before writing. A coded error BELOW the field comes
+// from resolving the returned question after the write committed (cli#398, cli#2680), and
+// a transport failure, an internal error or an unusable answer may follow the commit
+// too: those are an unknown outcome, exit 7, never resent, with the read-back sentence.
+func questionWriteError(err error, field, what, ref string) error {
+	if api.IsDefiniteRefusalAt(err, field) {
+		return api.MapError(err)
+	}
+	return questionWriteNotConfirmed(what, ref, api.MapError(err).Error(), err)
+}
+
+func questionWriteNotConfirmed(what, ref, why string, cause error) error {
+	e := exitcode.Newf(exitcode.Unavailable, "%s not confirmed (%s): the outcome is unknown and the call is not resent; read the question with `hadron question get %s` before trying again", what, why, output.SafeCell(ref))
+	if cause != nil {
+		return api.WithServerCode(e, cause)
+	}
+	return e
 }
