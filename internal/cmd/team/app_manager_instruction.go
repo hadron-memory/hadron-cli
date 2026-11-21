@@ -29,7 +29,10 @@ func addManagerInstruction(cmd *cobra.Command) {
 }
 
 func managerInstruction(cmd *cobra.Command, f *cmdutil.Factory) (*gen.ActInstructionInput, InstructedWrite, error) {
-	raw, _ := cmd.Flags().GetString("instruction")
+	raw, err := cmd.Flags().GetString("instruction")
+	if err != nil {
+		return nil, nil, err
+	}
 	return staffingInstruction(cmd, f, raw)
 }
 func managerWriteContext(cmd *cobra.Command, ref string, claim *gen.ActInstructionInput, instructed InstructedWrite) (context.Context, error) {
