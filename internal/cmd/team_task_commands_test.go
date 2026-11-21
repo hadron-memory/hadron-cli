@@ -145,7 +145,7 @@ func taskResponses() map[string]string {
 		"AgentTaskPark":              `{"data":{"parkAgentTask":` + backlogTaskFieldsJSON + `}}`,
 		"AgentTaskReady":             `{"data":{"makeAgentTaskReady":` + taskFieldsJSON + `}}`,
 		"AgentTaskGet":               `{"data":{"agentTask":` + taskFieldsJSON + `}}`,
-		"AgentTaskList":              `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`,
+		"AgentTaskList":              taskPage2734(taskFieldsJSON, 1, false),
 		"AgentTaskTree":              `{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`,
 		"AgentTeamEventsPage":        `{"data":{"agentTeamEventsPage":{"events":[` + eventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`,
 		"AlarmAcknowledge":           `{"data":{"acknowledgeAlarm":` + ackedAlarmEventFieldsJSON + `}}`,
@@ -163,14 +163,23 @@ func taskResponses() map[string]string {
 // recorded calls.
 func runTeamTask(t *testing.T, responses map[string]string, argv ...string) (*[]attnCall, string, error) {
 	t.Helper()
-	_, calls, out, err := runTeamTaskFactory(t, responses, argv...)
-	return calls, out.String(), err
+	r := runTeamTaskFactory(t, responses, argv...)
+	return r.Calls, r.Out.String(), r.Err
+}
+
+// teamTaskRun is what runTeamTaskFactory returns, by field name so a caller
+// cannot swap two results.
+type teamTaskRun struct {
+	Factory *cmdutil.Factory
+	Calls   *[]attnCall
+	Out     *strings.Builder // the live stdout builder
+	Err     error
 }
 
 // runTeamTaskFactory is runTeamTask's scaffold, also returning the Factory and
 // the live stdout builder so a caller can render the error and read both streams
-// afterwards (cli#2784: shared with the app guard pins' refused1468).
-func runTeamTaskFactory(t *testing.T, responses map[string]string, argv ...string) (*cmdutil.Factory, *[]attnCall, *strings.Builder, error) {
+// afterwards (hadron-cli#2784: shared with the app guard pins' refused1468).
+func runTeamTaskFactory(t *testing.T, responses map[string]string, argv ...string) teamTaskRun {
 	t.Helper()
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, responses)
@@ -179,7 +188,7 @@ func runTeamTaskFactory(t *testing.T, responses map[string]string, argv ...strin
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"--server", srv.URL}, argv...))
 	err := root.Execute()
-	return f, calls, out, err
+	return teamTaskRun{Factory: f, Calls: calls, Out: out, Err: err}
 }
 
 // ---- create ---------------------------------------------------------------

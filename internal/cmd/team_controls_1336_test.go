@@ -22,7 +22,7 @@ func TestTeamControls1336ReachEveryGap(t *testing.T) {
 		{"pick", []string{"team", "register", "pick", "task.finish"}, "TeamRegisterPick", `{"registerRolePick":{"appId":"app1","code":"task.finish","entries":[]}}`, "code", "task.finish"},
 		{"candidates", []string{"team", "register", "candidates", "task.finish"}, "TeamRegisterCandidates", `{"registerRoleCandidates":{"appId":"app1","code":"task.finish","depth":null,"taskLoc":null,"candidates":[],"total":0}}`, "code", "task.finish"},
 		{"repos", []string{"team", "role", "update", "frontend-engineer", "--repo", "owner/repo"}, "UpdateTeamRoleRepos", `{"updateTeamRole":{"role":"frontend-engineer","loc":"roles:frontend-engineer","nodeId":"role1","description":null,"roleAgent":null}}`, "repos", []any{"owner/repo"}},
-		{"creator", []string{"team", "task", "list", "--creator", "worker:Jane"}, "AgentTaskListCreator", `{"agentTasks":[]}`, "creator", map[string]any{"worker": "Jane", "user": nil}},
+		{"creator", []string{"team", "task", "list", "--creator", "worker:Jane"}, "AgentTaskListCreator", `{"agentTasksPage":{"items":[],"total":0,"hasMore":false}}`, "creator", map[string]any{"worker": "Jane", "user": nil}},
 		{"attendee", []string{"team", "register", "attendee", "--agent", "agent-id"}, "TeamAttendeeRegister", `{"attendeeRegister":[]}`, "agentRef", "agent-id"},
 	}
 	for _, tc := range cases {
@@ -170,7 +170,7 @@ func TestTeamControls1336ClearReposAndCreatorCombined(t *testing.T) {
 		}
 	}
 	r = taskResponses()
-	r["AgentTaskListCreator"] = `{"data":{"agentTasks":[]}}`
+	r["AgentTaskListCreator"] = taskPage2734("", 0, false)
 	calls, _, e = runTeamTask(t, r, "team", "task", "list", "--creator", "user:alice", "--text", "fix", "--unresolved=false", "--status", "STARTED", "--json")
 	if e != nil {
 		t.Fatal(e)

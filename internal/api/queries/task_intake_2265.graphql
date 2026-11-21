@@ -3,9 +3,27 @@
 # ACTIVE task claimed the same item; at most one ACTIVE (backlog, pending or
 # started) task holds an id, newest first, beside any finished or cancelled
 # history. Empty = no task of the App holds it in any state.
-query IntakeItemHolders($appRef: ID!, $externalId: String!) {
-  agentTasks(appRef: $appRef, externalId: $externalId) {
-    id
-    status
+# cli#2734 (server#4622): the history is paged — the active holder can sit past
+# one page of finished predecessors, so hasMore is followed to the end.
+query IntakeItemHolders(
+  $appRef: ID!
+  $externalId: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  agentTasksPage(
+    appRef: $appRef
+    externalId: $externalId
+    limit: $limit
+    offset: $offset
+  ) {
+    items {
+      id
+      status
+    }
+    total
+    hasMore
   }
 }
