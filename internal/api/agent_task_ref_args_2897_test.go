@@ -14,6 +14,15 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
+// Compatibility (cli#2897, ruling 0274, Bruce #135369): the rename ships in the
+// ordered hard-break order, notices, then the server, then the companions. This
+// CLI takes NO old-name fallback: against a server still on the old names every
+// agent-task call fails loud at GraphQL validation ("Unknown argument"), nothing
+// executes, and there is no silent-success case. A fallback would have to step
+// down only on that validation error, never on an execution error, never by
+// comparing versions, and never by resending a write that may have executed
+// (cor:api:220:01); it is deliberately not built.
+
 // retiredAgentTaskArg matches the pre-hadron-server#4782 spelling of the 15
 // agent-task arguments (cli#2897): the mutations' `taskId:`, `agentTask(id:)`,
 // the list reads' `parentTaskId:` filter, and the events reads' `taskId:`
