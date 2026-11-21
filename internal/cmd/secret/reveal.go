@@ -14,6 +14,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -68,21 +69,55 @@ func valueText(jsonText string) string {
 	return jsonText
 }
 
-// revealError maps a failed reveal. A lost answer (an error with no server code:
-// transport, gateway, a missing answer) says the read may be spent and names
-// `client list`; a refusal with a server code does not, because the server
-// refused before any read. NOT_FOUND adds the one uniform sentence. The raw error
-// never carries the value: a failed call has none.
+// revealError maps a failed reveal. The mapped error is used for its exit CODE
+// and the server's extension code only: its MESSAGE is not forwarded, because a
+// non-200 answer can carry a success-shaped body (data holding the value) that the
+// generic mapper would print. The message is built from the server's own
+// errors[].message sentences (accepted as the server's text) or from a fixed class
+// sentence, never from raw response data.
+//
+// A lost answer (an error with no server code: transport, gateway, a missing
+// answer) says the read may be spent and names `client list`; a refusal with a
+// server code does not, because the server refused before any read. NOT_FOUND
+// adds the one uniform sentence.
 func revealError(err error) error {
 	mapped := api.MapErrorKeepingCode(err)
 	code := exitcode.FromError(mapped)
+	msg := safeRevealMessage(err, code)
 	switch {
 	case api.ServerCodeOf(err) == "" && (code == exitcode.Unavailable || code == exitcode.Error):
-		return api.WithServerCode(exitcode.Newf(code, "%s; %s", mapped.Error(), lostAnswerNote), err)
+		msg += "; " + lostAnswerNote
 	case code == exitcode.NotFound:
-		return api.WithServerCode(exitcode.Newf(code, "%s; %s", mapped.Error(), notRevealedHere), err)
+		msg += "; " + notRevealedHere
 	}
-	return mapped
+	return api.WithServerCode(exitcode.Newf(code, "%s", msg), err)
+}
+
+// safeRevealMessage is the message of a failed reveal: the server's own sentences
+// when it sent any, otherwise a fixed sentence for the HTTP status or the exit class.
+func safeRevealMessage(err error, code int) string {
+	if msgs := api.ServerMessages(err); len(msgs) > 0 {
+		return output.SafeLine(strings.Join(msgs, "; "), 500)
+	}
+	var httpErr *graphql.HTTPError
+	if errors.As(err, &httpErr) {
+		return fmt.Sprintf("the server answered HTTP %d", httpErr.StatusCode)
+	}
+	switch code {
+	case exitcode.Unavailable:
+		return "the server could not be reached, or its answer was lost"
+	case exitcode.AuthRequired:
+		return "the server did not accept the credential"
+	case exitcode.NotFound:
+		return "not found"
+	case exitcode.Forbidden:
+		return "not permitted"
+	case exitcode.Usage:
+		return "the server rejected the request"
+	case exitcode.Conflict:
+		return "the read client is not usable now"
+	}
+	return "the server returned an error"
 }
 
 // revealedValue is what one successful reveal returns. It is deliberately tiny
@@ -338,6 +373,13 @@ yet started, pending, issuer gone) or the secret deleted, 8 not permitted.`,
 			}
 			if pending != nil {
 				if err := pending.Commit([]byte(valueText(rv.json))); err != nil {
+					var lb *secretfile.LeftBehindError
+					if errors.As(err, &lb) {
+						// The write failed part-way and the file could not be removed: it may
+						// hold part or all of the secret. Fixed wording; the underlying error
+						// is never printed.
+						return exitcode.Newf(exitcode.Error, "one read was spent, but the value could not be fully written to %s, and that file could not be removed: it may hold part or all of the secret; delete it", abs)
+					}
 					return exitcode.Newf(exitcode.Error, "one read was spent, but the value could not be written to %s; the value was not delivered", abs)
 				}
 				return nil

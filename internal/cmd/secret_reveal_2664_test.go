@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
+	"github.com/hadron-memory/hadron-cli/internal/secretfile"
 )
 
 // cli#2664 slice 2: `secret exec` and `secret reveal`. Fake HTTP only; the exec
@@ -462,5 +464,64 @@ func TestSecretRevealErrorResponsesCarryingTheValue2664(t *testing.T) {
 				t.Errorf("no child may start after a failed answer")
 			}
 		})
+	}
+}
+
+// Jibril's P2: a non-200 whose BODY is success-shaped (data carrying the value,
+// no errors[].message) must not put the value in the error or the real --json
+// error envelope. The reveal error carries fixed classes and the server's own
+// sentences only, never raw response data.
+func TestSecretRevealNon200BodyCarryingTheValue2664(t *testing.T) {
+	for _, status := range []int{400, 401, 403, 404, 409, 500} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(status)
+				_, _ = w.Write([]byte(sentinelReveal2664))
+			}))
+			defer srv.Close()
+			f, out := testFactory(t)
+			var errOut strings.Builder
+			f.IOStreams.ErrOut = &errOut
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "secret", "reveal", "cl-1", "--allow-non-terminal", "--json"})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("a non-200 must be an error")
+			}
+			renderError(f, err)
+			requireNoValue2664(t, "the error, the real --json envelope or the streams", err.Error(), errOut.String(), out.String(), fmt.Sprintf("%+v", err))
+		})
+	}
+}
+
+// Jibril's P2: a partial write whose cleanup also fails leaves a file that may
+// hold part of the secret. The error says so in fixed words, names the file and
+// carries neither the value nor the underlying write error.
+func TestSecretRevealOutPartialWriteLeftBehind2664(t *testing.T) {
+	oldWrite, oldRemove := secretfile.Write, secretfile.Remove
+	secretfile.Write = func(f *os.File, b []byte) error {
+		_, _ = f.Write(b[:6])
+		return errors.New("injected write failure " + sentinel2664)
+	}
+	secretfile.Remove = func(string) error { return errors.New("injected remove failure") }
+	t.Cleanup(func() { secretfile.Write, secretfile.Remove = oldWrite, oldRemove })
+	srv, _ := attnServer(t, map[string]string{"RevealSecret": sentinelReveal2664})
+	path := filepath.Join(t.TempDir(), "token")
+	r := runSecretReveal2664(t, srv.URL, false, "reveal", "cl-1", "--out", path)
+	if r.err == nil || exitCodeFor(r.err) != 1 {
+		t.Fatalf("exit=%d err=%v", exitCodeFor(r.err), r.err)
+	}
+	for _, want := range []string{path, "may hold", "delete it"} {
+		if !strings.Contains(r.err.Error(), want) {
+			t.Errorf("the error must name the leftover file and say what to do (%q): %v", want, r.err)
+		}
+	}
+	requireNoValue2664(t, "the error", r.err.Error(), r.stdout, r.stderr)
+	if strings.Contains(r.err.Error(), "injected") {
+		t.Errorf("the underlying write error must not be printed: %v", r.err)
+	}
+	if strings.Contains(r.err.Error(), "not delivered") {
+		t.Errorf("it must not claim nothing was delivered while a partial file remains: %v", r.err)
 	}
 }
