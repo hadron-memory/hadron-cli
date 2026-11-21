@@ -88942,6 +88942,39 @@ func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() *int {
 	return v.RetryFailedEmbeddings
 }
 
+// RevealSecretResponse is returned by RevealSecret on success.
+type RevealSecretResponse struct {
+	// Reveal an App secret's value through a read client (hrn:node:hadronmemory.com:specs:cor:sec:060), spending exactly one use. Only the
+	// worker session the client's grant names; a person, an App key, a run and an impersonation get SECRET_READ_CLIENT_NOT_FOUND, as does
+	// an unknown client id or another holder's; a wrong holder's read of a real client is recorded on the secret, an unknown id's is not. The
+	// use and the audit event commit before the value is returned. One operation may select this field once: two or more are all refused with
+	// SECRET_REVEAL_ONE_PER_OPERATION before any reads (send each as its own operation).
+	RevealSecret *RevealSecretRevealSecretSecretRevealed `json:"revealSecret"`
+}
+
+// GetRevealSecret returns RevealSecretResponse.RevealSecret, and is useful for accessing the field via an interface.
+func (v *RevealSecretResponse) GetRevealSecret() *RevealSecretRevealSecretSecretRevealed {
+	return v.RevealSecret
+}
+
+// RevealSecretRevealSecretSecretRevealed includes the requested fields of the GraphQL type SecretRevealed.
+type RevealSecretRevealSecretSecretRevealed struct {
+	SecretName string `json:"secretName"`
+	// The current value as JSON text.
+	Value string `json:"value"`
+	// Reads left on the grant, or null when it has no budget.
+	ReadsLeft *int `json:"readsLeft"`
+}
+
+// GetSecretName returns RevealSecretRevealSecretSecretRevealed.SecretName, and is useful for accessing the field via an interface.
+func (v *RevealSecretRevealSecretSecretRevealed) GetSecretName() string { return v.SecretName }
+
+// GetValue returns RevealSecretRevealSecretSecretRevealed.Value, and is useful for accessing the field via an interface.
+func (v *RevealSecretRevealSecretSecretRevealed) GetValue() string { return v.Value }
+
+// GetReadsLeft returns RevealSecretRevealSecretSecretRevealed.ReadsLeft, and is useful for accessing the field via an interface.
+func (v *RevealSecretRevealSecretSecretRevealed) GetReadsLeft() *int { return v.ReadsLeft }
+
 // #3448 — a typed review outcome; the command records it without finishing the task (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
 type ReviewVerdict string
 
@@ -134931,6 +134964,14 @@ type __RetryFailedEmbeddingsInput struct {
 // GetMemoryRef returns __RetryFailedEmbeddingsInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__RetryFailedEmbeddingsInput) GetMemoryRef() string { return v.MemoryRef }
 
+// __RevealSecretInput is used internally by genqlient
+type __RevealSecretInput struct {
+	ClientId string `json:"clientId"`
+}
+
+// GetClientId returns __RevealSecretInput.ClientId, and is useful for accessing the field via an interface.
+func (v *__RevealSecretInput) GetClientId() string { return v.ClientId }
+
 // __RevokeAppKeyInput is used internally by genqlient
 type __RevokeAppKeyInput struct {
 	Id string `json:"id"`
@@ -173964,6 +174005,45 @@ func RetryFailedEmbeddings(
 	}
 
 	data_ = &RetryFailedEmbeddingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevealSecret.
+const RevealSecret_Operation = `
+mutation RevealSecret ($clientId: ID!) {
+	revealSecret(clientId: $clientId) {
+		secretName
+		value
+		readsLeft
+	}
+}
+`
+
+// cli#2664 slice 2: reveal a value through a read client, spending one read. THE
+// ONLY place the CLI selects `value`: it must never reach a log, an error or an
+// output the command did not mean to print. One call per process, never retried.
+func RevealSecret(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	clientId string,
+) (data_ *RevealSecretResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevealSecret",
+		Query:  RevealSecret_Operation,
+		Variables: &__RevealSecretInput{
+			ClientId: clientId,
+		},
+	}
+
+	data_ = &RevealSecretResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

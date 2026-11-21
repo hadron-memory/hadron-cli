@@ -63,6 +63,12 @@ type Factory struct {
 	// the original snapshot too. Reads keep the plain context.
 	WorkerWriteSession func(ctx context.Context, targetApps ...string) (WorkerWriteContext, error)
 
+	// WorkerSessionIfBound is installed by the root (cli#2664). Like
+	// WorkerWriteSession, but an unbound worktree is not an error: it returns a nil
+	// WorkerWriteContext and the caller sends without a session. Once a binding
+	// exists the strict rules apply.
+	WorkerSessionIfBound func(ctx context.Context, targetApps ...string) (WorkerWriteContext, error)
+
 	// NoteApprovingAsPerson is installed by the root (cli#1843). An approval on
 	// the default path calls it just before its mutation: from a worktree bound
 	// to a worker session it prints one stderr note (once per run) that the
@@ -311,6 +317,15 @@ func (f *Factory) NoteApproval(ctx context.Context, withAsWorker bool) {
 // command names beyond --app/context (a positional <app>, cli#1887): each must
 // be the binding's App or the resolve refuses. The returned guard also accepts
 // target App refs learned later, checking them against the original snapshot.
+// ResolveWorkerSessionIfBound resolves the session a reveal sends, if this
+// worktree is bound (nil when it is not). See WorkerSessionIfBound.
+func (f *Factory) ResolveWorkerSessionIfBound(ctx context.Context, targetApps ...string) (WorkerWriteContext, error) {
+	if f.WorkerSessionIfBound == nil {
+		return nil, nil
+	}
+	return f.WorkerSessionIfBound(ctx, targetApps...)
+}
+
 func (f *Factory) ResolveWorkerWrite(ctx context.Context, targetApps ...string) (WorkerWriteContext, error) {
 	if f.WorkerWriteSession == nil {
 		return nil, exitcode.Newf(exitcode.Usage, "--as-worker is unavailable here (no worker-session resolver); nothing was sent")

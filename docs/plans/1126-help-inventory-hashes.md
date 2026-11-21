@@ -31,3 +31,37 @@ The first commit `042bf511` adds red-first reset/seeding/hash tests; failure and
 Private-GOCACHE mutations kill disabled reset, hash-padding normalization, seed-as-reset, swallowed help failure, short digest and restored version dependency. Removing only `|| exit 1` is equivalent because `set -e` still propagates failure; disabling `help_of`’s failure return is the semantic negative control. A commuted comparison is another surviving equivalent control. Source hashes, patches and logs are retained in author evidence.
 
 No help audit assessment is re-authored here; the rubric and child audits remain unchanged. `make help-inventory-check` remains an explicit tooling check, not a new per-PR CI gate. The T1 schedule still requires independent LOCAL, BLIND and QA, including first adoption on a copy of the real inventory.
+
+## Portability and fixture follow-ups (#2479)
+
+Capture now exports `LC_ALL=C` and `COLUMNS=80` for every help process. These are
+repo-local hash inputs, independent of the caller's locale and terminal width;
+no public help text or assessment-reset rule changes. Markdown alignment
+outside a backticked path is normalized for lookup, as padding in the hash cell
+already was. Evaluator, result and finding text (including their whitespace)
+is carried through unchanged. Padding inside a backticked path is not rewritten.
+
+The no-version fixture edit checks for the branch marker and its terminating
+newline and returns a diagnostic instead of slicing with a negative offset.
+A hermetic `shasum -a 256` stand-in runs the fallback branch on every bash-capable
+host, using the Go test process's SHA-256 implementation for the digest; the
+existing real-shasum test remains additional coverage where installed. Separate
+sha256sum/shasum fixtures emit plausible stdout but exit nonzero: generation
+must fail with empty stdout, and publication must retain the old file's bytes
+and mode and remove its staging file. Missing digest-tool and malformed-row
+coverage belongs to #2476 and is not duplicated here.
+
+F7's optional mechanical helper renaming is declined: the existing 1126 suffixes
+identify the original migration and are used across multiple test files; renaming
+those helpers adds churn without changing their contract. New helpers use
+descriptive names. P3-8's proposal to retain prior finding links remains declined:
+changed help clears all human fields, with their prior values in git history.
+
+Verification for this follow-up: red-first `7d6d8a5a` fails the padded-key,
+caller-environment and missing-marker/newline pins. The fixed focused generator,
+wrapper and whole-file-check suite passes with `-race`; real
+`make help-inventory-check` produces no drift. Reverting path normalization or
+capture exports, swallowing digest failure by dropping pipefail, and changing
+the fallback digest arguments each fails its named pin. Reversing the order of
+the two environment exports is equivalent and survives. Mutant source bytes
+were restored, and its private cache and compiled test binary were removed.

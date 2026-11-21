@@ -15,7 +15,7 @@ import (
 // keep the two issue numbers from mixing in these tests.
 const renderNodeRef2268 = renderNodeRef1010
 
-func renderFixture2268(t *testing.T, reply string) (*httptest.Server, *[]map[string]json.RawMessage) {
+func renderFixture2268(t *testing.T, reply string) (*httptest.Server, *renderCapture1010) {
 	t.Helper()
 	return renderFixture1010(t, reply)
 }
@@ -57,8 +57,8 @@ func TestTaskRenderRefusesMissingOrNullData2268(t *testing.T) {
 				if out.Len() != 0 {
 					t.Fatalf("nothing may be rendered on a refusal, stdout=%q", out.String())
 				}
-				if len(*requests) != 1 {
-					t.Fatalf("no retry and no fallback: requests=%d, want exactly 1", len(*requests))
+				if len(requests.snapshot()) != 1 {
+					t.Fatalf("no retry and no fallback: requests=%d, want exactly 1", len(requests.snapshot()))
 				}
 				if err.Error() != refusal2268 {
 					t.Fatalf("the refusal is the literal message: %q", err.Error())
@@ -112,8 +112,8 @@ func TestTaskRenderValidEmptyStaysASuccess2268(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatalf("a valid empty render must succeed: %v", err)
 			}
-			if len(*requests) != 1 {
-				t.Fatalf("requests=%d", len(*requests))
+			if len(requests.snapshot()) != 1 {
+				t.Fatalf("requests=%d", len(requests.snapshot()))
 			}
 			if !asJSON {
 				if out.String() != "" {

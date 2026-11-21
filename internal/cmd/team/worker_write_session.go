@@ -133,3 +133,28 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (cm
 		}, nil
 	}
 }
+
+// WorkerSessionIfBound is the resolver behind `secret exec` and `secret reveal`
+// (cli#2664). A read client is revealed by the worker it names, in that worker's
+// session, but a person on an API token must still be ASKED so the server gives
+// its one uniform answer (cor:sec:060:02): so, unlike WorkerWriteSession, an
+// unbound worktree (or no worktree at all) is not an error. It returns a nil
+// WorkerWriteContext and nil error, and the caller sends without a session and
+// says so. Once there IS a binding the strict resolver decides: an incomplete
+// binding, one for another server, or another --app is refused (exit 2, nothing
+// sent), and the returned function re-verifies the binding right before the call.
+func WorkerSessionIfBound(f *cmdutil.Factory) func(context.Context, ...string) (cmdutil.WorkerWriteContext, error) {
+	strict := WorkerWriteSession(f)
+	return func(ctx context.Context, targetApps ...string) (cmdutil.WorkerWriteContext, error) {
+		b, _, err := readBindingFile(ctx)
+		switch {
+		case errors.Is(err, errNoWorktree):
+			return nil, nil
+		case err != nil:
+			return nil, exitcode.Newf(exitcode.Usage, "cannot read this worktree's session binding (%v), so the reveal cannot tell whether it is a worker's; nothing was sent", err)
+		case b == nil:
+			return nil, nil
+		}
+		return strict(ctx, targetApps...)
+	}
+}
