@@ -4,11 +4,14 @@ package cmd
 // --org/--app, the malformed --app refusal, the short --app form, disconnect's
 // text-mode success line, and the Zl/Zp line/paragraph separators the control
 // character guard must refuse (pinned beside the U+202E case in the #206 file).
-// The #2827 rounds added the hostile-status refusal (one refused rune of every
-// guarded class, exit code pinned) and the happy-path status table whose every
-// cell renders quoted. Fake HTTP only.
+// The #2827 rounds added the hostile-status refusal (a status that starts with ACTIVE
+// and carries one refused rune of every guarded class, quoted whole, exit code pinned) and
+// the happy-path status table whose whole row renders quoted. Fake HTTP only.
 
 import (
+	"encoding/json"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -87,21 +90,27 @@ func TestSlackDisconnectTextModeSuccessLine(t *testing.T) {
 	}
 }
 
-// #2827 review (SEC10, Bianca F1): a server-supplied status is untrusted. The
-// status command refuses anything but ACTIVE/ERROR before its table (toDTO),
-// and the refusal quotes the value (strconv.Quote), so hostile Zl/Zp/Cc/Cf
-// runes can neither forge the refusal message nor the table row; the table's
-// status cell is additionally wrapped like its siblings (SafeCell) should the
-// allowlist ever widen. This pin holds the reachable guard: nothing raw
-// reaches the terminal, and the refusal quotes what it names.
+// #2827: a server-supplied status is untrusted. The status command refuses anything but
+// ACTIVE/ERROR before its table (toDTO), and the refusal quotes the value (strconv.Quote),
+// so hostile Zl/Zp/Cc/Cf runes can neither forge the refusal message nor the table row; the
+// table's status cell is additionally wrapped like its siblings (SafeCell) should the
+// allowlist ever widen. This pin holds the reachable guard: nothing raw reaches the
+// terminal (the error text, and the line the real renderer prints), and the refusal quotes
+// the WHOLE value it names, so a refusal that merely listed the allowed values would fail.
+//
+// The status starts with ACTIVE on purpose: a check that matches by prefix, or trims at the
+// first separator, would accept it; only the exact allowlist refuses it.
 func TestSlackStatusRefusesAHostileStatusSafely(t *testing.T) {
-	// One refused rune of every guarded class inside the server-supplied
-	// status \u2014 a Zl and a Zp separator, a CR and an ESC (Cc) and an RLO
-	// override (Cf) \u2014 carried as JSON escapes so this file stays pure ASCII.
-	// Every rune below also appears in the raw-leak check, so no arm of that
-	// check is vacuous (#2827 review, Jonas N3).
-	hostile := "\"A\\u2028b\\u2029c\\u000dd\\u001be\\u202ef\""
-	row := `{"id":"c1","organizationId":"o1","defaultAppId":"a1","provider":"slack","status":` + hostile + `,"teamId":"T1","teamName":"Acme","botId":"B1","botUserId":"U1","createdAt":"c","updatedAt":"u"}`
+	// One refused rune of every guarded class inside the server-supplied status: a Zl and a
+	// Zp separator, a CR and an ESC (Cc) and an RLO override (Cf). The Go escapes keep this
+	// file pure ASCII; the same runes appear in the raw-leak check, so no arm of that check
+	// is vacuous.
+	const value = "ACTIVE\u2028b\u2029c\rd\x1be\u202ef"
+	quoted, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := `{"id":"c1","organizationId":"o1","defaultAppId":"a1","provider":"slack","status":` + string(quoted) + `,"teamId":"T1","teamName":"Acme","botId":"B1","botUserId":"U1","createdAt":"c","updatedAt":"u"}`
 	out, ops, n, e := runSlackWrite(t, "SlackConnections", `{"data":{"slackConnections":{"total":1,"items":[`+row+`]}}}`, "", "status")
 	if e == nil || n != 1 {
 		t.Fatalf("the hostile status is refused after the one read: err=%v requests=%d", e, n)
@@ -109,37 +118,46 @@ func TestSlackStatusRefusesAHostileStatusSafely(t *testing.T) {
 	if len(ops) != 1 || ops["SlackConnections"] == nil {
 		t.Fatalf("the one request is the connections read: %v", ops)
 	}
-	// The refusal is Unavailable (a row this CLI will not render), pinned
-	// (#2827 review, Jonas N5).
+	// The refusal is Unavailable (a row this CLI will not render).
 	if exitCodeFor(e) != exitcode.Unavailable {
 		t.Fatalf("the hostile status refuses Unavailable, got exit %d: %v", exitCodeFor(e), e)
 	}
-	// Nothing hostile reaches the terminal raw, in the rendered output or the
-	// error: every carried rune \u2014 separators, override, CR, ESC \u2014 appears only
-	// as its quoted escape, never itself.
+	// Nothing hostile reaches the terminal raw, in the rendered output or the error: every
+	// carried rune (separators, override, CR, ESC) appears only as its quoted escape.
 	if strings.ContainsAny(out+"\n"+e.Error(), "\x1b\r\u202e\u2028\u2029") {
-		t.Fatalf("a hostile status must not reach the terminal raw:\n%q", out)
+		t.Fatalf("a hostile status must not reach the terminal raw: out=%q err=%q", out, e.Error())
 	}
-	// The refusal quotes the value: the separator renders as its escape.
-	if !strings.Contains(e.Error(), "\\u2028") || !strings.Contains(e.Error(), "\"A") {
-		t.Fatalf("the refusal quotes the hostile status:\n%q", e.Error())
+	// The refusal quotes the whole value, not just a prefix of it.
+	if want := "status " + strconv.Quote(value); !strings.Contains(e.Error(), want) {
+		t.Fatalf("the refusal must quote the whole hostile status %s:\n%q", want, e.Error())
+	}
+	// The rendered form (the line the real renderer prints) is inert and keeps the quoted value.
+	rendered := renderPlain2739(t, e)
+	if r, bad := errTextHasControl2739(rendered); bad {
+		t.Fatalf("the rendered refusal carries %U: %q", r, rendered)
+	}
+	if !strings.Contains(rendered, strconv.Quote(value)) {
+		t.Fatalf("the rendered refusal keeps the quoted value %s: %q", strconv.Quote(value), rendered)
 	}
 }
 
-// #2827 fold (Jonas N1): the happy path reaches the table. Every cell of the
-// status table renders quoted \u2014 the table's own idiom \u2014 and the status cell
-// is wrapped like its siblings, so this pin makes the wrap reachable: reverting
-// the status cell to a raw render goes red here.
+// The happy path reaches the table. Every cell of the status table renders quoted (the
+// table's own idiom), and the status cell is wrapped like its siblings, so this pin makes the
+// wrap reachable: reverting the status cell to a raw render goes red here. The whole row is
+// asserted, in column order, so a value cannot pass by appearing in the wrong cell or only in
+// the header.
 func TestSlackStatusTableQuotesEveryCell(t *testing.T) {
 	row := `{"id":"c1","organizationId":"o1","defaultAppId":"a1","provider":"slack","status":"ACTIVE","teamId":"T1","teamName":"Acme","botId":"B1","botUserId":"U1","createdAt":"c","updatedAt":"u"}`
 	out, _, n, e := runSlackWrite(t, "SlackConnections", `{"data":{"slackConnections":{"total":1,"items":[`+row+`]}}}`, "", "status")
 	if e != nil || n != 1 {
 		t.Fatalf("err=%v requests=%d", e, n)
 	}
-	for _, want := range []string{`"c1"`, `"ACTIVE"`, `"T1"`, `"Acme"`} {
-		if !strings.Contains(out, want) {
-			t.Fatalf("every cell of the status table renders quoted, missing %s:\n%s", want, out)
-		}
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("one header and one row expected:\n%s", out)
+	}
+	if got, want := strings.Fields(lines[1]), []string{`"c1"`, `"o1"`, `"a1"`, `"ACTIVE"`, `"T1"`, `"Acme"`, `"B1"`, `"U1"`, `"u"`}; !slices.Equal(got, want) {
+		t.Fatalf("every cell of the row renders quoted, in column order:\n got  %q\n want %q\n%s", got, want, out)
 	}
 }
 
