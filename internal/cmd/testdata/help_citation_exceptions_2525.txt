@@ -91,7 +91,7 @@ team session reset-context  # issue #2161 x1
 team session resume-claim  # citation cor:agt:020:03 x1 | issue #842 x1
 team session set-model  # issue #1931 x1
 team session shed  # issue #952 x1
-team session start  # citation cor:agt:020:03 x3 | citation cor:agt:020:09 x1 | citation cor:agt:070:08 x1 | issue #1114 x1 | issue #1617 x1 | issue #2209 x1 | issue #371 x1 | issue #3822 x1 | issue #399 x1 | issue #472 x1 | issue #831 x1 | issue #842 x1
+team session start  # citation cor:agt:020:03 x3 | citation cor:agt:020:09 x1 | citation cor:agt:070:08 x1 | issue #1114 x1 | issue #1617 x1 | issue #2209 x1 | issue #3822 x1 | issue #399 x1 | issue #472 x1 | issue #831 x1 | issue #842 x1
 team session sync-model  # issue #2252 x1 | issue #995 x1
 team session whoami  # citation cor:agt:020:09 x1 | issue #1114 x2 | issue #2969 x1 | issue #484 x1 | issue #623 x1
 team stall-schedule  # citation cor:agt:050:10 x1 | citation cor:agt:050:14 x1 | citation cor:agt:070:01 x1 | citation cor:agt:070:02 x1

@@ -36,7 +36,9 @@ var (
 	citationRE2525 = regexp.MustCompile(`cor:[a-z]+(?::[0-9]+)+`)
 	issueRE2525    = regexp.MustCompile(`#[0-9]+`)
 	// ownerRepoBeforeRE2525 matches an "owner/repo" token ending right before a "#".
-	ownerRepoBeforeRE2525 = regexp.MustCompile(`[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+	// Only the value of --pr, or the placeholder "owner/repo" that names the syntax, counts: a
+	// free-standing "x/y#3189" in prose is still an issue number.
+	ownerRepoBeforeRE2525 = regexp.MustCompile(`(?:--pr[ =]+[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|\bowner/repo)$`)
 	hashRE2525            = regexp.MustCompile(`(?:^|[^0-9A-Za-z])([0-9a-f]{7,40})(?:$|[^0-9A-Za-z])`)
 )
 
@@ -144,6 +146,7 @@ func TestBanRegexesCatchTheShapesThePolicyBans2525(t *testing.T) {
 		{"owner/repo#N is the CLI's syntax", "--pr acme/widgets#7", ""},
 		{"owner/repo#N with digits", "--pr acme/widgets#371 --json", ""},
 		{"a hadron-server issue number is still banned", "see hadron-server#3189", "issue"},
+		{"an org-qualified issue number in prose is still banned", "see hadron-memory/hadron-server#3189", "issue"},
 		{"a cli issue number is still banned", "(cli#2631)", "issue"},
 		{"an example id on a release page", "hadron team task release 01a189a840f4717c98af75cf4d7aed09", ""},
 		{"an example id beside a --server flag", "hadron secret get 01a189a840f4717c98af75cf4d7aed09 --server https://x", ""},
@@ -333,6 +336,11 @@ var (
 func helpPagesInScope2525(t *testing.T) map[string]string {
 	t.Helper()
 	pagesOnce2525.Do(func() { pagesCache2525 = renderHelpPages2525(t) })
+	if len(pagesCache2525) == 0 {
+		// The first render failed (it called t.Fatalf in another test): never let a later
+		// test pass over nothing.
+		t.Fatal("the help pages did not render in an earlier test, so nothing is checked here")
+	}
 	return pagesCache2525
 }
 

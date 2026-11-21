@@ -17,15 +17,25 @@ const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-
 // same day can predate the merge), so the exact change is named below, and the server itself
 // is the capability check: an older server refuses the flag with its own error, which the CLI
 // passes through and never retries without the flag.
+//
+// Provenance of the dates (cli#2525 removed the revision hashes the help used to carry; this is
+// where they are kept): ba077810 = hadron-server#3376 = 2026-11-04; 17ef5905 = #3314 = 2026-11-03;
+// c3ca05b5 = #3340 = 2026-11-03; 5fd87dcc = #3368 = 2026-11-03 (the asset public-link call);
+// e09a1653 = #2877 = 2026-10-30 (task properties); cf9bcfece = #2726 = 2026-10-29 (task
+// blockers and priority); 6b3f1e15 = #2865 = 2026-10-30; 31d63828 = #2983 = 2026-10-31;
+// 27671b4b = #3189 = 2026-11-02; f4db15e0 = #3718 = 2026-11-08; 696ed50c8 = #4284 = 2026-11-16;
+// 8bbf82dd = #3605 = 2026-11-06 (the worker delete preview); ad7f1c2 = #2102 = 2026-10-19 (A-prime).
+// Every row is the server merge commit's UTC committer date.
 const (
 	// ServerFloorInstructionActs is the floor, in UTC, for the instructed person/worker acts: the
-	// base --instruction flag, the staffing and member doors and the credential acts (the merge of
-	// hadron-server#3307 and #3308).
+	// base --instruction flag, the staffing and member doors and the credential acts: the merge of
+	// hadron-server#3314 (merge commit 17ef5905, 2026-11-03 UTC; the instructed act of #3307).
 	ServerFloorInstructionActs = "2026-11-03"
 	// ServerFloorInstructionManagerWrites is the floor for the instructed App-manager writes,
-	// the task writes and the alarm-acknowledgement, stall-schedule and availability writes: several
-	// server changes merged the same UTC day (hadron-server#3323 and #3398 for the manager doors,
-	// #3340 for the task writes, #3376 for the instructed availability and alarm paths).
+	// the task writes and the alarm-acknowledgement, stall-schedule and availability writes. It is
+	// the merge of hadron-server#3376 (merge commit ba077810, 2026-11-04 UTC; the instructed manager
+	// doors of #3323). A door whose own change merged earlier (hadron-server#3340, commit c3ca05b5,
+	// the grant revoke, 2026-11-03) is floored at this later date too: later than needed, never earlier.
 	ServerFloorInstructionManagerWrites = "2026-11-04"
 )
 

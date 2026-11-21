@@ -832,7 +832,7 @@ BEFORE YOU START:
   3. Pick a worker that EXISTS: ` + "`hadron team worker list --app <app>`" + `. If
      none fits, cast one first (` + "`hadron team worker cast --help`" + `).
   4. Start: ` + "`--as <worker> --tool <tool>`" + `, plus --repo owner/repo and --branch
-     if you want ` + "`session log`" + ` to accept bare refs (#371, a sha, a branch name).
+     if you want ` + "`session log`" + ` to accept bare refs (a bare number, a sha, a branch name).
      Neither is guessed from git: omitted, nothing is recorded.
 
 THREE DIFFERENT STARTS — pick one:

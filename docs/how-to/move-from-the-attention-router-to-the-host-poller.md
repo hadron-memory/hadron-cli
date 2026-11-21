@@ -21,7 +21,7 @@ types the host's due tick and task wakes, so it replaces `ticker-wake` too.
    batches to it: the router, and `ticker-wake` if it would type chat text
    (never `--ack-mentions`). One deliverer per worker (G5): two can type the
    same message twice. Since R53 (hadron-server#2072, on server main since
-   `2026-10-19`), acknowledging a wake moves no message mark, so a wake ack can
+   `2026-10-19`, `ad7f1c2`), acknowledging a wake moves no message mark, so a wake ack can
    no longer mark untyped text delivered; only a batch ack or the worker's
    own read does.
 2. Only then is that worker's delivery enabled on the host poller.
@@ -30,7 +30,7 @@ types the host's due tick and task wakes, so it replaces `ticker-wake` too.
 
 `delivery.ack_mixed` defaults to `false`. Set it to `true` only after verifying
 that the deployed server contains A′, the change hadron-server#2072 (merged
-`2026-10-19`; the date is for orientation, since a build from that day can
+`2026-10-19`, merge commit `ad7f1c2`; the date is for orientation, since a build from that day can
 predate the merge: confirm the deployed build includes that change). This is the
 operator's assertion of that deployed server behavior, not capability detection:
 
