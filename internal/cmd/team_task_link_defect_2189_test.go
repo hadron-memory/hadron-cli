@@ -267,17 +267,17 @@ func TestTaskLinkDefect2329RecoveryRefInFull(t *testing.T) {
 	// renaming a case cannot stop them being enforced.
 	for name, tc := range map[string]struct {
 		ref, shown         string
-		minRunes           int  // the ref must exceed this many runes (0: no length requirement)
+		exceedsRunes       int  // the ref must have MORE runes than this (0: no length requirement)
 		moreBytesThanRunes bool // the ref must hold multibyte runes
 	}{
-		"longer than 200":                 {ref: long, shown: long, minRunes: 200},
-		"multibyte longer than 200 runes": {ref: multibyte, shown: multibyte, minRunes: 200, moreBytesThanRunes: true},
+		"longer than 200":                 {ref: long, shown: long, exceedsRunes: 200},
+		"multibyte longer than 200 runes": {ref: multibyte, shown: multibyte, exceedsRunes: 200, moreBytesThanRunes: true},
 		"shell metachars":                 {ref: "AT1.2;rm -rf $(x) 'q'", shown: "AT1.2;rm -rf $(x) 'q'"},
 		"control chars":                   {ref: "AT1.2\x1b[31m\nforged", shown: "AT1.2 [31m forged"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if runes := utf8.RuneCountInString(tc.ref); runes <= tc.minRunes {
-				t.Fatalf("fixture must exceed %d runes, is %d", tc.minRunes, runes)
+			if runes := utf8.RuneCountInString(tc.ref); runes <= tc.exceedsRunes {
+				t.Fatalf("fixture must exceed %d runes, is %d", tc.exceedsRunes, runes)
 			}
 			if tc.moreBytesThanRunes && len(tc.ref) == utf8.RuneCountInString(tc.ref) {
 				t.Fatalf("the multibyte fixture must have more bytes than runes, both are %d", len(tc.ref))

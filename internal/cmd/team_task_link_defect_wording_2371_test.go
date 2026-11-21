@@ -3,6 +3,7 @@ package cmd
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // cli#2371 F4: the link-defect paragraph in agentic-usage says the last line is
@@ -30,7 +31,7 @@ func TestAgenticUsageLinkDefectRefWording2371(t *testing.T) {
 	}
 	for _, want := range []string{
 		"control characters in the ref show as spaces",
-		"quote the ref when you pass it back to a shell",
+		"quote the ref when you pass it back to a POSIX shell",
 		// cli#2417 F4: name a safe form. A ref can hold a single quote and
 		// double quotes still expand $(...) and backticks.
 		"Single-quote it, writing each embedded `'` as `'\\''`",
@@ -53,7 +54,7 @@ func TestAgenticUsageLinkDefectParagraphIsWrapped2417(t *testing.T) {
 	lines := strings.Split(out.String(), "\n")
 	first := -1
 	for i, l := range lines {
-		if strings.HasPrefix(l, "retrying. The message's last line is that task ref alone") {
+		if strings.Contains(l, "The message's last line is that task ref alone") {
 			first = i
 			break
 		}
@@ -64,7 +65,7 @@ func TestAgenticUsageLinkDefectParagraphIsWrapped2417(t *testing.T) {
 	ended := false
 	for i := first; i < len(lines) && !ended; i++ {
 		ended = strings.Contains(lines[i], "No retry.")
-		if n := len([]rune(lines[i])); n > 80 {
+		if n := utf8.RuneCountInString(lines[i]); n > 80 {
 			t.Errorf("agentic-usage line %d is %d columns, want at most 80: %q", i+1, n, lines[i])
 		}
 	}
