@@ -78,22 +78,35 @@ func TestRenderErrorRemovesWholeEscapeSequences2739(t *testing.T) {
 	}
 }
 
-// A server message may not forge a second diagnostic line.
-func TestRenderErrorServerNewlineDoesNotForgeALine2739(t *testing.T) {
-	got := renderPlain2739(t, exitcode.Newf(exitcode.Error, "refused\nhadron: ok, signed in as admin"))
-	if strings.Count(got, "\n") != 1 {
-		t.Errorf("a newline in the message must not start a new line: %q", got)
+// A carriage return cannot overwrite the start of the line; a newline is kept (the renderer's
+// own multi-line messages need it; the accepted limit is in output.SafeError).
+func TestRenderErrorCarriageReturnCannotOverwriteTheLine2739(t *testing.T) {
+	got := renderPlain2739(t, exitcode.Newf(exitcode.Error, "real text\rfake overwrite"))
+	if strings.Contains(got, "\r") {
+		t.Errorf("a carriage return must not reach the terminal: %q", got)
 	}
 }
 
-// The --json envelope: the message is neutralised the same way; the exit code, the server's
-// code and the request id are untouched.
-func TestRenderErrorEnvelopeMessageIsNeutralised2739(t *testing.T) {
+// The --json envelope keeps the server's text as sent where the JSON encoder already makes it
+// inert (the C0 controls, an ESC among them, are written as \u escapes: #1131 pins them raw for
+// a program) and neutralises what the encoder leaves raw: C1 controls and bidi overrides. No
+// raw control byte reaches the stream, whether the envelope goes to stdout or (after a payload)
+// to stderr.
+func TestRenderErrorEnvelopeIsInertAndKeepsC02739(t *testing.T) {
 	for _, wrote := range []bool{false, true} {
 		out, errOut := renderEnvelope2739(t, exitcode.Newf(exitcode.Error, "%s", hostile2739), wrote)
 		doc := out
 		if wrote {
 			doc = errOut
+		}
+		for _, r := range doc {
+			if r == '\n' {
+				continue
+			}
+			if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) || r == 0x202e {
+				t.Errorf("wrote=%v: the envelope carries a raw control character %U: %q", wrote, r, doc)
+				break
+			}
 		}
 		var env struct {
 			Error struct {
@@ -107,11 +120,11 @@ func TestRenderErrorEnvelopeMessageIsNeutralised2739(t *testing.T) {
 		if err := json.Unmarshal([]byte(strings.TrimSpace(doc)), &env); err != nil {
 			t.Fatalf("wrote=%v: envelope: %v\n%s", wrote, err, doc)
 		}
-		if r, bad := errTextHasControl2739(env.Error.Message); bad {
-			t.Errorf("wrote=%v: the envelope message carries %U: %q", wrote, r, env.Error.Message)
-		}
-		if env.Error.Code != exitcode.Error || !strings.Contains(env.Error.Message, "boom") {
-			t.Errorf("wrote=%v: code and words must survive: %+v", wrote, env.Error)
+		// The decoded message keeps the C0 controls the encoder escapes (#1131: raw for a program),
+		// and loses only the C1 controls and the bidi override the encoder leaves raw.
+		want := strings.NewReplacer("\u009b", " ", "\u202e", " ").Replace(hostile2739)
+		if env.Error.Code != exitcode.Error || env.Error.Message != want {
+			t.Errorf("wrote=%v: the envelope message keeps C0 as sent and neutralises C1/bidi:\n got %q\nwant %q", wrote, env.Error.Message, want)
 		}
 	}
 }
@@ -132,4 +145,29 @@ func TestRenderErrorOrdinaryTextIsUnchanged2739(t *testing.T) {
 			t.Errorf("an ordinary message must pass unchanged:\n got %q\nwant %q", got, want)
 		}
 	}
+}
+
+// End to end: a real command against a server whose error text carries an escape sequence.
+// The terminal line is neutralised; the exit code is intact.
+func TestServerErrorTextIsNeutralisedEndToEnd2739(t *testing.T) {
+	body := `{"errors":[{"message":"not allowed \u001b[31mRED\u001b[0m \u001b]0;pwned\u0007 now","extensions":{"code":"FORBIDDEN"}}]}`
+	srv, _ := attnServer(t, map[string]string{"MySecretReadClients": body})
+
+	f, _ := testFactory(t)
+	var errOut strings.Builder
+	f.IOStreams.ErrOut = &errOut
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"secret", "client", "list", "--server", srv.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.Forbidden {
+		t.Fatalf("exit %d, want %d: %v", exitCodeFor(err), exitcode.Forbidden, err)
+	}
+	renderError(f, err)
+	if r, bad := errTextHasControl2739(errOut.String()); bad {
+		t.Errorf("stderr carries %U: %q", r, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "not allowed RED") || strings.Contains(errOut.String(), "[31m") {
+		t.Errorf("the words stay, the sequences go: %q", errOut.String())
+	}
+
 }
