@@ -132,22 +132,46 @@ type exampleResult struct {
 // an @file's @ — and cleaned first, so "a/.." and "./.." are judged as the
 // parent paths they resolve to, not as strings unlike "../".
 func unsafeExamplePath1053(args []string, dir string) string {
+	dir = filepath.Clean(dir)
 	for _, a := range args {
-		v := a
-		if strings.HasPrefix(v, "-") {
-			if i := strings.Index(v, "="); i >= 0 {
-				v = v[i+1:]
+		for _, v := range examplePathCandidates1053(a) {
+			p := filepath.Clean(v)
+			if strings.HasPrefix(v, "~") ||
+				(filepath.IsAbs(p) && p != dir && !strings.HasPrefix(p, dir+string(filepath.Separator))) ||
+				p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
+				return v
 			}
-		}
-		v = strings.TrimPrefix(v, "@")
-		p := filepath.Clean(v)
-		if strings.HasPrefix(v, "~") ||
-			(filepath.IsAbs(p) && p != dir && !strings.HasPrefix(p, dir+string(filepath.Separator))) ||
-			p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
-			return v
 		}
 	}
 	return ""
+}
+
+// examplePathCandidates1053 lists every value an example argument could make a command
+// read or write (cli#2525 F6): the argument itself, the part after a flag's "=", a short
+// flag's glued value ("-o/etc/x"), the value of a key=value inside it, and each item of a
+// comma list, each without a leading "@".
+func examplePathCandidates1053(a string) []string {
+	v := a
+	if strings.HasPrefix(v, "--") {
+		if i := strings.Index(v, "="); i >= 0 {
+			v = v[i+1:]
+		}
+	} else if strings.HasPrefix(v, "-") && len(v) > 2 {
+		// -o=value, or -ovalue (a glued short-flag value).
+		v = strings.TrimPrefix(v[2:], "=")
+	} else if strings.HasPrefix(v, "-") {
+		return nil
+	}
+	var out []string
+	for _, item := range strings.Split(v, ",") {
+		item = strings.TrimPrefix(item, "@")
+		out = append(out, item)
+		// key=value inside an item (--set key=/etc/x): the value part is a candidate too.
+		if i := strings.Index(item, "="); i >= 0 {
+			out = append(out, strings.TrimPrefix(item[i+1:], "@"))
+		}
+	}
+	return out
 }
 
 // The guard itself is pinned (Jonas's BLIND delta N4 on #2499): @values,
