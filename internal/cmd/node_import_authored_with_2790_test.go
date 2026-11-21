@@ -141,11 +141,44 @@ func TestNodeImportRefusesABadClaimBeforeAnyRequest2790(t *testing.T) {
 			args := append([]string{"node", "import", "--url", "https://ex.com/p", "-m", "acme.com:kb", "--loc", "clips:p", "--server", gql.URL}, extra...)
 			root.SetArgs(args)
 			err := root.Execute()
-			if got := exitcode.FromError(err); got != exitcode.Usage {
+			if got := exitCodeFor(err); got != exitcode.Usage {
 				t.Fatalf("exit = %d (err %v), want usage", got, err)
 			}
 			if len(captured) != 0 {
 				t.Fatalf("a refused claim must send nothing, but %d operation(s) reached the server", len(captured))
+			}
+		})
+	}
+}
+
+// A governed refusal of the claim (a task the caller cannot read, a stale revision)
+// stays typed and actionable on the import path and never prints the inaccessible
+// task's content (the same concealment the other node writes give).
+func TestNodeImportRefusedClaimIsConcealed2790(t *testing.T) {
+	refusal := `{"errors":[{"message":"SECRET_TASK","extensions":{"code":"AUTHOR_TASK_BROKEN","taskAccess":"UNAVAILABLE","task":"SECRET_TASK","load":{"cli":"SECRET_CLI"}}}]}`
+	for _, jsonMode := range []bool{false, true} {
+		t.Run(map[bool]string{false: "text", true: "json"}[jsonMode], func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNullJSON, "ImportNode": refusal})
+			f, out := testFactory(t)
+			var stderr strings.Builder
+			f.IOStreams.ErrOut = &stderr
+			args := []string{"node", "import", "--url", "https://ex.com/p", "-m", "acme.com:kb", "--loc", "clips:p", "--authored-with", "mytask", "--authored-revision", "2", "--server", gql.URL}
+			if jsonMode {
+				args = append(args, "--json")
+			}
+			root := NewRootCmd(f)
+			root.SetArgs(args)
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("a refused claim must fail")
+			}
+			code := renderError(f, err)
+			text := out.String() + stderr.String()
+			if code == 0 || strings.Contains(text, "SECRET_") {
+				t.Fatalf("exit %d, text leaks or is silent: %q", code, text)
+			}
+			if !strings.Contains(strings.ToLower(text), "task") {
+				t.Errorf("the refusal must say what to do about the task: %q", text)
 			}
 		})
 	}
