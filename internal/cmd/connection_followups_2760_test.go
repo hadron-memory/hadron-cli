@@ -63,8 +63,19 @@ func TestConnectMalformedStartNamesTheMissingField2760(t *testing.T) {
 				if r.code != exitcode.Unavailable || r.err == nil || r.err.Error() != tc.want {
 					t.Fatalf("exit %d err %v, want Unavailable %d %q", r.code, r.err, exitcode.Unavailable, tc.want)
 				}
-				if len(r.opened) != 0 || strings.Contains(r.out, connectURL) || strings.Contains(r.errOut, connectURL) {
-					t.Fatalf("the link was shown or opened: opened %v out %q err %q", r.opened, r.out, r.errOut)
+				// Nothing is opened in any row. Whether a link could have been SHOWN depends on the
+				// fixture: where it carries connectURL (the missing-flow-id rows) that exact link must
+				// not appear; where it carries none (no start, no link, blank link) a Contains of
+				// connectURL could never fail, so the check is that no URL-looking text was printed at
+				// all, which a command that composed a replacement link would break (cor:api:230:01:
+				// the server's link verbatim, never composed).
+				carriesLink := strings.Contains(tc.start, connectURL)
+				shown := strings.Contains(r.out+r.errOut, "://")
+				if carriesLink {
+					shown = strings.Contains(r.out, connectURL) || strings.Contains(r.errOut, connectURL)
+				}
+				if len(r.opened) != 0 || shown {
+					t.Fatalf("a link was shown or opened: opened %v out %q err %q", r.opened, r.out, r.errOut)
 				}
 				if count(r.ops, "ConnectionFlow") != 0 || count(r.ops, "EmailConnections") != 0 {
 					t.Fatalf("polled after a broken start: %v", r.ops)
