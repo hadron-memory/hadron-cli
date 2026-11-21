@@ -228,6 +228,8 @@ func TestIsQualifiedNodeRef(t *testing.T) {
 		"review:thin-resolver-field",
 		"019fce8418e8798285e7fc179f5bc8f4", // an id: handled by IsNodeID, not this
 		"acme.com::kb",                     // a MEMORY ref, not a node ref
+		"example.test:source:demo",         // single-colon bare loc: -m still composes it
+		"ops::demo",                        // a single "::" is a memory ref, not a node ref
 	}
 	for _, ref := range bare {
 		if IsQualifiedNodeRef(ref) {

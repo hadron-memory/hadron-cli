@@ -78,10 +78,10 @@ type health2027World struct {
 	// before its fix loop reads the file back (#2037 N2 note: the gate is
 	// not the snapshot).
 	midSweepReset string
-	// second adds a second registered worker (w2, worktree wt2) when set
+	// withSecondWorker adds a second registered worker (w2, worktree wt2) when set
 	// before health2027Setup returns, see health2027SetupTwo (#2344).
-	second    bool
-	worktree2 string
+	withSecondWorker bool
+	worktree2        string
 	// onReset, when set, runs on every ContextReset read before it answers.
 	onReset func(resetID string)
 	// chatBodies records every CreateTeamChatMessage body that arrived.
@@ -127,10 +127,10 @@ func health2027Setup(t *testing.T) *health2027World { return health2027SetupN(t,
 // fixing loop (#2344).
 func health2027SetupTwo(t *testing.T) *health2027World { return health2027SetupN(t, true) }
 
-func health2027SetupN(t *testing.T, second bool) *health2027World {
+func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	t.Helper()
 	dir := t.TempDir()
-	w := &health2027World{dir: dir, state: `{"hostId":"own"}`, second: second}
+	w := &health2027World{dir: dir, state: `{"hostId":"own"}`, withSecondWorker: withSecondWorker}
 	// The sweep reads its notification binding from the process's ambient
 	// worktree: run from a plain directory, not this repo (whose own live
 	// binding would otherwise leak into every test) and not the fixture
@@ -148,7 +148,7 @@ func health2027SetupN(t *testing.T, second bool) *health2027World {
 		t.Fatalf("git init: %v", err)
 	}
 
-	if second {
+	if withSecondWorker {
 		w.worktree2 = filepath.Join(dir, "wt-root", "wt2")
 		if err := os.MkdirAll(w.worktree2, 0o755); err != nil {
 			t.Fatal(err)
@@ -209,12 +209,12 @@ func health2027SetupN(t *testing.T, second bool) *health2027World {
 		switch q.OperationName {
 		case "HostRegistrations":
 			workers := `{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["wt"]}`
-			if w.second {
+			if w.withSecondWorker {
 				workers += `,{"workerId":"w2","worker":{"id":"w2","name":"Ivy","urn":"hrn:worker:test:team:ivy"},"worktrees":["wt2"]}`
 			}
 			_, _ = io.WriteString(rw, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[`+workers+`]}]}}`)
 		case "HealthSweepSetTerminals":
-			if w.second {
+			if w.withSecondWorker {
 				_, _ = io.WriteString(rw, `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"hrn:worker:test:team:iris"},{"id":"w2","urn":"hrn:worker:test:team:ivy"}],"refused":[]}}}`)
 				break
 			}
@@ -277,7 +277,7 @@ func health2027SetupN(t *testing.T, second bool) *health2027World {
 	t.Cleanup(srv.Close)
 	w.srv = srv
 	w.writeBinding(t, "sess-1")
-	if second {
+	if withSecondWorker {
 		b := fmt.Sprintf(`{"sessionId":"sess-2","workerId":"w2","workerName":"Ivy","appId":"hrn:app:test:team","server":%q}`, srv.URL)
 		if err := os.WriteFile(filepath.Join(w.worktree2, ".git", "hadron-team-session.json"), []byte(b), 0o600); err != nil {
 			t.Fatal(err)
@@ -291,7 +291,7 @@ func health2027SetupN(t *testing.T, second bool) *health2027World {
 	w.stateFileWrite(t, w.state)
 
 	extra := ""
-	if second {
+	if withSecondWorker {
 		extra = "  w2:\n    family: codex\n    launch: [fake]\n    worktrees: [wt2]\n"
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [wt]\n%sdelivery:\n  orca_bin: %q\n", srv.URL, filepath.Join(dir, "wt-root"), extra, orcaBin)
@@ -327,9 +327,9 @@ func (w *health2027World) setTerminals(t *testing.T, terms []health2027Term) {
 }
 
 // writeList renders terms as one `terminal list --json` answer body at path.
-// Every row's title is the worker's name ("Iris"): the merged #2017 title
-// pass then finds nothing to rename, so its lines stay out of these tests'
-// receipts (the title pass has its own tests).
+// Every row's title is its worker's name (Iris, or Ivy for a terminal in
+// wt2): the merged #2017 title pass then finds nothing to rename, so its
+// lines stay out of these tests' receipts (the title pass has its own tests).
 func (w *health2027World) writeList(t *testing.T, path string, terms []health2027Term) {
 	t.Helper()
 	rows := make([]string, 0, len(terms))
@@ -338,7 +338,11 @@ func (w *health2027World) writeList(t *testing.T, path string, terms []health202
 		if path == "" {
 			path = w.worktree
 		}
-		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"title":"Iris","connected":true,"writable":true}`, tm.Handle, path, tm.Tab))
+		title := "Iris"
+		if w.worktree2 != "" && path == w.worktree2 {
+			title = "Ivy"
+		}
+		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"title":%q,"connected":true,"writable":true}`, tm.Handle, path, tm.Tab, title))
 	}
 	list := `{"ok":true,"result":{"terminals":[` + strings.Join(rows, ",") + `]}}`
 	if err := os.WriteFile(path, []byte(list), 0o600); err != nil {
@@ -465,7 +469,7 @@ func (w *health2027World) run(t *testing.T, text bool, args ...string) (health20
 	f.IOStreams = streams
 	f.JSON = !text
 	c := newCmdTeamHealthWithReader(f, func(context.Context, string, *hostpoller.Config) ([]byte, int, error) {
-		if w.second {
+		if w.withSecondWorker {
 			return []byte(`[{"contract":"terminal-status@1","worker":"Iris","status":"idle","prompt":"empty","reason":null,"lastTurnAt":null,"checkedAt":"2026-11-14T00:00:00Z"},{"contract":"terminal-status@1","worker":"Ivy","status":"idle","prompt":"empty","reason":null,"lastTurnAt":null,"checkedAt":"2026-11-14T00:00:00Z"}]`), 0, nil
 		}
 		return []byte(health2027Status), 0, nil

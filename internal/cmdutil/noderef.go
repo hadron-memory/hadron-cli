@@ -106,8 +106,7 @@ func EdgeDisplay(name *string, loc string) string {
 // (the `org::memory` form, optionally hrn:/urn:-prefixed) a bare-loc ref is a
 // loc within that memory: a node URN is just <org>::<memory>::<loc>, so the two
 // are joined and resolved. An id, an action URN and a qualified node ref
-// (IsQualifiedNodeRef) are never composed: -m does not apply to them. The memory form is the additive convenience; without it
-// the strict-URN behavior is unchanged.
+// (IsQualifiedNodeRef) are never composed: -m does not apply to them.
 func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref string) (string, error) {
 	// An action URN names its own agent and register entry, so -m has nothing
 	// to compose onto it (#1138); it goes to the server as typed.

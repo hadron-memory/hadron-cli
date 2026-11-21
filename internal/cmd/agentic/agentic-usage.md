@@ -3957,10 +3957,14 @@ server error fails the command).
     `--args` is one JSON object inline or from `@file`, parsed before requests;
     omitted args stay omitted, `{}` stays an empty object. Raw stdout is the
     returned string verbatim (no added newline), including empty success;
-    `--json` is `{"rendered":"…"}`. A successful reply with no `data`, empty
-    `data` or a null `renderRunNode` breaks the server's `String!` contract: it
-    exits 1 (`the server's reply had no renderRunNode …, so nothing was
-    rendered`), prints nothing, and is not retried. A valid `""` is still a
+    `--json` is `{"rendered":"…"}`. A successful reply with no `data` key
+    (`{}`), `{"data":null}`, empty data (`{"data":{}}`) or a null `renderRunNode`
+    breaks the server's `String!` contract: it exits 1, is not retried, and
+    renders nothing. The refusal is the message
+    `the server's reply had no renderRunNode (missing or null), so nothing was
+    rendered`, shown like any other error: on stderr in text mode (stdout stays
+    empty), and as the standard error envelope on stdout with `--json` (never a
+    `rendered` document). A valid `""` is still a
     success. The server records content reads for the
     source and actually inlined dependencies, but no action-run or run row.
     No LLM call, local assembly/filtering, retry or legacy-renderer fallback.
@@ -5623,6 +5627,18 @@ encrypted-memory prompt, skipped and never sent; a tampered row), 7 (lost) and 8
 ## Opt-in node source-lint warnings (#916 C3c)
 
 `node get|add|update|approve|move|clone|merge|restore --lint-warnings` adds a separate current advisory read, paged completely. JSON omits `lintWarnings` by default, returns null when the requested warning read is unavailable (including older/denied providers), or `{items,total,nextCursor:null}` when complete. Human warning text is terminal-safe; JSON preserves server text/nullable fields. An unavailable advisory read also prints exactly one fixed stderr class per command: `lint warnings: unavailable (advisory read did not complete)`. No underlying error or concealment reason is exposed. A failed warning read never retries or changes a successful mutation, stdout/JSON or exit; it reports no conclusion, not zero warnings. This is not a snapshot of the authored revision. Excludes actual --body-only/--dry-run. Advisory reads share a five-second budget across the command, including every batch-get node; timeout leaves the main receipt successful with warning state unavailable. Main response-extension warnings are unchanged; this flag controls only the extra source-lint read.
+
+The worker and served-prompt advisory surfaces use `<class> [signature lint, prompt lint]`:
+`<class>` is the fixed stderr prefix `lint warnings: unavailable (advisory read did not complete)`.
+Only failed fields appear. The fixed labels are `signature lint`, `prompt lint` and
+`current lint`; worker get uses the fixed order signature then prompt, with the
+`, ` separator. Worker update names signature lint; served-prompt and history
+name current lint. The bracketed field-label suffix is separate from the prefix;
+node lint stays bare (no suffix). The first call's labels win, so callers with
+several fields must aggregate before calling. The diagnostic names no cause.
+Run the command again to retry the advisory read; recompiling can affect a
+future served prompt but cannot repair its recorded revision.
+
 
 ## Skill lint server judgment (#1393)
 
