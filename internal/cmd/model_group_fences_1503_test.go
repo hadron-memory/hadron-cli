@@ -85,7 +85,8 @@ func mgHeaderServer1503(t *testing.T, responses map[string]string) (string, func
 const mgApp1503 = "hrn:app:acme.com:eng"
 
 // withJSON1503 returns args plus --json without writing into a slice the table
-// rows share (an append on a slice with spare capacity would; cli#2421 F4).
+// rows share. Defensive (cli#2421 F4): today's rows are literals with no spare
+// capacity, so an append could not alias, but a row built with append could.
 func withJSON1503(args []string) []string {
 	return append(append([]string(nil), args...), "--json")
 }
@@ -239,7 +240,7 @@ func TestAgentModelGroup1503HumanOutput(t *testing.T) {
 				t.Fatal(err)
 			}
 			if out != tc.want {
-				t.Fatalf("human output:\n got %q\nwant %q", out, tc.want)
+				t.Fatalf("human output differs\n--- got ---\n%s--- want ---\n%s--- end ---", out, tc.want)
 			}
 		})
 	}
@@ -274,24 +275,29 @@ func TestAppModelGroup1503HumanOutput(t *testing.T) {
 				t.Fatal(err)
 			}
 			if out != tc.want {
-				t.Fatalf("human output:\n got %q\nwant %q", out, tc.want)
+				t.Fatalf("human output differs\n--- got ---\n%s--- want ---\n%s--- end ---", out, tc.want)
 			}
 		})
 	}
 }
 
 // cli#2421 F5: a delete or clear the server answers with false is not shown as
-// done. The server's contract is the source (no spec states it): false means
-// the server did not confirm, so the command fails (exit 1) with the recovery
-// advice, prints nothing, and sends exactly one request, in both the text and
-// the --json mode.
+// done. The server's contract is the source (no spec states it): in
+// hadron-server's resolvers.modelGroup.ts (checked at origin/main, 2026-11-21)
+// deleteAgentModelGroup and deleteAppModelGroup return true on success and have
+// no false path: an absent group is the typed MODEL_GROUP_NOT_FOUND refusal, not
+// an idempotent false (typeDefs.ts lists that refusal on both). So a false is
+// outside the contract, and the CLI treats it as unconfirmed: exit 1 with the
+// recovery advice, nothing printed, exactly one request, in the text and the
+// --json mode. A server that gave false meaning "no-op" would need this
+// reconsidered.
 func TestModelGroup1503DeleteFalseIsNotConfirmed(t *testing.T) {
 	for _, tc := range []struct {
 		op, resp, advice string
 		args             []string
 	}{
-		{"DeleteAgentModelGroup", `{"data":{"deleteAgentModelGroup":false}}`, "list the Agent's groups before retrying", []string{"agent", "model-group", "delete", "agt1", "parked", "--yes"}},
-		{"DeleteAppModelGroup", `{"data":{"deleteAppModelGroup":false}}`, "list the App's groups before retrying", []string{"app", "model-group", "clear", mgApp1503, "parked", "--yes"}},
+		{"DeleteAgentModelGroup", `{"data":{"deleteAgentModelGroup":false}}`, "before retrying", []string{"agent", "model-group", "delete", "agt1", "parked", "--yes"}},
+		{"DeleteAppModelGroup", `{"data":{"deleteAppModelGroup":false}}`, "before retrying", []string{"app", "model-group", "clear", mgApp1503, "parked", "--yes"}},
 	} {
 		for _, asJSON := range []bool{false, true} {
 			t.Run(tc.op+"/json="+map[bool]string{false: "no", true: "yes"}[asJSON], func(t *testing.T) {
@@ -315,36 +321,73 @@ func TestModelGroup1503DeleteFalseIsNotConfirmed(t *testing.T) {
 	}
 }
 
+// mgStatusServer1503 answers every GraphQL request with the given status and
+// body (the /capabilities probe aside) and counts them, so a transport row can
+// pin "one request, no retry" without re-implementing the stub per test.
+func mgStatusServer1503(t *testing.T, status int, contentType, body string) (string, func() int32) {
+	t.Helper()
+	var n atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		n.Add(1)
+		w.Header().Set("Content-Type", contentType)
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL, n.Load
+}
+
+var mgAllOps1503 = map[string][]string{
+	"agent list":   {"agent", "model-group", "list", "agt1"},
+	"agent set":    {"agent", "model-group", "set", "agt1", "g", "--pattern", "x"},
+	"agent delete": {"agent", "model-group", "delete", "agt1", "g", "--yes"},
+	"app list":     {"app", "model-group", "list", mgApp1503},
+	"app set":      {"app", "model-group", "set", mgApp1503, "g", "--pattern", "x"},
+	"app clear":    {"app", "model-group", "clear", mgApp1503, "g", "--yes"},
+}
+
 // cli#2421 F5: a non-200 answer that is not a GraphQL envelope (a gateway page)
 // is the transport failure, exit Unavailable, on reads and writes alike, sent
 // once and never retried, with nothing printed.
 func TestModelGroup1503TransportFailureRows(t *testing.T) {
 	for _, status := range []int{http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable} {
-		for name, args := range map[string][]string{
-			"agent list":   {"agent", "model-group", "list", "agt1"},
-			"agent set":    {"agent", "model-group", "set", "agt1", "g", "--pattern", "x"},
-			"agent delete": {"agent", "model-group", "delete", "agt1", "g", "--yes"},
-			"app list":     {"app", "model-group", "list", mgApp1503},
-			"app set":      {"app", "model-group", "set", mgApp1503, "g", "--pattern", "x"},
-			"app clear":    {"app", "model-group", "clear", mgApp1503, "g", "--yes"},
-		} {
+		for name, args := range mgAllOps1503 {
 			t.Run(fmt.Sprintf("%d/%s", status, name), func(t *testing.T) {
-				var graphqlCalls atomic.Int32
-				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
-						_, _ = w.Write([]byte(`{"capabilities":[]}`))
-						return
-					}
-					graphqlCalls.Add(1)
-					w.WriteHeader(status)
-					_, _ = w.Write([]byte("<html>gateway</html>"))
-				}))
-				t.Cleanup(srv.Close)
-				out, err := mgRun(t, srv.URL, args...)
+				url, requests := mgStatusServer1503(t, status, "text/html", "<html>gateway</html>")
+				out, err := mgRun(t, url, args...)
 				if exitCodeFor(err) != exitcode.Unavailable || out != "" {
 					t.Fatalf("want exit %d and no output, got %d %q: %v", exitcode.Unavailable, exitCodeFor(err), out, err)
 				}
-				if n := graphqlCalls.Load(); n != 1 {
+				if n := requests(); n != 1 {
+					t.Fatalf("one request, no retry: %d", n)
+				}
+			})
+		}
+	}
+}
+
+// cli#2421 F5 (blind P3): a 200 whose body is not a GraphQL envelope (a login or
+// proxy page) is the other common gateway shape. Today it is a generic failure
+// (exit Error: the decoder's message), one request, nothing printed, in text and
+// --json. This pins that behaviour, not a promise about its wording.
+func TestModelGroup1503Non200HTMLBodyRows(t *testing.T) {
+	for name, args := range mgAllOps1503 {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json=%t", name, asJSON), func(t *testing.T) {
+				url, requests := mgStatusServer1503(t, http.StatusOK, "text/html", "<html>login</html>")
+				a := args
+				if asJSON {
+					a = withJSON1503(a)
+				}
+				out, err := mgRun(t, url, a...)
+				if exitCodeFor(err) != exitcode.Error || out != "" {
+					t.Fatalf("want exit %d and no output, got %d %q: %v", exitcode.Error, exitCodeFor(err), out, err)
+				}
+				if n := requests(); n != 1 {
 					t.Fatalf("one request, no retry: %d", n)
 				}
 			})
