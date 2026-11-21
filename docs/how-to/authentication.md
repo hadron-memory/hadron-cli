@@ -113,3 +113,8 @@ included. A failed check is an error rather than REFUSED, with an exit other
 than 3 (a missing or unknown status value exits 7). Servers without
 `authenticationStatus` return an explicit schema error (exit 2); the CLI never
 retries using `authContext`.
+
+A key limited by its OAuth scope (an MCP-only key, or a scope this server does not
+support) is refused before any answer, so `auth status` fails with exit 1 and prints
+the fixed recovery for that refusal (sign in again, or use a portal API key). It
+never prints the server's own wording or the REFUSED line, and the JSON stays empty.
