@@ -469,27 +469,25 @@ func TestRawGraphQLNeverRendersAnUnlockEcho(t *testing.T) {
 
 // cli#2704 (Rook F1): Go escapes U+2028/U+2029 even with SetEscapeHTML(false),
 // Node's JSON.stringify writes them raw — so the spellings a Node echo would
-// actually carry (backslash-escaped quote with the RAW line separator, at
-// depth 1 and 2) are distinct strings the generator on main never produces.
+// actually carry are distinct strings the generator on main never produces.
+// cli#2714 (Dara P3): the depth-2 entries are labeled by their derivation
+// chain, and the true Go-then-Go spelling (two consecutive Go encodings also
+// double the backslash before u2028) is required; U+2029 is covered here too
+// because the API generator is separate from the CLI one. The raw separators
+// appear as Go \uXXXX escapes, never as source bytes.
 func TestEscapedSpellingsNodeLineSeparatorSet2704(t *testing.T) {
-	pass := "p\"q\u2028r"
+	pass := "p\"q r"
 	got := escapedSpellings([]string{pass})
 	want := []string{
-		pass,                // the literal
-		`p\"q\u2028r`,       // Go depth 1 (both HTML forms agree here)
-		"p\\\"q\u2028r",     // Node depth 1: \" with the raw separator
-		`p\\\"q\u2028r`,     // Go depth 2
-		"p\\\\\\\"q\u2028r", // Node depth 2: \\\" with the raw separator
+		pass,             // the literal
+		`p\"q r`,         // Go depth 1 (both HTML forms agree here)
+		"p\\\"q r",       // Node depth 1: \" with the raw separator
+		`p\\\"q r`,       // Node-then-Go: Go re-encodes Node depth 1
+		`p\\\"q\\u2028r`, // Go-then-Go: the backslash before u2028 doubles too
+		"p\\\\\\\"q r",   // Go-then-Go, separators unfolded
 	}
 	for _, w := range want {
-		found := false
-		for _, g := range got {
-			if g == w {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !containsExactly(got, w) {
 			t.Errorf("spelling %q missing from %q", w, got)
 		}
 	}
@@ -497,6 +495,40 @@ func TestEscapedSpellingsNodeLineSeparatorSet2704(t *testing.T) {
 		if len(got[i-1]) < len(got[i]) {
 			t.Errorf("spellings not longest-first: %q before %q", got[i-1], got[i])
 		}
+	}
+	// The U+2029 sibling: Node depth 1 writes the raw character.
+	got = escapedSpellings([]string{"p\"q r"})
+	if !containsExactly(got, "p\\\"q r") {
+		t.Errorf("the U+2029 Node depth-1 spelling is missing: %q", got)
+	}
+}
+
+// containsExactly is the spelling-set membership check the 2704/2714 pins use.
+func containsExactly(set []string, want string) bool {
+	for _, s := range set {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}
+
+// cli#2714 (Dara P2): a secret containing the six LITERAL characters
+// backslash-u-2028 must not derive a bogus raw-separator spelling from the
+// escaped backslash; the true Node spelling of a secret with BOTH literal
+// backslash-u text and a real separator must be generated.
+func TestEscapedSpellingsLiteralBackslashU2714(t *testing.T) {
+	got := escapedSpellings([]string{"x\\u2028y"})
+	bogus := "x\\" + "\u2028" + "y" // backslash, RAW U+2028 — never a real spelling here
+	if containsExactly(got, bogus) {
+		t.Errorf("bogus Node spelling generated from literal backslash-u: %q", got)
+	}
+	if !containsExactly(got, `x\\u2028y`) {
+		t.Errorf("the true escaped spelling of the literal text is missing: %q", got)
+	}
+	got = escapedSpellings([]string{"x\\u2028y" + "\u2028"})
+	if !containsExactly(got, `x\\u2028y`+"\u2028") {
+		t.Errorf("the true Node spelling of the mixed secret is missing: %q", got)
 	}
 }
 

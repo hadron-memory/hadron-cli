@@ -98,14 +98,23 @@ func setTokenRun(t *testing.T, typedRef, urn, token string, asJSON bool) (string
 		var body struct {
 			OperationName string `json:"operationName"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("unreadable request: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		if body.OperationName != "SetMemorySourceToken" {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		// Encoded, not interpolated: a fixture URN carrying a quote or
+		// backslash must not change the value under test (or the JSON).
+		resp := map[string]any{"data": map[string]any{"setMemorySourceToken": map[string]any{"id": "m1", "urn": urn}}}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"data":{"setMemorySourceToken":{"id":"m1","urn":"` + urn + `"}}}`))
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encoding fake response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	f.ServerFlag = srv.URL
@@ -117,6 +126,67 @@ func setTokenRun(t *testing.T, typedRef, urn, token string, asJSON bool) (string
 	cmd.SetArgs([]string{typedRef, "--token-file", tf})
 	err := cmd.Execute()
 	return outBuf.String(), err
+}
+
+// TestSetTokenMarkerTokenNotInRenderedMessage2714 pins Dara's P1 (cli#2714
+// blind round 2): redactToken writes "[REDACTED]" over the token, so a token
+// that IS the marker — or contains it — is rewritten into itself (equal) or
+// leaves its own material beside the marker (contains), and stays visible in
+// the error text. Such a token gets a fixed refusal message that carries
+// nothing from the server; the RENDERED message is asserted, not only the
+// carried code.
+func TestSetTokenMarkerTokenNotInRenderedMessage2714(t *testing.T) {
+	mk := func(code string) error {
+		return &gqlerror.Error{Message: "refused: the token [REDACTED] is not allowed", Extensions: map[string]any{"code": code}}
+	}
+	for _, token := range []string{"[REDACTED]", "tok[REDACTED]", "[REDACTED]tok"} {
+		err := setTokenError(mk("FORBIDDEN"), token)
+		if strings.Contains(err.Error(), "[REDACTED]") {
+			t.Errorf("token %q: the marker (token material) stays visible in the rendered error %q", token, err.Error())
+		}
+		if got := carriedCode(err); got != "FORBIDDEN" {
+			t.Errorf("token %q: an ordinary server code must be kept, got %q", token, got)
+		}
+	}
+	// A code carrying the marker-equal token is still dropped on this path.
+	if got := carriedCode(setTokenError(mk("BAD [REDACTED]"), "[REDACTED]")); got != "" {
+		t.Errorf("a code carrying the marker-equal token must be dropped, got %q", got)
+	}
+}
+
+// TestEscapedSpellingsLiteralBackslashU2714 pins Dara's P2 (cli#2714 blind
+// round 2): a token containing the six LITERAL characters backslash-u-2028 Go-escapes
+// to \\u2028; a blind textual replacer matches from the second backslash and
+// invents a spelling Node would never emit (backslash + RAW separator), which
+// can scrub unrelated text or drop an innocent server code or URN. The Node
+// spelling must be derived by whole JSON escape units.
+func TestEscapedSpellingsLiteralBackslashU2714(t *testing.T) {
+	have := func(set []string, want string) bool {
+		for _, s := range set {
+			if s == want {
+				return true
+			}
+		}
+		return false
+	}
+	// Literal backslash-u text only (the eight characters x \ u 2 0 2 8 y):
+	// Go and Node both write the backslash doubled; no raw-separator
+	// spelling of this token exists.
+	token := "x\\u2028y"
+	got := escapedSpellings(token)
+	bogus := "x\\" + "\u2028" + "y" // backslash, RAW U+2028 — Node never writes this here
+	if have(got, bogus) {
+		t.Errorf("bogus Node spelling generated from literal backslash-u: %q", got)
+	}
+	if !have(got, `x\\u2028y`) {
+		t.Errorf("the true escaped spelling of the literal text is missing: %q", got)
+	}
+	// Literal backslash-u text AND a real separator: the true Node spelling
+	// doubles the literal backslash and writes the real separator raw.
+	got = escapedSpellings("x\\u2028y" + "\u2028")
+	if !have(got, `x\\u2028y`+"\u2028") {
+		t.Errorf("the true Node spelling of the mixed token is missing: %q", got)
+	}
 }
 
 // TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704 pins Jack F1: the URN
@@ -151,6 +221,9 @@ func TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704(t *testing.T) {
 	}
 	if dto.Memory == urn || strings.Contains(dto.Memory, token) {
 		t.Errorf("--json memory must fall back to the typed ref, got %q", dto.Memory)
+	}
+	if dto.Memory != "hrn:mem:acme.com:kb" {
+		t.Errorf("--json memory must be the canonical typed ref, got %q", dto.Memory)
 	}
 }
 
