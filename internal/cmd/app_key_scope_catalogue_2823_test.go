@@ -107,3 +107,67 @@ func TestAppKeyScopeCatalogue2823TakesNoArguments(t *testing.T) {
 		t.Fatalf("an argument is a usage error before any call: err=%v calls=%d", r.err, calls)
 	}
 }
+
+// A null list is a malformed answer, not "the server lists no scopes": exit 1, nothing on
+// stdout (Joran's BLIND P2). An empty list stays "no scopes" / [] (tested above).
+func TestAppKeyScopeCatalogue2823NullListIsAnError(t *testing.T) {
+	for name, resp := range map[string]string{
+		"null field": `{"data":{"appKeyScopeCatalogue":null}}`,
+		"null data":  `{"data":null}`,
+	} {
+		for _, args := range [][]string{{}, {"--json"}} {
+			calls := 0
+			r := runCatalogue2823(t, countingServer2823(t, resp, &calls), args...)
+			if r.err == nil || exitCodeFor(r.err) != exitcode.Error || r.out != "" {
+				t.Fatalf("%s %v: want exit %d and no stdout, got err=%v out=%q", name, args, exitcode.Error, r.err, r.out)
+			}
+			if !strings.Contains(r.err.Error(), "no scope catalogue") {
+				t.Fatalf("%s %v: error should name the missing catalogue: %v", name, args, r.err)
+			}
+		}
+	}
+}
+
+func TestAppKeyScopeCatalogue2823NullElementIsAnErrorNotAPanic(t *testing.T) {
+	calls := 0
+	r := runCatalogue2823(t, countingServer2823(t, `{"data":{"appKeyScopeCatalogue":[null]}}`, &calls))
+	if r.err == nil || exitCodeFor(r.err) != exitcode.Error || r.out != "" {
+		t.Fatalf("a null element must be a clean exit %d: err=%v out=%q", exitcode.Error, r.err, r.out)
+	}
+}
+
+// NEEDS HOST reads yes for the scope that needs a host and no for the one that does not:
+// inverting the mapping must fail this.
+func TestAppKeyScopeCatalogue2823NeedsHostMapping(t *testing.T) {
+	calls := 0
+	r := runCatalogue2823(t, countingServer2823(t, catalogue2823, &calls))
+	for _, line := range strings.Split(r.out, "\n") {
+		switch {
+		case strings.HasPrefix(line, "host:operate"):
+			if !strings.Contains(line, "yes") || strings.Contains(line, " no ") {
+				t.Fatalf("host:operate needs a host, row: %q", line)
+			}
+		case strings.HasPrefix(line, "attention:deliver"):
+			if !strings.Contains(line, "no") || strings.Contains(line, "yes") {
+				t.Fatalf("attention:deliver needs no host, row: %q", line)
+			}
+		}
+	}
+}
+
+// Server-supplied cells are sanitized (output.SafeCell): an escape, a newline and a tab in a
+// scope or description never reach the terminal as control characters.
+func TestAppKeyScopeCatalogue2823HostileCellsAreSanitized(t *testing.T) {
+	calls := 0
+	hostile := `{"data":{"appKeyScopeCatalogue":[{"scope":"x\u001b[31m:evil","description":"a\nb\tc‮d","requiresHostId":false}]}}`
+	r := runCatalogue2823(t, countingServer2823(t, hostile, &calls))
+	if r.err != nil {
+		t.Fatalf("unexpected error: %v", r.err)
+	}
+	if strings.ContainsAny(r.out, "\x1b\t‮") {
+		t.Fatalf("control characters reached stdout: %q", r.out)
+	}
+	if strings.Count(r.out, "\n") != 2 { // header + one row, no injected line
+		t.Fatalf("a newline in a cell injected a line: %q", r.out)
+	}
+}

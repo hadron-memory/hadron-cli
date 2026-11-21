@@ -45,12 +45,19 @@ lists none.`,
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp == nil {
+			// A list that is null (an answer with no data, or a null field) is a
+			// malformed reply, not "the server lists no scopes": say so, exit 1.
+			if resp == nil || resp.AppKeyScopeCatalogue == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no scope catalogue")
 			}
 			dto := make([]keyScopeInfoDTO, 0, len(resp.AppKeyScopeCatalogue))
 			for _, s := range resp.AppKeyScopeCatalogue {
-				dto = append(dto, keyScopeInfoDTO{s.Scope, s.Description, s.RequiresHostId})
+				// The SDL says [AppKeyScopeInfo!]!, so a null element is not
+				// possible from a conforming server; refuse it rather than panic.
+				if s == nil {
+					return exitcode.Newf(exitcode.Error, "server returned a null scope in the catalogue")
+				}
+				dto = append(dto, keyScopeInfoDTO{Scope: s.Scope, Description: s.Description, RequiresHostID: s.RequiresHostId})
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto) == 0 {
