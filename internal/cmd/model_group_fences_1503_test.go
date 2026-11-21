@@ -283,7 +283,7 @@ func TestAppModelGroup1503HumanOutput(t *testing.T) {
 
 // cli#2421 F5: a delete or clear the server answers with false is not shown as
 // done. The server's contract is the source (no spec states it): in
-// hadron-server's resolvers.modelGroup.ts (checked at origin/main, 2026-11-21)
+// hadron-server's resolvers.modelGroup.ts (checked at origin/main d124e289, lines 154-161 and 195-208)
 // deleteAgentModelGroup and deleteAppModelGroup return true on success and have
 // no false path: an absent group is the typed MODEL_GROUP_NOT_FOUND refusal, not
 // an idempotent false (typeDefs.ts lists that refusal on both). So a false is
@@ -358,7 +358,7 @@ func TestModelGroup1503TransportFailureRows(t *testing.T) {
 		for name, args := range mgAllOps1503 {
 			t.Run(fmt.Sprintf("%d/%s", status, name), func(t *testing.T) {
 				url, requests := mgStatusServer1503(t, status, "text/html", "<html>gateway</html>")
-				out, err := mgRun(t, url, args...)
+				out, err := mgRun(t, url, append([]string(nil), args...)...)
 				if exitCodeFor(err) != exitcode.Unavailable || out != "" {
 					t.Fatalf("want exit %d and no output, got %d %q: %v", exitcode.Unavailable, exitCodeFor(err), out, err)
 				}
@@ -370,16 +370,16 @@ func TestModelGroup1503TransportFailureRows(t *testing.T) {
 	}
 }
 
-// cli#2421 F5 (blind P3): a 200 whose body is not a GraphQL envelope (a login or
+// cli#2421 F5 (blind P3): an HTML page served with status 200 (not a GraphQL envelope) (a login or
 // proxy page) is the other common gateway shape. Today it is a generic failure
 // (exit Error: the decoder's message), one request, nothing printed, in text and
 // --json. This pins that behaviour, not a promise about its wording.
-func TestModelGroup1503Non200HTMLBodyRows(t *testing.T) {
+func TestModelGroup1503HTMLOn200Rows(t *testing.T) {
 	for name, args := range mgAllOps1503 {
 		for _, asJSON := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%t", name, asJSON), func(t *testing.T) {
 				url, requests := mgStatusServer1503(t, http.StatusOK, "text/html", "<html>login</html>")
-				a := args
+				a := append([]string(nil), args...) // the rows are shared: never hand them out
 				if asJSON {
 					a = withJSON1503(a)
 				}
