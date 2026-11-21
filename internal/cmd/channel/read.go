@@ -106,11 +106,11 @@ with --since at a sensible interval.
 
 For your own team chat use "hadron team chat read --mentions-me".`,
 		Example: `  hadron channel read hrn:node:acme.com:team-shared:chats:team --limit 20
-  hadron channel read <id> --since 41 --limit 1   # message #42 (check the printed seq)
+  hadron channel read <id> --since 41 --limit 1   # message 42 (check the printed seq)
   hadron channel read <id> --since 631
   hadron channel read <id> --before 999999999 --limit 20   # the newest 20
   hadron channel read <id> --before 100   # the page before seq 100
-  hadron channel read <id> --thread 42    # the direct replies to message #42`,
+  hadron channel read <id> --thread 42    # the direct replies to message 42`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := tagFlags.Validate(cmd); err != nil {

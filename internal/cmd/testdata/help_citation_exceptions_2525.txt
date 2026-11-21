@@ -9,13 +9,6 @@
 # (never by hand). Line: <page>  # <kind> <reference> x<count> | ...
 # The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
 auth token list  # issue #3189 x1
-channel post  # issue #594 x1
-channel read  # issue #42 x2
-chat read  # issue #406 x1 | issue #630 x2
-chat served-prompts  # issue #2865 x1
-chat tool-choice  # citation cor:dmo:050:10 x1
-coding  # issue #551 x1
-coding review create  # issue #1201 x1
 marketplace  # citation cor:acl:080:04 x1
 node list  # issue #3494 x1 | issue #3520 x1
 orca terminal status  # issue #3755 x1
@@ -132,6 +125,3 @@ team worker rm  # citation cor:dmo:050:11 x1 | issue #1735 x1
 team worker update  # citation cor:agt:040:04 x1
 ticker apply-templates  # citation cor:agt:080:33 x1 | issue #2096 x1
 usage activity  # citation cor:acl:090:01 x1
-user delete  # issue #42 x1
-user merge  # citation cor:api:010:02 x1 | issue #1304 x1
-user search  # citation cor:acl:070:02 x1
