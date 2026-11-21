@@ -89,6 +89,10 @@ func TestLaunchAnchorsAtReadsTheRecordedLaunches2059(t *testing.T) {
 		got[a.PID] = a.StartTicks
 	}
 	want := map[int]int64{101: 777, 303: 0, 404: 0}
+	// A path spelled with a trailing slash or a dot segment is the same worktree.
+	if len(st.LaunchAnchorsAt(root+"/", filepath.Join(root, "wt-a")+"/./")) != 3 {
+		t.Fatal("anchors must match a worktree path however it is spelled")
+	}
 	if len(got) != len(want) {
 		t.Fatalf("anchors = %v, want %v (wt-b is another worktree, pid 0 is no launch)", got, want)
 	}

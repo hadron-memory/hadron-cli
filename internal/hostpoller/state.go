@@ -229,7 +229,7 @@ func (s *State) LaunchAnchorsAt(worktreesRoot, path string) []LaunchAnchor {
 	defer s.mu.Unlock()
 	out := []LaunchAnchor{}
 	for _, a := range s.Agents {
-		if a.PID <= 0 || filepath.Join(worktreesRoot, a.Worktree) != path {
+		if a.PID <= 0 || filepath.Clean(filepath.Join(worktreesRoot, a.Worktree)) != filepath.Clean(path) {
 			continue
 		}
 		ticks, err := strconv.ParseInt(a.Start, 10, 64)

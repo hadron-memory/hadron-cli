@@ -759,9 +759,10 @@ func TestOrcaLaunchRunsTheAgentPlainlyInOrcasScope2088(t *testing.T) {
 }
 
 // cli#2059: the census anchors on what the poller records at launch. The link
-// is pinned end to end on the production path: an Orca launch's recorded pid
-// and kernel start time are the live terminal process, so the duplicate scan
-// reads that process (and what runs under it) as the worker's own.
+// is pinned on the production path: an Orca launch's recorded pid and kernel
+// start time are the live terminal process, which is what isLaunch (the
+// scan's per-process test) matches. The scan's walk over the agent's ancestry
+// is pinned separately, on real chains and on synthetic processes.
 func TestAnOrcaLaunchIsRecordedAsTheCensusAnchor2059(t *testing.T) {
 	wt, tools := t.TempDir(), t.TempDir()
 	bin := filepath.Join(tools, "agent")
@@ -774,7 +775,11 @@ func TestAnOrcaLaunchIsRecordedAsTheCensusAnchor2059(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = a.TerminateWith(nil) })
+	t.Cleanup(func() {
+		if _, detail := a.TerminateWith(nil); detail != "" {
+			t.Logf("cleanup: %s", detail)
+		}
+	})
 	p, _, _ := testPoller(t)
 	p.trackAgent("id-iris", "repo/iris", a)
 	root := t.TempDir()

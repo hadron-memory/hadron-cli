@@ -71,7 +71,10 @@ func agentBase(argv []string) string {
 // against its start time so a reused pid is not the launch. A typed stray's
 // chain has no recorded launch above it. Where the host cannot tell
 // (no /proc), it reports none: detection degrades, never the report. A
-// process that cannot be read is skipped, not guessed at.
+// process that cannot be read is skipped, not guessed at. An agent still running
+// from a wrapper that predates the poller records (cli#2059) has no recorded
+// launch above it until the poller relaunches it, so it reads unsupervised: the
+// sweep alerts on it and never stops it for that alone.
 func ScanWorktreeAgents(root string, anchors []LaunchAnchor) []WorktreeAgent {
 	real, err := filepath.EvalSymlinks(root)
 	if err != nil {
