@@ -10,6 +10,8 @@
 # cannot be merged into the pin without S2 (cli#2727: GrantSigningRequest.lastRefusedAt, hadron-server#4581; cli#2762:
 # TaskWakeEvent.ANSWERED and DueTaskReason.questionCode, hadron-server#4644).
 # They are retired with the pin (#2658). No overlay= key means no overlay.
+# --verify is the ONLY reader of overlay= (the script has no regenerate path: it
+# prints the merged worktree and stops), so the ordered-apply loop lives there once.
 #
 # usage: scripts/pin-server-sdl.sh <server-git-checkout> <out-dir> [--verify]
 #   <server-git-checkout>  a git checkout of hadron-server (a sparse, blobless
