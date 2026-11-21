@@ -49,14 +49,27 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
      carrying an escaped spelling is never scrubbed piecemeal (cli#2714
      round 2 Dara P1, round 3 Bruno P2 / Dara P2).
    - and the refusal grew into the round-5 rule (Eden's pairing ruling after
-     Bruno's round-4 delta P2: the refusal "the server refused the source
-     token" itself contains a token "server refused"): the drop path's
+     Bruno's round-4 delta P2 and Dara's BLIND delta P2 found the same class
+     independently: the refusal "the server refused the source token" itself
+     contains a token "server refused" / "source token"): the drop path's
      message is a CHECKED cascade (`tokenSafeRefusal`), not a constant — the
      full refusal, then a second fixed text sharing no word with it
      (`"input declined"`), then no echo at all (the empty message, the only
      text that provably carries no spelling of a non-empty token; the exit
      code and a clean server code still identify the refusal). Every tier is
      gated by the same `containsAnySpelling` predicate before it is printed.
+     The partial-redaction candidate is likewise judged in its FINAL rendered
+     form (Dara's BLIND delta verification note, made concrete):
+     `output.SafeLine` neutralises control characters to a space and can
+     append an ellipsis at the rune bound, and either transform can join
+     characters into a spelling the raw message never carried (message
+     "a\x00b", token "a b") — so the third arm of the drop guard tests the
+     SafeLine output, not only the raw message.
+   - `replacementCanRecreateToken` renamed `tokenOverlapsMarker` (Dara's
+     round-4 delta P3): the old name claimed every replacement hazard, but
+     the helper tests only mutual containment of token and marker — the
+     seam-spanning token is caught by the message arm, which is why both
+     arms stand.
    - URN guard: splice when `u != "" && !containsAnySpelling(u, token)` — no
      fixpoint, so the sentinel-equal token can no longer wedge it open (Jack F1).
 2. **Node line-separator spellings at both generator sites**: every
@@ -106,7 +119,23 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
      at all; a token inside the second text only ("input") keeps the full
      refusal (the cascade walks only when a tier is unsafe for this token).
      Exact-equality assertions on the rendered message, plus the unchanged
-     carried-code rule on every tier.
+     carried-code rule on every tier. Jerry's three design-review asks are
+     folded in: an exhaustive loop drives EVERY substring of both fixed
+     texts and of their concatenation through the drop path (totality for
+     the named cases); command-level pins assert on the RENDERED output —
+     the no-echo tier renders the bare `hadron: ` prefix on stderr and a
+     `--json` envelope that keeps the exit code and the clean server code
+     with an empty message, and a code carrying the token is dropped with
+     the message still empty; the second tier renders `hadron: input
+     declined` on stderr. The renderer's own fixed words (the prefix) are a
+     stated limit, not the drop path's output. A second pin holds the output
+     side (Dara's BLIND delta note): a control character between the token's
+     halves ("a\x00b" over token "a b") must render the full refusal — the
+     sanitizer must not manufacture a spelling — while an unrelated token
+     over the same message keeps the sanitized server text (no
+     over-redaction). The round-4 loop's refusal assertion also became exact
+     equality (Dara's round-4 delta P3): an error holding both the refusal
+     and a leftover echo of the server message no longer passes.
 
 ## Mutants (one per guard, run at the fix head)
 
@@ -115,9 +144,11 @@ https://github.com/hadron-memory/hadron-cli/issues/2704
 | `setTokenError` guard back to the base's fixpoint, `redactToken(code, token) != code` (the `strings.Contains` form this plan was first written against no longer exists on main) | carried-code assertions of the marker/round-4 pins detect the guard mutation; the rendered-message assertions detect removal of the fixed-refusal branch — credited separately (cli#2714 round-3 Dara P3); the F2 pin alone does NOT kill this one | killed (re-run at the round-4 head: 17 assertion failures) |
 | drop-branch back to the one-directional `strings.Contains(token, marker)` of round 3 | round-4 pin: substring / seam / escaped-only cases (cli#2714 Bruno P2, Dara P2) | killed (10 assertion failures) |
 | drop only the message-spelling arm (`replacementCanRecreateToken` alone) | round-4 pin: the escaped-spelling-only case (a disjoint token over a message carrying its escaped spelling) | killed (3 assertion failures) |
-| `tokenSafeRefusal` back to the unconditional round-4 constant (`return fullTokenRefusal`) | round-5 pin: word / substring / whole-refusal cases (cli#2714 Bruno round-4 P2) | killed (8 assertion failures) |
+| `tokenSafeRefusal` back to the unconditional round-4 constant (`return fullTokenRefusal`) | round-5 pin: word / substring / whole-refusal cases (cli#2714 Bruno round-4 P2, Dara round-4 P2) | killed (8 assertion failures; re-verified at the final head) |
 | second tier returned unchecked (walk to `secondTokenRefusal` without its `containsAnySpelling` gate) | round-5 pin: the token-inside-both case ("ed") | killed (2 assertion failures) |
 | terminal tier returns `fullTokenRefusal` instead of no echo | round-5 pin: the token-inside-both case ("ed") | killed (2 assertion failures) |
+| final-candidate arm dropped (guard tests the raw message only, as before the round-5 fix) | sanitization pin: the control-character case ("a\x00b" over "a b") | killed (2 assertion failures) |
+| cascade tiers reordered (`secondTokenRefusal` first) | the round-4 exact-equality assertions (Dara's round-4 P3 fix): every round-4 case would render the second text | killed (9 assertion failures) — the exhaustive-substring loop stays safe under a reorder (each tier is still gated), so the equality pins carry this one |
 | URN guard back to `redactToken(u, token) == u` | F1 pin | killed (human + JSON) |
 | drop the node-variant `add` in `sync.go` | sync U+2028 pin | killed |
 | drop the node-variant `add` in `memorykeys.go` | api U+2028 pins | killed (both) |

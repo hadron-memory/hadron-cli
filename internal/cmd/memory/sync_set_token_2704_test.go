@@ -218,8 +218,12 @@ func TestSetTokenNoReplacementRecreatesToken2714(t *testing.T) {
 		if strings.Contains(err.Error(), c.token) {
 			t.Errorf("%s: the token survives in the rendered error %q", c.name, err.Error())
 		}
-		if !strings.Contains(err.Error(), refusal) {
-			t.Errorf("%s: this message must render the fixed refusal, got %q", c.name, err.Error())
+		// Exact equality, not containment: an error holding BOTH the refusal
+		// and a leftover echo of the server message would pass a containment
+		// check (cli#2714 Dara round-4 delta P3). None of these tokens can
+		// reach a lower tier, so the full refusal is the exact expectation.
+		if err.Error() != refusal {
+			t.Errorf("%s: this message must render the fixed refusal exactly, got %q", c.name, err.Error())
 		}
 		if got := carriedCode(err); got != "FORBIDDEN" {
 			t.Errorf("%s: an ordinary server code must be kept, got %q", c.name, got)
@@ -308,6 +312,34 @@ func TestSetTokenSanitizationCannotManufactureSpelling2714(t *testing.T) {
 	// with a control character in it).
 	if got := setTokenError(mkErr("a\x00b is not allowed"), "tok-2704").Error(); got != "a b is not allowed" {
 		t.Errorf("an unrelated token over a control-character message must keep the sanitized server text, got %q", got)
+	}
+}
+
+// TestSetTokenRefusalExhaustiveSubstrings2714 is Jerry's exhaustive pin: every
+// substring of both fixed refusals — and of their concatenation — is a token
+// some user could hold, so each one is driven through the drop path and the
+// rendered output must never contain it. The named round-5 cases stand for
+// readability; this loop stands for totality, and it kills a mutant that
+// drops a tier's containsAnySpelling gate on a slice the named cases do not
+// cover (a reorder is caught instead by the exact-equality assertions, which
+// pin WHICH tier renders). All three texts are ASCII, so byte slicing is
+// rune-safe.
+func TestSetTokenRefusalExhaustiveSubstrings2714(t *testing.T) {
+	mkErr := func(msg string) error {
+		return &gqlerror.Error{Message: msg, Extensions: map[string]any{"code": "FORBIDDEN"}}
+	}
+	for _, base := range []string{fullTokenRefusal, secondTokenRefusal, fullTokenRefusal + secondTokenRefusal} {
+		for i := 0; i < len(base); i++ {
+			for j := i + 1; j <= len(base); j++ {
+				token := base[i:j]
+				// The message carries the token, so the drop path fires for
+				// every one of them.
+				err := setTokenError(mkErr("x "+token+" x"), token)
+				if strings.Contains(err.Error(), token) {
+					t.Errorf("substring %q of the fixed refusals: the token survives in the rendered error %q", token, err.Error())
+				}
+			}
+		}
 	}
 }
 

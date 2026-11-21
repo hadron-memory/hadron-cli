@@ -272,16 +272,20 @@ func setTokenError(err error, token string) error {
 	// a token containing it untouched, re-forms a seam-spanning token
 	// ("x[" in "xx[" -> "x[REDACTED]"), and a message carrying any covered
 	// spelling is not scrubbed piecemeal at all — the fixed refusal carries
-	// nothing from it. The code (and, in the receipt path, the URN) is kept
-	// only when it itself carries no spelling.
-	if replacementCanRecreateToken(token) || containsAnySpelling(mapped.Error(), token) {
+	// nothing from it. The candidate is judged in its FINAL rendered form
+	// (round 5, Dara's BLIND delta note): output.SafeLine neutralises control
+	// characters to a space and can append an ellipsis at the rune bound, and
+	// either transform can join characters into a spelling the raw message
+	// never carried (message "a\x00b", token "a b"). The code (and, in the
+	// receipt path, the URN) is kept only when it itself carries no spelling.
+	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
+	if tokenOverlapsMarker(token) || containsAnySpelling(mapped.Error(), token) || containsAnySpelling(msg, token) {
 		safe := exitcode.Newf(exitcode.FromError(mapped), "%s", tokenSafeRefusal(token))
 		if containsAnySpelling(api.ServerCodeOf(err), token) {
 			return safe
 		}
 		return api.WithServerCode(safe, err)
 	}
-	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
 	// containsAnySpelling, not a redactToken(code) != code fixpoint: a
 	// sentinel-equal token leaves redactToken the identity, so the fixpoint
@@ -292,11 +296,14 @@ func setTokenError(err error, token string) error {
 	return api.WithServerCode(safe, err)
 }
 
-// replacementCanRecreateToken reports whether redactToken's replacement — the
-// marker — could itself put the token into the output: a token that contains
-// the marker replaces to itself, and a token contained in the marker is
-// re-created inside every replacement (cli#2714 round 4).
-func replacementCanRecreateToken(token string) bool {
+// tokenOverlapsMarker reports MUTUAL containment only — the token contains
+// the marker (every replacement writes the token back) or the marker contains
+// the token (re-created inside every replacement, "REDACTED" ->
+// "[REDACTED]"). It is deliberately not named for every replacement hazard:
+// a seam-spanning token ("x[" over "xx[" -> "x[REDACTED]") is caught by the
+// message arm of the drop guard instead, which is why both arms stand
+// (cli#2714 round 4; rename per Dara's round-4 delta P3).
+func tokenOverlapsMarker(token string) bool {
 	return strings.Contains(token, redactionMarker) || strings.Contains(redactionMarker, token)
 }
 
