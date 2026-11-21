@@ -218,7 +218,13 @@ func renderLinkResult(w io.Writer, r linkResultDTO) error {
 	case r.DryRun:
 		verb = "would link"
 	}
-	fmt.Fprintf(w, "%s %s → %s  (%s)\n", verb, r.From, r.To, r.Label)
+	// The edge write has already happened by the time the result renders, so
+	// a swallowed write error would report success for a link whose remedy
+	// the reader never saw whole: check both writes and surface the first
+	// error (#2779).
+	if _, err := fmt.Fprintf(w, "%s %s → %s  (%s)\n", verb, r.From, r.To, r.Label); err != nil {
+		return err
+	}
 	// A warning is a free-standing line, not a table cell: it carries the
 	// repair command, whose shell-quoted URN grows one rune per loc segment,
 	// so SafeCell's 256-rune bound could clip the very tail the reader was
@@ -226,7 +232,9 @@ func renderLinkResult(w io.Writer, r linkResultDTO) error {
 	// format characters still fold to spaces, the command never truncates.
 	// --json already carries the full text.
 	for _, warning := range r.Warnings {
-		fmt.Fprintf(w, "warning: %s\n", output.SanitizeLine(warning))
+		if _, err := fmt.Fprintf(w, "warning: %s\n", output.SanitizeLine(warning)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
