@@ -327,9 +327,10 @@ func helpPagesInScope2525(t *testing.T) map[string]string {
 		t.Fatalf("hadron --help: %v", err)
 	}
 	pages["hadron"] = out.String()
-	f2, _ := testFactory(t)
+	// Enumerate on the SAME root that was just executed: cobra adds its generated help and
+	// completion commands while executing, so this is where they exist.
 	var tops []string
-	for _, c := range NewRootCmd(f2).Commands() {
+	for _, c := range root.Commands() {
 		if !c.Hidden {
 			tops = append(tops, c.Name())
 		}

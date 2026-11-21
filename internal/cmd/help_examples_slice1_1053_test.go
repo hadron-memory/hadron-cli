@@ -133,6 +133,7 @@ type exampleResult struct {
 // parent paths they resolve to, not as strings unlike "../".
 func unsafeExamplePath1053(args []string, dir string) string {
 	dir = filepath.Clean(dir)
+	realDir := resolveExistingPath1053(dir)
 	for _, a := range args {
 		for _, v := range examplePathCandidates1053(a) {
 			p := filepath.Clean(v)
@@ -141,9 +142,36 @@ func unsafeExamplePath1053(args []string, dir string) string {
 				p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
 				return v
 			}
+			// cli#2525 (George's #2812 F3): lexically inside is not enough. Resolve symlinks, so a
+			// path through a link that points outside the fixture is unsafe too.
+			full := p
+			if !filepath.IsAbs(full) {
+				full = filepath.Join(dir, p)
+			}
+			if r := resolveExistingPath1053(full); r != realDir && !strings.HasPrefix(r, realDir+string(filepath.Separator)) {
+				return v
+			}
 		}
 	}
 	return ""
+}
+
+// resolveExistingPath1053 resolves symlinks in the longest existing prefix of path and appends the
+// rest, so a path that does not exist yet is judged by where its existing parent really is.
+func resolveExistingPath1053(path string) string {
+	path = filepath.Clean(path)
+	rest := ""
+	for {
+		if r, err := filepath.EvalSymlinks(path); err == nil {
+			return filepath.Join(r, rest)
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return filepath.Join(path, rest)
+		}
+		rest = filepath.Join(filepath.Base(path), rest)
+		path = parent
+	}
 }
 
 // examplePathCandidates1053 lists every value an example argument could make a command
