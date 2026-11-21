@@ -18,14 +18,20 @@ import (
 
 // cli#2786: pins for the cli#2404 private-child guards. Everything here runs a
 // private copy of THIS test binary (never a real host Orca) under a hard bound.
-// Every such child carries noReentryEnv2786: if a guard regresses and lets the
+// Every direct guard probe carries noReentryEnv2786 (the one exception is the
+// integration subprocess of the ambient-PATH test, which must run a selected test): if a guard regresses and lets the
 // process fall through to the test runner, TestMain (failIfUnclaimed2786) exits
 // 3 before m.Run, so a fail-open guard FAILS a pin quickly instead of recursing
 // into the suite. The bound is a backstop for a child that hangs.
 
 const (
-	ambientTrapEnv2786 = "HADRON_TEST_2786_TRAP_MARKER"
-	noReentryEnv2786   = "HADRON_TEST_2786_NO_REENTRY"
+	noReentryEnv2786 = "HADRON_TEST_2786_NO_REENTRY"
+	// The ambient trap recognises itself, and records that it was reached, by
+	// files beside it, never by environment: the real launch scrubs HADRON_* from
+	// what an Orca receives, and a marker carried that way would be lost exactly
+	// when the trap is reached through the production launch path.
+	trapSentinelFile2786 = "ambient-trap-2786"
+	trapCalledFile2786   = "called"
 )
 
 // failIfUnclaimed2786 runs in TestMain after every guard: a process started with
@@ -52,17 +58,21 @@ func cleanEnv2786() []string {
 }
 
 // runAmbientTrap2786 makes a copy of the test binary named orca/orca.exe, in a
-// directory that is not the private inert one, behave as an "ambient" Orca: it
-// records that it was reached and answers a terminal. It is the Windows-capable
+// directory that is not the private inert one and holds the trap sentinel file,
+// behave as an "ambient" Orca: it records that it was reached (a file beside it)
+// and answers a terminal. It is the Windows-capable
 // stand-in for the shell-script trap of the !windows test.
 func runAmbientTrap2786() {
-	marker := os.Getenv(ambientTrapEnv2786)
 	exe, err := os.Executable()
-	if marker == "" || err != nil || strings.TrimSuffix(strings.ToLower(filepath.Base(exe)), ".exe") != "orca" ||
+	if err != nil || strings.TrimSuffix(strings.ToLower(filepath.Base(exe)), ".exe") != "orca" ||
 		strings.HasPrefix(filepath.Base(filepath.Dir(exe)), inertSweepOrcaDirPrefix2404) { // never the private inert Orca
 		return
 	}
-	if err := os.WriteFile(marker, []byte("x"), 0o600); err != nil {
+	dir := filepath.Dir(exe)
+	if _, err := os.Stat(filepath.Join(dir, trapSentinelFile2786)); err != nil {
+		return
+	}
+	if err := os.WriteFile(filepath.Join(dir, trapCalledFile2786), []byte("x"), 0o600); err != nil {
 		fmt.Fprintln(os.Stderr, "ambient trap could not record that it was reached:", err)
 		os.Exit(4)
 	}
@@ -90,11 +100,9 @@ func privateOrca2786(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bin := filepath.Join(dir, orcaName2786())
-	if err := os.Link(exe, bin); err != nil {
-		if err := copyTestOrca2404(exe, bin); err != nil {
-			t.Fatal(err)
-		}
+	bin, err := linkTestOrca2404(exe, dir, orcaName2786())
+	if err != nil {
+		t.Fatal(err)
 	}
 	return bin
 }
@@ -206,12 +214,12 @@ func TestAChildNoGuardClaimsDoesNotReenterTheRunner2786(t *testing.T) {
 // ambient-PATH pin below could pass by the trap never being able to fire.
 func TestTheAmbientTrapCanFire2786(t *testing.T) {
 	dir := t.TempDir()
-	marker := filepath.Join(dir, "called")
+	marker := filepath.Join(dir, trapCalledFile2786)
 	trap := installTrap2786(t, dir)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, trap, "terminal", "list", "--json")
-	cmd.Env = append(cleanEnv2786(), noReentryEnv2786+"=1", ambientTrapEnv2786+"="+marker)
+	cmd.Env = append(cleanEnv2786(), noReentryEnv2786+"=1")
 	out, err := cmd.Output()
 	if err != nil || !strings.Contains(string(out), "path-trap") {
 		t.Fatalf("the trap must answer: %v %q", err, out)
@@ -227,11 +235,12 @@ func installTrap2786(t *testing.T, dir string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	trap := filepath.Join(dir, orcaName2786())
-	if err := os.Link(exe, trap); err != nil {
-		if err := copyTestOrca2404(exe, trap); err != nil {
-			t.Fatal(err)
-		}
+	trap, err := linkTestOrca2404(exe, dir, orcaName2786())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, trapSentinelFile2786), nil, 0o600); err != nil {
+		t.Fatal(err)
 	}
 	return trap
 }
@@ -242,7 +251,7 @@ func installTrap2786(t *testing.T, dir string) string {
 // test must be seen to PASS (not be skipped or renamed away).
 func TestHealthDupeDefaultNeverExecutesAmbientOrcaNatively2786(t *testing.T) {
 	dir := t.TempDir()
-	marker := filepath.Join(dir, "called")
+	marker := filepath.Join(dir, trapCalledFile2786)
 	installTrap2786(t, dir)
 	exe, err := os.Executable()
 	if err != nil {
@@ -252,7 +261,7 @@ func TestHealthDupeDefaultNeverExecutesAmbientOrcaNatively2786(t *testing.T) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, exe, "-test.v", "-test.run=^TestHealthDupeDefaultChild2786$")
 	cmd.WaitDelay = time.Second
-	cmd.Env = append(cleanEnv2786(), "PATH="+dir, "HADRON_TEST_2786_CHILD=1", ambientTrapEnv2786+"="+marker)
+	cmd.Env = append(cleanEnv2786(), "PATH="+dir, "HADRON_TEST_2786_CHILD=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("the unconfigured dupe client must see the inert world: %v\n%s", err, out)

@@ -68,12 +68,10 @@ func installInertSweepOrca2404() (func(), error) {
 	if runtime.GOOS == "windows" {
 		name += ".exe"
 	}
-	bin := filepath.Join(dir, name)
-	if err := os.Link(exe, bin); err != nil {
-		if err := copyTestOrca2404(exe, bin); err != nil {
-			cleanup()
-			return nil, err
-		}
+	bin, err := linkTestOrca2404(exe, dir, name)
+	if err != nil {
+		cleanup()
+		return nil, err
 	}
 	if err := os.Setenv(inertSweepOrcaEnv2404, bin); err != nil {
 		cleanup()
@@ -84,6 +82,19 @@ func installInertSweepOrca2404() (func(), error) {
 		return nil, err
 	}
 	return cleanup, nil
+}
+
+// linkTestOrca2404 puts the test binary at dir/name by hard link, falling back
+// to a copy across filesystems: the one way every private Orca is installed, by
+// the installer and by the cli#2786 fixtures alike.
+func linkTestOrca2404(exe, dir, name string) (string, error) {
+	bin := filepath.Join(dir, name)
+	if err := os.Link(exe, bin); err != nil {
+		if err := copyTestOrca2404(exe, bin); err != nil {
+			return "", err
+		}
+	}
+	return bin, nil
 }
 
 func copyTestOrca2404(src, dst string) error {
