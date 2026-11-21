@@ -507,3 +507,55 @@ func TestStagedRequestWithoutAUsableURL2738(t *testing.T) {
 		}
 	}
 }
+
+// SEC10 P3-2/P3-3: the staged code beneath the mutation's own level (a result
+// field failing after the write may have committed) is not claimed as staged, so
+// no ceremony URL is invented; it keeps its code, which maps to 5.
+func TestStagedCodeBelowTheRootIsNotClaimed2738(t *testing.T) {
+	nested := map[string]any{"message": "refused", "path": []any{"setSecretProtected", "name"},
+		"extensions": map[string]any{"code": "SECRET_PROTECTED_NEEDS_PASSKEY", "requestId": req2738, "ceremonyUrl": url2738}}
+	b, _ := json.Marshal(map[string]any{"errors": []any{nested}, "data": nil})
+	srv, _ := fake2738(t, only2738(200, string(b)))
+	stdout, stderr, code := run2738(t, srv.URL, "protect", "sec-1", "--on", "--json")
+	e := envelope2738(t, stdout, stderr)
+	if _, has := e["ceremonyUrl"]; has {
+		t.Errorf("a nested refusal is not a staged claim: %v", e)
+	}
+	if code != exitcode.Conflict {
+		t.Errorf("the code still maps to 5 (codeForExtension): exit %d", code)
+	}
+}
+
+// SEC10 P3-1: a server-supplied request id is neutralised in text and quoted in
+// the command hints, so it can neither act on a terminal nor inject into a shell
+// line copied from the output; --json carries it exactly.
+func TestStagedRequestIDIsNeutralisedAndQuoted2738(t *testing.T) {
+	const quotedID = "r1; touch pwned"
+	srv, _ := fake2738(t, only2738(200, gqlErr2738("SECRET_PROTECTED_NEEDS_PASSKEY", map[string]any{"requestId": quotedID, "ceremonyUrl": url2738})))
+	_, stderr, _ := run2738(t, srv.URL, "protect", "sec-1", "--on")
+	for _, want := range []string{"hadron secret change get 'r1; touch pwned' --wait", "hadron secret change withdraw 'r1; touch pwned'"} {
+		if !strings.Contains(stderr, want) {
+			t.Errorf("hint lacks the quoted id %q:\n%s", want, stderr)
+		}
+	}
+	const escID = "r\x1b[2Jz"
+	srv2, _ := fake2738(t, only2738(200, gqlErr2738("SECRET_PROTECTED_NEEDS_PASSKEY", map[string]any{"requestId": escID, "ceremonyUrl": url2738})))
+	_, stderr2, _ := run2738(t, srv2.URL, "protect", "sec-1", "--on")
+	if strings.ContainsRune(stderr2, 0x1b) {
+		t.Errorf("an id with a control character must be neutralised in text: %q", stderr2)
+	}
+	stdout, errOut, _ := run2738(t, srv2.URL, "protect", "sec-1", "--on", "--json")
+	if e := envelope2738(t, stdout, errOut); e["requestId"] != escID {
+		t.Errorf("--json carries the id exactly: %q", e["requestId"])
+	}
+}
+
+// SEC10 P3-1: change get neutralises server-supplied fields in text rows.
+func TestChangeGetNeutralisesServerFieldsInText2738(t *testing.T) {
+	row := `{"data":{"secretChangeRequest":{"id":"r\u001b[2J","state":"open\u001b[2J","operation":"op\u001b[2J","createdAt":"c\u001b[2J","expiresAt":"e\u001b[2J"}}}`
+	srv, _ := fake2738(t, only2738(200, row))
+	stdout, _, code := run2738(t, srv.URL, "change", "get", "r1")
+	if code != 0 || strings.ContainsRune(stdout, 0x1b) {
+		t.Errorf("text rows must be neutralised: exit %d %q", code, stdout)
+	}
+}
