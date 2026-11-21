@@ -219,8 +219,14 @@ func renderLinkResult(w io.Writer, r linkResultDTO) error {
 		verb = "would link"
 	}
 	fmt.Fprintf(w, "%s %s → %s  (%s)\n", verb, r.From, r.To, r.Label)
+	// A warning is a free-standing line, not a table cell: it carries the
+	// repair command, whose shell-quoted URN grows one rune per loc segment,
+	// so SafeCell's 256-rune bound could clip the very tail the reader was
+	// told to run (#2385). Sanitise whole (SanitizeLine, #2371): control and
+	// format characters still fold to spaces, the command never truncates.
+	// --json already carries the full text.
 	for _, warning := range r.Warnings {
-		fmt.Fprintf(w, "warning: %s\n", output.SafeCell(warning))
+		fmt.Fprintf(w, "warning: %s\n", output.SanitizeLine(warning))
 	}
 	return nil
 }
