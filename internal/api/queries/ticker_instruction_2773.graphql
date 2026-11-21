@@ -1,0 +1,43 @@
+# cli#2773: the five ticker writes that take a holder's instruction
+# (ActInstructionInput, cor:dmo:050:12). Separate documents keep the no-flag
+# wire bytes of the plain operations in tickers.graphql unchanged.
+#
+# Each *Instructed operation selects exactly what its plain twin selects, so
+# the Go helpers in internal/cmd/ticker/instruction.go can convert the
+# instructed response into the plain response type; a structural divergence
+# fails to compile there instead of silently reshaping --json output.
+
+# TickerPatch is one generated type shared with UpdateTicker, so its omitempty
+# pragmas must be stated here too, or an omitted field is sent as an explicit null
+# (which the server reads as "clear").
+# @genqlient(for: "TickerPatch.name", omitempty: true)
+# @genqlient(for: "TickerPatch.cadenceSeconds", omitempty: true)
+# @genqlient(for: "TickerPatch.anchorAt", omitempty: true)
+# @genqlient(for: "TickerPatch.quietHours", omitempty: true)
+# @genqlient(for: "TickerPatch.clearQuietHours", omitempty: true)
+# @genqlient(for: "TickerPatch.channelIds", omitempty: true)
+# @genqlient(for: "TickerPatch.clearChannels", omitempty: true)
+# @genqlient(for: "TickerPatch.relevance", omitempty: true)
+# @genqlient(for: "TickerPatch.reasons", omitempty: true)
+# @genqlient(for: "TickerPatch.enabled", omitempty: true)
+mutation UpdateTickerInstructed(
+ $ref: String!
+ $input: TickerPatch!
+ $instruction: ActInstructionInput!
+) {
+ updateTicker(ref: $ref, input: $input, instruction: $instruction) { ...TickerFields }
+}
+mutation DeleteTickerInstructed($ref: String!, $instruction: ActInstructionInput!) {
+ deleteTicker(ref: $ref, instruction: $instruction) }
+mutation SubscribeTickerInstructed($tickerRef: String!, $workerRef: String!, $instruction: ActInstructionInput!) {
+ subscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef, instruction: $instruction) { subscription { ...TickerSubscriptionFields } announcement }
+}
+mutation UnsubscribeTickerInstructed($tickerRef: String!, $workerRef: String!, $instruction: ActInstructionInput!) {
+ unsubscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef, instruction: $instruction) { subscription { ...TickerSubscriptionFields } announcement }
+}
+mutation ApplyAgentTickerTemplatesInstructed($workerRef: String!, $instruction: ActInstructionInput!) {
+ applyAgentTickerTemplates(workerRef: $workerRef, instruction: $instruction) {
+  created { ticker { ...TickerFields } template { id name } effectiveCadenceSeconds }
+  alreadyPresent { id name }
+ }
+}
