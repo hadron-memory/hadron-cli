@@ -8,24 +8,6 @@
 #   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -rename-citation-exception 'old page=>new page'
 # (never by hand). Line: <page>  # <kind> <reference> x<count> | ...
 # The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
-spec  # issue #1591 x1
-spec backlinks  # issue #1591 x1
-spec check-tools  # issue #240 x1
-spec document  # citation cor:spc:030 x3 | citation cor:spc:030:02 x1
-spec edit  # citation cor:agt:020 x2 | citation cor:dmo:060:02 x1 | citation cor:dmo:110:03 x1 | citation cor:dmo:120:01 x1 | issue #1339 x1 | issue #1352 x1 | issue #738 x1 | issue #873 x1
-spec extract  # citation cor:dmo:060:02 x3
-spec get  # citation cor:dmo:060:02 x1
-spec ledger  # citation cor:dmo:140 x1
-spec link  # citation cor:dmo:020:04 x2 | citation cor:dmo:060:02 x2
-spec lint  # citation cor:api:140 x2 | issue #1591 x1 | issue #687 x1 | issue #708 x1
-spec mint  # citation cor:dmo:120:06 x1
-spec new  # issue #708 x1
-spec renumber  # issue #1591 x1
-spec replace  # citation cor:acl:130:02 x1
-spec rescind  # citation cor:spc:020:07 x1
-spec reserve  # issue #1591 x1
-spec supersede  # citation cor:spc:010:01 x1
-spec unresolved  # issue #1591 x1
 team  # citation cor:agt:020:01 x1 | citation cor:agt:020:02 x1 | issue #1050 x1 | issue #2027 x2 | issue #399 x1 | issue #400 x1 | issue #402 x1
 team alarms  # citation cor:agt:050:02 x1 | citation cor:agt:050:20 x1 | citation cor:agt:050:22 x1
 team app sweep-mode  # issue #4242 x2
