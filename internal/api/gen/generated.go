@@ -21927,6 +21927,58 @@ func (v *AlarmAcknowledgeResponse) GetAcknowledgeAlarm() *AlarmAcknowledgeAcknow
 	return v.AcknowledgeAlarm
 }
 
+// AllocateSpecNodeAllocateSpecNode includes the requested fields of the GraphQL type Node.
+type AllocateSpecNodeAllocateSpecNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #1450 — a server-recorded placeholder awaiting authored content, such as a
+	// RESERVED spec citation created by reserveSpecCitation. A placeholder may
+	// exist in any memory; it is never inferred from an empty body. Writing real
+	// nonblank content through the spec door or shared mirror write path clears
+	// it. Placeholders block minting.
+	IsPlaceholder bool `json:"isPlaceholder"`
+}
+
+// GetId returns AllocateSpecNodeAllocateSpecNode.Id, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetId() string { return v.Id }
+
+// GetMemoryId returns AllocateSpecNodeAllocateSpecNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns AllocateSpecNodeAllocateSpecNode.Loc, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetLoc() string { return v.Loc }
+
+// GetName returns AllocateSpecNodeAllocateSpecNode.Name, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetName() string { return v.Name }
+
+// GetRevision returns AllocateSpecNodeAllocateSpecNode.Revision, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetRevision() int { return v.Revision }
+
+// GetIsPlaceholder returns AllocateSpecNodeAllocateSpecNode.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetIsPlaceholder() bool { return v.IsPlaceholder }
+
+// AllocateSpecNodeResponse is returned by AllocateSpecNode on success.
+type AllocateSpecNodeResponse struct {
+	// #1178 — allocate the next citation under parentLoc and reserve it as a
+	// placeholder, in one transaction: mint-or-refuse, so a client never reads
+	// sibling numbers and writes the next. Numbers follow hadron spec new:
+	// features in tens (010..990), rules and flows by one (01..99), rule 00 never,
+	// after lands strictly above it. A number ever minted is never handed out
+	// again (R216) while a row or alias of it remains, and a loc held by a row of
+	// any state is skipped. Refuses SPEC_PARENT_NOT_FOUND, SPEC_PARENT_NOT_NUMBERED
+	// and SPEC_NUMBER_SPACE_EXHAUSTED; an unreadable memory is not found.
+	AllocateSpecNode *AllocateSpecNodeAllocateSpecNode `json:"allocateSpecNode"`
+}
+
+// GetAllocateSpecNode returns AllocateSpecNodeResponse.AllocateSpecNode, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeResponse) GetAllocateSpecNode() *AllocateSpecNodeAllocateSpecNode {
+	return v.AllocateSpecNode
+}
+
 // AmendQuestionAmendQuestion includes the requested fields of the GraphQL type Question.
 // The GraphQL type's documentation follows.
 //
@@ -69128,6 +69180,48 @@ func (v *MemoryConfigWarningFields) GetTaskUrn() *string { return v.TaskUrn }
 
 // GetTaskState returns MemoryConfigWarningFields.TaskState, and is useful for accessing the field via an interface.
 func (v *MemoryConfigWarningFields) GetTaskState() *NodeRoleRuleRefState { return v.TaskState }
+
+// MemoryEncryptionPrincipalAuthContext includes the requested fields of the GraphQL type AuthContext.
+// The GraphQL type's documentation follows.
+//
+// The resolved principal for the credential presented on THIS request
+// (issue #562). Exposes the AuthContext the server already resolves per
+// request (cor:aut:020:02) read-only, so any surface (CLI, portal) can
+// validate a token and name the exact credential without per-client hacks.
+//
+// Security posture (held deliberately):
+// - Current-request only. There is intentionally no query that takes an
+// arbitrary token as an argument — that would be a token oracle. The
+// caller must possess the credential, exactly as today.
+// - No reason-leak. A credential that does not resolve yields a null
+// authContext (Query field), identically for revoked / never-existed /
+// malformed. Once a credential HAS resolved (you authenticated as it),
+// surfacing active-vs-revoked via apiKey.revokedAt is fine.
+type MemoryEncryptionPrincipalAuthContext struct {
+	// Which kind of credential authenticated this request.
+	PrincipalType PrincipalType `json:"principalType"`
+}
+
+// GetPrincipalType returns MemoryEncryptionPrincipalAuthContext.PrincipalType, and is useful for accessing the field via an interface.
+func (v *MemoryEncryptionPrincipalAuthContext) GetPrincipalType() PrincipalType {
+	return v.PrincipalType
+}
+
+// MemoryEncryptionPrincipalResponse is returned by MemoryEncryptionPrincipal on success.
+type MemoryEncryptionPrincipalResponse struct {
+	// The resolved principal for the credential on THIS request (issue #562).
+	// Credential-type-agnostic: works for personal API keys, JWT sessions, and
+	// App keys alike — unlike me, which is null for a valid App credential.
+	// Returns null when the presented credential does not resolve (identically
+	// for revoked / never-existed / malformed — never a token oracle). See the
+	// AuthContext type for the full security posture.
+	AuthContext *MemoryEncryptionPrincipalAuthContext `json:"authContext"`
+}
+
+// GetAuthContext returns MemoryEncryptionPrincipalResponse.AuthContext, and is useful for accessing the field via an interface.
+func (v *MemoryEncryptionPrincipalResponse) GetAuthContext() *MemoryEncryptionPrincipalAuthContext {
+	return v.AuthContext
+}
 
 // Filter for the uniform memories() list (#473). All clauses AND-combine and
 // only ever narrow the caller's accessible scope — with two documented slice
@@ -129611,6 +129705,26 @@ func (v *__AlarmAcknowledgeInstructedInput) GetInstruction() *ActInstructionInpu
 	return v.Instruction
 }
 
+// __AllocateSpecNodeInput is used internally by genqlient
+type __AllocateSpecNodeInput struct {
+	MemoryRef string  `json:"memoryRef"`
+	ParentLoc string  `json:"parentLoc"`
+	After     *int    `json:"after,omitempty"`
+	Name      *string `json:"name,omitempty"`
+}
+
+// GetMemoryRef returns __AllocateSpecNodeInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetParentLoc returns __AllocateSpecNodeInput.ParentLoc, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetParentLoc() string { return v.ParentLoc }
+
+// GetAfter returns __AllocateSpecNodeInput.After, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetAfter() *int { return v.After }
+
+// GetName returns __AllocateSpecNodeInput.Name, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetName() *string { return v.Name }
+
 // __AmendQuestionInput is used internally by genqlient
 type __AmendQuestionInput struct {
 	Ref              string              `json:"ref"`
@@ -133671,19 +133785,11 @@ func (v *__EmailUpdateDraftInput) GetBodyHtml() string { return v.BodyHtml }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
-	MemoryRef  string  `json:"memoryRef"`
-	DataKey    *string `json:"dataKey,omitempty"`
-	Passphrase *string `json:"passphrase,omitempty"`
+	MemoryRef string `json:"memoryRef"`
 }
 
 // GetMemoryRef returns __EncryptMemoryInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetMemoryRef() string { return v.MemoryRef }
-
-// GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
-func (v *__EncryptMemoryInput) GetDataKey() *string { return v.DataKey }
-
-// GetPassphrase returns __EncryptMemoryInput.Passphrase, and is useful for accessing the field via an interface.
-func (v *__EncryptMemoryInput) GetPassphrase() *string { return v.Passphrase }
 
 // __EndTeamSessionInput is used internally by genqlient
 type __EndTeamSessionInput struct {
@@ -149503,6 +149609,59 @@ func AlarmAcknowledgeInstructed(
 	return data_, err_
 }
 
+// The mutation executed by AllocateSpecNode.
+const AllocateSpecNode_Operation = `
+mutation AllocateSpecNode ($memoryRef: ID!, $parentLoc: String!, $after: Int, $name: String) {
+	allocateSpecNode(memoryRef: $memoryRef, parentLoc: $parentLoc, after: $after, name: $name) {
+		id
+		memoryId
+		loc
+		name
+		revision
+		isPlaceholder
+	}
+}
+`
+
+// cli#398: the provider-side citation allocator (hadron-server#1178 slice 1,
+// cor:spc:020:13). One call picks the next free number under parentLoc and
+// creates the unminted placeholder at it in the same transaction, so a client
+// never reads sibling numbers and writes the next. `revision` is the guard the
+// one follow-up fill (updateSpecNode) carries.
+//
+// Both optional variables carry omitempty: an unset `after`/`name` is OMITTED,
+// not sent as null (the server reads an omitted field as "use the default").
+func AllocateSpecNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	parentLoc string,
+	after *int,
+	name *string,
+) (data_ *AllocateSpecNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AllocateSpecNode",
+		Query:  AllocateSpecNode_Operation,
+		Variables: &__AllocateSpecNodeInput{
+			MemoryRef: memoryRef,
+			ParentLoc: parentLoc,
+			After:     after,
+			Name:      name,
+		},
+	}
+
+	data_ = &AllocateSpecNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AmendQuestion.
 const AmendQuestion_Operation = `
 mutation AmendQuestion ($ref: ID!, $input: AmendQuestionInput!, $expectedRevision: Int!, $reason: String!) {
@@ -162466,8 +162625,8 @@ func EmailUpdateDraft(
 
 // The mutation executed by EncryptMemory.
 const EncryptMemory_Operation = `
-mutation EncryptMemory ($memoryRef: ID!, $dataKey: String, $passphrase: String) {
-	encryptMemory(memoryRef: $memoryRef, dataKey: $dataKey, passphrase: $passphrase) {
+mutation EncryptMemory ($memoryRef: ID!) {
+	encryptMemory(memoryRef: $memoryRef) {
 		id
 		urn
 		name
@@ -162480,22 +162639,17 @@ mutation EncryptMemory ($memoryRef: ID!, $dataKey: String, $passphrase: String) 
 // provides the data key and all node content/data is rewritten as ciphertext in
 // a single transaction. There is no decrypt mutation, so the command gates like a
 // destructive op.
-// cli#1340 — exactly one of dataKey / passphrase is sent (the server refuses
-// both or neither); the other stays omitted.
+// cli#1650: key material is per-call HTTP header data, NEVER GraphQL arguments.
 func EncryptMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryRef string,
-	dataKey *string,
-	passphrase *string,
 ) (data_ *EncryptMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "EncryptMemory",
 		Query:  EncryptMemory_Operation,
 		Variables: &__EncryptMemoryInput{
-			MemoryRef:  memoryRef,
-			DataKey:    dataKey,
-			Passphrase: passphrase,
+			MemoryRef: memoryRef,
 		},
 	}
 
@@ -169065,6 +169219,38 @@ func MemoryConfigTemplates(
 	}
 
 	data_ = &MemoryConfigTemplatesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryEncryptionPrincipal.
+const MemoryEncryptionPrincipal_Operation = `
+query MemoryEncryptionPrincipal {
+	authContext {
+		principalType
+	}
+}
+`
+
+// cli#1650: header choice follows the authenticated principal, not token spelling
+// or the --app context. Read only the fact required for that choice, without keys.
+func MemoryEncryptionPrincipal(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *MemoryEncryptionPrincipalResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryEncryptionPrincipal",
+		Query:  MemoryEncryptionPrincipal_Operation,
+	}
+
+	data_ = &MemoryEncryptionPrincipalResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
