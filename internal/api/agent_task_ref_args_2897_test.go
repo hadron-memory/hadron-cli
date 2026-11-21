@@ -160,18 +160,22 @@ func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 	if len(generated) == 0 {
 		t.Fatal("no generated client found under gen/")
 	}
-	// Positive control for EVERY renamed operation: the new spelling is present,
-	// so a silent non-match of the regex above cannot pass.
+	// Positive control for EVERY renamed operation, order- and whitespace-
+	// tolerant like the retired-argument sweep: the operation's own argument
+	// list carries the new spelling, so a silent non-match cannot pass and a
+	// dropped operation (including the events and list reads) goes red.
 	all := strings.Join(generated, "\n")
-	for _, want := range []string{
-		"assignAgentTask(taskRef:", "reassignAgentTask(taskRef:", "startAgentTask(taskRef:",
-		"cancelAgentTask(taskRef:", "parkAgentTask(taskRef:", "finishAgentTask(taskRef:",
-		"cloneAgentTask(taskRef:", "updateAgentTask(taskRef:", "recordAgentTaskProgress(taskRef:",
-		"makeAgentTaskReady(taskRef:", "releaseAgentTaskExternalId(taskRef:",
-		"agentTask(ref:", "parentTaskRef:",
+	for op, arg := range map[string]string{
+		"assignAgentTask": "taskRef", "reassignAgentTask": "taskRef", "startAgentTask": "taskRef",
+		"cancelAgentTask": "taskRef", "parkAgentTask": "taskRef", "finishAgentTask": "taskRef",
+		"cloneAgentTask": "taskRef", "updateAgentTask": "taskRef", "recordAgentTaskProgress": "taskRef",
+		"makeAgentTaskReady": "taskRef", "releaseAgentTaskExternalId": "taskRef",
+		"agentTask": "ref", "agentTasks": "parentTaskRef",
+		"agentTeamEventsPage": "taskRef",
 	} {
-		if !strings.Contains(all, want) {
-			t.Errorf("the generated client never sends %q: stale client or the sweep is blind", want)
+		re := regexp.MustCompile(`\b` + op + `\s*\([^)]*\b` + arg + `\s*:`)
+		if !re.MatchString(all) {
+			t.Errorf("the generated client never sends %s(%s:): stale client or the sweep is blind", op, arg)
 		}
 	}
 
