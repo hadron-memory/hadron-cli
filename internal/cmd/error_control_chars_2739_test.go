@@ -151,7 +151,7 @@ func TestRenderErrorOrdinaryTextIsUnchanged2739(t *testing.T) {
 // The terminal line is neutralised; the exit code is intact.
 func TestServerErrorTextIsNeutralisedEndToEnd2739(t *testing.T) {
 	body := `{"errors":[{"message":"not allowed \u001b[31mRED\u001b[0m \u001b]0;pwned\u0007 now","extensions":{"code":"FORBIDDEN"}}]}`
-	srv, _ := attnServer(t, map[string]string{"MySecretReadClients": body})
+	srv, _ := attnServer(t, map[string]string{"ListSecretReadClients": body})
 
 	f, _ := testFactory(t)
 	var errOut strings.Builder

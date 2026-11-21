@@ -68,7 +68,7 @@ func TestSecretClientIssueWithoutAutoDeleteIsByteIdentical2720(t *testing.T) {
 func TestSecretClientListShowsTheAutoDeleteMark2720(t *testing.T) {
 	marked := `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok-marked","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","destroyOnEnd":true}`
 	plain := `{"clientId":"c2","clientPrefix":"c2","grantId":"g2","secretId":"s1","secretName":"tok-plain","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","destroyOnEnd":false}`
-	srv, _ := attnServer(t, map[string]string{"MySecretReadClients": readClients2680(marked, plain)})
+	srv, _ := attnServer(t, map[string]string{"ListSecretReadClients": readClients2680(marked, plain)})
 	out, _, err := runSecretClient2631(t, srv.URL, "list", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -142,5 +142,74 @@ func TestSecretClientIssueHelpStatesTheShippedAutoDelete2720(t *testing.T) {
 	lc, _, _ := NewRootCmd(f).Find([]string{"secret", "client", "list"})
 	if lc == nil || !strings.Contains(strings.Join(strings.Fields(lc.Long), " "), "auto-delete") {
 		t.Errorf("the list help must name the auto-delete column")
+	}
+}
+
+// Joran's P2-1 (a server that lacks destroyOnEnd): the list query is a document of its own, so
+// `client revoke`, a safety action, does not depend on the display column. Against a server that
+// rejects the field at validation, list fails with the schema-skew refusal (exit 2) and revoke
+// still finds its client and revokes it.
+func TestSecretClientRevokeDoesNotDependOnTheAutoDeleteColumn2720(t *testing.T) {
+	validation := `{"errors":[{"message":"Cannot query field \"destroyOnEnd\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	srv, calls := attnServer(t, map[string]string{
+		"ListSecretReadClients":       validation,
+		"MySecretReadClients":         readClients2680(clientRow2680("c1", "gr-c1")),
+		"RevokeSecretReadClientGrant": revoked2680("REVOKED"),
+	})
+	if _, err := runRevoke2680(t, srv.URL, "c1", "--yes"); err != nil || revokes2680(calls) != 1 {
+		t.Fatalf("revoke must work against a server without the mark: err=%v ops=%v", err, opsOf2631(calls))
+	}
+	for _, c := range *calls {
+		if c.Op == "ListSecretReadClients" {
+			t.Errorf("revoke's lookup must not select the auto-delete mark: %v", opsOf2631(calls))
+		}
+	}
+	_, _, err := runSecretClient2631(t, srv.URL, "list")
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("list against a server that rejects the field is the schema-skew refusal (exit 2): exit=%d %v", exitCodeFor(err), err)
+	}
+}
+
+// Joran's P2-3 (a silent false negative for the destructive mark): a row the server answered
+// WITHOUT destroyOnEnd, or with null, is a malformed answer, never "AUTO-DELETE no".
+func TestSecretClientListRowWithoutTheMarkIsMalformed2720(t *testing.T) {
+	for name, row := range map[string]string{
+		"absent": `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`,
+		"null":   `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":true,"endReason":null,"createdAt":"2026-11-20T00:00:00Z","destroyOnEnd":null}`,
+	} {
+		for _, asJSON := range []bool{false, true} {
+			srv, _ := attnServer(t, map[string]string{"ListSecretReadClients": readClients2680(row)})
+			args := []string{"list"}
+			if asJSON {
+				args = append(args, "--json")
+			}
+			out, _, err := runSecretClient2631(t, srv.URL, args...)
+			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "auto-delete mark") || strings.Contains(out, "no") && !asJSON {
+				t.Errorf("%s json=%v: want a malformed-answer error (exit 1), not a row: exit=%d err=%v out=%q", name, asJSON, exitCodeFor(err), err, out)
+			}
+		}
+	}
+}
+
+// Joran's P2-2 (an irreversible mark armed quietly): --auto-delete prints a note on stderr naming
+// the secret and what was asked; stdout and the --json shape of the issue are unchanged, and
+// without the flag there is no note.
+func TestSecretClientIssueAutoDeletePrintsAStderrNote2720(t *testing.T) {
+	srv, _ := attnServer(t, issueResponses2631("OPEN"))
+	out, errOut, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r", "--max-reads", "1", "--auto-delete", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(errOut, "note: --auto-delete was sent") || !strings.Contains(errOut, "deploy-token") || !strings.Contains(errOut, "secret client list") {
+		t.Errorf("the stderr note must name the secret and where to read the mark back: %q", errOut)
+	}
+	var doc map[string]any
+	if json.Unmarshal([]byte(out), &doc) != nil || doc["clientId"] == nil || doc["autoDelete"] != nil || strings.Contains(out, "note:") {
+		t.Errorf("the issue --json shape and stdout must be unchanged by the note: %s", out)
+	}
+	srv2, _ := attnServer(t, issueResponses2631("OPEN"))
+	_, errOut2, err := runSecretClient2631(t, srv2.URL, "issue", "s1", "--reason", "r", "--max-reads", "1")
+	if err != nil || strings.Contains(errOut2, "--auto-delete was sent") {
+		t.Errorf("no note without the flag: err=%v %q", err, errOut2)
 	}
 }

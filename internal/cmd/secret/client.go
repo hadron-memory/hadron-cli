@@ -138,8 +138,12 @@ or --max-reads (the server refuses it without a window or a read budget, and the
 CLI does not check that itself: the refusal comes back as the server wrote it).
 Only whoever manages the App, or the writer of the secret's current version, may
 set it; on a secret that does not exist or that you cannot see the refusal is the
-same "not permitted" (exit 8), never "not found". Nothing is deleted until a
-person has signed the grant: a client that is never signed deletes nothing.
+same "not permitted" (exit 8), never "not found". The mark is one of
+the grant's terms, and a grant's terms are what the person signs: nothing is
+deleted until a person has signed the grant, and a client that is never signed
+deletes nothing. The command prints a note on stderr saying so when --auto-delete
+was sent; the issue answer itself does not carry the mark, so 'secret client list'
+(AUTO-DELETE) is where to read it back.
 
 What cancels the deletion depends on the window. With --expires-at the deletion
 is a signed deadline: once signed, it happens at the end of the window whatever
@@ -250,6 +254,13 @@ was lost: the error says which, and how to ask again).`,
 			dto.SigningRequest = signingFrom(req)
 			if !f.JSON {
 				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "pending: the grant allows nothing until a person signs it on the ceremony page")
+			}
+			if autoDelete {
+				// The mutation's answer does not carry the mark, so this states what was ASKED
+				// (never what the server recorded): a person who sets an irreversible deletion
+				// sees it, in text and --json alike, on stderr only (stdout and the --json
+				// shape are unchanged).
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: --auto-delete was sent: once a person signs this grant, the secret %s is deleted at this client's last read or when its window ends, and revoking the client may not stop it (see `hadron secret client issue --help`); check the mark with `hadron secret client list`\n", output.SafeCell(issued.SecretName))
 			}
 			if !wait {
 				return renderIssue(f, dto)
@@ -408,11 +419,38 @@ type clientDTO struct {
 	DestroyOnEnd bool `json:"destroyOnEnd"`
 }
 
-// fetchClientPage reads one page of the caller's read clients. The list is declared
-// non-null with non-null rows: a missing or null list, or a null row, is a
-// malformed answer, never an empty success (and a dropped row would shift the --all
-// offsets).
+// fetchClientPage reads one page of the caller's read clients WITH the auto-delete mark
+// (the list command). The list is declared non-null with non-null rows: a missing or null
+// list, a null row, or a row without the mark, is a malformed answer, never an empty
+// success (and a dropped row would shift the --all offsets); a row answered without
+// destroyOnEnd must not read as "no auto-delete" when the mark is the destructive one.
 func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.ListSecretReadClients(ctx, client, limit, offset)
+	if err != nil {
+		return nil, api.MapErrorKeepingCode(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
+		}
+		if c.DestroyOnEnd == nil {
+			return nil, exitcode.Newf(exitcode.Error, "server returned a read-client row without its auto-delete mark; the answer is malformed, and a missing mark is not \"no\"")
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, DestroyOnEnd: *c.DestroyOnEnd})
+	}
+	return page, nil
+}
+
+// fetchLookupPage reads one page of the caller's read clients WITHOUT the auto-delete mark,
+// for `client revoke`'s exact-id lookup (revoke is a safety action and must not depend on a
+// display column a server may not have). The rows carry no mark (DestroyOnEnd is false and
+// unused by the caller).
+func fetchLookupPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
 	resp, err := gen.MySecretReadClients(ctx, client, limit, offset)
 	if err != nil {
 		return nil, api.MapErrorKeepingCode(err)
@@ -426,7 +464,7 @@ func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *
 			return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
 		}
 		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
-			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, DestroyOnEnd: c.DestroyOnEnd})
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
 	}
 	return page, nil
 }
