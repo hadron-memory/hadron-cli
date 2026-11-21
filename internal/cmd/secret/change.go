@@ -119,7 +119,7 @@ func writeChange(w io.Writer, d *changeDTO) error {
 func readChange(ctx context.Context, client graphql.Client, id string) (*changeDTO, error) {
 	resp, err := gen.SecretChangeRequest(ctx, client, id)
 	if err != nil {
-		return nil, mapChangeRead(err)
+		return nil, mapChangeRequestError(err)
 	}
 	if resp == nil || resp.SecretChangeRequest == nil {
 		return nil, exitcode.Newf(exitcode.NotFound, "change request %s not found (or not yours)", output.SafeCell(id))
@@ -128,7 +128,7 @@ func readChange(ctx context.Context, client graphql.Client, id string) (*changeD
 	return &changeDTO{ID: r.Id, State: r.State, Operation: r.Operation, CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt}, nil
 }
 
-func mapChangeRead(err error) error {
+func mapChangeRequestError(err error) error {
 	if api.IsFrameworkValidationOnlyFor(err, changeSchemaNames...) {
 		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s", noProtectedChanges), err)
 	}
@@ -196,8 +196,10 @@ anyone else's id answers "not found" (exit 4).
 Prints "✓ withdrawn change request <id>"; --json gives {"id","status":"withdrawn"}.
 A request that is no longer open (completed, declined, expired, withdrawn or
 stale) exits 5; read its state with hadron secret change get. One request is
-sent and never retried. Exit 2 is a server that does not offer protected-secret
-changes.`,
+sent and never retried: a missing result, or an answer lost after the write, is
+an unknown outcome (exit 7 or the failure's own code) that says the request may
+have been withdrawn and to check it with hadron secret change get. Exit 2 is a
+server that does not offer protected-secret changes.`,
 		Example: `  hadron secret change withdraw 01a18cf643247d0fa261f320ec74d878`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -206,13 +208,25 @@ changes.`,
 				return err
 			}
 			id := args[0]
+			quoted := cmdutil.ShellQuote(output.SafeCell(id))
+			check := "Check it with: hadron secret change get " + quoted
 			resp, err := gen.WithdrawSecretChangeRequest(cmd.Context(), client, id)
 			if err != nil {
-				return mapChangeRead(err)
+				mapped := mapChangeRequestError(err)
+				// One request was sent and is never retried. A lost or faulty
+				// answer after the write may have withdrawn it, so say so.
+				if code := exitcode.FromError(mapped); (code == exitcode.Error || code == exitcode.Unavailable) && !api.IsDefiniteRefusal(err) {
+					return api.WithServerCode(exitcode.New(code, fmt.Errorf("withdraw outcome unknown (sent once, not retried): %w. %s", mapped, check)), err)
+				}
+				return mapped
 			}
-			if resp == nil || !resp.WithdrawSecretChangeRequest {
-				return exitcode.Newf(exitcode.Conflict, "change request %s is not open, so nothing was withdrawn; read it with `hadron secret change get %s`",
-					output.SafeCell(id), cmdutil.ShellQuote(output.SafeCell(id)))
+			// The result is a non-null Boolean: a missing or null one is a
+			// malformed answer, not an explicit "not open".
+			if resp == nil || resp.WithdrawSecretChangeRequest == nil {
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the withdrawal of change request %s (no result returned); it may or may not have been withdrawn. %s", output.SafeCell(id), check)
+			}
+			if !*resp.WithdrawSecretChangeRequest {
+				return exitcode.Newf(exitcode.Conflict, "change request %s is not open, so nothing was withdrawn; %s", output.SafeCell(id), check)
 			}
 			dto := map[string]string{"id": id, "status": "withdrawn"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

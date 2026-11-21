@@ -34,7 +34,7 @@ func gqlErr2738(code string, ext map[string]any) string {
 	for k, v := range ext {
 		e[k] = v
 	}
-	b, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": "refused", "extensions": e}}, "data": nil})
+	b, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": "refused " + value2738, "extensions": e}}, "data": nil})
 	return string(b)
 }
 
@@ -288,13 +288,22 @@ func TestProtectSendsTheDirection2738(t *testing.T) {
 	}
 }
 
-// A server that applied the change (answered with the secret) is shown as such.
-func TestProtectAppliedAnswerIsShown2738(t *testing.T) {
-	srv, _ := fake2738(t, only2738(200, `{"data":{"setSecretProtected":{"id":"sec-1","ownerType":"app","ownerId":"a1","name":"tok","kind":"generic","metadata":null,"currentVersion":1,"protected":true,"createdAt":"t","createdBy":null,"updatedAt":"t","updatedBy":null}}}`))
-	stdout, _, code := run2738(t, srv.URL, "protect", "sec-1", "--on", "--json")
-	var d map[string]any
-	if code != 0 || json.Unmarshal([]byte(stdout), &d) != nil || d["protected"] != true {
-		t.Errorf("exit %d %q", code, stdout)
+// setSecretProtected always stages a request (hadron-server#4177), so a returned
+// secret is NOT reported as a change that happened: it is an unconfirmed outcome
+// (exit 7) that names the protection the server reported and how to check.
+func TestProtectSecretAnswerIsNotReportedAsAChange2738(t *testing.T) {
+	for _, flag := range []string{"--on", "--off"} {
+		srv, calls := fake2738(t, only2738(200, `{"data":{"setSecretProtected":{"id":"sec-1","ownerType":"app","ownerId":"a1","name":"tok","kind":"generic","metadata":null,"currentVersion":1,"protected":false,"createdAt":"t","createdBy":null,"updatedAt":"t","updatedBy":null}}}`))
+		stdout, stderr, code := run2738(t, srv.URL, "protect", "sec-1", flag)
+		if code != exitcode.Unavailable {
+			t.Fatalf("%s: exit %d, want 7\n%s%s", flag, code, stdout, stderr)
+		}
+		if strings.Contains(stdout+stderr, "✓") || !strings.Contains(stderr, "not confirmed") || !strings.Contains(stderr, "protected: false") || !strings.Contains(stderr, "hadron secret get sec-1") {
+			t.Errorf("%s: must say it is unconfirmed and how to check: %q %q", flag, stdout, stderr)
+		}
+		if len(*calls) != 1 {
+			t.Errorf("%s: sent once: %d", flag, len(*calls))
+		}
 	}
 }
 
@@ -398,16 +407,35 @@ func TestChangeWithdraw2738(t *testing.T) {
 		t.Errorf("text: %q", text)
 	}
 	notOpen, _ := fake2738(t, only2738(200, `{"data":{"withdrawSecretChangeRequest":false}}`))
-	if _, stderr, code := run2738(t, notOpen.URL, "change", "withdraw", req2738); code != exitcode.Conflict || !strings.Contains(stderr, "is not open") {
-		t.Errorf("false answer: exit %d %q", code, stderr)
+	if _, stderr, code := run2738(t, notOpen.URL, "change", "withdraw", req2738); code != exitcode.Conflict || !strings.Contains(stderr, "is not open") || !strings.Contains(stderr, "secret change get") {
+		t.Errorf("explicit false: exit %d %q", code, stderr)
 	}
-	missing, _ := fake2738(t, only2738(200, gqlErr2738("NOT_FOUND", nil)))
-	if _, _, code := run2738(t, missing.URL, "change", "withdraw", "nope"); code != exitcode.NotFound {
-		t.Errorf("unknown request: exit %d", code)
+	// A missing or null result is a malformed answer, not an explicit "not open":
+	// the outcome is unknown (7), and the way to check is named.
+	for name, body := range map[string]string{"missing": `{"data":{}}`, "null": `{"data":{"withdrawSecretChangeRequest":null}}`} {
+		bad, _ := fake2738(t, only2738(200, body))
+		_, stderr, code := run2738(t, bad.URL, "change", "withdraw", req2738)
+		if code != exitcode.Unavailable || !strings.Contains(stderr, "did not confirm") || !strings.Contains(stderr, "hadron secret change get "+req2738) {
+			t.Errorf("%s result: exit %d %q", name, code, stderr)
+		}
 	}
+	// A definitive refusal keeps its own class and is not called an unknown outcome.
+	for name, c := range map[string]struct {
+		body string
+		want int
+	}{"not found": {gqlErr2738("NOT_FOUND", nil), exitcode.NotFound}, "forbidden": {gqlErr2738("FORBIDDEN", nil), exitcode.Forbidden}} {
+		refused, _ := fake2738(t, only2738(200, c.body))
+		_, stderr, code := run2738(t, refused.URL, "change", "withdraw", req2738)
+		if code != c.want || strings.Contains(stderr, "outcome unknown") {
+			t.Errorf("%s: exit %d, want %d, no unknown-outcome wrap: %q", name, code, c.want, stderr)
+		}
+	}
+	// A lost answer after the write (a 5xx) is sent once, never retried, and says
+	// the request may have been withdrawn and how to check.
 	down, dcalls := fake2738(t, only2738(503, `unavailable`))
-	if _, _, code := run2738(t, down.URL, "change", "withdraw", req2738); code == 0 || len(*dcalls) != 1 {
-		t.Errorf("a 5xx fails once and is not retried: exit %d, %d calls", code, len(*dcalls))
+	_, stderr, code := run2738(t, down.URL, "change", "withdraw", req2738)
+	if code == 0 || len(*dcalls) != 1 || !strings.Contains(stderr, "withdraw outcome unknown (sent once, not retried)") || !strings.Contains(stderr, "hadron secret change get "+req2738) {
+		t.Errorf("a 5xx: exit %d, %d calls, %q", code, len(*dcalls), stderr)
 	}
 }
 
@@ -444,5 +472,38 @@ func TestStagedClaimIsNotMadeFromAGateway5xx2738(t *testing.T) {
 	}
 	if e := envelope2738(t, stdout, stderr); e["ceremonyUrl"] != nil {
 		t.Errorf("a 5xx envelope is not a staged claim: %v", e)
+	}
+}
+
+// A staged request whose ceremony URL is missing, null or blank cannot be signed
+// by anyone: the request id is kept, the text says so and names withdrawal as the
+// way out, and --json carries the id with an empty URL. Exit stays 5.
+func TestStagedRequestWithoutAUsableURL2738(t *testing.T) {
+	for name, ext := range map[string]map[string]any{
+		"missing": {"requestId": req2738},
+		"null":    {"requestId": req2738, "ceremonyUrl": nil},
+		"blank":   {"requestId": req2738, "ceremonyUrl": "   "},
+	} {
+		srv, _ := fake2738(t, only2738(200, gqlErr2738("SECRET_PROTECTED_NEEDS_PASSKEY", ext)))
+		_, stderr, code := run2738(t, srv.URL, "protect", "sec-1", "--on")
+		if code != exitcode.Conflict {
+			t.Fatalf("%s: exit %d, want 5", name, code)
+		}
+		for _, want := range []string{"request id: " + req2738, "no person can sign this request", "hadron secret change withdraw " + req2738} {
+			if !strings.Contains(stderr, want) {
+				t.Errorf("%s: text lacks %q: %q", name, want, stderr)
+			}
+		}
+		if strings.Contains(stderr, "Give the URL") {
+			t.Errorf("%s: must not tell the caller to hand over a URL that does not exist: %q", name, stderr)
+		}
+		stdout, errOut, _ := run2738(t, srv.URL, "protect", "sec-1", "--on", "--json")
+		e := envelope2738(t, stdout, errOut)
+		if e["requestId"] != req2738 || e["ceremonyUrl"] == nil && name == "missing" {
+			t.Errorf("%s: --json keeps the request id: %v", name, e)
+		}
+		if u, _ := e["ceremonyUrl"].(string); strings.TrimSpace(u) != "" {
+			t.Errorf("%s: no usable URL must not be invented: %q", name, u)
+		}
 	}
 }

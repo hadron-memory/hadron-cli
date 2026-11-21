@@ -123600,11 +123600,11 @@ func (v *WithdrawDecisionWithdrawQuestion) __premarshalJSON() (*__premarshalWith
 // WithdrawSecretChangeRequestResponse is returned by WithdrawSecretChangeRequest on success.
 type WithdrawSecretChangeRequestResponse struct {
 	// Withdraw your own open change request and clear its staged value. hrn:node:hadronmemory.com:specs:cor:sec:070:02
-	WithdrawSecretChangeRequest bool `json:"withdrawSecretChangeRequest"`
+	WithdrawSecretChangeRequest *bool `json:"withdrawSecretChangeRequest"`
 }
 
 // GetWithdrawSecretChangeRequest returns WithdrawSecretChangeRequestResponse.WithdrawSecretChangeRequest, and is useful for accessing the field via an interface.
-func (v *WithdrawSecretChangeRequestResponse) GetWithdrawSecretChangeRequest() bool {
+func (v *WithdrawSecretChangeRequestResponse) GetWithdrawSecretChangeRequest() *bool {
 	return v.WithdrawSecretChangeRequest
 }
 

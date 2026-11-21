@@ -1,8 +1,6 @@
 package secret
 
 import (
-	"io"
-
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -26,6 +24,11 @@ to the person who must sign; hadron never completes the ceremony itself.
 The same holds for any later secret create, update, set or rm that reaches a
 protected secret: it is staged, not applied, and answers with the same request
 id and URL.
+
+The server never applies this change directly. A secret returned instead of a
+request is not reported as a change: exit 7, with hadron secret get to check.
+A staged request that comes back with no ceremony URL cannot be signed by anyone:
+the command says so and names hadron secret change withdraw.
 
 Exit codes: 5 the change is staged (the request id and URL are on stderr, or in
 the --json error); 2 a server that does not offer protected-secret changes
@@ -55,12 +58,13 @@ hadron secret change withdraw.`,
 			if resp == nil || resp.SetSecretProtected == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
 			}
-			// The server answered with the secret instead of staging a request:
-			// the change applied. Show the secret as it now stands.
-			dto := dtoFromFields(resp.SetSecretProtected.SecretFields)
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				return writeSecretLine(w, "✓ updated", dto)
-			})
+			// setSecretProtected always stages a request and refuses with its id
+			// (hadron-server#4177): a returned secret is an answer this CLI does not
+			// expect, so it is not reported as a change that happened. Say what the
+			// server returned and how to look.
+			return exitcode.Newf(exitcode.Unavailable,
+				"the server answered with the secret instead of staging a change request, which setSecretProtected does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get %s",
+				resp.SetSecretProtected.Protected, cmdutil.ShellQuote(output.SafeCell(ref)))
 		},
 	}
 	cmd.Flags().BoolVar(&on, "on", false, "protect the secret")

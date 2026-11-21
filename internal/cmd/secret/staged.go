@@ -74,16 +74,20 @@ func stagedText(what, id, url string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "staged, not applied: %s waits until a person signs it with a passkey\n", what)
 	fmt.Fprintf(&b, "request id: %s\n", safeID)
+	q := cmdutil.ShellQuote(safeID)
 	switch {
 	case strings.TrimSpace(url) == "":
-		b.WriteString("ceremony URL: the server returned none; read the request with the command below\n")
+		// A request with no link cannot be signed by anyone from here, and it still
+		// counts against the secret's open-request cap: say so, and name the way out.
+		b.WriteString("ceremony URL: none was returned, so no person can sign this request\n")
+		fmt.Fprintf(&b, "Withdraw it, then try again: hadron secret change withdraw %s\nCheck it: hadron secret change get %s", q, q)
+		return b.String()
 	case cmdutil.UnsafeForTerminal(url):
 		b.WriteString("ceremony URL: contains control or format characters and is not printed as text; use --json to read it exactly\n")
 	default:
 		fmt.Fprintf(&b, "ceremony URL: %s\n", url)
 	}
 	b.WriteString("Give the URL to the person who must sign; hadron never completes the ceremony itself.\n")
-	q := cmdutil.ShellQuote(safeID)
 	fmt.Fprintf(&b, "Check it: hadron secret change get %s --wait\nWithdraw it: hadron secret change withdraw %s", q, q)
 	return b.String()
 }

@@ -26,7 +26,13 @@ person completes it there with a passkey. `secretChangeRequest(id)` is the reque
 - **`secret change get <id> [--wait]`**: one read; `--wait` polls every 2s up to `--wait-timeout`
   (10m): completed 0; declined/expired/withdrawn/stale 5; timeout 13 (nothing withdrawn);
   Ctrl-C 6; an unknown state 1. Same shape as `secret client issue --wait`.
-- **`secret change withdraw <id>`**: one send, never retried; `false` is 5.
+- **`secret change withdraw <id>`**: one send, never retried; an explicit `false` is 5; the result is
+  read as a pointer so a missing or null one is "not confirmed" (7), not `false`; a lost answer after
+  the write says the request may have been withdrawn and to run `change get`.
+- **`secret protect`** treats a returned secret as unconfirmed (7): `setSecretProtected` only ever
+  stages (`deliverStaged` in the resolver), so a direct success is not a state this CLI reports.
+- **No usable URL**: a staged request with a missing, null or blank URL keeps its id (exit 5), says no
+  person can sign it, and names `change withdraw` (it still counts against the open-request cap).
 - **Never completes the ceremony**: no code path requests the ceremony URL; a test proves it.
 - No value, and no staged value, reaches output or an error: the CLI selects neither, and does not
   echo the server's refusal prose.

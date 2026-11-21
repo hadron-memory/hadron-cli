@@ -252,7 +252,7 @@ section between the markers.
 | `secret` | secrets |  | y | #1052 | 3ae87bc66e23 |  | unread |  |
 | `secret change` |  |  | n | #1052 | 6fe01b661e84 |  | unread |  |
 | `secret change get` |  |  | y | #1052 | 8b86ef8c679d |  | unread |  |
-| `secret change withdraw` |  |  | y | #1052 | 2e1c00f463e3 |  | unread |  |
+| `secret change withdraw` |  |  | y | #1052 | ef6db9541a93 |  | unread |  |
 | `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
 | `secret client issue` |  |  | y | #1052 | ef58b95049c8 |  | unread |  |
 | `secret client list` | ls |  | y | #1052 | e8cce8fc81e3 |  | unread |  |
@@ -262,7 +262,7 @@ section between the markers.
 | `secret exec` |  |  | y | #1052 | 9676504c1659 |  | unread |  |
 | `secret get` |  |  | y | #1052 | 3d942cb0742a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret list` | ls |  | y | #1052 | 9bc54e793ad3 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `secret protect` |  |  | y | #1052 | dab41c007edb |  | unread |  |
+| `secret protect` |  |  | y | #1052 | bda841822e6d |  | unread |  |
 | `secret reveal` |  |  | y | #1052 | 33d666dc6b21 |  | unread |  |
 | `secret rm` | delete |  | y | #1052 | db33bfb427be |  | unread |  |
 | `secret set` |  |  | y | #1052 | 84e1914ebb55 |  | unread |  |
