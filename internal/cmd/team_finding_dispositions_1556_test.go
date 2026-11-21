@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -535,7 +536,7 @@ func TestFindingDispositions1709ReadbackFieldError(t *testing.T) {
 		"readback plus foreign":                {`{"data":{"disposeAgentTaskFinding":{"id":"task1","findingDisposition":null}},"errors":[{"message":"x","path":["somethingElse"]},{"message":"a","path":["disposeAgentTaskFinding","id"]}]}`, true, 1},
 		"readback plus write":                  {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]},{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}}]}`, false, 8},
 		"write plus readback (reverse order)":  {`{"data":null,"errors":[{"message":"Refused","path":["disposeAgentTaskFinding"],"extensions":{"code":"TASK_NOT_OWNER"}},{"message":"a","path":["disposeAgentTaskFinding","findingDisposition"]}]}`, false, 8},
-		"pathless typed refusal plus readback": {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","id"]},{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, false, 5},
+		"pathless typed refusal plus readback": {`{"data":null,"errors":[{"message":"a","path":["disposeAgentTaskFinding","id"]},{"message":"Refused","extensions":{"code":"TASK_NOT_FINISHED"}}]}`, true, 1},
 		"pathless typed refusal alone":         {`{"errors":[{"message":"Refused","extensions":{"code":"TASK_FINDING_NOT_FOUND"}}]}`, false, 4},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -622,11 +623,11 @@ func TestFindingDispositions1709HTTP500(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			writeTeamBinding(t)
 			base, calls := attnServer(t, taskResponses())
-			var sent int
+			var sent atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				raw, _ := io.ReadAll(r.Body)
 				if strings.Contains(string(raw), `"operationName":"AgentTaskDisposeFinding"`) {
-					sent++
+					sent.Add(1)
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusInternalServerError)
 					_, _ = w.Write([]byte(tc.body))
@@ -642,8 +643,8 @@ func TestFindingDispositions1709HTTP500(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"--server", srv.URL, "team", "task", "dispose-finding", "task1", "F1", "--disposition", "fixed", "--json"})
 			err := root.Execute()
-			if err == nil || out.String() != "" || sent != 1 || exitCodeFor(err) != tc.wantExit {
-				t.Fatalf("err=%v out=%q sent=%d exit=%d want %d", err, out.String(), sent, exitCodeFor(err), tc.wantExit)
+			if err == nil || out.String() != "" || sent.Load() != 1 || exitCodeFor(err) != tc.wantExit {
+				t.Fatalf("err=%v out=%q sent=%d exit=%d want %d", err, out.String(), sent.Load(), exitCodeFor(err), tc.wantExit)
 			}
 			if got := strings.Contains(err.Error(), "may have been recorded"); got != tc.unconfirmed {
 				t.Fatalf("unconfirmed guidance = %v, want %v: %v", got, tc.unconfirmed, err)

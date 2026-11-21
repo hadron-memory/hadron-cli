@@ -282,7 +282,7 @@ func disposeFindingError(err error) error {
 	}
 	var typeErr *json.UnmarshalTypeError
 	var syntaxErr *json.SyntaxError
-	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || readbackFieldFailed(err) {
+	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || hasUnconfirmedDisposeError(err) {
 		return errDispositionReadbackUnavailable()
 	}
 	return mapFindingError(err)
@@ -329,18 +329,32 @@ func isWriteRefusal(e *gqlerror.Error) bool {
 // the HTTP status for a non-200 answer), or nil when the list has none.
 func writeRefusal(err error) error {
 	list, httpErr := gqlErrorsOf(err)
+	executed := false // some error is attributed to the mutation: it began executing
 	for _, e := range list {
-		if isWriteRefusal(e) {
-			if httpErr != nil {
-				return &graphql.HTTPError{StatusCode: httpErr.StatusCode, Response: graphql.Response{Errors: gqlerror.List{e}}}
+		if e != nil && len(e.Path) > 0 {
+			if root, _ := e.Path[0].(ast.PathName); root == "disposeAgentTaskFinding" {
+				executed = true
 			}
-			return gqlerror.List{e}
 		}
+	}
+	for _, e := range list {
+		if !isWriteRefusal(e) {
+			continue
+		}
+		// A pathless refusal is a pre-execution one; beside an error attributed
+		// to the mutation it cannot prove rollback, so it does not stand alone.
+		if len(e.Path) == 0 && executed {
+			continue
+		}
+		if httpErr != nil {
+			return &graphql.HTTPError{StatusCode: httpErr.StatusCode, Response: graphql.Response{Errors: gqlerror.List{e}}}
+		}
+		return gqlerror.List{e}
 	}
 	return nil
 }
 
-// readbackFieldFailed reports the unconfirmed-write class: a GraphQL error whose
+// hasUnconfirmedDisposeError reports the unconfirmed-write class: a GraphQL error whose
 // path runs through disposeAgentTaskFinding (the write field itself, or the
 // receipt fields id, findingDisposition and anything beneath them) that is not
 // a typed refusal of the write. A path names the field that failed; it does not
@@ -351,24 +365,28 @@ func writeRefusal(err error) error {
 // validation refusals and foreign roots are not this class. Gateway and
 // transport failures are classified earlier, by the transport layer, with their
 // own may-have-been-applied advice.
-func readbackFieldFailed(err error) bool {
+func hasUnconfirmedDisposeError(err error) bool {
 	list, _ := gqlErrorsOf(err)
 	unconfirmed := false
 	for _, e := range list {
 		if e == nil {
 			continue
 		}
-		if isWriteRefusal(e) {
-			return false // the write was refused: typed mapping, handled first
-		}
-		if len(e.Path) == 0 {
-			continue // pathless (a validation refusal before execution): not this class
-		}
-		if root, _ := e.Path[0].(ast.PathName); root == "disposeAgentTaskFinding" {
-			unconfirmed = true // the write field or a field beneath it, without a typed refusal code
+		if len(e.Path) > 0 {
+			if isWriteRefusal(e) {
+				return false // a typed refusal attributed to the write field: the write was refused
+			}
+			if root, _ := e.Path[0].(ast.PathName); root == "disposeAgentTaskFinding" {
+				unconfirmed = true // the write field or a field beneath it, without a typed refusal code
+			}
 		}
 	}
-	return unconfirmed
+	if unconfirmed {
+		return true
+	}
+	// Nothing attributed to the mutation: a pathless list is a validation or
+	// pre-execution refusal, never this class.
+	return false
 }
 
 // validFindingReadback reports whether the targeted readback can be shown as the
