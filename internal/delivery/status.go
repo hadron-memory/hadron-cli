@@ -21,7 +21,7 @@ const (
 
 // knownCodes is the delivery diagnostic vocabulary: the only codes a
 // delivery error may carry into a log, status line or receipt. S1's and the
-// auth refusals (server main ad7f1c2), and the adapter's fixed classes and
+// auth refusals (server main ad7f1c2, 2026-10-19), and the adapter's fixed classes and
 // own failures. A code is trusted by membership, never by its shape: a
 // code-shaped token can still be private text (Rodolfo's §10 P2 on #939;
 // Xan #24626).

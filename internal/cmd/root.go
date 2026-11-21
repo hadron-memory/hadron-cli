@@ -600,6 +600,11 @@ func withStoredCredentialHint(f *cmdutil.Factory, code int, err error) error {
 	if !f.Credentials().Only(api.CredentialStoredUser) {
 		return err
 	}
+	// cli#2761: an already-redacted refusal carries a guard; the appended text is
+	// output too, so the candidate in its final form must pass the same test.
+	if api.OutputCarriesGuarded(err, err.Error()+" — "+storedCredentialHint) {
+		return err
+	}
 	return fmt.Errorf("%w — %s", err, storedCredentialHint)
 }
 
