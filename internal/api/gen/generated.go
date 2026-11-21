@@ -127296,9 +127296,9 @@ func (v *WorkerWakeSettingsFieldsWorker) GetName() string { return v.Name }
 func (v *WorkerWakeSettingsFieldsWorker) GetUrn() *string { return v.Urn }
 
 type WorkerWakeSettingsInput struct {
-	ClearPause  *bool        `json:"clearPause"`
-	Mentions    *MentionWake `json:"mentions"`
-	PausedUntil *string      `json:"pausedUntil"`
+	ClearPause  *bool        `json:"clearPause,omitempty"`
+	Mentions    *MentionWake `json:"mentions,omitempty"`
+	PausedUntil *string      `json:"pausedUntil,omitempty"`
 }
 
 // GetClearPause returns WorkerWakeSettingsInput.ClearPause, and is useful for accessing the field via an interface.
@@ -179732,6 +179732,9 @@ fragment WorkerWakeSettingsFields on WorkerWakeSettings {
 }
 `
 
+// Repeated from wake_settings.graphql for the same reason as the stop-signal
+// directives above: keep omitted-keeps/null-clears on the shared input struct,
+// and keep the variable list off the directive lines.
 func SetWorkerWakeSettingsInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -184552,6 +184555,13 @@ fragment StopSignalFields on StopSignal {
 }
 `
 
+// Repeated from team.graphql: genqlient synthesizes the shared input struct
+// per discovering operation, so a file that names an annotated input type must
+// carry its directives too (same pattern as NodeFilter in
+// apps.graphql/spec_corpus.graphql) or the struct silently loses omitempty —
+// omitted keeps, null clears. The variable list sits on its own lines so the
+// directives bind to the operation, not the arguments (genqlient walks
+// preceding comments upward from each node; `for:` is invalid on a variable).
 func TeamStopSignalSetInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,

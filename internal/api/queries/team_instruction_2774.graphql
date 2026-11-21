@@ -10,7 +10,20 @@ mutation SetTeamPauseInstructed($appRef: String!, $paused: Boolean!, $instructio
   setTeamPause(appRef: $appRef, paused: $paused, instruction: $instruction) { teamPausedAt }
 }
 
-mutation TeamStopSignalSetInstructed($input: SetTeamStopSignalInput!, $instruction: ActInstructionInput!) {
+# Repeated from team.graphql: genqlient synthesizes the shared input struct
+# per discovering operation, so a file that names an annotated input type must
+# carry its directives too (same pattern as NodeFilter in
+# apps.graphql/spec_corpus.graphql) or the struct silently loses omitempty —
+# omitted keeps, null clears. The variable list sits on its own lines so the
+# directives bind to the operation, not the arguments (genqlient walks
+# preceding comments upward from each node; `for:` is invalid on a variable).
+# @genqlient(for: "SetTeamStopSignalInput.host", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.until", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.worker", omitempty: true)
+mutation TeamStopSignalSetInstructed(
+  $input: SetTeamStopSignalInput!
+  $instruction: ActInstructionInput!
+) {
   setTeamStopSignal(input: $input, instruction: $instruction) { ...StopSignalFields }
 }
 
@@ -21,7 +34,17 @@ mutation TeamStopSignalLiftInstructed($appRef: String!, $id: ID!, $instruction: 
   }
 }
 
-mutation SetWorkerWakeSettingsInstructed($workerRef: String!, $input: WorkerWakeSettingsInput!, $instruction: ActInstructionInput!) {
+# Repeated from wake_settings.graphql for the same reason as the stop-signal
+# directives above: keep omitted-keeps/null-clears on the shared input struct,
+# and keep the variable list off the directive lines.
+# @genqlient(for: "WorkerWakeSettingsInput.clearPause", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.mentions", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.pausedUntil", omitempty: true)
+mutation SetWorkerWakeSettingsInstructed(
+  $workerRef: String!
+  $input: WorkerWakeSettingsInput!
+  $instruction: ActInstructionInput!
+) {
   setWorkerWakeSettings(workerRef: $workerRef, input: $input, instruction: $instruction) { ...WorkerWakeSettingsFields }
 }
 
