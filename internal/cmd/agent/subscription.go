@@ -25,7 +25,7 @@ type orgAgentGrantDTO struct {
 }
 
 func newCmdSubscription(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "subscription", Short: "Read and manage Agent subscriptions"}
+	cmd := &cobra.Command{Use: "subscription", Short: "Read and manage Agent subscriptions; revoke a user's or an organization's"}
 	cmd.AddCommand(newCmdSubscriptionAdd(f), newCmdSubscriptionRevoke(f))
 	var org, agent string
 	var mine, all bool

@@ -370,7 +370,7 @@ task command, even a plain create; there is no fallback.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
-warnings list.` + "\n\n" + taskInstructionHelpShort("ba077810") + "\n\n--instruction does not combine with --batch-file: the batch write takes no instruction.",
+warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor) + "\n\n--instruction does not combine with --batch-file: the batch write takes no instruction.",
 		Example: `  # assign to a named worker, with a deadline to start
   hadron team task create "Fix login redirect" --app acme.com:eng-team --assignee worker:Iris \
     --priority 2 --start-by 2026-11-02T09:00:00Z --source https://github.com/acme/app/issues/7

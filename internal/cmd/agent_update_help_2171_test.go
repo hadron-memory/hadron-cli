@@ -37,11 +37,11 @@ func TestAgentHelpKeepsTheLifecycleParagraphWhole2171(t *testing.T) {
 			// flattened paragraph (verb-specific tail included) must match
 			// contiguously, with the cap text directly after it.
 			whole := whole2171[verb]
-			end := strings.Index(h, whole)
-			if end < 0 {
+			start := strings.Index(h, whole)
+			if start < 0 {
 				t.Fatalf("%s: the lifecycle explanation is not one piece (or its wording changed on purpose — update whole2171 with it):\nwant: %s\ngot: %s", verb, whole, h)
 			}
-			if next := strings.TrimPrefix(h[end+len(whole):], " "); !strings.HasPrefix(next, "--context-cap") {
+			if next := strings.TrimPrefix(h[start+len(whole):], " "); !strings.HasPrefix(next, "--context-cap") {
 				t.Fatalf("%s: text between the lifecycle explanation and the context cap: %q", verb, next)
 			}
 			// User help carries no issue numbers or "S3 server" (cli#1053 audit finding C1).

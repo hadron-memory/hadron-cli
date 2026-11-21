@@ -362,7 +362,7 @@ owner-in-chain path is unchanged. Instructed JSON adds warnings ([] when none);
 text mode prints server warnings on stderr on either path, while a plain
 --json stays a bare event with no warnings key.
 
-` + taskInstructionHelpShort("ba077810"),
+` + taskInstructionHelpShort(taskInstructionFloor),
 		Example: `  hadron team alarms --team
   hadron team alarm ack 01a1f0c2d3e4f5a6b7c8d9e0f1a2b3c4`,
 		Args: cobra.ExactArgs(1),

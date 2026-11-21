@@ -90070,6 +90070,60 @@ func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetHandle() *string { ret
 // GetUrn returns RevisionFieldsEditedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
+// RevokeAgentSubscriptionResponse is returned by RevokeAgentSubscription on success.
+type RevokeAgentSubscriptionResponse struct {
+	// 005-agent-subscription FR-023 + FR-028 + FR-029: revoke a user's
+	// AgentSubscription. Authorized for ADMIN/OWNER of the Agent's owning
+	// org. Side effect: empty personal Memory of (user, agent) is hard-
+	// deleted; non-empty is retained with userMemoryOfAgentId preserved.
+	//
+	// Accepts the entity's ID or URN (agentId).
+	RevokeAgentSubscription *RevokeAgentSubscriptionRevokeAgentSubscription `json:"revokeAgentSubscription"`
+}
+
+// GetRevokeAgentSubscription returns RevokeAgentSubscriptionResponse.RevokeAgentSubscription, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionResponse) GetRevokeAgentSubscription() *RevokeAgentSubscriptionRevokeAgentSubscription {
+	return v.RevokeAgentSubscription
+}
+
+// RevokeAgentSubscriptionRevokeAgentSubscription includes the requested fields of the GraphQL type AgentSubscription.
+type RevokeAgentSubscriptionRevokeAgentSubscription struct {
+	AgentId     string  `json:"agentId"`
+	UserId      string  `json:"userId"`
+	IsActive    bool    `json:"isActive"`
+	CreatedAt   string  `json:"createdAt"`
+	ActivatedAt *string `json:"activatedAt"`
+	ExpiresAt   *string `json:"expiresAt"`
+	RevokedAt   *string `json:"revokedAt"`
+	RevokedBy   *string `json:"revokedBy"`
+}
+
+// GetAgentId returns RevokeAgentSubscriptionRevokeAgentSubscription.AgentId, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetAgentId() string { return v.AgentId }
+
+// GetUserId returns RevokeAgentSubscriptionRevokeAgentSubscription.UserId, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetUserId() string { return v.UserId }
+
+// GetIsActive returns RevokeAgentSubscriptionRevokeAgentSubscription.IsActive, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetIsActive() bool { return v.IsActive }
+
+// GetCreatedAt returns RevokeAgentSubscriptionRevokeAgentSubscription.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns RevokeAgentSubscriptionRevokeAgentSubscription.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetActivatedAt() *string {
+	return v.ActivatedAt
+}
+
+// GetExpiresAt returns RevokeAgentSubscriptionRevokeAgentSubscription.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetRevokedAt returns RevokeAgentSubscriptionRevokeAgentSubscription.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetRevokedBy returns RevokeAgentSubscriptionRevokeAgentSubscription.RevokedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAgentSubscriptionRevokeAgentSubscription) GetRevokedBy() *string { return v.RevokedBy }
+
 // RevokeAppKeyInstructedResponse is returned by RevokeAppKeyInstructed on success.
 type RevokeAppKeyInstructedResponse struct {
 	// Revoke an AppKey. Only whoever manages the App, as themselves, or through their held worker on a validated
@@ -136699,6 +136753,18 @@ type __RevealSecretInput struct {
 // GetClientId returns __RevealSecretInput.ClientId, and is useful for accessing the field via an interface.
 func (v *__RevealSecretInput) GetClientId() string { return v.ClientId }
 
+// __RevokeAgentSubscriptionInput is used internally by genqlient
+type __RevokeAgentSubscriptionInput struct {
+	AgentRef string `json:"agentRef"`
+	UserRef  string `json:"userRef"`
+}
+
+// GetAgentRef returns __RevokeAgentSubscriptionInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__RevokeAgentSubscriptionInput) GetAgentRef() string { return v.AgentRef }
+
+// GetUserRef returns __RevokeAgentSubscriptionInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__RevokeAgentSubscriptionInput) GetUserRef() string { return v.UserRef }
+
 // __RevokeAppKeyInput is used internally by genqlient
 type __RevokeAppKeyInput struct {
 	Id string `json:"id"`
@@ -176292,6 +176358,52 @@ func RevealSecret(
 	}
 
 	data_ = &RevealSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeAgentSubscription.
+const RevokeAgentSubscription_Operation = `
+mutation RevokeAgentSubscription ($agentRef: ID!, $userRef: ID!) {
+	revokeAgentSubscription(agentRef: $agentRef, userRef: $userRef) {
+		agentId
+		userId
+		isActive
+		createdAt
+		activatedAt
+		expiresAt
+		revokedAt
+		revokedBy
+	}
+}
+`
+
+// cli#2789: revoke one user's subscription to an Agent. One mutation, never resent.
+// The server decides who may (Agent ADMIN, after a readable-Agent gate) and whether the
+// user's personal memory for the Agent is empty (and so deleted) or kept.
+func RevokeAgentSubscription(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	userRef string,
+) (data_ *RevokeAgentSubscriptionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAgentSubscription",
+		Query:  RevokeAgentSubscription_Operation,
+		Variables: &__RevokeAgentSubscriptionInput{
+			AgentRef: agentRef,
+			UserRef:  userRef,
+		},
+	}
+
+	data_ = &RevokeAgentSubscriptionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -45,6 +45,10 @@ func newCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// installProvenanceFloor is the date hadron-server#3446 (AppAgent.installMethod and
+// importer) was merged into the server.
+const installProvenanceFloor = "2026-11-05"
+
 func newCmdAgentList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [<app-ref>]",
@@ -82,8 +86,8 @@ agents" and --json prints [].
 
 --json keeps its existing keys and adds pointerLevel, compiledNodeId,
 servedRevSeq, bootPromptRefusal (null when none) and, when known, bootPromptUrn.
-An older server refuses the install method and importer fields; nothing is
-guessed in their place.`,
+A server before ` + installProvenanceFloor + ` refuses the install method and importer fields (exit 2);
+nothing is guessed in their place.`,
 		Example: `  hadron app agent list hrn:app:acme.com:support
   hadron app agent list --app hrn:app:acme.com:eng-team --json`,
 		Args: cobra.MaximumNArgs(1),

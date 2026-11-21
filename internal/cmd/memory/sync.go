@@ -250,7 +250,29 @@ checks. The token is never printed: not in the output, --json or an error.
 	return cmd
 }
 
-// setTokenError maps a refusal without ever carrying the token: the server's
+// setTokenError is setTokenErrorUnguarded plus the output guard (cli#2761):
+// text a later layer appends (renderError's stored-credential hint) is output
+// too, so it is judged by the same predicate as the message
+// (outputGuardCarries), including the --json envelope form (cli#2777). An empty
+// token has nothing to guard, and a nil error stays nil.
+func setTokenError(err error, token string, jsonOut bool) error {
+	out := setTokenErrorUnguarded(err, token, jsonOut)
+	if token == "" {
+		return out
+	}
+	return api.WithOutputGuard(out, outputGuardCarries(token, jsonOut))
+}
+
+// outputGuardCarries is the one predicate for "this candidate output carries
+// the token": a covered spelling of it as the string, or, under --json, the
+// form the failure envelope's encoder would write it in.
+func outputGuardCarries(token string, jsonOut bool) func(string) bool {
+	return func(candidate string) bool {
+		return containsAnySpelling(candidate, token) || (jsonOut && envelopeReformsToken(candidate, token))
+	}
+}
+
+// setTokenErrorUnguarded maps a refusal without ever carrying the token: the server's
 // own answer is kept (an encrypted memory's refusal must reach the user), a
 // server code that reflects the token — the literal token or one of its
 // generated JSON spellings (cli#2704 Jack F2) — is dropped, and the message
@@ -260,7 +282,7 @@ checks. The token is never printed: not in the output, --json or an error.
 // itself (re)create token text. The refusal is itself output, so it is
 // chosen by the same test — a fixed text that carries this token is never
 // printed (cli#2714 round 5; see tokenSafeRefusal).
-func setTokenError(err error, token string, jsonOut bool) error {
+func setTokenErrorUnguarded(err error, token string, jsonOut bool) error {
 	mapped := api.MapError(err)
 	if token == "" {
 		// Nothing to redact, but the same cap and control-character guard as below.

@@ -41,7 +41,7 @@ agentProcessList  command agent processes list
 agentRevisions  command agent revision list
 agentSchedules  command schedule list
 agentServedBootPrompt  command agent boot-prompt
-agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage (agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage (command agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
 agentSubscriptionsPage  command agent subscription list
 agentTask  command team task finding-dispositions
 agentTaskExternalIdChanges  command team task find-untracked
@@ -164,7 +164,7 @@ memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's 
 memoryLocSegments  command memory loc-segments
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
-myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage (agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage (command agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
 myAgentSubscriptionsPage  command agent subscription list
 myApp  command app whoami
 myChats  gap #64
@@ -267,7 +267,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 360: 334 command, 14 gap, 12 excluded
+[Mutation] 360: 335 command, 13 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -505,7 +505,7 @@ retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
 revealSecret  command secret exec
 revokeAgentOrgGrant  command agent subscription revoke
-revokeAgentSubscription  gap #2789
+revokeAgentSubscription  command agent subscription revoke
 revokeAppGrant  command team grant rm
 revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke

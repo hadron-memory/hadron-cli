@@ -92,61 +92,30 @@ unusable answer) nothing is retried: check with "hadron agent subscription list
 	return c
 }
 
-func newCmdSubscriptionRevoke(f *cmdutil.Factory) *cobra.Command {
-	var org, agent string
-	var yes bool
-	c := &cobra.Command{
-		Use: "revoke --org <id|urn> --agent <id|urn> [--yes]", Aliases: []string{"unsubscribe"},
-		Short: "Revoke an organization's Agent subscription",
-		Long: `Revoke an organization's subscription to an Agent. This does not delete the
-organization's install state, but the revoked subscription is not reactivated by
-subscribing again: the server refuses a second subscribe, so treat this as
-one-way unless the server team restores it.
-
-Allowed for an admin of the subscribing organization or an admin of the Agent.
-The server may answer "not found" for something you cannot see; that is not
-proof it does not exist. It asks for confirmation on a terminal and needs --yes
-without one.
-
-The call is sent once. If its outcome cannot be known nothing is retried: check
-with "hadron agent subscription list --org <org>" before running it again. That
-list is readable only by an admin or owner of the organization; an Agent admin
-who is not one gets an empty list, which does not settle it.`,
-		Example: `  hadron agent subscription revoke --org hrn:org:acme.com --agent <agent-id> --yes
-  hadron agent subscription unsubscribe --org hrn:org:acme.com --agent <agent-id> --yes --json`,
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			org, agent = strings.TrimSpace(org), strings.TrimSpace(agent)
-			if org == "" || agent == "" {
-				return exitcode.Newf(exitcode.Usage, "give a nonempty --org and --agent")
-			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke organization %s's subscription to Agent %s? It is not reactivated by subscribing again.", org, agent)); err != nil {
-				return err
-			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			resp, err := gen.UnsubscribeOrgFromAgent(cmd.Context(), client, agent, org)
-			if err != nil {
-				return orgGrantWriteError(err, "revoke", org, "revokeAgentOrgGrant")
-			}
-			if resp == nil || resp.RevokeAgentOrgGrant == nil {
-				return orgGrantUnknown("revoke", org, nil)
-			}
-			g := resp.RevokeAgentOrgGrant
-			// Rule: a revoke must come back revoked (revokedAt set) AND inactive.
-			if g.IsActive || g.RevokedAt == nil {
-				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s does not come back revoked (active: %v); check with `hadron agent subscription list --org %s`", org, agent, g.IsActive, cmdutil.ShellQuote(org))
-			}
-			return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Revoked")
-		}}
-	c.Flags().StringVar(&org, "org", "", "organization id or URN (required)")
-	c.Flags().StringVar(&agent, "agent", "", "Agent id or URN (required)")
-	c.Flags().BoolVar(&yes, "yes", false, "confirm without prompting (required without a terminal)")
-	_ = c.MarkFlagRequired("org")
-	_ = c.MarkFlagRequired("agent")
-	return c
+// runOrgRevoke is `revoke <agent> --org <ref>`: revoke an organization's
+// subscription to an Agent (revokeAgentOrgGrant). The Long text of the one
+// revoke command (subscription_revoke.go) documents it.
+func runOrgRevoke(f *cmdutil.Factory, cmd *cobra.Command, agent, org string, yes bool) error {
+	if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke organization %s's subscription to Agent %s? It is not reactivated by subscribing again.", org, agent)); err != nil {
+		return err
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+	resp, err := gen.UnsubscribeOrgFromAgent(cmd.Context(), client, agent, org)
+	if err != nil {
+		return orgGrantWriteError(err, "revoke", org, "revokeAgentOrgGrant")
+	}
+	if resp == nil || resp.RevokeAgentOrgGrant == nil {
+		return orgGrantUnknown("revoke", org, nil)
+	}
+	g := resp.RevokeAgentOrgGrant
+	// Rule: a revoke must come back revoked (revokedAt set) AND inactive.
+	if g.IsActive || g.RevokedAt == nil {
+		return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s does not come back revoked (active: %v); check with `hadron agent subscription list --org %s`", org, agent, g.IsActive, cmdutil.ShellQuote(org))
+	}
+	return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Revoked")
 }
 
 // orgGrantWriteError maps a failed write. Only a coded server refusal of the

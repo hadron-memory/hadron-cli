@@ -112,7 +112,7 @@ func TestSubscriptionAddSendsExactRefsOnce2788(t *testing.T) {
 
 func TestSubscriptionRevokeNeedsYesAndSendsOnce2788(t *testing.T) {
 	// Non-interactive without --yes: refused before any request.
-	fk, _, err := grants2788Run(t, map[string][]grants2788Reply{}, "revoke", "--org", "o", "--agent", "a")
+	fk, _, err := grants2788Run(t, map[string][]grants2788Reply{}, "revoke", "a", "--org", "o")
 	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("without --yes: exit %d expected, got %v", exitcode.Usage, err)
 	}
@@ -121,7 +121,7 @@ func TestSubscriptionRevokeNeedsYesAndSendsOnce2788(t *testing.T) {
 	}
 	fk, out, err := grants2788Run(t, map[string][]grants2788Reply{
 		"UnsubscribeOrgFromAgent": {{body: `{"data":{"revokeAgentOrgGrant":` + fmt.Sprintf(grant2788, false, `"2026-02-01T00:00:00Z"`) + `}}`}},
-	}, "unsubscribe", "--org", "o", "--agent", "a", "--yes", "--json")
+	}, "revoke", "a", "--org", "o", "--yes", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestSubscriptionWriteUnknownOutcomeNoReplay2788(t *testing.T) {
 		"revoke internal": {[]string{"revoke", "--yes"}, "UnsubscribeOrgFromAgent", refusal2788("INTERNAL_SERVER_ERROR")},
 	} {
 		t.Run(name, func(t *testing.T) {
-			fk, _, err := grants2788Run(t, map[string][]grants2788Reply{tc.op: {tc.reply}}, append(tc.cmd, "--org", "o", "--agent", "a")...)
+			fk, _, err := grants2788Run(t, map[string][]grants2788Reply{tc.op: {tc.reply}}, orgArgs2788(tc.cmd)...)
 			if err == nil || exitCodeFor(err) != exitcode.Unavailable {
 				t.Fatalf("exit %d expected, got %v", exitcode.Unavailable, err)
 			}
@@ -390,7 +390,7 @@ func TestSubscriptionWriteRefusalExitAndSingleRequest2788(t *testing.T) {
 		args     []string
 	}{
 		{"add", "SubscribeOrgToAgent", []string{"add", "--org", "o", "--agent", "a"}},
-		{"revoke", "UnsubscribeOrgFromAgent", []string{"revoke", "--org", "o", "--agent", "a", "--yes"}},
+		{"revoke", "UnsubscribeOrgFromAgent", []string{"revoke", "a", "--org", "o", "--yes"}},
 	} {
 		t.Run(c.verb, func(t *testing.T) {
 			fk, _, err := grants2788Run(t, map[string][]grants2788Reply{c.op: {refusal2788("FORBIDDEN")}}, c.args...)
@@ -436,7 +436,7 @@ func TestSubscriptionWriteErrorBelowTheFieldIsUnknownOutcome2788(t *testing.T) {
 		args            []string
 	}{
 		{"add", "SubscribeOrgToAgent", "createAgentOrgGrant", []string{"add", "--org", "o", "--agent", "a"}},
-		{"revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", []string{"revoke", "--org", "o", "--agent", "a", "--yes"}},
+		{"revoke", "UnsubscribeOrgFromAgent", "revokeAgentOrgGrant", []string{"revoke", "a", "--org", "o", "--yes"}},
 	} {
 		below := refusalAt2788("FORBIDDEN", c.field, "agentId")
 		mixed := grants2788Reply{body: `{"errors":[{"message":"refused","path":["` + c.field + `"],"extensions":{"code":"FORBIDDEN"}},{"message":"x","path":["` + c.field + `","agentId"],"extensions":{"code":"NOT_FOUND"}}],"data":null}`}
@@ -512,7 +512,7 @@ func TestSubscriptionWriteChecksReturnedState2788(t *testing.T) {
 	}
 	_, out, err = grants2788Run(t, map[string][]grants2788Reply{
 		"UnsubscribeOrgFromAgent": {{body: `{"data":{"revokeAgentOrgGrant":` + fmt.Sprintf(grant2788, true, "null") + `}}`}},
-	}, "revoke", "--org", "o", "--agent", "a", "--yes")
+	}, "revoke", "a", "--org", "o", "--yes")
 	if err == nil || exitCodeFor(err) != exitcode.Error || strings.Contains(out, "Revoked") {
 		t.Errorf("revoke that came back active must not print success (out %q): %v", out, err)
 	}
@@ -556,7 +556,7 @@ func TestSubscriptionStateRulePerField2788(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			args := []string{c.verb, "--org", "o", "--agent", "a"}
+			args := orgArgs2788([]string{c.verb})
 			if c.verb == "revoke" {
 				args = append(args, "--yes")
 			}
@@ -607,5 +607,31 @@ func TestSubscriptionAllStopsPastTheTotalWithDistinctRows2788(t *testing.T) {
 	}
 	if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
 		t.Errorf("never complete:true: %s", out)
+	}
+}
+
+// orgArgs2788 spells the org write for a verb: add keeps --org --agent; revoke
+// is the one revoke command, positional Agent plus --org (cli#2789 merged).
+func orgArgs2788(cmd []string) []string {
+	if cmd[0] == "revoke" {
+		return append(append([]string{}, cmd...), "a", "--org", "o")
+	}
+	return append(append([]string{}, cmd...), "--org", "o", "--agent", "a")
+}
+
+// One revoke command: exactly one of --user and --org, no request otherwise.
+func TestSubscriptionRevokeNeedsExactlyOneOfUserAndOrg2788(t *testing.T) {
+	for name, args := range map[string][]string{
+		"neither":   {"revoke", "a", "--yes"},
+		"both":      {"revoke", "a", "--user", "u", "--org", "o", "--yes"},
+		"blank org": {"revoke", "a", "--org", " ", "--yes"},
+		"no agent":  {"revoke", "--org", "o", "--yes"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			fk, _, err := grants2788Run(t, map[string][]grants2788Reply{}, args...)
+			if err == nil || exitCodeFor(err) != exitcode.Usage || len(fk.calls) != 0 {
+				t.Errorf("want a usage error and no request, got %v (%v)", err, fk.calls)
+			}
+		})
 	}
 }

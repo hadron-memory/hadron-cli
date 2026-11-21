@@ -11,14 +11,14 @@ import (
 // older-server failure-mode sentence, and panic — not silently no-op — when
 // the shared text no longer names the original revision.
 func TestInstructionHelpForSwapsRevision2537(t *testing.T) {
-	got := instructionHelpFor("ba077810")
+	got := instructionHelpFor("2026-11-04")
 	if got == instructionHelp {
 		t.Fatal("derived help is the shared text unchanged")
 	}
-	if !strings.Contains(got, "ba077810") || strings.Contains(got, instructionHelpMinServer) {
-		t.Fatalf("derived help must name ba077810 and not %s", instructionHelpMinServer)
+	if !strings.Contains(got, "2026-11-04") || strings.Contains(got, instructionHelpMinServer) {
+		t.Fatalf("derived help must name 2026-11-04 and not %s", instructionHelpMinServer)
 	}
-	if want := strings.ReplaceAll(instructionHelp, instructionHelpMinServer, "ba077810"); got != want {
+	if want := strings.ReplaceAll(instructionHelp, instructionHelpMinServer, "2026-11-04"); got != want {
 		t.Fatal("derived help must be the shared text with only the revision swapped")
 	}
 	if !strings.Contains(got, "refusal is passed through, never retried without it") {
@@ -37,5 +37,5 @@ func TestSwapMinServerPanicsWhenOriginalMissing2537(t *testing.T) {
 			t.Fatalf("panic message must name swapMinServer: %v", r)
 		}
 	}()
-	swapMinServer("no revision here", instructionHelpMinServer, "ba077810")
+	swapMinServer("no revision here", instructionHelpMinServer, "2026-11-04")
 }
