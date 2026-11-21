@@ -361,8 +361,9 @@ func TestScopeListAppContext1340(t *testing.T) {
 
 func TestMemoryEncryptPassphrase1340(t *testing.T) {
 	responses := map[string]string{
-		"GetMemory":     `{"data":{"memory":` + memoryJSON + `}}`,
-		"EncryptMemory": `{"data":{"encryptMemory":{"id":"m1","urn":"hrn:mem:jane:diary","name":"Diary","isEncrypted":true}}}`,
+		"GetMemory":                 `{"data":{"memory":` + memoryJSON + `}}`,
+		"MemoryEncryptionPrincipal": `{"data":{"authContext":{"principalType":"USER"}}}`,
+		"EncryptMemory":             `{"data":{"encryptMemory":{"id":"m1","urn":"hrn:mem:jane:diary","name":"Diary","isEncrypted":true}}}`,
 	}
 	p := filepath.Join(t.TempDir(), "pass")
 	if err := os.WriteFile(p, []byte("correct horse battery staple\n"), 0o600); err != nil {
@@ -373,8 +374,8 @@ func TestMemoryEncryptPassphrase1340(t *testing.T) {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
 	v := vars1340(t, captured, "EncryptMemory")
-	if v["passphrase"] != "correct horse battery staple" {
-		t.Errorf("passphrase not sent (trailing newline trimmed): %v", v["passphrase"])
+	if _, present := v["passphrase"]; present {
+		t.Errorf("passphrase must not be a variable: %v", v["passphrase"])
 	}
 	if _, ok := v["dataKey"]; ok {
 		t.Errorf("dataKey must be omitted with a passphrase: %v", v)

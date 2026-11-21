@@ -42,7 +42,7 @@ func (s *encrypt1650Fake) serve(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	switch q.OperationName {
-	case "AuthContext":
+	case "MemoryEncryptionPrincipal":
 		p := s.principal
 		if p == "" {
 			p = "USER"
@@ -63,6 +63,10 @@ func (s *encrypt1650Fake) serve(w http.ResponseWriter, r *http.Request) {
 		ans := s.answer
 		if ans == "" {
 			ans = encrypt1650OK
+		}
+		if ans == "echo-header" {
+			b, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": r.Header.Get(api.MemoryKeysHeader), "extensions": map[string]string{"code": r.Header.Get(api.MemoryKeysHeader)}}}})
+			ans = string(b)
 		}
 		ans = strings.ReplaceAll(ans, "SENTINEL", encrypt1650Secret)
 		_, _ = io.WriteString(w, ans)
@@ -85,6 +89,9 @@ func runEncrypt1650(t *testing.T, s *encrypt1650Fake, extra ...string) (string, 
 	root.SetContext(api.WithOperationKey(ambient, "ambient-operation"))
 	root.SetArgs(append([]string{"memory", "encrypt", "hrn:mem:acme.com:kb", "--yes", "--server", server.URL}, extra...))
 	err := root.Execute()
+	if err != nil {
+		renderFailure(f, root.Flags().Args(), err)
+	}
 	return out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
 }
 func (s *encrypt1650Fake) calls() []encrypt1650Request {
@@ -103,7 +110,11 @@ func TestEncryptMemoryHeadersScoped1650(t *testing.T) {
 	for _, tc := range []struct{ name, principal, flag, field string }{{"owner-key", "USER", "--data-key", "dataKey"}, {"owner-passphrase", "USER", "--passphrase-file", "passphrase"}, {"app-key", "APP", "--data-key", "dataKey"}} {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &encrypt1650Fake{principal: tc.principal}
-			_, _, err := runEncrypt1650(t, s, tc.flag, "-", "--json")
+			args := []string{tc.flag, "-", "--json"}
+			if tc.name == "owner-key" {
+				args = append(args, "--app", "hrn:app:acme.com:context-only")
+			}
+			_, _, err := runEncrypt1650(t, s, args...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -190,9 +201,18 @@ func TestEncryptMemoryEchoNeverLeaks1650(t *testing.T) {
 		for _, status := range []int{200, 400, 500} {
 			t.Run(fmt.Sprintf("%s-%d", flag, status), func(t *testing.T) {
 				s := &encrypt1650Fake{status: status, answer: `{"errors":[{"message":"SENTINEL","extensions":{"code":"SENTINEL","detail":"SENTINEL"}}]}`}
-				out, stderr, err := runEncrypt1650(t, s, flag, "-", "--json", "--verbose")
+				out, stderr, err := runEncrypt1650(t, s, flag, "-", "--json")
 				if err == nil {
 					t.Fatal("echo error unexpectedly succeeded")
+				}
+				n := 0
+				for _, r := range s.calls() {
+					if r.op == "EncryptMemory" {
+						n++
+					}
+				}
+				if n != 1 {
+					t.Fatalf("echo probe did not reach exactly one encryption mutation (got %d): %v", n, err)
 				}
 				render := out + stderr + err.Error()
 				if strings.Contains(render, encrypt1650Secret) || strings.Contains(strings.ToLower(render), strings.ToLower(api.MemoryKeysHeader)) {
@@ -231,5 +251,81 @@ func TestEncryptMemorySuccessfulEchoWithheld1650(t *testing.T) {
 				t.Fatal("successful echo must be withheld")
 			}
 		})
+	}
+}
+
+func TestEncryptMemoryLiteralKeyTrimmedIntoHeader1650(t *testing.T) {
+	s := &encrypt1650Fake{}
+	_, _, err := runEncrypt1650(t, s, "--data-key", " \t"+encrypt1650Secret+"\n ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range s.calls() {
+		if r.op == "EncryptMemory" {
+			var entries []map[string]string
+			if json.Unmarshal([]byte(r.keys), &entries) != nil || len(entries) != 1 || entries[0]["dataKey"] != encrypt1650Secret {
+				t.Fatal("literal key was not trimmed in the target header")
+			}
+			return
+		}
+	}
+	t.Fatal("no encryption request")
+}
+
+func TestEncryptMemoryEscapedPassphraseEchoWithheld1650(t *testing.T) {
+	// The successful data branch must not publish a JSON-escaped spelling either.
+	pass := "quoted\"pass\\phrase"
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(pass + "\n")
+	quoted, _ := json.Marshal(pass)
+	escaped := string(quoted[1 : len(quoted)-1])
+	field, _ := json.Marshal(escaped)
+	s := &encrypt1650Fake{answer: strings.Replace(encrypt1650OK, `"name":"KB"`, `"name":`+string(field), 1)}
+	server := httptest.NewServer(http.HandlerFunc(s.serve))
+	defer server.Close()
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "encrypt", "hrn:mem:acme.com:kb", "--yes", "--server", server.URL, "--passphrase-file", "-", "--json"})
+	err := root.Execute()
+	if err == nil || strings.Contains(out.String(), "quoted") {
+		t.Fatal("escaped successful echo was published")
+	}
+}
+
+func TestEncryptMemoryHeaderEchoNeverPublished1650(t *testing.T) {
+	for _, flag := range []string{"--data-key", "--passphrase-file"} {
+		for _, jsonFlag := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s-json%v", flag, jsonFlag), func(t *testing.T) {
+				s := &encrypt1650Fake{answer: "echo-header", status: 500}
+				args := []string{flag, "-"}
+				if jsonFlag {
+					args = append(args, "--json")
+				}
+				out, stderr, err := runEncrypt1650(t, s, args...)
+				n := 0
+				for _, r := range s.calls() {
+					if r.op == "EncryptMemory" {
+						n++
+					}
+				}
+				if n != 1 {
+					t.Fatalf("header echo did not reach encryption: %d %v", n, err)
+				}
+				if err == nil || strings.Contains(out+stderr+err.Error(), encrypt1650Secret) || strings.Contains(out+stderr, `[{"memory"`) {
+					t.Fatal("rendered error leaked key/header")
+				}
+			})
+		}
+	}
+}
+
+// These flags do not exist on memory encrypt. Keep this separate from echo
+// coverage so a parse refusal cannot falsely count as transport redaction.
+func TestEncryptMemoryUnsupportedDebugFlags1650(t *testing.T) {
+	for _, flag := range []string{"--verbose", "--debug"} {
+		s := &encrypt1650Fake{}
+		out, stderr, err := runEncrypt1650(t, s, "--data-key", "-", flag)
+		if err == nil || exitCodeFor(err) != 2 || len(s.calls()) != 0 || strings.Contains(out+stderr+err.Error(), encrypt1650Secret) {
+			t.Fatal("unsupported diagnostic flag must refuse before any request without echo")
+		}
 	}
 }

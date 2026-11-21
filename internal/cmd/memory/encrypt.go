@@ -3,7 +3,6 @@ package memory
 import (
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -31,7 +30,8 @@ func newCmdEncrypt(f *cmdutil.Factory) *cobra.Command {
 		Short: "Encrypt a private memory with a key you keep (cannot be undone)",
 		Long: `Encrypt a private memory with a key you keep, so that its content is stored
 as ciphertext. Only a memory of class private can be encrypted, and only its
-owner may do it.
+strict owner may start it. An owning App key may complete encryption of an
+already-encrypted private memory, using its existing data key only.
 
 This is ONE-WAY: there is no decrypt command, and the server never stores the
 key, so keep it safe. If you lose it, the content is lost.
@@ -47,7 +47,7 @@ Give exactly one of:
   --passphrase-file  a file holding a passphrase ("-" reads stdin). The server
                    derives the key from it and stores only the salt, never the
                    key. A trailing newline is dropped; the passphrase is never
-                   printed.
+                   printed. Files accessible by group or others are refused (chmod 600).
 
 What changes afterwards:
   - Content is read back only with the passphrase: add --unlock <memoryRef>
@@ -75,6 +75,7 @@ exit 2).`,
   hadron node get entries:today -m hrn:mem:jane:diary --unlock hrn:mem:jane:diary --unlock-passphrase-file ~/.diary-pass`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SetContext(api.WithoutKeyMaterial(cmd.Context()))
 			// Exactly one secret; gated on Changed so --passphrase-file= is an
 			// empty value refused, not an absent flag (cli#1340).
 			usePassphrase := cmd.Flags().Changed("passphrase-file")
@@ -95,6 +96,14 @@ exit 2).`,
 			if !usePassphrase && !key.fileSet && dataKey == "" {
 				return exitcode.Newf(exitcode.Usage, "a data key is required, or a passphrase — pass --data-key-file <file|-> or --passphrase-file <file|->")
 			}
+			// A file is checked before any lookup. Stdin stays after confirmation.
+			var pass string
+			if usePassphrase && passphraseFile != "-" {
+				pass, err = readPassphrase(passphraseFile, f.IOStreams.In)
+				if err != nil {
+					return err
+				}
+			}
 			key.WarnLiteral(f.IOStreams.ErrOut)
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -113,26 +122,57 @@ exit 2).`,
 				args[0])); err != nil {
 				return err
 			}
-			var keyArg, passArg *string
+			material := api.MemoryKey{Memory: memID}
 			if usePassphrase {
-				pass, err := readPassphrase(passphraseFile, f.IOStreams.In)
-				if err != nil {
-					return err
+				if passphraseFile == "-" {
+					pass, err = readPassphrase(passphraseFile, f.IOStreams.In)
+					if err != nil {
+						return err
+					}
 				}
-				passArg = &pass
+				material.Passphrase = pass
 			} else {
 				k, err := key.Read(f.IOStreams.In)
 				if err != nil {
 					return err
 				}
-				keyArg = &k
+				material.DataKey = k
 			}
-			resp, err := gen.EncryptMemory(cmd.Context(), client, memID, keyArg, passArg)
+			// Server-resolved principal, never token prefix or --app context:
+			// a user with an App context is still an owner using memory-keys.
+			principal, err := gen.MemoryEncryptionPrincipal(cmd.Context(), client)
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.EncryptMemory == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no memory")
+			if principal == nil || principal.AuthContext == nil {
+				return exitcode.Newf(exitcode.AuthRequired, "encryption principal could not be authenticated; nothing was encrypted")
+			}
+			app := principal.AuthContext.PrincipalType == gen.PrincipalTypeApp
+			if !app && principal.AuthContext.PrincipalType != gen.PrincipalTypeUser {
+				return exitcode.Newf(exitcode.Usage, "memory encryption requires the owner or owning App's completion key; nothing was encrypted")
+			}
+			if app && usePassphrase {
+				return exitcode.Newf(exitcode.Usage, "an App key can complete encryption with --data-key only; a passphrase is not supported. Nothing was encrypted")
+			}
+			encryptCtx, err := api.WithEncryptionKey(cmd.Context(), material, app)
+			if err != nil {
+				return err
+			}
+			resp, err := gen.EncryptMemory(encryptCtx, client, memID)
+			if err != nil {
+				mapped := api.MapError(err)
+				if api.ServerCodeOf(err) == "BAD_USER_INPUT" && strings.Contains(err.Error(), "Provide exactly one of dataKey or passphrase") {
+					mapped = fmt.Errorf("the encryption secret did not reach the server (the key header may have been stripped); nothing was encrypted. Check the proxy/server header support before retrying: %w", mapped)
+				}
+				return api.Detached(mapped, func(text string) string { return api.RedactEncryptionText(encryptCtx, text) })
+			}
+			if resp == nil || resp.EncryptMemory == nil || !resp.EncryptMemory.IsEncrypted {
+				return exitcode.Newf(exitcode.Unavailable, "memory encryption was not confirmed; inspect the memory before retrying. Nothing was retried")
+			}
+			for _, field := range []string{resp.EncryptMemory.Id, resp.EncryptMemory.Urn, resp.EncryptMemory.Name} {
+				if api.RedactEncryptionText(encryptCtx, field) != field {
+					return exitcode.Newf(exitcode.Unavailable, "the encryption answer repeated the submitted secret and was withheld; inspect the memory before retrying. Nothing was retried")
+				}
 			}
 			m := resp.EncryptMemory
 			dto := encryptDTO{ID: m.Id, URN: m.Urn, Name: m.Name, IsEncrypted: m.IsEncrypted}
@@ -178,10 +218,13 @@ func readPassphrase(path string, stdin io.Reader) (string, error) {
 	if path == "-" {
 		data, err = io.ReadAll(stdin)
 	} else {
-		data, err = os.ReadFile(path)
+		data, err = cmdutil.ReadSecretFile(path, "--passphrase-file")
+		if err != nil {
+			return "", err
+		}
 	}
 	if err != nil {
-		return "", exitcode.Newf(exitcode.Usage, "reading --passphrase-file: %v", err)
+		return "", exitcode.Newf(exitcode.Usage, "reading --passphrase-file: input could not be read. Nothing was sent")
 	}
 	v := strings.TrimRight(string(data), "\r\n")
 	if v == "" {
