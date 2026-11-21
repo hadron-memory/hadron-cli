@@ -2,6 +2,7 @@ package secret
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -172,6 +173,72 @@ func revealOnce(cmd *cobra.Command, f *cmdutil.Factory, clientID string) (*revea
 	return &revealedValue{secretName: r.SecretName, json: r.Value, readsLeft: r.ReadsLeft}, nil
 }
 
+// revealLinkError is a refused reveal that also carries the server's own link to its passkey
+// page (SecretReadClient.revealUrl, returned only to the person who holds the client). The text is
+// what the terminal prints; the URL travels exactly as the server sent it for the --json envelope
+// (the root renderer reads RevealURL).
+type revealLinkError struct {
+	err error
+	msg string
+	url string
+}
+
+func (e *revealLinkError) Error() string     { return e.msg }
+func (e *revealLinkError) Unwrap() error     { return e.err }
+func (e *revealLinkError) RevealURL() string { return e.url }
+
+// withRevealLink adds the server's link to the uniform NOT_FOUND refusal when the viewer's own
+// client list carries one for this client. It never composes a URL, never decides who a person
+// holder is (the server's field is the answer for the viewer), and changes nothing else: a refusal
+// of any other kind, a lookup that fails or a client with no link comes back exactly as it was.
+func withRevealLink(cmd *cobra.Command, f *cmdutil.Factory, clientID string, err error) error {
+	if exitcode.FromError(err) != exitcode.NotFound {
+		return err
+	}
+	client, cerr := f.GraphQLClient()
+	if cerr != nil {
+		return err
+	}
+	url := findRevealURL(cmd.Context(), client, clientID)
+	if url == "" {
+		return err
+	}
+	if f.JSON {
+		return &revealLinkError{err: err, msg: err.Error(), url: url}
+	}
+	if cmdutil.UnsafeForTerminal(url) {
+		return &revealLinkError{err: err, url: url, msg: err.Error() +
+			"\nthe server gave a link to its passkey page, but it contains control or format characters and is not printed as text; use --json to read it exactly"}
+	}
+	return &revealLinkError{err: err, url: url, msg: err.Error() + "\nits passkey page: " + url}
+}
+
+// findRevealURL reads the viewer's own read clients (the same read as `client list`, no worker
+// session) and returns the revealUrl of the one whose full id is clientID, or "". A short page is
+// the end of the list, so the lookup stops there; a failed read is not an error here.
+func findRevealURL(ctx context.Context, client graphql.Client, clientID string) string {
+	for off, pages := 0, 0; pages < maxClientPages; pages++ {
+		l, o := clientsPageSize, off
+		page, err := fetchClientPage(ctx, client, &l, &o)
+		if err != nil {
+			return ""
+		}
+		for _, c := range page {
+			if c.ClientID != nil && *c.ClientID == clientID {
+				if c.RevealURL != nil {
+					return *c.RevealURL
+				}
+				return ""
+			}
+		}
+		if len(page) < clientsPageSize {
+			return ""
+		}
+		off += len(page)
+	}
+	return ""
+}
+
 func requireClient(v string) (string, error) {
 	if strings.TrimSpace(v) == "" {
 		return "", exitcode.Newf(exitcode.Usage, "the read client id is empty")
@@ -336,7 +403,11 @@ it is, so a terminal sees it raw.
 This is a worker session's act, like exec: the read client must name the worker
 whose session is bound here. Unbound it still asks, with a stderr note, and a
 person gets the server's uniform answer (a person reveals on the server's passkey
-page; this command gives a person no link to it yet). One call, never retried: if its answer is lost the read may be spent, so
+page). When the server's answer is the uniform not-found and your own 'hadron
+secret client list' carries a revealUrl for this client, the refusal also prints
+that link exactly as the server sent it: text refuses a link with control or format
+characters and says to use --json, which carries it in error.revealUrl. The link is
+never built here and a client without one keeps the sentence alone. One call, never retried: if its answer is lost the read may be spent, so
 check 'hadron secret client list' before trying again. Exit codes as for exec
 before the child: 2 usage, 4 not found, 5 not live (spent, expired, revoked, not
 yet started, pending, issuer gone) or the secret deleted, 8 not permitted.`,
@@ -377,7 +448,7 @@ yet started, pending, issuer gone) or the secret deleted, 8 not permitted.`,
 				if pending != nil {
 					_ = pending.Abort()
 				}
-				return err
+				return withRevealLink(cmd, f, clientID, err)
 			}
 			if !f.JSON {
 				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "reads left: %s\n", readsLeftText(rv.readsLeft))

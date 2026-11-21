@@ -97,7 +97,7 @@ func TestSecretRevealRefusedPersonLinkInTheJSONEnvelope2758(t *testing.T) {
 		"RevealSecret":        gqlErrorJSON(notFound2758),
 		"MySecretReadClients": list2758(clientRow2758(withURL2758(url2758))),
 	})
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	var errOut strings.Builder
 	f.IOStreams.ErrOut = &errOut
 	root := NewRootCmd(f)
@@ -114,14 +114,17 @@ func TestSecretRevealRefusedPersonLinkInTheJSONEnvelope2758(t *testing.T) {
 			RevealURL string `json:"revealUrl"`
 		} `json:"error"`
 	}
-	if jerr := json.Unmarshal([]byte(errOut.String()), &env); jerr != nil {
-		t.Fatalf("envelope: %v %q", jerr, errOut.String())
+	if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil {
+		t.Fatalf("envelope: %v %q", jerr, out.String())
 	}
 	if env.Error.RevealURL != url2758 {
 		t.Errorf("error.revealUrl = %q, want the server's URL exactly", env.Error.RevealURL)
 	}
 	if !strings.Contains(env.Error.Message, "passkey page") {
 		t.Errorf("the message keeps the uniform sentence: %q", env.Error.Message)
+	}
+	if strings.Contains(env.Error.Message, url2758) {
+		t.Errorf("the exact URL lives in error.revealUrl only, not duplicated into the message: %q", env.Error.Message)
 	}
 }
 
@@ -156,7 +159,7 @@ func TestSecretRevealRefusalIsUnchangedWithoutALink2758(t *testing.T) {
 // Text mode refuses a URL carrying control or format characters (as the ceremony URL
 // does) and says where to read it exactly; --json still carries the exact bytes.
 func TestSecretRevealLinkWithControlCharactersIsNotPrintedAsText2758(t *testing.T) {
-	bad := "https://hadron.example/secret-reveal/cl-1\u001b[31m?x=‮"
+	bad := "https://hadron.example/secret-reveal/cl-1\u001b[31m?x=\u202e"
 	srv, _ := attnServer(t, map[string]string{
 		"RevealSecret":        gqlErrorJSON(notFound2758),
 		"MySecretReadClients": list2758(clientRow2758(withURL2758(bad))),
@@ -165,13 +168,13 @@ func TestSecretRevealLinkWithControlCharactersIsNotPrintedAsText2758(t *testing.
 	if r.err == nil || exitCodeFor(r.err) != 4 {
 		t.Fatalf("exit=%d err=%v", exitCodeFor(r.err), r.err)
 	}
-	if strings.ContainsAny(r.err.Error(), "\u001b‮") || strings.Contains(r.err.Error(), "secret-reveal/cl-1") {
+	if strings.ContainsAny(r.err.Error(), "\u001b\u202e") || strings.Contains(r.err.Error(), "secret-reveal/cl-1") {
 		t.Errorf("an unsafe URL must not be printed as text: %q", r.err.Error())
 	}
 	if !strings.Contains(r.err.Error(), "--json") {
 		t.Errorf("say where to read it exactly: %q", r.err.Error())
 	}
-	f, _ := testFactory(t)
+	f, out := testFactory(t)
 	var errOut strings.Builder
 	f.IOStreams.ErrOut = &errOut
 	root := NewRootCmd(f)
@@ -183,8 +186,8 @@ func TestSecretRevealLinkWithControlCharactersIsNotPrintedAsText2758(t *testing.
 			RevealURL string `json:"revealUrl"`
 		} `json:"error"`
 	}
-	if jerr := json.Unmarshal([]byte(errOut.String()), &env); jerr != nil || env.Error.RevealURL != bad {
-		t.Errorf("--json keeps the exact bytes: %v %q", jerr, errOut.String())
+	if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil || env.Error.RevealURL != bad {
+		t.Errorf("--json keeps the exact bytes: %v %q", jerr, out.String())
 	}
 }
 
@@ -208,7 +211,8 @@ func TestSecretRevealLinkLookupOnlyForNotFound2758(t *testing.T) {
 
 // One short page is the whole list: the lookup stops there instead of paging on.
 func TestSecretRevealLinkLookupStopsOnAShortPage2758(t *testing.T) {
-	srv, calls := attnServer(t, map[string]string{"RevealSecret": gqlErrorJSON(notFound2758), "MySecretReadClients": list2758(clientRow2758(""))})
+	otherRow := strings.Replace(clientRow2758(withURL2758(url2758)), `"clientId":"cl-1"`, `"clientId":"cl-2"`, 1)
+	srv, calls := attnServer(t, map[string]string{"RevealSecret": gqlErrorJSON(notFound2758), "MySecretReadClients": list2758(otherRow)})
 	_ = runSecretReveal2664(t, srv.URL, true, "reveal", "cl-1")
 	if n := listCalls2758(calls); n != 1 {
 		t.Errorf("a short page ends the lookup, got %d list reads", n)

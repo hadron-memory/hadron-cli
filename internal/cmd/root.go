@@ -498,6 +498,12 @@ func renderError(f *cmdutil.Factory, err error) int {
 			failure["requestId"] = id
 			failure["ceremonyUrl"] = url
 		}
+		// cli#2758: a refused person reveal carries the server's own link to its passkey page
+		// (SecretReadClient.revealUrl), byte for byte; absent for every other refusal.
+		var reveal interface{ RevealURL() string }
+		if errors.As(err, &reveal) {
+			failure["revealUrl"] = reveal.RevealURL()
+		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
 		var batch interface{ BatchPosition() int }

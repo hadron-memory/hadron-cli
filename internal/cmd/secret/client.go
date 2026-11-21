@@ -386,6 +386,8 @@ type clientDTO struct {
 	SelfIssued   bool    `json:"selfIssued"`
 	EndReason    *string `json:"endReason"`
 	CreatedAt    string  `json:"createdAt"`
+	// RevealURL is the server's own link for a person holder (cli#2758), null for any other viewer.
+	RevealURL *string `json:"revealUrl"`
 }
 
 // fetchClientPage reads one page of the caller's read clients. The list is declared
@@ -406,7 +408,7 @@ func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *
 			return nil, exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
 		}
 		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
-			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt})
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, RevealURL: c.RevealUrl})
 	}
 	return page, nil
 }

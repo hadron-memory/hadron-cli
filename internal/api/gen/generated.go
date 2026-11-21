@@ -72315,6 +72315,8 @@ type MySecretReadClientsMySecretReadClientsSecretReadClient struct {
 	// Null while live, else one of SECRET_DELETED, PROTECTED, REVOKED, PENDING, SPENT, EXPIRED, NOT_STARTED, ISSUER_GONE (nothing else ended it) or ENDED. A stored end wins; otherwise the grant's own state, in the order the reveal door answers.
 	EndReason *string `json:"endReason"`
 	CreatedAt string  `json:"createdAt"`
+	// #4545 (hrn:node:hadronmemory.com:specs:cor:sec:060:02): the server-hosted page where the person who holds this client reveals the value with a passkey: the server origin plus /secret-reveal/<clientId>, with no token. Copy it verbatim; never compose it. Returned only to that person holder in their own session. Null for a client a worker holds, and for a worker session, an App key or anyone viewing a client they do not hold.
+	RevealUrl *string `json:"revealUrl"`
 }
 
 // GetClientId returns MySecretReadClientsMySecretReadClientsSecretReadClient.ClientId, and is useful for accessing the field via an interface.
@@ -72355,6 +72357,11 @@ func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetEndReason() 
 // GetCreatedAt returns MySecretReadClientsMySecretReadClientsSecretReadClient.CreatedAt, and is useful for accessing the field via an interface.
 func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetCreatedAt() string {
 	return v.CreatedAt
+}
+
+// GetRevealUrl returns MySecretReadClientsMySecretReadClientsSecretReadClient.RevealUrl, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetRevealUrl() *string {
+	return v.RevealUrl
 }
 
 // MySecretReadClientsResponse is returned by MySecretReadClients on success.
@@ -172581,6 +172588,7 @@ query MySecretReadClients ($limit: Int, $offset: Int) {
 		selfIssued
 		endReason
 		createdAt
+		revealUrl
 	}
 }
 `
