@@ -1,10 +1,28 @@
 package cmd
 
 import (
+	"flag"
 	"os"
 	"strings"
 	"testing"
 )
+
+// updateGolden2508 rewrites the golden from the live page (cli#2525 F3): run
+//
+//	go test ./internal/cmd -run TestTeamWorkerCompileHelpGolden2508 -update-help-golden
+//
+// and say why in the commit that moves it.
+var updateGolden2508 = flag.Bool("update-help-golden", false, "rewrite testdata/worker_compile_help_2508.golden from the live help")
+
+// withoutGlobalFlags2508 drops the trailing "Global Flags:" block. Those flags belong to
+// every command, so a new global flag must not fail a test about one page's own text
+// (cli#2525 F3). The golden pins the page's description, usage, examples and own flags.
+func withoutGlobalFlags2508(help string) string {
+	if i := strings.Index(help, "\nGlobal Flags:\n"); i >= 0 {
+		return help[:i+1]
+	}
+	return help
+}
 
 // cli#2508 (Jonas's BLIND F7 on #2499): `team worker compile --help` was kept
 // byte-identical by hand while the shared bootcompile text was rewritten, and
@@ -14,7 +32,10 @@ import (
 //
 //	bin/hadron team worker compile --help > internal/cmd/testdata/worker_compile_help_2508.golden
 //
-// and say why in the commit that moves it.
+// and say why in the commit that moves it. (The golden stops before the Global Flags
+// block; see withoutGlobalFlags2508. It still carries the citations the scrub policy
+// bans on this page: `team worker compile` is on the citation ratchet's exception list
+// until its own slice scrubs it.)
 func TestTeamWorkerCompileHelpGolden2508(t *testing.T) {
 	want, err := os.ReadFile("testdata/worker_compile_help_2508.golden")
 	if err != nil {
@@ -28,7 +49,14 @@ func TestTeamWorkerCompileHelpGolden2508(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if got := out.String(); got != string(want) {
+	got := withoutGlobalFlags2508(out.String())
+	if *updateGolden2508 {
+		if err := os.WriteFile("testdata/worker_compile_help_2508.golden", []byte(got), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if got != string(want) {
 		gotL, wantL := strings.Split(got, "\n"), strings.Split(string(want), "\n")
 		for i := 0; i < len(gotL) || i < len(wantL); i++ {
 			var g, w string
