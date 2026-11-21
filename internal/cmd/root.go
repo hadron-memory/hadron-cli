@@ -433,7 +433,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if text, ok := authoredRefusalText(err); ok {
 			message = text
 		}
-		failure := map[string]any{"code": code, "message": message}
+		// #1131: --json is the machine contract and keeps the text as the server sent it,
+		// where the encoder already makes it inert (it writes the C0 controls, an ESC among
+		// them, as \u escapes). What the encoder leaves raw (C1 controls, bidi and other
+		// format characters) is neutralised so the document can be printed safely (cli#2739).
+		failure := map[string]any{"code": code, "message": output.SafeJSONText(message)}
 		superseded, currentSession, currentStarted := api.SupersededSessionEvidence(err)
 		if superseded && currentSession != "" {
 			failure["sessionId"] = currentSession
@@ -563,7 +567,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 					message += fmt.Sprintf(" (%s: %s)", key, output.SafeLine(fmt.Sprint(value), 256))
 				}
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)
+			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", output.SafeError(message))
 			// cli#1264: a clone refusal's blockers, one per line, after the answer.
 			for _, line := range api.CloneAgentBlockerLines(err) {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  %s\n", line)
