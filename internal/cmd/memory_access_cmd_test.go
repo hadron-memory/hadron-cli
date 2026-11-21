@@ -142,7 +142,7 @@ func TestMemoryShareCreate(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CreateMemoryShare"], &vars)
-	if vars["memoryId"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["granteeRef"] != "usr1" || vars["role"] != "reader" {
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["granteeRef"] != "usr1" || vars["role"] != "reader" {
 		t.Errorf("share vars: %v", vars)
 	}
 }

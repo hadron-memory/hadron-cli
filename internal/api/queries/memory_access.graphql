@@ -40,7 +40,7 @@ query MemoryShares($ref: ID!) {
 # #764/#304: userRef + memoryRef are server-resolved (id / URN / handle / email),
 # so the CLI passes the raw --user value straight through — no client-side user
 # lookup. memoryRef receives the client-resolved memory id (a valid ref).
-mutation AddMemoryMember($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+mutation AddMemoryMember($memoryRef: ID!, $userRef: ID!, $role: MemoryMemberRole!) {
   addMemoryMember(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
     memoryMember {
       role
@@ -51,7 +51,7 @@ mutation AddMemoryMember($memoryRef: String!, $userRef: String!, $role: MemoryMe
   }
 }
 
-mutation UpdateMemoryMemberRole($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+mutation UpdateMemoryMemberRole($memoryRef: ID!, $userRef: ID!, $role: MemoryMemberRole!) {
   updateMemoryMemberRole(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
     memoryMember {
       role
@@ -62,7 +62,7 @@ mutation UpdateMemoryMemberRole($memoryRef: String!, $userRef: String!, $role: M
   }
 }
 
-mutation RemoveMemoryMember($memoryRef: String!, $userRef: String!) {
+mutation RemoveMemoryMember($memoryRef: ID!, $userRef: ID!) {
   removeMemoryMember(memoryRef: $memoryRef, userRef: $userRef) {
     memoryId
     userId
@@ -71,10 +71,10 @@ mutation RemoveMemoryMember($memoryRef: String!, $userRef: String!) {
 
 # #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN) —
 # resolution sees the full user table, so a cross-org share by email works
-# without a client-side lookup. createMemoryShare has no memoryRef arg (the
-# memory is still passed as the client-resolved id via memoryId).
-mutation CreateMemoryShare($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
-  createMemoryShare(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
+# without a client-side lookup. #4137: memoryRef (an id or URN) replaced memoryId,
+# and the server declares the ref arguments ID!, so the variables are ID! too.
+mutation CreateMemoryShare($memoryRef: ID!, $granteeRef: ID!, $role: MemoryShareRole!) {
+  createMemoryShare(memoryRef: $memoryRef, granteeRef: $granteeRef, role: $role) {
     memoryShare {
       role
       grantee {
@@ -84,8 +84,8 @@ mutation CreateMemoryShare($memoryId: ID!, $granteeRef: String!, $role: MemorySh
   }
 }
 
-mutation UpdateMemoryShareRole($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
-  updateMemoryShareRole(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
+mutation UpdateMemoryShareRole($memoryRef: ID!, $granteeRef: ID!, $role: MemoryShareRole!) {
+  updateMemoryShareRole(memoryRef: $memoryRef, granteeRef: $granteeRef, role: $role) {
     memoryShare {
       role
       grantee {
