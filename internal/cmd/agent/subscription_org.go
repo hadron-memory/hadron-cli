@@ -259,6 +259,16 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		// A repeated row is keyed on the WHOLE row, not (agent, user): the list
 		// carries no row id, and a user may hold more than one row for an Agent
 		// (a revoked one and a later one), which must not fail every walk.
+		// A later page that starts with the FIRST page's first row is a server
+		// that ignores --offset (the len>total stop below only catches it when
+		// the total is under two pages): say so, not "run it again".
+		if o > 0 && len(p.items) > 0 && len(items) > 0 {
+			a, _ := json.Marshal(p.items[0])
+			b, _ := json.Marshal(items[0])
+			if string(a) == string(b) {
+				return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned the first page again at offset %d: it is ignoring --offset, so the list cannot be read in full", o)
+			}
+		}
 		dup := ""
 		for _, it := range p.items {
 			b, _ := json.Marshal(it)

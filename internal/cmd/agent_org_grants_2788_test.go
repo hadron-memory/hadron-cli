@@ -299,7 +299,7 @@ func TestSubscriptionAllRefusesAServerThatIgnoresTheOffset2788(t *testing.T) {
 			same := page2788(mode.field, 3, true, sub2788(1), sub2788(2))
 			fk, out, err := grants2788Run(t, map[string][]grants2788Reply{mode.op: {same, same, same, same, same}},
 				append(append([]string{"list"}, sel...), "--all", "--json")...)
-			if err == nil || !strings.Contains(err.Error(), "more rows than") || exitCodeFor(err) != exitcode.Error {
+			if err == nil || !strings.Contains(err.Error(), "ignoring --offset") || exitCodeFor(err) != exitcode.Error {
 				t.Fatalf("a server repeating page 1 must fail with exit %d and say so: %v", exitcode.Error, err)
 			}
 			if fk.count(mode.op) > 3 {
@@ -576,5 +576,36 @@ func TestSubscriptionAllAcceptsTwoDistinctRowsForOneUser2788(t *testing.T) {
 	}}, "list", "--mine", "--all", "--json")
 	if err != nil || !strings.Contains(out, `"complete": true`) && !strings.Contains(out, `"complete":true`) {
 		t.Fatalf("two distinct rows for one (agent,user) must be a complete walk: %v %s", err, out)
+	}
+}
+
+// BLIND P2 (round 4): an ignored offset with a total over two pages is still
+// named as such, not as "the set changed, run it again".
+func TestSubscriptionAllNamesAnIgnoredOffsetOnALargeTotal2788(t *testing.T) {
+	same := page2788("myAgentSubscriptionsPage", 10, true, sub2788(1), sub2788(2))
+	fk, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {same, same, same}},
+		"list", "--mine", "--all", "--json")
+	if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "ignoring --offset") {
+		t.Fatalf("want the ignored-offset message, got %v", err)
+	}
+	if fk.count("MyAgentSubscriptionsPage") > 2 {
+		t.Errorf("must stop at the second page, made %d requests", fk.count("MyAgentSubscriptionsPage"))
+	}
+	if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+		t.Errorf("never complete:true: %s", out)
+	}
+}
+
+// The over-total stop keeps its own pin: distinct rows past the total.
+func TestSubscriptionAllStopsPastTheTotalWithDistinctRows2788(t *testing.T) {
+	_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
+		page2788("myAgentSubscriptionsPage", 3, true, sub2788(1), sub2788(2)),
+		page2788("myAgentSubscriptionsPage", 3, true, sub2788(3), sub2788(4)),
+	}}, "list", "--mine", "--all", "--json")
+	if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "more rows than") {
+		t.Fatalf("want the over-total message, got %v", err)
+	}
+	if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+		t.Errorf("never complete:true: %s", out)
 	}
 }
