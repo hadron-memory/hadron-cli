@@ -98,7 +98,7 @@ func notFoundRefusal2904(t *testing.T, key, refusal string) {
 			if err == nil {
 				t.Fatal("a NOT_FOUND refusal must be an error")
 			}
-			if got := exitcode.FromError(err); got != exitcode.NotFound {
+			if got := exitCodeFor(err); got != exitcode.NotFound {
 				t.Fatalf("want exit %d (NotFound), got %d: %v", exitcode.NotFound, got, err)
 			}
 			if err.Error() != backend {
