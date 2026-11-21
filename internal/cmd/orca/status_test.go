@@ -342,8 +342,8 @@ func TestStatusTwoAgentsFailClosed(t *testing.T) {
 	r.orca.terms = []map[string]any{term("term_1", "/w/joshua", "claude"), term("term_2", "/w/joshua", "claude")}
 	r.orca.screens["term_1"], r.orca.screens["term_2"] = idleScreen, idleScreen
 	_, out := r.run(t, true, "Joshua")
-	if m := decode(t, out); m["status"] != "locked" || m["reason"] != "multiple_terminals" || m["terminal"] != nil && m["terminal"] != "" {
-		t.Fatalf("two agent terminals must read multiple_terminals, no single terminal named: %v", m)
+	if m := decode(t, out); m["status"] != "locked" || m["reason"] != "multiple_terminals" || m["terminal"] != nil || m["prompt"] != "unknown" || m["contract"] != "terminal-status@1" {
+		t.Fatalf("two agent terminals must read multiple_terminals with terminal null (the documented shape): %v", m)
 	}
 	// Today's message text is kept.
 	if _, text := r.run(t, false, "Joshua"); !strings.Contains(text, "locked (multiple_terminals)") || !strings.Contains(text, "more than one agent terminal is bound to this worker") {

@@ -52,7 +52,7 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 	}
 	// Orca has no rendered screen for this terminal: the screen is missing, not
 	// unmatched (cli#2677). Anything else unusable stays unrecognized below.
-	if sc != nil && sc.Source == "screen-unavailable" {
+	if sc != nil && sc.Source == SourceScreenUnavailable {
 		return Observation{Status: ts.Locked, Prompt: ts.PromptUnknown, Reason: ts.NoScreen}
 	}
 	// A terminal that cannot be typed into is never sendable.

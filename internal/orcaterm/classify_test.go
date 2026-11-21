@@ -52,8 +52,8 @@ func TestClassify(t *testing.T) {
 		"empty prompt, no proof":         {agent("codex"), fix(codexUnknownStatusNoRecap), ts.Locked, ts.PromptEmpty, ts.Unrecognized},
 		"unreadable screen fails closed": {agent("claude"), nil, ts.Locked, ts.PromptUnknown, ts.Unrecognized},
 		"partial source fails closed":    {agent("claude"), &Screen{Source: "scrollback", Tail: claudeIdle}, ts.Locked, ts.PromptUnknown, ts.Unrecognized},
-		"no rendered screen (cli#2677)":  {agent("claude"), &Screen{Source: "screen-unavailable", Tail: []string{"Ran 5 shell commands"}}, ts.Locked, ts.PromptUnknown, ts.Reason("no_screen")},
-		"no screen, not writable":        {agentNotWritable2677(), &Screen{Source: "screen-unavailable", Tail: []string{"x"}}, ts.Locked, ts.PromptUnknown, ts.Reason("no_screen")},
+		"no rendered screen (cli#2677)":  {agent("claude"), &Screen{Source: SourceScreenUnavailable, Tail: []string{"Ran 5 shell commands"}}, ts.Locked, ts.PromptUnknown, ts.Reason("no_screen")},
+		"no screen, not writable":        {agentNotWritable2677(), &Screen{Source: SourceScreenUnavailable, Tail: []string{"x"}}, ts.Locked, ts.PromptUnknown, ts.Reason("no_screen")},
 		"bare codex prompt is not idle":  {agent("codex"), fix([]string{"  Worked for 5s • 4:04 PM", "› ", "  ? for shortcuts"}), ts.Locked, ts.PromptUnknown, ts.Unrecognized},
 	} {
 		t.Run(name, func(t *testing.T) {

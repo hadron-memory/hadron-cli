@@ -55,11 +55,6 @@ func ptr[T any](v T) *T { return &v }
 // cli#2676: rate_limited is on the closed list, and resetAt is an additive
 // key inside @1: always present (null when not known), UTC, every @1 key kept.
 func TestRateLimitedAndResetAtAdditiveKey2676(t *testing.T) {
-	for _, r := range []Reason{"no_screen", "multiple_terminals"} {
-		if !r.Valid() {
-			t.Errorf("%q must be on the closed list (cli#2677; hadron-server#4558 added both)", r)
-		}
-	}
 	if !RateLimited.Valid() {
 		t.Fatal("rate_limited must be on the closed list")
 	}
@@ -94,5 +89,18 @@ func TestRateLimitedAndResetAtAdditiveKey2676(t *testing.T) {
 	b, _ = json.Marshal(Result{Worker: "Gil", Status: Locked, Prompt: PromptUnknown, Reason: ptr(RateLimited), ResetAt: &reset, CheckedAt: t0})
 	if err := json.Unmarshal(b, &old); err != nil || old.Status != Locked || old.Reason == nil || *old.Reason != RateLimited {
 		t.Fatalf("an @1 consumer must still parse: %v %+v", err, old)
+	}
+}
+
+// cli#2677: hadron-server#4558 added both values to the closed list, and the
+// contract stays terminal-status@1 (the list grows, no key is added or renamed).
+func TestNoScreenAndMultipleTerminalsAreOnTheClosedList2677(t *testing.T) {
+	for _, r := range []Reason{NoScreen, MultipleTerminals} {
+		if !r.Valid() {
+			t.Errorf("%q must be on the closed list", r)
+		}
+	}
+	if string(NoScreen) != "no_screen" || string(MultipleTerminals) != "multiple_terminals" || Contract != "terminal-status@1" {
+		t.Errorf("wire values changed: %q %q %q", NoScreen, MultipleTerminals, Contract)
 	}
 }
