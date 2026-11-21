@@ -74,6 +74,7 @@ version), secret update for metadata, and secret rm when it is no longer needed.
 	cmd.AddCommand(newCmdSet(f))
 	cmd.AddCommand(newCmdVersions(f))
 	cmd.AddCommand(newCmdEvents(f))
+	cmd.AddCommand(newCmdClient(f))
 	return cmd
 }
 

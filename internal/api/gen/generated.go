@@ -67003,6 +67003,96 @@ func (v *IssueHostOperationResponse) GetIssueHostOperation() *IssueHostOperation
 	return v.IssueHostOperation
 }
 
+// One named, owner-scoped secret — the general secret store (#677).
+// Polymorphic owner (user | org | app). The value is encrypted at rest and
+// WRITE-ONLY: no field here ever returns it — kind + metadata are the
+// inspectable half (you can see THAT a secret exists and, for
+// webfetch-auth, WHERE it applies, without decrypting). A bare name
+// resolves at run time via the CSS cascade, most-specific-first:
+// user -> org. An App-owned secret is NEVER in that cascade: no run
+// resolves it (hrn:node:hadronmemory.com:specs:cor:sec:020:01). An App
+// secret keeps its values as versions: every store adds one
+// (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
+type IssueSecretReadClientInput struct {
+	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refused (SECRET_AUTO_DELETE_NOT_AVAILABLE) until the deletion is available.
+	AutoDelete bool    `json:"autoDelete"`
+	ExpiresAt  *string `json:"expiresAt,omitempty"`
+	// WORKER: a live worker of the App (holderRef is its id). USER: the issuer themself (holderRef omitted). AGENT and APP are refused (GRANT_HOLDER_NOT_ALLOWED): a read client is held by a person or a worker.
+	HolderKind GrantHolderKind `json:"holderKind"`
+	HolderRef  *string         `json:"holderRef,omitempty"`
+	MaxReads   *int            `json:"maxReads,omitempty"`
+	Reason     string          `json:"reason"`
+	// The App secret, by id or URN.
+	SecretRef string  `json:"secretRef"`
+	StartsAt  *string `json:"startsAt,omitempty"`
+}
+
+// GetAutoDelete returns IssueSecretReadClientInput.AutoDelete, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetAutoDelete() bool { return v.AutoDelete }
+
+// GetExpiresAt returns IssueSecretReadClientInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetHolderKind returns IssueSecretReadClientInput.HolderKind, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetHolderKind() GrantHolderKind { return v.HolderKind }
+
+// GetHolderRef returns IssueSecretReadClientInput.HolderRef, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetHolderRef() *string { return v.HolderRef }
+
+// GetMaxReads returns IssueSecretReadClientInput.MaxReads, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetMaxReads() *int { return v.MaxReads }
+
+// GetReason returns IssueSecretReadClientInput.Reason, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetReason() string { return v.Reason }
+
+// GetSecretRef returns IssueSecretReadClientInput.SecretRef, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetSecretRef() string { return v.SecretRef }
+
+// GetStartsAt returns IssueSecretReadClientInput.StartsAt, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetStartsAt() *string { return v.StartsAt }
+
+// IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued includes the requested fields of the GraphQL type SecretReadClientIssued.
+type IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued struct {
+	ClientId   string `json:"clientId"`
+	GrantId    string `json:"grantId"`
+	SecretName string `json:"secretName"`
+	SelfIssued bool   `json:"selfIssued"`
+}
+
+// GetClientId returns IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued.ClientId, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued) GetClientId() string {
+	return v.ClientId
+}
+
+// GetGrantId returns IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued.GrantId, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued) GetGrantId() string {
+	return v.GrantId
+}
+
+// GetSecretName returns IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued.SecretName, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued) GetSecretName() string {
+	return v.SecretName
+}
+
+// GetSelfIssued returns IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued.SelfIssued, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued) GetSelfIssued() bool {
+	return v.SelfIssued
+}
+
+// IssueSecretReadClientResponse is returned by IssueSecretReadClient on success.
+type IssueSecretReadClientResponse struct {
+	// Issue a read client for an App secret (hrn:node:hadronmemory.com:specs:cor:sec:060:01): one pending "secret.reveal" grant and
+	// its client, made together. A person only (never a worker session, a run, an impersonated session or an App key), who manages the
+	// App or wrote the secret's current version. The grant waits for the issuer's passkey signature; the holder is a live worker of the
+	// App, or the issuer themself. The client id is returned here, to the issuer, and to the holder; it never reads on its own.
+	IssueSecretReadClient *IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued `json:"issueSecretReadClient"`
+}
+
+// GetIssueSecretReadClient returns IssueSecretReadClientResponse.IssueSecretReadClient, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientResponse) GetIssueSecretReadClient() *IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued {
+	return v.IssueSecretReadClient
+}
+
 // JoinAppJoinAppJoinAppPayload includes the requested fields of the GraphQL type JoinAppPayload.
 // The GraphQL type's documentation follows.
 //
@@ -73530,6 +73620,65 @@ type MyPasskeysResponse struct {
 // GetMyPasskeys returns MyPasskeysResponse.MyPasskeys, and is useful for accessing the field via an interface.
 func (v *MyPasskeysResponse) GetMyPasskeys() []*MyPasskeysMyPasskeysPasskeyCredential {
 	return v.MyPasskeys
+}
+
+// MySecretReadClientsMySecretReadClientsSecretReadClient includes the requested fields of the GraphQL type SecretReadClient.
+type MySecretReadClientsMySecretReadClientsSecretReadClient struct {
+	ClientId   string `json:"clientId"`
+	GrantId    string `json:"grantId"`
+	SecretId   string `json:"secretId"`
+	SecretName string `json:"secretName"`
+	SelfIssued bool   `json:"selfIssued"`
+	// SECRET_DELETED | PROTECTED once the client has ended, else null.
+	EndReason *string `json:"endReason"`
+	CreatedAt string  `json:"createdAt"`
+}
+
+// GetClientId returns MySecretReadClientsMySecretReadClientsSecretReadClient.ClientId, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetClientId() string {
+	return v.ClientId
+}
+
+// GetGrantId returns MySecretReadClientsMySecretReadClientsSecretReadClient.GrantId, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetGrantId() string {
+	return v.GrantId
+}
+
+// GetSecretId returns MySecretReadClientsMySecretReadClientsSecretReadClient.SecretId, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetSecretId() string {
+	return v.SecretId
+}
+
+// GetSecretName returns MySecretReadClientsMySecretReadClientsSecretReadClient.SecretName, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetSecretName() string {
+	return v.SecretName
+}
+
+// GetSelfIssued returns MySecretReadClientsMySecretReadClientsSecretReadClient.SelfIssued, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetSelfIssued() bool {
+	return v.SelfIssued
+}
+
+// GetEndReason returns MySecretReadClientsMySecretReadClientsSecretReadClient.EndReason, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetEndReason() *string {
+	return v.EndReason
+}
+
+// GetCreatedAt returns MySecretReadClientsMySecretReadClientsSecretReadClient.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsMySecretReadClientsSecretReadClient) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// MySecretReadClientsResponse is returned by MySecretReadClients on success.
+type MySecretReadClientsResponse struct {
+	// The read clients the caller issued or holds (hrn:node:hadronmemory.com:specs:cor:sec:060): a client id is shown only to its issuer and
+	// its holder. Empty for an App key, a run and an impersonation. Revoke one with revokeGrant on its grantId.
+	MySecretReadClients []*MySecretReadClientsMySecretReadClientsSecretReadClient `json:"mySecretReadClients"`
+}
+
+// GetMySecretReadClients returns MySecretReadClientsResponse.MySecretReadClients, and is useful for accessing the field via an interface.
+func (v *MySecretReadClientsResponse) GetMySecretReadClients() []*MySecretReadClientsMySecretReadClientsSecretReadClient {
+	return v.MySecretReadClients
 }
 
 // MyUserApiKeysMyUserApiKeysPageUserApiKeyPage includes the requested fields of the GraphQL type UserApiKeyPage.
@@ -132886,6 +133035,14 @@ type __IssueHostOperationInput struct {
 // GetInput returns __IssueHostOperationInput.Input, and is useful for accessing the field via an interface.
 func (v *__IssueHostOperationInput) GetInput() *IssueHostOperationInput { return v.Input }
 
+// __IssueSecretReadClientInput is used internally by genqlient
+type __IssueSecretReadClientInput struct {
+	Input *IssueSecretReadClientInput `json:"input,omitempty"`
+}
+
+// GetInput returns __IssueSecretReadClientInput.Input, and is useful for accessing the field via an interface.
+func (v *__IssueSecretReadClientInput) GetInput() *IssueSecretReadClientInput { return v.Input }
+
 // __JoinAppInput is used internally by genqlient
 type __JoinAppInput struct {
 	AppRef string `json:"appRef"`
@@ -133395,6 +133552,18 @@ func (v *__MyGrantsInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __MyGrantsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MyGrantsInput) GetOffset() int { return v.Offset }
+
+// __MySecretReadClientsInput is used internally by genqlient
+type __MySecretReadClientsInput struct {
+	Limit  *int `json:"limit,omitempty"`
+	Offset *int `json:"offset,omitempty"`
+}
+
+// GetLimit returns __MySecretReadClientsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MySecretReadClientsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __MySecretReadClientsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MySecretReadClientsInput) GetOffset() *int { return v.Offset }
 
 // __MyUserApiKeysInput is used internally by genqlient
 type __MyUserApiKeysInput struct {
@@ -165700,6 +165869,46 @@ func IssueHostOperation(
 	return data_, err_
 }
 
+// The mutation executed by IssueSecretReadClient.
+const IssueSecretReadClient_Operation = `
+mutation IssueSecretReadClient ($input: IssueSecretReadClientInput!) {
+	issueSecretReadClient(input: $input) {
+		clientId
+		grantId
+		secretName
+		selfIssued
+	}
+}
+`
+
+// cli#2631 slice 1: issue a read client for an App secret, and list the read
+// clients the caller issued or holds. Optional input fields are omitted when unset:
+// omitted keeps the server default, an explicit null would be read as a value.
+func IssueSecretReadClient(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *IssueSecretReadClientInput,
+) (data_ *IssueSecretReadClientResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IssueSecretReadClient",
+		Query:  IssueSecretReadClient_Operation,
+		Variables: &__IssueSecretReadClientInput{
+			Input: input,
+		},
+	}
+
+	data_ = &IssueSecretReadClientResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by JoinApp.
 const JoinApp_Operation = `
 mutation JoinApp ($appRef: ID!) {
@@ -168002,6 +168211,49 @@ func MyPasskeys(
 	}
 
 	data_ = &MyPasskeysResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MySecretReadClients.
+const MySecretReadClients_Operation = `
+query MySecretReadClients ($limit: Int, $offset: Int) {
+	mySecretReadClients(limit: $limit, offset: $offset) {
+		clientId
+		grantId
+		secretId
+		secretName
+		selfIssued
+		endReason
+		createdAt
+	}
+}
+`
+
+// One page of the caller's read clients (the server caps and defaults the page).
+func MySecretReadClients(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit *int,
+	offset *int,
+) (data_ *MySecretReadClientsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MySecretReadClients",
+		Query:  MySecretReadClients_Operation,
+		Variables: &__MySecretReadClientsInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MySecretReadClientsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
