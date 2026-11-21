@@ -403,3 +403,17 @@ func TestSubscriptionWriteRefusalExitAndSingleRequest2788(t *testing.T) {
 		})
 	}
 }
+
+// A single page that ends the set (hasMore:false, offset 0) is complete only if
+// it holds the rows the server says there are.
+func TestSubscriptionSinglePageCompleteNeedsLenEqualToTotal2788(t *testing.T) {
+	_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
+		page2788("myAgentSubscriptionsPage", 5, false, sub2788(1), sub2788(2)),
+	}}, "list", "--mine", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+		t.Errorf("2 rows against a total of 5 must not be complete: %s", out)
+	}
+}

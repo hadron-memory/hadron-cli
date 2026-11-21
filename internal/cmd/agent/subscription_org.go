@@ -178,8 +178,8 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 			op = &o
 		}
 		out := rawSubPage{items: []userAgentSubscriptionDTO{}}
-		conv := func(a, u, c string, act bool, ca, ex, rv *string) userAgentSubscriptionDTO {
-			return userAgentSubscriptionDTO{AgentID: a, UserID: u, IsActive: act, CreatedAt: c, ActivatedAt: ca, ExpiresAt: ex, RevokedAt: rv}
+		conv := func(a, u, c string, act bool, activated, ex, rv *string) userAgentSubscriptionDTO {
+			return userAgentSubscriptionDTO{AgentID: a, UserID: u, IsActive: act, CreatedAt: c, ActivatedAt: activated, ExpiresAt: ex, RevokedAt: rv}
 		}
 		if mine {
 			r, err := gen.MyAgentSubscriptionsPage(cmd.Context(), client, lp, op)
@@ -192,7 +192,7 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 			out.total, out.hasMore = r.MyAgentSubscriptionsPage.Total, r.MyAgentSubscriptionsPage.HasMore
 			for _, i := range r.MyAgentSubscriptionsPage.Items {
 				if i == nil {
-					return out, exitcode.Newf(exitcode.Error, "provider returned a null subscription row")
+					return out, exitcode.Newf(exitcode.Error, "the server returned a null subscription row")
 				}
 				out.items = append(out.items, conv(i.AgentId, i.UserId, i.CreatedAt, i.IsActive, i.ActivatedAt, i.ExpiresAt, i.RevokedAt))
 			}
@@ -208,7 +208,7 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		out.total, out.hasMore = r.AgentSubscriptionsPage.Total, r.AgentSubscriptionsPage.HasMore
 		for _, i := range r.AgentSubscriptionsPage.Items {
 			if i == nil {
-				return out, exitcode.Newf(exitcode.Error, "provider returned a null subscription row")
+				return out, exitcode.Newf(exitcode.Error, "the server returned a null subscription row")
 			}
 			out.items = append(out.items, conv(i.AgentId, i.UserId, i.CreatedAt, i.IsActive, i.ActivatedAt, i.ExpiresAt, i.RevokedAt))
 		}
@@ -223,7 +223,7 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		if err != nil {
 			return subscriptionPageDTO{}, err
 		}
-		return subscriptionPageDTO{Items: p.items, Total: p.total, HasMore: p.hasMore, Complete: !p.hasMore && offset == 0}, nil
+		return subscriptionPageDTO{Items: p.items, Total: p.total, HasMore: p.hasMore, Complete: !p.hasMore && offset == 0 && len(p.items) == p.total}, nil
 	}
 	var items []userAgentSubscriptionDTO
 	total := 0
@@ -235,6 +235,12 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 		items = append(items, p.items...)
 		total = p.total
 		o += len(p.items)
+		// A server that ignores the offset (or a set that moved under the walk)
+		// hands back more rows than its own total: stop rather than spin and
+		// grow without bound.
+		if len(items) > total {
+			return subscriptionPageDTO{Items: items, Total: total, HasMore: true}, exitcode.Newf(exitcode.Error, "the server returned more rows than its total (%d rows against a total of %d); the list is inconsistent", len(items), total)
+		}
 		if !p.hasMore || len(p.items) == 0 {
 			// An empty page that still claims more is a server bug: say so
 			// rather than present a truncated set as the whole.
@@ -247,12 +253,18 @@ func fetchSubscriptions(f *cmdutil.Factory, cmd *cobra.Command, agent string, mi
 	if items == nil {
 		items = []userAgentSubscriptionDTO{}
 	}
+	// complete:true is a claim about the whole set: hold it to the server's own
+	// count instead of trusting the last page's hasMore alone.
+	if len(items) != total {
+		return subscriptionPageDTO{Items: items, Total: total}, exitcode.Newf(exitcode.Error, "the server's total is %d but %d rows were returned; the list is inconsistent", total, len(items))
+	}
 	return subscriptionPageDTO{Items: items, Total: total, Complete: true}, nil
 }
 
 func renderSubscriptionPage(f *cmdutil.Factory, pg subscriptionPageDTO, mine bool, offset int) error {
 	return output.Write(f.IOStreams, f.JSON, pg, func(w io.Writer) error {
-		if len(pg.Items) == 0 {
+		switch {
+		case len(pg.Items) == 0 && pg.Total == 0 && offset == 0:
 			msg := "No subscriptions are visible to this caller."
 			if mine {
 				msg += " (A run or impersonated caller has no personal subscriptions, so an empty list does not prove there are none.)"
@@ -260,7 +272,14 @@ func renderSubscriptionPage(f *cmdutil.Factory, pg subscriptionPageDTO, mine boo
 			if _, err := fmt.Fprintln(w, msg); err != nil {
 				return err
 			}
-		} else {
+		case len(pg.Items) == 0:
+			// Past the end (or a set that shrank): the page is empty, which says
+			// nothing about whether subscriptions exist.
+			if _, err := fmt.Fprintf(w, "No rows at offset %d; the server reports %d subscription(s) in all. Use --offset 0 or --all.\n", offset, pg.Total); err != nil {
+				return err
+			}
+			return nil
+		default:
 			t := output.NewTable(w, "AGENT ID", "USER ID", "ACTIVE", "CREATED", "ACTIVATED", "EXPIRES", "REVOKED")
 			for _, g := range pg.Items {
 				t.Row(output.SafeCell(g.AgentID), output.SafeCell(g.UserID), fmt.Sprint(g.IsActive), output.SafeCell(g.CreatedAt), output.SafeCell(dash(g.ActivatedAt)), output.SafeCell(dash(g.ExpiresAt)), output.SafeCell(dash(g.RevokedAt)))
@@ -269,10 +288,14 @@ func renderSubscriptionPage(f *cmdutil.Factory, pg subscriptionPageDTO, mine boo
 				return err
 			}
 		}
-		if !pg.Complete {
+		if pg.Complete {
+			return nil
+		}
+		if pg.HasMore {
 			_, err := fmt.Fprintf(w, "Showing %d of %d (from offset %d); this is NOT the whole set. Page on with --offset %d, or use --all.\n", len(pg.Items), pg.Total, offset, offset+len(pg.Items))
 			return err
 		}
-		return nil
+		_, err := fmt.Fprintf(w, "Showing %d of %d (from offset %d); this is NOT the whole set: the rows before this offset are not shown. Use --offset 0, or --all.\n", len(pg.Items), pg.Total, offset)
+		return err
 	})
 }

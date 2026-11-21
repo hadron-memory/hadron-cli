@@ -31,7 +31,7 @@ func newCmdSubscription(f *cmdutil.Factory) *cobra.Command {
 	var mine, all bool
 	var limit, offset int
 	list := &cobra.Command{
-		Use: "list (--org <id|urn> | --agent <id|urn> | --mine) [--limit N] [--offset N] [--all]", Aliases: []string{"ls"}, Short: "List Agent licenses visible for one organization",
+		Use: "list (--org <id|urn> | --agent <id|urn> | --mine) [--limit N] [--offset N] [--all]", Aliases: []string{"ls"}, Short: "List an organization's Agent licenses, or an Agent's or your own subscriptions",
 		Long: `List the Agent licenses an organization holds. An Agent license lets the
 organization create Apps that use that Agent, and bundle that Agent into Agents
 it owns. --org is the organization's ID or URN (for example hrn:org:acme.com).

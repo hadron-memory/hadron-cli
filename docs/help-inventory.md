@@ -313,7 +313,7 @@ section between the markers.
 | `agent rm` | delete |  | y | #1053 | 5e410603db21 |  | unread |  |
 | `agent set-base` |  |  | n | #1053 | 262c332aec88 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `agent subscription` |  |  | n | #1053 | 5eae8f07ce7a |  | unread |  |
+| `agent subscription` |  |  | n | #1053 | 42ff03215017 |  | unread |  |
 | `agent subscription add` |  |  | y | #1053 | 5c59b4343e3a |  | unread |  |
 | `agent subscription list` | ls |  | y | #1053 | e025929409a3 |  | unread |  |
 | `agent subscription revoke` | unsubscribe |  | y | #1053 | 9d66fa5d8135 |  | unread |  |
