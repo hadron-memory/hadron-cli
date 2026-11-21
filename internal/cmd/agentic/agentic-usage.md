@@ -7043,7 +7043,8 @@ For this slice the CLI never infers the task from a binding, role or content.
 Multi-write commands carry the same claim on every node write that accepts it;
 edge-only mutations have no such argument. `node import` sends the claim on its
 content import (`importNode`) and on each node write of a restore (the update and
-the create fallback); a half pair is refused before the target is looked up.
+the create fallback). A node document cannot carry a claim: without the flags no
+claim is sent. A half pair is refused before the target is looked up.
 
 This is attested authorship, not verified compliance: a successful check does
 not prove that the task was read or followed. The server judges the claim.

@@ -332,7 +332,9 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 		return err
 	}
 	// cli#2790: the same claim rides each node write the restore makes (update and the
-	// create fallback share it through updateNodeInputFrom).
+	// create fallback share it through updateNodeInputFrom). cmdutil.AuthoredWith is nil
+	// without the flags, and a node document has no claim of its own, so nothing is
+	// overwritten here: without the flags the field stays absent.
 	input.AuthoredWith = cmdutil.AuthoredWith(cmd.Context())
 	// cli#714: every write goes through the door its KIND requires, as `node
 	// add` and `node update` do. The server gate reads the kind the node is now

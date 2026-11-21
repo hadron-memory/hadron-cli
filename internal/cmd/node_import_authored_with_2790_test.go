@@ -177,8 +177,47 @@ func TestNodeImportRefusedClaimIsConcealed2790(t *testing.T) {
 			if code == 0 || strings.Contains(text, "SECRET_") {
 				t.Fatalf("exit %d, text leaks or is silent: %q", code, text)
 			}
-			if !strings.Contains(strings.ToLower(text), "task") {
-				t.Errorf("the refusal must say what to do about the task: %q", text)
+			// Typed and actionable: the common attestation refusal text for an
+			// unavailable task (an owner must fix access or the rule), not the server's words.
+			if !strings.Contains(strings.ToLower(text), "owner") {
+				t.Errorf("the refusal must give the unavailable-task guidance: %q", text)
+			}
+		})
+	}
+}
+
+// BLIND P3-2/P2-1 on #2862: without the flags a restore sends NO claim on the update
+// or the create fallback, and a node document cannot carry one (the document format has
+// no such key: a key named authoredWith in the front matter is ignored, never forwarded).
+func TestNodeImportRestoreWithoutFlagsSendsNoClaim2790(t *testing.T) {
+	doc := "---\nname: Flaky CI\nloc: findings:flaky-ci\ntype: finding\nauthoredWith:\n  task: from-the-file\n  revision: 9\n---\nThe body.\n"
+	for _, op := range []string{"UpdateNode", "CreateNode"} {
+		t.Run(op, func(t *testing.T) {
+			responses := map[string]string{"ResolveUrn": resolveNullJSON}
+			if op == "UpdateNode" {
+				responses["FindNodes"] = `{"data":{"nodes":[{"id":"n1","memoryId":"mem1","loc":"findings:flaky-ci","name":"Flaky CI","nodeType":"finding","updatedAt":"2026-06-11T00:00:00Z"}]}}`
+				responses["UpdateNode"] = `{"data":{"updateNode":` + nodeJSON + `}}`
+			} else {
+				responses["UpdateNode"] = `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`
+				responses["CreateNode"] = `{"data":{"createNode":` + nodeJSON + `}}`
+			}
+			gql, captured := captureGraphQL(t, responses)
+			f, _ := testFactory(t)
+			file := filepath.Join(t.TempDir(), "flaky.md")
+			if err := os.WriteFile(file, []byte(doc), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "import", file, "--json", "--yes", "-m", "acme.com:kb", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			raw, ok := captured[op]
+			if !ok {
+				t.Fatalf("%s never reached the server", op)
+			}
+			if got, present := authoredInput2790(t, raw)["authoredWith"]; present {
+				t.Fatalf("%s without flags must carry no claim, got %s", op, got)
 			}
 		})
 	}
