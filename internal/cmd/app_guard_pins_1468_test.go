@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 )
@@ -11,6 +12,10 @@ import (
 // survived because the fixtures only nulled whole payloads. Each case uses
 // valid arguments, so pre-validation cannot mask the response guard, and each
 // guard has a positive normal-row control beside it. Test-only.
+//
+// Traceability: the helpers and the *1468 tests are hadron-cli#1468; the *2414
+// tests are hadron-cli#2414; the helper polish (checked stderr, shared setup,
+// subtest names, direct fixture-helper coverage) is hadron-cli#2784.
 
 func fixtureObject1468(base, field, value string) (string, error) {
 	var row map[string]json.RawMessage
@@ -53,46 +58,59 @@ func appIdentity1468(t *testing.T, field, value string) string {
 	return row
 }
 
-// refused1468 checks no success payload and one request in each mode. Text
-// mode also goes through the real error renderer and pins its stderr message;
-// JSON errors normally render on stdout, so empty stdout is checked BEFORE
-// error rendering, as in the original guard pin.
+// capturedText1468 reads what a test writer captured. A writer that does not
+// capture (a wrong fixture type) is an error naming its type, so a test fails
+// with a diagnosis instead of panicking on a type assertion (cli#2784 F1).
+func capturedText1468(w io.Writer) (string, error) {
+	c, ok := w.(interface{ String() string })
+	if !ok {
+		return "", fmt.Errorf("writer is %T, which does not capture output (want a *strings.Builder from testFactory)", w)
+	}
+	return c.String(), nil
+}
+
+// refused1468 checks no success payload and one request in each mode, as a
+// json=true / json=false subtest. Text mode also goes through the real error
+// renderer and pins its stderr message; JSON errors normally render on stdout,
+// so empty stdout is checked BEFORE error rendering, as in the original guard
+// pin. The scaffold is runTeamTask's (runTeamTaskFactory); only the
+// renderer-specific observations live here (cli#2784 F2).
 func refused1468(t *testing.T, op, response, message string, args ...string) {
 	t.Helper()
 	for _, jsonMode := range []bool{true, false} {
-		writeTeamBinding(t)
-		srv, calls := attnServer(t, map[string]string{op: response})
-		setTeamBindingServer(t, srv.URL)
-		f, out := testFactory(t)
-		root := NewRootCmd(f)
-		argv := append([]string{}, args...)
-		if jsonMode {
-			argv = append(argv, "--json")
-		}
-		root.SetArgs(append([]string{"--server", srv.URL}, argv...))
-		err := root.Execute()
-		if got := exitCodeFor(err); got != 1 {
-			t.Fatalf("json=%t: exit=%d, want1 (%v); stdout %q", jsonMode, got, err, out.String())
-		}
-		if out.String() != "" {
-			t.Fatalf("a refused response printed a success payload: %q", out.String())
-		}
-		if len(*calls) != 1 || (*calls)[0].Op != op {
-			t.Fatalf("want exactly one %s request, got %v", op, *calls)
-		}
-		if !strings.Contains(err.Error(), message) {
-			t.Fatalf("refusal %q lacks %q", err, message)
-		}
-		if !jsonMode {
-			renderError(f, err)
-			stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
-			if !strings.Contains(stderr, message) {
-				t.Fatalf("rendered stderr %q lacks refusal %q", stderr, message)
+		t.Run(fmt.Sprintf("json=%t", jsonMode), func(t *testing.T) {
+			t.Helper()
+			argv := append([]string{}, args...)
+			if jsonMode {
+				argv = append(argv, "--json")
+			}
+			f, calls, out, err := runTeamTaskFactory(t, map[string]string{op: response}, argv...)
+			if got := exitCodeFor(err); got != 1 {
+				t.Fatalf("exit=%d, want 1 (%v); stdout %q", got, err, out.String())
 			}
 			if out.String() != "" {
-				t.Fatalf("text refusal wrote stdout: %q", out.String())
+				t.Fatalf("a refused response printed a success payload: %q", out.String())
 			}
-		}
+			if len(*calls) != 1 || (*calls)[0].Op != op {
+				t.Fatalf("want exactly one %s request, got %v", op, *calls)
+			}
+			if !strings.Contains(err.Error(), message) {
+				t.Fatalf("refusal %q lacks %q", err, message)
+			}
+			if !jsonMode {
+				renderError(f, err)
+				stderr, cerr := capturedText1468(f.IOStreams.ErrOut)
+				if cerr != nil {
+					t.Fatal(cerr)
+				}
+				if !strings.Contains(stderr, message) {
+					t.Fatalf("rendered stderr %q lacks refusal %q", stderr, message)
+				}
+				if out.String() != "" {
+					t.Fatalf("text refusal wrote stdout: %q", out.String())
+				}
+			}
+		})
 	}
 }
 
@@ -227,13 +245,53 @@ func TestAppWhoami2414OtherMetadataIsNotAnIdentityGuard(t *testing.T) {
 	}
 }
 
+// A fixture edit that is not a known field, or whose value is not valid JSON,
+// is an error rather than a silently malformed fixture. An invalid value is
+// stored as a json.RawMessage, so it is rejected when the row is re-encoded
+// (json.Marshal validates RawMessage), not when it is assigned (cli#2784 F7).
 func TestGrantFixture2414RejectsInvalidEdits(t *testing.T) {
-	for _, tc := range []struct{ name, field, value string }{{"unknown key", "not-a-grant-field", `"x"`}, {"invalid JSON", "id", `not-json`}} {
+	for _, tc := range []struct{ name, field, value string }{{"unknown key", "not-a-grant-field", `"x"`}, {"invalid JSON value, rejected at re-encode", "id", `not-json`}} {
 		t.Run(tc.name, func(t *testing.T) {
 			if row, err := grantFixture1468(tc.field, tc.value); err == nil {
 				t.Fatalf("invalid fixture edit produced %q without an error", row)
 			}
 		})
+	}
+}
+
+// cli#2784 F7: the common helper and the App identity fixture reject the same
+// bad edits directly (the App wrapper reports through t.Fatalf, so its base
+// helper is tested here), and a malformed base row is an error too.
+func TestFixtureObject2784RejectsBadEditsDirectly(t *testing.T) {
+	for _, tc := range []struct{ name, base, field, value string }{
+		{"App unknown key", app1338, "not-an-app-field", `"x"`},
+		{"App invalid JSON value, rejected at re-encode", app1338, "id", `not-json`},
+		{"grant invalid JSON value, rejected at re-encode", grant1338, "prefix", `{`},
+		{"malformed base row", `{"id":`, "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if row, err := fixtureObject1468(tc.base, tc.field, tc.value); err == nil {
+				t.Fatalf("bad fixture produced %q without an error", row)
+			}
+		})
+	}
+	// Positive control: a valid edit of a known field round-trips.
+	row, err := fixtureObject1468(app1338, "id", `"a9"`)
+	if err != nil || !strings.Contains(row, `"id":"a9"`) {
+		t.Fatalf("valid edit: %q %v", row, err)
+	}
+}
+
+// cli#2784 F1: the checked stderr read fails with the writer's type instead of
+// panicking, and reads a capturing writer unchanged.
+func TestCapturedText2784NamesAWrongWriterType(t *testing.T) {
+	if _, err := capturedText1468(io.Discard); err == nil || !strings.Contains(err.Error(), "io.discard") {
+		t.Fatalf("a non-capturing writer must be an error naming its type, got %v", err)
+	}
+	var b strings.Builder
+	b.WriteString("refused")
+	if got, err := capturedText1468(&b); err != nil || got != "refused" {
+		t.Fatalf("capturing writer: %q %v", got, err)
 	}
 }
 
