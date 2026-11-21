@@ -16,6 +16,11 @@ package team
 //     200, never refused in the client.
 //   --json is the unchanged array in the default drain; the {items,total,
 // hasMore,offset,limit} envelope exists only in single-page mode.
+//
+// Fold pins (blind F1/F2, local F1): a null row is skipped in the drain, not
+// a panic; a server without hostRegistrationsPage is read whole through
+// hostRegistrations by default (the flags are refused by name); drift
+// mid-drain refuses with no partial table.
 
 import (
 	"encoding/json"
@@ -40,8 +45,9 @@ type hostListCall struct {
 
 // hostListPageFake serves the paged query (and the text mode's App label
 // read) from a queue per operation, recording every call. An unstubbed
-// operation is an error — including the unpaged HostRegistrations, which the
-// list command must no longer use (#2824).
+// operation is an error; the unpaged HostRegistrations is stubbed only by
+// the old-server fold tests, where the default form legitimately falls back
+// to it (#2824).
 func hostListPageFake(t *testing.T, bodies map[string][]string) (string, func() []hostListCall) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -74,17 +80,25 @@ func hostListPageFake(t *testing.T, bodies map[string][]string) (string, func() 
 // hostListRun executes `team host list` against the fake server.
 func hostListRun(t *testing.T, server string, args ...string) (string, error) {
 	t.Helper()
+	out, _, err := hostListRunBoth(t, server, args...)
+	return out, err
+}
+
+// hostListRunBoth is hostListRun that also returns stderr, for the notes the
+// text mode prints there (the old-server fallback disclosure).
+func hostListRunBoth(t *testing.T, server string, args ...string) (string, string, error) {
+	t.Helper()
 	f := cmdutil.NewFactory()
 	f.ServerFlag = server
 	f.AppFlag = "hrn:app:acme.com:ops"
-	io, out, _ := output.Test()
+	io, out, errOut := output.Test()
 	f.IOStreams = io
 	root := &cobra.Command{Use: "host", SilenceUsage: true, SilenceErrors: true}
 	root.PersistentFlags().BoolVar(&f.JSON, "json", false, "")
 	root.AddCommand(newCmdTeamHostLs(f))
 	root.SetArgs(append([]string{"list"}, args...))
 	err := root.Execute()
-	return out.String(), err
+	return out.String(), errOut.String(), err
 }
 
 // pageCalls keeps only the paged-read calls — the text mode also reads the
@@ -104,6 +118,16 @@ func hostPageBody(items []string, total int, hasMore bool) string {
 	return fmt.Sprintf(`{"data":{"hostRegistrationsPage":{"items":[%s],"total":%d,"hasMore":%t}}}`,
 		strings.Join(items, ","), total, hasMore)
 }
+
+// hostWholeBody renders one whole-set hostRegistrations answer (the field
+// every server has).
+func hostWholeBody(items []string) string {
+	return fmt.Sprintf(`{"data":{"hostRegistrations":[%s]}}`, strings.Join(items, ","))
+}
+
+// hostPageMissingField is an old server's rejection of the paged document
+// itself, before execution: hadron-server #2213 S3 predates the field.
+const hostPageMissingField = `{"errors":[{"message":"Cannot query field \"hostRegistrationsPage\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 
 const hostListItem = `{"hostId":"%s","label":"%s","pollIntervalSeconds":30,
 	"registeredAt":"2026-11-01T00:00:00Z","refreshedAt":"2026-11-21T00:00:00Z","live":true,
@@ -403,5 +427,141 @@ func TestHostListNegativeFlagsRefused_2824(t *testing.T) {
 		if n := len(calls()); n != 0 {
 			t.Errorf("%v must be refused before any call, got %d calls", args, n)
 		}
+	}
+}
+
+// A null row in a paged answer is skipped in the drain, not a panic: the
+// identity closure CollectHasMore keys rows through runs before the
+// consumer's own nil skip (blind F1, local F1 — both modes must agree, and
+// the single-page path already skips nulls).
+func TestHostListDefaultSkipsNullRows_2824(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {
+			hostPageBody([]string{"null", hostListHost("orca1")}, 2, true),
+			hostPageBody([]string{hostListHost("orca2")}, 2, false),
+		},
+		"TeamAppIdentity": {hostListLabelBody},
+	})
+	out, err := hostListRun(t, server)
+	if err != nil {
+		t.Fatalf("a null row must be skipped, not fatal: %v", err)
+	}
+	for _, id := range []string{"orca1", "orca2"} {
+		if !strings.Contains(out, id) {
+			t.Errorf("host %s missing from the drain output:\n%s", id, out)
+		}
+	}
+}
+
+// The whole-set read is one answer, not offset pages: drift between pages
+// (the total moved) refuses the whole command with no partial table — the
+// drain never prints half an inventory (blind F3: the drift checks live in
+// api.CollectHasMore; this pins them at the command).
+func TestHostListDefaultDriftRefusesNoPartial_2824(t *testing.T) {
+	server, calls := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {
+			hostPageBody([]string{hostListHost("orca1"), hostListHost("orca2")}, 3, true),
+			hostPageBody([]string{hostListHost("orca3")}, 4, false),
+		},
+		"TeamAppIdentity": {hostListLabelBody},
+	})
+	out, err := hostListRun(t, server)
+	if err == nil || exitcode.FromError(err) == 0 {
+		t.Fatalf("drift mid-drain must fail the command, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "changed while paging") {
+		t.Errorf("the refusal must name the drift, got %v", err)
+	}
+	if strings.Contains(out, "orca1") {
+		t.Errorf("a failed drain must not print a partial table:\n%s", out)
+	}
+	if ops := calls(); len(ops) != 2 {
+		t.Fatalf("the drain stops at the drifting page, got %+v", ops)
+	}
+}
+
+// A server too old for hostRegistrationsPage keeps the default form: the
+// whole list is read through hostRegistrations in one call, disclosed on
+// stderr in text mode; --json keeps the bare array and stays silent.
+func TestHostListOldServerFallsBackWhole_2824(t *testing.T) {
+	server, calls := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageMissingField},
+		"HostRegistrations":     {hostWholeBody([]string{hostListHost("orca1"), hostListHost("orca2")})},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	out, stderr, err := hostListRunBoth(t, server)
+	if err != nil {
+		t.Fatalf("the old server keeps the default read: %v", err)
+	}
+	for _, id := range []string{"orca1", "orca2"} {
+		if !strings.Contains(out, id) {
+			t.Errorf("host %s missing from the whole-set output:\n%s", id, out)
+		}
+	}
+	for _, banned := range []string{"page:", "continue:"} {
+		if strings.Contains(out, banned) {
+			t.Errorf("the whole set is not a page (%q):\n%s", banned, out)
+		}
+	}
+	if !strings.Contains(stderr, "hostRegistrationsPage") {
+		t.Errorf("text mode must disclose the fallback on stderr, got %q", stderr)
+	}
+	var ops []string
+	for _, c := range calls() {
+		ops = append(ops, c.op)
+	}
+	if len(ops) != 3 || ops[0] != "HostRegistrationsPage" || ops[1] != "HostRegistrations" || ops[2] != "TeamAppIdentity" {
+		t.Fatalf("one paged attempt, one whole read, then the label: %v", ops)
+	}
+
+	jsonServer, jsonCalls := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageMissingField},
+		"HostRegistrations":     {hostWholeBody([]string{hostListHost("orca1")})},
+	})
+	jsonOut, jsonStderr, err := hostListRunBoth(t, jsonServer, "--json")
+	if err != nil {
+		t.Fatalf("the old server keeps the default JSON read: %v", err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(jsonOut), &rows); err != nil {
+		t.Fatalf("default --json must stay a bare array, got %s", jsonOut)
+	}
+	if len(rows) != 1 || rows[0]["hostId"] != "orca1" {
+		t.Fatalf("unexpected rows: %s", jsonOut)
+	}
+	if jsonStderr != "" {
+		t.Errorf("--json must not print notes to stderr, got %q", jsonStderr)
+	}
+	for _, c := range jsonCalls() {
+		if c.op == "TeamAppIdentity" {
+			t.Errorf("--json must not pay the App label read")
+		}
+	}
+}
+
+// The flags cannot fall back: the unpaged field has no offset to slice, so an
+// old server refuses them by name instead of the raw validation error — and
+// never falls back to a whole read for a page.
+func TestHostListOldServerSinglePageRefused_2824(t *testing.T) {
+	server, calls := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageMissingField},
+	})
+	out, err := hostListRun(t, server, "--limit", "2")
+	if err == nil || exitcode.FromError(err) == 0 {
+		t.Fatalf("a page an old server cannot serve must be refused, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "hostRegistrationsPage") || !strings.Contains(err.Error(), "--limit/--offset") {
+		t.Errorf("the refusal must name the missing field and the flags, got %v", err)
+	}
+	if strings.Contains(out, "no hosts on this page") {
+		t.Errorf("a refused read never prints the empty-page line:\n%s", out)
+	}
+	for _, c := range calls() {
+		if c.op == "HostRegistrations" {
+			t.Errorf("a single page must not fall back to the whole-set read: %+v", c)
+		}
+	}
+	if n := len(pageCalls(calls())); n != 1 {
+		t.Fatalf("the refusal is one paged attempt, no retry, got %d", n)
 	}
 }

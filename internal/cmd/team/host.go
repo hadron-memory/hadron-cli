@@ -55,6 +55,15 @@ type hostRegistrationDTO struct {
 // aliased because genqlient's generated name is deeply nested.
 type pagedHostRegistration = gen.HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration
 
+// wholeHostRegistration is one row of the unpaged whole-set read, the same
+// registration through the field every server has.
+type wholeHostRegistration = gen.HostRegistrationsHostRegistrationsHostRegistration
+
+// hostRegistrationsPageMissing names the gap a server too old for the paged
+// read hits: it rejects the hostRegistrationsPage document itself
+// (GRAPHQL_VALIDATION_FAILED), before execution (hadron-server #2213 S3).
+const hostRegistrationsPageMissing = "this server has no hostRegistrationsPage (older than hadron-server #2213 S3)"
+
 // hostRegistrationPageDTO is `team host list`'s --json shape in SINGLE-PAGE
 // mode only (cli#2824): the page plus what a consumer needs to continue it.
 // The default drain keeps the bare array, so an agent can tell "the complete
@@ -92,6 +101,103 @@ func hostRegistrationDTOFrom(r *pagedHostRegistration) hostRegistrationDTO {
 		dto.Workers = append(dto.Workers, hw)
 	}
 	return dto
+}
+
+// hostRegistrationDTOFromWhole converts one whole-set row — the same
+// conversion as hostRegistrationDTOFrom, through the unpaged field's own
+// generated type (the two fields answer with identical rows).
+func hostRegistrationDTOFromWhole(r *wholeHostRegistration) hostRegistrationDTO {
+	dto := hostRegistrationDTO{
+		HostID:              r.HostId,
+		Label:               r.Label,
+		PollIntervalSeconds: r.PollIntervalSeconds,
+		RegisteredAt:        r.RegisteredAt,
+		RefreshedAt:         r.RefreshedAt,
+		Live:                r.Live,
+		Workers:             []hostWorkerDTO{},
+	}
+	for _, w := range r.Workers {
+		if w == nil {
+			continue
+		}
+		hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: []string{}}
+		if w.Worker != nil {
+			hw.WorkerName = &w.Worker.Name
+		}
+		hw.Worktrees = append(hw.Worktrees, w.Worktrees...)
+		dto.Workers = append(dto.Workers, hw)
+	}
+	return dto
+}
+
+// readWholeHostRegistrations reads the complete registration list through the
+// unpaged field every server has — the old-server fallback for `team host
+// list`'s default form (cli#2824): the same rows, App gate and refusals the
+// command read before the paged field existed.
+func readWholeHostRegistrations(ctx context.Context, client graphql.Client, appRef string) ([]hostRegistrationDTO, error) {
+	resp, err := gen.HostRegistrations(ctx, client, appRef)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp == nil || resp.HostRegistrations == nil {
+		return nil, exitcode.Newf(exitcode.Error, "server returned no host registrations")
+	}
+	hosts := []hostRegistrationDTO{}
+	for _, r := range resp.HostRegistrations {
+		if r == nil {
+			continue
+		}
+		hosts = append(hosts, hostRegistrationDTOFromWhole(r))
+	}
+	return hosts, nil
+}
+
+// readAllHosts reads the App's complete registration list for `team host
+// list`'s default form: it drains hostRegistrationsPage 20 rows at a time
+// until hasMore is false, and, on a server that rejects that document for not
+// knowing the field, falls back to one whole read through hostRegistrations —
+// so the default form keeps the answer it always gave while servers lag. The
+// second return says the fallback was taken (the caller discloses it).
+func readAllHosts(ctx context.Context, client graphql.Client, appRef string) ([]hostRegistrationDTO, bool, error) {
+	rows, err := api.CollectHasMore(func(pageOffset int) ([]*pagedHostRegistration, int, bool, error) {
+		resp, err := gen.HostRegistrationsPage(ctx, client, appRef, api.InventoryPageSize, pageOffset)
+		if err != nil {
+			// Raw, not MapError: the old-server check below reads the error's
+			// envelope; every other refusal is mapped where the error escapes.
+			return nil, 0, false, err
+		}
+		if resp == nil || resp.HostRegistrationsPage == nil {
+			return nil, 0, false, exitcode.Newf(exitcode.Error, "server returned no host registrations page")
+		}
+		return resp.HostRegistrationsPage.Items, resp.HostRegistrationsPage.Total, resp.HostRegistrationsPage.HasMore, nil
+	}, func(r *pagedHostRegistration) *string {
+		// CollectHasMore keys every row through this closure before any nil
+		// filtering of its own, so a null row must be answered here, not by
+		// the caller's skip — unguarded it would panic the whole drain
+		// (cli#2824 BLIND F1 / LOCAL F1; the single-page path skips nulls).
+		if r == nil {
+			return nil
+		}
+		return &r.HostId
+	})
+	if err == nil {
+		hosts := []hostRegistrationDTO{}
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			hosts = append(hosts, hostRegistrationDTOFrom(r))
+		}
+		return hosts, false, nil
+	}
+	if !api.IsFrameworkValidationOnlyFor(err, "hostRegistrationsPage") {
+		return nil, false, api.MapError(err)
+	}
+	hosts, ferr := readWholeHostRegistrations(ctx, client, appRef)
+	if ferr != nil {
+		return nil, false, ferr
+	}
+	return hosts, true, nil
 }
 
 type hostOperationDTO struct {
@@ -269,7 +375,9 @@ for the count alone. A one-page output always says it is one page —
 "page: <rows> of <total> from offset <o>" — and names the --offset that
 continues the list while more rows exist; an empty page names the total
 rather than reading as "no hosts". In single-page mode --json is an envelope
-{items,total,hasMore,offset,limit}; the default keeps the bare array.`,
+{items,total,hasMore,offset,limit}; the default keeps the bare array. A
+server without the paged field is read whole in one call instead; the flags
+need the paged field and are refused without it.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 0 || offset < 0 {
@@ -299,6 +407,13 @@ rather than reading as "no hosts". In single-page mode --json is an envelope
 				}
 				resp, err := gen.HostRegistrationsPage(ctx, client, scope.Ref, lim, offset)
 				if err != nil {
+					// An old server cannot serve a page: the unpaged field has
+					// no offset to slice, so the flags are refused by name
+					// rather than failing on the raw validation error (cli#2824
+					// BLIND F2). The default form still reads the whole list.
+					if api.IsFrameworkValidationOnlyFor(err, "hostRegistrationsPage") {
+						return exitcode.Newf(exitcode.Error, "%s; --limit/--offset need it — leave the flags out to read the whole list", hostRegistrationsPageMissing)
+					}
 					return api.MapError(err)
 				}
 				if resp == nil || resp.HostRegistrationsPage == nil {
@@ -336,25 +451,12 @@ rather than reading as "no hosts". In single-page mode --json is an envelope
 					return nil
 				})
 			}
-			rows, err := api.CollectHasMore(func(pageOffset int) ([]*pagedHostRegistration, int, bool, error) {
-				resp, err := gen.HostRegistrationsPage(ctx, client, scope.Ref, api.InventoryPageSize, pageOffset)
-				if err != nil {
-					return nil, 0, false, api.MapError(err)
-				}
-				if resp == nil || resp.HostRegistrationsPage == nil {
-					return nil, 0, false, exitcode.Newf(exitcode.Error, "server returned no host registrations page")
-				}
-				return resp.HostRegistrationsPage.Items, resp.HostRegistrationsPage.Total, resp.HostRegistrationsPage.HasMore, nil
-			}, func(r *pagedHostRegistration) *string { return &r.HostId })
+			hosts, legacy, err := readAllHosts(ctx, client, scope.Ref)
 			if err != nil {
 				return err
 			}
-			hosts := []hostRegistrationDTO{}
-			for _, r := range rows {
-				if r == nil {
-					continue
-				}
-				hosts = append(hosts, hostRegistrationDTOFrom(r))
+			if legacy && !f.JSON {
+				fmt.Fprintln(f.IOStreams.ErrOut, "note: "+hostRegistrationsPageMissing+"; the whole list was read through hostRegistrations in one call")
 			}
 			return output.Write(f.IOStreams, f.JSON, hosts, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
