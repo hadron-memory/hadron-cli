@@ -21,7 +21,15 @@ import (
 
 const instruction2774Claim = "live-chat:client: 7 "
 
-func instruction2774Cases() []struct {
+// teamBoundSessionID is the sessionId writeTeamBindingIn's fixture carries
+// (bindingFixture, team_cmd_test.go). Named so the host-issue row states the
+// coupling instead of magic text (#2860 review, Joran P3-9).
+const teamBoundSessionID = "s-new"
+
+// instruction2774Case is one door's row; the named type lets other tests in
+// this file take a case value whole instead of copying fields out (#2860
+// review, Joran P3-6).
+type instruction2774Case struct {
 	name string
 	args []string // without --server/--json extras; --json included
 	op   string   // plain operation name
@@ -31,14 +39,10 @@ func instruction2774Cases() []struct {
 	// run rides the bound worker's session; the other doors' plain runs are
 	// headerless. Every CLAIMED run rides the binding's verified session.
 	plainSession string
-} {
-	return []struct {
-		name         string
-		args         []string
-		op           string
-		body         string
-		plainSession string
-	}{
+}
+
+func instruction2774Cases() []instruction2774Case {
+	return []instruction2774Case{
 		{"pause", []string{"team", "pause", "--json"}, "SetTeamPause",
 			`{"data":{"setTeamPause":{"teamPausedAt":"2026-10-31T05:00:00Z"}}}`, ""},
 		{"resume", []string{"team", "resume", "--json"}, "SetTeamPause",
@@ -50,7 +54,7 @@ func instruction2774Cases() []struct {
 		{"wake-settings-set", []string{"team", "wake-settings", "set", "--worker", c1292Worker, "--mentions", "off", "--json"}, "SetWorkerWakeSettings",
 			`{"data":{"setWorkerWakeSettings":` + c1292Stored + `}}`, ""},
 		{"host-issue", []string{"team", "host", "issue", "check", "--host", "orca1", "--worker", "Jonas", "--json"}, "IssueHostOperation",
-			`{"data":{"issueHostOperation":{"id":"hop1","appId":"capp100000000000000000000","hostId":"orca1","type":"check","args":{"x":"1"},"workerId":"wkr1","worker":{"id":"wkr1","name":"Iris"},"status":"ISSUED","issuedBy":null,"issuedByUserId":"usr1","issuedByWorkerId":null,"issuedAt":"2026-11-21T09:00:00Z","collectedAt":null,"finishedAt":null,"result":null,"failureReason":null}}}`, "s-new"},
+			`{"data":{"issueHostOperation":{"id":"hop1","appId":"capp100000000000000000000","hostId":"orca1","type":"check","args":{"x":"1"},"workerId":"wkr1","worker":{"id":"wkr1","name":"Iris"},"status":"ISSUED","issuedBy":null,"issuedByUserId":"usr1","issuedByWorkerId":null,"issuedAt":"2026-11-21T09:00:00Z","collectedAt":null,"finishedAt":null,"result":null,"failureReason":null}}}`, teamBoundSessionID},
 		{"wakes-due", []string{"team", "wakes", "due", "--json"}, "TeamDueWakes",
 			c1279Page("OK", 0, c1279TickWake), ""},
 		{"wakes-due-preview", []string{"team", "wakes", "due", "--preview", "--json"}, "TeamDueWakesPreview",
@@ -103,7 +107,7 @@ func TestTeamInstruction2774Wire(t *testing.T) {
 				if claimed {
 					wantOp += "Instructed"
 					wantQuery = instructed2774Query(tc.op)
-					wantSession = "s-new"
+					wantSession = teamBoundSessionID
 				}
 				var hits []attnCall
 				var otherTwin int
@@ -144,6 +148,18 @@ func TestTeamInstruction2774Wire(t *testing.T) {
 					}
 					if strings.Contains(hit.Query, "instruction") {
 						t.Fatal("plain document mentions instruction")
+					}
+					// Omitted keeps, null clears (#2860 review, Joran P3-3): a
+					// flag not given must be ABSENT from the input, never sent
+					// as null. This is the wire pin that catches a dropped
+					// omitempty directive on the shared WorkerWakeSettingsInput:
+					// without it the unset fields ride vars.input as explicit
+					// nulls and a keep silently becomes a clear.
+					if tc.name == "wake-settings-set" {
+						input, ok := hit.Vars["input"].(map[string]any)
+						if !ok || len(input) != 1 || input["mentions"] != "OFF" {
+							t.Fatalf("input must carry only the flag given, got %v", hit.Vars["input"])
+						}
 					}
 					plainOut = out.String()
 					plainVars = hit.Vars
@@ -217,7 +233,12 @@ func TestTeamInstruction2774UsageBeforeRequests(t *testing.T) {
 				args := append(append([]string{"--server", srv.URL}, tc.args...), "--instruction", bad)
 				root.SetArgs(args)
 				err := root.Execute()
-				if err == nil || exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "--instruction") || len(*calls) != 0 {
+				// "unknown flag" is refused too: cobra's error for a door that
+				// forgot to register --instruction contains the flag name, and
+				// that is the silently-missing-flag mutant this test exists to
+				// catch (#2860 review, Joran P2-1).
+				if err == nil || exitCodeFor(err) != 2 || strings.Contains(err.Error(), "unknown flag") ||
+					!strings.Contains(err.Error(), "--instruction") || len(*calls) != 0 {
 					t.Fatalf("err=%v (exit %d) calls=%d: the refusal must be the claim's own", err, exitCodeFor(err), len(*calls))
 				}
 			})
@@ -274,15 +295,10 @@ func TestTeamInstruction2774MismatchedBindingPersonFallback(t *testing.T) {
 		{"wakes-due", "wrong-server"},
 	} {
 		t.Run(row.name+"/"+row.mode, func(t *testing.T) {
-			var tc struct {
-				name string
-				args []string
-				op   string
-				body string
-			}
+			var tc instruction2774Case
 			for _, c := range instruction2774Cases() {
 				if c.name == row.name {
-					tc.name, tc.args, tc.op, tc.body = c.name, c.args, c.op, c.body
+					tc = c
 				}
 			}
 			if tc.name == "" {
@@ -316,7 +332,13 @@ func TestTeamInstruction2774MismatchedBindingPersonFallback(t *testing.T) {
 			if c.Op != tc.op+"Instructed" || c.Session != "" || c.Vars["instruction"] == nil {
 				t.Fatalf("person fallback must be headerless with the claim on the Instructed twin: %+v", c)
 			}
-			if got := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(got, "worker session is not used") {
+			// Two-value assertion: a factory whose ErrOut is not a builder
+			// must fail the test, not panic it (#2860 review, Joran P3-6).
+			errOut, ok := f.IOStreams.ErrOut.(*strings.Builder)
+			if !ok {
+				t.Fatalf("ErrOut is %T, want *strings.Builder", f.IOStreams.ErrOut)
+			}
+			if got := errOut.String(); !strings.Contains(got, "worker session is not used") {
 				t.Fatalf("stderr lacks the fallback note: %s", got)
 			}
 		})
@@ -335,8 +357,44 @@ func TestTeamInstruction2774HostIssueAsPersonExclusive(t *testing.T) {
 	root.SetArgs([]string{"--server", srv.URL, "team", "host", "issue", "check", "--host", "orca1", "--worker", "Jonas",
 		"--as-person", "--instruction", instruction2774Claim, "--json"})
 	err := root.Execute()
-	if err == nil || exitCodeFor(err) != 2 || len(*calls) != 0 {
-		t.Fatalf("err=%v (exit %d) calls=%d: --as-person and --instruction must refuse together", err, exitCodeFor(err), len(*calls))
+	// The refusal must NAME both flags, not just exit 2: an exit-code-only
+	// pin would pass any usage error. Cobra's group error spells them without
+	// dashes ("[as-person instruction]"), so both are pinned as written
+	// (#2860 review, Joran P3-7).
+	if err == nil || exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "as-person") ||
+		!strings.Contains(err.Error(), "instruction") || len(*calls) != 0 {
+		t.Fatalf("err=%v (exit %d) calls=%d: --as-person and --instruction must refuse together, naming both", err, exitCodeFor(err), len(*calls))
+	}
+}
+
+// A plain --as-person issue from a bound worktree is headerless: the person,
+// not the binding's worker session, authors the write. The shared host-issue
+// row pins the session-riding plain run; this pins its --as-person twin
+// (#2860 review, Joran P3-8).
+func TestTeamInstruction2774HostIssueAsPersonHeaderless(t *testing.T) {
+	var hostCase instruction2774Case
+	for _, c := range instruction2774Cases() {
+		if c.name == "host-issue" {
+			hostCase = c
+		}
+	}
+	dir := teamGitDir(t)
+	srv, calls := attnServer(t, map[string]string{hostCase.op: hostCase.body})
+	writeTeamBindingIn(t, dir, srv.URL)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	args := append([]string{"--server", srv.URL}, hostCase.args...)
+	args = append(args, "--as-person")
+	root.SetArgs(args)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 1 {
+		t.Fatalf("calls=%d, want the one plain issue: %+v", len(*calls), *calls)
+	}
+	c := (*calls)[0]
+	if c.Op != "IssueHostOperation" || c.Session != "" {
+		t.Fatalf("a plain --as-person issue is headerless on the plain document: %+v", c)
 	}
 }
 
