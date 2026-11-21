@@ -77,7 +77,8 @@ person's signature.
 <client-id> is the id 'hadron secret client list' prints. The command looks it
 up among the clients you issued or hold, then sends one revoke on its grant. A
 client you do not see there (unknown, or someone else's) is a not-found (exit 4)
-and nothing is sent.
+and nothing is sent. The instructed lookup can find only clients the bound
+worker holds.
 
 Without --instruction you act as yourself: no worker session is sent, even from
 a bound worktree. With --instruction <kind>:<ref>, the lookup and revoke use this
@@ -132,9 +133,9 @@ end, or one that still allows reads); 8 not permitted.`,
 			}
 			if claim != nil {
 				var err error
-				worker, err = f.ResolveWorkerWrite(cmd.Context())
+				worker, err = f.ResolveWorkerWriteForFlag(cmd.Context(), "--instruction")
 				if err != nil {
-					return revokeBindingError(err)
+					return err
 				}
 			}
 			c, err := findClient(cmd, f, id, worker)
@@ -162,23 +163,25 @@ end, or one that still allows reads); 8 not permitted.`,
 			if claim != nil {
 				resp, err := gen.RevokeSecretReadClientGrantInstructed(ctx, client, c.GrantID, claim)
 				if err != nil {
-					return revokeFailure(revokeError(err, c.GrantID), worker != nil)
+					return revokeError(err, c.GrantID, claim != nil)
 				}
 				if resp != nil {
+					// These flat generated selections have identical fields and tags;
+					// a divergence fails at compile time instead of losing confirmation fields.
 					g = (*gen.RevokeSecretReadClientGrantRevokeGrant)(resp.RevokeGrant)
 				}
 			} else {
 				resp, err := gen.RevokeSecretReadClientGrant(ctx, client, c.GrantID)
 				if err != nil {
-					return revokeFailure(revokeError(err, c.GrantID), worker != nil)
+					return revokeError(err, c.GrantID, claim != nil)
 				}
 				if resp != nil {
 					g = resp.RevokeGrant
 				}
 			}
-			state, err := confirmedEndedState(g, c.GrantID)
+			state, err := confirmedEndedState(g, c.GrantID, claim != nil)
 			if err != nil {
-				return revokeFailure(err, worker != nil)
+				return err
 			}
 			d := revokeDTO{ClientID: c.ClientID, GrantID: c.GrantID, State: state, RevokedAt: g.RevokedAt, Allows: false}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
@@ -211,67 +214,53 @@ var definitiveRevokeRefusals = []string{
 
 // notConfirmed is the unknown-outcome error: the revoke may have ended the grant,
 // so it is never resent, and the caller is told where to look.
-func notConfirmed(grantID, why string) error {
-	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, grant %s may have been revoked. It is not resent: run `hadron secret client list --all` to check", why, output.SafeCell(grantID))
+func notConfirmed(grantID, why string, instructed bool) error {
+	recovery := "hadron secret client list --all"
+	if instructed {
+		recovery += " --as-worker"
+	}
+	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, grant %s may have been revoked. It is not resent: run `%s` to check", why, output.SafeCell(grantID), recovery)
 }
 
 // revokeError maps a failed revoke. A definitive pre-write refusal keeps its typed
 // exit. Anything else (a lost answer, a 5xx, an error beneath the mutation, a code
 // that can follow the write) is an unknown outcome: exit 7 naming the grant and
 // `client list`, never resent, with the server's code kept for --json.
-func revokeError(err error, grantID string) error {
+func revokeError(err error, grantID string, instructed bool) error {
 	mapped := api.MapErrorKeepingCode(err)
 	if api.OnlyErrorCodesAtRoot(err, definitiveRevokeRefusals...) {
 		return mapped
 	}
-	return api.WithServerCode(notConfirmed(grantID, mapped.Error()), err)
+	return api.WithServerCode(notConfirmed(grantID, mapped.Error(), instructed), err)
 }
 
 // confirmedEndedState checks the answer is the SAME grant in an explicit ended state.
-func confirmedEndedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID string) (string, error) {
+func confirmedEndedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID string, instructed bool) (string, error) {
 	if g == nil || g.Id == "" {
-		return "", notConfirmed(grantID, "the server returned no grant")
+		return "", notConfirmed(grantID, "the server returned no grant", instructed)
 	}
 	if g.Id != grantID {
-		return "", notConfirmed(grantID, "the server answered for a different grant")
+		return "", notConfirmed(grantID, "the server answered for a different grant", instructed)
 	}
 	switch g.State {
 	case gen.GrantStateRevoked, gen.GrantStateExpired, gen.GrantStateWithdrawn, gen.GrantStateSpent, gen.GrantStateHolderGone:
 		if g.Allows == nil {
-			return "", notConfirmed(grantID, "the server did not say whether the grant still allows reads")
+			return "", notConfirmed(grantID, "the server did not say whether the grant still allows reads", instructed)
 		}
 		if *g.Allows {
-			return "", notConfirmed(grantID, "the server returned the grant "+string(g.State)+" yet still allowing reads")
+			return "", notConfirmed(grantID, "the server returned the grant "+string(g.State)+" yet still allowing reads", instructed)
 		}
 		return string(g.State), nil
 	case gen.GrantStateActive, gen.GrantStatePending:
-		return "", notConfirmed(grantID, "the server returned the grant still "+string(g.State))
+		return "", notConfirmed(grantID, "the server returned the grant still "+string(g.State), instructed)
 	}
-	return "", notConfirmed(grantID, "the server returned no usable state")
+	return "", notConfirmed(grantID, "the server returned no usable state", instructed)
 }
 
-// The shared strict resolver names its usual --as-worker flag. This command
-// selects the same strict contract with --instruction, so keep its remedy true.
-func revokeBindingError(err error) error {
-	if err == nil {
-		return nil
-	}
-	return exitcode.Newf(exitcode.FromError(err), "%s", strings.ReplaceAll(err.Error(), "--as-worker", "--instruction"))
-}
-
+// revokeContext verifies the snapshot immediately before each request.
 func revokeContext(ctx context.Context, worker cmdutil.WorkerWriteContext) (context.Context, error) {
 	if worker == nil {
 		return ctx, nil
 	}
-	ctx, err := worker(ctx)
-	return ctx, revokeBindingError(err)
-}
-
-// Recovery must read the same principal's clients; preserve typed server codes.
-func revokeFailure(err error, instructed bool) error {
-	if !instructed || exitcode.FromError(err) != exitcode.Unavailable {
-		return err
-	}
-	message := strings.ReplaceAll(err.Error(), "secret client list --all", "secret client list --all --as-worker")
-	return api.WithServerCode(exitcode.Newf(exitcode.FromError(err), "%s", message), err)
+	return worker(ctx)
 }
