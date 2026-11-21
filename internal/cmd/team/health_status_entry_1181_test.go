@@ -29,6 +29,7 @@ import (
 // Explicit delivery.orca_bin fixtures still execute normally.
 func TestMain(m *testing.M) {
 	runInertSweepOrca2404()
+	runAmbientTrap2786()
 	if os.Getenv("HADRON_TEST_HEALTH_CHILD") == "1" && len(os.Args) > 1 && os.Args[1] == "orca" {
 		const key = "SYNTHETIC_ENTRY_KEY_1181"
 		for _, value := range os.Environ() {
