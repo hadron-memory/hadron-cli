@@ -482,6 +482,17 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &readiness) && readiness.PRReadinessSlots() != nil {
 			failure["slots"] = readiness.PRReadinessSlots()
 		}
+		// cli#2738: a change a protected secret STAGED instead of applying.
+		// The request id and the ceremony URL go in exactly as the server sent
+		// them (the text neutralises them), because a script hands the URL to
+		// the person who signs. `requestId` here is the change request's id, not
+		// a server-fault request id: the two never occur together.
+		var staged interface{ StagedSecretChange() (string, string) }
+		if errors.As(err, &staged) {
+			id, url := staged.StagedSecretChange()
+			failure["requestId"] = id
+			failure["ceremonyUrl"] = url
+		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
 		var batch interface{ BatchPosition() int }

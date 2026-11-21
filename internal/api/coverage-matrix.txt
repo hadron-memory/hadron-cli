@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 237: 203 command, 8 gap, 26 excluded
+[Query] 238: 204 command, 8 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -217,6 +217,7 @@ scope  command scope get
 scopeExplain  command scope explain
 scopes  command scope list
 secret  command secret get
+secretChangeRequest  command secret change get
 secretEvents  command secret events
 secrets  command secret list
 selectedSkillFilePlan  command skill export
@@ -266,7 +267,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 330 command, 17 gap, 12 excluded
+[Mutation] 361: 332 command, 17 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -551,6 +552,7 @@ setQuestionLogDeciders  command decision log set-deciders
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
 setReviewSchedule  command team pr schedule
+setSecretProtected  command secret protect
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
@@ -625,9 +627,10 @@ updateWorker  command team worker update
 withdrawGrant  gap #1846
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
+withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 40: 17 gap, 23 excluded
+[Arguments] 42: 19 gap, 23 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #2773
@@ -638,6 +641,7 @@ Mutation.createApp(role)  excluded deprecated: the App's own role was removed (c
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
 Mutation.createGrant(input.appRef)  gap #1846: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
+Mutation.createSecret(protected)  gap #2815
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteTicker(instruction)  gap #2773
 Mutation.importNode(input.authoredWith)  gap #2790
@@ -661,6 +665,7 @@ Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts o
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
+Mutation.updateSecret(protected)  gap #2815
 Mutation.updateTicker(instruction)  gap #2773
 Query.automationTeamSnapshotGrants(triggerId)  gap #2775
 Query.automationTeamSnapshotGrants(triggerKind)  gap #2775

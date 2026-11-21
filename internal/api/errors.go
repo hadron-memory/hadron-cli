@@ -1860,6 +1860,12 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "SECRET_READ_CLIENT_SUPERSEDED" || code == "SECRET_READ_CLIENT_LIMIT":
 		return exitcode.Conflict
+	// cli#2738 (protected-secret changes, hadron-server#3999 S4): a change of a
+	// protected secret is STAGED for a person's passkey instead of applied, and
+	// too many open requests on one secret is refused. Both are the secret's
+	// state, which no retry changes: 5. Unmapped they would fall to exit 1.
+	case code == "SECRET_PROTECTED_NEEDS_PASSKEY" || code == "SECRET_CHANGE_REQUEST_LIMIT":
+		return exitcode.Conflict
 	// cli#2664 (revealing a value): a known client that is not live now (spent,
 	// pending, not started, expired, revoked, its issuer gone) or whose secret was
 	// deleted is the client's STATE, which no retry changes: 5. Two reveals in one
