@@ -442,6 +442,7 @@ func TestSpecNewMalformedAllocationSendsNoFill398(t *testing.T) {
 		"not placeholder": node("n1", "msg:010:07", 3, false),
 		"wrong tier":      node("n1", "msg:010", 3, true),
 		"unparseable":     node("n1", "not a loc", 3, true),
+		"other memory":    strings.Replace(node("n1", "msg:010:07", 3, true), `"memoryId":"mem1"`, `"memoryId":"other"`, 1),
 	} {
 		t.Run(name, func(t *testing.T) {
 			fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
@@ -482,7 +483,7 @@ func TestSpecNewRecoveryRestoresFilledFields398(t *testing.T) {
 		t.Fatalf("--json = %s (%v)", out, jerr)
 	}
 	all := strings.Join(dto.Recovery, "\n")
-	for _, s := range []string{"spec get msg:020", "spec edit msg:020", `--title "Palette"`, "--abstract-file", "node update msg:020", "--tag spec", "--role spec", "--seq 20", "edge add", "--from msg:020", "spec new -m", "msg:020:00"} {
+	for _, s := range []string{"spec get msg:020", "spec edit msg:020", "--title Palette", "--abstract-file", "node update msg:020", "--tag spec", "--role spec", "--seq 20", "edge add", "--from msg:020", "spec new -m", "msg:020:00"} {
 		if !strings.Contains(all, s) {
 			t.Errorf("recovery missing %q:\n%s", s, all)
 		}
@@ -553,15 +554,24 @@ func TestSpecNewDryRunPreviewsNumberIndependentFields398(t *testing.T) {
 		t.Fatal(err)
 	}
 	var dto struct {
-		Name     string `json:"name"`
-		Abstract string `json:"abstract"`
-		Also     []struct {
+		Name           string `json:"name"`
+		Abstract       string `json:"abstract"`
+		Citation       string `json:"citation"`
+		DryRun         bool   `json:"dryRun"`
+		AllocatesUnder string `json:"allocatesUnder"`
+		Also           []struct {
 			Citation string `json:"citation"`
 			Name     string `json:"name"`
 		} `json:"also"`
 	}
 	if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil {
 		t.Fatal(jerr, out)
+	}
+	if dto.Citation != "" || !dto.DryRun || dto.AllocatesUnder != "msg" {
+		t.Errorf("dry run must show an empty citation, dryRun:true and allocatesUnder msg: %s", out)
+	}
+	if len(dto.Also) == 1 && dto.Also[0].Citation != "msg:NNN:00" {
+		t.Errorf("the planned contract must use the symbolic citation, got %q", dto.Also[0].Citation)
 	}
 	if dto.Name == "" || dto.Abstract == "" || len(dto.Also) != 1 || dto.Also[0].Name == "" {
 		t.Errorf("preview must carry name, abstract and the planned contract: %s", out)
@@ -570,5 +580,122 @@ func TestSpecNewDryRunPreviewsNumberIndependentFields398(t *testing.T) {
 		if fk.count(op) != 0 {
 			t.Errorf("--dry-run sent %s", op)
 		}
+	}
+}
+
+// A rule at or below the requested --rule-after floor is not what was asked for.
+func TestSpecNewAllocationBelowFloorSendsNoFill398(t *testing.T) {
+	fk, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+		"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:05", 1)},
+	}, "--module", "msg", "--feature", "010", "--rule-after", "07", "--title", "Test")
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("a rule below the floor exits %d, got %v (%s)", exitcode.Unavailable, err, errText)
+	}
+	if fk.count("UpdateSpecNode") != 0 {
+		t.Error("a fill was sent on a node below the requested floor")
+	}
+}
+
+// An explicit empty --content is a blank body, not an omitted flag.
+func TestSpecNewExplicitEmptyContentReservesNothing398(t *testing.T) {
+	for _, args := range [][]string{{"--content", ""}, {"--content=", "--title", "Test2"}} {
+		fk, _, _, err := alloc398Run(t, map[string]alloc398Reply{
+			"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:07", 1)},
+		}, append([]string{"--module", "msg", "--feature", "010", "--title", "Test"}, args...)...)
+		if err == nil || exitCodeFor(err) != exitcode.Usage {
+			t.Fatalf("%v: an explicit blank body is a usage refusal, got %v", args, err)
+		}
+		if fk.count("AllocateSpecNode") != 0 {
+			t.Errorf("%v: a number was reserved for a blank body", args)
+		}
+	}
+}
+
+// Recovery commands are shell-safe: a hostile title or label round-trips as one
+// literal word and never as an expansion.
+func TestSpecNewRecoveryIsShellSafe398(t *testing.T) {
+	hostile := "a\"$(touch /tmp/x)`id`'b"
+	_, out, _, err := alloc398Run(t, map[string]alloc398Reply{
+		"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:010:07", 1)},
+		"UpdateSpecNode":   {body: alloc398Err("BAD_USER_INPUT")},
+	}, "--module", "msg", "--feature", "010", "--title", hostile, "--tag", "x y;z", "--json")
+	if err == nil {
+		t.Fatal("a refused fill must fail")
+	}
+	var dto struct {
+		Recovery []string `json:"recovery"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil {
+		t.Fatal(jerr, out)
+	}
+	all := strings.Join(dto.Recovery, "\n")
+	quoted := "'" + strings.ReplaceAll(hostile, "'", `'\''`) + "'"
+	if !strings.Contains(all, "--title "+quoted) {
+		t.Errorf("title is not one single-quoted word:\n%s", all)
+	}
+	if !strings.Contains(all, "--tag 'x y;z'") {
+		t.Errorf("tag is not one single-quoted word:\n%s", all)
+	}
+	if strings.Contains(all, `"a\"$(`) || strings.Contains(all, ` "$(`) {
+		t.Errorf("a double-quoted expansion leaked into recovery:\n%s", all)
+	}
+}
+
+// A lost fill may have committed: the message says to inspect first and, if the
+// content is already there, to create only what is missing.
+func TestSpecNewLostFillSaysInspectFirst398(t *testing.T) {
+	scan := alloc398Scan + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
+	_, _, errText, err := alloc398Run(t, map[string]alloc398Reply{
+		"FindNodes":        {body: scan},
+		"AllocateSpecNode": {body: strings.Replace(alloc398Node, "%s", "msg:020", 1)},
+		"UpdateSpecNode":   {drop: true},
+	}, "--new-feature", "--module", "msg", "--title", "Palette")
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("a lost fill exits %d, got %v", exitcode.Unavailable, err)
+	}
+	for _, s := range []string{"already holds your content", "the fill committed", "msg:020:00 was never attempted", "create only that"} {
+		if !strings.Contains(errText, s) {
+			t.Errorf("message missing %q: %s", s, errText)
+		}
+	}
+}
+
+// Contract recovery keeps the caller's tags and --no-edges, on both paths.
+func TestSpecNewContractRecoveryKeepsOptions398(t *testing.T) {
+	scan := alloc398Scan + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
+	args := []string{"--new-feature", "--module", "msg", "--title", "Palette", "--tag", "custom", "--no-edges", "--json"}
+	for name, reply := range map[string]map[string]alloc398Reply{
+		"fill refused": {"UpdateSpecNode": {body: alloc398Err("BAD_USER_INPUT")}},
+		"contract refused": {
+			"UpdateSpecNode": {body: alloc398Fill},
+			"CreateSpecNode": {body: alloc398Err("BAD_USER_INPUT")},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			reply["FindNodes"] = alloc398Reply{body: scan}
+			reply["AllocateSpecNode"] = alloc398Reply{body: strings.Replace(alloc398Node, "%s", "msg:020", 1)}
+			_, out, _, err := alloc398Run(t, reply, args...)
+			if err == nil {
+				t.Fatal("must fail")
+			}
+			var dto struct {
+				Recovery []string `json:"recovery"`
+			}
+			if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil {
+				t.Fatal(jerr, out)
+			}
+			var contract string
+			for _, c := range dto.Recovery {
+				if strings.Contains(c, "msg:020:00") && strings.Contains(c, "spec new") {
+					contract = c
+				}
+				if strings.Contains(c, "edge add") {
+					t.Errorf("--no-edges was disabled, yet recovery adds an edge: %s", c)
+				}
+			}
+			if contract == "" || !strings.Contains(contract, "--tag custom") || !strings.Contains(contract, "--no-edges") {
+				t.Errorf("contract recovery must keep the tags and --no-edges, got %q", contract)
+			}
+		})
 	}
 }

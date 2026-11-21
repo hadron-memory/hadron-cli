@@ -30,6 +30,11 @@ type allocatedInput struct {
 	newFeature             bool
 	noEdges, noContract    bool
 	dryRun                 bool
+	// contentSet is true when --content/--content-file was given at all, even
+	// as an empty value: an explicit blank body is refused, not scaffolded.
+	contentSet bool
+	// memID is the id of the memory being written, read from its own nodes.
+	memID string
 }
 
 // allocatedOutcomeDTO is the `--json` answer when the node was reserved but the
@@ -96,7 +101,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	if err != nil {
 		return err
 	}
-	if bodyGiven && strings.TrimSpace(userBody) == "" {
+	if (bodyGiven || in.contentSet) && strings.TrimSpace(userBody) == "" {
 		// A blank body is accepted by the server but leaves the placeholder
 		// unfilled (cor:dmo:120:07): refuse BEFORE reserving a number.
 		return exitcode.Newf(exitcode.Usage, "the supplied body is empty or blank, which would leave the reserved spec an unfilled placeholder: give real content, or omit --content/--content-file to get the scaffold")
@@ -168,6 +173,14 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		}
 	}
 
+	// The allocation must land in THIS memory. The scan that planned the
+	// number already read the memory's nodes, so their memory id is known before
+	// anything is reserved; without it the answer could not be vouched for.
+	memID := in.memID
+	if memID == "" {
+		return exitcode.Newf(exitcode.Error, "cannot tell which memory %s is: no node of it was read, so the allocation could not be verified; nothing was reserved", memURN)
+	}
+
 	a, aerr := api.AllocateSpecNode(cmd.Context(), client, memURN, in.alloc.parent.Format(), in.alloc.after, in.title)
 	if aerr != nil {
 		if api.IsDefiniteRefusalAt(aerr, "allocateSpecNode") {
@@ -175,7 +188,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		}
 		return allocationUnknown(memURN, in, api.MapError(aerr))
 	}
-	target, verr := validateAllocation(a, in.alloc.parent, in.newFeature)
+	target, verr := validateAllocation(a, memID, in.alloc.parent, in.newFeature, in.alloc.after)
 	if verr != nil {
 		// An unusable answer to a call that may have committed: unknown, and no
 		// fill is sent on a node this CLI cannot vouch for.
@@ -212,7 +225,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		if api.IsDefiniteRefusalAt(uerr, "updateSpecNode") {
 			state = "refused"
 		}
-		rc := recoveryContext{memURN: memURN, loc: a.Loc, title: in.title, tags: in.tags, edges: edgePlan, target: target}
+		rc := recoveryContext{memURN: memURN, loc: a.Loc, title: in.title, tags: in.tags, edges: edgePlan, target: target, noEdges: in.noEdges}
 		if in.newFeature && !in.noContract {
 			if cc, ok := target.ChildContract(); ok {
 				rc.contract = cc.Format()
@@ -255,7 +268,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 				cr.Edges = append(cr.Edges, plannedEdgeDTO{Label: ctitle, Target: target.Format()})
 			}
 			if _, cErr := api.CreateSpecNode(cmd.Context(), client, &cIn); cErr != nil {
-				return contractFailed(f, memURN, target, cc, ctitle, cErr)
+				return contractFailed(f, memURN, target, cc, ctitle, in.tags, in.noEdges, cErr)
 			}
 			res.Also = append(res.Also, cr)
 		}
@@ -270,49 +283,71 @@ type recoveryContext struct {
 	edges              []plannedEdgeDTO
 	target             Citation
 	contract           string // the feature's contract loc still to create, or ""
+	noEdges            bool   // --no-edges: the contract is recreated without its edge
 }
 
 // recoveryCommands resumes authoring at the reserved citation with the existing
 // commands: every field the failed fill carried, then the contract if one was
 // still to be created. None of them allocates a number.
 func recoveryCommands(rc recoveryContext) []string {
-	cmds := []string{fmt.Sprintf("hadron spec get %s -m %s", rc.loc, rc.memURN),
-		fmt.Sprintf("hadron spec edit %s -m %s --title %q --abstract-file <file> --content-file <file>", rc.loc, rc.memURN, rc.title)}
-	node := fmt.Sprintf("hadron node update %s -m %s --role %s", rc.loc, rc.memURN, api.SpecNodeRole)
+	q := cmdutil.ShellQuote
+	cmds := []string{fmt.Sprintf("hadron spec get %s -m %s", q(rc.loc), q(rc.memURN)),
+		fmt.Sprintf("hadron spec edit %s -m %s --title %s --abstract-file <file> --content-file <file>", q(rc.loc), q(rc.memURN), q(rc.title))}
+	node := fmt.Sprintf("hadron node update %s -m %s --role %s", q(rc.loc), q(rc.memURN), q(api.SpecNodeRole))
 	for _, t := range rc.tags {
-		node += fmt.Sprintf(" --tag %s", t)
+		node += " --tag " + q(t)
 	}
 	if n := specSeq(rc.target); n != nil {
 		node += fmt.Sprintf(" --seq %d", *n)
 	}
-	node += fmt.Sprintf(" --data %s", string(*specDataRaw()))
+	node += " --data " + q(string(*specDataRaw()))
 	cmds = append(cmds, node)
 	for _, e := range rc.edges {
-		cmds = append(cmds, fmt.Sprintf("hadron edge add -m %s --from %s --to %s --name %q", rc.memURN, rc.loc, e.Target, e.Label))
+		cmds = append(cmds, fmt.Sprintf("hadron edge add -m %s --from %s --to %s --name %s", q(rc.memURN), q(rc.loc), q(e.Target), q(e.Label)))
 	}
 	if rc.contract != "" {
-		cmds = append(cmds, fmt.Sprintf("hadron spec new -m %s %s --title %q", rc.memURN, rc.contract, rc.title+" general provisions"))
+		cmds = append(cmds, contractCommand(rc.memURN, rc.contract, rc.title+" general provisions", rc.tags, rc.noEdges))
 	}
 	return cmds
+}
+
+// contractCommand is the one explicit-loc command that (re)creates a feature's
+// general-provisions contract with the options the original run chose.
+func contractCommand(memURN, loc, title string, tags []string, noEdges bool) string {
+	q := cmdutil.ShellQuote
+	c := fmt.Sprintf("hadron spec new -m %s %s --title %s", q(memURN), q(loc), q(title))
+	for _, t := range tags {
+		c += " --tag " + q(t)
+	}
+	if noEdges {
+		c += " --no-edges"
+	}
+	return c
 }
 
 // reservedUnfilled reports a node the server reserved (a real, unminted
 // placeholder at loc) whose one guarded fill was refused or lost. It never
 // suggests rerunning `spec new`: that would allocate another number.
-func reservedUnfilled(f *cmdutil.Factory, rc recoveryContext, filled string, cause error) error {
+func reservedUnfilled(f *cmdutil.Factory, rc recoveryContext, status string, cause error) error {
 	var what string
 	exit := exitcode.Error
-	if filled == "unknown" {
+	if status == "unknown" {
 		what = fmt.Sprintf("the fill's outcome is unknown (%v), so %s may or may not hold your content", cause, rc.loc)
 		exit = exitcode.Unavailable
 	} else {
 		what = fmt.Sprintf("this fill was refused (%v), so it did not write your content; %s may still be empty, or another writer may have filled it since", cause, rc.loc)
 	}
 	recovery := recoveryCommands(rc)
-	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. Read it first (`hadron spec get %s -m %s`); if it is still a placeholder, resume authoring at that citation, restoring what the failed fill carried (title, abstract, body, tags, role, edges%s):\n  %s\nThen, do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)",
-		rc.loc, what, rc.loc, rc.memURN, map[bool]string{true: ", and the feature's contract", false: ""}[rc.contract != ""], strings.Join(recovery[1:], "\n  "))
+	contractNote := ""
+	if rc.contract != "" {
+		contractNote = fmt.Sprintf(" The feature's contract %s was never attempted: create only that (the last command below) once the feature itself holds your content.", rc.contract)
+	}
+	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. Read it first (`%s`): if it already holds your content, the fill committed and only what is missing remains; if it is still a placeholder, resume authoring at that citation, restoring what the failed fill carried (title, abstract, body, tags, role, edges):%s\n  %s\nThen, do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)",
+		rc.loc, what, recovery[0], contractNote, strings.Join(recovery[1:], "\n  "))
 	if f.JSON {
-		_ = output.Write(f.IOStreams, true, allocatedOutcomeDTO{Citation: rc.loc, MemoryID: rc.memURN, Allocated: true, FillStatus: filled, Reason: cause.Error(), Recovery: recovery}, nil)
+		if werr := output.Write(f.IOStreams, true, allocatedOutcomeDTO{Citation: rc.loc, MemoryID: rc.memURN, Allocated: true, FillStatus: status, Reason: cause.Error(), Recovery: recovery}, nil); werr != nil {
+			msg += fmt.Sprintf(" (the --json record could not be written: %v)", werr)
+		}
 	}
 	return exitcode.Newf(exit, "%s", msg)
 }
@@ -320,21 +355,25 @@ func reservedUnfilled(f *cmdutil.Factory, rc recoveryContext, filled string, cau
 // contractFailed reports a feature that is allocated and filled whose explicit
 // general-provisions contract was refused or lost. Rerunning the original
 // command would allocate ANOTHER feature, so recovery names the contract loc.
-func contractFailed(f *cmdutil.Factory, memURN string, feature, contract Citation, ctitle string, cause error) error {
+func contractFailed(f *cmdutil.Factory, memURN string, feature, contract Citation, ctitle string, tags []string, noEdges bool, cause error) error {
 	status, exit := "unknown", exitcode.Unavailable
 	if api.IsDefiniteRefusalAt(cause, "createSpecNode") {
 		status, exit = "refused", exitcode.Error
 	}
 	recovery := []string{
-		fmt.Sprintf("hadron spec get %s -m %s", contract.Format(), memURN),
-		fmt.Sprintf("hadron spec new -m %s %s --title %q", memURN, contract.Format(), ctitle),
+		fmt.Sprintf("hadron spec get %s -m %s", cmdutil.ShellQuote(contract.Format()), cmdutil.ShellQuote(memURN)),
+		contractCommand(memURN, contract.Format(), ctitle, tags, noEdges),
 	}
+	var werrNote string
 	if f.JSON {
-		_ = output.Write(f.IOStreams, true, contractOutcomeDTO{Citation: feature.Format(), MemoryID: memURN, Allocated: true, FillStatus: "filled",
+		werr := output.Write(f.IOStreams, true, contractOutcomeDTO{Citation: feature.Format(), MemoryID: memURN, Allocated: true, FillStatus: "filled",
 			ContractCitation: contract.Format(), ContractStatus: status, Reason: api.MapError(cause).Error(), Recovery: recovery}, nil)
+		if werr != nil {
+			werrNote = fmt.Sprintf(" (the --json record could not be written: %v)", werr)
+		}
 	}
-	return exitcode.Newf(exit, "created %s, but its contract %s was %s (%v). The feature is complete and stays: do NOT rerun the original `spec new`, which would allocate another feature. Check whether %s exists (`%s`); if it does not, create just the contract (`%s`)",
-		feature.Format(), contract.Format(), status, api.MapError(cause), contract.Format(), recovery[0], recovery[1])
+	return exitcode.Newf(exit, "created %s, but its contract %s was %s (%v). The feature is complete and stays: do NOT rerun the original `spec new`, which would allocate another feature. Check whether %s exists (`%s`); if it does not, create just the contract (`%s`)%s",
+		feature.Format(), contract.Format(), status, api.MapError(cause), contract.Format(), recovery[0], recovery[1], werrNote)
 }
 
 // allocationUnknown reports an allocation whose outcome the CLI cannot vouch
@@ -349,9 +388,12 @@ func allocationUnknown(memURN string, in allocatedInput, cause error) error {
 // validateAllocation checks the server's answer before anything is written on
 // it: an id, a positive revision, a placeholder, and a numbered child of the
 // requested parent at the expected tier. It returns the parsed citation.
-func validateAllocation(a *api.AllocatedSpec, parent Citation, newFeature bool) (Citation, error) {
+func validateAllocation(a *api.AllocatedSpec, memID string, parent Citation, newFeature bool, after *int) (Citation, error) {
 	if a.Id == "" {
 		return Citation{}, fmt.Errorf("the server returned no node id")
+	}
+	if a.MemoryId != memID {
+		return Citation{}, fmt.Errorf("the server returned %s in memory %q, not the requested memory", a.Loc, a.MemoryId)
 	}
 	if a.Revision <= 0 {
 		return Citation{}, fmt.Errorf("the server returned revision %d for %s", a.Revision, a.Loc)
@@ -372,8 +414,12 @@ func validateAllocation(a *api.AllocatedSpec, parent Citation, newFeature bool) 
 	if !newFeature && (target.Rule == "" || target.Flow != "") {
 		return Citation{}, fmt.Errorf("the server returned %s, which is not a rule", a.Loc)
 	}
-	if _, ok := target.Seq(); !ok {
+	seq, ok := target.Seq()
+	if !ok {
 		return Citation{}, fmt.Errorf("the server returned %s, which has no sequence number", a.Loc)
+	}
+	if after != nil && seq <= *after {
+		return Citation{}, fmt.Errorf("the server returned %s, at or below the requested floor %d", a.Loc, *after)
 	}
 	return target, nil
 }
