@@ -1136,7 +1136,9 @@ func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput, expectedRevision
 		return false
 	}
 	if in.Reason != nil {
-		if want := strings.TrimSpace(*in.Reason); want != "" && (q.Revision <= expectedRevision || a.Reason == nil || strings.TrimSpace(*a.Reason) != want) {
+		// The reason is normalized as the server's shortOrNull does, the same rule as the
+		// text: CRLF/CR to LF, blank is absent, nothing else trimmed.
+		if want := normalizeAnswerText(*in.Reason); want != "" && (q.Revision <= expectedRevision || a.Reason == nil || normalizeAnswerText(*a.Reason) != want) {
 			return false
 		}
 	}

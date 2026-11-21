@@ -886,6 +886,11 @@ func TestQuestionAnswerReasonNeedsAWriteAndBlankTextIsRefusedLocally(t *testing.
 		"reason given, written with it":                {[]string{"--reason", "why"}, answeredWrite("pg", "", "why", 4), true},
 		"no reason, the documented no-op unchanged":    {nil, answeredAs("pg", ""), true},
 		"no reason, a write":                           {nil, answeredWrite("pg", "", "", 4), true},
+		"reason CRLF, written as LF":                   {[]string{"--reason", "line-one\r\nline-two"}, answeredWrite("pg", "", "line-one\nline-two", 4), true},
+		"reason bare CR, written as LF":                {[]string{"--reason", "a\rb"}, answeredWrite("pg", "", "a\nb", 4), true},
+		"reason spaces kept as given":                  {[]string{"--reason", " why "}, answeredWrite("pg", "", " why ", 4), true},
+		"reason spaces changed in the reply":           {[]string{"--reason", " why "}, answeredWrite("pg", "", "why", 4), false},
+		"blank reason, written without one":            {[]string{"--reason", "  "}, answeredWrite("pg", "", "", 4), true},
 		"reply older than the revision read":           {nil, strings.ReplaceAll(answeredAs("pg", ""), `"revSeq":3`, `"revSeq":2`), false},
 	} {
 		_, _, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + tc.reply + `}}`}, append(append([]string{}, args...), tc.extra...)...)
