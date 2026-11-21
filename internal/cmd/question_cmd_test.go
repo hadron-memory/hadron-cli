@@ -677,7 +677,7 @@ func TestDecisionIsRetiredAndSendsNothing(t *testing.T) {
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			c, out, err := runQuestionRoot(t, args...)
-			if exitCodeFor(err) != exitcode.Usage || err == nil || err.Error() != "hadron decision was renamed to hadron question (hadron-server#1641). Nothing was sent." {
+			if exitCodeFor(err) != exitcode.Usage || err == nil || err.Error() != "hadron decision was renamed to hadron question. Nothing was sent." {
 				t.Fatalf("want the retirement sentence at exit 2: %v (%d)", err, exitCodeFor(err))
 			}
 			if len(c.ops) != 0 || out != "" {

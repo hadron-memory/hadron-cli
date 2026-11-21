@@ -42,7 +42,7 @@ URGENT; a tier is ANSWERED, APPROVED or SIGNED.
 
 Each command makes one server call and passes references exactly as typed (ID
 or URN). The server decides who may do what; a refusal exits with its code.
-This group replaces hadron decision, which was renamed (hadron-server#1641).`,
+This group replaces hadron decision, which was renamed.`,
 	}
 	cmd.AddCommand(
 		newCmdLog(f),
@@ -467,7 +467,7 @@ passed through unchanged:
   options, yesno, recommendation, noRecommendation   as for question ask (what
              the tiers mean: hadron question ask --help)
   blocks, sources, specsTouched, specsMustChange   replace that whole list; each
-             entry a reference: {"ref": "hadron-server#1640"}, {"node": "<id or
+             entry a reference: {"ref": "<an issue or PR reference>"}, {"node": "<id or
              URN>"} or {"spec": "<citation>"}
 
 An empty list ([]) clears that list ("options": [] makes the question free text),
@@ -487,7 +487,7 @@ are a decider's to change.
 On success the question prints as question get shows it, prefixed "✓ amended".`,
 		Example: `  hadron question amend hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "clarify" --title "Pick a primary database"
   cat > amend.json <<'EOF'
-{"assignee":null,"specsTouched":[{"spec":"cor:dmo:140:03"}]}
+{"assignee":null,"specsTouched":[{"spec":"<a spec citation>"}]}
 EOF
   hadron question amend hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "reroute" --input-file amend.json`,
 		Args: cobra.ExactArgs(1),
@@ -1104,9 +1104,10 @@ func newCmdPurge(f *cmdutil.Factory) *cobra.Command {
 		Short: "Delete a never-answered question (platform admins)",
 		Long: `Hard-delete a question that was never answered. The purge is recorded on its
 log and the code stays used. Platform admins only, by server rule; an answered
-question is refused (QUESTION_ANSWERED). A question left in the format before
-hadron-server#4426 counts as never answered only while its payload holds no
-answer or answer history: the server refuses one that does. Prompts on a
+question is refused (QUESTION_ANSWERED). A question left in the older question
+format (before the shape change of November 2026) counts as never answered only
+while its payload holds no answer or answer history: the server refuses one that
+does. Prompts on a
 terminal; --yes is required otherwise.`,
 		Example: `  hadron question purge hrn:node:acme.com:eng:questions:QC --reason "test data" --yes`,
 		Args:    cobra.ExactArgs(1),
@@ -1122,7 +1123,7 @@ terminal; --yes is required otherwise.`,
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent; the server refuses it for a question that was ever answered, including one in the pre-#4426 format whose payload holds an answer)"); err != nil {
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent; the server refuses it for a question that was ever answered, including one in the older question format whose payload holds an answer)"); err != nil {
 				return err
 			}
 			resp, err := gen.PurgeUnansweredQuestion(cmd.Context(), client, ref, reason)

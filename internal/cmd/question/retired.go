@@ -16,14 +16,14 @@ import (
 )
 
 // RetiredDecisionMessage is the whole answer; plain text with no format verbs.
-const RetiredDecisionMessage = "hadron decision was renamed to hadron question (hadron-server#1641). Nothing was sent."
+const RetiredDecisionMessage = "hadron decision was renamed to hadron question. Nothing was sent."
 
 // The Factory is deliberately unused: a stub resolves nothing through it.
 func NewCmdRetiredDecision(_ *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "decision",
 		Short: "Renamed to hadron question: exits 2 with a notice",
-		Long: `hadron decision was renamed to hadron question (hadron-server#1641), with the same
+		Long: `hadron decision was renamed to hadron question, with the same
 verbs plus answer, retract and log list. This stub is kept so that an old script
 or habit gets this answer rather than "unknown command". Any arguments and old
 flags are ignored (--json too: the notice is always plain text); it reads no config

@@ -49,7 +49,7 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 		// question amend: the reference lists shaped, the clearing rules, the stale
 		// revision refusal and the success output
 		{[]string{"question", "amend"}, []string{
-			`{"ref": "hadron-server#1640"}, {"node": "<id or`,
+			`{"ref": "<an issue or PR reference>"}, {"node": "<id or`,
 			"An empty list ([]) clears that list",
 			`"background", "whyNow", "assignee",`,
 			"the tiers mean: hadron question ask --help",
