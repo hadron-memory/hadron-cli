@@ -5226,7 +5226,9 @@ and is not retried. With --json a browser that cannot be opened ends the
 command at once with status "started" (no wait). Connected: exit 0,
 {provider,orgId,authorizeUrl,expiresAt,flowId,browserOpened,
 status:"connected",failureCode:null,connection:{id,provider,mailboxEmail,
-displayName}}. Failed: the same document with status "failed", failureCode set
+displayName}}. If the follow-up read could not fill mailboxEmail and displayName (they come back
+empty), the connect still succeeds, one note goes to stderr, and the document adds
+degraded:true and degradedFields:["mailboxEmail","displayName"] (absent otherwise). Failed: the same document with status "failed", failureCode set
 and connection null, then exit 1. --no-wait: status "started", flowId set, connection null. Not
 finished in time: exit 13 (WaitTimeout), "not found yet", after the record is
 printed with status "pending" and the flowId - the consent may still

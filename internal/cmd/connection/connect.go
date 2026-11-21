@@ -98,7 +98,16 @@ type connectDTO struct {
 	Status        string        `json:"status"`
 	FailureCode   *string       `json:"failureCode"`
 	Connection    *connectedDTO `json:"connection"`
+	// Degraded and DegradedFields are present only when the follow-up read could
+	// not fill the connection's details (cli#1717): the connection exists, but
+	// the named fields in Connection are empty because they could not be read.
+	// Absent on every other result, so a healthy result's shape is unchanged.
+	Degraded       bool     `json:"degraded,omitempty"`
+	DegradedFields []string `json:"degradedFields,omitempty"`
 }
+
+// degradedFillFields are the connectedDTO fields only the follow-up read supplies.
+var degradedFillFields = []string{"mailboxEmail", "displayName"}
 
 // redactor scrubs the authorize URL and the nonce inside it from any text
 // about to leave the process (error and notice output).
@@ -177,7 +186,10 @@ failure code (for example access_denied). If nothing finishes in time it exits
 13 with "not found yet": the consent may still be completing, so run
 "hadron connection flow <flow-id>" (the id is in the start notice and in the result,
 which is printed on a timeout too) or check "hadron email connections --org <org>" before
-starting again. With --json, if the browser cannot be opened the command does
+starting again. If the connection is made but its mailbox email and display name
+could not be read afterwards, the command still succeeds (exit 0) with those empty,
+prints one note on stderr, and --json adds "degraded": true and "degradedFields".
+With --json, if the browser cannot be opened the command does
 not wait: it returns the result (status "started") at once. --no-wait returns
 right after the start; follow that flow with "hadron connection flow <flow-id>".`,
 		Example: `  hadron connection connect gmail --org hrn:org:acme.com
@@ -214,7 +226,12 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 			if err != nil {
 				return api.WithServerCode(api.MapError(err), err)
 			}
-			if resp == nil || resp.StartConnection == nil || resp.StartConnection.AuthorizeUrl == "" {
+			// A start with no flow id cannot be followed (the wait, the notice and
+			// the "connection flow" hint all key on it), so it is refused like one
+			// with no link, before the link is shown or opened (cli#1717). It is a
+			// broken server reply, not a usage error: the id is not ours to give.
+			if resp == nil || resp.StartConnection == nil || resp.StartConnection.AuthorizeUrl == "" ||
+				strings.TrimSpace(resp.StartConnection.FlowId) == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned no connection start")
 			}
 			start := resp.StartConnection
@@ -286,6 +303,11 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 				}
 				dto.Status = "connected"
 				dto.Connection = res.connection
+				if res.degraded {
+					dto.Degraded, dto.DegradedFields = true, degradedFillFields
+					fmt.Fprintf(ioStreams.ErrOut, "note: connection %s was made, but its %s could not be filled (the connections read failed or did not list it); they are empty in this result.\n",
+						output.SafeCell(res.connection.ID), strings.Join(degradedFillFields, ", "))
+				}
 			}
 
 			return writeConnect(ioStreams, f.JSON, dto, rowKey)
@@ -324,6 +346,7 @@ func listConnections(ctx context.Context, client graphql.Client, orgID string) (
 type flowResult struct {
 	connection  *connectedDTO
 	failureCode string
+	degraded    bool // the connection carries only its id and provider
 }
 
 // awaitFlow polls connectionFlow(flowId) until it is CONNECTED or FAILED, or the
@@ -358,7 +381,8 @@ func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey
 			}
 			return &flowResult{failureCode: code}, nil
 		case gen.ConnectionFlowStatusConnected:
-			return &flowResult{connection: fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)}, nil
+			c, filled := fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)
+			return &flowResult{connection: c, degraded: !filled}, nil
 		}
 		remaining = deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
@@ -407,21 +431,22 @@ func flowRefusal() error {
 // fillConnection reads the org's connection list for the one row the flow made
 // (the flow answer carries only its id), within fillTimeout. If that read fails or the row is not
 // listed, the result still reports the id: the established success is never lost.
-func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKey string) *connectedDTO {
+// filled is false in that case, so the caller can say what is missing (cli#1717).
+func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKey string) (conn *connectedDTO, filled bool) {
 	bare := &connectedDTO{ID: id, Provider: rowKey}
 	rctx, cancel := context.WithTimeout(ctx, fillTimeout)
 	defer cancel()
 	rows, err := listConnections(rctx, client, orgID)
 	if err != nil {
-		return bare
+		return bare, false
 	}
 	for _, r := range rows {
 		if r.ID == id {
 			c := r
-			return &c
+			return &c, true
 		}
 	}
-	return bare
+	return bare, false
 }
 
 // writeConnect renders the connect result (human or --json).

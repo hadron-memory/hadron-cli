@@ -385,7 +385,7 @@ section between the markers.
 | `app user create` |  |  | y | #1053 | a6f3faa2cf91 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app whoami` |  |  | y | #1053 | 41a52f0e0cc6 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `connection` | connections, conn |  | n | #1053 | 5de25e3dd081 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
-| `connection connect` |  |  | y | #1053 | 18d56fca060b | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
+| `connection connect` |  |  | y | #1053 | 75aa2d02146a |  | unread |  |
 | `connection flow` |  |  | y | #1053 | 5646dda63466 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `connection grant` | grants |  | n | #1053 | 5c5f5b9c4fbd |  | unread |  |
 | `connection grant create` |  |  | y | #1053 | 16f0ea1dbf16 |  | unread |  |
