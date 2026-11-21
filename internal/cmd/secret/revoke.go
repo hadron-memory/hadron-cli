@@ -39,7 +39,7 @@ func findClient(cmd *cobra.Command, f *cmdutil.Factory, clientID string) (*clien
 	}
 	for off, pages := 0, 0; ; pages++ {
 		l, o := clientsPageSize, off
-		page, err := fetchClients(cmd.Context(), client, &l, &o)
+		page, err := fetchClientPage(cmd.Context(), client, &l, &o)
 		if err != nil {
 			return nil, err
 		}
@@ -75,16 +75,18 @@ and nothing is sent.
 You act as yourself: this never sends a worker session, even from a bound
 worktree. The server decides who may revoke: the person who issued it (while still
 a member of the App's Org) or whoever manages the App. A refusal is reported as it
-came (exit 8). A grant that had already ended (revoked, withdrawn, expired, spent,
-its holder gone) is returned as it is and is not changed: the command says it was
-already ended and exits 0.
+came (exit 8). A grant that had already ended is returned as it is and is not
+changed (the first end stands): the command prints its state and exits 0. One
+revoked earlier reads REVOKED exactly as one revoked now; one that ended another
+way (withdrawn, expired, spent, its holder gone) says it was already ended.
 
 On a terminal it asks first; off one it needs --yes and sends nothing without it.
 
-Exit codes: 0 revoked, or already ended; 2 usage; 3 not signed in; 4 client not
+Exit codes: 0 the grant is REVOKED, or had already ended; 2 usage; 3 not signed in; 4 client not
 found; 7 the answer was lost or did not confirm a revoke: the revoke is not
 resent, so run 'hadron secret client list' (the grant id is in the error) to see
-whether the client ended; 8 not permitted.`,
+whether the client ended (this includes a grant answered in a state that is not an
+end, or one that still allows reads); 8 not permitted.`,
 		Example: `  hadron secret client revoke cl_123 --yes
   hadron secret client revoke cl_123 --yes --json`,
 		Args: cobra.ExactArgs(1),
@@ -103,6 +105,9 @@ whether the client ended; 8 not permitted.`,
 			}
 			if c == nil {
 				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client someone else issued does not list here); see `hadron secret client list`", output.SafeCell(fmt.Sprintf("%q", id)))
+			}
+			if strings.TrimSpace(c.GrantID) == "" {
+				return exitcode.Newf(exitcode.Error, "the server returned read client %s with no grant id, so it cannot be revoked; nothing was sent", output.SafeCell(c.ClientID))
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke read client %s for secret %s? This cannot be undone.", output.SafeCell(c.ClientID), output.SafeCell(c.SecretName))); err != nil {
 				return err
@@ -129,7 +134,10 @@ whether the client ended; 8 not permitted.`,
 					_, e := fmt.Fprintf(w, "read client %s was already ended (%s); nothing changed\n", output.SafeCell(d.ClientID), output.SafeCell(state))
 					return e
 				}
-				_, e := fmt.Fprintf(w, "read client %s revoked: grant %s is %s (revokedAt %s)\n", output.SafeCell(d.ClientID), output.SafeCell(d.GrantID), output.SafeCell(state), output.SafeCell(output.Dash(d.RevokedAt)))
+				// REVOKED reads the same whether this call ended the grant or an earlier
+				// revoke did (the first end stands, and the answer carries no marker of
+				// which), so the text states the fact, not who did it.
+				_, e := fmt.Fprintf(w, "read client %s: grant %s is %s (revokedAt %s)\n", output.SafeCell(d.ClientID), output.SafeCell(d.GrantID), output.SafeCell(state), output.SafeCell(output.Dash(d.RevokedAt)))
 				return e
 			})
 		},
@@ -176,6 +184,9 @@ func revokedState(g *gen.RevokeSecretReadClientGrantRevokeGrant, grantID string)
 	}
 	switch g.State {
 	case gen.GrantStateRevoked, gen.GrantStateExpired, gen.GrantStateWithdrawn, gen.GrantStateSpent, gen.GrantStateHolderGone:
+		if g.Allows {
+			return "", notConfirmed(grantID, "the server returned the grant "+string(g.State)+" yet still allowing reads")
+		}
 		return string(g.State), nil
 	case gen.GrantStateActive, gen.GrantStatePending:
 		return "", notConfirmed(grantID, "the server returned the grant still "+string(g.State))

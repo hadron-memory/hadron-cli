@@ -385,12 +385,12 @@ type clientDTO struct {
 	CreatedAt  string  `json:"createdAt"`
 }
 
-// fetchClients reads one page of the caller's read clients. The list is declared
+// fetchClientPage reads one page of the caller's read clients. The list is declared
 // non-null with non-null rows: a missing or null list, or a null row, is a
 // malformed answer, never an empty success (and a dropped row would shift the --all
 // offsets).
-func fetchClients(ctx context.Context, client graphql.Client, l, o *int) ([]clientDTO, error) {
-	resp, err := gen.MySecretReadClients(ctx, client, l, o)
+func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.MySecretReadClients(ctx, client, limit, offset)
 	if err != nil {
 		return nil, api.MapErrorKeepingCode(err)
 	}
@@ -458,7 +458,7 @@ use --limit and --offset beyond that).`,
 					return err
 				}
 			}
-			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClients(sendCtx, client, l, o) }
+			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, l, o) }
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
