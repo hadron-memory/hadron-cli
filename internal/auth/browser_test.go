@@ -31,6 +31,10 @@ type fakeAS struct {
 	scopesSupported []string
 	// tokenScope is the raw JSON `scope` of the token response; nil omits it.
 	tokenScope json.RawMessage
+	// tokenOverride, when set, answers every /oauth/token request itself;
+	// tokenCalls counts them.
+	tokenOverride http.HandlerFunc
+	tokenCalls    int
 }
 
 func newFakeAS(t *testing.T) *fakeAS {
@@ -71,6 +75,11 @@ func newFakeAS(t *testing.T) *fakeAS {
 		_ = json.NewEncoder(w).Encode(map[string]string{"client_id": as.clientID})
 	})
 	mux.HandleFunc("/oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		as.tokenCalls++
+		if as.tokenOverride != nil {
+			as.tokenOverride(w, r)
+			return
+		}
 		_ = r.ParseForm()
 		as.seenVerifier = r.Form.Get("code_verifier")
 		as.seenResource = r.Form.Get("resource")

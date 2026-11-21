@@ -33,14 +33,14 @@ func TestSetTokenServerCodeEscapedSpellingDropped2704(t *testing.T) {
 	}
 	// The escaped spelling only (a backslash-escaped quote): not a substring
 	// match for the literal token, so main's guard keeps this code.
-	if got := carriedCode(setTokenError(mk(`BAD a\"b`), token)); got != "" {
+	if got := carriedCode(setTokenError(mk(`BAD a\"b`), token, false)); got != "" {
 		t.Errorf("a server code holding an escaped spelling of the token must be dropped, got %q", got)
 	}
 	// The literal spelling stays covered (cli#2650 item 4 regression guard).
-	if got := carriedCode(setTokenError(mk("BAD "+token), token)); got != "" {
+	if got := carriedCode(setTokenError(mk("BAD "+token), token, false)); got != "" {
 		t.Errorf("a server code holding the literal token must be dropped, got %q", got)
 	}
-	if got := carriedCode(setTokenError(mk("FORBIDDEN"), token)); got != "FORBIDDEN" {
+	if got := carriedCode(setTokenError(mk("FORBIDDEN"), token, false)); got != "FORBIDDEN" {
 		t.Errorf("an ordinary server code must be kept, got %q", got)
 	}
 }
@@ -140,7 +140,7 @@ func TestSetTokenMarkerTokenNotInRenderedMessage2714(t *testing.T) {
 		return &gqlerror.Error{Message: "refused: the token [REDACTED] is not allowed", Extensions: map[string]any{"code": code}}
 	}
 	for _, token := range []string{"[REDACTED]", "tok[REDACTED]", "[REDACTED]tok"} {
-		err := setTokenError(mk("FORBIDDEN"), token)
+		err := setTokenError(mk("FORBIDDEN"), token, false)
 		if strings.Contains(err.Error(), "[REDACTED]") {
 			t.Errorf("token %q: the marker (token material) stays visible in the rendered error %q", token, err.Error())
 		}
@@ -149,7 +149,7 @@ func TestSetTokenMarkerTokenNotInRenderedMessage2714(t *testing.T) {
 		}
 	}
 	// A code carrying the marker-equal token is still dropped on this path.
-	if got := carriedCode(setTokenError(mk("BAD [REDACTED]"), "[REDACTED]")); got != "" {
+	if got := carriedCode(setTokenError(mk("BAD [REDACTED]"), "[REDACTED]", false)); got != "" {
 		t.Errorf("a code carrying the marker-equal token must be dropped, got %q", got)
 	}
 }
@@ -214,7 +214,7 @@ func TestSetTokenNoReplacementRecreatesToken2714(t *testing.T) {
 		{"escaped spelling only, literal absent", `a"b`, `refused: a\"b echo`},
 		{"substring token, message itself clean", "REDACTED", "refused: quota exceeded"},
 	} {
-		err := setTokenError(mkErr(c.msg), c.token)
+		err := setTokenError(mkErr(c.msg), c.token, false)
 		if strings.Contains(err.Error(), c.token) {
 			t.Errorf("%s: the token survives in the rendered error %q", c.name, err.Error())
 		}
@@ -231,12 +231,12 @@ func TestSetTokenNoReplacementRecreatesToken2714(t *testing.T) {
 	}
 	// A code carrying the token is dropped on the same path.
 	codeErr := &gqlerror.Error{Message: "refused", Extensions: map[string]any{"code": "BAD REDACTED"}}
-	if got := carriedCode(setTokenError(codeErr, "REDACTED")); got != "" {
+	if got := carriedCode(setTokenError(codeErr, "REDACTED", false)); got != "" {
 		t.Errorf("a code carrying the token must be dropped, got %q", got)
 	}
 	// The negative space: a token disjoint from the marker over a message
 	// carrying no spelling keeps the server's own text (never over-redact).
-	if got := setTokenError(mkErr("refused: quota exceeded"), "tok-2704").Error(); !strings.Contains(got, "refused: quota exceeded") || strings.Contains(got, refusal) {
+	if got := setTokenError(mkErr("refused: quota exceeded"), "tok-2704", false).Error(); !strings.Contains(got, "refused: quota exceeded") || strings.Contains(got, refusal) {
 		t.Errorf("a token-free message must keep the server's own text, got %q", got)
 	}
 }
@@ -261,7 +261,7 @@ func TestSetTokenRefusalItselfCarriesNoToken2714(t *testing.T) {
 		{"token equals the whole refusal", "the server refused the source token", "echo: the server refused the source token", "input declined"},
 		{"token sits inside both fixed texts", "ed", "request denied", ""},
 	} {
-		err := setTokenError(mkErr(c.msg), c.token)
+		err := setTokenError(mkErr(c.msg), c.token, false)
 		if strings.Contains(err.Error(), c.token) {
 			t.Errorf("%s: the token survives in the rendered error %q", c.name, err.Error())
 		}
@@ -275,7 +275,7 @@ func TestSetTokenRefusalItselfCarriesNoToken2714(t *testing.T) {
 	// The negative space: the cascade only walks when the earlier tier is
 	// unsafe for THIS token — a token inside the second text but not the
 	// first keeps the full refusal (never over-redact).
-	if got := setTokenError(mkErr("bad input"), "input").Error(); got != "the server refused the source token" {
+	if got := setTokenError(mkErr("bad input"), "input", false).Error(); got != "the server refused the source token" {
 		t.Errorf("a token only in the second text must render the full refusal, got %q", got)
 	}
 }
@@ -297,7 +297,7 @@ func TestSetTokenSanitizationCannotManufactureSpelling2714(t *testing.T) {
 	// A control character between the token's halves: no covered spelling of
 	// "a b" is present raw, so the round-4 guards pass — but the rendered
 	// SafeLine form spells it.
-	err := setTokenError(mkErr("a\x00b is not allowed"), "a b")
+	err := setTokenError(mkErr("a\x00b is not allowed"), "a b", false)
 	if strings.Contains(err.Error(), "a b") {
 		t.Errorf("a token manufactured by control-character sanitization must not reach the output, got %q", err.Error())
 	}
@@ -310,7 +310,7 @@ func TestSetTokenSanitizationCannotManufactureSpelling2714(t *testing.T) {
 	// The negative space: a message whose sanitization manufactures nothing
 	// keeps the partial redaction (the guard must not refuse every message
 	// with a control character in it).
-	if got := setTokenError(mkErr("a\x00b is not allowed"), "tok-2704").Error(); got != "a b is not allowed" {
+	if got := setTokenError(mkErr("a\x00b is not allowed"), "tok-2704", false).Error(); got != "a b is not allowed" {
 		t.Errorf("an unrelated token over a control-character message must keep the sanitized server text, got %q", got)
 	}
 }
@@ -334,7 +334,7 @@ func TestSetTokenRefusalExhaustiveSubstrings2714(t *testing.T) {
 				token := base[i:j]
 				// The message carries the token, so the drop path fires for
 				// every one of them.
-				err := setTokenError(mkErr("x "+token+" x"), token)
+				err := setTokenError(mkErr("x "+token+" x"), token, false)
 				if strings.Contains(err.Error(), token) {
 					t.Errorf("substring %q of the fixed refusals: the token survives in the rendered error %q", token, err.Error())
 				}

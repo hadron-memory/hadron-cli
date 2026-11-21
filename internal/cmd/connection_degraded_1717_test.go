@@ -51,8 +51,17 @@ func TestConnectDegradedFillIsMarkedInJSONAndOnStderr1717(t *testing.T) {
 			}
 			// The marker names fields that really are empty: both keys are present,
 			// the email is "" and the display name null, and the provider is the row key.
-			if !strings.Contains(r.out, `"mailboxEmail": ""`) || !strings.Contains(r.out, `"displayName": null`) ||
-				dto.Connection.MailboxEmail != "" || dto.Connection.DisplayName != nil || dto.Connection.Provider != "gmail" {
+			// Decoded, not matched as text, so the pin does not depend on the
+			// encoder's whitespace (cli#2760 item 4).
+			var raw struct {
+				Connection map[string]json.RawMessage `json:"connection"`
+			}
+			if err := json.Unmarshal([]byte(r.out), &raw); err != nil {
+				t.Fatal(err)
+			}
+			email, hasEmail := raw.Connection["mailboxEmail"]
+			name, hasName := raw.Connection["displayName"]
+			if !hasEmail || string(email) != `""` || !hasName || string(name) != "null" || dto.Connection.Provider != "gmail" {
 				t.Fatalf("degraded connection %+v, out %q", dto.Connection, r.out)
 			}
 			if !strings.Contains(r.errOut, "mailboxEmail") || !strings.Contains(r.errOut, "displayName") || !strings.Contains(r.errOut, "c9") {
@@ -187,7 +196,7 @@ func TestConnectRefusesAnEmptyFlowIDFromTheServer1717(t *testing.T) {
 				{"connection", "connect", "gmail", "--org", "org_1", "--no-wait", "--json"},
 			} {
 				r := runConnectionScript(t, start, []string{done}, connRows(connRow("c9")), nil, args...)
-				if r.code != exitcode.Unavailable || r.err == nil || !strings.Contains(r.err.Error(), "server returned no connection start") {
+				if r.code != exitcode.Unavailable || r.err == nil || r.err.Error() != "server returned a connection start with no flow id" {
 					t.Fatalf("%v: exit %d err %v, want Unavailable %d", args, r.code, r.err, exitcode.Unavailable)
 				}
 				if len(r.opened) != 0 || strings.Contains(r.out, connectURL) || strings.Contains(r.errOut, connectURL) {
