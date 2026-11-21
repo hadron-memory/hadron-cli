@@ -99,6 +99,30 @@ func TestReconcileHolderLookupFollowsHasMore2734(t *testing.T) {
 // cli#2265) — the finished-only history still HOLDS the id, so the release is
 // skipped, not untracked: RELEASED untracks only when no task of the App holds
 // the id in any state.
+// TestReconcileHolderLookupRefusesEmptyPageWithMore2734: items [] with
+// hasMore true can never advance the walk — the read steps by rows served, so
+// offset+0 would re-ask the same page until the page bound. It is refused on
+// the first page as a server failure (the fatal error, nothing told, cursor
+// stays), not paged to the bound.
+func TestReconcileHolderLookupRefusesEmptyPageWithMore2734(t *testing.T) {
+	r, desc, _ := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	c := &pagedHoldersClient{
+		feedClient: feedClient{pages: []string{page(releasedChange("x", "c1"))}},
+		rows: []string{
+			`{"id":"f1","status":"FINISHED"}`,
+		},
+		rowsPerRead: 0, // an empty page that still claims more remain
+	}
+	_, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+	if aerr != nil || ferr == nil || !strings.Contains(ferr.Error(), "empty page claims more remain") {
+		t.Fatalf("an empty page with hasMore is a refused server failure: aerr=%v ferr=%v", aerr, ferr)
+	}
+	if len(c.offsets) != 1 {
+		t.Fatalf("the refusal fires on the first page, it does not page to the bound: %v", c.offsets)
+	}
+}
+
 func TestReconcileHolderLookupStopsAtHasMoreEnd2734(t *testing.T) {
 	r, desc, log := scriptAdapter(t, `echo '{}'`)
 	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}

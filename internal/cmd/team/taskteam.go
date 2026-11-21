@@ -164,8 +164,10 @@ func resolveTeam(workers []rosterWorker, coordinatorRef string) (taskPartyDTO, [
 }
 
 // readAllTasks pages the App's task read to the end: it stops on the server's
-// hasMore, never a full-page guess (cli#2734). A page that adds no new task is
-// a server ignoring the offset: refused, never silently repeated.
+// hasMore, never a full-page guess (cli#2734). The walk advances by the rows
+// served (cor:api:120:04), not by the page size, so a short page with hasMore
+// skips nothing; a page that adds no new task is a server ignoring the offset:
+// refused, never silently repeated.
 func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *string) ([]taskDTO, error) {
 	client, err := f.GraphQLClient()
 	if err != nil {
@@ -174,11 +176,11 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *
 	tasks := []taskDTO{}
 	seen := map[string]bool{}
 	limit := teamEventPageCap
+	offset := 0
 	for page := 0; ; page++ {
 		if page >= teamTaskPageLimit {
 			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not end after %d pages of %d; nothing shown", page, limit)
 		}
-		offset := page * limit
 		rows, info, err := taskListPage(ctx, client, appRef, taskListQuery{limit: limit, offset: offset, text: text})
 		if err != nil {
 			return nil, err
@@ -198,6 +200,7 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *
 		if added == 0 {
 			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not advance at offset %d (a full page of tasks already read); nothing shown", offset)
 		}
+		offset += len(rows)
 	}
 }
 

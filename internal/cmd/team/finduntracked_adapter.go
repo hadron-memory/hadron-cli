@@ -127,15 +127,20 @@ func heldExternalIDs(ctx context.Context, client graphql.Client, appRef string, 
 	if len(ids) == 0 {
 		return held, nil
 	}
+	// The walk advances by the rows served (cor:api:120:04), not by the page
+	// size, so a short page with hasMore skips nothing.
+	limit, offset := intakeHeldPageSize, 0
 	for page := 0; ; page++ {
 		if page >= intakeReadPageLimit {
 			return nil, exitcode.Newf(exitcode.Error, "the held read did not end after %d pages of %d; nothing was claimed", page, intakeHeldPageSize)
 		}
-		limit, offset := intakeHeldPageSize, page*intakeHeldPageSize
 		resp, err := gen.IntakeTasksByExternalIds(ctx, client, appRef, ids, &limit, &offset)
 		if err != nil {
 			if api.IsGraphQLValidationOnlyFor(err, "externalIds") {
 				return nil, exitcode.Newf(exitcode.Usage, "this server cannot check outside items against its tasks (it predates hadron-server#4084); nothing was claimed")
+			}
+			if api.IsGraphQLValidationOnlyFor(err, "agentTasksPage") {
+				return nil, exitcode.Newf(exitcode.Usage, "this server cannot page its task reads (it predates hadron-server#4622); nothing was claimed")
 			}
 			return nil, mapTaskError(err)
 		}
@@ -144,6 +149,11 @@ func heldExternalIDs(ctx context.Context, client graphql.Client, appRef string, 
 		}
 		if resp.AgentTasksPage.Items == nil {
 			return nil, malformedTaskPage("items is missing or null")
+		}
+		// An empty page that claims more remain can never advance: offset+0
+		// would re-ask this page until the page bound. Refused at once.
+		if len(resp.AgentTasksPage.Items) == 0 && resp.AgentTasksPage.HasMore {
+			return nil, malformedTaskPage("an empty page claims more remain")
 		}
 		for i, t := range resp.AgentTasksPage.Items {
 			if t == nil {
@@ -156,6 +166,7 @@ func heldExternalIDs(ctx context.Context, client graphql.Client, appRef string, 
 		if !resp.AgentTasksPage.HasMore {
 			return held, nil
 		}
+		offset += len(resp.AgentTasksPage.Items)
 	}
 }
 

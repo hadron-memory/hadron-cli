@@ -782,6 +782,13 @@ func taskPageOf[E any, I interface {
 	if items == nil {
 		return nil, taskPageInfo{}, malformedTaskPage("items is missing or null")
 	}
+	// An empty page that claims more remain can never advance a walk: the
+	// continuation is offset + rows served (cor:api:120:04), so offset + 0
+	// would re-ask the same page forever. Refused as untrustworthy, like any
+	// other malformed page, instead of looping to the page bound.
+	if len(items) == 0 && info.HasMore {
+		return nil, taskPageInfo{}, malformedTaskPage("an empty page claims more remain")
+	}
 	tasks := []taskDTO{}
 	for i, it := range items {
 		if it == nil {
@@ -975,11 +982,12 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		// merely happens to be full is the last page when hasMore is false,
 		// and an explicit --limit does not suppress the server's truth.
 		if info.HasMore {
-			// The next PAGE start (offset+limit), not the rows received: the
-			// walk is addressed in limit-sized pages, and a short page with
-			// hasMore (a filter the server narrowed mid-page) still continues
-			// at the boundary the next invocation asks for.
-			_, err := fmt.Fprintf(w, "more tasks remain of %d total: continue with --offset %d\n", info.Total, q.offset+q.limit)
+			// The continuation is offset + the ROWS SERVED, not offset+limit
+			// (cor:api:120:04, the cli#1919 events precedent): a short page
+			// with hasMore has consumed only the rows it returned, and
+			// offset+limit would skip limit-len rows. On stderr with the
+			// other continuation lines, so stdout stays the table alone.
+			_, err := fmt.Fprintf(f.IOStreams.ErrOut, "more tasks remain of %d total: continue with --offset %d\n", info.Total, q.offset+len(tasks))
 			return err
 		}
 		return nil

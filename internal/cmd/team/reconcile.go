@@ -302,6 +302,9 @@ func lookupHolders(ctx context.Context, client graphql.Client, appRef, externalI
 		}
 		resp, err := gen.IntakeItemHolders(ctx, client, appRef, externalID, nil, off)
 		if err != nil {
+			if api.IsGraphQLValidationOnlyFor(err, "agentTasksPage") {
+				return itemHolders{}, &holderLookupError{err: exitcode.Newf(exitcode.Usage, "this server cannot page its task reads (it predates hadron-server#4622); the holder of the outside item was not read")}
+			}
 			return itemHolders{}, &holderLookupError{err: mapTaskError(err)}
 		}
 		if resp.AgentTasksPage == nil {
@@ -310,6 +313,12 @@ func lookupHolders(ctx context.Context, client graphql.Client, appRef, externalI
 		items := resp.AgentTasksPage.Items
 		if items == nil {
 			return itemHolders{}, &holderLookupError{err: malformedTaskPage("items is missing or null")}
+		}
+		// An empty page that claims more remain can never advance: the read
+		// steps by rows served, so offset+0 would re-ask this page until the
+		// page bound. Refused at once as a server failure (cli#2734).
+		if len(items) == 0 && resp.AgentTasksPage.HasMore {
+			return itemHolders{}, &holderLookupError{err: malformedTaskPage("an empty page claims more remain")}
 		}
 		for i, t := range items {
 			if t == nil {

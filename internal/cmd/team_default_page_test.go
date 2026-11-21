@@ -38,19 +38,22 @@ func TestTeamTaskListAndMineDefaultTo20AndCueOnlyOnServerHasMore(t *testing.T) {
 		if c.Vars["limit"] != float64(20) {
 			t.Errorf("%s: default limit sent as %v, want 20", name, c.Vars["limit"])
 		}
-		_, out, _, err := runTeamTaskStaged2734(t, taskListN(20, true), nil, argv...)
+		_, out, errOut, err := runTeamTaskStaged2734(t, taskListN(20, true), nil, argv...)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if !strings.Contains(out, "--offset 20") {
-			t.Errorf("%s: hasMore is the server's page end and is said: %q", name, out)
-		}
-		_, out, _, err = runTeamTaskStaged2734(t, taskListN(20, false), nil, argv...)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
+		if !strings.Contains(errOut, "--offset 20") {
+			t.Errorf("%s: hasMore is the server's page end and is said on stderr: %q", name, errOut)
 		}
 		if strings.Contains(out, "--offset") {
-			t.Errorf("%s: a full page with hasMore false is the end: %q", name, out)
+			t.Errorf("%s: stdout is the table alone: %q", name, out)
+		}
+		_, out, errOut, err = runTeamTaskStaged2734(t, taskListN(20, false), nil, argv...)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if strings.Contains(out, "--offset") || strings.Contains(errOut, "--offset") {
+			t.Errorf("%s: a full page with hasMore false is the end: %q %q", name, out, errOut)
 		}
 	}
 }
@@ -62,13 +65,13 @@ func TestTeamTaskListShortOrExplicitPageHasNoInventedCue(t *testing.T) {
 	}
 	// An explicit --limit is the user's own page — and the server's page end
 	// is still the truth, so hasMore alone decides whether more is said.
-	_, out, _, err := runTeamTaskStaged2734(t, taskListN(20, false), nil, "team", "task", "list", "--limit", "20")
-	if err != nil || strings.Contains(out, "--offset") {
-		t.Errorf("an explicit full page the server says is the end says no more: err=%v out=%q", err, out)
+	_, out, errOut, err := runTeamTaskStaged2734(t, taskListN(20, false), nil, "team", "task", "list", "--limit", "20")
+	if err != nil || strings.Contains(out, "--offset") || strings.Contains(errOut, "--offset") {
+		t.Errorf("an explicit full page the server says is the end says no more: err=%v out=%q errOut=%q", err, out, errOut)
 	}
-	_, out, _, err = runTeamTaskStaged2734(t, taskListN(20, true), nil, "team", "task", "list", "--limit", "20")
-	if err != nil || !strings.Contains(out, "--offset 20") {
-		t.Errorf("hasMore is said even at an explicit limit: err=%v out=%q", err, out)
+	_, _, errOut, err = runTeamTaskStaged2734(t, taskListN(20, true), nil, "team", "task", "list", "--limit", "20")
+	if err != nil || !strings.Contains(errOut, "--offset 20") {
+		t.Errorf("hasMore is said even at an explicit limit: err=%v errOut=%q", err, errOut)
 	}
 }
 

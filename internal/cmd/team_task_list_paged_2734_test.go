@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // cli#2734 (hadron-server#4622): the task list reads adopt agentTasksPage —
@@ -100,17 +102,23 @@ func TestTaskMineJSONIsPageObject2734(t *testing.T) {
 // ---- text output: the truth is said only when the server says more -------
 
 func TestTaskListTextContinuationOnlyWhenHasMore2734(t *testing.T) {
-	// hasMore: the line names the total and the exact --offset to continue at.
+	// hasMore: the line names the total and the exact --offset to continue at —
+	// offset + the ROWS SERVED (cor:api:120:04), so a short page (one row of a
+	// 20-row page, more remain) continues at 1, not at the page size. The line
+	// is on stderr, with the other continuation lines; stdout is the table.
 	r := taskResponses()
 	r["AgentTaskList"] = taskPage2734(taskFieldsJSON, 5, true)
 	_, out, errOut, err := runTeamTaskStaged2734(t, r, nil, "team", "task", "list")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"more", "5", "--offset 20"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("continuation line missing %q: %q", want, out)
+	for _, want := range []string{"more", "5", "--offset 1"} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("continuation line missing %q from stderr: %q", want, errOut)
 		}
+	}
+	if strings.Contains(out, "--offset") {
+		t.Errorf("the continuation is not on stdout: %q", out)
 	}
 	if strings.Contains(errOut, "Showing a full page") {
 		t.Errorf("the old full-page guess is gone from stderr: %q", errOut)
@@ -133,12 +141,12 @@ func TestTaskListTextContinuationOnlyWhenHasMore2734(t *testing.T) {
 	// An explicit --limit does not suppress the server's truth.
 	r = taskResponses()
 	r["AgentTaskList"] = taskPage2734(taskRows2734(20), 40, true)
-	_, out, _, err = runTeamTaskStaged2734(t, r, nil, "team", "task", "list", "--limit", "20")
+	_, _, errOut, err = runTeamTaskStaged2734(t, r, nil, "team", "task", "list", "--limit", "20")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "--offset 20") {
-		t.Errorf("an explicit limit is the user's page, and more is still said: %q", out)
+	if !strings.Contains(errOut, "--offset 20") {
+		t.Errorf("an explicit limit is the user's page, and more is still said: %q", errOut)
 	}
 }
 
@@ -149,12 +157,21 @@ func TestTaskListMalformedPageRefuses2734(t *testing.T) {
 		"no page object": `{"data":{}}`,
 		"null page":      `{"data":{"agentTasksPage":null}}`,
 		"items null":     `{"data":{"agentTasksPage":{"items":null,"total":0,"hasMore":false}}}`,
+		"null item":      `{"data":{"agentTasksPage":{"items":[null],"total":1,"hasMore":false}}}`,
+		"empty, more":    `{"data":{"agentTasksPage":{"items":[],"total":5,"hasMore":true}}}`,
 	} {
 		r := taskResponses()
 		r["AgentTaskList"] = resp
 		_, _, _, err := runTeamTaskStaged2734(t, r, nil, "team", "task", "list", "--json")
 		if err == nil {
 			t.Errorf("%s: a malformed page must refuse, not render an empty success", name)
+			continue
+		}
+		if code := exitCodeFor(err); code != exitcode.Error {
+			t.Errorf("%s: exit %d, want %d (a server failure, not usage): %v", name, code, exitcode.Error, err)
+		}
+		if !strings.Contains(err.Error(), "malformed agentTasksPage") {
+			t.Errorf("%s: the refusal names the malformed page: %v", name, err)
 		}
 	}
 }
@@ -210,8 +227,11 @@ func TestTeamViewWalksHasMore2734(t *testing.T) {
 	if len(reads) != 2 {
 		t.Fatalf("the view walks to !hasMore, %d reads: %+v", len(reads), *calls)
 	}
-	if off, _ := reads[1].Vars["offset"].(float64); off != 200 {
-		t.Errorf("page 2 continues at the 200 cap: offset %v", reads[1].Vars["offset"])
+	// The walk advances by the rows served (cor:api:120:04): page 1 returned
+	// three rows, so page 2 continues at offset 3 — not at the 200 page size,
+	// which would skip everything a short page leaves behind.
+	if off, _ := reads[1].Vars["offset"].(float64); off != 3 {
+		t.Errorf("page 2 continues at the rows served: offset %v", reads[1].Vars["offset"])
 	}
 	if n := strings.Count(out, "Fix the flaky CI build"); n != 4 {
 		t.Errorf("all four tasks render once: %d rows", n)
@@ -282,8 +302,10 @@ func TestAdapterHeldReadFollowsHasMore2734(t *testing.T) {
 	if len(reads) != 2 {
 		t.Fatalf("the held read follows hasMore to the end: %d reads", len(reads))
 	}
-	if off, _ := reads[1].Vars["offset"].(float64); off != 20 {
-		t.Errorf("page 2 continues at offset 20 (server#4622 pages batches at 20): %v", reads[1].Vars["offset"])
+	// Rows served, not the 20-row page size: page 1 held one row, so page 2
+	// continues at offset 1.
+	if off, _ := reads[1].Vars["offset"].(float64); off != 1 {
+		t.Errorf("page 2 continues at the rows served: %v", reads[1].Vars["offset"])
 	}
 	var dto struct {
 		Items    []struct{ ExternalId string }
@@ -294,5 +316,20 @@ func TestAdapterHeldReadFollowsHasMore2734(t *testing.T) {
 	}
 	if len(dto.Items) != 0 || !dto.Complete {
 		t.Fatalf("both items are held; page 2's holder must not be missed: %+v", dto)
+	}
+}
+
+// TestAdapterHeldReadRefusesEmptyPageWithMore2734: items [] with hasMore true
+// can never advance the held read (it steps by rows served), so it is refused
+// on the first page as a server failure instead of paging to the bound.
+func TestAdapterHeldReadRefusesEmptyPageWithMore2734(t *testing.T) {
+	list := `echo '{"items":[` + item1961(itemA1961, "one") + `]}'`
+	path, _ := fakeAdapter1961(t, "", list, "")
+	r := withEmptyChanges1962(map[string]string{
+		"IntakeTasksByExternalIds": `{"data":{"agentTasksPage":{"items":[],"total":5,"hasMore":true}}}`,
+	})
+	_, _, _, err := run1961Staged2734(t, path, r, nil, "--json")
+	if err == nil || !strings.Contains(err.Error(), "empty page claims more remain") {
+		t.Fatalf("an empty page with hasMore is a refused server failure: %v", err)
 	}
 }
