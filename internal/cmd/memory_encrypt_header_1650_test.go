@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -25,6 +26,8 @@ type encrypt1650Fake struct {
 	mu                sync.Mutex
 	requests          []encrypt1650Request
 	principal, answer string
+	principalAnswer   string
+	principalDrop     bool
 	status            int
 	redirect          string
 }
@@ -43,6 +46,13 @@ func (s *encrypt1650Fake) serve(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	switch q.OperationName {
 	case "MemoryEncryptionPrincipal":
+		if s.principalDrop {
+			panic(http.ErrAbortHandler)
+		}
+		if s.principalAnswer != "" {
+			_, _ = io.WriteString(w, s.principalAnswer)
+			return
+		}
 		p := s.principal
 		if p == "" {
 			p = "USER"
@@ -76,11 +86,14 @@ func (s *encrypt1650Fake) serve(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func runEncrypt1650(t *testing.T, s *encrypt1650Fake, extra ...string) (string, string, error) {
+	return runEncrypt1650Input(t, s, encrypt1650Secret+"\n", extra...)
+}
+func runEncrypt1650Input(t *testing.T, s *encrypt1650Fake, input string, extra ...string) (string, string, error) {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(s.serve))
 	t.Cleanup(server.Close)
 	f, out := testFactory(t)
-	f.IOStreams.In = strings.NewReader(encrypt1650Secret + "\n")
+	f.IOStreams.In = strings.NewReader(input)
 	root := NewRootCmd(f)
 	ambient, e := api.WithMemoryKeys(context.Background(), []api.MemoryKey{{Memory: "other", Passphrase: "ambient-unlock"}})
 	if e != nil {
@@ -168,8 +181,12 @@ func TestEncryptMemoryPassphraseModeBeforeNetwork1650(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &encrypt1650Fake{}
+	want := "group or others"
+	if runtime.GOOS == "windows" {
+		want = "not supported on Windows"
+	}
 	_, _, err := runEncrypt1650(t, s, "--passphrase-file", p)
-	if err == nil || !strings.Contains(err.Error(), "group or others") || len(s.calls()) != 0 {
+	if err == nil || !strings.Contains(err.Error(), want) || len(s.calls()) != 0 {
 		t.Fatalf("insecure passphrase file must refuse before requests: err=%v requests=%d", err, len(s.calls()))
 	}
 }
@@ -197,7 +214,7 @@ func TestEncryptMemoryRefusalsNoFallback1650(t *testing.T) {
 				}
 			}
 			if n != 1 {
-				t.Fatalf("want one mutation, got%d", n)
+				t.Fatalf("want one mutation, got %d", n)
 			}
 		})
 	}
@@ -250,13 +267,80 @@ func TestEncryptMemoryRedirectDoesNotForward1650(t *testing.T) {
 
 func TestEncryptMemorySuccessfulEchoWithheld1650(t *testing.T) {
 	for _, flag := range []string{"--data-key", "--passphrase-file"} {
-		t.Run(flag, func(t *testing.T) {
-			s := &encrypt1650Fake{answer: strings.Replace(encrypt1650OK, `"name":"KB"`, `"name":"SENTINEL"`, 1)}
-			out, stderr, err := runEncrypt1650(t, s, flag, "-", "--json")
-			if err == nil || strings.Contains(out+stderr+err.Error(), encrypt1650Secret) {
-				t.Fatal("successful echo must be withheld")
-			}
-		})
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s-json%v", flag, jsonMode), func(t *testing.T) {
+				s := &encrypt1650Fake{answer: strings.Replace(encrypt1650OK, `"name":"KB"`, `"name":"SENTINEL"`, 1)}
+				args := []string{flag, "-"}
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				out, stderr, err := runEncrypt1650(t, s, args...)
+				assertEncryptKnownSuccess1650(t, s, out, stderr, err, jsonMode, encrypt1650Secret)
+			})
+		}
+	}
+}
+func assertEncryptKnownSuccess1650(t *testing.T, s *encrypt1650Fake, out, stderr string, err error, jsonMode bool, secret string) {
+	t.Helper()
+	n := 0
+	for _, r := range s.calls() {
+		if r.op == "EncryptMemory" {
+			n++
+		}
+	}
+	if err != nil || n != 1 {
+		t.Fatalf("confirmed success must remain success, requests=%d err=%v", n, err)
+	}
+	if strings.Contains(out+stderr, secret) {
+		t.Fatal("successful answer exposed secret")
+	}
+	if jsonMode {
+		var got struct {
+			IsEncrypted     bool `json:"isEncrypted"`
+			DetailsWithheld bool `json:"detailsWithheld"`
+		}
+		if e := json.Unmarshal([]byte(out), &got); e != nil || !got.IsEncrypted || !got.DetailsWithheld {
+			t.Fatalf("missing known-success withheld receipt: %s %v", out, e)
+		}
+	} else if out != "✓ encrypted memory (secret-bearing details withheld)\n" {
+		t.Fatalf("unexpected fixed success receipt: %q", out)
+	}
+}
+func TestEncryptMemoryShortPassphraseMetadata1650(t *testing.T) {
+	for _, field := range []string{"id", "urn", "name"} {
+		for _, jsonMode := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s-json%v", field, jsonMode), func(t *testing.T) {
+				var body map[string]any
+				if e := json.Unmarshal([]byte(encrypt1650OK), &body); e != nil {
+					t.Fatal(e)
+				}
+				fields := body["data"].(map[string]any)["encryptMemory"].(map[string]any)
+				fields[field] = "contains-x-value"
+				b, _ := json.Marshal(body)
+				s := &encrypt1650Fake{answer: string(b)}
+				args := []string{"--passphrase-file", "-"}
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				out, stderr, err := runEncrypt1650Input(t, s, "x\n", args...)
+				assertEncryptKnownSuccess1650(t, s, out, stderr, err, jsonMode, "contains-x-value")
+				if jsonMode {
+					var got map[string]any
+					if e := json.Unmarshal([]byte(out), &got); e != nil {
+						t.Fatal(e)
+					}
+					for _, key := range []string{"id", "urn", "name"} {
+						want := fields[key]
+						if key == field {
+							want = ""
+						}
+						if got[key] != want {
+							t.Fatalf("field %s=%v want%v", key, got[key], want)
+						}
+					}
+				}
+			})
+		}
 	}
 }
 
@@ -279,21 +363,18 @@ func TestEncryptMemoryLiteralKeyTrimmedIntoHeader1650(t *testing.T) {
 }
 
 func TestEncryptMemoryEscapedPassphraseEchoWithheld1650(t *testing.T) {
-	// The successful data branch must not publish a JSON-escaped spelling either.
 	pass := "quoted\"pass\\phrase"
-	f, out := testFactory(t)
-	f.IOStreams.In = strings.NewReader(pass + "\n")
 	quoted, _ := json.Marshal(pass)
 	escaped := string(quoted[1 : len(quoted)-1])
 	field, _ := json.Marshal(escaped)
-	s := &encrypt1650Fake{answer: strings.Replace(encrypt1650OK, `"name":"KB"`, `"name":`+string(field), 1)}
-	server := httptest.NewServer(http.HandlerFunc(s.serve))
-	defer server.Close()
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "encrypt", "hrn:mem:acme.com:kb", "--yes", "--server", server.URL, "--passphrase-file", "-", "--json"})
-	err := root.Execute()
-	if err == nil || strings.Contains(out.String(), "quoted") {
-		t.Fatal("escaped successful echo was published")
+	for _, jsonMode := range []bool{false, true} {
+		s := &encrypt1650Fake{answer: strings.Replace(encrypt1650OK, `"name":"KB"`, `"name":`+string(field), 1)}
+		args := []string{"--passphrase-file", "-"}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		out, stderr, err := runEncrypt1650Input(t, s, pass+"\n", args...)
+		assertEncryptKnownSuccess1650(t, s, out, stderr, err, jsonMode, "quoted")
 	}
 }
 
@@ -333,5 +414,71 @@ func TestEncryptMemoryUnsupportedDebugFlags1650(t *testing.T) {
 		if err == nil || exitCodeFor(err) != 2 || len(s.calls()) != 0 || strings.Contains(out+stderr+err.Error(), encrypt1650Secret) {
 			t.Fatal("unsupported diagnostic flag must refuse before any request without echo")
 		}
+	}
+}
+
+func TestEncryptMemoryPrincipalRefusals1650(t *testing.T) {
+	for _, tc := range []struct {
+		name, answer, principal string
+		drop                    bool
+		want                    int
+	}{
+		{name: "null-principal", answer: `{"data":{"authContext":null}}`, want: 3},
+		{name: "null-data", answer: `{"data":null}`, want: 3},
+		{name: "missing-principal", answer: `{"data":{}}`, want: 3},
+		{name: "agent", principal: "AGENT", want: 2},
+		{name: "unknown", principal: "FUTURE", want: 2},
+		{name: "transport", drop: true, want: 7},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &encrypt1650Fake{principal: tc.principal, principalAnswer: tc.answer, principalDrop: tc.drop}
+			out, stderr, err := runEncrypt1650(t, s, "--data-key", "-", "--json")
+			if err == nil || exitCodeFor(err) != tc.want {
+				t.Fatalf("exit %d want%d: %v", exitCodeFor(err), tc.want, err)
+			}
+			principalCalls := 0
+			for _, r := range s.calls() {
+				if r.op == "MemoryEncryptionPrincipal" {
+					principalCalls++
+				}
+				if r.op == "EncryptMemory" || r.keys != "" || r.operation != "" {
+					t.Fatal("principal refusal sent mutation/key material")
+				}
+			}
+			if principalCalls != 1 {
+				t.Fatalf("principal calls=%d", principalCalls)
+			}
+			if strings.Contains(out+stderr+err.Error(), encrypt1650Secret) {
+				t.Fatal("principal failure exposed secret")
+			}
+		})
+	}
+}
+func TestEncryptMemoryHeaderAndAppKeyRefusals1650(t *testing.T) {
+	noncanonical := encrypt1650Secret[:len(encrypt1650Secret)-2] + "F="
+	for _, tc := range []struct{ name, principal, input, flag, value, want string }{
+		{"header-limit", "USER", strings.Repeat("x", api.MaxMemoryKeysBytes), "--passphrase-file", "-", "does not fit"},
+		{"app-key-shape", "APP", "", "--data-key", "bad-key", "base64"},
+		{"app-key-noncanonical", "APP", "", "--data-key", noncanonical, "base64"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &encrypt1650Fake{principal: tc.principal}
+			_, _, err := runEncrypt1650Input(t, s, tc.input, tc.flag, tc.value)
+			if err == nil || exitCodeFor(err) != 2 || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("wrong refusal: %v", err)
+			}
+			principalCalls := 0
+			for _, r := range s.calls() {
+				if r.op == "MemoryEncryptionPrincipal" {
+					principalCalls++
+				}
+				if r.op == "EncryptMemory" || r.keys != "" || r.operation != "" {
+					t.Fatal("key refusal sent a mutation/secret")
+				}
+			}
+			if principalCalls != 1 {
+				t.Fatalf("did not reach key validation after principal: %d", principalCalls)
+			}
+		})
 	}
 }
