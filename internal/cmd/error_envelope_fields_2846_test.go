@@ -8,6 +8,7 @@ import (
 
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -116,7 +117,7 @@ func TestEnvelopeValidIDsNumbersAndNullsRoundTrip2846(t *testing.T) {
 func TestEnvelopeSlotStringsAreNeutralisedAndAValidSlotIsUnchanged2846(t *testing.T) {
 	hostile := `qa:portal\u009b31m\u202e`
 	reply := `{"errors":[{"message":"not ready","extensions":{"code":"PR_NOT_READY","slots":[` +
-		`{"slot":"` + hostile + `","currentTaskId":"s\u200b1","state":"STAR\u009bTED","verdict":"AP\u202ePROVE","head":"` + prHead1664 + `","counts":false},` +
+		`{"slot":"` + hostile + `","currentTaskId":"s\u200b1","state":"STAR\u009bTED","verdict":"AP\u202ePROVE","head":"` + prHead1664 + `\u200b","counts":false},` +
 		`{"slot":"local","currentTaskId":"s2","state":"FINISHED","verdict":"APPROVE","head":"` + prHead1664 + `","counts":true}]}}]}`
 	out, _, _, err := runPR1664(t, "PRReady", reply, "ready", "AT0.7", "--head", prHead1664, "--json")
 	if err == nil {
@@ -136,5 +137,88 @@ func TestEnvelopeSlotStringsAreNeutralisedAndAValidSlotIsUnchanged2846(t *testin
 	ok, _ := slots[1].(map[string]any)
 	if ok["slot"] != "local" || ok["currentTaskId"] != "s2" || ok["state"] != "FINISHED" || ok["verdict"] != "APPROVE" || ok["head"] != prHead1664 || ok["counts"] != true {
 		t.Errorf("a valid slot must be unchanged: %v", ok)
+	}
+}
+
+// The typed shapes the walker must reach, whatever the Go type: the clone-agent blockers are a
+// []map[string]any holding another []map[string]any (cli#2846 review F1).
+func TestEnvelopeCloneBlockerSubjectNamesAreNeutralised2846(t *testing.T) {
+	hostile := "n\u009b31m\u202eX"
+	cause := gqlerror.List{{Message: "blocked", Extensions: map[string]any{
+		"code": "CLONE_TARGET_UNSUPPORTED", "reason": "REASON", "retryable": false,
+		"blockers": []any{map[string]any{"code": "B", "count": float64(2), "subjects": []any{
+			map[string]any{"position": float64(1), "name": hostile},
+			map[string]any{"position": float64(2), "name": "plain name"}}}}}}}
+	e := envelope2846(t, api.MapCloneAgentError(cause))
+	walkStrings2846(t, "error", e)
+	ext, _ := e["extensions"].(map[string]any)
+	blockers, _ := ext["blockers"].([]any)
+	if len(blockers) != 1 {
+		t.Fatalf("blockers: %v", e)
+	}
+	subjects, _ := blockers[0].(map[string]any)["subjects"].([]any)
+	if len(subjects) != 2 || subjects[1].(map[string]any)["name"] != "plain name" || subjects[1].(map[string]any)["position"] != float64(2) {
+		t.Errorf("a plain name and a position must be unchanged: %v", subjects)
+	}
+}
+
+// The walker keeps types: numbers, booleans, nils, struct field order and raw JSON bytes come
+// out as they went in; only string contents change.
+func TestNeutraliseEnvelopeValueKeepsTypesAndOnlyChangesStrings2846(t *testing.T) {
+	type inner struct {
+		Name  string  `json:"name"`
+		Count int     `json:"count"`
+		Ptr   *string `json:"ptr"`
+		Flag  bool    `json:"flag"`
+		hid   string
+	}
+	bad := "a\u009bb\u200bc"
+	p := bad
+	in := map[string]any{
+		"blockers": []map[string]any{{"subjects": []map[string]any{{"name": bad, "position": int64(3)}}}},
+		"typed":    []inner{{Name: bad, Count: 7, Ptr: &p, Flag: true, hid: bad}},
+		"list":     []string{bad, "ok"},
+		"nested":   map[string]any{"x": []any{bad, 1.5, nil, true}},
+		"raw":      []byte(bad),
+		"nilptr":   (*string)(nil),
+		"num":      float64(4),
+	}
+	out := neutraliseEnvelopeValue(in).(map[string]any)
+	want := "a b c"
+	if got := out["blockers"].([]map[string]any)[0]["subjects"].([]map[string]any)[0]; got["name"] != want || got["position"] != int64(3) {
+		t.Errorf("blockers: %v", got)
+	}
+	ti := out["typed"].([]inner)[0]
+	if ti.Name != want || *ti.Ptr != want || ti.Count != 7 || !ti.Flag {
+		t.Errorf("typed struct: %+v", ti)
+	}
+	if got := out["list"].([]string); got[0] != want || got[1] != "ok" {
+		t.Errorf("list: %v", got)
+	}
+	nested := out["nested"].(map[string]any)["x"].([]any)
+	if nested[0] != want || nested[1] != 1.5 || nested[2] != nil || nested[3] != true {
+		t.Errorf("nested: %v", nested)
+	}
+	if string(out["raw"].([]byte)) != bad || out["nilptr"].(*string) != nil || out["num"] != float64(4) {
+		t.Errorf("raw bytes, a nil pointer and a number are left alone: %v", out)
+	}
+	if in["list"].([]string)[0] != bad || p != bad {
+		t.Error("the input must not be modified")
+	}
+}
+
+// A staged secret change's request id and ceremony URL stay byte for byte (cli#2738: a script
+// hands the URL to the person who signs), even with a format character in the URL: the one
+// exception to neutralising every envelope string.
+func TestEnvelopeStagedSecretChangeStaysByteForByte2846(t *testing.T) {
+	const tail = "/ceremony/\u200bx\u009b"
+	srv, _ := fake2738(t, only2738(200, stagedURL2738("https://hadronmemory.com"+tail)))
+	stdout, stderr, code := run2738(t, srv.URL, "protect", "sec-1", "--on", "--json")
+	if code != exitcode.Conflict {
+		t.Fatalf("exit %d\n%s%s", code, stdout, stderr)
+	}
+	e := envelope2738(t, stdout, stderr)
+	if e["requestId"] != req2738 || e["ceremonyUrl"] != "https://hadronmemory.com"+tail {
+		t.Errorf("the staged request id and ceremony URL are carried exactly as sent: %v", e)
 	}
 }

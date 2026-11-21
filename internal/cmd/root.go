@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -546,6 +547,14 @@ func renderError(f *cmdutil.Factory, err error) int {
 		for k, v := range failure {
 			failure[k] = neutraliseEnvelopeValue(v)
 		}
+		// A staged secret change's request id and ceremony URL are the one exception: they go in
+		// exactly as the server sent them (cli#2738: a script hands the URL to the person who
+		// signs, and the text path withholds a URL with control or format characters).
+		if errors.As(err, &staged) {
+			id, url := staged.StagedSecretChange()
+			failure["requestId"] = id
+			failure["ceremonyUrl"] = url
+		}
 		envelope := map[string]any{"error": failure}
 		switch {
 		case f.JSON && !f.IOStreams.Wrote():
@@ -671,47 +680,72 @@ func isUsageError(err error) bool {
 }
 
 // neutraliseEnvelopeValue applies output.SafeJSONText to every string inside a failure
-// envelope value (cli#2846): a string, a *string, a map or slice of them, the typed PR slot
-// failures. Numbers, booleans and nulls are returned as they are.
+// envelope value (cli#2846), whatever its Go type: a string, a *string, and any map, slice,
+// array, struct or interface holding them (the typed PR slots, the clone-agent blockers and
+// their subjects, a decoded server detail). Types are preserved, so a number, a boolean, a
+// nil and the field order of a struct come out as they went in; only string contents change.
+// A []byte (a raw JSON value) is left as it is.
 func neutraliseEnvelopeValue(v any) any {
-	switch x := v.(type) {
-	case string:
-		return output.SafeJSONText(x)
-	case *string:
-		if x == nil {
-			return x
+	if v == nil {
+		return nil
+	}
+	out := neutraliseReflect(reflect.ValueOf(v))
+	return out.Interface()
+}
+
+func neutraliseReflect(v reflect.Value) reflect.Value {
+	switch v.Kind() {
+	case reflect.String:
+		r := reflect.New(v.Type()).Elem()
+		r.SetString(output.SafeJSONText(v.String()))
+		return r
+	case reflect.Pointer:
+		if v.IsNil() {
+			return v
 		}
-		s := output.SafeJSONText(*x)
-		return &s
-	case map[string]any:
-		out := make(map[string]any, len(x))
-		for k, e := range x {
-			out[k] = neutraliseEnvelopeValue(e)
+		r := reflect.New(v.Type().Elem())
+		r.Elem().Set(neutraliseReflect(v.Elem()))
+		return r
+	case reflect.Interface:
+		if v.IsNil() {
+			return v
 		}
-		return out
-	case []any:
-		out := make([]any, len(x))
-		for i, e := range x {
-			out[i] = neutraliseEnvelopeValue(e)
+		r := reflect.New(v.Type()).Elem()
+		r.Set(neutraliseReflect(v.Elem()))
+		return r
+	case reflect.Map:
+		if v.IsNil() {
+			return v
 		}
-		return out
-	case []string:
-		out := make([]string, len(x))
-		for i, e := range x {
-			out[i] = output.SafeJSONText(e)
+		r := reflect.MakeMapWithSize(v.Type(), v.Len())
+		for it := v.MapRange(); it.Next(); {
+			r.SetMapIndex(it.Key(), neutraliseReflect(it.Value()))
 		}
-		return out
-	case []api.PRSlotFailure:
-		out := make([]api.PRSlotFailure, len(x))
-		for i, e := range x {
-			e.Slot = output.SafeJSONText(e.Slot)
-			e.State = output.SafeJSONText(e.State)
-			e.CurrentTaskID = neutraliseEnvelopeValue(e.CurrentTaskID).(*string)
-			e.Verdict = neutraliseEnvelopeValue(e.Verdict).(*string)
-			e.Head = neutraliseEnvelopeValue(e.Head).(*string)
-			out[i] = e
+		return r
+	case reflect.Slice:
+		if v.IsNil() || v.Type().Elem().Kind() == reflect.Uint8 {
+			return v
 		}
-		return out
+		r := reflect.MakeSlice(v.Type(), v.Len(), v.Len())
+		for i := 0; i < v.Len(); i++ {
+			r.Index(i).Set(neutraliseReflect(v.Index(i)))
+		}
+		return r
+	case reflect.Array:
+		r := reflect.New(v.Type()).Elem()
+		for i := 0; i < v.Len(); i++ {
+			r.Index(i).Set(neutraliseReflect(v.Index(i)))
+		}
+		return r
+	case reflect.Struct:
+		r := reflect.New(v.Type()).Elem()
+		r.Set(v)
+		for i := 0; i < v.NumField(); i++ {
+			if r.Field(i).CanSet() {
+				r.Field(i).Set(neutraliseReflect(v.Field(i)))
+			}
+		}
+		return r
 	}
 	return v
 }
