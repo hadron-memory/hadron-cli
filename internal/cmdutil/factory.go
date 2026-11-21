@@ -328,7 +328,25 @@ func (f *Factory) ResolveWorkerSessionIfBound(ctx context.Context, targetApps ..
 
 func (f *Factory) ResolveWorkerWrite(ctx context.Context, targetApps ...string) (WorkerWriteContext, error) {
 	if f.WorkerWriteSession == nil {
-		return nil, exitcode.Newf(exitcode.Usage, "--as-worker is unavailable here (no worker-session resolver); nothing was sent")
+		return nil, exitcode.Newf(exitcode.Usage, "%s is unavailable here (no worker-session resolver); nothing was sent", WorkerWriteDiagnosticFlag(ctx))
 	}
 	return f.WorkerWriteSession(ctx, targetApps...)
+}
+
+// workerWriteDiagnosticFlagKey carries display wording only, never authority.
+type workerWriteDiagnosticFlagKey struct{}
+
+// ResolveWorkerWriteForFlag uses the same strict resolver with the invoking
+// flag's diagnostic wording. It does not rewrite errors or their input values.
+func (f *Factory) ResolveWorkerWriteForFlag(ctx context.Context, flag string, targetApps ...string) (WorkerWriteContext, error) {
+	return f.ResolveWorkerWrite(context.WithValue(ctx, workerWriteDiagnosticFlagKey{}, flag), targetApps...)
+}
+
+// WorkerWriteDiagnosticFlag is captured by the strict resolver for its errors.
+// Existing --as-worker callers retain their exact default wording.
+func WorkerWriteDiagnosticFlag(ctx context.Context) string {
+	if flag, ok := ctx.Value(workerWriteDiagnosticFlagKey{}).(string); ok && flag != "" {
+		return flag
+	}
+	return "--as-worker"
 }
