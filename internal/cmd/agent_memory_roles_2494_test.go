@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -24,7 +25,13 @@ func agentMemoryHelp2494(t *testing.T, verb string) string {
 	return out.String()
 }
 
-func TestAgentMemoryRoleHelpNamesTheDocumentedSet2494(t *testing.T) {
+// hasWord2494 reports whether w appears as a whole word, so "read" is not found inside
+// "read-write" (a plain Contains would let the second role satisfy the first).
+func hasWord2494(s, w string) bool {
+	return regexp.MustCompile(`(^|[^A-Za-z-])` + regexp.QuoteMeta(w) + `([^A-Za-z-]|$)`).MatchString(s)
+}
+
+func TestAgentMemoryRoleHelpNamesBothRoles2494(t *testing.T) {
 	for _, tc := range []struct{ verb, flagLine string }{
 		{"add", "the Memory's role on the Agent: read or read-write"},
 		{"set-role", "the new role: read or read-write"},
@@ -44,13 +51,13 @@ func TestAgentMemoryRoleHelpNamesTheDocumentedSet2494(t *testing.T) {
 				flagLine = l
 			}
 		}
-		if !strings.Contains(flagLine, "read") || !strings.Contains(flagLine, "read-write") {
+		if !hasWord2494(flagLine, "read") || !strings.Contains(flagLine, "read-write") {
 			t.Errorf("%s: the --role flag line must list read and read-write: %q", verb, flagLine)
 		}
 	}
 }
 
-func TestAgentMemoryGroupHelpNamesTheDocumentedSet2494(t *testing.T) {
+func TestAgentMemoryGroupHelpNamesBothRoles2494(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"agent", "memory", "--help"})
@@ -60,7 +67,7 @@ func TestAgentMemoryGroupHelpNamesTheDocumentedSet2494(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"read", "read-write", "Memory's role on an Agent is"} {
-		if !strings.Contains(out.String(), want) {
+		if !hasWord2494(out.String(), want) && !strings.Contains(out.String(), want+"\n") {
 			t.Errorf("agent memory --help must name %q:\n%s", want, out.String())
 		}
 	}
