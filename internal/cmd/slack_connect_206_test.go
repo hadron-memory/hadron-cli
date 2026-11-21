@@ -770,7 +770,7 @@ func TestSlackDisconnectSuggestionsEndWithTheCommandAloneOnTheLastLine(t *testin
 		"format char": "x\u202ejected-line",
 	} {
 		t.Run(name, func(t *testing.T) {
-			// Rendered through the real renderer, both modes, from ONE invocation each.
+			// Rendered through the real (text-mode) renderer, from ONE invocation each.
 			all, _, e := runSlackRenderedOp(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, false, "disconnect", "--yes", id)
 			if e == nil {
 				t.Fatal("must fail")
