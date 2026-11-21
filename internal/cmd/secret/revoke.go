@@ -106,9 +106,10 @@ On a terminal it asks first; off one it needs --yes and sends nothing without it
 
 Exit codes: 0 the grant is REVOKED, or had already ended; 2 usage; 3 not signed in; 4 client not
 found; 7 the answer was lost or did not confirm a revoke: the revoke is not
-resent, so run 'hadron secret client list --all' (the grant id is in the error) to see
-whether the client ended (this includes a grant answered in a state that is not an
-end, or one that still allows reads); 8 not permitted.`,
+resent, so run 'hadron secret client list --all' (the grant id is in the error;
+--all stops with an error after 1000 pages, and --limit with --offset goes past
+that) to see whether the client ended (this includes a grant answered in a state
+that is not an end, or one that still allows reads); 8 not permitted.`,
 		Example: `  hadron secret client revoke cl_123 --yes
   hadron secret client revoke cl_123 --yes --json
   hadron secret client revoke cl_123 --yes --instruction task:<task-URN>`,
@@ -143,7 +144,7 @@ end, or one that still allows reads); 8 not permitted.`,
 				return err
 			}
 			if c == nil {
-				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client you neither issued nor hold lists only by its prefix, which this exact-id lookup does not match, even where the server would let you revoke its grant as the App's manager); see `hadron secret client list --all`", output.SafeCell(fmt.Sprintf("%q", id)))
+				return exitcode.Newf(exitcode.NotFound, "no read client %s among the clients you issued or hold (a client you neither issued nor hold lists only by its prefix, which this exact-id lookup does not match, even where the server would let you revoke its grant as the App's manager); see `hadron secret client list --all` (--all stops with an error after 1000 pages; --limit with --offset goes past that)", output.SafeCell(fmt.Sprintf("%q", id)))
 			}
 			if strings.TrimSpace(c.GrantID) == "" {
 				return exitcode.Newf(exitcode.Error, "the server returned read client %s with no grant id, so it cannot be revoked; nothing was sent", output.SafeCell(*c.ClientID))
@@ -219,7 +220,7 @@ func notConfirmed(grantID, why string, instructed bool) error {
 	if instructed {
 		recovery += " --as-worker"
 	}
-	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, grant %s may have been revoked. It is not resent: run `%s` to check", why, output.SafeCell(grantID), recovery)
+	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, grant %s may have been revoked. It is not resent: run `%s` to check (--all stops with an error after 1000 pages; --limit with --offset goes past that)", why, output.SafeCell(grantID), recovery)
 }
 
 // revokeError maps a failed revoke. A definitive pre-write refusal keeps its typed
