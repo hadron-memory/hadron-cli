@@ -403,3 +403,37 @@ func UpdateNodeByKind(ctx context.Context, client graphql.Client, input *gen.Upd
 	}
 	return authoredNodeFrom(resp.UpdateNode), nil
 }
+
+// AllocatedSpec is the placeholder allocateSpecNode reserved: the node's id,
+// its loc (the number the SERVER picked) and the revision the one guarded fill
+// must carry (cli#398, cor:spc:020:13).
+type AllocatedSpec struct {
+	Id            string
+	MemoryId      string
+	Loc           string
+	Name          string
+	Revision      int
+	IsPlaceholder bool
+}
+
+// AllocateSpecNode asks the server for the next citation under parentLoc and
+// reserves it as an unminted placeholder in the same transaction. It is called
+// ONCE per `spec new`: there is no taken refusal to retry past, concurrent
+// callers serialize on the server, and a repeated call would reserve a second
+// number. `after` raises the start (never lowers it); nil leaves it unsent.
+func AllocateSpecNode(ctx context.Context, client graphql.Client, memoryRef, parentLoc string, after *int, name string) (*AllocatedSpec, error) {
+	var n *string
+	if name != "" {
+		n = &name
+	}
+	resp, err := gen.AllocateSpecNode(ctx, client, memoryRef, parentLoc, after, n)
+	if err != nil {
+		return nil, err
+	}
+	// `allocateSpecNode` is `Node!`: nil is a malformed answer, not "no node".
+	if resp == nil || resp.AllocateSpecNode == nil {
+		return nil, errors.New("allocateSpecNode returned no node")
+	}
+	a := resp.AllocateSpecNode
+	return &AllocatedSpec{Id: a.Id, MemoryId: a.MemoryId, Loc: a.Loc, Name: a.Name, Revision: a.Revision, IsPlaceholder: a.IsPlaceholder}, nil
+}
