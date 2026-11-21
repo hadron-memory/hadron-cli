@@ -31,15 +31,15 @@ func newCmdTrigger(f *cmdutil.Factory) *cobra.Command {
 		Use:   "trigger --app <ref> --entry <node-urn> [--arg k=v ...]",
 		Short: "Trigger a headless App run now (MANUAL)",
 		Long: `Trigger a headless App run now — a MANUAL run of an entry node under the App's
-identity (cor:agt:010:02). Prints the run id.
+identity. Prints the run id.
 
 --as-self runs on behalf of YOU (required to reach your personal memories, and
-only usable by an authenticated user — an App-key caller gets UNAUTHENTICATED;
-cor:agt:010:01). --arg sets template args (repeatable; value parsed as JSON or
-string). --ai-config selects a named AI config for the run (spec-036 walk
-override). --wait polls the run to a terminal status before returning, then
-exits non-zero if it ended in a non-COMPLETED status (FAILED/TIMED_OUT/CANCELLED),
-so a script can branch on the run's outcome.
+only usable by an authenticated user — an App-key caller gets UNAUTHENTICATED).
+--arg sets template args (repeatable; value parsed as JSON or string).
+--ai-config selects a named AI config for the run, instead of the one the server
+would otherwise pick. --wait polls the run to a terminal status before returning,
+then exits non-zero if it ended in a non-COMPLETED status (FAILED/TIMED_OUT/
+CANCELLED), so a script can branch on the run's outcome.
 
 --agent names the installed Agent the run is served as (an ID or URN). Omitted,
 the App's single installed Agent serves it; an App with several refuses until
@@ -140,7 +140,7 @@ server. Needs a server version that supports budgets.`,
 	cmd.Flags().StringVar(&entry, "entry", "", "fully-qualified entry node URN to run (required)")
 	cmd.Flags().BoolVar(&asSelf, "as-self", false, "run on behalf of you (reaches your personal memories; authenticated user only)")
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "template arg key=value (repeatable; value parsed as JSON or string)")
-	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the run (spec-036 walk override)")
+	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the run, instead of the one the server would otherwise pick")
 	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent (ID or URN) the run is served as; required when the App has several")
 	cmd.Flags().BoolVar(&wait, "wait", false, "poll the run to a terminal status before returning")
 	cmd.Flags().DurationVar(&waitTimeout, "wait-timeout", 5*time.Minute, "max time to wait with --wait")

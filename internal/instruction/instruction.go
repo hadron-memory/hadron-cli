@@ -10,7 +10,36 @@ import (
 
 const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server "
 
-const FlagUsage = flagUsagePrefix + "17ef5905 or later"
+// The server dates the --instruction doors are floored at (cli#2525 F4). Each is the date, in
+// UTC, the change was MERGED into hadron-server (the server commit's date), never a revision
+// hash and not a deployment date. It is for
+// ORIENTATION: the date cannot prove a deployed build contains the change (a build from the
+// same day can predate the merge), so the exact change is named below, and the server itself
+// is the capability check: an older server refuses the flag with its own error, which the CLI
+// passes through and never retries without the flag.
+//
+// Provenance of the dates (cli#2525 removed the revision hashes the help used to carry; this is
+// where they are kept): ba077810 = hadron-server#3376 = 2026-11-04; 17ef5905 = #3314 = 2026-11-03;
+// c3ca05b5 = #3340 = 2026-11-03; 5fd87dcc = #3368 = 2026-11-03 (the asset public-link call);
+// e09a1653 = #2877 (issue #2420) = 2026-10-30 (task properties); cf9bcfece = #2726 = 2026-10-29 (task
+// blockers and priority); 6b3f1e15 = #2865 = 2026-10-30; 31d63828 = #2983 = 2026-10-31;
+// 27671b4b = #3189 = 2026-11-02; f4db15e0 = #3718 = 2026-11-08; 696ed50c8 = #4284 = 2026-11-16;
+// 8bbf82dd = #3605 = 2026-11-06 (the worker delete preview); ad7f1c2 = #2102 (issue #2072) = 2026-10-19 (A-prime).
+// Every row is the server merge commit's UTC committer date.
+const (
+	// ServerFloorInstructionActs is the floor, in UTC, for the instructed person/worker acts: the
+	// base --instruction flag, the staffing and member doors and the credential acts: the merge of
+	// hadron-server#3314 (merge commit 17ef5905, 2026-11-03 UTC; the instructed act of #3307).
+	ServerFloorInstructionActs = "2026-11-03"
+	// ServerFloorInstructionManagerWrites is the floor for the instructed App-manager writes,
+	// the task writes and the alarm-acknowledgement, stall-schedule and availability writes. It is
+	// the merge of hadron-server#3376 (merge commit ba077810, 2026-11-04 UTC; the instructed manager
+	// doors of #3323). A door whose own change merged earlier (hadron-server#3340, commit c3ca05b5,
+	// the grant revoke, 2026-11-03) is floored at this later date too: later than needed, never earlier.
+	ServerFloorInstructionManagerWrites = "2026-11-04"
+)
+
+const FlagUsage = flagUsagePrefix + ServerFloorInstructionActs + " or later"
 
 // FlagUsageForServer shares the instruction syntax while keeping each door's
 // minimum independent of the text or server revision chosen by another door.
@@ -29,7 +58,7 @@ may make the change with it; the server records the worker, the holder and
 the reference, and the holder answers for the claim. The server checks the
 reference (a missing, unreadable or other-App one is refused, for a person
 too), never that an instruction really happened. A host-launched session is
-refused whatever it claims. The flag needs server 17ef5905 or later; an
+refused whatever it claims. The flag needs server ` + ServerFloorInstructionActs + ` or later; an
 older server's refusal is passed through, never retried without it. The MCP
 tools take no instruction, so this is the way to make the call from a
 worktree.`
@@ -61,7 +90,7 @@ func Parse(raw string) (*gen.ActInstructionInput, error) {
 
 // StaffingFlagUsage is the flag line for the staffing and member doors
 // (cli#1594), whose minimum server is hadron-server#3308's merge.
-const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server 2026-11-03 or later"
+const StaffingFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server " + ServerFloorInstructionActs + " or later"
 
 // StaffingHelp is the help paragraph `team worker cast|retire|rm` and
 // `app member add|remove` share (cli#1594, hadron-server#3308). grant is the
@@ -84,7 +113,7 @@ right to make the change themselves; the server checks the reference, never
 that an instruction really happened. A host-launched session's instruction is
 ignored: it acts only on its own ` + grant + ` grant, which nobody holds by
 default; a worker session with no instruction needs the same grant. The MCP
-tools take no instruction. Needs server 2026-11-03 or later; an older server's
+tools take no instruction. Needs server ` + ServerFloorInstructionActs + ` or later; an older server's
 refusal is passed through and never retried without the flag; a FORBIDDEN
 refusal is exit 8. More: "hadron agentic-usage", "Instructed staffing and
 member acts".`
@@ -118,5 +147,5 @@ the App, and a host-launched session is refused. The server checks the
 reference, never that an instruction really happened. A change made with an
 instruction records one event naming only ids; a call that changes nothing
 records none. A server refusal is never retried as you or without the claim.
-The MCP tools take no instruction. Needs server 2026-11-04 or later. More:
+The MCP tools take no instruction. Needs server ` + ServerFloorInstructionManagerWrites + ` or later. More:
 "hadron agentic-usage", "App-manager writes with an instruction".`

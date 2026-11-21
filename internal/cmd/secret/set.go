@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -30,8 +29,10 @@ the server answers it. The value is never printed.
 What it does is the server's call. An org or user secret is overwritten in
 place (no versions; the current version is shown as "-"). An App secret gets a
 new version and the old ones are kept. Nothing is checked here: a value over
-the size limit, a protected secret (SECRET_PROTECTED) or a secret you may not
-change come back as the server's refusal.
+the size limit or a secret you may not change come back as the server's refusal.
+On a protected App secret the new value is staged, not stored: the command prints
+the request id and the ceremony URL for the person who must sign, and exits 5
+(see hadron secret change get).
 
 The value comes from a file or stdin, never an argument:
   --value-file -       read stdin (a no-echo prompt on a terminal)
@@ -66,7 +67,7 @@ one. --json gives the secret fields, including currentVersion and protected.`,
 			}
 			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], nil, &v)
 			if err != nil {
-				return api.MapErrorKeepingCode(err)
+				return mapChange(err, "the new value for secret "+output.SafeCell(args[0]))
 			}
 			if resp == nil || resp.UpdateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")

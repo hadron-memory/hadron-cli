@@ -1,0 +1,70 @@
+# `hadron decision` is now `hadron question`; `answer`, `retract` and list filters
+
+Unreleased (cli#2465, over hadron-server#1641 slices S1-S4). **Breaking.** The server
+renamed decisions to questions with no aliases (S1, #4425) and changed their shape (S2,
+#4426): a CLI older than the dual-shape release (cli#2639) fails against the renamed server
+with the schema-skew message (exit 2). The dual-shape CLI spoke both shapes; this release drops
+the old one (cli#2640), so it needs a server that has hadron-server #4425-#4428 (alpha 0.22.0
+or later), and `hadron question` does not work against an older server. The `secret client
+list` and `secret client revoke` commands now also need a server with
+`SecretReadClient.clientPrefix` (hadron-server commit 779123a6a, "project read clients from current grant identities", which landed after the question slices): an older server rejects their query at
+validation, before any mutation.
+
+**Existing records.** The CLI has no migration. A question stored in the format before #4426 is
+judged by the server (its derived state, and what `purge` may remove: see below); do not rely
+on such a record as a ruling unless `hadron question verify` says it is DECIDED.
+
+## New
+
+- `hadron question answer <question> --expected-revision <n> [--option <key>] [--text <t> | --text-file <path|->] [--reason <t>]`
+  answers a question; `hadron question retract` takes the answer back. Only one of the
+  question's deciders can, acting as themselves (a worker or agent session and an App
+  key are refused, `QUESTION_NOT_DECIDER`, exit 8).
+- `hadron question log list (--app <app> | --memory <memory>)` finds the logs of an App or Memory.
+- `hadron question list` takes `--app` (every question in an App's Memories) and the
+  filters `--answered[=false]`, `--priority`, `--assignee`, `--unassigned`, `--asked-by-me`,
+  `--asked-by-worker`, `--asked-by-app`, `--answered-since` and the sorts `ASKED_AT_DESC`,
+  `ASKED_AT_ASC`, `PRIORITY_DESC`, `ANSWERED_AT_DESC`. The table gains an ASSIGNEE column.
+
+## Changed (user-visible)
+
+- The group is `hadron question`. `hadron decision` prints a one-line notice and exits 2;
+  it sends nothing.
+- `--urgency` is `--priority` (LOW, NORMAL, HIGH, URGENT) and `--context` is `--background`;
+  the old names are gone.
+- An input file has no `parts`: one question per node, with `options` (each with
+  `whyChoose`, `whyNot`, `risks`), `recommendation`, `assignee`, `neededBy`/`defaultAction`,
+  `specsTouched`/`specsMustChange`. `amend` has no `parts`/`addParts`/`followUps`.
+- `--json` for a question drops `parts`, `urgency`, `archival`, `context`, `followUps` and
+  adds `background`, `whyNow`, `priority`, `answered`, `options[]`, `recommendation`,
+  `answer` (an object or null), `answers[]`, `answeredAt`, `neededBy`, `defaultAction`,
+  `specsTouched[]`, `specsMustChange[]`, `assigneeId`, `assignee`, `effectiveAssigneeId`,
+  `effectiveAssignee`, `viewerMayAnswer`, `taskId`.
+- Exit codes: `QUESTION_UNKNOWN_OPTION` and `QUESTION_ASSIGNEE_NOT_DECIDER` exit 2,
+  `QUESTION_NOT_ANSWERED` exits 5; `QUESTION_PART_RENUMBER`, `QUESTION_SUPERSEDED` and
+  `QUESTION_ANSWERED_DECIDED` no longer exist.
+- `hadron secret client list` shows `clientPrefix` and a null `clientId` for a manager who is
+  neither the client's issuer nor its holder (the server now returns only a prefix then).
+- `hadron question purge` removes a never-answered question (platform admins only). A question left
+  in the format before hadron-server#4426 counts as never answered only while its payload holds no
+  answer or answer history; the server refuses one that does. The help and the confirmation say so.
+
+## When a reply does not confirm
+
+`question answer` and `question retract` claim success only when the server's reply shows the
+outcome (an answer with your option key, on a revision that did not go back and, for a reason, a
+newer one; or no standing answer with a retraction last and a newer revision). Otherwise:
+
+- the server replied but the reply does not show the outcome: exit **1**, nothing on stdout, names
+  `question get`, not resent (the write may have been recorded);
+- the unknown outcomes are exit **7** "not confirmed ... not resent; read the question with
+  `question get`": a reply that never arrived (a dropped connection), a null question, a 5xx or
+  gateway page, a 408, a 409 or any other 4xx, a reply whose body shows the question, and a coded
+  error beneath the mutation field (a resolver ran, so the write may have followed);
+- what the server refused before running the mutation keeps its ordinary exit: a coded refusal of
+  the mutation itself (2, 4, 5, 8) and a plain HTTP 400, 401, 403, 404, 405, 413, 415 or 429 (401 is
+  3, 404 is 4, the others 1 with the server's message); a connection that never opened is "could not
+  reach the server" (7) with no claim about the write.
+
+Text and reason differences are a note on stderr, not a failure. The same mapping in `ask`, `amend`,
+`withdraw` and `purge` is tracked in cli#2854.

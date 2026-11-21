@@ -54,7 +54,13 @@ OUT of the router is a legacy route still to migrate (legacy-outgoing-route),
 and a [[link]] in the router's own body to a node with no edge to the router
 is leaf-missing-edge (area-node bodies are not scanned). Edges from memories
 you cannot read are invisible, so lint prints how many incoming edges it saw
-and never claims completeness. The default, mirrored, is unchanged.`,
+and never claims completeness. The default, mirrored, is unchanged.
+
+A route that leaves the router's memory raises route-target-moved-memory, because
+that is what a moved target looks like. A route that is DELIBERATELY cross-memory
+is marked with ` + "`preflight route --cross-memory`" + ` (the edge's data carries
+{"crossMemory": true}); lint skips only that one warning for it, and every other
+rule still applies to a marked route.`,
 		Example: `  hadron coding preflight lint -m hrn:mem:micromentor.org:mmdata
   hadron coding preflight lint -m hrn:mem:hadronmemory.com:dev --json --strict`,
 		Args: cobra.NoArgs,
@@ -192,7 +198,9 @@ func lintPreflight(in preflightInput) []findingDTO {
 				break
 			}
 		}
-		if in.HomeMemory != "" && r.MemoryID != "" && !sameMemory(r.MemoryID, in.HomeMemory) {
+		// A route marked as an intentional cross-memory route (cli#2736) is not a moved
+		// target; every other rule still applies to it.
+		if !r.CrossMemory && in.HomeMemory != "" && r.MemoryID != "" && !sameMemory(r.MemoryID, in.HomeMemory) {
 			out = append(out, findingDTO{r.Other, "route-target-moved-memory", sevWarning,
 				fmt.Sprintf("route target lives in %s, not the router's own memory", r.MemoryID)})
 		}
@@ -256,7 +264,7 @@ func lintLeafModel(in preflightInput, unavailable map[string]bool) []findingDTO 
 				}
 			}
 		}
-		if !legacyIDs[l.OtherID] && in.HomeMemory != "" && l.MemoryID != "" && !sameMemory(l.MemoryID, in.HomeMemory) {
+		if !legacyIDs[l.OtherID] && !l.CrossMemory && in.HomeMemory != "" && l.MemoryID != "" && !sameMemory(l.MemoryID, in.HomeMemory) {
 			out = append(out, findingDTO{l.Other, "route-target-moved-memory", sevWarning,
 				fmt.Sprintf("route target lives in %s, not the router's own memory", l.MemoryID)})
 		}
