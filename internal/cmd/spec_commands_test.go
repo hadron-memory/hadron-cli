@@ -804,10 +804,11 @@ func TestSpecRegisterCheckDrift(t *testing.T) {
 func TestSpecNew(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":      scan,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"msg:010:01 — Test","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
+		"FindNodes":        scan,
+		"AllocateSpecNode": `{"data":{"allocateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"Test","revision":1,"isPlaceholder":true}}}`,
+		"UpdateSpecNode":   `{"data":{"updateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":       `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -818,7 +819,8 @@ func TestSpecNew(t *testing.T) {
 
 	var up struct {
 		Input struct {
-			Loc      string          `json:"loc"`
+			ID       string          `json:"id"`
+			Rev      *int            `json:"expectedRevision"`
 			Name     string          `json:"name"`
 			Tags     []string        `json:"tags"`
 			NodeType *string         `json:"nodeType"`
@@ -827,11 +829,19 @@ func TestSpecNew(t *testing.T) {
 			Seq      *int            `json:"seq"`
 		} `json:"input"`
 	}
-	if err := json.Unmarshal(captured["CreateSpecNode"], &up); err != nil {
+	if err := json.Unmarshal(captured["UpdateSpecNode"], &up); err != nil {
 		t.Fatalf("CreateNode vars: %v", err)
 	}
-	if up.Input.Loc != "msg:010:01" {
-		t.Errorf("allocated loc = %q, want msg:010:01", up.Input.Loc)
+	// cli#398: the SERVER picks the number; the CLI fills that node once, by id,
+	// guarded on the revision allocateSpecNode returned, and never calls create.
+	if up.Input.ID != "new1" || up.Input.Rev == nil || *up.Input.Rev != 1 {
+		t.Errorf("fill must target the allocated id at its revision, got id=%q rev=%v", up.Input.ID, up.Input.Rev)
+	}
+	if up.Input.Name != "msg:010:01 — Test" {
+		t.Errorf("name = %q, want the allocated loc composed with the title", up.Input.Name)
+	}
+	if _, called := captured["CreateSpecNode"]; called {
+		t.Error("an allocated spec new must not call createSpecNode")
 	}
 	// seq comes from the citation's numeric leaf (rule 01) so siblings sort (#40).
 	if up.Input.Seq == nil || *up.Input.Seq != 1 {
@@ -883,11 +893,12 @@ func TestSpecNew(t *testing.T) {
 func TestSpecNewResolvesPKForEdgeTargets(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"Memories":       memListMicromentorJSON,
-		"FindNodes":      scan,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
+		"Memories":         memListMicromentorJSON,
+		"FindNodes":        scan,
+		"AllocateSpecNode": `{"data":{"allocateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"Test","revision":1,"isPlaceholder":true}}}`,
+		"UpdateSpecNode":   `{"data":{"updateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":       `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010:01"},"target":{"id":"t1","loc":"msg:010"}}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -934,6 +945,9 @@ func TestSpecNewUnresolvableEdgeCreatesNothing(t *testing.T) {
 	if raw, called := captured["CreateSpecNode"]; called {
 		t.Errorf("the node was written although an edge could not be resolved — an orphan: %s", raw)
 	}
+	if raw, called := captured["AllocateSpecNode"]; called {
+		t.Errorf("a number was reserved although an edge could not be resolved: %s", raw)
+	}
 }
 
 // #687 / hadron-server#1300: spec new's edges travel INLINE on createSpecNode,
@@ -943,9 +957,10 @@ func TestSpecNewUnresolvableEdgeCreatesNothing(t *testing.T) {
 func TestSpecNewWiresEdgesInline(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:010", `["spec"]`) + `,` + specNodeList("msg:010:00", `["spec"]`) + `]}}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":      scan,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"FindNodes":        scan,
+		"AllocateSpecNode": `{"data":{"allocateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"Test","revision":1,"isPlaceholder":true}}}`,
+		"UpdateSpecNode":   `{"data":{"updateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:01","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -956,7 +971,7 @@ func TestSpecNewWiresEdgesInline(t *testing.T) {
 	if raw, called := captured["CreateEdge"]; called {
 		t.Errorf("spec new must not wire through a separate createEdge: %s", raw)
 	}
-	edges := sentSpecEdges(t, captured["CreateSpecNode"])
+	edges := sentSpecEdges(t, captured["UpdateSpecNode"])
 	if len(edges) != 2 {
 		t.Fatalf("want the ToC + inheritance edges inline, got %v", edges)
 	}
@@ -972,7 +987,7 @@ func TestSpecNewWiresEdgesInline(t *testing.T) {
 	}
 }
 
-// sentSpecEdges decodes the inline `edges` of a captured CreateSpecNode.
+// sentSpecEdges decodes the inline `edges` of a captured UpdateSpecNode fill.
 func sentSpecEdges(t *testing.T, raw json.RawMessage) []map[string]any {
 	t.Helper()
 	var vars struct {
@@ -981,7 +996,7 @@ func sentSpecEdges(t *testing.T, raw json.RawMessage) []map[string]any {
 		} `json:"input"`
 	}
 	if err := json.Unmarshal(raw, &vars); err != nil {
-		t.Fatalf("decoding CreateSpecNode vars: %v\n%s", err, raw)
+		t.Fatalf("decoding spec write vars: %v\n%s", err, raw)
 	}
 	return vars.Input.Edges
 }
@@ -1087,7 +1102,10 @@ func TestSpecNewDryRun(t *testing.T) {
 	if _, ok := captured["CreateSpecNode"]; ok {
 		t.Error("dry-run must not call CreateNode")
 	}
-	if !strings.Contains(out.String(), "would create") {
+	if _, ok := captured["AllocateSpecNode"]; ok {
+		t.Error("dry-run must not reserve a number")
+	}
+	if !strings.Contains(out.String(), "would allocate the next number under msg:010") {
 		t.Errorf("unexpected dry-run output:\n%s", out.String())
 	}
 }
@@ -1593,10 +1611,12 @@ func TestSpecNewNoContract(t *testing.T) {
 func TestSpecNewFeatureAutoContract(t *testing.T) {
 	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `,` + specNodeList("msg:000", `["spec"]`) + `]}}`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"FindNodes":      scan,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"msg:010 — Palette","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"ResolveUrn":     `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
-		"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010"},"target":{"id":"t1","loc":"msg"}}}}`,
+		"FindNodes":        scan,
+		"AllocateSpecNode": `{"data":{"allocateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"Test","revision":1,"isPlaceholder":true}}}`,
+		"UpdateSpecNode":   `{"data":{"updateSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"CreateSpecNode":   `{"data":{"createSpecNode":{"id":"c1","memoryId":"mem1","loc":"msg:010:00","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
+		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"t1","kind":"node","memoryId":"mem1"}}}`,
+		"CreateEdge":       `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"new1","loc":"msg:010"},"target":{"id":"t1","loc":"msg"}}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

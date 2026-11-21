@@ -20,7 +20,18 @@ const spec1302Create = `{"data":{"createSpecNode":{"id":"n1","memoryId":"mem1","
 // it would hide a malformed earlier name behind a correct later one.
 func spec1302Run(t *testing.T, scan string, args ...string) (map[string]string, int, string) {
 	t.Helper()
+	return spec1302RunAllocating(t, "", scan, args...)
+}
+
+// spec1302RunAllocating is spec1302Run for the two server-allocated modes
+// (cli#398): the SERVER answers allocateSpecNode with allocLoc and the CLI fills
+// that node once with updateSpecNode, so the primary's name is read from the
+// fill and counted as its one write. allocLoc "" is every explicit-loc mode.
+func spec1302RunAllocating(t *testing.T, allocLoc, scan string, args ...string) (map[string]string, int, string) {
+	t.Helper()
 	server, captured := queueGraphQL(t, map[string][]string{
+		"AllocateSpecNode": {`{"data":{"allocateSpecNode":{"id":"a1","memoryId":"mem1","loc":"` + allocLoc + `","name":"x","revision":1,"isPlaceholder":true}}}`},
+		"UpdateSpecNode":   {`{"data":{"updateSpecNode":{"id":"a1","memoryId":"mem1","loc":"` + allocLoc + `","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-10-31T00:00:00Z"}}}`},
 		// The scan pages to exhaustion: one page, then an empty one.
 		"FindNodes":      {`{"data":{"nodes":[` + scan + `]}}`, `{"data":{"nodes":[]}}`},
 		"CreateSpecNode": {spec1302Create},
@@ -46,13 +57,25 @@ func spec1302Run(t *testing.T, scan string, args ...string) (map[string]string, 
 		}
 		names[in.Input.Loc] = in.Input.Name
 	}
+	writes := len(creates)
+	for _, raw := range captured["UpdateSpecNode"] {
+		var in sentSpecInput
+		if err := json.Unmarshal(raw, &in); err != nil {
+			t.Fatal(err)
+		}
+		if _, dup := names[allocLoc]; dup {
+			t.Errorf("the allocated node %s was written twice", allocLoc)
+		}
+		names[allocLoc] = in.Input.Name
+		writes++
+	}
 	var result struct {
 		Name string `json:"name"`
 	}
 	if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out.String())
 	}
-	return names, len(creates), result.Name
+	return names, writes, result.Name
 }
 
 // spec1302AssertNames checks the target and every expected ancestor or
@@ -104,7 +127,11 @@ func TestSpecNewTitlePositiveNumberedRoots(t *testing.T) {
 			[]string{"-m", specMem, "--module", "msg", "--feature", "010", "--rule", "01", "--flow", "01"}, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			names, creates, primary := spec1302Run(t, tc.scan, append(tc.args, "--title", tc.title)...)
+			allocLoc := ""
+			if tc.name == "new feature" || tc.name == "allocated rule" {
+				allocLoc = tc.target // the server's answer (cli#398)
+			}
+			names, creates, primary := spec1302RunAllocating(t, allocLoc, tc.scan, append(tc.args, "--title", tc.title)...)
 			spec1302AssertNames(t, names, creates, primary, tc.target, tc.target+" — "+tc.title, tc.also)
 		})
 	}
