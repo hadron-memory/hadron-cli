@@ -82,6 +82,11 @@ func valueText(jsonText string) string {
 // adds the one uniform sentence.
 func revealError(err error) error {
 	mapped := api.MapErrorKeepingCode(err)
+	// An internal fault is already safe (its text is written by the CLI, never from
+	// the server's) and carries the request id the --json envelope adds: keep it.
+	if _, ok := api.InternalFaultOf(mapped); ok {
+		return mapped
+	}
 	code := exitcode.FromError(mapped)
 	msg := safeRevealMessage(err, code)
 	switch {
@@ -96,8 +101,14 @@ func revealError(err error) error {
 // safeRevealMessage is the message of a failed reveal: the server's own sentences
 // when it sent any, otherwise a fixed sentence for the HTTP status or the exit class.
 func safeRevealMessage(err error, code int) string {
-	if msgs := api.ServerMessages(err); len(msgs) > 0 {
-		return output.SafeLine(strings.Join(msgs, "; "), 500)
+	// Only a GENUINELY structured GraphQL error is forwarded: one that carries an
+	// extensions.code. For an unstructured non-200 (plain text, HTML, malformed
+	// JSON) genqlient synthesises an errors[].message out of the raw body, which is
+	// not a server sentence and may hold anything, the value included.
+	if api.ServerCodeOf(err) != "" {
+		if msgs := api.ServerMessages(err); len(msgs) > 0 {
+			return output.SafeLine(strings.Join(msgs, "; "), 500)
+		}
 	}
 	var httpErr *graphql.HTTPError
 	if errors.As(err, &httpErr) {

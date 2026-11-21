@@ -525,3 +525,75 @@ func TestSecretRevealOutPartialWriteLeftBehind2664(t *testing.T) {
 		t.Errorf("it must not claim nothing was delivered while a partial file remains: %v", r.err)
 	}
 }
+
+// Jibril's delta P2: for an UNSTRUCTURED non-200 (plain text, HTML, malformed
+// JSON) genqlient synthesises an errors[].message out of the raw body, which is
+// not a server sentence. Only genuinely structured GraphQL errors (those carrying
+// an extensions.code) are forwarded; everything else gets a fixed class sentence,
+// so the raw body never reaches the error or the real --json envelope.
+func TestSecretRevealUnstructuredNon200BodyNeverEchoes2664(t *testing.T) {
+	for name, body := range map[string]string{
+		"plain text":     "oops: " + sentinel2664,
+		"html":           "<html><body>" + sentinel2664 + "</body></html>",
+		"malformed json": `{"data":{"revealSecret":{"value":"` + sentinel2664 + `"`,
+		"json string":    `"` + sentinel2664 + `"`,
+	} {
+		for _, status := range []int{400, 401, 403, 404, 422, 500} {
+			t.Run(fmt.Sprintf("%s/%d", name, status), func(t *testing.T) {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(body))
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				var errOut strings.Builder
+				f.IOStreams.ErrOut = &errOut
+				root := NewRootCmd(f)
+				root.SetArgs([]string{"--server", srv.URL, "secret", "reveal", "cl-1", "--allow-non-terminal", "--json"})
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("a non-200 must be an error")
+				}
+				renderError(f, err)
+				requireNoValue2664(t, "the error, the real --json envelope or the streams", err.Error(), errOut.String(), out.String())
+			})
+		}
+	}
+}
+
+// Jibril's delta P2: a genuine INTERNAL_SERVER_ERROR keeps its request id (body
+// extensions or the X-Request-Id header) in the --json envelope: the safe internal
+// fault the shared mapper builds is preserved, not rebuilt without it.
+func TestSecretRevealInternalFaultKeepsTheRequestID2664(t *testing.T) {
+	for name, tc := range map[string]struct {
+		body   string
+		header string
+	}{
+		"body":   {`{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"request-2755"}}]}`, ""},
+		"header": {`{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, "request-2755"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if tc.header != "" {
+					w.Header().Set("X-Request-Id", tc.header)
+				}
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			f, out := testFactory(t)
+			var errOut strings.Builder
+			f.IOStreams.ErrOut = &errOut
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "secret", "reveal", "cl-1", "--allow-non-terminal", "--json"})
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != 1 {
+				t.Fatalf("exit=%d err=%v", exitCodeFor(err), err)
+			}
+			renderError(f, err)
+			if envelope := out.String() + errOut.String(); !strings.Contains(envelope, "request-2755") {
+				t.Errorf("the request id must reach the error envelope: %q", envelope)
+			}
+		})
+	}
+}
