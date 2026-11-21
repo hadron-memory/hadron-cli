@@ -16,3 +16,11 @@
 server_sha=ef26d5856de6c33f99e4b29a5e9af2bee6875f75
 tsx=4.23.15
 graphql=16.15.0
+#
+# cli#2904: the four node-revision argument renames (revisionId -> nodeRevRef on
+# nodeRevision, restoreNodeRevision, updateNodeRevision, deleteNodeRevision) are
+# applied by hand from hadron-server#4766 head b0954bb6630526f9cc7ff7d399d619d9352ca881
+# (not on main; its SDL diff against its merge base 1d020c1b is exactly those
+# four fields and their description text). A full re-vendor from that head would
+# break genqlient on ReadyFilter (cli#1964 is open). Re-export from the merge SHA
+# once #4766 is on main.

@@ -50052,8 +50052,11 @@ func (v *DeleteNodeResponse) GetDeleteNode() bool { return v.DeleteNode }
 
 // DeleteNodeRevisionResponse is returned by DeleteNodeRevision on success.
 type DeleteNodeRevisionResponse struct {
-	// Delete a single node-revision snapshot by id (#617). Auth: the node's memory
-	// write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown id.
+	// Delete a single node-revision snapshot by reference (#617, #4138): nodeRevRef is a revision URN
+	// (hrn:noderev:...) or a revision id, resolved per hrn:node:hadronmemory.com:specs:cor:api:140:00.
+	// Auth: the node's memory write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown,
+	// malformed or unreadable reference alike (a non-reader never learns whether it exists), and for a soft-deleted memory;
+	// a soft-deleted node's revision is still deletable by id (cleanup, as clearNodeHistory) and is a missing ref by URN.
 	DeleteNodeRevision bool `json:"deleteNodeRevision"`
 }
 
@@ -136244,11 +136247,11 @@ func (v *__DeleteNodeInput) GetCascadeCrossMemoryEdges() *bool { return v.Cascad
 
 // __DeleteNodeRevisionInput is used internally by genqlient
 type __DeleteNodeRevisionInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 }
 
-// GetRevisionId returns __DeleteNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__DeleteNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __DeleteNodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // __DeleteNodeRoleRuleInput is used internally by genqlient
 type __DeleteNodeRoleRuleInput struct {
@@ -138858,19 +138861,19 @@ func (v *__NodeRawTextInput) GetRef() string { return v.Ref }
 
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 }
 
-// GetRevisionId returns __NodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __NodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // __NodeRevisionStampedInput is used internally by genqlient
 type __NodeRevisionStampedInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 }
 
-// GetRevisionId returns __NodeRevisionStampedInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionStampedInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __NodeRevisionStampedInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionStampedInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // __NodeRevisionTextsInput is used internally by genqlient
 type __NodeRevisionTextsInput struct {
@@ -139976,12 +139979,12 @@ func (v *__RestoreNodeInput) GetNodeRef() string { return v.NodeRef }
 
 // __RestoreNodeRevisionInput is used internally by genqlient
 type __RestoreNodeRevisionInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 	Truncate   *bool  `json:"truncate,omitempty"`
 }
 
-// GetRevisionId returns __RestoreNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __RestoreNodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__RestoreNodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
 func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
@@ -144162,12 +144165,12 @@ func (v *__UpdateNodePropertiesInput) GetReason() *string { return v.Reason }
 
 // __UpdateNodeRevisionInput is used internally by genqlient
 type __UpdateNodeRevisionInput struct {
-	RevisionId string  `json:"revisionId"`
+	NodeRevRef string  `json:"nodeRevRef"`
 	RevLabel   *string `json:"revLabel,omitempty"`
 }
 
-// GetRevisionId returns __UpdateNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__UpdateNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __UpdateNodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // GetRevLabel returns __UpdateNodeRevisionInput.RevLabel, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeRevisionInput) GetRevLabel() *string { return v.RevLabel }
@@ -164433,22 +164436,22 @@ func DeleteNode(
 
 // The mutation executed by DeleteNodeRevision.
 const DeleteNodeRevision_Operation = `
-mutation DeleteNodeRevision ($revisionId: ID!) {
-	deleteNodeRevision(revisionId: $revisionId)
+mutation DeleteNodeRevision ($nodeRevRef: String!) {
+	deleteNodeRevision(nodeRevRef: $nodeRevRef)
 }
 `
 
-// Delete one snapshot (memory-write auth; NOT_FOUND for an unknown id).
+// Delete one snapshot (memory-write auth; NOT_FOUND for an unknown reference).
 func DeleteNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 ) (data_ *DeleteNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNodeRevision",
 		Query:  DeleteNodeRevision_Operation,
 		Variables: &__DeleteNodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 		},
 	}
 
@@ -175338,8 +175341,8 @@ func NodeRawText(
 
 // The query executed by NodeRevision.
 const NodeRevision_Operation = `
-query NodeRevision ($revisionId: ID!) {
-	nodeRevision(revisionId: $revisionId) {
+query NodeRevision ($nodeRevRef: String!) {
+	nodeRevision(nodeRevRef: $nodeRevRef) {
 		... RevisionFields
 		content
 	}
@@ -175368,13 +175371,13 @@ fragment RevisionFields on NodeRevision {
 func NodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 ) (data_ *NodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeRevision",
 		Query:  NodeRevision_Operation,
 		Variables: &__NodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 		},
 	}
 
@@ -175392,8 +175395,8 @@ func NodeRevision(
 
 // The query executed by NodeRevisionStamped.
 const NodeRevisionStamped_Operation = `
-query NodeRevisionStamped ($revisionId: ID!) {
-	nodeRevision(revisionId: $revisionId) {
+query NodeRevisionStamped ($nodeRevRef: String!) {
+	nodeRevision(nodeRevRef: $nodeRevRef) {
 		... RevisionFields
 		content
 		authorship {
@@ -175446,13 +175449,13 @@ fragment NodeContentValidationFields on NodeContentValidationStatus {
 func NodeRevisionStamped(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 ) (data_ *NodeRevisionStampedResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeRevisionStamped",
 		Query:  NodeRevisionStamped_Operation,
 		Variables: &__NodeRevisionStampedInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 		},
 	}
 
@@ -179965,8 +179968,8 @@ func RestoreNode(
 
 // The mutation executed by RestoreNodeRevision.
 const RestoreNodeRevision_Operation = `
-mutation RestoreNodeRevision ($revisionId: ID!, $truncate: Boolean) {
-	restoreNodeRevision(revisionId: $revisionId, truncate: $truncate) {
+mutation RestoreNodeRevision ($nodeRevRef: String!, $truncate: Boolean) {
+	restoreNodeRevision(nodeRevRef: $nodeRevRef, truncate: $truncate) {
 		id
 		memoryId
 		loc
@@ -179984,14 +179987,14 @@ mutation RestoreNodeRevision ($revisionId: ID!, $truncate: Boolean) {
 func RestoreNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 	truncate *bool,
 ) (data_ *RestoreNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RestoreNodeRevision",
 		Query:  RestoreNodeRevision_Operation,
 		Variables: &__RestoreNodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 			Truncate:   truncate,
 		},
 	}
@@ -192798,8 +192801,8 @@ func UpdateNodePropertiesAuthored(
 
 // The mutation executed by UpdateNodeRevision.
 const UpdateNodeRevision_Operation = `
-mutation UpdateNodeRevision ($revisionId: ID!, $revLabel: String) {
-	updateNodeRevision(revisionId: $revisionId, revLabel: $revLabel) {
+mutation UpdateNodeRevision ($nodeRevRef: String!, $revLabel: String) {
+	updateNodeRevision(nodeRevRef: $nodeRevRef, revLabel: $revLabel) {
 		... RevisionFields
 	}
 }
@@ -192827,14 +192830,14 @@ fragment RevisionFields on NodeRevision {
 func UpdateNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 	revLabel *string,
 ) (data_ *UpdateNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateNodeRevision",
 		Query:  UpdateNodeRevision_Operation,
 		Variables: &__UpdateNodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 			RevLabel:   revLabel,
 		},
 	}
