@@ -221,6 +221,20 @@ subcommands take `-m/--memory` like every other group.
 | `route-target-retired` | warning |
 | `route-target-moved-memory` | warning |
 
+**Intentional cross-memory routes (cli#2736).** `route-target-moved-memory` cannot
+tell a target that moved from a route that is deliberately cross-memory, so the
+route edge can carry a marker: `{"crossMemory": true}` in its own `data`, written
+by `preflight route --cross-memory` (route edge and mirrored back-edge; a
+same-memory target is refused; an existing edge is updated through `updateEdge`
+keeping its other data). The marker is never in the edge NAME, which cor:dmo:060:03
+makes non-behavioral. `preflight lint` skips only the moved-memory comparison for
+a marked route, at both firing sites (the router's outgoing route and the leaf
+model's incoming edge); `route-target-resolves`, `route-target-retired` and the
+label rules apply unchanged. `preflight list` shows it (MARKER column; `crossMemory`
+in `--json`). No server change: it uses the edge's existing `data`, which
+`GetNode`, `GetNodeRaw` and `NextNode` now select. `preflight create` cannot take
+the flag: it always creates the node in the router's own memory.
+
 ### `--fix` scope
 
 Mechanical subset only: **promote the node's description sentence into the edge

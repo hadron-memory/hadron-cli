@@ -17,7 +17,8 @@ import (
 // cli#61 first cut: `agent revision create` and `agent lock acquire|release`;
 // cli#2495 adds `revision publish` and `revision restore`. Each verb is one
 // provider call with the references passed exactly as typed. Nothing follows a
-// result: no retry, force, renewal or listing (no server list contract exists).
+// result: no retry, force or renewal. cli#2533 adds `revision list` and `revision rm`
+// (revision_list_rm.go) over the server contract of hadron-server#4488.
 // Who may act, and how long a lock lives, stay server-owned.
 
 // nonBlankAgentRef refuses a blank reference before any call; the original string
@@ -32,22 +33,24 @@ func nonBlankAgentRef(arg string) (string, error) {
 func newCmdAgentRevision(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "revision",
-		Short: "Create, publish, or restore revisions of an Agent's system memory",
-		Long: `Save, publish and restore versions of an Agent's system memory (the Memory
+		Short: "List, create, publish, restore, or delete revisions of an Agent's system memory",
+		Long: `List, save, publish, restore and delete versions of an Agent's system memory (the Memory
 holding the Agent's prompts and tasks). A revision is a saved copy of that
 memory, named by its location (a "revision-loc" such as revisions:rev-7).
 
+  list      show the saved revisions and how many saves the Agent has left
   create    save the system memory as it is now; prints the new revision's loc
   publish   make a saved revision the one the Agent serves: new chats load it
   restore   put an earlier revision back as the Agent's current system memory
+  rm        delete one saved revision (this does not give a save back)
 
-Use the loc that "create" prints with the other two. Listing an Agent's
-revisions is not available from the CLI yet, so keep the locs you need. This is
-not node history: a single node's earlier versions live under "hadron node
-revision".
+Use the loc that "list" or "create" prints with publish, restore and rm. An
+Agent can save a limited number of revisions, ever: slot numbers are never
+reused, so deleting a revision does not free one. This is not node history: a
+single node's earlier versions live under "hadron node revision".
 Each command needs ADMIN on the Agent; the server decides.`,
 	}
-	cmd.AddCommand(newCmdAgentRevisionCreate(f), newCmdAgentRevisionPublish(f), newCmdAgentRevisionRestore(f))
+	cmd.AddCommand(newCmdAgentRevisionList(f), newCmdAgentRevisionCreate(f), newCmdAgentRevisionPublish(f), newCmdAgentRevisionRestore(f), newCmdAgentRevisionRm(f))
 	return cmd
 }
 
@@ -115,8 +118,8 @@ func newCmdAgentRevisionPublish(f *cmdutil.Factory) *cobra.Command {
 		Short: "Publish a revision of an Agent's system memory",
 		Long: `Publish a saved revision of the Agent's system memory: the Agent then serves
 that revision, so new chats load their system memory from it. Give the
-revision's loc as "hadron agent revision create" printed it. Needs ADMIN on the
-Agent; the server decides.
+revision's loc as "hadron agent revision list" or "create" printed it. Needs
+ADMIN on the Agent; the server decides.
 
 --version-label names the published version; left out, the server picks a
 label, and an explicit empty label stores an empty one. Prints "✓ published
@@ -169,9 +172,10 @@ func newCmdAgentRevisionRestore(f *cmdutil.Factory) *cobra.Command {
 replaces the live system memory: the server first saves its present state as a
 new revision of its own, then rebuilds the memory from the revision you name.
 That automatic save can be refused when the Agent's revision slots are full
-(REVISION_SLOTS_EXHAUSTED); the CLI has no command to list or delete revisions,
-so it cannot free a slot, and the refusal is printed as the server gives it.
-Give the revision's loc as "hadron agent revision create" printed it. Needs
+(REVISION_SLOTS_EXHAUSTED); the refusal is printed as the server gives it.
+"hadron agent revision list" shows how many saves are left. Deleting a revision
+with "hadron agent revision rm" does not bring a save back: slot numbers are
+never reused. Give the revision's loc as "list" or "create" printed it. Needs
 ADMIN on the Agent; the server decides.
 
 Prints "✓ restored revision <loc> (label <label>, published: <true|false>)";

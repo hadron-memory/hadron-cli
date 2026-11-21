@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -361,20 +362,48 @@ func TestScopeListAppContext1340(t *testing.T) {
 
 func TestMemoryEncryptPassphrase1340(t *testing.T) {
 	responses := map[string]string{
-		"GetMemory":     `{"data":{"memory":` + memoryJSON + `}}`,
-		"EncryptMemory": `{"data":{"encryptMemory":{"id":"m1","urn":"hrn:mem:jane:diary","name":"Diary","isEncrypted":true}}}`,
+		"GetMemory":                 `{"data":{"memory":` + memoryJSON + `}}`,
+		"MemoryEncryptionPrincipal": `{"data":{"authContext":{"principalType":"USER"}}}`,
+		"EncryptMemory":             `{"data":{"encryptMemory":{"id":"m1","urn":"hrn:mem:jane:diary","name":"Diary","isEncrypted":true}}}`,
 	}
 	p := filepath.Join(t.TempDir(), "pass")
 	if err := os.WriteFile(p, []byte("correct horse battery staple\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	captured, out, err := run1340(t, responses, "memory", "encrypt", "jane:diary", "--passphrase-file", p, "--yes", "--json")
+	if runtime.GOOS == "windows" {
+		t.Skip("private file sources are unsupported on Windows; stdin is covered in header tests")
+	}
+	gql, reqs := captureLinkUserGraphQL(t, responses)
+	f, output := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "encrypt", "jane:diary", "--passphrase-file", p, "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	out := output.String()
+	captured := map[string]json.RawMessage{}
+	seen := 0
+	for _, r := range *reqs {
+		var request struct{ Variables json.RawMessage }
+		if e := json.Unmarshal([]byte(r.Body), &request); e != nil {
+			t.Fatal(e)
+		}
+		captured[r.Op] = request.Variables
+		if r.Op == "EncryptMemory" {
+			seen++
+			var entries []map[string]string
+			if e := json.Unmarshal([]byte(r.MemoryKeys), &entries); e != nil || len(entries) != 1 || entries[0]["passphrase"] != "correct horse battery staple" || entries[0]["memory"] != "m1" {
+				t.Fatalf("trimmed passphrase did not reach target header: %v", e)
+			}
+		}
+	}
+	if seen != 1 {
+		t.Fatalf("want one mutation, got%d", seen)
+	}
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
 	v := vars1340(t, captured, "EncryptMemory")
-	if v["passphrase"] != "correct horse battery staple" {
-		t.Errorf("passphrase not sent (trailing newline trimmed): %v", v["passphrase"])
+	if _, present := v["passphrase"]; present {
+		t.Errorf("passphrase must not be a variable: %v", v["passphrase"])
 	}
 	if _, ok := v["dataKey"]; ok {
 		t.Errorf("dataKey must be omitted with a passphrase: %v", v)

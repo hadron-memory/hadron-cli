@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 237: 203 command, 8 gap, 26 excluded
+[Query] 240: 208 command, 10 gap, 22 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -38,17 +38,19 @@ agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime t
 agentAssets  excluded deprecated: its description says "Deprecated; use memoryAssets", which `asset list` reaches
 agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
+agentRevisions  command agent revision list
 agentSchedules  command schedule list
 agentServedBootPrompt  command agent boot-prompt
-agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
-agentSubscriptionsPage  gap #890: subscription list command not yet implemented
+agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage (command agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+agentSubscriptionsPage  command agent subscription list
 agentTask  command team task finding-dispositions
 agentTaskExternalIdChanges  command team task find-untracked
 agentTaskList  command agent tasks list
 agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
 agentTasks  command team task list
-agentTeamEvents  excluded not-a-capability: legacy unpaged spelling; agentTeamEventsPage carries the same capability (cli#1919)
+agentTasksPage  gap #2734
+agentTeamEvents  excluded not-a-capability: legacy unpaged spelling; agentTeamEventsPage carries the same capability (cli#1919); Proposed class unruled under #1334 (33-row review)
 agentTeamEventsPage  command team events
 agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
@@ -61,12 +63,13 @@ aiServiceConfigs  command ai-config list
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
-appGrants  gap #1880
-appKeys  excluded not-a-capability: legacy unpaged spelling; appKeysPage carries the same inventory capability (server retirement #2213)
+appGrants  gap #1846
+appKeyScopeCatalogue  gap #2787
+appKeys  excluded not-a-capability: legacy unpaged spelling; appKeysPage carries the same inventory capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
 appKeysPage  command app key list
 appMemoryScope  command app memories
 appMemoryWriteGrants  command app memory-grant list
-appNodes  excluded not-a-capability: appNodesPage returns the same rows under the same admission, filters and refusals, paged (SDL); cor:api:120:04; equivalent-form precedent cor:api:240:02, class unruled under #1334 (ruling0061)
+appNodes  excluded not-a-capability: appNodesPage returns the same rows under the same admission, filters and refusals, paged (SDL); cor:api:120:04; equivalent-form precedent cor:api:240:02; Proposed class unruled under #1334 (33-row review)
 appNodesPage  command app nodes
 appRun  command run get
 appRuns  command run list
@@ -110,6 +113,7 @@ dashboardWidgetData  excluded graphical: the data feed for the widgets placed on
 dashboardWidgetPresets  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgetPresetsPage  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
+dashboardWidgetsPage  gap #2787
 deleteWorkerPreview  command team worker rm
 deliveryBatches  command team chat inbox
 driveFile  command drive get
@@ -139,6 +143,7 @@ homeAssistantInstances  command ha list
 hostDesiredState  command team host up
 hostOperations  command team host ops
 hostRegistrations  command team host list
+hostRegistrationsPage  gap #2787
 hostSetup  command team host setup
 hostSweepRuns  command team host sweep-runs
 impersonationSession  command admin impersonation get
@@ -163,15 +168,15 @@ memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's 
 memoryLocSegments  command memory loc-segments
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
-myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
-myAgentSubscriptionsPage  gap #890: subscription list command not yet implemented
+myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage (command agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+myAgentSubscriptionsPage  command agent subscription list
 myApp  command app whoami
 myChats  gap #64
 myChatsPage  gap #64
 myGrants  command auth grants
 myPasskeys  command auth passkey list
 mySecretReadClients  command secret client list
-myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213)
+myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
 myUserApiKeysPage  command auth token list
 nextNode  command node next
 node  command node get
@@ -179,7 +184,7 @@ nodeBatch  command node get
 nodeEdgeRemovals  command node edge-removals
 nodeExport  command node export
 nodeRevision  command node revision get
-nodeRevisions  excluded not-a-capability: superseded by its nodeRevisionsPage twin, which the same command reads (cli#1339); proposed class, specs engineer to accept
+nodeRevisions  excluded not-a-capability: superseded by its nodeRevisionsPage twin, which the same command reads (cli#1339); Proposed class unruled under #1334 (33-row review)
 nodeRevisionsPage  command node revision list
 nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — identical exact-match loc semantics and access scoping, plus PK/URN refs via nodeId, type filtering, memoryId scoping and paging (#802).
 object  command object get
@@ -194,9 +199,10 @@ principalGrants  command grant list
 publicAgents  command agent list
 publicOrganization  command org public
 pullRequestReadiness  command team pr readiness
-question  command decision get
-questionLog  command decision log get
-questions  command decision list
+question  command question get
+questionLog  command question log get
+questionLogs  command question log list
+questions  command question list
 quotaCounters  command quota list
 rateLimitPolicies  gap #1482: platform-admin rate-limit policy read (server #1793)
 recoveryEdges  command node recovery graph
@@ -217,12 +223,13 @@ scope  command scope get
 scopeExplain  command scope explain
 scopes  command scope list
 secret  command secret get
+secretChangeRequest  command secret change get
 secretEvents  command secret events
 secrets  command secret list
 selectedSkillFilePlan  command skill export
 serverInfo  command server-info
 session  command team session end
-sessions  excluded not-a-capability: superseded by its sessionsPage twin, which the same command reads (cli#1339); proposed class, specs engineer to accept
+sessions  excluded not-a-capability: superseded by its sessionsPage twin, which the same command reads (cli#1339); Proposed class unruled under #1334 (33-row review)
 sessionsPage  command team session list
 signingRequest  command node signing-request get
 skillPlan  command skill status
@@ -233,10 +240,6 @@ specBacklinksPage  command spec backlinks
 specDocument  command spec document
 specUnresolvedReferences  command spec unresolved
 specUnresolvedReferencesPage  command spec unresolved
-teamAttention  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
-teamAttentionPage  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
-teamAttentionPreviewPage  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
-teamAttentionSwitchoverPreview  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
 teamAvailability  command team availability get
 teamChatMessages  command team chat check
 teamChatSearch  command team chat search
@@ -252,21 +255,21 @@ tickers  command ticker list
 tickersPage  command ticker list
 untrackedTaskItems  command team task find-untracked
 usageActivity  command usage activity
-usageEvents  excluded not-a-capability: superseded by its usageEventsPage twin, which the same command reads (cli#1339); proposed class, specs engineer to accept
+usageEvents  excluded not-a-capability: superseded by its usageEventsPage twin, which the same command reads (cli#1339); Proposed class unruled under #1334 (33-row review)
 usageEventsPage  command usage events
 user  command team worker get
 users  command user search
 validateMemory  command memory validate
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
-verifyQuestion  command decision verify
-webPolls  excluded not-a-capability: legacy unpaged spelling; webPollsPage carries the same capability (cli#2032)
+verifyQuestion  command question verify
+webPolls  excluded not-a-capability: legacy unpaged spelling; webPollsPage carries the same capability (cli#2032); Proposed class unruled under #1334 (33-row review)
 webPollsPage  command web-poll list
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 328 command, 19 gap, 12 excluded
+[Mutation] 363: 339 command, 13 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -278,8 +281,9 @@ addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
-allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
-amendQuestion  command decision amend
+allocateSpecNode  command spec new
+amendQuestion  command question amend
+answerQuestion  command question answer
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply
 applyMemoryConfigTemplateToMemories  command memory config template apply
@@ -287,7 +291,7 @@ approveAutomation  command automation approve
 approveMemoryNodes  command memory approve-all
 approveMergeUsersConsent  gap #1304
 approveNode  command node approve
-askQuestion  command decision ask
+askQuestion  command question ask
 assignAgentTask  command team task assign
 assignHostWorker  command team host assign
 assignReviewSeat  command team pr seat
@@ -318,9 +322,8 @@ compileAgentBootPrompt  command agent compile
 compileAppAgentBootPrompt  command app agent compile
 compileWorkerBootPrompt  command team worker compile
 completeAssetUpload  command asset upload
-confirmTeamAttentionSwitchover  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
 createAgent  command agent create
-createAgentOrgGrant  gap #890
+createAgentOrgGrant  command agent subscription add
 createAgentSchedule  command schedule create
 createAgentTask  command team task create
 createAgentTasks  command team task create
@@ -351,7 +354,7 @@ createNodeRoleRule  command memory config rule add
 createObject  command object create
 createOrganization  command org create
 createPrincipalGrant  command grant create
-createQuestionLog  command decision log create
+createQuestionLog  command question log create
 createRegisterEntry  command channel register add
 createResendSender  command org resend-sender create
 createResumeClaim  command team session resume-claim
@@ -370,6 +373,7 @@ createUserInvitation  command org invite create
 declineAutomation  command automation decline
 deleteAgent  command agent rm
 deleteAgentModelGroup  command agent model-group delete
+deleteAgentRevision  command agent revision rm
 deleteAgentSchedule  command schedule rm
 deleteAgentTickerTemplate  command agent ticker-templates delete
 deleteAgentWebhook  command webhook rm
@@ -414,7 +418,7 @@ emailSaveDraft  command email draft save
 emailSendDraft  command email draft send
 emailUpdateDraft  command email draft update
 encryptMemory  command memory encrypt
-endAgentSession  gap #58
+endAgentSession  gap #2510
 endAgentlessSession  command team host run
 endSession  command team session end
 ensureAppMember  command app member add
@@ -454,7 +458,7 @@ planNodeMove  command node move
 processChatResponse  gap #64
 publishAgentImport  command agent import publish
 publishRevision  command agent revision publish
-purgeUnansweredQuestion  command decision purge
+purgeUnansweredQuestion  command question purge
 pushMemoryToGit  gap #2513
 reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
@@ -500,10 +504,11 @@ restoreNodeRevision  command node revision restore
 restoreRevision  command agent revision restore
 resumeSession  command team session start
 retireWorker  command team worker retire
+retractQuestionAnswer  command question retract
 retryFailedEmbeddings  command memory reembed-failed
-revealSecret  gap #2664: secret exec and reveal (slice 2 of cli#2631)
-revokeAgentOrgGrant  gap #890
-revokeAgentSubscription  gap #890
+revealSecret  command secret exec
+revokeAgentOrgGrant  command agent subscription revoke
+revokeAgentSubscription  command agent subscription revoke
 revokeAppGrant  command team grant rm
 revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke
@@ -511,7 +516,7 @@ revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeAutomationReadGrant  command automation grant revoke
 revokeAutomationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 revokeConnectionGrant  command connection grant revoke
-revokeGrant  gap #1880
+revokeGrant  command secret client revoke
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
 rotateAgentWebhook  command webhook rotate
@@ -547,10 +552,11 @@ setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  command memory sync set-token
 setModelFamilyAvailability  command team availability set
 setOrgBootPromptSigning  command org signing on
-setQuestionLogDeciders  command decision log set-deciders
+setQuestionLogDeciders  command question log set-deciders
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
 setReviewSchedule  command team pr schedule
+setSecretProtected  command secret protect
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
@@ -560,7 +566,7 @@ setWorkerLeaveAlone  command team worker leave-alone
 setWorkerReportsTo  command team worker set-reports-to
 setWorkerWakeSettings  command team wake-settings set
 softDeleteAsset  command asset rm
-startAgentSession  gap #58
+startAgentSession  gap #2510
 startAgentTask  command team task start
 startChat  gap #64
 startConnection  command connection connect
@@ -622,49 +628,50 @@ updateTeamRole  command team role update
 updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
-withdrawGrant  gap #1880
+withdrawGrant  gap #1846
 withdrawGrantSigningRequest  command team grant signing-request withdraw
-withdrawQuestion  command decision withdraw
+withdrawQuestion  command question withdraw
+withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 37: 16 gap, 21 excluded
+[Arguments] 37: 12 gap, 25 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.applyAgentTickerTemplates(instruction)  gap #1617
-Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
-Mutation.createGrant(input.appRef)  gap #1880: a person who manages an App creates a grant in it (server#3711); companion to appGrants
+Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
+Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
+Mutation.createGrant(input.appRef)  gap #1846: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
+Mutation.createSecret(protected)  gap #2815
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
-Mutation.deleteTicker(instruction)  gap #1617
-Mutation.importNode(input.authoredWith)  gap #684
-Mutation.issueHostOperation(instruction)  gap #1617
-Mutation.liftTeamStopSignal(instruction)  gap #1617
+Mutation.encryptMemory(dataKey)  excluded deprecated: @deprecated: Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion.
+Mutation.encryptMemory(passphrase)  excluded deprecated: @deprecated: Send the passphrase in x-hadron-memory-keys.
+Mutation.issueHostOperation(instruction)  gap #2774
+Mutation.liftTeamStopSignal(instruction)  gap #2774
 Mutation.mergeUsers(input.consentProof)  gap #1304
-Mutation.registerContextResetRecovery(input.checkpointNode)  excluded not-a-capability: the host has the server write the checkpoint (input.checkpoint) and never names an existing node (ruling 0090 A, hadron-cli#1043); the written node comes back as ContextReset.checkpointNode
+Mutation.registerContextResetRecovery(input.checkpointNode)  excluded host-protocol: registering an existing checkpoint node is a distinct host-plane input; this CLI writes a new checkpoint through input.checkpoint (ruling 0090 A, cli#1043), which does not retire checkpointNode; Proposed class unruled under #1334 (33-row review)
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.setTeamPause(instruction)  gap #1617
-Mutation.setTeamStopSignal(instruction)  gap #1617
-Mutation.setWorkerWakeSettings(instruction)  gap #1617
-Mutation.subscribeWorker(instruction)  gap #1617
-Mutation.unsubscribeWorker(instruction)  gap #1617
-Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
-Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
+Mutation.revokeGrant(instruction)  gap #2754
+Mutation.setTeamPause(instruction)  gap #2774
+Mutation.setTeamStopSignal(instruction)  gap #2774
+Mutation.setWorkerWakeSettings(instruction)  gap #2774
+Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
+Mutation.updateApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
+Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership); Proposed class unruled under #1334 (33-row review)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
-Mutation.updateTicker(instruction)  gap #1617
-Query.automationTeamSnapshotGrants(triggerId)  gap #1617
-Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
-Query.dueWakes(instruction)  gap #1617
-Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that
-Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
-Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); proposed class unruled under #1334
+Mutation.updateSecret(protected)  gap #2815
+Mutation.updateTaskNode(mergeExports)  gap #2787
+Query.dueWakes(instruction)  gap #2774
+Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
+Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
+Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); Proposed class unruled under #1334 (33-row review)
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
@@ -675,15 +682,15 @@ Query.agents(filter.visibility)  flag agent list --visibility
 Query.aiServiceConfigs(filter.ownerId)  flag ai-config list --owner-id
 Query.aiServiceConfigs(filter.ownerType)  flag ai-config list --owner-type
 Query.appNodesPage(filter.approvalState)  gap #1697: remaining App node filter surface
-Query.appNodesPage(filter.childrenOf)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
+Query.appNodesPage(filter.childrenOf)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
 Query.appNodesPage(filter.contentScope)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.createdBy)  flag app nodes --created-by
-Query.appNodesPage(filter.hasOpenThreads)  excluded not-a-capability: appNodesPage refuses this selector (server#3520 source); use node list; proposed class unruled under #1334
+Query.appNodesPage(filter.hasOpenThreads)  excluded not-a-capability: appNodesPage refuses this selector (server#3520 source); use node list; Proposed class unruled under #1334 (33-row review)
 Query.appNodesPage(filter.includeDeleted)  flag app nodes --include-deleted
 Query.appNodesPage(filter.isRunnable)  flag app nodes --runnable
 Query.appNodesPage(filter.locPrefix)  flag app nodes --prefix
-Query.appNodesPage(filter.memoryClasses)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
-Query.appNodesPage(filter.memoryIds)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
+Query.appNodesPage(filter.memoryClasses)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
+Query.appNodesPage(filter.memoryIds)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
 Query.appNodesPage(filter.minted)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.nodeType)  flag app nodes --type
 Query.appNodesPage(filter.nodeTypes)  flag app nodes --types
@@ -692,7 +699,7 @@ Query.appNodesPage(filter.role)  flag app nodes --role
 Query.appNodesPage(filter.tags)  flag app nodes --tag
 Query.appNodesPage(filter.updatedAfter)  flag app nodes --updated-after
 Query.appNodesPage(filter.updatedBefore)  flag app nodes --updated-before
-Query.appNodesPage(filter.where)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source; server#3427 closed by #3430); use node list; proposed class unruled under #1334 (ruling0061)
+Query.appNodesPage(filter.where)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source; server#3427 closed by #3430); use node list; Proposed class unruled under #1334 (33-row review)
 Query.apps(filter.agentId)  flag app list --agent
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
 Query.assets(filter.includeDeleted)  flag asset list --include-deleted

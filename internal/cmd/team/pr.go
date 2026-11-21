@@ -295,6 +295,25 @@ const prGroupExample = `  hadron team pr schedule AT0.7850 --slot local --slot b
   hadron team pr readiness AT0.7850 --head 0123456789abcdef0123456789abcdef01234567
   hadron team pr ready AT0.7850 --head 0123456789abcdef0123456789abcdef01234567`
 
+// prReviewRules is shared by "pr seat" and "pr verdict" (cli#2785): the order, what a
+// negative verdict does, and the remedy when a seat cannot bind or record. Only a
+// verdict recorded with "pr verdict" counts toward readiness; a signed PR receipt is
+// evidence beside it.
+const prReviewRules = `
+
+The order is schedule, freeze, seat, verdict, finish. A seat binds to a task
+that has not ended (PENDING or STARTED); only pr verdict needs it STARTED, and a
+finished seat cannot take a verdict. A
+negative verdict at a head blocks every slot there until the head moves or its
+own reviewer re-rates it.
+
+When a seat cannot bind or record (TASK_ENDED, REVIEW_SEAT_UNASSIGNED or
+REVIEW_HEAD_MISMATCH), only a verdict recorded with pr verdict counts: create a
+fresh seat task and bind it with --supersedes at the same head, and its reviewer
+records the verdict and finishes. A signed PR receipt at the exact head is
+evidence, not the record: pass it with --receipt.
+`
+
 const prSeeGroup = "\nThe flow and the exit codes are on \"hadron team pr --help\"."
 
 var prLeafLong = map[string]string{
@@ -339,7 +358,7 @@ To replace a reviewer or move to a new head, create a new seat task and pass
 the slot's current seat task as --supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED
 if you do not). A seat that already gave CHANGES_REQUESTED, FAIL or REFUSED at
 this head cannot be replaced or moved (REVIEW_SEAT_NOT_SUPERSEDABLE): answer the
-finding with a new head. Prints the seat task and the recorded action.` + prSeeGroup,
+finding with a new head. Prints the seat task and the recorded action.` + prReviewRules + prSeeGroup,
 
 	"verdict": `Record your verdict on a seat you were assigned, without finishing the seat
 task. Only the seat's assignee may, the task must be STARTED, the seat must
@@ -358,7 +377,7 @@ recorded a negative verdict may re-rate it at that head).
 
 --node names the Hadron node holding your saved review and --receipt the URL of
 your signed PR comment; both are recorded as text, not fetched. Prints the seat
-task and the recorded action.` + prSeeGroup,
+task and the recorded action.` + prReviewRules + prSeeGroup,
 
 	"readiness": `Show whether every scheduled review is in at a head: READY, or NOT READY with
 a row per slot saying which seat, state and verdict it has and whether it

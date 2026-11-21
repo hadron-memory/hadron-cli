@@ -216,11 +216,14 @@ help-inventory-check: build
 # that carries the committed human columns across, so it never compares against
 # the base: a bad merge resolution of docs/help-inventory.md that puts assessed
 # rows back to unread with their hashes unchanged is self-consistent and nothing
-# notices (#2578: 78 rows). Deleted rows are caught there, because the
-# regeneration re-emits them as unread and the diff fails. This compares the
-# inventory at HEAD with the one at the MERGE BASE of HEAD and origin/main (not
-# current main: a PR merely behind main would fail for main's newer flips) and
-# names each row that lost its evaluator, result or finding while its hash held.
+# notices (#2578: 78 rows). This compares the inventory at HEAD with the one at
+# the MERGE BASE of HEAD and origin/main (not current main: a PR merely behind
+# main would fail for main's newer flips) and names each row that lost its
+# evaluator, result or finding while its hash held, and (cli#2699) each assessed
+# row that was DELETED while its command still exists in the live cobra command
+# tree (the tool builds the CLI's own root in-process from the checked-out code;
+# a row deleted together with its command passes). help-inventory-check, which is
+# not in per-PR CI (cli#2310), caught such a deletion only when someone ran it.
 # BASE and HEAD override the refs; CI passes the PR head sha.
 help-inventory-revert-check:
 	@go run ./scripts/helpinventoryrevert -base $(or $(BASE),origin/main) -head $(or $(HEAD),HEAD)

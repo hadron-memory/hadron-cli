@@ -72,11 +72,11 @@ func TestAppUpdateClearPolicySendsExplicitNull1640(t *testing.T) {
 
 func TestAppUpdatePolicyTravelsWithOtherSettingsInOneRequest1640(t *testing.T) {
 	srv, calls := appSettingsServer(t)
-	if _, err := appSettingsRun(t, srv, "update", "--name", "Support Desk", "--role", "READER", "--policy-file", policyFile1640(t, `{"allow":[]}`), "--yes"); err != nil {
+	if _, err := appSettingsRun(t, srv, "update", "--name", "Support Desk", "--training-mode=false", "--policy-file", policyFile1640(t, `{"allow":[]}`), "--yes"); err != nil {
 		t.Fatal(err)
 	}
 	c := appSettingsMutation(t, *calls)
-	if string(c.Vars["name"]) != `"Support Desk"` || string(c.Vars["role"]) != `"READER"` || string(c.Vars["policy"]) != `{"allow":[]}` {
+	if string(c.Vars["name"]) != `"Support Desk"` || string(c.Vars["trainingMode"]) != `false` || string(c.Vars["policy"]) != `{"allow":[]}` {
 		t.Fatalf("vars=%v", c.Vars)
 	}
 }
@@ -84,7 +84,7 @@ func TestAppUpdatePolicyTravelsWithOtherSettingsInOneRequest1640(t *testing.T) {
 // Without either flag the request and the document carry no policy at all, so
 // a server that predates the argument keeps accepting the command.
 func TestAppUpdateWithoutPolicyFlagsSendsNoPolicy1640(t *testing.T) {
-	for _, flags := range [][]string{{"--name", "X"}, {"--role", "READER"}, {"--surface", "chat"}} {
+	for _, flags := range [][]string{{"--name", "X"}, {"--training-mode=false"}, {"--surface", "chat"}} {
 		srv, calls := appSettingsServer(t)
 		if _, err := appSettingsRun(t, srv, "update", append(flags, "--yes")...); err != nil {
 			t.Fatal(err)
@@ -145,7 +145,7 @@ func TestAppUpdateReplyWithoutAnAppIsAnUnknownOutcome1640(t *testing.T) {
 	for name, flags := range map[string][]string{
 		"policy file":  {"--policy-file", policy},
 		"clear policy": {"--clear-policy"},
-		"settings":     {"--role", "READER"},
+		"settings":     {"--training-mode=false"},
 		"basic":        {"--name", "X"},
 	} {
 		for reply, body := range map[string]string{"null": `{"data":{"updateApp":null}}`, "missing": `{"data":{}}`} {

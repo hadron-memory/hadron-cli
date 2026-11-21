@@ -82,7 +82,6 @@ func TestAppSettings1628WireEachFlag(t *testing.T) {
 			installOnly, updateOnly bool
 		}{
 			{"--urn", "urn", `"renamed"`, false, false},
-			{"--role", "role", `"READER"`, false, false},
 			{"--create-user-permission", "createUserPermission", `"DENY"`, false, false},
 			{"--identify-user-method", "identifyUserMethod", `"SECRET"`, false, false},
 			{"--session-timeout-seconds", "sessionTimeoutSeconds", "90", false, false},
@@ -203,7 +202,7 @@ func TestAppSettings1628ClearAndReplace(t *testing.T) {
 	}
 }
 func TestAppSettings1628LocalRefusals(t *testing.T) {
-	for _, flags := range [][]string{{"--role", "boss"}, {"--create-user-permission", ""}, {"--identify-user-method", "email"}, {"--type", "bogus"}, {"--surface", "chat", "--clear-surfaces"}, {"--agent-tool", "x", "--clear-agent-tools"}, {"--expires-at", "x", "--clear-expires-at"}} {
+	for _, flags := range [][]string{{"--create-user-permission", ""}, {"--identify-user-method", "email"}, {"--type", "bogus"}, {"--surface", "chat", "--clear-surfaces"}, {"--agent-tool", "x", "--clear-agent-tools"}, {"--expires-at", "x", "--clear-expires-at"}} {
 		srv, calls := appSettingsServer(t)
 		_, err := appSettingsRun(t, srv, "update", append(flags, "--yes")...)
 		if exitCodeFor(err) != 2 || len(*calls) != 0 {
@@ -292,9 +291,9 @@ func TestAppSettings1628MixedAndLegacyInstall(t *testing.T) {
 		flags                     []string
 	}{
 		{"install", "CreateApp", `{"agentRef":"a1","name":"Support","orgRef":"acme.com"}`, nil},
-		{"install", "CreateAppSettings", `{"agentRef":"a1","name":"Support","orgRef":"acme.com","urn":"renamed","appType":"CHATBOT","description":"private-description","role":"READER","sessionTimeoutSeconds":91,"trainingMode":false}`, []string{"--urn", "renamed", "--type", "CHATBOT", "--description", "private-description", "--role", "READER", "--session-timeout-seconds", "91", "--training-mode=false", "--yes"}},
-		{"update", "UpdateAppSettings", `{"ref":"hrn:app:acme.com:support","name":"Desk","description":"private-description","sessionTimeoutSeconds":1234,"urn":"renamed","appType":"CLOUD","role":"READER","surfaces":[]}`, []string{"--name", "Desk", "--description", "private-description", "--session-timeout-seconds", "1234", "--urn", "renamed", "--type", "CLOUD", "--role", "READER", "--clear-surfaces", "--yes"}},
-		{"update", "UpdateAppSettings", `{"ref":"hrn:app:acme.com:support","description":null,"role":"READER"}`, []string{"--clear-description", "--role", "READER", "--yes"}},
+		{"install", "CreateAppSettings", `{"agentRef":"a1","name":"Support","orgRef":"acme.com","urn":"renamed","appType":"CHATBOT","description":"private-description","sessionTimeoutSeconds":91,"trainingMode":false}`, []string{"--urn", "renamed", "--type", "CHATBOT", "--description", "private-description", "--session-timeout-seconds", "91", "--training-mode=false", "--yes"}},
+		{"update", "UpdateAppSettings", `{"ref":"hrn:app:acme.com:support","name":"Desk","description":"private-description","sessionTimeoutSeconds":1234,"urn":"renamed","appType":"CLOUD","surfaces":[]}`, []string{"--name", "Desk", "--description", "private-description", "--session-timeout-seconds", "1234", "--urn", "renamed", "--type", "CLOUD", "--clear-surfaces", "--yes"}},
+		{"update", "UpdateAppSettings", `{"ref":"hrn:app:acme.com:support","description":null,"trainingMode":false}`, []string{"--clear-description", "--training-mode=false", "--yes"}},
 	} {
 		t.Run(tc.mode+tc.operation+tc.expected, func(t *testing.T) {
 			srv, calls := appSettingsServer(t)
@@ -342,12 +341,12 @@ func TestAppSettings1628InstallDeclineAndPersonal(t *testing.T) {
 	}
 	f, _ = testFactory(t)
 	root = NewRootCmd(f)
-	root.SetArgs([]string{"app", "install", "--owner-me", "--agent", "a1", "--name", "Personal", "--role", "READER", "--yes", "--json", "--server", srv.URL})
+	root.SetArgs([]string{"app", "install", "--owner-me", "--agent", "a1", "--name", "Personal", "--training-mode=false", "--yes", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	call := appSettingsMutation(t, *calls)
-	if len(*calls) != 1 || call.Operation != "CreateAppSettings" || keys1058(call.Vars) != "agentRef,name,role" {
+	if len(*calls) != 1 || call.Operation != "CreateAppSettings" || keys1058(call.Vars) != "agentRef,name,trainingMode" {
 		t.Fatalf("personal install wire=%+v", *calls)
 	}
 }
@@ -385,7 +384,7 @@ func TestAppSettings1628SettingsUnavailableIsSentOnce(t *testing.T) {
 		_, _ = w.Write([]byte("gateway unavailable"))
 	}))
 	defer srv.Close()
-	out, err := appSettingsRun(t, srv, "update", "--role", "READER", "--yes")
+	out, err := appSettingsRun(t, srv, "update", "--training-mode=false", "--yes")
 	if exitCodeFor(err) != 7 || calls != 1 || !strings.Contains(err.Error(), "outcome unknown") || strings.Contains(out, "updated") {
 		t.Fatalf("err=%v calls=%d stdout=%s", err, calls, out)
 	}
@@ -513,7 +512,7 @@ func TestAppSettings1628AllListCommas(t *testing.T) {
 func TestAppSettings1628PolicyAbsentUnlessAsked(t *testing.T) {
 	srv, calls := appSettingsServer(t)
 	for _, mode := range []string{"install", "update"} {
-		_, err := appSettingsRun(t, srv, mode, "--role", "READER", "--yes")
+		_, err := appSettingsRun(t, srv, mode, "--training-mode=false", "--yes")
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -15,8 +15,6 @@ mutation CreateAppSettings(
   # @genqlient(omitempty: true)
   $expiresAt: String
   # @genqlient(omitempty: true)
-  $role: AppMembershipRole
-  # @genqlient(omitempty: true)
   $createUserPermission: CreateUserPermission
   # @genqlient(omitempty: true)
   $identifyUserMethod: IdentifyUserMethod
@@ -31,7 +29,7 @@ mutation CreateAppSettings(
   # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
   $installOptional: [ID!]
 ) {
-  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
+  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
     id urn name appType agentId
     # @genqlient(pointer: true)
     memberCount
@@ -58,8 +56,6 @@ mutation UpdateAppSettings(
   # @genqlient(omitempty: true)
   $agentSessionsExpire: Boolean
   # @genqlient(omitempty: true)
-  $role: AppMembershipRole
-  # @genqlient(omitempty: true)
   $createUserPermission: CreateUserPermission
   # @genqlient(omitempty: true)
   $identifyUserMethod: IdentifyUserMethod
@@ -72,7 +68,7 @@ mutation UpdateAppSettings(
   # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
   $surfaces: [String!]
 ) {
-  updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
+  updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
     id urn name sessionTimeoutSeconds
   }
 }

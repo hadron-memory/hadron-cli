@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -39,7 +38,7 @@ var terminalTitleDelimiters = strings.NewReplacer("[", " ", "]", " ", ",", " ")
 
 // Scrub before testing emptiness; raw nonempty control-only values are not labels.
 func terminalTitleElement(raw string) string {
-	safe := output.SafeLine(raw, utf8.RuneCountInString(raw)+1)
+	safe := output.SanitizeLine(raw)
 	safe = terminalTitleDelimiters.Replace(safe)
 	return strings.Join(strings.Fields(safe), " ")
 }

@@ -69,7 +69,7 @@ func TestAlarmAckPlainPathSurfacesWarnings2537(t *testing.T) {
 	}
 }
 
-// cli#2537 (#2505 F5c, test half): a server older than ba077810 rejects the
+// cli#2537 (#2505 F5c, test half): a server older than 2026-11-04 rejects the
 // instruction argument itself — schema validation, not a semantic refusal.
 // The CLI passes that refusal through and never retries the call plain; the
 // shared help's sentence ("an older server's refusal is passed through,

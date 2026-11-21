@@ -1,0 +1,5 @@
+# cli#1650: header choice follows the authenticated principal, not token spelling
+# or the --app context. Read only the fact required for that choice, without keys.
+query MemoryEncryptionPrincipal {
+  authContext { principalType }
+}

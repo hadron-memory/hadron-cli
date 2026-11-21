@@ -68,7 +68,11 @@ func writeOrgGithub(w io.Writer, d orgGithubDTO) error {
 // with a key in play the raw error chain is never retained, and even the
 // server's own code must not reflect it. Same contract as senderWriteError.
 func githubAppWriteError(err error, secret *string) error {
-	if secret == nil {
+	// An empty secret can appear in no diagnostic, and Contains(x, "") is
+	// trivially true — guarding only nil let an empty key withhold every
+	// server code. Unreachable via ReadSecretInput (empty is refused); this
+	// guards the function's own contract (#2694 D4).
+	if secret == nil || *secret == "" {
 		return api.MapErrorKeepingCode(err)
 	}
 	mapped := api.MapError(err)
@@ -171,7 +175,7 @@ hasGithubAppPrivateKey}.`,
 				return githubAppWriteError(err, nil)
 			}
 			if resp == nil || resp.LinkGithubApp == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no organization; nothing was linked")
+				return exitcode.Newf(exitcode.Error, "server returned no organization; whether the app was linked is unknown — check with the portal")
 			}
 			dto := orgGithubDTOFrom(resp.LinkGithubApp.OrgGithubFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -222,7 +226,7 @@ githubInstallationId, hasGithubAppPrivateKey}.`,
 				return githubAppWriteError(err, nil)
 			}
 			if resp == nil || resp.UnlinkGithubApp == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no organization; the link state is unknown — check with the portal or retry")
+				return exitcode.Newf(exitcode.Error, "server returned no organization; the link state is unknown — check with the portal")
 			}
 			dto := orgGithubDTOFrom(resp.UnlinkGithubApp.OrgGithubFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -275,9 +279,9 @@ githubInstallationId and hasGithubAppPrivateKey are printed; --json returns
 			// key pasted there would be silently truncated and stored broken:
 			// refuse the mode instead of offering it (#2512 BLIND P2-1).
 			if keyFile == "" && f.IOStreams.IsInputTerminal() {
-				return exitcode.Newf(exitcode.Usage, "--private-key-file is required on a terminal: the private key is multi-line PEM a single-line masked prompt would truncate (a path, or - for stdin)")
+				return exitcode.Newf(exitcode.Usage, "--private-key-file is required on a terminal: the private key is multi-line PEM a single-line masked prompt would truncate (pass a path)")
 			}
-			key, err := cmdutil.ReadSecretInput(f.IOStreams, keyFile, "private-key-file", "GitHub App private key", "private key")
+			key, err := cmdutil.ReadSecretInput(f.IOStreams, keyFile, "private-key-file", "GitHub App private key", "private key", cmdutil.NoPrompt())
 			if err != nil {
 				return api.MapError(err)
 			}

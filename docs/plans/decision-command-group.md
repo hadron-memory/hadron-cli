@@ -1,3 +1,5 @@
+> **Superseded by [`question-command-group.md`](question-command-group.md) (cli#2465): the group was renamed `question`, `decision` is retired.**
+
 # `hadron decision` — decision logs and decisions (design as built, cli#1335)
 
 Gate: Xabat's CHECKED on hadron-cli#1335 (comment 6540704302), T1. Server surface:

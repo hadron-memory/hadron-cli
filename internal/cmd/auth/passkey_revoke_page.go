@@ -159,7 +159,7 @@ func runPasskeyRevokePage(ctx context.Context, f *cmdutil.Factory, open, termina
 // against --server: the value is the deployment's canonical baseUrl, which
 // may differ from the API host the CLI dials (gate 6835278968).
 func validRevokeURL(s string) bool {
-	if s == "" || strings.HasPrefix(s, "-") || output.SafeLine(s, len(s)+1) != s {
+	if s == "" || strings.HasPrefix(s, "-") || output.SanitizeLine(s) != s {
 		return false
 	}
 	u, err := url.Parse(s)
