@@ -12,7 +12,7 @@ func NewCmdRun(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run <command>",
 		Short: "Trigger and inspect headless App runs",
-		Long: `Trigger and inspect headless App runs (spec-040, cor:agt:010:02).
+		Long: `Trigger and inspect headless App runs.
 
 A run executes an entry (prompt) node under an App's identity, off any
 interactive session — the same kernel a schedule or webhook drives. This group
