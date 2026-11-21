@@ -116172,7 +116172,8 @@ type UpdateEdgeUpdateEdge struct {
 	IsRunnable *bool `json:"isRunnable"`
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
-	Priority int `json:"priority"`
+	Priority int              `json:"priority"`
+	Data     *json.RawMessage `json:"data"`
 	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *UpdateEdgeUpdateEdgeSourceNode `json:"source"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
@@ -116193,6 +116194,9 @@ func (v *UpdateEdgeUpdateEdge) GetIsRunnable() *bool { return v.IsRunnable }
 
 // GetPriority returns UpdateEdgeUpdateEdge.Priority, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdge) GetPriority() int { return v.Priority }
+
+// GetData returns UpdateEdgeUpdateEdge.Data, and is useful for accessing the field via an interface.
+func (v *UpdateEdgeUpdateEdge) GetData() *json.RawMessage { return v.Data }
 
 // GetSource returns UpdateEdgeUpdateEdge.Source, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdge) GetSource() *UpdateEdgeUpdateEdgeSourceNode { return v.Source }
@@ -184325,6 +184329,7 @@ mutation UpdateEdge ($edgeId: ID!, $name: String, $loc: String, $description: St
 		loc
 		isRunnable
 		priority
+		data
 		source {
 			id
 			loc

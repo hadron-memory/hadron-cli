@@ -1076,6 +1076,7 @@ mutation UpdateEdge(
     loc
     isRunnable
     priority
+    data
     source {
       id
       loc

@@ -228,7 +228,7 @@ refuses a target in the router's own memory. Re-run the same command with the
 flag to mark a route that already exists; the edge's other data is kept. Lint
 skips only `route-target-moved-memory` for a marked route: an unreadable, retired
 or badly labelled target is still reported. `preflight list` shows the marker in
-its SCOPE column and as `crossMemory` in `--json`.
+its MARKER column and as `crossMemory` in `--json`.
 
 **Errors exit 5** (`exitcode.Conflict`, as `spec lint` does); warnings alone
 exit 0. `--strict` promotes warnings to errors. That split is deliberate: a

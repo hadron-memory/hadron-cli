@@ -3,6 +3,8 @@ package coding
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -213,10 +215,12 @@ that already references the target is left alone.`,
 			// would report the wrong edge while createEdge went on to add a
 			// second one.
 			// Leaf: the edge lives on the target, so that is the set to look in.
+			var existingFwd, existingBack *existingEdge
 			if leaf {
 				for _, e := range target.Node.OutgoingEdges {
 					if e != nil && e.Target != nil && e.Target.Id == router.Node.Id && e.Name != nil && *e.Name == label {
 						dto.EdgeID = e.Id
+						existingFwd = &existingEdge{ID: e.Id, Data: e.Data}
 					}
 				}
 			} else {
@@ -224,8 +228,19 @@ that already references the target is left alone.`,
 					if e != nil && e.Target != nil && e.Target.Id == targetID &&
 						e.Name != nil && *e.Name == label {
 						dto.EdgeID = e.Id
+						existingFwd = &existingEdge{ID: e.Id, Data: e.Data}
 					}
 				}
+				for _, e := range target.Node.OutgoingEdges {
+					if e != nil && e.Target != nil && e.Target.Id == router.Node.Id && e.Name != nil && *e.Name == label {
+						existingBack = &existingEdge{ID: e.Id, Data: e.Data}
+					}
+				}
+			}
+			// The reported marker is the edge's state, not only this run's request: a
+			// re-run without the flag on a marked route still says so (cli#2736).
+			if existingFwd != nil && edgeCrossMemory(existingFwd.Data) {
+				dto.CrossMemory = true
 			}
 
 			if dryRun {
@@ -235,50 +250,48 @@ that already references the target is left alone.`,
 			}
 
 			from, to := router.Node.Id, targetID
+			fromLoc, toLoc := attachLoc, dto.Loc
 			if leaf {
 				from, to = targetID, router.Node.Id
+				fromLoc, toLoc = dto.Loc, attachLoc
 			}
-			var edgeData *json.RawMessage
-			if crossMemory {
-				d, derr := crossMemoryData(nil)
-				if derr != nil {
-					return exitcode.Newf(exitcode.Error, "building the cross-memory marker: %v", derr)
-				}
-				edgeData = &d
-			}
-			fwd, err := gen.CreateEdge(ctx, client, from, to, label, nil, nil, nil, nil, nil, edgeData)
+			// An EXISTING edge is never re-created when marking: a real server refuses
+			// createEdge on an occupied loc ("Edge loc ... is already occupied", QA on
+			// cli#2736), so the edge already on the graph takes the marker through
+			// updateEdge. Without --cross-memory the write is exactly what it was.
+			fwdID, fwdMarked, err := writeRouteEdge(ctx, client, routeEdge{
+				From: from, To: to, FromLoc: fromLoc, ToLoc: toLoc, Label: label,
+				Existing: existingFwd, Mark: crossMemory, Memory: mem.raw,
+			})
 			if err != nil {
-				// Classify through api.MapError so auth, not-found and
-				// transport keep their own exit codes — a script must be able
-				// to tell a retryable outage from an ordinary failure. The
-				// wording stays agnostic about whether the edge landed:
-				// a transport failure has an UNKNOWN outcome.
-				mapped := api.MapError(err)
-				return exitcode.Newf(exitcode.FromError(mapped),
-					"the route from %q to %s may not have been written — check with `hadron coding preflight list -m %s`: %v",
-					attachLoc, dto.Loc, mem.raw, mapped)
+				return err
 			}
-			if fwd.CreateEdge != nil {
-				dto.EdgeID = fwd.CreateEdge.Id
-				if crossMemory {
-					if err := ensureCrossMemoryMarker(ctx, client, fwd.CreateEdge.Id, fwd.CreateEdge.Data, attachLoc, dto.Loc, mem.raw); err != nil {
-						return err
-					}
-				}
+			if fwdID != "" {
+				dto.EdgeID = fwdID
+			}
+			if crossMemory {
+				dto.CrossMemory = fwdMarked
 			}
 
 			if !leaf && !noBackEdge {
-				back, err := gen.CreateEdge(ctx, client, targetID, router.Node.Id, label,
-					nil, nil, nil, nil, nil, edgeData)
-				if err == nil && crossMemory && back.CreateEdge != nil {
-					err = ensureCrossMemoryMarker(ctx, client, back.CreateEdge.Id, back.CreateEdge.Data, dto.Loc, attachLoc, mem.raw)
-				}
+				_, backMarked, err := writeRouteEdge(ctx, client, routeEdge{
+					From: targetID, To: router.Node.Id, FromLoc: dto.Loc, ToLoc: attachLoc, Label: label,
+					Existing: existingBack, Mark: crossMemory, Memory: mem.raw, Back: true,
+				})
 				if err != nil {
+					var markerErr *markerNotConfirmedError
+					if errors.As(err, &markerErr) {
+						// The back-edge exists; only its marker is unconfirmed.
+						return partialRoute(f, dto, false, err,
+							"routed %s and the back-edge to %q exists, but its cross-memory marker was not confirmed: %v",
+							dto.Loc, root, err)
+					}
 					dto.BackEdge = false
 					return partialRoute(f, dto, false, err,
 						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
 						dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
 				}
+				_ = backMarked
 			}
 
 			if wantLine {
@@ -341,24 +354,90 @@ func memoryLabel(memoryID string, m *gen.GetNodeNodeMemory) string {
 	return m.Urn
 }
 
-// ensureCrossMemoryMarker makes sure an edge createEdge answered carries the
-// marker. createEdge is idempotent on the derived loc, so an edge that already
-// existed comes back as it was; the marker then goes in through updateEdge with
-// the edge's other data kept. A failure names the edge, because the route itself
-// is already written.
-func ensureCrossMemoryMarker(ctx context.Context, client graphql.Client, edgeID string, current *json.RawMessage, from, to, memory string) error {
-	if edgeCrossMemory(current) {
-		return nil
+// existingEdge is an edge already on the graph, as the router's (or target's)
+// read saw it.
+type existingEdge struct {
+	ID   string
+	Data *json.RawMessage
+}
+
+// routeEdge is one edge write of `preflight route`.
+type routeEdge struct {
+	From, To, FromLoc, ToLoc, Label, Memory string
+	Existing                                *existingEdge
+	Mark                                    bool // write the cross-memory marker (cli#2736)
+	Back                                    bool // the mirrored back-edge (messages only)
+}
+
+// markerNotConfirmedError says an edge exists but the marker update was not
+// confirmed: the write may have committed, so nothing is retried.
+type markerNotConfirmedError struct{ msg string }
+
+func (e *markerNotConfirmedError) Error() string { return e.msg }
+
+// writeRouteEdge writes one route edge and, when asked, makes sure it carries the
+// marker. It returns the edge id and whether the marker is CONFIRMED on it.
+func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (string, bool, error) {
+	if e.Mark && e.Existing != nil {
+		if edgeCrossMemory(e.Existing.Data) {
+			return e.Existing.ID, true, nil
+		}
+		confirmed, err := updateCrossMemoryMarker(ctx, client, e, e.Existing.ID, e.Existing.Data)
+		return e.Existing.ID, confirmed, err
 	}
-	merged, err := crossMemoryData(current)
+	var data *json.RawMessage
+	if e.Mark {
+		d, err := withCrossMemoryMarker(nil)
+		if err != nil {
+			return "", false, err
+		}
+		data = &d
+	}
+	resp, err := gen.CreateEdge(ctx, client, e.From, e.To, e.Label, nil, nil, nil, nil, nil, data)
 	if err != nil {
-		return exitcode.Newf(exitcode.Error, "building the cross-memory marker: %v", err)
-	}
-	if _, err := gen.UpdateEdge(ctx, client, edgeID, nil, nil, nil, nil, nil, nil, &merged); err != nil {
+		// Classify through api.MapError so auth, not-found and transport keep
+		// their own exit codes; the wording stays agnostic about whether the
+		// edge landed (a transport failure has an UNKNOWN outcome).
 		mapped := api.MapError(err)
-		return exitcode.Newf(exitcode.FromError(mapped),
-			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`: %v",
-			from, to, memory, mapped)
+		if e.Back {
+			return "", false, mapped // the caller words the back-edge failure
+		}
+		return "", false, exitcode.Newf(exitcode.FromError(mapped),
+			"the route from %q to %s may not have been written — check with `hadron coding preflight list -m %s`: %v",
+			e.FromLoc, e.ToLoc, e.Memory, mapped)
 	}
-	return nil
+	if resp == nil || resp.CreateEdge == nil {
+		return "", false, nil
+	}
+	if !e.Mark || edgeCrossMemory(resp.CreateEdge.Data) {
+		return resp.CreateEdge.Id, e.Mark, nil
+	}
+	// createEdge answered an edge without the marker (an edge that already
+	// existed on a server that returns it): add it through updateEdge.
+	confirmed, err := updateCrossMemoryMarker(ctx, client, e, resp.CreateEdge.Id, resp.CreateEdge.Data)
+	return resp.CreateEdge.Id, confirmed, err
+}
+
+// updateCrossMemoryMarker adds the marker to an existing edge through updateEdge,
+// keeping its other data exactly, and CONFIRMS it from the answer: a null result
+// or data without the marker is an unknown outcome (the write may have
+// committed), reported with a read-back instruction and never retried.
+func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, e routeEdge, edgeID string, current *json.RawMessage) (bool, error) {
+	merged, err := withCrossMemoryMarker(current)
+	if err != nil {
+		return false, err
+	}
+	resp, err := gen.UpdateEdge(ctx, client, edgeID, nil, nil, nil, nil, nil, nil, &merged)
+	if err != nil {
+		mapped := api.MapError(err)
+		return false, &markerNotConfirmedError{fmt.Sprintf(
+			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`: %v",
+			e.FromLoc, e.ToLoc, e.Memory, mapped)}
+	}
+	if resp == nil || resp.UpdateEdge == nil || !edgeCrossMemory(resp.UpdateEdge.Data) {
+		return false, &markerNotConfirmedError{fmt.Sprintf(
+			"the route %s → %s exists, but the server did not confirm its cross-memory marker, so it may not have been written — check with `hadron coding preflight list -m %s`; nothing was retried",
+			e.FromLoc, e.ToLoc, e.Memory)}
+	}
+	return true, nil
 }

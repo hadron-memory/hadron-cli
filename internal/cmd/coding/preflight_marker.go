@@ -1,7 +1,10 @@
 package coding
 
 import (
+	"bytes"
 	"encoding/json"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // crossMemoryKey is the route marker (cli#2736): a boolean in the ROUTE EDGE's own
@@ -16,24 +19,27 @@ func edgeCrossMemory(data *json.RawMessage) bool {
 	if data == nil {
 		return false
 	}
-	var m map[string]any
+	var m map[string]json.RawMessage
 	if json.Unmarshal(*data, &m) != nil {
 		return false
 	}
-	v, ok := m[crossMemoryKey].(bool)
-	return ok && v
+	return string(bytes.TrimSpace(m[crossMemoryKey])) == "true"
 }
 
-// crossMemoryData returns an edge's data with the marker set, keeping every other
-// key. current is the data the edge already has (nil or not an object: none).
-func crossMemoryData(current *json.RawMessage) (json.RawMessage, error) {
-	m := map[string]any{}
-	if current != nil {
-		var existing map[string]any
-		if json.Unmarshal(*current, &existing) == nil && existing != nil {
-			m = existing
+// withCrossMemoryMarker returns an edge's data with the marker set, keeping every
+// other key byte for byte: the values stay raw JSON, so a number a float64 would
+// round (9007199254740993) or a number written 2.50 comes back as it went in.
+// current is the data the edge already has. No data (nil or JSON null) starts an
+// empty object; data that is not an object is refused, because setting a key on
+// it would overwrite what it holds.
+func withCrossMemoryMarker(current *json.RawMessage) (json.RawMessage, error) {
+	m := map[string]json.RawMessage{}
+	if current != nil && string(bytes.TrimSpace(*current)) != "null" {
+		if json.Unmarshal(*current, &m) != nil || m == nil {
+			return nil, exitcode.Newf(exitcode.Usage,
+				"the route edge's data is not an object, so the cross-memory marker cannot be added without overwriting it; nothing was written")
 		}
 	}
-	m[crossMemoryKey] = true
+	m[crossMemoryKey] = json.RawMessage("true")
 	return json.Marshal(m)
 }

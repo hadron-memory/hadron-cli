@@ -46,7 +46,7 @@ against the route labels, so this is the router as they see it. A route
 whose target cannot be read lists with status ` + "`broken`" + ` — it sends
 the reader nowhere.
 
-The SCOPE column reads cross-memory for a route marked as an intentional
+The MARKER column reads cross-memory for a route marked as an intentional
 cross-memory route (` + "`preflight route --cross-memory`" + `), and --json carries
 crossMemory on every row; lint does not warn that such a route moved memory.
 
@@ -92,15 +92,15 @@ outgoing routes as before.`,
 					return nil
 				}
 				if model == modelLeaf {
-					t := output.NewTable(w, "TARGET", "STATUS", "MODEL", "LABEL", "SCOPE")
+					t := output.NewTable(w, "TARGET", "STATUS", "MODEL", "LABEL", "MARKER")
 					for _, r := range rows {
-						t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(r.Model), output.SafeCell(dash(r.Label)), scopeCell(r.CrossMemory))
+						t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(r.Model), output.SafeCell(dash(r.Label)), markerCell(r.CrossMemory))
 					}
 					return t.Flush()
 				}
-				t := output.NewTable(w, "TARGET", "STATUS", "LABEL", "SCOPE")
+				t := output.NewTable(w, "TARGET", "STATUS", "LABEL", "MARKER")
 				for _, r := range rows {
-					t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(dash(r.Label)), scopeCell(r.CrossMemory))
+					t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(dash(r.Label)), markerCell(r.CrossMemory))
 				}
 				return t.Flush()
 			})
@@ -119,9 +119,9 @@ outgoing routes as before.`,
 	return cmd
 }
 
-// scopeCell is the SCOPE column: "cross-memory" for a route marked intentional
+// markerCell is the MARKER column: "cross-memory" for a route marked intentional
 // (cli#2736), otherwise a dash.
-func scopeCell(crossMemory bool) string {
+func markerCell(crossMemory bool) string {
 	if crossMemory {
 		return "cross-memory"
 	}

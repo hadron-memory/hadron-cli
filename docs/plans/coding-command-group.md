@@ -230,7 +230,7 @@ keeping its other data). The marker is never in the edge NAME, which cor:dmo:060
 makes non-behavioral. `preflight lint` skips only the moved-memory comparison for
 a marked route, at both firing sites (the router's outgoing route and the leaf
 model's incoming edge); `route-target-resolves`, `route-target-retired` and the
-label rules apply unchanged. `preflight list` shows it (SCOPE column; `crossMemory`
+label rules apply unchanged. `preflight list` shows it (MARKER column; `crossMemory`
 in `--json`). No server change: it uses the edge's existing `data`, which
 `GetNode`, `GetNodeRaw` and `NextNode` now select. `preflight create` cannot take
 the flag: it always creates the node in the router's own memory.
