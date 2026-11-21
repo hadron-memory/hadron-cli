@@ -124,12 +124,15 @@ func TestVisibleMemoryGrantKeepsDashForNoRegister2868(t *testing.T) {
 	}
 }
 
-// The incomplete-grant check keeps id and appId: a row with no id (or no app) is
-// still refused, and a null prefix is never the reason.
+// The incomplete-grant check keeps id and appId, and refuses an EMPTY (non-null) prefix: the
+// server withholds with null, never "", and no grant covers an empty loc prefix. A null prefix
+// is never the reason (the concealed rows above are shown). The empty-prefix case is also
+// pinned for revoke and list by TestMemoryGrant1468IncompleteMetadataRefused.
 func TestIncompleteMemoryGrantStillRefusedWithoutIDOrApp2868(t *testing.T) {
 	for name, row := range map[string]string{
-		"no id":  strings.Replace(concealedGrant2868, `"id":"g1"`, `"id":""`, 1),
-		"no app": strings.Replace(concealedGrant2868, `"appId":"a1"`, `"appId":""`, 1),
+		"no id":        strings.Replace(concealedGrant2868, `"id":"g1"`, `"id":""`, 1),
+		"no app":       strings.Replace(concealedGrant2868, `"appId":"a1"`, `"appId":""`, 1),
+		"empty prefix": strings.Replace(concealedGrant2868, `"prefix":null`, `"prefix":""`, 1),
 	} {
 		srv, _ := captureGraphQL(t, map[string]string{"RevokeAppMemoryWriteGrant": `{"data":{"revokeAppMemoryWriteGrant":` + row + `}}`})
 		f, _ := testFactory(t)
@@ -138,6 +141,24 @@ func TestIncompleteMemoryGrantStillRefusedWithoutIDOrApp2868(t *testing.T) {
 		err := root.Execute()
 		if err == nil || !strings.Contains(err.Error(), "incomplete memory write grant") {
 			t.Errorf("%s: must still be refused as incomplete: %v", name, err)
+		}
+	}
+}
+
+// A null prefix on a row whose target memory IS visible is shown too (never rejected, never
+// inferred): prefix reads ?, and the register keeps - because the memory is not concealed.
+func TestNullPrefixOnAVisibleTargetIsShown2868(t *testing.T) {
+	row := strings.Replace(strings.Replace(concealedGrant2868, `"memoryUrn":null`, `"memoryUrn":"hrn:mem:acme.com:notes"`, 1), `"registerNodeUrn":null`, `"registerNodeUrn":null`, 1)
+	srv, _ := captureGraphQL(t, map[string]string{"RevokeAppMemoryWriteGrant": `{"data":{"revokeAppMemoryWriteGrant":` + row + `}}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "memory-grant", "rm", "g1", "--yes", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("a null prefix must not reject the row: %v", err)
+	}
+	for _, want := range []string{"memory: hrn:mem:acme.com:notes\n", "prefix: ?\n", "register: -\n"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("text lacks %q:\n%s", want, out.String())
 		}
 	}
 }
