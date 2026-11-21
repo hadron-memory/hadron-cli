@@ -11,6 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vektah/gqlparser/v2"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
+	"github.com/vektah/gqlparser/v2/validator"
+
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
@@ -23,27 +28,104 @@ import (
 // comparing versions, and never by resending a write that may have executed
 // (cor:api:220:01); it is deliberately not built.
 
-// retiredAgentTaskArg matches the pre-hadron-server#4782 spelling of the 16
-// agent-task argument spellings (cli#2897): the mutations' `taskId:`, `agentTask(id:)`,
-// the list reads' `parentTaskId:` filter, and the events reads' `taskId:`
-// filter. The server renamed them to taskRef / ref / parentTaskRef with no
-// alias, so a document that still sends the old name fails on a current server
+// retiredAgentTaskArg matches the pre-hadron-server#4782 spellings of the 16
+// agent-task arguments (cli#2897; 11 mutations, agentTask, 2 list reads, 2
+// events reads): a mutation's or read's `taskId:` / `id:` / `parentTaskId:`
+// argument. It is tolerant of argument order, whitespace and newlines inside the
+// argument list. The server renamed them to taskRef / ref / parentTaskRef with
+// no alias, so a document still sending the old name fails on a current server
 // with "Unknown argument". CreateAgentTaskInput.parentTaskId and
-// CloneAgentTaskInput.parentTaskId are INPUT-object fields the server kept; a
-// fragment's `parentTaskId` selection is likewise untouched, so neither matches.
+// CloneAgentTaskInput.parentTaskId are INPUT-object fields the server kept, and a
+// fragment's `parentTaskId` selection is untouched, so neither matches. The
+// authoritative check on the query documents is the schema validation below; this
+// regex is the sweep over the generated client's operation strings.
 var retiredAgentTaskArg = regexp.MustCompile(
-	`\bagentTask\(id:` +
-		`|\b(?:assign|reassign|start|cancel|park|finish|clone|update)AgentTask\(taskId:` +
-		`|\b(?:recordAgentTaskProgress|makeAgentTaskReady|releaseAgentTaskExternalId)\(taskId:` +
-		`|(?m:^\s+parentTaskId:\s*\$)` +
-		`|(?m:^\s+taskId:\s*\$)`)
+	`\bagentTask\s*\([^)]*\bid\s*:` +
+		`|\b(?:assignAgentTask|reassignAgentTask|startAgentTask|cancelAgentTask|parkAgentTask|finishAgentTask|cloneAgentTask|updateAgentTask|recordAgentTaskProgress|makeAgentTaskReady|releaseAgentTaskExternalId)\s*\([^)]*\btaskId\s*:` +
+		`|\b(?:agentTasks|agentTasksPage)\s*\([^)]*\bparentTaskId\s*:` +
+		`|\b(?:agentTeamEvents|agentTeamEventsPage)\s*\([^)]*\btaskId\s*:`)
+
+// TestRetiredAgentTaskArgRegexShapes2897 pins what the sweep matches and, as
+// importantly, what it must leave alone.
+func TestRetiredAgentTaskArgRegexShapes2897(t *testing.T) {
+	for _, in := range []string{
+		`startAgentTask(taskId: $id)`,
+		"startAgentTask(\n  taskId: $id)",
+		`startAgentTask( taskId : $id )`,
+		`cloneAgentTask(input: $in, taskId: $id)`,
+		`updateAgentTask(input: $i, instruction: $x, taskId: $id)`,
+		`agentTask(id: $id)`,
+		"agentTasks(\n appRef: $a\n parentTaskId: $p\n)",
+		`agentTasksPage(appRef: $a, parentTaskId: $p)`,
+		`agentTeamEventsPage(appRef: $a, since: $s, taskId: $t)`,
+	} {
+		if !retiredAgentTaskArg.MatchString(in) {
+			t.Errorf("must match, did not: %q", in)
+		}
+	}
+	for _, in := range []string{
+		`startAgentTask(taskRef: $id)`,
+		`agentTask(ref: $id)`,
+		`agentTasks(appRef: $a, parentTaskRef: $p)`,
+		`createAgentTask(input: {parentTaskId: $p})`,
+		`cloneAgentTask(taskRef: $t, input: {parentTaskId: $p})`,
+		"fragment F on AgentTask {\n  parentTaskId\n  id\n}",
+		`agentTaskTree(root: $r)`,
+	} {
+		if m := retiredAgentTaskArg.FindString(in); m != "" {
+			t.Errorf("must not match, matched %q in %q", m, in)
+		}
+	}
+}
+
+// TestQueryDocumentsValidateAgainstTheSnapshot2897 validates every document under
+// queries/ against the committed SDL with the same validator family the server
+// uses, so a retired argument in ANY position or spacing fails here as "Unknown
+// argument" does on a server (independent of the regex above).
+func TestQueryDocumentsValidateAgainstTheSnapshot2897(t *testing.T) {
+	sdl, err := os.ReadFile("../../schema/schema.graphql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema, perr := gqlparser.LoadSchema(&ast.Source{Name: "schema.graphql", Input: string(sdl)})
+	if perr != nil {
+		t.Fatalf("schema snapshot does not load: %v", perr)
+	}
+	files, err := filepath.Glob("queries/*.graphql")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no query documents found: err=%v files=%d", err, len(files))
+	}
+	var sources []*ast.Source
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		sources = append(sources, &ast.Source{Name: f, Input: string(raw)})
+	}
+	merged := &ast.QueryDocument{}
+	for _, src := range sources {
+		d, qerr := parser.ParseQuery(src)
+		if qerr != nil {
+			t.Fatalf("%s does not parse: %v", src.Name, qerr)
+		}
+		merged.Operations = append(merged.Operations, d.Operations...)
+		merged.Fragments = append(merged.Fragments, d.Fragments...)
+	}
+	for _, e := range validator.Validate(schema, merged) {
+		t.Errorf("document does not validate against the snapshot: %v", e)
+	}
+}
 
 // TestNoRetiredAgentTaskArgsInAnyQueryDocument2897 sweeps every document under
 // queries/ and pins the new spelling in the schema snapshot it is generated from.
 func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 	files, err := filepath.Glob("queries/*.graphql")
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no query documents found: %v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) == 0 {
+		t.Fatal("no query documents found")
 	}
 	for _, f := range files {
 		raw, err := os.ReadFile(f)
@@ -58,23 +140,39 @@ func TestNoRetiredAgentTaskArgsInAnyQueryDocument2897(t *testing.T) {
 	// The operation strings actually sent live in the generated client; sweep
 	// them too, so a stale generate (documents fixed, generated.go not) is red.
 	genFiles, err := filepath.Glob("gen/*.go")
-	if err != nil || len(genFiles) == 0 {
-		t.Fatalf("no generated client found: %v", err)
+	if err != nil {
+		t.Fatal(err)
 	}
-	newSpelling := false
+	var generated []string
 	for _, f := range genFiles {
 		raw, err := os.ReadFile(f)
 		if err != nil {
 			t.Fatal(err)
 		}
+		if !strings.Contains(string(raw[:min(len(raw), 512)]), "Code generated") {
+			continue // only genqlient output, not a hand-written file in gen/
+		}
+		generated = append(generated, string(raw))
 		for _, m := range retiredAgentTaskArg.FindAllString(string(raw), -1) {
 			t.Errorf("%s still sends a retired agent-task argument: %q (run make generate)", f, strings.TrimSpace(m))
 		}
-		// Positive control: a silent non-match must not pass.
-		newSpelling = newSpelling || strings.Contains(string(raw), "startAgentTask(taskRef:")
 	}
-	if !newSpelling {
-		t.Error("gen/*.go never sends startAgentTask(taskRef:): the sweep matched nothing, or the client is stale")
+	if len(generated) == 0 {
+		t.Fatal("no generated client found under gen/")
+	}
+	// Positive control for EVERY renamed operation: the new spelling is present,
+	// so a silent non-match of the regex above cannot pass.
+	all := strings.Join(generated, "\n")
+	for _, want := range []string{
+		"assignAgentTask(taskRef:", "reassignAgentTask(taskRef:", "startAgentTask(taskRef:",
+		"cancelAgentTask(taskRef:", "parkAgentTask(taskRef:", "finishAgentTask(taskRef:",
+		"cloneAgentTask(taskRef:", "updateAgentTask(taskRef:", "recordAgentTaskProgress(taskRef:",
+		"makeAgentTaskReady(taskRef:", "releaseAgentTaskExternalId(taskRef:",
+		"agentTask(ref:", "parentTaskRef:",
+	} {
+		if !strings.Contains(all, want) {
+			t.Errorf("the generated client never sends %q: stale client or the sweep is blind", want)
+		}
 	}
 
 	sdl, err := os.ReadFile("../../schema/schema.graphql")
