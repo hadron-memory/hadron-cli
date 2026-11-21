@@ -150,8 +150,8 @@ func newCmdKeyScopeRevoke(f *cmdutil.Factory) *cobra.Command {
 		Use:   "revoke <key-id> <scope>",
 		Short: "Take a scope back from an App key",
 		Long: `Take a scope back from an App key, by key id and scope name. A scope is
-something a key may do beyond authenticating as its App: attention:deliver or
-host:operate ("hadron app key scope --help" says what each lets a key do).
+something a key may do beyond authenticating as its App; "hadron app key scope
+catalogue" lists the scopes and what each permits.
 "hadron app key list <app-ref> --scopes" shows which scopes each key holds now.
 
 The key's next call that needs the scope is refused. Revoking a scope the key

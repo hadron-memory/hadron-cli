@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/spf13/cobra"
 )
 
 // cli#2823: `hadron app key scope catalogue` reads Query.appKeyScopeCatalogue,
@@ -170,4 +171,25 @@ func TestAppKeyScopeCatalogue2823HostileCellsAreSanitized(t *testing.T) {
 	if strings.Count(r.out, "\n") != 2 { // header + one row, no injected line
 		t.Fatalf("a newline in a cell injected a line: %q", r.out)
 	}
+}
+
+// cli#2823 (FIT, cor:aut:010:03): the CLI keeps no copy of the scope list, so no Long help
+// under `app key` names attention:deliver (host:operate is named only for the --host-id rule
+// the CLI itself acts on). A new copy of the list in any of them fails this.
+func TestAppKeyHelpKeepsNoCopyOfTheScopeList2823(t *testing.T) {
+	f, _ := testFactory(t)
+	key, _, err := NewRootCmd(f).Find([]string{"app", "key"})
+	if err != nil || key == nil || key.Name() != "key" {
+		t.Fatalf("app key not found: %v", err)
+	}
+	var visit func(path string, c *cobra.Command)
+	visit = func(path string, c *cobra.Command) {
+		if strings.Contains(c.Long, "attention:deliver") {
+			t.Errorf("%s: Long help names attention:deliver; point at `hadron app key scope catalogue` instead", path)
+		}
+		for _, sub := range c.Commands() {
+			visit(path+" "+sub.Name(), sub)
+		}
+	}
+	visit("app key", key)
 }
