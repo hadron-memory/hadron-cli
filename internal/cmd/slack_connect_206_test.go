@@ -345,11 +345,13 @@ func runSlackRendered(t *testing.T, wire string, jsonMode bool, args ...string) 
 	if err != nil {
 		renderError(f, err)
 	}
-	stderr, _ := f.IOStreams.ErrOut.(fmt.Stringer)
-	all = out.String()
-	if stderr != nil {
-		all += stderr.String()
+	// Fail rather than skip: a stream that cannot be inspected would let a leak
+	// on it pass unseen.
+	stderr, ok := f.IOStreams.ErrOut.(fmt.Stringer)
+	if !ok {
+		t.Fatal("stderr cannot be inspected: the helper needs a Stringer stream")
 	}
+	all = out.String() + stderr.String()
 	return all, int(atomic.LoadInt32(&n)), err
 }
 
@@ -524,7 +526,7 @@ func TestSlackConnectRecoveryTextNeverPrintsATokenTypedAsTheOrg(t *testing.T) {
 				// Dara (blind P2): a value holding a token is not printed at all, so the
 				// pointer asks for the real reference instead of a "[redacted]" command.
 				// Jane/Eden: no --org filter at all, so the command runs as printed.
-				if !strings.Contains(all, "check with: hadron slack status (") || strings.Contains(all, "--org") || strings.Contains(all, "[redacted]") {
+				if !strings.Contains(all, "Check with: hadron slack status") || strings.Contains(all, "slack status (") || strings.Contains(all, "--org") || strings.Contains(all, "[redacted]") {
 					t.Errorf("the recovery pointer must be the unfiltered, runnable command and token-free: %s", all)
 				}
 			})
@@ -641,7 +643,7 @@ func TestSlackConnectApostropheTokenTypedAsTheOrgIsNeverPrinted(t *testing.T) {
 						t.Errorf("a fragment of the token (%q) reached the output:\n%s", frag, all)
 					}
 				}
-				if !strings.Contains(all, "check with: hadron slack status (") {
+				if !strings.Contains(all, "Check with: hadron slack status") {
 					t.Errorf("the unfiltered command must survive: %s", all)
 				}
 			})
@@ -677,7 +679,63 @@ func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
 // with the terminator and no prose double quotes around the command.
 func TestSlackDisconnectOutcomeUnknownSuggestsOneQuotedCommand(t *testing.T) {
 	_, _, n, e := runSlackWrite(t, "DeleteSlackConnection", `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, "", "disconnect", "--yes", "a b$(x)")
-	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "with: hadron slack get -- 'a b$(x)'") || strings.Contains(e.Error(), `"hadron slack get`) {
+	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "Check whether it still exists with: hadron slack get -- 'a b$(x)'") || strings.Contains(e.Error(), `"hadron slack get`) {
 		t.Fatalf("err=%v requests=%d", e, n)
+	}
+}
+
+// Beckett (blind P2): a suggested command is the LAST thing in its message, with
+// no parenthetical after it and, on a mutation error, the server's text BEFORE it.
+func TestSlackConnectRecoveryCommandIsLastEvenWithAServerError(t *testing.T) {
+	bot := tokenFile(t, "bot", botTok)
+	app := tokenFile(t, "app", appTok)
+	args := []string{"connect", "--org", "acme.com", "--app", appID, "--bot-token-file", bot, "--app-token-file", app}
+	for name, wire := range map[string]string{
+		"null answer": `{"data":{"createSlackConnection":null}}`,
+		"ambiguous":   `{"errors":[{"message":"upstream boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, _, e := runSlackRendered(t, wire, false, args...)
+			if e == nil || !strings.HasSuffix(e.Error(), "Check with: hadron slack status --org=acme.com") {
+				t.Fatalf("the command must end the message:\n%v", e)
+			}
+			if name == "ambiguous" && strings.Index(e.Error(), "upstream boom") > strings.Index(e.Error(), "Check with:") {
+				t.Errorf("the server's text must come before the command: %v", e)
+			}
+		})
+	}
+}
+
+// Beckett (blind P2): "-" is refused on a terminal for EITHER token flag before
+// any source is opened, so a blocking FIFO in the other position cannot hang the
+// command before the invalid invocation is reported.
+func TestSlackConnectRefusesStdinFromATerminalInEitherPositionBeforeOpeningAnything(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "never-opened")
+	for name, args := range map[string][]string{
+		"app token is -": {"--bot-token-file", missing, "--app-token-file", "-"},
+		"bot token is -": {"--bot-token-file", "-", "--app-token-file", missing},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var n int32
+			srv, _ := captureGraphQLFunc(t, func(string) string { atomic.AddInt32(&n, 1); return "" })
+			f, _, _ := testFactoryTTY(t, botTok+"\n")
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"slack", "connect", "--org", "o1", "--app", appID}, args...), "--server", srv.URL))
+			e := root.Execute()
+			// The other source does not exist: had it been opened first, the error
+			// would be "the file was not found", not the terminal refusal.
+			if e == nil || atomic.LoadInt32(&n) != 0 || !strings.Contains(e.Error(), "which is a terminal") || strings.Contains(e.Error(), "not found") {
+				t.Fatalf("err=%v requests=%d", e, n)
+			}
+		})
+	}
+}
+
+// Beckett (P3): the fallback for an id the CLI will not print is a runnable
+// command, never an angle-bracket placeholder (shell syntax).
+func TestSlackDisconnectUnprintableIDFallbackIsRunnable(t *testing.T) {
+	_, _, _, e := runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "--yes", "a\x1bb")
+	if e == nil || strings.ContainsAny(e.Error(), "<>\x1b") || !strings.HasSuffix(e.Error(), "by listing connections with: hadron slack status") {
+		t.Fatalf("err=%v", e)
 	}
 }
