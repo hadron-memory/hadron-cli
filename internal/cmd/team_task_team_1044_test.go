@@ -94,12 +94,15 @@ func (t task1044) json() string {
 		ident, t.id, status, t.owner, assignee, creator, parent, created, ts1044(t.updatedAt), ts1044(t.startedAt))
 }
 
-func taskPage1044(tasks []task1044) string {
+// taskPage1044 is one agentTasksPage answer for these rows. total is the
+// page's own row count: the --team walk this helper serves reads items and
+// hasMore only. hasMore says whether the fixture wants another page served.
+func taskPage1044(tasks []task1044, hasMore bool) string {
 	rows := make([]string, 0, len(tasks))
 	for _, t := range tasks {
 		rows = append(rows, t.json())
 	}
-	return `{"data":{"agentTasks":[` + strings.Join(rows, ",") + `]}}`
+	return taskPage2734(strings.Join(rows, ","), len(tasks), hasMore)
 }
 
 // The App's tasks, newest first as the server orders them.
@@ -132,9 +135,9 @@ func run1044(t *testing.T, roster []string, pages [][]task1044, argv ...string) 
 	n := 0
 	setPage := func() {
 		if n < len(pages) {
-			responses["AgentTaskList"] = taskPage1044(pages[n])
+			responses["AgentTaskList"] = taskPage1044(pages[n], n < len(pages)-1)
 		} else {
-			responses["AgentTaskList"] = `{"data":{"agentTasks":[]}}`
+			responses["AgentTaskList"] = taskPage2734("", 0, false)
 		}
 	}
 	setPage()

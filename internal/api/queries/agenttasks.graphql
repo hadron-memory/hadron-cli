@@ -296,8 +296,9 @@ mutation AgentTaskCreateBatch(
   }
 }
 
-# Plain list read; paging is limit/offset against a bounded result. The
-# filters map 1:1 onto `team task list` flags.
+# Plain list read; paging is limit/offset against a bounded page (cli#2734,
+# server#4622): items is one page, total counts the whole filter, hasMore is
+# the server's page end. The filters map 1:1 onto `team task list` flags.
 query AgentTaskList(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -319,7 +320,7 @@ query AgentTaskList(
   # @genqlient(omitempty: true)
   $tag: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     assignee: $assignee
     limit: $limit
@@ -331,7 +332,11 @@ query AgentTaskList(
     status: $status
     tag: $tag
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -359,7 +364,7 @@ query AgentTaskListText(
   # @genqlient(omitempty: true)
   $text: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     assignee: $assignee
     limit: $limit
@@ -372,7 +377,11 @@ query AgentTaskListText(
     tag: $tag
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -736,7 +745,7 @@ query AgentTaskListFiltered(
   # @genqlient(omitempty: true)
   $text: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     assignee: $assignee
     createdAfter: $createdAfter
@@ -762,7 +771,11 @@ query AgentTaskListFiltered(
     tagsAny: $tagsAny
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -1022,7 +1035,7 @@ query AgentTaskListUnresolved(
   # @genqlient(omitempty: true)
   $text: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     unresolvedFindings: $unresolvedFindings
     assignee: $assignee
@@ -1049,7 +1062,11 @@ query AgentTaskListUnresolved(
     tagsAny: $tagsAny
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -1178,7 +1195,7 @@ query AgentTaskListCreator(
   # @genqlient(omitempty: true)
   $creator: AgentTaskPartyInput
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     creator: $creator
     unresolvedFindings: $unresolvedFindings
@@ -1206,7 +1223,11 @@ query AgentTaskListCreator(
     tagsAny: $tagsAny
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 

@@ -145,7 +145,7 @@ func taskResponses() map[string]string {
 		"AgentTaskPark":              `{"data":{"parkAgentTask":` + backlogTaskFieldsJSON + `}}`,
 		"AgentTaskReady":             `{"data":{"makeAgentTaskReady":` + taskFieldsJSON + `}}`,
 		"AgentTaskGet":               `{"data":{"agentTask":` + taskFieldsJSON + `}}`,
-		"AgentTaskList":              `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`,
+		"AgentTaskList":              taskPage2734(taskFieldsJSON, 1, false),
 		"AgentTaskTree":              `{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`,
 		"AgentTeamEventsPage":        `{"data":{"agentTeamEventsPage":{"events":[` + eventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`,
 		"AlarmAcknowledge":           `{"data":{"acknowledgeAlarm":` + ackedAlarmEventFieldsJSON + `}}`,

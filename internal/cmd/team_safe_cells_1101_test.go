@@ -194,7 +194,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		for op, body := range base {
 			r[op] = body
 		}
-		r["AgentTaskList"] = `{"data":{"agentTasks":[` + startedTaskFieldsJSON + `]}}`
+		r["AgentTaskList"] = taskPage2734(startedTaskFieldsJSON, 1, false)
 		return r
 	}
 	// The availability family row carries a reason but no until on main; the
