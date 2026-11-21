@@ -13,8 +13,10 @@ maps every Query and Mutation field to one of:
 - `command <path>`: a command reaches it;
 - `gap #<issue>`: nothing reaches it yet, and the issue tracks it;
 - `excluded <class>: <reason>`: deliberately left out. The classes are the
-  ones cor:api:240:02 and Holger's 2026-10-30 ruling allow: `internal`,
-  `host-protocol`, `deprecated`, `not-a-capability` and `graphical`.
+  scanner's five accepted labels: `internal`, `host-protocol`, `deprecated`,
+  `not-a-capability` and `graphical`. Graphical exceptions excuse only the view.
+  Acceptance of the non-graphical classes remains Holger's open question under
+  cor:api:240:02; a syntactically accepted label is not a ruling.
 
 Two more sections go below the operation level:
 
@@ -102,3 +104,52 @@ issues (#58, #60, #61, #63, #64, #65, #198, #206, #215, #230, #231, #275, #811,
 #828, #878, #890, #911, #913, #933, #936, #1010, #1043, #1181, #1304,
 #1333). Every exclusion is listed in the matrix with its reason, for the specs
 engineer's check against cor:api:240:02.
+
+## Residual reconciliation (2026-11-21, #1334)
+
+Source snapshot: CLI main `acb0bb95f593a69a1afce130cccf9a3d14089a56`; server
+main `ef26d5856de6c33f99e4b29a5e9af2bee6875f75`. This is a dated audit, not
+a promise that issue states or counts stay current. The matrix's reachability
+scanner and offline guard are unchanged. No schema refresh or command build is
+part of this reconciliation.
+
+| Section | Total | Command / flag | Gap | Excluded |
+|---|---:|---:|---:|---:|
+| Query | 237 | 203 | 8 | 26 |
+| Mutation | 359 | 328 | 19 | 12 |
+| Arguments | 37 | 0 | 16 | 21 |
+| Filters | 76 | 68 | 3 | 5 |
+
+The 46 gap rows name 16 open issues at this audit. Pointers use the most specific
+open owning child: App-agent sessions #2510, git push #2513, ticker instruction
+#2773, team/host/wake instruction #2774, and snapshot-grant filters #2775. The
+parents remain trackers. Closed duplicate #1880's four rows now name #1846.
+Closed-stale #890's unbuilt residuals now have fresh tracking children #2788
+(org grants and paged subscription reads) and #2789 (personal subscription
+revoke, including its memory-deletion side effect). Closed #684's still-unreached
+`importNode(input.authoredWith)` now names #2790; this does not reopen its
+declined scaffolding. Filing those children is not a gate or a build dispatch.
+
+Compared MCP registrations and Express routes against server `94d33f45`. The
+22 added MCP tools all call existing GraphQL resolvers (Agent boot prompt,
+automation read/snapshot grants, grant create, Questions, secret metadata,
+content validation and web polls). The 71 removed team tools are disabled in
+code, not inferred from a principal's tool list.
+
+Twenty new HTTP registration expressions include constant/template paths, not
+just literal strings. Eighteen are the node-signing, grant-signing and person
+secret-reveal browser protocols; GraphQL exposes their request/read/withdraw
+entry points and the server-built person reveal URL. Assertion completion stays
+on the browser ceremony, as the SDL requires, just as OAuth follow-on protocol
+was excluded from GraphQL by the original audit. One is mailbox browser-bound
+confirmation after the existing GraphQL connection start. One is operational
+`GET /ready`. No newly unreachable server-only capability was found; no
+assertion-bearing GraphQL endpoint is proposed. These are static source checks,
+not live-deployment or user-journey validation. The issue thread is the evidence record for the
+complete tool-to-resolver map, route-family inventory, issue-state table and
+specs-engineer verdict on new/changed exclusions; freeze waits for that verdict.
+
+The optional network issue-liveness guard was not added: offline CI continues
+to check scanner/file consistency without calling GitHub. No new guard means
+no red-first behavioral test is needed for this bookkeeping change. There is
+still no global parity claim while any row is a gap.
