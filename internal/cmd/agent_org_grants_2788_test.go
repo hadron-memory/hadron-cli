@@ -470,3 +470,63 @@ func TestSubscriptionExplicitOffsetZeroIsSent2788(t *testing.T) {
 		t.Errorf("an explicit --offset 0 must be sent, got %v", fk.vars["MyAgentSubscriptionsPage"][0])
 	}
 }
+
+// BLIND P2 #1 (round 2): a subscription created mid-walk shifts newest-first
+// rows and raises the total by one, so len==total can hold with a duplicate and
+// a missing row. --all pins the first page's total and rejects a repeated key.
+func TestSubscriptionAllPinsTotalAndRejectsRepeatedRows2788(t *testing.T) {
+	t.Run("total moved mid-walk", func(t *testing.T) {
+		_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
+			page2788("myAgentSubscriptionsPage", 3, true, sub2788(1), sub2788(2)),
+			page2788("myAgentSubscriptionsPage", 4, false, sub2788(2), sub2788(3)),
+		}}, "list", "--mine", "--all", "--json")
+		if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "changed") {
+			t.Fatalf("a total that moved mid-walk must be refused: %v", err)
+		}
+		if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+			t.Errorf("never complete:true here: %s", out)
+		}
+	})
+	t.Run("repeated row with a stable total", func(t *testing.T) {
+		_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
+			page2788("myAgentSubscriptionsPage", 3, true, sub2788(1), sub2788(2)),
+			page2788("myAgentSubscriptionsPage", 3, false, sub2788(2)),
+		}}, "list", "--mine", "--all", "--json")
+		if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "twice") {
+			t.Fatalf("a repeated row must be refused: %v", err)
+		}
+		if strings.Contains(out, `"complete": true`) || strings.Contains(out, `"complete":true`) {
+			t.Errorf("never complete:true here: %s", out)
+		}
+	})
+}
+
+// BLIND P2 #2 (round 2): add/revoke do not print success for a returned state
+// that contradicts the request. The write happened, so this is not "unknown".
+func TestSubscriptionWriteChecksReturnedState2788(t *testing.T) {
+	_, out, err := grants2788Run(t, map[string][]grants2788Reply{
+		"SubscribeOrgToAgent": {{body: `{"data":{"createAgentOrgGrant":` + fmt.Sprintf(grant2788, false, `"2026-02-01T00:00:00Z"`) + `}}`}},
+	}, "add", "--org", "o", "--agent", "a")
+	if err == nil || exitCodeFor(err) != exitcode.Error || strings.Contains(out, "Subscribed") {
+		t.Errorf("add that came back revoked must not print success (out %q): %v", out, err)
+	}
+	_, out, err = grants2788Run(t, map[string][]grants2788Reply{
+		"UnsubscribeOrgFromAgent": {{body: `{"data":{"revokeAgentOrgGrant":` + fmt.Sprintf(grant2788, true, "null") + `}}`}},
+	}, "revoke", "--org", "o", "--agent", "a", "--yes")
+	if err == nil || exitCodeFor(err) != exitcode.Error || strings.Contains(out, "Revoked") {
+		t.Errorf("revoke that came back active must not print success (out %q): %v", out, err)
+	}
+}
+
+// BLIND P3: at offset 0 an inconsistent answer must not say "use --offset 0".
+func TestSubscriptionOffsetZeroHintNotCircular2788(t *testing.T) {
+	_, out, err := grants2788Run(t, map[string][]grants2788Reply{"MyAgentSubscriptionsPage": {
+		page2788("myAgentSubscriptionsPage", 5, false, sub2788(1)),
+	}}, "list", "--mine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "Use --offset 0") {
+		t.Errorf("circular advice at offset 0: %q", out)
+	}
+}
