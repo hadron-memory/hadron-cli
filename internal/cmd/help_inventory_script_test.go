@@ -284,9 +284,10 @@ func TestHelpInventoryHasNoVersionDependency(t *testing.T) {
 	for _, version := range []string{"if [ \"$1\" = \"--version\" ]; then echo 'hadron dev'; exit 0; fi", "if [ \"$1\" = \"--version\" ]; then echo 'version must not be read' >&2; exit 97; fi"} {
 		marker := filepath.Join(t.TempDir(), "version-called")
 		version = strings.Replace(version, "then ", "then printf called >> "+shellQuote1126(marker)+"; ", 1)
-		start := strings.Index(fakeHadron, "if [ \"$1\" = \"--version\" ]")
-		end := start + strings.Index(fakeHadron[start:], "\n")
-		body := fakeHadron[:start] + version + fakeHadron[end:]
+		body, err := replaceInventoryVersionBranch(fakeHadron, version)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if got := inventoryOK1126(t, inventoryStandIn1126(t, body), ""); got != base {
 			t.Fatal("version behaviour changed the inventory (cli#2310)")
 		}
@@ -294,6 +295,12 @@ func TestHelpInventoryHasNoVersionDependency(t *testing.T) {
 			t.Fatalf("generator read --version: %v", err)
 		}
 	}
+}
+
+func replaceInventoryVersionBranch(body, version string) (string, error) {
+	start := strings.Index(body, "if [ \"$1\" = \"--version\" ]")
+	end := start + strings.Index(body[start:], "\n")
+	return body[:start] + version + body[end:], nil
 }
 
 func shellQuote1126(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
