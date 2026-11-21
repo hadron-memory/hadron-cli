@@ -10,6 +10,14 @@ import (
 
 type encryptionCtx struct{}
 
+func isEncryption(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	encryption, ok := ctx.Value(encryptionCtx{}).(bool)
+	return ok && encryption
+}
+
 // WithoutKeyMaterial keeps authentication and attribution, but overrides any
 // inherited --unlock/operation key. Encryption lookups must never carry them:
 // a first-encryption key on a plaintext memory is valid only on the mutation.
@@ -66,7 +74,7 @@ func encryptionRefusal(list gqlerror.List) error {
 		case "UNAUTHENTICATED":
 			text = "memory encryption needs an authenticated owner or the owning App's completion key"
 		}
-		return &serverCodeError{error: exitcode.Newf(exit, "memory encrypt refused (%s): %s. No argument fallback was attempted", code, text), code: code}
+		return &serverCodeError{error: exitcode.Newf(exit, "memory encrypt refused (%s): %s", code, text), code: code}
 	}
 	return nil
 }

@@ -210,10 +210,8 @@ var unlockCodeText = map[string]string{
 // from a resolver and keeps its ordinary mapping. The server's message is NOT
 // repeated: a fixed sentence per code cannot carry a secret back.
 func unlockRefusal(ctx context.Context, list gqlerror.List) error {
-	if ctx != nil {
-		if encryption, _ := ctx.Value(encryptionCtx{}).(bool); encryption {
-			return encryptionRefusal(list)
-		}
+	if isEncryption(ctx) {
+		return encryptionRefusal(list)
 	}
 	if !HasMemoryKeys(ctx) {
 		return nil

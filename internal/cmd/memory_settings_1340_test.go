@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -369,7 +370,34 @@ func TestMemoryEncryptPassphrase1340(t *testing.T) {
 	if err := os.WriteFile(p, []byte("correct horse battery staple\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	captured, out, err := run1340(t, responses, "memory", "encrypt", "jane:diary", "--passphrase-file", p, "--yes", "--json")
+	if runtime.GOOS == "windows" {
+		t.Skip("private file sources are unsupported on Windows; stdin is covered in header tests")
+	}
+	gql, reqs := captureLinkUserGraphQL(t, responses)
+	f, output := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "encrypt", "jane:diary", "--passphrase-file", p, "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
+	out := output.String()
+	captured := map[string]json.RawMessage{}
+	seen := 0
+	for _, r := range *reqs {
+		var request struct{ Variables json.RawMessage }
+		if e := json.Unmarshal([]byte(r.Body), &request); e != nil {
+			t.Fatal(e)
+		}
+		captured[r.Op] = request.Variables
+		if r.Op == "EncryptMemory" {
+			seen++
+			var entries []map[string]string
+			if e := json.Unmarshal([]byte(r.MemoryKeys), &entries); e != nil || len(entries) != 1 || entries[0]["passphrase"] != "correct horse battery staple" || entries[0]["memory"] != "m1" {
+				t.Fatalf("trimmed passphrase did not reach target header: %v", e)
+			}
+		}
+	}
+	if seen != 1 {
+		t.Fatalf("want one mutation, got%d", seen)
+	}
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}

@@ -81,8 +81,7 @@ func (s *encrypt1650Fake) serve(w http.ResponseWriter, r *http.Request) {
 		ans = strings.ReplaceAll(ans, "SENTINEL", encrypt1650Secret)
 		_, _ = io.WriteString(w, ans)
 	default:
-		t := `{"errors":[{"message":"unexpected operation"}]}`
-		_, _ = io.WriteString(w, t)
+		_, _ = io.WriteString(w, `{"errors":[{"message":"unexpected operation"}]}`)
 	}
 }
 func runEncrypt1650(t *testing.T, s *encrypt1650Fake, extra ...string) (string, string, error) {
@@ -163,8 +162,8 @@ func TestEncryptMemoryHeadersScoped1650(t *testing.T) {
 func TestEncryptMemoryAppPassphraseRefused1650(t *testing.T) {
 	s := &encrypt1650Fake{principal: "APP"}
 	_, _, err := runEncrypt1650(t, s, "--passphrase-file", "-")
-	if err == nil || exitCodeFor(err) != 2 {
-		t.Fatalf("want usage refusal, got %v", err)
+	if err == nil || exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "an App key can complete encryption with --data-key only; a passphrase is not supported") {
+		t.Fatalf("want specific App-passphrase usage refusal, got %v", err)
 	}
 	for _, r := range s.calls() {
 		if r.op == "EncryptMemory" {
@@ -195,7 +194,11 @@ func TestEncryptMemoryRefusalsNoFallback1650(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := &encrypt1650Fake{answer: tc.body}
 			out, stderr, err := runEncrypt1650(t, s, "--passphrase-file", "-")
-			if err == nil || !strings.Contains(err.Error(), tc.want) || strings.Contains(err.Error(), "--unlock refused") {
+			wantExit := 2
+			if tc.name == "plaintext" || tc.name == "null" {
+				wantExit = 7
+			}
+			if err == nil || exitCodeFor(err) != wantExit || !strings.Contains(err.Error(), tc.want) || strings.Contains(err.Error(), "--unlock refused") {
 				t.Fatalf("wrong refusal: %v out=%s stderr=%s", err, out, stderr)
 			}
 			n := 0

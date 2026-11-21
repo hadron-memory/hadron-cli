@@ -28,7 +28,7 @@ Both file forms use cmdutil.ReadSecretFile: regular file, mode 600 or stricter,
 identity rechecked on the opened descriptor, no FIFO blocking and no secret path
 in diagnostics. Passphrase files are checked before any network request; stdin
 still waits until confirmation and drops trailing CR/LF only. Data-key trimming,
-literal deprecation warning and output fields are unchanged. --unlock remains
+literal deprecation warning and ordinary output fields are unchanged. --unlock remains
 passphrase-only. Windows cannot check these file permissions and refuses file
 sources; stdin remains supported through the existing helper's contract.
 
@@ -40,7 +40,9 @@ The existing transport still refuses unsafe redirects/schemes and scrubs header
 values from errors at every HTTP status. The dataKey form joins those secrets.
 Post-submission command diagnostics use the same spellings (including escaped
 JSON header/passphrase echoes), detached from the raw error chain. An answer
-repeating a secret is withheld even when isEncrypted is true; metadata never
+repeating a secret has only its secret-bearing metadata fields blanked, with
+`detailsWithheld:true`; exit 0 and `isEncrypted:true` preserve the confirmed write.
+Text prints a fixed success receipt. Other metadata remains unchanged; metadata never
 becomes an echo channel. Bounds are finite, matching existing transport redaction,
 not a claim to recognize every conceivable encoding.
 

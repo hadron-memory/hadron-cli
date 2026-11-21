@@ -16,10 +16,11 @@ import (
 
 // encryptDTO is the stable --json shape for a memory-encryption result.
 type encryptDTO struct {
-	ID          string `json:"id"`
-	URN         string `json:"urn"`
-	Name        string `json:"name"`
-	IsEncrypted bool   `json:"isEncrypted"`
+	ID              string `json:"id"`
+	URN             string `json:"urn"`
+	Name            string `json:"name"`
+	IsEncrypted     bool   `json:"isEncrypted"`
+	DetailsWithheld bool   `json:"detailsWithheld,omitempty"`
 }
 
 func newCmdEncrypt(f *cmdutil.Factory) *cobra.Command {
@@ -48,6 +49,7 @@ Give exactly one of:
                    derives the key from it and stores only the salt, never the
                    key. A trailing newline is dropped; the passphrase is never
                    printed. Files accessible by group or others are refused (chmod 600).
+                   On Windows, use stdin ("-"): file permission checks are unsupported.
 
 What changes afterwards:
   - Content is read back only with the passphrase: add --unlock <memoryRef>
@@ -151,9 +153,6 @@ exit 2).`,
 			if !app && principal.AuthContext.PrincipalType != gen.PrincipalTypeUser {
 				return exitcode.Newf(exitcode.Usage, "memory encryption requires the owner or owning App's completion key; nothing was encrypted")
 			}
-			if app && usePassphrase {
-				return exitcode.Newf(exitcode.Usage, "an App key can complete encryption with --data-key only; a passphrase is not supported. Nothing was encrypted")
-			}
 			encryptCtx, err := api.WithEncryptionKey(cmd.Context(), material, app)
 			if err != nil {
 				return err
@@ -169,14 +168,21 @@ exit 2).`,
 			if resp == nil || resp.EncryptMemory == nil || !resp.EncryptMemory.IsEncrypted {
 				return exitcode.Newf(exitcode.Unavailable, "memory encryption was not confirmed; inspect the memory before retrying. Nothing was retried")
 			}
-			for _, field := range []string{resp.EncryptMemory.Id, resp.EncryptMemory.Urn, resp.EncryptMemory.Name} {
-				if api.RedactEncryptionText(encryptCtx, field) != field {
-					return exitcode.Newf(exitcode.Unavailable, "the encryption answer repeated the submitted secret and was withheld; inspect the memory before retrying. Nothing was retried")
-				}
-			}
 			m := resp.EncryptMemory
 			dto := encryptDTO{ID: m.Id, URN: m.Urn, Name: m.Name, IsEncrypted: m.IsEncrypted}
+			// The write is confirmed. Withhold only sensitive metadata without
+			// turning a committed irreversible operation into an apparent failure.
+			for _, field := range []*string{&dto.ID, &dto.URN, &dto.Name} {
+				if api.RedactEncryptionText(encryptCtx, *field) != *field {
+					*field = ""
+					dto.DetailsWithheld = true
+				}
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if dto.DetailsWithheld {
+					_, err := fmt.Fprintln(w, "✓ encrypted memory (secret-bearing details withheld)")
+					return err
+				}
 				_, err := fmt.Fprintf(w, "✓ encrypted %s (%s)\n", dto.URN, dto.Name)
 				return err
 			})
