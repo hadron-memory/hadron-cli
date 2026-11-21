@@ -178,6 +178,12 @@ func unstubbedDefault(op string) (string, bool) {
 		return `{"data":{"channelReadState":null}}`, true
 	case "TeamDefaultChannel":
 		return `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`, true
+	// cli#2858: `session log`'s unread advisory reads the bound worker's server read
+	// cursor. Answered as a worker with no cursor row, which the advisory reports as
+	// "cannot read your position" (stderr only), so every other session-log test is
+	// unchanged; the advisory's own tests stub the cursor.
+	case "CheckChatCursor":
+		return `{"data":{"channelReadState":null}}`, true
 	case "MarkOwnTeamChatRead":
 		return `{"errors":[{"message":"Team attention is not enabled for this operator and App.","extensions":{"code":"FEATURE_NOT_AVAILABLE"}}]}`, true
 	case "NodeLiveRevisions":

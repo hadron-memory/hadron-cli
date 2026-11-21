@@ -158,3 +158,26 @@ func TestSessionLogUnreadMentionsCountStartsAtTheServerCursor2858(t *testing.T) 
 		t.Errorf("the mentions count must also start at the server cursor: %v", vars)
 	}
 }
+
+// A pre-Worker binding names no worker, so there is no server cursor to read: the advisory
+// says it cannot know and asks the server nothing (a guessed attendee would read someone
+// else's, or no, position).
+func TestSessionLogUnreadWithoutAWorkerSaysItCannotKnow2858(t *testing.T) {
+	binding := strings.Replace(bindingChatSeenFixture, `"workerId":"wkr1",`, "", 1)
+	if binding == bindingChatSeenFixture {
+		t.Fatal("fixture no longer carries a workerId to remove")
+	}
+	errOut, captured := unread2858Run(t, binding, map[string]string{
+		"TeamDefaultChannel": unread2858Channel,
+		"CheckChatCursor":    unread2858CursorStub,
+		"TeamChatMessages":   `{"data":{"teamChatMessages":{"total":9,"items":[]}}}`,
+	})
+	if !strings.Contains(errOut, "cannot read your server-side team-chat read position") || strings.Contains(errOut, "new message") {
+		t.Errorf("a binding without a worker cannot know its position: %q", errOut)
+	}
+	for _, op := range []string{"CheckChatCursor", "TeamChatMessages"} {
+		if _, called := captured[op]; called {
+			t.Errorf("%s must not be asked for without a worker", op)
+		}
+	}
+}
