@@ -45,6 +45,10 @@ func newCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// installProvenanceFloor is the server release date that added AppAgent.installMethod
+// and importer (hadron-server#3446).
+const installProvenanceFloor = "2026-11-05"
+
 func newCmdAgentList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [<app-ref>]",
@@ -65,7 +69,8 @@ Agent got here: "installed" for an Agent installed directly, "derived" for one
 that arrived because another installed Agent imports it, and IMPORTER names that
 Agent. They are answered only when you may read every installed Agent;
 otherwise every row shows "?" and --json has installMethod and importer null,
-which does not tell you how an Agent was installed.
+which does not tell you how an Agent was installed. INSTALL and IMPORTER need
+server ` + installProvenanceFloor + ` or later; an older server answers "?" for every Agent.
 
 BOOT PROMPT (NEXT BIND) is what a new session would be given if it started now:
 the source level, the compiled node and the served revision, or the reason it

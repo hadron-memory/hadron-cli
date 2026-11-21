@@ -85,7 +85,10 @@ Output, one line per field:
 
 The version is the API version, raised when the server's commands or fields
 change. It is not the release number, so don't compare it with a release tag;
-use it to check that a feature you need exists.
+use it to check that a feature you need exists. A help page's "server <date> or
+later" is a release date, which this version does not give: if a page names one
+and a feature seems missing, ask whoever runs the server when it was last
+updated.
 
 url and base url should name the same server. If they differ, a warning line
 follows: the server sits behind a proxy whose public address it was not told,
