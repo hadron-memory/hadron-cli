@@ -295,6 +295,20 @@ const prGroupExample = `  hadron team pr schedule AT0.7850 --slot local --slot b
   hadron team pr readiness AT0.7850 --head 0123456789abcdef0123456789abcdef01234567
   hadron team pr ready AT0.7850 --head 0123456789abcdef0123456789abcdef01234567`
 
+// prReviewOrder is shared by "pr seat" and "pr verdict" (cli#2785). The first
+// two facts are platform behaviour; the receipt remedy is the team's process
+// (the ruling on hadron-server#4494), and says so.
+const prReviewOrder = `
+
+The order is schedule, freeze, seat, verdict, finish; a seat binds only while
+its own task is live. A native negative verdict at a head blocks every slot
+there, so the head must move.
+
+When a seat cannot bind or record (TASK_ENDED, REVIEW_SEAT_UNASSIGNED or
+REVIEW_HEAD_MISMATCH), the team's practice is a signed PR receipt at the exact
+head as the record, and the ready call names the refusal code. That is team
+process, not a platform contract: the server does not enforce it.`
+
 const prSeeGroup = "\nThe flow and the exit codes are on \"hadron team pr --help\"."
 
 var prLeafLong = map[string]string{
@@ -339,7 +353,7 @@ To replace a reviewer or move to a new head, create a new seat task and pass
 the slot's current seat task as --supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED
 if you do not). A seat that already gave CHANGES_REQUESTED, FAIL or REFUSED at
 this head cannot be replaced or moved (REVIEW_SEAT_NOT_SUPERSEDABLE): answer the
-finding with a new head. Prints the seat task and the recorded action.` + prSeeGroup,
+finding with a new head. Prints the seat task and the recorded action.` + prReviewOrder + prSeeGroup,
 
 	"verdict": `Record your verdict on a seat you were assigned, without finishing the seat
 task. Only the seat's assignee may, the task must be STARTED, the seat must
@@ -358,7 +372,7 @@ recorded a negative verdict may re-rate it at that head).
 
 --node names the Hadron node holding your saved review and --receipt the URL of
 your signed PR comment; both are recorded as text, not fetched. Prints the seat
-task and the recorded action.` + prSeeGroup,
+task and the recorded action.` + prReviewOrder + prSeeGroup,
 
 	"readiness": `Show whether every scheduled review is in at a head: READY, or NOT READY with
 a row per slot saying which seat, state and verdict it has and whether it
