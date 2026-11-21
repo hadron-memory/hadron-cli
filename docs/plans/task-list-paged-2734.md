@@ -64,6 +64,20 @@ now; `make schema` (with `HADRON_SERVER_DIR` set deliberately, sibling at
 origin/main) + `make generate` + the Go implementation land rebased behind
 #2801's merge. The snapshot is never hand-patched.
 
+### As built: where the schema and generated code in this diff came from
+
+This branch authored no change to `schema/schema.graphql` or
+`internal/api/gen/generated.go`. The snapshot carrying `agentTasksPage` reached
+main inside #2801 (merged `b653bcc4`, 2026-11-21T13:13:32Z, before this
+branch's base): `git log -S agentTasksPage --oneline -- schema/schema.graphql`
+names exactly one commit, `f69879e5`, which rode that merge. Generated-code
+churn that appears in a fold delta between this PR's heads comes from the
+origin/main merges folded in (e.g. the 72-commit merge `80363441`, which also
+brought `internal/api/queries/secret_read_clients.graphql`), never from a
+commit on this branch. `make generate` is no-drift on every head pushed here
+(CI's generate check gates the same tree), and `make schema-check` guards the
+snapshot against the live server.
+
 ## Out of scope
 
 Server changes; auto-pagination (continuing is a second invocation); other

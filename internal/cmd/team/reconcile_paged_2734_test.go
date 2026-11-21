@@ -42,8 +42,7 @@ func (c *pagedHoldersClient) MakeRequest(ctx context.Context, req *graphql.Reque
 	}
 	// The offset is recorded before any scripted refusal so refusal-shape
 	// tests can pin "the first read, not paged to the bound" — recorded only
-	// after the rawBody return instead, that pin was vacuously true (cli#2734
-	// BLIND round 3).
+	// after the rawBody return instead, that pin could never fail.
 	b, _ := json.Marshal(req.Variables)
 	var v struct {
 		Offset *float64 `json:"offset"`

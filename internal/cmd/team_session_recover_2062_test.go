@@ -62,10 +62,10 @@ func TestSessionRecoverIsReadOnly2062(t *testing.T) {
 	}
 }
 
-// TestSessionRecoverTasksMoreIsTheServersHasMore2734: cli#2734 BLIND round 3
-// kept open the wiring pin — recover's tasksMore is the server's hasMore
-// carried through, not a full-page guess: a short page that claims more rows
-// reports true, a page that ends reports false. The text rendering of the
+// TestSessionRecoverTasksMoreIsTheServersHasMore2734 pins the wiring —
+// recover's tasksMore is the server's hasMore carried through, not a
+// full-page guess: a short page that claims more rows reports true, a page
+// that ends reports false. The text rendering of the
 // field is pinned in team/session_recover_test.go; this pins the extraction.
 func TestSessionRecoverTasksMoreIsTheServersHasMore2734(t *testing.T) {
 	for _, tc := range []struct {
