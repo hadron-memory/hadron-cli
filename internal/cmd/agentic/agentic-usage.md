@@ -2121,7 +2121,10 @@ Conventions:
   write (also in --dry-run). Remove the prefix and retry: the refusal ends with
   the corrected `--title`. Explicit --role keeps its literal-title behavior.
   Without a `<loc>`, `spec new` allocates the next number in the
-  legacy numbering and scaffolds a **tier-appropriate** skeleton — a `## Modules`/`## Features`
+  legacy numbering (for `--new-feature` and `--feature` without `--rule`/`--flow` the SERVER picks it, cli#398: one
+  `allocateSpecNode`, then one revision-guarded fill of that node; no retry, no local fallback; a failed fill leaves the
+  number reserved and `--json` reports `{citation, allocated: true, fillStatus: "refused"|"unknown", reason, recovery: [commands]}` with exit 1/7 — read it, then resume with the `recovery` commands (title, abstract, body, tags, role, edges, the feature's contract), never rerun `spec new`; a filled feature whose contract fails reports `{citation, contractCitation, contractStatus: "refused"|"unknown", fillStatus: "filled", recovery}`; a blank body (an explicit empty `--content` too) is a usage error before any number is reserved; `recovery` commands are shell-quoted and keep the run's tags and `--no-edges`; a lost or unusable allocation answer exits 7 and a placeholder may exist; `--dry-run`
+  reports `allocatesUnder` instead of a citation) and scaffolds a **tier-appropriate** skeleton — a `## Modules`/`## Features`
   index for a product/module root, a load-bearing-point + rule list for a
   feature root, a general-provisions skeleton for a contract, or the
   four-section rubric for a rule/flow
@@ -5279,9 +5282,12 @@ and is not retried. With --json a browser that cannot be opened ends the
 command at once with status "started" (no wait). Connected: exit 0,
 {provider,orgId,authorizeUrl,expiresAt,flowId,browserOpened,
 status:"connected",failureCode:null,connection:{id,provider,mailboxEmail,
-displayName}}. If the follow-up read could not fill mailboxEmail and displayName (they come back
-empty), the connect still succeeds, one note goes to stderr, and the document adds
-degraded:true and degradedFields:["mailboxEmail","displayName"] (absent otherwise). Failed: the same document with status "failed", failureCode set
+displayName}}. If the follow-up connections read failed or did not list the new connection, the
+connect still succeeds with mailboxEmail and displayName empty, one note on stderr
+says which of the two happened, and the document adds degraded:true and
+degradedFields:["mailboxEmail","displayName"] (absent otherwise). The marker means
+that failed or missing lookup, not empty fields: a listed row whose fields are
+themselves empty gets no marker and no note. Failed: the same document with status "failed", failureCode set
 and connection null, then exit 1. --no-wait: status "started", flowId set, connection null. Not
 finished in time: exit 13 (WaitTimeout), "not found yet", after the record is
 printed with status "pending" and the flowId - the consent may still
@@ -5622,7 +5628,7 @@ encrypted-memory prompt, skipped and never sent; a tampered row), 7 (lost) and 8
 
 `memory verify <memory>` reads verifyMemoryNodes (#1591): `--json` `{memory,checked,intact,notApproved,superseded,tampered,problems[{nodeId,urn,loc,state,revision,approvedRevision,expectedHash,actualHash}]}` (problems = every non-INTACT node, by loc; `[]` when none). Exit 5 when `tampered > 0`, after printing; NOT_APPROVED/SUPERSEDED alone exit 0.
 
-`memory set` settings: on a change, an omitted flag keeps the value and an empty one (`--license ""`, `--data null`) clears it; on create an empty value is exit 2 (nothing to clear). `--chunk-tokens/--chunk-overlap/--force-fixed-size/--acknowledge-vector-inversion-risk` are change-only (exit 2 on create). With `--app --agent` only `--data/--embedding-source/--vector-index` apply; `--app` alone takes none (exit 2). An explicit `=false` is a value: `--vector-index=false` sends false and `--no-vector-index=false` sends true; a pair that disagrees (`--vector-index --no-vector-index`, the fixed-size pair likewise) exits 2. An empty `--data-file` path exits 2 (use `--data ""` to clear); the file is read once. The server owns the rules (class defaults, GitHub-only `--git-source`, branch syntax, chunk arithmetic, the encrypted-vector acknowledgement). Moving a memory to another organization is `memory transfer`, not `memory set`. `memory list --org <org>` is that organization's view (empty for a non-member); `--visibility PUBLIC` lists the marketplace. `scope list --app-context <app>` lists the scopes a bare name resolves to in that App. `memory encrypt --passphrase-file <file|->`: the server derives the key; the passphrase is never printed.
+`memory set` settings: on a change, an omitted flag keeps the value and an empty one (`--license ""`, `--data null`) clears it; on create an empty value is exit 2 (nothing to clear). `--chunk-tokens/--chunk-overlap/--force-fixed-size/--acknowledge-vector-inversion-risk` are change-only (exit 2 on create). With `--app --agent` only `--data/--embedding-source/--vector-index` apply; `--app` alone takes none (exit 2). An explicit `=false` is a value: `--vector-index=false` sends false and `--no-vector-index=false` sends true; a pair that disagrees (`--vector-index --no-vector-index`, the fixed-size pair likewise) exits 2. An empty `--data-file` path exits 2 (use `--data ""` to clear); the file is read once. The server owns the rules (class defaults, GitHub-only `--git-source`, branch syntax, chunk arithmetic, the encrypted-vector acknowledgement). Moving a memory to another organization is `memory transfer`, not `memory set`. `memory list --org <org>` is that organization's view (empty for a non-member); `--visibility PUBLIC` lists the marketplace. `scope list --app-context <app>` lists the scopes a bare name resolves to in that App. `memory encrypt --passphrase-file <file|->`: the server derives the key; the passphrase is never printed. Files must be private (chmod 600); stdin is unchanged. Encryption key material travels in the mutation's request header only, never GraphQL arguments or lookup requests. The server-resolved USER principal sends a target-only memory-key entry; an owning APP completion uses a data key in the operation-key header, never a passphrase. No argument fallback or automatic retry. An older server or stripped header refuses loudly; a null answer or isEncrypted:false is not confirmed, so inspect before retrying. A confirmed isEncrypted:true answer stays exit 0 even if metadata repeats the secret: those string fields are blanked, detailsWithheld:true is added, and text prints a fixed successful receipt. Other metadata is unchanged. On Windows use --passphrase-file - (stdin), because private-file permission checks are unsupported.
 
 ## Opt-in node source-lint warnings (#916 C3c)
 
@@ -6737,10 +6743,13 @@ or head in the wrong form) exits 2, and an empty `--defect` or
 `--introduced-at-head` is refused with exit 2 before any request. A response
 with no link exits 1: the link may have been recorded, so read the events of
 the task the message names (`hadron team events --task <ref>`) before
-retrying. The message's last line is that task ref alone, in full (control characters in the ref show as spaces), so copy it
-as one argument, and quote the ref when you pass it back to a shell: a ref can hold shell metacharacters. No retry. `--json` is `{taskId, defect,
-introducedAtHead, eventId, linkedAt, created}`; `introducedAtHead` is null when
-the link names no head.
+retrying. The message's last line is that task ref alone, in full (control
+characters in the ref show as spaces, so reuse the ref you passed in when you
+still hold it), so copy it as one argument, and quote the ref when you pass it
+back to a POSIX shell: a ref can hold shell metacharacters. Single-quote it,
+writing each embedded `'` as `'\''`; double quotes still expand `$(...)` and
+backticks. No retry. `--json` is `{taskId, defect, introducedAtHead, eventId,
+linkedAt, created}`; `introducedAtHead` is null when the link names no head.
 
 `finding-dispositions --json` is `{items:[{findingId,disposition,reference}],
 total,hasMore}` in finding order; empty items is `[]`. Default page 20, maximum

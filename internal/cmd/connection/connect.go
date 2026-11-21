@@ -230,11 +230,17 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 			// the "connection flow" hint all key on it), so it is refused like one
 			// with no link, before the link is shown or opened (cli#1717). It is a
 			// broken server reply, not a usage error: the id is not ours to give.
-			if resp == nil || resp.StartConnection == nil || resp.StartConnection.AuthorizeUrl == "" ||
-				strings.TrimSpace(resp.StartConnection.FlowId) == "" {
+			// The refusal names what is missing (cli#2760).
+			if resp == nil || resp.StartConnection == nil {
 				return exitcode.Newf(exitcode.Unavailable, "server returned no connection start")
 			}
 			start := resp.StartConnection
+			if start.AuthorizeUrl == "" {
+				return exitcode.Newf(exitcode.Unavailable, "server returned a connection start with no authorize link")
+			}
+			if strings.TrimSpace(start.FlowId) == "" {
+				return exitcode.Newf(exitcode.Unavailable, "server returned a connection start with no flow id")
+			}
 			redact := redactor(start.AuthorizeUrl)
 			ioStreams := f.IOStreams
 
@@ -303,13 +309,13 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 				}
 				dto.Status = "connected"
 				dto.Connection = res.connection
-				if res.degraded {
+				if res.degraded() {
 					dto.Degraded, dto.DegradedFields = true, degradedFillFields
 					// The connection id is the server's text: the whole note goes through
 					// the same redactor as every other output raised after the link was
 					// received, since SafeCell strips terminal controls, not credentials.
-					fmt.Fprintln(ioStreams.ErrOut, redact(fmt.Sprintf("note: connection %s was made, but its %s could not be filled (the connections read failed or did not list it); they are empty in this result.",
-						output.SafeCell(res.connection.ID), strings.Join(degradedFillFields, ", "))))
+					fmt.Fprintln(ioStreams.ErrOut, redact(fmt.Sprintf("note: connection %s was made, but its %s could not be filled (%s); they are empty in this result.",
+						output.SafeCell(res.connection.ID), strings.Join(degradedFillFields, ", "), res.lookup.cause())))
 				}
 			}
 
@@ -349,7 +355,31 @@ func listConnections(ctx context.Context, client graphql.Client, orgID string) (
 type flowResult struct {
 	connection  *connectedDTO
 	failureCode string
-	degraded    bool // the connection carries only its id and provider
+	lookup      detailsLookup // how the follow-up read went; degraded unless lookupListed
+}
+
+// degraded is true when the connection carries only its id and provider: the
+// follow-up read failed or did not list the row. A listed row is a fill, even
+// when its fields are empty.
+func (r *flowResult) degraded() bool { return r.connection != nil && r.lookup != lookupListed }
+
+// detailsLookup is the outcome of the follow-up connections read (cli#2760).
+type detailsLookup int
+
+// The zero value is a failed read, so a result built without an outcome is
+// marked degraded rather than passed off as filled.
+const (
+	lookupFailed   detailsLookup = iota // the read itself failed
+	lookupUnlisted                      // the read succeeded without the row
+	lookupListed                        // the read listed the row
+)
+
+// cause is the note's parenthetical: the one cause that applied.
+func (l detailsLookup) cause() string {
+	if l == lookupFailed {
+		return "the connections read failed"
+	}
+	return "the connections read did not list it"
 }
 
 // awaitFlow polls connectionFlow(flowId) until it is CONNECTED or FAILED, or the
@@ -384,8 +414,8 @@ func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey
 			}
 			return &flowResult{failureCode: code}, nil
 		case gen.ConnectionFlowStatusConnected:
-			c, found := fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)
-			return &flowResult{connection: c, degraded: !found}, nil
+			c, lookup := fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)
+			return &flowResult{connection: c, lookup: lookup}, nil
 		}
 		remaining = deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
@@ -434,23 +464,23 @@ func flowRefusal() error {
 // fillConnection reads the org's connection list for the one row the flow made
 // (the flow answer carries only its id), within fillTimeout. If that read fails or the row is not
 // listed, the result still reports the id: the established success is never lost.
-// found is false in that case (the lookup came up empty, whatever the row would
-// have held), so the caller can say what is missing (cli#1717).
-func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKey string) (conn *connectedDTO, found bool) {
+// The lookup outcome says which happened (a failed read, or a read without the
+// row), so the caller can say what is missing and why (cli#1717, cli#2760).
+func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKey string) (*connectedDTO, detailsLookup) {
 	bare := &connectedDTO{ID: id, Provider: rowKey}
 	rctx, cancel := context.WithTimeout(ctx, fillTimeout)
 	defer cancel()
 	rows, err := listConnections(rctx, client, orgID)
 	if err != nil {
-		return bare, false
+		return bare, lookupFailed
 	}
 	for _, r := range rows {
 		if r.ID == id {
 			c := r
-			return &c, true
+			return &c, lookupListed
 		}
 	}
-	return bare, false
+	return bare, lookupUnlisted
 }
 
 // writeConnect renders the connect result (human or --json).
