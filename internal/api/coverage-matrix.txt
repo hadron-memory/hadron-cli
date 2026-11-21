@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 240: 206 command, 12 gap, 22 excluded
+[Query] 240: 208 command, 10 gap, 22 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -41,8 +41,8 @@ agentProcessList  command agent processes list
 agentRevisions  command agent revision list
 agentSchedules  command schedule list
 agentServedBootPrompt  command agent boot-prompt
-agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #2788 tracks the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
-agentSubscriptionsPage  gap #2788: subscription list command not yet implemented
+agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage (command agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+agentSubscriptionsPage  command agent subscription list
 agentTask  command team task finding-dispositions
 agentTaskExternalIdChanges  command team task find-untracked
 agentTaskList  command agent tasks list
@@ -168,8 +168,8 @@ memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's 
 memoryLocSegments  command memory loc-segments
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
-myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage gap #2788 tracks the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
-myAgentSubscriptionsPage  gap #2788: subscription list command not yet implemented
+myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage (command agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+myAgentSubscriptionsPage  command agent subscription list
 myApp  command app whoami
 myChats  gap #64
 myChatsPage  gap #64
@@ -269,7 +269,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 363: 337 command, 15 gap, 11 excluded
+[Mutation] 363: 339 command, 13 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -323,7 +323,7 @@ compileAppAgentBootPrompt  command app agent compile
 compileWorkerBootPrompt  command team worker compile
 completeAssetUpload  command asset upload
 createAgent  command agent create
-createAgentOrgGrant  gap #2788
+createAgentOrgGrant  command agent subscription add
 createAgentSchedule  command schedule create
 createAgentTask  command team task create
 createAgentTasks  command team task create
@@ -507,7 +507,7 @@ retireWorker  command team worker retire
 retractQuestionAnswer  command question retract
 retryFailedEmbeddings  command memory reembed-failed
 revealSecret  command secret exec
-revokeAgentOrgGrant  gap #2788
+revokeAgentOrgGrant  command agent subscription revoke
 revokeAgentSubscription  command agent subscription revoke
 revokeAppGrant  command team grant rm
 revokeAppKey  command app key revoke
@@ -634,7 +634,7 @@ withdrawQuestion  command question withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 38: 13 gap, 25 excluded
+[Arguments] 37: 12 gap, 25 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -648,7 +648,6 @@ Mutation.createSecret(protected)  gap #2815
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.encryptMemory(dataKey)  excluded deprecated: @deprecated: Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion.
 Mutation.encryptMemory(passphrase)  excluded deprecated: @deprecated: Send the passphrase in x-hadron-memory-keys.
-Mutation.importNode(input.authoredWith)  gap #2790
 Mutation.issueHostOperation(instruction)  gap #2774
 Mutation.liftTeamStopSignal(instruction)  gap #2774
 Mutation.mergeUsers(input.consentProof)  gap #1304
