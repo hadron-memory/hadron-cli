@@ -71578,6 +71578,48 @@ func (v *MemoryConfigWarningFields) GetTaskUrn() *string { return v.TaskUrn }
 // GetTaskState returns MemoryConfigWarningFields.TaskState, and is useful for accessing the field via an interface.
 func (v *MemoryConfigWarningFields) GetTaskState() *NodeRoleRuleRefState { return v.TaskState }
 
+// MemoryEncryptionPrincipalAuthContext includes the requested fields of the GraphQL type AuthContext.
+// The GraphQL type's documentation follows.
+//
+// The resolved principal for the credential presented on THIS request
+// (issue #562). Exposes the AuthContext the server already resolves per
+// request (cor:aut:020:02) read-only, so any surface (CLI, portal) can
+// validate a token and name the exact credential without per-client hacks.
+//
+// Security posture (held deliberately):
+// - Current-request only. There is intentionally no query that takes an
+// arbitrary token as an argument — that would be a token oracle. The
+// caller must possess the credential, exactly as today.
+// - No reason-leak. A credential that does not resolve yields a null
+// authContext (Query field), identically for revoked / never-existed /
+// malformed. Once a credential HAS resolved (you authenticated as it),
+// surfacing active-vs-revoked via apiKey.revokedAt is fine.
+type MemoryEncryptionPrincipalAuthContext struct {
+	// Which kind of credential authenticated this request.
+	PrincipalType PrincipalType `json:"principalType"`
+}
+
+// GetPrincipalType returns MemoryEncryptionPrincipalAuthContext.PrincipalType, and is useful for accessing the field via an interface.
+func (v *MemoryEncryptionPrincipalAuthContext) GetPrincipalType() PrincipalType {
+	return v.PrincipalType
+}
+
+// MemoryEncryptionPrincipalResponse is returned by MemoryEncryptionPrincipal on success.
+type MemoryEncryptionPrincipalResponse struct {
+	// The resolved principal for the credential on THIS request (issue #562).
+	// Credential-type-agnostic: works for personal API keys, JWT sessions, and
+	// App keys alike — unlike me, which is null for a valid App credential.
+	// Returns null when the presented credential does not resolve (identically
+	// for revoked / never-existed / malformed — never a token oracle). See the
+	// AuthContext type for the full security posture.
+	AuthContext *MemoryEncryptionPrincipalAuthContext `json:"authContext"`
+}
+
+// GetAuthContext returns MemoryEncryptionPrincipalResponse.AuthContext, and is useful for accessing the field via an interface.
+func (v *MemoryEncryptionPrincipalResponse) GetAuthContext() *MemoryEncryptionPrincipalAuthContext {
+	return v.AuthContext
+}
+
 // Filter for the uniform memories() list (#473). All clauses AND-combine and
 // only ever narrow the caller's accessible scope — with two documented slice
 // SELECTIONS, each switching which readable set the list draws from (never
@@ -132214,19 +132256,11 @@ func (v *__EmailUpdateDraftInput) GetBodyHtml() string { return v.BodyHtml }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
-	MemoryRef  string  `json:"memoryRef"`
-	DataKey    *string `json:"dataKey,omitempty"`
-	Passphrase *string `json:"passphrase,omitempty"`
+	MemoryRef string `json:"memoryRef"`
 }
 
 // GetMemoryRef returns __EncryptMemoryInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetMemoryRef() string { return v.MemoryRef }
-
-// GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
-func (v *__EncryptMemoryInput) GetDataKey() *string { return v.DataKey }
-
-// GetPassphrase returns __EncryptMemoryInput.Passphrase, and is useful for accessing the field via an interface.
-func (v *__EncryptMemoryInput) GetPassphrase() *string { return v.Passphrase }
 
 // __EndTeamSessionInput is used internally by genqlient
 type __EndTeamSessionInput struct {
@@ -161205,8 +161239,8 @@ func EmailUpdateDraft(
 
 // The mutation executed by EncryptMemory.
 const EncryptMemory_Operation = `
-mutation EncryptMemory ($memoryRef: ID!, $dataKey: String, $passphrase: String) {
-	encryptMemory(memoryRef: $memoryRef, dataKey: $dataKey, passphrase: $passphrase) {
+mutation EncryptMemory ($memoryRef: ID!) {
+	encryptMemory(memoryRef: $memoryRef) {
 		id
 		urn
 		name
@@ -161219,22 +161253,17 @@ mutation EncryptMemory ($memoryRef: ID!, $dataKey: String, $passphrase: String) 
 // provides the data key and all node content/data is rewritten as ciphertext in
 // a single transaction. There is no decrypt mutation, so the command gates like a
 // destructive op.
-// cli#1340 — exactly one of dataKey / passphrase is sent (the server refuses
-// both or neither); the other stays omitted.
+// cli#1650: key material is per-call HTTP header data, NEVER GraphQL arguments.
 func EncryptMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryRef string,
-	dataKey *string,
-	passphrase *string,
 ) (data_ *EncryptMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "EncryptMemory",
 		Query:  EncryptMemory_Operation,
 		Variables: &__EncryptMemoryInput{
-			MemoryRef:  memoryRef,
-			DataKey:    dataKey,
-			Passphrase: passphrase,
+			MemoryRef: memoryRef,
 		},
 	}
 
@@ -167804,6 +167833,38 @@ func MemoryConfigTemplates(
 	}
 
 	data_ = &MemoryConfigTemplatesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemoryEncryptionPrincipal.
+const MemoryEncryptionPrincipal_Operation = `
+query MemoryEncryptionPrincipal {
+	authContext {
+		principalType
+	}
+}
+`
+
+// cli#1650: header choice follows the authenticated principal, not token spelling
+// or the --app context. Read only the fact required for that choice, without keys.
+func MemoryEncryptionPrincipal(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *MemoryEncryptionPrincipalResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemoryEncryptionPrincipal",
+		Query:  MemoryEncryptionPrincipal_Operation,
+	}
+
+	data_ = &MemoryEncryptionPrincipalResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

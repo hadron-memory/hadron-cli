@@ -278,9 +278,10 @@ var linkUserDataKey = base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{7}, 
 // assertions must read the document, not just variables), and the
 // x-hadron-operation-key header.
 type capturedLinkUserRequest struct {
-	Op    string
-	Body  string
-	OpKey string
+	Op         string
+	Body       string
+	OpKey      string
+	MemoryKeys string
 }
 
 // captureLinkUserGraphQL is captureGraphQL for the link-user wire contract:
@@ -300,9 +301,10 @@ func captureLinkUserGraphQL(t *testing.T, responses map[string]string) (*httptes
 		}
 		_ = json.Unmarshal(body, &envelope)
 		reqs = append(reqs, capturedLinkUserRequest{
-			Op:    envelope.OperationName,
-			Body:  string(body),
-			OpKey: r.Header.Get("X-Hadron-Operation-Key"),
+			Op:         envelope.OperationName,
+			Body:       string(body),
+			OpKey:      r.Header.Get("X-Hadron-Operation-Key"),
+			MemoryKeys: r.Header.Get("X-Hadron-Memory-Keys"),
 		})
 		resp, ok := responses[envelope.OperationName]
 		if !ok {
