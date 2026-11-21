@@ -63,17 +63,19 @@ func TestCanonicalAppRefRefusesWhatTheServerWould(t *testing.T) {
 			t.Errorf("CanonicalAppRef(%q) exit = %d, want Usage", in, code)
 		}
 		msg := err.Error()
-		for _, want := range []string{`--app "` + in + `"`, "hrn:app:<root>:<slug>", "<root>:<slug>", "an App id"} {
+		for _, want := range []string{"--app ", "hrn:app:<root>:<slug>", "<root>:<slug>", "an App id"} {
 			if !strings.Contains(msg, want) {
 				t.Errorf("CanonicalAppRef(%q) message lacks %q:\n%s", in, want, msg)
 			}
 		}
 		// The message must not teach the retired grammar, name a GraphQL
 		// field, or carry a wire-location prefix — the four #540 defects.
-		// The quoted input is exempt: echoing what was typed is not advice.
-		advice := strings.Replace(msg, `"`+in+`"`, "", 1)
+		// The value is never echoed (cli#2876), so the whole message is advice.
+		if strings.Contains(msg, `"`+in+`"`) {
+			t.Errorf("CanonicalAppRef(%q) echoes the value:\n%s", in, msg)
+		}
 		for _, banned := range []string{"::", "workers", "input:", "a app"} {
-			if strings.Contains(advice, banned) {
+			if strings.Contains(msg, banned) {
 				t.Errorf("CanonicalAppRef(%q) message carries %q:\n%s", in, banned, msg)
 			}
 		}
@@ -113,8 +115,8 @@ func TestCanonicalAppRefRefusesSuppliedBlankButNotAbsent(t *testing.T) {
 func TestCanonicalAppRefNamesTheSource(t *testing.T) {
 	for _, what := range []string{"--install-into", "<app-ref>", "the configured App context"} {
 		_, err := CanonicalAppRef(what, "dev-team")
-		if err == nil || !strings.HasPrefix(err.Error(), what+` "dev-team"`) {
-			t.Errorf("CanonicalAppRef(%q, …) = %v, want it to lead with the source", what, err)
+		if err == nil || !strings.HasPrefix(err.Error(), what+" ") || strings.Contains(err.Error(), "dev-team") {
+			t.Errorf("CanonicalAppRef(%q, …) = %v, want it to lead with the source and not echo the value (cli#2876)", what, err)
 		}
 	}
 }

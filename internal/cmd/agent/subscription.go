@@ -105,7 +105,8 @@ reads: "add" and "revoke" change organization subscriptions.`,
 				return api.MapError(err)
 			}
 			if resp.Organization == nil {
-				return exitcode.Newf(exitcode.NotFound, "organization %q is not readable here", org)
+				// The --org value is never echoed (cli#2876): a token pasted into it must not print.
+				return exitcode.Newf(exitcode.NotFound, "that organization is not readable here (the --org value is not shown)")
 			}
 			rows := []orgAgentGrantDTO{}
 			for _, g := range resp.Organization.AgentOrgGrants {

@@ -153,7 +153,7 @@ func (f *Factory) App() (string, error) {
 	// never saw (#540).
 	app, err := CanonicalAppRef("the configured App context", cfg.App())
 	if err != nil {
-		return "", exitcode.Newf(exitcode.Usage, "%v (`hadron app set-active <ref>` replaces it)", err)
+		return "", exitcode.Newf(exitcode.Usage, "%v (`hadron config get app` shows the configured value; `hadron app set-active <ref>` replaces it)", err)
 	}
 	return app, nil
 }
