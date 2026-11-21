@@ -673,3 +673,35 @@ func TestSecretClientLsAllAtThePageCap2631(t *testing.T) {
 		t.Fatalf("1000 pages then an empty terminator must succeed: err=%v rows=%d", err, len(rows))
 	}
 }
+
+// Rook's P3: the poll path redacts the client id too (message and server code),
+// while the record printed first keeps it.
+func TestSecretClientIssueWaitPollErrorDoesNotEchoTheClientID2631(t *testing.T) {
+	for name, body := range map[string]string{
+		"message echoes": `{"errors":[{"message":"poll refused for cl-2631","extensions":{"code":"SERVER_BUSY"}}]}`,
+		"code echoes":    `{"errors":[{"message":"busy","extensions":{"code":"BUSY_cl-2631"}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			resp := issueResponses2631("OPEN")
+			resp["TeamGrantSigningRequest"] = body
+			srv, _ := attnServer(t, resp)
+			f, out := testFactory(t)
+			var errOut strings.Builder
+			f.IOStreams.ErrOut = &errOut
+			f.JSON = true
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"secret", "client", "issue", "s1", "--reason", "r", "--wait", "--json", "--server", srv.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected the poll refusal")
+			}
+			renderError(f, err)
+			if strings.Contains(err.Error(), "cl-2631") || strings.Contains(errOut.String(), "cl-2631") {
+				t.Errorf("the client id must not reach a poll error or its envelope: %v / %q", err, errOut.String())
+			}
+			if !strings.Contains(out.String(), "cl-2631") {
+				t.Errorf("the record must still print first: %q", out.String())
+			}
+		})
+	}
+}
