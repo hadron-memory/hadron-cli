@@ -384,8 +384,8 @@ func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey
 			}
 			return &flowResult{failureCode: code}, nil
 		case gen.ConnectionFlowStatusConnected:
-			c, filled := fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)
-			return &flowResult{connection: c, degraded: !filled}, nil
+			c, found := fillConnection(ctx, client, orgID, *fl.ConnectionId, rowKey)
+			return &flowResult{connection: c, degraded: !found}, nil
 		}
 		remaining = deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
@@ -434,8 +434,9 @@ func flowRefusal() error {
 // fillConnection reads the org's connection list for the one row the flow made
 // (the flow answer carries only its id), within fillTimeout. If that read fails or the row is not
 // listed, the result still reports the id: the established success is never lost.
-// filled is false in that case, so the caller can say what is missing (cli#1717).
-func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKey string) (conn *connectedDTO, filled bool) {
+// found is false in that case (the lookup came up empty, whatever the row would
+// have held), so the caller can say what is missing (cli#1717).
+func fillConnection(ctx context.Context, client graphql.Client, orgID, id, rowKey string) (conn *connectedDTO, found bool) {
 	bare := &connectedDTO{ID: id, Provider: rowKey}
 	rctx, cancel := context.WithTimeout(ctx, fillTimeout)
 	defer cancel()

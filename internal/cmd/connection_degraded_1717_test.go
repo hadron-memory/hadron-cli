@@ -21,7 +21,10 @@ type degradedDTO struct {
 	Degraded       bool     `json:"degraded"`
 	DegradedFields []string `json:"degradedFields"`
 	Connection     struct {
-		ID string `json:"id"`
+		ID           string  `json:"id"`
+		Provider     string  `json:"provider"`
+		MailboxEmail string  `json:"mailboxEmail"`
+		DisplayName  *string `json:"displayName"`
 	} `json:"connection"`
 }
 
@@ -45,6 +48,12 @@ func TestConnectDegradedFillIsMarkedInJSONAndOnStderr1717(t *testing.T) {
 			}
 			if !dto.Degraded || strings.Join(dto.DegradedFields, ",") != "mailboxEmail,displayName" {
 				t.Fatalf("degraded marker %+v, out %q", dto, r.out)
+			}
+			// The marker names fields that really are empty: both keys are present,
+			// the email is "" and the display name null, and the provider is the row key.
+			if !strings.Contains(r.out, `"mailboxEmail": ""`) || !strings.Contains(r.out, `"displayName": null`) ||
+				dto.Connection.MailboxEmail != "" || dto.Connection.DisplayName != nil || dto.Connection.Provider != "gmail" {
+				t.Fatalf("degraded connection %+v, out %q", dto.Connection, r.out)
 			}
 			if !strings.Contains(r.errOut, "mailboxEmail") || !strings.Contains(r.errOut, "displayName") || !strings.Contains(r.errOut, "c9") {
 				t.Fatalf("stderr note must name the fields and the connection: %q", r.errOut)
@@ -95,7 +104,8 @@ func TestConnectDegradedNoteNeverCarriesTheAuthorizeLink1717(t *testing.T) {
 	}
 }
 
-// A healthy fill is byte-identical to before: no note, no new keys.
+// A healthy fill adds nothing: no note, no new keys at the top level, and the
+// connection object carries the filled values.
 func TestConnectHealthyFillAddsNoMarkerAndNoNote1717(t *testing.T) {
 	r := runFlowConnect(t, []string{flowResp("CONNECTED", "c9", "")}, connRows(connRow("c9")), "connection", "connect", "gmail", "--org", "org_1", "--json")
 	if r.err != nil || r.code != 0 {
@@ -106,6 +116,10 @@ func TestConnectHealthyFillAddsNoMarkerAndNoNote1717(t *testing.T) {
 	}
 	var raw map[string]json.RawMessage
 	_ = json.Unmarshal([]byte(r.out), &raw)
+	var dto degradedDTO
+	if err := json.Unmarshal([]byte(r.out), &dto); err != nil || dto.Connection.ID != "c9" || dto.Connection.MailboxEmail != "c9@acme.com" || dto.Connection.Provider != "gmail" {
+		t.Fatalf("healthy connection %+v err %v", dto.Connection, err)
+	}
 	want := []string{"authorizeUrl", "browserOpened", "connection", "expiresAt", "failureCode", "flowId", "orgId", "provider", "status"}
 	if len(raw) != len(want) {
 		t.Fatalf("top-level keys changed: %v", raw)
@@ -117,11 +131,29 @@ func TestConnectHealthyFillAddsNoMarkerAndNoNote1717(t *testing.T) {
 	}
 }
 
-// Failed and still-pending flows never fill, so they never carry the marker.
+// Outcomes that never fill (failed, still pending at the deadline, and
+// --no-wait's "started") never carry the marker or the note.
 func TestConnectNonConnectedOutcomesCarryNoDegradedMarker1717(t *testing.T) {
-	r := runFlowConnect(t, []string{flowResp("FAILED", "", "access_denied")}, fillBoom, "connection", "connect", "gmail", "--org", "org_1", "--json")
-	if r.code != exitcode.Error || strings.Contains(r.out, "degraded") || strings.Contains(r.errOut, "could not be filled") {
-		t.Fatalf("exit %d out %q err %q", r.code, r.out, r.errOut)
+	cases := map[string]struct {
+		flows []string
+		args  []string
+		code  int
+	}{
+		"failed":  {[]string{flowResp("FAILED", "", "access_denied")}, []string{"--json"}, exitcode.Error},
+		"pending": {[]string{pend}, []string{"--json", "--wait", "10s"}, exitcode.WaitTimeout},
+		"started": {[]string{pend}, []string{"--json", "--no-wait"}, 0},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			args := append([]string{"connection", "connect", "gmail", "--org", "org_1"}, c.args...)
+			r := runFlowConnect(t, c.flows, fillBoom, args...)
+			if r.code != c.code || strings.Contains(r.out, "degraded") || strings.Contains(r.errOut, "could not be filled") {
+				t.Fatalf("exit %d (want %d) out %q err %q", r.code, c.code, r.out, r.errOut)
+			}
+			if count(r.ops, "EmailConnections") != 0 {
+				t.Fatalf("an outcome that never fills read the connection list: %v", r.ops)
+			}
+		})
 	}
 }
 
