@@ -623,10 +623,13 @@ tells you to read the question with question get before trying again. Exit 7
 is the answer when the reply never arrived, was unusable (a null question), or
 came with an error beneath the mutation (a coded error on a field of the returned
 question, which may follow the write): the same sentence, nothing resent. What the
-server refused before writing keeps its own exit: a coded refusal of the mutation
-itself (2, 4, 5, 8) and an HTTP 4xx such as a refused credential (3) or a rate limit;
-a connection that never opened is "could not reach the server" (7) with no claim
-about the answer. Otherwise the answer may have been recorded.`,
+server refused before running the mutation keeps its ordinary exit: a coded refusal of
+the mutation itself (2, 4, 5, 8) and a plain HTTP 400, 401, 403, 404, 405, 413, 415 or
+429 (401 is 3, 404 is 4, the others 1 with the server's message). 408, 409, any other 4xx
+or 5xx, a dropped connection, and any reply whose body shows the question or an error
+below the mutation are the unknown ones above. A connection that never opened is "could
+not reach the server" (7) with no claim about the answer. In the unknown cases the answer
+may have been recorded.`,
 		Example: `  hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --option pg
   hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 4 --option my --reason "the team prefers it now" --text "MySQL, with a read replica"
   echo "needs a different approach" | hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --text-file -`,
@@ -680,7 +683,7 @@ about the answer. Otherwise the answer may have been recorded.`,
 			}
 			resp, err := gen.AnswerQuestion(cmd.Context(), client, ref, &input, expected)
 			if err != nil {
-				return questionWriteError(err, "answerQuestion", "answer", ref)
+				return questionWriteError(err, "answerQuestion", "answer", ref, resp != nil && resp.AnswerQuestion != nil)
 			}
 			if resp == nil || resp.AnswerQuestion == nil {
 				return questionWriteNotConfirmed("answer", ref, "the server returned no question", nil)
@@ -741,11 +744,13 @@ that: nothing is printed on stdout, the call is NOT resent, and the error tells 
 to read the question with question get before trying again. Exit 7 is the
 answer when the reply never arrived, was unusable (a null question), or came with
 an error beneath the mutation (which may follow the write): the same sentence,
-nothing resent. What the server refused before writing keeps its own exit: a coded
-refusal of the mutation itself (2, 4, 5, 8) and an HTTP 4xx such as a refused
-credential (3) or a rate limit; a connection that never opened is "could not reach
-the server" (7) with no claim about the retraction. Otherwise the retraction may
-have been recorded.`,
+nothing resent. What the server refused before running the mutation keeps its
+ordinary exit: a coded refusal of the mutation itself (2, 4, 5, 8) and a plain HTTP
+400, 401, 403, 404, 405, 413, 415 or 429 (401 is 3, 404 is 4, the others 1 with the
+server's message). 408, 409, any other 4xx or 5xx, a dropped connection, and any reply
+whose body shows the question or an error below the mutation are the unknown ones
+above. A connection that never opened is "could not reach the server" (7) with no claim
+about the retraction. In the unknown cases the retraction may have been recorded.`,
 		Example: `  hadron question retract hrn:node:acme.com:eng:questions:QA --expected-revision 4 --reason "wrong click"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -763,7 +768,7 @@ have been recorded.`,
 			}
 			resp, err := gen.RetractQuestionAnswer(cmd.Context(), client, ref, expected, optString(cmd, "reason", reason), &via)
 			if err != nil {
-				return questionWriteError(err, "retractQuestionAnswer", "retraction", ref)
+				return questionWriteError(err, "retractQuestionAnswer", "retraction", ref, resp != nil && resp.RetractQuestionAnswer != nil)
 			}
 			if resp == nil || resp.RetractQuestionAnswer == nil {
 				return questionWriteNotConfirmed("retraction", ref, "the server returned no question", nil)
@@ -1234,22 +1239,32 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 }
 
 // questionWriteError maps a failed answer or retract. A coded refusal at the mutation's
-// own level (no path, or exactly [field]), an HTTP 4xx and a connection that never opened
-// are definitive: nothing was written, so the ordinary typed exit applies. A coded error
+// own level (no path, or exactly [field]), an HTTP 400/401/403/404/405/413/415/429 whose
+// body shows no data and no error below the mutation, and a connection that never opened
+// are definitive: nothing was written, so the ordinary typed exit applies. When the reply
+// carries the question beside the error (dataSeen) a resolver ran, so it is never definitive. A coded error
 // BELOW the field comes from resolving the returned question and so may follow the write
 // (cli#398, cli#2680), and a reset or timeout after the request left, a 5xx, an internal
 // error or an unusable answer may follow the commit too: those are an unknown outcome,
 // exit 7, never resent, with the read-back sentence.
-func questionWriteError(err error, field, what, ref string) error {
-	// A refusal of the mutation itself, an HTTP 4xx (a refused credential, a rate limit, an
-	// invalid request) or a connection that never opened: the write did not happen, so the
-	// ordinary mapping (3, 4, 5, 8, 2, or "could not reach the server") applies.
+func questionWriteError(err error, field, what, ref string, dataSeen bool) error {
+	// The server returned the question beside the error: a resolver ran and the write may
+	// have followed, whatever the error says.
+	if dataSeen || api.ErrorShowsData(err) {
+		return questionWriteNotConfirmed(what, ref, api.MapError(err).Error(), err)
+	}
+	// A refusal of the mutation itself, an HTTP answer from the allowlist in
+	// api.RequestNotProcessed (a refused credential, a rate limit, an invalid request) or a
+	// connection that never opened: the write did not happen, so the ordinary mapping applies.
 	if api.IsDefiniteRefusalAt(err, field) || api.RequestNotProcessed(err) {
 		return api.MapError(err)
 	}
 	return questionWriteNotConfirmed(what, ref, api.MapError(err).Error(), err)
 }
 
+// questionWriteNotConfirmed builds the unknown-outcome error. The read-back command is a
+// copy-paste line, so the ref is shell-quoted (cmdutil.ShellQuote), not just made inert for
+// the terminal (output.SafeCell): a ref with a space or a quote must still paste as one word.
 func questionWriteNotConfirmed(what, ref, why string, cause error) error {
 	e := exitcode.Newf(exitcode.Unavailable, "%s not confirmed (%s): the outcome is unknown and the call is not resent; read the question with `hadron question get %s` before trying again", what, why, cmdutil.ShellQuote(ref))
 	if cause != nil {

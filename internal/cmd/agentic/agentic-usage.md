@@ -6574,14 +6574,15 @@ only usage mistakes (exit 2) before any call.
   A reply that does not show the outcome exits **1** with nothing on stdout (text mode) or the
   standard error envelope (`--json`), names `question get`, and is **not resent**. This is the one
   place exit 1 means "the server answered but the outcome is not shown", where `secret client
-  revoke`, `agent subscription revoke` and `ha` use exit 7 for the same doubt: exit 7 here is only
-  a reply that never arrived, an unusable one (a null question), or one with a coded error BELOW the
-  mutation field (beside committed data: the write may have been recorded; the message is "answer|retraction not
-  confirmed ... not resent; read the question with `hadron question get <ref>`"). What the server
-  refused before writing keeps its typed exit: a coded refusal of the mutation itself (no path, or exactly the
-  mutation field: 2, 4, 5, 8) and an HTTP 4xx (a refused credential is 3; a rate limit); a connection that never
-  opened is "could not reach the server" (7) with no "not confirmed" claim. Either way the write
-  may have been recorded, so read the question with `question get` before trying again.
+  revoke`, `agent subscription revoke` and `ha` use exit 7 for the doubt itself. Exit **7** ("answer|retraction
+  not confirmed ... not resent; read the question with `hadron question get <ref>`") is the answer when the reply
+  never arrived (a dropped connection), was unusable (a null question), was a 5xx or gateway page, 408 or 409 or any
+  other 4xx, or showed the question or a coded error BELOW the mutation field (a resolver ran: the write may have
+  been recorded). What the server refused before running the mutation keeps its ordinary exit: a coded refusal of the
+  mutation itself (no path, or exactly the mutation field: 2, 4, 5, 8) and a plain HTTP 400, 401, 403, 404, 405,
+  413, 415 or 429 (401 is 3, 404 is 4, the others 1 with the server's message); a connection that never opened is
+  "could not reach the server" (7) with no "not confirmed" claim. In the unknown cases read the question with
+  `question get` before trying again.
 - `list` needs a scope: `--app` (every question in that App's Memories you can read),
   `--log` or `--awaiting-me` (exit 2, no request, when none is given, when `--awaiting-me=false` is the only one, or
   when `--app` and `--log` both are; `--awaiting-me` may combine with `--app` or `--log`). Every filter is sent only when its flag was given (`--answered` alone is `true`,

@@ -1106,14 +1106,15 @@ func TestQuestionAnswerAndRetractErrorsBelowTheMutationAreUnknown(t *testing.T) 
 			resp string
 			exit int
 		}{
-			"FORBIDDEN below the field, beside data": {`{"data":{"` + c.field + `":` + questionAnsweredJSON + `},"errors":[{"message":"x","path":["` + c.field + `","answers",0,"actor"],"extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Unavailable},
-			"NOT_FOUND below the field":              {at("NOT_FOUND", `["`+c.field+`","answer"]`), exitcode.Unavailable},
-			"mixed at and below the field":           {`{"errors":[{"message":"x","path":["` + c.field + `"],"extensions":{"code":"FORBIDDEN"}},{"message":"y","path":["` + c.field + `","answers"],"extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Unavailable},
-			"an internal error at the field":         {at("INTERNAL_SERVER_ERROR", `["`+c.field+`"]`), exitcode.Unavailable},
-			"a null result with no error":            {`{"data":{"` + c.field + `":null}}`, exitcode.Unavailable},
-			"FORBIDDEN at the field keeps its exit":  {at("FORBIDDEN", `["`+c.field+`"]`), exitcode.Forbidden},
-			"NOT_FOUND with no path keeps its exit":  {`{"errors":[{"message":"x","extensions":{"code":"NOT_FOUND"}}]}`, exitcode.NotFound},
-			"a conflict at the field keeps its exit": {at("NODE_WRITE_CONFLICT", `["`+c.field+`"]`), exitcode.Conflict},
+			"FORBIDDEN below the field, beside data":   {`{"data":{"` + c.field + `":` + questionAnsweredJSON + `},"errors":[{"message":"x","path":["` + c.field + `","answers",0,"actor"],"extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Unavailable},
+			"NOT_FOUND below the field":                {at("NOT_FOUND", `["`+c.field+`","answer"]`), exitcode.Unavailable},
+			"a pathless FORBIDDEN beside the question": {`{"data":{"` + c.field + `":` + questionAnsweredJSON + `},"errors":[{"message":"x","extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Unavailable},
+			"mixed at and below the field":             {`{"errors":[{"message":"x","path":["` + c.field + `"],"extensions":{"code":"FORBIDDEN"}},{"message":"y","path":["` + c.field + `","answers"],"extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Unavailable},
+			"an internal error at the field":           {at("INTERNAL_SERVER_ERROR", `["`+c.field+`"]`), exitcode.Unavailable},
+			"a null result with no error":              {`{"data":{"` + c.field + `":null}}`, exitcode.Unavailable},
+			"FORBIDDEN at the field keeps its exit":    {at("FORBIDDEN", `["`+c.field+`"]`), exitcode.Forbidden},
+			"NOT_FOUND with no path keeps its exit":    {`{"errors":[{"message":"x","extensions":{"code":"NOT_FOUND"}}]}`, exitcode.NotFound},
+			"a conflict at the field keeps its exit":   {at("NODE_WRITE_CONFLICT", `["`+c.field+`"]`), exitcode.Conflict},
 		} {
 			calls, out, err := runQuestion(t, map[string]string{c.op: r.resp}, c.args...)
 			if exitCodeFor(err) != r.exit || len(calls.ops) != 1 {
@@ -1133,11 +1134,13 @@ func TestQuestionAnswerAndRetractErrorsBelowTheMutationAreUnknown(t *testing.T) 
 	}
 }
 
-// Joran's P2: what the server refused BEFORE writing is not an unknown outcome. An HTTP 4xx
-// (a refused credential, a rate limit, an invalid request) and a connection that never opened
-// keep the ordinary mapping and never say "not confirmed"; a reset or timeout after the request
-// left, a 5xx gateway page and a cut-off body are the unknown ones (exit 7, "not confirmed",
-// not resent). Both verbs, one request at most.
+// Joran's P2 (rounds 1 and 2): what the HTTP layer refused BEFORE any resolver ran is not an
+// unknown outcome, and nothing else is a refusal. A plain HTTP 400/401/403/404/405/413/429 (no
+// data, no error below the mutation field) keeps the ordinary mapping and never says "not
+// confirmed"; 408, 409, a 5xx, a dropped connection, and any status whose body shows data or an
+// error below the mutation field are the unknown ones (exit 7, "not confirmed", not resent). A
+// connection that never opened is "could not reach the server" (7) with no claim about the write.
+// Both verbs; the exit code and the --json envelope are pinned, one request at most.
 func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T) {
 	serve := func(t *testing.T, h func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *int32) {
 		var n int32
@@ -1147,13 +1150,6 @@ func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T
 		}))
 		t.Cleanup(srv.Close)
 		return srv, &n
-	}
-	run := func(t *testing.T, url string, args ...string) error {
-		t.Helper()
-		f, _ := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs(append(append([]string{"question"}, args...), "--server", url))
-		return root.Execute()
 	}
 	status := func(code int, body string) func(w http.ResponseWriter, r *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -1169,39 +1165,81 @@ func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T
 			_ = conn.Close()
 		}
 	}
+	coded := func(code string) string {
+		return `{"errors":[{"message":"x","extensions":{"code":"` + code + `"}}]}`
+	}
 	for _, verb := range [][]string{
 		{"answer", "QA", "--expected-revision", "3", "--option", "pg"},
 		{"retract", "QA", "--expected-revision", "4"},
 	} {
+		field := map[string]string{"answer": "answerQuestion", "retract": "retractQuestionAnswer"}[verb[0]]
 		for name, tc := range map[string]struct {
-			h       func(w http.ResponseWriter, r *http.Request)
+			h    func(w http.ResponseWriter, r *http.Request)
+			exit int
+			// unknown: the outcome is unknown (exit 7 "not confirmed")
 			unknown bool
 		}{
-			"HTTP 401 a refused credential": {status(401, `{"errors":[{"message":"no","extensions":{"code":"UNAUTHENTICATED"}}]}`), false},
-			"HTTP 403 not coded":            {status(403, `forbidden`), false},
-			"HTTP 429 a rate limit":         {status(429, `{"errors":[{"message":"slow","extensions":{"code":"RATE_LIMITED"}}]}`), false},
-			"HTTP 400 an invalid request":   {status(400, `{"errors":[{"message":"bad","extensions":{"code":"BAD_USER_INPUT"}}]}`), false},
-			"HTTP 502 a gateway page":       {status(502, `<html>bad gateway</html>`), true},
-			"the connection dropped":        {hangup, true},
+			"401 a refused credential":                 {status(401, `no`), exitcode.AuthRequired, false},
+			"401 coded UNAUTHENTICATED":                {status(401, coded("UNAUTHENTICATED")), exitcode.AuthRequired, false},
+			"403 plain":                                {status(403, `forbidden`), exitcode.Error, false},
+			"403 coded FORBIDDEN":                      {status(403, coded("FORBIDDEN")), exitcode.Forbidden, false},
+			"429 a rate limit":                         {status(429, `slow down`), exitcode.Error, false},
+			"400 an invalid request":                   {status(400, `bad`), exitcode.Error, false},
+			"404 plain":                                {status(404, `gone`), exitcode.NotFound, false},
+			"408 a request timeout":                    {status(408, `slow`), exitcode.Unavailable, true},
+			"409 a conflict page":                      {status(409, `again`), exitcode.Unavailable, true},
+			"502 a gateway page":                       {status(502, `<html>bad gateway</html>`), exitcode.Unavailable, true},
+			"500 a plain page":                         {status(500, `oops`), exitcode.Unavailable, true},
+			"403 whose body shows data":                {status(403, `{"data":{"`+field+`":`+questionAnsweredJSON+`},"errors":[{"message":"x","extensions":{"code":"FORBIDDEN"}}]}`), exitcode.Unavailable, true},
+			"403 with an error below the mutation":     {status(403, `{"data":null,"errors":[{"message":"x","path":["`+field+`","answers",0,"actor"],"extensions":{"code":"FORBIDDEN"}}]}`), exitcode.Unavailable, true},
+			"the connection dropped after the request": {hangup, exitcode.Unavailable, true},
 		} {
-			srv, n := serve(t, tc.h)
-			err := run(t, srv.URL, verb...)
-			if err == nil || atomic.LoadInt32(n) != 1 {
-				t.Errorf("%s %s: err=%v requests=%d, want an error after exactly one request", verb[0], name, err, atomic.LoadInt32(n))
-				continue
-			}
-			has := strings.Contains(err.Error(), "not confirmed")
-			if has != tc.unknown || (tc.unknown && exitCodeFor(err) != exitcode.Unavailable) {
-				t.Errorf("%s %s: exit=%d 'not confirmed'=%v want unknown=%v: %v", verb[0], name, exitCodeFor(err), has, tc.unknown, err)
+			for _, asJSON := range []bool{false, true} {
+				srv, n := serve(t, tc.h)
+				args := append([]string{"question"}, verb...)
+				if asJSON {
+					args = append(args, "--json")
+				}
+				f, out := testFactory(t)
+				var errOut strings.Builder
+				f.IOStreams.ErrOut = &errOut
+				root := NewRootCmd(f)
+				root.SetArgs(append(args, "--server", srv.URL))
+				err := root.Execute()
+				if err == nil || atomic.LoadInt32(n) != 1 {
+					t.Errorf("%s %s json=%v: err=%v requests=%d, want an error after exactly one request", verb[0], name, asJSON, err, atomic.LoadInt32(n))
+					continue
+				}
+				if code := renderError(f, err); code != tc.exit {
+					t.Errorf("%s %s json=%v: exit=%d want %d: %v", verb[0], name, asJSON, code, tc.exit, err)
+				}
+				has := strings.Contains(err.Error(), "not confirmed")
+				if has != tc.unknown {
+					t.Errorf("%s %s json=%v: 'not confirmed'=%v want %v: %v", verb[0], name, asJSON, has, tc.unknown, err)
+				}
+				if asJSON {
+					var env map[string]any
+					if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil {
+						t.Errorf("%s %s: --json stdout is not one JSON document: %v %q", verb[0], name, jerr, out.String())
+					} else {
+						inner, _ := env["error"].(map[string]any)
+						if got, _ := inner["code"].(float64); int(got) != tc.exit || strings.Contains(out.String(), "not confirmed") != tc.unknown {
+							t.Errorf("%s %s: the envelope must carry code %d and 'not confirmed' only when unknown: %q", verb[0], name, tc.exit, out.String())
+						}
+					}
+				}
 			}
 		}
 		// A connection that never opened: nothing was sent, and nothing is claimed about the write.
 		dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 		url := dead.URL
 		dead.Close()
-		err := run(t, url, verb...)
-		if err == nil || strings.Contains(err.Error(), "not confirmed") {
-			t.Errorf("%s a connection that never opened: want the plain could-not-reach error, got %v", verb[0], err)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{"question"}, verb...), "--server", url))
+		err := root.Execute()
+		if err == nil || strings.Contains(err.Error(), "not confirmed") || exitCodeFor(err) != exitcode.Unavailable || !strings.Contains(err.Error(), "could not reach") {
+			t.Errorf("%s a connection that never opened: want exit 7 'could not reach the server' without 'not confirmed', got exit=%d %v", verb[0], exitCodeFor(err), err)
 		}
 	}
 }

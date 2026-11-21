@@ -53,11 +53,18 @@ on such a record as a ruling unless `hadron question verify` says it is DECIDED.
 
 `question answer` and `question retract` claim success only when the server's reply shows the
 outcome (an answer with your option key, on a revision that did not go back and, for a reason, a
-newer one; or no standing answer with a retraction last and a newer revision). Otherwise they
-exit **1** with nothing on stdout, name `question get`, and do not resend; the write may have been
-recorded. Exit 7 is the answer when the reply never arrived, was a null question, or carried a coded error
-beneath the mutation (which may follow the write); what the server refused before writing (a coded
-refusal of the mutation itself, an HTTP 4xx such as a refused credential or a rate limit) keeps its
-typed exit, and a connection that never opened is "could not reach the server" without a claim about the write (the other unknown-outcome commands, `secret client revoke` and `ha`, use 7 for the
-doubt itself). Text and reason differences are a note on
-stderr, not a failure.
+newer one; or no standing answer with a retraction last and a newer revision). Otherwise:
+
+- the server replied but the reply does not show the outcome: exit **1**, nothing on stdout, names
+  `question get`, not resent (the write may have been recorded);
+- the unknown outcomes are exit **7** "not confirmed ... not resent; read the question with
+  `question get`": a reply that never arrived (a dropped connection), a null question, a 5xx or
+  gateway page, a 408, a 409 or any other 4xx, a reply whose body shows the question, and a coded
+  error beneath the mutation field (a resolver ran, so the write may have followed);
+- what the server refused before running the mutation keeps its ordinary exit: a coded refusal of
+  the mutation itself (2, 4, 5, 8) and a plain HTTP 400, 401, 403, 404, 405, 413, 415 or 429 (401 is
+  3, 404 is 4, the others 1 with the server's message); a connection that never opened is "could not
+  reach the server" (7) with no claim about the write.
+
+Text and reason differences are a note on stderr, not a failure. The same mapping in `ask`, `amend`,
+`withdraw` and `purge` is tracked in cli#2854.
