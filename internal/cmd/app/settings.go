@@ -6,19 +6,19 @@ import (
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/spf13/cobra"
 )
 
 // settingsFlags keeps flag presence separate from false, zero and empty lists.
 type settingsFlags struct {
-	role, permission, identify, expires                       string
+	permission, identify, expires                             string
 	timeout, dormancy, ttl                                    int
 	training, expire, clearExpires, clearTools, clearSurfaces bool
 	tools, surfaces, optional                                 []string
 }
 type preparedSettings struct {
-	role                                   *gen.AppMembershipRole
 	permission                             *gen.CreateUserPermission
 	identify                               *gen.IdentifyUserMethod
 	timeout, dormancy, ttl                 *int
@@ -30,7 +30,6 @@ type preparedSettings struct {
 
 func (s *settingsFlags) flags(cmd *cobra.Command, install bool) {
 	f := cmd.Flags()
-	f.StringVar(&s.role, "role", "", "the App's own role setting: ADMIN, CONTRIBUTOR, OWNER or READER (not a member's role: see \"hadron app member roles\")")
 	f.StringVar(&s.permission, "create-user-permission", "", "whether a chatbot session may create a platform user: DENY (never), EXPLICIT (only when asked) or IMPLICIT (whenever needed)")
 	f.StringVar(&s.identify, "identify-user-method", "", "how an incoming user is identified: USER_ID (by id) or SECRET (by a shared secret)")
 	f.IntVar(&s.ttl, "anonymous-ttl-days", 0, "how many days an anonymous session's data lives (server validated)")
@@ -49,6 +48,17 @@ func (s *settingsFlags) flags(cmd *cobra.Command, install bool) {
 		f.BoolVar(&s.clearSurfaces, "clear-surfaces", false, "replace surfaces with an empty list")
 	}
 }
+
+// retireAppRole refuses --role on app install and app update (cli#2515). The App's
+// own role never had a defined effect, so Holger ruled it removed (cli#2497); the
+// server still accepts and ignores the field for a notice period, and the CLI no
+// longer sends it. A script that still passes the flag learns why, before any
+// request, instead of getting cobra's bare "unknown flag".
+func retireAppRole(cmd *cobra.Command) {
+	cmdutil.RetireFlags(cmd, "the App's own role setting was removed (it never had a defined effect), so there is nothing to set: drop the flag. A member's role is a different setting: see \"hadron app member roles\" and \"hadron app member add --role\"",
+		cmdutil.RetiredFlag{Name: "role"})
+}
+
 func (s *settingsFlags) prepare(cmd *cobra.Command) (preparedSettings, error) {
 	p := preparedSettings{changed: []string{}}
 	f := cmd.Flags()
@@ -58,13 +68,6 @@ func (s *settingsFlags) prepare(cmd *cobra.Command) (preparedSettings, error) {
 			return true
 		}
 		return false
-	}
-	if add("role", "role") {
-		v := gen.AppMembershipRole(s.role)
-		if !slices.Contains(gen.AllAppMembershipRole, v) {
-			return p, exitcode.Newf(exitcode.Usage, "invalid --role")
-		}
-		p.role = &v
 	}
 	if add("create-user-permission", "createUserPermission") {
 		v := gen.CreateUserPermission(s.permission)

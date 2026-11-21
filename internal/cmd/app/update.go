@@ -51,11 +51,10 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 boundaries; the portal shows its chat tab when the list contains chat. Updating
 surfaces or Agent tools replaces the whole list; their clear flags send [].
 Changing type does not change surfaces. Legacy AI keys are not exposed here
-(use ai-config for AI configuration). The settings flags (--role,
---create-user-permission, --identify-user-method, --training-mode and the
+(use ai-config for AI configuration). The settings flags
+(--create-user-permission, --identify-user-method, --training-mode and the
 others) mean the same as on "hadron app install", and each flag's help says what
-it sets; --role is the App's own role setting, not a member's role (see "hadron
-app member roles").
+it sets.
 
 --policy-file <path> sets the App's action-policy link, the App layer of the
 chain every run of the App must pass (a run may do an action only if every
@@ -192,7 +191,7 @@ before trying again.`,
 			dto.Status = "updated"
 			dto.Changed = changed
 			if policyJSON != nil {
-				resp, callErr := gen.UpdateAppSettingsPolicy(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, policyJSON)
+				resp, callErr := gen.UpdateAppSettingsPolicy(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, policyJSON)
 				err = callErr
 				if err == nil {
 					if u := resp.UpdateApp; u == nil {
@@ -205,7 +204,7 @@ before trying again.`,
 					}
 				}
 			} else if len(prepared.changed) > 0 {
-				resp, callErr := gen.UpdateAppSettings(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces)
+				resp, callErr := gen.UpdateAppSettings(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces)
 				err = callErr
 				if err == nil {
 					if u := resp.UpdateApp; u == nil {
@@ -250,6 +249,7 @@ before trying again.`,
 		},
 	}
 	settings.flags(cmd, false)
+	retireAppRole(cmd)
 	fl := cmd.Flags()
 	fl.StringVar(&newURN, "urn", "", "new App slug; confirmation names the old and new full URNs")
 	fl.StringVar(&appType, "type", "", "App type: AGENT|AUTOMATION|CHATBOT|CLOUD|IOT|WORKSTATION; leaves surfaces unchanged")

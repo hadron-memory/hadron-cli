@@ -23494,22 +23494,6 @@ type AppMembersResponse struct {
 // GetApp returns AppMembersResponse.App, and is useful for accessing the field via an interface.
 func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 
-type AppMembershipRole string
-
-const (
-	AppMembershipRoleAdmin       AppMembershipRole = "ADMIN"
-	AppMembershipRoleContributor AppMembershipRole = "CONTRIBUTOR"
-	AppMembershipRoleOwner       AppMembershipRole = "OWNER"
-	AppMembershipRoleReader      AppMembershipRole = "READER"
-)
-
-var AllAppMembershipRole = []AppMembershipRole{
-	AppMembershipRoleAdmin,
-	AppMembershipRoleContributor,
-	AppMembershipRoleOwner,
-	AppMembershipRoleReader,
-}
-
 // AppMemoryGrantFields includes the GraphQL fields of AppMemoryWriteGrant requested by the fragment AppMemoryGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -129977,7 +129961,6 @@ type __CreateAppSettingsInput struct {
 	Description           *string               `json:"description,omitempty"`
 	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
 	ExpiresAt             *string               `json:"expiresAt,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -130010,9 +129993,6 @@ func (v *__CreateAppSettingsInput) GetSessionTimeoutSeconds() *int { return v.Se
 
 // GetExpiresAt returns __CreateAppSettingsInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsInput) GetExpiresAt() *string { return v.ExpiresAt }
-
-// GetRole returns __CreateAppSettingsInput.Role, and is useful for accessing the field via an interface.
-func (v *__CreateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
 
 // GetCreateUserPermission returns __CreateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
@@ -130049,7 +130029,6 @@ type __CreateAppSettingsPolicyInput struct {
 	Description           *string               `json:"description,omitempty"`
 	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
 	ExpiresAt             *string               `json:"expiresAt,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -130085,9 +130064,6 @@ func (v *__CreateAppSettingsPolicyInput) GetSessionTimeoutSeconds() *int {
 
 // GetExpiresAt returns __CreateAppSettingsPolicyInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsPolicyInput) GetExpiresAt() *string { return v.ExpiresAt }
-
-// GetRole returns __CreateAppSettingsPolicyInput.Role, and is useful for accessing the field via an interface.
-func (v *__CreateAppSettingsPolicyInput) GetRole() *AppMembershipRole { return v.Role }
 
 // GetCreateUserPermission returns __CreateAppSettingsPolicyInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsPolicyInput) GetCreateUserPermission() *CreateUserPermission {
@@ -137970,7 +137946,6 @@ type __UpdateAppSettingsInput struct {
 	ExpiresAt             json.RawMessage       `json:"expiresAt,omitempty"`
 	SessionDormancyDays   *int                  `json:"sessionDormancyDays,omitempty"`
 	AgentSessionsExpire   *bool                 `json:"agentSessionsExpire,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -138006,9 +137981,6 @@ func (v *__UpdateAppSettingsInput) GetSessionDormancyDays() *int { return v.Sess
 // GetAgentSessionsExpire returns __UpdateAppSettingsInput.AgentSessionsExpire, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsInput) GetAgentSessionsExpire() *bool { return v.AgentSessionsExpire }
 
-// GetRole returns __UpdateAppSettingsInput.Role, and is useful for accessing the field via an interface.
-func (v *__UpdateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
-
 // GetCreateUserPermission returns __UpdateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
 	return v.CreateUserPermission
@@ -138042,7 +138014,6 @@ type __UpdateAppSettingsPolicyInput struct {
 	ExpiresAt             json.RawMessage       `json:"expiresAt,omitempty"`
 	SessionDormancyDays   *int                  `json:"sessionDormancyDays,omitempty"`
 	AgentSessionsExpire   *bool                 `json:"agentSessionsExpire,omitempty"`
-	Role                  *AppMembershipRole    `json:"role,omitempty"`
 	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
 	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
 	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
@@ -138080,9 +138051,6 @@ func (v *__UpdateAppSettingsPolicyInput) GetSessionDormancyDays() *int { return 
 
 // GetAgentSessionsExpire returns __UpdateAppSettingsPolicyInput.AgentSessionsExpire, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsPolicyInput) GetAgentSessionsExpire() *bool { return v.AgentSessionsExpire }
-
-// GetRole returns __UpdateAppSettingsPolicyInput.Role, and is useful for accessing the field via an interface.
-func (v *__UpdateAppSettingsPolicyInput) GetRole() *AppMembershipRole { return v.Role }
 
 // GetCreateUserPermission returns __UpdateAppSettingsPolicyInput.CreateUserPermission, and is useful for accessing the field via an interface.
 func (v *__UpdateAppSettingsPolicyInput) GetCreateUserPermission() *CreateUserPermission {
@@ -155209,8 +155177,8 @@ func CreateAppMemory(
 
 // The mutation executed by CreateAppSettings.
 const CreateAppSettings_Operation = `
-mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!]) {
-	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
+mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!]) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
 		id
 		urn
 		name
@@ -155234,7 +155202,6 @@ func CreateAppSettings(
 	description *string,
 	sessionTimeoutSeconds *int,
 	expiresAt *string,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -155255,7 +155222,6 @@ func CreateAppSettings(
 			Description:           description,
 			SessionTimeoutSeconds: sessionTimeoutSeconds,
 			ExpiresAt:             expiresAt,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
@@ -155280,8 +155246,8 @@ func CreateAppSettings(
 
 // The mutation executed by CreateAppSettingsPolicy.
 const CreateAppSettingsPolicy_Operation = `
-mutation CreateAppSettingsPolicy ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!], $policy: JSON) {
-	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
+mutation CreateAppSettingsPolicy ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!], $policy: JSON) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
 		id
 		urn
 		name
@@ -155309,7 +155275,6 @@ func CreateAppSettingsPolicy(
 	description *string,
 	sessionTimeoutSeconds *int,
 	expiresAt *string,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -155331,7 +155296,6 @@ func CreateAppSettingsPolicy(
 			Description:           description,
 			SessionTimeoutSeconds: sessionTimeoutSeconds,
 			ExpiresAt:             expiresAt,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
@@ -183931,8 +183895,8 @@ func UpdateApp(
 
 // The mutation executed by UpdateAppSettings.
 const UpdateAppSettings_Operation = `
-mutation UpdateAppSettings ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!]) {
-	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
+mutation UpdateAppSettings ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!]) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
 		id
 		urn
 		name
@@ -183953,7 +183917,6 @@ func UpdateAppSettings(
 	expiresAt json.RawMessage,
 	sessionDormancyDays *int,
 	agentSessionsExpire *bool,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -183974,7 +183937,6 @@ func UpdateAppSettings(
 			ExpiresAt:             expiresAt,
 			SessionDormancyDays:   sessionDormancyDays,
 			AgentSessionsExpire:   agentSessionsExpire,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
@@ -183998,8 +183960,8 @@ func UpdateAppSettings(
 
 // The mutation executed by UpdateAppSettingsPolicy.
 const UpdateAppSettingsPolicy_Operation = `
-mutation UpdateAppSettingsPolicy ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $policy: JSON) {
-	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, policy: $policy) {
+mutation UpdateAppSettingsPolicy ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $policy: JSON) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, policy: $policy) {
 		id
 		urn
 		name
@@ -184026,7 +183988,6 @@ func UpdateAppSettingsPolicy(
 	expiresAt json.RawMessage,
 	sessionDormancyDays *int,
 	agentSessionsExpire *bool,
-	role *AppMembershipRole,
 	createUserPermission *CreateUserPermission,
 	identifyUserMethod *IdentifyUserMethod,
 	anonymousTtlDays *int,
@@ -184048,7 +184009,6 @@ func UpdateAppSettingsPolicy(
 			ExpiresAt:             expiresAt,
 			SessionDormancyDays:   sessionDormancyDays,
 			AgentSessionsExpire:   agentSessionsExpire,
-			Role:                  role,
 			CreateUserPermission:  createUserPermission,
 			IdentifyUserMethod:    identifyUserMethod,
 			AnonymousTtlDays:      anonymousTtlDays,
