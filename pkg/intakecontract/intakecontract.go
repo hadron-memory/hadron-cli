@@ -32,6 +32,15 @@ import (
 // that describes another is refused with a SkewError.
 const ContractVersion = 1
 
+// ExitNotMine is the exit status with which an adapter answers a write call
+// (mark-tracked, untrack, report) for an external id that is not its item
+// (hadron-cli#2869). The adapter decides what is foreign, never the CLI
+// (cor:agt:120 is source-agnostic). The reconcile pass records the id, shows it
+// in its output and moves its cursor past the change; every other non-zero exit
+// is still a refusal that holds the cursor. An adapter may equally answer {} and
+// make no tracker request; this code is for one that wants the skip visible.
+const ExitNotMine = 20
+
 // Bounds on what an adapter may hand back. An answer outside one is refused;
 // nothing is truncated into a plausible answer.
 const (

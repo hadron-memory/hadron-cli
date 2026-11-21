@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -36,6 +37,7 @@ import (
 const (
 	reconcilePage     = 200 // the server's cap
 	reconcileMaxPages = 25  // per run; the cursor resumes the rest next run
+	maxNotMineListed  = 50  // foreign ids named in the output; the count is exact
 )
 
 // reconcileDTO is the reconcile pass's --json shape, nested in the list and
@@ -57,6 +59,11 @@ type reconcileDTO struct {
 	SkippedNoAssignee    int `json:"skippedNoAssignee"`
 	SkippedNoTask        int `json:"skippedNoTask"`
 	SkippedHeldElsewhere int `json:"skippedHeldElsewhere"`
+	// SkippedNotMine counts changes the adapter answered "not my item"
+	// (intakecontract.ExitNotMine, cli#2869); NotMine lists those external ids
+	// (bounded) so the skip is visible, never silent. The cursor moved past them.
+	SkippedNotMine int      `json:"skippedNotMine"`
+	NotMine        []string `json:"notMine"`
 	// Complete is false when the pass stopped early (an adapter failure, or
 	// the per-run page bound); the next run resumes at the stored cursor.
 	Complete bool `json:"complete"`
@@ -69,7 +76,7 @@ type reconcileDTO struct {
 // not depend on the write-back), then a fatal error (server, store) that ends
 // the run.
 func reconcile(ctx context.Context, client graphql.Client, store *intake.CursorStore, key, appRef string, runner *intake.Runner, desc intake.Describe) (dto reconcileDTO, adapterFailure, fatal error) {
-	dto = reconcileDTO{Complete: true}
+	dto = reconcileDTO{Complete: true, NotMine: []string{}}
 	// One run at a time per feed: the cursor read, the adapter's effects and the
 	// cursor write are one critical section (cli#1975, LOCAL P2).
 	serr := store.Serialize(ctx, key, func() error {
@@ -90,7 +97,7 @@ func reconcile(ctx context.Context, client graphql.Client, store *intake.CursorS
 }
 
 func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.CursorStore, key, appRef string, runner *intake.Runner, desc intake.Describe) (dto reconcileDTO, adapterFailure, fatal error) {
-	dto = reconcileDTO{Complete: true}
+	dto = reconcileDTO{Complete: true, NotMine: []string{}}
 	cursor, err := store.Get(key)
 	if err != nil {
 		return dto, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
@@ -139,7 +146,17 @@ func reconcileLocked(ctx context.Context, client graphql.Client, store *intake.C
 			}
 			dto.Read++
 			holder := func(externalID string) (itemHolders, error) { return lookupHolders(ctx, client, appRef, externalID) }
-			if ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, holder, &dto); ferr != nil {
+			ferr := reconcileOne(ctx, runner, desc, ch.Kind, ch.ExternalId, ch.Task, holder, &dto)
+			if intake.IsNotMine(ferr) {
+				// The adapter says this id is not its item: record it, move on.
+				dto.Skipped++
+				dto.SkippedNotMine++
+				if len(dto.NotMine) < maxNotMineListed {
+					dto.NotMine = append(dto.NotMine, output.SafeLine(ch.ExternalId, 200))
+				}
+				ferr = nil
+			}
+			if ferr != nil {
 				// The cursor stays after the last answered change, so the
 				// next run retries this one.
 				if err := store.Set(key, cursor); err != nil {
@@ -340,6 +357,13 @@ func humanReconcile(d reconcileDTO) string {
 		return ""
 	}
 	s := fmt.Sprintf("reconcile: read %d change(s): %d marked, %d untracked, %d reported, %d skipped", d.Read, d.Marked, d.Untracked, d.Reported, d.Skipped)
+	if d.SkippedNotMine > 0 {
+		s += fmt.Sprintf(" (%d not this adapter's: %s", d.SkippedNotMine, strings.Join(d.NotMine, ", "))
+		if d.SkippedNotMine > len(d.NotMine) {
+			s += ", ..."
+		}
+		s += ")"
+	}
 	if !d.Complete && d.Error == nil {
 		s += " (more next run)"
 	}
@@ -354,11 +378,11 @@ func humanReconcile(d reconcileDTO) string {
 func reconcileRun(ctx context.Context, f *cmdutil.Factory, client graphql.Client, appRef string, runner *intake.Runner, desc intake.Describe) (reconcileDTO, error, error) {
 	store, err := intake.DefaultCursorStore()
 	if err != nil {
-		return reconcileDTO{Complete: true}, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
+		return reconcileDTO{Complete: true, NotMine: []string{}}, nil, exitcode.Newf(exitcode.Error, "the reconcile cursor store: %v", err)
 	}
 	server, err := f.Server()
 	if err != nil {
-		return reconcileDTO{Complete: true}, nil, err
+		return reconcileDTO{Complete: true, NotMine: []string{}}, nil, err
 	}
 	return reconcile(ctx, client, store, intake.CursorKey(server, appRef, desc.Name), appRef, runner, desc)
 }
