@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"testing"
 )
 
@@ -306,5 +307,55 @@ func TestAVanishedZombieMemberIsCodedAsAVanishedMember2142(t *testing.T) {
 	_, void, _, why := scanGroupOnce(churnPgid, churnPgid, zs, readProcDir)
 	if !void || why != whyVanishedMember {
 		t.Fatalf("void=%v why=%q, want vanished-member", void, why)
+	}
+}
+
+// cli#2744: when the host's unrelated churn outlasts the scan's bound, EVERY pass is void
+// (why=unseen-pid) and the stop reports a drained group as "not exited within 2s of
+// SIGKILL": modelled here with a fresh vanisher on every pass, past maxGroupScanPasses.
+// The scan's safety rule is untouched (the production answer is still "members"); the
+// held-exit tests give their launch a group-only lister (groupOnlyProc2744) so that
+// churn from OTHER groups never reaches their scan. Both halves are pinned.
+func TestUnrelatedChurnPastTheBoundVoidsTheScanAndAGroupOnlyListerKeepsItOut2744(t *testing.T) {
+	f := churnHost(3)
+	f.install(t)
+	withFreshVanisher(f, 1<<30) // a new short-lived process on every listing, forever
+	if members, why := groupMembership(churnPgid, churnPgid); !members || why != whyUnseenPid {
+		t.Fatalf("the safe answer under unbounded churn is members/unseen-pid: %v %s", members, why)
+	}
+	var pg atomic.Int64
+	pg.Store(churnPgid)
+	f.lists, f.pass = 0, 0
+	members, why := groupMembershipWith(churnPgid, churnPgid, groupOnlyProc2744(&pg))
+	if members {
+		t.Fatalf("a group-only lister must settle on the group's own drained state, got members (%s)", why)
+	}
+	if f.lists > 3 {
+		t.Errorf("settles in a few listings, not by exhausting the bound: %d", f.lists)
+	}
+}
+
+// The group-only lister keeps the leader and its members and drops everything else,
+// including a pid that is gone before its stat read; with no pgid yet it lists all.
+func TestGroupOnlyListerKeepsOnlyTheGroup2744(t *testing.T) {
+	f := churnHost(2)
+	f.install(t)
+	withFreshVanisher(f, 1<<30)
+	var pg atomic.Int64
+	all, _ := groupOnlyProc2744(&pg)("/proc")
+	if len(all) != len(f.pids)+1 {
+		t.Fatalf("before the pgid is known the lister must list everything: %d entries", len(all))
+	}
+	pg.Store(churnPgid)
+	kept, err := groupOnlyProc2744(&pg)("/proc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range kept {
+		names = append(names, e.Name())
+	}
+	if len(kept) != 2 || names[0] != strconv.Itoa(churnPgid) || names[1] != strconv.Itoa(churnMember) {
+		t.Fatalf("only the leader and its member are kept: %v", names)
 	}
 }
