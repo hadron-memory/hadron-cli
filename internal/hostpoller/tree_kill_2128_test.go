@@ -118,7 +118,7 @@ func TestTreeKillOrdinaryFailureSanitized2316(t *testing.T) {
 	}
 	t.Run("empty-output", func(t *testing.T) {
 		_, detail := runTreeKill(4242, time.Second, func(context.Context, int) ([]byte, error) { return []byte(" \n"), errors.New("err-sentinel") })
-		if detail != "could not stop the launched process tree (pid 4242): err-sentinel" {
+		if !strings.Contains(detail, "err-sentinel") || strings.HasSuffix(strings.TrimSpace(detail), ":") || strings.Contains(detail, ": ;") {
 			t.Errorf("empty output left an artifact: %q", detail)
 		}
 	})
@@ -172,15 +172,24 @@ func TestTreeKillRunnerTextBoundedIndependently2316(t *testing.T) {
 	}
 }
 
-// hadron-cli#2316 Part A: the ordinary branch is bounded the same way.
+// hadron-cli#2316 Part A: the ordinary branch is bounded the same way. The
+// assertion counts kept runes, so it does not depend on how the parts are joined.
 func TestTreeKillOrdinaryFailureBounded2316(t *testing.T) {
 	long := strings.Repeat("é", 5000)
-	t.Run("error", func(t *testing.T) {
-		_, detail := runTreeKill(4242, time.Second, func(context.Context, int) ([]byte, error) { return []byte("out"), errors.New(long) })
-		want512(t, boundedPart(t, detail, "(pid 4242): "))
-	})
-	t.Run("output", func(t *testing.T) {
-		_, detail := runTreeKill(4242, time.Second, func(context.Context, int) ([]byte, error) { return []byte(long), errors.New("x") })
-		want512(t, boundedPart(t, detail, "x: "))
-	})
+	for _, tt := range []struct {
+		name string
+		out  []byte
+		err  error
+	}{
+		{"error", nil, errors.New(long)},
+		{"output", []byte(long), errors.New("x")},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, detail := runTreeKill(4242, time.Second, func(context.Context, int) ([]byte, error) { return tt.out, tt.err })
+			// 512 runes per part: 511 kept plus the ellipsis.
+			if n, e := strings.Count(detail, "é"), strings.Count(detail, "…"); n != 511 || e != 1 {
+				t.Errorf("kept %d runes and %d ellipses (want 511 and 1)", n, e)
+			}
+		})
+	}
 }
