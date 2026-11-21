@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	"github.com/hadron-memory/hadron-cli/internal/config"
@@ -36,7 +37,8 @@ import (
 //     example can never reach this Orca host's real CLI or state (#2578).
 //   - `sweep install`, `sweep uninstall` and `team host run` change the HOST
 //     (the service manager; the poller launches real worker processes) —
-//     they are parse-checked and never executed.
+//     they are parse-checked and never executed, so "wired" for them means
+//     only that the command path and flags parse.
 //   - everything else may only reach the loopback fixture (testFactory's
 //     client refuses any other destination) and the per-example temporary
 //     directory; file-taking flags of this slice get documents that pass the
@@ -50,8 +52,8 @@ const (
 
 // minExamplesPerPageSliceA pins the round-1 finding that these pages carried
 // no Example at all: an operator's first copy-paste from the page must exist
-// and be wired. On main (3b858969) both counts are zero, which is the red
-// state this harness is committed against.
+// and parse. `team host run` is parse-checked only (notRunSliceA), so its one
+// example counts as parsing, not as having run.
 var minExamplesPerPageSliceA = map[string]int{
 	"team host run":        1,
 	"team host sweep-runs": 1,
@@ -87,24 +89,22 @@ var localOnlySliceA = []string{
 // #2578, Wolfgang's stop, hadron-cli
 // findings:host-command-help-harness-must-sandbox).
 var expectedRefusalsSliceA = map[string]string{
-	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json":                       "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
-	"hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json":                       "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 }
 
 // knownPanicsSliceA lists commands that panic on a reply with no data, each
 // tracked by a follow-up issue (a panic is a defect of the command, not of
-// the help): `team host issue` dereferences the returned operation without a
-// nil check (host.go, gen.IssueHostOperation), the same class as slice 1's
-// `app key scope grant` (#2492).
-var knownPanicsSliceA = map[string]string{
-	"team host issue": "#2572",
-}
+// the help). It is empty: `team host issue` was the one entry (#2572) and no
+// longer panics. An entry that stops panicking fails the harness as stale
+// (cli#2617), so a fixed panic cannot stay allowlisted.
+var knownPanicsSliceA = map[string]string{}
 
-// sliceAFileFlags are the file-taking flags of this slice, with the fixture
-// document each gets. A host.yaml must pass LoadConfig's full validation
-// (app, absolute worktrees_root, one worker with a family and a launch), or
-// the example would fail on the fixture, not the wiring; the test directory
-// is templated in at write time.
+// sliceAFileContent is the fixture document a file-taking flag of this slice
+// gets. A host.yaml must pass LoadConfig's full validation (app, absolute
+// worktrees_root, one worker with a family and a launch), or the example would
+// fail on the fixture, not the wiring; the test directory is templated in at
+// write time.
 func sliceAFileContent(flag, dir string) string {
 	switch flag {
 	case "--from", "--config":
@@ -118,7 +118,10 @@ func sliceAFileContent(flag, dir string) string {
 	}
 }
 
-var sliceAFileFlags = []string{"--from", "--config", "--desired-state-file", "--policy-file", "--payload-file", "--override-file"}
+// sliceAFileFlags are the file-taking flags of this slice. Each must be a real
+// flag of a team host/router/ticker page (TestSliceAFileFlagsAreRealFlags2617);
+// the slice-1 flags --policy-file, --payload-file and --override-file are not.
+var sliceAFileFlags = []string{"--from", "--config", "--desired-state-file"}
 
 func collectSliceAPages(root *cobra.Command) []*cobra.Command {
 	var pages []*cobra.Command
@@ -298,6 +301,10 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 		t.Fatalf("found only %d team host/router/ticker pages; the walk is wrong", len(pages))
 	}
 
+	// used records which allowlist entries an example actually exercised, so an
+	// entry that nothing reaches (a deleted example, a fixed panic) fails the
+	// harness instead of lingering as a silent exemption (cli#2617 P3-2/F3).
+	used := map[string]bool{}
 	var results []exampleResult
 	for _, page := range pages {
 		path := strings.TrimPrefix(page.CommandPath(), "hadron ")
@@ -319,6 +326,7 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 				for prefix, reason := range notRunSliceA {
 					if strings.HasPrefix(ex+" ", prefix) {
 						res.Mode, res.Outcome = "parse-check only (not run)", reason
+						used["notRun "+prefix] = true
 						words, err := splitShell(ex)
 						if err != nil {
 							res.Broken, res.Outcome = true, fmt.Sprintf("example does not split into words: %v", err)
@@ -451,7 +459,10 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 						res.Outcome = "PANIC on an empty fixture reply: " + panicked
 						known := false
 						for cmdPath := range knownPanicsSliceA {
-							known = known || strings.Contains(ex, "hadron "+cmdPath+" ")
+							if strings.Contains(ex, "hadron "+cmdPath+" ") {
+								known = true
+								used["panic "+cmdPath] = true
+							}
 						}
 						if !known {
 							res.Broken = true
@@ -462,7 +473,12 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 					}
 					isLocalOnly := false
 					for _, prefix := range localOnlySliceA {
-						isLocalOnly = isLocalOnly || strings.HasPrefix(ex+" ", prefix)
+						if strings.HasPrefix(ex+" ", prefix) {
+							isLocalOnly = true
+							if err == nil && len(sent) == 0 {
+								used["localOnly "+prefix] = true
+							}
+						}
 					}
 					switch {
 					case err == nil && len(sent) == 0 && isLocalOnly:
@@ -491,6 +507,7 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 						case strings.Contains(msg, "without --yes"):
 							res.Outcome = "asks for confirmation (refused without a terminal, as documented)"
 						case expected:
+							used["refusal "+ex] = true
 							res.Outcome = "refused before any request, as the example documents: " + msg + " (" + expectedRefusalsSliceA[ex] + ")"
 						default:
 							res.Broken = true
@@ -530,6 +547,25 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 		}
 	}
 
+	// Every allowlist entry was exercised: an entry nothing reaches is a stale
+	// exemption (a deleted example, a panic that was fixed) and must go.
+	var declared []string
+	for k := range notRunSliceA {
+		declared = append(declared, "notRun "+k)
+	}
+	for _, k := range localOnlySliceA {
+		declared = append(declared, "localOnly "+k)
+	}
+	for k := range expectedRefusalsSliceA {
+		declared = append(declared, "refusal "+k)
+	}
+	for k := range knownPanicsSliceA {
+		declared = append(declared, "panic "+k)
+	}
+	for _, stale := range unusedAllowlistEntries(declared, used) {
+		t.Errorf("stale allowlist entry %q: no example exercises it any more; remove it", stale)
+	}
+
 	// The sandbox held: nothing outside the temp dirs changed, and no
 	// service-manager stub was ever invoked.
 	assertRealHostUntouchedSliceA(t, realRoots, realBefore)
@@ -554,9 +590,9 @@ func agenticUsageSection1054(t *testing.T, name string) string {
 
 // The three host writes (assign, unassign, setup) share hostSetupWriteHelp,
 // which points the reader at agentic-usage's "App-manager writes with an
-// instruction" for the instruction forms, the server revision they need and
+// instruction" for the instruction forms, the server floor they need and
 // the refusal codes. That section must name the trio and give them the flag's
-// base revision their --instruction usage names (17ef5905) — not only the
+// base floor their --instruction usage names (2026-11-03) — not only the
 // dated minimum the cli#2448 six need (QA F2 on #2578: the section said
 // "exactly six" with one 2026-11-04 minimum, so the pointer landed the reader
 // on a list their command was not in).
@@ -567,8 +603,8 @@ func TestSliceAHostTrioNamedInAppManagerInstructionSection1054(t *testing.T) {
 			t.Errorf("the App-manager instruction section must name %s — the host pages point the reader here", "`"+cmd+"`")
 		}
 	}
-	if !strings.Contains(sec, "17ef5905") {
-		t.Error("the section must give the host trio the flag's base revision 17ef5905 (their pages' --instruction usage names it)")
+	if !namesFloorDate2849(sec, "2026-11-03") {
+		t.Error("the section must give the host trio the flag's base floor, \"2026-11-03 or later\" (their pages' --instruction usage names it)")
 	}
 }
 
@@ -607,5 +643,48 @@ func TestSliceASandboxSealsHostTools1054(t *testing.T) {
 	}
 	if !strings.HasPrefix(cfgDir, home+string(filepath.Separator)) {
 		t.Errorf("config dir %q must sit under the sandbox home %q (XDG_CONFIG_HOME must seal config.Dir)", cfgDir, home)
+	}
+}
+
+// unusedAllowlistEntries returns the declared allowlist entries that no example
+// exercised, sorted. The harness fails on each one (cli#2617 P3-2, F3).
+func unusedAllowlistEntries(declared []string, used map[string]bool) []string {
+	var stale []string
+	for _, d := range declared {
+		if !used[d] {
+			stale = append(stale, d)
+		}
+	}
+	sort.Strings(stale)
+	return stale
+}
+
+// A stale allowlist entry must fail: leaving one declared entry unused (the
+// mutant) is reported, and a fully used set is not.
+func TestSliceAAllowlistStalenessIsDetected2617(t *testing.T) {
+	declared := []string{"notRun a", "panic b", "refusal c"}
+	if got := unusedAllowlistEntries(declared, map[string]bool{"notRun a": true, "panic b": true, "refusal c": true}); len(got) != 0 {
+		t.Errorf("a fully used set reported stale entries: %v", got)
+	}
+	got := unusedAllowlistEntries(declared, map[string]bool{"notRun a": true, "refusal c": true})
+	if len(got) != 1 || got[0] != "panic b" {
+		t.Errorf("an unused entry must be reported, got %v", got)
+	}
+}
+
+// Every flag the harness treats as file-taking must exist on some slice-A page:
+// a name no command has is a dead entry (cli#2617 P3-3 — --policy-file,
+// --payload-file and --override-file belonged to slice 1, not to team
+// host/router/ticker).
+func TestSliceAFileFlagsAreRealFlags2617(t *testing.T) {
+	f, _ := testFactory(t)
+	have := map[string]bool{}
+	for _, page := range collectSliceAPages(NewRootCmd(f)) {
+		page.Flags().VisitAll(func(fl *pflag.Flag) { have["--"+fl.Name] = true })
+	}
+	for _, fl := range sliceAFileFlags {
+		if !have[fl] {
+			t.Errorf("sliceAFileFlags names %s, which no team host/router/ticker page has", fl)
+		}
 	}
 }

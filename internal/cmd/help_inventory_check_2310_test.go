@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/hadron-memory/hadron-cli/internal/helpinventory"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -129,5 +130,55 @@ func TestHelpInventoryCheckComparesTheWholeFile2310(t *testing.T) {
 	}
 	if out, err := check2310(t, dir, regenerated); err != nil {
 		t.Fatalf("regeneration must clear the old-format drift: %v\n%s", err, out)
+	}
+}
+
+// cli#2648 (blind P2-2): a merge that deletes an assessed row. Since cli#2699 the revert
+// check names it when the command still exists (the live set here is the fixture's own
+// command, standing in for the real tree the tool builds), and it also fails the drift
+// check, because the generator re-emits every command-tree row (as unread, with
+// the human columns carried over only from a row that still exists). A mutant
+// that dropped the whole-file diff, or made the generator skip rows absent from
+// the committed file, turns the last assertion red.
+func TestDeletedAssessedRowFailsTheCheckPipeline2648(t *testing.T) {
+	dir := scratchTree2310(t)
+	fresh := generate2310(t, dir)
+	base := markInventory1126(t, fresh, "alpha two", "Gil", "pass", "[x](https://example.com/x)")
+	if out, err := check2310(t, dir, base); err != nil {
+		t.Fatalf("the assessed baseline must pass the drift check: %v\n%s", err, out)
+	}
+	var kept []string
+	dropped := false
+	for _, line := range strings.Split(base, "\n") {
+		if strings.HasPrefix(line, "| `alpha two` |") {
+			dropped = true
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if !dropped {
+		t.Fatal("fixture row not found")
+	}
+	head := strings.Join(kept, "\n")
+
+	baseRows, err := helpinventory.Parse(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	headRows, err := helpinventory.Parse(head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// cli#2699: with the live command tree the revert check now names the deletion too (the
+	// row's command still exists), so a bad resolution fails per-PR CI, not only the
+	// drift check; a command that is really gone is still left alone.
+	if got := helpinventory.Reverts(baseRows, headRows, map[string]bool{"alpha two": true}); len(got) != 1 || !strings.Contains(got[0], "`alpha two`") {
+		t.Fatalf("the revert check must name a deleted assessed row whose command still exists: %v", got)
+	}
+	if got := helpinventory.Reverts(baseRows, headRows, map[string]bool{}); len(got) != 0 {
+		t.Fatalf("a deleted row for a removed command must pass the revert check: %v", got)
+	}
+	if out, err := check2310(t, dir, head); err == nil || !strings.Contains(out, "help-inventory drift") {
+		t.Fatalf("a deleted assessed row must fail help-inventory-check: %v\n%s", err, out)
 	}
 }

@@ -279,12 +279,12 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
    key grant is checked by ` + "`hadron team host status --config host.yaml`" + `.
 
 Events print one per line, for example
-  09:12:01 collected 01H… worktree.create
-  09:12:01 reported 01H… worktree.create SUCCEEDED hadron-cli/jonas-2
+  09:12:01 collected worktree.create 01H…
+  09:12:01 reported worktree.create 01H… SUCCEEDED: hadron-cli/jonas-2
 (--json prints each event as an object). The rest of this page is the
 operator's reference.
 
-Run the host poller (cor:agt:070). Every poll it registers the workers this
+Run the host poller. Every poll it registers the workers this
 host can launch (with their family and existing worktrees), collects the
 operations issued to it, carries out only the closed set of five, and
 reports every outcome. One poller per host or container.
@@ -551,9 +551,13 @@ changed entry names (launch, end and recover programs, account programs, repo
 clones, codex_home, claude_config_dir, disk_tmp), and every directory above
 them and above the file, must be owned by the poller's user (or root) and not
 writable by group or others (a sticky directory such as /tmp is accepted above
-them), or the reload is refused. The check stops other
+them), or the reload is refused. A launch, end, recover or account
+program named as a relative path (with a slash) is refused on reload: it is
+run from the worker's directory, which the check cannot judge — use an
+absolute path or a bare name, or restart the poller. The check stops other
 users and loose modes; a process running as the poller's own user is inside
-the poller's trust boundary, as it is for a restart. A file that does not load or fails the start-time checks changes nothing either: the poller keeps
+the poller's trust boundary, as it is for a restart. A file that does not load
+or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
 for that content and reason. A worker that now launches through Orca is
 refused too, since that wiring is made at start (restart to apply it). A
@@ -576,14 +580,17 @@ cutover.
 With delivery.enabled (and orca_bin), each poll also reads this host's
 ready chat batches (the key needs attention:deliver too) and types each
 into its worker's agent terminal, only into an empty composer, then
-acknowledges it. A key without attention:deliver turns delivery off for the
-run (a delivery-off event); operations carry on. It also reads this host's
+acknowledges it. A key refused for attention:deliver on two consecutive polls
+turns delivery off (a delivery-off event); it re-checks on a backoff of one to
+fifteen minutes and turns itself back on (a delivery-on event); operations
+carry on throughout. It also reads this host's
 due tick and task wakes (dueWakes) and types each as one line through the
 same path, then hands its proof back (hadron-cli#1178). A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
-Set delivery.ack_mixed: true only when the server carries A-prime (#2072,
-ad7f1c2): its mixed acknowledgment records ticks/tasks without moving chat
-marks. Mention text still arrives through its own batch. ack_mixed must be a
+Set delivery.ack_mixed: true only when the server carries A-prime (issue
+#2072, merged 2026-10-19: the date is for orientation, since a build from that day can predate the merge, so
+confirm the deployed build includes that change): its mixed acknowledgment records
+ticks/tasks without moving chat marks. Mention text still arrives through its own batch. ack_mixed must be a
 real boolean wherever it is written, including through a YAML merge (<<) or an
 alias: null, ~, yes and on are refused with the line. A merged non-boolean is
 refused even when an explicit ack_mixed: true beside it would win; that

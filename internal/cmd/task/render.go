@@ -23,7 +23,7 @@ func newCmdRender(f *cmdutil.Factory) *cobra.Command {
 	var memory, argsText string
 	cmd := &cobra.Command{
 		Use:   "render <node-ref> | <loc> -m <memory>",
-		Short: "Print a node's prompt with its arguments filled in (read-only, no run)",
+		Short: "Print a node's prompt with its arguments filled in (no execution, no run row)",
 		Long: `Render a node with the server's renderRunNode Query. Pass a node ID or
 fully-qualified node URN, or a bare loc with -m/--memory. The server owns
 admission, argument substitution, dependency access and assembly.

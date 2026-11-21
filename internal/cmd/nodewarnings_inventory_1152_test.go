@@ -137,6 +137,8 @@ func TestLaterFailedWriteSuppressesEarlierAdvice1152(t *testing.T) {
 // is either verified (a reason) or marked UNVERIFIED (not evaluated). A node-named mutation that is in neither this table nor
 // nodeWriteAdviceRoots1152 fails the inventory test below.
 var nodeMutationExclusions1152 = map[string]string{
+	// Verified against hadron-server c9d7820e resolvers.mutation.node.ts exportNodeToGoogleDoc:
+	"exportNodeToGoogleDoc": "reads resolved node content for an external Doc; does not write a Hadron node or carry plain-pin write advice",
 	// Verified against hadron-server (writeNodeCore, resolvers.mutation.node.ts and
 	// createAssetReferenceNode.ts at origin/main when #1152 was built):
 	"updateNodeRevision": "edits a revision's label only; no content is written",
@@ -158,6 +160,11 @@ var nodeMutationExclusions1152 = map[string]string{
 	"extractParentNodeToMemory": "UNVERIFIED: not evaluated for advice",
 	"mintMemoryNodes":           "UNVERIFIED: not evaluated for advice",
 	"updateNodeProperties":      "UNVERIFIED: not evaluated for advice (properties, not content)",
+	// cli#398: spec new's allocation creates an EMPTY unminted placeholder; the
+	// authored content is written by its one guarded updateSpecNode fill, which
+	// is in the advice set. Whether the provider attaches plain-pin advice to
+	// the allocation call itself was not checked.
+	"allocateSpecNode": "UNVERIFIED: reserves an empty placeholder (no content written); the content write is the updateSpecNode fill",
 }
 
 // nodeMutationRoots1152 returns the node-named root fields a document's mutations

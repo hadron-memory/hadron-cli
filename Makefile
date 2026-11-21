@@ -30,7 +30,7 @@ SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.m
 # review, Codex P2 + Copilot; the same gap for split MCP modules, #901).
 TOOLS_SOURCES ?= src/mcp src/lib/runner/tools
 
-.PHONY: build cross-build cross-test-build cross-vet test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
+.PHONY: build cross-build cross-test-build cross-vet test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check help-inventory-revert-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -211,6 +211,22 @@ help-inventory-check: build
 	  exit 1; \
 	fi; \
 	echo "✓ help inventory matches the command tree"
+
+# cli#2648: help-inventory-check diffs the committed file against a regeneration
+# that carries the committed human columns across, so it never compares against
+# the base: a bad merge resolution of docs/help-inventory.md that puts assessed
+# rows back to unread with their hashes unchanged is self-consistent and nothing
+# notices (#2578: 78 rows). This compares the inventory at HEAD with the one at
+# the MERGE BASE of HEAD and origin/main (not current main: a PR merely behind
+# main would fail for main's newer flips) and names each row that lost its
+# evaluator, result or finding while its hash held, and (cli#2699) each assessed
+# row that was DELETED while its command still exists in the live cobra command
+# tree (the tool builds the CLI's own root in-process from the checked-out code;
+# a row deleted together with its command passes). help-inventory-check, which is
+# not in per-PR CI (cli#2310), caught such a deletion only when someone ran it.
+# BASE and HEAD override the refs; CI passes the PR head sha.
+help-inventory-revert-check:
+	@go run ./scripts/helpinventoryrevert -base $(or $(BASE),origin/main) -head $(or $(HEAD),HEAD)
 
 # The CLI coverage matrix (#1334, #66; cor:api:240:02): every Query and
 # Mutation field mapped to the command that reaches it, the issue tracking the

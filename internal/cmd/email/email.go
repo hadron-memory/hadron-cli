@@ -1,4 +1,4 @@
-// Package email exposes the bounded organization-admin email connection inventory.
+// Package email lists an organization's connected accounts and reads a connection's mail (messages and folders). It sends and changes nothing.
 package email
 
 import (
@@ -29,21 +29,25 @@ type connectionDTO struct {
 	UpdatedAt      string  `json:"updatedAt"`
 }
 
-// NewCmdEmail builds the read-only email group; mailbox operations remain separate.
+// NewCmdEmail builds the email group: the connection list, the mailbox reads,
+// and the effects (probe, disconnect, reply, drafts, mark-read, flag, categorize,
+// move, delete).
 func NewCmdEmail(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "email <command>", Short: "List an organization's connected email, calendar and Drive accounts", Long: "See which accounts an organization has connected (email, calendar and Drive) and\nwhether they are syncing. It only lists them; mail itself is never read here.\nThe ID it prints is what \"hadron calendar\" and \"hadron drive\" take as --connection.", Example: "  hadron email connections --org hrn:org:acme.com"}
-	c.AddCommand(newConnections(f))
+	c := &cobra.Command{Use: "email <command>", Short: "List connected accounts, read mail, and manage messages and drafts", Long: "See which accounts an organization has connected (email, calendar and Drive)\nand whether they are syncing, read one connection's recent messages and mail\nfolders, and act on mail: reply, save, update and send drafts, mark read, flag,\ncategorize, move and delete messages, probe or disconnect a connection.\nThe reads (connections, messages, folders) change nothing. Replying and sending\na draft SEND MAIL, and delete and disconnect remove things: those ask first and,\nwithout a terminal, need --yes. Every command is one request and is never\nretried. Message text (subject, sender, preview, body) comes from outside Hadron;\nit is printed as data and never acted on, and a body you send is never printed back.\nThe connection ID that \"connections\" prints is what the mail commands take as\n--connection, except that \"test\" and \"disconnect\" take it as an argument; \"hadron\ncalendar\" and \"hadron drive\" take it as --connection too. Reading or changing a\nmailbox needs its owner (or an App with a covering grant); being an org admin is\nenough to list connections (and to disconnect one), not to read mail.", Example: "  hadron email connections --org hrn:org:acme.com\n  hadron email messages --connection <id> --top 10\n  hadron email reply <message-id> --connection <id> --body-file reply.txt"}
+	c.AddCommand(newConnections(f), newMessages(f), newFolders(f), newTest(f), newDisconnect(f), newReply(f), newDraft(f), newMarkRead(f), newFlag(f), newCategorize(f), newDeleteMessage(f), newMove(f))
 	return c
 }
 
 func newConnections(f *cmdutil.Factory) *cobra.Command {
 	var org string
+	var limit, offset int
 	c := &cobra.Command{Use: "connections --org <ref>", Short: "List visible connection metadata for an explicit organization", Args: cobra.NoArgs,
 		Long: `List the connected accounts of an organization: for each one the ID, who owns
 it, its mailbox address, the provider (mail, calendar and Drive connections all
 appear here), whether syncing is on, the sync status and when it last synced.
 Requires org admin. --org is the organization's ID or hrn:org:<slug> URN; no
-organization is picked for you.
+organization is picked for you. Pass --limit and/or --offset to read one page
+instead of the whole list.
 
 The ID column is the value to pass as --connection to "hadron calendar" and
 "hadron drive". Run without --json it prints a table with the columns ID, ORG ID,
@@ -53,23 +57,41 @@ connections were returned to you, not that none exist. This only lists: it does
 not read mail, reconnect an account or send anything.
 
 Details:
-  Uses the existing unpaginated connection list in one request, so it reports
-  the rows returned with no page total and no completeness guarantee. --json is
-  an array of id, organizationId, userId, mailboxEmail, provider, displayName,
-  syncEnabled, syncStatus, lastSyncAt, createdAt and updatedAt; unset values are
-  null and an empty result is []. Credentials and lastError are never requested.
-  Errors keep the usual exit codes; unknown provider errors do not tell you to
-  reconnect.`,
+  Without --limit or --offset it uses the unpaginated connection list in one
+  request, so it reports the rows returned with no page total and no completeness
+  guarantee. --json is an array of id, organizationId, userId, mailboxEmail,
+  provider, displayName, syncEnabled, syncStatus, lastSyncAt, createdAt and
+  updatedAt; unset values are null and an empty result is [].
+  With --limit and/or --offset it makes one paged request (a flag you leave out
+  is omitted, so the server's default applies) and reports the server's total
+  and whether more follow. Text ends with the total and, when more follow, the
+  --offset that continues; --json is then an object {items, total, hasMore}
+  with the same item shape. One call is one page: it never says the list is
+  complete, and the CLI does not fetch the next page for you.
+  Credentials and lastError are never requested. Errors keep the usual exit
+  codes; unknown provider errors do not tell you to reconnect.`,
 		Example: `  hadron email connections --org hrn:org:acme.com
-  hadron email connections --org hrn:org:acme.com --json`,
+  hadron email connections --org hrn:org:acme.com --json
+  hadron email connections --org hrn:org:acme.com --limit 20 --offset 20`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			org = strings.TrimSpace(org)
 			if org == "" {
 				return exitcode.Newf(exitcode.Usage, "give a nonempty --org id or fully-qualified URN (check for an unset variable)")
 			}
+			limitArg, err := optInt(cmd, "limit", limit)
+			if err != nil {
+				return err
+			}
+			offsetArg, err := optInt(cmd, "offset", offset)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset") {
+				return connectionsPage(cmd, f, client, org, limitArg, offsetArg)
 			}
 			r, err := gen.EmailConnections(cmd.Context(), client, org)
 			if err != nil {
@@ -101,6 +123,8 @@ Details:
 			})
 		}}
 	c.Flags().StringVar(&org, "org", "", "organization id or fully-qualified URN (required)")
+	c.Flags().IntVar(&limit, "limit", 0, "read one page of at most this many connections (the server bounds it); omitted means its default")
+	c.Flags().IntVar(&offset, "offset", 0, "skip this many connections; with --limit or alone it reads one page")
 	_ = c.MarkFlagRequired("org")
 	return c
 }

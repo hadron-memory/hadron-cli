@@ -192,8 +192,8 @@ Exit codes: 0 nothing failed; 1 a step failed; 2 usage, or Orca is not
 reachable here; 3 your credential was refused as not accepted (the run
 stops); 4 --worker names a worker this host should not run; 5 another run
 holds the lock; 8 you are authenticated but not permitted (the run stops).`,
-		Example: `  hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json
-  hadron team host up --app acme.com:eng-team --host orca1 --worktrees-root /home/orca/orca/workspaces --desired-state-file desired.json --worker Iris --apply`,
+		Example: `  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json
+  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json --worker Iris --apply`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return runHostUp(cmd, f, o) },
 	}

@@ -1,0 +1,25 @@
+# cli#398: the provider-side citation allocator (hadron-server#1178 slice 1,
+# cor:spc:020:13). One call picks the next free number under parentLoc and
+# creates the unminted placeholder at it in the same transaction, so a client
+# never reads sibling numbers and writes the next. `revision` is the guard the
+# one follow-up fill (updateSpecNode) carries.
+#
+# Both optional variables carry omitempty: an unset `after`/`name` is OMITTED,
+# not sent as null (the server reads an omitted field as "use the default").
+mutation AllocateSpecNode(
+  $memoryRef: ID!
+  $parentLoc: String!
+  # @genqlient(omitempty: true)
+  $after: Int
+  # @genqlient(omitempty: true)
+  $name: String
+) {
+  allocateSpecNode(memoryRef: $memoryRef, parentLoc: $parentLoc, after: $after, name: $name) {
+    id
+    memoryId
+    loc
+    name
+    revision
+    isPlaceholder
+  }
+}

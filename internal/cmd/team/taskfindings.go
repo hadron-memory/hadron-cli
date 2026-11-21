@@ -1,17 +1,23 @@
 package team
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 type findingDispositionDTO struct {
@@ -168,7 +174,7 @@ server now holds; --json is {taskId, findingId, disposition, reference}
 
 ` + findingDispositionWrite + `
 
-` + taskInstructionHelpShort("ba077810"),
+` + taskInstructionHelpShort(taskInstructionFloor),
 		Example: "  hadron team task dispose-finding AT1.2 F1 --disposition deferred --ref 'issue=https://example.com/issues/7|Follow-up' --json",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(c *cobra.Command, a []string) error {
@@ -200,59 +206,206 @@ server now holds; --json is {taskId, findingId, disposition, reference}
 			if err != nil {
 				return err
 			}
-			// Either document answers the same shape; read it into one.
+			// Either document answers the same shape; read it into one. The
+			// readback is the one targeted field for the finding just written
+			// (cli#1709): the latest disposition when the field resolved, not an
+			// atomic receipt of this commit, so a concurrent replacement may
+			// show here. Never a scan of the paged list, never a second request.
 			var taskID string
-			var items []gen.TaskFindingDispositionFields
-			var haveReadback bool
+			var got *gen.TaskFindingDispositionFields
 			if claim != nil {
 				r, err := gen.AgentTaskDisposeFindingInstructed(c.Context(), client, ref, a[1], gen.AgentTaskFindingDispositionCode(code), refIn, claim)
 				if err != nil {
-					return mapFindingError(err)
+					return disposeFindingError(err)
 				}
-				if d := r.DisposeAgentTaskFinding; d != nil && d.Id != "" && d.FindingDispositions != nil {
-					taskID, haveReadback = d.Id, true
-					for _, item := range d.FindingDispositions.Items {
-						if item != nil {
-							items = append(items, item.TaskFindingDispositionFields)
-						}
+				if d := r.DisposeAgentTaskFinding; d != nil {
+					taskID = d.Id
+					if d.FindingDisposition != nil {
+						got = &d.FindingDisposition.TaskFindingDispositionFields
 					}
 				}
 			} else {
 				r, err := gen.AgentTaskDisposeFinding(c.Context(), client, ref, a[1], gen.AgentTaskFindingDispositionCode(code), refIn)
 				if err != nil {
-					return mapFindingError(err)
+					return disposeFindingError(err)
 				}
-				if d := r.DisposeAgentTaskFinding; d != nil && d.Id != "" && d.FindingDispositions != nil {
-					taskID, haveReadback = d.Id, true
-					for _, item := range d.FindingDispositions.Items {
-						if item != nil {
-							items = append(items, item.TaskFindingDispositionFields)
-						}
+				if d := r.DisposeAgentTaskFinding; d != nil {
+					taskID = d.Id
+					if d.FindingDisposition != nil {
+						got = &d.FindingDisposition.TaskFindingDispositionFields
 					}
 				}
 			}
-			// The server caps findings at 100; the response requests 200. Never
-			// fabricate a receipt from arguments if readback is incomplete.
-			if haveReadback {
-				for i := range items {
-					if items[i].FindingId == a[1] {
-						d := findingDispositionReceiptDTO{TaskID: taskID, findingDispositionDTO: findingDispositionFrom(items[i])}
-						return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-							if _, err := fmt.Fprintf(w, "task: %s\n", output.SafeCell(d.TaskID)); err != nil {
-								return err
-							}
-							return renderFindingDispositions(w, []findingDispositionDTO{d.findingDispositionDTO})
-						})
+			// Never fabricate a receipt from arguments: the readback must name
+			// a task id, this exact finding id (no trimming or case folding),
+			// one of the four codes, and a complete reference when it has one.
+			if taskID != "" && validFindingReadback(got, a[1]) {
+				d := findingDispositionReceiptDTO{TaskID: taskID, findingDispositionDTO: findingDispositionFrom(*got)}
+				return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+					if _, err := fmt.Fprintf(w, "task: %s\n", output.SafeCell(d.TaskID)); err != nil {
+						return err
 					}
-				}
+					return renderFindingDispositions(w, []findingDispositionDTO{d.findingDispositionDTO})
+				})
 			}
-			return exitcode.Newf(exitcode.Error, "disposition may have been recorded but its readback is unavailable; read finding-dispositions before retrying")
+			return errDispositionReadbackUnavailable()
 		},
 	}
 	c.Flags().StringVar(&code, "disposition", "", "required: fixed, accepted, deferred or rejected")
 	c.Flags().StringVar(&reference, "ref", "", "optional kind=target[|label]; omission replaces any prior reference with none")
 	addTaskInstructionFlag(c, &rawInstruction)
 	return c
+}
+
+func errDispositionReadbackUnavailable() error {
+	return exitcode.Newf(exitcode.Error, "disposition may have been recorded but its readback is unavailable; read finding-dispositions before retrying")
+}
+
+// disposeFindingError maps a failed dispose-finding call. The post-write error
+// classes, each exit 1 with the same recovery guidance as a missing readback
+// and never a claim that the write failed (cli#1709, only this verb):
+//   - a success body the client cannot decode (wrong field type, malformed,
+//     blank or truncated JSON): it does not establish whether the write
+//     executed, and an EOF may also come from the transport, so it is treated
+//     as ambiguous on purpose;
+//   - a GraphQL error beneath the write's result (id, findingDisposition),
+//     whatever the HTTP status.
+//
+// Typed server refusals, pre-execution validation refusals and gateway or
+// transport failures keep their usual mapping.
+func disposeFindingError(err error) error {
+	// A typed refusal on the write field is definitive (the write did not
+	// happen) and wins, in either order, even beside a readback error: map that
+	// error alone so its code, and so its exit status, survive.
+	if refusal := writeRefusal(err); refusal != nil {
+		return mapFindingError(refusal)
+	}
+	var typeErr *json.UnmarshalTypeError
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &typeErr) || errors.As(err, &syntaxErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || hasUnconfirmedDisposeError(err) {
+		return errDispositionReadbackUnavailable()
+	}
+	return mapFindingError(err)
+}
+
+// gqlErrorsOf returns the GraphQL error list an error carries and, for a
+// non-200 answer, the HTTP wrapper to rebuild it in.
+func gqlErrorsOf(err error) (gqlerror.List, *graphql.HTTPError) {
+	var httpErr *graphql.HTTPError
+	var list gqlerror.List
+	var one *gqlerror.Error
+	switch {
+	case errors.As(err, &httpErr):
+		return httpErr.Response.Errors, httpErr
+	case errors.As(err, &list):
+		return list, nil
+	case errors.As(err, &one):
+		return gqlerror.List{one}, nil
+	}
+	return nil, nil
+}
+
+// isWriteRefusal reports a typed refusal of the write field itself: an error
+// with no path, or whose path stops at disposeAgentTaskFinding, that carries one
+// of the task refusal codes (TASK_NOT_OWNER, TASK_NOT_FINISHED,
+// TASK_FINDING_NOT_FOUND, BAD_USER_INPUT, ...; taskErrorCodes). Only such a code
+// says the write was refused before it committed. A root-path error without one
+// (generic, INTERNAL_SERVER_ERROR, any message) only names the field that
+// failed: it does not say the transaction rolled back, so it is not a refusal.
+func isWriteRefusal(e *gqlerror.Error) bool {
+	if e == nil || len(e.Path) > 1 {
+		return false
+	}
+	if len(e.Path) == 1 {
+		if root, _ := e.Path[0].(ast.PathName); root != "disposeAgentTaskFinding" {
+			return false
+		}
+	}
+	code, _ := e.Extensions["code"].(string)
+	return slices.Contains(taskErrorCodes, code)
+}
+
+// writeRefusal returns err reduced to its first write-field refusal (keeping
+// the HTTP status for a non-200 answer), or nil when the list has none.
+func writeRefusal(err error) error {
+	list, httpErr := gqlErrorsOf(err)
+	executed := false // some error is attributed to the mutation: it began executing
+	for _, e := range list {
+		if e != nil && len(e.Path) > 0 {
+			if root, _ := e.Path[0].(ast.PathName); root == "disposeAgentTaskFinding" {
+				executed = true
+			}
+		}
+	}
+	for _, e := range list {
+		if !isWriteRefusal(e) {
+			continue
+		}
+		// A pathless refusal is a pre-execution one; beside an error attributed
+		// to the mutation it cannot prove rollback, so it does not stand alone.
+		if len(e.Path) == 0 && executed {
+			continue
+		}
+		if httpErr != nil {
+			return &graphql.HTTPError{StatusCode: httpErr.StatusCode, Response: graphql.Response{Errors: gqlerror.List{e}}}
+		}
+		return gqlerror.List{e}
+	}
+	return nil
+}
+
+// hasUnconfirmedDisposeError reports the unconfirmed-write class: a GraphQL error whose
+// path runs through disposeAgentTaskFinding (the write field itself, or the
+// receipt fields id, findingDisposition and anything beneath them) that is not
+// a typed refusal of the write. A path names the field that failed; it does not
+// say the transaction rolled back, so only a typed refusal code
+// (isWriteRefusal) shows the write did not happen, and it wins over everything
+// else in the list. Whatever else the list carries (pathless or foreign-root
+// errors) does not change the class, at any HTTP status. An empty list, pathless
+// validation refusals and foreign roots are not this class. Gateway and
+// transport failures are classified earlier, by the transport layer, with their
+// own may-have-been-applied advice.
+func hasUnconfirmedDisposeError(err error) bool {
+	list, _ := gqlErrorsOf(err)
+	unconfirmed := false
+	for _, e := range list {
+		if e == nil {
+			continue
+		}
+		if len(e.Path) > 0 {
+			if isWriteRefusal(e) {
+				return false // a typed refusal attributed to the write field: the write was refused
+			}
+			if root, _ := e.Path[0].(ast.PathName); root == "disposeAgentTaskFinding" {
+				unconfirmed = true // the write field or a field beneath it, without a typed refusal code
+			}
+		}
+	}
+	if unconfirmed {
+		return true
+	}
+	// Nothing attributed to the mutation: a pathless list is a validation or
+	// pre-execution refusal, never this class.
+	return false
+}
+
+// validFindingReadback reports whether the targeted readback can be shown as the
+// receipt: it is present, names exactly the finding that was written, carries
+// one of the four disposition codes, and any reference has its kind and target.
+func validFindingReadback(d *gen.TaskFindingDispositionFields, findingID string) bool {
+	if d == nil || d.FindingId != findingID {
+		return false
+	}
+	switch d.Disposition {
+	case gen.AgentTaskFindingDispositionCodeFixed, gen.AgentTaskFindingDispositionCodeAccepted,
+		gen.AgentTaskFindingDispositionCodeDeferred, gen.AgentTaskFindingDispositionCodeRejected:
+	default:
+		return false
+	}
+	if r := d.Reference; r != nil && (r.Kind == "" || r.Target == "") {
+		return false
+	}
+	return true
 }
 
 // Keep structured serverCode on these new surfaces without changing legacy task envelopes.

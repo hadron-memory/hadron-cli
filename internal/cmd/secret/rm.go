@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -23,8 +22,10 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 id from hadron secret list, or by URN: hrn:secret:<org or user handle>:<name> (an App secret by its id).
 You can delete your own user secrets, and an org's if you are its ADMIN or
 OWNER. An App secret is deleted with every version it keeps, by whoever the
-server allows (a protected one refuses with SECRET_PROTECTED). An unknown or
-already-deleted secret exits 4.
+server allows. A protected App secret is not deleted by this command: the
+deletion is staged until a person signs it with a passkey, and the command prints
+the request id and the ceremony URL and exits 5 (see hadron secret protect and
+hadron secret change get). An unknown or already-deleted secret exits 4.
 
 Nothing checks whether a secret is still in use. Runs that need it fail from
 then on, or pick up a secret of the same name from the org instead of the user.
@@ -46,7 +47,7 @@ refuses with exit 2.`,
 			}
 			resp, err := gen.DeleteSecret(cmd.Context(), client, ref)
 			if err != nil {
-				return api.MapErrorKeepingCode(err)
+				return mapChange(err, "the deletion of secret "+output.SafeCell(ref))
 			}
 			if resp == nil || !resp.DeleteSecret {
 				return exitcode.Newf(exitcode.NotFound, "secret %q not found", ref)

@@ -41,3 +41,25 @@ query SlackConnection($ref: ID!) {
     updatedAt
   }
 }
+
+# cli#206 connect/disconnect. The tokens are write-only inputs: the server's
+# SlackConnection type has no token field, and lastError is never requested.
+mutation CreateSlackConnection($orgRef: ID!, $appRef: ID!, $botToken: String!, $appToken: String!) {
+  createSlackConnection(orgRef: $orgRef, appRef: $appRef, botToken: $botToken, appToken: $appToken) {
+    id
+    organizationId
+    defaultAppId
+    provider
+    status
+    teamId
+    teamName
+    botId
+    botUserId
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteSlackConnection($ref: ID!) {
+  deleteSlackConnection(ref: $ref)
+}

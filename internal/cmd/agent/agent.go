@@ -188,6 +188,9 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdClone(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
+	cmd.AddCommand(newCmdAgentAIConfig(f))
+	cmd.AddCommand(newCmdAgentImport(f))
+	cmd.AddCommand(newCmdAgentRepairSystemMemory(f))
 	cmd.AddCommand(newCmdAgentTasks(f))
 	cmd.AddCommand(newCmdAgentTickerTemplates(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
@@ -197,7 +200,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
 	cmd.AddCommand(newCmdAgentBootPrompt(f))
 	cmd.AddCommand(newCmdAgentModelGroup(f))
-	cmd.AddCommand(newCmdAgentImport(f), newCmdAgentAIConfig(f), newCmdAgentRepairSystemMemory(f), newCmdAgentSession(f))
+	cmd.AddCommand(newCmdAgentSession(f))
 	cmd.AddCommand(bootcompile.NewAgent(f))
 	return cmd
 }

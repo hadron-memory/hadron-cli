@@ -21,28 +21,28 @@ const instructionHelp = instruction.Help
 
 var parseInstruction = instruction.Parse
 
-// instructionHelpMinServer is the revision instructionHelp names for the commands
-// that first shipped the flag (cli#1592); instructionHelpFor swaps it for the
-// revision a later command actually needs (cli#2505).
-const instructionHelpMinServer = "17ef5905"
+// instructionHelpFloor is the server floor date instructionHelp names for the
+// commands that first shipped the flag (cli#1592); instructionHelpFor swaps it for
+// the date a later command actually needs (cli#2505).
+const instructionHelpFloor = instruction.ServerFloorInstructionActs
 
 // instructionHelpFor renders the shared instruction help for a command whose
-// instructed path needs server revision serverMin instead of the shared one.
-// The swap is swapMinServer's, whose panic-on-missing-revision contract is
+// instructed path needs the server floor `floor` instead of the shared one.
+// The swap is swapFloor's, whose panic-on-missing-floor contract is
 // pinned in its own test (cli#2537).
-func instructionHelpFor(serverMin string) string {
-	return swapMinServer(instructionHelp, instructionHelpMinServer, serverMin)
+func instructionHelpFor(floor string) string {
+	return swapFloor(instructionHelp, instructionHelpFloor, floor)
 }
 
-// swapMinServer returns shared with every occurrence of orig replaced by
-// serverMin. It panics when shared no longer names orig: a silent no-op
+// swapFloor returns shared with every occurrence of orig replaced by
+// floor. It panics when shared no longer names orig: a silent no-op
 // replace would print the wrong minimum server with no test failing, and the
 // panic fires while the command tree is built, so every test run sees it.
-func swapMinServer(shared, orig, serverMin string) string {
+func swapFloor(shared, orig, floor string) string {
 	if !strings.Contains(shared, orig) {
-		panic("instructionHelpFor: the shared instruction help no longer names " + orig)
+		panic("swapFloor: the shared instruction help no longer names " + orig)
 	}
-	return strings.ReplaceAll(shared, orig, serverMin)
+	return strings.ReplaceAll(shared, orig, floor)
 }
 
 // instructionSnapshot is the worktree binding as it stood before the

@@ -66,7 +66,7 @@ used, limit and resetAt; an empty list is [].`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&org, "org", "", "organization id, URN or root (required)")
-	cmd.Flags().StringVar(&app, "app", "", "also show this App's counters (id or URN; must belong to --org)")
+	cmd.Flags().StringVar(&org, "org", "", "organization id, URN (hrn:org:acme.com) or root domain (acme.com) (required)")
+	cmd.Flags().StringVar(&app, "app", "", "also show this App's counters (id or URN; must belong to --org). Here --app picks counters to show, it is not the App context")
 	return cmd
 }

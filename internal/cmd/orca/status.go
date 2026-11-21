@@ -130,8 +130,11 @@ contract:
 
   status  busy   a turn is running
           idle   an empty prompt, safe to push one line
-          locked an identifiable block (reason menu_or_question, ...) or, fail
-                 closed, a screen no rule recognizes (reason unrecognized)
+          locked an identifiable block (reason menu_or_question, or rate_limited
+                 for a usage-limit screen: waiting on a reset, see resetAt), no
+                 rendered screen from Orca (no_screen), several agent terminals
+                 bound to one worker (multiple_terminals) or, fail closed, a
+                 real screen no rule recognizes (reason unrecognized)
           dark   broken: a ticker owed this worker a turn and none came
                  (no_turn_for_due_ticker), or no terminal / a bare shell / no
                  agent (no_terminal, bare_shell, no_agent)
@@ -143,19 +146,23 @@ is this command's own classification of a terminal, not an alarm the platform
 raised.
 
 Output. With --json the keys are: contract, worker, terminal, status, prompt,
-reason, lastTurnAt, checkedAt; every key is always present, null when it does
-not apply (worker is null for a terminal bound to no worker; reason is set only
-for locked and dark). One worker with --json prints one object:
+reason, lastTurnAt, checkedAt, resetAt; every key is always present, null when
+it does not apply (worker is null for a terminal bound to no worker; reason is
+set only for locked and dark; resetAt is set only for rate_limited, in UTC, and
+null when the screen shows no parsable reset time). One worker with --json prints one object:
 
-  {"contract":"terminal-status@1","worker":"Joshua","terminal":"term_50a6","status":"idle","prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T15:54:00Z","checkedAt":"2026-10-29T16:31:40Z"}
+  {"contract":"terminal-status@1","worker":"Joshua","terminal":"term_50a6","status":"idle","prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T15:54:00Z","checkedAt":"2026-10-29T16:31:40Z","resetAt":null}
 
 --all with --json prints one array, one entry per active worker of the App:
 
-  [{"contract":"terminal-status@1","worker":"Ada","terminal":"term_7c1e","status":"locked","prompt":"menu","reason":"menu_or_question","lastTurnAt":null,"checkedAt":"2026-10-29T16:31:40Z"}]
+  [{"contract":"terminal-status@1","worker":"Ada","terminal":"term_7c1e","status":"locked","prompt":"menu","reason":"menu_or_question","lastTurnAt":null,"checkedAt":"2026-10-29T16:31:40Z","resetAt":null}]
 
 --all without --json prints one text line per worker: "<worker> <status>
 (<reason>): <detail>", where " (<reason>)" is left out when reason is null and
-": <detail>" when there is no detail. The detail (the ticker and due time behind a dark, or why
+": <detail>" when there is no detail. A usage-limit screen reads "<worker>
+locked (rate_limited, until 08:45Z)"; when the screen's time carries no UTC
+offset it is read as the host's local time and the line adds ", read as the
+host's local time". The detail (the ticker and due time behind a dark, or why
 a read was refused) is text mode only and never part of the JSON.
 
 Terms used above:
@@ -405,7 +412,15 @@ func textLine(r ts.Result) string {
 	}
 	line := fmt.Sprintf("%s %s", output.SafeCell(name), r.Status)
 	if r.Reason != nil {
-		line += " (" + string(*r.Reason) + ")"
+		note := string(*r.Reason)
+		if r.ResetAt != nil {
+			// A reset time is machine-parsed digits, never screen text.
+			note += ", until " + r.ResetAt.UTC().Format("15:04") + "Z"
+			if r.ResetAssumedLocal {
+				note += ", read as the host's local time"
+			}
+		}
+		line += " (" + note + ")"
 	}
 	if r.Detail != "" {
 		line += ": " + output.SafeCell(r.Detail)
@@ -451,7 +466,7 @@ func observe(ctx context.Context, client *orcaterm.Client, env Env, terms []orca
 	switch {
 	case len(agents) > 1:
 		res.Terminal = "" // ambiguous: no single terminal to name
-		res.Status, res.Prompt, res.Reason = ts.Locked, ts.PromptUnknown, reasonPtr(ts.Unrecognized)
+		res.Status, res.Prompt, res.Reason = ts.Locked, ts.PromptUnknown, reasonPtr(ts.MultipleTerminals)
 		res.Detail = "more than one agent terminal is bound to this worker"
 		return res
 	case len(agents) == 1:
@@ -459,6 +474,7 @@ func observe(ctx context.Context, client *orcaterm.Client, env Env, terms []orca
 	}
 	res.Terminal = pick.t.Handle
 	res.Status, res.Prompt, res.LastTurnAt = pick.obs.Status, pick.obs.Prompt, pick.obs.LastTurnAt
+	res.ResetAt, res.ResetAssumedLocal = pick.obs.ResetAt, pick.obs.ResetAssumedLocal
 	if pick.obs.Reason != "" {
 		res.Reason = reasonPtr(pick.obs.Reason)
 	}

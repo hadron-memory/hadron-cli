@@ -60,6 +60,11 @@ func TestMapError(t *testing.T) {
 		err  error
 		want int
 	}{
+		// cli#2738: a protected secret STAGES a change for a passkey; too many open
+		// requests on one secret. The secret's state: 5, never the default 1.
+		{"SECRET_PROTECTED_NEEDS_PASSKEY 2738", gqlErr("SECRET_PROTECTED_NEEDS_PASSKEY"), exitcode.Conflict},
+		{"SECRET_CHANGE_REQUEST_LIMIT 2738", gqlErr("SECRET_CHANGE_REQUEST_LIMIT"), exitcode.Conflict},
+
 		// #2308: a worker without a signed schedule.create grant.
 		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
 
@@ -99,7 +104,8 @@ func TestMapError(t *testing.T) {
 		{"QUESTION_TIER_TOO_LOW", gqlErr("QUESTION_TIER_TOO_LOW"), exitcode.Usage},
 		{"QUESTION_DECIDER_NOT_ELIGIBLE", gqlErr("QUESTION_DECIDER_NOT_ELIGIBLE"), exitcode.Usage},
 		{"QUESTION_RECOMMENDATION_MISSING", gqlErr("QUESTION_RECOMMENDATION_MISSING"), exitcode.Usage},
-		{"QUESTION_PART_RENUMBER", gqlErr("QUESTION_PART_RENUMBER"), exitcode.Usage},
+		{"QUESTION_UNKNOWN_OPTION", gqlErr("QUESTION_UNKNOWN_OPTION"), exitcode.Usage},
+		{"QUESTION_ASSIGNEE_NOT_DECIDER", gqlErr("QUESTION_ASSIGNEE_NOT_DECIDER"), exitcode.Usage},
 		{"QUESTION_LOG_ENCRYPTED", gqlErr("QUESTION_LOG_ENCRYPTED"), exitcode.Usage},
 		{"QUESTION_LOG_MIRRORED", gqlErr("QUESTION_LOG_MIRRORED"), exitcode.Usage},
 		{"QUESTION_LOG_SYSTEM_MEMORY", gqlErr("QUESTION_LOG_SYSTEM_MEMORY"), exitcode.Usage},
@@ -108,8 +114,7 @@ func TestMapError(t *testing.T) {
 		{"QUESTION_LOG_EXISTS", gqlErr("QUESTION_LOG_EXISTS"), exitcode.Conflict},
 		{"QUESTION_ANSWER_IMMUTABLE", gqlErr("QUESTION_ANSWER_IMMUTABLE"), exitcode.Conflict},
 		{"QUESTION_WITHDRAWN", gqlErr("QUESTION_WITHDRAWN"), exitcode.Conflict},
-		{"QUESTION_SUPERSEDED", gqlErr("QUESTION_SUPERSEDED"), exitcode.Conflict},
-		{"QUESTION_ANSWERED_DECIDED", gqlErr("QUESTION_ANSWERED_DECIDED"), exitcode.Conflict},
+		{"QUESTION_NOT_ANSWERED", gqlErr("QUESTION_NOT_ANSWERED"), exitcode.Conflict},
 		{"QUESTION_ANSWERED", gqlErr("QUESTION_ANSWERED"), exitcode.Conflict},
 		{"QUESTION_NOT_FOUND", gqlErr("QUESTION_NOT_FOUND"), exitcode.NotFound},
 		{"QUESTION_LOG_NOT_FOUND", gqlErr("QUESTION_LOG_NOT_FOUND"), exitcode.NotFound},
@@ -1247,5 +1252,39 @@ func TestErrorCodeExtension(t *testing.T) {
 	wrapped := fmt.Errorf("wrapped: %w", error(withStatus))
 	if v, ok := ErrorCodeExtension(wrapped, "HOST_OPERATION_ALREADY_REPORTED", "status"); !ok || v != "FAILED" {
 		t.Fatalf("a wrapped GraphQL error is still read: %q %v", v, ok)
+	}
+}
+
+func TestErrorDetails(t *testing.T) {
+	list := gqlerror.List{
+		{Message: "a", Extensions: map[string]any{"code": "X"}},
+		{Message: "b"},
+	}
+	want := []ErrorDetail{{Code: "X", Message: "a"}, {Code: "", Message: "b"}}
+	for _, tc := range []struct {
+		name string
+		err  error
+		want []ErrorDetail
+	}{
+		{"nil", nil, nil},
+		{"transport failure", errors.New("dial tcp: refused"), nil},
+		{"http error with a graphql body", &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: list}}, want},
+		{"http error with no graphql body", &graphql.HTTPError{StatusCode: 502}, nil},
+		{"graphql list, no extensions on one", list, want},
+		{"wrapped graphql list", fmt.Errorf("call: %w", list), want},
+		{"single gqlerror", &gqlerror.Error{Message: "a", Extensions: map[string]any{"code": "X"}}, []ErrorDetail{{Code: "X", Message: "a"}}},
+		{"extensions without a code", gqlerror.List{{Message: "c", Extensions: map[string]any{"other": 1}}}, []ErrorDetail{{Code: "", Message: "c"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ErrorDetails(tc.err)
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Fatalf("[%d] got %v, want %v", i, got[i], tc.want[i])
+				}
+			}
+		})
 	}
 }

@@ -29,14 +29,15 @@ func NewCmdVersion(f *cmdutil.Factory) *cobra.Command {
 		Long: `Print this CLI's version, the commit it was built from and the build date,
 for example:
 
-  hadron 0.29.0 (decec03, 2026-10-29)
+  hadron 0.29.0 (1234567, 2026-10-29)
 
 'hadron -v' and 'hadron --version' print the same line. --json adds the Go
 version, operating system and architecture. Needs no network or sign-in.
 
 The server's version is a different number: see 'hadron server-info'. To
 update the CLI, use the package manager you installed it with (for example
-'brew upgrade --cask hadron').`,
+'brew upgrade --cask hadron'); if you installed from a release archive,
+download the newer one from https://github.com/hadron-memory/hadron-cli/releases.`,
 		Example: `  hadron version
   hadron version --json`,
 		Args: cobra.NoArgs,

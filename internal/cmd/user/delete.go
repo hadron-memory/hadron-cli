@@ -54,7 +54,7 @@ After deleting your own account, your stored sign-in no longer works: run
 hadron auth logout to clear it. --json prints {"deleted": true, "user": <the
 --user you named, or null for your own account>}.`,
 		Example: `  hadron user delete --yes                                   # your own account
-  hadron user delete --user @old-handle --reason "GDPR erasure request #42" --yes`,
+  hadron user delete --user @old-handle --reason "GDPR erasure request" --yes`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			named := cmd.Flags().Changed("user")

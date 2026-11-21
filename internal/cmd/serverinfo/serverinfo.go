@@ -80,11 +80,17 @@ Output, one line per field:
   hadron-server <version>   the server's API version (see below)
   url:      <url>           where this command sent its request
   base url: <url>           the address the server says it is reached at
-  (queried anonymously ...) shown when no sign-in was sent
+  (queried anonymously — server-info is public)
+                            shown when no sign-in was sent
 
 The version is the API version, raised when the server's commands or fields
 change. It is not the release number, so don't compare it with a release tag;
-use it to check that a feature you need exists.
+use it to check that a feature you need exists. A help page's "server <date> or
+later" is the date its change was merged into the server, which this version
+does not give. A deployment date alone does not settle it either (an older build
+can be deployed after that date): if a page names one and a feature seems
+missing, ask whoever runs the server which revision is deployed and whether it
+includes the change.
 
 url and base url should name the same server. If they differ, a warning line
 follows: the server sits behind a proxy whose public address it was not told,

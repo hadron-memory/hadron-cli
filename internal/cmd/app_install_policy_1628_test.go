@@ -81,7 +81,7 @@ func TestAppInstallPolicyFileKeepsWithheldMemberCountNull1628(t *testing.T) {
 func TestAppInstallNullCreateAppIsARefusal1628(t *testing.T) {
 	for name, flags := range map[string][]string{
 		"policy":   {"--policy-file", policyFile1640(t, `{"allow":[]}`), "--yes"},
-		"settings": {"--role", "READER", "--yes"},
+		"settings": {"--training-mode=false", "--yes"},
 		"legacy":   nil,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -112,12 +112,12 @@ func TestAppInstallPolicyFilePromptNamesTheSettingNotTheContent1628(t *testing.T
 
 func TestAppInstallPolicyFileWithOtherSettings1628(t *testing.T) {
 	srv, calls := appSettingsServer(t)
-	_, err := appSettingsRun(t, srv, "install", "--role", "READER", "--surface", "chat", "--policy-file", policyFile1640(t, `{"allow":[]}`), "--yes")
+	_, err := appSettingsRun(t, srv, "install", "--training-mode=false", "--surface", "chat", "--policy-file", policyFile1640(t, `{"allow":[]}`), "--yes")
 	if err != nil {
 		t.Fatal(err)
 	}
 	c := appSettingsMutation(t, *calls)
-	for _, k := range []string{"role", "surfaces", "policy"} {
+	for _, k := range []string{"trainingMode", "surfaces", "policy"} {
 		if _, ok := c.Vars[k]; !ok {
 			t.Fatalf("%s missing: %v", k, c.Vars)
 		}

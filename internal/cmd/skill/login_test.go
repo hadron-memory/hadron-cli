@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -41,15 +42,16 @@ func TestLoginAvailabilityDoesNotInventAnEmptyAnswer(t *testing.T) {
 func TestLoginAvailabilityDoesNotFetchRenderedSkills(t *testing.T) {
 	// The pre-consent query is a small projection of the existing server planner,
 	// not a fetch of the team's full rendered skill corpus before a person agrees.
+	// The unused fields are matched as exact word-boundary tokens anywhere in the
+	// operation, so the pin holds whatever line format genqlient emits (#2500:
+	// independent of generated-code layout — a field squeezed onto a shared line
+	// is still caught).
 	const prefix = "query LoginSkillAvailability"
 	if !strings.Contains(gen.LoginSkillAvailability_Operation, prefix) {
 		t.Fatal("wrong availability operation")
 	}
-	for _, unused := range []string{"renderedBody", "findings", "orphans", "nodeId", "name"} {
-		for _, line := range strings.Split(gen.LoginSkillAvailability_Operation, "\n") {
-			if strings.TrimSpace(line) == unused {
-				t.Errorf("preflight selects unused %s", unused)
-			}
-		}
+	unused := regexp.MustCompile(`\b(renderedBody|findings|orphans|nodeId|name)\b`)
+	if got := unused.FindString(gen.LoginSkillAvailability_Operation); got != "" {
+		t.Errorf("preflight selects unused %s", got)
 	}
 }

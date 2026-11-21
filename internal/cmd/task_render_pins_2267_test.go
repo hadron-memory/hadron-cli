@@ -32,20 +32,19 @@ func TestTaskRenderQualifiedRefSuppliesItsOwnMemory2267(t *testing.T) {
 		{"v2 URN, other memory", renderNodeRef1010, "other.com:elsewhere"},
 		{"v2 URN, memory in v2 form", renderNodeRef1010, "hrn:mem:other.com:elsewhere"},
 		{"legacy qualified spelling, other memory", "acme.com::kb::tasks:brief", "other.com::elsewhere"},
+		// cli#2417 F7: a node ID is its own address too.
+		{"node ID, other memory", "0123456789abcdef0123456789abcdef", "other.com:elsewhere"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server, requests := renderFixture1010(t, `{"data":{"renderRunNode":"ok"}}`)
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"task", "render", tc.ref, "-m", tc.memory, "--server", server.URL})
+			args := []string{"task", "render", tc.ref, "-m", tc.memory, "--server", server.URL}
+			root.SetArgs(args)
 			if err := root.Execute(); err != nil {
-				t.Fatalf("a qualified ref with -m must compose, not refuse: %v", err)
+				t.Fatalf("a qualified ref with -m must compose, not refuse: args %q: %T: %v", args, err, err)
 			}
-			if len(*requests) != 1 {
-				t.Fatalf("requests=%d", len(*requests))
-			}
-			var vars map[string]any
-			_ = json.Unmarshal((*requests)[0]["variables"], &vars)
+			vars := requestVariables2417(t, requests, "with -m")
 			// Without -m the same ref composes to this; -m must not change it.
 			wantServer, wantRequests := renderFixture1010(t, `{"data":{"renderRunNode":"ok"}}`)
 			f2, _ := testFactory(t)
@@ -54,13 +53,32 @@ func TestTaskRenderQualifiedRefSuppliesItsOwnMemory2267(t *testing.T) {
 			if err := root2.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			var want map[string]any
-			_ = json.Unmarshal((*wantRequests)[0]["variables"], &want)
+			want := requestVariables2417(t, wantRequests, "without -m")
 			if vars["nodeRef"] != want["nodeRef"] {
 				t.Fatalf("-m changed a qualified ref: with -m %v, without %v", vars["nodeRef"], want["nodeRef"])
 			}
 		})
 	}
+}
+
+// requestVariables2417 returns the variables of the one request the fixture
+// captured. It fails on a wrong request count, an undecodable "variables" or a
+// missing nodeRef, so a comparison of two absent values can never pass
+// vacuously (cli#2417 F2/F3).
+func requestVariables2417(t *testing.T, c *renderCapture1010, which string) map[string]any {
+	t.Helper()
+	reqs := c.snapshot()
+	if len(reqs) != 1 {
+		t.Fatalf("%s: requests=%d, want exactly 1", which, len(reqs))
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(reqs[0]["variables"], &vars); err != nil {
+		t.Fatalf("%s: the request carries no decodable variables: %v", which, err)
+	}
+	if vars["nodeRef"] == nil {
+		t.Fatalf("%s: the request variables carry no nodeRef: %v", which, vars)
+	}
+	return vars
 }
 
 // F1/F9/F10 and F5: the help says, in complete sentences, what render does and
@@ -105,8 +123,8 @@ func TestAgenticUsageTaskRenderMemoryComposition2267(t *testing.T) {
 
 // F6: the mapped exit categories for broken and refused replies, in text mode
 // (a human refusal through the root path) and --json. A body that is not JSON
-// and a SERVICE_UNAVAILABLE code are both generic failures (exit 1), a
-// FORBIDDEN is 8; none retries, none prints a render, and the refusal text
+// and a SERVICE_UNAVAILABLE code are both generic failures (exitcode.Error), a
+// FORBIDDEN is exitcode.Forbidden; none retries, none prints a render, and the refusal text
 // reaches the error, not stdout.
 func TestTaskRenderMappedExitCategories2267(t *testing.T) {
 	for _, tc := range []struct {
@@ -114,7 +132,10 @@ func TestTaskRenderMappedExitCategories2267(t *testing.T) {
 		exit        int
 		message     string
 	}{
-		{"body is not JSON", "not JSON", exitcode.Error, "invalid character"},
+		// No message pin for the undecodable body: its text is the decoder's
+		// own (Go's stdlib wording), which is not this CLI's contract
+		// (cli#2417 F5); the exit category and the no-retry checks carry it.
+		{"body is not JSON", "not JSON", exitcode.Error, ""},
 		{"service unavailable code", `{"errors":[{"message":"unavailable","extensions":{"code":"SERVICE_UNAVAILABLE"}}]}`, exitcode.Error, "unavailable"},
 		{"forbidden", `{"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN","requestId":"r-2267"}}]}`, exitcode.Forbidden, "refused"},
 	} {
@@ -132,8 +153,8 @@ func TestTaskRenderMappedExitCategories2267(t *testing.T) {
 				if err == nil || exitCodeFor(err) != tc.exit || renderError(f, err) != tc.exit {
 					t.Fatalf("exit=%d rendered=%d, want %d (err=%v)", exitCodeFor(err), renderError(f, err), tc.exit, err)
 				}
-				if len(*requests) != 1 {
-					t.Fatalf("no retry: requests=%d", len(*requests))
+				if len(requests.snapshot()) != 1 {
+					t.Fatalf("no retry: requests=%d", len(requests.snapshot()))
 				}
 				if !asJSON && out.Len() != 0 {
 					t.Fatalf("a human refusal prints nothing on stdout, got %q", out.String())
@@ -141,10 +162,25 @@ func TestTaskRenderMappedExitCategories2267(t *testing.T) {
 				if strings.Contains(out.String(), `"rendered"`) {
 					t.Fatalf("a refusal must not render: %s", out.String())
 				}
-				if !strings.Contains(err.Error(), tc.message) {
+				if err.Error() == "" || !strings.Contains(err.Error(), tc.message) {
 					t.Fatalf("error %q lacks %q", err, tc.message)
 				}
 			})
 		}
+	}
+}
+
+// cli#2417 F8: the one-line summary says what render does not do (no
+// execution, no run row), and does not claim "read-only": the server records
+// the content reads (cor:api:060:05).
+func TestTaskRenderShortWording2417(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	cmd, _, err := root.Find([]string{"task", "render"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(cmd.Short, "no execution, no run row") || strings.Contains(strings.ToLower(cmd.Short), "read-only") {
+		t.Fatalf("task render Short = %q", cmd.Short)
 	}
 }

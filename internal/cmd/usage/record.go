@@ -64,7 +64,8 @@ empty string, not left out). Refusals from the server (for example FORBIDDEN) ar
 reported as errors, exit 8. A value that is not an integer in range, or
 --action-args that is not valid JSON, exits 2 before any request.
 
-Text prints "Usage event recorded"; --json prints {"recorded": true}.`,
+Text prints "Usage event recorded"; --json prints {"recorded": true}. Every
+example below records a real event.`,
 		Example: `  hadron usage record --type read --node-loc notes:ideas
   hadron usage record --type "action run" --model claude-sonnet-5-5 --tokens-in 1200 --tokens-out 340
   hadron usage record --type write --session 01abc --action-args '{"source":"import"}' --json`,

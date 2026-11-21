@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
 )
 
 const (
@@ -349,8 +351,14 @@ func TestOrgGithub2512SetAppNoMaskedPrompt(t *testing.T) {
 	if exitCodeFor(err) != 2 {
 		t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
 	}
-	if !strings.Contains(err.Error(), "--private-key-file") {
-		t.Fatalf("refusal does not name the flag: %v", err)
+	// #2656 item 2: the guard's OWN message, not just any Usage failure
+	// naming the flag — the terminal/truncation rationale is what separates
+	// this refusal from flag validation, so a different Usage error cannot
+	// satisfy the pin.
+	for _, want := range []string{"--private-key-file", "required on a terminal", "multi-line PEM", "masked prompt"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("refusal missing the guard's own text %q: %v", want, err)
+		}
 	}
 	for _, op := range []string{"LinkGithubApp", "UnlinkGithubApp", "UpdateOrgGithubApp"} {
 		if calls(op) != 0 {
@@ -419,6 +427,15 @@ func TestOrgGithub2512SecretNeverEchoes(t *testing.T) {
 				var coded interface{ ServerCode() string }
 				if errors.As(err, &coded) {
 					t.Fatalf("server code %q rides along while embedding the key", coded.ServerCode())
+				}
+				// #2656 item 1: errors.As alone cannot show the raw poisoned
+				// error is UNREACHABLE — a chain that wrapped it through
+				// without implementing ServerCode would still pass. ServerCodeOf
+				// reads extensions.code off any GraphQL error still in the
+				// chain, so this pins that the safe error drops the raw one
+				// from the chain entirely.
+				if code := api.ServerCodeOf(err); code != "" {
+					t.Fatalf("raw error reachable in the chain; its code %q would surface the key", code)
 				}
 			}
 		})
@@ -515,5 +532,54 @@ func TestOrgGithub2512TextOutput(t *testing.T) {
 	}
 	if strings.Contains(text, "sentinel-key-2512") {
 		t.Fatal("key in text output")
+	}
+}
+
+// cli#2654: "-" on a terminal would echo the pasted PEM, so set-app refuses
+// it before reading, with a file-path hint, and sends nothing.
+func TestOrgGithub2654SetAppDashOnTerminalRefused(t *testing.T) {
+	srv, calls, _ := countingGraphQL(t, nil)
+	f, _, errOut := testFactoryTTY(t, keySentinel2512+"\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "github", "set-app", "acme.com", "--app-id", "12345", "--private-key-file", "-", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected a refusal of - on a terminal")
+	}
+	if exitCodeFor(err) != 2 {
+		t.Fatalf("exit %d (%v)", exitCodeFor(err), err)
+	}
+	for _, want := range []string{"--private-key-file", "stdin is a terminal", "file path"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal lacks %q: %v", want, err)
+		}
+	}
+	if strings.Contains(err.Error(), keySentinel2512) || strings.Contains(errOut.String(), keySentinel2512) {
+		t.Error("the pasted key must never be echoed")
+	}
+	if calls("UpdateOrgGithubApp") != 0 {
+		t.Errorf("a refusal must send nothing; %d calls", calls("UpdateOrgGithubApp"))
+	}
+}
+
+// The terminal refusal no longer advertises "- for stdin", and an empty piped
+// stream is not steered to "run interactively" (set-app refuses that mode).
+func TestOrgGithub2654SetAppHintsDoNotAdvertiseRefusedModes(t *testing.T) {
+	srv, _, _ := countingGraphQL(t, nil)
+	f, _, _ := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "github", "set-app", "acme.com", "--app-id", "12345", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || strings.Contains(err.Error(), "stdin") {
+		t.Errorf("the terminal refusal must not advertise stdin: %v", err)
+	}
+
+	f2, _ := testFactory(t)
+	f2.IOStreams.In = strings.NewReader("")
+	root = NewRootCmd(f2)
+	root.SetArgs([]string{"org", "github", "set-app", "acme.com", "--app-id", "12345", "--private-key-file", "-", "--server", srv.URL})
+	err = root.Execute()
+	if err == nil || strings.Contains(err.Error(), "interactively") || !strings.Contains(err.Error(), "--private-key-file") {
+		t.Errorf("empty piped stdin must get a hint without the interactive mode: %v", err)
 	}
 }

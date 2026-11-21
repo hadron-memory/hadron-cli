@@ -19,8 +19,8 @@ func NewCmdAutomation(f *cmdutil.Factory) *cobra.Command {
 		Use:     "automation <command>",
 		Aliases: []string{"automations"},
 		Short:   "Review an App's automations and manage their grants",
-		Long: `Review, approve and decline the automations (schedules and webhooks) of an App
-(cor:agt:010:01), without a row id or a hash.
+		Long: `Review, approve and decline the automations (schedules and webhooks) of an App,
+without a row id or a hash.
 
 team-snapshot-grant manages one schedule or webhook's read-only access to its
 App's roster and tasks; set/list take a positional App, revoke uses --app or the

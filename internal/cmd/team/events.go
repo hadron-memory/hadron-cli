@@ -24,6 +24,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// alarmAckInspectHint tells the person where to look after an acknowledge
+// answered null (one hint for both the plain and the instructed call, #2552).
+const alarmAckInspectHint = "check the alarm in `team events --alarms`"
+
 const (
 	teamEventsDefaultLimit = 20
 	// teamEventPageCap is the server's clampListTake ceiling; a larger
@@ -355,9 +359,10 @@ printing payload reasons or evidence.
 --instruction opens the App-manager's held-worker path: an AI worker whose
 holder manages the App acknowledges on its holder's say-so; the ordinary
 owner-in-chain path is unchanged. Instructed JSON adds warnings ([] when none);
-text prints server warnings on stderr.
+text mode prints server warnings on stderr on either path, while a plain
+--json stays a bare event with no warnings key.
 
-` + taskInstructionHelpShort("ba077810"),
+` + taskInstructionHelpShort(taskInstructionFloor),
 		Example: `  hadron team alarms --team
   hadron team alarm ack 01a1f0c2d3e4f5a6b7c8d9e0f1a2b3c4`,
 		Args: cobra.ExactArgs(1),
@@ -396,7 +401,7 @@ text prints server warnings on stderr.
 					return api.MapError(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
+					return nullMutationResult("acknowledgeAlarm", "event", alarmAckInspectHint)
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
@@ -417,7 +422,7 @@ text prints server warnings on stderr.
 					return api.MapErrorKeepingCode(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
+					return nullMutationResult("acknowledgeAlarm", "event", alarmAckInspectHint)
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")

@@ -233,11 +233,11 @@ func TestAStickyDirectoryAboveAProgramIsAccepted2623(t *testing.T) {
 func TestTheDirectoriesAboveAPathAreJudgedIncludingOnesThatDoNotExistYet2623(t *testing.T) {
 	root := trustTempDir(t)
 	open := looseDir(t, root, "open", false)
-	if err := trustedAncestors(filepath.Join(open, "not", "yet", "there"), "x"); err == nil || !strings.Contains(err.Error(), "not sticky") {
+	if err := trustedAncestors(trustWalk{}, filepath.Join(open, "not", "yet", "there"), "x"); err == nil || !strings.Contains(err.Error(), "not sticky") {
 		t.Fatalf("a path that does not exist yet under a writable directory: %v", err)
 	}
 	sticky := looseDir(t, root, "sticky", true)
-	if err := trustedAncestors(filepath.Join(sticky, "child"), "x"); err != nil {
+	if err := trustedAncestors(trustWalk{}, filepath.Join(sticky, "child"), "x"); err != nil {
 		t.Fatalf("a sticky parent: %v", err)
 	}
 	// A symlink in the way is resolved: the directories judged are the real ones.
@@ -245,7 +245,7 @@ func TestTheDirectoriesAboveAPathAreJudgedIncludingOnesThatDoNotExistYet2623(t *
 	if err := os.Symlink(open, link); err != nil {
 		t.Fatal(err)
 	}
-	if err := trustedAncestors(filepath.Join(link, "prog"), "x"); err == nil || !strings.Contains(err.Error(), open) {
+	if err := trustedAncestors(trustWalk{}, filepath.Join(link, "prog"), "x"); err == nil || !strings.Contains(err.Error(), open) {
 		t.Fatalf("a path through a symlink to a writable directory: %v", err)
 	}
 }
@@ -267,6 +267,11 @@ func TestADirectoryOnThePathOwnedByAnotherUserIsRefused2623(t *testing.T) {
 			err := trustedDirInfo(tc.info, "/d", "/d/prog", "a program")
 			if tc.bad != (err != nil) {
 				t.Fatalf("err = %v, bad = %v", err, tc.bad)
+			}
+			// The refusal names what is being judged, not the directory
+			// twice (cli#2653 item 6).
+			if tc.bad && !strings.Contains(err.Error(), "(a program)") {
+				t.Fatalf("err %q does not name the thing judged", err)
 			}
 		})
 	}
@@ -380,7 +385,7 @@ func TestVisitedDirsFollowsEachComponentLikeTheKernel2623(t *testing.T) {
 	if err := os.Symlink("../b", filepath.Join(a, "up")); err != nil {
 		t.Fatal(err)
 	}
-	got, links, _ := visitedDirs(filepath.Join(a, "up", "f"))
+	got, links, _ := visitedDirs(trustWalk{}, filepath.Join(a, "up", "f"))
 	if len(links) != 1 || links[0] != filepath.Join(a, "up") {
 		t.Errorf("links = %v, want the one symlink followed", links)
 	}
@@ -400,7 +405,7 @@ func TestVisitedDirsFollowsEachComponentLikeTheKernel2623(t *testing.T) {
 	if err := os.Symlink(loop, loop); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := visitedDirs(filepath.Join(loop, "x")); err == nil {
+	if _, _, err := visitedDirs(trustWalk{}, filepath.Join(loop, "x")); err == nil {
 		t.Fatal("a symlink loop must be refused, not judged part-way")
 	}
 }
@@ -450,7 +455,7 @@ func TestAnOwnedSymlinkInAStickyDirectoryIsAccepted2623(t *testing.T) {
 	if err := os.Symlink(prog, link); err != nil {
 		t.Fatal(err)
 	}
-	if _, links, _ := visitedDirs(link); len(links) != 1 || links[0] != link {
+	if _, links, _ := visitedDirs(trustWalk{}, link); len(links) != 1 || links[0] != link {
 		t.Fatalf("the walk must report the link it followed: %v", links)
 	}
 	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + link + "]\n")
@@ -460,8 +465,11 @@ func TestAnOwnedSymlinkInAStickyDirectoryIsAccepted2623(t *testing.T) {
 }
 
 // The walk itself judges each link it followed: with another user's link
-// reported at the path, the whole check refuses.
+// reported at the path, the whole check refuses. The substituted probe lives
+// on this poller alone (Poller.trust), so this test may run in parallel with
+// any other that overrides the walk (cli#2653 item 3).
 func TestTheWalkRefusesAPathThroughAnotherUsersSymlink2623(t *testing.T) {
+	t.Parallel()
 	fx := newReloadFixture(t)
 	fx.step()
 	sticky := looseDir(t, fx.dir, "sticky", true)
@@ -477,14 +485,12 @@ func TestTheWalkRefusesAPathThroughAnotherUsersSymlink2623(t *testing.T) {
 	if err := os.Symlink(prog, link); err != nil {
 		t.Fatal(err)
 	}
-	prev := lstatLink
-	lstatLink = func(name string) (os.FileInfo, error) {
+	fx.p.trust.lstatLink = func(name string) (os.FileInfo, error) {
 		if name == link {
 			return ownedInfo{uint32(os.Geteuid()) + 1, os.ModeSymlink | 0o777}, nil
 		}
 		return os.Lstat(name)
 	}
-	t.Cleanup(func() { lstatLink = prev })
 	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [" + link + "]\n")
 	ev := fx.kinds("config-reload-refused")
 	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "the symlink "+link) || !strings.Contains(ev[0].Detail, "owned by uid") {
@@ -523,7 +529,7 @@ func TestDotDotAfterASymlinkIsResolvedLikeTheKernel2623(t *testing.T) {
 		t.Fatal(err)
 	}
 	written := filepath.Join(safe, "link") + "/../prog"
-	dirs, _, err := visitedDirs(written)
+	dirs, _, err := visitedDirs(trustWalk{}, written)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -561,7 +567,7 @@ func TestAnUnjudgeablePathIsRefusedNotSkipped2623(t *testing.T) {
 		}
 		prev = l
 	}
-	if err := trustedAncestors(prev, "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
+	if err := trustedAncestors(trustWalk{}, prev, "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
 		t.Fatalf("a path through too many symlinks must be refused: %v", err)
 	}
 }
@@ -581,7 +587,7 @@ func TestAPathThroughAnUnreadableDirectoryIsRefused2623(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.Chmod(closed, 0o755) })
-	if err := trustedAncestors(filepath.Join(closed, "prog"), "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
+	if err := trustedAncestors(trustWalk{}, filepath.Join(closed, "prog"), "a program"); err == nil || !strings.Contains(err.Error(), "cannot be judged") {
 		t.Fatalf("a path through a directory that cannot be looked at must be refused: %v", err)
 	}
 }

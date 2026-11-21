@@ -23,6 +23,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// stallScheduleInspectHint is the hint for a set that answered null, shared by
+// the plain and the instructed call (#2552).
+const stallScheduleInspectHint = "check `team stall-schedule get`"
+
 type stallScheduleDTO struct {
 	AppID                string `json:"appId"`
 	AssignmentMinutes    int    `json:"assignmentMinutes"`
@@ -176,9 +180,9 @@ Only whoever manages the App may set it (APP_MANAGER_REQUIRED otherwise).
 Without --instruction the write is the signed-in person's, including from a
 bound worktree. --instruction opens the App-manager's held-worker path; the
 server decides admission. Only set accepts this flag; get stays a read.
-Needs server ba077810 or later.
+Needs server ` + taskInstructionFloor + ` or later.
 
-` + instructionHelpFor("ba077810"),
+` + instructionHelpFor(taskInstructionFloor),
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -227,7 +231,7 @@ Needs server ba077810 or later.
 					return api.MapError(callErr)
 				}
 				if resp.SetAgentTaskStallSchedule == nil {
-					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", stallScheduleInspectHint)
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			} else {
@@ -247,7 +251,7 @@ Needs server ba077810 or later.
 					return api.MapErrorKeepingCode(callErr)
 				}
 				if resp.SetAgentTaskStallSchedule == nil {
-					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", "check `team stall-schedule get`")
+					return nullMutationResult("setAgentTaskStallSchedule", "stall schedule", stallScheduleInspectHint)
 				}
 				fields = resp.SetAgentTaskStallSchedule.AgentTaskStallScheduleFields
 			}

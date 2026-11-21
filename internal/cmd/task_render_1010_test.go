@@ -17,24 +17,38 @@ import (
 
 const renderNodeRef1010 = "hrn:node:acme.com:kb:tasks:brief"
 
+// renderCapture1010 holds the requests the render fixture saw. The handler
+// appends on the server's goroutine; readers take a copy under the same lock
+// (cli#2417 F6), so no test depends on the HTTP happens-before argument.
+type renderCapture1010 struct {
+	mu   sync.Mutex
+	list []map[string]json.RawMessage
+}
+
+func (c *renderCapture1010) add(body map[string]json.RawMessage) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.list = append(c.list, body)
+}
+
+// snapshot returns a copy of the requests captured so far.
+func (c *renderCapture1010) snapshot() []map[string]json.RawMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]map[string]json.RawMessage(nil), c.list...)
+}
+
 // The fixture accepts only the Query: any lookup, legacy renderer or launch is
 // an error. Counting requests also detects fallback/retry on refused answers.
-// The capture is appended under a lock (cli#2267): the handler runs on the
-// server's goroutine, and the tests read the slice only after Execute returns,
-// which is after the reply was fully written, so the capture is quiescent by
-// then. The lock makes that explicit instead of relying on the ordering.
-func renderFixture1010(t *testing.T, reply string) (*httptest.Server, *[]map[string]json.RawMessage) {
+func renderFixture1010(t *testing.T, reply string) (*httptest.Server, *renderCapture1010) {
 	t.Helper()
-	requests := []map[string]json.RawMessage{}
-	var mu sync.Mutex
+	requests := &renderCapture1010{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]json.RawMessage
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Errorf("request: %v", err)
 		}
-		mu.Lock()
-		requests = append(requests, body)
-		mu.Unlock()
+		requests.add(body)
 		var op, query string
 		_ = json.Unmarshal(body["operationName"], &op)
 		_ = json.Unmarshal(body["query"], &query)
@@ -45,7 +59,7 @@ func renderFixture1010(t *testing.T, reply string) (*httptest.Server, *[]map[str
 		_, _ = fmt.Fprint(w, reply)
 	}))
 	t.Cleanup(server.Close)
-	return server, &requests
+	return server, requests
 }
 
 func TestTaskRenderBytesAndArguments1010(t *testing.T) {
@@ -76,11 +90,11 @@ func TestTaskRenderBytesAndArguments1010(t *testing.T) {
 					if err := root.Execute(); err != nil {
 						t.Fatal(err)
 					}
-					if len(*requests) != 1 {
-						t.Fatalf("requests=%d", len(*requests))
+					if len(requests.snapshot()) != 1 {
+						t.Fatalf("requests=%d", len(requests.snapshot()))
 					}
 					var vars map[string]json.RawMessage
-					_ = json.Unmarshal((*requests)[0]["variables"], &vars)
+					_ = json.Unmarshal(requests.snapshot()[0]["variables"], &vars)
 					var ref string
 					_ = json.Unmarshal(vars["nodeRef"], &ref)
 					if ref != renderNodeRef1010 {
@@ -132,8 +146,8 @@ func TestTaskRenderInvalidArgumentsBeforeRequests1010(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"task", "render", renderNodeRef1010, "--args", arg, "--server", server.URL})
 			err := root.Execute()
-			if exitCodeFor(err) != exitcode.Usage || len(*requests) != 0 {
-				t.Fatalf("err=%v requests=%d", err, len(*requests))
+			if exitCodeFor(err) != exitcode.Usage || len(requests.snapshot()) != 0 {
+				t.Fatalf("err=%v requests=%d", err, len(requests.snapshot()))
 			}
 		})
 	}
@@ -163,11 +177,11 @@ func TestTaskRenderReferenceForms1010(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			if len(*requests) != 1 {
-				t.Fatalf("requests=%d", len(*requests))
+			if len(requests.snapshot()) != 1 {
+				t.Fatalf("requests=%d", len(requests.snapshot()))
 			}
 			var vars map[string]any
-			_ = json.Unmarshal((*requests)[0]["variables"], &vars)
+			_ = json.Unmarshal(requests.snapshot()[0]["variables"], &vars)
 			if vars["nodeRef"] != tc.want {
 				t.Fatalf("variables=%v", vars)
 			}
@@ -186,8 +200,8 @@ func TestTaskRenderRefusalsNeverFallback1010(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"task", "render", renderNodeRef1010, "--server", server.URL, "--json"})
 			err := root.Execute()
-			if exitCodeFor(err) != tc.exit || len(*requests) != 1 || strings.Contains(out.String(), `"rendered"`) {
-				t.Fatalf("err=%v requests=%d output=%s", err, len(*requests), out)
+			if exitCodeFor(err) != tc.exit || len(requests.snapshot()) != 1 || strings.Contains(out.String(), `"rendered"`) {
+				t.Fatalf("err=%v requests=%d output=%s", err, len(requests.snapshot()), out)
 			}
 			if got := renderError(f, err); got != tc.exit {
 				t.Fatalf("rendered exit=%d", got)
@@ -234,8 +248,8 @@ func TestTaskRenderBrokenReplyNeverRetries1010(t *testing.T) {
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"task", "render", renderNodeRef1010, "--server", server.URL, "--json"})
-			if err := root.Execute(); err == nil || len(*requests) != 1 || strings.Contains(out.String(), `"rendered"`) {
-				t.Fatalf("err=%v requests=%d output=%s", err, len(*requests), out)
+			if err := root.Execute(); err == nil || len(requests.snapshot()) != 1 || strings.Contains(out.String(), `"rendered"`) {
+				t.Fatalf("err=%v requests=%d output=%s", err, len(requests.snapshot()), out)
 			}
 		})
 	}
@@ -251,8 +265,8 @@ func TestTaskRenderInvalidFileAndRefBeforeRequests1010(t *testing.T) {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", server.URL))
-		if err := root.Execute(); exitCodeFor(err) != exitcode.Usage || len(*requests) != 0 {
-			t.Fatalf("err=%v requests=%d", err, len(*requests))
+		if err := root.Execute(); exitCodeFor(err) != exitcode.Usage || len(requests.snapshot()) != 0 {
+			t.Fatalf("err=%v requests=%d", err, len(requests.snapshot()))
 		}
 	}
 }

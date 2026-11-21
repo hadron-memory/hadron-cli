@@ -1,9 +1,13 @@
 package coding
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -35,6 +39,7 @@ func newCmdPreflightRoute(f *cmdutil.Factory) *cobra.Command {
 		dryRun       bool
 		routeModelV  string
 		attachTo     string
+		crossMemory  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "route <node-ref>",
@@ -63,6 +68,16 @@ wikilink resolves against the ROUTER's memory and would go nowhere.
 
 --description supplies the routing line's text; omit it and the target node's
 own description is used, which is usually what you want.
+
+--cross-memory marks the route as an INTENTIONAL cross-memory route: it stores
+{"crossMemory": true} in the route edge's data (never in its name), on the route
+edge and, under the mirrored model, the back-edge. ` + "`preflight lint`" + ` then skips
+only ` + "`route-target-moved-memory`" + ` for it, so the warning keeps meaning "this
+target moved" for every unmarked route; an unreadable, retired or badly labelled
+target is still reported. ` + "`preflight list`" + ` shows the marker. A target in the
+router's own memory is refused (there is nothing to mark). Marking an existing
+route needs a re-run with the flag, which adds the marker and keeps the edge's
+other data.
 
 Re-running is safe: an edge that already exists is not duplicated, and a body
 that already references the target is left alone.`,
@@ -146,6 +161,11 @@ that already references the target is left alone.`,
 				return exitcode.Newf(exitcode.NotFound, "node %q could not be read", args[0])
 			}
 
+			if crossMemory && target.Node.MemoryId == router.Node.MemoryId {
+				return exitcode.Newf(exitcode.Usage,
+					"%s is in the router's own memory, so there is no cross-memory route to mark — drop --cross-memory", target.Node.Loc)
+			}
+
 			text := strings.TrimSpace(description)
 			if text == "" && target.Node.Description != nil {
 				text = strings.TrimSpace(*target.Node.Description)
@@ -174,6 +194,7 @@ that already references the target is left alone.`,
 				Loc: target.Node.Loc, ID: target.Node.Id, Name: target.Node.Name,
 				Route: label, Tags: target.Node.Tags, Seq: target.Node.Seq,
 				Router: attachLoc, BackEdge: !leaf && !noBackEdge, Links: []linkDTO{}, DryRun: dryRun, Model: modelTag(leaf),
+				CrossMemory: crossMemory,
 			}
 			if dto.Tags == nil {
 				dto.Tags = []string{}
@@ -193,10 +214,12 @@ that already references the target is left alone.`,
 			// would report the wrong edge while createEdge went on to add a
 			// second one.
 			// Leaf: the edge lives on the target, so that is the set to look in.
+			var existingFwd, existingBack *existingEdge
 			if leaf {
 				for _, e := range target.Node.OutgoingEdges {
 					if e != nil && e.Target != nil && e.Target.Id == router.Node.Id && e.Name != nil && *e.Name == label {
 						dto.EdgeID = e.Id
+						existingFwd = &existingEdge{ID: e.Id, Data: e.Data}
 					}
 				}
 			} else {
@@ -204,8 +227,19 @@ that already references the target is left alone.`,
 					if e != nil && e.Target != nil && e.Target.Id == targetID &&
 						e.Name != nil && *e.Name == label {
 						dto.EdgeID = e.Id
+						existingFwd = &existingEdge{ID: e.Id, Data: e.Data}
 					}
 				}
+				for _, e := range target.Node.OutgoingEdges {
+					if e != nil && e.Target != nil && e.Target.Id == router.Node.Id && e.Name != nil && *e.Name == label {
+						existingBack = &existingEdge{ID: e.Id, Data: e.Data}
+					}
+				}
+			}
+			// The reported marker is the edge's state, not only this run's request: a
+			// re-run without the flag on a marked route still says so (cli#2736).
+			if existingFwd != nil && edgeCrossMemory(existingFwd.Data) {
+				dto.CrossMemory = true
 			}
 
 			if dryRun {
@@ -215,33 +249,48 @@ that already references the target is left alone.`,
 			}
 
 			from, to := router.Node.Id, targetID
+			fromLoc, toLoc := attachLoc, dto.Loc
 			if leaf {
 				from, to = targetID, router.Node.Id
+				fromLoc, toLoc = dto.Loc, attachLoc
 			}
-			fwd, err := gen.CreateEdge(ctx, client, from, to, label, nil, nil, nil, nil, nil, nil)
+			// An EXISTING edge is never re-created when marking: a real server refuses
+			// createEdge on an occupied loc ("Edge loc ... is already occupied", QA on
+			// cli#2736), so the edge already on the graph takes the marker through
+			// updateEdge. Without --cross-memory the write is exactly what it was.
+			fwdID, fwdMarked, err := writeRouteEdge(ctx, client, routeEdge{
+				From: from, To: to, FromLoc: fromLoc, ToLoc: toLoc, Label: label,
+				Existing: existingFwd, Mark: crossMemory, Memory: mem.raw,
+			})
 			if err != nil {
-				// Classify through api.MapError so auth, not-found and
-				// transport keep their own exit codes — a script must be able
-				// to tell a retryable outage from an ordinary failure. The
-				// wording stays agnostic about whether the edge landed:
-				// a transport failure has an UNKNOWN outcome.
-				mapped := api.MapError(err)
-				return exitcode.Newf(exitcode.FromError(mapped),
-					"the route from %q to %s may not have been written — check with `hadron coding preflight list -m %s`: %v",
-					attachLoc, dto.Loc, mem.raw, mapped)
+				return err
 			}
-			if fwd.CreateEdge != nil {
-				dto.EdgeID = fwd.CreateEdge.Id
+			if fwdID != "" {
+				dto.EdgeID = fwdID
+			}
+			if crossMemory {
+				dto.CrossMemory = fwdMarked
 			}
 
 			if !leaf && !noBackEdge {
-				if _, err := gen.CreateEdge(ctx, client, targetID, router.Node.Id, label,
-					nil, nil, nil, nil, nil, nil); err != nil {
+				_, backMarked, err := writeRouteEdge(ctx, client, routeEdge{
+					From: targetID, To: router.Node.Id, FromLoc: dto.Loc, ToLoc: attachLoc, Label: label,
+					Existing: existingBack, Mark: crossMemory, Memory: mem.raw, Back: true,
+				})
+				if err != nil {
+					var markerErr *markerNotConfirmedError
+					if errors.As(err, &markerErr) {
+						// The back-edge exists; only its marker is unconfirmed.
+						return partialRoute(f, dto, false, err,
+							"routed %s and the back-edge to %q exists, but its cross-memory marker was not confirmed: %v",
+							dto.Loc, root, err)
+					}
 					dto.BackEdge = false
 					return partialRoute(f, dto, false, err,
 						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
 						dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
 				}
+				_ = backMarked
 			}
 
 			if wantLine {
@@ -270,6 +319,7 @@ that already references the target is left alone.`,
 	cmd.Flags().BoolVar(&noBackEdge, "no-back-edge", false, "skip the mirrored back-edge to the router")
 	cmd.Flags().BoolVar(&noBodyLine, "no-body-line", false, "wire the edges only; leave the router's body alone")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written, including where the routing line lands, without writing it")
+	cmd.Flags().BoolVar(&crossMemory, "cross-memory", false, "mark the route as an intentional cross-memory route, so lint does not warn that its target moved memory")
 	addRouteModelFlag(cmd, &routeModelV)
 	cmd.Flags().StringVar(&attachTo, "attach-to", "", "leaf model: loc of the router or area node the node's edge points at (default: --root)")
 	_ = cmd.MarkFlagRequired("route")
@@ -301,4 +351,106 @@ func memoryLabel(memoryID string, m *gen.GetNodeNodeMemory) string {
 		return memoryID
 	}
 	return m.Urn
+}
+
+// existingEdge is an edge already on the graph, as the router's (or target's)
+// read saw it.
+type existingEdge struct {
+	ID   string
+	Data *json.RawMessage
+}
+
+// routeEdge is one edge write of `preflight route`.
+type routeEdge struct {
+	From, To, FromLoc, ToLoc, Label, Memory string
+	Existing                                *existingEdge
+	Mark                                    bool // write the cross-memory marker (cli#2736)
+	Back                                    bool // the mirrored back-edge (messages only)
+}
+
+// markerNotConfirmedError says an edge exists but the marker update was not
+// confirmed: the write may have committed, so nothing is retried.
+type markerNotConfirmedError struct{ error }
+
+// newMarkerNotConfirmed carries the exit class of what went wrong: a refusal exits
+// as the refusal does, an answer that says nothing is Unavailable (unknown outcome).
+func newMarkerNotConfirmed(code int, format string, args ...any) *markerNotConfirmedError {
+	return &markerNotConfirmedError{exitcode.Newf(code, format, args...)}
+}
+
+func (e *markerNotConfirmedError) Unwrap() error { return e.error }
+
+// writeRouteEdge writes one route edge and, when asked, makes sure it carries the
+// marker. It returns the edge id and whether the marker is CONFIRMED on it.
+func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (string, bool, error) {
+	if e.Mark && e.Existing != nil {
+		if edgeCrossMemory(e.Existing.Data) {
+			return e.Existing.ID, true, nil
+		}
+		confirmed, err := updateCrossMemoryMarker(ctx, client, e, e.Existing.ID, e.Existing.Data)
+		return e.Existing.ID, confirmed, err
+	}
+	var data *json.RawMessage
+	if e.Mark {
+		d, err := withCrossMemoryMarker(nil)
+		if err != nil {
+			return "", false, err
+		}
+		data = &d
+	}
+	resp, err := gen.CreateEdge(ctx, client, e.From, e.To, e.Label, nil, nil, nil, nil, nil, data)
+	if err != nil {
+		// Classify through api.MapError so auth, not-found and transport keep
+		// their own exit codes; the wording stays agnostic about whether the
+		// edge landed (a transport failure has an UNKNOWN outcome).
+		mapped := api.MapError(err)
+		if e.Back {
+			return "", false, mapped // the caller words the back-edge failure
+		}
+		return "", false, exitcode.Newf(exitcode.FromError(mapped),
+			"the route from %q to %s may not have been written — check with `hadron coding preflight list -m %s`: %v",
+			e.FromLoc, e.ToLoc, e.Memory, mapped)
+	}
+	if resp == nil || resp.CreateEdge == nil {
+		if e.Mark {
+			// An edge the server did not return cannot be shown to carry the marker, and
+			// it may have been written: an unknown outcome, never exit 0 with the marker
+			// reported absent (cli#2736 LOCAL delta P3).
+			return "", false, exitcode.Newf(exitcode.Unavailable,
+				"the route from %q to %s may not have been written (the server returned no edge) — check with `hadron coding preflight list -m %s`; nothing was retried",
+				e.FromLoc, e.ToLoc, e.Memory)
+		}
+		return "", false, nil
+	}
+	if !e.Mark || edgeCrossMemory(resp.CreateEdge.Data) {
+		return resp.CreateEdge.Id, e.Mark, nil
+	}
+	// createEdge answered an edge without the marker (an edge that already
+	// existed on a server that returns it): add it through updateEdge.
+	confirmed, err := updateCrossMemoryMarker(ctx, client, e, resp.CreateEdge.Id, resp.CreateEdge.Data)
+	return resp.CreateEdge.Id, confirmed, err
+}
+
+// updateCrossMemoryMarker adds the marker to an existing edge through updateEdge,
+// keeping its other data exactly, and CONFIRMS it from the answer: a null result
+// or data without the marker is an unknown outcome (the write may have
+// committed), reported with a read-back instruction and never retried.
+func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, e routeEdge, edgeID string, current *json.RawMessage) (bool, error) {
+	merged, err := withCrossMemoryMarker(current)
+	if err != nil {
+		return false, err
+	}
+	resp, err := gen.UpdateEdge(ctx, client, edgeID, nil, nil, nil, nil, nil, nil, &merged)
+	if err != nil {
+		mapped := api.MapError(err)
+		return false, newMarkerNotConfirmed(exitcode.FromError(mapped),
+			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`: %v",
+			e.FromLoc, e.ToLoc, e.Memory, mapped)
+	}
+	if resp == nil || resp.UpdateEdge == nil || !edgeCrossMemory(resp.UpdateEdge.Data) {
+		return false, newMarkerNotConfirmed(exitcode.Unavailable,
+			"the route %s → %s exists, but the server did not confirm its cross-memory marker, so it may not have been written — check with `hadron coding preflight list -m %s`; nothing was retried",
+			e.FromLoc, e.ToLoc, e.Memory)
+	}
+	return true, nil
 }

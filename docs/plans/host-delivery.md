@@ -28,7 +28,8 @@ Built on S1 (`internal/cmd/team/host_delivery.go`):
   `Unchanged`; any other count, or any refusal, is an error, and nothing
   moved.
 - **Scope:** `APP_KEY_SCOPE_REQUIRED` on the read is `ErrDeliveryScope`, so
-  delivery is off for the run; other refusals are read failures.
+  delivery is off once two consecutive steps answer it, and re-checks on a
+  1-15 minute backoff (cli#2663); other refusals are read failures.
 - **Diagnostics carry no upstream text** (Rodolfo's §10 P2 on #939). A
   server or proxy error may echo the request (a proof, the host key) or carry
   message text, and these errors reach the operator's log.
@@ -213,8 +214,10 @@ Holds are reported once per (batch, reason) change, not every poll.
   time, in order, and a batch in flight is queued once.
 - **Failures:**
   - `ErrDeliveryScope` (a key without `attention:deliver`,
-    `APP_KEY_SCOPE_REQUIRED`) switches delivery off for the run, and host
-    operations carry on.
+    `APP_KEY_SCOPE_REQUIRED`) switches delivery off after two consecutive
+    steps answer it (one answer between good reads changes nothing); the off
+    state re-checks on a doubling 1-15 minute backoff and turns itself back
+    on when a read succeeds (`delivery-on`). Host operations carry on.
   - Any other read failure is logged and retried next step.
   - Neither fails the check-in.
 - **`worker.deliver`** stays reported FAILED. It is a per-task-event
@@ -266,7 +269,7 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
   retry without the selection, nothing typed, the wake left due.
 - `acknowledgeWakes` sends one proof per call.
 - `AckMixed` follows `delivery.ack_mixed` (cli#1229), default false. An
-  operator sets true only after verifying A′ (#2072, ad7f1c2) is deployed.
+  operator sets true only after verifying A′ (issue #2072, PR #2102, ad7f1c2) is deployed.
   Mixed wake acknowledgment records tick/task receipts without moving chat
   delivered-through or read position; mention text still uses its own batch.
   The setting is shown as text `ack-mixed on|off` and JSON `delivery.ackMixed`.

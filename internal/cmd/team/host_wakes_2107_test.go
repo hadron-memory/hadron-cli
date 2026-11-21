@@ -86,3 +86,20 @@ func TestEveryCurrentTaskWakeEventHasDeliberateDeliveryWording2141(t *testing.T)
 		}
 	}
 }
+
+// cli#2762: a dueWakes page with an ANSWERED TASK reason and questionCode QA3
+// reaches the nudge as the handle, the fixed words and the code. The page
+// carries no answer fields, and the line holds nothing else of the task.
+func TestAnsweredWakeCarriesQuestionCode2762(t *testing.T) {
+	body := strings.Replace(wakePage2, `"event":"CHILD_FINISHED"`, `"event":"ANSWERED","questionCode":"QA3"`, 1)
+	s, _ := deliveryFake(t, map[string][]string{"DueWakes": {body}})
+	page, err := s.Wakes(context.Background())
+	if err != nil || len(page.Wakes) != 1 {
+		t.Fatalf("page=%+v err=%v", page, err)
+	}
+	got := delivery.RenderWake(page.Wakes[0].Reasons)
+	want := "[hadron task] AT1.1.2 a question this task asked was answered: QA3"
+	if got != want {
+		t.Fatalf("rendered %q, want %q", got, want)
+	}
+}

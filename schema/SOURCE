@@ -1,14 +1,18 @@
-# Provenance of schema/schema.graphql (hadron-cli#2043, retire with #2658).
+# Provenance of schema/schema.graphql (hadron-cli#2465; retires the cli#2043 merge
+# pin, hadron-cli#2658).
 #
-# The snapshot is NOT an export of a commit on hadron-server main. It is the
-# export of the merge of these two named hadron-server commits, because the
-# CLI needs hadron-server#4219 (the S4+S6 renames) and #4414
-# (workedFromRoleTaskRefs) but cannot yet regenerate against S2 (#4513, which
-# removed fields the old-shape decision.graphql selects).
+# The snapshot is the export of ONE real hadron-server commit, server_sha below,
+# which is on hadron-server main and carries Questions S1-S4 (#4425-#4428) and
+# everything the CLI selects. It is no longer a merge of two commits with an overlay.
+# Refresh it with the skill refresh-the-schema-snapshot (a detached worktree of the
+# commit you name, `make schema HADRON_SERVER_DIR=... SDL_EXPORT=...`) and name the
+# new commit here and in the PR. `make schema-check` re-exports from a server
+# checkout and fails when the generated client would change for an operation the CLI
+# uses; the schema-drift workflow runs it nightly against server main, and its snapshot-reproduces job exports exactly server_sha with the tool versions below and compares the bytes.
 #
-# scripts/pin-server-sdl.sh reproduces that merge; the nightly schema-drift job
-# checks the snapshot against it.
-base=2d1cd5c669be735eeeecf44941d86ad3f4f7688f
-merge=47b0672fb5270123bd2d4c49a9b5365106cb3b22
-sdl_lines=22710
-sdl_sha256=67c6459430ade0373dfac3864a4ea8fe2d1c2e73044d679b40f29d777385b7c1
+# tsx= and graphql= are the exporter's tool versions, the single place they live: the
+# schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
+# because a floating graphql minor can change printSchema bytes. Bump deliberately.
+server_sha=ef26d5856de6c33f99e4b29a5e9af2bee6875f75
+tsx=4.23.15
+graphql=16.15.0

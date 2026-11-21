@@ -44,24 +44,24 @@ task, writes an entry, installs anything or caches the answer. (Which Channels
 an attendee takes part in is a different thing: see 'hadron team register
 attendee'.)
 
---app selects the team App; otherwise the configured App or worktree binding
-is used. --agent names an Agent installed in that App or cast there as a
-worker. With no --agent the CLI omits it: the server uses the authenticated
-worker's or run's Agent. A binding for the selected App on the same server supplies session attribution
-on this read; an unbound, other-App or other-server read supplies none. A person or App key
-without --agent gets BAD_USER_INPUT
-(exit 2). Unknown, foreign or unusable Agents give AGENT_NOT_FOUND (exit 4),
-and unknown, foreign or non-participant Apps give APP_NOT_FOUND (exit 4).
+--app selects the team App; otherwise the configured App or worktree binding is
+used. --agent names an Agent installed in that App or cast there as a worker.
+With no --agent the CLI omits it: the server uses the authenticated worker's or
+run's Agent. A binding for the selected App on the same server supplies session
+attribution on this read; an unbound, other-App or other-server read supplies
+none. A person or App key without --agent gets BAD_USER_INPUT (exit 2). Unknown,
+foreign or unusable Agents give AGENT_NOT_FOUND (exit 4), and unknown, foreign
+or non-participant Apps give APP_NOT_FOUND (exit 4).
 
 --task-loc and --code filter the index. MAPPED names the runnable task;
 UNRESOLVED names the loc where no runnable task was found; UNMAPPED marks a
-malformed entry. Empty pages disclose no reason. The server orders entries
-by code. Omitted paging flags use its defaults (20 rows, offset 0); limits
-above 200 are sent unchanged and capped by the server. --limit 0 returns
-only the count. Use --offset for the next page; the summary shows total and
-whether more rows exist. --json returns {entries, total, hasMore}, preserving
-all server values and nullable fields. Human-readable cells are shortened to fit
-and stripped of control characters; --json is not. Requires server#3312 or later.`,
+malformed entry. Empty pages disclose no reason. The server orders entries by
+code. Omitted paging flags use its defaults (20 rows, offset 0); limits above
+200 are sent unchanged and capped by the server. --limit 0 returns only the
+count. Use --offset for the next page; the summary shows total and whether more
+rows exist. --json returns {entries, total, hasMore}, preserving all server
+values and nullable fields. Human-readable cells are shortened to fit and
+stripped of control characters; --json is not. Requires server#3312 or later.`,
 		Example: `  hadron team register --app acme.com:eng --agent hrn:agent:acme.com:coder
   hadron team register --code task.finish.open-children --json
   hadron team register --task-loc tasks:finish-a-task --limit 0`,

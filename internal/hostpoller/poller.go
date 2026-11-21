@@ -200,6 +200,7 @@ type Poller struct {
 	live          atomic.Pointer[Config]
 	orcaWired     bool                     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
 	removed       map[string]removedWorker // by worker id: workers a reload removed, with their last entry (cli#2623)
+	trust         trustWalk                // the filesystem the reload trust check reads; a per-poller seam so tests may override it in parallel (cli#2653 item 3)
 	reloadSeen    [32]byte                 // content of a configuration file already refused or reported
 	reloadPending [32]byte                 // content seen once, applied only if the next poll sees it again
 	server        Server
@@ -270,10 +271,15 @@ type Poller struct {
 	wg         sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
-	// for the run by a missing attention:deliver scope.
+	// by a confirmed missing attention:deliver scope (re-checked, cli#2663).
 	batches     BatchSource
 	deliverer   Deliverer
 	deliveryOff bool
+	// Delivery's scope verdict (cli#2663): consecutive scope answers, and the
+	// off state's re-check backoff.
+	scopeStreak  int
+	recheckEvery time.Duration
+	recheckAt    time.Time
 	// Tick and task wakes (cli#906 row 1): off unless EnableWakes.
 	wakes         WakeSource
 	wakeDeliverer WakeDeliverer

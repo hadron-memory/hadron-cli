@@ -14,187 +14,42 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// cli#2510 (gap #58): the six remaining agent-lifecycle commands. Each verb is
-// exactly one mutation with refs as typed; authority stays server-owned, and a
-// refusal maps through api.MapError with no retry or follow-up call. The one
-// exception is `session start`, whose server looks its agent up by ID only:
-// a URN there is resolved with one read first.
+// cli#58 (four-command cut): `agent ai-config clear`, `agent import publish|rm`
+// and `agent repair-system-memory`. Each is exactly one server call with the
+// references passed as typed (ID or URN); who may run it, and every
+// other rule, stays the server's (cor:api:240:01).
 
-// nonBlank refuses a blank argument before any call. TrimSpace only DETECTS
-// blank input; the value is passed on exactly as typed.
-func nonBlank(value, what string) error {
-	if strings.TrimSpace(value) == "" {
-		return exitcode.Newf(exitcode.Usage, "the %s is empty", what)
+// refArg refuses a blank reference before any call is made. TrimSpace only
+// DETECTS blank input: the reference is returned exactly as typed.
+func refArg(what, v string) (string, error) {
+	if strings.TrimSpace(v) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "the %s reference is empty", what)
 	}
-	return nil
+	return v, nil
 }
 
-// --- agent import publish|rm ----------------------------------------------
-
-type agentImportDTO struct {
-	ParentAgentID   string `json:"parentAgentId"`
-	ImportedAgentID string `json:"importedAgentId"`
-	Position        int    `json:"position"`
-	Required        bool   `json:"required"`
-	CreatedAt       string `json:"createdAt"`
-}
-
-type agentImportRemovedDTO struct {
-	ParentAgentRef   string `json:"parentAgentRef"`
-	ImportedAgentRef string `json:"importedAgentRef"`
-	Removed          bool   `json:"removed"`
-}
-
-func newCmdAgentImport(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "import",
-		Short: "Bundle one Agent into another as a dependency",
-		Long: `Manage an Agent's imports: dependency edges from a parent Agent to an imported
-Agent, so installing the parent also installs the imported Agent. An import is
-one level deep: an Agent that itself imports others cannot be imported. The
-parent's organization needs a license grant for the imported Agent.
-
-An import is not an Agent's base (see "hadron agent set-base"), which the Agent
-extends instead of bundling.`,
+// emitAgentReceipt renders the Agent a verb returned. A null result (the
+// mutation is declared non-null, but a gateway or server fault can still send
+// one) is an error, never a dereference.
+func emitAgentReceipt(f *cmdutil.Factory, a *gen.AgentFields, line string) error {
+	if a == nil {
+		return exitcode.Newf(exitcode.Error, "server returned no agent")
 	}
-	cmd.AddCommand(newCmdAgentImportPublish(f), newCmdAgentImportRm(f))
-	return cmd
+	dto := agentDTOFromFields(*a)
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		_, err := fmt.Fprintf(w, "%s %s (%s)\n", line, output.SafeCell(dto.Name), output.SafeCell(dto.URN))
+		return err
+	})
 }
 
-func importArgs(args []string) (parent, imported string, err error) {
-	if err := nonBlank(args[0], "parent agent reference"); err != nil {
-		return "", "", err
-	}
-	if err := nonBlank(args[1], "imported agent reference"); err != nil {
-		return "", "", err
-	}
-	return args[0], args[1], nil
-}
-
-func newCmdAgentImportPublish(f *cmdutil.Factory) *cobra.Command {
-	var position int
-	var required bool
-	cmd := &cobra.Command{
-		Use:   "publish <parent> <imported> --position <n> [--required=true|false]",
-		Short: "Make one Agent import another",
-		Long: `Publish an import edge from <parent> to <imported> (each an Agent ID or URN,
-sent as typed). --position orders the parent's imports and is required.
---required says whether the import is required; without it the server
-default (required) applies.
-
-You need ADMIN or OWNER on the parent Agent's organization. The server refuses
-the import when <imported> itself imports other Agents (imports are one level
-deep), when the parent's organization holds no license grant for <imported>,
-when <parent> and <imported> are the same Agent, or when the position is taken.
-
-Prints "✓ <imported> imported into <parent> at position <n>"; --json is the
-import edge: {"parentAgentId", "importedAgentId", "position", "required",
-"createdAt"}.`,
-		Example: `  hadron agent import publish hrn:agent:acme.com:suite hrn:agent:acme.com:triage --position 1
-  hadron agent import publish hrn:agent:acme.com:suite hrn:agent:acme.com:notes --position 2 --required=false`,
-		Args: cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			parent, imported, err := importArgs(args)
-			if err != nil {
-				return err
-			}
-			if !cmd.Flags().Changed("position") {
-				return exitcode.Newf(exitcode.Usage, "--position is required")
-			}
-			var requiredPtr *bool
-			if cmd.Flags().Changed("required") {
-				requiredPtr = &required
-			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			resp, err := gen.PublishAgentImport(cmd.Context(), client, parent, imported, position, requiredPtr)
-			if err != nil {
-				return api.MapError(err)
-			}
-			r := resp.PublishAgentImport
-			if r == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no import")
-			}
-			dto := agentImportDTO{
-				ParentAgentID:   r.ParentAgentId,
-				ImportedAgentID: r.ImportedAgentId,
-				Position:        r.Position,
-				Required:        r.Required,
-				CreatedAt:       r.CreatedAt,
-			}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				kind := "required"
-				if !dto.Required {
-					kind = "optional"
-				}
-				_, err := fmt.Fprintf(w, "✓ %s imported into %s at position %d (%s)\n",
-					output.SafeCell(imported), output.SafeCell(parent), dto.Position, kind)
-				return err
-			})
-		},
-	}
-	cmd.Flags().IntVar(&position, "position", 0, "the import's position among the parent's imports (required)")
-	cmd.Flags().BoolVar(&required, "required", true, "whether the import is required (omitted: the server default, required)")
-	return cmd
-}
-
-func newCmdAgentImportRm(f *cmdutil.Factory) *cobra.Command {
-	var yes bool
-	cmd := &cobra.Command{
-		Use:     "rm <parent> <imported>",
-		Aliases: []string{"remove"},
-		Short:   "Remove an import from an Agent",
-		Long: `Remove the import edge from <parent> to <imported> (each an Agent ID or URN,
-sent as typed). Removing an import that does not exist succeeds and changes
-nothing. Apps that already installed <imported> keep it; the removal only stops
-later installs of <parent> from bringing <imported> along.
-
-Asks for confirmation on a terminal; a non-interactive caller must pass --yes.
-Prints "✓ removed import of <imported> from <parent>"; --json is
-{"parentAgentRef", "importedAgentRef", "removed": true}.`,
-		Example: `  hadron agent import rm hrn:agent:acme.com:suite hrn:agent:acme.com:triage --yes`,
-		Args:    cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			parent, imported, err := importArgs(args)
-			if err != nil {
-				return err
-			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "the import of "+imported+" from agent "+parent); err != nil {
-				return err
-			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			resp, err := gen.RemoveAgentImport(cmd.Context(), client, parent, imported)
-			if err != nil {
-				return api.MapError(err)
-			}
-			if !resp.RemoveAgentImport {
-				return exitcode.Newf(exitcode.Error, "the import of %s from %s was not removed", imported, parent)
-			}
-			dto := agentImportRemovedDTO{ParentAgentRef: parent, ImportedAgentRef: imported, Removed: true}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ removed import of %s from %s\n", output.SafeCell(imported), output.SafeCell(parent))
-				return err
-			})
-		},
-	}
-	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
-	return cmd
-}
-
-// --- agent ai-config clear --------------------------------------------------
-
+// newCmdAgentAIConfig is the `agent ai-config` group. It is NOT the top-level
+// `ai-config` group, which edits AI service configuration rows by id.
 func newCmdAgentAIConfig(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ai-config",
-		Short: "Clear an Agent's AI provider configuration",
-		Long: `Work with the AI provider configuration stored on an Agent. This is not the
-top-level "hadron ai-config" group, which manages an organization's AI service
-configs.`,
+		Short: "Manage an Agent's own AI provider configuration",
+		Long: `Manage the AI provider configuration stored on one Agent. This is not the
+top-level "hadron ai-config" group, which edits AI service configuration rows by id.`,
 	}
 	cmd.AddCommand(newCmdAgentAIConfigClear(f))
 	return cmd
@@ -204,228 +59,239 @@ func newCmdAgentAIConfigClear(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "clear <agent>",
-		Short: "Remove an Agent's AI provider configuration",
-		Long: `Remove the AI provider configuration stored on an Agent (an ID or URN, sent as
-typed). No key is returned or decrypted.
+		Short: "Clear an Agent's AI provider configuration",
+		Long: `Clear the AI provider configuration stored on an Agent, in one server call. It
+cannot be undone. For a user-owned Agent the server removes every named
+configuration, disabled ones included; for an org-owned Agent it removes only the
+one named "default". The server decides what is removed.
 
-For a user-owned Agent, the clear removes every named configuration, disabled
-ones included, and means the same whether its owner or a platform admin runs
-it. For an organization-owned Agent, the server removes only the configuration
-named "default". A platform admin can clear an Agent's AI configuration but
-can never read or set one. Otherwise you need ADMIN access to the Agent.
+Whoever manages the Agent may run it: for an org-owned Agent, its organization's
+ADMINs and OWNERs; for a user-owned Agent, its owner and platform admins. The
+server decides, and a refusal is reported as it came.
 
-Asks for confirmation on a terminal; a non-interactive caller must pass --yes.
-Prints "✓ cleared the AI config of agent <name> (<urn>)"; --json is the Agent
-as the server returned it.`,
-		Example: `  hadron agent ai-config clear hrn:agent:acme.com:support-bot --yes`,
+It never reads or prints a key. Prints "✓ cleared AI configuration of <name>
+(<urn>)"; --json is the Agent in the CLI's usual Agent JSON. Without a terminal you
+must pass --yes.`,
+		Example: `  hadron agent ai-config clear hrn:agent:acme.com:bot --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := nonBlank(args[0], "agent reference"); err != nil {
-				return err
-			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "the AI configuration of agent "+args[0]); err != nil {
+			agentRef, err := refArg("agent", args[0])
+			if err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.ClearAgentAIConfig(cmd.Context(), client, args[0])
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "the AI configuration of agent "+output.SafeCell(agentRef)); err != nil {
+				return err
+			}
+			resp, err := gen.ClearAgentAIConfig(cmd.Context(), client, agentRef)
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.ClearAgentAIConfig == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no agent")
+			var a *gen.AgentFields
+			if r := resp.ClearAgentAIConfig; r != nil {
+				a = &r.AgentFields
 			}
-			return emitAgent(f, agentDTOFromFields(resp.ClearAgentAIConfig.AgentFields), "✓ cleared the AI config of")
+			return emitAgentReceipt(f, a, "✓ cleared AI configuration of")
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
 }
 
-// --- agent repair-system-memory ---------------------------------------------
+// newCmdAgentImport is `agent import publish|rm`.
+func newCmdAgentImport(f *cmdutil.Factory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "import",
+		Short: "Publish or remove an Agent's dependency on another Agent",
+		Long: `Manage imports: a parent Agent's dependency on another Agent, which installing the
+parent into an App carries along. Each verb makes one server call and passes both
+Agents exactly as typed (ID or URN).`,
+	}
+	cmd.AddCommand(newCmdAgentImportPublish(f), newCmdAgentImportRm(f))
+	return cmd
+}
+
+// importDTO is the --json shape of a published import.
+type importDTO struct {
+	ParentAgentID   string `json:"parentAgentId"`
+	ImportedAgentID string `json:"importedAgentId"`
+	Position        int    `json:"position"`
+	Required        bool   `json:"required"`
+	CreatedAt       string `json:"createdAt"`
+}
+
+func newCmdAgentImportPublish(f *cmdutil.Factory) *cobra.Command {
+	var position int
+	var required bool
+	cmd := &cobra.Command{
+		Use:   "publish <parent> <imported> --position <n> [--required[=false]]",
+		Short: "Make a parent Agent depend on an imported Agent",
+		Long: `Publish an import: <parent> depends on <imported>, at --position (an integer;
+required). Installing the parent into an App then carries the imported Agent
+along. The parent's organization must hold an active grant for the imported
+Agent, and imports go one level deep (an imported Agent cannot itself be a
+parent). Only an org-owned parent can import: the server refuses a user-owned
+parent ("not supported for a user-owned Agent yet"). Whoever manages the parent
+Agent may publish: its organization's ADMINs and OWNERs. The server decides and
+reports its refusals as they came.
+
+--required says whether the dependency is mandatory; without the flag the server
+default (required) stands, and --required=false sends false. Prints "✓ imported
+<imported> into <parent> at position <n>"; --json is the import as the server
+returned it (parentAgentId, importedAgentId, position, required, createdAt).`,
+		Example: `  hadron agent import publish hrn:agent:acme.com:suite hrn:agent:acme.com:helper --position 1
+  hadron agent import publish hrn:agent:acme.com:suite hrn:agent:acme.com:helper --position 2 --required=false`,
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			parent, err := refArg("parent agent", args[0])
+			if err != nil {
+				return err
+			}
+			imported, err := refArg("imported agent", args[1])
+			if err != nil {
+				return err
+			}
+			if !cmd.Flags().Changed("position") {
+				return exitcode.Newf(exitcode.Usage, "--position is required")
+			}
+			var reqPtr *bool
+			if cmd.Flags().Changed("required") {
+				reqPtr = &required
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.PublishAgentImport(cmd.Context(), client, parent, imported, position, reqPtr)
+			if err != nil {
+				return api.MapError(err)
+			}
+			r := resp.PublishAgentImport
+			if r == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no import")
+			}
+			dto := importDTO{
+				ParentAgentID: r.ParentAgentId, ImportedAgentID: r.ImportedAgentId,
+				Position: r.Position, Required: r.Required, CreatedAt: r.CreatedAt,
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ imported %s into %s at position %d\n",
+					output.SafeCell(imported), output.SafeCell(parent), dto.Position)
+				return err
+			})
+		},
+	}
+	cmd.Flags().IntVar(&position, "position", 0, "the import's position among the parent's imports (required)")
+	cmd.Flags().BoolVar(&required, "required", true, "whether the dependency is mandatory (omitted: the server default, required; --required=false sends false)")
+	return cmd
+}
+
+// removeImportDTO is the --json shape of `agent import rm`: the server's own
+// Boolean, not a local assumption.
+type removeImportDTO struct {
+	Removed bool `json:"removed"`
+}
+
+func newCmdAgentImportRm(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:     "rm <parent> <imported>",
+		Aliases: []string{"remove"},
+		Short:   "Remove a parent Agent's dependency on an imported Agent",
+		Long: `Remove the import of <imported> from <parent>, in one server call. It is
+idempotent: removing an import that does not exist is not an error.
+
+Removing it stops future installs of the parent from carrying the imported Agent
+along. Installs that already happened stay. But if the imported Agent was
+installed in an App only through this import, removing the import also ends its
+grants there, and reinstalling does not revive them. Whoever manages the parent
+Agent may remove: for an org-owned Agent its organization's ADMINs and OWNERs, for
+a user-owned one its owner and platform admins; the
+server decides. Without a terminal you must pass --yes.
+
+Prints "✓ removed import ..." when the server reports it removed one; --json is
+{"removed": <the server's boolean>}.`,
+		Example: `  hadron agent import rm hrn:agent:acme.com:suite hrn:agent:acme.com:helper --yes`,
+		Args:    cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			parent, err := refArg("parent agent", args[0])
+			if err != nil {
+				return err
+			}
+			imported, err := refArg("imported agent", args[1])
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			what := "the import of " + output.SafeCell(imported) + " from agent " + output.SafeCell(parent) +
+				" (this can also end the imported agent's grants in any App where it was installed only through this import, and reinstalling does not revive them)"
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, what); err != nil {
+				return err
+			}
+			resp, err := gen.RemoveAgentImport(cmd.Context(), client, parent, imported)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.RemoveAgentImport == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no result for the import removal; its outcome is unknown")
+			}
+			dto := removeImportDTO{Removed: *resp.RemoveAgentImport}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if !dto.Removed {
+					_, err := fmt.Fprintf(w, "the server reported no import of %s from %s removed\n",
+						output.SafeCell(imported), output.SafeCell(parent))
+					return err
+				}
+				_, err := fmt.Fprintf(w, "✓ removed import of %s from %s\n", output.SafeCell(imported), output.SafeCell(parent))
+				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	return cmd
+}
 
 func newCmdAgentRepairSystemMemory(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "repair-system-memory <agent>",
-		Short: "Re-own an Agent's system memory to the Agent's owner (platform admin)",
-		Long: `Give an Agent's system memory back to the Agent's own owner (its organization or
-user) when it has ended up owned by another tenant. <agent> is an ID or URN,
-sent as typed. Platform admin only: the server refuses everyone else, including
-the Agent's own organization admins, and an impersonating session.
+		Short: "Repair an Agent's system-Memory owner pairing (platform admins)",
+		Long: `Repair an Agent whose system Memory ended up owned by a different tenant than the
+Agent: the server changes the system Memory's owner to match the Agent's and may
+also change the Memory's URN to match (if that URN is already taken it keeps the
+current one). It is idempotent: an already-consistent pair is a no-op. Only platform admins may run
+it; the server refuses anyone else (FORBIDDEN) and reports AGENT_HAS_NO_SYSTEM_MEMORY
+or SYSTEM_MEMORY_NOT_FOUND as they came.
 
-On a repair the server tries to give the memory its derived URN; if another
-memory holds that URN, the current one is kept. Running it on an Agent whose
-system memory is already owned correctly changes nothing.
-
-Prints "✓ repaired the system memory of agent <name> (<urn>)"; --json is the
-Agent as the server returned it.`,
-		Example: `  hadron agent repair-system-memory hrn:agent:acme.com:support-bot`,
+Prints "✓ ran system-memory repair for <name> (<urn>)"; --json is the Agent in the
+CLI's usual Agent JSON. It asks no confirmation because it changes nothing that is
+already consistent.`,
+		Example: `  hadron agent repair-system-memory hrn:agent:acme.com:bot`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := nonBlank(args[0], "agent reference"); err != nil {
+			agentRef, err := refArg("agent", args[0])
+			if err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.RepairAgentSystemMemory(cmd.Context(), client, args[0])
+			resp, err := gen.RepairAgentSystemMemory(cmd.Context(), client, agentRef)
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.RepairAgentSystemMemory == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no agent")
+			var a *gen.AgentFields
+			if r := resp.RepairAgentSystemMemory; r != nil {
+				a = &r.AgentFields
 			}
-			return emitAgent(f, agentDTOFromFields(resp.RepairAgentSystemMemory.AgentFields), "✓ repaired the system memory of")
+			return emitAgentReceipt(f, a, "✓ ran system-memory repair for")
 		},
 	}
-}
-
-// --- agent session start|end ------------------------------------------------
-
-type agentSessionDTO struct {
-	ID        string  `json:"id"`
-	AgentID   *string `json:"agentId"`
-	AppID     *string `json:"appId"`
-	MemoryID  *string `json:"memoryId"`
-	UserID    *string `json:"userId"`
-	Type      string  `json:"type"`
-	State     string  `json:"state"`
-	IsLive    bool    `json:"isLive"`
-	StartedAt string  `json:"startedAt"`
-	ExpiresAt *string `json:"expiresAt"`
-}
-
-type agentSessionEndedDTO struct {
-	SessionID string `json:"sessionId"`
-	Ended     bool   `json:"ended"`
-}
-
-func newCmdAgentSession(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "session",
-		Short: "Start or end an App's session with an Agent",
-		Long: `Start and end the sessions an App opens with an Agent installed in it, for the
-App's end users. These are not worker sessions: to bind or end a team worker's
-session, use "hadron team session".
-
-Both verbs need an App key as the credential (for example in HADRON_TOKEN),
-and act only on that key's own App, its Agents and its sessions; --app does
-not choose a different App. With a personal sign-in instead of an App key the
-server refuses (exit 8). Apps that identify their users by a secret key are
-not supported here.`,
-	}
-	cmd.AddCommand(newCmdAgentSessionStart(f), newCmdAgentSessionEnd(f))
 	return cmd
-}
-
-func newCmdAgentSessionStart(f *cmdutil.Factory) *cobra.Command {
-	var externalUser string
-	var timeoutSeconds int
-	cmd := &cobra.Command{
-		Use:   "start <agent> [--external-user <id>] [--timeout-seconds <n>]",
-		Short: "Open an App session with one of the App's Agents",
-		Long: `Open a session between the calling App and <agent>, an Agent installed in that
-App. Needs an App key. The server looks the Agent up by ID, so when <agent> is
-a URN the CLI first reads the Agent to find its ID, then sends that.
-
---external-user names the App's end user by the App's own user id. If the App
-has no such user, the server creates one only when the App allows implicit user
-creation, and refuses otherwise. Without it the session is anonymous.
---timeout-seconds sets the session's timeout; it must be positive. The server
-refuses an Agent owned by a user rather than an organization.
-
-Prints "✓ started session <id> for agent <agent-id> (<state>)"; --json is the
-session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
-"isLive", "startedAt", "expiresAt"}.`,
-		Example: `  HADRON_TOKEN=$APP_KEY hadron agent session start 01a0091679447ebb87ffec2301cd12c1 --external-user u-42
-  HADRON_TOKEN=$APP_KEY hadron agent session start hrn:agent:acme.com:support-bot --timeout-seconds 900 --json`,
-		Args: cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			ref := args[0]
-			if err := nonBlank(ref, "agent reference"); err != nil {
-				return err
-			}
-			var userPtr *string
-			if cmd.Flags().Changed("external-user") {
-				userPtr = &externalUser
-			}
-			var timeoutPtr *int
-			if cmd.Flags().Changed("timeout-seconds") {
-				timeoutPtr = &timeoutSeconds
-			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			agentID := ref
-			if strings.Contains(ref, ":") {
-				r, err := gen.AgentSessionAgentID(cmd.Context(), client, ref)
-				if err != nil {
-					return api.MapError(err)
-				}
-				if r.Agent == nil {
-					return exitcode.Newf(exitcode.NotFound, "agent %q not found, or this credential cannot read it; pass the agent ID instead", ref)
-				}
-				agentID = r.Agent.Id
-			}
-			resp, err := gen.StartAgentSession(cmd.Context(), client, agentID, userPtr, timeoutPtr)
-			if err != nil {
-				return api.MapError(err)
-			}
-			s := resp.StartAgentSession
-			if s == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no session")
-			}
-			dto := agentSessionDTO{
-				ID: s.Id, AgentID: s.AgentId, AppID: s.AppId, MemoryID: s.MemoryId, UserID: s.UserId,
-				Type: s.Type, State: string(s.State), IsLive: s.IsLive, StartedAt: s.StartedAt, ExpiresAt: s.ExpiresAt,
-			}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ started session %s for agent %s (%s)\n",
-					output.SafeCell(dto.ID), output.SafeCell(agentID), output.SafeCell(dto.State))
-				return err
-			})
-		},
-	}
-	cmd.Flags().StringVar(&externalUser, "external-user", "", "the App's own id for its end user (omitted: an anonymous session)")
-	cmd.Flags().IntVar(&timeoutSeconds, "timeout-seconds", 0, "the session timeout in seconds, positive (omitted: the server default)")
-	return cmd
-}
-
-func newCmdAgentSessionEnd(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "end <session-id>",
-		Short: "End an App session with an Agent",
-		Long: `End a session the calling App opened with "hadron agent session start". Needs
-the same App key. Ending a session that has already ended succeeds and changes
-nothing; a session of another App answers as not found.
-
-Prints "✓ ended session <id>"; --json is {"sessionId", "ended": true}.`,
-		Example: `  HADRON_TOKEN=$APP_KEY hadron agent session end 01a1f5fb56f2727a9052df532c43bee4`,
-		Args:    cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := nonBlank(args[0], "session id"); err != nil {
-				return err
-			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			resp, err := gen.EndAgentSession(cmd.Context(), client, args[0])
-			if err != nil {
-				return api.MapError(err)
-			}
-			if !resp.EndAgentSession {
-				return exitcode.Newf(exitcode.Error, "session %s was not ended", args[0])
-			}
-			dto := agentSessionEndedDTO{SessionID: args[0], Ended: true}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "✓ ended session %s\n", output.SafeCell(args[0]))
-				return err
-			})
-		},
-	}
 }

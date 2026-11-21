@@ -63,6 +63,12 @@ type Factory struct {
 	// the original snapshot too. Reads keep the plain context.
 	WorkerWriteSession func(ctx context.Context, targetApps ...string) (WorkerWriteContext, error)
 
+	// WorkerSessionIfBound is installed by the root (cli#2664). Like
+	// WorkerWriteSession, but an unbound worktree is not an error: it returns a nil
+	// WorkerWriteContext and the caller sends without a session. Once a binding
+	// exists the strict rules apply.
+	WorkerSessionIfBound func(ctx context.Context, targetApps ...string) (WorkerWriteContext, error)
+
 	// NoteApprovingAsPerson is installed by the root (cli#1843). An approval on
 	// the default path calls it just before its mutation: from a worktree bound
 	// to a worker session it prints one stderr note (once per run) that the
@@ -311,9 +317,36 @@ func (f *Factory) NoteApproval(ctx context.Context, withAsWorker bool) {
 // command names beyond --app/context (a positional <app>, cli#1887): each must
 // be the binding's App or the resolve refuses. The returned guard also accepts
 // target App refs learned later, checking them against the original snapshot.
+// ResolveWorkerSessionIfBound resolves the session a reveal sends, if this
+// worktree is bound (nil when it is not). See WorkerSessionIfBound.
+func (f *Factory) ResolveWorkerSessionIfBound(ctx context.Context, targetApps ...string) (WorkerWriteContext, error) {
+	if f.WorkerSessionIfBound == nil {
+		return nil, nil
+	}
+	return f.WorkerSessionIfBound(ctx, targetApps...)
+}
+
 func (f *Factory) ResolveWorkerWrite(ctx context.Context, targetApps ...string) (WorkerWriteContext, error) {
 	if f.WorkerWriteSession == nil {
-		return nil, exitcode.Newf(exitcode.Usage, "--as-worker is unavailable here (no worker-session resolver); nothing was sent")
+		return nil, exitcode.Newf(exitcode.Usage, "%s is unavailable here (no worker-session resolver); nothing was sent", WorkerWriteDiagnosticFlag(ctx))
 	}
 	return f.WorkerWriteSession(ctx, targetApps...)
+}
+
+// workerWriteDiagnosticFlagKey carries display wording only, never authority.
+type workerWriteDiagnosticFlagKey struct{}
+
+// ResolveWorkerWriteForFlag uses the same strict resolver with the invoking
+// flag's diagnostic wording. It does not rewrite errors or their input values.
+func (f *Factory) ResolveWorkerWriteForFlag(ctx context.Context, flag string, targetApps ...string) (WorkerWriteContext, error) {
+	return f.ResolveWorkerWrite(context.WithValue(ctx, workerWriteDiagnosticFlagKey{}, flag), targetApps...)
+}
+
+// WorkerWriteDiagnosticFlag is captured by the strict resolver for its errors.
+// Existing --as-worker callers retain their exact default wording.
+func WorkerWriteDiagnosticFlag(ctx context.Context) string {
+	if flag, ok := ctx.Value(workerWriteDiagnosticFlagKey{}).(string); ok && flag != "" {
+		return flag
+	}
+	return "--as-worker"
 }
