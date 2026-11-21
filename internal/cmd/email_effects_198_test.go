@@ -1065,3 +1065,50 @@ func TestEmailAmbiguousDraftSaveKeyGuidance198(t *testing.T) {
 		}
 	}
 }
+
+// Bruno's #2740 P2 F2: strings that are sent exactly as given must be valid UTF-8,
+// because JSON encoding would replace invalid bytes with U+FFFD and address a different
+// value. Ids, --reply-to, --subject, --to, --category, --folder and --idempotency-key
+// are refused with zero requests.
+func TestEmailInvalidUTF8ArgumentsAreRefused198(t *testing.T) {
+	bad := "id\xff\xfe"
+	body := bodyFile198(t, "x")
+	for _, args := range [][]string{
+		{"reply", "--connection", bad, "m1", "--body-file", body, "--yes"},
+		{"reply", "--connection", "c", bad, "--body-file", body, "--yes"},
+		{"draft", "update", "--connection", "c", bad, "--body-file", body},
+		{"draft", "send", "--connection", "c", bad, "--yes"},
+		{"draft", "send", "--connection", "c", "d1", "--idempotency-key", bad, "--yes"},
+		{"draft", "save", "--connection", "c", "--reply-to", bad, "--body-file", body},
+		{"draft", "save", "--connection", "c", "--to", bad, "--subject", "S", "--body-file", body},
+		{"draft", "save", "--connection", "c", "--to", "a@example.test", "--subject", bad, "--body-file", body},
+		{"draft", "save", "--connection", "c", "--reply-to", "m1", "--idempotency-key", bad, "--body-file", body},
+		{"mark-read", "--connection", "c", bad},
+		{"flag", "--connection", "c", bad},
+		{"categorize", "--connection", "c", "m1", "--category", bad},
+		{"delete", "--connection", "c", bad, "--yes"},
+		{"move", "--connection", "c", "m1", "--folder", bad},
+	} {
+		_, _, n, err := runEffect198(t, map[string]string{}, "", args...)
+		if exitCodeFor(err) != 2 || n != 0 {
+			t.Errorf("email %v: exit %d (%v), %d requests; want a usage error and none sent", args, exitCodeFor(err), err, n)
+		}
+	}
+}
+
+// Bruno's P2 F3: the group help names the right way to pass the connection to each
+// command (test and disconnect take it as an argument, the rest take --connection).
+func TestEmailGroupHelpSaysHowEachCommandTakesTheConnection198(t *testing.T) {
+	f, _ := testFactory(t)
+	cmd, _, err := NewRootCmd(f).Find([]string{"email"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(cmd.Long), " ")
+	if !strings.Contains(help, "\"test\" and \"disconnect\" take it as an argument") {
+		t.Errorf("the group help does not say test and disconnect take the connection as an argument: %q", help)
+	}
+	if strings.Contains(help, "the mail commands, \"hadron calendar\"") && !strings.Contains(help, "take it as an argument") {
+		t.Errorf("the group help claims every mail command takes --connection: %q", help)
+	}
+}
