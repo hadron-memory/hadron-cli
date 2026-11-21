@@ -3,10 +3,12 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -24,10 +26,16 @@ type mgCall1503 struct {
 // mgHeaderServer1503 answers from a fixed map and records every GraphQL call
 // with its X-Hadron-Session header, so a test can pin that no session goes on
 // the wire.
+//
+// The handler runs on the server's goroutine, where t.Errorf is not safe (a
+// request landing after the test finished would panic). It records a failure
+// under the mutex instead, and a cleanup on the test goroutine reports them,
+// after closing the server so no request is still in flight (cli#2421 F2).
 func mgHeaderServer1503(t *testing.T, responses map[string]string) (string, func() []mgCall1503) {
 	t.Helper()
 	var mu sync.Mutex
 	var calls []mgCall1503
+	var failures []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
 			w.Header().Set("Content-Type", "application/json")
@@ -38,19 +46,35 @@ func mgHeaderServer1503(t *testing.T, responses map[string]string) (string, func
 			OperationName string          `json:"operationName"`
 			Variables     json.RawMessage `json:"variables"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		// cli#2421 F3: a malformed body is reported as that, not as a
+		// confusing 'unexpected operation ""'.
+		decodeErr := json.NewDecoder(r.Body).Decode(&body)
 		mu.Lock()
 		calls = append(calls, mgCall1503{op: body.OperationName, session: r.Header.Get(api.SessionHeader), vars: body.Variables})
+		if decodeErr != nil {
+			failures = append(failures, "malformed request body: "+decodeErr.Error())
+		}
 		mu.Unlock()
 		resp, ok := responses[body.OperationName]
 		if !ok {
-			t.Errorf("unexpected operation %q", body.OperationName)
+			if decodeErr == nil {
+				mu.Lock()
+				failures = append(failures, "unexpected operation "+body.OperationName)
+				mu.Unlock()
+			}
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(resp))
 	}))
-	t.Cleanup(srv.Close)
+	t.Cleanup(func() {
+		srv.Close() // waits for in-flight requests; Close is safe to repeat
+		mu.Lock()
+		defer mu.Unlock()
+		for _, f := range failures {
+			t.Error(f)
+		}
+	})
 	return srv.URL, func() []mgCall1503 {
 		mu.Lock()
 		defer mu.Unlock()
@@ -59,6 +83,12 @@ func mgHeaderServer1503(t *testing.T, responses map[string]string) (string, func
 }
 
 const mgApp1503 = "hrn:app:acme.com:eng"
+
+// withJSON1503 returns args plus --json without writing into a slice the table
+// rows share (an append on a slice with spare capacity would; cli#2421 F4).
+func withJSON1503(args []string) []string {
+	return append(append([]string(nil), args...), "--json")
+}
 
 // Item 1: none of the six model-group operations sends a worker session
 // (§10 P3-1): an X-Hadron-Session added to any of them fails here. The
@@ -81,7 +111,7 @@ func TestModelGroup1503NoSessionHeader(t *testing.T) {
 			url, calls := mgHeaderServer1503(t, map[string]string{tc.op: tc.resp})
 			writeTeamBinding(t)
 			setTeamBindingServer(t, url)
-			if _, err := mgRun(t, url, append(tc.args, "--json")...); err != nil {
+			if _, err := mgRun(t, url, withJSON1503(tc.args)...); err != nil {
 				t.Fatal(err)
 			}
 			got := calls()
@@ -113,6 +143,12 @@ func TestModelGroup1503RefusalRows(t *testing.T) {
 	}{
 		{"MODEL_GROUP_NOT_FOUND", exitcode.NotFound, "DeleteAgentModelGroup", agentDelete},
 		{"FORBIDDEN", exitcode.Forbidden, "DeleteAgentModelGroup", agentDelete},
+		// cli#2421 F5: FORBIDDEN on every other model-group operation too.
+		{"FORBIDDEN", exitcode.Forbidden, "AgentModelGroups", []string{"agent", "model-group", "list", "agt1"}},
+		{"FORBIDDEN", exitcode.Forbidden, "SetAgentModelGroup", agentSet},
+		{"FORBIDDEN", exitcode.Forbidden, "EffectiveModelGroups", appList},
+		{"FORBIDDEN", exitcode.Forbidden, "SetAppModelGroup", appSet},
+		{"FORBIDDEN", exitcode.Forbidden, "DeleteAppModelGroup", appClear},
 		{"AGENT_OWNERSHIP_CHANGED", exitcode.Conflict, "DeleteAgentModelGroup", agentDelete},
 		{"AGENT_OWNERSHIP_CHANGED", exitcode.Conflict, "SetAgentModelGroup", agentSet},
 		{"MODEL_GROUP_LIMIT_REACHED", exitcode.Conflict, "SetAgentModelGroup", agentSet},
@@ -128,7 +164,7 @@ func TestModelGroup1503RefusalRows(t *testing.T) {
 			url, calls := mgHeaderServer1503(t, map[string]string{
 				tc.op: `{"errors":[{"message":"server says ` + tc.code + `","extensions":{"code":"` + tc.code + `"}}],"data":null}`,
 			})
-			out, err := mgRun(t, url, append(tc.args, "--json")...)
+			out, err := mgRun(t, url, withJSON1503(tc.args)...)
 			if got := exitCodeFor(err); got != tc.want {
 				t.Fatalf("exit = %d, want %d (%v)", got, tc.want, err)
 			}
@@ -161,7 +197,7 @@ func TestAppModelGroup1503NameSentRaw(t *testing.T) {
 	} {
 		t.Run(tc.op, func(t *testing.T) {
 			url, calls := mgHeaderServer1503(t, map[string]string{tc.op: tc.resp})
-			if _, err := mgRun(t, url, append(tc.args, "--json")...); err != nil {
+			if _, err := mgRun(t, url, withJSON1503(tc.args)...); err != nil {
 				t.Fatal(err)
 			}
 			got := calls()
@@ -206,5 +242,112 @@ func TestAgentModelGroup1503HumanOutput(t *testing.T) {
 				t.Fatalf("human output:\n got %q\nwant %q", out, tc.want)
 			}
 		})
+	}
+}
+
+// cli#2421 F5: the App-side human output, golden, beside the Agent side's.
+func TestAppModelGroup1503HumanOutput(t *testing.T) {
+	list := `{"data":{"effectiveModelGroups":[{"name":"a","patterns":["x-*","y"],"origin":"AGENT"},{"name":"b","patterns":[],"origin":"APP_OVERRIDE"},{"name":"c","patterns":["z"],"origin":"APP"}]}}`
+	for _, tc := range []struct {
+		name, op, resp string
+		args           []string
+		want           string
+	}{
+		{"list", "EffectiveModelGroups", list, []string{"app", "model-group", "list", mgApp1503},
+			"NAME  ORIGIN        PATTERNS\n" +
+				"a     agent         x-*, y\n" +
+				"b     app-override  (none)\n" +
+				"c     app-only      z\n"},
+		{"list empty", "EffectiveModelGroups", `{"data":{"effectiveModelGroups":[]}}`, []string{"app", "model-group", "list", mgApp1503},
+			"No model groups are in force in this App.\n"},
+		{"set", "SetAppModelGroup", `{"data":{"setAppModelGroup":` + mgGroupJSON + `}}`, []string{"app", "model-group", "set", mgApp1503, "frontier", "--pattern", "claude-opus-*", "--pattern", "claude-sonnet-*"},
+			"✓ set model group frontier in app " + mgApp1503 + "\n  patterns: claude-opus-*, claude-sonnet-*\n"},
+		{"set empty", "SetAppModelGroup", `{"data":{"setAppModelGroup":{"name":"parked","patterns":[],"updatedAt":"2026-11-01T00:00:00Z"}}}`, []string{"app", "model-group", "set", mgApp1503, "parked"},
+			"✓ set model group parked in app " + mgApp1503 + "\n  patterns: (none)\n"},
+		{"clear", "DeleteAppModelGroup", `{"data":{"deleteAppModelGroup":true}}`, []string{"app", "model-group", "clear", mgApp1503, "parked", "--yes"},
+			"✓ cleared model group parked in app " + mgApp1503 + "\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			url, _ := mgHeaderServer1503(t, map[string]string{tc.op: tc.resp})
+			out, err := mgRun(t, url, tc.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if out != tc.want {
+				t.Fatalf("human output:\n got %q\nwant %q", out, tc.want)
+			}
+		})
+	}
+}
+
+// cli#2421 F5: a delete or clear the server answers with false is not shown as
+// done. The server's contract is the source (no spec states it): false means
+// the server did not confirm, so the command fails (exit 1) with the recovery
+// advice, prints nothing, and sends exactly one request, in both the text and
+// the --json mode.
+func TestModelGroup1503DeleteFalseIsNotConfirmed(t *testing.T) {
+	for _, tc := range []struct {
+		op, resp, advice string
+		args             []string
+	}{
+		{"DeleteAgentModelGroup", `{"data":{"deleteAgentModelGroup":false}}`, "list the Agent's groups before retrying", []string{"agent", "model-group", "delete", "agt1", "parked", "--yes"}},
+		{"DeleteAppModelGroup", `{"data":{"deleteAppModelGroup":false}}`, "list the App's groups before retrying", []string{"app", "model-group", "clear", mgApp1503, "parked", "--yes"}},
+	} {
+		for _, asJSON := range []bool{false, true} {
+			t.Run(tc.op+"/json="+map[bool]string{false: "no", true: "yes"}[asJSON], func(t *testing.T) {
+				url, calls := mgHeaderServer1503(t, map[string]string{tc.op: tc.resp})
+				args := tc.args
+				if asJSON {
+					args = withJSON1503(args)
+				}
+				out, err := mgRun(t, url, args...)
+				if exitCodeFor(err) != exitcode.Error || err == nil || !strings.Contains(err.Error(), tc.advice) {
+					t.Fatalf("want exit %d with %q, got %d: %v", exitcode.Error, tc.advice, exitCodeFor(err), err)
+				}
+				if out != "" {
+					t.Fatalf("an unconfirmed delete prints nothing, got %q", out)
+				}
+				if got := calls(); len(got) != 1 || got[0].op != tc.op {
+					t.Fatalf("one call, no retry: %v", got)
+				}
+			})
+		}
+	}
+}
+
+// cli#2421 F5: a non-200 answer that is not a GraphQL envelope (a gateway page)
+// is the transport failure, exit Unavailable, on reads and writes alike, sent
+// once and never retried, with nothing printed.
+func TestModelGroup1503TransportFailureRows(t *testing.T) {
+	for _, status := range []int{http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable} {
+		for name, args := range map[string][]string{
+			"agent list":   {"agent", "model-group", "list", "agt1"},
+			"agent set":    {"agent", "model-group", "set", "agt1", "g", "--pattern", "x"},
+			"agent delete": {"agent", "model-group", "delete", "agt1", "g", "--yes"},
+			"app list":     {"app", "model-group", "list", mgApp1503},
+			"app set":      {"app", "model-group", "set", mgApp1503, "g", "--pattern", "x"},
+			"app clear":    {"app", "model-group", "clear", mgApp1503, "g", "--yes"},
+		} {
+			t.Run(fmt.Sprintf("%d/%s", status, name), func(t *testing.T) {
+				var graphqlCalls atomic.Int32
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+						_, _ = w.Write([]byte(`{"capabilities":[]}`))
+						return
+					}
+					graphqlCalls.Add(1)
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte("<html>gateway</html>"))
+				}))
+				t.Cleanup(srv.Close)
+				out, err := mgRun(t, srv.URL, args...)
+				if exitCodeFor(err) != exitcode.Unavailable || out != "" {
+					t.Fatalf("want exit %d and no output, got %d %q: %v", exitcode.Unavailable, exitCodeFor(err), out, err)
+				}
+				if n := graphqlCalls.Load(); n != 1 {
+					t.Fatalf("one request, no retry: %d", n)
+				}
+			})
+		}
 	}
 }
