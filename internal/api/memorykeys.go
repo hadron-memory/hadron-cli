@@ -114,7 +114,7 @@ func escapedSpellings(bases []string) []string {
 				// JSON.stringify leaves U+2028/U+2029 raw where Go escapes
 				// them, at every depth (cli#2704 Rook F1). It joins next so
 				// the following depth derives from it too.
-				if n := nodeLineSeparatorReplacer.Replace(plain); n != plain && add(n) {
+				if n := nodeJSONForm(plain); n != plain && add(n) {
 					next = append(next, n)
 				}
 			}
@@ -125,11 +125,38 @@ func escapedSpellings(bases []string) []string {
 	return out
 }
 
-// nodeLineSeparatorReplacer maps Go's \u2028/\u2029 escaping — which
-// encoding/json performs even with SetEscapeHTML(false) — back to the raw
-// characters a Node server's JSON.stringify writes (cli#2704 Rook F1), so the
-// spelling a Node echo actually carries is generated too.
-var nodeLineSeparatorReplacer = strings.NewReplacer(`\u2028`, " ", `\u2029`, " ")
+// nodeJSONForm rewrites a Go-encoded JSON string body into the form Node's
+// JSON.stringify writes: every \u2028/\u2029 escape becomes the raw character.
+// It scans by whole JSON escape units — an escaped backslash (\\) is consumed
+// as a unit, so the six characters \u2028 appearing as LITERAL text in the
+// token (Go-escaped to \\\u2028) are left alone; only Go's own
+// line-separator escapes are unfolded (cli#2704 Rook F1, cli#2714 Dara P2).
+func nodeJSONForm(goEscaped string) string {
+	var b strings.Builder
+	b.Grow(len(goEscaped))
+	for i := 0; i < len(goEscaped); {
+		if goEscaped[i] == '\\' && i+1 < len(goEscaped) {
+			next := goEscaped[i+1]
+			if next == '\\' { // an escaped backslash: one unit, never the start of uXXXX
+				b.WriteString(`\\`)
+				i += 2
+				continue
+			}
+			if rest := goEscaped[i:]; strings.HasPrefix(rest, `\u2028`) {
+				b.WriteString(" ")
+				i += 6
+				continue
+			} else if strings.HasPrefix(rest, `\u2029`) {
+				b.WriteString(" ")
+				i += 6
+				continue
+			}
+		}
+		b.WriteByte(goEscaped[i])
+		i++
+	}
+	return b.String()
+}
 
 // jsonEscape returns s as it appears inside a JSON string literal, without
 // the quotes.

@@ -253,12 +253,25 @@ checks. The token is never printed: not in the output, --json or an error.
 // setTokenError maps a refusal without ever carrying the token: the server's
 // own answer is kept (an encrypted memory's refusal must reach the user) with
 // any occurrence of the token redacted, and a server code that reflects the
-// token — in ANY spelling, raw or JSON-escaped (cli#2704 Jack F2) — is dropped.
+// token — the literal token or one of its generated JSON spellings
+// (cli#2704 Jack F2) — is dropped.
 func setTokenError(err error, token string) error {
 	mapped := api.MapError(err)
 	if token == "" {
 		// Nothing to redact, but the same cap and control-character guard as below.
 		return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s", output.SafeLine(mapped.Error(), maxErrMsgRunes)), err)
+	}
+	// A token that is or contains the marker cannot be scrubbed by
+	// replacement (an equal token rewrites to itself; token material
+	// survives beside the marker), so the server's answer is not attempted:
+	// a fixed refusal carries nothing from it. The code guard still applies
+	// (cli#2714 Dara P1).
+	if strings.Contains(token, redactionMarker) {
+		safe := exitcode.Newf(exitcode.FromError(mapped), "the server refused the source token")
+		if containsAnySpelling(api.ServerCodeOf(err), token) {
+			return safe
+		}
+		return api.WithServerCode(safe, err)
 	}
 	msg := output.SafeLine(redactToken(mapped.Error(), token), maxErrMsgRunes)
 	safe := exitcode.Newf(exitcode.FromError(mapped), "%s", msg)
@@ -270,6 +283,12 @@ func setTokenError(err error, token string) error {
 	}
 	return api.WithServerCode(safe, err)
 }
+
+// redactionMarker is what redactToken writes over every spelling of the
+// token. Exported nowhere: a caller cannot choose the marker, because a
+// token made of the marker's own text is exactly the case the marker cannot
+// scrub (see setTokenError).
+const redactionMarker = "[REDACTED]"
 
 // containsAnySpelling reports whether s carries the token in any spelling
 // redactToken covers: the literal or a JSON-escaped form (cli#2704 Jack F1/F2).
@@ -305,18 +324,45 @@ func redactToken(s, token string) string {
 	if token == "" {
 		return s
 	}
-	s = strings.ReplaceAll(s, token, "[REDACTED]")
+	s = strings.ReplaceAll(s, token, redactionMarker)
 	for _, esc := range escapedSpellings(token) {
-		s = strings.ReplaceAll(s, esc, "[REDACTED]")
+		s = strings.ReplaceAll(s, esc, redactionMarker)
 	}
 	return s
 }
 
-// nodeLineSeparatorReplacer maps Go's \u2028/\u2029 escaping — which
-// encoding/json performs even with SetEscapeHTML(false) — back to the raw
-// characters a Node server's JSON.stringify writes (cli#2704 Rook F1), so the
-// spelling a Node echo actually carries is generated too.
-var nodeLineSeparatorReplacer = strings.NewReplacer(`\u2028`, " ", `\u2029`, " ")
+// nodeJSONForm rewrites a Go-encoded JSON string body into the form Node's
+// JSON.stringify writes: every \u2028/\u2029 escape becomes the raw character.
+// It scans by whole JSON escape units — an escaped backslash (\\) is consumed
+// as a unit, so the six characters \u2028 appearing as LITERAL text in the
+// token (Go-escaped to \\\u2028) are left alone; only Go's own
+// line-separator escapes are unfolded (cli#2704 Rook F1, cli#2714 Dara P2).
+func nodeJSONForm(goEscaped string) string {
+	var b strings.Builder
+	b.Grow(len(goEscaped))
+	for i := 0; i < len(goEscaped); {
+		if goEscaped[i] == '\\' && i+1 < len(goEscaped) {
+			next := goEscaped[i+1]
+			if next == '\\' { // an escaped backslash: one unit, never the start of uXXXX
+				b.WriteString(`\\`)
+				i += 2
+				continue
+			}
+			if rest := goEscaped[i:]; strings.HasPrefix(rest, `\u2028`) {
+				b.WriteString(" ")
+				i += 6
+				continue
+			} else if strings.HasPrefix(rest, `\u2029`) {
+				b.WriteString(" ")
+				i += 6
+				continue
+			}
+		}
+		b.WriteByte(goEscaped[i])
+		i++
+	}
+	return b.String()
+}
 
 // escapedSpellings returns the JSON-string spellings of token that differ from
 // it, without the surrounding quotes.
@@ -342,9 +388,10 @@ func escapedSpellings(token string) []string {
 		raw := strings.TrimSuffix(buf.String(), "\n")
 		inner := raw[1 : len(raw)-1]
 		add(inner)
-		// The Node form derives from the non-HTML spelling: JSON.stringify
-		// leaves U+2028/U+2029 raw where Go escapes them.
-		add(nodeLineSeparatorReplacer.Replace(inner))
+		// The Node form derives from the non-HTML spelling by whole escape
+		// units: JSON.stringify leaves U+2028/U+2029 raw where Go escapes
+		// them, and a literal backslash-u stays a literal backslash-u.
+		add(nodeJSONForm(inner))
 	}
 	return out
 }
