@@ -303,6 +303,18 @@ func topGroups2525(t *testing.T) []string {
 	return names
 }
 
+// helpPagesInScope2525 renders every help page the guards cover, keyed by page name.
+func helpPagesInScope2525(t *testing.T) map[string]string {
+	t.Helper()
+	pages := map[string]string{}
+	for _, group := range topGroups2525(t) {
+		for n, h := range helpTree2508(t, group) {
+			pages[n] = h
+		}
+	}
+	return pages
+}
+
 func TestHelpWalkCoversEveryTopLevelGroup2525(t *testing.T) {
 	groups := topGroups2525(t)
 	for _, want := range []string{"app", "agent", "team", "secret", "spec", "node", "email"} {
@@ -471,5 +483,60 @@ func TestServerInfoHelpExplainsWhatAFloorDateMeans2525(t *testing.T) {
 	}
 	if strings.Contains(help, "last updated") {
 		t.Errorf("a deployment date does not establish compatibility; do not send the reader to it:\n%s", out.String())
+	}
+}
+
+// George's #2812 P2 (F1): a citation is matched WHOLE. The old pattern stopped at the first
+// numeric segment, so cor:agt:050:14 and cor:agt:050:99 were both "cor:agt:050" and a
+// replacement inside the same prefix left the ratchet count unchanged.
+func TestCitationsAreCountedWhole2525(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"see cor:dmo:050:12 for the rule", "cor:dmo:050:12"},
+		{"see cor:agt:040:13.", "cor:agt:040:13"},
+		{"cor:api:240", "cor:api:240"},
+		{"(cor:acl:140:05)", "cor:acl:140:05"},
+	} {
+		hits := bannedHits2525(tc.in)
+		if len(hits) != 1 || hits[0].kind != "citation" || hits[0].text != tc.want {
+			t.Errorf("%q: want the citation %q whole, got %+v", tc.in, tc.want, hits)
+		}
+	}
+	a, b := pageRefs2525("rule cor:agt:050:14"), pageRefs2525("rule cor:agt:050:99")
+	if len(pageRatchetErrors2525("team x", b, a)) == 0 {
+		t.Error("replacing cor:agt:050:14 with cor:agt:050:99 must fail the ratchet")
+	}
+}
+
+// George's #2812 P2 (F2): the guard walks the ROOT page too, and every generated page under it
+// (help, completion), not only the user commands' pages.
+func TestHelpPagesInScopeIncludeTheRootAndGeneratedPages2525(t *testing.T) {
+	pages := helpPagesInScope2525(t)
+	for _, want := range []string{"hadron", "help", "completion", "app", "team", "secret client revoke"} {
+		if _, ok := pages[want]; !ok {
+			t.Errorf("page %q is not in the walked set", want)
+		}
+	}
+	if !strings.Contains(pages["hadron"], "Available Commands") {
+		t.Errorf("the root page must be the rendered root help: %.80q", pages["hadron"])
+	}
+}
+
+// George's #2812 P3 (F6): a baseline with a duplicate page, a duplicate reference or a malformed
+// line is refused with a line number, never silently overwritten.
+func TestBaselineParserRejectsDuplicatesAndMalformedLines2525(t *testing.T) {
+	for _, tc := range []struct{ name, in, wantLine string }{
+		{"duplicate page", "a b  # issue #1 x1\na b  # issue #2 x1\n", "line 2"},
+		{"duplicate reference", "a b  # issue #1 x1 | issue #1 x2\n", "line 1"},
+		{"no reference list", "a b\n", "line 1"},
+		{"bad count", "a b  # issue #1 xZ\n", "line 1"},
+		{"zero count", "a b  # issue #1 x0\n", "line 1"},
+		{"missing count", "a b  # issue #1\n", "line 1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseBaseline2525(tc.in)
+			if err == nil || !strings.Contains(err.Error(), tc.wantLine) {
+				t.Errorf("want an error naming %s, got %v", tc.wantLine, err)
+			}
+		})
 	}
 }
