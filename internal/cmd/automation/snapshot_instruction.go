@@ -95,7 +95,8 @@ func snapshotPageOf[T any](items []*T, fields func(*T) *gen.AutomationTeamSnapsh
 // document when no trigger filter is set (their bytes unchanged), else the
 // matching ByTrigger document. The result is (nil, nil) when the server answers
 // without a page or without the list field; page turns that into an error, so
-// no caller sees a nil page as success.
+// no caller sees a nil page as success. The nil guard is the first statement of
+// each branch below (r == nil || the page field == nil), before any p.Items read.
 func (i actInstruction) fetchSnapshotPage(ctx context.Context, client graphql.Client, app string, include *bool, trigger snapshotTriggerFilter, limit, offset int) (*snapshotRawPage, error) {
 	switch {
 	case i.input == nil && !trigger.set():
