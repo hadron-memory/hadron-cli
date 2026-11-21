@@ -58,7 +58,7 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 		var head, slot, supersedes, verdict, node, receiptURL string
 		var slots []string
 		uses := map[string]string{"schedule": "schedule <build-task> --slot <id> [--slot <id>...]", "freeze": "freeze <build-task> <40-hex-sha>", "seat": "seat <seat-task> --slot <id> --head <sha>", "verdict": "verdict <seat-task> --head <sha> --verdict <verdict>", "readiness": "readiness <build-task> --head <sha>", "ready": "ready <build-task> --head <sha>"}
-		shorts := map[string]string{"schedule": "Replace the review slots a PR needs (owner chain only)", "freeze": "Fix the head under review (build assignee only)", "seat": "Bind a seat task to a scheduled slot (owner chain only)", "verdict": "Record a seat's verdict without finishing it (seat assignee only)", "readiness": "Show whether every scheduled review counts at a head", "ready": "Record the ready call once every review counts (build assignee only)"}
+		shorts := map[string]string{"schedule": "Replace the review slots a PR needs (owner chain only)", "freeze": "Fix the head under review (build assignee only)", "seat": "Bind a seat task to a scheduled slot (the seat task's owner chain only)", "verdict": "Record a seat's verdict without finishing it (seat assignee only)", "readiness": "Show whether every scheduled review counts at a head", "ready": "Record the ready call once every review counts (build assignee only)"}
 		c := &cobra.Command{Use: uses[verb], Short: shorts[verb], Long: prLeafLong[verb], Example: prLeafExample[verb], Args: cobra.ExactArgs(1)}
 		if verb == "freeze" {
 			c.Args = cobra.ExactArgs(2)
@@ -325,7 +325,9 @@ Normally run it after "pr schedule" and before "pr seat". Prints the build task
 and the recorded action.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
-is named for that review. Only the build task's owner chain may.
+is named for that review. Only the seat task's owner chain may: its owner (the
+build task's assignee, who created it), a worker the owner reports to, or
+whoever manages the App. The seat's own assignee alone may not (TASK_NOT_OWNER).
 
 The seat task must already exist, as a direct child of the build task (hadron
 team task create "..." --parent <build-task> --assignee worker:<name>). The

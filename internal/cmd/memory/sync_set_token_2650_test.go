@@ -78,7 +78,10 @@ func TestRedactToken2650(t *testing.T) {
 // branch (the empty branch has its own pin): removing SafeLine there must fail.
 func TestSetTokenErrorTokenBranchIsCapped2650(t *testing.T) {
 	const token = "tok-SENTINEL-2650"
-	long := "boom\x1b[31m " + token + strings.Repeat("x", 3000) + "\n\x07tail"
+	// cli#2714 round 4: a message carrying the token now renders the fixed
+	// refusal, so the cap is pinned where it applies — a long TOKEN-FREE
+	// server message on the partial-redaction path.
+	long := "boom\x1b[31m " + strings.Repeat("x", 3000) + "\n\x07tail"
 	msg := setTokenError(&gqlerror.Error{Message: long}, token).Error()
 	if n := len([]rune(msg)); n > maxErrMsgRunes {
 		t.Errorf("message is %d runes, want at most %d", n, maxErrMsgRunes)
