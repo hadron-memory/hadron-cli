@@ -102,6 +102,20 @@ Target (deepest wins):
 Features are numbered in tens (010, 020, …); rules and flows by one. Use
 --dry-run to preview without writing.
 
+The SERVER picks the number for --new-feature and for --feature without
+--rule/--flow (allocateSpecNode): one call reserves the next free number as an
+unminted placeholder, then the CLI fills that same node once, guarded on the
+revision it was handed. --rule-after <n> raises the start (the number lands
+strictly above n). There is no retry and no local fallback: a server without
+the operation refuses. If the fill fails, the number stays reserved (the output
+names it, says allocated: true and filled: false or unknown, and points at
+"spec edit <loc>"); do not rerun spec new, which would allocate another
+number. If the allocation answer is lost, a placeholder may exist: check "spec
+ls --prefix <parent>" before rerunning. A number is not reused while a row or
+alias of it remains. An explicit --rule, --flow, --contract, a positional <loc>
+and the --new-* roots name their loc and never ask the allocator. A --dry-run
+cannot name the number and does not guess it.
+
 The abstract is the spec's vector-search retrieval surface: write it as
 the questions a reader would ask, in your own words rather than a
 restatement of the body. Keep every sentence on the spec's own subject —
