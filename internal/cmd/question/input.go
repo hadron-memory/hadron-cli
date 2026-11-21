@@ -1,4 +1,4 @@
-package decision
+package question
 
 import (
 	"bytes"
@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -86,4 +87,27 @@ func finishInput(dec *json.Decoder, decodeErr error) error {
 		return exitcode.Newf(exitcode.Usage, "parsing --input-file: unexpected data after the JSON object")
 	}
 	return nil
+}
+
+// readText reads --text-file from a path, or "-" for piped stdin (refused from a
+// terminal, where it would hang waiting).
+func readText(ios *output.IOStreams, path string) ([]byte, error) {
+	if strings.TrimSpace(path) == "" {
+		return nil, exitcode.Newf(exitcode.Usage, "--text-file is empty: give a path, or - for piped stdin")
+	}
+	if path == "-" {
+		if ios.IsInputTerminal() {
+			return nil, exitcode.Newf(exitcode.Usage, `--text-file - reads piped stdin; stdin is a terminal`)
+		}
+		data, err := io.ReadAll(ios.In)
+		if err != nil {
+			return nil, exitcode.Newf(exitcode.Usage, "reading --text-file: %v", err)
+		}
+		return data, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, exitcode.Newf(exitcode.Usage, "reading --text-file: %v", err)
+	}
+	return data, nil
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"os"
 	"path/filepath"
 	"sort"
@@ -29,18 +30,21 @@ import (
 // 3b858969. A page is named by its command path under `hadron`.
 var pages2565 = []string{
 	"comment add",
-	"decision",
-	"decision amend",
-	"decision ask",
-	"decision get",
-	"decision list",
-	"decision log",
-	"decision log create",
-	"decision log get",
-	"decision log set-deciders",
-	"decision purge",
-	"decision verify",
-	"decision withdraw",
+	"question",
+	"question amend",
+	"question answer",
+	"question ask",
+	"question get",
+	"question list",
+	"question log",
+	"question log create",
+	"question log get",
+	"question log list",
+	"question log set-deciders",
+	"question purge",
+	"question retract",
+	"question verify",
+	"question withdraw",
 	"edge get",
 	"find",
 	"memory loc-segments",
@@ -402,19 +406,15 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	}
 }
 
-// Test2565HeredocInputsAreValidDecisionInput pins the copyable input files the
-// decision pages show (cli#2565 F5/F11). The fixture harness proves the
-// commands are wired, but the fixture answers every mutation with empty data,
-// so server-side validation never runs there: this test validates the bodies
-// structurally. The server builds every ask part and every amend addPart with
-// checkPart, which refuses a part carrying neither "recommendation" nor
-// "noRecommendation" (QUESTION_RECOMMENDATION_MISSING — server §8.4, "an
-// absent recommendation is always deliberate and stated"); an amend parts
-// change only patches named fields, so it needs its "n" and nothing else.
-func Test2565HeredocInputsAreValidDecisionInput(t *testing.T) {
+// Test2565HeredocInputsAreValidQuestionInput pins the copyable input files the
+// question pages show (cli#2565 F5/F11, cli#2465). The fixture harness proves the
+// commands are wired, but the fixture answers every mutation with empty data, so
+// server-side validation never runs there: this test decodes the bodies strictly
+// into the generated input structs (an unknown key, such as an old `parts`, fails).
+func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	for _, path := range []string{"decision ask", "decision amend"} {
+	for _, path := range []string{"question ask", "question amend"} {
 		c, _, err := root.Find(strings.Split(path, " "))
 		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
 			t.Fatalf("page not found in the command tree: %s", path)
@@ -424,61 +424,21 @@ func Test2565HeredocInputsAreValidDecisionInput(t *testing.T) {
 			t.Fatalf("%s shows no heredoc input file; F5/F11 require a copyable one", path)
 		}
 		for name, body := range files {
-			var doc map[string]any
-			if err := json.Unmarshal([]byte(body), &doc); err != nil {
-				t.Errorf("%s: heredoc %s is not a JSON object: %v (body %q)", path, name, err, body)
-				continue
-			}
-			if path == "decision ask" {
-				if title, _ := doc["title"].(string); title == "" {
+			dec := json.NewDecoder(strings.NewReader(body))
+			dec.DisallowUnknownFields()
+			if path == "question ask" {
+				var in gen.AskQuestionInput
+				if err := dec.Decode(&in); err != nil {
+					t.Errorf("%s: heredoc %s is not a valid AskQuestionInput: %v (body %q)", path, name, err, body)
+				} else if in.Title == "" {
 					t.Errorf("%s: heredoc %s lacks the required title", path, name)
 				}
-				if _, ok := doc["parts"].([]any); !ok {
-					t.Errorf("%s: heredoc %s lacks the required parts", path, name)
-				}
+				continue
 			}
-			// parts on ask: complete parts, exactly one recommendation arm.
-			// addParts on amend: complete parts, same rule. parts on amend:
-			// patch entries, each must name its part number instead.
-			if list, ok := doc["parts"].([]any); ok {
-				requirement := "recommendation"
-				if path == "decision amend" {
-					requirement = "n"
-				}
-				checkHeredocPart2565(t, path, name, "parts", list, requirement)
+			var in gen.AmendQuestionInput
+			if err := dec.Decode(&in); err != nil {
+				t.Errorf("%s: heredoc %s is not a valid AmendQuestionInput: %v (body %q)", path, name, err, body)
 			}
-			if list, ok := doc["addParts"].([]any); ok {
-				checkHeredocPart2565(t, path, name, "addParts", list, "recommendation")
-			}
-		}
-	}
-}
-
-// checkHeredocPart2565 checks one parts list of a heredoc body. want is
-// "recommendation" for lists of complete parts (ask parts, amend addParts):
-// each needs a question and exactly one of recommendation/noRecommendation.
-// want "n" for amend patch entries: each needs only its part number.
-func checkHeredocPart2565(t *testing.T, page, file, key string, list []any, want string) {
-	t.Helper()
-	for i, raw := range list {
-		part, ok := raw.(map[string]any)
-		if !ok {
-			t.Errorf("%s: %s %s[%d] is not an object", page, file, key, i)
-			continue
-		}
-		if want == "n" {
-			if _, ok := part["n"].(float64); !ok {
-				t.Errorf("%s: %s %s[%d] lacks its part number (\"n\")", page, file, key, i)
-			}
-			continue
-		}
-		if q, _ := part["question"].(string); q == "" {
-			t.Errorf("%s: %s %s[%d] lacks a question", page, file, key, i)
-		}
-		_, rec := part["recommendation"]
-		_, norec := part["noRecommendation"]
-		if rec == norec {
-			t.Errorf("%s: %s %s[%d] carries neither or both of recommendation/noRecommendation; the server refuses it (QUESTION_RECOMMENDATION_MISSING)", page, file, key, i)
 		}
 	}
 }

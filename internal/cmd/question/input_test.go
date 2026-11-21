@@ -1,4 +1,4 @@
-package decision
+package question
 
 import (
 	"encoding/json"

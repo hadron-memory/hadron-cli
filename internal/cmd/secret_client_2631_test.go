@@ -350,15 +350,15 @@ func TestSecretClientLs2631(t *testing.T) {
 	if err != nil || strings.TrimSpace(out) != "[]" {
 		t.Fatalf("an empty answer must print []: err=%v out=%q", err, out)
 	}
-	row := `{"clientId":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
+	row := `{"clientId":"c1","clientPrefix":"c1","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
 	srv2, calls := attnServer(t, map[string]string{"MySecretReadClients": `{"data":{"mySecretReadClients":[` + row + `]}}`})
 	out, _, err = runSecretClient2631(t, srv2.URL, "ls", "--json", "--limit", "5", "--offset", "2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var rows []map[string]any
-	if e := json.Unmarshal([]byte(out), &rows); e != nil || len(rows) != 1 || len(rows[0]) != 7 || rows[0]["endReason"] != nil {
-		t.Fatalf("seven fields, endReason null: %v\n%s", e, out)
+	if e := json.Unmarshal([]byte(out), &rows); e != nil || len(rows) != 1 || len(rows[0]) != 8 || rows[0]["endReason"] != nil || rows[0]["clientPrefix"] == nil {
+		t.Fatalf("eight fields (clientPrefix added by the server), endReason null: %v\n%s", e, out)
 	}
 	if (*calls)[0].Vars["limit"] != float64(5) || (*calls)[0].Vars["offset"] != float64(2) {
 		t.Errorf("paging must pass through: %v", (*calls)[0].Vars)

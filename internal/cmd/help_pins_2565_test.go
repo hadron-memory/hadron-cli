@@ -27,46 +27,31 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 		page []string
 		want []string
 	}{
-		// decision ask — F8: every input field shaped, and where the full
-		// input is documented
-		{[]string{"decision", "ask"}, []string{
-			`{"question": "...", "options": [{"key": "pg", "label": "Postgres"}`,
-			`"noRecommendation": {"reason": "..."}`,
-			"narrows the log's default deciders, never widens past its eligible set",
+		// question ask: every input field shaped, where the full input is
+		// documented, the tiers defined, the code printed and how to read it back,
+		// and a copyable example (the old F8-F11 pins, now on the question group)
+		{[]string{"question", "ask"}, []string{
+			`options the choices, each {"key": "pg", "label": "Postgres",`,
+			`"whyChoose": "...", "whyNot": "...", "risks": "..."`,
+			`noRecommendation {"reason": "..."} when none is given`,
+			"narrows the log's default deciders, never widens past its",
 			"hadron user search",
-			"the authorization a grant decision carries, as JSON (authorizes: true only)",
-			`{"ref": "hadron-server#1640"}, {"node": "<id or URN>"}`,
+			"the authorization a grant question carries, as JSON",
+			`{"ref": "..."}, {"node": "..."} or {"spec": "..."}`,
 			"is AskQuestionInput in the server's schema",
-		}},
-		// decision ask — F9: the tiers defined; F10: the code is printed and
-		// how to read it back; F11: a copyable example file
-		{[]string{"decision", "ask"}, []string{
-			"APPROVED: the ruling counts once a decider has approved the answered decision",
-			"SIGNED: a decider's passkey signature rather than an approval",
-			"SIGNED is forced when authorizes is true",
-			"passkey signing is not available yet, so a SIGNED decision stays ANSWERED_UNCONFIRMED",
-			"decision get <code> --log <log> reads it back",
+			"APPROVED (it counts once a decider has approved the",
+			"SIGNED (a decider's passkey signature",
+			"question get <code> --log <log> reads it back",
 			`prefixed "✓ asked"`,
 			"cat > ask.json <<'EOF'",
 		}},
-		// decision amend — F5: parts/addParts shaped, the reference lists
-		// shaped, and an example that uses a file — one whose added part the
-		// server would accept (exactly one recommendation arm, Bob #2584 P2-1)
-		{[]string{"decision", "amend"}, []string{
-			`{"n": <part number>}`,
-			"QUESTION_PART_RENUMBER",
-			"new parts appended at the end, each shaped like ask's parts",
-			`exactly one of "recommendation" or "noRecommendation"`,
-			"QUESTION_RECOMMENDATION_MISSING",
-			`{"ref": "hadron-server#1640"}, {"node": "<id or URN>"}`,
-			"cat > amend.json <<'EOF'",
-			`"noRecommendation":{"reason":"outside the asker's remit"}`,
-			"--input-file amend.json",
-		}},
-		// decision amend — F6: the tiers one pointer away; F7: the stale
+		// question amend: the reference lists shaped, the clearing rules, the stale
 		// revision refusal and the success output
-		{[]string{"decision", "amend"}, []string{
-			"what the tiers mean: hadron decision ask --help",
+		{[]string{"question", "amend"}, []string{
+			`{"ref": "hadron-server#1640"}, {"node": "<id or`,
+			"An empty list ([]) clears that list",
+			`"background", "whyNow", "assignee",`,
+			"the tiers mean: hadron question ask --help",
 			"refused (NODE_WRITE_CONFLICT, exit 5)",
 			"read it again and retry with the new revision",
 			`prefixed "✓ amended"`,
@@ -101,11 +86,11 @@ func Test2565PagesSayWhatRound1FoundMissing(t *testing.T) {
 	}
 }
 
-// TestDecisionHelpNamesQuestionInputs pins cli#2465 S1: server #4435 renamed
-// the input types to AskQuestionInput/AmendQuestionInput, so help that points
-// at the old names sends a reader to a type the vendored schema no longer has.
-func TestDecisionHelpNamesQuestionInputs(t *testing.T) {
-	for _, page := range [][]string{{"decision", "ask"}, {"decision", "amend"}} {
+// TestQuestionHelpNamesQuestionInputs pins cli#2465: the server's input types are
+// AskQuestionInput/AmendQuestionInput, so help that points at the old names sends
+// a reader to a type the schema no longer has.
+func TestQuestionHelpNamesQuestionInputs(t *testing.T) {
+	for _, page := range [][]string{{"question", "ask"}, {"question", "amend"}} {
 		help := flatHelp2565(t, page...)
 		if strings.Contains(help, "DecisionInput") {
 			t.Errorf("%v help still names a *DecisionInput type", page)
