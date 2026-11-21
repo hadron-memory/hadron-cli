@@ -15,6 +15,16 @@ import (
 
 func runPlainRoute2844(t *testing.T, routerJSON, targetJSON string, create string) (map[string][]json.RawMessage, string, error) {
 	t.Helper()
+	return runPlainRouteWith2844(t, routerJSON, targetJSON, create)
+}
+
+func runPlainRouteArgs2844(t *testing.T, routerJSON, targetJSON string, extra ...string) (map[string][]json.RawMessage, string, error) {
+	t.Helper()
+	return runPlainRouteWith2844(t, routerJSON, targetJSON, "", extra...)
+}
+
+func runPlainRouteWith2844(t *testing.T, routerJSON, targetJSON string, create string, extra ...string) (map[string][]json.RawMessage, string, error) {
+	t.Helper()
 	responses := map[string][]string{
 		"GetNodeRaw": {routerJSON, routerJSON},
 		"GetNode":    {targetJSON},
@@ -27,7 +37,7 @@ func runPlainRoute2844(t *testing.T, routerJSON, targetJSON string, create strin
 	gql, captured := queueGraphQL(t, responses)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs(routeCrossArgs2736(gql.URL, "--json"))
+	root.SetArgs(routeCrossArgs2736(gql.URL, append([]string{"--json"}, extra...)...))
 	err := root.Execute()
 	return captured, out.String(), err
 }
@@ -92,7 +102,7 @@ func TestPreflightRoutePlainRerunCreatesOnlyTheMissingBackEdge2844(t *testing.T)
 	if e.SourceRef != "n_target" || e.TargetRef != "root" {
 		t.Errorf("the created edge must be the back-edge target -> router, got %+v", e)
 	}
-	if strings.Contains(out, `"alreadyRouted":true`) {
+	if alreadyRouted2844(t, out) {
 		t.Errorf("a run that created the back-edge is not already routed:\n%s", out)
 	}
 }
@@ -126,5 +136,68 @@ func TestPreflightRoutePlainNullCreateIsAnUnknownOutcome2844(t *testing.T) {
 	_, _, err := runPlainRoute2844(t, codingRouterWithBody(flatRouterBody), crossTarget2736(), `{"data":{"createEdge":null}}`)
 	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
 		t.Fatalf("a null createEdge answer must be an unknown outcome (exit 7), got %v (exit %d)", err, exitCodeFor(err))
+	}
+}
+
+// alreadyRouted2844 reads the DTO, so the pin cannot be defeated by the output's
+// indentation (a substring search for the compact form never matched).
+func alreadyRouted2844(t *testing.T, out string) bool {
+	t.Helper()
+	var dto struct {
+		AlreadyRouted bool `json:"alreadyRouted"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	return dto.AlreadyRouted
+}
+
+// With --cross-memory the run is "already routed" only when no edge needs the
+// marker added: an unmarked existing route is written (updateEdge), so it is not.
+func TestPreflightRouteAlreadyRoutedUnderCrossMemory2844(t *testing.T) {
+	for _, tc := range []struct {
+		name, data, answer string
+		want               bool
+		updates            int
+	}{
+		{"edges unmarked: marker is written", "null", updated2736(crossMemoryMarker2736), false, 2},
+		{"edges already marked: nothing written", crossMemoryMarker2736, "", true, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			responses := map[string][]string{
+				"GetNodeRaw": {existingRouter2736(tc.data), existingRouter2736(tc.data)},
+				"GetNode":    {existingTarget2736(tc.data)},
+				"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+				"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+			}
+			if tc.answer != "" {
+				responses["UpdateEdge"] = []string{tc.answer}
+			}
+			gql, captured := queueGraphQL(t, responses)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--json"))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if got := alreadyRouted2844(t, out.String()); got != tc.want {
+				t.Errorf("alreadyRouted = %v, want %v\n%s", got, tc.want, out.String())
+			}
+			if n := len(captured["UpdateEdge"]); n != tc.updates {
+				t.Errorf("want %d UpdateEdge, got %d", tc.updates, n)
+			}
+		})
+	}
+}
+
+// --no-back-edge: only the route edge is written, so an existing route edge alone
+// is already routed.
+func TestPreflightRouteAlreadyRoutedWithNoBackEdge2844(t *testing.T) {
+	_, out, err := runPlainRouteArgs2844(t, existingRouter2736("null"), crossTarget2736(), "--no-back-edge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !alreadyRouted2844(t, out) {
+		t.Errorf("an existing route edge with --no-back-edge is already routed:\n%s", out)
 	}
 }
