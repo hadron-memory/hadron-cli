@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -25,10 +25,11 @@ func taskNode2826() string { return `{"data":{"node":{"id":"n1","isRunnable":tru
 
 func setProps2826(t *testing.T, responses map[string]string, args ...string) (map[string]json.RawMessage, string, error) {
 	t.Helper()
-	if _, ok := responses["ResolveUrn"]; !ok {
-		responses["ResolveUrn"] = resolveNodeJSON
+	own := map[string]string{"ResolveUrn": resolveNodeJSON}
+	for op, resp := range responses {
+		own[op] = resp
 	}
-	return run1341(t, responses, append([]string{"node", "set-properties", nodeURN}, args...)...)
+	return run1341(t, own, append([]string{"node", "set-properties", nodeURN}, args...)...)
 }
 
 // Acceptance 1 and 2: on a task node the generic merge is refused by the server's governed gate
@@ -92,7 +93,7 @@ func TestSetPropertiesOnAnOrdinaryNodeKeepsTheGenericMerge2826(t *testing.T) {
 // cor:agt:030:06 S9: two patches to different hosts each send only their own host's keys, and
 // the CLI never reads `exports` first (the node read is for its kind alone, and what it returned
 // is not part of what is sent).
-func TestSetPropertiesTwoHostsSendOnlyTheirOwnKeys2826(t *testing.T) {
+func TestSetPropertiesTwoHostsSendOnlyTheirOwnPatch2826(t *testing.T) {
 	// The kind read selects no properties at all, so the stored declaration of the OTHER host can
 	// never reach the write; the document is asserted below.
 	node := taskNode2826()
@@ -105,8 +106,15 @@ func TestSetPropertiesTwoHostsSendOnlyTheirOwnKeys2826(t *testing.T) {
 			t.Fatal(err)
 		}
 		in, _ := vars1341(t, captured, "MergeTaskNodeProperties")["input"].(map[string]any)
-		if asJSON(in["properties"]) != patch || strings.Contains(asJSON(in["properties"]), "path") {
-			t.Errorf("%s: only that host's keys are sent, never the stored exports: %v", host, in["properties"])
+		if asJSON(in["properties"]) != patch {
+			t.Errorf("%s: exactly that host's patch is sent: %v", host, in["properties"])
+		}
+		// Never a read-modify-write: the only read of the node is its kind; nothing that returns
+		// its properties (GetNode, GetNodeRaw, FindNodes, NodeBatch) is ever sent.
+		for _, op := range []string{"GetNode", "GetNodeRaw", "FindNodes", "NodeBatch", "NodeBatchContent", "UpdateNodeProperties"} {
+			if _, sent := captured[op]; sent {
+				t.Errorf("%s: %s must not be sent (a read of the stored exports is a read-modify-write)", host, op)
+			}
 		}
 	}
 }
@@ -189,5 +197,34 @@ func TestSetPropertiesDocuments2826(t *testing.T) {
 	}
 	if !strings.Contains(gen.MergeTaskNodeProperties_Operation, "mergeExports: $mergeExports") {
 		t.Errorf("the task merge document must pass mergeExports:\n%s", gen.MergeTaskNodeProperties_Operation)
+	}
+}
+
+// Jack's P2 (a claim on a task node): the task branch carries the SAME attestation the generic
+// route does, both halves (task and revision), in input.authoredWith; without the flags no
+// authoredWith key is sent; one flag alone is exit 2 before any request (the pair rule).
+func TestSetPropertiesOnATaskNodeCarriesTheAuthoredClaim2826(t *testing.T) {
+	responses := map[string]string{"NodeKind": taskNode2826(), "MergeTaskNodeProperties": mergedTask2826}
+	captured, _, err := setProps2826(t, responses, "--patch", `{"a":1}`, "--authored-with", "task1", "--authored-revision", "4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in, _ := vars1341(t, captured, "MergeTaskNodeProperties")["input"].(map[string]any)
+	if asJSON(in["authoredWith"]) != `{"revision":4,"task":"task1"}` {
+		t.Errorf("both halves of the claim ride the task door's input: %v", in["authoredWith"])
+	}
+	captured, _, err = setProps2826(t, responses, "--patch", `{"a":1}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in, _ = vars1341(t, captured, "MergeTaskNodeProperties")["input"].(map[string]any)
+	if _, has := in["authoredWith"]; has {
+		t.Errorf("no claim flags, no authoredWith key: %v", in)
+	}
+	for _, flags := range [][]string{{"--authored-with", "task1"}, {"--authored-revision", "4"}} {
+		captured, _, err = setProps2826(t, responses, append([]string{"--patch", `{"a":1}`}, flags...)...)
+		if exitCodeFor(err) != exitcode.Usage || len(captured) != 0 {
+			t.Errorf("%v: one half of the pair is exit 2 before any request: %v sent=%v", flags, err, keys1340(captured))
+		}
 	}
 }
