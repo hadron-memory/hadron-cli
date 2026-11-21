@@ -52,6 +52,11 @@ const lostAnswerNote = "the read may have been spent: check `hadron secret clien
 // JSON string becomes its content, any other JSON is passed as its compact text
 // (gate call Q8), and text that is not JSON at all is passed as it came.
 func valueText(jsonText string) string {
+	// JSON null decodes into a string without error and leaves it empty, which
+	// would lose the documented compact text "null": handle it first.
+	if strings.TrimSpace(jsonText) == "null" {
+		return "null"
+	}
 	var s string
 	if err := json.Unmarshal([]byte(jsonText), &s); err == nil {
 		return s

@@ -408,3 +408,59 @@ func TestSecretExecErrorEnvelopeCarriesNoValue2664(t *testing.T) {
 	renderError(f, err)
 	requireNoValue2664(t, "the error envelope", errOut.String(), err.Error(), fmt.Sprintf("%v %+v", err, err))
 }
+
+// Joaquin's P2: a revealed JSON null is the compact text "null", not an empty
+// string (json.Unmarshal of null into a string succeeds and leaves it empty).
+// Pinned for reveal on stdout, the --out file and the exec child's environment.
+func TestSecretRevealJSONNullValue2664(t *testing.T) {
+	skipWindows2664(t)
+	srv, _ := attnServer(t, map[string]string{"RevealSecret": revealJSON2664(`null`, "1")})
+	r := runSecretReveal2664(t, srv.URL, false, "reveal", "cl-1", "--allow-non-terminal")
+	if r.err != nil || r.stdout != "null\n" {
+		t.Fatalf("stdout: err=%v out=%q", r.err, r.stdout)
+	}
+	path := filepath.Join(t.TempDir(), "v")
+	r = runSecretReveal2664(t, srv.URL, false, "reveal", "cl-1", "--out", path)
+	if b, _ := os.ReadFile(path); r.err != nil || string(b) != "null" {
+		t.Fatalf("--out: err=%v file=%q", r.err, b)
+	}
+	file := filepath.Join(t.TempDir(), "e")
+	r = runSecretReveal2664(t, srv.URL, false, "exec", "--client", "cl-1", "--env", "T", "--", "sh", "-c", `printf %s "$T" > "$1"`, "sh", file)
+	if b, _ := os.ReadFile(file); r.err != nil || string(b) != "null" {
+		t.Fatalf("exec env: err=%v value=%q", r.err, b)
+	}
+}
+
+// Joaquin's P3: error responses that carry the secret itself never put it in an
+// error, a stream or a child: data plus errors in one answer, and a 502 whose body
+// echoes it. (A server SENTENCE that contains a value is the server's own text and
+// the CLI holds no value to redact on a refusal, so that is not pinned here.)
+func TestSecretRevealErrorResponsesCarryingTheValue2664(t *testing.T) {
+	skipWindows2664(t)
+	for name, handler := range map[string]func(w http.ResponseWriter){
+		"data and errors": func(w http.ResponseWriter) {
+			_, _ = w.Write([]byte(`{"data":{"revealSecret":{"secretName":"n","value":` + mustJSON2631(mustJSON2631(sentinel2664)) + `,"readsLeft":1}},"errors":[{"message":"partial failure","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`))
+		},
+		"502 echoing the value": func(w http.ResponseWriter) {
+			w.WriteHeader(502)
+			_, _ = w.Write([]byte("upstream said: " + sentinel2664))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				handler(w)
+			}))
+			defer srv.Close()
+			ran := filepath.Join(t.TempDir(), "ran")
+			r := runSecretReveal2664(t, srv.URL, false, "exec", "--client", "cl-1", "--env", "T", "--", "sh", "-c", `echo ran > "$1"`, "sh", ran)
+			if r.err == nil {
+				t.Fatalf("a failed answer must be an error")
+			}
+			requireNoValue2664(t, "error, stdout or stderr", r.err.Error(), r.stdout, r.stderr)
+			if _, err := os.Stat(ran); err == nil {
+				t.Errorf("no child may start after a failed answer")
+			}
+		})
+	}
+}
