@@ -29,7 +29,7 @@ func crossIn(id, label, leafLoc, data string) string {
 		"priority":0,"data":` + data + `,"source":{"id":"n_` + leafLoc + `","loc":"` + leafLoc + `","memoryId":"mem2"}}`
 }
 
-func lintOut2736(t *testing.T, outgoing string, batch string, extra ...string) (string, error) {
+func lintOut2736(t *testing.T, outgoing, batch string) (string, error) {
 	t.Helper()
 	gql := fakeGraphQL(t, map[string]string{
 		"GetNode":   codingRootJSON("preflight", "", outgoing),
@@ -37,7 +37,7 @@ func lintOut2736(t *testing.T, outgoing string, batch string, extra ...string) (
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs(append([]string{"coding", "preflight", "lint", "-m", codingMem, "--json", "--server", gql.URL}, extra...))
+	root.SetArgs([]string{"coding", "preflight", "lint", "-m", codingMem, "--json", "--server", gql.URL})
 	err := root.Execute()
 	return out.String(), err
 }

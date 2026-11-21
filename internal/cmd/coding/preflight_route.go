@@ -1,9 +1,12 @@
 package coding
 
 import (
+	"context"
+	"encoding/json"
 	"io"
 	"strings"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -35,6 +38,7 @@ func newCmdPreflightRoute(f *cmdutil.Factory) *cobra.Command {
 		dryRun       bool
 		routeModelV  string
 		attachTo     string
+		crossMemory  bool
 	)
 	cmd := &cobra.Command{
 		Use:   "route <node-ref>",
@@ -63,6 +67,16 @@ wikilink resolves against the ROUTER's memory and would go nowhere.
 
 --description supplies the routing line's text; omit it and the target node's
 own description is used, which is usually what you want.
+
+--cross-memory marks the route as an INTENTIONAL cross-memory route: it stores
+{"crossMemory": true} in the route edge's data (never in its name), on the route
+edge and, under the mirrored model, the back-edge. ` + "`preflight lint`" + ` then skips
+only ` + "`route-target-moved-memory`" + ` for it, so the warning keeps meaning "this
+target moved" for every unmarked route; an unreadable, retired or badly labelled
+target is still reported. ` + "`preflight list`" + ` shows the marker. A target in the
+router's own memory is refused (there is nothing to mark). Marking an existing
+route needs a re-run with the flag, which adds the marker and keeps the edge's
+other data.
 
 Re-running is safe: an edge that already exists is not duplicated, and a body
 that already references the target is left alone.`,
@@ -146,6 +160,11 @@ that already references the target is left alone.`,
 				return exitcode.Newf(exitcode.NotFound, "node %q could not be read", args[0])
 			}
 
+			if crossMemory && target.Node.MemoryId == router.Node.MemoryId {
+				return exitcode.Newf(exitcode.Usage,
+					"%s is in the router's own memory, so there is no cross-memory route to mark — drop --cross-memory", target.Node.Loc)
+			}
+
 			text := strings.TrimSpace(description)
 			if text == "" && target.Node.Description != nil {
 				text = strings.TrimSpace(*target.Node.Description)
@@ -174,6 +193,7 @@ that already references the target is left alone.`,
 				Loc: target.Node.Loc, ID: target.Node.Id, Name: target.Node.Name,
 				Route: label, Tags: target.Node.Tags, Seq: target.Node.Seq,
 				Router: attachLoc, BackEdge: !leaf && !noBackEdge, Links: []linkDTO{}, DryRun: dryRun, Model: modelTag(leaf),
+				CrossMemory: crossMemory,
 			}
 			if dto.Tags == nil {
 				dto.Tags = []string{}
@@ -218,7 +238,15 @@ that already references the target is left alone.`,
 			if leaf {
 				from, to = targetID, router.Node.Id
 			}
-			fwd, err := gen.CreateEdge(ctx, client, from, to, label, nil, nil, nil, nil, nil, nil)
+			var edgeData *json.RawMessage
+			if crossMemory {
+				d, derr := crossMemoryData(nil)
+				if derr != nil {
+					return exitcode.Newf(exitcode.Error, "building the cross-memory marker: %v", derr)
+				}
+				edgeData = &d
+			}
+			fwd, err := gen.CreateEdge(ctx, client, from, to, label, nil, nil, nil, nil, nil, edgeData)
 			if err != nil {
 				// Classify through api.MapError so auth, not-found and
 				// transport keep their own exit codes — a script must be able
@@ -232,11 +260,20 @@ that already references the target is left alone.`,
 			}
 			if fwd.CreateEdge != nil {
 				dto.EdgeID = fwd.CreateEdge.Id
+				if crossMemory {
+					if err := ensureCrossMemoryMarker(ctx, client, fwd.CreateEdge.Id, fwd.CreateEdge.Data, attachLoc, dto.Loc, mem.raw); err != nil {
+						return err
+					}
+				}
 			}
 
 			if !leaf && !noBackEdge {
-				if _, err := gen.CreateEdge(ctx, client, targetID, router.Node.Id, label,
-					nil, nil, nil, nil, nil, nil); err != nil {
+				back, err := gen.CreateEdge(ctx, client, targetID, router.Node.Id, label,
+					nil, nil, nil, nil, nil, edgeData)
+				if err == nil && crossMemory && back.CreateEdge != nil {
+					err = ensureCrossMemoryMarker(ctx, client, back.CreateEdge.Id, back.CreateEdge.Data, dto.Loc, attachLoc, mem.raw)
+				}
+				if err != nil {
 					dto.BackEdge = false
 					return partialRoute(f, dto, false, err,
 						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
@@ -270,6 +307,7 @@ that already references the target is left alone.`,
 	cmd.Flags().BoolVar(&noBackEdge, "no-back-edge", false, "skip the mirrored back-edge to the router")
 	cmd.Flags().BoolVar(&noBodyLine, "no-body-line", false, "wire the edges only; leave the router's body alone")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written, including where the routing line lands, without writing it")
+	cmd.Flags().BoolVar(&crossMemory, "cross-memory", false, "mark the route as an intentional cross-memory route, so lint does not warn that its target moved memory")
 	addRouteModelFlag(cmd, &routeModelV)
 	cmd.Flags().StringVar(&attachTo, "attach-to", "", "leaf model: loc of the router or area node the node's edge points at (default: --root)")
 	_ = cmd.MarkFlagRequired("route")
@@ -301,4 +339,26 @@ func memoryLabel(memoryID string, m *gen.GetNodeNodeMemory) string {
 		return memoryID
 	}
 	return m.Urn
+}
+
+// ensureCrossMemoryMarker makes sure an edge createEdge answered carries the
+// marker. createEdge is idempotent on the derived loc, so an edge that already
+// existed comes back as it was; the marker then goes in through updateEdge with
+// the edge's other data kept. A failure names the edge, because the route itself
+// is already written.
+func ensureCrossMemoryMarker(ctx context.Context, client graphql.Client, edgeID string, current *json.RawMessage, from, to, memory string) error {
+	if edgeCrossMemory(current) {
+		return nil
+	}
+	merged, err := crossMemoryData(current)
+	if err != nil {
+		return exitcode.Newf(exitcode.Error, "building the cross-memory marker: %v", err)
+	}
+	if _, err := gen.UpdateEdge(ctx, client, edgeID, nil, nil, nil, nil, nil, nil, &merged); err != nil {
+		mapped := api.MapError(err)
+		return exitcode.Newf(exitcode.FromError(mapped),
+			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`: %v",
+			from, to, memory, mapped)
+	}
+	return nil
 }

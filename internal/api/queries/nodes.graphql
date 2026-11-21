@@ -327,6 +327,8 @@ query GetNode($ref: ID!) {
       loc
       isRunnable
       priority
+      # cli#2736: the route marker lives in the edge data (crossMemory).
+      data
       target {
         id
         name
@@ -340,6 +342,8 @@ query GetNode($ref: ID!) {
       loc
       isRunnable
       priority
+      # cli#2736: the route marker lives in the edge data (crossMemory).
+      data
       source {
         id
         loc
@@ -408,6 +412,8 @@ query GetNodeRaw($ref: ID!) {
       loc
       isRunnable
       priority
+      # cli#2736: the route marker lives in the edge data (crossMemory).
+      data
       target {
         id
         name
@@ -421,6 +427,8 @@ query GetNodeRaw($ref: ID!) {
       loc
       isRunnable
       priority
+      # cli#2736: the route marker lives in the edge data (crossMemory).
+      data
       source {
         id
         loc
@@ -1022,6 +1030,7 @@ mutation CreateEdge(
     loc
     isRunnable
     priority
+    data
     source {
       id
       loc

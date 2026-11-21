@@ -27,6 +27,9 @@ type routeDTO struct {
 	// router owns; present under --route-model leaf only, so the default
 	// mirrored output is unchanged.
 	Model string `json:"model,omitempty"`
+	// CrossMemory is true for a route marked as an INTENTIONAL cross-memory route
+	// (cli#2736): the lint's moved-memory warning skips it. Always present.
+	CrossMemory bool `json:"crossMemory"`
 }
 
 func newCmdPreflightList(f *cmdutil.Factory) *cobra.Command {
@@ -42,6 +45,10 @@ preflight is scanned as a table of contents: a reader matches their intent
 against the route labels, so this is the router as they see it. A route
 whose target cannot be read lists with status ` + "`broken`" + ` — it sends
 the reader nowhere.
+
+The SCOPE column reads cross-memory for a route marked as an intentional
+cross-memory route (` + "`preflight route --cross-memory`" + `), and --json carries
+crossMemory on every row; lint does not warn that such a route moved memory.
 
 This is a read-only view: a broken route is a row, not an exit code — a
 listing full of them still exits 0. (A usage, auth or not-found error
@@ -85,15 +92,15 @@ outgoing routes as before.`,
 					return nil
 				}
 				if model == modelLeaf {
-					t := output.NewTable(w, "TARGET", "STATUS", "MODEL", "LABEL")
+					t := output.NewTable(w, "TARGET", "STATUS", "MODEL", "LABEL", "SCOPE")
 					for _, r := range rows {
-						t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(r.Model), output.SafeCell(dash(r.Label)))
+						t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(r.Model), output.SafeCell(dash(r.Label)), scopeCell(r.CrossMemory))
 					}
 					return t.Flush()
 				}
-				t := output.NewTable(w, "TARGET", "STATUS", "LABEL")
+				t := output.NewTable(w, "TARGET", "STATUS", "LABEL", "SCOPE")
 				for _, r := range rows {
-					t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(dash(r.Label)))
+					t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(dash(r.Label)), scopeCell(r.CrossMemory))
 				}
 				return t.Flush()
 			})
@@ -110,6 +117,15 @@ outgoing routes as before.`,
 	// configured memory, the repository name), and codingScope reports which one
 	// answered.
 	return cmd
+}
+
+// scopeCell is the SCOPE column: "cross-memory" for a route marked intentional
+// (cli#2736), otherwise a dash.
+func scopeCell(crossMemory bool) string {
+	if crossMemory {
+		return "cross-memory"
+	}
+	return "-"
 }
 
 // routeRows projects the router's outgoing edges into list rows, ordered by
@@ -140,7 +156,7 @@ func routeRows(in preflightInput, findings []findingDTO) []routeDTO {
 			}
 			rows = append(rows, routeDTO{
 				Target: l.Other, TargetID: l.OtherID, Label: l.Label,
-				EdgeID: l.ID, MemoryID: l.MemoryID, Status: status, Model: string(modelLeaf),
+				EdgeID: l.ID, MemoryID: l.MemoryID, Status: status, Model: string(modelLeaf), CrossMemory: l.CrossMemory,
 			})
 		}
 	}
@@ -165,7 +181,7 @@ func routeRows(in preflightInput, findings []findingDTO) []routeDTO {
 		}
 		rows = append(rows, routeDTO{
 			Target: r.Other, TargetID: r.OtherID, Label: r.Label,
-			EdgeID: r.ID, MemoryID: r.MemoryID, Status: status, Model: legacyTag(in.Model),
+			EdgeID: r.ID, MemoryID: r.MemoryID, Status: status, Model: legacyTag(in.Model), CrossMemory: r.CrossMemory,
 		})
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
