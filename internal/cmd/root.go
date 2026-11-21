@@ -33,7 +33,6 @@ import (
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
-	decisioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/decision"
 	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
 	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
@@ -47,6 +46,7 @@ import (
 	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
 	policycmd "github.com/hadron-memory/hadron-cli/internal/cmd/policy"
+	questioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/question"
 	quotacmd "github.com/hadron-memory/hadron-cli/internal/cmd/quota"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
@@ -75,6 +75,7 @@ import (
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
 	f.WorkerWriteSession = teamcmd.WorkerWriteSession(f)
+	f.WorkerSessionIfBound = teamcmd.WorkerSessionIfBound(f)
 	f.NoteApprovingAsPerson = teamcmd.ApprovalAsPersonNote(f)
 	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
 	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
@@ -92,15 +93,16 @@ agents and settings for a team or product.
 
 Getting started:
   hadron auth login          sign in (opens your browser)
-  hadron auth status         ask whether this request's credential authenticates
+  hadron auth status         check that you are signed in
   hadron server-info         check the server answers (works signed out)
   hadron memory list         see the memories you can read
   hadron search "<words>"    find notes across them
 
 Which server, App and memory a command uses: by default the hosted server
 (https://srv.hadronmemory.com) and no App. A setting saved with
-'hadron config set' (or 'app set-active', 'memory set-active') applies to
-every later command until you change it; 'hadron config list' shows them. The
+'hadron config set' (or 'app set-active', 'memory set-active', 'org use',
+'scope use') applies to every later command until you change it, including
+the saved org and search scope; 'hadron config list' shows them. The
 --server and --app flags override the saved setting for one command; the
 HADRON_SERVER environment variable overrides the saved server too.
 
@@ -108,9 +110,10 @@ HADRON_SERVER environment variable overrides the saved server too.
 JSON form (most do); 'hadron agentic-usage' documents every shape. -v and
 --version print the same line as 'hadron version'.
 
-If you work as a team worker in a worktree bound with 'hadron team session',
-the node and edge writes you make are also recorded against that worker once
-the binding is verified. Otherwise this does not apply to you.`,
+If this directory was bound to a named worker with 'hadron team session
+start' (an automated teammate on a shared team), your node and edge writes
+are also recorded against that worker once the binding is verified. If you
+never ran that command, this does not apply to you.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		// #914's ended-binding check is armed HERE, on the root that actually
@@ -182,7 +185,8 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(channelcmd.NewCmdChannel(f))
 	root.AddCommand(replacecmd.NewCmdReplace(f))
 	root.AddCommand(speccmd.NewCmdSpec(f))
-	root.AddCommand(decisioncmd.NewCmdDecision(f))
+	root.AddCommand(questioncmd.NewCmdQuestion(f))
+	root.AddCommand(questioncmd.NewCmdRetiredDecision(f))
 	root.AddCommand(skillcmd.NewCmdSkill(f))
 	root.AddCommand(codingcmd.NewCmdCoding(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
@@ -430,7 +434,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if text, ok := authoredRefusalText(err); ok {
 			message = text
 		}
-		failure := map[string]any{"code": code, "message": message}
+		// #1131: --json is the machine contract and keeps the text as the server sent it,
+		// where the encoder already makes it inert (it writes the C0 controls, an ESC among
+		// them, as \u escapes). What the encoder leaves raw (C1 controls, bidi and other
+		// format characters) is neutralised so the document can be printed safely (cli#2739).
+		failure := map[string]any{"code": code, "message": output.SafeJSONText(message)}
 		superseded, currentSession, currentStarted := api.SupersededSessionEvidence(err)
 		if superseded && currentSession != "" {
 			failure["sessionId"] = currentSession
@@ -478,6 +486,17 @@ func renderError(f *cmdutil.Factory, err error) int {
 		var readiness interface{ PRReadinessSlots() []api.PRSlotFailure }
 		if errors.As(err, &readiness) && readiness.PRReadinessSlots() != nil {
 			failure["slots"] = readiness.PRReadinessSlots()
+		}
+		// cli#2738: a change a protected secret STAGED instead of applying.
+		// The request id and the ceremony URL go in exactly as the server sent
+		// them (the text neutralises them), because a script hands the URL to
+		// the person who signs. `requestId` here is the change request's id, not
+		// a server-fault request id: the two never occur together.
+		var staged interface{ StagedSecretChange() (string, string) }
+		if errors.As(err, &staged) {
+			id, url := staged.StagedSecretChange()
+			failure["requestId"] = id
+			failure["ceremonyUrl"] = url
 		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
@@ -544,7 +563,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 				if currentSession == "" {
 					message = "Session superseded. No current-session details are available. No retry or rebind was attempted."
 				} else {
-					message = fmt.Sprintf("Session superseded. Current open session: %s (started %s). No retry or rebind was attempted.", output.SafeLine(currentSession, len(currentSession)+1), output.SafeLine(currentStarted, len(currentStarted)+1))
+					message = fmt.Sprintf("Session superseded. Current open session: %s (started %s). No retry or rebind was attempted.", output.SanitizeLine(currentSession), output.SanitizeLine(currentStarted))
 				}
 			}
 			if text, ok := authoredRefusalText(err); ok {
@@ -560,7 +579,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 					message += fmt.Sprintf(" (%s: %s)", key, output.SafeLine(fmt.Sprint(value), 256))
 				}
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)
+			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", output.SafeError(message))
 			// cli#1264: a clone refusal's blockers, one per line, after the answer.
 			for _, line := range api.CloneAgentBlockerLines(err) {
 				fmt.Fprintf(f.IOStreams.ErrOut, "  %s\n", line)
@@ -590,6 +609,11 @@ func withStoredCredentialHint(f *cmdutil.Factory, code int, err error) error {
 		return err
 	}
 	if !f.Credentials().Only(api.CredentialStoredUser) {
+		return err
+	}
+	// cli#2761: an already-redacted refusal carries a guard; the appended text is
+	// output too, so the candidate in its final form must pass the same test.
+	if api.OutputCarriesGuarded(err, err.Error()+" — "+storedCredentialHint) {
 		return err
 	}
 	return fmt.Errorf("%w — %s", err, storedCredentialHint)

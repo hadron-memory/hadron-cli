@@ -90,13 +90,19 @@ func newCmdTeamAvailabilityGet(f *cmdutil.Factory) *cobra.Command {
 				if w == nil {
 					continue
 				}
-				dto.Workers = append(dto.Workers, workerAvailabilityDTOFrom(partyDTO(w.Worker), w.State, w.Reason, w.Until, w.SetAt, string(w.SetBy), partyDTO(w.SetByParty), w.InEffect))
+				dto.Workers = append(dto.Workers, workerAvailabilityDTOFrom(workerAvailabilityFields{
+					Worker: partyDTO(w.Worker), State: w.State, Reason: w.Reason, Until: w.Until,
+					SetAt: w.SetAt, SetBy: string(w.SetBy), SetByParty: partyDTO(w.SetByParty), InEffect: w.InEffect,
+				}))
 			}
 			for _, fam := range resp.TeamAvailability.Families {
 				if fam == nil {
 					continue
 				}
-				dto.Families = append(dto.Families, familyAvailabilityDTOFrom(fam.AppId, fam.Family, fam.State, fam.Reason, fam.Until, fam.SetAt, partyDTO(fam.SetBy), fam.InEffect))
+				dto.Families = append(dto.Families, familyAvailabilityDTOFrom(familyAvailabilityFields{
+					AppID: fam.AppId, Family: fam.Family, State: fam.State, Reason: fam.Reason,
+					Until: fam.Until, SetAt: fam.SetAt, SetBy: partyDTO(fam.SetBy), InEffect: fam.InEffect,
+				}))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				// Which App's records, from where (#470) — before both tables,
@@ -187,7 +193,7 @@ future) bounds an unavailable record.
 With --instruction, the binding is captured before lookups and checked again
 before the one write. An unusable or changed binding sends the claim as the
 signed-in person instead, with no worker session. Refusals are never retried.
-The instructed path requires server ba077810 (hadron-server#3376).
+The instructed path requires server ` + instruction.ServerFloorInstructionManagerWrites + ` (merged as hadron-server#3376).
 
 --instruction <kind>:<ref> claims that the holder told this worker to make
 this one change. kind is team-chat-message, task or live-chat. ref names the
@@ -325,17 +331,23 @@ reference and admission, not whether an instruction really happened.`,
 						return availabilityResultMissing()
 					}
 					r := *resp.SetWorkerAvailability
-					rec = workerAvailabilityDTOFrom(partyDTO(r.Worker), r.State, r.Reason, r.Until, r.SetAt, string(r.SetBy), partyDTO(r.SetByParty), r.InEffect)
+					rec = workerAvailabilityDTOFrom(workerAvailabilityFields{
+						Worker: partyDTO(r.Worker), State: r.State, Reason: r.Reason, Until: r.Until,
+						SetAt: r.SetAt, SetBy: string(r.SetBy), SetByParty: partyDTO(r.SetByParty), InEffect: r.InEffect,
+					})
 				} else {
 					resp, err := gen.WorkerAvailabilitySetInstructed(ctx, client, &input, claim)
 					if err != nil {
 						return api.MapErrorKeepingCode(err)
 					}
 					if resp == nil || resp.SetWorkerAvailability == nil {
-						return exitcode.Newf(exitcode.Error, "server returned no availability result; outcome unknown, read availability before retrying")
+						return availabilityResultMissing()
 					}
 					r := *resp.SetWorkerAvailability
-					rec = workerAvailabilityDTOFrom(partyDTO(r.Worker), r.State, r.Reason, r.Until, r.SetAt, string(r.SetBy), partyDTO(r.SetByParty), r.InEffect)
+					rec = workerAvailabilityDTOFrom(workerAvailabilityFields{
+						Worker: partyDTO(r.Worker), State: r.State, Reason: r.Reason, Until: r.Until,
+						SetAt: r.SetAt, SetBy: string(r.SetBy), SetByParty: partyDTO(r.SetByParty), InEffect: r.InEffect,
+					})
 				}
 				return output.Write(f.IOStreams, f.JSON, rec, func(w io.Writer) error {
 					return writeAvailabilityReceipt(w, partyCell(&rec.Worker), rec.State, rec.Reason, rec.Until)
@@ -358,17 +370,23 @@ reference and admission, not whether an instruction really happened.`,
 					return availabilityResultMissing()
 				}
 				r := *resp.SetModelFamilyAvailability
-				rec = familyAvailabilityDTOFrom(r.AppId, r.Family, r.State, r.Reason, r.Until, r.SetAt, partyDTO(r.SetBy), r.InEffect)
+				rec = familyAvailabilityDTOFrom(familyAvailabilityFields{
+					AppID: r.AppId, Family: r.Family, State: r.State, Reason: r.Reason,
+					Until: r.Until, SetAt: r.SetAt, SetBy: partyDTO(r.SetBy), InEffect: r.InEffect,
+				})
 			} else {
 				resp, err := gen.ModelFamilyAvailabilitySetInstructed(ctx, client, &input, claim)
 				if err != nil {
 					return api.MapErrorKeepingCode(err)
 				}
 				if resp == nil || resp.SetModelFamilyAvailability == nil {
-					return exitcode.Newf(exitcode.Error, "server returned no availability result; outcome unknown, read availability before retrying")
+					return availabilityResultMissing()
 				}
 				r := *resp.SetModelFamilyAvailability
-				rec = familyAvailabilityDTOFrom(r.AppId, r.Family, r.State, r.Reason, r.Until, r.SetAt, partyDTO(r.SetBy), r.InEffect)
+				rec = familyAvailabilityDTOFrom(familyAvailabilityFields{
+					AppID: r.AppId, Family: r.Family, State: r.State, Reason: r.Reason,
+					Until: r.Until, SetAt: r.SetAt, SetBy: partyDTO(r.SetBy), InEffect: r.InEffect,
+				})
 			}
 			return output.Write(f.IOStreams, f.JSON, rec, func(w io.Writer) error {
 				return writeAvailabilityReceipt(w, rec.Family, rec.State, rec.Reason, rec.Until)
@@ -380,54 +398,85 @@ reference and admission, not whether an instruction really happened.`,
 	cmd.Flags().StringVar(&state, "state", "", "available or unavailable (required)")
 	cmd.Flags().StringVar(&reason, "reason", "", "HOST_DOWN, OTHER, OUT_OF_TOKENS or STALLED (required with unavailable)")
 	cmd.Flags().StringVar(&until, "until", "", "RFC 3339 time the unavailable record lapses at")
-	cmd.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer("hadron-server#3376"))
+	cmd.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer(instruction.ServerFloorInstructionManagerWrites))
 	return cmd
 }
 
-// availabilityResultMissing is the answer to a plain write the server accepted at
+// availabilityResultMissing is the answer to a write the server accepted at
 // the transport level but returned no record for (a null or absent result,
-// #2493). The request was sent, so whether it was recorded is unknown: never a
-// success receipt, never retried here. It carries the same exit and wording as
-// the instructed branches (#2450) so one command answers one way.
+// #2493) — the plain and the instructed set both go through it (#2450), so
+// one command answers one way. The request was sent, so whether it was
+// recorded is unknown: never a success receipt, never retried here.
 func availabilityResultMissing() error {
 	return exitcode.Newf(exitcode.Error, "server returned no availability result; outcome unknown, read availability before retrying")
 }
 
-// workerAvailabilityDTOFrom maps one worker-availability record onto its DTO.
-// The plain set, the instructed set and the get listing each project the record
-// as a distinct generated type with the same fields (their party getters
-// return distinct concrete types, so no shared interface exists); every site
-// converts through this one builder, with the generic partyDTO at the edges
-// (cli#2491 F4). A nil party renders as the zero taskPartyDTO, as before.
-func workerAvailabilityDTOFrom(worker *taskPartyDTO, state gen.AvailabilityState, reason *gen.AvailabilityReason, until *string, setAt, setBy string, setByParty *taskPartyDTO, inEffect bool) workerAvailabilityDTO {
+// workerAvailabilityFields names the fields of one worker-availability
+// projection. The plain set, the instructed set and the get listing each
+// project the record as a distinct generated type with these same fields
+// (their party getters return distinct concrete types, so no shared interface
+// exists); named fields keep every call site free of the adjacent
+// same-typed positionals an 8-argument builder invited (cli#2560 F3:
+// setAt/setBy, worker/setByParty).
+type workerAvailabilityFields struct {
+	Worker     *taskPartyDTO
+	State      gen.AvailabilityState
+	Reason     *gen.AvailabilityReason
+	Until      *string
+	SetAt      string
+	SetBy      string
+	SetByParty *taskPartyDTO
+	InEffect   bool
+}
+
+// workerAvailabilityDTOFrom maps one worker-availability record onto its DTO;
+// every projection site converts through this one builder, with the generic
+// partyDTO at the edges (cli#2491 F4). A nil party renders as the zero
+// taskPartyDTO, as before.
+func workerAvailabilityDTOFrom(rec workerAvailabilityFields) workerAvailabilityDTO {
 	party := taskPartyDTO{}
-	if worker != nil {
-		party = *worker
+	if rec.Worker != nil {
+		party = *rec.Worker
 	}
 	return workerAvailabilityDTO{
 		Worker:     party,
-		State:      string(state),
-		Reason:     reasonPtr(reason),
-		Until:      until,
-		SetAt:      setAt,
-		SetBy:      setBy,
-		SetByParty: setByParty,
-		InEffect:   inEffect,
+		State:      string(rec.State),
+		Reason:     reasonPtr(rec.Reason),
+		Until:      rec.Until,
+		SetAt:      rec.SetAt,
+		SetBy:      rec.SetBy,
+		SetByParty: rec.SetByParty,
+		InEffect:   rec.InEffect,
 	}
+}
+
+// familyAvailabilityFields is workerAvailabilityFields's twin for family
+// records — the same named-field form (cli#2560 F3: appID/family were the
+// swappable pair), and setBy is the party object here, not the worker
+// record's string.
+type familyAvailabilityFields struct {
+	AppID    string
+	Family   string
+	State    gen.AvailabilityState
+	Reason   *gen.AvailabilityReason
+	Until    *string
+	SetAt    string
+	SetBy    *taskPartyDTO
+	InEffect bool
 }
 
 // familyAvailabilityDTOFrom is workerAvailabilityDTOFrom's twin for family
 // records — the same dedupe of the plain-set, instructed-set and get literals.
-func familyAvailabilityDTOFrom(appID, family string, state gen.AvailabilityState, reason *gen.AvailabilityReason, until *string, setAt string, setBy *taskPartyDTO, inEffect bool) familyAvailabilityDTO {
+func familyAvailabilityDTOFrom(rec familyAvailabilityFields) familyAvailabilityDTO {
 	return familyAvailabilityDTO{
-		AppID:    appID,
-		Family:   family,
-		State:    string(state),
-		Reason:   reasonPtr(reason),
-		Until:    until,
-		SetAt:    setAt,
-		SetBy:    setBy,
-		InEffect: inEffect,
+		AppID:    rec.AppID,
+		Family:   rec.Family,
+		State:    string(rec.State),
+		Reason:   reasonPtr(rec.Reason),
+		Until:    rec.Until,
+		SetAt:    rec.SetAt,
+		SetBy:    rec.SetBy,
+		InEffect: rec.InEffect,
 	}
 }
 

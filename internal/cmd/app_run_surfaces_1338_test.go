@@ -253,7 +253,11 @@ func TestAppRunSurfaces1338ConcealedMemoryText(t *testing.T) {
 		t.Fatal(err)
 	}
 	cells := strings.Fields(out)
-	if len(cells) != 10 || cells[6] != "?" || cells[8] != "-" || cells[9] != "-" {
+	// A concealed memory reads "?" and so does the register node withheld with it (cli#2868,
+	// Victor's FIT: "-" would say "no register node", which the viewer cannot know); a null
+	// revoked-at stays "-". A VISIBLE row's null register stays "-": see
+	// TestVisibleMemoryGrantKeepsDashForNoRegister2868.
+	if len(cells) != 10 || cells[6] != "?" || cells[8] != "?" || cells[9] != "-" {
 		t.Fatalf("concealed memory must differ from null metadata: %s", out)
 	}
 }

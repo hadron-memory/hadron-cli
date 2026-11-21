@@ -2,41 +2,77 @@ package api
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 )
 
-// TestDecisionOperationsUseQuestionNames2465 pins cli#2465 S1-companion: the
+// TestQueryDocumentsUseTheQuestionSurfaceNames2465 pins cli#2465 (S1-S4): the
 // server (hadron-server#4425/#4435) renamed the governed-decision operations
 // and types to question*/Question* with no aliases, so a document that still
 // names the old ones fails on a current server with "Unknown type
-// DecisionState". decision.graphql must address the new names only.
-func TestDecisionOperationsUseQuestionNames2465(t *testing.T) {
-	raw, err := os.ReadFile("queries/decision.graphql")
+// DecisionState". question.graphql must address the new names only.
+func TestQueryDocumentsUseTheQuestionSurfaceNames2465(t *testing.T) {
+	raw, err := os.ReadFile("queries/question.graphql")
 	if err != nil {
 		t.Fatal(err)
 	}
 	doc := string(raw)
 	for _, op := range []string{
 		"questionLog(", "question(", "questions(", "verifyQuestion(", "createQuestionLog(",
-		"setQuestionLogDeciders(", "askQuestion(", "amendQuestion(", "withdrawQuestion(",
-		"purgeUnansweredQuestion(",
+		"setQuestionLogDeciders(", "askQuestion(", "amendQuestion(", "answerQuestion(", "retractQuestionAnswer(",
+		"questionLogs(", "withdrawQuestion(", "purgeUnansweredQuestion(",
 	} {
 		if !strings.Contains(doc, op) {
-			t.Errorf("decision.graphql does not call %s", op)
+			t.Errorf("question.graphql does not call %s", op)
 		}
 	}
-	old := regexp.MustCompile(`\b(decisionLog|decision|decisions|verifyDecision|createDecisionLog|setDecisionLogDeciders|askDecision|amendDecision|withdrawDecision|purgeUnansweredDecision)\(|\bon Decision\w*\b|:\s*\[?(Decision|AskDecision|AmendDecision)\w+!?\]?`)
-	if m := old.FindString(doc); m != "" {
-		t.Errorf("decision.graphql still names a retired server identifier: %q", m)
+	if m := retiredServerName.FindString(doc); m != "" {
+		t.Errorf("question.graphql still names a retired server identifier: %q", m)
 	}
 
 	sdl, err := os.ReadFile("../../schema/schema.graphql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(sdl), "type Question {") || strings.Contains(string(sdl), "type Decision {") {
-		t.Error("schema snapshot does not carry the Question types (refresh it from a server at or after #4435)")
+	if !strings.Contains(string(sdl), "type Question {") {
+		t.Error("schema snapshot does not carry type Question (refresh it from a server at or after #4435)")
+	}
+	if m := leftoverDecisionType.FindString(string(sdl)); m != "" {
+		t.Errorf("schema snapshot still carries a retired Decision type: %q", m)
+	}
+}
+
+// retiredServerName matches a retired server identifier in a query document:
+// a call to a renamed field, a type condition or variable type, or a quoted
+// genqlient `for:` directive target (AskQuestionInput etc. are the live names).
+var retiredServerName = regexp.MustCompile(
+	`\b(decisionLog|decision|decisions|verifyDecision|createDecisionLog|setDecisionLogDeciders|askDecision|amendDecision|withdrawDecision|purgeUnansweredDecision)\(` +
+		`|\bon Decision\w*\b` +
+		`|:\s*\[?(Decision|AskDecision|AmendDecision)\w+!?\]?` +
+		`|for:\s*"(Ask|Amend)?Decision\w*[."]`)
+
+// leftoverDecisionType matches any retired `type Decision... {` in the schema
+// snapshot, not just `type Decision {`.
+var leftoverDecisionType = regexp.MustCompile(`type Decision\w* \{`)
+
+// TestNoRetiredDecisionNamesInAnyQueryDocument2644 sweeps every document under
+// queries/, not just question.graphql: a retired server identifier anywhere
+// fails on a current server.
+func TestNoRetiredDecisionNamesInAnyQueryDocument2644(t *testing.T) {
+	files, err := filepath.Glob("queries/*.graphql")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no query documents found: %v", err)
+	}
+	for _, f := range files {
+		raw, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc := string(raw)
+		if m := retiredServerName.FindString(doc); m != "" {
+			t.Errorf("%s still names a retired server identifier: %q", f, m)
+		}
 	}
 }

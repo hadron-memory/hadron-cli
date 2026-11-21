@@ -31,6 +31,9 @@ cfg=$(mktemp -d)
 rows=$(mktemp)
 trap 'rm -rf "$cfg" "$rows"' EXIT
 export XDG_CONFIG_HOME="$cfg" HOME="$cfg"
+# Help hashes must not inherit locale or terminal-width choices from the
+# developer's shell. Capture every page in the C locale at 80 columns.
+export LC_ALL=C COLUMNS=80
 unset HADRON_TOKEN HADRON_SERVER || :
 
 # Hash the captured help, not structural metadata or the binary's version.
@@ -94,8 +97,10 @@ done
 humans=$(mktemp)
 trap 'rm -rf "$cfg" "$rows" "$humans"' EXIT
 if [ -n "$EXISTING" ] && [ -f "$EXISTING" ]; then
-  awk -F' \\| ' '/^\| `/ {
-    p=$1; sub(/^\| `/,"",p); sub(/`$/,"",p)
+  awk -F' \\| ' '/^\|[[:space:]]*`/ {
+    # Normalize only Markdown padding OUTSIDE the backticked path. The human
+    # cells below remain byte-for-byte text, including their own whitespace.
+    p=$1; sub(/^\|[[:space:]]*`/,"",p); sub(/`[[:space:]]*$/,"",p)
     if (NF == 8) { h=""; e=$6; r=$7; f=$8 }
     else if (NF == 9) { h=$6; e=$7; r=$8; f=$9 }
     else { print "gen-help-inventory: unsupported inventory row shape: " $0 > "/dev/stderr"; exit 1 }
@@ -127,11 +132,17 @@ Rules for what is a row:
   \`--help\`.
 
 Columns: \`path\`, \`aliases\`, \`generated\`, \`has-examples\`, \`child\` (the audit
-issue that owns the page), \`help-hash\` (the first 12 hex characters of the
+issue that owns the page: the group section's issue for every row in that
+section, including a command a later issue added to the group — the
+implementing issue is cited in that row's finding link once assessed, not in
+\`child\`), \`help-hash\` (the first 12 hex characters of the
 sha256 of captured help text), then the three HUMAN columns \`evaluator\`, \`result\`
 (\`unread\` | \`pass\` | \`fail\`; \`unread\` is never a pass; \`pass\` needs a named
 evaluator who is not the author of the text) and \`finding\` (a link to the
-assessment). The generator keeps these three by path only while the page's
+assessment). The help-hash tracks the page's help text only, not the code
+behind it: it is not a last-reviewed code state, and a row resets only when that
+text changes.
+The generator keeps these three by path only while the page's
 help-hash is unchanged. A changed hash clears evaluator and finding and resets
 both pass and fail to unread; a child that fixes help must re-assess the row.
 For first adoption, a missing or empty hash is seeded from current help while

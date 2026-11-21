@@ -29,8 +29,8 @@ func TestReplaceTextHelpStatesPrerequisitesAndRefusals1051(t *testing.T) {
 	}
 	// The --prefix paragraph must start on its own line, not run on from the
 	// sentence about skipped nodes.
-	if strings.Contains(c.Long, "skipped.\n--prefix") {
-		t.Error("the --prefix paragraph runs on from the skipped-nodes paragraph")
+	if !strings.Contains(c.Long, "\n\n--prefix ") {
+		t.Error("the --prefix paragraph does not start its own paragraph")
 	}
 }
 
@@ -50,16 +50,23 @@ func TestReplaceTextHelpDefinesSkippedNodesAndHowToCheck1051(t *testing.T) {
 	}
 	flat := strings.Join(strings.Fields(c.Long), " ")
 	for _, want := range []string{
-		"A skipped node still has the old text:",
+		"A skipped node was not inspected, so it may still contain the old text:",
 		"comments (change them with comment edit)",
-		"governed nodes: specs, reviews and runnable tasks (spec edit and spec replace change specs)",
+		"governed nodes: specs, reviews, questions and runnable tasks (spec edit and spec replace change specs)",
 		"compiled boot prompts (a compile writes them: team worker compile)",
 		"nodes under a Channel's reserved address (channel list prints it)",
 		`To check that the old text is gone, search for it afterwards: hadron search "<old>" -m <memory> lists the notes that still mention it (search also matches by meaning, so read the hits).`,
 		"Pass --reason so the revision is easy to find; without it the revision carries no label of yours.",
+		// cli#2642: the preview before the question and what --max-nodes counts.
+		"Before the question, the terminal shows the same totals, Skipped line and table that the command prints afterwards, on stderr.",
+		"It counts nodesChanged, the nodes that have a match, and never the skipped ones.",
+		`When nodes were skipped, the note ends "(N node(s) skipped)" in place of the full stop.`,
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("replace text help lacks %q", want)
 		}
+	}
+	if strings.Contains(flat, "still has the old text") {
+		t.Error(`replace text help still says "still has the old text": skipped nodes are not inspected`)
 	}
 }

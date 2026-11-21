@@ -1,0 +1,286 @@
+package slack
+
+// slack connect / disconnect (cli#206, T2 + §10). The two Slack tokens are
+// write-only secrets: they come from a file or stdin, one flag per token, and
+// appear in no argument, output, JSON field, error text or help example. The
+// server owns every rule (org ADMIN/OWNER, App-in-org, one live connection per
+// workspace, soft delete): this file builds one request and passes the answer
+// through (cor:api:240:01/:02, cor:int:030:01).
+
+import (
+	"fmt"
+	"io"
+	"strconv"
+	"strings"
+	"unicode"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
+	"github.com/spf13/cobra"
+)
+
+type disconnectDTO struct {
+	ConnectionID string `json:"connectionId"`
+	Disconnected bool   `json:"disconnected"`
+}
+
+// redactConnectError is the final error of a failed connect. The server's text is
+// untrusted everywhere it can reach the operator, so the finished error is cut
+// from its raw chain and every rendered string (message, server code, internal
+// fault detail) has both submitted tokens removed, in every spelling the shared
+// redactor knows. The command's own recovery text is added BEFORE that, so an
+// echo never costs the operator the unknown-outcome notice; the exit class and
+// a clean server code survive.
+func redactConnectError(raw error, secrets []string, lead, tail string) error {
+	mapped := api.MapError(raw)
+	base := mapped
+	if class := exitcode.FromError(mapped); class == exitcode.Error || class == exitcode.Unavailable {
+		// The server's text sits in the middle and the suggested command is the
+		// LAST thing in the message, so copying the end of the line is the command.
+		base = exitcode.Newf(class, "%s: %s. %s", lead, mapped, tail)
+	}
+	return api.Detached(api.WithServerCode(base, raw), func(s string) string { return api.RedactSecretText(s, secrets) })
+}
+
+// hasControlOrFormatCharacter reports whether s carries a Unicode control or
+// format character (an id with ESC/CSI or a newline would reach the terminal
+// raw once it is no longer Go-quoted), or a line/paragraph separator
+// (U+2028/U+2029: Zl/Zp are not Cc, but some terminals and clipboards treat
+// them as line breaks — the same line-forgery the guard exists to stop). Shell
+// quoting is a separate step.
+func hasControlOrFormatCharacter(s string) bool {
+	return strings.IndexFunc(s, func(r rune) bool {
+		return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r)
+	}) >= 0
+}
+
+// getConnectionSuggestion is the closing sentence of a disconnect message: how to
+// check whether the connection still exists. The command sits ALONE on the last
+// line (an indented line of its own, so copying a whole line is the command) and
+// is runnable as printed: shell-quoted, with the -- terminator (a leading
+// dash is a flag to cobra), and no outer prose quotes (single quotes are literal
+// inside double quotes, so $( ) would expand again when pasted). An id with
+// control characters is never named; the runnable listing command stands in.
+func getConnectionSuggestion(id string) string {
+	if hasControlOrFormatCharacter(id) {
+		return "The listing is paged, so follow its --offset hint before concluding it is gone. Check whether it still exists by listing connections with:\n  hadron slack status"
+	}
+	return "Check whether it still exists with:\n  hadron slack get -- " + cmdutil.ShellQuote(id)
+}
+
+// readToken reads one token from its file flag. "-" is stdin and is refused on
+// a terminal (the token would be typed in the clear); the file reader itself
+// never puts the path or the material in an error.
+func readToken(f *cmdutil.Factory, source, flag, label, what string) (string, error) {
+	if source == "-" && f.IOStreams.IsInputTerminal() {
+		return "", exitcode.Newf(exitcode.Usage, "--%s - reads stdin, which is a terminal: pipe the token in, or name a file. Nothing was sent", flag)
+	}
+	return cmdutil.ReadSecretInput(f.IOStreams, source, flag, label, what)
+}
+
+func newConnect(f *cmdutil.Factory) *cobra.Command {
+	var org, app, botFile, appFile string
+	c := &cobra.Command{
+		Use:   "connect --org <ref> --app <ref> --bot-token-file <path|-> --app-token-file <path|->",
+		Short: "Register a Slack workspace with an organization (org ADMIN)",
+		Long: `Register a Slack workspace with an organization and one of its Apps, from the
+workspace's two Slack tokens: the bot token (xoxb-...) and the app-level token
+(xapp-...). The server validates both with Slack and stores them where this
+CLI and every read of the connection cannot see them; no command returns them.
+
+Each token comes from a file, never from the command line, so it stays out of
+your shell history and the process list: --bot-token-file and --app-token-file
+each take a file path or - for stdin. Only one of the two may be - (one stdin
+holds one token); both being - is refused before anything is sent, as is a
+missing flag, and so is - on a terminal. A trailing newline is dropped.
+
+--org and --app take an ID or URN. The App must belong to the organization. The
+server decides who may connect (organization ADMIN or OWNER), and refuses an
+unknown organization or App, an App outside the organization, and a workspace
+that is already connected (a registration that shows ERROR still counts: disconnect
+it first); those refusals are passed through. This command does
+not check any of them.
+
+One request is sent and never retried. If its answer is lost, the outcome is
+unknown: "hadron slack status --org <ref>" lists the organization's connections
+one page at a time, so follow its --offset hint before deciding the workspace is
+not connected.
+On success it shows the connection the way "hadron slack get" does (never a
+token). Re-connecting a workspace that was disconnected registers it again.`,
+		Example: `  hadron slack connect --org hrn:org:acme.com --app hrn:app:acme.com:assistant \
+    --bot-token-file ./bot.token --app-token-file ./app.token
+  printf %s "$BOT_TOKEN" | hadron slack connect --org acme.com --app acme.com:assistant \
+    --bot-token-file - --app-token-file ./app.token --json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			orgRef := strings.TrimSpace(org)
+			if orgRef == "" {
+				return exitcode.Newf(exitcode.Usage, "--org is required: name the organization (ID or URN)")
+			}
+			appRef := strings.TrimSpace(app)
+			if appRef == "" {
+				return exitcode.Newf(exitcode.Usage, "--app is required: name the App (ID or URN)")
+			}
+			canonicalAppRef, err := cmdutil.CanonicalAppRef("--app", appRef)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(botFile) == "" || strings.TrimSpace(appFile) == "" {
+				return exitcode.Newf(exitcode.Usage, "--bot-token-file and --app-token-file are both required: each takes a file path or - for stdin. Nothing was sent")
+			}
+			if botFile == "-" && appFile == "-" {
+				return exitcode.Newf(exitcode.Usage, "only one of --bot-token-file and --app-token-file may be - (stdin holds one token): put the other in a file. Nothing was sent")
+			}
+			// Both sources are checked against a terminal BEFORE either is opened: a
+			// FIFO with no writer in the other position would block the first read
+			// before the invalid invocation was ever reported.
+			if f.IOStreams.IsInputTerminal() {
+				for _, src := range []struct{ value, flag string }{{botFile, "bot-token-file"}, {appFile, "app-token-file"}} {
+					if src.value == "-" {
+						return exitcode.Newf(exitcode.Usage, "--%s - reads stdin, which is a terminal: pipe the token in, or name a file. Nothing was sent", src.flag)
+					}
+				}
+			}
+			bot, err := readToken(f, botFile, "bot-token-file", "Slack bot token", "bot token")
+			if err != nil {
+				return err
+			}
+			appTok, err := readToken(f, appFile, "app-token-file", "Slack app-level token", "app-level token")
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			secrets := []string{bot, appTok}
+			// --org is the operator's own text and may, by mistake, equal a token:
+			// every post-submission message built from it is redacted too.
+			// A value that holds a token is never printed, quoted or not: the pointer
+			// then asks for the real reference instead of showing a broken command.
+			// Detected on the ORIGINAL value, before any quoting (quoting splits an
+			// apostrophe-bearing token so exact redaction would miss it). A sensitive
+			// or control-character value is dropped from the command altogether: the
+			// unfiltered "hadron slack status" runs as printed and lists every
+			// organization the caller may see.
+			statusCmd := "hadron slack status"
+			if !api.ContainsSecret(orgRef, secrets) && !hasControlOrFormatCharacter(orgRef) {
+				statusCmd += " --org=" + cmdutil.ShellQuote(orgRef)
+			}
+			// Prose first, the command last: nothing may follow it on the line.
+			where := fmt.Sprintf("The listing is paged, so follow its --offset hint before deciding the workspace is not connected. Check with:\n  %s", statusCmd)
+			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, canonicalAppRef, bot, appTok)
+			if err != nil {
+				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried)", where)
+			}
+			if resp == nil || resp.CreateSlackConnection == nil {
+				return exitcode.Newf(exitcode.Unavailable, "the server returned no connection. %s", where)
+			}
+			v := resp.CreateSlackConnection
+			// A success answer is the server's text too: a field that repeats a
+			// submitted token is never rendered, and nothing from it (not even the
+			// id) goes into the message.
+			for _, field := range []string{v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt} {
+				if api.ContainsSecret(field, secrets) {
+					return exitcode.Newf(exitcode.Unavailable, "the server's answer repeated a submitted token and was withheld; the connection may exist. %s", where)
+				}
+			}
+			// Success needs a usable id: without one nothing is confirmed, and no
+			// "get" command can be named.
+			if strings.TrimSpace(v.Id) == "" {
+				return exitcode.Newf(exitcode.Unavailable, "the server's answer carried no connection id, so nothing is confirmed; the connection may exist. %s", where)
+			}
+			dto, err := toDTO(v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt)
+			if err != nil {
+				// "slack get" and "slack status" refuse the same unknown status, so they
+				// would loop: the one command that always works is disconnect. An id
+				// with control characters is never printed (the terminal would act on it).
+				if hasControlOrFormatCharacter(v.Id) {
+					// No command is suggested: get/status refuse this same status, and the id
+					// cannot be named safely. Upgrade, or an administrator removes it.
+					return exitcode.Newf(exitcode.Unavailable, "the server answered with a connection id this CLI will not print (it contains control characters) and a status it does not recognize (a newer server?); upgrade hadron, or ask the server's administrator to remove that registration")
+				}
+				return exitcode.Newf(exitcode.Unavailable, "the server answered with connection id %s and a status this CLI does not recognize (a newer server?), so it cannot be read back here: upgrade hadron, or remove the registration with: hadron slack disconnect -- %s", cmdutil.ShellQuote(v.Id), cmdutil.ShellQuote(v.Id))
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				// Two literal formats, never a variable format string (go vet's
+				// printf check; a variable would misrender any future % in it).
+				name := output.SafeCell(strconv.Quote(dto.TeamName))
+				if dto.Status == "ERROR" {
+					// ERROR is a recorded failure (see "hadron slack --help"), not success.
+					if _, e := fmt.Fprintf(w, "! registered Slack workspace %s, but the server has recorded a failure (status ERROR; see \"hadron slack --help\")\n", name); e != nil {
+						return e
+					}
+				} else if _, e := fmt.Fprintf(w, "✓ connected Slack workspace %s\n", name); e != nil {
+					return e
+				}
+				return writeConnection(w, dto)
+			})
+		},
+	}
+	c.Flags().StringVar(&org, "org", "", "organization to register the workspace with (ID or URN; required)")
+	c.Flags().StringVar(&app, "app", "", "the organization's App that answers in the workspace (ID or URN; required)")
+	c.Flags().StringVar(&botFile, "bot-token-file", "", "file holding the Slack bot token, or - for stdin (required; never the token itself)")
+	c.Flags().StringVar(&appFile, "app-token-file", "", "file holding the Slack app-level token, or - for stdin (required; never the token itself)")
+	return c
+}
+
+func newDisconnect(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	c := &cobra.Command{
+		Use:   "disconnect <connection-id> [--yes]",
+		Short: "Remove a Slack workspace connection (org ADMIN)",
+		Long: `Remove one Slack workspace connection, by its ID (from "hadron slack status").
+The server marks the connection deleted and tries to remove the stored Slack
+tokens on its side (best effort; it does not say how far it got). Connecting
+the workspace again with "hadron slack connect" registers it anew.
+
+On a terminal this asks first; declining the prompt exits 6 (Cancelled) and
+nothing is sent. Without one, --yes is required and nothing is
+sent without it. The server decides who may disconnect (organization ADMIN or
+OWNER); this command does not check it. An unknown ID and one in another
+organization are refused the same way (exit 4), so a refusal does not tell you
+whether the connection exists for someone else. One request is sent and never
+retried: if its answer is lost, read the connection with "hadron slack get"
+before trying again.`,
+		Example: `  hadron slack disconnect 01a1... --yes
+  hadron slack disconnect 01a1... --yes --json`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := strings.TrimSpace(args[0])
+			if id == "" {
+				return exitcode.Newf(exitcode.Usage, "give a nonempty connection id")
+			}
+			// Not ConfirmDeletion: its "cannot be undone" is false here. The server
+			// soft-deletes, and "hadron slack connect" registers the workspace again.
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Disconnect Slack connection "+strconv.Quote(id)+"? The server marks it deleted and tries to remove the stored Slack tokens (best effort, not reported); connecting the workspace again registers it anew"); err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.DeleteSlackConnection(cmd.Context(), client, id)
+			if err != nil {
+				mapped := api.MapErrorKeepingCode(err)
+				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
+					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. %s", mapped, getConnectionSuggestion(id)), err)
+				}
+				return mapped
+			}
+			if resp == nil || !resp.DeleteSlackConnection {
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect. %s", getConnectionSuggestion(id))
+			}
+			dto := disconnectDTO{ConnectionID: id, Disconnected: true}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, e := fmt.Fprintf(w, "disconnected Slack connection %s (server confirmed)\n", output.SafeCell(strconv.Quote(id)))
+				return e
+			})
+		},
+	}
+	c.Flags().BoolVar(&yes, "yes", false, "do not ask first (required without a terminal)")
+	return c
+}

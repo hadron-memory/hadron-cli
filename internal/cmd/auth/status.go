@@ -35,6 +35,12 @@ No answer includes a reason, cause, identity or credential. --json prints only
 A check that fails, an older server without authenticationStatus or an invalid
 answer is an error, never REFUSED. Such failures do not exit 3; missing or
 unknown status values exit 7. No fallback to authContext and no automatic retry.
+
+A key limited by its OAuth scope (an MCP-only key, or a scope this server does
+not support) is refused before any answer, so it is not a status either: the
+check fails with exit 1 and prints the fixed recovery for that scope refusal
+(sign in again, or use a portal API key), never the server's own wording and
+never the REFUSED line.
 Use hadron auth whoami for the signed-in user's profile.`,
 		Example: "  hadron auth status\n  hadron auth status --json",
 		Args:    cobra.NoArgs,
@@ -51,6 +57,15 @@ Use hadron auth whoami for the signed-in user's profile.`,
 				if exitcode.FromError(mapped) == exitcode.AuthRequired {
 					// An error envelope is not the enum REFUSED. Do not reclassify a
 					// check failure as a credential verdict, or echo its alleged cause.
+					// The one exception (cor:aut:010:05): a key kept off this surface by
+					// its OAuth scopes is refused with its own stated reason, which is
+					// about where the key may be used, not whether it authenticates. Only
+					// the CLI's fixed remedy for that typed reason is shown (cli#1752);
+					// the server's sentence is never repeated. Still exit 1, still no
+					// status and no REFUSED line.
+					if kind := api.OAuthScopeRefusal(err); kind != "" {
+						return exitcode.Newf(exitcode.Error, "%s", scopeCheckFailed(kind))
+					}
 					return exitcode.Newf(exitcode.Error, "authentication status check failed; no authentication answer was returned")
 				}
 				return mapped
@@ -78,4 +93,15 @@ Use hadron auth whoami for the signed-in user's profile.`,
 			return nil
 		},
 	}
+}
+
+// scopeCheckFailed is the fixed text for a status check that failed on an OAuth
+// scope refusal. It is keyed on the typed reason and carries no server text, no
+// request id and no credential, and it never uses the REFUSED wording.
+func scopeCheckFailed(kind api.ScopeRefusal) string {
+	const head = "authentication status check failed; no authentication answer was returned. "
+	if kind == api.ScopeUnsupported {
+		return head + "This key's OAuth scope is not supported by this server. " + api.ScopeRefusalRemedy(kind)
+	}
+	return head + api.ScopeRefusalRemedy(kind)
 }

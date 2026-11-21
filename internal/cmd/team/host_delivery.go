@@ -43,7 +43,7 @@ func (s *hostServer) clock() time.Time {
 
 // deliveryCodes are the server codes a delivery error may carry into a log:
 // S1's refusals (resolvers.deliveryBatch.ts and acknowledge.ts at server
-// main ad7f1c2) and the generic auth refusals. Any other code is
+// main ad7f1c2, 2026-10-19) and the generic auth refusals. Any other code is
 // server-refused.
 var deliveryCodes = []string{
 	"APP_KEY_SCOPE_REQUIRED", "HOST_KEY_REQUIRED", "APP_NOT_FOUND", "APP_KEY_SESSION_BOUND",
@@ -71,7 +71,7 @@ func callError(call, code string) *deliveryCallError {
 }
 
 // deliveryError classifies a delivery call's error. A key without the scope
-// turns delivery off for the run; anything else is that call failing.
+// is the scope verdict (the poller confirms it before delivery goes off); anything else is that call failing.
 func deliveryError(call string, err error) error {
 	e := callError(call, deliveryCodeOf(err))
 	if e.code == "APP_KEY_SCOPE_REQUIRED" {
@@ -218,7 +218,7 @@ var sharedListNow func() time.Time
 // wireDelivery turns delivery on for this run: S1's chat batches and the
 // host's due tick and task wakes (hadron-cli#1178), typed through Orca on
 // the same per-worker chain, with the status snapshot written after each
-// step. AckMixed follows the operator's A′ (#2072) assertion in host.yaml;
+// step. AckMixed follows the operator's A′ (issue #2072, PR #2102) assertion in host.yaml;
 // its default is off. Holds remain unreported until S5 (#940).
 // It returns the deliverer it wired.
 func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) *delivery.Deliverer {

@@ -63,15 +63,30 @@ func TestAvailabilityInstructionCrossAppFallbackCarriesNoSession(t *testing.T) {
 	if mutation == nil {
 		t.Fatalf("no instructed mutation observed: %+v", *calls)
 	}
-	// The claim survives the fallback: checked by the server, not recorded.
-	if mutation.Variables["instruction"] == nil {
-		t.Fatal("the person fallback lost the instruction claim")
+	// The claim survives the fallback, checked by the server, not recorded —
+	// and it is the typed reference the flag spelled, not just a non-nil
+	// variable (cli#2560 F6).
+	// Field by field (cli#2707 F4), so a claim that gains a field does not
+	// break this pin while one that loses or changes kind/ref still does.
+	claim, ok := mutation.Variables["instruction"].(map[string]any)
+	if !ok || claim["kind"] != "TASK" || claim["ref"] != "one" || len(claim) != 2 {
+		t.Fatalf("the person fallback lost or reshaped the instruction claim: %v", mutation.Variables["instruction"])
 	}
 	if input, ok := mutation.Variables["input"].(map[string]any); !ok || input["appRef"] != appB {
 		t.Fatalf("the write must target the named App B: %v", mutation.Variables["input"])
 	}
-	if out.Len() == 0 {
-		t.Fatal("no receipt for the fallback write")
+	// The --json receipt is the written record, not merely non-empty output
+	// (cli#2560 F6): the person fallback's write round-trips the DTO.
+	// Decoded to raw keys, not into a struct of this test's own (cli#2707 F3):
+	// the receipt's key names come from the CLI's output, so a rename there fails
+	// here instead of being mirrored by a hand-written tag.
+	receipt := receiptFields2707(t, []byte(out.String()))
+	wantParty2707(t, "the fallback receipt's worker", receipt["worker"], "WORKER", "wkr2", "Rufus", "hrn:worker:acme.com:eng:rufus")
+	wantString2707(t, "the fallback receipt", receipt, "state", "UNAVAILABLE")
+	wantString2707(t, "the fallback receipt", receipt, "reason", "OUT_OF_TOKENS")
+	wantString2707(t, "the fallback receipt", receipt, "setBy", "APP_MANAGER")
+	if string(receipt["inEffect"]) != "true" {
+		t.Fatalf("wrong inEffect in the receipt: %s", receipt["inEffect"])
 	}
 }
 
@@ -132,5 +147,77 @@ func TestAvailabilityPlainCrossAppWorkerSetNotAttributed(t *testing.T) {
 	}
 	if strings.Contains(stderr.String(), "worker session") {
 		t.Fatalf("unexpected session note on a cross-App plain write: %q", stderr.String())
+	}
+}
+
+// cli#2560 (Jessie's LOCAL P3 on #2557): the cross-App pins above cover
+// --worker only; this is the --family twin — a valid App-A binding while
+// --app names App B, plain family set. The no-session property holds today
+// for a different reason than the worker path: setModelFamilyAvailability
+// is deliberately absent from the authored-write list (#868,
+// write_attribution.go — a plain family write is the person's), so the
+// middleware never even considers attaching. What this pin kills is any
+// change that makes a session actually ride an App-B family write: adding
+// the field to the list alone stays green here (the App-identity check then
+// refuses the cross-App attach, as for the worker pin above), so today that
+// takes the same double removal — the field AND the identity check; if
+// family ever joins the authored set deliberately, this test becomes that
+// guard's cross-App pin. The input targeting assert also fixes the routing:
+// the write names App B and the codex family, never the binding's App A.
+func TestAvailabilityPlainCrossAppFamilySetNotAttributed(t *testing.T) {
+	dir := teamGitDir(t)
+	const appB = "capp999999999999999999999" // the binding's App is capp100…
+	srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+		if c.OperationName == "GetBoundSessionEnd" {
+			return `{"data":{"session":{"id":"s-new","endedAt":null,"endReason":null}}}`
+		}
+		if c.OperationName == "TeamAppIdentity" {
+			return `{"data":{"app":{"id":"` + appB + `"}}}`
+		}
+		if c.OperationName != "ModelFamilyAvailabilitySet" {
+			t.Errorf("unexpected op %s", c.OperationName)
+			return `{}`
+		}
+		return availabilityAnswer2450("family")
+	})
+	writeTeamBindingIn(t, dir, srv.URL)
+	f, _, stderr := testFactoryTTY(t, "")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "availability", "set", "--family", "codex", "--state", "unavailable", "--reason", "OTHER",
+		"--app", appB, "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	seen := false
+	bindingChecked := false
+	for _, c := range *calls {
+		if c.Session != "" {
+			t.Fatalf("request %s carried worker session %q: the App-A binding must not ride a family write targeting App B", c.OperationName, c.Session)
+		}
+		if c.OperationName == "GetBoundSessionEnd" {
+			bindingChecked = true
+		}
+		if c.OperationName == "ModelFamilyAvailabilitySet" {
+			seen = true
+			if input, ok := c.Variables["input"].(map[string]any); !ok || input["appRef"] != appB || input["family"] != "codex" {
+				t.Fatalf("the write must target the named App B family: %v", c.Variables["input"])
+			}
+		}
+	}
+	if !bindingChecked {
+		t.Fatalf("the binding never loaded: no GetBoundSessionEnd read, so the no-session pin above is vacuous: %+v", *calls)
+	}
+	if !seen {
+		t.Fatalf("no plain ModelFamilyAvailabilitySet observed: %+v", *calls)
+	}
+	// Deliberately NOT asserted (cli#2707 F5): a TeamAppIdentity request. A plain
+	// family write is not in the authored-write list (see the header), so the
+	// middleware never asks for the App identity on this path; the worker twin
+	// above is the pin that goes through that check. What proves this pin reached
+	// its branch is the loaded binding and the write that targets App B.
+	// No note of any kind on a plain cross-App family write, rather than the
+	// absence of one message defined elsewhere (cli#2707 F5).
+	if stderr.String() != "" {
+		t.Fatalf("unexpected note on a cross-App plain family write: %q", stderr.String())
 	}
 }

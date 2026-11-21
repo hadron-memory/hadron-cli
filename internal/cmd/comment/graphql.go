@@ -20,6 +20,12 @@ func ConnectGraphQL(f *cmdutil.Factory) Connect {
 		return &graphqlService{client: client}, nil
 	}
 }
+
+// errDeleteThreadOutcomeUnknown is the exit-1 answer for a delete-thread whose
+// result is absent: the write was sent, so it may have applied (#2538, #2547).
+func errDeleteThreadOutcomeUnknown() error {
+	return exitcode.Newf(exitcode.Error, "server returned no delete-thread result; outcome unknown, read the thread (comment get) before retrying")
+}
 func missingResult() error {
 	return exitcode.Newf(exitcode.Unavailable, "comment operation returned no result; outcome is unknown — read before retrying a write")
 }
@@ -114,7 +120,7 @@ func (s *graphqlService) DeleteThread(ctx context.Context, ref, reason string) (
 		// The mutation was sent, so whether it executed is unknown — a blind
 		// retry is the one thing this error must prevent (#2538, the #2493
 		// pattern; exit 7 is the transport class and would say retry is safe).
-		return nil, exitcode.Newf(exitcode.Error, "server returned no delete-thread result; outcome unknown, read the thread (comment get) before retrying")
+		return nil, errDeleteThreadOutcomeUnknown()
 	}
 	return r.DeleteCommentThread, nil
 }

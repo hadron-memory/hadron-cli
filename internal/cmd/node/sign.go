@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -154,7 +153,10 @@ func newCeremonyTokenProbe(ctx context.Context, f *cmdutil.Factory) ceremonyToke
 
 // The three mapSigningError refusals. Named so the tests assert against the
 // message itself, not a hard-coded copy of its most distinctive fragment:
-// the wording lives here, once.
+// the wording lives here, once. Exported on purpose: package cmd's tests read
+// them, and Go has no cross-package export_test. They reach exitcode.Newf as
+// "%s" arguments, never as format strings, so a future "%" in the wording is
+// safe.
 const (
 	PagedListRefusal     = "this server does not offer the paged signing-request list; upgrade the server (hadron-server#4123)"
 	CeremonyPagesRefusal = "this server does not offer signing-request ceremony pages; upgrade the server (hadron-server#3120)"
@@ -168,26 +170,24 @@ func requestIsOpen(state string) bool {
 	return state == string(gen.SigningRequestStateOpen)
 }
 
-// ceremonyText renders the ceremony URL for text mode. Verbatim when the
-// value parses as a URL and its runes are all display-neutral-clean (the same
-// classification as table cells); url.Parse itself rejects control characters,
-// but format characters such as bidi overrides parse fine. Anything else is a
-// server string that must not reach the terminal raw (an OSC 8 hyperlink can
-// hide the real target, OSC 52 writes the clipboard, an embedded newline
-// forges lines), so it goes through the same neutralisation as a table cell:
-// still readable, never executable. No scheme test applies here: a clean
-// non-web value (javascript:alert(1), ftp://h/x) is byte-identical through
-// SafeCell, so classifying it would change no output — the scheme gate lives
-// where it acts, on opening a page (auth/passkey_revoke_page.go). One corner
-// differs: a clean value longer than SafeCell's 256-rune bound now prints in
-// full like a long web URL, instead of being truncated. "Copied verbatim,
-// never composed" is about not building the URL; --json carries the raw value
+// ceremonyText renders the ceremony URL for text mode. The rule is
+// "display-clean => verbatim, at any length": a value whose runes are all
+// display-neutral-clean (the same classification as table cells) prints as
+// is. Anything else is a server string that must not reach the terminal raw
+// (an OSC 8 hyperlink can hide the real target, OSC 52 writes the clipboard,
+// an embedded newline forges lines; bidi and other format characters are
+// neutralised too), so it goes through the same neutralisation as a table
+// cell: still readable, never executable. There is deliberately no url.Parse
+// and no scheme test: a clean non-web value (javascript:alert(1), ftp://h/x)
+// is byte-identical through SafeCell, so classifying it would change no
+// output. No signing command opens a ceremony URL (sign.go has no exec or
+// browser path); auth/passkey_revoke_page.go is only the platform's other
+// URL-opening surface, where a scheme gate acts. "Copied verbatim, never
+// composed" is about not building the URL; --json carries the raw value
 // either way.
 func ceremonyText(u string) string {
 	if !strings.ContainsFunc(u, output.Neutralised) {
-		if _, err := url.Parse(u); err == nil {
-			return u
-		}
+		return u
 	}
 	return output.SafeCell(u)
 }
@@ -201,7 +201,7 @@ func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 	// hadron-server#4123) is told so: "does not offer node signing" would be
 	// wrong, and there is no fallback to the unpaged read (cli#2032).
 	if api.IsGraphQLValidationFor(err, "signingRequestsPage") {
-		return exitcode.Newf(exitcode.Usage, PagedListRefusal)
+		return exitcode.Newf(exitcode.Usage, "%s", PagedListRefusal)
 	}
 	// SigningRequest.ceremonyUrl is newer than the rest of the surface
 	// (hadron-server#3120), so a server can have signing and still refuse
@@ -221,13 +221,13 @@ func mapSigningError(err error, ceremonyToken ceremonyTokenProbe) error {
 			return api.MapError(err)
 		}
 		if advertised, perr := ceremonyToken(); perr == nil && advertised {
-			return exitcode.Newf(exitcode.Usage, CeremonyPagesRefusal)
+			return exitcode.Newf(exitcode.Usage, "%s", CeremonyPagesRefusal)
 		}
-		return exitcode.Newf(exitcode.Usage, SigningOffRefusal)
+		return exitcode.Newf(exitcode.Usage, "%s", SigningOffRefusal)
 	}
 	for _, name := range signingFields {
 		if api.IsGraphQLValidationFor(err, name) {
-			return exitcode.Newf(exitcode.Usage, SigningOffRefusal)
+			return exitcode.Newf(exitcode.Usage, "%s", SigningOffRefusal)
 		}
 	}
 	return api.MapError(err)
@@ -290,7 +290,7 @@ signing page — the request prints that page's link, the server's own URL,
 while it is open — and agents may ask but never sign.
 
 Any reader of the node may ask. Without --signer, any writer of the node's
-memory may sign; --signer names one user (by id), pinned for the life of the
+memory may sign; --signer names one user (by id; hadron user search lists them), pinned for the life of the
 request. Pass --revision from a prior node read to refuse if the node changed
 since you saw it. The request ends exactly once: completed, declined,
 withdrawn, expired, or stale when the title, abstract or content changes.

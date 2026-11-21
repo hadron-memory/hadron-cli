@@ -11,25 +11,28 @@ import (
 )
 
 // managerInstructionMinimum is the team door's server minimum for
-// --instruction; it is deliberately independent of the app door's.
-const managerInstructionMinimum = "4bac6127"
+// --instruction (commit 4bac6127, merged 2026-11-04, hadron-server#3398),
+// stated as the date the shared instruction text on every page already uses,
+// so a page says it once (cli#2617). It is display text only:
+// instruction.FlagUsageForServer prints it after "Needs server" and nothing
+// compares it with a server build. Today it is the same date as the app door's
+// (both are instruction.ServerFloorInstructionManagerWrites); each door keeps its OWN constant name
+// so a floor that later differs for one door changes in one place.
+const managerInstructionMinimum = instruction.ServerFloorInstructionManagerWrites
 
-// deliverySettingsInstructionMinimum is the same requirement as
-// managerInstructionMinimum (commit 4bac6127, merged 2026-11-04, hadron-server#3398)
-// stated as the date the page body already uses, so one page says it once.
-// It is display text only: instruction.FlagUsageForServer prints it after
-// "Needs server" and nothing compares it with a server build (the app door
-// already passes a date, "2026-11-03", the same way). Only delivery-settings
-// set uses it; the other team doors still print the commit (a follow-up would
-// move them together).
-const deliverySettingsInstructionMinimum = "2026-11-04"
+// deliverySettingsInstructionMinimum is the same requirement, kept as its own
+// name for delivery-settings set.
+const deliverySettingsInstructionMinimum = managerInstructionMinimum
 
 func addManagerInstruction(cmd *cobra.Command) {
 	instruction.AddManagerFlag(cmd, managerInstructionMinimum)
 }
 
 func managerInstruction(cmd *cobra.Command, f *cmdutil.Factory) (*gen.ActInstructionInput, InstructedWrite, error) {
-	raw, _ := cmd.Flags().GetString("instruction")
+	raw, err := cmd.Flags().GetString("instruction")
+	if err != nil {
+		return nil, nil, err
+	}
 	return staffingInstruction(cmd, f, raw)
 }
 func managerWriteContext(cmd *cobra.Command, ref string, claim *gen.ActInstructionInput, instructed InstructedWrite) (context.Context, error) {

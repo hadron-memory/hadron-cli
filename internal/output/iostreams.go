@@ -181,3 +181,13 @@ func (s *IOStreams) IsTerminal() bool { return s.outIsTerminal }
 // IsInputTerminal reports whether stdin is a TTY (i.e. a prompt can
 // actually be answered).
 func (s *IOStreams) IsInputTerminal() bool { return s.inIsTerminal }
+
+// TestOutputTerminal returns IOStreams over buffers whose STDOUT is a terminal
+// (cli#2664): the branch of a command that prints a secret only to a terminal
+// is otherwise unreachable from a test, because Test() has a non-terminal stdout.
+// Stdin stays non-terminal.
+func TestOutputTerminal() (*IOStreams, *bytes.Buffer, *bytes.Buffer) {
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	return &IOStreams{In: &bytes.Buffer{}, Out: Tracked(out), ErrOut: errOut, outIsTerminal: true}, out, errOut
+}

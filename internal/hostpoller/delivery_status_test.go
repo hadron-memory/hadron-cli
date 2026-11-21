@@ -3,6 +3,7 @@ package hostpoller
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 )
@@ -17,9 +18,16 @@ func TestDeliveryStepReportsItsRead(t *testing.T) {
 			p.EnableDelivery(src, &fakeDeliverer{})
 			var got []string
 			p.DeliveryStep = func(_ time.Time, read string) { got = append(got, read) }
+			wantAll := []string{want}
+			if want == "off-by-scope" {
+				// One scope answer is not believed (cli#2663): it reports
+				// read-failed; the second consecutive one is the verdict.
+				p.deliverStep(context.Background())
+				wantAll = []string{"read-failed", want}
+			}
 			p.deliverStep(context.Background())
-			if len(got) != 1 || got[0] != want {
-				t.Fatalf("reported %v, want [%s]", got, want)
+			if !slices.Equal(got, wantAll) {
+				t.Fatalf("reported %v, want %v", got, wantAll)
 			}
 		})
 	}

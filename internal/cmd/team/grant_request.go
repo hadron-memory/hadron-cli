@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"unicode"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -23,14 +22,23 @@ import (
 // and the CLI never reproduces the server's worker gate (cor:api:240:01).
 
 const grantRequestHelp = `The server answers only for a worker session driven by a person, in its own App.
-This command sends that session when this worktree is bound. Run unbound it still
-asks, without a worker session, and prints the server's refusal (it makes no local
-refusal); a stderr line says so. A binding on another server, or --app naming
-another App, is refused before anything is sent.
+This command sends that session when this worktree is bound. Run unbound it
+still asks, without a worker session, and prints the server's refusal (it makes
+no local refusal, except that 'hadron team grant request' with no holder id
+refuses first); a stderr line says so. A binding on another server, or --app
+naming another App, is refused before anything is sent.
 
 A requested grant is pending and allows nothing until a person signs it on the
 ceremony page. This command never signs and never activates a grant. It prints
 no grant state label, only the facts and allows.
+
+lastRefusedAt is the latest time the server observed a verified signing attempt
+that was refused as ineligible, shown as a timestamp only. A dash (null in
+--json) means none was observed, not that none happened: the server records
+these best effort. It names no one and changes nothing about the request.
+It shows on request-signature, signing-request get and signing-request withdraw,
+which need a server with hadron-server#4581 (an older server refuses them);
+'hadron team grant request' does not read it.
 
 These commands exist only where signing is switched on. On a server without it
 the command says "does not offer" and exits 2.
@@ -41,10 +49,6 @@ no longer in a state that allows it (GRANT_NOT_PENDING, GRANT_EXPIRED,
 GRANT_TERMS_UNREPRESENTABLE, SIGNING_REQUEST_ENDED); 8 not permitted
 (GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED,
 SIGNING_REQUEST_NOT_REQUESTER, FORBIDDEN). --json errors carry serverCode.`
-
-// errNoSigningRequest is a mutation that answered null where it must answer a
-// request: a malformed server answer, reported as one rather than dereferenced.
-var errNoSigningRequest = errors.New("server returned no signing request")
 
 const unboundNote = "no worker binding in this worktree; sent without a worker session"
 
@@ -90,93 +94,21 @@ func workerGrantWriteClient(ctx context.Context, f *cmdutil.Factory, b *binding)
 	return api.WithSession(ctx, b.SessionID), client, nil
 }
 
-// grantSigningFields are the schema names a grant-request operation can be
-// refused by when the server has no signing surface (its switch off, or older).
-var grantSigningFields = []string{
-	"createGrant", "CreateGrantInput", "requestGrantSignature", "withdrawGrantSigningRequest",
-	"grantSigningRequest", "GrantSigningRequest", "GrantSigningRequestState",
-}
-
-// mapGrantSigningError is api.MapErrorKeepingCode, except that a server whose
-// every error is a missing signing name gets its own sentence: the generic
-// skew advice (upgrade) is wrong where signing is simply not offered. A mixed
-// envelope (a missing name beside a real refusal) is not swallowed.
-func mapGrantSigningError(err error) error {
-	if errors.Is(err, errNoSigningRequest) {
-		return exitcode.Newf(exitcode.Error, "server returned no signing request")
-	}
-	if api.IsGraphQLValidationOnlyFor(err, grantSigningFields...) {
-		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "this server does not offer grant requests and grant signing"), err)
-	}
-	return api.MapErrorKeepingCode(err)
-}
-
-// grantSigningRequestDTO is the stable --json shape of a grant signing request.
-type grantSigningRequestDTO struct {
-	ID             string                   `json:"id"`
-	GrantID        string                   `json:"grantId"`
-	Version        int                      `json:"version"`
-	TermsHash      string                   `json:"termsHash"`
-	PayloadVersion string                   `json:"payloadVersion"`
-	State          string                   `json:"state"`
-	RequestedBy    grantSigningRequesterDTO `json:"requestedBy"`
-	CreatedAt      string                   `json:"createdAt"`
-	ExpiresAt      string                   `json:"expiresAt"`
-	EndedAt        *string                  `json:"endedAt"`
-	CeremonyURL    string                   `json:"ceremonyUrl"`
-}
-
-type grantSigningRequesterDTO struct {
-	UserID    *string `json:"userId"`
-	AppID     *string `json:"appId"`
-	WorkerID  *string `json:"workerId"`
-	SessionID *string `json:"sessionId"`
-}
-
-func grantSigningRequestFrom(r *gen.TeamGrantSigningRequestFields) grantSigningRequestDTO {
-	d := grantSigningRequestDTO{
-		ID: r.Id, GrantID: r.GrantId, Version: r.Version, TermsHash: r.TermsHash, PayloadVersion: r.PayloadVersion,
-		State: string(r.State), CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, EndedAt: r.EndedAt, CeremonyURL: r.CeremonyUrl,
-	}
-	if rb := r.RequestedBy; rb != nil {
-		d.RequestedBy = grantSigningRequesterDTO{rb.UserId, rb.AppId, rb.WorkerId, rb.SessionId}
-	}
-	return d
-}
-
-// unsafeForTerminal reports a character that could act on a terminal when
-// printed: C0, DEL and C1 controls (Cc), format characters (Cf) and the line
-// and paragraph separators (Zl, Zp).
-func unsafeForTerminal(s string) bool {
-	for _, r := range s {
-		if unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r) {
-			return true
-		}
-	}
-	return false
-}
-
-func grantOrDash(p *string) string {
-	if p == nil {
-		return "—"
-	}
-	return output.SafeCell(*p)
-}
-
 // renderGrantSigningRequest prints the request. ceremonyUrl is never routed
 // through SafeCell (it would truncate or rewrite it): it is printed exactly as
 // returned, or the text render is refused when it could act on a terminal.
-func renderGrantSigningRequest(f *cmdutil.Factory, d grantSigningRequestDTO) error {
+func renderGrantSigningRequest(f *cmdutil.Factory, d cmdutil.GrantSigningRequestDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		if unsafeForTerminal(d.CeremonyURL) {
-			return exitcode.Newf(exitcode.Error, "the ceremony URL contains control or format characters and is not printed as text; use --json to read it exactly")
+		if cmdutil.UnsafeForTerminal(d.CeremonyURL) {
+			return cmdutil.CeremonyURLRefusal()
 		}
 		rows := [][2]string{
 			{"id", output.SafeCell(d.ID)}, {"grantId", output.SafeCell(d.GrantID)}, {"version", fmt.Sprint(d.Version)},
 			{"termsHash", output.SafeCell(d.TermsHash)}, {"payloadVersion", output.SafeCell(d.PayloadVersion)}, {"state", output.SafeCell(d.State)},
-			{"requestedBy.userId", grantOrDash(d.RequestedBy.UserID)}, {"requestedBy.appId", grantOrDash(d.RequestedBy.AppID)},
-			{"requestedBy.workerId", grantOrDash(d.RequestedBy.WorkerID)}, {"requestedBy.sessionId", grantOrDash(d.RequestedBy.SessionID)},
-			{"createdAt", output.SafeCell(d.CreatedAt)}, {"expiresAt", output.SafeCell(d.ExpiresAt)}, {"endedAt", grantOrDash(d.EndedAt)},
+			{"requestedBy.userId", cmdutil.DashOrCell(d.RequestedBy.UserID)}, {"requestedBy.appId", cmdutil.DashOrCell(d.RequestedBy.AppID)},
+			{"requestedBy.workerId", cmdutil.DashOrCell(d.RequestedBy.WorkerID)}, {"requestedBy.sessionId", cmdutil.DashOrCell(d.RequestedBy.SessionID)},
+			{"createdAt", output.SafeCell(d.CreatedAt)}, {"expiresAt", output.SafeCell(d.ExpiresAt)}, {"endedAt", cmdutil.DashOrCell(d.EndedAt)},
+			{"lastRefusedAt", cmdutil.DashOrCell(d.LastRefusedAt)},
 			{"ceremonyUrl", d.CeremonyURL},
 		}
 		for _, r := range rows {
@@ -206,17 +138,19 @@ func newCmdTeamGrantRequest(f *cmdutil.Factory) *cobra.Command {
 		Long: `Ask for a pending grant for this worker (--holder worker, the default) or its
 role agent (--holder agent), from a bound worker session that a person is
 driving: the server refuses any other caller, so bind first ('hadron team
-session start'). The holder id comes from the binding; --holder-id overrides it
-(and the CLI requires it when there is no binding), but the server still refuses
-a call that does not come from a bound, person-driven worker session.
+session start'). The holder id comes from the binding; --holder-id overrides it.
+With no binding and no --holder-id the command refuses locally (exit 2,
+"pass --holder-id") and sends nothing. With --holder-id it sends, and the
+server still refuses a call that does not come from a bound, person-driven
+worker session.
 
 --action is an action name from 'hadron team grant actions'. --values is the
 JSON object of that action's parameters (or @file): the PARAMETERS column of
-'team grant actions' (or 'team grant action <name>') lists the names and kinds
-it needs; whether your values fit is the server's to judge. --reason is shown to
-the person who signs. --starts-at and --expires-at take a timestamp such as
-2026-12-01T09:00:00Z (the server parses it); --max-uses is a count; leave them
-out to let the server apply its defaults.
+'hadron team grant actions' (or 'hadron team grant action <name>') lists the
+names and kinds it needs; whether your values fit is the server's to judge.
+--reason is shown to the person who signs. --starts-at and --expires-at take a
+timestamp such as 2026-12-01T09:00:00Z (the server parses it); --max-uses is a
+count; leave them out to let the server apply its defaults.
 
 Prints the pending grant in its fourteen fields (see 'hadron team grant get').
 Next step: 'hadron team grant request-signature <id>', then give the URL to a
@@ -281,7 +215,7 @@ person.
 			}
 			resp, err := gen.TeamCreateGrant(ctx, client, &in)
 			if err != nil {
-				return mapGrantSigningError(err)
+				return cmdutil.MapGrantSigningError(err)
 			}
 			if resp == nil || resp.CreateGrant == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no grant result")
@@ -333,19 +267,19 @@ func signingRequestVerb(f *cmdutil.Factory, use, short, what, example string, ca
 			}
 			r, err := call(ctx, client, id)
 			if err != nil {
-				return mapGrantSigningError(err)
+				return cmdutil.MapGrantSigningError(err)
 			}
 			if r == nil {
 				return exitcode.Newf(exitcode.NotFound, "signing request %q not found (or not visible to this caller)", id)
 			}
-			return renderGrantSigningRequest(f, grantSigningRequestFrom(r))
+			return renderGrantSigningRequest(f, cmdutil.GrantSigningRequestFrom(r))
 		},
 	}
 }
 
 func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 	return signingRequestVerb(f, "request-signature <grant-id>", "Ask for a pending grant to be signed",
-		"Prints the signing request and its ceremonyUrl, the page where a person signs the\ngrant. Hand the URL to that person as printed; it is never composed, shortened or\nrewritten here. Text mode refuses a URL carrying control or format characters\n(exit 1); --json always carries it byte for byte.",
+		"Prints the signing request and its ceremonyUrl, the page where a person signs\nthe grant. <grant-id> is the id that 'hadron team grant request' printed. Hand\nthe URL to that person as printed; it is never composed, shortened or rewritten\nhere. Text mode refuses a URL carrying control or format characters (exit 1);\n--json always carries it; the decoded JSON string is the URL exactly.",
 		"  hadron team grant request-signature <grant-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamRequestGrantSignature(ctx, c, id)
@@ -353,7 +287,7 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 				return nil, err
 			}
 			if resp == nil || resp.RequestGrantSignature == nil {
-				return nil, errNoSigningRequest
+				return nil, cmdutil.ErrNoSigningRequest
 			}
 			return &resp.RequestGrantSignature.TeamGrantSigningRequestFields, nil
 		})
@@ -362,7 +296,7 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a signing request this worker made.\n\n" + grantRequestHelp}
 	get := signingRequestVerb(f, "get <request-id>", "Read a grant signing request",
-		"Shows whether the URL you handed over was signed. <request-id> is the id printed by\n'hadron team grant request-signature'. state is the server's own word, printed as sent:\n  OPEN       not signed yet: the person can still sign; ask them, or wait\n  COMPLETED  signed and recorded: read the grant with 'team grant get <id>'\n  DECLINED   the signer turned it down: change the request or ask someone else\n  EXPIRED    its lifetime passed (24 hours by default): run request-signature again\n  STALE      the grant was revoked, its holder went, or its terms changed: request again\n  WITHDRAWN  the requester withdrew it: run request-signature again if still wanted",
+		"Shows whether the URL you handed over was signed. <request-id> is the id printed\nby 'hadron team grant request-signature'. state is the server's own word,\nprinted as sent:\n  OPEN       not signed yet: the person can still sign; ask them, or wait\n  COMPLETED  signed and recorded: read the grant with 'hadron team grant get\n             <grant-id>' (the id 'hadron team grant request' printed)\n  DECLINED   the signer turned it down: change the request or ask someone else\n  EXPIRED    its lifetime passed (24 hours by default): run\n             'hadron team grant request-signature <grant-id>' again\n  STALE      the grant was revoked, its holder went, or its terms changed:\n             request again\n  WITHDRAWN  the requester withdrew it: run request-signature again if still\n             wanted",
 		"  hadron team grant signing-request get <request-id> --json",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamGrantSigningRequest(ctx, c, id)
@@ -372,7 +306,7 @@ func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 			return &resp.GrantSigningRequest.TeamGrantSigningRequestFields, nil
 		})
 	withdraw := signingRequestVerb(f, "withdraw <request-id>", "Withdraw an open grant signing request",
-		"Ends a signing request this worker made, so its URL can no longer be signed. It\nwithdraws the request, not the grant, and is not confirmed: it can be asked again\nonly as a new request.",
+		"Ends a signing request this worker made, so its URL can no longer be signed.\nIt withdraws the request, not the grant, and is not confirmed: it can be asked\nagain only as a new request.",
 		"  hadron team grant signing-request withdraw <request-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamWithdrawGrantSigningRequest(ctx, c, id)
@@ -380,7 +314,7 @@ func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 				return nil, err
 			}
 			if resp == nil || resp.WithdrawGrantSigningRequest == nil {
-				return nil, errNoSigningRequest
+				return nil, cmdutil.ErrNoSigningRequest
 			}
 			return &resp.WithdrawGrantSigningRequest.TeamGrantSigningRequestFields, nil
 		})

@@ -58,7 +58,7 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 		var head, slot, supersedes, verdict, node, receiptURL string
 		var slots []string
 		uses := map[string]string{"schedule": "schedule <build-task> --slot <id> [--slot <id>...]", "freeze": "freeze <build-task> <40-hex-sha>", "seat": "seat <seat-task> --slot <id> --head <sha>", "verdict": "verdict <seat-task> --head <sha> --verdict <verdict>", "readiness": "readiness <build-task> --head <sha>", "ready": "ready <build-task> --head <sha>"}
-		shorts := map[string]string{"schedule": "Replace the review slots a PR needs (owner chain only)", "freeze": "Fix the head under review (build assignee only)", "seat": "Bind a seat task to a scheduled slot (owner chain only)", "verdict": "Record a seat's verdict without finishing it (seat assignee only)", "readiness": "Show whether every scheduled review counts at a head", "ready": "Record the ready call once every review counts (build assignee only)"}
+		shorts := map[string]string{"schedule": "Replace the review slots a PR needs (owner chain only)", "freeze": "Fix the head under review (build assignee only)", "seat": "Bind a seat task to a scheduled slot (the seat task's owner chain only)", "verdict": "Record a seat's verdict without finishing it (seat assignee only)", "readiness": "Show whether every scheduled review counts at a head", "ready": "Record the ready call once every review counts (build assignee only)"}
 		c := &cobra.Command{Use: uses[verb], Short: shorts[verb], Long: prLeafLong[verb], Example: prLeafExample[verb], Args: cobra.ExactArgs(1)}
 		if verb == "freeze" {
 			c.Args = cobra.ExactArgs(2)
@@ -295,6 +295,25 @@ const prGroupExample = `  hadron team pr schedule AT0.7850 --slot local --slot b
   hadron team pr readiness AT0.7850 --head 0123456789abcdef0123456789abcdef01234567
   hadron team pr ready AT0.7850 --head 0123456789abcdef0123456789abcdef01234567`
 
+// prReviewRules is shared by "pr seat" and "pr verdict" (cli#2785): the order, what a
+// negative verdict does, and the remedy when a seat cannot bind or record. Only a
+// verdict recorded with "pr verdict" counts toward readiness; a signed PR receipt is
+// evidence beside it.
+const prReviewRules = `
+
+The order is schedule, freeze, seat, verdict, finish. A seat binds to a task
+that has not ended (PENDING or STARTED); only pr verdict needs it STARTED, and a
+finished seat cannot take a verdict. A
+negative verdict at a head blocks every slot there until the head moves or its
+own reviewer re-rates it.
+
+When a seat cannot bind or record (TASK_ENDED, REVIEW_SEAT_UNASSIGNED or
+REVIEW_HEAD_MISMATCH), only a verdict recorded with pr verdict counts: create a
+fresh seat task and bind it with --supersedes at the same head, and its reviewer
+records the verdict and finishes. A signed PR receipt at the exact head is
+evidence, not the record: pass it with --receipt.
+`
+
 const prSeeGroup = "\nThe flow and the exit codes are on \"hadron team pr --help\"."
 
 var prLeafLong = map[string]string{
@@ -325,7 +344,9 @@ Normally run it after "pr schedule" and before "pr seat". Prints the build task
 and the recorded action.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
-is named for that review. Only the build task's owner chain may.
+is named for that review. Only the seat task's owner chain may: its owner (the
+build task's assignee, who created it), a worker the owner reports to, or
+whoever manages the App. The seat's own assignee alone may not (TASK_NOT_OWNER).
 
 The seat task must already exist, as a direct child of the build task (hadron
 team task create "..." --parent <build-task> --assignee worker:<name>). The
@@ -337,7 +358,7 @@ To replace a reviewer or move to a new head, create a new seat task and pass
 the slot's current seat task as --supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED
 if you do not). A seat that already gave CHANGES_REQUESTED, FAIL or REFUSED at
 this head cannot be replaced or moved (REVIEW_SEAT_NOT_SUPERSEDABLE): answer the
-finding with a new head. Prints the seat task and the recorded action.` + prSeeGroup,
+finding with a new head. Prints the seat task and the recorded action.` + prReviewRules + prSeeGroup,
 
 	"verdict": `Record your verdict on a seat you were assigned, without finishing the seat
 task. Only the seat's assignee may, the task must be STARTED, the seat must
@@ -356,7 +377,7 @@ recorded a negative verdict may re-rate it at that head).
 
 --node names the Hadron node holding your saved review and --receipt the URL of
 your signed PR comment; both are recorded as text, not fetched. Prints the seat
-task and the recorded action.` + prSeeGroup,
+task and the recorded action.` + prReviewRules + prSeeGroup,
 
 	"readiness": `Show whether every scheduled review is in at a head: READY, or NOT READY with
 a row per slot saying which seat, state and verdict it has and whether it

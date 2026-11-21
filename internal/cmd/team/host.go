@@ -185,8 +185,9 @@ host's registered id and host.yaml — the form its installed timer runs.
 
 Prerequisites: sign in (` + "`hadron auth login`" + `), a team App context (pass ` + "`--app`" + `
 or run from a bound worktree), and for the host-local commands (` + "`run`" + `,
-` + "`sweep`" + `, ` + "`up`" + `, ` + "`availability`" + `, ` + "`report-stops`" + `) a host.yaml — its shape is
-documented by ` + "`hadron team host run --help`" + `. A host's server key is granted
+` + "`sweep`" + `, ` + "`availability`" + `, ` + "`report-stops`" + `) a host.yaml — its shape is
+documented by ` + "`hadron team host run --help`" + `. ` + "`up`" + ` needs none: its --config is
+only an optional reporting key. A host's server key is granted
 with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamHostLs(f))
@@ -213,7 +214,7 @@ func newCmdTeamHostLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List the App's host registrations",
 		Long: `List the App's host registrations: each host's id and label, how often it
 checks in, whether it is live now (refreshed within the App's host-lapse
-count of its check-ins, cor:agt:070:01), and the workers it can launch with
+count of its check-ins), and the workers it can launch with
 their family and worktrees. Whoever reads the App's tasks and events may.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -312,12 +313,14 @@ func newCmdTeamHostOps(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ops",
 		Short: "List the operations issued to the App's hosts",
-		Long: `List the App's host operations, NEWEST first (cor:agt:070:02): each one's
+		Long: `List the App's host operations, NEWEST first: each one's
 type, host, worker, status, who issued it and, once reported, its result or
 failure reason. When the platform issued it for no task, the BY cell adds the
 server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
 run and has no session; --json carries it as issuedReason, absent when the
-server names none; a server older than #4257 has no such field, and the list then reads without it, saying so once (a stderr note, or a warnings entry in --json). Whoever reads the App's tasks and events may.
+server names none. A server older than #4257 has no such field: the list then
+reads without it and says so once (a stderr note, or a warnings entry in
+--json). Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
@@ -471,7 +474,8 @@ never a credential:
 The worker is named with --worker (id, URN or name), never inside --arg.
 Issuing worker.start by hand is the one-off form; the usual way to start
 workers is a reconcile — ` + "`team host up --apply`" + ` starts every worker the
-host's record says it runs. worker.deliver is not issued until a host has a
+host's record says it runs, but plans nothing unless the App's sweepMode is
+APPLY (see ` + "`team host up --help`" + `). worker.deliver is not issued until a host has a
 delivery path for it (hadron-cli#829), refusing HOST_OPERATION_NOT_ISSUABLE
 (exit 2). Any other type is HOST_OPERATION_TYPE_UNKNOWN (exit 2), and a
 missing, extra or malformed argument BAD_HOST_OPERATION_ARGS (exit 2). An
@@ -487,12 +491,20 @@ the holder and the reports-to worker are refused (else
 HOST_OPERATION_NOT_PERMITTED, exit 8). In a worktree bound to a worker, the
 operation is that worker's: it qualifies only as the target's reports-to.
 Pass --as-person to issue it as yourself instead — as the target's holder or
-the App's manager — with no worker session.`,
+the App's manager — with no worker session. With --instruction the write
+goes out through a verified manager-held worker session with the holder's
+claim, as the shared instruction help below describes.`,
 		Example: `  hadron team host issue worktree.create --host orca1 --worker Jonas \
     --arg repo=hadron-memory/hadron-cli --arg baseBranch=main --arg branchName=jonas/871 --arg label=jonas-3
   hadron team host issue worktree.remove --host orca1 --worker Jonas --arg worktree=hadron-memory/hadron-cli/jonas-3 --as-person`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#2774: parse the claim and snapshot the binding before the
+			// first lookup, so an instructed write can verify what it read.
+			claim, instructed, err := managerInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			opType := strings.TrimSpace(args[0])
 			if opType == "" {
@@ -524,13 +536,25 @@ the App's manager — with no worker session.`,
 			if asPersonFlag {
 				ctx = withAsPerson(ctx)
 			}
-			resp, err := gen.IssueHostOperation(ctx, client, &gen.IssueHostOperationInput{
+			if claim != nil {
+				// cli#2491 F1: an explicit instruction owns attribution, so the
+				// authored-write middleware must not attach a binding the claim
+				// did not verify; the instructed context attaches the verified
+				// session (or none, with the claim still sent, as the person).
+				ctx = withAsPerson(ctx)
+				var e error
+				ctx, _, e = instructed(ctx, "", scope.Ref)
+				if e != nil {
+					return e
+				}
+			}
+			resp, err := sendIssueHostOperation(ctx, client, &gen.IssueHostOperationInput{
 				AppRef: scope.Ref,
 				HostId: strings.TrimSpace(hostID),
 				Worker: strings.TrimSpace(worker),
 				Type:   opType,
 				Args:   opArgs,
-			})
+			}, claim)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -549,5 +573,11 @@ the App's manager — with no worker session.`,
 	cmd.Flags().StringVar(&worker, "worker", "", "the worker it is for: id, URN or name (required)")
 	cmd.Flags().StringArrayVar(&argPairs, "arg", nil, "an argument as key=value, repeatable")
 	cmd.Flags().BoolVar(&asPersonFlag, "as-person", false, "issue as yourself, not as the bound worktree's worker")
+	addManagerInstruction(cmd)
+	// --as-person promises no worker session on this write; --instruction
+	// claims the verified session's attribution. Together they contradict
+	// each other, and before this the claim silently won (#2774 review):
+	// refuse the pair instead of picking a winner.
+	cmd.MarkFlagsMutuallyExclusive("as-person", "instruction")
 	return cmd
 }

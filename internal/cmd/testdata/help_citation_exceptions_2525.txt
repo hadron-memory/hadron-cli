@@ -1,0 +1,127 @@
+# Help pages that still carry a spec citation or an issue number, and exactly which
+# references and how many (revision hashes are banned outright and are not listed).
+# cli#2525. A ratchet per reference: a page may carry fewer of a reference, never more,
+# and never one that is not listed; a listed reference the page no longer carries must
+# be removed. Shrink it with
+#   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -update-citation-exceptions
+# which never adds. A renamed command's entry moves with
+#   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -rename-citation-exception 'old page=>new page'
+# (never by hand). Line: <page>  # <kind> <reference> x<count> | ...
+# The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
+auth token list  # issue #3189 x1
+marketplace  # citation cor:acl:080:04 x1
+node list  # issue #3494 x1 | issue #3520 x1
+orca terminal status  # issue #3755 x1
+schedule  # citation cor:agt:010 x1
+skill lint  # citation cor:agt:030:06 x1
+spec  # issue #1591 x1
+spec backlinks  # issue #1591 x1
+spec check-tools  # issue #240 x1
+spec document  # citation cor:spc:030 x3 | citation cor:spc:030:02 x1
+spec edit  # citation cor:agt:020 x2 | citation cor:dmo:060:02 x1 | citation cor:dmo:110:03 x1 | citation cor:dmo:120:01 x1 | issue #1339 x1 | issue #1352 x1 | issue #738 x1 | issue #873 x1
+spec extract  # citation cor:dmo:060:02 x3
+spec get  # citation cor:dmo:060:02 x1
+spec ledger  # citation cor:dmo:140 x1
+spec link  # citation cor:dmo:020:04 x2 | citation cor:dmo:060:02 x2
+spec lint  # citation cor:api:140 x2 | issue #1591 x1 | issue #687 x1 | issue #708 x1
+spec mint  # citation cor:dmo:120:06 x1
+spec new  # issue #708 x1
+spec renumber  # issue #1591 x1
+spec replace  # citation cor:acl:130:02 x1
+spec rescind  # citation cor:spc:020:07 x1
+spec reserve  # issue #1591 x1
+spec supersede  # citation cor:spc:010:01 x1
+spec unresolved  # issue #1591 x1
+team  # citation cor:agt:020:01 x1 | citation cor:agt:020:02 x1 | issue #1050 x1 | issue #2027 x2 | issue #399 x1 | issue #400 x1 | issue #402 x1
+team alarms  # citation cor:agt:050:02 x1 | citation cor:agt:050:20 x1 | citation cor:agt:050:22 x1
+team app sweep-mode  # issue #4242 x2
+team attention  # issue #2027 x2
+team attention switchover  # issue #2027 x3
+team attention switchover apply  # issue #2027 x1
+team attention switchover preview  # issue #2027 x1
+team availability  # citation cor:agt:060:05 x1 | citation cor:agt:060:08 x1 | citation cor:agt:060:09 x1
+team availability set  # issue #3376 x1
+team chat  # citation cor:agt:020:03 x1 | issue #470 x1
+team chat mark-read  # issue #1353 x1
+team chat post  # citation cor:agt:020:03 x1 | issue #842 x1
+team chat read  # citation cor:agt:020:04 x1 | issue #1121 x1 | issue #1261 x1 | issue #1262 x1 | issue #1353 x1 | issue #406 x1 | issue #42 x1 | issue #474 x1 | issue #801 x1 | issue #817 x1 | issue #979 x1
+team events  # citation cor:agt:050:20 x1 | issue #4135 x1
+team grant action  # citation cor:acl:140:02 x1
+team grant actions  # citation cor:acl:140:02 x1
+team grant request  # issue #4581 x1
+team grant request-signature  # issue #4581 x1
+team grant signing-request  # issue #4581 x1
+team grant signing-request get  # issue #4581 x1
+team grant signing-request withdraw  # issue #4581 x1
+team health sweep  # issue #2027 x1
+team host import  # issue #4230 x1 | issue #4241 x1
+team host issue  # issue #829 x1
+team host ops  # issue #4257 x1
+team host run  # issue #1178 x1 | issue #1263 x1 | issue #2057 x1 | issue #2058 x2 | issue #2068 x1 | issue #2072 x1 | issue #2121 x1 | issue #2201 x2 | issue #4224 x1 | issue #829 x1 | issue #940 x1
+team host up  # issue #4224 x1 | issue #4241 x1
+team init  # citation cor:dmo:050:03 x1 | issue #384 x1 | issue #400 x1 | issue #939 x1 | issue #958 x1
+team register  # issue #3312 x1
+team review-stats  # citation cor:agt:130:06 x1 | issue #4281 x1
+team role  # issue #1050 x1
+team role create  # issue #1050 x1 | issue #960 x1
+team role update  # issue #960 x1
+team roster  # citation cor:agt:050:22 x1 | citation cor:agt:060:12 x1 | issue #2771 x1 | issue #3026 x1 | issue #3084 x1
+team router  # issue #2027 x4
+team router loop  # issue #2027 x1 | issue #2138 x1
+team router poll  # issue #2027 x1 | issue #2138 x1
+team router status  # issue #2027 x1 | issue #2138 x1
+team session  # citation cor:agt:020:09 x1 | issue #1034 x1 | issue #1114 x1
+team session end  # citation cor:agt:020:03 x1 | citation cor:agt:020:09 x2 | citation cor:agt:020:10 x2 | issue #1029 x1 | issue #1114 x2 | issue #1157 x1 | issue #623 x2 | issue #842 x1
+team session list  # issue #1114 x1 | issue #399 x1
+team session log  # issue #399 x2 | issue #401 x1 | issue #474 x1
+team session recover  # issue #2062 x1
+team session reset-context  # issue #2161 x1
+team session resume-claim  # citation cor:agt:020:03 x1 | issue #842 x1
+team session set-model  # issue #1931 x1
+team session shed  # issue #952 x1
+team session start  # citation cor:agt:020:03 x3 | citation cor:agt:020:09 x1 | citation cor:agt:070:08 x1 | issue #1114 x1 | issue #1617 x1 | issue #2209 x1 | issue #3822 x1 | issue #399 x1 | issue #472 x1 | issue #831 x1 | issue #842 x1
+team session sync-model  # issue #2252 x1 | issue #995 x1
+team session whoami  # citation cor:agt:020:09 x1 | issue #1114 x2 | issue #2969 x1 | issue #484 x1 | issue #623 x1
+team stall-schedule  # citation cor:agt:050:10 x1 | citation cor:agt:050:14 x1 | citation cor:agt:070:01 x1 | citation cor:agt:070:02 x1
+team stall-schedule set  # citation cor:agt:050:10 x1 | citation cor:agt:050:14 x1 | citation cor:agt:050:15 x1 | citation cor:agt:050:16 x1 | citation cor:agt:050:17 x1 | citation cor:agt:070:01 x1 | citation cor:agt:070:02 x1
+team task  # citation cor:agt:050:08 x1 | issue #3029 x1 | issue #3088 x1 | issue #3245 x1
+team task add-blocker  # citation cor:agt:050:09 x1
+team task assign  # citation cor:agt:050:09 x1 | citation cor:agt:050:10 x1
+team task cancel  # citation cor:agt:050:09 x1
+team task clone  # citation cor:agt:050:02 x1 | citation cor:agt:050:28 x1 | issue #2646 x1
+team task create  # citation cor:agt:050:01 x2 | citation cor:agt:050:10 x1 | citation cor:agt:050:14 x1 | citation cor:agt:120:02 x1 | issue #1757 x1 | issue #2648 x1 | issue #2654 x1 | issue #2983 x1 | issue #3029 x2 | issue #3088 x1 | issue #3245 x1 | issue #4295 x1
+team task find-untracked  # issue #3132 x1 | issue #3422 x1
+team task finish  # citation cor:agt:050:08 x1 | citation cor:agt:050:30 x1 | issue #2662 x1 | issue #3248 x2
+team task get  # citation cor:agt:050:02 x1 | issue #2646 x1
+team task hand-back  # citation cor:agt:050:03 x1 | citation cor:agt:050:29 x1
+team task link-defect  # issue #4280 x1 | issue #4284 x1
+team task list  # citation cor:agt:050:02 x2 | citation cor:agt:050:20 x1 | issue #1044 x1 | issue #2370 x1 | issue #2654 x1 | issue #3245 x1 | issue #3258 x1
+team task park  # citation cor:agt:050:02 x1 | citation cor:agt:050:09 x1
+team task progress  # citation cor:agt:050:08 x1 | citation cor:agt:050:15 x1
+team task ready  # citation cor:agt:050:02 x1 | citation cor:agt:050:09 x1
+team task reassign  # citation cor:agt:050:09 x1 | citation cor:agt:050:10 x1
+team task release  # citation cor:agt:050:09 x1 | citation cor:agt:120:02 x1 | issue #4084 x1
+team task remove-blocker  # citation cor:agt:050:09 x1
+team task set-priority  # citation cor:agt:050:09 x1
+team task start  # citation cor:agt:050:08 x1
+team task tree  # citation cor:agt:050:20 x1
+team task update  # citation cor:agt:050:14 x1 | issue #2648 x1 | issue #2983 x1 | issue #3029 x1 | issue #3088 x1 | issue #3718 x1
+team wake-settings  # citation cor:agt:080:03 x1 | citation cor:agt:080:21 x1
+team wake-settings set  # citation cor:agt:080:21 x1
+team wakes  # citation cor:agt:080:08 x1
+team wakes ack  # citation cor:agt:080:16 x1
+team wakes due  # citation cor:agt:080:08 x1 | citation cor:agt:080:15 x1 | citation cor:agt:090:04 x2
+team worker  # citation cor:dmo:050:11 x1 | issue #991 x1
+team worker cast  # citation cor:agt:020:00 x1 | citation cor:agt:020:01 x1 | citation cor:agt:020:02 x1 | citation cor:agt:020:09 x1 | citation cor:dmo:050:11 x1 | issue #1050 x1 | issue #2468 x1 | issue #404 x1 | issue #933 x1
+team worker change-agent  # issue #2504 x1
+team worker compile  # citation cor:agt:040:13 x1 | issue #1463 x1
+team worker get  # citation cor:agt:040:13 x1 | citation cor:agt:060:02 x1 | citation cor:agt:060:12 x1 | citation cor:dmo:050:11 x1 | issue #3084 x1
+team worker leave-alone  # issue #4242 x2
+team worker list  # citation cor:agt:020:01 x1 | citation cor:agt:020:09 x1 | issue #458 x1
+team worker onboard  # citation cor:agt:070:05 x1 | issue #2027 x1
+team worker release  # citation cor:agt:020:02 x1 | citation cor:agt:020:09 x1 | issue #1073 x1
+team worker retire  # citation cor:agt:020:02 x1
+team worker rm  # citation cor:dmo:050:11 x1 | issue #1735 x1
+team worker update  # citation cor:agt:040:04 x1
+ticker apply-templates  # citation cor:agt:080:33 x1 | issue #2096 x1
+usage activity  # citation cor:acl:090:01 x1

@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -46,6 +47,35 @@ func collectReplaceCommentPages1051(root *cobra.Command) []*cobra.Command {
 	return pages
 }
 
+var placeholder1051 = regexp.MustCompile(`<[^<>\s]+>`)
+
+// fillPlaceholders1051 replaces every <placeholder> in a word, wherever it sits:
+// whole (<id>), after an equals sign (--node=<id>) or glued to a short flag
+// (-m<mem>), the forms a reader fills in by hand.
+func fillPlaceholders1051(w string) string {
+	return placeholder1051.ReplaceAllStringFunc(w, func(m string) string {
+		return "fixture-" + strings.Trim(m, "<>")
+	})
+}
+
+// Pre-existing helpers used in this file, all on main in package cmd:
+// matchKnownPanic, resolvedPath, isConfirmRefusal and newWalkFixture live in
+// help_walk_common_2601_test.go; knownPanics1051 is declared in this file;
+// testFactory is in root_test.go.
+func TestFillPlaceholders1051(t *testing.T) {
+	for in, want := range map[string]string{
+		"<id>":         "fixture-id",
+		"--node=<id>":  "--node=fixture-id",
+		"-m<mem>":      "-mfixture-mem",
+		"plain":        "plain",
+		"<org>::<mem>": "fixture-org::fixture-mem",
+	} {
+		if got := fillPlaceholders1051(in); got != want {
+			t.Errorf("%q -> %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
 	fx := newWalkFixture(t)
 
@@ -77,10 +107,7 @@ func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
 				dir := t.TempDir()
 				args := make([]string, 0, len(words)+2)
 				for _, w := range words[1:] {
-					if strings.HasPrefix(w, "<") && strings.HasSuffix(w, ">") {
-						w = "fixture-" + strings.Trim(w, "<>") // a placeholder the reader fills in
-					}
-					args = append(args, w)
+					args = append(args, fillPlaceholders1051(w))
 				}
 				if unsafe := unsafeExamplePath1053(args, dir); unsafe != "" {
 					t.Errorf("%s: example %q names the path %q, which the harness does not redirect", path, ex, unsafe)
@@ -105,23 +132,26 @@ func TestReplaceCommentHelpExamplesAreWired1051(t *testing.T) {
 					func() {
 						defer func() {
 							if r := recover(); r != nil {
-								for cmdPath, issue := range knownPanics1051 {
-									if strings.HasPrefix(ex, "hadron "+cmdPath+" ") {
-										t.Logf("known panic on an empty fixture reply (%s): %v", issue, r)
-										panicked = true
-									}
-								}
-								if !panicked {
+								issue, known := matchKnownPanic(knownPanics1051, resolvedPath(root, args), r)
+								if !known {
 									t.Errorf("panicked on an empty fixture reply: %v", r)
+									return
 								}
+								t.Logf("known panic on an empty fixture reply (%s): %v", issue, r)
+								panicked = true
 							}
 						}()
 						err = root.Execute()
 					}()
+					sent := fx.since(before)
 					if panicked {
+						// The exemption excuses the panic, not the wiring: the example
+						// must still have reached the server.
+						if len(sent) == 0 {
+							t.Errorf("a known panic is exempt only after a request was sent; none was recorded")
+						}
 						return
 					}
-					sent := fx.since(before)
 					msg := ""
 					if err != nil {
 						msg = strings.SplitN(err.Error(), "\n", 2)[0]

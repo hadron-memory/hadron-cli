@@ -10,7 +10,13 @@ import (
 )
 
 // fakeResets records every protocol step; this slice must make none.
-type fakeResets struct{ calls []string }
+type fakeResets struct {
+	calls []string
+	// checkpointNode, when set, is the checkpoint node RegisterResetRecovery
+	// answers with, so a test can carry a reset past the checkpoint to a
+	// later step (cli#2653 item 1).
+	checkpointNode string
+}
 
 func (f *fakeResets) ClaimReset(context.Context, string, int, ProcessIdentity) (ResetStep, error) {
 	f.calls = append(f.calls, "claim")
@@ -18,7 +24,7 @@ func (f *fakeResets) ClaimReset(context.Context, string, int, ProcessIdentity) (
 }
 func (f *fakeResets) RegisterResetRecovery(context.Context, string, int, ResetCheckpoint, string, string) (ResetStep, error) {
 	f.calls = append(f.calls, "recovery")
-	return ResetStep{}, nil
+	return ResetStep{Reset: ContextReset{CheckpointNode: f.checkpointNode}}, nil
 }
 func (f *fakeResets) AuthorizeResetStop(context.Context, string, int, ProcessIdentity) (ResetStep, error) {
 	f.calls = append(f.calls, "authorize")
@@ -78,6 +84,10 @@ type resetFixture struct {
 	gitDir string
 	idle   func(context.Context, string) error
 	agent  *fakeAgent
+	// onGit, when set, runs inside the injected Git read, so a test can land
+	// a change mid-handler exactly where a concurrent reload would (cli#2653
+	// item 1).
+	onGit func()
 }
 
 func newResetFixture(t *testing.T) *resetFixture {
@@ -92,6 +102,9 @@ func newResetFixture(t *testing.T) *resetFixture {
 		Proc: x.proc,
 		Git: func(_ context.Context, dir string) (GitTreeState, error) {
 			x.gitDir = dir
+			if x.onGit != nil {
+				x.onGit()
+			}
 			return x.git, x.gitErr
 		},
 		Idle: func(ctx context.Context, target ResetIdleTarget) error { return x.idle(ctx, target.WorkerRef) },

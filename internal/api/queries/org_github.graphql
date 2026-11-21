@@ -1,0 +1,36 @@
+# hadron-cli#2512 — `hadron org github`: the org's GitHub App installation and
+# credentials (a cli#67 parity slice; gap #60 in coverage-matrix.txt).
+#
+# All three mutations take the org ref as typed (id or URN — the server
+# resolves it) and return the Organization. The server owns the access check
+# (org ADMIN or platform ADMIN per the SDL) and never returns key material:
+# only hasGithubAppPrivateKey says one is stored.
+
+fragment OrgGithubFields on Organization {
+  id
+  urn
+  githubAppId
+  githubInstallationId
+  hasGithubAppPrivateKey
+}
+
+mutation LinkGithubApp($orgRef: ID!, $installationId: Int!) {
+  linkGithubApp(orgRef: $orgRef, installationId: $installationId) {
+    ...OrgGithubFields
+  }
+}
+
+mutation UnlinkGithubApp($orgRef: ID!) {
+  unlinkGithubApp(orgRef: $orgRef) {
+    ...OrgGithubFields
+  }
+}
+
+# privateKey is required: set-app always sets the credentials as a pair, so
+# there is no omit-vs-clear distinction to preserve (unlike
+# updateOrganization) and no omitempty annotations here.
+mutation UpdateOrgGithubApp($orgRef: ID!, $appId: String!, $privateKey: String!) {
+  updateOrgGithubApp(orgRef: $orgRef, appId: $appId, privateKey: $privateKey) {
+    ...OrgGithubFields
+  }
+}

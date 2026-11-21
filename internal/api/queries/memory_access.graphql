@@ -136,7 +136,7 @@ query MemorySubscriptions($ref: ID!) {
 
 # #764/#304: orgRef is server-resolved (id / slug / hrn:org URN); the CLI passes
 # the raw --org value. memoryRef receives the client-resolved memory id.
-mutation CreateMemorySubscription($memoryRef: String!, $orgRef: String!, $role: Role!) {
+mutation CreateMemorySubscription($memoryRef: ID!, $orgRef: ID!, $role: Role!) {
   createMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef, role: $role) {
     role
     activated
@@ -148,7 +148,7 @@ mutation CreateMemorySubscription($memoryRef: String!, $orgRef: String!, $role: 
   }
 }
 
-mutation UpdateMemorySubscription($memoryRef: String!, $orgRef: String!, $role: Role!) {
+mutation UpdateMemorySubscription($memoryRef: ID!, $orgRef: ID!, $role: Role!) {
   updateMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef, role: $role) {
     role
     activated
@@ -160,6 +160,6 @@ mutation UpdateMemorySubscription($memoryRef: String!, $orgRef: String!, $role: 
   }
 }
 
-mutation DeleteMemorySubscription($memoryRef: String!, $orgRef: String!) {
+mutation DeleteMemorySubscription($memoryRef: ID!, $orgRef: ID!) {
   deleteMemorySubscription(memoryRef: $memoryRef, orgRef: $orgRef)
 }

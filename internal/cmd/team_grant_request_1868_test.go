@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -24,10 +25,10 @@ func signingRequest1868(url string) string {
 	u, _ := json.Marshal(url)
 	return `{"id":"sr1","grantId":"g1","version":2,"termsHash":"h1","payloadVersion":"hadron-grant-signature-v1","state":"OPEN",` +
 		`"requestedBy":{"userId":"u1","appId":"capp100000000000000000000","workerId":"wkr1","sessionId":"s-new"},` +
-		`"createdAt":"c","expiresAt":"e","endedAt":null,"ceremonyUrl":` + string(u) + `,"futureServerField":"x"}`
+		`"createdAt":"c","expiresAt":"e","endedAt":null,"lastRefusedAt":null,"ceremonyUrl":` + string(u) + `,"futureServerField":"x"}`
 }
 
-var signingRequestFields1868 = []string{"id", "grantId", "version", "termsHash", "payloadVersion", "state", "requestedBy", "createdAt", "expiresAt", "endedAt", "ceremonyUrl"}
+var signingRequestFields1868 = []string{"id", "grantId", "version", "termsHash", "payloadVersion", "state", "requestedBy", "createdAt", "expiresAt", "endedAt", "lastRefusedAt", "ceremonyUrl"}
 
 type grantVerb1868 struct {
 	name string
@@ -48,6 +49,22 @@ func grantVerbs1868() []grantVerb1868 {
 		{"withdraw", "TeamWithdrawGrantSigningRequest", "withdrawGrantSigningRequest", []string{"team", "grant", "signing-request", "withdraw", "sr1"}, sr("withdrawGrantSigningRequest")},
 		{"get", "TeamGrantSigningRequest", "grantSigningRequest", []string{"team", "grant", "signing-request", "get", "sr1"}, sr("grantSigningRequest")},
 	}
+}
+
+// signingRequestVerbs1868 names the three signing-request commands explicitly,
+// so a reorder of grantVerbs1868 cannot silently change what the lastRefusedAt
+// fixtures cover (cli#2749).
+func signingRequestVerbs1868() []grantVerb1868 {
+	want := []string{"request-signature", "withdraw", "get"}
+	var out []grantVerb1868
+	for _, w := range want {
+		for _, v := range grantVerbs1868() {
+			if v.name == w {
+				out = append(out, v)
+			}
+		}
+	}
+	return out
 }
 
 func findCall1868(calls *[]attnCall, op string) *attnCall {
@@ -222,7 +239,7 @@ func TestGrantRequest1868HolderResolution(t *testing.T) {
 
 // P3: the signing-request operations select exactly the fragment's fields.
 func TestGrantRequest1868SigningRequestSelection(t *testing.T) {
-	for _, v := range grantVerbs1868()[1:] {
+	for _, v := range signingRequestVerbs1868() {
 		t.Run(v.name, func(t *testing.T) {
 			calls, _, err := runTeamTask(t, map[string]string{v.op: v.resp(ceremony1868)}, v.args...)
 			if err != nil {
@@ -246,7 +263,7 @@ func TestGrantRequest1868SigningRequestSelection(t *testing.T) {
 // P5(i): the URL is verbatim in JSON and text; the DTO drops unknown fields and keeps nulls.
 func TestGrantRequest1868CeremonyURLVerbatim(t *testing.T) {
 	long := ceremony1868 + "/" + strings.Repeat("x", 300)
-	for _, v := range grantVerbs1868()[1:] {
+	for _, v := range signingRequestVerbs1868() {
 		t.Run(v.name, func(t *testing.T) {
 			_, out, err := runTeamTask(t, map[string]string{v.op: v.resp(long)}, append(append([]string{}, v.args...), "--json")...)
 			if err != nil {
@@ -312,7 +329,7 @@ func TestGrantRequest1868NoDerivedGrantState(t *testing.T) {
 			t.Fatalf("derived state word %q in %q", w, out)
 		}
 	}
-	for _, v := range grantVerbs1868()[1:] {
+	for _, v := range signingRequestVerbs1868() {
 		_, out, err := runTeamTask(t, map[string]string{v.op: v.resp(ceremony1868)}, v.args...)
 		if err != nil || !strings.Contains(out, "OPEN") {
 			t.Fatalf("%s: %v %q", v.name, err, out)
@@ -591,5 +608,113 @@ func TestGrantRequest1868ExampleNamesSourceNode(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `sourceNode`) || strings.Contains(out.String(), `"node":`) {
 		t.Fatalf("example does not use sourceNode:\n%s", out.String())
+	}
+}
+
+// cli#2727: lastRefusedAt is shown on all three request reads. Null stays null
+// in --json and is a dash in text; a timestamp is printed as given. It is a
+// timestamp only: nothing is derived from it (null means "none observed").
+func TestGrantRequest2727LastRefusedAt(t *testing.T) {
+	const ts = "2026-11-20T10:11:12.000Z"
+	withTS := func(resp string) string {
+		return strings.Replace(resp, `"lastRefusedAt":null`, `"lastRefusedAt":"`+ts+`"`, 1)
+	}
+	for _, v := range signingRequestVerbs1868() {
+		t.Run(v.name, func(t *testing.T) {
+			for _, tc := range []struct {
+				name string
+				resp string
+				json any
+				text string
+			}{
+				{"null", v.resp(ceremony1868), nil, "lastRefusedAt: —\n"},
+				{"set", withTS(v.resp(ceremony1868)), ts, "lastRefusedAt: " + ts + "\n"},
+			} {
+				_, out, err := runTeamTask(t, map[string]string{v.op: tc.resp}, append(append([]string{}, v.args...), "--json")...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var dto map[string]any
+				if e := json.Unmarshal([]byte(out), &dto); e != nil {
+					t.Fatal(e, out)
+				}
+				got, present := dto["lastRefusedAt"]
+				if !present || got != tc.json {
+					t.Fatalf("%s: lastRefusedAt in --json = %v (present %v), want %v: %s", tc.name, got, present, tc.json, out)
+				}
+				_, text, err := runTeamTask(t, map[string]string{v.op: tc.resp}, v.args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(text, tc.text) {
+					t.Fatalf("%s: text lacks %q: %q", tc.name, tc.text, text)
+				}
+			}
+		})
+	}
+}
+
+// cli#2727: each of the three reads sends lastRefusedAt in its own selection,
+// independent of what the mock answers (a mock that always includes the field
+// cannot hide an operation that stopped asking for it).
+func TestGrantRequest2727OperationsSelectLastRefusedAt(t *testing.T) {
+	for _, v := range signingRequestVerbs1868() {
+		t.Run(v.name, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, map[string]string{v.op: v.resp(ceremony1868)}, v.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := findCall1868(calls, v.op)
+			if c == nil {
+				t.Fatal("operation was never sent")
+			}
+			fields, _ := selection1868(t, c.Query, v.root)
+			if !slices.Contains(fields, "lastRefusedAt") {
+				t.Fatalf("%s must select lastRefusedAt, selected %v", v.op, fields)
+			}
+		})
+	}
+}
+
+// cli#2749: an older server that HAS signing but LACKS server#4581's
+// lastRefusedAt field rejects that FIELD (not the root, which is the pre-#1868
+// shape TestGrantRequest1868SigningOffServer covers) on the three signing-
+// request commands. #2727's gate accepts that these commands require
+// server#4581, so this pins the refusal as it is today: usage exit, the fixed
+// "does not offer" text without an upgrade hint, the server's code kept, and
+// exactly one request — no fallback read and no retry of the mutation.
+func TestGrantRequest2749OlderServerRejectsLastRefusedAt(t *testing.T) {
+	rejectField := `{"errors":[{"message":"Cannot query field \"lastRefusedAt\" on type \"GrantSigningRequest\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	for _, v := range signingRequestVerbs1868() {
+		t.Run(v.name, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, map[string]string{v.op: rejectField}, v.args...)
+			if err == nil {
+				t.Fatal("an older server's field rejection must fail the command")
+			}
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Fatalf("exit %d, want %d (usage): %v", got, exitcode.Usage, err)
+			}
+			if err.Error() != "this server does not offer grant requests and grant signing" {
+				t.Fatalf("diagnostic %q", err.Error())
+			}
+			if code := serverCode1669(err); code != "GRAPHQL_VALIDATION_FAILED" {
+				t.Fatalf("server code %q not kept", code)
+			}
+			if n := grantOps1868(calls); n != 1 {
+				t.Fatalf("%d grant operations sent, want exactly 1 (no fallback, no retry)", n)
+			}
+		})
+	}
+}
+
+// cli#2749: the lastRefusedAt fixtures cover exactly these three commands, by
+// name, whatever order grantVerbs1868 lists them in.
+func TestSigningRequestVerbs1868ExplicitSelection(t *testing.T) {
+	var got []string
+	for _, v := range signingRequestVerbs1868() {
+		got = append(got, v.name)
+	}
+	if want := "request-signature,withdraw,get"; strings.Join(got, ",") != want {
+		t.Fatalf("signing-request verbs %v, want %s", got, want)
 	}
 }

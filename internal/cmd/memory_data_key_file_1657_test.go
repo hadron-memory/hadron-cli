@@ -31,7 +31,8 @@ type dataKeyCase1657 struct {
 func dataKeyCases1657() []dataKeyCase1657 {
 	return []dataKeyCase1657{
 		{"encrypt", []string{"memory", "encrypt", encryptKeyMemory1657, "--yes", "--json"},
-			map[string]string{"EncryptMemory": `{"data":{"encryptMemory":{"id":"` + encryptKeyMemory1657 + `","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`}, "EncryptMemory"},
+			map[string]string{"MemoryEncryptionPrincipal": `{"data":{"authContext":{"principalType":"USER"}}}`,
+				"EncryptMemory": `{"data":{"encryptMemory":{"id":"` + encryptKeyMemory1657 + `","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`}, "EncryptMemory"},
 		{"link-user", []string{"memory", "link-user", "acme.com::anon-7f3", "--external-user", "u1", "--yes", "--json"},
 			linkUserFakes(linkedEncryptedMemoryJSON), "LinkMemoryToUser"},
 	}
@@ -106,7 +107,7 @@ func TestDataKeyFileStdinConfirmsBeforeReading1657(t *testing.T) {
 			}
 			sent := false
 			for _, r := range *reqs {
-				if r.OpKey == linkUserDataKey || strings.Contains(r.Body, linkUserDataKey) {
+				if r.OpKey == linkUserDataKey || strings.Contains(r.MemoryKeys, linkUserDataKey) || strings.Contains(r.Body, linkUserDataKey) {
 					sent = true
 				}
 			}

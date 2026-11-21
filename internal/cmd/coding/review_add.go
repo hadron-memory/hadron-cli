@@ -108,7 +108,7 @@ A check created this way passes ` + "`coding review lint`" + ` as written.
 Creating a check that already exists fails rather than overwriting it — edit an
 existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + `.
 
-A check carries role "review" (#1201), so the generic node surface will not
+A check carries role "review", so the generic node surface will not
 rewrite it — ` + "`hadron node update`" + ` reads the node's kind and routes the
 edit through the review door for you.`,
 		Example: `  hadron coding review create thin-resolver-field -m hrn:mem:acme.com:kb \

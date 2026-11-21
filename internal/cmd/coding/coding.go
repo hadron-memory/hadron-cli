@@ -79,6 +79,9 @@ type graphEdge struct {
 	OtherID  string
 	Other    string // the far endpoint's loc; "" when the projection was redacted
 	MemoryID string // the far endpoint's memory id, for the moved-memory route check
+	// CrossMemory is the route marker (cli#2736): the edge's own data says the route
+	// is an INTENTIONAL cross-memory route, so the moved-memory check skips it.
+	CrossMemory bool
 }
 
 // endpointName identifies an edge in a finding when its far endpoint has no
@@ -110,7 +113,7 @@ never matches again.
 Triage itself is the reader's, not this command's. Some memories also carry a
 ` + "`tasks:review-changes`" + ` node describing how to walk the tree, but it is a
 convenience and not a requirement: nothing here depends on that node existing,
-and ` + "`review list`" + ` shows every check and its trigger without it (#551).
+and ` + "`review list`" + ` shows every check and its trigger without it.
 
 ` + "`list`" + ` shows the tree or the router as its readers see it; ` + "`create`" + ` adds
 a node with every edge that makes it discoverable, in one run; ` + "`preflight route`" + `
@@ -240,7 +243,7 @@ func fetchRootGraph(ctx context.Context, client graphql.Client, mem codingMemory
 		if e == nil {
 			continue
 		}
-		ge := graphEdge{ID: e.Id, Loc: e.Loc}
+		ge := graphEdge{ID: e.Id, Loc: e.Loc, CrossMemory: edgeCrossMemory(e.Data)}
 		if e.Name != nil {
 			ge.Label = *e.Name
 		}
@@ -253,7 +256,7 @@ func fetchRootGraph(ctx context.Context, client graphql.Client, mem codingMemory
 		if e == nil {
 			continue
 		}
-		ge := graphEdge{ID: e.Id, Loc: e.Loc}
+		ge := graphEdge{ID: e.Id, Loc: e.Loc, CrossMemory: edgeCrossMemory(e.Data)}
 		if e.Name != nil {
 			ge.Label = *e.Name
 		}

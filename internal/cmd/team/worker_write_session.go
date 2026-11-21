@@ -24,19 +24,20 @@ import (
 // mid-run), so a batch never sends under a session it did not verify.
 func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (cmdutil.WorkerWriteContext, error) {
 	return func(ctx context.Context, targetApps ...string) (cmdutil.WorkerWriteContext, error) {
+		flag := cmdutil.WorkerWriteDiagnosticFlag(ctx)
 		b, _, err := readBindingFile(ctx)
 		switch {
 		case errors.Is(err, errNoWorktree):
-			return nil, exitcode.Newf(exitcode.Usage, "--as-worker needs a worktree with a worker-session binding, and this directory has none; nothing was sent. Run it from the bound worktree, or drop --as-worker to act as yourself")
+			return nil, exitcode.Newf(exitcode.Usage, "%s needs a worktree with a worker-session binding, and this directory has none; nothing was sent. Run it from the bound worktree, or drop %s to act as yourself", flag, flag)
 		case err != nil:
-			return nil, exitcode.Newf(exitcode.Usage, "cannot read this worktree's session binding (%v), so --as-worker cannot attribute the write; nothing was sent", err)
+			return nil, exitcode.Newf(exitcode.Usage, "cannot read this worktree's session binding (%v), so %s cannot attribute the write; nothing was sent", err, flag)
 		case b == nil:
-			return nil, exitcode.Newf(exitcode.Usage, "--as-worker needs a worker-session binding and this worktree has none; nothing was sent. Start a session here, or drop --as-worker to act as yourself")
+			return nil, exitcode.Newf(exitcode.Usage, "%s needs a worker-session binding and this worktree has none; nothing was sent. Start a session here, or drop %s to act as yourself", flag, flag)
 		}
 		refuse := func(why string) error {
 			return exitcode.Newf(exitcode.Usage,
-				"this worktree has a session binding (%q), but %s, so --as-worker cannot send through it; nothing was sent. Run it against the binding's server and App, or drop --as-worker to act as yourself",
-				b.SessionID, why)
+				"this worktree has a session binding (%q), but %s, so %s cannot send through it; nothing was sent. Run it against the binding's server and App, or drop %s to act as yourself",
+				b.SessionID, why, flag, flag)
 		}
 		if b.SessionID == "" || b.WorkerID == "" || b.AppID == "" || b.Server == "" {
 			return nil, refuse("the binding is incomplete")
@@ -101,7 +102,7 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (cm
 			verify := func() error {
 				now, _, err := readBindingFile(mctx)
 				if err != nil || !sameWriteBinding(now, &snapshot) {
-					return exitcode.Newf(exitcode.Usage, "this worktree's session binding changed during the run, so --as-worker stopped before sending this write (session %q); nothing further was sent", snapshot.SessionID)
+					return exitcode.Newf(exitcode.Usage, "this worktree's session binding changed during the run, so %s stopped before sending this write (session %q); nothing further was sent", flag, snapshot.SessionID)
 				}
 				return nil
 			}
@@ -131,5 +132,30 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (cm
 			}
 			return api.WithSession(mctx, snapshot.SessionID), nil
 		}, nil
+	}
+}
+
+// WorkerSessionIfBound is the resolver behind `secret exec` and `secret reveal`
+// (cli#2664). A read client is revealed by the worker it names, in that worker's
+// session, but a person on an API token must still be ASKED so the server gives
+// its one uniform answer (cor:sec:060:02): so, unlike WorkerWriteSession, an
+// unbound worktree (or no worktree at all) is not an error. It returns a nil
+// WorkerWriteContext and nil error, and the caller sends without a session and
+// says so. Once there IS a binding the strict resolver decides: an incomplete
+// binding, one for another server, or another --app is refused (exit 2, nothing
+// sent), and the returned function re-verifies the binding right before the call.
+func WorkerSessionIfBound(f *cmdutil.Factory) func(context.Context, ...string) (cmdutil.WorkerWriteContext, error) {
+	strict := WorkerWriteSession(f)
+	return func(ctx context.Context, targetApps ...string) (cmdutil.WorkerWriteContext, error) {
+		b, _, err := readBindingFile(ctx)
+		switch {
+		case errors.Is(err, errNoWorktree):
+			return nil, nil
+		case err != nil:
+			return nil, exitcode.Newf(exitcode.Usage, "cannot read this worktree's session binding (%v), so the reveal cannot tell whether it is a worker's; nothing was sent", err)
+		case b == nil:
+			return nil, nil
+		}
+		return strict(ctx, targetApps...)
 	}
 }

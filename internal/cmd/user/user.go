@@ -116,12 +116,12 @@ boundary.
 Authorization is enforced by the server (platform ADMIN/OWNER, or an
 organization ADMIN/OWNER when source and target are both live members of an
 organization you administer); the CLI adds no local authorization or collision
-checks. Spec cor:api:010:02.
+checks.
 
 Both account owners must consent. The server refuses a merge without proof
 that both people signed in to agree, and refuses API-token callers, so from
 the CLI it currently ends with exit 2 "Both accounts must consent before
-merging." (hadron-cli#1304). Check both accounts first with hadron user search.`,
+merging." Check both accounts first with hadron user search.`,
 		Example: `  hadron user search dup-handle
   hadron user merge dup-handle --into canonical-handle
   hadron user merge dup-handle --into canonical-handle --yes --json`,
@@ -189,7 +189,7 @@ func newCmdSearch(f *cmdutil.Factory) *cobra.Command {
 GitHub username, exact on email. Results are name-ascending.
 
 Omit the query to list every user — the unfiltered listing a platform
-ADMIN/OWNER may run (cor:acl:070:02). A caller without platform authority gets
+ADMIN/OWNER may run. A caller without platform authority gets
 an empty list rather than an error, since the server will not confirm that
 accounts it won't show you exist.
 

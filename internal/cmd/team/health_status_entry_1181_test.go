@@ -24,10 +24,14 @@ import (
 // the bare name answers an empty world. A test that stages a binary
 // (delivery.orca_bin in its host config) still gets the real exec, so the
 // fixtures' fake orcas and the fail-closed error paths run through it. The
-// dupe pass is NOT covered: sweepOrcaClient (health_dupes.go) builds its
-// own ExecEnv client with its own bare fallback, so its tests always
-// configure a fake rather than rely on a default.
+// dupe pass builds its own ExecEnv client: cli#2404 supplies a private inert
+// PATH executable too, without changing that client's credential scrubbing.
+// Explicit delivery.orca_bin fixtures still execute normally.
 func TestMain(m *testing.M) {
+	runInertSweepOrca2404()
+	failIfPrivateOrca2786()
+	runAmbientTrap2786()
+	failIfUnclaimed2786()
 	if os.Getenv("HADRON_TEST_HEALTH_CHILD") == "1" && len(os.Args) > 1 && os.Args[1] == "orca" {
 		const key = "SYNTHETIC_ENTRY_KEY_1181"
 		for _, value := range os.Environ() {
@@ -58,7 +62,14 @@ func TestMain(m *testing.M) {
 		}
 		return realRunner(bin)
 	}
-	os.Exit(m.Run())
+	cleanup, err := installInertSweepOrca2404()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "installing inert test Orca:", err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
 // inertOrcaRunner2342 is the default Orca world an unstubbed TITLE-PASS test

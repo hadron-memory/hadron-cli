@@ -44,7 +44,7 @@ func TestAppJoin1625(t *testing.T) {
 			t.Fatalf("join: %v\n%s", r.err, r.errOut)
 		}
 		got := writes1592(calls, "JoinApp")
-		if len(got) != 1 || got[0].Vars["appId"] != joinApp1625 {
+		if len(got) != 1 || got[0].Vars["appRef"] != joinApp1625 {
 			t.Fatalf("want one JoinApp with the ref unchanged, got %+v", *calls)
 		}
 		var dto map[string]any
@@ -73,7 +73,7 @@ func TestAppJoin1625(t *testing.T) {
 		if r.err != nil || r.out != want || r.errOut != "" {
 			t.Fatalf("existing row: err=%v out=%q stderr=%q want=%q", r.err, r.out, r.errOut, want)
 		}
-		if len(*calls) != 1 || (*calls)[0].Op != "JoinApp" || (*calls)[0].Vars["appId"] != joinApp1625 {
+		if len(*calls) != 1 || (*calls)[0].Op != "JoinApp" || (*calls)[0].Vars["appRef"] != joinApp1625 {
 			t.Fatalf("one join without a membership pre-read or retry: %+v", *calls)
 		}
 	})
@@ -130,7 +130,7 @@ func TestAppLeave1625(t *testing.T) {
 			t.Fatalf("leave: %v\n%s", r.err, r.errOut)
 		}
 		got := writes1592(calls, "LeaveApp", "LeaveAppInstructed")
-		if len(got) != 1 || got[0].Op != "LeaveApp" || got[0].Vars["appId"] != joinApp1625 {
+		if len(got) != 1 || got[0].Op != "LeaveApp" || got[0].Vars["appRef"] != joinApp1625 {
 			t.Fatalf("want one plain LeaveApp with the ref unchanged, got %+v", *calls)
 		}
 		var dto map[string]any

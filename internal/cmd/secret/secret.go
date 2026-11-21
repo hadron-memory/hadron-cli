@@ -55,11 +55,21 @@ webfetch-auth secret is only injected into matching web requests and the model
 never sees it.
 
 Values are write-only: secret create and secret update send the value, and
-no command ever prints it (secret get shows only the metadata). Pass it on
+secret get shows only the metadata. The one way to read an App secret's value
+back is through a signed read client (secret client issue, signed by a person):
+secret exec puts it in a command's environment and prints nothing, and secret
+reveal prints it to a terminal or writes it to a new file. Pass a value on
 stdin, from a file or at a no-echo prompt, never as an argument. Typical flow:
 secret create, then secret list to see what exists, secret set to store a new
 value (an org or user secret is overwritten in place; an App secret gets a new
-version), secret update for metadata, and secret rm when it is no longer needed.`,
+version), secret update for metadata, and secret rm when it is no longer needed.
+
+A protected App secret (secret protect --on) changes only through a passkey
+ceremony that a person completes on a server page. Any change to it (create,
+update, set, rm, protect) is staged, not applied: hadron prints the request id and
+the ceremony URL exactly as the server sent them, exits 5, and never completes
+the ceremony itself. secret change get shows (or, with --wait, waits for) the
+request; secret change withdraw cancels it.`,
 		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
   hadron secret list --scope user
   printf '%s' "$TOKEN" | hadron secret create --name deploy-token --scope app --owner hrn:app:acme.com:ops --kind generic --value-file -
@@ -72,8 +82,13 @@ version), secret update for metadata, and secret rm when it is no longer needed.
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdSet(f))
+	cmd.AddCommand(newCmdProtect(f))
+	cmd.AddCommand(newCmdChange(f))
 	cmd.AddCommand(newCmdVersions(f))
 	cmd.AddCommand(newCmdEvents(f))
+	cmd.AddCommand(newCmdClient(f))
+	cmd.AddCommand(newCmdExec(f))
+	cmd.AddCommand(newCmdReveal(f))
 	return cmd
 }
 

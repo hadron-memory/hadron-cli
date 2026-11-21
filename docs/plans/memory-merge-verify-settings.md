@@ -1,3 +1,5 @@
+> Encryption transport update (cli#1650): the original argument-based encrypt path below is superseded by [header transport](1650-memory-encrypt-headers.md). The other settings/merge/verify behavior remains current.
+
 # Memory merge, verify and settings (cli#1340): design as built
 
 Child of #1334 (CLI coverage sweep), epic #67. Gate: CHECKED T1 (Xabat,
@@ -24,7 +26,7 @@ coverage matrix recorded 39 `gap #1340` rows.
 | `chunkTokens`, `chunkOverlap`, `forceFixedSize`, `acknowledgeVectorInversionRisk` | change-only flags of the same names (`--force-fixed-size` / `--no-force-fixed-size`) |
 | `memories(orgId)`, `filter.visibility` | `memory list --org`, `--visibility` |
 | `scopes(filter.appRef)` | `scope list --app-context` |
-| `encryptMemory(passphrase)` | `memory encrypt --passphrase-file <file\|->` |
+| `encryptMemory` (header passphrase) | `memory encrypt --passphrase-file <file\|->` |
 | `updateMemory(organizationId)` | **excluded, not-a-capability**: the resolver accepts only the current organization and refuses any other with `USE_TRANSFER_MEMORY_OWNERSHIP`; `memory transfer` is the move. Awaits the specs engineer's acceptance (acceptance 2). |
 
 ## Wire semantics
@@ -45,7 +47,7 @@ coverage matrix recorded 39 `gap #1340` rows.
 - `mergeMemories` always sends `deleteSourceMem` explicitly; `include` is
   omitted (every field) without `--field`. The `--field` parser moved to
   `cmdutil.ParseMergeFields`, shared with `node merge`.
-- `encryptMemory` sends exactly one of `dataKey` / `passphrase`. The passphrase
+- `encryptMemory` now sends exactly one of `dataKey` / `passphrase` in its per-call key header, never in GraphQL arguments. The passphrase
   is read after the confirmation (stdin is shared with the prompt), only the
   line ending is dropped, and it is never printed.
 

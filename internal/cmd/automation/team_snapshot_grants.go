@@ -12,7 +12,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -61,22 +60,17 @@ its own App's roster and tasks only while it holds this grant; none is given
 by default. A manual run has no automation and cannot hold one. This grants no
 writes and no access to another App. The server decides all authority.
 
-Only a person managing the App may give one (set stays person-only).
-Without --instruction, list and revoke send no worker session header even
-from a bound worktree. With --instruction, they use this worktree's verified
-session; an unusable binding falls back to the signed-in person with a note.
-The server owns App admission and checks the reference; refusals are never
-retried or downgraded. The reference after the first colon is sent as written.
-A person fallback still has its reference checked but records no worker claim.
-Each admitted worker-instructed list page records one team event, including empty
-pages. Default list walks to the end (one event per page); --limit reads just
-one page. Revoke's instructed history lookup also records one event per page
-before its single revoke. Instruction needs server 7907d93d or later.
-Set and list take an explicit App ID, qualified URN or root:slug.
-JSON keeps revokedAt/revokedBy null for a live grant; human output uses -.
-Needs hadron-server ecdde802 or later; older-server refusals are passed through.`}
+Only a person managing the App may give one (set stays person-only). Set and
+list take an explicit App ID, qualified URN or root:slug; revoke takes the grant
+ID: a given --app must match the grant's App, and with --instruction --app or
+the active App names the App whose history is read. JSON keeps
+revokedAt/revokedBy null for a live grant; human output uses -. An older server
+refuses these commands; its refusal is passed through.`}
 	for _, c := range []*cobra.Command{newCmdSnapshotSet(f), newCmdSnapshotList(f), newCmdSnapshotRevoke(f)} {
 		c.Long += "\n\n" + cmd.Long
+		if c.Flags().Lookup("instruction") != nil {
+			c.Long += "\n\n" + snapshotInstructionHelp
+		}
 		cmd.AddCommand(c)
 	}
 	return cmd
@@ -88,7 +82,8 @@ func newCmdSnapshotSet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes]", Short: "Give one schedule or webhook a team snapshot grant", Long: `Confirm the App, trigger kind and trigger ID, then send one grant mutation.
 An identical repeat returns the live row. Scripts must pass --yes. No request
 is retried: if an answer is lost, list grants to check before trying again.
-The returned grant metadata is printed; this does not run the automation.
+The returned grant metadata is printed; this does not run the automation. The
+App is the <app-ref> argument: the global --app and the active App do not apply.
 
 --trigger-id is the ID column of "hadron schedule list" (with --trigger-kind
 SCHEDULE) or "hadron webhook list" (with --trigger-kind WEBHOOK), run for the
@@ -136,11 +131,11 @@ same App.`, Example: `  hadron automation team-snapshot-grant set acme.com:ops -
 
 // collectSnapshotGrants advances by rows actually returned. A broken/nonprogressing
 // page fails the whole command, so it never prints a partial list as complete.
-func collectSnapshotGrants(ctx context.Context, client graphql.Client, app string, include *bool, limit, offset int, all bool, claim actInstruction) (snapshotGrantPageDTO, error) {
+func collectSnapshotGrants(ctx context.Context, client graphql.Client, app string, include *bool, trigger snapshotTriggerFilter, limit, offset int, all bool, claim actInstruction) (snapshotGrantPageDTO, error) {
 	d := snapshotGrantPageDTO{Items: []snapshotGrantDTO{}}
 	seen := map[string]bool{}
 	for {
-		p, err := claim.page(ctx, client, app, include, limit, offset)
+		p, err := claim.page(ctx, client, app, include, trigger, limit, offset)
 		if err != nil {
 			return d, err
 		}
@@ -166,17 +161,20 @@ func collectSnapshotGrants(ctx context.Context, client graphql.Client, app strin
 func newCmdSnapshotList(f *cmdutil.Factory) *cobra.Command {
 	var revoked bool
 	var limit, offset int
-	var instructionRaw string
-	cmd := &cobra.Command{Use: "list <app-ref> [--include-revoked] [--limit n] [--offset n]", Aliases: []string{"ls"}, Short: "List an App's team snapshot grants, paging to the end by default", Long: `Read grants in the server's order (oldest first). Without --limit, read every
-page starting at --offset (default 0). With --limit, read exactly one page of
-1..200 rows; a continuation note goes to stderr when more remain.
-Revoked grants are excluded unless --include-revoked is true. A paged walk is
+	var instructionRaw, triggerKind, triggerID string
+	cmd := &cobra.Command{Use: "list <app-ref> [--include-revoked] [--trigger-kind k] [--trigger-id id] [--limit n] [--offset n]", Aliases: []string{"ls"}, Short: "List an App's team snapshot grants, paging to the end by default", Long: `Read grants in the server's order (oldest first). Without --limit, read every
+page (20 rows each) starting at --offset (default 0). With --limit, read exactly
+one page of 1..200 rows; a continuation note goes to stderr when more remain.
+Revoked grants are excluded unless --include-revoked is true. --trigger-kind
+and --trigger-id keep only the grants for that trigger kind or trigger ID; each
+is sent as given only when set, and the server checks the kind. A paged walk is
 not an atomic snapshot: concurrent changes can affect the list. A later-page
 refusal fails the command without printing a partial result.
 JSON is {items,total,hasMore}; empty items is [], and total is the server's
 count, not a count inferred by the CLI. Human output shows grant, App, trigger
 and revocation metadata. No credentials or task content are read.`, Example: `  hadron automation team-snapshot-grant list acme.com:ops --json
-  hadron automation team-snapshot-grant list acme.com:ops --include-revoked --limit 20 --offset 20`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+  hadron automation team-snapshot-grant list acme.com:ops --include-revoked --limit 20 --offset 20
+  hadron automation team-snapshot-grant list acme.com:ops --trigger-kind SCHEDULE --trigger-id <schedule-id>`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		claim, err := parseActInstruction(cmd, f, instructionRaw)
 		if err != nil {
 			return err
@@ -192,11 +190,18 @@ and revocation metadata. No credentials or task content are read.`, Example: `  
 		if cmd.Flags().Changed("include-revoked") {
 			include = &revoked
 		}
+		var trigger snapshotTriggerFilter
+		if cmd.Flags().Changed("trigger-kind") {
+			trigger.kind = &triggerKind
+		}
+		if cmd.Flags().Changed("trigger-id") {
+			trigger.id = &triggerID
+		}
 		client, err := f.GraphQLClient()
 		if err != nil {
 			return err
 		}
-		d, err := collectSnapshotGrants(cmd.Context(), client, app, include, limit, offset, !cmd.Flags().Changed("limit"), claim)
+		d, err := collectSnapshotGrants(cmd.Context(), client, app, include, trigger, limit, offset, !cmd.Flags().Changed("limit"), claim)
 		if err != nil {
 			return err
 		}
@@ -215,9 +220,11 @@ and revocation metadata. No credentials or task content are read.`, Example: `  
 		}
 		return err
 	}}
-	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instructionFlagUsage)
 	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include ended grants; false keeps live grants only")
-	cmd.Flags().IntVar(&limit, "limit", 20, "one page size (1..200); omitted walks all pages of 20")
+	cmd.Flags().StringVar(&triggerKind, "trigger-kind", "", "only grants for this trigger kind (SCHEDULE or WEBHOOK; the server checks it)")
+	cmd.Flags().StringVar(&triggerID, "trigger-id", "", "only grants for this schedule or webhook ID")
+	cmd.Flags().IntVar(&limit, "limit", 20, "rows per page (1..200); given, reads just that one page; omitted, reads every page")
 	cmd.Flags().IntVar(&offset, "offset", 0, "skip this many rows before reading (nonnegative)")
 	return cmd
 }
@@ -366,7 +373,7 @@ means no revoke.`, Example: `  hadron automation team-snapshot-grant revoke <gra
 			selected = &row
 		} else {
 			include := true
-			page, err := collectSnapshotGrants(cmd.Context(), client, app, &include, 20, 0, true, claim)
+			page, err := collectSnapshotGrants(cmd.Context(), client, app, &include, snapshotTriggerFilter{}, 20, 0, true, claim)
 			if err != nil {
 				return err
 			}
@@ -409,7 +416,7 @@ means no revoke.`, Example: `  hadron automation team-snapshot-grant revoke <gra
 		}
 		return writeSnapshotGrant(f, d)
 	}}
-	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instructionFlagUsage)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	return cmd
 }

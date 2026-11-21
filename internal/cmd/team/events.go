@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -22,6 +23,10 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+// alarmAckInspectHint tells the person where to look after an acknowledge
+// answered null (one hint for both the plain and the instructed call, #2552).
+const alarmAckInspectHint = "check the alarm in `team events --alarms`"
 
 const (
 	teamEventsDefaultLimit = 20
@@ -257,10 +262,24 @@ func eventTaskCell(e teamEventDTO) string {
 	return *e.TaskHandle + " " + short
 }
 
+// tasklessSubjectAlarmTypes is the one definition of the alarm types raised
+// without a task that name a subject worker instead. A type added here must get
+// a case in tasklessAlarmCell (TestEveryTasklessAlarmTypeRenders enforces it); a
+// type missing here renders "—" in the list and is dropped from the ack receipt.
+var tasklessSubjectAlarmTypes = []string{
+	"alarm.dark-worker", "alarm.lead-cadence", "alarm.coordinator-cadence", "alarm.start-failing",
+}
+
+// isTasklessSubjectAlarm reports whether t is one of tasklessSubjectAlarmTypes.
+// tasklessAlarmCell gates on it and the "team alarm ack" receipt filters on it.
+func isTasklessSubjectAlarm(t string) bool {
+	return slices.Contains(tasklessSubjectAlarmTypes, t)
+}
+
 // Task-less alarm metadata is server-owned. Only known reason words reach
 // human output; evidence and arbitrary payload strings remain JSON-only.
 func tasklessAlarmCell(e teamEventDTO) string {
-	if e.SubjectWorker == nil {
+	if e.SubjectWorker == nil || !isTasklessSubjectAlarm(e.Type) {
 		return "—"
 	}
 	switch e.Type {
@@ -302,8 +321,8 @@ has not reacted (stall.owner-unreactive), that cannot be assigned
 (assignment.unassignable) or has passed its finish-by time (stall.finish-by);
 or a dark-worker alarm (a worker that has gone dark), or a cadence alarm
 (alarm.lead-cadence: a coordinator that has missed its cadence; events raised
-before the rename say alarm.coordinator-cadence, and both are handled alike). An alarm wakes its nearest
-owner first, and the owners above only while it stays unacknowledged.
+before the rename say alarm.coordinator-cadence, and both are handled alike).
+An alarm wakes its nearest owner first, and the owners above only while it stays unacknowledged.
 
 To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
 alarm) or "hadron team events --alarms" (the raw event stream). Both show each
@@ -340,9 +359,10 @@ printing payload reasons or evidence.
 --instruction opens the App-manager's held-worker path: an AI worker whose
 holder manages the App acknowledges on its holder's say-so; the ordinary
 owner-in-chain path is unchanged. Instructed JSON adds warnings ([] when none);
-text prints server warnings on stderr.
+text mode prints server warnings on stderr on either path, while a plain
+--json stays a bare event with no warnings key.
 
-` + taskInstructionHelpShort("ba077810"),
+` + taskInstructionHelpShort(taskInstructionFloor),
 		Example: `  hadron team alarms --team
   hadron team alarm ack 01a1f0c2d3e4f5a6b7c8d9e0f1a2b3c4`,
 		Args: cobra.ExactArgs(1),
@@ -381,7 +401,7 @@ text prints server warnings on stderr.
 					return api.MapError(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
+					return nullMutationResult("acknowledgeAlarm", "event", alarmAckInspectHint)
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
@@ -402,7 +422,7 @@ text prints server warnings on stderr.
 					return api.MapErrorKeepingCode(callErr)
 				}
 				if resp.AcknowledgeAlarm == nil {
-					return nullMutationResult("acknowledgeAlarm", "event", "check the alarm in `team events --alarms`")
+					return nullMutationResult("acknowledgeAlarm", "event", alarmAckInspectHint)
 				}
 				fields = resp.AcknowledgeAlarm.AgentTeamEventFields
 				warnings = taskWarningsFor(sink, "acknowledgeAlarm")
@@ -425,7 +445,7 @@ text prints server warnings on stderr.
 						return err
 					}
 				}
-				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.lead-cadence" || event.Type == "alarm.coordinator-cadence" || event.Type == "alarm.start-failing") && event.SubjectWorker != nil {
+				if event.TaskID == nil && isTasklessSubjectAlarm(event.Type) && event.SubjectWorker != nil {
 					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}

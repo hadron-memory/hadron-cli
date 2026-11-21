@@ -1,0 +1,69 @@
+# cli#2788: organization subscribe/unsubscribe and the paged Agent subscription reads.
+# limit/offset omitempty: an omitted page argument means "the server's default", never an explicit null.
+
+mutation SubscribeOrgToAgent($agentRef: ID!, $orgRef: ID!) {
+  createAgentOrgGrant(agentRef: $agentRef, orgRef: $orgRef) {
+    agentId
+    orgId
+    isActive
+    createdAt
+    activatedAt
+    expiresAt
+    revokedAt
+  }
+}
+
+mutation UnsubscribeOrgFromAgent($agentRef: ID!, $orgRef: ID!) {
+  revokeAgentOrgGrant(agentRef: $agentRef, orgRef: $orgRef) {
+    agentId
+    orgId
+    isActive
+    createdAt
+    activatedAt
+    expiresAt
+    revokedAt
+  }
+}
+
+query AgentSubscriptionsPage(
+  $agentRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  agentSubscriptionsPage(agentRef: $agentRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      agentId
+      userId
+      isActive
+      createdAt
+      activatedAt
+      expiresAt
+      revokedAt
+    }
+  }
+}
+
+query MyAgentSubscriptionsPage(
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  myAgentSubscriptionsPage(limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      agentId
+      userId
+      isActive
+      createdAt
+      activatedAt
+      expiresAt
+      revokedAt
+    }
+  }
+}

@@ -8,7 +8,8 @@ import (
 
 func TestMemoryEncrypt(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"EncryptMemory": `{"data":{"encryptMemory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
+		"MemoryEncryptionPrincipal": `{"data":{"authContext":{"principalType":"USER"}}}`,
+		"EncryptMemory":             `{"data":{"encryptMemory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
 	})
 	f, out := testFactory(t)
 	f.IOStreams.In = strings.NewReader("super-secret-data-key\n") // piped key, trimmed
@@ -19,8 +20,8 @@ func TestMemoryEncrypt(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["EncryptMemory"], &vars)
-	if vars["memoryId"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || vars["dataKey"] != "super-secret-data-key" {
-		t.Errorf("encrypt vars: %v (dataKey must be read from stdin, trimmed)", vars)
+	if vars["memoryRef"] != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" || len(vars) != 1 {
+		t.Errorf("encrypt vars: %v (only the target belongs in variables)", vars)
 	}
 	var dto struct {
 		IsEncrypted bool `json:"isEncrypted"`
@@ -34,20 +35,26 @@ func TestMemoryEncrypt(t *testing.T) {
 // A literal --data-key is trimmed too (not just the stdin path), so stray
 // copy-paste whitespace can't silently corrupt the key.
 func TestMemoryEncryptTrimsLiteralKey(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"EncryptMemory": `{"data":{"encryptMemory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
+	gql, captured := captureLinkUserGraphQL(t, map[string]string{
+		"MemoryEncryptionPrincipal": `{"data":{"authContext":{"principalType":"USER"}}}`,
+		"EncryptMemory":             `{"data":{"encryptMemory":{"id":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"memory", "encrypt", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "--data-key", "  padded-key  ", "--yes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+		t.Fatal(err)
 	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["EncryptMemory"], &vars)
-	if vars["dataKey"] != "padded-key" {
-		t.Errorf("literal key should be trimmed, got %q", vars["dataKey"])
+	for _, r := range *captured {
+		if r.Op == "EncryptMemory" {
+			var keys []map[string]string
+			if err := json.Unmarshal([]byte(r.MemoryKeys), &keys); err != nil || len(keys) != 1 || keys[0]["dataKey"] != "padded-key" {
+				t.Fatal("literal key was not trimmed in the header")
+			}
+			return
+		}
 	}
+	t.Fatal("no encryption request")
 }
 
 // Irreversible + rewrites all content → gated like a destructive op.

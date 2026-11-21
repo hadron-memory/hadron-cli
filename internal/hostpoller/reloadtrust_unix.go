@@ -3,6 +3,7 @@
 package hostpoller
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,28 +15,38 @@ import (
 // checkReloadTrust refuses a reload whose inputs anyone but the poller's own
 // user could have written. It stops other users and loose modes; a process
 // running as the poller's own user is inside the poller's trust boundary, as
-// it is for a restart, and no check here could tell it apart: the configuration file, and
-// each program or directory the changed entries name, must be owned by the
-// poller's user or by root and not writable by group or others (cli#2623).
-// A name that does not resolve is not an error here: starting that worker
-// fails on it as before.
-func checkReloadTrust(c, next *Config, path string, info os.FileInfo, changedWorkers []string) error {
+// it is for a restart, and no check here could tell it apart. The
+// configuration file, and each program or directory the changed entries
+// name, must be owned by the poller's user or by root and not writable by
+// group or others (cli#2623). A name that does not resolve is not an error
+// here: starting that worker fails on it as before.
+func checkReloadTrust(w trustWalk, c, next *Config, path string, info os.FileInfo, changedWorkers []string) error {
 	if err := trustedInfo(info, path, "the configuration file"); err != nil {
 		return err
 	}
-	if err := trustedAncestors(path, "the configuration file"); err != nil {
+	if err := trustedAncestors(w, path, "the configuration file"); err != nil {
 		return err
 	}
-	for _, name := range namedFiles(c, next, changedWorkers) {
-		target := name
-		if !strings.ContainsRune(name, '/') {
-			p, err := exec.LookPath(name)
+	for _, nf := range namedFiles(c, next, changedWorkers) {
+		if nf.program {
+			// A relative program (a slash, not absolute) is run from the
+			// worker's directory, which the check cannot know here — a worker
+			// can have several worktrees and the directory is picked when the
+			// operation runs — so judging it against the poller's directory
+			// would judge one file and run another (cli#2668).
+			if strings.ContainsRune(nf.path, '/') && !filepath.IsAbs(nf.path) {
+				return fmt.Errorf("a program the changed entries name (%s) is a relative path; it is run from the worker's directory, so it cannot be judged here; use an absolute path or a bare name, or restart the poller to apply the change", nf.path)
+			}
+		}
+		target := nf.path
+		if !strings.ContainsRune(target, '/') {
+			p, err := exec.LookPath(target)
 			if err != nil {
 				continue
 			}
 			target = p
 		}
-		if err := trustedChain(target, "a program or directory the changed entries name"); err != nil {
+		if err := trustedChain(w, target, "a program or directory the changed entries name"); err != nil {
 			return err
 		}
 	}
@@ -43,17 +54,41 @@ func checkReloadTrust(c, next *Config, path string, info os.FileInfo, changedWor
 }
 
 // trustedChain judges the path itself and every directory above it.
-func trustedChain(path, what string) error {
+func trustedChain(w trustWalk, path, what string) error {
 	if err := trustedPath(path, what); err != nil {
 		return err
 	}
-	return trustedAncestors(path, what)
+	return trustedAncestors(w, path, what)
+}
+
+// statPath reads a path's metadata following symlinks, as the kernel does; a
+// variable so a test can show what happens when a path cannot be stat'ed.
+var statPath = os.Stat
+
+// unresolved reports a lookup error for a path that is not all there: it is
+// missing, or a component of it is a regular file (ENOTDIR). Neither names a
+// file anyone could run or write, so both are judged like a missing path — as
+// far as the path exists — and not refused as unjudgeable. ENOTDIR is not
+// fs.ErrNotExist in Go's mapping (os.IsNotExist and errors.Is both return
+// false for it), so it is named explicitly (cli#2673 review F2).
+func unresolved(err error) bool {
+	return os.IsNotExist(err) || errors.Is(err, syscall.ENOTDIR)
+}
+
+// cannotJudge refuses a path the walk could not read: a reload runs what the
+// entries name on the next poll, so an unreadable path — unlike a missing
+// one, judged as far as it exists — cannot be judged part-way (cli#2668).
+func cannotJudge(what, path string, err error) error {
+	return fmt.Errorf("%s (%s) cannot be judged: %v; a reload runs what it names on the next poll, so restart the poller to apply the change", what, path, err)
 }
 
 func trustedPath(path, what string) error {
-	info, err := os.Stat(path)
+	info, err := statPath(path)
 	if err != nil {
-		return nil
+		if unresolved(err) {
+			return nil
+		}
+		return cannotJudge(what, path, err)
 	}
 	return trustedInfo(info, path, what)
 }
@@ -67,15 +102,18 @@ func trustedPath(path, what string) error {
 // root and not be writable by group or others, unless it is sticky (a sticky
 // directory, like /tmp, lets others add entries but not replace ours). A path
 // that does not exist yet is judged as far as it does.
-func trustedAncestors(path, what string) error {
-	dirs, links, err := visitedDirs(path)
+func trustedAncestors(w trustWalk, path, what string) error {
+	dirs, links, err := visitedDirs(w, path)
 	if err != nil {
-		return fmt.Errorf("%s (%s) cannot be judged: %v; a reload runs what it names on the next poll, so restart the poller to apply the change", what, path, err)
+		return cannotJudge(what, path, err)
 	}
 	for _, d := range dirs {
-		info, err := os.Stat(d)
+		info, err := statPath(d)
 		if err != nil {
-			continue
+			if unresolved(err) {
+				continue
+			}
+			return cannotJudge(what, path, err)
 		}
 		if err := trustedDirInfo(info, d, path, what); err != nil {
 			return err
@@ -86,9 +124,12 @@ func trustedAncestors(path, what string) error {
 	// own: it must belong to the poller's user or root, or its target is
 	// whatever its owner chose.
 	for _, l := range links {
-		info, err := lstatLink(l)
+		info, err := w.lstat(l)
 		if err != nil {
-			continue
+			if unresolved(err) {
+				continue
+			}
+			return cannotJudge(what, path, err)
 		}
 		if err := trustedLinkInfo(info, l, path, what); err != nil {
 			return err
@@ -96,10 +137,6 @@ func trustedAncestors(path, what string) error {
 	}
 	return nil
 }
-
-// lstatLink reads a followed symlink's own metadata; a variable so a test can
-// show a link another user owns (a test cannot create one).
-var lstatLink = os.Lstat
 
 // trustedLinkInfo judges the owner of a symlink followed on the way to a path.
 // A symlink's own mode carries no meaning, so only its owner is checked.
@@ -122,7 +159,7 @@ const maxSymlinks = 40
 // resolving path component by component, and the symlinks followed on the
 // way. The final component, when it is not a symlink, is not included (that
 // file or directory is judged by the caller).
-func visitedDirs(path string) (dirs, links []string, err error) {
+func visitedDirs(w trustWalk, path string) (dirs, links []string, err error) {
 	// The path as written, made absolute but NOT cleaned: ".." after a symlink
 	// goes to the link target's parent, not the written path's, so cleaning
 	// first would judge directories the kernel never visits.
@@ -162,7 +199,7 @@ func visitedDirs(path string) (dirs, links []string, err error) {
 		next := filepath.Join(cur, c)
 		fi, err := os.Lstat(next)
 		if err != nil {
-			if !os.IsNotExist(err) {
+			if !unresolved(err) {
 				return dirs, links, err // cannot be judged: refuse, do not skip
 			}
 			cur = next
@@ -176,7 +213,7 @@ func visitedDirs(path string) (dirs, links []string, err error) {
 			return dirs, links, fmt.Errorf("it passes through more than %d symlinks", maxSymlinks)
 		}
 		links = append(links, next)
-		target, err := os.Readlink(next)
+		target, err := w.readLink(next)
 		if err != nil {
 			return dirs, links, err
 		}
@@ -194,7 +231,7 @@ func trustedDirInfo(info os.FileInfo, dir, of, what string) error {
 		return nil
 	}
 	if uid := int(st.Uid); uid != os.Geteuid() && uid != 0 {
-		return fmt.Errorf("%s (%s) is on the path to %s and is owned by uid %d, not the poller's user or root; a reload runs what it names on the next poll, so restart the poller to apply it", dir, dir, of, uid)
+		return fmt.Errorf("the directory %s on the path to %s (%s) is owned by uid %d, not the poller's user or root; a reload runs what it names on the next poll, so restart the poller to apply it", dir, of, what, uid)
 	}
 	if info.Mode().Perm()&0o022 != 0 && info.Mode()&os.ModeSticky == 0 {
 		return fmt.Errorf("the directory %s on the path to %s (%s) is writable by group or others and not sticky (mode %o); a reload runs what is below it on the next poll, so tighten it or restart the poller to apply the change", dir, of, what, info.Mode().Perm())

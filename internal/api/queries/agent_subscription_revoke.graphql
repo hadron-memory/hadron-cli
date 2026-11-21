@@ -1,0 +1,15 @@
+# cli#2789: revoke one user's subscription to an Agent. One mutation, never resent.
+# The server decides who may (Agent ADMIN, after a readable-Agent gate) and whether the
+# user's personal memory for the Agent is empty (and so deleted) or kept.
+mutation RevokeAgentSubscription($agentRef: ID!, $userRef: ID!) {
+  revokeAgentSubscription(agentRef: $agentRef, userRef: $userRef) {
+    agentId
+    userId
+    isActive
+    createdAt
+    activatedAt
+    expiresAt
+    revokedAt
+    revokedBy
+  }
+}

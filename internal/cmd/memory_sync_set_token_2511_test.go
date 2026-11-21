@@ -44,7 +44,7 @@ func TestSetToken2511SendsOnceAndNeverEchoes(t *testing.T) {
 		if e := json.Unmarshal(calls["SetMemorySourceToken"], &vars); e != nil {
 			t.Fatal(e)
 		}
-		if vars["token"] != sentinel2511 || vars["id"] != "hrn:mem:acme.com:kb" {
+		if vars["token"] != sentinel2511 || vars["ref"] != "hrn:mem:acme.com:kb" {
 			t.Fatalf("variables: %v", vars)
 		}
 		if _, has := vars["expiresAt"]; has {
@@ -134,8 +134,11 @@ func TestSetToken2511ErrorChainNeverHoldsToken(t *testing.T) {
 			t.Fatalf("token in error chain: %v", e)
 		}
 	}
-	if !strings.Contains(err.Error(), "[REDACTED]") {
-		t.Fatalf("server answer should be kept, redacted: %v", err)
+	// cli#2714 round 4: the message carried the token, so it is not partially
+	// redacted — the fixed refusal replaces it (the chain still holds no
+	// token, asserted above).
+	if !strings.Contains(err.Error(), "the server refused the source token") {
+		t.Fatalf("a token-bearing message must render the fixed refusal: %v", err)
 	}
 }
 

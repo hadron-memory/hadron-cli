@@ -45,7 +45,14 @@ on:
 
 permissions:
   contents: read
-  issues: write # file a tracking issue when drift is found
+  issues: write # file a tracking issue when drift is found or the job fails
+
+# One run at a time: the issue de-duplication below (list, then create) is
+# best-effort, and two overlapping runs (a dispatch during the nightly) could
+# both see no open issue and both file one.
+concurrency:
+  group: schema-drift
+  cancel-in-progress: false
 
 jobs:
   schema-drift:
@@ -99,6 +106,41 @@ jobs:
       # typeDefs.ts is a self-contained SDL string, so a throwaway local install
       # of just tsx + graphql (the export script's only runtime deps) suffices.
       # Install chatter goes to stderr so stdout stays clean SDL for the redirect.
+      # tsx and graphql are pinned to the exact versions schema/SOURCE records
+      # as tsx=/graphql= (read below from that one place): a floating graphql
+      # minor can change printSchema bytes and fire this job for a non-drift
+      # reason (#2679 review). Bump in SOURCE.
+      #
+      # Read in a step of their own, NOT inside the drift step: an empty key
+      # would otherwise become `tsx@` and npm would resolve the latest, quietly
+      # undoing the pin (the script's own exit-2 guard never runs on this path),
+      # and a failure inside the drift step reads as a drift verdict. Here an
+      # empty key fails the job outright, before any check, as the
+      # infrastructure fault it is (#2712).
+      - name: Read the tool pins
+        id: pins
+        if: steps.gate.outputs.enabled == 'true'
+        run: bash scripts/read-tool-pins.sh schema/SOURCE >> "$GITHUB_OUTPUT"
+
+      # The export is its own step, NOT part of the drift step: an install or
+      # exporter failure (a registry outage, a broken exporter) is an
+      # infrastructure fault, and inside the continue-on-error drift step it
+      # read as a drift verdict, so the infrastructure reporter skipped it.
+      # Here a failure fails the job with no drift verdict, and the reporter
+      # below fires. The SDL is exported from .hadron-server, where the script
+      # and its imports live (what `make schema-check` does itself).
+      - name: Export the hadron-server SDL
+        id: export
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          PIN_TSX: ${{ steps.pins.outputs.tsx }}
+          PIN_GRAPHQL: ${{ steps.pins.outputs.graphql }}
+        run: |
+          cd .hadron-server
+          npm install --no-save --no-package-lock --silent --ignore-scripts "tsx@$PIN_TSX" "graphql@$PIN_GRAPHQL" 1>&2
+          node_modules/.bin/tsx scripts/export-graphql-sdl.mjs > "$RUNNER_TEMP/server-sdl.graphql"
+          [ -s "$RUNNER_TEMP/server-sdl.graphql" ] || { echo "::error::the exporter produced no SDL"; exit 1; }
+
       - name: Check for schema drift
         id: check
         if: steps.gate.outputs.enabled == 'true'
@@ -106,7 +148,7 @@ jobs:
         run: |
           make schema-check \
             HADRON_SERVER_DIR=.hadron-server \
-            SDL_EXPORT="npm install --no-save --no-package-lock --silent tsx graphql@16 1>&2 && node_modules/.bin/tsx scripts/export-graphql-sdl.mjs"
+            SDL_EXPORT="cat $RUNNER_TEMP/server-sdl.graphql"
 
       # Same cross-repo checkout, second drift axis: the registered-tool manifest
       # `hadron spec check-tools` embeds. Pure grep over the tool-source files (every module
@@ -186,6 +228,146 @@ jobs:
         run: |
           echo "Drift detected — see the steps above and any filed issue(s)."
           exit 1
+
+      # The other kind of red: the job failed WITHOUT a drift verdict — a bad
+      # credential at checkout, an unreadable pin, a broken runner. The drift
+      # steps above file only on genuine drift, so before this step such a
+      # failure was silent: #2710's nightly died at checkout for six days and
+      # nobody was told (#2712). One open issue, de-duplicated like the drift
+      # ones; a later failure comments instead of stacking another.
+      - name: File an infrastructure-failure issue
+        if: failure() && steps.check.outcome != 'failure' && steps.tools.outcome != 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Nightly schema-drift job failed (infrastructure, not drift)"
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            echo "Infrastructure issue already open (#$existing); adding a note instead."
+            gh issue comment "$existing" --body "Failed again as of $RUN_URL"
+            exit 0
+          fi
+          {
+            echo "The nightly \`schema-drift\` job failed before it could reach a drift verdict, so"
+            echo "the drift detector did not run. The usual causes: the \`HADRON_SERVER_RO_TOKEN\`"
+            echo "secret was rejected at the hadron-server checkout (\`Bad credentials\`, #2710), the"
+            echo "tool pins in \`schema/SOURCE\` are unreadable, or the runner or network failed."
+            echo
+            echo "Open the failing step in the run below and fix its cause; this issue is"
+            echo "commented on by each later failed run and can be closed once one is green."
+            echo
+            echo "Failing run: $RUN_URL"
+          } > infra-issue-body.md
+          gh issue create --title "$title" --body-file infra-issue-body.md
+
+  # The snapshot must be the export of the commit schema/SOURCE names (#2465, Dara's
+  # BLIND P2): the nightly job above compares against moving server main and only for
+  # operations the CLI uses, so a wrong recorded server_sha, or unused-SDL drift in the
+  # snapshot, would pass it. This one checks out EXACTLY server_sha, exports with the
+  # recorded tool versions and compares the bytes. A mismatch fails the job (and files
+  # the issue below). It runs nightly and on dispatch, not on pull requests (it needs the
+  # cross-repo token), so a wrong server_sha is caught after merge, not before it; the
+  # token never reaches npm or tsx (the checkout does not persist it and the export step
+  # has no secret in its environment, pinned by scripts/workflowguards).
+  snapshot-reproduces:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 22
+      - name: Gate on server-access token
+        id: gate
+        env:
+          TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::HADRON_SERVER_RO_TOKEN not set — skipping the snapshot reproduction check."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Read the recorded server revision and tool pins
+        id: pins
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          n=$(grep -c '^server_sha=' schema/SOURCE || true)
+          [ "$n" = 1 ] || { echo "schema/SOURCE must name server_sha= exactly once (found $n)" >&2; exit 2; }
+          sha=$(sed -n 's/^server_sha=//p' schema/SOURCE)
+          printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$' || { echo "server_sha=$sha is not a full commit SHA" >&2; exit 2; }
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          bash scripts/read-tool-pins.sh schema/SOURCE >> "$GITHUB_OUTPUT"
+      - name: Check out hadron-server at the recorded commit
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          repository: hadron-memory/hadron-server
+          token: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+          ref: ${{ steps.pins.outputs.sha }}
+          path: .hadron-server
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/export-graphql-sdl.mjs
+            src/api/graphql/schema/typeDefs.ts
+            src/mcp
+            src/lib/runner/tools
+            src/lib/hostOperations/types.ts
+          sparse-checkout-cone-mode: false
+      - name: Export at that commit
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          PIN_TSX: ${{ steps.pins.outputs.tsx }}
+          PIN_GRAPHQL: ${{ steps.pins.outputs.graphql }}
+        run: |
+          cd .hadron-server
+          npm install --no-save --no-package-lock --silent --ignore-scripts "tsx@$PIN_TSX" "graphql@$PIN_GRAPHQL" 1>&2
+          ./node_modules/.bin/tsx scripts/export-graphql-sdl.mjs > "$RUNNER_TEMP/exported.graphql"
+          [ -s "$RUNNER_TEMP/exported.graphql" ] || { echo "::error::the exporter produced no SDL"; exit 1; }
+      # cmp exits 1 for differing bytes and 2 for a trouble reading them: only the first
+      # is a verdict about the snapshot, so the two are told apart.
+      - name: Compare the bytes
+        id: compare
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          rc=0
+          cmp "$RUNNER_TEMP/exported.graphql" schema/schema.graphql || rc=$?
+          case "$rc" in
+            0) ;;
+            1) echo "::error::SNAPSHOT MISMATCH: schema/schema.graphql is not the export of server_sha in schema/SOURCE (refresh it with the refresh-the-schema-snapshot skill and record the commit)"; exit 1 ;;
+            *) echo "::error::the comparison itself failed (cmp exit $rc): an infrastructure fault, not a verdict on the snapshot"; exit 2 ;;
+          esac
+      # A red nobody is told about is silent (#2710): one deduplicated issue, its own title,
+      # saying which kind of red this was (the failing step is the Compare step for a
+      # mismatch and any other step for an infrastructure fault).
+      - name: File a snapshot-reproduces failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMPARE: ${{ steps.compare.outcome }}
+        run: |
+          title="Nightly snapshot-reproduces job failed"
+          if [ "$COMPARE" = "failure" ]; then
+            kind="the committed schema/schema.graphql does not reproduce from server_sha in schema/SOURCE (or the comparison could not run: open the Compare step)"
+          else
+            kind="the job could not run to a verdict (a rejected HADRON_SERVER_RO_TOKEN at the checkout, #2710, an install or exporter fault, or a bad schema/SOURCE): open the failing step"
+          fi
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Failed again as of $RUN_URL ($kind)"
+            exit 0
+          fi
+          {
+            echo "The nightly \`snapshot-reproduces\` job failed: $kind."
+            echo
+            echo "This issue is commented on by each later failed run and can be closed once one is green."
+            echo
+            echo "Failing run: $RUN_URL"
+          } > snapshot-issue-body.md
+          gh issue create --title "$title" --body-file snapshot-issue-body.md
 
   # The third question, and the one that had never been asked (#641): the checks
   # above keep our COPIES of the server's contract current; this one asks whether

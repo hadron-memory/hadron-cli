@@ -544,7 +544,7 @@ func TestMalformedBatchesAreNeitherTypedNorAckedNorHeld(t *testing.T) {
 
 // Colette's LOCAL P2 on #939 (issuecomment-6262511293): S1 delivers the
 // first message whole and alone even past its 6,000-character budget
-// (renderBatch.ts at ad7f1c2), up to the 65,536-character chat body. Such a
+// (renderBatch.ts at ad7f1c2, 2026-10-19), up to the 65,536-character chat body. Such a
 // batch is valid: typed unchanged, never truncated, never malformed.
 func TestAWholeOversizedMessageIsTypedUnchanged(t *testing.T) {
 	h := newHarness(t)
