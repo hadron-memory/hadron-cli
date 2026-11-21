@@ -6550,7 +6550,7 @@ only usage mistakes (exit 2) before any call.
 - `list` needs exactly one scope: `--app` (every question in that App's Memories you can read),
   `--log` or `--awaiting-me` (exit 2, no request, when none is given, when `--awaiting-me=false` is the only one, or
   when `--app` and `--log` both are; `--awaiting-me` may combine with `--app` or `--log`). Every filter is sent only when its flag was given (`--answered` alone is `true`,
-  `--answered=false` is pending, `--authorizes=false` is sent as false); `--answered-since`
+  `--answered=false` keeps the OPEN ones (no standing answer), `--authorizes=false` is sent as false); `--answered-since`
   takes an RFC 3339 time. One server page (`--limit`, server default 20; `--offset`); `total`
   counts every match. The table is `CODE STATE PRIORITY TIER ASSIGNEE REV TITLE`; "N of M" goes
   to stderr. `log list (--app | --memory)` finds the logs (`[]` when none).

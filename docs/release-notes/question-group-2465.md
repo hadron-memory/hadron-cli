@@ -7,7 +7,7 @@ with the schema-skew message (exit 2). The dual-shape CLI spoke both shapes; thi
 the old one (cli#2640), so it needs a server that has hadron-server #4425-#4428 (alpha 0.22.0
 or later), and `hadron question` does not work against an older server. The `secret client
 list` and `secret client revoke` commands now also need a server with
-`SecretReadClient.clientPrefix` (hadron-server#4536): an older server rejects their query at
+`SecretReadClient.clientPrefix` (hadron-server commit 779123a6a, "project read clients from current grant identities", which landed after the question slices): an older server rejects their query at
 validation, before any mutation.
 
 **Existing records.** The CLI has no migration. A question stored in the format before #4426 is

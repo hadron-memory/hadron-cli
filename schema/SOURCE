@@ -8,7 +8,7 @@
 # commit you name, `make schema HADRON_SERVER_DIR=... SDL_EXPORT=...`) and name the
 # new commit here and in the PR. `make schema-check` re-exports from a server
 # checkout and fails when the generated client would change for an operation the CLI
-# uses; the schema-drift workflow runs it nightly against server main.
+# uses; the schema-drift workflow runs it nightly against server main, and its snapshot-reproduces job exports exactly server_sha with the tool versions below and compares the bytes.
 #
 # tsx= and graphql= are the exporter's tool versions, the single place they live: the
 # schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),

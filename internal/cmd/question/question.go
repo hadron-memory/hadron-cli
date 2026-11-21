@@ -666,8 +666,8 @@ as question get shows it; --json prints the question as one object.`,
 			// answer: a reply without one does not confirm the answer, so the
 			// outcome is unconfirmed (in either output mode) and must be read back
 			// before retrying.
-			if q.Answer == nil || !q.Answered {
-				return exitcode.Newf(exitcode.Error, "the server's reply does not show a standing answer, so the outcome of this answer is unconfirmed; read it with `hadron question get %s` before retrying", output.SafeCell(ref))
+			if !answerConfirmed(q, input) {
+				return exitcode.Newf(exitcode.Error, "the server's reply does not show the answer you gave as the standing answer, so the outcome of this answer is unconfirmed; read it with `hadron question get %s` before retrying", output.SafeCell(ref))
 			}
 			// The heading names the standing answer the server RETURNED, not what was
 			// requested.
@@ -731,8 +731,8 @@ question; --json prints the question as one object.`,
 			q := questionFrom(&resp.RetractQuestionAnswer.QuestionFields)
 			// "Pending again" is only claimed when the returned question has no
 			// standing answer; otherwise the outcome is unconfirmed.
-			if q.Answered || q.Answer != nil {
-				return exitcode.Newf(exitcode.Error, "the server's reply still shows a standing answer, so the outcome of this retraction is unconfirmed; read it with `hadron question get %s` before retrying", output.SafeCell(ref))
+			if !retractionConfirmed(q, expected) {
+				return exitcode.Newf(exitcode.Error, "the server's reply does not show the retraction (no standing answer, a retraction entry last, a newer revision), so the outcome is unconfirmed; read it with `hadron question get %s` before retrying", output.SafeCell(ref))
 			}
 			return output.Write(f.IOStreams, f.JSON, q, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ answer taken back; %s is pending again\n", output.SafeCell(q.Code)); err != nil {
@@ -808,14 +808,16 @@ through; total counts every match. The server derives each state before
 filtering; a list above 5000 candidates refuses a filter
 (QUESTION_LOG_TOO_LARGE_FOR_FILTER).
 
+--app, --log and --awaiting-me are the SCOPE; everything below is a filter on it.
 Every filter is sent only when its flag was given:
   --answered           answered (ANSWERED_UNCONFIRMED, DECIDED or STALE);
-                       --answered=false keeps the pending ones
+                       --answered=false keeps the OPEN ones (no standing answer)
   --state, --priority  one or more values (repeat or comma-separate)
   --tier               ANSWERED, APPROVED or SIGNED
   --assignee <user>    the question's effective assignee is this user (the
                        explicit assignee, else the holder of the worker that asked)
-  --unassigned         no effective assignee
+  --unassigned         no effective assignee; with --assignee either match is kept
+                       (--unassigned=false alone keeps the ones that have one)
   --asked-by-me        you asked it
   --asked-by-worker, --asked-by-app   asked by that worker or App (by ID)
   --answered-since     answered at or after this time (RFC 3339)
@@ -1103,4 +1105,36 @@ func answerHeading(a *answerDTO) string {
 		return output.SafeCell(*a.Key)
 	}
 	return "(text)"
+}
+
+// answerConfirmed reports whether the returned question shows the answer that was
+// asked for as its standing answer: an ANSWER entry (not a retraction) whose option
+// key is the requested one and, when text was given, whose text is the given text
+// (compared trimmed, the server normalising whitespace). A reply that shows some
+// other standing answer, or none, does not confirm this one.
+func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput) bool {
+	a := q.Answer
+	if !q.Answered || a == nil || a.Kind != string(gen.QuestionAnswerKindAnswer) {
+		return false
+	}
+	if in.OptionKey != nil && (a.Key == nil || *a.Key != *in.OptionKey) {
+		return false
+	}
+	if in.OptionKey == nil && a.Key != nil {
+		return false
+	}
+	if in.Text != nil && (a.Text == nil || strings.TrimSpace(*a.Text) != strings.TrimSpace(*in.Text)) {
+		return false
+	}
+	return true
+}
+
+// retractionConfirmed reports whether the returned question shows the retraction: no
+// standing answer, a RETRACTION as the last entry of the answer list, and a revision
+// that moved past the one the caller read.
+func retractionConfirmed(q questionDTO, expectedRevision int) bool {
+	if q.Answered || q.Answer != nil || len(q.Answers) == 0 {
+		return false
+	}
+	return q.Answers[len(q.Answers)-1].Kind == string(gen.QuestionAnswerKindRetraction) && q.Revision > expectedRevision
 }

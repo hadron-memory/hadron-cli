@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	questioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/question"
 	"os"
 	"path/filepath"
 	"sort"
@@ -424,6 +425,12 @@ func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 			t.Fatalf("%s shows no heredoc input file; F5/F11 require a copyable one", path)
 		}
 		for name, body := range files {
+			// The production parser: strict, case-exact and duplicate-key-refusing, one
+			// JSON object and nothing after it (the same decoder `question ask` uses).
+			if err := questioncmd.CheckInputFile(body, path == "question ask"); err != nil {
+				t.Errorf("%s: heredoc %s is refused by the command's own input check: %v (body %q)", path, name, err, body)
+				continue
+			}
 			dec := json.NewDecoder(strings.NewReader(body))
 			dec.DisallowUnknownFields()
 			if path == "question ask" {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"io"
 	"os"
 	"reflect"
@@ -110,4 +111,27 @@ func readText(ios *output.IOStreams, path string) ([]byte, error) {
 		return nil, exitcode.Newf(exitcode.Usage, "reading --text-file: %v", err)
 	}
 	return data, nil
+}
+
+// CheckInputFile runs data through the same strict decode `question ask` (ask true)
+// or `question amend` (ask false) applies to --input-file, for the tests that check
+// the help's example files against the production parser. It sends nothing.
+func CheckInputFile(data string, ask bool) error {
+	if ask {
+		var in gen.AskQuestionInput
+		dec, err := inputDecoder([]byte(data), &in)
+		if err != nil {
+			return err
+		}
+		return finishInput(dec, dec.Decode(&in))
+	}
+	var in gen.AmendQuestionInput
+	dec, err := inputDecoder([]byte(data), &in)
+	if err != nil {
+		return err
+	}
+	if err := finishInput(dec, dec.Decode(&in)); err != nil {
+		return err
+	}
+	return refuseAmendNulls([]byte(data))
 }

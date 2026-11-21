@@ -38,6 +38,26 @@ var questionAnsweredJSON = strings.NewReplacer(
 // questionTextAnsweredJSON is questionJSON after a free-text answer (no option key).
 var questionTextAnsweredJSON = strings.Replace(questionAnsweredJSON, `"key":"pg","text":null`, `"key":null,"text":"free text"`, 2)
 
+// answeredAs is questionAnsweredJSON with the standing answer's key and text replaced,
+// for a reply that shows the answer the test asked for.
+func answeredAs(key, text string) string {
+	k, tx := `"key":null`, `"text":null`
+	if key != "" {
+		k = `"key":"` + key + `"`
+	}
+	if text != "" {
+		tx = `"text":"` + text + `"`
+	}
+	return strings.ReplaceAll(strings.ReplaceAll(questionAnsweredJSON, `"key":"pg"`, k), `"text":null`, tx)
+}
+
+// questionRetractedJSON is questionJSON after a retraction: no standing answer, a
+// RETRACTION as the last answers entry, and a revision newer than the one read.
+var questionRetractedJSON = strings.NewReplacer(
+	`"revSeq":3`, `"revSeq":5`,
+	`"answers":[]`, `"answers":[{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","by":null,"key":"pg","text":null,"reason":null,"via":"CLI"},{"kind":"RETRACTION","at":"2026-11-03T00:00:00Z","byUserId":"u2","by":null,"key":null,"text":null,"reason":"wrong click","via":"CLI"}]`,
+).Replace(questionJSON)
+
 const questionLogJSON = `{"id":"l1","urn":"hrn:node:acme.com:kb:questions","loc":"questions","name":"Questions","prefix":"Q","memoryId":"m1",
 "lastCode":1,"revSeq":2,"portalUrl":null,"defaultDeciderIds":["u2"],"defaultDeciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
 "eligibleDeciderIds":[],"eligibleDeciders":[],"identityMerges":[],"purges":[]}`
@@ -324,7 +344,7 @@ func TestQuestionAnswerSendsViaCLIAndOnlyTheGivenFields(t *testing.T) {
 	if !strings.HasPrefix(out, "✓ answered QA: pg\n") || !strings.Contains(out, "answer: pg") {
 		t.Fatalf("out: %q", out)
 	}
-	c, _, err = runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`},
+	c, _, err = runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + answeredAs("my", "a note") + `}}`},
 		"answer", "QA", "--expected-revision", "4", "--option", "my", "--text", "a note", "--reason", "changed my mind")
 	if err != nil {
 		t.Fatal(err)
@@ -352,7 +372,7 @@ func TestQuestionAnswerTextFromFileAndStdin(t *testing.T) {
 		t.Fatalf("a text-only answer reads (text): %q", out)
 	}
 	// stdin: testFactory's input is not a terminal.
-	gql, captured := captureGraphQLFunc(t, func(op string) string { return `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}` })
+	gql, captured := captureGraphQLFunc(t, func(op string) string { return `{"data":{"answerQuestion":` + answeredAs("", "from stdin") + `}}` })
 	f, _ := testFactory(t)
 	f.IOStreams.In = strings.NewReader("from stdin")
 	root := NewRootCmd(f)
@@ -390,7 +410,7 @@ func TestQuestionAnswerRefusesBeforeAnyCall(t *testing.T) {
 
 // Acceptance 4.
 func TestQuestionRetractSendsViaCLI(t *testing.T) {
-	c, out, err := runQuestion(t, map[string]string{"RetractQuestionAnswer": `{"data":{"retractQuestionAnswer":` + questionJSON + `}}`},
+	c, out, err := runQuestion(t, map[string]string{"RetractQuestionAnswer": `{"data":{"retractQuestionAnswer":` + questionRetractedJSON + `}}`},
 		"retract", "hrn:node:acme.com:kb:questions:QA", "--expected-revision", "4", "--reason", "wrong click")
 	if err != nil {
 		t.Fatal(err)
@@ -402,7 +422,7 @@ func TestQuestionRetractSendsViaCLI(t *testing.T) {
 	if !strings.HasPrefix(out, "✓ answer taken back; QA is pending again\n") {
 		t.Fatalf("out: %q", out)
 	}
-	c, _, _ = runQuestion(t, map[string]string{"RetractQuestionAnswer": `{"data":{"retractQuestionAnswer":` + questionJSON + `}}`}, "retract", "QA", "--expected-revision", "4")
+	c, _, _ = runQuestion(t, map[string]string{"RetractQuestionAnswer": `{"data":{"retractQuestionAnswer":` + questionRetractedJSON + `}}`}, "retract", "QA", "--expected-revision", "4")
 	questionAbsent(t, questionOnlyOp(t, c, "RetractQuestionAnswer"), "reason")
 	c, _, err = runQuestion(t, nil, "retract", "QA")
 	if exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
@@ -715,19 +735,6 @@ func TestQuestionBlankIDFlagsAreRefusedBeforeAnyCall(t *testing.T) {
 	}
 }
 
-// Joaquin's P3: the success heading names the standing answer the server returned,
-// not what was requested; a free-text answer reads (text).
-func TestQuestionAnswerHeadingFollowsTheReturnedAnswer(t *testing.T) {
-	_, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`},
-		"answer", "QA", "--expected-revision", "3", "--option", "other")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasPrefix(out, "✓ answered QA: pg\n") {
-		t.Fatalf("the heading must name the returned answer (pg), not the requested one: %q", out)
-	}
-}
-
 // --awaiting-me=false names no scope, and a purge confirmation states the legacy exception.
 func TestQuestionAwaitingMeFalseIsNoScopeAndPurgeSaysItsException(t *testing.T) {
 	c, _, err := runQuestion(t, nil, "list", "--awaiting-me=false")
@@ -788,5 +795,39 @@ func TestDecisionHelpShowsTheRetirementPage(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(strings.Fields(out.String()), " "), "was renamed to hadron question") {
 		t.Fatalf("the page must name the rename: %q", out.String())
+	}
+}
+
+// Dara's P2s: an answer is confirmed only by the answer that was asked for, and a
+// retraction only by a retraction entry on a newer revision. A different standing
+// answer, an unchanged question, an empty object and a stale revision are all an
+// unconfirmed outcome (exit 1, nothing on stdout), in text and JSON.
+func TestQuestionAnswerAndRetractAreConfirmedByTheirOwnEvidence(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		suffix := []string{}
+		if asJSON {
+			suffix = []string{"--json"}
+		}
+		for name, tc := range map[string]struct {
+			op, field, body string
+			args            []string
+		}{
+			"answer: a different standing answer": {"AnswerQuestion", "answerQuestion", questionAnsweredJSON, []string{"answer", "QA", "--expected-revision", "3", "--option", "other"}},
+			"answer: text not shown":              {"AnswerQuestion", "answerQuestion", questionAnsweredJSON, []string{"answer", "QA", "--expected-revision", "3", "--option", "pg", "--text", "a note"}},
+			"answer: an empty object":             {"AnswerQuestion", "answerQuestion", `{}`, []string{"answer", "QA", "--expected-revision", "3", "--option", "pg"}},
+			"retract: an unchanged open question": {"RetractQuestionAnswer", "retractQuestionAnswer", questionJSON, []string{"retract", "QA", "--expected-revision", "4"}},
+			"retract: a stale revision":           {"RetractQuestionAnswer", "retractQuestionAnswer", questionRetractedJSON, []string{"retract", "QA", "--expected-revision", "5"}},
+			"retract: an empty object":            {"RetractQuestionAnswer", "retractQuestionAnswer", `{}`, []string{"retract", "QA", "--expected-revision", "4"}},
+		} {
+			c, out, err := runQuestion(t, map[string]string{tc.op: `{"data":{"` + tc.field + `":` + tc.body + `}}`}, append(append([]string{}, tc.args...), suffix...)...)
+			if err == nil || exitCodeFor(err) != exitcode.Error || len(c.ops) != 1 || !strings.Contains(err.Error(), "unconfirmed") || (!asJSON && out != "") {
+				t.Errorf("%s (json=%v): want exit 1, unconfirmed, no stdout in text: exit=%d out=%q err=%v", name, asJSON, exitCodeFor(err), out, err)
+			}
+		}
+	}
+	// The idempotent same answer still succeeds.
+	_, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`}, "answer", "QA", "--expected-revision", "3", "--option", "pg")
+	if err != nil || !strings.HasPrefix(out, "✓ answered QA: pg") {
+		t.Fatalf("the confirmed answer succeeds: %v %q", err, out)
 	}
 }

@@ -36,8 +36,8 @@ func actorNames(in []actorRefDTO) string {
 }
 
 // writeQuestion renders one question; verb (e.g. "✓ asked") prefixes the heading
-// on a write and is empty on a read. head, when set, replaces the verb line with
-// a command-specific first line printed before the question block.
+// on a write and is empty on a read. answer and retract print their own first line
+// and then call writeQuestionBlock directly.
 func writeQuestion(f *cmdutil.Factory, q questionDTO, verb string) error {
 	return output.Write(f.IOStreams, f.JSON, q, func(w io.Writer) error {
 		return writeQuestionBlock(w, q, verb)
