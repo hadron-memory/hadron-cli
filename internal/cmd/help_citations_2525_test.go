@@ -102,6 +102,14 @@ func TestBanRegexesCatchTheShapesThePolicyBans2525(t *testing.T) {
 		{"no digit is not a hash", "a deadbeef value", ""},
 		{"no letter is not a hash", "id 1234567890", ""},
 		{"placeholder sha is fine", "--head 0123456789abcdef0123456789abcdef01234567", ""},
+		// Dara's #2812 P2: the id-shaped exemptions (exactly 32 characters, a neighbouring dash)
+		// do not apply where the line says the token is a revision.
+		{"32-char git abbreviation as a revision", "needs server 27671b4a1c2d3e4f5a6b7c8d9e0f1a2b or later", "hash"},
+		{"hyphen-adjacent revision", "needs hadron-server 27671b4b-ab12cd34 or later", "hash"},
+		{"revision before a dash", "built from revision 27671b4b-dirty", "hash"},
+		{"a 32-char entity id in an example is fine", "hadron asset get 01a189a840f4717c98af75cf4d7aed09", ""},
+		{"a uuid segment in an example is fine", "hadron connection flow 7f3c1a90-0000-4000-8000-000000000000", ""},
+		{"a truncated id in an example is fine", "--session 01a0a78c…", ""},
 		{"longer than a hash is fine", "token 27671b4a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
