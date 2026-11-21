@@ -87,8 +87,11 @@ type approvalDTO struct {
 // --expected-revision of the next amend, answer, retract or withdraw. state is
 // derived by the server on every read; only DECIDED may be relied on as a ruling.
 // answer is the standing answer or null; answers is every entry, oldest first.
-// viewerMayAnswer is the server's word on whether the caller may answer or take
-// back an answer right now (a decider acting as themselves).
+// viewerMayAnswer is the server's word on whether the caller may SUBMIT A NEW
+// ANSWER right now (a decider acting as themselves): it is false once the answer
+// history is full even though a slot is kept for taking an answer back, and it
+// does not say an answer stands to retract: question retract's own result is the
+// authority for that (QUESTION_NOT_ANSWERED).
 type questionDTO struct {
 	ID                     string             `json:"id"`
 	URN                    string             `json:"urn"`

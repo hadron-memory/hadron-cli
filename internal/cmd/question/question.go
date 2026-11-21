@@ -486,7 +486,7 @@ On success the question prints as question get shows it, prefixed "✓ amended".
   cat > amend.json <<'EOF'
 {"assignee":null,"specsTouched":[{"spec":"cor:dmo:140:03"}]}
 EOF
-  hadron question amend QA --expected-revision 3 --reason "reroute" --input-file amend.json`,
+  hadron question amend hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "reroute" --input-file amend.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refArg("question", args[0])
@@ -609,8 +609,8 @@ exit 2); a withdrawn question is refused (QUESTION_WITHDRAWN, exit 5).
 On success it prints "✓ answered <code>: <option key or (text)>" and the question
 as question get shows it; --json prints the question as one object.`,
 		Example: `  hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --option pg
-  hadron question answer QA --expected-revision 4 --option my --reason "the team prefers it now" --text "MySQL, with a read replica"
-  echo "needs a different approach" | hadron question answer QA --expected-revision 3 --text-file -`,
+  hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 4 --option my --reason "the team prefers it now" --text "MySQL, with a read replica"
+  echo "needs a different approach" | hadron question answer hrn:node:acme.com:eng:questions:QA --expected-revision 3 --text-file -`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := refArg("question", args[0])
@@ -662,8 +662,12 @@ as question get shows it; --json prints the question as one object.`,
 				return exitcode.Newf(exitcode.Error, "server returned no question")
 			}
 			q := questionFrom(&resp.AnswerQuestion.QuestionFields)
+			// The heading names the standing answer the server RETURNED, not what was
+			// requested: the two should agree, and a difference must show.
 			given := "(text)"
-			if fl.Changed("option") {
+			if q.Answer != nil {
+				given = answerHeading(q.Answer)
+			} else if fl.Changed("option") {
 				given = output.SafeCell(option)
 			}
 			return output.Write(f.IOStreams, f.JSON, q, func(w io.Writer) error {
@@ -822,8 +826,9 @@ The table is CODE STATE PRIORITY TIER ASSIGNEE REV TITLE; "N of M" goes to stder
 			switch {
 			case fl.Changed("app") && fl.Changed("log"):
 				return exitcode.Newf(exitcode.Usage, "give --app or --log, not both")
-			case !fl.Changed("app") && !fl.Changed("log") && !fl.Changed("awaiting-me"):
-				return exitcode.Newf(exitcode.Usage, "give --app <app>, --log <log> or --awaiting-me")
+			case !fl.Changed("app") && !fl.Changed("log") && (!fl.Changed("awaiting-me") || !awaitingMe):
+				// --awaiting-me=false names no scope: it would send a request with none.
+				return exitcode.Newf(exitcode.Usage, "give --app <app>, --log <log> or --awaiting-me (--awaiting-me=false is no scope)")
 			}
 			for _, s := range []struct{ name, val string }{{"app", app}, {"log", logRef}} {
 				if fl.Changed(s.name) {
@@ -1043,8 +1048,9 @@ func newCmdPurge(f *cmdutil.Factory) *cobra.Command {
 		Short: "Delete a never-answered question (platform admins)",
 		Long: `Hard-delete a question that was never answered. The purge is recorded on its
 log and the code stays used. Platform admins only, by server rule; an answered
-question is refused (QUESTION_ANSWERED). Prompts on a terminal; --yes is required
-otherwise.`,
+question is refused (QUESTION_ANSWERED). The server also allows purging a question
+left in the format before hadron-server#4426, answered or not, so check what you
+name. Prompts on a terminal; --yes is required otherwise.`,
 		Example: `  hadron question purge hrn:node:acme.com:eng:questions:QC --reason "test data" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1059,7 +1065,7 @@ otherwise.`,
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent)"); err != nil {
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent; the server also allows it for a question left in the pre-#4426 format, answered or not)"); err != nil {
 				return err
 			}
 			resp, err := gen.PurgeUnansweredQuestion(cmd.Context(), client, ref, reason)
@@ -1079,4 +1085,12 @@ otherwise.`,
 	cmd.Flags().StringVar(&reason, "reason", "", "why it is purged (required; recorded on the log)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
+}
+
+// answerHeading is the option key of a returned answer, or (text) for a free-text one.
+func answerHeading(a *answerDTO) string {
+	if a.Key != nil && *a.Key != "" {
+		return output.SafeCell(*a.Key)
+	}
+	return "(text)"
 }

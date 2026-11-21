@@ -6548,8 +6548,8 @@ only usage mistakes (exit 2) before any call.
   after a retract: `✓ answer taken back; <code> is pending again`; `--json` prints only the
   question.
 - `list` needs exactly one scope: `--app` (every question in that App's Memories you can read),
-  `--log` or `--awaiting-me` (exit 2, no request, when none is given or `--app` and `--log` both
-  are). Every filter is sent only when its flag was given (`--answered` alone is `true`,
+  `--log` or `--awaiting-me` (exit 2, no request, when none is given, when `--awaiting-me=false` is the only one, or
+  when `--app` and `--log` both are; `--awaiting-me` may combine with `--app` or `--log`). Every filter is sent only when its flag was given (`--answered` alone is `true`,
   `--answered=false` is pending, `--authorizes=false` is sent as false); `--answered-since`
   takes an RFC 3339 time. One server page (`--limit`, server default 20; `--offset`); `total`
   counts every match. The table is `CODE STATE PRIORITY TIER ASSIGNEE REV TITLE`; "N of M" goes
@@ -6571,8 +6571,9 @@ only usage mistakes (exit 2) before any call.
 - Deciders (`--decider`, `--eligible`, and `deciders` in the input file) are user IDs: the server
   accepts only a user who can write the log's Memory (`QUESTION_DECIDER_NOT_ELIGIBLE`). An empty
   `--input-file ""` is refused.
-- `withdraw` (final, code stays used) and `purge` (platform admins; never-answered questions only)
-  prompt on a terminal and need `--yes` otherwise.
+- `withdraw` (final, code stays used) and `purge` (platform admins; a never-answered question, and
+  also one left in the pre-hadron-server#4426 format, answered or not) prompt on a terminal and need
+  `--yes` otherwise; the purge prompt says so.
 - JSON: a question is `{id,urn,code,n,logId,title,background,whyNow,state,tier,priority,answered,
   neededBy,defaultAction,authorizes,revision,portalUrl,viewerIsDecider,viewerMayAnswer,taskId,
   askedAt,answeredAt,askedBy,assigneeId,assignee,effectiveAssigneeId,effectiveAssignee,deciderIds,
@@ -6580,7 +6581,9 @@ only usage mistakes (exit 2) before any call.
   noRecommendationReason,answer,answers[{kind,key,text,reason,byUserId,by,at,via}],blocks,sources,
   specsTouched,specsMustChange,withdrawn,approval}` (`answer` is the standing answer or `null`;
   `answers` is every entry, oldest first, with `kind` `ANSWER` or `RETRACTION`; `viewerMayAnswer`
-  is the server's word on whether you may answer or retract right now); a log is
+  is the server's word on whether you may submit a NEW answer right now: it is false once the answer
+  history is full even though a slot is kept for retracting, and it does not say an answer stands to
+  retract, so use `retract`'s own result (`QUESTION_NOT_ANSWERED`) for that); a log is
   `{id,urn,loc,name,prefix,lastCode,revision,portalUrl,memoryId,defaultDeciderIds,defaultDeciders,
   eligibleDeciderIds,eligibleDeciders,identityMerges,purges}`; `list` is `{total,items}`; `log list`
   is an array; `verify` is `{state,revision,approvedRevision,approvalIntegrity,approvalByDecider,

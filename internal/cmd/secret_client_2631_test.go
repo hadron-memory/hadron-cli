@@ -758,3 +758,23 @@ func TestSecretClientIssueIncompleteSigningRequestIsNotSuccess2631(t *testing.T)
 		}
 	}
 }
+
+// Joaquin's P3: a manager who is neither the issuer nor the holder gets only a
+// prefix from the server: clientId is null, clientPrefix is distinct. The JSON
+// carries both fields and the table shows the prefix with an ellipsis.
+func TestSecretClientLsManagerRowHasANullIDAndAPrefix2631(t *testing.T) {
+	row := `{"clientId":null,"clientPrefix":"cl-ab12","grantId":"g1","secretId":"s1","secretName":"tok","selfIssued":false,"endReason":null,"createdAt":"2026-11-20T00:00:00Z"}`
+	srv, _ := attnServer(t, map[string]string{"MySecretReadClients": `{"data":{"mySecretReadClients":[` + row + `]}}`})
+	out, _, err := runSecretClient2631(t, srv.URL, "list", "--json")
+	var rows []map[string]any
+	if err != nil || json.Unmarshal([]byte(out), &rows) != nil || len(rows) != 1 {
+		t.Fatalf("err=%v out=%s", err, out)
+	}
+	if v, ok := rows[0]["clientId"]; !ok || v != nil || rows[0]["clientPrefix"] != "cl-ab12" {
+		t.Fatalf("clientId must be null and clientPrefix distinct: %v", rows[0])
+	}
+	text, _, err := runSecretClient2631(t, srv.URL, "list")
+	if err != nil || !strings.Contains(text, "cl-ab12…") {
+		t.Fatalf("the table shows the prefix with an ellipsis: err=%v\n%s", err, text)
+	}
+}

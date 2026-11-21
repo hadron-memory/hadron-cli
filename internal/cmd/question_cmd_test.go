@@ -35,6 +35,9 @@ var questionAnsweredJSON = strings.NewReplacer(
 	`"answer":null,"answers":[]`, `"answer":{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null},"key":"pg","text":null,"reason":null,"via":"CLI"},"answers":[{"kind":"ANSWER","at":"2026-11-02T00:00:00Z","byUserId":"u2","by":null,"key":"pg","text":null,"reason":null,"via":"CLI"}]`,
 ).Replace(questionJSON)
 
+// questionTextAnsweredJSON is questionJSON after a free-text answer (no option key).
+var questionTextAnsweredJSON = strings.Replace(questionAnsweredJSON, `"key":"pg","text":null`, `"key":null,"text":"free text"`, 2)
+
 const questionLogJSON = `{"id":"l1","urn":"hrn:node:acme.com:kb:questions","loc":"questions","name":"Questions","prefix":"Q","memoryId":"m1",
 "lastCode":1,"revSeq":2,"portalUrl":null,"defaultDeciderIds":["u2"],"defaultDeciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
 "eligibleDeciderIds":[],"eligibleDeciders":[],"identityMerges":[],"purges":[]}`
@@ -306,19 +309,19 @@ func TestQuestionListTableAndJSON(t *testing.T) {
 // Acceptance 3.
 func TestQuestionAnswerSendsViaCLIAndOnlyTheGivenFields(t *testing.T) {
 	c, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`},
-		"answer", "hrn:node:acme.com:kb:questions:QA", "--expected-revision", "3", "--option", "yes")
+		"answer", "hrn:node:acme.com:kb:questions:QA", "--expected-revision", "3", "--option", "pg")
 	if err != nil {
 		t.Fatal(err)
 	}
 	v := questionOnlyOp(t, c, "AnswerQuestion")
 	want := map[string]any{
 		"ref": "hrn:node:acme.com:kb:questions:QA", "expectedRevision": float64(3),
-		"input": map[string]any{"optionKey": "yes", "via": "CLI"},
+		"input": map[string]any{"optionKey": "pg", "via": "CLI"},
 	}
 	if !reflect.DeepEqual(v, want) {
 		t.Fatalf("variables = %v, want exactly %v", v, want)
 	}
-	if !strings.HasPrefix(out, "✓ answered QA: yes\n") || !strings.Contains(out, "answer: pg") {
+	if !strings.HasPrefix(out, "✓ answered QA: pg\n") || !strings.Contains(out, "answer: pg") {
 		t.Fatalf("out: %q", out)
 	}
 	c, _, err = runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`},
@@ -338,7 +341,7 @@ func TestQuestionAnswerTextFromFileAndStdin(t *testing.T) {
 	if err := os.WriteFile(p, []byte("free text\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	c, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`}, "answer", "QA", "--expected-revision", "3", "--text-file", p)
+	c, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionTextAnsweredJSON + `}}`}, "answer", "QA", "--expected-revision", "3", "--text-file", p)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -709,5 +712,36 @@ func TestQuestionBlankIDFlagsAreRefusedBeforeAnyCall(t *testing.T) {
 				t.Fatalf("want a usage error and no call: %v ops=%v", err, c.ops)
 			}
 		})
+	}
+}
+
+// Joaquin's P3: the success heading names the standing answer the server returned,
+// not what was requested; a free-text answer reads (text).
+func TestQuestionAnswerHeadingFollowsTheReturnedAnswer(t *testing.T) {
+	_, out, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + questionAnsweredJSON + `}}`},
+		"answer", "QA", "--expected-revision", "3", "--option", "other")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out, "✓ answered QA: pg\n") {
+		t.Fatalf("the heading must name the returned answer (pg), not the requested one: %q", out)
+	}
+}
+
+// --awaiting-me=false names no scope, and a purge confirmation states the legacy exception.
+func TestQuestionAwaitingMeFalseIsNoScopeAndPurgeSaysItsException(t *testing.T) {
+	c, _, err := runQuestion(t, nil, "list", "--awaiting-me=false")
+	if exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+		t.Fatalf("--awaiting-me=false alone is no scope: %v ops=%v", err, c.ops)
+	}
+	c, _, err = runQuestion(t, nil, "purge", "QA", "--reason", "r")
+	if err == nil || !strings.Contains(err.Error(), "--yes") || len(c.ops) != 0 {
+		t.Fatalf("a non-TTY purge without --yes refuses before any call: %v", err)
+	}
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	purge, _, ferr := root.Find([]string{"question", "purge"})
+	if ferr != nil || !strings.Contains(purge.Long, "pre-hadron-server#4426") && !strings.Contains(strings.Join(strings.Fields(purge.Long), " "), "before hadron-server#4426") {
+		t.Fatalf("the purge help must state the legacy-format exception: %v", ferr)
 	}
 }

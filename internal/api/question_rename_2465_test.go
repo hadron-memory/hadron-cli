@@ -60,17 +60,9 @@ var retiredServerName = regexp.MustCompile(
 // snapshot, not just `type Decision {`.
 var leftoverDecisionType = regexp.MustCompile(`type Decision\w* \{`)
 
-// decisionClientNames is the explicit allowlist of client-chosen operation and
-// fragment names that intentionally keep the Decision spelling (see the header
-// of question.graphql). Any other `Decision`-spelled name in a queries/ document
-// is a leftover of the rename.
-var decisionClientNames = regexp.MustCompile(
-	`\b(?:fragment|query|mutation)\s+(?:Decision\w*|AskDecision\w*|AmendDecision\w*|WithdrawDecision\w*|VerifyDecision\w*|PurgeUnansweredDecision\w*)\b|\.\.\.Decision\w*Fields\b`)
-
 // TestNoRetiredDecisionNamesInAnyQueryDocument2644 sweeps every document under
 // queries/, not just question.graphql: a retired server identifier anywhere
-// fails on a current server. question.graphql's own client-chosen names are
-// stripped first via the allowlist.
+// fails on a current server.
 func TestNoRetiredDecisionNamesInAnyQueryDocument2644(t *testing.T) {
 	files, err := filepath.Glob("queries/*.graphql")
 	if err != nil || len(files) == 0 {
@@ -81,7 +73,7 @@ func TestNoRetiredDecisionNamesInAnyQueryDocument2644(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		doc := decisionClientNames.ReplaceAllString(string(raw), "")
+		doc := string(raw)
 		if m := retiredServerName.FindString(doc); m != "" {
 			t.Errorf("%s still names a retired server identifier: %q", f, m)
 		}
