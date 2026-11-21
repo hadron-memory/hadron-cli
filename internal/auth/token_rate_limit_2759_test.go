@@ -60,8 +60,8 @@ func TestTokenExchangeTyped429GivesBackoffGuidanceAndNothingElse(t *testing.T) {
 	if !strings.Contains(msg, "not a rejected credential") || strings.Contains(msg, "invalid_") {
 		t.Errorf("the message must say a rate limit is not a rejected credential: %q", msg)
 	}
-	if exitcode.FromError(err) == exitcode.AuthRequired {
-		t.Error("a rate limit must not exit as AuthRequired")
+	if got := exitcode.FromError(err); got != exitcode.Error {
+		t.Errorf("exit code = %d; a rate limit is a plain refusal (1), never AuthRequired (3) or Cancelled (6)", got)
 	}
 	if as.tokenCalls != 1 {
 		t.Errorf("token endpoint called %d times: the CLI must not retry on its own", as.tokenCalls)
