@@ -21,7 +21,7 @@ func TestTeamPRSeatVerdictHelpStatesReviewOrder2785(t *testing.T) {
 			help := strings.Join(strings.Fields(out.String()), " ")
 			for _, s := range []string{
 				"schedule, freeze, seat, verdict, finish",
-				"binds only while its own task is live (STARTED)",
+				"A seat binds to a task that has not ended (PENDING or STARTED); only pr verdict needs it STARTED",
 				"a finished seat cannot take a verdict",
 				"A negative verdict at a head blocks every slot there until the head moves or its own reviewer re-rates it",
 				"TASK_ENDED, REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH",
@@ -33,7 +33,7 @@ func TestTeamPRSeatVerdictHelpStatesReviewOrder2785(t *testing.T) {
 					t.Errorf("%s help missing %q:\n%s", leaf, s, help)
 				}
 			}
-			for _, bad := range []string{"is the record", "names the refusal code", "team process", "team's practice"} {
+			for _, bad := range []string{"is the record", "names the refusal code", "binds only while", "team process", "team's practice"} {
 				if strings.Contains(help, bad) {
 					t.Errorf("%s help must not say %q:\n%s", leaf, bad, help)
 				}

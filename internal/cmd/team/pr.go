@@ -301,8 +301,9 @@ const prGroupExample = `  hadron team pr schedule AT0.7850 --slot local --slot b
 // evidence beside it.
 const prReviewRules = `
 
-The order is schedule, freeze, seat, verdict, finish; a seat binds only while
-its own task is live (STARTED), and a finished seat cannot take a verdict. A
+The order is schedule, freeze, seat, verdict, finish. A seat binds to a task
+that has not ended (PENDING or STARTED); only pr verdict needs it STARTED, and a
+finished seat cannot take a verdict. A
 negative verdict at a head blocks every slot there until the head moves or its
 own reviewer re-rates it.
 
