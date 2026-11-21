@@ -1048,9 +1048,10 @@ func newCmdPurge(f *cmdutil.Factory) *cobra.Command {
 		Short: "Delete a never-answered question (platform admins)",
 		Long: `Hard-delete a question that was never answered. The purge is recorded on its
 log and the code stays used. Platform admins only, by server rule; an answered
-question is refused (QUESTION_ANSWERED). The server also allows purging a question
-left in the format before hadron-server#4426, answered or not, so check what you
-name. Prompts on a terminal; --yes is required otherwise.`,
+question is refused (QUESTION_ANSWERED). A question left in the format before
+hadron-server#4426 counts as never answered only while its payload holds no
+answer or answer history: the server refuses one that does. Prompts on a
+terminal; --yes is required otherwise.`,
 		Example: `  hadron question purge hrn:node:acme.com:eng:questions:QC --reason "test data" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1065,7 +1066,7 @@ name. Prompts on a terminal; --yes is required otherwise.`,
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent; the server also allows it for a question left in the pre-#4426 format, answered or not)"); err != nil {
+			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent; the server refuses it for a question that was ever answered, including one in the pre-#4426 format whose payload holds an answer)"); err != nil {
 				return err
 			}
 			resp, err := gen.PurgeUnansweredQuestion(cmd.Context(), client, ref, reason)

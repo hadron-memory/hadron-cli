@@ -37,6 +37,6 @@ release is the client for the renamed server: it needs a server that has hadron-
   `QUESTION_ANSWERED_DECIDED` no longer exist.
 - `hadron secret client list` shows `clientPrefix` and a null `clientId` for a manager who is
   neither the client's issuer nor its holder (the server now returns only a prefix then).
-- `hadron question purge` removes a never-answered question and, by the server's rule, also a
-  question left in the format before hadron-server#4426 (answered or not): the help and the
-  confirmation prompt say so. Platform admins only.
+- `hadron question purge` removes a never-answered question (platform admins only). A question left
+  in the format before hadron-server#4426 counts as never answered only while its payload holds no
+  answer or answer history; the server refuses one that does. The help and the confirmation say so.

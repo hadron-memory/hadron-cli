@@ -741,7 +741,13 @@ func TestQuestionAwaitingMeFalseIsNoScopeAndPurgeSaysItsException(t *testing.T) 
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	purge, _, ferr := root.Find([]string{"question", "purge"})
-	if ferr != nil || !strings.Contains(purge.Long, "pre-hadron-server#4426") && !strings.Contains(strings.Join(strings.Fields(purge.Long), " "), "before hadron-server#4426") {
-		t.Fatalf("the purge help must state the legacy-format exception: %v", ferr)
+	flat := ""
+	if ferr == nil {
+		flat = strings.Join(strings.Fields(purge.Long), " ")
+	}
+	// The pre-#4426 format is purgeable only while its payload holds no answer or
+	// history (the pinned resolver refuses one that does): the help must not promise more.
+	if ferr != nil || !strings.Contains(flat, "only while its payload holds no answer or answer history") || strings.Contains(flat, "answered or not") {
+		t.Fatalf("the purge help must state the legacy-format limit, not an answered-or-not exception: %v %q", ferr, flat)
 	}
 }

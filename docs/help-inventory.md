@@ -173,7 +173,7 @@ section between the markers.
 | `question log get` |  |  | y | #1051 | ea1ba800ff9d |  | unread |  |
 | `question log list` | ls |  | y | #1051 | 48290b08bbf4 |  | unread |  |
 | `question log set-deciders` |  |  | y | #1051 | b9cf029fce8b |  | unread |  |
-| `question purge` |  |  | y | #1051 | 0afdcea41882 |  | unread |  |
+| `question purge` |  |  | y | #1051 | 32e08e8eadae |  | unread |  |
 | `question retract` |  |  | y | #1051 | ffa6a4276a22 |  | unread |  |
 | `question verify` |  |  | y | #1051 | 22a4d8cae72c |  | unread |  |
 | `question withdraw` |  |  | y | #1051 | 8ae70cff2cea |  | unread |  |
