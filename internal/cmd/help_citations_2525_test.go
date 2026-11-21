@@ -249,7 +249,7 @@ func TestHelpCarriesNoRevisionHashAnywhere2525(t *testing.T) {
 // cli#2525 F4: `app agent list` lost its server floor when the revision hash was
 // scrubbed ("Requires a server with AppAgent.installMethod..." named no version at
 // all). It states the release date again, so a reader can tell an older server (every
-// INSTALL and IMPORTER cell is "?") from one that withholds the answer for them.
+// INSTALL and IMPORTER cell is refused, exit 2) from one that withholds the answer for them.
 func TestAppAgentListHelpStatesItsServerFloor2525(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -260,7 +260,13 @@ func TestAppAgentListHelpStatesItsServerFloor2525(t *testing.T) {
 		t.Fatal(err)
 	}
 	help := strings.Join(strings.Fields(out.String()), " ")
-	if !strings.Contains(help, "INSTALL and IMPORTER need server 2026-11-05 or later") {
-		t.Errorf("app agent list --help must state the INSTALL and IMPORTER server floor as a date:\n%s", out.String())
+	// Joost's #2812 P2: an older server REFUSES the fields (schema skew, exit 2, no roster:
+	// TestAppAgentProvenanceSchemaSkew1682); "?" is only withheld provenance on a server
+	// that has them. The page must say the first with the date and never the second.
+	if !strings.Contains(help, "A server before 2026-11-05 refuses the install method and importer fields (exit 2)") {
+		t.Errorf("app agent list --help must state the refusal and the server floor as a date:\n%s", out.String())
+	}
+	if strings.Contains(help, "older server answers") {
+		t.Errorf("app agent list --help must not say an older server answers \"?\" (it refuses):\n%s", out.String())
 	}
 }
