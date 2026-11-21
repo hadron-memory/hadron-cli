@@ -5730,8 +5730,8 @@ hadron team task set-priority <task> <priority> | add-blocker|remove-blocker <ta
   as `release`'s read of the outside item or `create`'s App lookup, carries none), and the worker session attaches as it does
   without the flag. A malformed instruction exits 2 before any request; `create --instruction` with `--batch-file` exits 2 (the
   batch write takes no claim). The server decides admission; its refusal is shown once and never retried without the flag. Without
-  the flag, the requests and `--json` are unchanged. Needs server 2026-11-04 or later. `team stall-schedule set` and `team alarm ack`
-  take no instruction yet.
+  the flag, the requests and `--json` are unchanged. Needs server 2026-11-04 or later. `team stall-schedule set` and `team alarm ack` take it too, with their own server floor: see
+  "Instructed alarm acknowledgement and stall schedule" below.
 
 Task priority/blocker fields require server #2726 (cf9bcfece) or later on every
 target deployment before releasing/installing this CLI; old servers reject the

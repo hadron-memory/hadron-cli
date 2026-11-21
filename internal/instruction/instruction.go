@@ -10,15 +10,15 @@ import (
 
 const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server "
 
-// The server release dates the --instruction doors are floored at, named once so a
-// floor changes in one place (cli#2525 F4). A floor is a date, never a revision hash:
-// help says "server 2026-11-03 or later" in a form the reader can compare with their
-// own server.
+// The server dates the --instruction doors are floored at, named once so a floor changes
+// in one place (cli#2525 F4). Each is the date the change was MERGED into hadron-server
+// (the server commit's date), never a revision hash and not a deployment date: help says
+// "server 2026-11-03 or later" meaning a server built from a revision merged on or after it.
 const (
-	// ServerFloorStaffing is hadron-server#3307/#3308's merge: the base --instruction
+	// ServerFloorStaffing is the merge of hadron-server#3307/#3308: the base --instruction
 	// flag, the staffing and member doors and the credential acts.
 	ServerFloorStaffing = "2026-11-03"
-	// ServerFloorManager is hadron-server#3323/#3398's merge: the App-manager writes
+	// ServerFloorManager is the merge of hadron-server#3323/#3398: the App-manager writes
 	// and the task writes.
 	ServerFloorManager = "2026-11-04"
 )

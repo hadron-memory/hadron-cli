@@ -22,7 +22,8 @@ type publicLinkDTO struct {
 	PublicURL           *string `json:"publicUrl"`
 }
 
-// publicLinkServerFloor is the server release date the instructed public-link call needs.
+// publicLinkServerFloor is the date the change behind the instructed public-link call was
+// merged into the server.
 const publicLinkServerFloor = "2026-11-03"
 
 func newCmdPublicLink(f *cmdutil.Factory) *cobra.Command {

@@ -25,10 +25,27 @@ func agentMemoryHelp2494(t *testing.T, verb string) string {
 	return out.String()
 }
 
-// hasWord2494 reports whether w appears as a whole word, so "read" is not found inside
-// "read-write" (a plain Contains would let the second role satisfy the first).
+// hasWord2494 reports whether w appears as a whole token: not inside a longer one, where a
+// token continues over letters, digits, underscores and hyphens, so "read" is not found in
+// "read-write", "reader" or "read2", and "read-write" is not found in "read-writer".
 func hasWord2494(s, w string) bool {
-	return regexp.MustCompile(`(^|[^A-Za-z-])` + regexp.QuoteMeta(w) + `([^A-Za-z-]|$)`).MatchString(s)
+	return regexp.MustCompile(`(^|[^A-Za-z0-9_-])` + regexp.QuoteMeta(w) + `([^A-Za-z0-9_-]|$)`).MatchString(s)
+}
+
+func TestHasWord2494(t *testing.T) {
+	for _, tc := range []struct {
+		s, w string
+		want bool
+	}{
+		{"read or read-write", "read", true}, {"read or read-write", "read-write", true},
+		{"read-write only", "read", false}, {"the reader role", "read", false}, {"read2", "read", false},
+		{"read_only", "read", false}, {"read-writer", "read-write", false}, {"readwrite", "read-write", false},
+		{"role: read.", "read", true}, {"(read)", "read", true},
+	} {
+		if got := hasWord2494(tc.s, tc.w); got != tc.want {
+			t.Errorf("hasWord2494(%q, %q) = %v, want %v", tc.s, tc.w, got, tc.want)
+		}
+	}
 }
 
 func TestAgentMemoryRoleHelpNamesBothRoles2494(t *testing.T) {
@@ -51,7 +68,7 @@ func TestAgentMemoryRoleHelpNamesBothRoles2494(t *testing.T) {
 				flagLine = l
 			}
 		}
-		if !hasWord2494(flagLine, "read") || !strings.Contains(flagLine, "read-write") {
+		if !hasWord2494(flagLine, "read") || !hasWord2494(flagLine, "read-write") {
 			t.Errorf("%s: the --role flag line must list read and read-write: %q", verb, flagLine)
 		}
 	}

@@ -184,7 +184,7 @@ func TestUnsafeExamplePathGuard1053(t *testing.T) {
 	}
 	sibling := dir + "-sibling"
 	safe := []string{"notes.txt", "a/b.json", "a/..", "@data.json", "--file=spec.json", "-o=out.json", dir + "/x", dir,
-		"-oout.json", "-n5", "--set=key=value", "a.json,b.json", "--files=a.json,b/c.json", "k=v", dir + "/../run/x"}
+		"-oout.json", "-n5", "--set=key=value", "a.json,b.json", "--files=a.json,b/c.json", "k=v", dir + "/../" + filepath.Base(dir) + "/x"}
 	for _, a := range safe {
 		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got != "" {
 			t.Errorf("%q judged unsafe, want safe (reported %q)", a, got)

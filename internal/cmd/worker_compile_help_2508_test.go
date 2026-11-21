@@ -28,11 +28,9 @@ func withoutGlobalFlags2508(help string) string {
 // byte-identical by hand while the shared bootcompile text was rewritten, and
 // QA and LOCAL verified it — nothing pinned it. This golden does: the shared
 // text cannot drift again without this test failing. When the page is MEANT
-// to change, regenerate the golden deliberately with
-//
-//	bin/hadron team worker compile --help > internal/cmd/testdata/worker_compile_help_2508.golden
-//
-// and say why in the commit that moves it. (The golden stops before the Global Flags
+// to change, regenerate the golden deliberately with the -update-help-golden command
+// above (it writes the page without the Global Flags block, which is what the test
+// compares) and say why in the commit that moves it. (The golden stops before the Global Flags
 // block; see withoutGlobalFlags2508. It still carries the citations the scrub policy
 // bans on this page: `team worker compile` is on the citation ratchet's exception list
 // until its own slice scrubs it.)

@@ -270,3 +270,26 @@ func TestAppAgentListHelpStatesItsServerFloor2525(t *testing.T) {
 		t.Errorf("app agent list --help must not say an older server answers \"?\" (it refuses):\n%s", out.String())
 	}
 }
+
+// Dara's #2812 P2 (F4): a deployment date does not show a server has a change (an operator
+// can deploy an older build after the cutoff), and a floor is the date the change was MERGED
+// into the server. server-info says so and asks for the deployed revision.
+func TestServerInfoHelpExplainsWhatAFloorDateMeans2525(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"server-info", "--help"})
+	root.SetOut(out)
+	root.SetErr(out)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(out.String()), " ")
+	for _, want := range []string{"the date its change was merged into the server", "which revision is deployed"} {
+		if !strings.Contains(help, want) {
+			t.Errorf("server-info --help must say %q:\n%s", want, out.String())
+		}
+	}
+	if strings.Contains(help, "last updated") {
+		t.Errorf("a deployment date does not establish compatibility; do not send the reader to it:\n%s", out.String())
+	}
+}
