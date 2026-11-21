@@ -79,18 +79,52 @@ func TestSnapshotListTriggerIDAloneIsTheServersRefusal2850(t *testing.T) {
 // server judges it, the CLI pre-checks nothing.
 func TestSnapshotListEmptyTriggerIDIsSentAsGiven2850(t *testing.T) {
 	for _, instructed := range []bool{false, true} {
-		calls, _, err := runSnapshotList2775(t, instructed, snapshotPage2775, "--trigger-kind", "SCHEDULE", "--trigger-id", "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, c := range *calls {
-			if got, ok := c.Variables["triggerId"]; !ok || got != "" {
-				t.Errorf("instructed=%v %s: empty triggerId present=%v value=%#v", instructed, c.OperationName, ok, got)
+		t.Run(map[bool]string{false: "person", true: "instructed"}[instructed], func(t *testing.T) {
+			calls, _, err := runSnapshotList2775(t, instructed, snapshotPage2775, "--trigger-kind", "SCHEDULE", "--trigger-id", "")
+			if err != nil {
+				t.Fatal(err)
 			}
-			if !strings.Contains(c.Query, "triggerId: $triggerId") {
-				t.Errorf("%s: triggerId not wired: %s", c.OperationName, c.Query)
+			if len(*calls) == 0 {
+				t.Fatal("no request reached the server")
 			}
-		}
+			for _, c := range *calls {
+				if !strings.Contains(c.OperationName, "ByTrigger") {
+					t.Errorf("want a ByTrigger call: %s", c.OperationName)
+				}
+				if got, ok := c.Variables["triggerKind"]; !ok || got != "SCHEDULE" {
+					t.Errorf("%s: triggerKind present=%v value=%#v", c.OperationName, ok, got)
+				}
+				if got, ok := c.Variables["triggerId"]; !ok || got != "" {
+					t.Errorf("%s: empty triggerId present=%v value=%#v", c.OperationName, ok, got)
+				}
+				if !strings.Contains(c.Query, "triggerId: $triggerId") {
+					t.Errorf("%s: triggerId not wired: %s", c.OperationName, c.Query)
+				}
+			}
+		})
+	}
+}
+
+const unknownArgumentRefusal2850 = `{"errors":[{"message":"Unknown argument \"triggerKind\" on field \"Query.automationTeamSnapshotGrants\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}],"data":null}`
+
+// A server that predates the trigger filter answers the flag with its own
+// validation error; the CLI shows it as given, once, and prints nothing partial.
+func TestSnapshotListOlderServerUnknownArgumentPassesThrough2850(t *testing.T) {
+	for _, instructed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "person", true: "instructed"}[instructed], func(t *testing.T) {
+			calls, out, err := runSnapshotList2775(t, instructed, func(snapshotCall1614) string {
+				return unknownArgumentRefusal2850
+			}, "--trigger-kind", "SCHEDULE")
+			if err == nil || !strings.Contains(err.Error(), "Unknown argument") || out != "" {
+				t.Fatalf("exit %d err %v out %q", exitCodeFor(err), err, out)
+			}
+			if exitCodeFor(err) == exitcode.OK {
+				t.Fatalf("a refusal must not exit 0: %v", err)
+			}
+			if len(*calls) != 1 {
+				t.Fatalf("a refusal is never retried: %d calls", len(*calls))
+			}
+		})
 	}
 }
 
