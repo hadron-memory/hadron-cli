@@ -43,6 +43,10 @@ type newRouteDTO struct {
 	// CrossMemory is true when the route was written (or confirmed) with the
 	// intentional cross-memory marker (cli#2736); absent otherwise.
 	CrossMemory bool `json:"crossMemory,omitempty"`
+	// AlreadyRouted is true when every edge the run would write was already on
+	// the graph (and none needed the marker), so no edge was written; absent
+	// otherwise (cli#2844). The routing line in the body is separate.
+	AlreadyRouted bool `json:"alreadyRouted,omitempty"`
 }
 
 func newCmdPreflightAdd(f *cmdutil.Factory) *cobra.Command {
@@ -433,6 +437,9 @@ func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
 		{false, false}: "✓ routed",
 		{false, true}:  "would route",
 	}[[2]bool{created, dto.DryRun}]
+	if dto.AlreadyRouted {
+		verb = "✓ already routed"
+	}
 	t := output.NewTable(w)
 	t.Row(verb, output.SafeCell(dto.Loc), output.SafeCell("("+dto.Route+")"))
 	// The arrow follows the edge: the router owns it (router → node) under the
