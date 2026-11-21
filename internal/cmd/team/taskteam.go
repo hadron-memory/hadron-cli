@@ -198,9 +198,12 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *
 			return tasks, nil
 		}
 		if added == 0 {
-			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not advance at offset %d (a full page of tasks already read); nothing shown", offset)
+			// "every row it served", not "a full page": the page can be short
+			// (BLIND round 2, cli#2734) — all it takes is every row, however
+			// many, being one already seen.
+			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not advance at offset %d (every row it served was already read); nothing shown", offset)
 		}
-		offset += len(rows)
+		offset += info.Served
 	}
 }
 

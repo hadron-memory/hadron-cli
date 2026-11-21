@@ -755,11 +755,17 @@ func checkTaskPage(limit, offset int) error {
 }
 
 // taskPageInfo is one agentTasksPage answer's metadata (server#4622): the
-// total the items were counted against in the same snapshot, and whether rows
-// remain past this page.
+// total the items were counted against in the same snapshot, whether rows
+// remain past this page, and Served — the row count of the page as the server
+// vouched for it. Walks and continuation lines advance by Served, never by a
+// DTO list's length, so a continuation offset cannot drift from the server's
+// offset even if the copy into taskDTOs ever changed shape (BLIND round 2,
+// cli#2734: listTasks printed offset+len(tasks), right only while taskPageOf
+// provably copies every row — the count is now carried, not re-derived).
 type taskPageInfo struct {
 	Total   int
 	HasMore bool
+	Served  int
 }
 
 // malformedTaskPage refuses an agentTasksPage answer that cannot be trusted:
@@ -800,6 +806,11 @@ func taskPageOf[E any, I interface {
 		}
 		tasks = append(tasks, task)
 	}
+	// The page's own row count, carried alongside the copy: every walk that
+	// advances by rows served reads this, so the offset it sends is the
+	// server's arithmetic on the server's count (len(items)), never a
+	// re-derivation from the DTO list.
+	info.Served = len(items)
 	return tasks, info, nil
 }
 
@@ -985,9 +996,10 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			// The continuation is offset + the ROWS SERVED, not offset+limit
 			// (cor:api:120:04, the cli#1919 events precedent): a short page
 			// with hasMore has consumed only the rows it returned, and
-			// offset+limit would skip limit-len rows. On stderr with the
-			// other continuation lines, so stdout stays the table alone.
-			_, err := fmt.Fprintf(f.IOStreams.ErrOut, "more tasks remain of %d total: continue with --offset %d\n", info.Total, q.offset+len(tasks))
+			// offset+limit would skip limit-len rows. Served is the page's own
+			// row count, so the offset sent is the server's. On stderr with
+			// the other continuation lines, so stdout stays the table alone.
+			_, err := fmt.Fprintf(f.IOStreams.ErrOut, "more tasks remain of %d total: continue with --offset %d\n", info.Total, q.offset+info.Served)
 			return err
 		}
 		return nil

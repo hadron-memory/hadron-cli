@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/intake"
 )
@@ -23,17 +24,34 @@ import (
 // pagedHoldersClient answers the changes feed like feedClient and the holder
 // lookup from a fixed row list, serving rowsPerRead holders per read so a
 // multi-page history needs its reads followed. It records the offset of every
-// holder read.
+// holder read. validationErr, when set, is returned for the first holder read
+// as a GraphQL validation error (one old-server shape); rawBody, when set, is
+// served verbatim as the holder page's data (malformed-answer shapes).
 type pagedHoldersClient struct {
 	feedClient
-	rows        []string
-	rowsPerRead int
-	offsets     []float64
+	rows          []string
+	rowsPerRead   int
+	offsets       []float64
+	validationErr string
+	rawBody       string
 }
 
 func (c *pagedHoldersClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
 	if req.OpName != "IntakeItemHolders" {
 		return c.feedClient.MakeRequest(ctx, req, resp)
+	}
+	if c.validationErr != "" {
+		msg := c.validationErr
+		c.validationErr = ""
+		// Returned, not just attached: genqlient surfaces only what
+		// MakeRequest returns, like the HTTP transport does.
+		return &gqlerror.Error{
+			Message:    msg,
+			Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"},
+		}
+	}
+	if c.rawBody != "" {
+		return json.Unmarshal([]byte(c.rawBody), resp.Data)
 	}
 	b, _ := json.Marshal(req.Variables)
 	var v struct {
@@ -94,11 +112,6 @@ func TestReconcileHolderLookupFollowsHasMore2734(t *testing.T) {
 	}
 }
 
-// TestReconcileHolderLookupStopsAtHasMoreEnd2734: the history fits in one
-// page; exactly one read, and — the carried RELEASED rule (cor:agt:120:04,
-// cli#2265) — the finished-only history still HOLDS the id, so the release is
-// skipped, not untracked: RELEASED untracks only when no task of the App holds
-// the id in any state.
 // TestReconcileHolderLookupRefusesEmptyPageWithMore2734: items [] with
 // hasMore true can never advance the walk — the read steps by rows served, so
 // offset+0 would re-ask the same page until the page bound. It is refused on
@@ -123,6 +136,56 @@ func TestReconcileHolderLookupRefusesEmptyPageWithMore2734(t *testing.T) {
 	}
 }
 
+// TestReconcileHolderLookupRefusesMalformedPage2734: the holder read's other
+// untrustworthy answers — no page object, null items — end the run as server
+// failures on the first page, like the empty-hasMore page, never as "nobody
+// holds it" (cli#2734 BLIND round 2: only the empty-hasMore shape was pinned).
+func TestReconcileHolderLookupRefusesMalformedPage2734(t *testing.T) {
+	for name, body := range map[string]string{
+		"no page object": `{}`,
+		"null page":      `{"agentTasksPage":null}`,
+		"items null":     `{"agentTasksPage":{"items":null,"total":1,"hasMore":false}}`,
+	} {
+		r, desc, _ := scriptAdapter(t, `echo '{}'`)
+		store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+		c := &pagedHoldersClient{
+			feedClient: feedClient{pages: []string{page(releasedChange("x", "c1"))}},
+			rawBody:    body,
+		}
+		_, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+		if aerr != nil || ferr == nil || !strings.Contains(ferr.Error(), "malformed agentTasksPage") {
+			t.Errorf("%s: a malformed holder page is a refused server failure: aerr=%v ferr=%v", name, aerr, ferr)
+		}
+		if len(c.offsets) != 0 {
+			t.Errorf("%s: the malformed body is served without paging: %v", name, c.offsets)
+		}
+	}
+}
+
+// TestReconcileHolderLookupOldServerHint2734: a server without the paged task
+// read (its validation error names agentTasksPage) gets the friendly refusal
+// naming hadron-server#4622 — the holder lookup has no raw-error fallback and
+// no legacy read to fall back to (cli#2734 BLIND round 2: the branch was
+// untested).
+func TestReconcileHolderLookupOldServerHint2734(t *testing.T) {
+	r, desc, _ := scriptAdapter(t, `echo '{}'`)
+	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}
+	c := &pagedHoldersClient{
+		feedClient:    feedClient{pages: []string{page(releasedChange("x", "c1"))}},
+		validationErr: `Cannot query field "agentTasksPage" on type "Query".`,
+	}
+	_, aerr, ferr := reconcile(context.Background(), c, store, "k", "app", r, desc)
+	if aerr != nil || ferr == nil ||
+		!strings.Contains(ferr.Error(), "predates hadron-server#4622") {
+		t.Fatalf("an old server gets the #4622 hint, not a raw validation error: aerr=%v ferr=%v", aerr, ferr)
+	}
+}
+
+// TestReconcileHolderLookupStopsAtHasMoreEnd2734: the history fits in one
+// page; exactly one read, and — the carried RELEASED rule (cor:agt:120:04,
+// cli#2265) — the finished-only history still HOLDS the id, so the release is
+// skipped, not untracked: RELEASED untracks only when no task of the App holds
+// the id in any state.
 func TestReconcileHolderLookupStopsAtHasMoreEnd2734(t *testing.T) {
 	r, desc, log := scriptAdapter(t, `echo '{}'`)
 	store := &intake.CursorStore{Path: filepath.Join(t.TempDir(), "cursors.json")}

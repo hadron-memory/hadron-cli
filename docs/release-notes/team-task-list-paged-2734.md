@@ -39,6 +39,10 @@ failure, not a loop to the page bound.
 
 Both commands need a server with `agentTasksPage` (hadron-server#4622). An
 older server refuses the query outright (unknown field); the CLI does not fall
-back to the legacy `agentTasks` list. The intake reads keep their friendly
-old-server refusal and say the server predates hadron-server#4622 (the paged
-read) where the validation error now names `agentTasksPage`.
+back to the legacy `agentTasks` list. The intake reads keep a friendly
+old-server refusal, but the message changed with the document: a server
+without the paged read is told `this server cannot page its task reads (it
+predates hadron-server#4622)` — the pre-CLI-change message named
+hadron-server#4084, which understates the floor this read needs. The #4084
+message now appears only for a server that knows the paged read but rejects
+the `externalIds` filter argument itself.

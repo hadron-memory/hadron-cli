@@ -264,6 +264,30 @@ func TestTeamViewRefusesANonAdvancingHasMore2734(t *testing.T) {
 	}
 }
 
+// TestTeamViewWalkRefusesUnendingWalk2734: a server whose task read never
+// ends — every page serves a NEW row and still says hasMore, so the
+// no-advance guard never fires — is stopped by the walk's own loud page bound
+// (cli#2734 BLIND round 2: the bound was untested).
+func TestTeamViewWalkRefusesUnendingWalk2734(t *testing.T) {
+	r := taskResponses()
+	r["TeamReportingLines"] = r["TeamRoster"]
+	pages := 0
+	stage := func(op string) {
+		if op != "AgentTaskList" {
+			return
+		}
+		pages++
+		setAttnResponse(r, "AgentTaskList", taskPage2734(taskWithID2734(fmt.Sprintf("w%d", pages)), 1000, true))
+	}
+	_, _, _, err := runTeamTaskStaged2734(t, r, stage, "team", "task", "list", "--team")
+	if err == nil || !strings.Contains(err.Error(), "did not end after 500 pages of 200") {
+		t.Fatalf("an unending whole-App walk is stopped by the page bound: %v", err)
+	}
+	if pages != 500 {
+		t.Fatalf("the bound fires at the 500th page, not before or after: %d", pages)
+	}
+}
+
 // ---- the intake adapter's held read pages (server#4622 does not widen) ---
 
 func run1961Staged2734(t *testing.T, path string, responses map[string]string, onOp func(op string), argv ...string) (*[]attnCall, string, string, error) {
@@ -331,5 +355,80 @@ func TestAdapterHeldReadRefusesEmptyPageWithMore2734(t *testing.T) {
 	_, _, _, err := run1961Staged2734(t, path, r, nil, "--json")
 	if err == nil || !strings.Contains(err.Error(), "empty page claims more remain") {
 		t.Fatalf("an empty page with hasMore is a refused server failure: %v", err)
+	}
+}
+
+// TestAdapterHeldReadOldServerHintNamesTheActualFloor2734: the friendly
+// old-server refusals fire per branch, and the branch ORDER is deliberate —
+// the document's own field is agentTasksPage, so an error naming BOTH quoted
+// names (an Unknown-argument error on the field itself) takes the #4622 hint,
+// the release this read actually needs, not the older #4084 one (BLIND round
+// 2, cli#2734). Only an error naming externalIds alone keeps the #4084 hint.
+func TestAdapterHeldReadOldServerHintNamesTheActualFloor2734(t *testing.T) {
+	cases := []struct {
+		name, message, want, notWant string
+	}{
+		{
+			name:     "no paged read",
+			message:  `Cannot query field \"agentTasksPage\" on type \"Query\". Did you mean \"agentTasks\"?`,
+			want:     "predates hadron-server#4622",
+			notWant:  "predates hadron-server#4084",
+		},
+		{
+			name:     "error naming both fields",
+			message:  `Unknown argument \"externalIds\" on field \"agentTasksPage\" of type \"Query\".`,
+			want:     "predates hadron-server#4622",
+			notWant:  "predates hadron-server#4084",
+		},
+		{
+			name:     "error naming only the argument",
+			message:  `Unknown argument \"externalIds\" on field \"tasks\" of type \"Query\".`,
+			want:     "predates hadron-server#4084",
+			notWant:  "predates hadron-server#4622",
+		},
+	}
+	for _, c := range cases {
+		list := `echo '{"items":[` + item1961(itemA1961, "one") + `]}'`
+		path, _ := fakeAdapter1961(t, "", list, "")
+		r := withEmptyChanges1962(map[string]string{
+			"IntakeTasksByExternalIds": `{"data":null,"errors":[{"message":"` + c.message + `","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		})
+		_, _, _, err := run1961Staged2734(t, path, r, nil, "--json")
+		if err == nil {
+			t.Errorf("%s: an old server refuses, it is not an empty success", c.name)
+			continue
+		}
+		if code := exitCodeFor(err); code != exitcode.Usage {
+			t.Errorf("%s: exit %d, want the usage refusal: %v", c.name, code, err)
+		}
+		if !strings.Contains(err.Error(), c.want) || strings.Contains(err.Error(), c.notWant) {
+			t.Errorf("%s: the hint names the floor this read needs (%q, not %q): %v", c.name, c.want, c.notWant, err)
+		}
+	}
+}
+
+// TestAdapterHeldReadRefusesUnendingWalk2734: a server that always has one
+// more row (every page new, hasMore forever) is stopped by the loud page
+// bound, not walked forever — and the bound's refusal names the pages and the
+// page size (cli#2734 BLIND round 2: the bound was untested).
+func TestAdapterHeldReadRefusesUnendingWalk2734(t *testing.T) {
+	list := `echo '{"items":[` + item1961(itemA1961, "one") + `]}'`
+	path, _ := fakeAdapter1961(t, "", list, "")
+	r := withEmptyChanges1962(nil)
+	pages := 0
+	stage := func(op string) {
+		if op != "IntakeTasksByExternalIds" {
+			return
+		}
+		pages++
+		setAttnResponse(r, "IntakeTasksByExternalIds",
+			`{"data":{"agentTasksPage":{"items":[{"id":"held-`+fmt.Sprint(pages)+`","externalId":`+fmt.Sprintf("%q", itemA1961)+`}],"total":1000,"hasMore":true}}}`)
+	}
+	_, _, _, err := run1961Staged2734(t, path, r, stage, "--json")
+	if err == nil || !strings.Contains(err.Error(), "did not end after 500 pages of 20") {
+		t.Fatalf("an unending held read is stopped by the page bound: %v", err)
+	}
+	if pages != 500 {
+		t.Fatalf("the bound fires at the 500th page, not before or after: %d", pages)
 	}
 }

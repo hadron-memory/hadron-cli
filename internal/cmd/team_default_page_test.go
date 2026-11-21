@@ -28,9 +28,13 @@ func runTeamTaskStderr(t *testing.T, responses map[string]string, argv ...string
 }
 
 func TestTeamTaskListAndMineDefaultTo20AndCueOnlyOnServerHasMore(t *testing.T) {
+	// One invocation per command: it pins the default limit SENT, the
+	// continuation said on stderr when hasMore is true, and stdout staying
+	// the table alone. The hasMore:false page at the default limit is pinned
+	// by TestTaskListTextContinuationOnlyWhenHasMore2734 (20 rows, no cue).
 	for _, argv := range [][]string{{"team", "task", "list"}, {"team", "task", "mine"}} {
 		name := strings.Join(argv, " ")
-		calls, _, err := runTeamTask(t, taskListN(20, true), append(argv, "--json")...)
+		calls, out, errOut, err := runTeamTaskStaged2734(t, taskListN(20, true), nil, argv...)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
@@ -38,22 +42,11 @@ func TestTeamTaskListAndMineDefaultTo20AndCueOnlyOnServerHasMore(t *testing.T) {
 		if c.Vars["limit"] != float64(20) {
 			t.Errorf("%s: default limit sent as %v, want 20", name, c.Vars["limit"])
 		}
-		_, out, errOut, err := runTeamTaskStaged2734(t, taskListN(20, true), nil, argv...)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
 		if !strings.Contains(errOut, "--offset 20") {
 			t.Errorf("%s: hasMore is the server's page end and is said on stderr: %q", name, errOut)
 		}
 		if strings.Contains(out, "--offset") {
 			t.Errorf("%s: stdout is the table alone: %q", name, out)
-		}
-		_, out, errOut, err = runTeamTaskStaged2734(t, taskListN(20, false), nil, argv...)
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if strings.Contains(out, "--offset") || strings.Contains(errOut, "--offset") {
-			t.Errorf("%s: a full page with hasMore false is the end: %q %q", name, out, errOut)
 		}
 	}
 }

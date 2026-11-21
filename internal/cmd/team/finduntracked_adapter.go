@@ -136,11 +136,19 @@ func heldExternalIDs(ctx context.Context, client graphql.Client, appRef string, 
 		}
 		resp, err := gen.IntakeTasksByExternalIds(ctx, client, appRef, ids, &limit, &offset)
 		if err != nil {
-			if api.IsGraphQLValidationOnlyFor(err, "externalIds") {
-				return nil, exitcode.Newf(exitcode.Usage, "this server cannot check outside items against its tasks (it predates hadron-server#4084); nothing was claimed")
-			}
+			// The newer floor is named first, on purpose (BLIND round 2,
+			// cli#2734): this document's own field is agentTasksPage, so every
+			// shipped server that rejects it predates hadron-server#4622 — and
+			// an error naming BOTH quoted names (an Unknown-argument error on
+			// the field itself) must take the #4622 hint, which names the
+			// release this read actually needs, not the older #4084 one. The
+			// externalIds branch stays for the narrower shape: a server that
+			// knows the paged read but rejects the filter argument itself.
 			if api.IsGraphQLValidationOnlyFor(err, "agentTasksPage") {
 				return nil, exitcode.Newf(exitcode.Usage, "this server cannot page its task reads (it predates hadron-server#4622); nothing was claimed")
+			}
+			if api.IsGraphQLValidationOnlyFor(err, "externalIds") {
+				return nil, exitcode.Newf(exitcode.Usage, "this server cannot check outside items against its tasks (it predates hadron-server#4084); nothing was claimed")
 			}
 			return nil, mapTaskError(err)
 		}

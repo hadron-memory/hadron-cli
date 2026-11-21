@@ -354,7 +354,9 @@ func renderRecover(w io.Writer, d recoverDTO) error {
 		}
 	}
 	if d.TasksMore {
-		p("  (a full page: more tasks may exist)\n")
+		// The server's hasMore, not a full-page guess (cli#2734): the page can
+		// be short and still not be the end.
+		p("  (the task page did not end: more tasks may exist)\n")
 	}
 
 	p("\nstate note: ")
