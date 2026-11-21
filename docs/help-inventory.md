@@ -284,7 +284,7 @@ section between the markers.
 <!-- group:1053 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `agent` | agents |  | n | #1053 | 6ea21e8632b5 |  | unread |  |
+| `agent` | agents |  | n | #1053 | e9295c1b0805 |  | unread |  |
 | `agent ai-config` |  |  | n | #1053 | 17175bf753f2 |  | unread |  |
 | `agent ai-config clear` |  |  | y | #1053 | e22ae16c71f6 |  | unread |  |
 | `agent boot-prompt` |  |  | y | #1053 | 10650306ed8f | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
@@ -319,8 +319,9 @@ section between the markers.
 | `agent rm` | delete |  | y | #1053 | 5e410603db21 |  | unread |  |
 | `agent set-base` |  |  | n | #1053 | 262c332aec88 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `agent subscription` |  |  | n | #1053 | 9949cbdfb067 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
+| `agent subscription` |  |  | n | #1053 | 8596512d8dd4 |  | unread |  |
 | `agent subscription list` | ls |  | y | #1053 | 9b122e4c198e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
+| `agent subscription revoke` |  |  | y | #1053 | 3a9e10a395a6 |  | unread |  |
 | `agent tasks` |  |  | n | #1053 | 3fc6d1a6e093 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent tasks list` | ls |  | y | #1053 | afe0c812983d | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent ticker-templates` | ticker-template |  | n | #1053 | 6fe99803bec1 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
