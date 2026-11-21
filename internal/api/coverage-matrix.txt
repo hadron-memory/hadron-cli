@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 330 command, 17 gap, 12 excluded
+[Mutation] 359: 331 command, 16 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -278,7 +278,7 @@ addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
-allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
+allocateSpecNode  command spec new
 amendQuestion  command decision amend
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply
@@ -627,7 +627,7 @@ withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 38: 15 gap, 23 excluded
+[Arguments] 40: 15 gap, 25 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #2773
@@ -640,6 +640,8 @@ Mutation.createGrant(input.appRef)  gap #1846: a person who manages an App creat
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteTicker(instruction)  gap #2773
+Mutation.encryptMemory(dataKey)  excluded deprecated: @deprecated: Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion.
+Mutation.encryptMemory(passphrase)  excluded deprecated: @deprecated: Send the passphrase in x-hadron-memory-keys.
 Mutation.importNode(input.authoredWith)  gap #2790
 Mutation.issueHostOperation(instruction)  gap #2774
 Mutation.liftTeamStopSignal(instruction)  gap #2774

@@ -32,6 +32,11 @@ type newResultDTO struct {
 	Edges    []plannedEdgeDTO `json:"edges"`
 	DryRun   bool             `json:"dryRun"`
 	Content  string           `json:"content,omitempty"`
+	// AllocatesUnder/AfterFloor appear only on a --dry-run of a server-
+	// allocated `spec new` (cli#398): the number is picked by the server at
+	// write time, so a dry run cannot name it and does not guess.
+	AllocatesUnder string `json:"allocatesUnder,omitempty"`
+	AfterFloor     *int   `json:"afterFloor,omitempty"`
 	// Also carries nodes scaffolded alongside the primary in the same call —
 	// today, the tier's general-provisions contract co-created with a root.
 	Also []newResultDTO `json:"also,omitempty"`
@@ -96,6 +101,24 @@ Target (deepest wins):
 
 Features are numbered in tens (010, 020, …); rules and flows by one. Use
 --dry-run to preview without writing.
+
+The SERVER picks the number for --new-feature and for --feature without
+--rule/--flow (allocateSpecNode): one call reserves the next free number as an
+unminted placeholder, then the CLI fills that same node once, guarded on the
+revision it was handed. --rule-after <n> raises the start (the number lands
+strictly above n). There is no retry and no local fallback: a server without
+the operation refuses. If the fill fails, the number stays reserved (the output
+names it, says allocated: true and fillStatus: refused or unknown, and lists
+the recovery commands that restore the title, abstract, body, tags, role and
+edges, and the feature's contract); read the node first, and do not rerun spec
+new, which would allocate another number. A blank body is refused before any
+number is reserved. If a feature is filled but its contract fails, the output
+says so and names the contract loc to inspect. If the allocation answer is lost
+or unusable, a placeholder may exist: check "spec ls --prefix <parent>" before
+rerunning. A number is not reused while a row or
+alias of it remains. An explicit --rule, --flow, --contract, a positional <loc>
+and the --new-* roots name their loc and never ask the allocator. A --dry-run
+cannot name the number and does not guess it.
 
 The abstract is the spec's vector-search retrieval surface: write it as
 the questions a reader would ask, in your own words rather than a
@@ -284,13 +307,33 @@ is one call instead of four.`, abstractSoftMax),
 				allLocs = append(allLocs, n.Loc)
 			}
 
+			var deferred deferredAlloc
 			target, parentLoc, inheritLoc, err := planTarget(planInput{
 				product: product, module: module, feature: feature, rule: rule, ruleAfter: ruleAfter, flow: flow,
 				inherit: inherit, newFeature: newFeature, newModule: newModule, newProduct: newProduct,
-				contract: contract, locs: locs, allLocs: allLocs,
+				contract: contract, locs: locs, allLocs: allLocs, deferAlloc: &deferred,
 			})
 			if err != nil {
 				return err
+			}
+			if deferred.parent != (Citation{}) {
+				// cli#398: the SERVER picks the number (allocateSpecNode), so
+				// nothing below this point may compute one locally.
+				// The allocator's answer is vouched for by the memory's own id,
+				// resolved directly from the ref (not read off a scanned node).
+				expectedMemoryID := ""
+				if !dryRun {
+					if expectedMemoryID, _, err = specMemoryID(f, cmd, client, memory); err != nil {
+						return err
+					}
+				}
+				return runNewAllocated(cmd, f, client, memURN, allocatedInput{
+					alloc: deferred, parentLoc: parentLoc, inheritLoc: inheritLoc,
+					title: title, content: content, contentFile: contentFile,
+					abstract: abstract, abstractFile: abstractFile, tags: specTags(tags),
+					newFeature: newFeature, noEdges: noEdges, noContract: noContract, dryRun: dryRun,
+					contentSet: cmd.Flags().Changed("content") || cmd.Flags().Changed("content-file"), expectedMemoryID: expectedMemoryID,
+				})
 			}
 
 			if err := refuseNewTitlePrefix(title, target.Format()); err != nil {
@@ -609,6 +652,19 @@ type planInput struct {
 	newFeature, newModule, newProduct, contract bool
 	locs                                        map[string]bool
 	allLocs                                     []string
+	// deferAlloc, when non-nil, makes the two NUMBER-ALLOCATING modes
+	// (--new-feature, and --feature without --rule/--flow) NOT pick a number:
+	// planTarget fills *deferAlloc with the parent and the `after` floor, and
+	// returns a zero target; the SERVER then picks the number (cli#398,
+	// allocateSpecNode). `spec new` sets it; `spec extract` leaves it nil and
+	// keeps planning locally (its own follow-up).
+	deferAlloc *deferredAlloc
+}
+
+// deferredAlloc is what a server-allocated `spec new` asks allocateSpecNode for.
+type deferredAlloc struct {
+	parent Citation // the module (a new feature) or the feature (the next rule)
+	after  *int     // --rule-after: raises the start, never lowers it
 }
 
 // planTarget resolves the target citation plus the ToC parent and the
@@ -682,6 +738,15 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 		if in.rule != "" || in.flow != "" {
 			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-feature cannot be combined with --rule/--flow")
 		}
+		if in.deferAlloc != nil {
+			*in.deferAlloc = deferredAlloc{parent: moduleCit}
+			// A new feature inherits the module's :000 contract.
+			inh := ""
+			if cl, ok := moduleCit.ChildContract(); ok && in.locs[cl.Format()] {
+				inh = cl.Format()
+			}
+			return Citation{}, moduleCit.Format(), inh, nil
+		}
 		t, aerr := allocateChild(moduleCit, childNumbersAt(moduleCit, in.allLocs), nil, 0)
 		if aerr != nil {
 			return Citation{}, "", "", aerr
@@ -736,6 +801,26 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 				return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--rule-after must be a number")
 			}
 			after = n
+		}
+		if in.deferAlloc != nil {
+			d := deferredAlloc{parent: featureCit}
+			if in.ruleAfter != "" {
+				d.after = &after
+			}
+			*in.deferAlloc = d
+			// The allocated rule is never 00, so it inherits the feature's :00
+			// contract unless --inherit names another target.
+			inh := ""
+			if in.inherit != "" {
+				ic, perr := ParseCitation(in.inherit)
+				if perr != nil {
+					return Citation{}, "", "", perr
+				}
+				inh = ic.Format()
+			} else if cl, ok := featureCit.ChildContract(); ok && in.locs[cl.Format()] {
+				inh = cl.Format()
+			}
+			return Citation{}, featureCit.Format(), inh, nil
 		}
 		alloc, aerr := allocateChild(featureCit, childNumbersAt(featureCit, in.allLocs), nil, after)
 		if aerr != nil {
@@ -832,7 +917,11 @@ func renderNewResult(w io.Writer, r newResultDTO) error {
 	if r.DryRun {
 		verb = "would create"
 	}
-	fmt.Fprintf(w, "%s %s — %s\n", verb, r.Citation, r.Name)
+	if r.DryRun && r.AllocatesUnder != "" {
+		fmt.Fprintf(w, "would allocate the next number under %s (the server picks it at write time)\n", r.AllocatesUnder)
+	} else {
+		fmt.Fprintf(w, "%s %s — %s\n", verb, r.Citation, r.Name)
+	}
 	if r.Role != "" {
 		fmt.Fprintf(w, "  role: %s\n", r.Role)
 	}

@@ -160,6 +160,11 @@ var nodeMutationExclusions1152 = map[string]string{
 	"extractParentNodeToMemory": "UNVERIFIED: not evaluated for advice",
 	"mintMemoryNodes":           "UNVERIFIED: not evaluated for advice",
 	"updateNodeProperties":      "UNVERIFIED: not evaluated for advice (properties, not content)",
+	// cli#398: spec new's allocation creates an EMPTY unminted placeholder; the
+	// authored content is written by its one guarded updateSpecNode fill, which
+	// is in the advice set. Whether the provider attaches plain-pin advice to
+	// the allocation call itself was not checked.
+	"allocateSpecNode": "UNVERIFIED: reserves an empty placeholder (no content written); the content write is the updateSpecNode fill",
 }
 
 // nodeMutationRoots1152 returns the node-named root fields a document's mutations
