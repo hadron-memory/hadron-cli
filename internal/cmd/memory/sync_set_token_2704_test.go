@@ -237,6 +237,45 @@ func TestSetTokenNoReplacementRecreatesToken2714(t *testing.T) {
 	}
 }
 
+// TestSetTokenRefusalItselfCarriesNoToken2714 pins Eden's round-5 rule after
+// Bruno's round-4 delta P2: the fixed refusal is the drop path's OUTPUT, so
+// the token check must hold against the refusal text too — a token "server
+// refused" is inside "the server refused the source token". A token that is a
+// word of (or substring of, or equal to the whole of) the first refusal must
+// not be re-echoed by it: the drop path renders a second fixed text sharing
+// no word with the first, and a token inside BOTH texts renders no echo at
+// all — the empty message provably carries no spelling of a non-empty token
+// (the drop path guarantees one), while the exit code and a clean server code
+// still identify the refusal.
+func TestSetTokenRefusalItselfCarriesNoToken2714(t *testing.T) {
+	mkErr := func(msg string) error {
+		return &gqlerror.Error{Message: msg, Extensions: map[string]any{"code": "FORBIDDEN"}}
+	}
+	for _, c := range []struct{ name, token, msg, want string }{
+		{"token is a word of the refusal", "refused", "that value was refused", "input declined"},
+		{"token is another word of the refusal", "server", "server said no", "input declined"},
+		{"token equals the whole refusal", "the server refused the source token", "echo: the server refused the source token", "input declined"},
+		{"token sits inside both fixed texts", "ed", "request denied", ""},
+	} {
+		err := setTokenError(mkErr(c.msg), c.token)
+		if strings.Contains(err.Error(), c.token) {
+			t.Errorf("%s: the token survives in the rendered error %q", c.name, err.Error())
+		}
+		if err.Error() != c.want {
+			t.Errorf("%s: rendered error = %q, want %q", c.name, err.Error(), c.want)
+		}
+		if got := carriedCode(err); got != "FORBIDDEN" {
+			t.Errorf("%s: an ordinary server code must be kept, got %q", c.name, got)
+		}
+	}
+	// The negative space: the cascade only walks when the earlier tier is
+	// unsafe for THIS token — a token inside the second text but not the
+	// first keeps the full refusal (never over-redact).
+	if got := setTokenError(mkErr("bad input"), "input").Error(); got != "the server refused the source token" {
+		t.Errorf("a token only in the second text must render the full refusal, got %q", got)
+	}
+}
+
 // TestSetTokenUrnSentinelEqualTokenIsNotSpliced2704 pins Jack F1: the URN
 // guard was redactToken(u, token) == u, a fixpoint for EVERY u when the token
 // equals the sentinel "[REDACTED]" (replacing the sentinel with itself is
