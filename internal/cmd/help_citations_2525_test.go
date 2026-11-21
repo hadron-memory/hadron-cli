@@ -226,3 +226,22 @@ func TestHelpCarriesNoRevisionHashAnywhere2525(t *testing.T) {
 		}
 	}
 }
+
+// cli#2525 F4: `app agent list` lost its server floor when the revision hash was
+// scrubbed ("Requires a server with AppAgent.installMethod..." named no version at
+// all). It states the release date again, so a reader can tell an older server (every
+// INSTALL and IMPORTER cell is "?") from one that withholds the answer for them.
+func TestAppAgentListHelpStatesItsServerFloor2525(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "agent", "list", "--help"})
+	root.SetOut(out)
+	root.SetErr(out)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(out.String()), " ")
+	if !strings.Contains(help, "INSTALL and IMPORTER need server 2026-11-05 or later") {
+		t.Errorf("app agent list --help must state the INSTALL and IMPORTER server floor as a date:\n%s", out.String())
+	}
+}
