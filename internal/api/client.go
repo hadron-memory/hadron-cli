@@ -497,12 +497,19 @@ func redactSecrets(body []byte, secrets []string) []byte {
 }
 
 // secretSpellings lists the encodings of secret an echoing intermediary could
-// reasonably put in a body: the exact value, the query- and path-escaped
+// reasonably put in a body: the exact value, its all-lower and all-upper case
+// flips (a gateway that upcases the token), the query- and path-escaped
 // forms, and the lower-case-hex variants of those escapes. Bounded on
-// purpose: hostile encodings are uncountable, and the value is never legit
-// body content in any spelling.
+// purpose: hostile encodings are uncountable (a partial echo or a mixed-case
+// re-encoding is not matched — the doc names this limit), and the value is
+// never legit body content in any spelling.
 func secretSpellings(secret string) []string {
 	spellings := []string{secret}
+	for _, flipped := range []string{strings.ToLower(secret), strings.ToUpper(secret)} {
+		if flipped != secret {
+			spellings = append(spellings, flipped)
+		}
+	}
 	for _, esc := range []func(string) string{url.QueryEscape, url.PathEscape} {
 		e := esc(secret)
 		if e != secret && e != "" {

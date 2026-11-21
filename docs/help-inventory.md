@@ -19,7 +19,10 @@ Rules for what is a row:
   `--help`.
 
 Columns: `path`, `aliases`, `generated`, `has-examples`, `child` (the audit
-issue that owns the page), `help-hash` (the first 12 hex characters of the
+issue that owns the page: the group section's issue for every row in that
+section, including a command a later issue added to the group — the
+implementing issue is cited in that row's finding link once assessed, not in
+`child`), `help-hash` (the first 12 hex characters of the
 sha256 of captured help text), then the three HUMAN columns `evaluator`, `result`
 (`unread` | `pass` | `fail`; `unread` is never a pass; `pass` needs a named
 evaluator who is not the author of the text) and `finding` (a link to the
@@ -827,7 +830,7 @@ section between the markers.
 | `orca terminal status` |  |  | y | #1396 | f062c86bbce8 |  | unread |  |
 | `slack` |  |  | y | #1396 | baba7964884b | Cooper | pass | [reassessment](https://github.com/hadron-memory/hadron-cli/issues/1399#issuecomment-7056901601) |
 | `slack connect` |  |  | y | #1396 | 38c56732986c |  | unread |  |
-| `slack disconnect` |  |  | y | #1396 | 8c3d825bd291 |  | unread |  |
+| `slack disconnect` |  |  | y | #1396 | 9bb536305e5c |  | unread |  |
 | `slack get` |  |  | y | #1396 | cd1e7c877ab9 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 | `slack status` |  |  | y | #1396 | 3d39cb70d59f | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 <!-- group:1396 end -->
