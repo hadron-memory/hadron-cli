@@ -22018,6 +22018,58 @@ func (v *AlarmAcknowledgeResponse) GetAcknowledgeAlarm() *AlarmAcknowledgeAcknow
 	return v.AcknowledgeAlarm
 }
 
+// AllocateSpecNodeAllocateSpecNode includes the requested fields of the GraphQL type Node.
+type AllocateSpecNodeAllocateSpecNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #1450 — a server-recorded placeholder awaiting authored content, such as a
+	// RESERVED spec citation created by reserveSpecCitation. A placeholder may
+	// exist in any memory; it is never inferred from an empty body. Writing real
+	// nonblank content through the spec door or shared mirror write path clears
+	// it. Placeholders block minting.
+	IsPlaceholder bool `json:"isPlaceholder"`
+}
+
+// GetId returns AllocateSpecNodeAllocateSpecNode.Id, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetId() string { return v.Id }
+
+// GetMemoryId returns AllocateSpecNodeAllocateSpecNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns AllocateSpecNodeAllocateSpecNode.Loc, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetLoc() string { return v.Loc }
+
+// GetName returns AllocateSpecNodeAllocateSpecNode.Name, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetName() string { return v.Name }
+
+// GetRevision returns AllocateSpecNodeAllocateSpecNode.Revision, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetRevision() int { return v.Revision }
+
+// GetIsPlaceholder returns AllocateSpecNodeAllocateSpecNode.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeAllocateSpecNode) GetIsPlaceholder() bool { return v.IsPlaceholder }
+
+// AllocateSpecNodeResponse is returned by AllocateSpecNode on success.
+type AllocateSpecNodeResponse struct {
+	// #1178 — allocate the next citation under parentLoc and reserve it as a
+	// placeholder, in one transaction: mint-or-refuse, so a client never reads
+	// sibling numbers and writes the next. Numbers follow hadron spec new:
+	// features in tens (010..990), rules and flows by one (01..99), rule 00 never,
+	// after lands strictly above it. A number ever minted is never handed out
+	// again (R216) while a row or alias of it remains, and a loc held by a row of
+	// any state is skipped. Refuses SPEC_PARENT_NOT_FOUND, SPEC_PARENT_NOT_NUMBERED
+	// and SPEC_NUMBER_SPACE_EXHAUSTED; an unreadable memory is not found.
+	AllocateSpecNode *AllocateSpecNodeAllocateSpecNode `json:"allocateSpecNode"`
+}
+
+// GetAllocateSpecNode returns AllocateSpecNodeResponse.AllocateSpecNode, and is useful for accessing the field via an interface.
+func (v *AllocateSpecNodeResponse) GetAllocateSpecNode() *AllocateSpecNodeAllocateSpecNode {
+	return v.AllocateSpecNode
+}
+
 // AmendDecisionAmendQuestion includes the requested fields of the GraphQL type Question.
 // The GraphQL type's documentation follows.
 //
@@ -128148,6 +128200,26 @@ func (v *__AlarmAcknowledgeInstructedInput) GetInstruction() *ActInstructionInpu
 	return v.Instruction
 }
 
+// __AllocateSpecNodeInput is used internally by genqlient
+type __AllocateSpecNodeInput struct {
+	MemoryRef string  `json:"memoryRef"`
+	ParentLoc string  `json:"parentLoc"`
+	After     *int    `json:"after,omitempty"`
+	Name      *string `json:"name,omitempty"`
+}
+
+// GetMemoryRef returns __AllocateSpecNodeInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetParentLoc returns __AllocateSpecNodeInput.ParentLoc, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetParentLoc() string { return v.ParentLoc }
+
+// GetAfter returns __AllocateSpecNodeInput.After, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetAfter() *int { return v.After }
+
+// GetName returns __AllocateSpecNodeInput.Name, and is useful for accessing the field via an interface.
+func (v *__AllocateSpecNodeInput) GetName() *string { return v.Name }
+
 // __AmendDecisionInput is used internally by genqlient
 type __AmendDecisionInput struct {
 	Ref              string              `json:"ref"`
@@ -148025,6 +148097,59 @@ func AlarmAcknowledgeInstructed(
 	}
 
 	data_ = &AlarmAcknowledgeInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AllocateSpecNode.
+const AllocateSpecNode_Operation = `
+mutation AllocateSpecNode ($memoryRef: ID!, $parentLoc: String!, $after: Int, $name: String) {
+	allocateSpecNode(memoryRef: $memoryRef, parentLoc: $parentLoc, after: $after, name: $name) {
+		id
+		memoryId
+		loc
+		name
+		revision
+		isPlaceholder
+	}
+}
+`
+
+// cli#398: the provider-side citation allocator (hadron-server#1178 slice 1,
+// cor:spc:020:13). One call picks the next free number under parentLoc and
+// creates the unminted placeholder at it in the same transaction, so a client
+// never reads sibling numbers and writes the next. `revision` is the guard the
+// one follow-up fill (updateSpecNode) carries.
+//
+// Both optional variables carry omitempty: an unset `after`/`name` is OMITTED,
+// not sent as null (the server reads an omitted field as "use the default").
+func AllocateSpecNode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	parentLoc string,
+	after *int,
+	name *string,
+) (data_ *AllocateSpecNodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AllocateSpecNode",
+		Query:  AllocateSpecNode_Operation,
+		Variables: &__AllocateSpecNodeInput{
+			MemoryRef: memoryRef,
+			ParentLoc: parentLoc,
+			After:     after,
+			Name:      name,
+		},
+	}
+
+	data_ = &AllocateSpecNodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

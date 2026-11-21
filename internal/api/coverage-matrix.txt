@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 332 command, 15 gap, 12 excluded
+[Mutation] 359: 333 command, 14 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -278,7 +278,7 @@ addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
-allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
+allocateSpecNode  command spec new
 amendQuestion  command decision amend
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply
