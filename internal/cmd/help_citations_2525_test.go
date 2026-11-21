@@ -126,6 +126,15 @@ func TestBanRegexesCatchTheShapesThePolicyBans2525(t *testing.T) {
 		{"a 32-char entity id in an example is fine", "hadron asset get 01a189a840f4717c98af75cf4d7aed09", ""},
 		{"a uuid segment in an example is fine", "hadron connection flow 7f3c1a90-0000-4000-8000-000000000000", ""},
 		{"a truncated id in an example is fine", "--session 01a0a78c…", ""},
+		// Jonas's #2812 P2 (F1) and P3 (F13): the CLI's own owner/repo#N argument syntax is not an
+		// issue citation; a bare or server-qualified issue number still is. "release" and a --server
+		// flag are not revision context words.
+		{"owner/repo#N is the CLI's syntax", "--pr acme/widgets#7", ""},
+		{"owner/repo#N with digits", "--pr acme/widgets#371 --json", ""},
+		{"a hadron-server issue number is still banned", "see hadron-server#3189", "issue"},
+		{"a cli issue number is still banned", "(cli#2631)", "issue"},
+		{"an example id on a release page", "hadron team task release 01a189a840f4717c98af75cf4d7aed09", ""},
+		{"an example id beside a --server flag", "hadron secret get 01a189a840f4717c98af75cf4d7aed09 --server https://x", ""},
 		{"longer than a hash is fine", "token 27671b4a1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -579,5 +588,17 @@ func TestBaselineParserRejectsDuplicatesAndMalformedLines2525(t *testing.T) {
 				t.Errorf("want an error naming %s, got %v", tc.wantLine, err)
 			}
 		})
+	}
+}
+
+// Jonas's #2812 P3 (F12): withoutGlobalFlags2508 drops the Global Flags block and nothing else.
+func TestWithoutGlobalFlagsDropsOnlyThatBlock2525(t *testing.T) {
+	page := "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n\nGlobal Flags:\n      --json   output JSON\n"
+	if got, want := withoutGlobalFlags2508(page), "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n"; got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+	noBlock := "Usage:\n  hadron x\n\nFlags:\n  -h, --help   help\n"
+	if got := withoutGlobalFlags2508(noBlock); got != noBlock {
+		t.Errorf("a page without the block must be unchanged: %q", got)
 	}
 }
