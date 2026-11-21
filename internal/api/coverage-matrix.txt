@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 237: 203 command, 8 gap, 26 excluded
+[Query] 237: 205 command, 6 gap, 26 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -40,8 +40,8 @@ agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
 agentSchedules  command schedule list
 agentServedBootPrompt  command agent boot-prompt
-agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #2788 tracks the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
-agentSubscriptionsPage  gap #2788: subscription list command not yet implemented
+agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage (agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+agentSubscriptionsPage  command agent subscription list
 agentTask  command team task finding-dispositions
 agentTaskExternalIdChanges  command team task find-untracked
 agentTaskList  command agent tasks list
@@ -163,8 +163,8 @@ memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's 
 memoryLocSegments  command memory loc-segments
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
-myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage gap #2788 tracks the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
-myAgentSubscriptionsPage  gap #2788: subscription list command not yet implemented
+myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage (agent subscription list) is the same capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
+myAgentSubscriptionsPage  command agent subscription list
 myApp  command app whoami
 myChats  gap #64
 myChatsPage  gap #64
@@ -266,7 +266,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 359: 330 command, 17 gap, 12 excluded
+[Mutation] 359: 332 command, 15 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -320,7 +320,7 @@ compileWorkerBootPrompt  command team worker compile
 completeAssetUpload  command asset upload
 confirmTeamAttentionSwitchover  excluded deprecated: retired API, no replacement (not merely deprecated) (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935); Proposed class unruled under #1334 (33-row review)
 createAgent  command agent create
-createAgentOrgGrant  gap #2788
+createAgentOrgGrant  command agent subscription add
 createAgentSchedule  command schedule create
 createAgentTask  command team task create
 createAgentTasks  command team task create
@@ -502,7 +502,7 @@ resumeSession  command team session start
 retireWorker  command team worker retire
 retryFailedEmbeddings  command memory reembed-failed
 revealSecret  command secret exec
-revokeAgentOrgGrant  gap #2788
+revokeAgentOrgGrant  command agent subscription revoke
 revokeAgentSubscription  gap #2789
 revokeAppGrant  command team grant rm
 revokeAppKey  command app key revoke
