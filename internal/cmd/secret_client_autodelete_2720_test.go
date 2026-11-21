@@ -184,22 +184,46 @@ func TestSecretClientOnAServerWithoutTheMark2720(t *testing.T) {
 	if err != nil || len(lines) != 2 || !strings.Contains(lines[1], "?") || strings.Contains(lines[1], " no ") {
 		t.Errorf("the table must show ? for an unknown mark, not no:\n%s", text)
 	}
-	// --all keeps the fallback across pages (the second page is not asked with the field).
-	srv2, calls2 := attnServer(t, map[string]string{
+	// `list --all` keeps the fallback across pages: the document the server rejected is asked
+	// ONCE, then every page (and the empty terminator) is read mark-free, and the rows are
+	// concatenated. A fallback that reset per page would ask the rejected document again.
+	resp2 := map[string]string{
 		"ListSecretReadClients": validation,
 		"MySecretReadClients":   readClients2680(clientRow2680("c1", "gr-c1")),
-	})
-	if _, _, err := runSecretClient2631(t, srv2.URL, "list", "--limit", "5"); err != nil {
-		t.Fatal(err)
 	}
-	n := 0
+	lookups := 0
+	srv2, calls2 := attnServerHook(t, resp2, func(op string) {
+		if op == "MySecretReadClients" {
+			lookups++
+			if lookups == 2 { // the second lookup is the empty page that ends --all
+				setAttnResponse(resp2, "MySecretReadClients", readClients2680())
+			}
+		}
+	})
+	out2, _, err := runSecretClient2631(t, srv2.URL, "list", "--all", "--json")
+	var rows2 []map[string]any
+	if err != nil || json.Unmarshal([]byte(out2), &rows2) != nil || len(rows2) != 1 || rows2[0]["destroyOnEnd"] != nil {
+		t.Fatalf("list --all on a server without the mark: err=%v out=%s", err, out2)
+	}
+	rejected, mine := 0, 0
 	for _, c := range *calls2 {
-		if c.Op == "ListSecretReadClients" {
-			n++
+		switch c.Op {
+		case "ListSecretReadClients":
+			rejected++
+		case "MySecretReadClients":
+			mine++
 		}
 	}
-	if n != 1 {
-		t.Errorf("one list request that the server rejects, then the mark-free document: %v", opsOf2631(calls2))
+	if rejected != 1 || mine != 2 {
+		t.Errorf("one rejected list request, then two mark-free pages (a row and the empty one): rejected=%d lookups=%d %v", rejected, mine, opsOf2631(calls2))
+	}
+	// A server that lacks only the reveal link (cli#2758) takes the same road.
+	noLinkErr := `{"errors":[{"message":"Cannot query field \"revealUrl\" on type \"SecretReadClient\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	srv3, _ := attnServer(t, map[string]string{"ListSecretReadClients": noLinkErr, "MySecretReadClients": readClients2680(clientRow2680("c1", "gr-c1"))})
+	out3, errOut3, err := runSecretClient2631(t, srv3.URL, "list", "--json")
+	var rows3 []map[string]any
+	if err != nil || json.Unmarshal([]byte(out3), &rows3) != nil || len(rows3) != 1 || rows3[0]["destroyOnEnd"] != nil || rows3[0]["revealUrl"] != nil || !strings.Contains(errOut3, "does not report the auto-delete mark") {
+		t.Errorf("a server without the link still lists, mark unknown, with the note: err=%v out=%s note=%q", err, out3, errOut3)
 	}
 }
 
