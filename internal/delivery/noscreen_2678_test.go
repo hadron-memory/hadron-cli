@@ -2,9 +2,12 @@ package delivery
 
 import (
 	"errors"
-	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
 
 // cli#2678 (slice c of #2675): a worker whose terminal gives no screen is held
@@ -155,5 +158,132 @@ func TestNoScreenIncidentNeverTypesAndFiresOnce2678(t *testing.T) {
 	h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeIdle)}
 	if o := h.deliverWake(h.wake(tick("tk1", tickAt))); o.Kind != Delivered {
 		t.Fatalf("after the screen returned: %+v", o)
+	}
+}
+
+// Juniper's P2 on #2878: Fire runs outside the lock, so two concurrent Observe calls
+// for one worker must still send one report.
+func TestNoScreenConcurrentObserveFiresOnce2678(t *testing.T) {
+	release := make(chan struct{})
+	var mu sync.Mutex
+	calls := 0
+	tr := &NoScreenTracker{Fire: func(NoScreenEpisode) error {
+		mu.Lock()
+		calls++
+		mu.Unlock()
+		<-release
+		return nil
+	}}
+	t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	cycles(tr, t0, 0, 14, "ticks:1")
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tr.Observe(held(t0.Add(NoScreenAfter), "w", "ticks:1"))
+		}()
+	}
+	time.Sleep(50 * time.Millisecond) // every goroutine has reached the guard or the blocked Fire
+	close(release)
+	wg.Wait()
+	mu.Lock()
+	defer mu.Unlock()
+	if calls != 1 {
+		t.Fatalf("Fire ran %d times for one episode under concurrent Observe, want 1", calls)
+	}
+}
+
+// A failed report waits NoScreenRetry, not one cycle.
+func TestNoScreenFailedReportBacksOff2678(t *testing.T) {
+	var at []int
+	tr := &NoScreenTracker{}
+	tr.Fire = func(e NoScreenEpisode) error { at = append(at, len(at)); return errors.New("refused") }
+	t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	var tried []int
+	for m := 0; m <= 30; m++ {
+		before := len(at)
+		tr.Observe(held(t0.Add(time.Duration(m)*time.Minute), "w", "ticks:1"))
+		if len(at) > before {
+			tried = append(tried, m)
+		}
+	}
+	want := []int{15, 20, 25, 30}
+	if fmt.Sprint(tried) != fmt.Sprint(want) {
+		t.Fatalf("attempts at minutes %v, want %v (one per %v)", tried, want, NoScreenRetry)
+	}
+}
+
+// After a recorded episode, each later hold refreshes the count through Active.
+func TestNoScreenActiveRefreshesThePendingCount2678(t *testing.T) {
+	var fires, active []NoScreenEpisode
+	tr := &NoScreenTracker{Fire: func(e NoScreenEpisode) error { fires = append(fires, e); return nil }, Active: func(e NoScreenEpisode) { active = append(active, e) }}
+	t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	cycles(tr, t0, 0, 15, "ticks:1")
+	tr.Observe(held(t0.Add(16*time.Minute), "w", "tasks:9")) // a second wake joins
+	if len(fires) != 1 || fires[0].Pending != 1 {
+		t.Fatalf("fires = %+v", fires)
+	}
+	if len(active) != 1 || active[0].Pending != 2 {
+		t.Fatalf("Active = %+v, want one call with 2 pending", active)
+	}
+}
+
+// A skipped or failed event says nothing about the screen: the episode goes on.
+func TestNoScreenSkippedAndFailedDoNotEndTheEpisode2678(t *testing.T) {
+	for _, k := range []Kind{Skipped, Failed} {
+		var fires []NoScreenEpisode
+		tr := newTracker(&fires)
+		t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+		cycles(tr, t0, 0, 10, "ticks:1")
+		tr.Observe(Event{Time: t0.Add(10 * time.Minute), Kind: k, WorkerID: "id-w"})
+		cycles(tr, t0, 11, 15, "ticks:1")
+		if len(fires) != 1 {
+			t.Fatalf("%s ended the episode: fires = %d", k, len(fires))
+		}
+	}
+}
+
+// After the silent gap the new episode still fires on schedule.
+func TestNoScreenANewEpisodeAfterAGapFiresOnSchedule2678(t *testing.T) {
+	var fires []NoScreenEpisode
+	tr := newTracker(&fires)
+	t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	tr.Observe(held(t0, "w", "ticks:1"))
+	start := 30
+	cycles(tr, t0, start, start+14, "ticks:1")
+	if len(fires) != 0 {
+		t.Fatalf("fired before the new episode's threshold: %+v", fires)
+	}
+	cycles(tr, t0, start+15, start+15, "ticks:1")
+	if len(fires) != 1 || !fires[0].HeldSince.Equal(t0.Add(30*time.Minute)) {
+		t.Fatalf("fires = %+v, want one held since minute 30", fires)
+	}
+}
+
+// The status book ends an episode by the tracker's own rule.
+func TestNoScreenStatusClearsByTheSameRule2678(t *testing.T) {
+	ends := map[Kind]bool{Delivered: true, Reconciled: true, Deferred: true, Skipped: false, Failed: false}
+	t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	for k, ended := range ends {
+		b := NewStatusBook(t.TempDir())
+		b.Observe(held(t0, "w", "ticks:1"))
+		b.NoScreen(NoScreenEpisode{WorkerID: "id-w", Terminal: "term_1", HeldSince: t0, Pending: 1})
+		b.Observe(Event{Time: t0.Add(time.Minute), Worker: "w", WorkerID: "id-w", Kind: k})
+		if got := b.st.Workers["id-w"].NoScreen == nil; got != ended {
+			t.Errorf("%s: cleared = %v, want %v", k, got, ended)
+		}
+	}
+	b := NewStatusBook(t.TempDir())
+	b.Observe(held(t0, "w", "ticks:1"))
+	b.NoScreen(NoScreenEpisode{WorkerID: "id-w", HeldSince: t0, Pending: 1})
+	b.Observe(Event{Time: t0.Add(time.Minute), Worker: "w", WorkerID: "id-w", Kind: Held, Reason: HoldDraft})
+	if b.st.Workers["id-w"].NoScreen != nil {
+		t.Error("a hold of another reason did not clear the episode")
+	}
+	b.NoScreen(NoScreenEpisode{WorkerID: "id-w", HeldSince: t0, Pending: 1})
+	b.Observe(held(t0.Add(2*time.Minute), "w", "ticks:1"))
+	if b.st.Workers["id-w"].NoScreen == nil {
+		t.Error("a further screen-unknown hold cleared the episode")
 	}
 }

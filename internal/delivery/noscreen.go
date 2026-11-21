@@ -20,6 +20,9 @@ const (
 	// NoScreenGap is how long without a screen-unknown hold ends an episode on
 	// its own: the wake is no longer pending, so nothing is left to surface.
 	NoScreenGap = 5 * time.Minute
+	// NoScreenRetry is how long a failed report waits before the next attempt,
+	// so a server that refuses or is down is not asked every cycle.
+	NoScreenRetry = 5 * time.Minute
 )
 
 // NoScreenEpisode is one worker's run of screen-unknown holds, as recorded when
@@ -31,18 +34,35 @@ type NoScreenEpisode struct {
 	Terminal string
 	// HeldSince is when the episode's first hold happened.
 	HeldSince time.Time
-	// Pending is how many distinct wakes or batches were held in the episode.
+	// Pending is how many distinct wakes or chat batches were held in the episode.
 	Pending int
 }
 
+// endsNoScreen is the one rule for when an event shows a worker's screen was
+// read again, so its episode is over: a delivery, a reconcile, a deferral, or a
+// hold of any other reason. Skipped and failed events say nothing about the
+// screen and leave an episode as it is. The tracker and the status book share it.
+func endsNoScreen(e Event) bool {
+	switch e.Kind {
+	case Delivered, Reconciled, Deferred:
+		return true
+	case Held:
+		return e.Reason != HoldScreenUnknown
+	}
+	return false
+}
+
 // NoScreenTracker turns delivery events into at most one NoScreenEpisode per
-// worker per episode. An episode ends when a hold of another kind, a delivery, a
-// reconcile or a deferral shows the worker's screen was read, or when no
-// screen-unknown hold arrives for NoScreenGap. Fire returning an error leaves the
-// episode unrecorded, so the next hold tries again; a nil return records it for
-// good. Safe for concurrent Observe calls.
+// worker per episode. An episode ends by endsNoScreen, or when no screen-unknown
+// hold arrives for NoScreenGap. Fire returning an error leaves the episode
+// unrecorded: the next hold after NoScreenRetry tries again; a nil return records
+// it for good. While a Fire is in flight no second one starts. Active, when set,
+// is called on every later hold of a recorded episode with its current count, so
+// the status stays current. The state is in memory: a restart inside an episode
+// records it again after another NoScreenAfter. Safe for concurrent Observe calls.
 type NoScreenTracker struct {
-	Fire func(NoScreenEpisode) error
+	Fire   func(NoScreenEpisode) error
+	Active func(NoScreenEpisode)
 
 	mu  sync.Mutex
 	eps map[string]*noScreenState
@@ -51,8 +71,10 @@ type NoScreenTracker struct {
 type noScreenState struct {
 	NoScreenEpisode
 	lastHeld time.Time
+	retryAt  time.Time
 	spans    map[string]bool
 	fired    bool
+	inFlight bool
 }
 
 // Observe feeds one delivery event.
@@ -65,8 +87,7 @@ func (t *NoScreenTracker) Observe(e Event) {
 		t.eps = map[string]*noScreenState{}
 	}
 	if e.Kind != Held || e.Reason != HoldScreenUnknown {
-		switch e.Kind {
-		case Delivered, Reconciled, Deferred, Held:
+		if endsNoScreen(e) {
 			delete(t.eps, e.WorkerID) // a screen was read: today's rules apply
 		}
 		t.mu.Unlock()
@@ -87,18 +108,30 @@ func (t *NoScreenTracker) Observe(e Event) {
 	}
 	s.spans[e.Span] = true
 	s.Pending = len(s.spans)
-	if s.fired || e.Time.Sub(s.HeldSince) < NoScreenAfter || t.Fire == nil {
-		t.mu.Unlock()
-		return
-	}
 	ep := s.NoScreenEpisode
-	t.mu.Unlock()
-	if err := t.Fire(ep); err != nil {
-		return // not recorded: the next hold tries again
+	switch {
+	case t.Fire == nil:
+		t.mu.Unlock()
+	case s.fired:
+		t.mu.Unlock()
+		if t.Active != nil {
+			t.Active(ep)
+		}
+	case s.inFlight || e.Time.Sub(s.HeldSince) < NoScreenAfter || e.Time.Before(s.retryAt):
+		t.mu.Unlock()
+	default:
+		s.inFlight = true
+		t.mu.Unlock()
+		err := t.Fire(ep)
+		t.mu.Lock()
+		if t.eps[e.WorkerID] == s {
+			s.inFlight = false
+			if err == nil {
+				s.fired = true
+			} else {
+				s.retryAt = e.Time.Add(NoScreenRetry)
+			}
+		}
+		t.mu.Unlock()
 	}
-	t.mu.Lock()
-	if cur := t.eps[e.WorkerID]; cur == s {
-		s.fired = true
-	}
-	t.mu.Unlock()
 }

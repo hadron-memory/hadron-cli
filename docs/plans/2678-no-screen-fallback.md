@@ -16,8 +16,9 @@ screen for a worker's terminal, the poller **surfaces** it and **never types**.
 - `internal/cmd/team/host_delivery.go`: `wireDelivery` feeds the tracker from the
   same `Emit` seam. On fire it (a) sends **one terminal report** through
   `setHostWorkerTerminals` with status `locked` and reason `no_screen` (the SDL
-  says that is how the CLI reports it, hadron-server#4566), which the roster's
-  dark-worker alarm can name; and (b) writes **one host event**
+  says that is how the CLI reports it, hadron-server#4566). It is stored as the
+  worker's terminal state, which the roster shows; the server documents the
+  report as advisory (it feeds no check status or alarm of its own); and (b) writes **one host event**
   `delivery-no-screen` with the terminal handle, held-since and pending count, so a
   person can open that exact terminal in Orca; and (c) records the episode on the
   host status (`team host status`: a `NO SCREEN since ...: N pending, open terminal
@@ -57,3 +58,27 @@ the terminal, and that a failed report retries with no upstream text in any line
 Hand-applied mutants, each killed: guard types on screen-unknown; threshold
 dropped; fired flag ignored; a returned screen does not end the episode; a silent
 gap never ends one.
+
+## Review fold (Juniper's BLIND at 962ea26f)
+
+- The report runs inside the delivery event path, so it is bounded by a 10 s
+  timeout (`noScreenReportTimeout`), and a hung server is pinned by a test. One
+  episode never has two reports in flight (an `inFlight` guard, pinned with
+  concurrent `Observe` under `-race`).
+- A failed report waits `NoScreenRetry` (5 min) before the next attempt, and its
+  host line is stamped now, is the documented kind `delivery-error` with outcome
+  `no-screen-report`, and carries a code (`TIMEOUT`, `REFUSED`, `UNCONFIRMED`,
+  `ERROR`), never the server's message. A refusal `TERMINAL_REPORT_STALE` means a
+  newer stored report (the next health sweep's) superseded ours: it is recorded,
+  not retried.
+- One rule ends an episode for the tracker and the status book (`endsNoScreen`);
+  skipped and failed events do not end one. The status line also stops showing an
+  episode after `NoScreenGap` without a hold, and a recorded episode's pending
+  count is refreshed on every later hold.
+- **Nothing sends a clearing report.** A clearing report would have to assert a
+  state the poller does not know (idle? busy?). The stored report is replaced by
+  the next sweep report (an older report than the stored one is skipped by the
+  server), and the host status stops naming the episode when the screen returns or
+  the gap passes.
+- Tracker state is in memory: a restart inside an episode records it again after
+  another 15 minutes.

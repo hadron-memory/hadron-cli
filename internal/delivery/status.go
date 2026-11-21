@@ -149,7 +149,7 @@ func (b *StatusBook) Observe(e Event) {
 		}
 	}
 	noScreen := old.NoScreen
-	if e.Kind != Held && e.Kind != Skipped && e.Kind != Failed || e.Kind == Held && e.Reason != HoldScreenUnknown {
+	if endsNoScreen(e) {
 		noScreen = nil // a screen was read again: the episode is over
 	}
 	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake, Unreported: e.Unreported, HeldSince: held, NoScreen: noScreen}

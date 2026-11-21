@@ -895,7 +895,7 @@ func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
 			row.HeldSince, row.HeldOver30m = &since, now.Sub(*w.HeldSince) > heldTooLong
 			row.NotRevisited = now.Sub(w.At) > 3*interval
 		}
-		if ns := w.NoScreen; ns != nil {
+		if ns := w.NoScreen; ns != nil && now.Sub(w.At) <= delivery.NoScreenGap {
 			row.NoScreen = &hostNoScreenDTO{Terminal: shaped(safeTerminal, ns.Terminal), Since: ns.Since.UTC().Format(time.RFC3339), Pending: ns.Pending}
 		}
 		if list, err := recs.List(id); err == nil {
@@ -1000,7 +1000,7 @@ current run of holds began, and HELD OVER 30m once that run is older than
 SCREEN UNKNOWN and what it can mean (no agent terminal in the worker's
 worktree, one not connected or writable, an agent family that differs from the
 worker's tui, or a screen it cannot classify). After 15 minutes of such holds
-with a wake pending, the poller reports the worker once as locked (reason
+with wakes or chat batches pending, the poller reports the worker once as locked (reason
 no_screen) and logs one delivery-no-screen event naming the terminal, since
 when and how many wakes wait; it never types into a terminal it cannot see. A held worker is re-evaluated every cycle; a
 held record whose newest event is older than three poll intervals is marked
