@@ -267,7 +267,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 361: 332 command, 17 gap, 12 excluded
+[Mutation] 361: 333 command, 16 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -279,7 +279,7 @@ addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
-allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
+allocateSpecNode  command spec new
 amendQuestion  command decision amend
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply
@@ -630,7 +630,7 @@ withdrawQuestion  command decision withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 42: 19 gap, 23 excluded
+[Arguments] 44: 19 gap, 25 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.applyAgentTickerTemplates(instruction)  gap #2773
@@ -644,6 +644,8 @@ Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use gra
 Mutation.createSecret(protected)  gap #2815
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteTicker(instruction)  gap #2773
+Mutation.encryptMemory(dataKey)  excluded deprecated: @deprecated: Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion.
+Mutation.encryptMemory(passphrase)  excluded deprecated: @deprecated: Send the passphrase in x-hadron-memory-keys.
 Mutation.importNode(input.authoredWith)  gap #2790
 Mutation.issueHostOperation(instruction)  gap #2774
 Mutation.liftTeamStopSignal(instruction)  gap #2774
