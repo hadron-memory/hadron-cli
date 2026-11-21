@@ -21,6 +21,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -826,6 +827,16 @@ type hostDeliveryWorkerDTO struct {
 	// no wake for the worker, or the poller may have stopped or its reads
 	// failed (see the STALE and wakes lines).
 	NotRevisited bool `json:"notRevisited"`
+	// NoScreen is null unless the worker's wakes were held as screen-unknown for
+	// 15 minutes (Orca gives no screen): the terminal handle to open, since
+	// when, and how many wakes wait. Nothing is typed into that terminal.
+	NoScreen *hostNoScreenDTO `json:"noScreen"`
+}
+
+type hostNoScreenDTO struct {
+	Terminal string `json:"terminal"`
+	Since    string `json:"since"`
+	Pending  int    `json:"pending"`
 }
 
 // screenUnknownHint says what a held screen-unknown means, in the status line
@@ -883,6 +894,9 @@ func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
 			since := w.HeldSince.UTC().Format(time.RFC3339)
 			row.HeldSince, row.HeldOver30m = &since, now.Sub(*w.HeldSince) > heldTooLong
 			row.NotRevisited = now.Sub(w.At) > 3*interval
+		}
+		if ns := w.NoScreen; ns != nil {
+			row.NoScreen = &hostNoScreenDTO{Terminal: shaped(safeTerminal, ns.Terminal), Since: ns.Since.UTC().Format(time.RFC3339), Pending: ns.Pending}
 		}
 		if list, err := recs.List(id); err == nil {
 			row.ConfirmedUnacked = len(list)
@@ -945,6 +959,9 @@ func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
 		if wk.LastKind == string(delivery.Held) && wk.LastReason == delivery.HoldScreenUnknown {
 			held += ", SCREEN UNKNOWN: " + screenUnknownHint
 		}
+		if ns := wk.NoScreen; ns != nil {
+			held += ", NO SCREEN since " + ns.Since + ": " + strconv.Itoa(ns.Pending) + " pending, open terminal " + ns.Terminal + " in Orca (nothing is typed into it)"
+		}
 		if wk.NotRevisited {
 			held += ", NOT RE-EVALUATED recently: no newer local delivery event, so the hold shown may be stale (its cause is not known from this record)"
 		}
@@ -982,7 +999,10 @@ current run of holds began, and HELD OVER 30m once that run is older than
 30 minutes without a delivery. A hold with the code screen-unknown also prints
 SCREEN UNKNOWN and what it can mean (no agent terminal in the worker's
 worktree, one not connected or writable, an agent family that differs from the
-worker's tui, or a screen it cannot classify). A held worker is re-evaluated every cycle; a
+worker's tui, or a screen it cannot classify). After 15 minutes of such holds
+with a wake pending, the poller reports the worker once as locked (reason
+no_screen) and logs one delivery-no-screen event naming the terminal, since
+when and how many wakes wait; it never types into a terminal it cannot see. A held worker is re-evaluated every cycle; a
 held record whose newest event is older than three poll intervals is marked
 NOT RE-EVALUATED (notRevisited in --json): no newer local event, so the
 hold shown may be stale; the cause is not recorded (the server may list no

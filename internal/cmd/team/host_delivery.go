@@ -8,8 +8,10 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -226,9 +228,23 @@ func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer,
 	book := delivery.NewStatusBook(stateDir)
 	// One `orca terminal list` serves every delivery of a cycle (#2181).
 	d := delivery.New(srv, delivery.NewSharedList(orcaterm.NewClient(orcaRunner(cfg.Delivery.OrcaBin)), sharedListWindow, sharedListNow), stateDir)
+	// cli#2678: a worker held as screen-unknown for delivery.NoScreenAfter is
+	// surfaced once per episode: one terminal report (locked, no_screen) the
+	// roster alarm can name, and one host event naming the exact terminal. The
+	// tracker only watches events; it can neither type nor touch a terminal.
+	tracker := &delivery.NoScreenTracker{Fire: func(ep delivery.NoScreenEpisode) error {
+		if err := srv.reportNoScreen(context.Background(), ep); err != nil {
+			emit(hostpoller.Event{Time: ep.HeldSince.UTC(), Kind: "delivery-failed", Detail: "reporting no_screen for " + ep.Worker + " failed; retrying next cycle"})
+			return err
+		}
+		book.NoScreen(ep)
+		emit(noScreenEvent(ep))
+		return nil
+	}}
 	d.Emit = func(e delivery.Event) {
 		book.Observe(e)
 		emit(deliveryEvent(e))
+		tracker.Observe(e)
 	}
 	p.DeliveryStep = func(at time.Time, read string) {
 		if err := book.Step(at, read); err != nil {
@@ -270,4 +286,38 @@ func deliveryEvent(e delivery.Event) hostpoller.Event {
 		detail += ", unreported: no server hold, alarm or escalation"
 	}
 	return hostpoller.Event{Time: e.Time, Kind: "delivery-" + string(e.Kind), Outcome: e.Reason, Detail: detail}
+}
+
+// reportNoScreen records one no_screen episode with the server as a terminal
+// report: locked, reason no_screen, as the SDL says the CLI reports it (the
+// report has no field for the terminal id, held-since or pending count: those
+// ride the host event line). It sends nothing to Orca.
+func (s *hostServer) reportNoScreen(ctx context.Context, ep delivery.NoScreenEpisode) error {
+	reason := gen.WorkerTerminalReasonNoScreen
+	at := time.Now()
+	if s.now != nil {
+		at = s.now()
+	}
+	input := &gen.WorkerTerminalReportInput{Worker: ep.WorkerID, Status: gen.WorkerTerminalStateLocked, Prompt: gen.WorkerTerminalPromptUnknown, Reason: &reason, CheckedAt: at.UTC().Format(time.RFC3339Nano)}
+	resp, err := gen.HealthSweepSetTerminals(ctx, s.client, &gen.SetHostWorkerTerminalsInput{AppRef: s.app, Reports: []*gen.WorkerTerminalReportInput{input}})
+	if err != nil {
+		return api.MapError(err)
+	}
+	if resp == nil || resp.SetHostWorkerTerminals == nil {
+		return errors.New("no_screen report was not confirmed stored: the server returned no result")
+	}
+	if len(resp.SetHostWorkerTerminals.Refused) > 0 {
+		return errors.New("no_screen report refused")
+	}
+	return nil
+}
+
+// noScreenEvent is the one host event line an episode records: codes, ids and
+// counts only, so a person can open the exact terminal in Orca.
+func noScreenEvent(ep delivery.NoScreenEpisode) hostpoller.Event {
+	detail := ep.Worker + ": no screen since " + ep.HeldSince.UTC().Format(time.RFC3339) + ", " + strconv.Itoa(ep.Pending) + " pending"
+	if ep.Terminal != "" {
+		detail += ", terminal " + shaped(safeTerminal, ep.Terminal)
+	}
+	return hostpoller.Event{Time: time.Now().UTC(), Kind: "delivery-no-screen", Outcome: delivery.HoldScreenUnknown, Detail: detail}
 }

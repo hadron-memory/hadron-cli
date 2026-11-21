@@ -16,6 +16,13 @@ func held(at time.Time, worker, span string) Event {
 	return Event{Time: at, Worker: worker, WorkerID: "id-" + worker, Span: span, Kind: Held, Reason: HoldScreenUnknown, Terminal: "term_1", Wake: true}
 }
 
+// cycles feeds one screen-unknown hold per minute for worker w, minutes from..to after t0.
+func cycles(tr *NoScreenTracker, t0 time.Time, from, to int, spans ...string) {
+	for m := from; m <= to; m++ {
+		tr.Observe(held(t0.Add(time.Duration(m)*time.Minute), "w", spans[m%len(spans)]))
+	}
+}
+
 func newTracker(fires *[]NoScreenEpisode) *NoScreenTracker {
 	return &NoScreenTracker{Fire: func(e NoScreenEpisode) error { *fires = append(*fires, e); return nil }}
 }
@@ -46,9 +53,7 @@ func TestNoScreenCountsDistinctPendingWakes2678(t *testing.T) {
 	var fires []NoScreenEpisode
 	tr := newTracker(&fires)
 	t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
-	tr.Observe(held(t0, "w", "ticks:1"))
-	tr.Observe(held(t0.Add(time.Minute), "w", "tasks:2"))
-	tr.Observe(held(t0.Add(NoScreenAfter), "w", "ticks:1"))
+	cycles(tr, t0, 0, 15, "ticks:1", "tasks:2") // two different wakes, alternating
 	if len(fires) != 1 || fires[0].Pending != 2 {
 		t.Fatalf("fires = %+v, want one with 2 pending", fires)
 	}
@@ -64,16 +69,15 @@ func TestNoScreenScreenComingBackEndsTheEpisode2678(t *testing.T) {
 		var fires []NoScreenEpisode
 		tr := newTracker(&fires)
 		t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
-		tr.Observe(held(t0, "w", "ticks:1"))
+		cycles(tr, t0, 0, 10, "ticks:1")
 		back.Time = t0.Add(10 * time.Minute)
 		tr.Observe(back)
-		// A new screen-unknown run starts a new clock: 10 more minutes is not 15.
-		tr.Observe(held(t0.Add(11*time.Minute), "w", "ticks:1"))
-		tr.Observe(held(t0.Add(11*time.Minute).Add(NoScreenAfter-time.Second), "w", "ticks:1"))
+		// A new screen-unknown run starts a new clock: the old 10 minutes do not count.
+		cycles(tr, t0, 11, 11+14, "ticks:1")
 		if len(fires) != 0 {
 			t.Fatalf("%s %s: the episode did not end, fired %d", back.Kind, back.Reason, len(fires))
 		}
-		tr.Observe(held(t0.Add(11*time.Minute).Add(NoScreenAfter), "w", "ticks:1"))
+		cycles(tr, t0, 11+15, 11+15, "ticks:1")
 		if len(fires) != 1 {
 			t.Fatalf("%s: the new episode never fired", back.Kind)
 		}
@@ -106,10 +110,7 @@ func TestNoScreenFailedReportRetriesNextHoldThenStops2678(t *testing.T) {
 		return nil
 	}}
 	t0 := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
-	tr.Observe(held(t0, "w", "ticks:1"))
-	tr.Observe(held(t0.Add(NoScreenAfter), "w", "ticks:1"))             // fails
-	tr.Observe(held(t0.Add(NoScreenAfter+time.Minute), "w", "ticks:1")) // retried, succeeds
-	tr.Observe(held(t0.Add(NoScreenAfter+2*time.Minute), "w", "ticks:1"))
+	cycles(tr, t0, 0, 20, "ticks:1") // fails at 15, retried at 16, then done
 	if calls != 2 {
 		t.Fatalf("report attempts = %d, want 2 (one failure, one success, then done)", calls)
 	}

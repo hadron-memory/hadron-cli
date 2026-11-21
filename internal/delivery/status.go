@@ -64,6 +64,17 @@ type WorkerStatus struct {
 	// cleared only by a delivered or reconciled event (cli#1178). Nil when
 	// no hold is outstanding.
 	HeldSince *time.Time `json:"heldSince,omitempty"`
+	// NoScreen is set when a run of screen-unknown holds crossed NoScreenAfter
+	// (cli#2678): which terminal to open, since when, how many wakes wait. Cleared
+	// when the worker's screen is read again.
+	NoScreen *NoScreenStatus `json:"noScreen,omitempty"`
+}
+
+// NoScreenStatus is a recorded no-screen episode: handle, time and count only.
+type NoScreenStatus struct {
+	Terminal string    `json:"terminal,omitempty"`
+	Since    time.Time `json:"since"`
+	Pending  int       `json:"pending"`
 }
 
 // Status is the poller's local delivery snapshot. It is observational: what
@@ -137,7 +148,23 @@ func (b *StatusBook) Observe(e Event) {
 			held = &at
 		}
 	}
-	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake, Unreported: e.Unreported, HeldSince: held}
+	noScreen := old.NoScreen
+	if e.Kind != Held && e.Kind != Skipped && e.Kind != Failed || e.Kind == Held && e.Reason != HoldScreenUnknown {
+		noScreen = nil // a screen was read again: the episode is over
+	}
+	b.st.Workers[e.WorkerID] = WorkerStatus{Name: e.Worker, Kind: e.Kind, Reason: e.Reason, At: e.Time, ResolvedBy: e.ResolvedBy, Wake: e.Wake, Unreported: e.Unreported, HeldSince: held, NoScreen: noScreen}
+}
+
+// NoScreen records ep on its worker's status line. It writes nothing: Step does.
+func (b *StatusBook) NoScreen(ep NoScreenEpisode) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	w, ok := b.st.Workers[ep.WorkerID]
+	if !ok {
+		return
+	}
+	w.NoScreen = &NoScreenStatus{Terminal: ep.Terminal, Since: ep.HeldSince.UTC(), Pending: ep.Pending}
+	b.st.Workers[ep.WorkerID] = w
 }
 
 // Step records a finished poller step and writes the snapshot: 0600, by
