@@ -299,7 +299,14 @@ func TestHelpInventoryHasNoVersionDependency(t *testing.T) {
 
 func replaceInventoryVersionBranch(body, version string) (string, error) {
 	start := strings.Index(body, "if [ \"$1\" = \"--version\" ]")
-	end := start + strings.Index(body[start:], "\n")
+	if start < 0 {
+		return "", fmt.Errorf("fake help fixture has no --version branch")
+	}
+	lineEnd := strings.Index(body[start:], "\n")
+	if lineEnd < 0 {
+		return "", fmt.Errorf("fake help fixture --version branch has no terminating newline")
+	}
+	end := start + lineEnd
 	return body[:start] + version + body[end:], nil
 }
 
