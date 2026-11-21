@@ -650,6 +650,11 @@ as question get shows it; --json prints the question as one object.`,
 			if fl.Changed("reason") {
 				input.Reason = &reason
 			}
+			// A blank text names no answer (the server treats it as absent): without an
+			// option it would reach the mutation only to be refused, so refuse it here.
+			if input.OptionKey == nil && (input.Text == nil || normalizeAnswerText(*input.Text) == "") {
+				return exitcode.Newf(exitcode.Usage, "the text is blank, so this names no answer: give --option <key> or a text with something in it; nothing was sent")
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -666,7 +671,7 @@ as question get shows it; --json prints the question as one object.`,
 			// answer: a reply without one does not confirm the answer, so the
 			// outcome is unconfirmed (in either output mode) and must be read back
 			// before retrying.
-			if !answerConfirmed(q, input) {
+			if !answerConfirmed(q, input, expected) {
 				return exitcode.Newf(exitcode.Error, "the server's reply does not show the answer you gave as the standing answer, so the outcome of this answer is unconfirmed; read it with `hadron question get %s` before retrying", output.SafeCell(ref))
 			}
 			// The heading names the standing answer the server RETURNED, not what was
@@ -1112,7 +1117,7 @@ func answerHeading(a *answerDTO) string {
 // key is the requested one and, when text was given, whose text is the given
 // text as the server normalises it. A reply that shows some
 // other standing answer, or none, does not confirm this one.
-func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput) bool {
+func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput, expectedRevision int) bool {
 	a := q.Answer
 	if !q.Answered || a == nil || a.Kind != string(gen.QuestionAnswerKindAnswer) {
 		return false
@@ -1122,6 +1127,18 @@ func answerConfirmed(q questionDTO, in gen.AnswerQuestionInput) bool {
 	}
 	if in.OptionKey == nil && a.Key != nil {
 		return false
+	}
+	// A write advances the revision. The one documented exception is the same answer
+	// given again without a reason, which the server leaves untouched; so a reply that
+	// did not move the revision confirms only that case, and a reason can only be
+	// confirmed by a newer revision whose standing answer carries it.
+	if q.Revision < expectedRevision {
+		return false
+	}
+	if in.Reason != nil {
+		if want := strings.TrimSpace(*in.Reason); want != "" && (q.Revision <= expectedRevision || a.Reason == nil || strings.TrimSpace(*a.Reason) != want) {
+			return false
+		}
 	}
 	// The text compares as the server stores it (parseAnswerInput): CRLF and CR become LF
 	// and a blank note is absent, nothing else is trimmed. Absent must match absent, so a

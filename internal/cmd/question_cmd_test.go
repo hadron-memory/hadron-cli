@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -47,6 +48,17 @@ func answeredAs(key, text string) string {
 		tx = `"text":` + string(b)
 	}
 	return strings.ReplaceAll(strings.ReplaceAll(questionAnsweredJSON, `"key":"pg"`, k), `"text":null`, tx)
+}
+
+// answeredWrite is answeredAs for a reply to a real write: the revision advanced to
+// rev and the standing answer carries the reason it was given with.
+func answeredWrite(key, text, reason string, rev int) string {
+	r := strings.ReplaceAll(answeredAs(key, text), `"revSeq":3`, `"revSeq":`+strconv.Itoa(rev))
+	if reason != "" {
+		b, _ := json.Marshal(reason)
+		r = strings.ReplaceAll(r, `"reason":null`, `"reason":`+string(b))
+	}
+	return r
 }
 
 // questionRetractedJSON is questionJSON after a retraction: no standing answer, a
@@ -342,7 +354,7 @@ func TestQuestionAnswerSendsViaCLIAndOnlyTheGivenFields(t *testing.T) {
 	if !strings.HasPrefix(out, "✓ answered QA: pg\n") || !strings.Contains(out, "answer: pg") {
 		t.Fatalf("out: %q", out)
 	}
-	c, _, err = runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + answeredAs("my", "a note") + `}}`},
+	c, _, err = runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + answeredWrite("my", "a note", "changed my mind", 5) + `}}`},
 		"answer", "QA", "--expected-revision", "4", "--option", "my", "--text", "a note", "--reason", "changed my mind")
 	if err != nil {
 		t.Fatal(err)
@@ -853,6 +865,57 @@ func TestQuestionAnswerConfirmationFollowsTheServersTextNormalization(t *testing
 		}
 		if !tc.success && (err == nil || !strings.Contains(err.Error(), "unconfirmed")) {
 			t.Errorf("%s: want unconfirmed, got %v", name, err)
+		}
+	}
+}
+
+// Andi's P2s: a reason is confirmed only by a write (a newer revision whose standing
+// answer carries the reason), while the same answer without a reason may come back
+// unchanged (the documented no-op); and a blank text without an option never reaches
+// the server.
+func TestQuestionAnswerReasonNeedsAWriteAndBlankTextIsRefusedLocally(t *testing.T) {
+	args := []string{"answer", "QA", "--expected-revision", "3", "--option", "pg"}
+	for name, tc := range map[string]struct {
+		extra   []string
+		reply   string
+		success bool
+	}{
+		"reason given, reply unchanged and without it": {[]string{"--reason", "why"}, answeredAs("pg", ""), false},
+		"reason given, revision up but reason absent":  {[]string{"--reason", "why"}, answeredWrite("pg", "", "", 4), false},
+		"reason given, a different reason shown":       {[]string{"--reason", "why"}, answeredWrite("pg", "", "other", 4), false},
+		"reason given, written with it":                {[]string{"--reason", "why"}, answeredWrite("pg", "", "why", 4), true},
+		"no reason, the documented no-op unchanged":    {nil, answeredAs("pg", ""), true},
+		"no reason, a write":                           {nil, answeredWrite("pg", "", "", 4), true},
+		"reply older than the revision read":           {nil, strings.ReplaceAll(answeredAs("pg", ""), `"revSeq":3`, `"revSeq":2`), false},
+	} {
+		_, _, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + tc.reply + `}}`}, append(append([]string{}, args...), tc.extra...)...)
+		if tc.success && err != nil {
+			t.Errorf("%s: want success, got %v", name, err)
+		}
+		if !tc.success && (err == nil || !strings.Contains(err.Error(), "unconfirmed")) {
+			t.Errorf("%s: want unconfirmed, got %v", name, err)
+		}
+	}
+	empty := filepath.Join(t.TempDir(), "empty.txt")
+	if err := os.WriteFile(empty, []byte("  \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for name, a := range map[string][]string{
+		"blank --text, no option":      {"answer", "QA", "--expected-revision", "3", "--text", "   "},
+		"empty text file, no option":   {"answer", "QA", "--expected-revision", "3", "--text-file", empty},
+		"blank --text beside --option": nil,
+	} {
+		if a == nil {
+			// a blank note beside an option is allowed and reaches the server
+			c, _, err := runQuestion(t, map[string]string{"AnswerQuestion": `{"data":{"answerQuestion":` + answeredAs("pg", "") + `}}`}, "answer", "QA", "--expected-revision", "3", "--option", "pg", "--text", "  ")
+			if err != nil || len(c.ops) != 1 {
+				t.Errorf("%s: want one call and success: %v ops=%v", name, err, c.ops)
+			}
+			continue
+		}
+		c, _, err := runQuestion(t, nil, a...)
+		if exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+			t.Errorf("%s: want a usage refusal before any call: %v ops=%v", name, err, c.ops)
 		}
 	}
 }

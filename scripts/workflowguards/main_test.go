@@ -310,3 +310,89 @@ func TestRealMismatchFailsTheComparison2712(t *testing.T) {
 		t.Errorf("the drift reporter is not keyed on the comparison step alone: %q", got)
 	}
 }
+
+// Andi's P1/P2 (#2801): every step of every job is either `uses` or `run`, never both
+// (a step holding both makes the whole workflow invalid, so none of its checks run),
+// and the snapshot-reproduces job's comparison tells a mismatch from a comparison fault
+// and has a failure reporter.
+func TestWorkflowStepsAreWellFormedAndSnapshotJobReports2465(t *testing.T) {
+	raw, err := os.ReadFile(repoFile(t, ".github/workflows/schema-drift.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wf struct {
+		Jobs map[string]struct {
+			Steps []struct {
+				Name string `yaml:"name"`
+				Uses string `yaml:"uses"`
+				Run  string `yaml:"run"`
+				If   string `yaml:"if"`
+			} `yaml:"steps"`
+		} `yaml:"jobs"`
+	}
+	if err := yaml.Unmarshal(raw, &wf); err != nil {
+		t.Fatal(err)
+	}
+	for job, j := range wf.Jobs {
+		for i, s := range j.Steps {
+			if (s.Uses == "") == (s.Run == "") {
+				t.Errorf("%s step %d (%q) must hold exactly one of uses and run (uses=%q)", job, i, s.Name, s.Uses)
+			}
+		}
+	}
+	snap, ok := wf.Jobs["snapshot-reproduces"]
+	if !ok {
+		t.Fatal("no snapshot-reproduces job")
+	}
+	var compare, report string
+	for _, s := range snap.Steps {
+		switch s.Name {
+		case "Compare the bytes":
+			compare = s.Run
+		case "File a snapshot-reproduces failure issue":
+			if s.If != "failure()" {
+				t.Errorf("the reporter condition = %q, want failure()", s.If)
+			}
+			report = s.Run
+		}
+	}
+	if compare == "" || report == "" {
+		t.Fatalf("the compare step or its failure reporter is missing (compare=%v report=%v)", compare != "", report != "")
+	}
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not on PATH")
+	}
+	for _, tc := range []struct {
+		name      string
+		exported  string
+		snapshot  string
+		wantCode  int
+		wantInOut string
+	}{
+		{"bytes match", "type Query { a: Int }\n", "type Query { a: Int }\n", 0, ""},
+		{"bytes differ", "type Query { a: Int }\n", "type Query { b: Int }\n", 1, "SNAPSHOT MISMATCH"},
+		{"comparison cannot read a file", "", "", 2, "infrastructure fault"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(tmp, "schema"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantCode != 2 {
+				if err := os.WriteFile(filepath.Join(tmp, "exported.graphql"), []byte(tc.exported), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(tmp, "schema", "schema.graphql"), []byte(tc.snapshot), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			out, code := run(t, tmp, []string{"RUNNER_TEMP=" + tmp}, "bash", "-e", "-c", compare)
+			if code != tc.wantCode {
+				t.Fatalf("exit %d, want %d:\n%s", code, tc.wantCode, out)
+			}
+			if tc.wantInOut != "" && !strings.Contains(out, tc.wantInOut) {
+				t.Errorf("output lacks %q:\n%s", tc.wantInOut, out)
+			}
+		})
+	}
+}

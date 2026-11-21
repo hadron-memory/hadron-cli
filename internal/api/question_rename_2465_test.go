@@ -8,12 +8,12 @@ import (
 	"testing"
 )
 
-// TestDecisionOperationsUseQuestionNames2465 pins cli#2465 (S1-S4): the
+// TestQueryDocumentsUseTheQuestionSurfaceNames2465 pins cli#2465 (S1-S4): the
 // server (hadron-server#4425/#4435) renamed the governed-decision operations
 // and types to question*/Question* with no aliases, so a document that still
 // names the old ones fails on a current server with "Unknown type
 // DecisionState". question.graphql must address the new names only.
-func TestDecisionOperationsUseQuestionNames2465(t *testing.T) {
+func TestQueryDocumentsUseTheQuestionSurfaceNames2465(t *testing.T) {
 	raw, err := os.ReadFile("queries/question.graphql")
 	if err != nil {
 		t.Fatal(err)

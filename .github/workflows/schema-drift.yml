@@ -312,7 +312,7 @@ jobs:
             src/lib/runner/tools
             src/lib/hostOperations/types.ts
           sparse-checkout-cone-mode: false
-      - name: Export at that commit and compare the bytes
+      - name: Export at that commit
         if: steps.gate.outputs.enabled == 'true'
         env:
           PIN_TSX: ${{ steps.pins.outputs.tsx }}
@@ -321,9 +321,50 @@ jobs:
           cd .hadron-server
           npm install --no-save --no-package-lock --silent --ignore-scripts "tsx@$PIN_TSX" "graphql@$PIN_GRAPHQL" 1>&2
           ./node_modules/.bin/tsx scripts/export-graphql-sdl.mjs > "$RUNNER_TEMP/exported.graphql"
-          cd ..
-          cmp "$RUNNER_TEMP/exported.graphql" schema/schema.graphql ||
-            { echo "::error::schema/schema.graphql is not the export of server_sha in schema/SOURCE (refresh it with the refresh-the-schema-snapshot skill and record the commit)"; exit 1; }
+          [ -s "$RUNNER_TEMP/exported.graphql" ] || { echo "::error::the exporter produced no SDL"; exit 1; }
+      # cmp exits 1 for differing bytes and 2 for a trouble reading them: only the first
+      # is a verdict about the snapshot, so the two are told apart.
+      - name: Compare the bytes
+        id: compare
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          rc=0
+          cmp "$RUNNER_TEMP/exported.graphql" schema/schema.graphql || rc=$?
+          case "$rc" in
+            0) ;;
+            1) echo "::error::SNAPSHOT MISMATCH: schema/schema.graphql is not the export of server_sha in schema/SOURCE (refresh it with the refresh-the-schema-snapshot skill and record the commit)"; exit 1 ;;
+            *) echo "::error::the comparison itself failed (cmp exit $rc): an infrastructure fault, not a verdict on the snapshot"; exit 2 ;;
+          esac
+      # A red nobody is told about is silent (#2710): one deduplicated issue, its own title,
+      # saying which kind of red this was (the failing step is the Compare step for a
+      # mismatch and any other step for an infrastructure fault).
+      - name: File a snapshot-reproduces failure issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMPARE: ${{ steps.compare.outcome }}
+        run: |
+          title="Nightly snapshot-reproduces job failed"
+          if [ "$COMPARE" = "failure" ]; then
+            kind="the committed schema/schema.graphql does not reproduce from server_sha in schema/SOURCE (or the comparison could not run: open the Compare step)"
+          else
+            kind="the job could not run to a verdict (a rejected HADRON_SERVER_RO_TOKEN at the checkout, #2710, an install or exporter fault, or a bad schema/SOURCE): open the failing step"
+          fi
+          existing=$(gh issue list --state open --search "\"$title\" in:title" \
+            --json title,number --jq "[.[] | select(.title==\"$title\")][0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "Failed again as of $RUN_URL ($kind)"
+            exit 0
+          fi
+          {
+            echo "The nightly \`snapshot-reproduces\` job failed: $kind."
+            echo
+            echo "This issue is commented on by each later failed run and can be closed once one is green."
+            echo
+            echo "Failing run: $RUN_URL"
+          } > snapshot-issue-body.md
+          gh issue create --title "$title" --body-file snapshot-issue-body.md
 
   # The third question, and the one that had never been asked (#641): the checks
   # above keep our COPIES of the server's contract current; this one asks whether

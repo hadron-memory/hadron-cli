@@ -453,6 +453,10 @@ func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 					}
 					keys[o.Key] = true
 				}
+				// The SDL: a question with options carries a recommendation or the reason it has none.
+				if len(in.Options) > 0 && in.Recommendation == nil && in.NoRecommendation == nil {
+					t.Errorf("%s: heredoc %s has options but neither a recommendation nor a noRecommendation", path, name)
+				}
 				if in.Recommendation != nil && !keys[in.Recommendation.Key] {
 					t.Errorf("%s: heredoc %s recommends %q, which is not one of its options", path, name, in.Recommendation.Key)
 				}
