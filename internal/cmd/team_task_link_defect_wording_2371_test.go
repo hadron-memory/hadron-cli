@@ -53,6 +53,14 @@ func linkDefectParagraph2440(t *testing.T) (lines []string, firstLine int) {
 	return para, found[0][0] + 1
 }
 
+// Accepted limit (cli#2440, BLIND P2 raised by three reviewers and dispositioned
+// by the coordinator on the PR): the ref in the failure message is the argument
+// the caller just passed, so the doc tells them to reuse the ref they passed in.
+// Copying the displayed ref is only for a ref without control characters, which
+// the message shows as spaces; recovering a control-character ref from the
+// displayed copy is not supported, and the CLI does not reject such a ref. The
+// wording pin below holds that sentence.
+//
 // cli#2371 F4: the link-defect paragraph in agentic-usage says the last line is
 // the task ref in full, that control characters in it show as spaces (so reuse
 // the ref you passed in), and that the ref should be quoted when passed back to
