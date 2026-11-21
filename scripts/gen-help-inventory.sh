@@ -31,6 +31,9 @@ cfg=$(mktemp -d)
 rows=$(mktemp)
 trap 'rm -rf "$cfg" "$rows"' EXIT
 export XDG_CONFIG_HOME="$cfg" HOME="$cfg"
+# Help hashes must not inherit locale or terminal-width choices from the
+# developer's shell. Capture every page in the C locale at 80 columns.
+export LC_ALL=C COLUMNS=80
 unset HADRON_TOKEN HADRON_SERVER || :
 
 # Hash the captured help, not structural metadata or the binary's version.
@@ -94,8 +97,10 @@ done
 humans=$(mktemp)
 trap 'rm -rf "$cfg" "$rows" "$humans"' EXIT
 if [ -n "$EXISTING" ] && [ -f "$EXISTING" ]; then
-  awk -F' \\| ' '/^\| `/ {
-    p=$1; sub(/^\| `/,"",p); sub(/`$/,"",p)
+  awk -F' \\| ' '/^\|[[:space:]]*`/ {
+    # Normalize only Markdown padding OUTSIDE the backticked path. The human
+    # cells below remain byte-for-byte text, including their own whitespace.
+    p=$1; sub(/^\|[[:space:]]*`/,"",p); sub(/`[[:space:]]*$/,"",p)
     if (NF == 8) { h=""; e=$6; r=$7; f=$8 }
     else if (NF == 9) { h=$6; e=$7; r=$8; f=$9 }
     else { print "gen-help-inventory: unsupported inventory row shape: " $0 > "/dev/stderr"; exit 1 }
