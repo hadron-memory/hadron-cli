@@ -967,8 +967,8 @@ type AgentTask {
   number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
   project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
   task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-  belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-  The handle is not the number of any GitHub issue the task's source names.
+  belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+  App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
   """
   handle: String!
   id: ID!
@@ -1059,6 +1059,16 @@ type AgentTask {
   taskNumber: String!
   title: String!
   updatedAt: DateTime
+
+  """
+  #3878: this task's URN, hrn:agenttask:<root>:<app-slug>:<handle>, for example
+  hrn:agenttask:hadronmemory.com:hadron-dev-team:at3.405 (hrn:node:hadronmemory.com:specs:cor:urn:010:01). Computed
+  when read from the App's current urn and the handle, never stored; emitted with the handle in lower case, while
+  the handle field and every display keep AT3.405. Query.resolveUrn reads it in either case, behind this task's
+  own read gate, and an old App spelling still resolves after the App is renamed. Null only when the App's urn
+  cannot form the address.
+  """
+  urn: String
 
   """
   Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:04): started with at least one pending or started child task. Never stored.
@@ -7268,17 +7278,28 @@ secret keeps its values as versions: every store adds one
 """
 input IssueSecretReadClientInput {
   """
-  Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refusals, in the order they are judged: holderKind APP (GRANT_HOLDER_NOT_ALLOWED); an unreadable startsAt or expiresAt (BAD_USER_INPUT); a marked request without a window or a read budget (SECRET_AUTO_DELETE_NEEDS_LIMIT); a caller who is neither an App manager nor the writer of the secret's current version (SECRET_AUTO_DELETE_NOT_ALLOWED, where an unmarked request would get FORBIDDEN or SECRET_READ_CLIENT_SUPERSEDED).
+  Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refusals, in the order they are judged: holderKind APP in REVEAL mode (GRANT_HOLDER_NOT_ALLOWED); an unreadable startsAt or expiresAt (BAD_USER_INPUT); a marked request without a window or a read budget (SECRET_AUTO_DELETE_NEEDS_LIMIT); a caller who is neither an App manager nor the writer of the secret's current version (SECRET_AUTO_DELETE_NOT_ALLOWED, where an unmarked request would get FORBIDDEN or SECRET_READ_CLIENT_SUPERSEDED).
   """
   autoDelete: Boolean! = false
+  bindingHeader: String
+
+  """
+  USE requires a signed HTTPS origin and path prefix and an auth header name.
+  """
+  bindingPrefix: String
   expiresAt: DateTime
 
   """
-  WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path, and an App holder for use is not supported.
+  REVEAL: WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused for REVEAL (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path. USE: an AGENT installed in the App, or the App itself (a person or a worker is refused).
   """
   holderKind: GrantHolderKind!
   holderRef: ID
   maxReads: Int
+
+  """
+  REVEAL by default; USE creates an injection-only client, used by reference from the holder's runs.
+  """
+  mode: SecretReadClientMode = REVEAL
   reason: String!
 
   """The App secret, by id or URN."""
@@ -8517,7 +8538,12 @@ type Mutation {
   acknowledgeWakes(proofs: [String!]!): AcknowledgeWakesResult!
 
   """
-  Acquire (or renew) the editor lock for an Agent's system memory.
+  Acquire (or renew) the editor lock for an Agent's system memory. The lock is
+  ADVISORY: a signal to other editors that someone is editing, lasting 5
+  minutes unless renewed by the holder. The server does not refuse an edit
+  made without it (no edit mutation checks it). When another editor holds an
+  unexpired lock, this does not take it: it answers locked: false with the
+  holder (lockedBy) and the expiry.
   
   Accepts the entity's ID or URN.
   """
@@ -8759,7 +8785,7 @@ type Mutation {
   assignHostWorker(input: AssignHostWorkerInput!, instruction: ActInstructionInput): HostWorkerAssignment!
 
   """
-  #3448 — Order: schedule, freeze, seat, verdict, finish; a seat binds only while its own task is live. A native negative verdict at a head blocks every slot there; the head must move. TASK_ENDED and REVIEW_SEAT_UNASSIGNED name the remedy (a signed PR receipt at the exact head is the record); REVIEW_HEAD_MISMATCH says to bind at the frozen head. Seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
+  #3448 — Order: schedule, freeze, seat, verdict, finish; a seat binds only while its own task is live. A native negative verdict at a head blocks every slot there; the head must move. TASK_ENDED and REVIEW_SEAT_UNASSIGNED name the remedy (a signed PR receipt at the exact head is the record); REVIEW_HEAD_MISMATCH says to bind at the frozen head. Seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE), unless that negative was withdrawn (#4441, withdrawReviewVerdict). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
   """
   assignReviewSeat(head: String!, slot: String!, supersedes: ID, taskRef: ID!): PrProtocolResult!
 
@@ -9199,7 +9225,7 @@ type Mutation {
   (on recordAgentTaskProgress; other-started and children-ended, like the three assign
   facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
   cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
-  a client must tolerate unknown codes. `text` is
+  a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
   fixed per code. `register` appears only for a caller that has an Agent:
   { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
   #3491 (ruling 0176): the first three are given only when the caller may read every
@@ -9449,6 +9475,12 @@ type Mutation {
   duplicates are collapsed. expiresAt is optional; when supplied it must be
   a future ISO-8601 timestamp with an explicit timezone. appRef is a PK or
   App URN. A missing or unreadable connection answers NOT_FOUND.
+  
+  #4838: a grantee App that is missing, deleted or malformed answers
+  BAD_USER_INPUT "Grantee App not found." with NO ref echoed. The existence
+  oracle on this refusal is deliberate (a connection owner need not reach
+  the grantee App — granting to a counterparty is the feature): an App the
+  owner cannot reach still receives the grant.
   """
   createConnectionGrant(appRef: String!, connectionRef: String!, expiresAt: String, scopes: [String!]!): ConnectionGrant!
 
@@ -9931,6 +9963,17 @@ type Mutation {
   invariants to run, because names are not allocated — a cast supplies its
   own and workers_app_name_uniq is the sole arbiter. Any data.names left on
   an existing node is historical and is neither read nor rewritten.
+  
+  #4838 (hrn:node:hadronmemory.com:specs:cor:dmo:070:05, Proposed): the appRef
+  refusals on this door are concealed and reach-gated, the same rule
+  startSession runs. A caller without standing for the App their appRef names
+  — a non-participant, a pure App key naming another App, or a ref that is
+  missing, deleted, uninstalled or malformed — gets ONE answer,
+  byte-identical across every state: APP_NOT_FOUND with the message
+  "App not found.", no ref echoed, no appId in extensions. A participant
+  keeps the state answers: APP_UNINSTALLED with the appId for an uninstalled
+  App named by PK, and FORBIDDEN from the definition-edit gate for a member
+  who reaches but may not edit.
   """
   createTeamRole(appRef: ID!, description: String, role: String!, teamAgentRef: ID): TeamRole!
 
@@ -10233,7 +10276,8 @@ type Mutation {
   #1002 — retire a roles:<role> definition. Soft-deletes the role node and
   any sub-nodes under it (roles:<role>:notes is content OF the role), so the
   subtree is recoverable. Unknown role: WORKER_ROLE_NOT_FOUND. Same
-  authorization as createTeamRole.
+  authorization as createTeamRole, and the same #4838 concealed appRef
+  refusals (see createTeamRole).
   
   #1050: unconditional. The minted-name check, TEAM_ROLE_IN_USE, transferTo's
   one-step supersede, the post-delete recheck and the restore compensation
@@ -10585,7 +10629,7 @@ type Mutation {
   finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
 
   """
-  #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding.
+  #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding. A negative withdrawn by its holder or the coordinator (#4441) no longer refuses.
   """
   freezePullRequestHead(head: String!, taskRef: ID!): PrProtocolResult!
 
@@ -10889,7 +10933,7 @@ type Mutation {
   mergeUsers(input: MergeUsersInput!): User!
 
   """
-  Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
+  Mint comm.outbound or secret.use tickets into the org ledger (org-ADMIN; hrn:node:hadronmemory.com:specs:cor:acl:050:04).
   """
   mintActionTickets(input: MintActionTicketsInput!): Int!
 
@@ -11194,7 +11238,9 @@ type Mutation {
   releaseAgentTaskExternalId(instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
-  Release the editor lock for an Agent's system memory.
+  Release the editor lock for an Agent's system memory. The lock is ADVISORY
+  (see acquireEditorLock): releasing it clears the signal to other editors and
+  changes nothing about who may edit.
   
   Accepts the entity's ID or URN.
   """
@@ -11938,7 +11984,7 @@ type Mutation {
   setRateLimitPolicy(input: SetRateLimitPolicyInput!): RateLimitPolicy!
 
   """
-  #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE. All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
+  #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE, unless that negative was withdrawn (#4441, withdrawReviewVerdict). All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
   """
   setReviewSchedule(slots: [String!]!, taskRef: ID!): PrProtocolResult!
 
@@ -12835,7 +12881,8 @@ type Mutation {
 
   """
   #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
-  role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
+  role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole, and the
+  same #4838 concealed appRef refusals (see createTeamRole).
   
   #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
   array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
@@ -12897,6 +12944,11 @@ type Mutation {
   #1641 — withdraw a question (terminal; the code stays consumed): the asker or a decider, a decider once answered, whatever its state.
   """
   withdrawQuestion(expectedRevision: Int!, reason: String!, ref: ID!): Question!
+
+  """
+  #4441 — withdraw a FINISHED review seat's negative verdict (CHANGES_REQUESTED, FAIL or REFUSED) at the head it was recorded at, on evidence (Holger's ruling, the withdraw verb). Who: the actor who recorded that verdict, or the coordinator: a worker whose current role is coordinator in the App, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; a worker whose holder manages it, with an instruction). Records one review.verdict.withdrawn event on the seat task naming the verdict event; the verdict event and the finished task are unchanged. A withdrawn negative no longer blocks the head: the head may be frozen again, a schedule may drop its slot, and a superseding seat may bind to its slot at the same head. It never counts as a positive verdict: the slot counts only through a superseding seat's APPROVE, PASS or CARRY. Refusals: TASK_NOT_FOUND (a caller who may not read the App's tasks), REVIEW_SEAT_UNASSIGNED, TASK_INVALID_TRANSITION (the seat is not FINISHED; a STARTED seat's holder re-rates instead), REVIEW_HEAD_MISMATCH, REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN, REVIEW_WITHDRAW_FORBIDDEN, BAD_USER_INPUT; each writes nothing.
+  """
+  withdrawReviewVerdict(head: String!, instruction: ActInstructionInput, receipt: String, taskRef: ID!): PrProtocolResult!
 
   """
   Withdraw your own open change request and clear its staged value; the request then
@@ -17267,6 +17319,12 @@ type Query {
   is no such question, and the read is a plain list of definitions. teamAgentRef disambiguates when more than one installed agent
   carries a roles: branch (TEAM_AGENT_AMBIGUOUS otherwise); an encrypted
   system memory without an active session key refuses SESSION_EXPIRED.
+  
+  #4838: the appRef refusals are concealed (see createTeamRole): reach first,
+  state after — an unreadable, missing, deleted or malformed ref all answer
+  the one APP_NOT_FOUND "App not found." with no ref echoed. An uninstalled
+  App's roles stay readable for a participant (the roster stays legible);
+  only the write doors refuse APP_UNINSTALLED.
   """
   teamRoles(appRef: ID!, limit: Int, offset: Int, teamAgentRef: ID): TeamRolesPage!
 
@@ -18531,6 +18589,19 @@ One org-owned BYO Resend sender. The API key is encrypted and write-only.
 type ResendSender {
   createdAt: DateTime!
   createdBy: String
+
+  """
+  #4865 — report only. Whether the domain of the from address is verified at Resend, read
+  live through the hadrontool-resend capability tool each time this field is selected: never
+  cached, so it is current as of this read, and it costs one tool call per sender. Core never
+  calls Resend itself (hrn:node:hadronmemory.com:specs:cor:int:030:01).
+  true: Resend reports the domain verified.
+  false: Resend reports it not verified, including when Resend has no record of the domain.
+  null: the state could not be read. The caller is not a member of the sender's organization
+  (an App key may list senders, but reads null here); the tool is not configured; or the
+  lookup failed or ran past its bound of 12 seconds. A null says nothing about the domain.
+  """
+  domainVerified: Boolean
   enabled: Boolean!
 
   """
@@ -19352,6 +19423,14 @@ type SecretReadClientIssued {
   selfIssued: Boolean!
 }
 
+"""
+How a secret read client is used: REVEAL hands the value to a person or worker, USE injects it by reference into a run's web request.
+"""
+enum SecretReadClientMode {
+  REVEAL
+  USE
+}
+
 type SecretReadClientsPage {
   hasMore: Boolean!
   items: [SecretReadClient!]!
@@ -19729,18 +19808,28 @@ input SessionInput {
   URN. Resolves to Session.appId - the pivot that was previously stamped ONLY
   from an App-key credential, which made a user-started session structurally
   unable to satisfy the team-chat authorship gate (cor:agt:020:04 condition b,
-  SESSION_NOT_IN_APP). The caller must be a member of that App: an AppMember
-  at any role, an org member with CONTRIBUTOR+ on its owning org, or the
-  owner of a user-owned App. Unknown or deleted App: BAD_USER_INPUT;
-  non-member: FORBIDDEN. An App-key credential wins - if the caller
-  authenticated as an App and appRef names a DIFFERENT App, the call is
-  refused (SESSION_APP_MISMATCH).
+  SESSION_NOT_IN_APP).
   
-  Uninstalled Apps differ by ref form, because App URNs are only unique
-  among ACTIVE rows (spec 021 FR-027: one live App plus N uninstalled
-  history rows may share a URN). By URN an uninstalled App is simply not
-  found - BAD_USER_INPUT - since there is no single row the URN names; by
-  PK it is found and refused APP_UNINSTALLED.
+  #4836 (hrn:node:hadronmemory.com:specs:cor:dmo:070:05, Proposed): a caller
+  WITHOUT standing gets ONE refusal whatever the App's state and whatever the
+  ref's form - APP_NOT_FOUND, "App not found." - byte-identical for a missing
+  App, a deleted one, an uninstalled one, an existing one the caller cannot
+  touch, and a pure App key naming any other App (a key reaches only its own
+  App). The refusal echoes no value the caller sent and carries no appId.
+  Standing is App membership - an AppMember at any role, an org member with
+  CONTRIBUTOR+ on its owning org, or the owner of a user-owned App - or a
+  pure App-key credential for exactly its own App. A caller WITH standing
+  keeps the specific answers: APP_UNINSTALLED by PK, with the appId their own
+  ref resolved to (by URN an uninstalled App does not resolve at all - App
+  URNs are unique only among ACTIVE rows, spec 021 FR-027 - so it reads as
+  missing for everyone); and authorization refusals for an act a member may
+  not do elsewhere in this mutation stay FORBIDDEN.
+  
+  Ref-RESOLUTION failures read as not-found for EVERY caller, standing or
+  not: a malformed or ambiguous ref resolves to no App, so it answers
+  APP_NOT_FOUND to a member exactly as to an outsider - the specific
+  malformed/ambiguous hints the parser can produce elsewhere do not exist
+  on this field, and no ref text is ever echoed back.
   """
   appRef: String
   branch: String
@@ -19846,7 +19935,9 @@ input SessionInput {
     Which refusal you get depends on WHERE the denial happens, and clients
     should not assume one code covers both: a caller who supplied appRef has
     already been checked against the same participant predicate, so an
-    outsider is refused FORBIDDEN there, before any name is read. Only a
+    outsider is refused APP_NOT_FOUND there (#4836: the one unknown-App
+    answer, "App not found." — the App's existence is not confirmed to
+    them), before any name is read. Only a
     denial at the in-branch staff gate — reachable when the App came from an
     App-key credential rather than appRef — is masked as WORKER_NOT_FOUND,
     indistinguishable from an App with no such worker.

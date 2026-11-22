@@ -1146,7 +1146,12 @@ func (v *AcquireEditorLockAcquireEditorLockEditorLockResult) GetExpiresAt() *str
 
 // AcquireEditorLockResponse is returned by AcquireEditorLock on success.
 type AcquireEditorLockResponse struct {
-	// Acquire (or renew) the editor lock for an Agent's system memory.
+	// Acquire (or renew) the editor lock for an Agent's system memory. The lock is
+	// ADVISORY: a signal to other editors that someone is editing, lasting 5
+	// minutes unless renewed by the holder. The server does not refuse an edit
+	// made without it (no edit mutation checks it). When another editor holds an
+	// unexpired lock, this does not take it: it answers locked: false with the
+	// holder (lockedBy) and the expiry.
 	//
 	// Accepts the entity's ID or URN.
 	AcquireEditorLock *AcquireEditorLockAcquireEditorLockEditorLockResult `json:"acquireEditorLock"`
@@ -6521,7 +6526,7 @@ type AgentTaskCreateInstructedResponse struct {
 	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
-	// a client must tolerate unknown codes. `text` is
+	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
 	// #3491 (ruling 0176): the first three are given only when the caller may read every
@@ -6566,7 +6571,7 @@ type AgentTaskCreateResponse struct {
 	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
-	// a client must tolerate unknown codes. `text` is
+	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
 	// #3491 (ruling 0176): the first three are given only when the caller may read every
@@ -6863,8 +6868,8 @@ type AgentTaskDependencyFields struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Title  string          `json:"title"`
 	Status AgentTaskStatus `json:"status"`
@@ -7139,8 +7144,8 @@ type AgentTaskFields struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string `json:"handle"`
 	// This task's own number inside its handle (the last segment), counted per parent. Permanent: never changed, never given to another task.
 	TaskNumber  string          `json:"taskNumber"`
@@ -43728,6 +43733,12 @@ type CreateConnectionGrantResponse struct {
 	// duplicates are collapsed. expiresAt is optional; when supplied it must be
 	// a future ISO-8601 timestamp with an explicit timezone. appRef is a PK or
 	// App URN. A missing or unreadable connection answers NOT_FOUND.
+	//
+	// #4838: a grantee App that is missing, deleted or malformed answers
+	// BAD_USER_INPUT "Grantee App not found." with NO ref echoed. The existence
+	// oracle on this refusal is deliberate (a connection owner need not reach
+	// the grantee App — granting to a counterparty is the feature): an App the
+	// owner cannot reach still receives the grant.
 	CreateConnectionGrant *CreateConnectionGrantCreateConnectionGrant `json:"createConnectionGrant"`
 }
 
@@ -47524,6 +47535,17 @@ type CreateTeamRoleResponse struct {
 	// invariants to run, because names are not allocated — a cast supplies its
 	// own and workers_app_name_uniq is the sole arbiter. Any data.names left on
 	// an existing node is historical and is neither read nor rewritten.
+	//
+	// #4838 (hrn:node:hadronmemory.com:specs:cor:dmo:070:05, Proposed): the appRef
+	// refusals on this door are concealed and reach-gated, the same rule
+	// startSession runs. A caller without standing for the App their appRef names
+	// — a non-participant, a pure App key naming another App, or a ref that is
+	// missing, deleted, uninstalled or malformed — gets ONE answer,
+	// byte-identical across every state: APP_NOT_FOUND with the message
+	// "App not found.", no ref echoed, no appId in extensions. A participant
+	// keeps the state answers: APP_UNINSTALLED with the appId for an uninstalled
+	// App named by PK, and FORBIDDEN from the definition-edit gate for a member
+	// who reaches but may not edit.
 	CreateTeamRole *CreateTeamRoleCreateTeamRole `json:"createTeamRole"`
 }
 
@@ -49014,7 +49036,8 @@ type DeleteTeamRoleResponse struct {
 	// #1002 — retire a roles:<role> definition. Soft-deletes the role node and
 	// any sub-nodes under it (roles:<role>:notes is content OF the role), so the
 	// subtree is recoverable. Unknown role: WORKER_ROLE_NOT_FOUND. Same
-	// authorization as createTeamRole.
+	// authorization as createTeamRole, and the same #4838 concealed appRef
+	// refusals (see createTeamRole).
 	//
 	// #1050: unconditional. The minted-name check, TEAM_ROLE_IN_USE, transferTo's
 	// one-step supersede, the post-delete recheck and the restore compensation
@@ -63832,8 +63855,8 @@ type IntakeClaimTaskCreateAgentTask struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Title  string          `json:"title"`
 	Status AgentTaskStatus `json:"status"`
@@ -63924,7 +63947,7 @@ type IntakeClaimTaskResponse struct {
 	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
-	// a client must tolerate unknown codes. `text` is
+	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
 	// #3491 (ruling 0176): the first three are given only when the caller may read every
@@ -64017,8 +64040,8 @@ type IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangeP
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string `json:"handle"`
 	// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120) — the portal page that opens this task,
 	// <FRONTEND_URL>/app/apps/<appId>/tasks/<taskId>, printed by the server so no client builds it. Null when FRONTEND_URL
@@ -64917,14 +64940,19 @@ func (v *IssueHostOperationResponse) GetIssueHostOperation() *IssueHostOperation
 // secret keeps its values as versions: every store adds one
 // (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type IssueSecretReadClientInput struct {
-	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refusals, in the order they are judged: holderKind APP (GRANT_HOLDER_NOT_ALLOWED); an unreadable startsAt or expiresAt (BAD_USER_INPUT); a marked request without a window or a read budget (SECRET_AUTO_DELETE_NEEDS_LIMIT); a caller who is neither an App manager nor the writer of the secret's current version (SECRET_AUTO_DELETE_NOT_ALLOWED, where an unmarked request would get FORBIDDEN or SECRET_READ_CLIENT_SUPERSEDED).
-	AutoDelete bool    `json:"autoDelete"`
-	ExpiresAt  *string `json:"expiresAt,omitempty"`
-	// WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path, and an App holder for use is not supported.
+	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refusals, in the order they are judged: holderKind APP in REVEAL mode (GRANT_HOLDER_NOT_ALLOWED); an unreadable startsAt or expiresAt (BAD_USER_INPUT); a marked request without a window or a read budget (SECRET_AUTO_DELETE_NEEDS_LIMIT); a caller who is neither an App manager nor the writer of the secret's current version (SECRET_AUTO_DELETE_NOT_ALLOWED, where an unmarked request would get FORBIDDEN or SECRET_READ_CLIENT_SUPERSEDED).
+	AutoDelete    bool    `json:"autoDelete"`
+	BindingHeader *string `json:"bindingHeader"`
+	// USE requires a signed HTTPS origin and path prefix and an auth header name.
+	BindingPrefix *string `json:"bindingPrefix"`
+	ExpiresAt     *string `json:"expiresAt,omitempty"`
+	// REVEAL: WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused for REVEAL (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path. USE: an AGENT installed in the App, or the App itself (a person or a worker is refused).
 	HolderKind GrantHolderKind `json:"holderKind"`
 	HolderRef  *string         `json:"holderRef,omitempty"`
 	MaxReads   *int            `json:"maxReads,omitempty"`
-	Reason     string          `json:"reason"`
+	// REVEAL by default; USE creates an injection-only client, used by reference from the holder's runs.
+	Mode   *SecretReadClientMode `json:"mode"`
+	Reason string                `json:"reason"`
 	// The App secret, by id or URN.
 	SecretRef string  `json:"secretRef"`
 	StartsAt  *string `json:"startsAt,omitempty"`
@@ -64932,6 +64960,12 @@ type IssueSecretReadClientInput struct {
 
 // GetAutoDelete returns IssueSecretReadClientInput.AutoDelete, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetAutoDelete() bool { return v.AutoDelete }
+
+// GetBindingHeader returns IssueSecretReadClientInput.BindingHeader, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetBindingHeader() *string { return v.BindingHeader }
+
+// GetBindingPrefix returns IssueSecretReadClientInput.BindingPrefix, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetBindingPrefix() *string { return v.BindingPrefix }
 
 // GetExpiresAt returns IssueSecretReadClientInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetExpiresAt() *string { return v.ExpiresAt }
@@ -64944,6 +64978,9 @@ func (v *IssueSecretReadClientInput) GetHolderRef() *string { return v.HolderRef
 
 // GetMaxReads returns IssueSecretReadClientInput.MaxReads, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetMaxReads() *int { return v.MaxReads }
+
+// GetMode returns IssueSecretReadClientInput.Mode, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetMode() *SecretReadClientMode { return v.Mode }
 
 // GetReason returns IssueSecretReadClientInput.Reason, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetReason() string { return v.Reason }
@@ -70795,7 +70832,7 @@ func (v *MintActionTicketsInput) GetOrgRef() string { return v.OrgRef }
 
 // MintActionTicketsResponse is returned by MintActionTickets on success.
 type MintActionTicketsResponse struct {
-	// Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
+	// Mint comm.outbound or secret.use tickets into the org ledger (org-ADMIN; hrn:node:hadronmemory.com:specs:cor:acl:050:04).
 	MintActionTickets int `json:"mintActionTickets"`
 }
 
@@ -78501,7 +78538,7 @@ func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) __premarshalJSON() (*__p
 
 // PRFreezeResponse is returned by PRFreeze on success.
 type PRFreezeResponse struct {
-	// #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding.
+	// #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding. A negative withdrawn by its holder or the coordinator (#4441) no longer refuses.
 	FreezePullRequestHead *PRFreezeFreezePullRequestHeadPrProtocolResult `json:"freezePullRequestHead"`
 }
 
@@ -78559,8 +78596,8 @@ type PRProtocolReceiptTaskAgentTask struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Status AgentTaskStatus `json:"status"`
 }
@@ -78721,7 +78758,7 @@ func (v *PRReadyResponse) GetRecordReadyCall() *PRReadyRecordReadyCallPrProtocol
 
 // PRScheduleResponse is returned by PRSchedule on success.
 type PRScheduleResponse struct {
-	// #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE. All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
+	// #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE, unless that negative was withdrawn (#4441, withdrawReviewVerdict). All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
 	SetReviewSchedule *PRScheduleSetReviewSchedulePrProtocolResult `json:"setReviewSchedule"`
 }
 
@@ -78862,7 +78899,7 @@ func (v *PRSeatAssignReviewSeatPrProtocolResult) __premarshalJSON() (*__premarsh
 
 // PRSeatResponse is returned by PRSeat on success.
 type PRSeatResponse struct {
-	// #3448 — Order: schedule, freeze, seat, verdict, finish; a seat binds only while its own task is live. A native negative verdict at a head blocks every slot there; the head must move. TASK_ENDED and REVIEW_SEAT_UNASSIGNED name the remedy (a signed PR receipt at the exact head is the record); REVIEW_HEAD_MISMATCH says to bind at the frozen head. Seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
+	// #3448 — Order: schedule, freeze, seat, verdict, finish; a seat binds only while its own task is live. A native negative verdict at a head blocks every slot there; the head must move. TASK_ENDED and REVIEW_SEAT_UNASSIGNED name the remedy (a signed PR receipt at the exact head is the record); REVIEW_HEAD_MISMATCH says to bind at the frozen head. Seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE), unless that negative was withdrawn (#4441, withdrawReviewVerdict). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
 	AssignReviewSeat *PRSeatAssignReviewSeatPrProtocolResult `json:"assignReviewSeat"`
 }
 
@@ -86240,7 +86277,9 @@ func (v *ReinstallAppResponse) GetReinstallApp() bool { return v.ReinstallApp }
 
 // ReleaseEditorLockResponse is returned by ReleaseEditorLock on success.
 type ReleaseEditorLockResponse struct {
-	// Release the editor lock for an Agent's system memory.
+	// Release the editor lock for an Agent's system memory. The lock is ADVISORY
+	// (see acquireEditorLock): releasing it clears the signal to other editors and
+	// changes nothing about who may edit.
 	//
 	// Accepts the entity's ID or URN.
 	ReleaseEditorLock bool `json:"releaseEditorLock"`
@@ -94824,6 +94863,19 @@ func (v *SecretFields) GetUpdatedAt() string { return v.UpdatedAt }
 // GetUpdatedBy returns SecretFields.UpdatedBy, and is useful for accessing the field via an interface.
 func (v *SecretFields) GetUpdatedBy() *string { return v.UpdatedBy }
 
+// How a secret read client is used: REVEAL hands the value to a person or worker, USE injects it by reference into a run's web request.
+type SecretReadClientMode string
+
+const (
+	SecretReadClientModeReveal SecretReadClientMode = "REVEAL"
+	SecretReadClientModeUse    SecretReadClientMode = "USE"
+)
+
+var AllSecretReadClientMode = []SecretReadClientMode{
+	SecretReadClientModeReveal,
+	SecretReadClientModeUse,
+}
+
 // SecretResponse is returned by Secret on success.
 type SecretResponse struct {
 	// Fetch one secret's inspectable half (never the value). Null when the
@@ -95929,18 +95981,28 @@ type SessionInput struct {
 	// URN. Resolves to Session.appId - the pivot that was previously stamped ONLY
 	// from an App-key credential, which made a user-started session structurally
 	// unable to satisfy the team-chat authorship gate (cor:agt:020:04 condition b,
-	// SESSION_NOT_IN_APP). The caller must be a member of that App: an AppMember
-	// at any role, an org member with CONTRIBUTOR+ on its owning org, or the
-	// owner of a user-owned App. Unknown or deleted App: BAD_USER_INPUT;
-	// non-member: FORBIDDEN. An App-key credential wins - if the caller
-	// authenticated as an App and appRef names a DIFFERENT App, the call is
-	// refused (SESSION_APP_MISMATCH).
+	// SESSION_NOT_IN_APP).
 	//
-	// Uninstalled Apps differ by ref form, because App URNs are only unique
-	// among ACTIVE rows (spec 021 FR-027: one live App plus N uninstalled
-	// history rows may share a URN). By URN an uninstalled App is simply not
-	// found - BAD_USER_INPUT - since there is no single row the URN names; by
-	// PK it is found and refused APP_UNINSTALLED.
+	// #4836 (hrn:node:hadronmemory.com:specs:cor:dmo:070:05, Proposed): a caller
+	// WITHOUT standing gets ONE refusal whatever the App's state and whatever the
+	// ref's form - APP_NOT_FOUND, "App not found." - byte-identical for a missing
+	// App, a deleted one, an uninstalled one, an existing one the caller cannot
+	// touch, and a pure App key naming any other App (a key reaches only its own
+	// App). The refusal echoes no value the caller sent and carries no appId.
+	// Standing is App membership - an AppMember at any role, an org member with
+	// CONTRIBUTOR+ on its owning org, or the owner of a user-owned App - or a
+	// pure App-key credential for exactly its own App. A caller WITH standing
+	// keeps the specific answers: APP_UNINSTALLED by PK, with the appId their own
+	// ref resolved to (by URN an uninstalled App does not resolve at all - App
+	// URNs are unique only among ACTIVE rows, spec 021 FR-027 - so it reads as
+	// missing for everyone); and authorization refusals for an act a member may
+	// not do elsewhere in this mutation stay FORBIDDEN.
+	//
+	// Ref-RESOLUTION failures read as not-found for EVERY caller, standing or
+	// not: a malformed or ambiguous ref resolves to no App, so it answers
+	// APP_NOT_FOUND to a member exactly as to an outsider - the specific
+	// malformed/ambiguous hints the parser can produce elsewhere do not exist
+	// on this field, and no ref text is ever echoed back.
 	AppRef     *string `json:"appRef,omitempty"`
 	Branch     *string `json:"branch,omitempty"`
 	CustomerId *string `json:"customerId,omitempty"`
@@ -96021,7 +96083,9 @@ type SessionInput struct {
 	// Which refusal you get depends on WHERE the denial happens, and clients
 	// should not assume one code covers both: a caller who supplied appRef has
 	// already been checked against the same participant predicate, so an
-	// outsider is refused FORBIDDEN there, before any name is read. Only a
+	// outsider is refused APP_NOT_FOUND there (#4836: the one unknown-App
+	// answer, "App not found." — the App's existence is not confirmed to
+	// them), before any name is read. Only a
 	// denial at the in-branch staff gate — reachable when the App came from an
 	// App-key credential rather than appRef — is masked as WORKER_NOT_FOUND,
 	// indistinguishable from an App with no such worker.
@@ -112473,6 +112537,12 @@ type TeamRolesResponse struct {
 	// is no such question, and the read is a plain list of definitions. teamAgentRef disambiguates when more than one installed agent
 	// carries a roles: branch (TEAM_AGENT_AMBIGUOUS otherwise); an encrypted
 	// system memory without an active session key refuses SESSION_EXPIRED.
+	//
+	// #4838: the appRef refusals are concealed (see createTeamRole): reach first,
+	// state after — an unreadable, missing, deleted or malformed ref all answer
+	// the one APP_NOT_FOUND "App not found." with no ref echoed. An uninstalled
+	// App's roles stay readable for a participant (the roster stays legible);
+	// only the write doors refuse APP_UNINSTALLED.
 	TeamRoles *TeamRolesTeamRolesTeamRolesPage `json:"teamRoles"`
 }
 
@@ -126295,7 +126365,8 @@ func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetCh
 // UpdateTeamRoleMetaResponse is returned by UpdateTeamRoleMeta on success.
 type UpdateTeamRoleMetaResponse struct {
 	// #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
-	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
+	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole, and the
+	// same #4838 concealed appRef refusals (see createTeamRole).
 	//
 	// #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
 	// array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
@@ -126412,7 +126483,8 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) __premarshalJSON() (*__premarshalUpda
 // UpdateTeamRoleReposResponse is returned by UpdateTeamRoleRepos on success.
 type UpdateTeamRoleReposResponse struct {
 	// #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
-	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
+	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole, and the
+	// same #4838 concealed appRef refusals (see createTeamRole).
 	//
 	// #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
 	// array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
