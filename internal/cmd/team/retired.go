@@ -108,8 +108,8 @@ schedule with ` + "`hadron team wake-settings`" + `.`,
 			Use:   sub.use,
 			Short: sub.short,
 			Long: `This command is retired: the attention API it polled is
-being removed. Wakes come from tickers (see ` + "`hadron team ticker --help`" + `). Nothing is
-polled or typed.` + retiredHelpTail,
+being removed. Wakes come from tickers (see ` + "`hadron team ticker --help`" + `).
+Nothing is polled or typed.` + retiredHelpTail,
 			Args: cobra.NoArgs,
 			RunE: retired(retiredRouter),
 		}

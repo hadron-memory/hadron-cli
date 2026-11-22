@@ -507,7 +507,7 @@ section between the markers.
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
 | `team chat inbox` |  |  | n | #1054 | 99496731d1ef |  | unread |  |
 | `team chat mark-read` |  |  | y | #1054 | 4af163a6f043 |  | unread |  |
-| `team chat post` |  |  | y | #1054 | 5d798fd18228 |  | unread |  |
+| `team chat post` |  |  | y | #1054 | 387961472743 |  | unread |  |
 | `team chat read` | pull |  | y | #1054 | 18d66c7183e6 |  | unread |  |
 | `team chat search` |  |  | y | #1054 | 0ca12ea9a25e |  | unread |  |
 | `team composition` |  |  | n | #1054 | 56db72727109 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
@@ -574,9 +574,9 @@ section between the markers.
 | `team role update` |  |  | y | #1054 | 92ee0e642555 |  | unread |  |
 | `team roster` |  |  | n | #1054 | 11d418e87c05 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team router` |  |  | n | #1054 | 126f5e26e347 |  | unread |  |
-| `team router loop` |  |  | n | #1054 | 7e2de75619bd |  | unread |  |
-| `team router poll` |  |  | n | #1054 | a42c9e635371 |  | unread |  |
-| `team router status` |  |  | n | #1054 | 0e6c5587cbbe |  | unread |  |
+| `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |
+| `team router poll` |  |  | n | #1054 | f4dba7c31087 |  | unread |  |
+| `team router status` |  |  | n | #1054 | 321a568050fe |  | unread |  |
 | `team session` | sessions |  | n | #1054 | 0233b043af2d |  | unread |  |
 | `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
