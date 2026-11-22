@@ -17,13 +17,14 @@ import (
 // cli#2954: follow-ups to the cli#2853 final scan. Item 1: a platform without the zombie hold has a
 // final-scan deadline of 0 and runs no final scan, so the unconfirmed wording must not claim one
 // ("nor in a final scan of up to 0s"). Item 2: the modelled /proc is installed until the fixture's settle
-// has run (settle drains over the SAME modelled listing, never the host's real /proc). Item 5: the
-// authority re-check in the final branch.
+// has run (the settle drain itself is gated empty by cli#2951 — the model must simply still be installed
+// at that moment, never uninstalled early). Item 5: the authority re-check in the final branch.
 
 // installAround2954 installs the model AROUND the fixture's own install, in the order its cleanups must
-// run: the model's seam restore is registered FIRST (so it runs LAST, after the fixture's settle, which
-// drains over the modelled listing), and the churn's end is registered LAST (so it runs FIRST: the held
-// zombie must be drainable when settle looks).
+// run: the model's seam restore is registered FIRST (so it runs LAST, after the fixture's settle — whose
+// drain the settle-empty gate serves, cli#2951), and the churn's end is registered LAST (so it runs
+// FIRST: the model the fixture's settle leaves reading through it must not
+// keep manufacturing churn).
 func (m *modelledHost2853) installAround2954(t *testing.T, f *stopFixture) {
 	t.Helper()
 	// 50ms: the ladder's own scans give up after a handful of modelled listings.

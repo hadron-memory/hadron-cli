@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -60,13 +61,18 @@ const watcherSettleBound = 200 * time.Second
 // is gone again at stat time, so every pass voids identically for every
 // caller of the seam. The install registers its cleanup BEFORE the caller
 // launches, and that cleanup runs on EVERY exit path in the gate's order:
-// clear only the atomic storm flag (the installed wrappers then forward
-// the real functions — transparent pass-throughs), drain/reap as needed
-// through the production stop, wait for ACTUAL watcherDone closure on a
-// finite failing deadline, and only then restore the global pointers. On a
-// deadline miss the test fails with the wrappers still installed: no
-// restoration races a live watcher, and with storming cleared the
-// leftovers leak nothing behavioral into later tests.
+// clear the atomic storm flag and set the settle-empty gate (the signal
+// wrapper keeps forwarding the real function; the listing wrapper answers
+// empty, so every listing the drain path sees is a provably drained
+// group, cli#2951), drain/reap as needed through the production stop,
+// wait for ACTUAL watcherDone closure on a finite failing deadline, and
+// only then restore the global pointers. On a deadline miss the test
+// fails with the wrappers still installed — no restoration races a live
+// watcher — after un-gating the listing wrapper back to a pass-through,
+// so the leftovers leak nothing behavioral into later tests. After the
+// closure, one more scan over the real listing checks the gate did not
+// blind the settle to a genuinely surviving member (positive evidence
+// only; a voided pass proves nothing and is tolerated).
 type stopFixture struct {
 	storm      bool // wrap readProcDir with the void-exhaustion storm
 	flipOnTerm bool // matrix 1: clear the storm after the first recorded TERM
@@ -76,10 +82,19 @@ type stopFixture struct {
 
 	epoch    time.Time // monotonic base for the record/flip ordering proof
 	storming atomic.Bool
-	flipAt   atomic.Int64 // nanoseconds since epoch; 0 until the flip
-	settled  atomic.Bool
+	// settleEmpty, once set at settle, makes the wrapper's listings empty: a
+	// provably drained group (cli#2951), so the quiet-scan confirm-and-reap the
+	// settle performs is quiet by construction instead of hoping the host's
+	// churn yields a clean pass inside the settle bound.
+	settleEmpty atomic.Bool
+	flipAt      atomic.Int64 // nanoseconds since epoch; 0 until the flip
+	settled     atomic.Bool
+	// missedBound is set only on the settle-bound miss, where the wrappers
+	// deliberately stay installed over a still-live watcher: an outer
+	// cleanup must not restore the seam then (it would race that watcher).
+	missedBound atomic.Bool
 
-	realRead   func(string) ([]os.DirEntry, error) // nil unless storm
+	realRead   func(string) ([]os.DirEntry, error) // captured at install (every shape, cli#2951); restored only after watcherDone closure
 	realSignal func(int, syscall.Signal) error
 	rec        signalRecorder
 	// beforeSettle, when set, runs at the start of settle (cli#2954: lets a test observe what is still
@@ -97,8 +112,9 @@ func newStormFixture(flipOnTerm bool) *stopFixture {
 
 // newJourneyFixture records signals with their ownership proof around an
 // unstormed real-/proc journey (the matrix 4 tolerance in detach_unix_test
-// delegates here). readProcDir is never touched: there is no storm to
-// shape, so the listing stays the host's own.
+// delegates here). The listing wrapper is still installed — settle needs
+// its empty gate (cli#2951) — but until then it is a transparent
+// pass-through: the listing the journey scans stays the host's own.
 func newJourneyFixture() *stopFixture {
 	return &stopFixture{epoch: time.Now()}
 }
@@ -119,35 +135,45 @@ func (f *stopFixture) install(t *testing.T) {
 		}
 		return err
 	}
+	// cli#2951: the listing wrapper is installed for every fixture shape, not
+	// only the storm. Until settle it is a transparent pass-through of the
+	// host's own listing (the storm shapes add their vanishing entry on top);
+	// settle flips settleEmpty below, and from that moment every listing the
+	// drain path sees is empty — a provably drained group.
+	f.realRead = readProcDir
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		if f.settleEmpty.Load() {
+			return nil, nil
+		}
+		entries, err := f.realRead(dir)
+		if err != nil {
+			return nil, err
+		}
+		if f.storming.Load() {
+			entries = append(entries, fakeDirEntry{name: abovePidMax})
+		}
+		return entries, nil
+	}
 	if f.storm {
 		// cli#2853: the scan retries until a wall-clock deadline; a storm that never clears
 		// would spend the production second on every probe, so the fixture uses a short one.
 		oldDeadline, oldStop := groupScanDeadline, groupStopScanDeadline
 		groupScanDeadline, groupStopScanDeadline = 20*time.Millisecond, 20*time.Millisecond
 		t.Cleanup(func() { groupScanDeadline, groupStopScanDeadline = oldDeadline, oldStop })
-		f.realRead = readProcDir
-		readProcDir = func(dir string) ([]os.DirEntry, error) {
-			entries, err := f.realRead(dir)
-			if err != nil {
-				return nil, err
-			}
-			if f.storming.Load() {
-				entries = append(entries, fakeDirEntry{name: abovePidMax})
-			}
-			return entries, nil
-		}
 		f.storming.Store(true)
 	}
 	t.Cleanup(func() { f.settle(t) })
 }
 
-// settle is the fixture's finite tail, in the gate's order: clear only the
-// atomic storm flag (the installed wrappers then forward the real
-// functions — transparent pass-throughs), drain what an unconfirmed stop
-// left held (a no-op once confirmed), wait for actual watcherDone closure
-// on the finite failing deadline, and only then restore the global
-// pointers and retire the recorder. Once-guarded: the inline call a
-// passing test makes and the deferred cleanup never double-run.
+// settle is the fixture's finite tail, in the gate's order: clear the
+// atomic storm flag and set the settle-empty gate (the signal wrapper
+// keeps forwarding the real function; the listing wrapper answers empty,
+// so every listing the drain path sees is a provably drained group,
+// cli#2951), drain what an unconfirmed stop left held (a no-op once
+// confirmed), wait for actual watcherDone closure on the finite failing
+// deadline, and only then restore the global pointers and retire the
+// recorder. Once-guarded: the inline call a passing test makes and the
+// deferred cleanup never double-run.
 func (f *stopFixture) settle(t *testing.T) {
 	t.Helper()
 	if !f.settled.CompareAndSwap(false, true) {
@@ -158,6 +184,9 @@ func (f *stopFixture) settle(t *testing.T) {
 	}
 	f.storming.Store(false) // idempotent on every exit path: waiting
 	// while the storm is on can never settle the watcher
+	f.settleEmpty.Store(true) // cli#2951: settle drains over an empty listing,
+	// never the host's real /proc — churn that outlasts the test cannot hold it
+	var leakPgid int
 	if a := f.rec.bound(); a != nil {
 		_, _ = a.Terminate() // bounded: the no-op (true, "") once
 		// confirmed, else one quiet-scan confirm-and-reap through the
@@ -165,15 +194,41 @@ func (f *stopFixture) settle(t *testing.T) {
 		select {
 		case <-a.watcherDone:
 		case <-time.After(watcherSettleBound):
+			f.settleEmpty.Store(false) // un-gate before failing: the
+			// abandoned wrapper must forward the real listing again, or
+			// one timeout would leak an empty /proc into every later test
+			f.missedBound.Store(true) // the watcher stays live: an outer
+			// restore now would race it (the pin's own cleanup checks this)
 			t.Fatalf("the drain watcher did not settle after the stop's reap; the fixture's wrappers stay installed (transparent pass-throughs of the real functions)")
 			return
 		}
+		leakPgid = a.pid
 	}
 	if f.realRead != nil {
 		readProcDir = f.realRead
 	}
 	signalGroup = f.realSignal
 	f.rec.stop()
+	// cli#2951 review (blind, P2 ×2): the empty gate must not blind the
+	// settle to a genuinely surviving member — before the gate, a real leak
+	// held the watcher to the bound and failed the test. The check runs
+	// LAST, after every restore: its Fatalf exits the goroutine, and by
+	// then nothing is left installed for it to leak into later tests.
+	if leakPgid != 0 && f.confirmedDrainDisproved(leakPgid) {
+		t.Fatalf("settle confirmed a drain the listing disproves: a member of group %d survived the reap", leakPgid)
+	}
+}
+
+// confirmedDrainDisproved is settle's post-closure leak scan (cli#2951):
+// one pass over the captured real listing — NOT the gated global seam —
+// answering whether a live, stat-readable member of the group survives
+// the reap the settle just confirmed. Positive evidence only: a voided
+// pass (ambient churn, a first-seen orphan zombie) proves nothing and is
+// tolerated, so ambient churn cannot flake it. Pinned red-first by
+// TestAConfirmedDrainTheListingDisprovesFailsTheScan.
+func (f *stopFixture) confirmedDrainDisproved(pgid int) bool {
+	found, _, _, _ := scanGroupOnce(pgid, pgid, nil, f.realRead)
+	return found
 }
 
 // recordedSignal is one signalGroup call as it happened, with the
@@ -576,6 +631,9 @@ func runPostExitJourneyLadder(t *testing.T) {
 		t.Skip("no /proc")
 	}
 	f := newJourneyFixture()
+	hostRead := readProcDir // the journey's own proof that settle restores
+	// the seam: the wrapper every shape now installs (cli#2951) must be
+	// gone again once the ladder's inline settle has closed the watcher.
 	f.install(t)
 	a, err := ExecHost{}.Launch(context.Background(),
 		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
@@ -588,6 +646,161 @@ func runPostExitJourneyLadder(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("true exits at once")
 	}
+	stopped, detail := a.Terminate()
+	assertTruthfulStopLadder(t, f, a, stopped, detail)
+	if reflect.ValueOf(readProcDir).Pointer() != reflect.ValueOf(hostRead).Pointer() {
+		t.Fatal("the journey settle did not restore the listing seam: a wrapper was left installed after watcherDone closure")
+	}
+}
+
+// cli#2951: a host whose ambient churn outlasts the test. The vanisher here
+// sits UNDER the fixture's wrapper and never clears — the shape seen in the
+// wild with no suite load at all (the issue's 3 QA runs): every pass voids,
+// the watcher holds by design (a wrong reap is worse than a held zombie),
+// and a settle that drains over the host's real /proc can run out the whole
+// settle bound waiting for a clean pass that never comes. The fixture's
+// settle gate makes its own listing empty, so the quiet-scan confirm-and-
+// reap settle already assumes is quiet by construction. The pin fails on
+// the ungated fixture at the full settle bound; with the gate it settles
+// within a couple of watcher ticks, and the churn listing under the wrapper
+// serves no listing the drain path takes after settle has begun. The
+// counter counts only uncovered calls — a listing already in flight when
+// settle flips the gate must not fail the pin — so at most the ONE
+// straddling listing of the single watcher goroutine lands after the
+// settle snapshot; the ungated failure mode is a listing per watcher tick
+// for the whole bound, not one straddle.
+func TestSettleDrainsDespiteChurnThatOutlastsTheTest(t *testing.T) {
+	if _, err := exec.LookPath("true"); err != nil {
+		t.Skip("no true")
+	}
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc")
+	}
+	f := newJourneyFixture()
+	// Never-clearing churn, installed BEFORE the fixture so it sits under the
+	// fixture's wrapper: the journey body sees the real /proc plus one entry
+	// that is always gone again at stat time.
+	hostRead := readProcDir
+	var listings atomic.Int64
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		entries, err := hostRead(dir)
+		if err != nil {
+			return nil, err
+		}
+		if !f.settleEmpty.Load() {
+			listings.Add(1) // count only the calls the gate did not cover
+		}
+		return append(entries, fakeDirEntry{name: abovePidMax}), nil
+	}
+	// registered first: restored last, after the fixture's settle — and
+	// skipped entirely when the fixture failed at its bound, where the
+	// wrappers must stay installed over the still-live watcher (a restore
+	// under it is exactly the pointer race the fixture's contract forbids).
+	t.Cleanup(func() {
+		if !f.missedBound.Load() {
+			readProcDir = hostRead
+		}
+	})
+	// The ladder's own waits stay short (the sibling pins' convention): this
+	// pin is about settle, not the stop's patience. Swapped BEFORE install so
+	// the restore runs after the fixture's settle, which then waits under the
+	// same short deadlines the body ran with.
+	oldPost, oldStop, oldScan := postKillWait, groupStopScanDeadline, groupScanDeadline
+	postKillWait, groupStopScanDeadline, groupScanDeadline = 100*time.Millisecond, 200*time.Millisecond, 20*time.Millisecond
+	t.Cleanup(func() { postKillWait, groupStopScanDeadline, groupScanDeadline = oldPost, oldStop, oldScan })
+	var atSettle int64
+	f.beforeSettle = func() { atSettle = listings.Load() }
+	f.install(t)
+	a, err := ExecHost{TerminateGrace: 50 * time.Millisecond}.Launch(context.Background(),
+		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.rec.bind(a)
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("true exits at once")
+	}
+	stopped, detail := a.Terminate()
+	assertTruthfulStopLadder(t, f, a, stopped, detail)
+	if !f.settled.Load() {
+		t.Fatal("the ladder did not settle the fixture inline: the listing counts below are meaningless without it")
+	}
+	if got := listings.Load(); got > atSettle+1 {
+		t.Fatalf("settle consulted the churn listing after it began: %d listings at settle, %d after (one in-flight listing may straddle the flip)", atSettle, got)
+	}
+}
+
+// The red control for settle's post-closure leak scan (cli#2951 round-2
+// local P3: the scan had evidence but no pin — neutering it left the
+// package green). Two fed shapes over one launch: a listing whose extra
+// entry stats as a LIVE member of the launch's own group must disprove
+// the confirmed drain, and the same entry stat-vanishing — the ambient
+// churn shape — must not (a voided pass proves nothing). The shapes are
+// served only once the gate is set, exactly the world the scan sees: the
+// gated watcher drained over empty while the listing under the wrapper
+// held the disproof.
+func TestAConfirmedDrainTheListingDisprovesFailsTheScan(t *testing.T) {
+	if _, err := exec.LookPath("true"); err != nil {
+		t.Skip("no true")
+	}
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc")
+	}
+	f := newJourneyFixture()
+	hostRead := readProcDir
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		entries, err := hostRead(dir)
+		if err != nil {
+			return nil, err
+		}
+		return append(entries, fakeDirEntry{name: abovePidMax}), nil
+	}
+	t.Cleanup(func() {
+		if !f.missedBound.Load() {
+			readProcDir = hostRead
+		}
+	})
+	realStat := readGroupStatFn
+	var liveMember atomic.Bool
+	readGroupStatFn = func(path string) (int, byte, int, error) {
+		if liveMember.Load() && strings.HasSuffix(path, "/"+abovePidMax+"/stat") {
+			if a := f.rec.bound(); a != nil {
+				return a.pid, 'R', 1, nil // a live member of the launch's own group
+			}
+		}
+		return realStat(path)
+	}
+	t.Cleanup(func() { readGroupStatFn = realStat })
+	f.install(t)
+	a, err := ExecHost{}.Launch(context.Background(),
+		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.rec.bind(a)
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("true exits at once")
+	}
+	// The moment the scan runs at: gate set, storming clear — settle's own
+	// world after it has confirmed and reaped.
+	f.storming.Store(false)
+	f.settleEmpty.Store(true)
+
+	liveMember.Store(true)
+	if !f.confirmedDrainDisproved(a.PID()) {
+		t.Fatal("a live, stat-readable member of the group must disprove the confirmed drain")
+	}
+	liveMember.Store(false)
+	if f.confirmedDrainDisproved(a.PID()) {
+		t.Fatal("a voided pass (the entry vanishing at stat time) proves nothing and must not disprove the drain")
+	}
+	// The shapes were fed without a stop: settle the held launch for real
+	// (its inline ladder already ran above only as far as Done), through
+	// the production path the fixture provides.
 	stopped, detail := a.Terminate()
 	assertTruthfulStopLadder(t, f, a, stopped, detail)
 }
