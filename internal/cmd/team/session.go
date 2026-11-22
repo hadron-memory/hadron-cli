@@ -960,8 +960,9 @@ an APP-KEY session claims nothing at all (an App key is not a person and
 holds nothing).
 
 WITH NO WORKER NAMED AND NO GRANT, START RESUMES. It asks the server to
-recover your worker, judged only by your own token: an unused resume claim of yours (written by
-` + "`session end --resume-claim`" + ` or ` + "`session resume-claim`" + ` before a context reset,
+recover your worker, judged only by your own token: an unused resume claim
+of yours (written by ` + "`session end --resume-claim`" + ` or
+` + "`session resume-claim`" + ` before a context reset,
 redeemable for 60 seconds) binds it, RESUMED to the open session or STARTED
 as the worker's next one. With no claim, your one live worker session is
 RESUMED. Either way the worktree binding is written and the briefing
@@ -970,8 +971,8 @@ exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
 behalf. A worktree with a binding file sends that worker as the expected
 worker (an older server that cannot check the expected worker refuses the
-resume, exit 2, consuming nothing: use start --as <worker>): if nothing of that worker's waits but
-another worker's claim or live session does, the resume is refused (exit 5,
+resume, exit 2, consuming nothing: use start --as <worker>): if nothing of
+that worker's waits but another worker's claim or live session does, the resume is refused (exit 5,
 RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
 is untouched, no binding is written; run start in that worker's own worktree,
 or start --as <worker>. Any other refused resume (exit 5, RESUME_REFUSED) has
@@ -2115,8 +2116,8 @@ func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
 It prefers this worktree's binding and FALLS BACK TO THE SERVER when there is
 none, so losing the binding is a cache miss rather than data loss. The
 binding lives under the worktree's git dir, and ` + "`git worktree remove`" + ` takes it
-with the directory — which does NOT end the session. Without that fallback, it
-left a session open with its only local handle gone.
+with the directory — which does NOT end the session. Without the fallback,
+that would leave a session open with its only local handle gone.
 
 --json carries "source": "worktree" when the binding answered, "server" when
 the fallback did.
@@ -2437,17 +2438,16 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 team worklog — the collection behind the provenance query
 (` + "`session list --pr <ref>`" + `: which sessions produced this PR?).
 
-No memory flag is needed — just pick one artifact flag: the binding records the bound worker's App, the
-worklog is App-addressed, and the collection schema is the server's — no
+No memory flag is needed — just pick one artifact flag: the binding records
+the bound worker's App, the worklog is App-addressed, and the collection schema is the server's — no
 ` + "`team init`" + ` first, no -m. --memory stays as an explicit override;
 it fails SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than
 the bound worker's (drop -m, or pass the worker's own team memory). Only
-bindings written by OLDER CLIs differ: a binding that names the worker but
-records no App falls back to its recorded team memory and behaves as before;
-a binding from before workers existed (no worker, no App, no team memory)
-degrades — --pr/--branch write only the
-Session denormalization, --issue/--commit refuse — with a note naming the
-remedy.
+bindings written by OLDER CLIs differ: a binding that records no App but
+does record a team memory falls back to that team memory and behaves as
+before; a binding that records neither an App nor a team memory degrades —
+--pr/--branch write only the Session denormalization, --issue/--commit
+refuse — with a note naming the remedy.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
 owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
@@ -2972,10 +2972,10 @@ WHY NOT END IT. Worker sessions are meant to be
 long-lived: no idle reaper ends one, because silence is not evidence of
 abandonment. Re-binding is not free: it
 re-renders the boot briefing, takes several manual steps that are not
-Hadron's, and invites typing the worker name by hand into a signature, which
-can name the wrong worker (take it from ` + "`session whoami --signature`" + `). If you
-are ending a healthy session to tidy something up, the tidying is the thing
-to reconsider.
+Hadron's, and means typing the worker name into signatures by hand
+(` + "`session whoami --signature`" + ` prints the one the server renders for the bound
+worker). If you are ending a healthy session to tidy something up, the
+tidying is the thing to reconsider.
 
 A WORKTREE IS REMOVABLE WITHOUT TOUCHING THE SESSION. The binding lives
 under the worktree's git dir, so ` + "`git worktree remove`" + ` deletes it — and that
@@ -3031,9 +3031,9 @@ short label on the session row; nothing reads it back. That is not a
 quirk of today's build: the platform makes --handoff the ONE field
 carrying continuity, and any other free-text field on a session is
 display-only unless the platform's documentation says otherwise — so
-writing continuity into --summary is a contract violation rather than a
-naming preference, and it fails silently, producing no error and no record. Both flags are
-kept deliberately; if you are writing one thing for whoever comes next,
+writing continuity into --summary is a mistake rather than a naming
+preference, and it fails silently, producing no error and no record. Both
+flags are kept deliberately; if you are writing one thing for whoever comes next,
 write --handoff.
 
 --session ends an explicit worker session id instead — the recovery path
