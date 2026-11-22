@@ -97,6 +97,16 @@ func hostListRunBoth(t *testing.T, server string, args ...string) (string, strin
 // pass --app: the App comes from the configured context instead) (cli#2939).
 func hostListRunApp(t *testing.T, server, appFlag string, args ...string) (string, string, error) {
 	t.Helper()
+	return hostListRunFlags(t, server, appFlag, true, args...)
+}
+
+// hostListRunFlags is hostListRunApp with the --server flag optional: serverFlag false reaches the
+// fake through HADRON_SERVER instead, so the caller "did not pass --server" (cli#2939).
+func hostListRunFlags(t *testing.T, server, appFlag string, serverFlag bool, args ...string) (string, string, error) {
+	t.Helper()
+	if os.Getenv("XDG_CONFIG_HOME") == "" {
+		t.Fatal("XDG_CONFIG_HOME must be a temp dir here (hostListPageFake sets it): the helper writes a config file under it")
+	}
 	if appFlag == "" {
 		// No --app: the App comes from the configured context (a config file in the temp
 		// XDG_CONFIG_HOME the fake set), so the run does not depend on a worktree binding or
@@ -110,7 +120,11 @@ func hostListRunApp(t *testing.T, server, appFlag string, args ...string) (strin
 		}
 	}
 	f := cmdutil.NewFactory()
-	f.ServerFlag = server
+	if serverFlag {
+		f.ServerFlag = server
+	} else {
+		t.Setenv("HADRON_SERVER", server)
+	}
 	f.AppFlag = appFlag
 	io, out, errOut := output.Test()
 	f.IOStreams = io
@@ -285,7 +299,7 @@ func TestHostListSinglePageContinueHint_2824(t *testing.T) {
 	if !strings.Contains(out, "page: 2 of 3 from offset 0") {
 		t.Errorf("framing must count the rows served:\n%s", out)
 	}
-	if !strings.Contains(out, "continue: hadron team host list --app hrn:app:acme.com:ops --limit 2 --offset 2") {
+	if !strings.Contains(out, "continue: hadron team host list --server "+server+" --app hrn:app:acme.com:ops --limit 2 --offset 2") {
 		t.Errorf("the continuation hint must advance by rows served and carry the --app and --limit the caller gave (cli#2939):\n%s", out)
 	}
 }
@@ -594,30 +608,47 @@ func TestHostListOldServerSinglePageRefused_2824(t *testing.T) {
 func TestHostListContinueHintCarriesWhatWasGiven_2939(t *testing.T) {
 	two := []string{hostListHost("orca1"), hostListHost("orca2")}
 	for _, tc := range []struct {
-		name string
-		app  string
-		args []string
-		want string
-		not  []string
+		name       string
+		app        string
+		serverFlag bool
+		args       []string
+		want       func(server string) string
+		not        []string
 	}{
-		{"limit and offset and app", "hrn:app:acme.com:ops", []string{"--limit", "2", "--offset", "4"},
-			"continue: hadron team host list --app hrn:app:acme.com:ops --limit 2 --offset 6", nil},
-		{"offset alone carries no limit", "hrn:app:acme.com:ops", []string{"--offset", "4"},
-			"continue: hadron team host list --app hrn:app:acme.com:ops --offset 6", []string{"--limit"}},
-		{"no --app given carries no --app", "", []string{"--limit", "2"},
-			"continue: hadron team host list --limit 2 --offset 2", []string{"--app"}},
+		{"limit and offset, app and server", "hrn:app:acme.com:ops", true, []string{"--limit", "2", "--offset", "4"},
+			func(s string) string {
+				return "continue: hadron team host list --server " + s + " --app hrn:app:acme.com:ops --limit 2 --offset 6"
+			}, nil},
+		{"offset alone carries no limit", "hrn:app:acme.com:ops", true, []string{"--offset", "4"},
+			func(s string) string {
+				return "continue: hadron team host list --server " + s + " --app hrn:app:acme.com:ops --offset 6"
+			}, []string{"--limit"}},
+		{"no --app given carries no --app", "", true, []string{"--limit", "2"},
+			func(s string) string {
+				return "continue: hadron team host list --server " + s + " --limit 2 --offset 2"
+			}, []string{"--app"}},
+		{"no --server given carries no --server", "hrn:app:acme.com:ops", false, []string{"--limit", "2"},
+			func(string) string {
+				return "continue: hadron team host list --app hrn:app:acme.com:ops --limit 2 --offset 2"
+			}, []string{"--server"}},
+		// The server caps a page at 200 whatever is asked: the hint carries the value as given and
+		// widens nothing.
+		{"a limit over the cap is carried as given", "hrn:app:acme.com:ops", false, []string{"--limit", "500"},
+			func(string) string {
+				return "continue: hadron team host list --app hrn:app:acme.com:ops --limit 500 --offset 2"
+			}, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server, _ := hostListPageFake(t, map[string][]string{
 				"HostRegistrationsPage": {hostPageBody(two, 9, true)},
 				"TeamAppIdentity":       {hostListLabelBody},
 			})
-			out, _, err := hostListRunApp(t, server, tc.app, tc.args...)
+			out, _, err := hostListRunFlags(t, server, tc.app, tc.serverFlag, tc.args...)
 			if err != nil {
 				t.Fatalf("execute: %v\n%s", err, out)
 			}
-			if !strings.Contains(out, tc.want) {
-				t.Fatalf("hint must be %q:\n%s", tc.want, out)
+			if want := tc.want(server); !strings.Contains(out, want) {
+				t.Fatalf("hint must be %q:\n%s", want, out)
 			}
 			var hint string
 			for _, l := range strings.Split(out, "\n") {
@@ -631,6 +662,38 @@ func TestHostListContinueHintCarriesWhatWasGiven_2939(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// --limit 0 asks for the count alone: the page is empty, so there is nothing to continue from and no
+// hint is printed (a hint at offset+0 would never advance).
+func TestHostListLimitZeroPrintsNoContinueHint_2939(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageBody([]string{}, 5, true)},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	out, _, err := hostListRunApp(t, server, "hrn:app:acme.com:ops", "--limit", "0")
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "no hosts on this page (total 5)") || strings.Contains(out, "continue:") {
+		t.Fatalf("a count-only page prints the total and no continue hint:\n%s", out)
+	}
+}
+
+// A page of only null items with more rows behind it renders as an empty page but the server SERVED
+// rows, so the hint is still printed and advances past them (else the list could not be continued).
+func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageBody([]string{"null", "null"}, 6, true)},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	out, _, err := hostListRunApp(t, server, "hrn:app:acme.com:ops", "--limit", "2")
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "no hosts on this page (total 6)") || !strings.Contains(out, "--limit 2 --offset 2") {
+		t.Fatalf("an all-null page says so and still continues past the served rows:\n%s", out)
 	}
 }
 
