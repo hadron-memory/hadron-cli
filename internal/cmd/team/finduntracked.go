@@ -153,9 +153,9 @@ integration maps no teams every item qualifies). --no-team cannot be combined
 with --team, even an empty one: that is refused here, exit 2, before anything
 is sent; --no-team=false is the same as leaving it out. It works for the list
 and for --assign-to-me (with or without --assignee/--owner), filtering the
-list the claim walks, and needs a server with hadron-server#3422: an older one
-answers that it does not support --no-team, and the CLI never retries the call
-without the filter. --ready only|exclude|any filters
+list the claim walks, and needs a server released on or after 2026-11-04: an
+older one answers that it does not support --no-team, and the CLI never
+retries the call without the filter. --ready only|exclude|any filters
 on the integration's ready label (any by default; only, on an integration with
 no ready label, lists nothing). --repo <owner/name> keeps one connected
 repository. Omitted flags send nothing, so the server's defaults apply.
@@ -191,8 +191,8 @@ TASK_OWNER_REQUIRED), each a worker of the App or a person taking part in it
 (TASK_ASSIGNEE_INVALID, TASK_OWNER_INVALID); a person or a worker claims for
 themselves, and the server answers a party they name with BAD_USER_INPUT. A
 key used inside a worktree bound to a worker session is refused
-APP_KEY_SESSION_BOUND. All exit 2. Naming a party needs a server with
-hadron-server#3132; an older one refuses the call, which is never retried
+APP_KEY_SESSION_BOUND. All exit 2. Naming a party needs a server released on
+or after 2026-11-02; an older one refuses the call, which is never retried
 without the parties.
 
 Refusals, each judged before GitHub is read: TASK_INTEGRATION_NOT_FOUND (exit
