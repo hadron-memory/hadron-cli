@@ -168,7 +168,7 @@ section between the markers.
 | `question` |  |  | n | #1051 | 6b30cb459a70 |  | unread |  |
 | `question amend` |  |  | y | #1051 | 2676ff2e6409 |  | unread |  |
 | `question answer` |  |  | y | #1051 | 8ba973eec8bf |  | unread |  |
-| `question ask` |  |  | y | #1051 | d6ddf298d259 |  | unread |  |
+| `question ask` |  |  | y | #1051 | 4d63a5690b3f |  | unread |  |
 | `question get` |  |  | y | #1051 | d2cc5b6b5cc8 |  | unread |  |
 | `question list` | ls |  | y | #1051 | d2604e0ce70c |  | unread |  |
 | `question log` |  |  | n | #1051 | c71966a00115 |  | unread |  |
