@@ -64,14 +64,22 @@ request id and the ceremony URL and never says "created" — nothing exists
 until a person signs it. --protected=false asks for the default outright
 (unprotected). Protection never changes without a signed request: the
 --protected creation above stages one, and hadron secret protect changes
-protection for an existing secret.
+protection for an existing secret. The request names the protected argument,
+so a server from before the argument shipped (2026-11-14) refuses the request
+even without the flag; a server with passkey signing off still accepts the
+command, refusing only an explicit protection change.
 
 Prints "✓ created secret <name>  <kind>/<id>  owner <type> <id>"; --json gives
 id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
   hadron secret create --name poll-auth --scope org --owner hrn:org:acme.com \
     --kind webfetch-auth --type bearer --url-prefix https://api.example.com/ --value-file @token.txt`,
-		Args: cobra.NoArgs,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := refuseDetachedProtectedValue(cmd, args); err != nil {
+				return err
+			}
+			return cobra.NoArgs(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateName(name); err != nil {
 				return err
@@ -112,15 +120,22 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			dto := dtoFromFields(resp.CreateSecret.SecretFields)
 			// A protected create is staged, never applied (hadron-server#3999
 			// S4): the answer is SECRET_PROTECTED_NEEDS_PASSKEY, mapped above.
-			// A returned secret means the server did not stage the creation
-			// this CLI asked for, so the requested protection is unconfirmed —
-			// never a success line; same shape as secret protect (BLIND P1 on
-			// #2932). Explicit false is the default shape and does stage
-			// nothing, so only true is checked here.
+			// A returned secret means the server did not do what this CLI
+			// asked for, so the requested protection is unconfirmed — never a
+			// success line; same shape as secret protect (BLIND P1 on #2932)
+			// and the update guard. Both arms (BLIND P3 fold, round 4): a
+			// true ask must stage, so ANY returned secret is wrong; a false
+			// ask expects the secret back, and an answer reporting protected
+			// did not get the unprotected create asked for.
 			if prot != nil && *prot {
 				return exitcode.Newf(exitcode.Unavailable,
 					"the server answered with the created secret instead of staging it for a passkey, which createSecret(protected: true) does not do; it reports protected: %t. The secret exists, and the protection you asked for is not confirmed — it may be unprotected: check it with: hadron secret get %s",
 					resp.CreateSecret.Protected, cmdutil.ShellQuote(output.SafeCell(dto.ID)))
+			}
+			if prot != nil && !*prot && resp.CreateSecret.Protected {
+				return exitcode.Newf(exitcode.Unavailable,
+					"the server answered with the created secret reporting protected: true, which createSecret(protected: false) does not do. The secret exists, and the protection you asked for is not confirmed — it may be protected: check it with: hadron secret get %s",
+					cmdutil.ShellQuote(output.SafeCell(dto.ID)))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSecretLine(w, "✓ created", dto)

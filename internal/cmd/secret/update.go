@@ -68,7 +68,10 @@ nothing does) with the normal updated line. Without the flag no protected
 field is sent — a value or metadata update does not touch protection.
 Protection never changes without a signed request: update --protected stages
 its change for the ceremony above, and hadron secret protect changes
-protection and nothing else.
+protection and nothing else. The request names the protected argument, so a
+server from before the argument shipped (2026-11-14) refuses the request even
+without the flag; a server with passkey signing off still accepts the
+command, refusing only an explicit protection change.
 
 The server checks the resulting value and metadata against the secret's kind;
 a mismatch (say, a plain value for a webfetch-auth secret) exits 2.
@@ -79,7 +82,12 @@ the same fields as hadron secret get.`,
   hadron secret update hrn:secret:alice:github-token --meta env=prod
   hadron secret update hrn:secret:acme.com:poll-auth --type bearer --value-file @token.txt
   hadron secret update hrn:secret:acme.com:poll-auth --url-prefix https://api.example.com/v2/`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := refuseDetachedProtectedValue(cmd, args); err != nil {
+				return err
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			webFetch := changed("type") || changed("username") || changed("header-name") || changed("url-prefix")

@@ -113,6 +113,15 @@ instead of) a value/metadata change.
   protect` / `secret change` surfaces require the same server generation — so this PR
   adds no new floor. A formal minimum-server-version policy would be Petra/Holger's
   call, not this PR's.
+  **SDL check (round 4, replacing the commit-reference-only claim):** at hadron-server
+  `origin/main` `1a7914a6c8d3e0fa6340188a6c7aaa378b05bb38`, `deploymentSchema()` with
+  `PASSKEY_SIGNING_ENABLED=false` still declares
+  `createSecret(… protected: Boolean …)` and `updateSecret(… protected: Boolean …)`
+  in its printed SDL, while `setSecretProtected` is absent: the off-switch removes
+  signing *types* and capability *fields* (`src/api/graphql/schema/deploymentSchema.ts`)
+  but never *arguments*. So every server that has the argument accepts these documents
+  with signing off; only servers older than #3999 (which never had it) reject them,
+  flag or no flag — stated in both help texts and the agentic contract.
 
 ## QA fold at 3fa0b2fa (Charles P2, hadron-server#4749)
 
@@ -185,3 +194,32 @@ instead of) a value/metadata change.
   `TestProtectedCreateReturningSecretIsUnconfirmed_2815` wants "The secret
   exists" / "may be unprotected" (red at 7eb4499b). Jonas's SECURITY P3 (same
   #4805 dependency as Jorge's P2) closes with the conditional help above.
+
+## Round-4 fold (Juniper BLIND P2 + three P3s, Eden #137270)
+
+- **BLIND P2 (documents vs servers without the argument), closed with
+  evidence.** The plan's static-SDL claim was backed by a commit reference
+  only; the SDL check above is the evidence — run at `origin/main`
+  `1a7914a6c8d3`, signing off, `deploymentSchema()`'s printed SDL keeps the
+  `protected` argument on both mutations (the switch removes types and
+  capability fields, never arguments) and drops `setSecretProtected`. Both
+  helps and the agentic contract now state the floor: a server from before
+  #3999 refuses the request even flag-omitted; a signing-off server still
+  accepts the commands, refusing only an explicit protection change.
+- **BLIND P3 (create guard covered only the true arm), folded.** A
+  `--protected=false` create answered `protected: true` returned a success
+  line; the guard now catches it (exit 7, "may be protected", `secret get` to
+  check), mirroring the update guard's two arms. Red pin first:
+  `TestSecretCreateProtectedFalseAnsweredTrueIsUnconfirmed_2815`.
+- **BLIND P3 (`--protected false` with a space), folded.** The misparse read
+  the flag as true plus a stray positional and died as an unknown-command
+  (create) or arg-count (update) error naming everything but the mistake.
+  Both commands now refuse it in their Args validators — exit 2, the two
+  attached spellings named, nothing sent (`refuseDetachedProtectedValue`;
+  an id or URN is never literally true or false). Red pin first:
+  `TestProtectedSpaceSeparatedValueRefused_2815`.
+- **BLIND P3 (agentic-contract shape), folded.** The additions were very long
+  single-line paragraphs and one narrated the past ("was display only until
+  cli#2815"); the entry is now sentence-per-line and states current behaviour
+  only. `TestAgenticUsageStatesProtectedOutcomes_2815` pins the floor sentence
+  and the absence of the narrative phrase (both red at fceceb55).

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -198,4 +199,23 @@ func ensureJSONObject(raw *json.RawMessage, flag string) (*json.RawMessage, erro
 func writeSecretLine(w io.Writer, verb string, dto secretDTO) error {
 	_, err := fmt.Fprintf(w, "%s secret %s  %s/%s  owner %s %s\n", verb, output.SafeCell(dto.Name), output.SafeCell(dto.Kind), output.SafeCell(dto.ID), output.SafeCell(dto.OwnerType), output.SafeCell(dto.OwnerID))
 	return err
+}
+
+// refuseDetachedProtectedValue turns the classic bool-flag misparse —
+// `--protected false` reads the flag as true and leaves "false" as a stray
+// positional, dying as an unknown-command or arg-count error that names
+// everything but the mistake — into a usage refusal naming the two attached
+// spellings (BLIND P3 on #2932, round 4). A secret id or URN is never
+// literally true or false, so the scan cannot fire on a legitimate argument.
+func refuseDetachedProtectedValue(cmd *cobra.Command, args []string) error {
+	if !cmd.Flags().Changed("protected") {
+		return nil
+	}
+	for _, a := range args {
+		switch strings.ToLower(a) {
+		case "true", "false":
+			return exitcode.Newf(exitcode.Usage, "--protected takes no separate value: write --protected or --protected=false (attached, no space)")
+		}
+	}
+	return nil
 }
