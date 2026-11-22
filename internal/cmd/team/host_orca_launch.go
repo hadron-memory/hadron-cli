@@ -24,7 +24,7 @@ func wireOrcaLaunch(p *hostpoller.Poller, cfg *hostpoller.Config) error {
 		return nil
 	}
 	if runtime.GOOS != "linux" {
-		return exitcode.Newf(exitcode.Usage, "launch_via: orca needs Linux (the launched agent is pinned by pidfd); remove it on this host")
+		return exitcode.Newf(exitcode.Usage, "every worker launches through Orca (launch_via: orca, the default), which needs Linux (the launched agent is pinned by pidfd); this host cannot run workers")
 	}
 	run := orcaterm.LaunchGuard(orcaterm.Exec(cfg.OrcaLaunch.OrcaBin, orcaLaunchCallTimeout))
 	l := hostpoller.OrcaLauncher{

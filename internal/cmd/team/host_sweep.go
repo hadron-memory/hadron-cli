@@ -46,7 +46,7 @@ Open-session recovery belongs to the running poller's relaunch loop; this
 command never starts a second agent directly. The 15-minute health timer and
 5-minute report-stops timer remain explicitly separate: they still handle
 health and unreported stop notices. Install creates only the new one-minute
-sweep timer. On typed Orca-launch hosts, managed-daemon preflight is shared
+sweep timer. On every host, managed-daemon preflight is shared
 with the poller's relaunch loop (every worker launches through Orca). A missing daemon scope or an unreachable terminal list records
 ORCA_DOWN skips and queues nothing; unreadable or ambiguous readiness stays
 RELAUNCH_UNPROVEN. The poller reports the first outage once and replays its

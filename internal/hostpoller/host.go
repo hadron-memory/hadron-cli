@@ -17,7 +17,10 @@ type Host interface {
 	Inspect(ctx context.Context, path string) (WorktreeState, error)
 	// RemoveWorktree removes a clean worktree.
 	RemoveWorktree(ctx context.Context, path string) error
-	// Launch starts an agent and returns at once; the agent keeps running.
+	// Launch starts an agent and returns at once; the agent keeps running. worker.start no longer
+	// calls it (every worker launches through Orca, cli#2914): its one remaining production caller is
+	// the reset-context relaunch, which never runs (its idle proof never succeeds), and which, with this
+	// method and ExecHost's launch machinery, is deleted by the follow-up cli#3017.
 	Launch(ctx context.Context, spec LaunchSpec) (Agent, error)
 	// Prompt runs a short command (worker.end's prompt) to completion.
 	Prompt(ctx context.Context, argv []string, dir string, env []string) error

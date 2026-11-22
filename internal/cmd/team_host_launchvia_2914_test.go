@@ -43,3 +43,28 @@ func TestTeamHostRunRefusesTheRemovedExecLaunch2914(t *testing.T) {
 		})
 	}
 }
+
+// The host run help and the agent contract no longer describe the removed exec path (BLIND F1 at 76068636:
+// the entry still said "default exec; TRANSITIONAL", the reload refusal for unwired Orca, and the launch
+// program trust check).
+func TestHostRunDocsDoNotDescribeTheRemovedExecPath2914(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(out.String()), " ")
+	contract := strings.Join(strings.Fields(string(readContract(t))), " ")
+	for _, bad := range []string{
+		"default exec", "launch, end and recover programs", "A launch, end, recover or account",
+		"that wiring is made at start", "exec-launch hosts", "TRANSITIONAL until S1b/C4",
+	} {
+		if strings.Contains(help, bad) {
+			t.Errorf("host run --help still says %q", bad)
+		}
+		if strings.Contains(contract, bad) {
+			t.Errorf("agentic-usage still says %q", bad)
+		}
+	}
+}

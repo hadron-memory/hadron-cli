@@ -542,10 +542,10 @@ The configuration (YAML):
     #   worktrees: [hadron-cli/iris]
   account_profiles:                 # account name -> launcher (and Codex home)
     holger: {bin: claude-holger}
-  # codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
+    # codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
   orca_launch:
     orca_bin: /absolute/path/to/orca
-  # cleanup_dead_tabs: false      # opt in only after live host validation
+    # cleanup_dead_tabs: false    # opt in only after live host validation
 
 The file is re-read every poll. A worker added to or removed from workers, a
 worker's entry changed in place, and changes to repos and account_profiles
@@ -559,11 +559,11 @@ naming the settings, and is not applied until the poller restarts.
 
 A reload makes the poller run what the file says on its next poll, so it is
 held to more than a restart: the file, and every program or directory a
-changed entry names (launch, end and recover programs, account programs, repo
+changed entry names (end and recover programs, account programs, repo
 clones, codex_home, claude_config_dir, disk_tmp), and every directory above
 them and above the file, must be owned by the poller's user (or root) and not
 writable by group or others (a sticky directory such as /tmp is accepted above
-them), or the reload is refused. A launch, end, recover or account
+them), or the reload is refused. An end, recover or account
 program named as a relative path (with a slash) is refused on reload: it is
 run from the worker's directory, which the check cannot judge — use an
 absolute path or a bare name, or restart the poller. The check stops other
@@ -571,9 +571,7 @@ users and loose modes; a process running as the poller's own user is inside
 the poller's trust boundary, as it is for a restart. A file that does not load
 or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
-for that content and reason. A worker that now launches through Orca is
-refused too, since that wiring is made at start (restart to apply it). A
-worker removed from the file keeps any live agent: worker.end for it is still
+for that content and reason. A worker removed from the file keeps any live agent: worker.end for it is still
 carried out, with the entry it last had (the poller logs removed-worker-end),
 since ending a session only de-escalates; other operations for it are refused
 as not configured. Directories on the way to a path are judged as the kernel
