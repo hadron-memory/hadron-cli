@@ -88,7 +88,7 @@ SCOPE is the one "team" means in ` + "`team task list --team`" + `: bare --team 
 worker's team, --team=worker:<ref> another coordinator's. Without --team the
 view is every task of the App.
 
-IN EFFECT is the server's answer (cor:agt:050:20), the same filter as
+IN EFFECT is the server's answer, the same filter as
 ` + "`team events --alarms-in-effect`" + `: unacknowledged and with no escalation end
 recorded. The CLI never works it out itself. --all lists every alarm instead,
 acknowledged or past its escalation end, and adds per task the number of its
@@ -103,7 +103,7 @@ are read with ` + "`team events --alarms`" + `. Tasks are PENDING and STARTED un
 names others, so an alarm on a finished task is not listed by default.
 
 The roster state is the server's TeamRosterState as returned (YOUR_MOVE ...
-NOT_LAUNCHABLE; cor:agt:050:22), not relabelled, with the check status beside it
+NOT_LAUNCHABLE), not relabelled, with the check status beside it
 (NO_SESSION and its reason say the assignee has no session). An assignee the
 roster does not list, or a person, has none.
 

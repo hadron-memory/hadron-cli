@@ -33,8 +33,8 @@ func NewCmdTeam(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "team <command>",
 		Short: "Team coordination: workers and coding sessions",
-		Long: `Coordinate a team of humans and AI agents. A team IS an App
-(cor:agt:020:01): the installed agents are its cast pool, and its staff are
+		Long: `Coordinate a team of humans and AI agents. A team IS an App:
+the installed agents are its cast pool, and its staff are
 WORKERS — named castings of an installed agent ("Iris", the backend-engineer
 agent cast into this App). A worker is re-driven across many sessions — by
 the same or a different human; a session binds the current git worktree to a
@@ -49,7 +49,7 @@ the original values. Use --json when a complete long value is needed.
 GETTING STARTED — standing up a team, in order
 
 Two of the steps are not in this group, so the sequence is not discoverable
-from ` + "`hadron team --help`" + ` alone (#402).
+from ` + "`hadron team --help`" + ` alone.
 
   1. hadron agent create --org <org> --name backend-engineer \
        --persona-role backend-engineer
@@ -67,8 +67,8 @@ from ` + "`hadron team --help`" + ` alone (#402).
 
   3. hadron team role create <role> [--description <d>]
        (optional) A role definition — a label and a description. It used
-       to carry a name register the cast allocated from; that is gone
-       (hadron-server#1050), so this step no longer affects step 4 and is
+       to carry a name register the cast allocated from; that is gone,
+       so this step no longer affects step 4 and is
        purely documentation of what the role is for.
 
   4. hadron team worker cast --app <app> --role <role> --name <Name>
@@ -76,17 +76,17 @@ from ` + "`hadron team --help`" + ` alone (#402).
        single installed agent with that persona role; --agent names one
        directly), takes the name, binds the template, and provisions the
        worker's working memory. --name is REQUIRED: the name is PERMANENT
-       per App (cor:agt:020:02), so it is chosen rather than derived —
+       per App, so it is chosen rather than derived —
        preview the irreversible part first with worker cast --dry-run.
 
   5. hadron team session start --as <worker>
        Binds this worktree. The session is App-bound through the worker,
        and the binding records the worker's App as the worklog home — so
-       ` + "`session log`" + ` records milestones with no flags at all (#399).
+       ` + "`session log`" + ` records milestones with no flags at all.
 
   6. hadron team init                                 (optional)
        Asks the server to converge the collection schemas it owns — the
-       App resolves its own team memory (#400). NOT a precondition for
+       App resolves its own team memory. NOT a precondition for
        anything — useful to repair a memory declared by an older CLI.
 
 Check any of it with ` + "`hadron team worker list --app <app>`" + ` (the staff)
