@@ -66,6 +66,12 @@ type hostUpFixture1389 struct {
 	reposReads []string
 	onIssue    func()   // runs after an issued operation is stored
 	registry   []string // worker ids the host registration lists
+	// cli#2652: the App's server sweep mode that --apply reads before it acts.
+	// newHostUpFixture1389 starts it at APPLY, so every older --apply test keeps
+	// its meaning; sweepErr is an error code the read answers instead.
+	sweepMode  string
+	sweepErr   string
+	sweepReads int
 }
 
 func (fx *hostUpFixture1389) dir(name string) string {
@@ -119,7 +125,7 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 	t.Helper()
 	base := t.TempDir()
 	fx := &hostUpFixture1389{t: t, root: filepath.Join(base, "workspaces"), desired: filepath.Join(base, "desired.json"),
-		orcaLog: filepath.Join(base, "orca.log"), orcaBin: filepath.Join(base, "orca"), registry: []string{"wkr-iris", "wkr-jonas"}}
+		orcaLog: filepath.Join(base, "orca.log"), orcaBin: filepath.Join(base, "orca"), registry: []string{"wkr-iris", "wkr-jonas"}, sweepMode: "APPLY"}
 	if err := os.MkdirAll(fx.root, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -192,6 +198,13 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 				}
 				fx.complete(op)
 			}
+		case "GetAppSweepMode":
+			fx.sweepReads++
+			if fx.sweepErr != "" {
+				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.sweepErr + `"}}]}`))
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"app": map[string]any{"sweepMode": fx.sweepMode}}})
 		case "HostUpWorkerRepos":
 			var ref string
 			_ = json.Unmarshal(q.Vars["ref"], &ref)
