@@ -118,7 +118,8 @@ func TestNodeRefResolverRefusalsNeverEchoTheRef2902(t *testing.T) {
 			if exitCodeFor(err) != tc.code {
 				t.Errorf("exit = %d, want %d: %v", exitCodeFor(err), tc.code, err)
 			}
-			for _, leak := range []string{tc.ref, p[:8], p[len(p)-8:]} {
+			// the runs of the ref actually given (the not-fully-qualified case uses a different token)
+			for _, leak := range []string{tc.ref, tc.ref[len(tc.ref)-8:], p[:8], p[len(p)-8:]} {
 				if strings.Contains(everything, leak) {
 					t.Errorf("the refusal echoes %q of the ref: %q", leak, everything)
 				}

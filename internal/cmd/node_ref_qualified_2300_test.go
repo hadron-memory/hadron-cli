@@ -71,8 +71,14 @@ func TestNodeGet2300UnknownQualifiedIsNotComposedAndNotEchoed(t *testing.T) {
 	if got := exitCodeFor(err); got != exitcode.NotFound {
 		t.Fatalf("exit = %d, want NotFound (%v)", got, err)
 	}
-	if strings.Contains(err.Error(), ref) || strings.Contains(err.Error(), "example.test:other:") || !strings.Contains(err.Error(), "not shown") {
-		t.Fatalf("not-found names no URN (neither as given nor composed) and says so: %v", err)
+	if strings.Contains(err.Error(), ref) {
+		t.Errorf("not-found must not name the URN as given: %v", err)
+	}
+	if strings.Contains(err.Error(), "example.test:other:") {
+		t.Errorf("not-found must not name a composed URN: %v", err)
+	}
+	if !strings.Contains(err.Error(), "not shown") {
+		t.Errorf("not-found says the reference is not shown: %v", err)
 	}
 }
 

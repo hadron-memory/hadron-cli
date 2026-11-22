@@ -140,7 +140,7 @@ func TestOrgPublic1858NotFoundUnchanged(t *testing.T) {
 	err := root.Execute()
 	// cli#2902: the same one answer for a missing and a non-discoverable org, now without the ref
 	// (cor:acl:080:02's anti-enumeration posture is the uniformity, which stays).
-	if exitCodeFor(err) != exitcode.NotFound || err.Error() != `organization is not discoverable (or does not exist) (the ref given is not shown)` {
+	if exitCodeFor(err) != exitcode.NotFound || err.Error() != `organization is not discoverable, or does not exist (the ref given is not shown)` {
 		t.Fatalf("notfound contract: %v", err)
 	}
 }

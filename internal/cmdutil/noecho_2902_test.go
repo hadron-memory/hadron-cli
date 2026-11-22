@@ -12,12 +12,20 @@ import (
 // at validation no secret is known to redact, so a credential pasted in the wrong place would print to the
 // terminal, the --json envelope and CI logs.
 
-// leaks returns the parts of in that must not appear in a message: the whole value and the runs at its
-// ends, which are the usual leak by truncation.
+// leaks2902 returns the parts of in that must not appear in a message: the whole value, the runs at its
+// ends (the usual leak by truncation) and every run of 6 or more letters or digits inside it, so a leaked
+// middle segment fails too.
 func leaks2902(in string) []string {
 	out := []string{in}
 	if r := []rune(in); len(r) >= 10 {
 		out = append(out, string(r[:10]), string(r[len(r)-10:]))
+	}
+	for _, seg := range strings.FieldsFunc(in, func(c rune) bool {
+		return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9')
+	}) {
+		if len(seg) >= 6 {
+			out = append(out, seg)
+		}
 	}
 	return out
 }
@@ -98,8 +106,8 @@ func TestTimeAndKeyValueFlagsNeverEchoTheValue2902(t *testing.T) {
 		}
 		_, err = KeyValsToJSON([]string{in}, "set")
 		assertNoEcho2902(t, "KeyValsToJSON", in, err)
-		if err != nil && !strings.Contains(err.Error(), "--set") {
-			t.Errorf("KeyValsToJSON names the flag: %v", err)
+		if err != nil && !strings.Contains(err.Error(), "--set entry 1") {
+			t.Errorf("KeyValsToJSON names the flag and the entry by position: %v", err)
 		}
 	}
 }

@@ -2,7 +2,6 @@ package cmdutil
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	urn "github.com/hadron-memory/urn-lib-go"
@@ -16,7 +15,10 @@ const slugRule = "1-64 characters of [A-Za-z0-9._-], starting and ending with a 
 // secret is known to redact, so a credential pasted in the wrong place would print to the terminal, the
 // --json envelope and CI logs. It names the flag and the library's reason (a rule, never the input) and says
 // the value is not shown; the operator has the value in their own command line. The offending segment is
-// dropped for the same reason.
+// dropped for the same reason. pe.Reason is the urn-lib's typed Reason, a fixed set of machine-stable codes
+// ("invalid-charset", "reserved-word-slug", ...; urn-lib-go errors.go: they are part of its fixture contract),
+// never a fragment of the input, and TestURNValidatorsNeverEchoTheValue2902 checks every segment of a
+// token-shaped value against the message, so a Reason that began to carry input would fail it.
 func urnUsageError(flag string, err error) error {
 	var pe *urn.ParseError
 	if errors.As(err, &pe) {
@@ -102,7 +104,7 @@ func CanonicalizeURN(flag, input string) (string, error) {
 		return "", urnUsageError(flag, err)
 	}
 	if canon == "" {
-		return "", fmt.Errorf("canonicalizing %s: empty result", input)
+		return "", exitcode.Newf(exitcode.Error, "canonicalizing %s: empty result (the value given is not shown)", flag)
 	}
 	return canon, nil
 }
