@@ -273,8 +273,14 @@ func TestAgentTasksCreateHelpSaysWhenToWriteATask2990(t *testing.T) {
 	}
 	help := strings.Join(strings.Fields(out.String()), " ")
 	contract := strings.Join(strings.Fields(string(readContract(t))), " ")
-	if strings.Contains(help, "lint advice") {
-		t.Errorf("the help promises only what the CLI does (the server's attached advice goes to stderr); it says nothing about lint advice")
+	for name, text := range map[string]string{"help": help, "agentic-usage": contract} {
+		if strings.Contains(text, "lint advice") {
+			t.Errorf("%s promises only what the CLI does (the server's attached advice goes to stderr); it says nothing about lint advice", name)
+		}
+		// One statement of the CLI's scope in both places: no content rule or lint of its own, not "no pre-check".
+		if !strings.Contains(text, "no content rule or lint of its own") {
+			t.Errorf("%s must say the CLI has no content rule or lint of its own", name)
+		}
 	}
 	for _, want := range []string{
 		"after doing the work once, never speculatively",
