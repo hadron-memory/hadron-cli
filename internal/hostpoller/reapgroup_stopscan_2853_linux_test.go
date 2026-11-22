@@ -67,7 +67,7 @@ type modelledHost2853 struct {
 	leader         atomic.Int64
 	lists          atomic.Int64
 	sinceKill      atomic.Int64
-	clearAfterKill int64
+	clearAfterKill atomic.Int64 // read by the watcher goroutine while a cleanup writes it: atomic (cli#2954)
 	killed         *atomic.Bool
 	elapsedNs      atomic.Int64
 	vanish         atomic.Bool
@@ -78,10 +78,10 @@ func (m *modelledHost2853) install(t *testing.T, shortDeadline time.Duration) {
 	m.vanish.Store(true)
 	oldDir, oldStat, oldClock, oldDeadline, oldPause, oldWatch := readProcDir, readGroupStatFn, scanClock, groupScanDeadline, scanPause, drainWatchInterval
 	t.Cleanup(func() {
-		// Runs before the fixture's settle (LIFO): the churn ends, so the watcher's next tick can drain
-		// the held zombie and the fixture can reap it.
+		// Registered BEFORE the fixture's install (installAround2954), so it runs AFTER the fixture's settle:
+		// settle drains over the modelled listing, never the host's real /proc (cli#2954).
 		m.vanish.Store(false)
-		m.clearAfterKill = 0
+		m.clearAfterKill.Store(0)
 		readProcDir, readGroupStatFn, scanClock, groupScanDeadline, scanPause, drainWatchInterval = oldDir, oldStat, oldClock, oldDeadline, oldPause, oldWatch
 	})
 	base := time.Unix(1_700_000_000, 0)
@@ -93,7 +93,7 @@ func (m *modelledHost2853) install(t *testing.T, shortDeadline time.Duration) {
 	readProcDir = func(string) ([]os.DirEntry, error) {
 		n := m.lists.Add(1)
 		m.elapsedNs.Add(int64(10 * time.Millisecond))
-		if m.killed.Load() && m.clearAfterKill > 0 && m.sinceKill.Add(1) >= m.clearAfterKill {
+		if n := m.clearAfterKill.Load(); m.killed.Load() && n > 0 && m.sinceKill.Add(1) >= n {
 			m.vanish.Store(false)
 		}
 		out := []os.DirEntry{churnEntry{"200"}, churnEntry{"201"}}
@@ -136,6 +136,11 @@ func launchHeld2853(t *testing.T, f *stopFixture, m *modelledHost2853) Agent {
 	return a
 }
 
+// MARGIN (cli#2954): the pins rely on the ladder's real-time post-SIGKILL wait (postKillWait, 100ms here)
+// polling FEWER than the 100 listings after which the churn clears: its ticks (groupPollInterval) probe the
+// modelled listing a handful of times in 100ms, so only the final scan, which advances the modelled clock,
+// can reach the clean pass. A slower host polls less, never more.
+//
 // A real stop under churn that outlasts the ladder's own short scans but not the final scan, on the MODELLED
 // host (no wall-clock or host-/proc dependence): the ladder's scans give up after 50ms (5 listings), the final
 // scan has 3s (300 listings), the vanisher clears 100 listings after the SIGKILL. Only the final scan can reach
@@ -149,9 +154,9 @@ func TestAStopUnderChurnThatOutlastsTheLadderConfirmsOnTheFinalScan2853(t *testi
 		t.Skip("no /proc")
 	}
 	f := newJourneyFixture()
-	f.install(t)
-	m := &modelledHost2853{clearAfterKill: 100, killed: &f.killed}
-	m.install(t, 50*time.Millisecond)
+	m := &modelledHost2853{killed: &f.killed}
+	m.clearAfterKill.Store(100)
+	m.installAround2954(t, f)
 	oldKill, oldStop := postKillWait, groupStopScanDeadline
 	postKillWait, groupStopScanDeadline = 100*time.Millisecond, 3*time.Second
 	t.Cleanup(func() { postKillWait, groupStopScanDeadline = oldKill, oldStop })
@@ -180,9 +185,8 @@ func TestAnUnconfirmedStopSaysItTriedTheFinalScanAndNamesTheCode2853(t *testing.
 		t.Skip("no /proc")
 	}
 	f := newJourneyFixture()
-	f.install(t)
-	m := &modelledHost2853{clearAfterKill: 0 /* never */, killed: &f.killed}
-	m.install(t, 50*time.Millisecond)
+	m := &modelledHost2853{killed: &f.killed} // clearAfterKill 0: the churn never clears
+	m.installAround2954(t, f)
 	oldKill, oldStop := postKillWait, groupStopScanDeadline
 	postKillWait, groupStopScanDeadline = 100*time.Millisecond, 600*time.Millisecond
 	t.Cleanup(func() { postKillWait, groupStopScanDeadline = oldKill, oldStop })

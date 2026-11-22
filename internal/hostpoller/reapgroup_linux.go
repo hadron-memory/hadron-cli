@@ -139,8 +139,8 @@ var (
 //
 // Worst case for one stop that cannot be confirmed: the initial drained check (up to
 // groupScanDeadline), the SIGTERM grace, the post-SIGKILL wait (postKillWait, probes of up to
-// groupScanDeadline each), then this final scan: about 1s + the grace + 2s + 5s, i.e. 15s with a
-// 5s grace, plus a pass's overshoot of each deadline. It runs on the worker's own dispatch goroutine
+// groupScanDeadline each), then this final scan: about 1s + the grace + 2s + 5s, i.e. 13s with a
+// 5s grace, plus a pass's overshoot of each deadline (about 15s in practice). It runs on the worker's own dispatch goroutine
 // (stopLaunchedAgent), so it delays no other worker's operation, and only a stop that cannot be
 // confirmed pays the final scan.
 var groupStopScanDeadline = 5 * time.Second

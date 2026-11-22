@@ -24,13 +24,14 @@ import (
 // run: the model's seam restore is registered FIRST (so it runs LAST, after the fixture's settle, which
 // drains over the modelled listing), and the churn's end is registered LAST (so it runs FIRST: the held
 // zombie must be drainable when settle looks).
-func (m *modelledHost2853) installAround2954(t *testing.T, f *stopFixture, shortDeadline time.Duration) {
+func (m *modelledHost2853) installAround2954(t *testing.T, f *stopFixture) {
 	t.Helper()
-	m.install(t, shortDeadline)
+	// 50ms: the ladder's own scans give up after a handful of modelled listings.
+	m.install(t, 50*time.Millisecond)
 	f.install(t)
 	t.Cleanup(func() {
 		m.vanish.Store(false)
-		m.clearAfterKill = 0
+		m.clearAfterKill.Store(0)
 	})
 }
 
@@ -49,8 +50,8 @@ func skipWithoutHeldHost2954(t *testing.T) {
 func TestAnUnconfirmedStopWithNoFinalScanDoesNotClaimOne2954(t *testing.T) {
 	skipWithoutHeldHost2954(t)
 	f := newJourneyFixture()
-	m := &modelledHost2853{clearAfterKill: 0 /* never */, killed: &f.killed}
-	m.installAround2954(t, f, 50*time.Millisecond)
+	m := &modelledHost2853{killed: &f.killed} // clearAfterKill 0: the churn never clears
+	m.installAround2954(t, f)
 	oldKill, oldStop := postKillWait, groupStopScanDeadline
 	postKillWait, groupStopScanDeadline = 100*time.Millisecond, 0
 	t.Cleanup(func() { postKillWait, groupStopScanDeadline = oldKill, oldStop })
@@ -75,7 +76,7 @@ func TestAnUnconfirmedStopWithNoFinalScanDoesNotClaimOne2954(t *testing.T) {
 func TestTheModelStaysInstalledUntilTheFixtureSettles2954(t *testing.T) {
 	skipWithoutHeldHost2954(t)
 	f := newJourneyFixture()
-	m := &modelledHost2853{clearAfterKill: 0 /* never */, killed: &f.killed}
+	m := &modelledHost2853{killed: &f.killed} // clearAfterKill 0: the churn never clears
 	f.beforeSettle = func() {
 		before := m.lists.Load()
 		_, _ = readProcDir("/proc")
@@ -83,8 +84,7 @@ func TestTheModelStaysInstalledUntilTheFixtureSettles2954(t *testing.T) {
 			t.Errorf("settle ran over the host's real /proc: the modelled listing was uninstalled before it")
 		}
 	}
-	f.install(t)
-	m.install(t, 50*time.Millisecond)
+	m.installAround2954(t, f)
 	oldKill, oldStop := postKillWait, groupStopScanDeadline
 	postKillWait, groupStopScanDeadline = 100*time.Millisecond, 200*time.Millisecond
 	t.Cleanup(func() { postKillWait, groupStopScanDeadline = oldKill, oldStop })

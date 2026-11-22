@@ -618,13 +618,18 @@ func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail st
 	// can outlast (a clean pass is rare under churn). One last scan with the stop's longer deadline
 	// before the stop is reported unconfirmed: it still needs ONE clean pass to say the group is
 	// gone, and past its deadline the answer is the same unconfirmed, with the code.
-	if a.drainedWithin(groupStopScanDeadline) {
+	// A platform without the zombie hold has a final-scan deadline of 0 and runs none (cli#2954).
+	finalScan := groupStopScanDeadline > 0
+	if finalScan && a.drainedWithin(groupStopScanDeadline) {
 		if a.stopAuthorityGone() {
 			return false, a.unconfirmedDetail()
 		}
 		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
 	}
-	detail = fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL, nor in a final scan of up to %s", pid, postKillWait, groupStopScanDeadline)
+	detail = fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+	if finalScan {
+		detail += fmt.Sprintf(", nor in a final scan of up to %s", groupStopScanDeadline)
+	}
 	if why := a.lastMembersWhy(); why != "" {
 		// cli#2853: say why the group could not be proven empty, a code and never /proc text
 		// (unseen-pid is churn, live-member is a member that still runs).
