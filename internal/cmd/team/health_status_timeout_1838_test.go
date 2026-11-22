@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -29,7 +30,7 @@ func slowStatusChild(t *testing.T, sleep string) string {
 	t.Helper()
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "fake-status")
-	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"+map[bool]string{true: "exec ", false: ""}[sleep == "5"]+"sleep "+sleep+"\nprintf '[]'\n"), 0o700); err != nil {
+	if err := os.WriteFile(bin, []byte(hostyaml.Supervised("#!/bin/sh\n"+map[bool]string{true: "exec ", false: ""}[sleep == "5"]+"sleep "+sleep+"\nprintf '[]'\n")), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	return bin
@@ -105,13 +106,13 @@ func sweep1838(t *testing.T, n int, extra []string, readErr error) (time.Duratio
 	}))
 	defer srv.Close()
 	for name, body := range map[string]string{"key": "SYNTHETIC_HOST_KEY_1838", "state.json": `{"hostId":"own"}`} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(hostyaml.Supervised(body)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [x]\n", srv.URL, dir)
 	path := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	f := cmdutil.NewFactory()
@@ -235,7 +236,7 @@ func TestHealth1838ChildPastTheFloorButInsideTheSizedDeadlineIsStored(t *testing
 	deadline, stored, writes := sweepStoresN(t, n, func(rows, dir string) healthStatusReader {
 		bin := filepath.Join(dir, "fake-status")
 		script := "#!/bin/sh\nsleep 1\ncat <<'EOF'\n[" + rows[1:len(rows)-1] + "]\nEOF\n"
-		if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
+		if err := os.WriteFile(bin, []byte(hostyaml.Supervised(script)), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		return func(ctx context.Context, path string, _ *hostpoller.Config) ([]byte, int, error) {
@@ -283,13 +284,13 @@ func sweepStoresN(t *testing.T, n int, mk func(rows, dir string) healthStatusRea
 	}))
 	defer srv.Close()
 	for name, body := range map[string]string{"key": "SYNTHETIC_HOST_KEY_1838", "state.json": `{"hostId":"own"}`} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(hostyaml.Supervised(body)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [x]\n", srv.URL, dir)
 	path := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	var rows []string

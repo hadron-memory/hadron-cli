@@ -540,10 +540,10 @@ section between the markers.
 | `team host list` | ls |  | n | #1054 | 04e9e2f52bb9 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 1a23ca0e9226 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
-| `team host run` |  |  | y | #1054 | 0415a8f3d55d |  | unread |  |
+| `team host run` |  |  | y | #1054 | 54d4a8422008 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | f6c071f5cd86 |  | unread |  |
 | `team host status` |  |  | n | #1054 | c3a3ecae8eed |  | unread |  |
-| `team host sweep` |  |  | n | #1054 | 22ee75e32e51 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
+| `team host sweep` |  |  | n | #1054 | 1a0e8754463f |  | unread |  |
 | `team host sweep install` |  |  | y | #1054 | 963f6f18deb7 |  | unread |  |
 | `team host sweep status` |  |  | y | #1054 | 49f6a1dd42c4 |  | unread |  |
 | `team host sweep uninstall` |  |  | y | #1054 | 5378961914a6 |  | unread |  |

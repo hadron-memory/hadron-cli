@@ -2,6 +2,7 @@ package team
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"path/filepath"
 	"strings"
@@ -85,7 +86,7 @@ func TestHealth2063RequestCarriesNoTranscriptText(t *testing.T) {
 		body := `{"timestamp":"2026-10-31T01:00:00Z","type":"session_meta","payload":{"id":"x","cwd":` + jsonStr(trees[0]) + `}}` + "\n" +
 			`{"timestamp":"2026-10-31T01:30:00Z","type":"response_item","payload":{"type":"message","content":[{"text":"PRIVATE_TRANSCRIPT_TEXT"}]}}` + "\n" +
 			`{"timestamp":"2026-10-31T01:31:00Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":777}}}}` + "\n"
-		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte(hostyaml.Supervised(body)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		return contextsize.Measure(family, trees, roots, time.Date(2026, 10, 31, 2, 0, 0, 0, time.UTC))
@@ -174,7 +175,7 @@ func TestHealth2063WorkerCodexHomeDecidesTheRoot(t *testing.T) {
 		_ = os.MkdirAll(filepath.Dir(p), 0o755)
 		body := `{"timestamp":"2026-10-31T01:00:00Z","type":"session_meta","payload":{"cwd":` + jsonStr(trees[0]) + `}}` + "\n" +
 			`{"timestamp":"2026-10-31T01:31:00Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":4242}}}}` + "\n"
-		_ = os.WriteFile(p, []byte(body), 0o600)
+		_ = os.WriteFile(p, []byte(hostyaml.Supervised(body)), 0o600)
 		return contextsize.Measure(family, trees, roots, time.Date(2026, 10, 31, 2, 0, 0, 0, time.UTC))
 	}
 	sent, _ := health2063Run(t)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -195,7 +196,7 @@ func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON boo
 	}))
 	defer srv.Close()
 	for n, s := range map[string]string{"key": key, "state.json": `{"hostId":"own"}`} {
-		if e := os.WriteFile(filepath.Join(dir, n), []byte(s), 0600); e != nil {
+		if e := os.WriteFile(filepath.Join(dir, n), []byte(hostyaml.Supervised(s)), 0600); e != nil {
 			t.Fatal(e)
 		}
 	}
@@ -204,7 +205,7 @@ func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON boo
 		cfg += fmt.Sprintf("delivery:\n  orca_bin: %q\n", o.orcaBin)
 	}
 	path := filepath.Join(dir, "host.yaml")
-	if e := os.WriteFile(path, []byte(cfg), 0600); e != nil {
+	if e := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0600); e != nil {
 		t.Fatal(e)
 	}
 	f := cmdutil.NewFactory()
@@ -505,7 +506,7 @@ func TestHealthTitlesReceiptCarriesOrcaCode2040(t *testing.T) {
 func fakeExecutable2166(t *testing.T) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "orca")
-	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised("#!/bin/sh\n")), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -546,7 +547,7 @@ func TestHealthTitlesRunnerReceivesResolvedBin2166(t *testing.T) {
 func TestHealthOrcaBinUnresolvableFallsBack2166(t *testing.T) {
 	dir := t.TempDir()
 	notExec := filepath.Join(dir, "orca-noexec")
-	if err := os.WriteFile(notExec, []byte("x"), 0o644); err != nil {
+	if err := os.WriteFile(notExec, []byte(hostyaml.Supervised("x")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for name, bin := range map[string]string{

@@ -272,8 +272,13 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
    workers:
      jonas:
        family: claude
-       launch: [claude-worker, --model, opus]
+       launcher_profile: {family: claude, mode: long, model: opus, account: holger}
+       disk_tmp: /srv/tmp/jonas
        worktrees: [hadron-cli/jonas-2]
+   account_profiles:
+     holger: {bin: claude-holger}
+   orca_launch:
+     orca_bin: /usr/bin/orca
 
 4. Try one poll: hadron team host run --config host.yaml --once — then drop
    --once to keep the host running. Each step prints its own errors; the
@@ -292,9 +297,10 @@ reports every outcome. One poller per host or container.
 
   worktree.create  git worktree add from a configured repo, as
                    <repo>/<label> under worktrees_root
-  worker.start     run the worker's configured launch argv in a registered
-                   worktree with HADRON_LAUNCH_GRANT, then report once the
-                   agent's session binds (team session start reads the grant);
+  worker.start     launch the worker's agent through an Orca terminal in a
+                   registered worktree with HADRON_LAUNCH_GRANT, then report
+                   once the agent's session binds (team session start reads
+                   the grant);
                    refused before launching when any process is working in the
                    tree (Linux /proc, the pid and a short redacted argv
                    named), and a start that fails stops the process group it
@@ -310,13 +316,18 @@ reports every outcome. One poller per host or container.
                    tree is fetched from origin and checked out detached at
                    origin's default branch. A directory with no Git starts
                    with no reset. Nothing is created or removed.
-                   With launch_via: orca (default exec; Linux; TRANSITIONAL)
-                   it launches through an Orca terminal instead, from the
-                   worker's launcher_profile and fixed per-family templates,
-                   always fresh (never --resume), the grant and first prompt
-                   passed through a 0600 file beside the state, never typed;
-                   the agent runs plainly in Orca's terminal scope; it never
-                   falls back to the exec path. Both launcher_profile modes
+                   Every worker launches this way (launch_via: orca, or left
+                   empty; Linux): from the worker's launcher_profile and
+                   fixed per-family templates, always fresh (never --resume),
+                   the grant and first prompt passed through a 0600 file
+                   beside the state, never typed; the agent runs plainly in
+                   Orca's terminal scope. The older exec launch (the worker's
+                   launch argv as the poller's own child) was removed:
+                   launch_via: exec is refused when the file loads, and a
+                   worker that still names launch without a
+                   launcher_profile is refused saying what to set. A family
+                   with no launch template (anything but claude, glm, kimi
+                   and codex) cannot start. Both launcher_profile modes
                    (long, short) start the same interactive agent, so a
                    stalled run shows on screen and can be taken over; short
                    no longer runs headless or exits when its prompt ends.
@@ -512,7 +523,8 @@ The configuration (YAML):
   workers:
     jonas:                          # name in the App, URN or id
       family: claude
-      launch: [claude-worker, --model, opus]
+      launcher_profile: {family: claude, mode: long, model: opus, account: holger}
+      disk_tmp: /srv/tmp/jonas      # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
       end: [orca-send, jonas, "please end your session with a handoff"]
       end_wait: 15m
       stop_on_end: never            # never (default) | manager | always
@@ -520,21 +532,20 @@ The configuration (YAML):
       reset_on_start: false         # true: reset the existing worktree at worker.start
       # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
-    # Through Orca (launch is not needed then):
+    # A short-lived worker:
     # iris:
     #   family: claude
-    #   launch_via: orca
     #   # mode: long|short. Both start the same interactive agent; short is for a
     #   # worker that ends its own session when its task is done.
     #   launcher_profile: {family: claude, mode: short, model: opus, account: holger}
-    #   disk_tmp: /home/orca/scratch/tmp/iris   # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
+    #   disk_tmp: /home/orca/scratch/tmp/iris   # absolute; TMPDIR, CLAUDE_CODE_TMPDIR, node cache
     #   worktrees: [hadron-cli/iris]
-  # account_profiles:                # account name -> launcher (and Codex home)
-  #   holger: {bin: claude-holger}
-  #   codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
-  # orca_launch:
-  #   orca_bin: /absolute/path/to/orca
-  #   cleanup_dead_tabs: false      # opt in only after live host validation
+  account_profiles:                 # account name -> launcher (and Codex home)
+    holger: {bin: claude-holger}
+    # codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
+  orca_launch:
+    orca_bin: /absolute/path/to/orca
+    # cleanup_dead_tabs: false    # opt in only after live host validation
 
 The file is re-read every poll. A worker added to or removed from workers, a
 worker's entry changed in place, and changes to repos and account_profiles
@@ -548,21 +559,19 @@ naming the settings, and is not applied until the poller restarts.
 
 A reload makes the poller run what the file says on its next poll, so it is
 held to more than a restart: the file, and every program or directory a
-changed entry names (launch, end and recover programs, account programs, repo
+changed entry names (end and recover programs, account programs, repo
 clones, codex_home, claude_config_dir, disk_tmp), and every directory above
 them and above the file, must be owned by the poller's user (or root) and not
 writable by group or others (a sticky directory such as /tmp is accepted above
-them), or the reload is refused. A launch, end, recover or account
-program named as a relative path (with a slash) is refused on reload: it is
-run from the worker's directory, which the check cannot judge — use an
+them), or the reload is refused. An end, recover or account program
+named as a relative path (with a slash) is refused on reload: it is run
+from the worker's directory, which the check cannot judge — use an
 absolute path or a bare name, or restart the poller. The check stops other
 users and loose modes; a process running as the poller's own user is inside
 the poller's trust boundary, as it is for a restart. A file that does not load
 or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
-for that content and reason. A worker that now launches through Orca is
-refused too, since that wiring is made at start (restart to apply it). A
-worker removed from the file keeps any live agent: worker.end for it is still
+for that content and reason. A worker removed from the file keeps any live agent: worker.end for it is still
 carried out, with the entry it last had (the poller logs removed-worker-end),
 since ending a session only de-escalates; other operations for it are refused
 as not configured. Directories on the way to a path are judged as the kernel

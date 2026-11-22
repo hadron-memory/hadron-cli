@@ -1,6 +1,7 @@
 package team
 
 import (
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,15 +21,16 @@ func loadAckMixed1263(t *testing.T, fragment string) error {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "host.yaml")
 	body := "app: app1\nworkers:\n  iris:\n    family: claude\n    launch: [claude]\nworktrees_root: " + dir + "\n" + fragment
-	if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(body)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := hostpoller.LoadConfig(path)
 	return err
 }
 
-// The fragment starts on line 7 of the file (six header lines).
-const ackMixedLine1263 = "line 7"
+// The fragment starts on line 8 of the file: six header lines, and the supervised worker's one extra line
+// (its launch shorthand renders as a launcher_profile and a disk_tmp, cli#2914).
+const ackMixedLine1263 = "line 8"
 
 func TestAckMixed1263MergeAndAliasRefuseNonBoolean(t *testing.T) {
 	shapes := []struct{ name, fragment string }{

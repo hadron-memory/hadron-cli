@@ -28,6 +28,10 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
+	// legacyLaunchPath is set only by LoadConfigForImport: validation then skips the per-worker
+	// launch-path rules (the removed exec path's, and the supervised path's prerequisites) because
+	// the config is being read to be migrated away from them (cli#2914).
+	legacyLaunchPath bool
 	// sourcePath and sourceHash name the file this Config was loaded from and
 	// the content it held; a poller compares them to the file each poll.
 	// Empty for a Config built in code. A Config is a snapshot: once loaded
@@ -103,14 +107,20 @@ type OrcaLaunchConfig struct {
 	Group string `yaml:"group"`
 }
 
-// The launch_via values.
+// The launch_via values. Every worker starts through the supervised (Orca) launch: an EMPTY value
+// means it, and "exec" (the transitional launch-the-argv-as-the-poller's-own-child path) was removed
+// (cli#2914, ruled by Holger 2026-11-22), so an explicit "exec" is refused at load.
 const (
-	LaunchViaExec = "exec"
 	LaunchViaOrca = "orca"
+	// launchViaExecRemoved is the removed value, kept only to refuse it by name.
+	launchViaExecRemoved = "exec"
 )
 
-// launchesViaOrca is the one lookup for "this worker starts through Orca".
-func (w WorkerConfig) launchesViaOrca() bool { return w.LaunchVia == LaunchViaOrca }
+// launchesViaOrca is the one lookup for "this worker starts through Orca": the default (an empty
+// launch_via) and the explicit "orca". Nothing else launches (cli#2914).
+func (w WorkerConfig) launchesViaOrca() bool {
+	return w.LaunchVia == "" || w.LaunchVia == LaunchViaOrca
+}
 
 // UsesOrcaLaunch reports whether any worker here starts through Orca.
 func (c *Config) UsesOrcaLaunch() bool {
@@ -129,6 +139,10 @@ func (c *Config) UsesOrcaLaunch() bool {
 func validateOrcaWorker(c *Config, ref string, w WorkerConfig) []string {
 	var errs []string
 	if w.Profile == nil {
+		if len(w.Launch) > 0 {
+			// An old exec-style worker: say what the removed key was and what replaces it.
+			return append(errs, fmt.Sprintf("worker %q: launch (an argv) belonged to the exec launch path, which was removed; set a launcher_profile (and an absolute disk_tmp) instead: every worker now launches through Orca (launch_via: orca, the default)", ref))
+		}
 		return append(errs, fmt.Sprintf("worker %q: launch_via orca needs a launcher_profile", ref))
 	}
 	a, ok := c.Accounts[w.Profile.Account]
@@ -178,14 +192,14 @@ type DeliveryConfig struct {
 type WorkerConfig struct {
 	// Family is the model family it runs as here, e.g. claude or codex.
 	Family string `yaml:"family"`
-	// Launch is the argv that starts its agent in a worktree. The poller adds
-	// HADRON_LAUNCH_GRANT to its environment and nothing else of Hadron's.
+	// Launch was the argv of the removed exec launch path (cli#2914). It is still parsed so a config
+	// that carries it is refused with a message naming the replacement, and so `host import` can read
+	// a legacy config it migrates; the poller never launches it.
 	Launch []string `yaml:"launch"`
-	// LaunchVia selects how worker.start launches (hadron-cli#2058 C3):
-	// "exec" or empty (the default: Launch, as the poller's own child) or
-	// "orca" (through an Orca terminal, from Profile; G3: the agent is a
-	// child of the Orca daemon in Orca's capped per-terminal scope).
-	// TRANSITIONAL: the exec path goes with worker-supervise (C4).
+	// LaunchVia is "orca" or empty, and both mean the same thing: worker.start launches through an
+	// Orca terminal, from Profile (G3: the agent is a child of the Orca daemon in Orca's capped
+	// per-terminal scope). The transitional "exec" value (Launch as the poller's own child) was
+	// removed (cli#2914) and is refused at load.
 	LaunchVia string `yaml:"launch_via"`
 	// Profile is the typed launcher profile an Orca launch builds its argv
 	// from (G1). TRANSITIONAL: S1b's server fields replace it.
@@ -310,10 +324,26 @@ func LoadConfig(path string) (*Config, error) {
 	return loadConfigBytes(path, raw)
 }
 
+// LoadConfigForImport reads a host configuration for `host import`, which migrates a legacy
+// (exec-style) config: everything is validated EXCEPT the per-worker launch-path rules, which a
+// config being migrated away from the removed exec path cannot satisfy (cli#2914).
+func LoadConfigForImport(path string) (*Config, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading host config: %w", err)
+	}
+	return loadConfigBytesFor(path, raw, true)
+}
+
 // loadConfigBytes is LoadConfig for content already read, so a reload judges
 // exactly the bytes it hashed.
 func loadConfigBytes(path string, raw []byte) (*Config, error) {
+	return loadConfigBytesFor(path, raw, false)
+}
+
+func loadConfigBytesFor(path string, raw []byte, legacyLaunchPath bool) (*Config, error) {
 	var c Config
+	c.legacyLaunchPath = legacyLaunchPath
 	dec := yaml.NewDecoder(strings.NewReader(string(raw)))
 	dec.KnownFields(true)
 	if err := dec.Decode(&c); err != nil {
@@ -456,22 +486,21 @@ func (c *Config) validate() error {
 		if !familyRE.MatchString(w.Family) {
 			errs = append(errs, fmt.Sprintf("worker %q: family %q must match %s", ref, w.Family, familyRE))
 		}
-		// An Orca-launched worker's argv comes from its launcher profile; only
-		// the exec path needs a configured command.
-		if !w.launchesViaOrca() && (len(w.Launch) == 0 || strings.TrimSpace(w.Launch[0]) == "") {
-			errs = append(errs, fmt.Sprintf("worker %q: launch must name a command", ref))
-		}
 		if w.EndWait != "" {
 			if d, err := time.ParseDuration(w.EndWait); err != nil || d <= 0 {
 				errs = append(errs, fmt.Sprintf("worker %q: end_wait %q is not a positive duration", ref, w.EndWait))
 			}
 		}
-		switch w.LaunchVia {
-		case "", LaunchViaExec:
-		case LaunchViaOrca:
+		switch {
+		case c.legacyLaunchPath:
+			// host import reads a legacy exec-style config to migrate it: the launch path's own
+			// rules are not applied to what is being migrated away from (cli#2914).
+		case w.LaunchVia == launchViaExecRemoved:
+			errs = append(errs, fmt.Sprintf("worker %q: launch_via: exec was removed (the host no longer starts an argv as its own child); use launch_via: orca (or leave it empty) with a launcher_profile and an absolute disk_tmp", ref))
+		case w.launchesViaOrca():
 			errs = append(errs, validateOrcaWorker(c, ref, w)...)
 		default:
-			errs = append(errs, fmt.Sprintf("worker %q: launch_via %q must be %s or %s", ref, w.LaunchVia, LaunchViaExec, LaunchViaOrca))
+			errs = append(errs, fmt.Sprintf("worker %q: launch_via %q must be %s, or empty (the default)", ref, w.LaunchVia, LaunchViaOrca))
 		}
 		switch w.StopOnEnd {
 		case "", StopOnEndNever, StopOnEndManager, StopOnEndAlways:

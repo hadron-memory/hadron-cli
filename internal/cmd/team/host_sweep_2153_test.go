@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -32,13 +33,13 @@ func sweepFixture2153(t *testing.T, serve func(http.ResponseWriter, *http.Reques
 	t.Cleanup(srv.Close)
 	dir := t.TempDir()
 	for name, body := range map[string]string{"key": "synthetic-host-key", "hadron-host-state.json": `{"hostId":"h1"}`} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(hostyaml.Supervised(body)), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	cfg := filepath.Join(dir, "host.yaml")
 	raw := fmt.Sprintf("server: %s\napp: hrn:app:example.com:team\nkey_file: key\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\ndelivery:\n  orca_bin: /nonexistent/fixture-orca\n", srv.URL, dir)
-	if err := os.WriteFile(cfg, []byte(raw), 0600); err != nil {
+	if err := os.WriteFile(cfg, []byte(hostyaml.Supervised(raw)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	streams, _, _ := output.Test()

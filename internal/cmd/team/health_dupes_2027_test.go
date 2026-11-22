@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -192,7 +193,7 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 		"  \"terminal close\") if [ -f \"" + w.closeFail + "\" ]; then exit 1; fi; echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"  \"terminal rename\") printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"esac\n"
-	if err := os.WriteFile(orcaBin, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(orcaBin, []byte(hostyaml.Supervised(script)), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	// A single agent tab with chrome on it: the default, "clean but normal".
@@ -228,7 +229,7 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 				return
 			}
 			if w.midSweepReset != "" {
-				if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte(w.midSweepReset), 0o600); err != nil {
+				if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte(hostyaml.Supervised(w.midSweepReset)), 0o600); err != nil {
 					t.Errorf("mid-sweep reset write: %v", err)
 				}
 			}
@@ -279,13 +280,13 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	w.writeBinding(t, "sess-1")
 	if withSecondWorker {
 		b := fmt.Sprintf(`{"sessionId":"sess-2","workerId":"w2","workerName":"Ivy","appId":"hrn:app:test:team","server":%q}`, srv.URL)
-		if err := os.WriteFile(filepath.Join(w.worktree2, ".git", "hadron-team-session.json"), []byte(b), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(w.worktree2, ".git", "hadron-team-session.json"), []byte(hostyaml.Supervised(b)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	w.agentTerms = filepath.Join(dir, "agent-terms.txt")
-	if err := os.WriteFile(w.agentTerms, []byte(""), 0o600); err != nil {
+	if err := os.WriteFile(w.agentTerms, []byte(hostyaml.Supervised("")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	w.stateFileWrite(t, w.state)
@@ -296,10 +297,10 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [wt]\n%sdelivery:\n  orca_bin: %q\n", srv.URL, filepath.Join(dir, "wt-root"), extra, orcaBin)
 	path := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "key"), []byte(key), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "key"), []byte(hostyaml.Supervised(key)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	w.cfgPath = path
@@ -345,7 +346,7 @@ func (w *health2027World) writeList(t *testing.T, path string, terms []health202
 		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"title":%q,"connected":true,"writable":true}`, tm.Handle, path, tm.Tab, title))
 	}
 	list := `{"ok":true,"result":{"terminals":[` + strings.Join(rows, ",") + `]}}`
-	if err := os.WriteFile(path, []byte(list), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(list)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -371,7 +372,7 @@ func (w *health2027World) setRecheckList(t *testing.T, terms []health2027Term) {
 // the recheck cannot verify the tab and must decline.
 func (w *health2027World) failRecheckList(t *testing.T) {
 	t.Helper()
-	if err := os.WriteFile(w.failRecheckListPath, []byte(""), 0o600); err != nil {
+	if err := os.WriteFile(w.failRecheckListPath, []byte(hostyaml.Supervised("")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -390,14 +391,14 @@ func (w *health2027World) flipRecheckScreen(t *testing.T, handle string, screen 
 func (w *health2027World) writeBinding(t *testing.T, session string) {
 	t.Helper()
 	b := fmt.Sprintf(`{"sessionId":%q,"workerId":"w1","workerName":"Iris","appId":"hrn:app:test:team","server":%q}`, session, w.serverURL())
-	if err := os.WriteFile(filepath.Join(w.worktree, ".git", "hadron-team-session.json"), []byte(b), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(w.worktree, ".git", "hadron-team-session.json"), []byte(hostyaml.Supervised(b)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func (w *health2027World) stateFileWrite(t *testing.T, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(w.dir, "state.json"), []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(w.dir, "state.json"), []byte(hostyaml.Supervised(content)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -431,14 +432,14 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+	if err := os.WriteFile(bin, []byte(hostyaml.Supervised(script)), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	var c *exec.Cmd
 	if supervised {
 		wrap := filepath.Join(w.dir, "bin", "worker-supervise")
 		if _, err := os.Stat(wrap); err != nil {
-			if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
+			if err := os.WriteFile(wrap, []byte(hostyaml.Supervised("#!/bin/sh\n\"$1\" &\nwait\n")), 0o755); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -591,16 +592,16 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	w.spawns++
 	ready := filepath.Join(w.dir, fmt.Sprintf("ready-%d-chain", w.spawns))
 	child := filepath.Join(w.dir, "bin", "claude-child")
-	if err := os.WriteFile(child, []byte("#!/bin/sh\ntrap 'echo \"term chain-child\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\ntouch \""+ready+"\"\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
+	if err := os.WriteFile(child, []byte(hostyaml.Supervised("#!/bin/sh\ntrap 'echo \"term chain-child\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\ntouch \""+ready+"\"\nwhile :; do sleep 1; done\n")), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	shim := filepath.Join(w.dir, "bin", "claude")
-	if err := os.WriteFile(shim, []byte("#!/bin/sh\ntrap 'echo \"term chain-shim\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\n\""+child+"\" &\nwait\n"), 0o755); err != nil {
+	if err := os.WriteFile(shim, []byte(hostyaml.Supervised("#!/bin/sh\ntrap 'echo \"term chain-shim\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\n\""+child+"\" &\nwait\n")), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	wrap := filepath.Join(w.dir, "bin", "worker-supervise")
 	if _, err := os.Stat(wrap); err != nil {
-		if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
+		if err := os.WriteFile(wrap, []byte(hostyaml.Supervised("#!/bin/sh\n\"$1\" &\nwait\n")), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}

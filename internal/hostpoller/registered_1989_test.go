@@ -16,7 +16,7 @@ func TestConfigRegisteredIsEveryWorkersAbsolutePaths(t *testing.T) {
 		"  uma:\n    family: claude\n    launch: [claude]\n    worktrees: [hadron-cli/uma-1]\n" +
 		"  empty:\n    family: claude\n    launch: [claude]\n"
 	path := filepath.Join(root, "host.yaml")
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(supervised2914(body)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(path)

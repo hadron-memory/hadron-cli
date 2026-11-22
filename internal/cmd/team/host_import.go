@@ -553,7 +553,7 @@ host without the runbook: the orca1 import is the host manager's step.`,
 			if !hostSetupHostIDRe.MatchString(hostID) {
 				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; got %q", hostID)
 			}
-			cfg, err := hostpoller.LoadConfig(from)
+			cfg, err := hostpoller.LoadConfigForImport(from)
 			if err != nil {
 				return exitcode.Newf(exitcode.Usage, "%v", err)
 			}
