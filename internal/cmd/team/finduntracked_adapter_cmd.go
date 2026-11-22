@@ -22,6 +22,13 @@ type adapterFlagUse struct {
 	assignToMe, noTeam, track                     bool
 }
 
+// errIntegrationRetired is find-untracked's answer to --integration: the
+// server's task integrations are retired, and the team's intake adapter
+// replaced them (cli#1964). Nothing is sent.
+func errIntegrationRetired() error {
+	return exitcode.Newf(exitcode.Usage, "--integration is retired: the server no longer serves task integrations, so nothing was sent. Use the team's intake adapter instead: --adapter <executable> (or set $%s); see the INTAKE ADAPTER section of --help", adapterEnv)
+}
+
 // selectAdapter decides which find-untracked path a call takes and refuses the
 // flags that belong to the other, before any request or binding read.
 //
@@ -51,7 +58,7 @@ func selectAdapter(cmd *cobra.Command, adapterFlag, integration string, u adapte
 			return "", false, exitcode.Newf(exitcode.Usage, "--track and --for need an intake adapter: pass --adapter <executable> or set $%s; nothing was sent", adapterEnv)
 		}
 		if !integrationGiven {
-			return "", false, exitcode.Newf(exitcode.Usage, "name where the items come from: --adapter <executable> (or $%s) for the team's intake adapter, or --integration <name> for the server's task integration", adapterEnv)
+			return "", false, exitcode.Newf(exitcode.Usage, "name where the items come from: --adapter <executable> (or $%s), the team's intake adapter; nothing was sent", adapterEnv)
 		}
 		return "", false, nil
 	}

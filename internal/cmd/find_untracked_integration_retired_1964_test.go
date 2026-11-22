@@ -27,7 +27,7 @@ func TestFindUntrackedIntegrationIsRefusedAsRetired_1964(t *testing.T) {
 			if err == nil {
 				t.Fatalf("--integration must be refused, got success:\n%s", out)
 			}
-			if code := exitcode.FromError(err); code != exitcode.Usage {
+			if code := exitCodeFor(err); code != exitcode.Usage {
 				t.Fatalf("exit %d, want %d (usage): %v", code, exitcode.Usage, err)
 			}
 			msg := err.Error()
@@ -51,7 +51,7 @@ func TestFindUntrackedIntegrationIsRefusedAsRetired_1964(t *testing.T) {
 func TestFindUntrackedNoSourceNamesOnlyTheAdapter_1964(t *testing.T) {
 	t.Setenv("HADRON_INTAKE_ADAPTER", "")
 	calls, _, err := runTeamTask(t, map[string]string{}, "team", "task", "find-untracked")
-	if code := exitcode.FromError(err); code != exitcode.Usage {
+	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit %d, want %d: %v", code, exitcode.Usage, err)
 	}
 	if msg := err.Error(); !strings.Contains(msg, "--adapter") || strings.Contains(msg, "--integration <name>") {

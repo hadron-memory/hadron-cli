@@ -53,9 +53,9 @@ func TestHelpPagesExplainPRAlarmsAndFindings1054(t *testing.T) {
 			"hadron team task finding-dispositions",
 		}, []string{"exits4", "GraphQL Int", "opt-in finish"}},
 		{[]string{"team", "task", "find-untracked"}, []string{
-			"Which source? Name exactly one", "SERVER INTEGRATION below is the one for you", "hadron team task find-untracked (--adapter <exe> | --integration <name>) [flags]",
-			"# with your team's intake adapter", "# with the App's task integration", "the variable counts only when --integration is not given",
-		}, []string{"find-untracked (--adapter <exe> [--for", "today that means GitHub issues"}},
+			"The source is the team's intake adapter", "hadron team task find-untracked --adapter <exe> [flags]",
+			"# with your team's intake adapter", "it counts only when no --adapter is given", "so --integration is refused",
+		}, []string{"find-untracked (--adapter <exe> [--for", "today that means GitHub issues", "SERVER INTEGRATION", "# with the App's task integration"}},
 	} {
 		t.Run(strings.Join(tc.page, " "), func(t *testing.T) {
 			help := flatHelp1053S3(t, tc.page...)
