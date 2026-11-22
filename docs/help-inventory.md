@@ -291,7 +291,7 @@ section between the markers.
 <!-- group:1053 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `agent` | agents |  | n | #1053 | dd3735125df6 |  | unread |  |
+| `agent` | agents |  | n | #1053 | ffa09f520a94 |  | unread |  |
 | `agent ai-config` |  |  | n | #1053 | 17175bf753f2 |  | unread |  |
 | `agent ai-config clear` |  |  | y | #1053 | e22ae16c71f6 |  | unread |  |
 | `agent boot-prompt` |  |  | y | #1053 | 10650306ed8f | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
@@ -324,6 +324,9 @@ section between the markers.
 | `agent revision restore` |  |  | y | #1053 | 599bc52aa9b2 |  | unread |  |
 | `agent revision rm` |  |  | y | #1053 | 3fb2015bcda1 |  | unread |  |
 | `agent rm` | delete |  | y | #1053 | 5e410603db21 |  | unread |  |
+| `agent session` |  |  | n | #1053 | 9e3ff7d2f95e |  | unread |  |
+| `agent session end` |  |  | y | #1053 | 1de047b2441b |  | unread |  |
+| `agent session start` |  |  | y | #1053 | dd63bcc551fd |  | unread |  |
 | `agent set-base` |  |  | n | #1053 | 262c332aec88 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent subscription` |  |  | n | #1053 | ab703c07e966 |  | unread |  |

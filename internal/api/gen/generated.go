@@ -2815,6 +2815,34 @@ func (v *AgentServedBootPromptResponse) GetAgentServedBootPrompt() *AgentServedB
 	return v.AgentServedBootPrompt
 }
 
+// AgentSessionAgentIDAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AgentSessionAgentIDAgent struct {
+	Id string `json:"id"`
+}
+
+// GetId returns AgentSessionAgentIDAgent.Id, and is useful for accessing the field via an interface.
+func (v *AgentSessionAgentIDAgent) GetId() string { return v.Id }
+
+// AgentSessionAgentIDResponse is returned by AgentSessionAgentID on success.
+type AgentSessionAgentIDResponse struct {
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *AgentSessionAgentIDAgent `json:"agent"`
+}
+
+// GetAgent returns AgentSessionAgentIDResponse.Agent, and is useful for accessing the field via an interface.
+func (v *AgentSessionAgentIDResponse) GetAgent() *AgentSessionAgentIDAgent { return v.Agent }
+
 // AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage includes the requested fields of the GraphQL type AgentSubscriptionPage.
 // The GraphQL type's documentation follows.
 //
@@ -53479,6 +53507,20 @@ func (v *EncryptMemoryResponse) GetEncryptMemory() *EncryptMemoryEncryptMemory {
 	return v.EncryptMemory
 }
 
+// EndAgentSessionResponse is returned by EndAgentSession on success.
+type EndAgentSessionResponse struct {
+	// App Key callers only: end one of this App's agent sessions. Re-ending an
+	// already-ended session returns true. Typed refusals: FORBIDDEN without an
+	// App Key; SESSION_NOT_FOUND, with one message, for an unknown id, a deleted
+	// session and another App's session alike, so the answer reveals nothing
+	// about sessions outside the App
+	// (hrn:node:hadronmemory.com:specs:cor:api:140:01, #4537).
+	EndAgentSession bool `json:"endAgentSession"`
+}
+
+// GetEndAgentSession returns EndAgentSessionResponse.EndAgentSession, and is useful for accessing the field via an interface.
+func (v *EndAgentSessionResponse) GetEndAgentSession() bool { return v.EndAgentSession }
+
 type EndAgentlessSessionInput struct {
 	AppRef string             `json:"appRef"`
 	Reason AgentlessEndReason `json:"reason"`
@@ -103842,6 +103884,112 @@ func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetText(
 	return v.Text
 }
 
+// StartAgentSessionResponse is returned by StartAgentSession on success.
+type StartAgentSessionResponse struct {
+	// Multi-user-agent session lifecycle (renamed to avoid collision with
+	// the developer/guided startSession and endSession mutations).
+	// Supply a base64-encoded 32-byte key beside the operation through the
+	// x-hadron-operation-key header when identifyUserMethod is SECRET.
+	// The key is verified for an existing encrypted memory and held only
+	// after the new session commits; USER_ID mode rejects key supply.
+	// Only one key-consuming operation may use the header in a request;
+	// a second attempt is BAD_UNLOCK_INPUT.
+	StartAgentSession *StartAgentSessionStartAgentSession `json:"startAgentSession"`
+}
+
+// GetStartAgentSession returns StartAgentSessionResponse.StartAgentSession, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionResponse) GetStartAgentSession() *StartAgentSessionStartAgentSession {
+	return v.StartAgentSession
+}
+
+// StartAgentSessionStartAgentSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type StartAgentSessionStartAgentSession struct {
+	Id string `json:"id"`
+	// The role-agent driving the session (with workerId set, the agent behind the casting).
+	AgentId  *string `json:"agentId"`
+	AppId    *string `json:"appId"`
+	MemoryId *string `json:"memoryId"`
+	UserId   *string `json:"userId"`
+	// Which kind of session this is: DEVELOPER, CHATBOT, AUTOMATION or EDGE.
+	Type string `json:"type"`
+	// #2288 / hrn:node:hadronmemory.com:specs:cor:agt:020:13:
+	// this session's derived state, using its own App's dormancy period (platform
+	// default when App-less), never the viewer's App. ENDED means terminal: an
+	// explicit/reaped end, deletion, or now >= promised expiresAt before reap.
+	// It does not assert an explicit ending act. Otherwise DORMANT uses the same
+	// activity and strict older-than threshold as the resume refusal. At exact
+	// dormancy equality it is not dormant. LIVE includes idle deadline equality;
+	// hard expiry is exclusive even when the deadlines coincide. The remaining
+	// open sessions are LAPSED. Reading state never drives or resumes a session.
+	State SessionState `json:"state"`
+	// hadron-cli#791 / hrn:node:hadronmemory.com:specs:cor:agt:020:11:
+	// whether THIS session is live: not ended
+	// or hard-expired (hrn:node:hadronmemory.com:specs:cor:agt:020:03),
+	// AND driven inside its type's idle window (activity is the latest of
+	// startedAt, the heartbeat updatedAt, and the latest attributed usage
+	// event, capped at endedAt). The same derived predicate as startSession's
+	// WORKER_TAKEN gate and Worker.hasLiveSession, so the three always agree.
+	// An unexpired open session that is not live has LAPSED: nobody drove it inside the
+	// window, so another driver may bind its worker; it is not ended, and can
+	// still be ended with a handoff. False for an ended or deleted session.
+	IsLive    bool    `json:"isLive"`
+	StartedAt string  `json:"startedAt"`
+	ExpiresAt *string `json:"expiresAt"`
+}
+
+// GetId returns StartAgentSessionStartAgentSession.Id, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetId() string { return v.Id }
+
+// GetAgentId returns StartAgentSessionStartAgentSession.AgentId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetAgentId() *string { return v.AgentId }
+
+// GetAppId returns StartAgentSessionStartAgentSession.AppId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetAppId() *string { return v.AppId }
+
+// GetMemoryId returns StartAgentSessionStartAgentSession.MemoryId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetMemoryId() *string { return v.MemoryId }
+
+// GetUserId returns StartAgentSessionStartAgentSession.UserId, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetUserId() *string { return v.UserId }
+
+// GetType returns StartAgentSessionStartAgentSession.Type, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetType() string { return v.Type }
+
+// GetState returns StartAgentSessionStartAgentSession.State, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetState() SessionState { return v.State }
+
+// GetIsLive returns StartAgentSessionStartAgentSession.IsLive, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetIsLive() bool { return v.IsLive }
+
+// GetStartedAt returns StartAgentSessionStartAgentSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetStartedAt() string { return v.StartedAt }
+
+// GetExpiresAt returns StartAgentSessionStartAgentSession.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *StartAgentSessionStartAgentSession) GetExpiresAt() *string { return v.ExpiresAt }
+
 // StartConnectionResponse is returned by StartConnection on success.
 type StartConnectionResponse struct {
 	// Start the OAuth flow that connects a mailbox, calendar or Drive to an org
@@ -132022,6 +132170,14 @@ func (v *__AgentServedBootPromptInput) GetAppRef() *string { return v.AppRef }
 // GetLlmModel returns __AgentServedBootPromptInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *__AgentServedBootPromptInput) GetLlmModel() *string { return v.LlmModel }
 
+// __AgentSessionAgentIDInput is used internally by genqlient
+type __AgentSessionAgentIDInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AgentSessionAgentIDInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentSessionAgentIDInput) GetRef() string { return v.Ref }
+
 // __AgentSubscriptionsPageInput is used internally by genqlient
 type __AgentSubscriptionsPageInput struct {
 	AgentRef string `json:"agentRef"`
@@ -137398,6 +137554,14 @@ type __EncryptMemoryInput struct {
 // GetMemoryRef returns __EncryptMemoryInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetMemoryRef() string { return v.MemoryRef }
 
+// __EndAgentSessionInput is used internally by genqlient
+type __EndAgentSessionInput struct {
+	SessionId string `json:"sessionId"`
+}
+
+// GetSessionId returns __EndAgentSessionInput.SessionId, and is useful for accessing the field via an interface.
+func (v *__EndAgentSessionInput) GetSessionId() string { return v.SessionId }
+
 // __EndTeamSessionInput is used internally by genqlient
 type __EndTeamSessionInput struct {
 	Id      string  `json:"id"`
@@ -141893,6 +142057,22 @@ func (v *__SpecUnresolvedReferencesPageInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __SpecUnresolvedReferencesPageInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SpecUnresolvedReferencesPageInput) GetOffset() int { return v.Offset }
+
+// __StartAgentSessionInput is used internally by genqlient
+type __StartAgentSessionInput struct {
+	AgentId               string  `json:"agentId"`
+	ExternalUserId        *string `json:"externalUserId,omitempty"`
+	SessionTimeoutSeconds *int    `json:"sessionTimeoutSeconds,omitempty"`
+}
+
+// GetAgentId returns __StartAgentSessionInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__StartAgentSessionInput) GetAgentId() string { return v.AgentId }
+
+// GetExternalUserId returns __StartAgentSessionInput.ExternalUserId, and is useful for accessing the field via an interface.
+func (v *__StartAgentSessionInput) GetExternalUserId() *string { return v.ExternalUserId }
+
+// GetSessionTimeoutSeconds returns __StartAgentSessionInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__StartAgentSessionInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
 
 // __StartConnectionInput is used internally by genqlient
 type __StartConnectionInput struct {
@@ -146827,6 +147007,43 @@ func AgentServedBootPrompt(
 	}
 
 	data_ = &AgentServedBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentSessionAgentID.
+const AgentSessionAgentID_Operation = `
+query AgentSessionAgentID ($ref: ID!) {
+	agent(ref: $ref) {
+		id
+	}
+}
+`
+
+// startAgentSession looks its agentId up by ID only (a URN is answered as
+// "App is not allowed to operate this agent"), so `agent session start`
+// resolves a URN to the ID with this read first.
+func AgentSessionAgentID(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AgentSessionAgentIDResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentSessionAgentID",
+		Query:  AgentSessionAgentID_Operation,
+		Variables: &__AgentSessionAgentIDInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AgentSessionAgentIDResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -167065,6 +167282,38 @@ func EncryptMemory(
 	return data_, err_
 }
 
+// The mutation executed by EndAgentSession.
+const EndAgentSession_Operation = `
+mutation EndAgentSession ($sessionId: ID!) {
+	endAgentSession(sessionId: $sessionId)
+}
+`
+
+func EndAgentSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sessionId string,
+) (data_ *EndAgentSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndAgentSession",
+		Query:  EndAgentSession_Operation,
+		Variables: &__EndAgentSessionInput{
+			SessionId: sessionId,
+		},
+	}
+
+	data_ = &EndAgentSessionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by EndTeamSession.
 const EndTeamSession_Operation = `
 mutation EndTeamSession ($id: ID!, $summary: String, $handoff: String) {
@@ -186016,6 +186265,53 @@ func SpecUnresolvedReferencesPage(
 	}
 
 	data_ = &SpecUnresolvedReferencesPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by StartAgentSession.
+const StartAgentSession_Operation = `
+mutation StartAgentSession ($agentId: ID!, $externalUserId: String, $sessionTimeoutSeconds: Int) {
+	startAgentSession(agentId: $agentId, externalUserId: $externalUserId, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
+		id
+		agentId
+		appId
+		memoryId
+		userId
+		type
+		state
+		isLive
+		startedAt
+		expiresAt
+	}
+}
+`
+
+func StartAgentSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+	externalUserId *string,
+	sessionTimeoutSeconds *int,
+) (data_ *StartAgentSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "StartAgentSession",
+		Query:  StartAgentSession_Operation,
+		Variables: &__StartAgentSessionInput{
+			AgentId:               agentId,
+			ExternalUserId:        externalUserId,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+		},
+	}
+
+	data_ = &StartAgentSessionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
