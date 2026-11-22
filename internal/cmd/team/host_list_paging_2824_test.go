@@ -15,12 +15,26 @@ package team
 //   - --limit passes through as given: over 200 is served by the server as
 //     200, never refused in the client.
 //   --json is the unchanged array in the default drain; the {items,total,
-// hasMore,offset,limit} envelope exists only in single-page mode.
+// hasMore,offset,limit,served,nextOffset} envelope exists only in
+// single-page mode.
 //
 // Fold pins (blind F1/F2, local F1): a null row is skipped in the drain, not
 // a panic; a server without hostRegistrationsPage is read whole through
 // hostRegistrations by default (the flags are refused by name); drift
 // mid-drain refuses with no partial table.
+//
+// hadron-cli#2971 (follow-ups of #2939's review), the `_2971` tests:
+//
+//   - A carried --server is quoted as one shell word: a URL with a query is
+//     pinned as text and read back through a real sh.
+//   - A skipped null row is NAMED in the page line (or the empty-page line),
+//     so the rows shown and the --offset the continue line advances by no
+//     longer disagree unexplained (cor:api:120:04); --json says the same with
+//     served and nextOffset, nextOffset present as null when there is none.
+//   - The help states what the continue line carries and where it is right.
+//   - Pins the review found missing on behavior that already held: the
+//     minimal continue line (nothing given but --offset) and a last page
+//     that prints no continue line.
 
 import (
 	"encoding/json"
@@ -28,7 +42,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -52,7 +68,6 @@ type hostListCall struct {
 // to it (#2824).
 func hostListPageFake(t *testing.T, bodies map[string][]string) (string, func() []hostListCall) {
 	t.Helper()
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HADRON_TOKEN", "synthetic")
 	var mu sync.Mutex
 	calls := []hostListCall{}
@@ -98,13 +113,26 @@ func hostListRunBoth(t *testing.T, server string, args ...string) (string, strin
 // serverFlag false reaches the fake through HADRON_SERVER instead (cli#2939).
 func hostListRunFlags(t *testing.T, server, appFlag string, serverFlag bool, args ...string) (string, string, error) {
 	t.Helper()
-	if os.Getenv("XDG_CONFIG_HOME") == "" {
-		t.Fatal("XDG_CONFIG_HOME must be a temp dir here (hostListPageFake sets it): the helper writes a config file under it")
+	if serverFlag {
+		return hostListRunGiven(t, server, appFlag, args...)
 	}
+	t.Setenv("HADRON_SERVER", server)
+	return hostListRunGiven(t, "", appFlag, args...)
+}
+
+// hostListRunGiven runs `team host list` with --server and --app carrying exactly the values given
+// ("" = the flag was not passed). The --server value need not be the fake's own URL as long as the
+// fake still answers: cli#2971 quotes a URL that carries a query.
+func hostListRunGiven(t *testing.T, serverFlag, appFlag string, args ...string) (string, string, error) {
+	t.Helper()
+	// The run's config home is this helper's own temp dir, set here rather than trusted to the
+	// caller having built a fake first (cli#2971): the helper writes a config file under it below,
+	// so it must never be the developer's own configuration directory.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	if appFlag == "" {
 		// No --app: the App comes from the configured context (a config file in the temp
-		// XDG_CONFIG_HOME the fake set), so the run does not depend on a worktree binding or
-		// the developer's own config.
+		// XDG_CONFIG_HOME set above), so the run does not depend on a worktree binding or the
+		// developer's own config.
 		dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
@@ -114,11 +142,7 @@ func hostListRunFlags(t *testing.T, server, appFlag string, serverFlag bool, arg
 		}
 	}
 	f := cmdutil.NewFactory()
-	if serverFlag {
-		f.ServerFlag = server
-	} else {
-		t.Setenv("HADRON_SERVER", server)
-	}
+	f.ServerFlag = serverFlag
 	f.AppFlag = appFlag
 	io, out, errOut := output.Test()
 	f.IOStreams = io
@@ -711,4 +735,211 @@ func TestHostListSinglePageSkipsANullRowAndContinuesPastIt_2939(t *testing.T) {
 	if strings.Contains(out, "--offset 2") {
 		t.Fatalf("the hint must advance past the null's slot (3 served), not by the 2 rendered:\n%s", out)
 	}
+}
+
+// hostListHintCommand returns the continue hint's command text (past "continue: "), the line a
+// user copies into their shell (cli#2971).
+func hostListHintCommand(t *testing.T, out string) string {
+	t.Helper()
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "continue: ") {
+			return strings.TrimPrefix(l, "continue: ")
+		}
+	}
+	t.Fatalf("no continue hint in output:\n%s", out)
+	return ""
+}
+
+// hostListShellWords is the argv a real sh splits a command line into, one NUL-ended word each:
+// the hint is read back through the shell a user would paste it into, not just compared as text.
+// HOME is set so an unquoted $HOME would expand, never stand as itself.
+func hostListShellWords(t *testing.T, line string) []string {
+	t.Helper()
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no POSIX sh to split the continue hint")
+	}
+	cmd := exec.Command(sh, "-c", `printf '%s\0' `+line)
+	cmd.Env = []string{"HOME=/expanded-home", "PATH=/nonexistent"}
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("sh could not split the hint %q: %v", line, err)
+	}
+	return strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+}
+
+// The carried --server is quoted as one shell word (cli#2971 item 1): a URL with a query is the
+// realistic quoted case — pasted unquoted, the shell cuts it at the & and runs the rest as a new
+// command. Pinned as text and read back through a real sh, so dropping cmdutil.ShellQuote fails
+// here rather than in a user's terminal. The carried --app is a canonical hrn:app: ref (nothing
+// to quote) and gets no pin of its own.
+func TestHostListCarriedServerIsOneShellWord_2971(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca1"), hostListHost("orca2")}, 9, true)},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	// The query rides on the --server value itself: the client still reaches the fake (every path
+	// answers), and the hint must carry the URL whole.
+	queryServer := server + "/?a=b&c=d"
+	out, _, err := hostListRunGiven(t, queryServer, "hrn:app:acme.com:ops", "--limit", "2")
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	// As text: the & forces single quotes, cmdutil.ShellQuote's shape for a metacharacter-bearing
+	// word.
+	if want := "--server '" + queryServer + "'"; !strings.Contains(out, want) {
+		t.Fatalf("the hint must carry the --server quoted as one word (%q):\n%s", want, out)
+	}
+	// Through sh: the whole hint parses back to the argv that re-runs this read.
+	got := hostListShellWords(t, hostListHintCommand(t, out))
+	want := []string{"hadron", "team", "host", "list", "--server", queryServer,
+		"--app", "hrn:app:acme.com:ops", "--limit", "2", "--offset", "2"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("sh must read the hint back as %+v, got %+v", want, got)
+	}
+}
+
+// A skipped null row is NAMED in the page line (cli#2971 item 2, cor:api:120:04): the rows shown
+// (2) and the offset the continue hint advances by (3) disagree exactly when a null is skipped,
+// so the page line accounts for the row instead of leaving the gap unexplained.
+func TestHostListSkippedNullIsNamedInThePageLine_2971(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca1"), "null", hostListHost("orca3")}, 8, true)},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	out, _, err := hostListRunBoth(t, server, "--limit", "3")
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "page: 2 of 8 from offset 0 (1 null row skipped)") {
+		t.Fatalf("the page line must name the skipped null row:\n%s", out)
+	}
+	if !strings.Contains(out, "--limit 3 --offset 3") {
+		t.Fatalf("the hint still advances past the null's slot:\n%s", out)
+	}
+}
+
+// An all-null page names its skipped rows in the empty-page line too (cli#2971 item 2): the same
+// disagreement exists there — the server served rows the line does not show.
+func TestHostListAllNullPageNamesTheSkippedRows_2971(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageBody([]string{"null", "null"}, 6, true)},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	out, _, err := hostListRunBoth(t, server, "--limit", "2")
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "no hosts on this page (total 6, 2 null rows skipped)") {
+		t.Fatalf("the empty-page line must name the skipped null rows:\n%s", out)
+	}
+}
+
+// The single-page --json envelope states the same account (cli#2971 item 2, cor:api:120:04):
+// served counts the rows the server returned, nulls included, and nextOffset is the continue
+// point — present as null when no further page follows (a last page, or a count-only page with
+// nothing served to continue from).
+func TestHostListPageJSONServedAndNextOffset_2971(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		items    []string
+		total    int
+		hasMore  bool
+		args     []string
+		rendered int
+		served   string
+		next     string
+	}{
+		{"a null row is served and counted", []string{hostListHost("orca1"), "null", hostListHost("orca3")}, 8, true,
+			[]string{"--limit", "3"}, 2, "3", "3"},
+		{"the last page has no next offset", []string{hostListHost("orca9")}, 9, false,
+			[]string{"--limit", "3"}, 1, "1", "null"},
+		{"a count-only page has none either", nil, 5, true,
+			[]string{"--limit", "0"}, 0, "0", "null"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server, _ := hostListPageFake(t, map[string][]string{
+				"HostRegistrationsPage": {hostPageBody(tc.items, tc.total, tc.hasMore)},
+			})
+			out, err := hostListRun(t, server, append(tc.args, "--json")...)
+			if err != nil {
+				t.Fatalf("execute: %v\n%s", err, out)
+			}
+			var env map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out), &env); err != nil {
+				t.Fatalf("single-page --json must be the envelope, got %s", out)
+			}
+			if string(env["served"]) != tc.served {
+				t.Fatalf("served must be %s (rows the server returned, nulls included), got %s", tc.served, env["served"])
+			}
+			// nextOffset is PRESENT as null when there is none, never dropped from the envelope.
+			next, ok := env["nextOffset"]
+			if !ok {
+				t.Fatalf("nextOffset must be present in the envelope, got %s", out)
+			}
+			if string(next) != tc.next {
+				t.Fatalf("nextOffset must be %s, got %s", tc.next, next)
+			}
+			var items []json.RawMessage
+			if err := json.Unmarshal(env["items"], &items); err != nil {
+				t.Fatalf("items must be an array, got %s", out)
+			}
+			if len(items) != tc.rendered {
+				t.Fatalf("items must hold the %d rendered rows, got %d", tc.rendered, len(items))
+			}
+		})
+	}
+}
+
+// The help states what the continue line carries and where it is right (cli#2971 item 3,
+// cor:agt:070:01): only --server and --app of the run's context are carried, and an App resolved
+// from the worktree binding makes the hint right only from that directory.
+func TestHostListHelpStatesWhatTheHintCarries_2971(t *testing.T) {
+	cmd := newCmdTeamHostLs(cmdutil.NewFactory())
+	// Whitespace-normalized so the pins do not depend on where the help wraps.
+	help := strings.Join(strings.Fields(cmd.Long), " ")
+	for _, want := range []string{
+		"only --server and --app are carried",
+		"an App resolved from the worktree binding makes the hint right only from that directory",
+		// The envelope the help names is the one with the continue point in it.
+		"{items,total,hasMore,offset,limit,served,nextOffset}",
+	} {
+		if !strings.Contains(help, want) {
+			t.Fatalf("the help must state %q:\n%s", want, cmd.Long)
+		}
+	}
+}
+
+// Pins the review found missing on behavior that already held (cli#2971 item 4): the minimal
+// continue line — nothing given but --offset, so the hint carries no flag value at all — and a
+// last page (hasMore false) that prints no continue line.
+func TestHostListMinimalHintAndHintlessLastPage_2971(t *testing.T) {
+	t.Run("nothing given but offset", func(t *testing.T) {
+		server, _ := hostListPageFake(t, map[string][]string{
+			"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca1"), hostListHost("orca2")}, 9, true)},
+			"TeamAppIdentity":       {hostListLabelBody},
+		})
+		// No --server flag (HADRON_SERVER carries the fake), no --app (the configured
+		// context), no --limit: the hint names nothing but the advanced --offset.
+		out, _, err := hostListRunFlags(t, server, "", false, "--offset", "0")
+		if err != nil {
+			t.Fatalf("execute: %v\n%s", err, out)
+		}
+		if got := hostListHintCommand(t, out); got != "hadron team host list --offset 2" {
+			t.Fatalf("the minimal hint must carry only the advanced offset, got %q:\n%s", got, out)
+		}
+	})
+	t.Run("last page prints no hint", func(t *testing.T) {
+		server, _ := hostListPageFake(t, map[string][]string{
+			"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca9")}, 9, false)},
+			"TeamAppIdentity":       {hostListLabelBody},
+		})
+		out, _, err := hostListRunBoth(t, server, "--limit", "3")
+		if err != nil {
+			t.Fatalf("execute: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, "page: 1 of 9 from offset 0") || strings.Contains(out, "continue:") {
+			t.Fatalf("a last page keeps its page line and prints no continue hint:\n%s", out)
+		}
+	})
 }
