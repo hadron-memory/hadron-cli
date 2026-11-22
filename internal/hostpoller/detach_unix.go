@@ -614,7 +614,23 @@ func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail st
 		}
 		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
 	}
-	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+	// cli#2853: the ladder's own waits scan for the short package deadline, which a saturated host
+	// can outlast (a clean pass is rare under churn). One last scan with the stop's longer deadline
+	// before the stop is reported unconfirmed: it still needs ONE clean pass to say the group is
+	// gone, and past its deadline the answer is the same unconfirmed, with the code.
+	if a.drainedWithin(groupStopScanDeadline) {
+		if a.stopAuthorityGone() {
+			return false, a.unconfirmedDetail()
+		}
+		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
+	}
+	detail = fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL, nor in a final scan of up to %s", pid, postKillWait, groupStopScanDeadline)
+	if why := a.lastMembersWhy(); why != "" {
+		// cli#2853: say why the group could not be proven empty, a code and never /proc text
+		// (unseen-pid is churn, live-member is a member that still runs).
+		detail += fmt.Sprintf(" (last membership scan: %s)", why)
+	}
+	return false, detail
 }
 
 // errAuthorityLost: the launch's ownership of its group number ended while the
@@ -670,6 +686,16 @@ func (a *execAgent) unconfirmedDetail() string {
 func (a *execAgent) drained() bool {
 	if a.holdsZombie() && (a.exited.Load() || leaderZombieAlone(a.pid)) {
 		return !a.hasMembers()
+	}
+	return groupGone(a.pid)
+}
+
+// drainedWithin is drained with the scan's deadline given (cli#2853): the stop's last scan, over the
+// same hold and membership rule as drained, only longer.
+func (a *execAgent) drainedWithin(d time.Duration) bool {
+	if a.holdsZombie() && (a.exited.Load() || leaderZombieAlone(a.pid)) {
+		m, _ := a.membersWithin(d)
+		return !m
 	}
 	return groupGone(a.pid)
 }

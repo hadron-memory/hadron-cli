@@ -52,7 +52,7 @@ func TestSlice2PagesSayWhatRound1FoundMissing1053(t *testing.T) {
 		// what a grant is comes before the page's own details
 		{[]string{"app", "memory-grant", "list"}, []string{`"hadron app memory-grant add"`, "REGISTER"}},
 		// what properties hold, with a minimal object
-		{[]string{"app", "properties", "set"}, []string{`{"team": {"note": "hello"}}`, "taskIntegrations"}},
+		{[]string{"app", "properties", "set"}, []string{`{"team": {"note": "hello"}}`, "no key of it and keeps every key as written"}},
 	} {
 		help := flatHelp1053S2(t, tc.page...)
 		for _, w := range tc.want {

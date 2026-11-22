@@ -35,7 +35,7 @@ func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 App, owned end-to-end by the server (placement, ordering, authorship,
 mentions). With a worktree WORKER SESSION binding (` + "`session start`" + `),
 posts are authored by the bound worker and carry the driving worker session;
-without one, a post is REFUSED (exit 4, cor:agt:020:03) unless you pass
+without one, a post is REFUSED (exit 4) unless you pass
 --as-me, which posts as you. (A chat session — your Desktop window
 or Claude Code session — is a different thing and authors nothing.)
 
@@ -43,7 +43,7 @@ The team App resolves from --app (or the configured App context), falling
 back to the worktree binding. Mention teammates as @worker-name /
 @handle — a multiword name by its slug (@mary-jane).
 
-WHICH CHAT (#470). That resolution is ambient, so ` + "`read`" + ` opens with the
+WHICH CHAT. That resolution is ambient, so ` + "`read`" + ` opens with the
 App it landed on and where the scope came from — including when there is
 nothing new, which is the usual case and was previously indistinguishable
 from reading another team. ` + "`post`" + ` names the team chat in its receipt, and warns
@@ -233,17 +233,16 @@ func newCmdTeamChatPostWithHostDelivery(f *cmdutil.Factory, prepare postHostDeli
 		Use:   "post <body|-> [--reply-to <seq>]",
 		Short: "Post to the team chat",
 		Long: `Post one message to the team App's chat. With a worktree worker session
-binding,
-the message is authored by the bound WORKER through that session (the
+binding, the message is authored by the bound WORKER through that session (the
 server verifies the session is yours, active, and bound to a non-retired
 worker of this App, and records it — a worker message always traces to the
 human driving it). With --as-me it is authored by you.
 
-WITHOUT A BINDING THE POST IS REFUSED (cor:agt:020:03, hadron-cli#842),
-exit 4, and nothing is sent: it would otherwise be attributed to the person
-driving the agent. Recover your worker with ` + "`hadron team session start`" + `
-(no worker named: it redeems your resume claim, or your one live worker
-session), bind one with ` + "`--as <worker>`" + `, or post as yourself with --as-me.
+WITHOUT A BINDING THE POST IS REFUSED, exit 4, and nothing is sent: it would
+otherwise be attributed to the person driving the agent. Recover your worker
+with ` + "`hadron team session start`" + ` (no worker named: it redeems your
+resume claim, or your one live worker session), bind one with
+` + "`--as <worker>`" + `, or post as yourself with --as-me.
 
 Mentions (@worker-name / @handle; a multiword name by its slug, e.g.
 @mary-jane) are extracted server-side into the message. The body is the
@@ -538,7 +537,7 @@ cannot be combined with --before or --limit; those name a single page.
 prevBefore is NULL when the page came back EMPTY, and that is the ONLY
 end-of-history signal — walk back until you get one. Do not try to compute
 "is there more" from a count: the server's total is scoped to the cursor,
-not to the chat (hadron-server#1121), so on the second page back it reports
+not to the chat, so on the second page back it reports
 fewer messages than exist and a reader trusting it stops early.
 
 A --before read never advances the watermark below: it skips a middle range.
@@ -554,11 +553,11 @@ filter matches the mentions the SERVER extracted at write time — nothing
 is re-parsed — and with a filter active, nextSince advances only past the
 messages returned (skipped messages are re-scanned server-side next turn,
 which is free and never re-delivers them). Mention tokens carry no
-uniqueness guarantee (hadron-server#979): a token may match more than one
+uniqueness guarantee: a token may match more than one
 worker, and the filter simply returns every match.
 
 An UNFILTERED read of the worktree's OWN team App can record a WATERMARK on
-the binding (#474), which lets ` + "`session log`" + ` count later messages.
+the binding, which lets ` + "`session log`" + ` count later messages.
 It records only a contiguous prefix the command actually returned.
 Both qualifiers matter — a filtered read skips the messages in between (see
 nextSince above), and another team's seq is not this binding's cursor — so
@@ -570,7 +569,7 @@ seq the server actually returned — so a --since ahead of the watermark (or
 past the end of the chat) reads a window rather than a prefix and records
 nothing. An explicit --since 0 on an EMPTY chat still records read-through-0.
 
-FRESHNESS (#801). Before reading, a separate unfiltered request samples the
+FRESHNESS. Before reading, a separate unfiltered request samples the
 latest surviving message; optional metadata samples the allocator watermark. Empty/short
 forward pages and newest pages are checked against that baseline. A discrepancy
 is suspected incomplete/stale delivery (exit 5): returned messages remain visible, but nothing
@@ -584,7 +583,7 @@ unavailable or inapplicable, not zero. Optional metadata/cursor failures do not
 deny chat. An old-schema beforeSeq refusal explicitly disables comparison;
 other head-probe failures fail the read. Shared stale sources can still agree.
 
-SESSION ATTRIBUTION (#817). On this binding's App and deployment, head and
+SESSION ATTRIBUTION. On this binding's App and deployment, head and
 message reads carry the worker session with advanceReadState:false. The server
 attributes activity and maintains liveness but does not acknowledge messages
 before delivery. Metadata diagnostics remain headerless. An older server's
@@ -593,7 +592,7 @@ other failures are not retried. Rebinding stops use of the old session on
 subsequent requests. Explicit post-delivery acknowledgement still follows the
 rules below.
 
-YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
+YOUR OWN READ STATE ON THE SERVER. When the binding
 records this server, a read that records the watermark above also marks the bound worker's
 messages read ON THE SERVER, through the same seq, so your unread state on
 the server matches what you have read. It happens only AFTER the messages were
@@ -602,7 +601,7 @@ printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
 for those. An older server that cannot mark messages read skips the mark; other
 mark failures produce a note on stderr and the read still succeeds.
 
-READING A THREAD (--thread, cli#1262). --thread <seq> returns the DIRECT replies
+READING A THREAD (--thread). --thread <seq> returns the DIRECT replies
 to that message — never the message itself, and never replies to those replies
 (a reply's own thread is --thread <its seq>; find the seq in the "↩N"/replyToSeq
 of a message). The server filters, so --since, --before, --limit and --all page
@@ -612,7 +611,7 @@ replies is a valid empty page. A thread read is a filtered window: like
 --mentions it never advances your watermark or server read state (use
 ` + "`team chat mark-read`" + `), and it skips the freshness comparison.
 
-WAITING (--wait, cli#1261). Team chat is never pushed to you (cor:agt:020:04),
+WAITING (--wait). Team chat is never pushed to you,
 so there is no event to block on: --wait <duration> POLLS. With --since <seq>
 (the nextSince of your last read) it runs this same read every --poll-interval
 (default 5s, at least 2s, so it is never a busy loop) until a poll returns a
@@ -627,7 +626,7 @@ error. --wait needs --since and cannot be combined with --before or --all.
 
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
-dialect, which calls the field ` + "`author`" + ` (#406). Prefer authorName. Unlike
+dialect, which calls the field ` + "`author`" + `. Prefer authorName. Unlike
 that dialect this output also separates authorUserId from authorWorkerId, so
 a human post and a worker post are tellable apart; the transcript marks
 them "(human)" / "(worker)".`,
@@ -635,7 +634,7 @@ them "(human)" / "(worker)".`,
   hadron team chat read --since 42
   hadron team chat read --all --since 0
   hadron team chat read --mentions-me --json
-  hadron team chat read --thread 42 --since 0   # the direct replies to message #42
+  hadron team chat read --thread 42 --since 0   # the direct replies to message 42
   hadron team chat read --since 42 --mentions-me --wait 2m   # poll for up to 2 minutes; exit 13 on timeout`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

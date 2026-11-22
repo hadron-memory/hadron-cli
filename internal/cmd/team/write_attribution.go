@@ -207,9 +207,6 @@ func authoredWriteField(field string) bool {
 		// cli#2189: a qa-engineer or coordinator worker links through its session.
 		"linkDefectToPullRequest",
 		"recordReviewVerdict", "recordReadyCall",
-		// #1524 C3: --assign-to-me claims as the bound worker (the claim's
-		// tasks are owned by and assigned to the actor), the person otherwise.
-		"claimUntrackedTaskItems",
 		// setModelFamilyAvailability is deliberately absent for no-flag calls
 		// (#868), like setAgentTaskStallSchedule (#866). Explicit availability
 		// instructions attach their verified session in the command (#2450),

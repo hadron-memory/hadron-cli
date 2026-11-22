@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // cli#2042: on a busy host a process born and dead between a listing and its
@@ -124,28 +125,28 @@ func TestALongRunOfVoidPassesStillSettlesOnTheFirstCleanPass2042(t *testing.T) {
 	f := churnHost(3)
 	f.install(t)
 	withFreshVanisher(f, voidPasses)
+	withScanClock(t, time.Millisecond, time.Second) // cli#2853: a modelled clock, 20ms of 1s
 	if groupHasOtherMembers(churnPgid, churnPgid) {
 		t.Fatalf("answered members after %d listings; a clean pass exists at %d", f.lists, voidPasses+1)
 	}
 	if f.lists != voidPasses+1 {
 		t.Fatalf("must settle on the first clean pass: %d listings, want %d", f.lists, voidPasses+1)
 	}
-	if maxGroupScanPasses <= voidPasses {
-		t.Fatalf("the bound (%d) must exceed a realistic run of void passes (%d)", maxGroupScanPasses, voidPasses)
-	}
 }
 
-// A /proc that never holds still still ends at the bound with "members", the
-// conservative direction, after using every pass.
+// A /proc that never holds still still ends at the deadline with "members", the
+// conservative direction, after retrying until the modelled clock passes it (cli#2853:
+// the bound is time, not a pass count).
 func TestEndlessChurnStillEndsAtTheBoundAsMembers2042(t *testing.T) {
 	f := churnHost(3)
 	f.install(t)
 	withFreshVanisher(f, 1<<30)
+	elapsed := withScanClock(t, 10*time.Millisecond, time.Second)
 	if !groupHasOtherMembers(churnPgid, churnPgid) {
 		t.Fatal("a /proc that never holds still proves nothing: the scan must answer members")
 	}
-	if f.lists != maxGroupScanPasses {
-		t.Fatalf("it must use every pass before giving up, used %d of %d", f.lists, maxGroupScanPasses)
+	if elapsed() < time.Second {
+		t.Fatalf("it must retry until the deadline before giving up: %s of %s", elapsed(), time.Second)
 	}
 }
 
@@ -192,11 +193,12 @@ func TestNothingSeenInAnEarlierPassIsTrustedWhenAPidVanishes2042(t *testing.T) {
 		return ((pid-200)-3*pass%40+40)%40 < 3
 	}
 	f.install(t)
+	withScanClock(t, 10*time.Millisecond, time.Second)
 	if !groupHasOtherMembers(churnPgid, churnPgid) {
 		t.Fatal("every pass has a vanished pid: no pass is clean, so the scan must answer members")
 	}
-	if f.lists != maxGroupScanPasses {
-		t.Fatalf("every pass must be void, used %d of %d", f.lists, maxGroupScanPasses)
+	if f.lists < 2 {
+		t.Fatalf("every pass is void, so the scan retries until the deadline: %d listings", f.lists)
 	}
 }
 
@@ -267,6 +269,7 @@ func TestMembershipReportsTheReasonCodeOfTheDecidingPass2142(t *testing.T) {
 	f = churnHost(2)
 	f.install(t)
 	withFreshVanisher(f, 1<<30)
+	withScanClock(t, 10*time.Millisecond, 500*time.Millisecond) // cli#2853: a modelled deadline
 	if m, w := groupMembership(churnPgid, churnPgid); !m || w != whyUnseenPid {
 		t.Errorf("unseen pid: %v %q", m, w)
 	}
@@ -285,6 +288,7 @@ func TestMembershipReportsTheReasonCodeOfTheDecidingPass2142(t *testing.T) {
 		es = append(es, churnEntry{strconv.Itoa(600 + f.pass)})
 		return es, err
 	}
+	withScanClock(t, 10*time.Millisecond, 500*time.Millisecond) // 50 passes: inside the pids the model lists
 	if m, w := groupMembership(churnPgid, churnPgid); !m || w != whyLateFork {
 		t.Errorf("late fork: %v %q", m, w)
 	}
@@ -311,20 +315,23 @@ func TestAVanishedZombieMemberIsCodedAsAVanishedMember2142(t *testing.T) {
 	}
 }
 
-// cli#2744: when the host's unrelated churn outlasts the scan's bound, EVERY pass is void
+// cli#2744: when the host's unrelated churn outlasts the scan's deadline, EVERY pass is void
 // (why=unseen-pid) and the stop reports a drained group as "not exited within 2s of
-// SIGKILL": modelled here with a fresh vanisher on every pass, past maxGroupScanPasses.
-// The FIRST assertion pins the production scan's conservative answer under unbounded
-// churn as a KNOWN LIMITATION tracked as #2853, not as the desired behavior: it is here
-// so that a future fix of #2853 changes this line on purpose. The held-exit tests give
-// their launch a group-only lister (groupOnlyProc2744) so that churn from OTHER groups
-// never reaches their scan; the second half pins that the lister settles.
+// SIGKILL": modelled here with a fresh vanisher on every pass, until the deadline (cli#2853
+// replaced the old pass-count bound with a wall-clock deadline, so a host whose passes are
+// fast gets many more chances at a clean pass).
+// The FIRST assertion pins that a /proc that NEVER holds still, a vanisher on every pass
+// forever, still answers members with the void pass's code: no clean pass exists, and the
+// deadline is not evidence. The held-exit tests give their launch a group-only lister
+// (groupOnlyProc2744) so that churn from OTHER groups never reaches their scan; the second
+// half pins that the lister settles.
 func TestUnrelatedChurnPastTheBoundVoidsTheScanAndAGroupOnlyListerKeepsItOut2744(t *testing.T) {
 	f := churnHost(3)
 	f.install(t)
 	withFreshVanisher(f, 1<<30) // a new short-lived process on every listing, forever
+	withScanClock(t, 10*time.Millisecond, time.Second)
 	if members, why := groupMembership(churnPgid, churnPgid); !members || why != whyUnseenPid {
-		t.Fatalf("the safe answer under unbounded churn is members/unseen-pid (known limitation, #2853): %v %s", members, why)
+		t.Fatalf("the safe answer under endless churn is members/unseen-pid: %v %s", members, why)
 	}
 	var pg atomic.Int64
 	pg.Store(churnPgid)
@@ -336,7 +343,7 @@ func TestUnrelatedChurnPastTheBoundVoidsTheScanAndAGroupOnlyListerKeepsItOut2744
 	// Two listings settle it: the Z member is first seen on pass 0 (void: first sighting),
 	// and the second pass sees it again.
 	if f.lists != 2 {
-		t.Errorf("settles in exactly two listings, not by exhausting the bound (%d): %d", maxGroupScanPasses, f.lists)
+		t.Errorf("settles in exactly two listings, not by running to the deadline: %d", f.lists)
 	}
 }
 
