@@ -882,7 +882,7 @@ func TestTeamRosterRendersServerStates(t *testing.T) {
 func TestTeamRosterHelpCitesProposedStates2331(t *testing.T) {
 	help := strings.Join(strings.Fields(cmdHelpOut(t, "team", "roster")), " ")
 	for _, want := range []string{
-		"AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE",
+		"These states are proposed and may change", "AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE",
 		"the server's roster order",
 	} {
 		if !strings.Contains(help, want) {

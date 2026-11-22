@@ -43,8 +43,10 @@ func newCmdTeamAvailability(f *cmdutil.Factory) *cobra.Command {
 ` + "`get`" + ` shows every worker's and family's record; ` + "`set`" + ` writes one.
 
 Setting a WORKER's availability is the worker itself (only ever to
-unavailable), the person holding its name, or whoever manages the App. Setting a FAMILY's is whoever manages the App.
-A reason is required when unavailable and refused when available; --until (RFC 3339, future) is an unavailable-only bound — a
+unavailable), the person holding its name, or whoever manages the App.
+Setting a FAMILY's is whoever manages the App. A reason is required when
+unavailable and refused when available;
+--until (RFC 3339, future) is an unavailable-only bound — a
 passed until reads as available at once. Then, for a WORKER record, within
 a minute the server records the lapse: the record becomes available, set by
 LAPSE (setBy in --json), which ` + "`get`" + ` shows as "AVAILABLE (lapsed
