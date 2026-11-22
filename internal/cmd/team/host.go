@@ -372,8 +372,9 @@ the App holds no more. --limit or --offset asks for ONE page instead: --limit
 N rows starting --offset M rows in. Both count from 0; the server caps a page
 at 200 and serves a larger ask as 200 rather than refusing; --limit 0 asks
 for the count alone. A one-page output always says it is one page —
-"page: <rows> of <total> from offset <o>" — and names the --offset that
-continues the list while more rows exist; an empty page names the total
+"page: <rows> of <total> from offset <o>" — and, while more rows exist, prints
+the command that continues the list: the --server, --app and --limit you gave
+carried over, the --offset advanced by the rows the server served; an empty page names the total
 rather than reading as "no hosts". In single-page mode --json is an envelope
 {items,total,hasMore,offset,limit}; the default keeps the bare array. A
 server without the paged field is read whole in one call instead; the flags
@@ -420,7 +421,12 @@ need the paged field and are refused without it.`,
 					return exitcode.Newf(exitcode.Error, "server returned no host registrations page")
 				}
 				page := hostRegistrationPageDTO{Items: []hostRegistrationDTO{}, Total: resp.HostRegistrationsPage.Total, HasMore: resp.HostRegistrationsPage.HasMore, Offset: offset, Limit: lim}
+				// served is how many rows the server returned, null items included: the continue hint
+				// advances by it, so a skipped null's slot is not read again.
+				served := len(resp.HostRegistrationsPage.Items)
 				for _, r := range resp.HostRegistrationsPage.Items {
+					// A null item is a server contract fault, not an entry to act on: it is skipped
+					// silently (a recorded choice, cli#2939) rather than panicking the read.
 					if r == nil {
 						continue
 					}
@@ -430,13 +436,42 @@ need the paged field and are refused without it.`,
 					if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 						return err
 					}
+					// continueHint is the command that continues the list, carrying what the caller gave and
+					// nothing else: --server and --app only when they were passed (otherwise the
+					// context's), --limit only when --limit was passed (its value as given: the server
+					// caps a page at 200 whatever is asked, so it widens nothing), and --offset advanced
+					// by the rows the server SERVED, null items included. "" when nothing was served
+					// (a count-only --limit 0 page): there is nothing to continue from.
+					continueHint := func() string {
+						if !page.HasMore || served == 0 {
+							return ""
+						}
+						hint := "continue: hadron team host list"
+						if f.ServerFlag != "" {
+							hint += " --server " + cmdutil.ShellQuote(output.SafeCell(f.ServerFlag))
+						}
+						if f.AppFlag != "" {
+							hint += " --app " + cmdutil.ShellQuote(output.SafeCell(f.AppFlag))
+						}
+						if cmd.Flags().Changed("limit") {
+							hint += fmt.Sprintf(" --limit %d", limit)
+						}
+						return fmt.Sprintf("%s --offset %d", hint, offset+served)
+					}
 					if len(page.Items) == 0 {
 						// An empty page is not "no hosts": the App may hold rows
 						// beyond this offset (or --limit 0 asked for none). The
 						// total says which; a failed read never gets here — it
-						// exits non-zero above.
-						_, err := fmt.Fprintf(w, "no hosts on this page (total %d)\n", page.Total)
-						return err
+						// exits non-zero above. A page of only null items (served, none shown)
+						// still continues.
+						if _, err := fmt.Fprintf(w, "no hosts on this page (total %d)\n", page.Total); err != nil {
+							return err
+						}
+						if h := continueHint(); h != "" {
+							_, err := fmt.Fprintln(w, h)
+							return err
+						}
+						return nil
 					}
 					if err := writeHostTable(w, page.Items); err != nil {
 						return err
@@ -444,8 +479,8 @@ need the paged field and are refused without it.`,
 					if _, err := fmt.Fprintf(w, "page: %d of %d from offset %d\n", len(page.Items), page.Total, offset); err != nil {
 						return err
 					}
-					if page.HasMore {
-						_, err := fmt.Fprintf(w, "continue: hadron team host list --offset %d\n", offset+len(page.Items))
+					if h := continueHint(); h != "" {
+						_, err := fmt.Fprintln(w, h)
 						return err
 					}
 					return nil
