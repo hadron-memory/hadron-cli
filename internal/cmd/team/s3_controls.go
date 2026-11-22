@@ -33,7 +33,7 @@ not changed and belongs to this server before attaching its worker session.
 The server checks that its holder manages the target App, checks the
 instruction reference, and records the manager act. No refusal is retried
 as the person. Reads never carry a worker session. These controls require
-the S3 server (hadron-server#4242).
+a server from 2026-11-15 or later.
 
 ` + instructionHelp
 
@@ -164,7 +164,7 @@ server withholds all four working-state fields from a profile-only reader.
 	c.Flags().BoolVar(&on, "on", false, "mark the worker leave-alone")
 	c.Flags().BoolVar(&off, "off", false, "clear the leave-alone marker")
 	c.Flags().StringVar(&reason, "reason", "", "reason for marking leave-alone (only with --on; server checks the 500-character bound)")
-	c.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer("hadron-server#4242"))
+	c.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer("2026-11-15"))
 	return c
 }
 
@@ -249,7 +249,7 @@ set the mode.
 			})
 		},
 	}
-	c.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer("hadron-server#4242"))
+	c.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer("2026-11-15"))
 	group.AddCommand(c)
 	return group
 }

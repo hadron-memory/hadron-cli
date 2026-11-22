@@ -127,7 +127,7 @@ This clears the worker's boot-prompt pointer and replaces its generated
 tickers. Confirm on a TTY, or pass --yes non-interactively. It takes effect at
 the worker's next bind; an open session finishes under its old agent and role.
 The name, slug, URN, signature, trailer and reporting line stay unchanged.
-A server containing hadron-server#2504 is required to change an open worker.
+Changing an open worker needs a server from 2026-10-26 or later.
 Choosing the current agent is a refusal (WORKER_AGENT_UNCHANGED, exit 5).
 
 Who may change it: an App manager, as themselves. Without --instruction this

@@ -73,7 +73,7 @@ func newCmdWorkerOnboard(f *cmdutil.Factory) *cobra.Command {
 		Long: `Onboard an existing, held worker — Orca-hosted workers only.
 The default is a dry-run: it submits NOTHING and changes no host files.
 Pass --apply to issue worktree.create, wait for its verified outcome, then
-issue worker.start through the typed host-operation queue (cor:agt:070:05).
+issue worker.start through the typed host-operation queue.
 There are no direct Orca worktree-create or terminal-create calls.
 
 Operator prerequisites: a live host registration with this worker and family,
@@ -99,7 +99,7 @@ Starting a worker requires the App manager; --as-person uses your authority
 instead of the bound worker's. Server authority checks still apply.
 
 Only two host-local steps follow: roster entry and Orca display name.
-Routing is not verified: team router is retired (hadron-server#2027).
+Routing is not verified: team router is retired.
 Routing means whether the worker's mentions reach its terminal. Check it
 yourself: mention the worker in team chat and watch for its pickup, or watch
 the delivery events of 'team host run' on its host.

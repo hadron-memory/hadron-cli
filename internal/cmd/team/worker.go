@@ -29,8 +29,8 @@ func newCmdWorker(f *cmdutil.Factory) *cobra.Command {
 		Use:     "worker <command>",
 		Aliases: []string{"workers", "staff"},
 		Short:   "Manage the team's staff — named castings of installed agents",
-		Long: `A worker is the NAMED CASTING of an installed agent into this App
-(cor:dmo:050:11): "Iris" is the backend-engineer agent cast into the
+		Long: `A worker is the NAMED CASTING of an installed agent into this App:
+"Iris" is the backend-engineer agent cast into the
 eng-team App. The name is unique per App and binds to this one casting
 forever — retiring a worker keeps its name reserved (PR trailers and chat
 history reference it), so there is no rename, and ` + "`worker rm`" + ` only removes
@@ -42,7 +42,7 @@ can be cast many times — Iris and Henry can both be the backend-engineer.
 
 Commands take the worker's name (resolved within the App from --app, the
 App context, or the worktree binding), its URN, or its id. The URN
-(hrn:worker:<root>:<app-slug>:<slug>, #991) keys on a permanent DERIVED
+(hrn:worker:<root>:<app-slug>:<slug>) keys on a permanent DERIVED
 slug — never on the name, since two names may legally slugify to one token
 — and needs no App context, which makes it the portable way to name a
 worker in scripts.
@@ -153,7 +153,7 @@ Try it first: --dry-run (below) runs the same checks and creates nothing. After
 the cast, bind the worker to start driving it:
 ` + "`hadron team session start --as <name> --app <app> --tool <tool>`" + `.
 
-Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
+Cast a worker: ONE platform call (castWorker). The server
 resolves the agent — --agent names it directly and it must be installed
 in THIS App (WORKER_AGENT_NOT_INSTALLED, exit 2 and NOT 4: the ref
 resolves, it is the install that is missing, so the remedy is to pass an
@@ -162,8 +162,8 @@ role matches (zero candidates: WORKER_AGENT_NOT_FOUND, exit 4; several:
 WORKER_AGENT_AMBIGUOUS, exit 2 — never a guess) — takes the name, and
 provisions the worker's working memory.
 
---name IS REQUIRED (hadron-server#1050). A name is PERMANENT for this App
-— retirement and uninstall never free it (cor:agt:020:02) — so it is
+--name IS REQUIRED. A name is PERMANENT for this App
+— retirement and uninstall never free it — so it is
 chosen, never derived: the server will not invent a permanent identifier
 nobody picked. A cast without one refuses WORKER_NAME_REQUIRED. The claim
 is one attempt, and WORKER_NAME_TAKEN is the answer rather than a retry;
@@ -173,11 +173,11 @@ retired workers keep their names, so the default listing under-reports it.
 This used to allocate for you, walking the role's cast-list register past
 taken names. That register is gone, so a bare --role no longer casts.
 
---role is also no longer validated against defined roles (cor:agt:020:00
-§1 — cast lists are ergonomics, never a gate). An unrecognized role simply
+--role is also no longer validated against defined roles (cast lists are
+ergonomics, never a gate). An unrecognized role simply
 resolves no agent (WORKER_AGENT_NOT_FOUND).
 
---role and --agent cannot be combined (cor:dmo:050:11, R222): the role
+--role and --agent cannot be combined: the role
 follows the agent and is never typed in beside it, so the casting's role is
 the agent's persona role and a cast cannot override it. Pass --agent to name
 the agent, or --role to let the server pick the one agent that carries it —
@@ -185,7 +185,7 @@ never both. The CLI refuses the pair before any call (exit 2); a server that
 still sees both answers WORKER_ROLE_OVERRIDE_REFUSED (also exit 2), and its
 message names the agent's role.
 
-CASTING DOES NOT HOLD THE NAME (cor:agt:020:09). A name is held by whoever
+CASTING DOES NOT HOLD THE NAME. A name is held by whoever
 WORKS AS it — the person who binds it in ` + "`session start`" + ` — not by whoever
 created the row. So staffing a roster for other people to pick up is the
 ordinary flow and leaves every one of those names unheld, which is the
@@ -202,7 +202,7 @@ For per-worker boot customisation write boot:workers:<id>:source (role
 boot-prompt) in the App install memory, then compile and approve it with
 hadron team worker compile and hadron node approve.
 
-REPORTING CHOICE (cli#933). Choose deliberately: --reports-to <worker> names
+REPORTING CHOICE. Choose deliberately: --reports-to <worker> names
 the worker this one reports to (a worker name, URN or id), and --no-team
 records that it has no reporting head. Give one or the other, never both. A
 cast without a choice will be refused once enforcement is on; until then
@@ -217,11 +217,11 @@ means this caller may not see it.
 
 Server compatibility: every worker command (cast, get, list, update, release,
 retire, set-reports-to, set-boot-prompt) selects teamPlacement, even when
-neither flag is named, so they require a server containing hadron-server#2468.
+neither flag is named, so they require a server from 2026-10-26 or later.
 An older server rejects those documents as schema skew, exit 2: upgrade that
 provider first, including self-hosted or staging servers.
 
---dry-run (#404, castWorkerPreview) runs the cast's EXACT resolution —
+--dry-run (castWorkerPreview) runs the cast's EXACT resolution —
 same arguments, same typed refusals — up to but not
 including the writes, and shows what would be created: the name, the
 agent, the composed prompt. A refusal on the dry run IS the answer that
@@ -394,13 +394,13 @@ func newCmdWorkerList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list [--include-retired]",
 		Aliases: []string{"ls"},
 		Short:   "The team's staff — this App's workers",
-		Long: `List the App's workers (cor:agt:020:01: the staff are the Workers; the
+		Long: `List the App's workers (the staff are the Workers; the
 AppAgent join is the install roster, ` + "`hadron app agent list`" + `). The team
 App resolves from --app (or the configured App context), falling back to
 the worktree binding's team memory.
 
 That resolution is ambient, so the human output opens with the App it
-landed on AND where that came from (#458) — the same bare command in two
+landed on AND where that came from — the same bare command in two
 worktrees bound to different teams lists different staff, and without the
 scope line the two outputs look identical.
 
@@ -413,7 +413,7 @@ or quiet time never clears it.
 Retired workers are hidden unless --include-retired — their names stay
 bound to them forever, so the retired list is also the reserved-name list.
 
-HELD BY and LAST RECORDED ACTIVITY answer two DIFFERENT questions (cor:agt:020:09),
+HELD BY and LAST RECORDED ACTIVITY answer two DIFFERENT questions,
 and reading one as the other is the mistake this table exists to stop.
 
   HELD BY      whose name it is. A name is held by a PERSON, and only an
@@ -798,7 +798,7 @@ worktree's binding, in that order. An id or a worker URN
 (hrn:worker:<root>:<app-slug>:<slug>) needs no App.
 
 PROFILE READ: by id or worker URN any signed-in user can read a worker they do
-not participate in (cor:dmo:050:11). That read shows the name, role, App name
+not participate in. That read shows the name, role, App name
 and URN, owner, and active/retired, and says "working state: not visible to
 you": the prompt, session, holder, check, boot-pointer and reporting fields are
 masked, so none is printed as empty, free or never-checked. A name needs an
@@ -826,7 +826,7 @@ warnings. Run the command again to retry the advisory read. A quiet but open
 session still has a record, so its warnings show.
 --json always carries "signatureLint" and "promptLintWarnings":
 {items, total, nextCursor} or null. items [] with total 0 is the one clean
-answer; null is never "no warnings". See cor:agt:040:13.
+answer; null is never "no warnings".
 
 THE FIELDS:
   held by        the person whose name it is ("nobody": binding it holds it)
@@ -854,9 +854,9 @@ THE FIELDS:
                  stays bare NO_SESSION; a missing or invalid lastActiveAt has
                  no quiet age. --json preserves lastActiveAt and
                  checkStatus.noSessionReason (nullable), and carries no age.
-                 Requires hadron-server#3084 or newer.
+                 Needs a server from 2026-11-01 or later.
 
-availability   the worker's stored availability record (cor:agt:060:02): its
+availability   the worker's stored availability record: its
                  state, the reason only when unavailable, an optional end, and
                  who set it and when. A lapse reads "AVAILABLE (lapsed at
                  <time>)", set by lapse; a setter whose identity the server
@@ -867,7 +867,7 @@ availability   the worker's stored availability record (cor:agt:060:02): its
                  or null). An older server without it reads as null.
 
 model groups   the model groups the worker's model is currently in, computed
-                 live by the server (cor:agt:060:12): live matching information,
+                 live by the server: live matching information,
                  never authorization. Nothing is printed for a real empty
                  answer (no reported model, or no group matches);
                  "unavailable" means the server withheld it (the working
@@ -1243,7 +1243,7 @@ func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
 		Short: "Retire a worker — it stops working; its name stays reserved",
 		Long: `Retire a worker: it stops authoring and takes no new sessions, and its
 name stays bound to it — PR trailers and chat history reference the name,
-so retiring never frees it for a new casting (cor:agt:020:02). Retiring is
+so retiring never frees it for a new casting. Retiring is
 idempotent; there is no un-retire.
 
 This is the normal end of a worker. A casting that NEVER did anything (a
@@ -1348,8 +1348,8 @@ func newCmdWorkerRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <name-or-id> [--dry-run] [--instruction <kind>:<ref>]",
 		Aliases: []string{"delete"},
 		Short:   "Hard-delete a NEVER-USED casting (frees its name)",
-		Long: `Hard-delete a worker that never did anything — the one removal escape
-(cor:dmo:050:11), for a miscast: wrong role, typo'd name. The server refuses
+		Long: `Hard-delete a worker that never did anything — the one removal escape,
+for a miscast: wrong role, typo'd name. The server refuses
 with WORKER_IN_USE when it has persisted references or an unreleased stint;
 a worker with history retires instead
 (` + "`worker retire`" + `), keeping its name reserved. Deleting also removes the
@@ -1365,7 +1365,7 @@ WORKER_IN_USE is exit 5. Older-server schema refusal is never retried without
 the attestation. Who may delete: the same people who may cast. The App the
 change targets is the worker's own.
 
---dry-run (#1735, deleteWorkerPreview) asks the server whether a delete would
+--dry-run (deleteWorkerPreview) asks the server whether a delete would
 be accepted by the same worker reference and act gate, and deletes nothing. It
 is ADVISORY, not a reservation: it never replaces the attestation (the real rm
 still requires --confirm-no-external-attribution, which --dry-run refuses
@@ -1898,13 +1898,13 @@ func newCmdWorkerRelease(f *cmdutil.Factory) *cobra.Command {
 		// qualifies it — so it must not promise a next holder either
 		// (PR #504 review).
 		Short: "Clear the hold on a worker name",
-		Long: `Release the HOLD on a worker name (cor:agt:020:09). A name is held by a
+		Long: `Release the HOLD on a worker name. A name is held by a
 PERSON, and this is the ONLY thing that frees one — not ` + "`session end`" + `, not
 an idle window, not an expiry, not a reap, not closing your chat session.
 
 RELEASING IS NOT RETIRING. The worker keeps working, keeps its name, keeps
 its history; the name is not freed for a different casting (it stays
-permanently allotted to this one, cor:agt:020:02). All that changes is who
+permanently allotted to this one). All that changes is who
 may bind it next. To stop a worker instead, use ` + "`worker retire`" + `.
 
 A RETIRED worker can be released — the call succeeds — but nobody can bind
@@ -1940,8 +1940,8 @@ unless --yes.
 
 Idempotent: releasing a name nobody holds changes nothing and says so.
 
-THE RECEIPT REPORTS WHAT THE SERVER DID, not what this command predicted
-(hadron-server#1073). It names the holder the WRITE ended — including one
+THE RECEIPT REPORTS WHAT THE SERVER DID, not what this command predicted.
+It names the holder the WRITE ended — including one
 you were never permitted to see — says whether the act was a
 force-release, and says whether the team-chat notice was posted. The
 notice is best-effort, so it can FAIL while the release stands: when that
@@ -2369,7 +2369,7 @@ func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
 keep their stored value; an explicit empty string stores an empty template.
 They are filled in when the worker's session is bound (the briefing prints the
 filled result), not when you run this. After the save the receipt also shows
-the CURRENT signature lint (a missing worker link; cor:agt:040:04), read once
+the CURRENT signature lint (a missing worker link), read once
 more with the write's own session, as a check made now, not a snapshot taken at
 write time. "signatureLint" in --json is {items, total, nextCursor} or null;
 null (unavailable, or a template you may not see) is never "no warnings". A
