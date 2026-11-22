@@ -302,7 +302,7 @@ reports every outcome. One poller per host or container.
                    With reset_on_start (default off; TRANSITIONAL like
                    stop_on_end, replaced by the Agent's lifecycle) the
                    worker's EXISTING worktree is first brought back to a
-                   clean base (hadron-cli#2057): a dirty or untracked tree
+                   clean base: a dirty or untracked tree
                    refuses the start (WORKTREE_DIRTY), as does a HEAD on no
                    remote branch (WORKTREE_UNPUSHED), reported as the
                    failure so the task waits; commits no remote branch has
@@ -322,8 +322,8 @@ reports every outcome. One poller per host or container.
                    no longer runs headless or exits when its prompt ends.
                    A short run is ended by its own agent's session end, by
                    worker.end's stop, or by the host after its no-agent
-                   proof (cli#2201)
-  worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
+                   proof
+  worker.deliver   reported failed: no delivery path yet
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
                    ended session as success; the host ends none). With
@@ -340,7 +340,7 @@ reports every outcome. One poller per host or container.
                    session-binding lock (the one session start writes
                    under), released at once after it: a bind landing
                    between the check and the signal waits, and a lock
-                   not taken within 2s declines the stop (#2068).
+                   not taken within 2s declines the stop.
                    A plain directory whose binding cache or lock file is
                    missing is declined, not created, when this host runs
                    as a different user from the worktree's owner; the
@@ -350,7 +350,7 @@ reports every outcome. One poller per host or container.
                    permissions, so a user who cannot read and write it
                    is refused by the OS, not by this rule.
                    TRANSITIONAL: the field goes with host.yaml
-                   (Agent.lifecycle replaces it, hadron-server#4224)
+                   (Agent.lifecycle replaces it)
   worktree.remove  only the operation's own worker's registered tree;
                    refused for uncommitted or untracked changes, no
                    upstream, unpushed commits, an agent this host launched
@@ -364,7 +364,7 @@ belongs to one worker: the config refuses one listed for two.
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.
 
-AGENTLESS SESSION END (cli#2201): a short-lived worker that finished its task
+AGENTLESS SESSION END: a short-lived worker that finished its task
 without ending its session is closed only on the strict process census (the
 one recovery uses). worker.end for a stop_on_end: always worker with no live
 agent reports FAILED leading AGENT_ABSENT when the census proves its
@@ -484,12 +484,12 @@ server with that fix.
 Capabilities are an explicit full declaration on every registration refresh:
 Omitted or [] means none. On Linux, capabilities: [worker.reset-context]
 wires the reset protocol and requires an absolute reset_context.orca_bin
-(reserved for the C3 reader). This driver cannot yet bind an Orca terminal
+(reserved for a later reader). This driver cannot yet bind an Orca terminal
 and its controlling tty to the process it launched. It therefore remains
 built and off: even a matching binding/process refuses NOT_IDLE:
 TARGET_UNBOUND, before a new claim or stop. An idle-looking screen at the
-same worktree proves nothing about that process. C3 (hadron-cli#2058) owns
-the terminal-aware success path; enabling a config cannot bypass this refusal.
+same worktree proves nothing about that process. No terminal-aware success path is built;
+enabling a config cannot bypass this refusal.
 Existing Git/identity refusals and no-signal recovery of recorded resets stay.
 Leave the capability unset until that path is built and separately authorized.
 Installing this CLI grants no live-host activation. Unknown declarations
@@ -503,7 +503,7 @@ The configuration (YAML):
   key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
-  # Reserved C3 reset configuration; this build stays fail-closed, no activation:
+  # Reserved reset configuration; this build stays fail-closed, no activation:
   # capabilities: [worker.reset-context]
   # reset_context:
   #   orca_bin: /absolute/path/to/orca
@@ -520,7 +520,7 @@ The configuration (YAML):
       reset_on_start: false         # true: reset the existing worktree at worker.start
       # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
-    # Through Orca (hadron-cli#2058; launch is not needed then):
+    # Through Orca (launch is not needed then):
     # iris:
     #   family: claude
     #   launch_via: orca
@@ -586,27 +586,26 @@ turns delivery off (a delivery-off event); it re-checks on a backoff of one to
 fifteen minutes and turns itself back on (a delivery-on event); operations
 carry on throughout. It also reads this host's
 due tick and task wakes (dueWakes) and types each as one line through the
-same path, then hands its proof back (hadron-cli#1178). A wake that names
+same path, then hands its proof back. A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
-Set delivery.ack_mixed: true only when the server carries A-prime (issue
-#2072, merged 2026-10-19: the date is for orientation, since a build from that day can predate the merge, so
-confirm the deployed build includes that change): its mixed acknowledgment records
-ticks/tasks without moving chat marks. Mention text still arrives through its own batch. ack_mixed must be a
+Set delivery.ack_mixed: true only when the server carries A-prime (merged
+2026-10-19: the date is for orientation, since a build from that day can
+predate the merge, so confirm the deployed build includes that change): its
+mixed acknowledgment records ticks/tasks without moving chat marks. Mention
+text still arrives through its own batch. ack_mixed must be a
 real boolean wherever it is written, including through a YAML merge (<<) or an
 alias: null, ~, yes and on are refused with the line. A merged non-boolean is
 refused even when an explicit ack_mixed: true beside it would win; that
-strictness is deliberate (hadron-cli#1263). Status reports the
+strictness is deliberate. Status reports the
 configured ack-mixed on/off setting; it does not detect server capability.
 A held delivery is not reported to the
-server yet (hadron-cli#940): it raises no server alarm, and team host
+server: it raises no server alarm, and team host
 status shows it as UNREPORTED.
 
 A single message longer than 131,071 bytes of UTF-8 cannot be typed (orca
 terminal send carries text as one argument). It fails as too-long-to-type,
 is never truncated or acknowledged, and stays due. The server delivers the
-oldest message first, so it BLOCKS all later chat delivery to that worker
-until hadron-server#2121 lands. Delivery for real workers stays off until
-then.
+oldest message first, so it BLOCKS all later chat delivery to that worker.
 
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
