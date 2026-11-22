@@ -399,9 +399,9 @@ section between the markers.
 | `app model-group set` |  |  | y | #1053 | f19f27b72a0f | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app nodes` |  |  | y | #1053 | e9555446cde7 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app properties` |  |  | n | #1053 | a298eb54ed61 |  | unread |  |
-| `app properties clear` |  |  | y | #1053 | ff35aaf5946b |  | unread |  |
+| `app properties clear` |  |  | y | #1053 | dbbac044f9a2 |  | unread |  |
 | `app properties get` |  |  | y | #1053 | 8da394b352a5 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
-| `app properties set` |  |  | y | #1053 | 61cd08d24267 |  | unread |  |
+| `app properties set` |  |  | y | #1053 | 67553818eb5c |  | unread |  |
 | `app reinstall` |  |  | y | #1053 | d52b0b6ac1dc | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app set-active` | use |  | y | #1053 | ec8f5a4437c3 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app uninstall` |  |  | y | #1053 | 8a1cbb0911c7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
@@ -607,7 +607,7 @@ section between the markers.
 | `team task create` |  |  | y | #1054 | cc01556c9cc7 |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | 754051154aa6 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task dispose-finding` |  |  | y | #1054 | a3080a7c8f49 |  | unread |  |
-| `team task find-untracked` |  |  | y | #1054 | d6e4e26ef4dc |  | unread |  |
+| `team task find-untracked` |  |  | y | #1054 | 410894ca26d1 |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 4af1d580a868 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task finish` |  |  | y | #1054 | 0c4fd89648e3 |  | unread |  |

@@ -8,7 +8,10 @@ package team
 // its flags are gone, and naming one is refused with the way out.
 
 import (
+	"errors"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 )
@@ -25,9 +28,10 @@ optionally claim some as tasks.
 
 The source is the team's intake adapter: --adapter <executable>, or set
 $` + adapterEnv + ` (it counts only when no --adapter is given).
-The server's task integrations are retired: --integration is refused (exit 2,
-nothing sent), and the flags that belonged to it (--team, --no-team, --ready,
---repo, --skip, --assign-to-me) no longer exist.
+The server's task integrations are retired, and so are --integration and the
+flags that belonged to it (--team, --no-team, --ready, --repo, --skip,
+--assign-to-me): naming one is refused by name (exit 2, nothing sent), with
+what the adapter offers in its place.
 
 INTAKE ADAPTER (--adapter <executable> [--for <worker>] [--track] [--assignee
 <party>] [--owner <party>] [--limit N]): the team's own local
@@ -101,12 +105,19 @@ note on stderr, and the reconcile object in --json.`,
 	// rejects them while parsing, before RunE. A stale call (a script or a
 	// prompt still naming --integration or --ready) gets the retirement and
 	// the way out instead of a bare "unknown flag" (cli#1964).
+	//
+	// Every other flag error goes to the parent's handler (the root's, which
+	// makes it a usage error, exit 2): setting a handler here would otherwise
+	// shadow it, and a malformed value such as --limit abc would exit 1.
 	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
-		for _, name := range retiredFindUntrackedFlags {
-			// cobra names the flag without any "=value": compare it whole.
-			if err.Error() == "unknown flag: --"+name {
-				return errFlagRetired(name)
+		var unknown *pflag.NotExistError
+		if errors.As(err, &unknown) && unknown.GetSpecifiedShortnames() == "" {
+			if _, retired := retiredFindUntrackedFlags[unknown.GetSpecifiedName()]; retired {
+				return errFlagRetired(unknown.GetSpecifiedName())
 			}
+		}
+		if p := c.Parent(); p != nil {
+			return p.FlagErrorFunc()(c, err)
 		}
 		return err
 	})

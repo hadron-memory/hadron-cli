@@ -23,9 +23,17 @@ type adapterFlagUse struct {
 }
 
 // retiredFindUntrackedFlags are the flags of the server's task integration
-// path, retired with it (cli#1964). "integration" first: a call that names it
-// is refused by name.
-var retiredFindUntrackedFlags = []string{"integration", "team", "no-team", "ready", "repo", "skip", "assign-to-me"}
+// path, retired with it (cli#1964), each with what the intake adapter offers
+// in its place. Naming one is refused by name (the first one named in argv).
+var retiredFindUntrackedFlags = map[string]string{
+	"integration":  "",
+	"team":         "with the adapter, --for <worker> names one worker's items",
+	"no-team":      "the adapter filters by its own configuration",
+	"ready":        "the adapter filters by its own configuration",
+	"repo":         "the adapter knows its own repositories",
+	"skip":         "the adapter pages by its own cursor; --limit bounds the list",
+	"assign-to-me": "with the adapter, --track claims items",
+}
 
 // errFlagRetired is find-untracked's answer to a retired flag: the server's
 // task integrations are retired, and the team's intake adapter replaced them.
@@ -34,7 +42,7 @@ func errFlagRetired(name string) error {
 	if name == "integration" {
 		return exitcode.Newf(exitcode.Usage, "--integration is retired: the server no longer serves task integrations, so nothing was sent. Use the team's intake adapter instead: --adapter <executable> (or set $%s); see the INTAKE ADAPTER section of --help", adapterEnv)
 	}
-	return exitcode.Newf(exitcode.Usage, "--%s is retired with --integration: the server no longer serves task integrations, so nothing was sent. Use the team's intake adapter instead: --adapter <executable> (or set $%s); see the INTAKE ADAPTER section of --help", name, adapterEnv)
+	return exitcode.Newf(exitcode.Usage, "--%s is retired with --integration: the server no longer serves task integrations, so nothing was sent; %s. The source is the team's intake adapter: --adapter <executable> (or set $%s); see the INTAKE ADAPTER section of --help", name, retiredFindUntrackedFlags[name], adapterEnv)
 }
 
 // selectAdapter names the intake adapter a find-untracked call runs and

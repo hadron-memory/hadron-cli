@@ -143,3 +143,32 @@ func TestFindUntrackedOtherFlagErrorsKeepTheUsageExit_1964(t *testing.T) {
 		})
 	}
 }
+
+// With $HADRON_INTAKE_ADAPTER naming a real adapter, a retired flag is still
+// refused by name and the adapter is never run; --no-team=false (which once
+// meant "the same as omitting it") is refused too, since the flag is gone.
+func TestFindUntrackedRetiredFlagsWithTheAdapterVariableSet_1964(t *testing.T) {
+	path, log := fakeAdapter1961(t, "", `echo '{"items":[]}'`, "")
+	for _, tc := range []struct {
+		flag string
+		argv []string
+	}{
+		{"--ready", []string{"--ready", "only"}},
+		{"--no-team", []string{"--no-team=false"}},
+		{"--integration", []string{"--integration", "github"}},
+	} {
+		t.Run(strings.Join(tc.argv, " "), func(t *testing.T) {
+			t.Setenv(adapterEnvForTest, path)
+			calls, out, err := runTeamTask(t, map[string]string{}, append([]string{"team", "task", "find-untracked"}, tc.argv...)...)
+			if code := exitCodeFor(err); code != exitcode.Usage || err == nil || !strings.Contains(err.Error(), tc.flag+" is retired") {
+				t.Fatalf("exit %d, want %d naming %s as retired: %v", code, exitcode.Usage, tc.flag, err)
+			}
+			if len(*calls) != 0 || out != "" {
+				t.Fatalf("nothing may be sent or printed: %v %q", *calls, out)
+			}
+			if b, _ := os.ReadFile(log); len(b) != 0 {
+				t.Fatalf("the adapter must not be run: %s", b)
+			}
+		})
+	}
+}

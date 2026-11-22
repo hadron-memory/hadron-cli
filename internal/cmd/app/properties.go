@@ -5,8 +5,8 @@ package app
 // reads no key of it: every key is the team's (the taskIntegrations key it once
 // read retired with the server's task integrations, cli#1964). The CLI is a thin
 // client: who may read or write and the size bound are the server's
-// (cor:api:240:01). Without the flag
-// it never reads before writing: concurrency is the server's expectedRevision check.
+// (cor:api:240:01). Without --instruction it never reads before writing:
+// concurrency is the server's expectedRevision check.
 //
 // A dedicated group rather than an `app update` flag (plan A1): the write is
 // its own mutation behind its own gate (the person who manages the App, or
@@ -106,8 +106,8 @@ store a key named __proto__: PROPERTIES_KEY_RESERVED; see "hadron app properties
 --help"). A minimal object is {"team": {"note": "hello"}}. Give
 a JSON object, @file to read one from a file, or - to read it from stdin. The
 CLI checks only that it is JSON and not null; whether it is an object and how
-large it is are the server's to judge. An empty object {} clears the properties, like "hadron app properties
-clear". Prints the object as stored.
+large it is are the server's to judge. An empty object {} clears the
+properties, like "hadron app properties clear". Prints the object as stored.
 
 Nothing is merged: whatever you send replaces what is there, so read the
 current object first ("hadron app properties get"), change it and send it back.
@@ -168,7 +168,8 @@ func newCmdPropertiesClear(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clear <app-ref> --yes",
 		Short: "Remove an App's properties object",
-		Long: `Remove the App's whole properties object. Prompts on a terminal; non-interactively --yes is required. Takes
+		Long: `Remove the App's whole properties object. Prompts on a terminal;
+non-interactively --yes is required. Takes
 --expected-revision like ` + "`set`" + `, and is refused the same way.`,
 		Example: `  hadron app properties clear acme.com:eng-team --yes --expected-revision 4`,
 		Args:    cobra.ExactArgs(1),
