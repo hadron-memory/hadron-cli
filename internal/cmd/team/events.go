@@ -87,7 +87,7 @@ no recorded escalation end. The server decides that, never worked out here, and
 it already means alarms only, so it returns the same rows with or without
 --alarms. An alarm that has left effect is not acknowledged and not hidden:
 read without this flag to see it, and its end time in the ESCALATION ENDED
-column (cor:agt:050:20). That column is when the server recorded the end; it
+column. That column is when the server recorded the end; it
 is blank on every event that is not an alarm and on every alarm whose end is
 not recorded yet: one in effect, and also one already acknowledged or whose
 task already moved, until the server records the end. That record can lag the
@@ -101,8 +101,8 @@ A task event's TASK cell is the task's handle, then the first 12 hex of its id
 (AT0.7234 01a1d71218bb); when the server names no handle (the task is gone) the
 cell stays the bare id. --json adds taskHandle beside taskId, exactly as the
 server sent it, null for an event with no task. --task takes either form. The
-handle needs a server that carries AgentTeamEvent.taskHandle (hadron-server
-#4135); an older one refuses the read and nothing is printed.
+handle needs a server released on or after 2026-11-14 (it carries the task
+handle on team events); an older one refuses the read and nothing is printed.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()

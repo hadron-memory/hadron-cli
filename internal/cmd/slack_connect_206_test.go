@@ -242,7 +242,7 @@ func TestSlackConnectEmptyAnswerIsNotSuccess(t *testing.T) {
 }
 
 func TestSlackConnectHelpNamesNoTokenValue(t *testing.T) {
-	h := slackHelp(t, "slack", "connect")
+	h := cmdHelp(t, "slack", "connect")
 	for _, want := range []string{"--bot-token-file", "--app-token-file", "Only one of the two may be -", "never retried", "hadron slack status --org"} {
 		if !strings.Contains(h, want) {
 			t.Errorf("connect help missing %q: %s", want, h)

@@ -8,9 +8,3 @@
 #   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -rename-citation-exception 'old page=>new page'
 # (never by hand). Line: <page>  # <kind> <reference> x<count> | ...
 # The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
-team  # citation cor:agt:020:01 x1 | citation cor:agt:020:02 x1 | issue #1050 x1 | issue #399 x1 | issue #400 x1 | issue #402 x1
-team alarms  # citation cor:agt:050:20 x1 | citation cor:agt:050:22 x1
-team events  # citation cor:agt:050:20 x1 | issue #4135 x1
-team health sweep  # issue #2027 x1
-team init  # citation cor:dmo:050:03 x1 | issue #384 x1 | issue #400 x1 | issue #939 x1 | issue #958 x1
-team register  # issue #3312 x1

@@ -61,7 +61,8 @@ code. Omitted paging flags use its defaults (20 rows, offset 0); limits above
 count. Use --offset for the next page; the summary shows total and whether more
 rows exist. --json returns {entries, total, hasMore}, preserving all server
 values and nullable fields. Human-readable cells are shortened to fit and
-stripped of control characters; --json is not. Requires server#3312 or later.`,
+stripped of control characters; --json is not. Requires a server released on
+or after 2026-11-03.`,
 		Example: `  hadron team register --app acme.com:eng --agent hrn:agent:acme.com:coder
   hadron team register --code task.finish.open-children --json
   hadron team register --task-loc tasks:finish-a-task --limit 0`,
