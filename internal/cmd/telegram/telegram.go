@@ -85,10 +85,10 @@ organization's connections, anyone else an empty page. --app does not apply,
 and the saved organization is not used: only --org narrows.
 
 You get one page: --limit (the server's default page size is 20, at most 200;
-0 returns only the total) and --offset. When more exist, stderr says how to
-fetch the next page; a short page is not proof the list is complete unless the
-total says so. The order is the server's (bot username ascending). An empty
-result means none were returned to you.
+0 returns only the total) and --offset. When rows are shown and more exist,
+stderr says how to fetch the next page; a short page is not proof the list is
+complete unless the total says so. The order is the server's (bot username
+ascending). An empty result means none were returned to you.
 
 Details:
   The text output is a table, one row per connection (ID, ORG ID, APP ID,
