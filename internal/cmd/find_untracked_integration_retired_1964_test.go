@@ -112,3 +112,34 @@ func TestFindUntrackedRetiredFlagsAreRefusedByName_1964(t *testing.T) {
 		t.Fatalf("a flag that never existed keeps cobra's error: %v", err)
 	}
 }
+
+// find-untracked's own flag-error handler must not shadow the root's: every
+// flag error that is not a retired flag still exits 2 (usage), as on every
+// other command, in text and --json. A malformed value (--limit abc) is the
+// case only the root's wrapping gets right; an unknown flag (--teamx) must
+// keep cobra's message AND the usage exit.
+func TestFindUntrackedOtherFlagErrorsKeepTheUsageExit_1964(t *testing.T) {
+	for _, argv := range [][]string{
+		{"--limit", "abc"},
+		{"--adapter", "/nonexistent/adapter", "--limit", "abc"},
+		{"--json", "--limit", "abc"},
+		{"--teamx", "a"},
+	} {
+		t.Run(strings.Join(argv, " "), func(t *testing.T) {
+			t.Setenv(adapterEnvForTest, "") // empty reads as unset: selectAdapter trims it
+			calls, _, err := runTeamTask(t, map[string]string{}, append([]string{"team", "task", "find-untracked"}, argv...)...)
+			if err == nil {
+				t.Fatal("a malformed flag must be refused")
+			}
+			if code := exitCodeFor(err); code != exitcode.Usage {
+				t.Fatalf("exit %d, want %d (usage, as the root's flag-error handler gives): %v", code, exitcode.Usage, err)
+			}
+			if strings.Contains(err.Error(), "retired") {
+				t.Fatalf("only a retired flag is named as retired: %v", err)
+			}
+			if len(*calls) != 0 {
+				t.Fatalf("nothing may be sent: %v", *calls)
+			}
+		})
+	}
+}
