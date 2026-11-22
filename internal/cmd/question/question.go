@@ -383,7 +383,14 @@ validates the object (QUESTION_INVALID names each bad field by JSON pointer) and
 decides who may ask: any writer of the log's Memory.
 
 On success the question prints as question get shows it, prefixed "✓ asked";
---json prints the same question as one object.`,
+--json prints the same question as one object.
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the question may have been created.
+Nothing is resent, and it is not retry-safe: the server gives every ask the
+next code, so asking again can create a second question. List the log with
+question list --log <log> and look for your title (the listing is paged: use
+--limit and --offset) before asking again.`,
 		Example: `  cat > ask.json <<'EOF'
 {"title":"Pick a database","options":[{"key":"pg","label":"Postgres","whyChoose":"we run it"},{"key":"my","label":"MySQL"}],"recommendation":{"key":"pg","reason":"we run it already"}}
 EOF
