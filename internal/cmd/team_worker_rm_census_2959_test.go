@@ -29,7 +29,7 @@ func TestWorkerRmHelpNamesTheCensusRefusal2959(t *testing.T) {
 		"nothing was deleted and no reference was found",
 		"never means the delete is safe",
 		"retry later or retire",
-		"a passing --dry-run is not a promise",
+		"A passing --dry-run is not a promise",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("worker rm --help must say %q:\n%s", want, help)

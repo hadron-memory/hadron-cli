@@ -1361,8 +1361,12 @@ their absence yourself, then explicitly pass --confirm-no-external-attribution.
 Known or uncertain external attribution means retire instead. --yes only
 skips the deletion prompt; it never supplies this separate attestation.
 Missing attestation is WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED (exit 2);
-WORKER_IN_USE is exit 5. Older-server schema refusal is never retried without
-the attestation. Who may delete: the same people who may cast. The App the
+WORKER_IN_USE is exit 5. WORKER_CENSUS_INCOMPLETE (also exit 5) is the server's
+fail-closed refusal when its check for references did not finish: nothing was
+deleted and no reference was found. It never means the delete is safe, and the
+worker is not "in use"; retry later or retire. A passing --dry-run is not a
+promise the real delete will pass. Older-server schema refusal is never retried
+without the attestation. Who may delete: the same people who may cast. The App the
 change targets is the worker's own.
 
 --dry-run (deleteWorkerPreview) asks the server whether a delete would
@@ -1373,7 +1377,7 @@ with exit 2 before any request, because it would never be sent), nothing is
 held for the delete, and the real rm re-checks and may still refuse. It never
 prompts, never retries and never falls back to another operation. Refusals
 keep their exit codes: WORKER_NOT_FOUND and WORKER_REFERENCE_NOT_FOUND 4,
-WORKER_IN_USE 5, FORBIDDEN 8. The preview's --json is
+WORKER_IN_USE and WORKER_CENSUS_INCOMPLETE 5, FORBIDDEN 8. The preview's --json is
 {id, name, attestationRequired, status: "preview"}. Needs a server from ` + workerRmPreviewServerFloor + `
 or later, the date the delete preview (the dry run) was merged into the server. Merged
 is not necessarily served: an older server refuses the unknown field and the command
