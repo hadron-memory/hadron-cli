@@ -76,8 +76,8 @@ In a DRAFT corpus, the server's spec-only bulk door may rewrite governed specs.
 A real run first computes the same preview as --dry-run, shows it (or, with
 --yes, just counts it), and then applies exactly that plan: if a spec changed
 in between, the server refuses with no writes and you run it again. --yes
-approves that one run; it does not carry a plan from an earlier --dry-run. In a MINTED corpus, governed specs are NOT searched;
-find their text with ` + "`hadron spec grep`" + ` and edit with ` + "`hadron spec edit`" + `.
+approves that one run; it does not carry a plan from an earlier --dry-run.
+In a MINTED corpus, governed specs are NOT searched; find their text with ` + "`hadron spec grep`" + ` and edit with ` + "`hadron spec edit`" + `.
 The report distinguishes searched and skipped specs so zero matches cannot
 be mistaken for a search of the whole scope.
 

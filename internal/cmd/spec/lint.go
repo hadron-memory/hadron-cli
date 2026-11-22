@@ -92,7 +92,7 @@ existing role needs deliberate review. Lint never clears it.
 This changes the role; lint itself writes nothing.
 Without --strict this warning leaves the exit code unchanged.
 
-Scope is one of: a single <citation> argument, --prefix <citation> (that
+Scope is one of: a single <citation> argument, --prefix <citation-prefix> (that
 node plus its descendants — e.g. one feature and its rules), --product
 <ppp>, --module <mmm> (optionally within --product), or --all. Errors
 (structural/stability violations) exit with code 5; --strict promotes warnings
@@ -139,8 +139,8 @@ finding prints the exact command that adds the edge ("spec link", or "edge
 create" when the target is not a spec); lint itself writes nothing. Info never fails --strict: a spec created at a loc on purpose, with no
 edges, is not an error.
 
-In a DRAFT corpus (one with no minted node yet), a reserved
-placeholder is reported once as "placeholder" instead of being linted, and a
+In a DRAFT corpus (one with no minted node yet), a reserved placeholder is
+reported once as "placeholder" instead of being linted, and a
 reference to a spec that doesn't exist or is only a placeholder is reported as
 "unresolved-reference" at the citing spec. Both are warnings: "spec mint" is
 the gate that refuses them. Reference pages (20 rows) are fully collected
@@ -149,7 +149,7 @@ Older servers may use the full legacy reference read when the page field is
 unsupported; if both reports are unsupported, only ordinary lint rules run.
 Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
-  hadron spec lint --prefix <citation-prefix> -m hrn:mem:hadronmemory.com:specs
+  hadron spec lint --prefix msg:010 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --product cli -m hrn:mem:hadronmemory.com:platform-specs
   hadron spec lint --all -m hrn:mem:micromentor.org:platform-specs --strict`,
@@ -397,7 +397,7 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 	}
 	cmd.Flags().BoolVar(&frame, "frame", false, "also check the platform authoring frame, reading type templates from specs-engineer-system (automatic for hadronmemory.com:specs)")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
-	cmd.Flags().StringVar(&prefixFlag, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature's citation)")
+	cmd.Flags().StringVar(&prefixFlag, "prefix", "", "lint every spec under this citation prefix (that node + its descendants, e.g. a feature: msg:010)")
 	cmd.Flags().StringVar(&product, "product", "", "lint every spec under this product")
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")

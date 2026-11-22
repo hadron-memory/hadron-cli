@@ -81,7 +81,7 @@ fresh read. Rerunning on a spec that is already rescinded writes nothing. A writ
 gets no answer is checked by re-reading, and the output says "unknown" when that cannot
 settle it. --dry-run reads only and prints the planned tag, banner, abstract, node id
 and revision.`,
-		Example: `  hadron spec rescind <citation> -m hrn:mem:hadronmemory.com:specs --reason "ruling 0099 A" --summary "Placeholders were once confined to drafts." --yes
+		Example: `  hadron spec rescind msg:010:02 -m hrn:mem:micromentor.org:platform-specs --reason "ruling 0099 A" --summary "Placeholders were once confined to drafts." --yes
   hadron spec rescind msg:010:09 -m hrn:mem:acme.com:specs --withdrawn --reason "draft dropped" --summary-file why.md --dry-run`,
 		SuggestFor: []string{"retire", "withdraw", "deprecate"},
 		Args:       cobra.ExactArgs(1),

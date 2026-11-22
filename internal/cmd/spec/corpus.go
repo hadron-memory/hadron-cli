@@ -103,9 +103,9 @@ func newCmdReserve(f *cmdutil.Factory) *cobra.Command {
 		Short: "Reserve a citation as a placeholder spec",
 		Long: `Reserve a citation in any spec corpus: the server creates an unminted
 placeholder spec at <citation>, marked as a placeholder by the server (not by
-an empty body). Draft rights are per node: every new node
-starts unminted, in any memory, until its first mint. Other specs can link
-to the placeholder now, so ` + "`spec backlinks`" + ` sees those links, and the
+an empty body). Draft rights are per node: every new node starts unminted,
+in any memory, until its first mint. Other specs can link to the
+placeholder now, so ` + "`spec backlinks`" + ` sees those links, and the
 placeholders still left are the corpus's to-do list.
 
 Writing the spec — ` + "`spec edit <citation>`" + ` with real content — turns the
@@ -326,8 +326,8 @@ func newCmdRenumber(f *cmdutil.Factory) *cobra.Command {
 		Long: `Renumber an UNMINTED spec, in any memory: move the spec at <from-citation>,
 and its subtree, to <to-citation>, then rewrite every node URN in the corpus
 that names one of the moved specs. Each rewrite is a normal edit with revision
-history. Draft rights are per node: a node is a draft
-until its first mint, so the move records no URN alias for the old citation —
+history. Draft rights are per node: a node is a draft until its first
+mint, so the move records no URN alias for the old citation —
 nothing may cite an unminted spec as permanent yet.
 
 A citation that appears only as TEXT — a link label like "[pas:010:01]", a

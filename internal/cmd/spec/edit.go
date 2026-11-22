@@ -325,8 +325,8 @@ pre-write refusal writes nothing. On a server-reported write-time conflict,
 the server may record out-of-band drift as a revision while refusing your edit;
 your proposed text is saved to a file when possible. A failed file save is
 reported explicitly. Re-read, reconcile, and get the proposal approved again.
-A server that cannot guard a save is
-refused, never written to unguarded.
+A server that cannot guard a save is refused, never written to
+unguarded.
 
 Editing the body alone ARMS the abstract-stale marker: the abstract was
 fingerprinted against the old content, so every later read flags it as a
@@ -353,15 +353,15 @@ used for. It is refused alongside --abstract/--abstract-file (replacing the
 abstract re-fingerprints it anyway), on a spec with no abstract at all, and on
 a legacy abstract past the server cap — re-affirming replaces it, and a
 replacement over the cap is rejected.`,
-		Example: `  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs
+		Example: `  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id <id-from-preview> --expected-proposal-hash <hash-from-preview>
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --description-file description.md
-  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs --content-file body.md --abstract-still-accurate
-  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs --abstract-still-accurate
-  hadron spec edit <citation> -m hrn:mem:hadronmemory.com:specs --title "Writers may comment" --dry-run`,
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --abstract-still-accurate
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-still-accurate
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "Writers may comment" --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if _, err := validateSpecLoc(args[0]); err != nil {

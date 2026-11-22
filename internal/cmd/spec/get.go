@@ -39,9 +39,9 @@ added when piped. It is the read to edit from: save it to a file, edit, and
 without it prints a header and a rendered body; neither belongs in a write. --json emits
 one object for a single citation, an array for --prefix.`,
 		Example: `  hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs
-  hadron spec get <citation> -m hrn:mem:hadronmemory.com:platform-specs --body-only
-  hadron spec get --prefix cor:cht -m hrn:mem:hadronmemory.com:platform-specs
-  hadron spec get --prefix cor:dmo -m hrn:mem:hadronmemory.com:platform-specs --abstract-only --json`,
+  hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs --body-only
+  hadron spec get --prefix msg:010 -m hrn:mem:micromentor.org:platform-specs
+  hadron spec get --prefix msg -m hrn:mem:micromentor.org:platform-specs --abstract-only --json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			prefix, err := validateSpecPrefix(prefix, cmd.Flags().Changed("prefix"))
@@ -198,7 +198,7 @@ one object for a single citation, an array for --prefix.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
-	cmd.Flags().StringVar(&prefix, "prefix", "", "dump every spec under this citation prefix (e.g. cor:cht)")
+	cmd.Flags().StringVar(&prefix, "prefix", "", "dump every spec under this citation prefix (e.g. msg:010)")
 	cmd.Flags().BoolVar(&abstractOnly, "abstract-only", false, "print metadata + abstract, omit the body")
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of a single spec, byte for byte — the read to edit from (alias: --content-only)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max specs to fetch as one page in --prefix mode (default: all)")

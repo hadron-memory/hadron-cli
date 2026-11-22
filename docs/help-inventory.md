@@ -692,32 +692,32 @@ section between the markers.
 | `skill lint` |  |  | y | #1055 | 5275927a004d |  | unread |  |
 | `skill plugin` |  |  | y | #1055 | 768b30355008 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `skill status` |  |  | y | #1055 | 27eea1c4afc7 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `spec` | specs |  | n | #1055 | 4a056fbd7252 |  | unread |  |
+| `spec` | specs |  | n | #1055 | d3dc93c7e31a |  | unread |  |
 | `spec backlinks` |  |  | y | #1055 | 9c56b5482858 |  | unread |  |
 | `spec check-tools` |  |  | y | #1055 | a84d7ed6ff80 |  | unread |  |
 | `spec citations` | check-citations |  | y | #1055 | c70c0c2f8857 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec describe` | desc |  | y | #1055 | 298ee7dba898 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `spec document` |  |  | y | #1055 | eb691773356d |  | unread |  |
-| `spec edit` |  |  | y | #1055 | 58b138d4281e |  | unread |  |
-| `spec extract` |  |  | y | #1055 | 06779fdaf3ef |  | unread |  |
+| `spec document` |  |  | y | #1055 | 942a2484ef17 |  | unread |  |
+| `spec edit` |  |  | y | #1055 | a9367dd594b2 |  | unread |  |
+| `spec extract` |  |  | y | #1055 | 4151b703a9aa |  | unread |  |
 | `spec find` |  |  | y | #1055 | 394a26503004 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass3 |
-| `spec get` |  |  | y | #1055 | 98376c27fe92 |  | unread |  |
+| `spec get` |  |  | y | #1055 | 2193e0f9175e |  | unread |  |
 | `spec grep` |  |  | y | #1055 | 50c517081e9e | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec import` |  |  | n | #1055 | 3f49677a12c6 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec import code` |  |  | n | #1055 | e4682791a6d2 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec import spec-kit` |  |  | n | #1055 | dbbe5ea3a633 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec label-report` |  |  | y | #1055 | f68672457ff8 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass3 |
 | `spec ledger` |  |  | y | #1055 | 2b9a2948d456 |  | unread |  |
-| `spec link` |  |  | y | #1055 | 115869927834 |  | unread |  |
-| `spec lint` | check, validate |  | y | #1055 | 5c016dad8944 |  | unread |  |
+| `spec link` |  |  | y | #1055 | b4eb165e621c |  | unread |  |
+| `spec lint` | check, validate |  | y | #1055 | cc74076aad72 |  | unread |  |
 | `spec list` | ls |  | y | #1055 | f482dd92b9bc |  | unread |  |
 | `spec mint` |  |  | y | #1055 | 176744cc0f39 |  | unread |  |
 | `spec new` | scaffold |  | y | #1055 | 77286154345b |  | unread |  |
 | `spec register` | reg |  | y | #1055 | 2f690e3f6081 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `spec renumber` |  |  | y | #1055 | 6cc99676189f |  | unread |  |
-| `spec replace` |  |  | y | #1055 | 49225055bbec |  | unread |  |
-| `spec rescind` |  |  | y | #1055 | 03559afafc7b |  | unread |  |
-| `spec reserve` |  |  | y | #1055 | f334de1052b4 |  | unread |  |
+| `spec renumber` |  |  | y | #1055 | 26cba652322d |  | unread |  |
+| `spec replace` |  |  | y | #1055 | d439a9b4acd9 |  | unread |  |
+| `spec rescind` |  |  | y | #1055 | 02b9356a538d |  | unread |  |
+| `spec reserve` |  |  | y | #1055 | e0a161474772 |  | unread |  |
 | `spec supersede` |  |  | y | #1055 | 46a9e2cb42be |  | unread |  |
 | `spec unresolved` |  |  | y | #1055 | 40818f13665c |  | unread |  |
 | `spec use` | set-active |  | y | #1055 | ceb876a40351 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
