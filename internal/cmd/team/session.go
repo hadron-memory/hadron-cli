@@ -972,8 +972,9 @@ NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
 behalf. A worktree with a binding file sends that worker as the expected
 worker (an older server that cannot check the expected worker refuses the
 resume, exit 2, consuming nothing: use start --as <worker>): if nothing of
-that worker's waits but another worker's claim or live session does, the resume is refused (exit 5,
-RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
+that worker's waits but another worker's claim or live session does, the
+resume is refused (exit 5, RESUME_REFUSED, reason WORKER_MISMATCH) and
+spends nothing: that worker's item
 is untouched, no binding is written; run start in that worker's own worktree,
 or start --as <worker>. Any other refused resume (exit 5, RESUME_REFUSED) has
 spent its claim.
@@ -2439,8 +2440,9 @@ team worklog — the collection behind the provenance query
 (` + "`session list --pr <ref>`" + `: which sessions produced this PR?).
 
 No memory flag is needed — just pick one artifact flag: the binding records
-the bound worker's App, the worklog is App-addressed, and the collection schema is the server's — no
-` + "`team init`" + ` first, no -m. --memory stays as an explicit override;
+the bound worker's App, the worklog is App-addressed, and the collection
+schema is the server's — no ` + "`team init`" + ` first, no -m. --memory stays as an
+explicit override;
 it fails SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than
 the bound worker's (drop -m, or pass the worker's own team memory). Only
 bindings written by OLDER CLIs differ: a binding that records no App but
@@ -2972,9 +2974,7 @@ WHY NOT END IT. Worker sessions are meant to be
 long-lived: no idle reaper ends one, because silence is not evidence of
 abandonment. Re-binding is not free: it
 re-renders the boot briefing, takes several manual steps that are not
-Hadron's, and means typing the worker name into signatures by hand
-(` + "`session whoami --signature`" + ` prints the one the server renders for the bound
-worker). If you are ending a healthy session to tidy something up, the
+Hadron's. If you are ending a healthy session to tidy something up, the
 tidying is the thing to reconsider.
 
 A WORKTREE IS REMOVABLE WITHOUT TOUCHING THE SESSION. The binding lives
@@ -3031,9 +3031,9 @@ short label on the session row; nothing reads it back. That is not a
 quirk of today's build: the platform makes --handoff the ONE field
 carrying continuity, and any other free-text field on a session is
 display-only unless the platform's documentation says otherwise — so
-writing continuity into --summary is a mistake rather than a naming
-preference, and it fails silently, producing no error and no record. Both
-flags are kept deliberately; if you are writing one thing for whoever comes next,
+writing continuity into --summary is a silent loss, not a naming
+preference: it produces no error and no record. Both flags are kept
+deliberately; if you are writing one thing for whoever comes next,
 write --handoff.
 
 --session ends an explicit worker session id instead — the recovery path
