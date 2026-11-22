@@ -120,7 +120,7 @@ func newCmdTeamWakes(f *cmdutil.Factory) *cobra.Command {
 		Use:   "wakes <command>",
 		Short: "List and acknowledge the wakes due to workers",
 		Long: `A wake is the platform asking a worker to look: unread mentions, a ticker's
-tick, a task event or a stop notice (cor:agt:080:08). The host poller
+tick, a task event or a stop notice. The host poller
 (` + "`team host run`" + `) reads and acknowledges the wakes of the workers it types
 into. These commands are the same two operations by hand: ` + "`due`" + ` lists what is
 due and ` + "`ack`" + ` records a delivery.
@@ -141,7 +141,7 @@ func newCmdTeamWakesDue(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "due [--worker <ref>]... [--first N] [--after <cursor>] [--accept-stop] [--preview]",
 		Short: "List the wakes due now",
-		Long: `List the wakes due now (cor:agt:080:08). A plain read, without --preview, is a
+		Long: `List the wakes due now. A plain read, without --preview, is a
 spending read: it reserves the App's wake capacity for the wakes it returns,
 counts against the daily wake budget and may withhold workers. Use --preview to
 look without spending anything.
@@ -169,12 +169,12 @@ may read: the ones you hold, or the whole App when you manage it. --first
 sets the page size (the server's default without it) and --after continues
 from the endCursor of the page before.
 
-A page the App's daily wake budget held back has status WAKE_BUDGET_EXHAUSTED
-(cor:agt:080:15). Its wakes stay due, so an empty list then proves nothing:
-the page is still printed, and the command exits 5 naming the status.
+A page the App's daily wake budget held back has status WAKE_BUDGET_EXHAUSTED. Its wakes stay due, so an empty list then
+proves nothing: the page is still printed, and the command exits 5 naming the
+status.
 
 --accept-stop also asks for stop notices (STOP). Passing it declares that you
-serve the lane you read and can deliver those notices (cor:agt:090:04). The
+serve the lane you read and can deliver those notices. The
 server records the declaration for a manager's read of the whole lane (no
 --worker, no --after, one page), and a stop signal can be set only while each
 covered worker's lane has a fresh one. Leave it off unless you deliver stop
@@ -308,7 +308,7 @@ before any request. Needs server
 	cmd.Flags().IntVar(&first, "first", 0, "page size (server default without it)")
 	cmd.Flags().StringVar(&after, "after", "", "continue from a previous page's endCursor")
 	cmd.Flags().BoolVar(&preview, "preview", false, "look without reserving wake capacity or declaring a stop lane; no acknowledgment proof")
-	cmd.Flags().BoolVar(&acceptStop, "accept-stop", false, "also ask for stop notices; declares the lane you read (cor:agt:090:04)")
+	cmd.Flags().BoolVar(&acceptStop, "accept-stop", false, "also ask for stop notices; declares the lane you read")
 	// cli#2774: a read, not a manager write, so the flag keeps the shared
 	// usage line but its help paragraph above is the read's own.
 	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer(managerInstructionMinimum))
@@ -452,7 +452,7 @@ func newCmdTeamWakesAck(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ack <proof>...",
 		Short: "Record that wakes were delivered",
-		Long: `Record that the wakes behind these proofs were delivered (cor:agt:080:16).
+		Long: `Record that the wakes behind these proofs were delivered.
 Take each proof unchanged from ` + "`team wakes due`" + `; a proof is bound to whoever
 read it and is good for 15 minutes. Acknowledging clears the wake from the next
 read. It never moves a read position: the worker's unread chat stays unread.

@@ -218,7 +218,7 @@ func TestRetiredStubsHelp(t *testing.T) {
 				t.Fatal(err)
 			}
 			help := out.String()
-			if !strings.Contains(help, "retired (hadron-server#2027)") {
+			if !strings.Contains(help, "is retired") && !strings.Contains(help, "are retired") && !strings.Contains(help, "Retired") {
 				t.Errorf("help does not say retired:\n%s", help)
 			}
 			for _, fl := range tc.flags {
@@ -262,8 +262,8 @@ func TestRetiredStubsListedAsRetired(t *testing.T) {
 				}
 			}
 			for _, sub := range tc.subs {
-				if !strings.HasPrefix(rows[sub], "Retired (hadron-server#2027)") {
-					t.Errorf("%s is listed as %q, want it to start with Retired (hadron-server#2027):\n%s", sub, rows[sub], out.String())
+				if !strings.HasPrefix(rows[sub], "Retired") {
+					t.Errorf("%s is listed as %q, want it to start with Retired:\n%s", sub, rows[sub], out.String())
 				}
 			}
 		})
