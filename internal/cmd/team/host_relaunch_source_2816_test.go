@@ -38,22 +38,6 @@ import (
 // locally); the refusal is remembered and looked at again every
 // refusedReprobeEvery, so an upgrade is noticed without a restart.
 
-// targetedRelaunchSource2816 is the host server as the targeted read's caller
-// sees it. The pins compile before the read is built; a server without it
-// fails the pin that needs it, by name.
-type targetedRelaunchSource2816 interface {
-	RelaunchWorker(context.Context, string, string) (hostpoller.RelaunchSnapshot, error)
-}
-
-func targetedReader2816(t *testing.T, s *hostServer) targetedRelaunchSource2816 {
-	t.Helper()
-	reader, ok := any(s).(targetedRelaunchSource2816)
-	if !ok {
-		t.Fatal("the host server cannot read one worker: RelaunchWorker is not built (hadron-cli#2816)")
-	}
-	return reader
-}
-
 const (
 	targetedOp2816 = "HostRelaunchWorker"
 	wideOp2816     = "HostRelaunchSnapshot"
@@ -178,7 +162,7 @@ func TestRelaunchWorkerReadsOneWorkerWithTheHostKey2816(t *testing.T) {
 	// The caller drives a session; the host key's read carries none of it.
 	read := func(t *testing.T, w *wire2816, host, worker string) (hostpoller.RelaunchSnapshot, error) {
 		t.Helper()
-		return targetedReader2816(t, w.source).RelaunchWorker(api.WithSession(context.Background(), "a-caller-session"), host, worker)
+		return w.source.RelaunchWorker(api.WithSession(context.Background(), "a-caller-session"), host, worker)
 	}
 
 	t.Run("the worker's row is its fresh state", func(t *testing.T) {
@@ -280,7 +264,7 @@ func TestRelaunchWorkerReadsOneWorkerWithTheHostKey2816(t *testing.T) {
 		} {
 			w := newWire2816(t)
 			s := &hostServer{client: w.source.client, app: "app-ref", serverURL: c.serverURL}
-			if got, err := targetedReader2816(t, s).RelaunchWorker(context.Background(), c.host, "w"); err == nil {
+			if got, err := s.RelaunchWorker(context.Background(), c.host, "w"); err == nil {
 				t.Errorf("%s: read %+v", c.name, got)
 			}
 			if len(w.calls) != 0 {
@@ -325,9 +309,13 @@ func TestRelaunchWorkerRemembersAnOlderServerAndLooksAgain2816(t *testing.T) {
 		beats []beat
 	}{
 		{"a server that stays older", []beat{
+			// The beats land at start, +1s, +30m−1s (just inside the window),
+			// +30m exactly (the window's end — the reprobe boundary, as the
+			// upgraded-server case's own end beat also sits at exactly +30m)
+			// and +30m+1s.
 			{"at the first read", 0, []wireStep2816{refused2816(), {op: wideOp2816, body: desired2816(row2816)}}, []string{targetedOp2816, wideOp2816}, false},
 			{"a second later", time.Second, []wireStep2816{{op: wideOp2816, body: desired2816(row2816)}}, []string{wideOp2816}, false},
-			{"just inside the window", refusedReprobeEvery - time.Second, []wireStep2816{{op: wideOp2816, body: desired2816(row2816)}}, []string{wideOp2816}, false},
+			{"just inside the window", refusedReprobeEvery - 2*time.Second, []wireStep2816{{op: wideOp2816, body: desired2816(row2816)}}, []string{wideOp2816}, false},
 			{"at the window's end", time.Second, []wireStep2816{refused2816(), {op: wideOp2816, body: desired2816(row2816)}}, []string{targetedOp2816, wideOp2816}, false},
 			{"a second after that", time.Second, []wireStep2816{{op: wideOp2816, body: desired2816(row2816)}}, []string{wideOp2816}, false},
 		}},
@@ -354,7 +342,7 @@ func TestRelaunchWorkerRemembersAnOlderServerAndLooksAgain2816(t *testing.T) {
 			for _, b := range c.beats {
 				clock = clock.Add(b.after)
 				from := len(w.calls)
-				_, err := targetedReader2816(t, w.source).RelaunchWorker(context.Background(), "h1", "w")
+				_, err := w.source.RelaunchWorker(context.Background(), "h1", "w")
 				if (err != nil) != b.fails {
 					t.Errorf("%s: error=%v, want failed=%v", b.name, err, b.fails)
 				}
@@ -416,7 +404,7 @@ func TestTheRepairReportsFreshReadIsTheTargetedRead2816(t *testing.T) {
 // while still taking the host-wide document the fallback sends.
 func TestTheTargetedReadNeedsTheWorkerSelectorAnOlderServerLacks2816(t *testing.T) {
 	targeted := newWire2816(t, wireStep2816{op: targetedOp2816, body: desired2816(row2816)})
-	if _, err := targetedReader2816(t, targeted.source).RelaunchWorker(context.Background(), "h1", "w"); err != nil {
+	if _, err := targeted.source.RelaunchWorker(context.Background(), "h1", "w"); err != nil {
 		t.Fatal(err)
 	}
 	wide := newWire2816(t, wireStep2816{op: wideOp2816, body: desired2816(row2816)})

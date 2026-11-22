@@ -18,11 +18,19 @@ import (
 type countingSource2120 struct {
 	source RelaunchSource
 	calls  int
+	// workerCalls counts the per-worker fresh reads (cli#2816): a healthy
+	// worker costs none, its discovery row already proves it present.
+	workerCalls int
 }
 
 func (s *countingSource2120) RelaunchSnapshot(ctx context.Context, host string) (RelaunchSnapshot, error) {
 	s.calls++
 	return s.source.RelaunchSnapshot(ctx, host)
+}
+
+func (s *countingSource2120) RelaunchWorker(ctx context.Context, host, worker string) (RelaunchSnapshot, error) {
+	s.workerCalls++
+	return s.source.RelaunchWorker(ctx, host, worker)
 }
 
 func TestHealthyWorkersUseOneDiscoverySnapshot2120(t *testing.T) {
@@ -53,8 +61,8 @@ func TestHealthyWorkersUseOneDiscoverySnapshot2120(t *testing.T) {
 	f.p.relaunch.Source = source
 	f.p.relaunchStep(context.Background())
 	f.p.Wait()
-	if source.calls != 1 || len(f.launches) != 0 {
-		t.Fatalf("100 healthy workers: snapshot reads=%d want1, launches=%d", source.calls, len(f.launches))
+	if source.calls != 1 || source.workerCalls != 0 || len(f.launches) != 0 {
+		t.Fatalf("100 healthy workers: snapshot reads=%d want 1, per-worker reads=%d want 0, launches=%d", source.calls, source.workerCalls, len(f.launches))
 	}
 }
 

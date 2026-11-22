@@ -26,7 +26,8 @@ An old host.yaml (`launch: [...]`, no `launch_via`) no longer loads: `host run` 
 call naming the worker and what to set. `launch_via: exec` the same. A worker whose family has no launch
 template (anything but claude, glm, kimi and codex) can no longer start at all: its fixed argv was the only
 way to run one. A non-Linux host can no longer launch workers (Orca needs Linux, pidfd). Every host now wires
-the relaunch owner (the periodic recovery pass) and reads `HostRelaunchSnapshot` each run.
+the relaunch owner (the periodic recovery pass) and reads `HostRelaunchSnapshot` each run (plus, since #2816,
+the targeted `HostRelaunchWorker` read whenever a freshness check is about one worker).
 
 ## Tests
 - The hostpoller fixtures: `testPoller`'s worker is supervised and its fake host records the supervised launch

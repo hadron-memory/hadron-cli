@@ -58,15 +58,6 @@ func eventsOf2816(f *loopFixture2060, kind string) *[]Event {
 	return &events
 }
 
-// last2816 is the last result the Runner logged.
-func last2816(t *testing.T, events *[]Event) Event {
-	t.Helper()
-	if len(*events) == 0 {
-		t.Fatal("the relaunch logged no result")
-	}
-	return (*events)[len(*events)-1]
-}
-
 // nothingTracked2816 fails if anything is tracked for the worker: no agent
 // this host launched and no session.
 func nothingTracked2816(t *testing.T, f *loopFixture2060) {
@@ -404,10 +395,13 @@ func TestAnExitPassReadsOnlyTheExitedWorker2816(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newExitFixture2161(t)
+			f.run(t)
+			// Collect from here, after the first sweep's job is done: its own
+			// relaunch event (the live tracked agent reads
+			// RELAUNCH_AGENT_PRESENT) is the sweep's line, not the exit pass's.
 			var events []Event
 			logged := f.p.emit
 			f.p.emit = func(e Event) { events = append(events, e); logged(e) }
-			f.run(t)
 			if c.empty {
 				emptyFrom2816(f.loopFixture2060, 1)
 			} else {
@@ -429,7 +423,9 @@ func TestAnExitPassReadsOnlyTheExitedWorker2816(t *testing.T) {
 				if len(unproven) != 0 {
 					t.Fatalf("the exit pass logged %+v; a worker the platform does not show as desired here is nothing to relaunch", unproven)
 				}
-			} else if len(unproven) != 1 || unproven[0].Kind != "relaunch-unproven" || unproven[0].Outcome != "skipped" || unproven[0].Reason != hostrelaunch.Unproven {
+			} else if len(unproven) != 1 || unproven[0].Kind != "relaunch-unproven" || unproven[0].Outcome != "skipped" || unproven[0].Detail != hostrelaunch.Unproven {
+				// p.log carries the code in Detail; the relaunch kind's own
+				// logger is what fills Reason as well.
 				t.Fatalf("the exit pass logged %+v, want one skipped/%s", unproven, hostrelaunch.Unproven)
 			}
 			if f.source.workerReads != 1 || f.source.snapshotReads != 1 {
