@@ -6520,10 +6520,11 @@ type AgentTaskCreateInstructedResponse struct {
 	// `extensions.warnings` (not in `errors`): a list of
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
-	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.assign.assignee-busy, task.assign.assignee-paused, task.assign.session-open (#4855: the
+	// assignee has an open session, live or quiet, so the platform did not start it; the assignment reaches it there),
 	// task.finish.open-children, from #3267 task.start.other-started,
 	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
-	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// (on recordAgentTaskProgress; other-started and children-ended, like the four assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
@@ -6565,10 +6566,11 @@ type AgentTaskCreateResponse struct {
 	// `extensions.warnings` (not in `errors`): a list of
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
-	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.assign.assignee-busy, task.assign.assignee-paused, task.assign.session-open (#4855: the
+	// assignee has an open session, live or quiet, so the platform did not start it; the assignment reaches it there),
 	// task.finish.open-children, from #3267 task.start.other-started,
 	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
-	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// (on recordAgentTaskProgress; other-started and children-ended, like the four assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
@@ -47217,6 +47219,23 @@ type CreateTaskNodeResponse struct {
 	// This mutation is not itself an MCP tool; its MCP counterpart is the
 	// deliberate hadron_create_task tool, separate from hadron_create_node,
 	// which refuses (#1301 names it in the refusal).
+	//
+	// #4864 — with index, the SAME door also writes the task's tasks-index
+	// edge, in its one transaction: the new node and one edge from it to the node
+	// the Agent's tasksIndexRef names, labelled index.trigger, stored by id
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:15). Either both exist or neither
+	// does. The node must be created in the Agent's own system memory, which is
+	// also where the index must lie: an Agent with no pointer, an index elsewhere,
+	// an existing loc and an unknown or unreadable Agent each refuse and write
+	// nothing. Refusals that read only the input (a malformed loc, a blank trigger,
+	// a skill the lint refuses) come first and disclose nothing; then the memory's
+	// read and write checks and the task writer level
+	// (hrn:node:hadronmemory.com:specs:cor:acl:010:03), so none of the refusals
+	// that read the Agent or the memory tells a caller who may not write the memory
+	// anything about it. With skill, it also writes an enabled properties.exports.claudeSkill
+	// block with the given name and description, validated by the skill lint; by
+	// default no block is written. Neither argument sets a role; without both the
+	// door behaves exactly as before.
 	CreateTaskNode *CreateTaskNodeCreateTaskNode `json:"createTaskNode"`
 }
 
@@ -63941,10 +63960,11 @@ type IntakeClaimTaskResponse struct {
 	// `extensions.warnings` (not in `errors`): a list of
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
-	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.assign.assignee-busy, task.assign.assignee-paused, task.assign.session-open (#4855: the
+	// assignee has an open session, live or quiet, so the platform did not start it; the assignment reaches it there),
 	// task.finish.open-children, from #3267 task.start.other-started,
 	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
-	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// (on recordAgentTaskProgress; other-started and children-ended, like the four assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
@@ -122715,7 +122735,10 @@ type UpdateMemoryResponse struct {
 	// requires `acknowledgeVectorInversionRisk: true` in the same call. Without
 	// the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
 	// the full four-point disclosure on `error.disclosure` (single source of
-	// truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
+	// truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). The
+	// disclosure states that the vectors are stored unencrypted and, when the
+	// index includes content passages, that the verbatim chunk text is stored
+	// unencrypted too, and that revoking removes both. On a
 	// non-encrypted memory the flag is a no-op.
 	UpdateMemory *UpdateMemoryUpdateMemory `json:"updateMemory"`
 }
