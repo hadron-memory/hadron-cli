@@ -6967,8 +6967,13 @@ hadron app action record <code> [--task <task>] [--payload <json> | --payload-fi
 Task references accept the same id/handle/URN forms as `team task get`.
 The five writes return `{task:{id,handle,status},action:{code,state,taskLoc,taskUrn}}`.
 The action is the server's register guidance: MAPPED, UNMAPPED, UNRESOLVED or
-WITHHELD, with nullable loc/URN preserved. It is never authorization. The
-server alone enforces owner-chain/assignee gates and negative-verdict rules.
+WITHHELD, with nullable loc/URN preserved. It is never authorization. The text
+receipt is the task line, then ONE register line (cli#2941): `register <code> →
+<taskUrn>` (MAPPED), `→ no runnable task found at <loc>` (UNRESOLVED), `→ no
+register entry matches this code` (UNMAPPED, the honest answer for the pr-protocol
+codes while no entry ships for them: the write still succeeded), `→ not shown to
+this caller` (WITHHELD: no lookup was made) or `→ state <S>` for a state this CLI
+does not know. Never a placeholder loc/URN. `--json` is unchanged. The server alone enforces owner-chain/assignee gates and negative-verdict rules.
 Verified bound writes act as the worker, otherwise as the person; readiness
 also admits the App's own key. A verdict records a fact, never finishes a task.
 
