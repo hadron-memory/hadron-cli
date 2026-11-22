@@ -43,8 +43,8 @@ age since lastActiveAt (30h or 3d, for example; whole days from 48h, truncated),
 NEVER_BOUND reads "never bound". A missing reason stays bare NO_SESSION.
 Quiet age uses this computer's clock for display only and decides nothing;
 a missing or invalid timestamp has no age. --json preserves lastActiveAt
-and checkStatus.noSessionReason (nullable). The no-session reason needs a
-server from 2026-11-01 or later (that change merged on that day).
+and checkStatus.noSessionReason (nullable). noSessionReason needs a server
+that serves it, from 2026-11-01 or later.
 
 TERMINAL is the worker's latest terminal report from a host: the status
 (busy, idle, locked or dark), the reason for locked or dark, and the
@@ -72,8 +72,7 @@ group lookup failed on the server reads "unavailable (CODE)" — the server's
 error code only, never its text — and --json gives modelGroups null plus
 modelGroupsError for that row; the rest of the roster is still shown. That is
 the only server error this command tolerates. Needs a server that serves
-modelGroups (a server from 2026-11-01 or later; that change
-also merged on that day).
+modelGroups, from 2026-11-01 or later.
 
 HELD BY / SINCE show who holds the worker's name and since when (heldBy /
 heldAt; in --json heldBy is {id, handle, urn, name} or null). The server
