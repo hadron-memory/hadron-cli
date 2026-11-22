@@ -17252,6 +17252,11 @@ type Query {
   teamComposition(appRef: ID!): TeamComposition!
 
   """
+  #4447 (hrn:node:hadronmemory.com:specs:cor:agt:150): server-computed counts of a team's task and worker flow, each with its ids. Reports 1-3 are snapshots; report 4 reads [since, until), defaulting to the last 7 days (an omitted until is now, an omitted since is until minus 7 days); a window over 31 days, or since after until, is BAD_USER_INPUT, judged before any read. Readers: the roster's audience; task-derived reports follow the App's task readers (hrn:node:hadronmemory.com:specs:cor:agt:050:21), and an unreadable App answers as a missing one.
+  """
+  teamMetrics(appRef: ID!, since: DateTime, until: DateTime): TeamMetrics!
+
+  """
   An App's role definitions (#960): every roles:<role> node in the Team
   Agent's system memory. Ordered by role slug. Same read authorization as
   workers.
@@ -21151,6 +21156,129 @@ type TeamCompositionWorker {
   role: String
   state: TeamRosterState!
   worker: AgentTaskParty!
+}
+
+"""
+#4447: a team's computed task and worker flow (hrn:node:hadronmemory.com:specs:cor:agt:150). startedOwned, projects and flow derive from
+tasks and are null for a reader who may see the roster but not the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21); workers
+follows the roster audience.
+"""
+type TeamMetrics {
+  appId: ID!
+
+  """The instant the snapshot reports were read at."""
+  asOf: DateTime!
+  flow: TeamMetricsFlow
+  projects: TeamMetricsProjects
+  startedOwned: TeamMetricsStartedOwned
+  window: TeamMetricsWindow!
+  workers: TeamMetricsWorkers!
+}
+
+"""One project's direct child tasks of one status."""
+type TeamMetricsChildStatus {
+  status: AgentTaskStatus!
+  tasks: TeamMetricsCount!
+}
+
+"""
+#4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+"""
+type TeamMetricsCount {
+  ids: [ID!]!
+  total: Int!
+  truncated: Boolean!
+}
+
+"""
+Report 4: tasks completed (status FINISHED, by finishedAt) and tasks started (by startedAt) in [since, until). A cancelled task is never completed.
+"""
+type TeamMetricsFlow {
+  completed: TeamMetricsCount!
+  started: TeamMetricsCount!
+}
+
+"""
+One task owner's started owned tasks (hrn:node:hadronmemory.com:specs:cor:agt:150:01): grouped by the task's OWNER, never its assignee, with no role filter.
+"""
+type TeamMetricsOwnerGroup {
+  """
+  The owner's tasks by project, the No project bucket (AT0) included, at most 200 projects.
+  """
+  byProject: [TeamMetricsProjectGroup!]!
+
+  """
+  The owner as the sanitized task party projection, never the Worker or User object.
+  """
+  owner: AgentTaskParty
+  projectsTruncated: Boolean!
+  tasks: TeamMetricsCount!
+}
+
+"""
+A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+"""
+type TeamMetricsProject {
+  handle: String!
+  noProject: Boolean!
+  taskId: ID
+  title: String
+}
+
+"""One project's started owned tasks under one owner."""
+type TeamMetricsProjectGroup {
+  project: TeamMetricsProject!
+  tasks: TeamMetricsCount!
+}
+
+"""One started project with its direct children counted by every status."""
+type TeamMetricsProjectRow {
+  children: [TeamMetricsChildStatus!]!
+  project: TeamMetricsProject!
+}
+
+"""
+Report 2: started projects (a top-level task other than AT0, status STARTED) with child counts by status; at most 200 projects, truncated says when there were more. A snapshot at read time.
+"""
+type TeamMetricsProjects {
+  items: [TeamMetricsProjectRow!]!
+  truncated: Boolean!
+}
+
+"""
+Report 1: STARTED owned tasks (hrn:node:hadronmemory.com:specs:cor:agt:150:01): a task names an issue reference or source, so a STARTED task that
+tracks no external work is not counted. A snapshot at read time.
+"""
+type TeamMetricsStartedOwned {
+  all: TeamMetricsCount!
+
+  """At most 200 owners; ownersTruncated says when there were more."""
+  byOwner: [TeamMetricsOwnerGroup!]!
+  ownersTruncated: Boolean!
+}
+
+"""
+The half-open window [since, until) report 4 was read over (hrn:node:hadronmemory.com:specs:cor:agt:150): since is included, until is not. The other reports ignore it.
+"""
+type TeamMetricsWindow {
+  since: DateTime!
+  until: DateTime!
+}
+
+"""
+Report 3: worker counts at read time over the App's workers that are not retired, with worker ids.
+active is the assignee of a STARTED task (hrn:node:hadronmemory.com:specs:cor:agt:150:02); idle is Available with no pending or started task
+assigned (:03); overdue is the assignee of a task with a not-started, no-progress or finish-by stall alarm in effect, so an
+acknowledged alarm or an ended episode does not count (:04); inop is a worker whose roster state is unavailable (stalled
+included), no model family, or not launchable (:05, its roster-state clause only: no terminal-report clause is read). A worker may be in several.
+"""
+type TeamMetricsWorkers {
+  active: TeamMetricsCount!
+  idle: TeamMetricsCount!
+  inop: TeamMetricsCount!
+  overdue: TeamMetricsCount!
 }
 
 """

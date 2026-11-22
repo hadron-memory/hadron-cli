@@ -489,7 +489,7 @@ section between the markers.
 | `chat read` | pull |  | y | #1054 | 837e2e5a8bcb |  | unread |  |
 | `chat served-prompts` |  |  | y | #1054 | b76c874719e7 |  | unread |  |
 | `chat tool-choice` |  |  | y | #1054 | 7579a9d1656b |  | unread |  |
-| `team` |  |  | n | #1054 | a3c463f29c49 |  | unread |  |
+| `team` |  |  | n | #1054 | 68e5c6a458f9 |  | unread |  |
 | `team alarm` |  |  | y | #1054 | d05b0126d4f8 |  | unread |  |
 | `team alarm ack` |  |  | y | #1054 | 29d38a098bfe |  | unread |  |
 | `team alarms` |  |  | y | #1054 | 12b641694091 |  | unread |  |
@@ -537,7 +537,7 @@ section between the markers.
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
 | `team host import` |  |  | y | #1054 | dec913560d72 |  | unread |  |
 | `team host issue` |  |  | y | #1054 | 7abd3276625e |  | unread |  |
-| `team host list` | ls |  | n | #1054 | 204760938550 |  | unread |  |
+| `team host list` | ls |  | n | #1054 | cbbfe0411ec2 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 1a23ca0e9226 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host run` |  |  | y | #1054 | 0415a8f3d55d |  | unread |  |
@@ -551,6 +551,7 @@ section between the markers.
 | `team host unassign` |  |  | y | #1054 | 27a1042772ef |  | unread |  |
 | `team host up` |  |  | y | #1054 | 454fadaaebab |  | unread |  |
 | `team init` |  |  | y | #1054 | 5ac904daa1c8 |  | unread |  |
+| `team metrics` |  |  | y | #1054 | 41ec29848d7f |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
 | `team pr` |  |  | y | #1054 | 0c3918147cb8 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | a66755dff8eb | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
