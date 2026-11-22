@@ -553,13 +553,14 @@ section between the markers.
 | `team init` |  |  | y | #1054 | 28b798b2fe94 |  | unread |  |
 | `team metrics` |  |  | y | #1054 | 41ec29848d7f |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
-| `team pr` |  |  | y | #1054 | 0c3918147cb8 |  | unread |  |
+| `team pr` |  |  | y | #1054 | c04419a78dc9 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | a66755dff8eb | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team pr readiness` |  |  | y | #1054 | 978dcd7c3526 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | b7026a29bd46 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
-| `team pr schedule` |  |  | y | #1054 | e51b4a00796d |  | unread |  |
-| `team pr seat` |  |  | y | #1054 | 1655e1e7edbc |  | unread |  |
-| `team pr verdict` |  |  | y | #1054 | e04a51ac8c92 |  | unread |  |
+| `team pr schedule` |  |  | y | #1054 | f58c805a56ed |  | unread |  |
+| `team pr seat` |  |  | y | #1054 | 9fe06f314dc4 |  | unread |  |
+| `team pr verdict` |  |  | y | #1054 | fad8330fd850 |  | unread |  |
+| `team pr withdraw` |  |  | y | #1054 | 66d154aac449 |  | unread |  |
 | `team push` |  |  | y | #1054 | 1576000c023d | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team register` |  |  | y | #1054 | 98946c24fa29 |  | unread |  |
 | `team register attendee` |  |  | y | #1054 | 5adac6a995b6 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
