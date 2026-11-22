@@ -489,7 +489,7 @@ section between the markers.
 | `chat read` | pull |  | y | #1054 | 837e2e5a8bcb |  | unread |  |
 | `chat served-prompts` |  |  | y | #1054 | b76c874719e7 |  | unread |  |
 | `chat tool-choice` |  |  | y | #1054 | 7579a9d1656b |  | unread |  |
-| `team` |  |  | n | #1054 | c3b5532375f7 |  | unread |  |
+| `team` |  |  | n | #1054 | e8a4c13d2f6f |  | unread |  |
 | `team alarm` |  |  | y | #1054 | d05b0126d4f8 |  | unread |  |
 | `team alarm ack` |  |  | y | #1054 | 29d38a098bfe |  | unread |  |
 | `team alarms` |  |  | y | #1054 | 2a5be666f524 |  | unread |  |
@@ -577,6 +577,9 @@ section between the markers.
 | `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | f4dba7c31087 |  | unread |  |
 | `team router status` |  |  | n | #1054 | 321a568050fe |  | unread |  |
+| `team saturation-wake-roles` |  |  | n | #1054 | dc73cb1768c4 |  | unread |  |
+| `team saturation-wake-roles get` |  |  | n | #1054 | 8fb02df0d30a |  | unread |  |
+| `team saturation-wake-roles set` |  |  | y | #1054 | 7580e28d9406 |  | unread |  |
 | `team session` | sessions |  | n | #1054 | 0233b043af2d |  | unread |  |
 | `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |

@@ -18506,7 +18506,7 @@ type AgentTeamEventFields struct {
 	TaskId *string `json:"taskId"`
 	// The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
 	TaskHandle *string `json:"taskHandle"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless, with an empty chain, so it wakes nobody: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -49088,7 +49088,9 @@ type DeleteWorkerInstructedResponse struct {
 	// #1162 — hard-delete a never-referenced miscast only.
 	// hrn:node:hadronmemory.com:specs:cor:dmo:050:11
 	// Empty normally ended and released stints are repairable; persisted
-	// attribution, including tombstones/history, refuses WORKER_IN_USE.
+	// attribution, including tombstones/history, refuses WORKER_IN_USE. A reference census that does not
+	// finish within its bound (#4809) refuses WORKER_CENSUS_INCOMPLETE: nothing is deleted, no reference was
+	// found, retry or retire.
 	// The requester must explicitly verify no signed commit, trailer, PR,
 	// comment, review or published artifact attributes work to this Worker.
 	// Database counts cannot prove external absence: known or uncertain
@@ -49141,7 +49143,7 @@ func (v *DeleteWorkerPreviewInstructedDeleteWorkerPreview) GetAttestationRequire
 // DeleteWorkerPreviewInstructedResponse is returned by DeleteWorkerPreviewInstructed on success.
 type DeleteWorkerPreviewInstructedResponse struct {
 	// #3599: preview deleteWorker without deleting anything: the same act gate and typed refusals
-	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
+	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE, WORKER_CENSUS_INCOMPLETE), nothing reserved. The real delete still requires
 	// confirmNoExternalAttribution and may refuse if anything changed
 	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. If the delete wins
@@ -49159,7 +49161,7 @@ func (v *DeleteWorkerPreviewInstructedResponse) GetDeleteWorkerPreview() *Delete
 // DeleteWorkerPreviewResponse is returned by DeleteWorkerPreview on success.
 type DeleteWorkerPreviewResponse struct {
 	// #3599: preview deleteWorker without deleting anything: the same act gate and typed refusals
-	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
+	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE, WORKER_CENSUS_INCOMPLETE), nothing reserved. The real delete still requires
 	// confirmNoExternalAttribution and may refuse if anything changed
 	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. If the delete wins
@@ -49179,7 +49181,9 @@ type DeleteWorkerResponse struct {
 	// #1162 — hard-delete a never-referenced miscast only.
 	// hrn:node:hadronmemory.com:specs:cor:dmo:050:11
 	// Empty normally ended and released stints are repairable; persisted
-	// attribution, including tombstones/history, refuses WORKER_IN_USE.
+	// attribution, including tombstones/history, refuses WORKER_IN_USE. A reference census that does not
+	// finish within its bound (#4809) refuses WORKER_CENSUS_INCOMPLETE: nothing is deleted, no reference was
+	// found, retry or retire.
 	// The requester must explicitly verify no signed commit, trailer, PR,
 	// comment, review or published artifact attributes work to this Worker.
 	// Database counts cannot prove external absence: known or uncertain
@@ -80793,12 +80797,14 @@ type QuestionFields struct {
 	PortalUrl *string `json:"portalUrl"`
 	// True when the caller is a decider, including through an account merged into theirs (#1715).
 	ViewerIsDecider bool `json:"viewerIsDecider"`
-	// #4427 — true when the caller may answer or take back an answer right now: one of the question's deciders, acting as
-	// themselves (a person in a session bound to no worker or agent, no App key or run, no impersonation), still among the
-	// log's deciders and able to write its memory, on a question that is not withdrawn, tampered or unverifiable
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:140:05). It is the capability to submit a new answer: it is false once the
-	// answer history is full (the last entry is kept for taking an answer back), and it does not say that an answer stands to
-	// take back (retractQuestionAnswer refuses QUESTION_NOT_ANSWERED otherwise).
+	// #4427 — true when the caller may submit a NEW answer right now. The rule (hrn:node:hadronmemory.com:specs:cor:dmo:140:05,
+	// Proposed where it was amended on 2026-11-18) is that a decider is a user who may write the log's memory, never a worker,
+	// an Agent or an App key, and that this is re-checked at the moment of answering. So: one of the question's deciders,
+	// acting as themselves (a person in a session bound to no worker or agent, no App key or run, no impersonation), still
+	// among the log's deciders and able to write its memory, on a question that is not withdrawn, tampered or unverifiable.
+	// It is not the capability to take an answer back: it is false once the answer history reaches its last free entry (that
+	// entry is kept so a standing answer can still be taken back), even though the decider can still retract then, and it does
+	// not say that an answer stands to take back (retractQuestionAnswer refuses QUESTION_NOT_ANSWERED otherwise).
 	ViewerMayAnswer bool    `json:"viewerMayAnswer"`
 	AskedAt         *string `json:"askedAt"`
 	// When the standing answer was given; null while unanswered.
@@ -93005,6 +93011,21 @@ type RunTaskWithAgentResponse struct {
 
 // GetRunTask returns RunTaskWithAgentResponse.RunTask, and is useful for accessing the field via an interface.
 func (v *RunTaskWithAgentResponse) GetRunTask() string { return v.RunTask }
+
+// cli#2894 (hadron-server#4777): the roles an App's saturation alarms wake. A participant
+// reads it through the roster's gate; whoever manages the App replaces the whole list.
+// roles is non-null both ways: an empty list is sent as [] (it clears), never omitted.
+type SaturationWakeRolesFields struct {
+	AppId string `json:"appId"`
+	// Stored trimmed, lower-cased, de-duplicated and sorted; empty by default.
+	Roles []string `json:"roles"`
+}
+
+// GetAppId returns SaturationWakeRolesFields.AppId, and is useful for accessing the field via an interface.
+func (v *SaturationWakeRolesFields) GetAppId() string { return v.AppId }
+
+// GetRoles returns SaturationWakeRolesFields.Roles, and is useful for accessing the field via an interface.
+func (v *SaturationWakeRolesFields) GetRoles() []string { return v.Roles }
 
 // ScopeExplainResponse is returned by ScopeExplain on success.
 type ScopeExplainResponse struct {
@@ -111875,6 +111896,250 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) __prema
 	retval.Kind = v.AgentTaskPartyFields.Kind
 	retval.Name = v.AgentTaskPartyFields.Name
 	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
+// TeamSaturationWakeRolesResponse is returned by TeamSaturationWakeRoles on success.
+type TeamSaturationWakeRolesResponse struct {
+	// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16): empty by default.
+	// Readers: whoever may read the App's roster, with the roster's refusal byte for byte (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	SaturationAlarmWakeRoles *TeamSaturationWakeRolesSaturationAlarmWakeRoles `json:"saturationAlarmWakeRoles"`
+}
+
+// GetSaturationAlarmWakeRoles returns TeamSaturationWakeRolesResponse.SaturationAlarmWakeRoles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesResponse) GetSaturationAlarmWakeRoles() *TeamSaturationWakeRolesSaturationAlarmWakeRoles {
+	return v.SaturationAlarmWakeRoles
+}
+
+// TeamSaturationWakeRolesSaturationAlarmWakeRoles includes the requested fields of the GraphQL type SaturationAlarmWakeRoles.
+// The GraphQL type's documentation follows.
+//
+// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16). Each worker of the App whose role
+// is listed, matched regardless of case and not retired, is offered one wake when an alarm is raised.
+type TeamSaturationWakeRolesSaturationAlarmWakeRoles struct {
+	SaturationWakeRolesFields `json:"-"`
+}
+
+// GetAppId returns TeamSaturationWakeRolesSaturationAlarmWakeRoles.AppId, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) GetAppId() string {
+	return v.SaturationWakeRolesFields.AppId
+}
+
+// GetRoles returns TeamSaturationWakeRolesSaturationAlarmWakeRoles.Roles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) GetRoles() []string {
+	return v.SaturationWakeRolesFields.Roles
+}
+
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSaturationWakeRolesSaturationAlarmWakeRoles
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSaturationWakeRolesSaturationAlarmWakeRoles = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SaturationWakeRolesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSaturationWakeRolesSaturationAlarmWakeRoles struct {
+	AppId string `json:"appId"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) __premarshalJSON() (*__premarshalTeamSaturationWakeRolesSaturationAlarmWakeRoles, error) {
+	var retval __premarshalTeamSaturationWakeRolesSaturationAlarmWakeRoles
+
+	retval.AppId = v.SaturationWakeRolesFields.AppId
+	retval.Roles = v.SaturationWakeRolesFields.Roles
+	return &retval, nil
+}
+
+// TeamSaturationWakeRolesSetInstructedResponse is returned by TeamSaturationWakeRolesSetInstructed on success.
+type TeamSaturationWakeRolesSetInstructedResponse struct {
+	// #4777 — set the roles an App's saturation alarms wake, the whole list at once (hrn:node:hadronmemory.com:specs:cor:agt:060:16): whoever
+	// manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). Names are trimmed and lower-cased, duplicates collapse, and the
+	// result is sorted; at most 32 names of 1 to 64 characters with no ":" or whitespace. The empty list clears it. A role no
+	// worker holds is accepted. Setting the stored list again changes nothing. The list is read when an alarm is raised: a
+	// change never wakes anyone for an alarm already raised. Refusals: BAD_USER_INPUT (before any other check),
+	// APP_NOT_FOUND, APP_MANAGER_REQUIRED, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction, recorded as one app.manager-act event, ids only.
+	SetSaturationAlarmWakeRoles *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles `json:"setSaturationAlarmWakeRoles"`
+}
+
+// GetSetSaturationAlarmWakeRoles returns TeamSaturationWakeRolesSetInstructedResponse.SetSaturationAlarmWakeRoles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetInstructedResponse) GetSetSaturationAlarmWakeRoles() *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles {
+	return v.SetSaturationAlarmWakeRoles
+}
+
+// TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles includes the requested fields of the GraphQL type SaturationAlarmWakeRoles.
+// The GraphQL type's documentation follows.
+//
+// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16). Each worker of the App whose role
+// is listed, matched regardless of case and not retired, is offered one wake when an alarm is raised.
+type TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles struct {
+	SaturationWakeRolesFields `json:"-"`
+}
+
+// GetAppId returns TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles.AppId, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) GetAppId() string {
+	return v.SaturationWakeRolesFields.AppId
+}
+
+// GetRoles returns TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles.Roles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) GetRoles() []string {
+	return v.SaturationWakeRolesFields.Roles
+}
+
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SaturationWakeRolesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles struct {
+	AppId string `json:"appId"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) __premarshalJSON() (*__premarshalTeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles, error) {
+	var retval __premarshalTeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles
+
+	retval.AppId = v.SaturationWakeRolesFields.AppId
+	retval.Roles = v.SaturationWakeRolesFields.Roles
+	return &retval, nil
+}
+
+// TeamSaturationWakeRolesSetResponse is returned by TeamSaturationWakeRolesSet on success.
+type TeamSaturationWakeRolesSetResponse struct {
+	// #4777 — set the roles an App's saturation alarms wake, the whole list at once (hrn:node:hadronmemory.com:specs:cor:agt:060:16): whoever
+	// manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). Names are trimmed and lower-cased, duplicates collapse, and the
+	// result is sorted; at most 32 names of 1 to 64 characters with no ":" or whitespace. The empty list clears it. A role no
+	// worker holds is accepted. Setting the stored list again changes nothing. The list is read when an alarm is raised: a
+	// change never wakes anyone for an alarm already raised. Refusals: BAD_USER_INPUT (before any other check),
+	// APP_NOT_FOUND, APP_MANAGER_REQUIRED, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction, recorded as one app.manager-act event, ids only.
+	SetSaturationAlarmWakeRoles *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles `json:"setSaturationAlarmWakeRoles"`
+}
+
+// GetSetSaturationAlarmWakeRoles returns TeamSaturationWakeRolesSetResponse.SetSaturationAlarmWakeRoles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetResponse) GetSetSaturationAlarmWakeRoles() *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles {
+	return v.SetSaturationAlarmWakeRoles
+}
+
+// TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles includes the requested fields of the GraphQL type SaturationAlarmWakeRoles.
+// The GraphQL type's documentation follows.
+//
+// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16). Each worker of the App whose role
+// is listed, matched regardless of case and not retired, is offered one wake when an alarm is raised.
+type TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles struct {
+	SaturationWakeRolesFields `json:"-"`
+}
+
+// GetAppId returns TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles.AppId, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) GetAppId() string {
+	return v.SaturationWakeRolesFields.AppId
+}
+
+// GetRoles returns TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles.Roles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) GetRoles() []string {
+	return v.SaturationWakeRolesFields.Roles
+}
+
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SaturationWakeRolesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles struct {
+	AppId string `json:"appId"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) __premarshalJSON() (*__premarshalTeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles, error) {
+	var retval __premarshalTeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles
+
+	retval.AppId = v.SaturationWakeRolesFields.AppId
+	retval.Roles = v.SaturationWakeRolesFields.Roles
 	return &retval, nil
 }
 
@@ -141591,6 +141856,44 @@ type __TeamRosterInput struct {
 
 // GetAppRef returns __TeamRosterInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamRosterInput) GetAppRef() string { return v.AppRef }
+
+// __TeamSaturationWakeRolesInput is used internally by genqlient
+type __TeamSaturationWakeRolesInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamSaturationWakeRolesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesInput) GetAppRef() string { return v.AppRef }
+
+// __TeamSaturationWakeRolesSetInput is used internally by genqlient
+type __TeamSaturationWakeRolesSetInput struct {
+	AppRef string   `json:"appRef"`
+	Roles  []string `json:"roles"`
+}
+
+// GetAppRef returns __TeamSaturationWakeRolesSetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInput) GetAppRef() string { return v.AppRef }
+
+// GetRoles returns __TeamSaturationWakeRolesSetInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInput) GetRoles() []string { return v.Roles }
+
+// __TeamSaturationWakeRolesSetInstructedInput is used internally by genqlient
+type __TeamSaturationWakeRolesSetInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Roles       []string             `json:"roles"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamSaturationWakeRolesSetInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetRoles returns __TeamSaturationWakeRolesSetInstructedInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInstructedInput) GetRoles() []string { return v.Roles }
+
+// GetInstruction returns __TeamSaturationWakeRolesSetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __TeamSessionsPageFilteredInput is used internally by genqlient
 type __TeamSessionsPageFilteredInput struct {
@@ -187790,6 +188093,128 @@ func TeamRoster(
 	}
 
 	data_ = &TeamRosterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamSaturationWakeRoles.
+const TeamSaturationWakeRoles_Operation = `
+query TeamSaturationWakeRoles ($appRef: ID!) {
+	saturationAlarmWakeRoles(appRef: $appRef) {
+		... SaturationWakeRolesFields
+	}
+}
+fragment SaturationWakeRolesFields on SaturationAlarmWakeRoles {
+	appId
+	roles
+}
+`
+
+func TeamSaturationWakeRoles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamSaturationWakeRolesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSaturationWakeRoles",
+		Query:  TeamSaturationWakeRoles_Operation,
+		Variables: &__TeamSaturationWakeRolesInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamSaturationWakeRolesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamSaturationWakeRolesSet.
+const TeamSaturationWakeRolesSet_Operation = `
+mutation TeamSaturationWakeRolesSet ($appRef: ID!, $roles: [String!]!) {
+	setSaturationAlarmWakeRoles(appRef: $appRef, roles: $roles) {
+		... SaturationWakeRolesFields
+	}
+}
+fragment SaturationWakeRolesFields on SaturationAlarmWakeRoles {
+	appId
+	roles
+}
+`
+
+func TeamSaturationWakeRolesSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	roles []string,
+) (data_ *TeamSaturationWakeRolesSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSaturationWakeRolesSet",
+		Query:  TeamSaturationWakeRolesSet_Operation,
+		Variables: &__TeamSaturationWakeRolesSetInput{
+			AppRef: appRef,
+			Roles:  roles,
+		},
+	}
+
+	data_ = &TeamSaturationWakeRolesSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamSaturationWakeRolesSetInstructed.
+const TeamSaturationWakeRolesSetInstructed_Operation = `
+mutation TeamSaturationWakeRolesSetInstructed ($appRef: ID!, $roles: [String!]!, $instruction: ActInstructionInput!) {
+	setSaturationAlarmWakeRoles(appRef: $appRef, roles: $roles, instruction: $instruction) {
+		... SaturationWakeRolesFields
+	}
+}
+fragment SaturationWakeRolesFields on SaturationAlarmWakeRoles {
+	appId
+	roles
+}
+`
+
+// The instructed manager write (cor:dmo:050:12, "Acting on an instruction"), in its own
+// document like every instructed write, so a request without the flag is the plain one.
+func TeamSaturationWakeRolesSetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	roles []string,
+	instruction *ActInstructionInput,
+) (data_ *TeamSaturationWakeRolesSetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSaturationWakeRolesSetInstructed",
+		Query:  TeamSaturationWakeRolesSetInstructed_Operation,
+		Variables: &__TeamSaturationWakeRolesSetInstructedInput{
+			AppRef:      appRef,
+			Roles:       roles,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamSaturationWakeRolesSetInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
