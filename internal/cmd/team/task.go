@@ -51,7 +51,9 @@ for every command returning a task record, including hand-back and
 find-untracked. An older server rejects those documents as schema skew,
 exit 2: upgrade that provider first, including self-hosted or staging servers.
 Omitted input keys do not hide output selections. The separate dependencies
-paging query is unaffected.
+paging query is unaffected. The hosted server is always current; for a
+self-hosted or staging server, ask its operator when it was last released
+(`+"`hadron server-info`"+` shows that it answers, not its release date).
 
 A typical flow, from the person or worker handing out the work to the
 assignee working in its bound worktree (the handles here and on every page are

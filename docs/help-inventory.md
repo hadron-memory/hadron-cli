@@ -599,7 +599,7 @@ section between the markers.
 | `team stop lift` |  |  | n | #1054 | 97ff7478a8a7 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team stop set` |  |  | y | #1054 | 6891c254fb39 |  | unread |  |
-| `team task` |  |  | n | #1054 | c6cef5294ad9 |  | unread |  |
+| `team task` |  |  | n | #1054 | 30c81c28f2b7 |  | unread |  |
 | `team task add-blocker` |  |  | y | #1054 | d43f6feaab7b |  | unread |  |
 | `team task assign` |  |  | y | #1054 | acbb55f94245 |  | unread |  |
 | `team task cancel` |  |  | y | #1054 | b30c88965ba2 |  | unread |  |
