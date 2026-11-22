@@ -100,6 +100,11 @@ type stopFixture struct {
 	// beforeSettle, when set, runs at the start of settle (cli#2954: lets a test observe what is still
 	// installed at that moment).
 	beforeSettle func()
+	// failf is settle's failure sink, t.Fatalf by default. A pin that must observe settle
+	// failing without dying by it (the wiring red control, cli#3016 round 4) swaps it in
+	// beforeSettle and asserts the recorded failure: neutering settle's scan call then
+	// empties the record and fails the pin.
+	failf func(format string, args ...any)
 }
 
 // newStormFixture installs both wrappers: the void-exhaustion storm over
@@ -121,6 +126,7 @@ func newJourneyFixture() *stopFixture {
 
 func (f *stopFixture) install(t *testing.T) {
 	t.Helper()
+	f.failf = t.Fatalf
 	f.realSignal = signalGroup
 	signalGroup = func(pgid int, sig syscall.Signal) error {
 		err := f.realSignal(pgid, sig) // the real signal completes FIRST:
@@ -199,7 +205,7 @@ func (f *stopFixture) settle(t *testing.T) {
 			// one timeout would leak an empty /proc into every later test
 			f.missedBound.Store(true) // the watcher stays live: an outer
 			// restore now would race it (the pin's own cleanup checks this)
-			t.Fatalf("the drain watcher did not settle after the stop's reap; the fixture's wrappers stay installed (transparent pass-throughs of the real functions)")
+			f.failf("the drain watcher did not settle after the stop's reap; the fixture's wrappers stay installed (transparent pass-throughs of the real functions)")
 			return
 		}
 		leakPgid = a.pid
@@ -212,10 +218,11 @@ func (f *stopFixture) settle(t *testing.T) {
 	// cli#2951 review (blind, P2 ×2): the empty gate must not blind the
 	// settle to a genuinely surviving member — before the gate, a real leak
 	// held the watcher to the bound and failed the test. The check runs
-	// LAST, after every restore: its Fatalf exits the goroutine, and by
-	// then nothing is left installed for it to leak into later tests.
+	// LAST, after every restore: its failure sink (t.Fatalf unless a pin
+	// records it) ends the test with nothing left installed to leak into
+	// later tests.
 	if leakPgid != 0 && f.confirmedDrainDisproved(leakPgid) {
-		t.Fatalf("settle confirmed a drain the listing disproves: a member of group %d survived the reap", leakPgid)
+		f.failf("settle confirmed a drain the listing disproves: a member of group %d survived the reap", leakPgid)
 	}
 }
 
@@ -734,13 +741,15 @@ func TestSettleDrainsDespiteChurnThatOutlastsTheTest(t *testing.T) {
 
 // The red control for settle's post-closure leak scan (cli#2951 round-2
 // local P3: the scan had evidence but no pin — neutering it left the
-// package green). Two fed shapes over one launch: a listing whose extra
-// entry stats as a LIVE member of the launch's own group must disprove
-// the confirmed drain, and the same entry stat-vanishing — the ambient
-// churn shape — must not (a voided pass proves nothing). The shapes are
-// served only once the gate is set, exactly the world the scan sees: the
-// gated watcher drained over empty while the listing under the wrapper
-// held the disproof.
+// package green). It pins the HELPER's verdict; the wiring — settle's
+// call of the helper — is pinned by the companion control below
+// (round-4: one finding from all three seats). Two fed shapes over one
+// launch: a listing whose extra entry stats as a LIVE member of the
+// launch's own group must disprove the confirmed drain, and the same
+// entry stat-vanishing — the ambient churn shape — must not (a voided
+// pass proves nothing). The shapes are served only once the gate is set,
+// exactly the world the scan sees: the gated watcher drained over empty
+// while the listing under the wrapper held the disproof.
 func TestAConfirmedDrainTheListingDisprovesFailsTheScan(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
@@ -772,8 +781,21 @@ func TestAConfirmedDrainTheListingDisprovesFailsTheScan(t *testing.T) {
 		}
 		return realStat(path)
 	}
-	t.Cleanup(func() { readGroupStatFn = realStat })
+	// The same missedBound contract as the listing restore above (round-4
+	// blind M1, the one line the round-2 fix missed): on a bound miss the
+	// abandoned watcher still stats through this seam, and restoring the
+	// pointer underneath it is the race the guard exists to prevent.
+	t.Cleanup(func() {
+		if !f.missedBound.Load() {
+			readGroupStatFn = realStat
+		}
+	})
 	f.install(t)
+	// Round-4 blind M3: a first-assertion failure must not leave the member
+	// live for the deferred settle's own scan — that second failure would
+	// pile a misleading "survived the reap" on the real one. Registered
+	// after install so it runs BEFORE the fixture's settle.
+	t.Cleanup(func() { liveMember.Store(false) })
 	a, err := ExecHost{}.Launch(context.Background(),
 		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
 	if err != nil {
@@ -803,6 +825,89 @@ func TestAConfirmedDrainTheListingDisprovesFailsTheScan(t *testing.T) {
 	// the production path the fixture provides.
 	stopped, detail := a.Terminate()
 	assertTruthfulStopLadder(t, f, a, stopped, detail)
+}
+
+// The wiring red control for the same scan (round-4: the same finding
+// from all three seats — blind M2, local P3, QA F1 — the control above
+// pins the helper's verdict, not settle's call of it, and forcing the
+// call site's condition false left the whole package green). The same
+// listing and the same stat-live member, but fed through the production
+// path: the ladder settles the fixture inline, and settle must FAIL on
+// the disproof. The failure is observed, not taken — beforeSettle swaps
+// settle's sink for a recorder — so this pin asserts the Fatalf instead
+// of dying by it, and neutering the call site empties the record.
+func TestSettleFailsOnAListingThatDisprovesTheConfirmedDrain(t *testing.T) {
+	if _, err := exec.LookPath("true"); err != nil {
+		t.Skip("no true")
+	}
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc")
+	}
+	f := newJourneyFixture()
+	hostRead := readProcDir
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		entries, err := hostRead(dir)
+		if err != nil {
+			return nil, err
+		}
+		return append(entries, fakeDirEntry{name: abovePidMax}), nil
+	}
+	t.Cleanup(func() {
+		if !f.missedBound.Load() {
+			readProcDir = hostRead
+		}
+	})
+	realStat := readGroupStatFn
+	readGroupStatFn = func(path string) (int, byte, int, error) {
+		// Live exactly in the world the scan runs in — once the gate is
+		// set — so the ladder's own confirmations still see the entry
+		// stat-void and pass; only the post-closure scan meets it alive.
+		if f.settleEmpty.Load() && strings.HasSuffix(path, "/"+abovePidMax+"/stat") {
+			if a := f.rec.bound(); a != nil {
+				return a.pid, 'R', 1, nil // a live member of the launch's own group
+			}
+		}
+		return realStat(path)
+	}
+	t.Cleanup(func() {
+		if !f.missedBound.Load() {
+			readGroupStatFn = realStat
+		}
+	})
+	var failures []string
+	f.beforeSettle = func() {
+		f.failf = func(format string, args ...any) {
+			failures = append(failures, fmt.Sprintf(format, args...))
+		}
+	}
+	f.install(t)
+	a, err := ExecHost{}.Launch(context.Background(),
+		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.rec.bind(a)
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("true exits at once")
+	}
+	// The moment the scan runs at: gate set, storming clear — settle's own
+	// world after it has confirmed and reaped, pre-set exactly as the
+	// sibling control above pre-sets it (the ladder then confirms over the
+	// gated empty listing instead of grinding production deadlines against
+	// the churn; the disproof lives in the listing the scan reads
+	// directly, under the wrapper).
+	f.storming.Store(false)
+	f.settleEmpty.Store(true)
+	stopped, detail := a.Terminate()
+	assertTruthfulStopLadder(t, f, a, stopped, detail)
+	if !f.settled.Load() {
+		t.Fatal("the ladder did not settle the fixture inline: the scan's call site was never reached")
+	}
+	if len(failures) != 1 || !strings.Contains(failures[0], "survived the reap") {
+		t.Fatalf("settle must fail on a listing that disproves the confirmed drain: recorded %v", failures)
+	}
 }
 
 func closedChan() chan struct{} {
