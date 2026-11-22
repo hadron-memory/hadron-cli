@@ -61,8 +61,8 @@ WHICH COMMAND, IN ORDER:
   read one session's prompts   session served-prompts <session-id>
   record how a session went    session outcome <session-id> <0..1>
 
-TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
-(hadron-server#1034). This group manages the first:
+TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER.
+This group manages the first:
 
   worker session   the Hadron binding above — what makes your work
                    attributable, and what holds the worker
@@ -70,7 +70,7 @@ TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
                    the Claude Code session, the IDE chat
 
 Closing your CHAT SESSION does not end the worker session. It outlives the
-chat, and since hadron-server#1114 no idle window ends it either. Apart from
+chat, and no idle window ends it either. Apart from
 a hard deadline some sessions are given at start (whoami --check then says
 auto-expired), two things end it: ` + "`session end`" + `, and your own NEXT BIND of
 the same worker (from any worktree, --force or not), which ends your old open
@@ -84,7 +84,7 @@ Finishing a task, a PR or a chat is not stopping (` + "`session end --help`" + `
 TAKEN is not HELD. Ending the session frees the SESSION; a PERSON binding a
 worker also claims its name, and that hold stays yours until you run
 ` + "`worker release`" + ` — no session end, idle window, expiry or reap ever
-clears one (cor:agt:020:09). An APP-KEY session claims no hold (an App key
+clears one. An APP-KEY session claims no hold (an App key
 holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
@@ -850,7 +850,7 @@ when redemption starts a new session, never replaces an open session's plan.
 The session is recorded server-side
 (with the provenance fields: repo, branch, host, tool, transcript path,
 model) and the binding is written under this worktree's git dir so
-` + "`whoami`" + ` can recover it. The session binds the WORKER (cor:agt:020:03);
+` + "`whoami`" + ` can recover it. The session binds the WORKER;
 the server stamps the role-agent and the worker's App itself, so every
 worker session is App-bound. On success the worker's resolved boot
 briefing (its prompt) is printed — adopt it. The previous stint's
@@ -868,7 +868,7 @@ and the URN is tried FIRST, before any ambient App is even consulted, so it
 is the spelling that still works when the App context is wrong, stale or
 missing. Prefer it in anything scripted.
 
-ONE WORKTREE PER WORKER (#472). Do not drive two workers from one
+ONE WORKTREE PER WORKER. Do not drive two workers from one
 checkout. Two agents there share an index and a working tree: whichever
 commits with ` + "`git add -A`" + ` absorbs the other's in-flight edits, and
 Session.branch is captured once here and never revisited, so a session
@@ -880,7 +880,7 @@ exists. Give each worker its own tree with
 <existing-branch> in place of -b) — the binding lives under the
 worktree's own git dir, so linked worktrees are already independent.
 
-TWO REFUSALS, AND ONLY ONE OF THEM IS FORCEABLE (cor:agt:020:09). Read
+TWO REFUSALS, AND ONLY ONE OF THEM IS FORCEABLE. Read
 this before reaching for --force, because the flag answers exactly one of
 them:
 
@@ -896,10 +896,10 @@ them:
           name, so the driver deciding is the driver affected.
 
 A worker with a LIVE session is taken: the takeover requires --force, and
-the last driver and start time are shown (informed override,
-cor:agt:020:03 — never silent).
+the last driver and start time are shown (an informed override,
+never silent).
 
-Live is DERIVED, not stored (hadron-server#1114): the server computes it
+Live is DERIVED, not stored: the server computes it
 at read time from when the session was last driven, so a name whose
 driver stopped stops being taken on its own. Nothing ends the session to
 make that happen — it stays open until its driver's next bind of that
@@ -913,7 +913,7 @@ keyboard: the window is generous. ` + "`worker list`'s" + ` LAST RECORDED ACTIVI
 column is where to read it, and binding a name whose session is open but
 no longer live is NOT a takeover: it needs no --force.
 
-A BIND ENDS YOUR OTHER OPEN SESSIONS ON THAT WORKER (hadron-server#1617).
+A BIND ENDS YOUR OTHER OPEN SESSIONS ON THAT WORKER.
 Every bind, plain or --force, ends the same person's other open sessions
 on the worker, lapsed or live, without a handoff: their end reason is
 superseded and the new session chains to the newest of them. Write the old
@@ -932,8 +932,7 @@ or lapsed binding once the server confirms it is not live; --force
 replaces a live one. Either way the rule above ends your old session. It
 never separates two live agents working in one tree.
 
-A LAUNCHED AGENT binds with --launch-grant instead (hadron-cli#831,
-cor:agt:070:08). The host poller (` + "`team host run`" + `) hands the agent it starts
+A LAUNCHED AGENT binds with --launch-grant instead. The host poller (` + "`team host run`" + `) hands the agent it starts
 a single-use grant in HADRON_LAUNCH_GRANT, and this command reads it from
 there when neither --launch-grant nor --as is given. The grant names the
 worker, so --as is not needed with it; --as with --launch-grant has the
@@ -943,7 +942,7 @@ way of an ordinary bind later. When the host could not apply the run
 settings its start named (an exec-path worker runs its own fixed command), it
 also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
 tells the server (startSettingsApplied: false) so the bind records none of
-those settings as run (hadron-cli#2209). Any other value sends nothing. Redeem
+those settings as run. Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
 redeems one (exit 8, LAUNCH_GRANT_INVALID, also for an unknown, expired or
 used grant). A changed hold or a worker that is already live refuses the
@@ -959,8 +958,7 @@ staffed by a coordinator is unheld until each person binds their own, and
 an APP-KEY session claims nothing at all (an App key is not a person and
 holds nothing).
 
-WITH NO WORKER NAMED AND NO GRANT, START RESUMES (hadron-cli#842,
-cor:agt:020:03). It asks the server to recover your worker, judged only by
+WITH NO WORKER NAMED AND NO GRANT, START RESUMES. It asks the server to recover your worker, judged only by
 your own token: an unused resume claim of yours (written by
 ` + "`session end --resume-claim`" + ` or ` + "`session resume-claim`" + ` before a context reset,
 redeemable for 60 seconds) binds it, RESUMED to the open session or STARTED
@@ -970,7 +968,7 @@ printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
 behalf. A worktree with a binding file sends that worker as the expected
-worker (needs hadron-server#3822; an older server refuses the resume, exit 2,
+worker (an older server that cannot check the expected worker refuses the resume, exit 2,
 consuming nothing: use start --as <worker>): if nothing of that worker's waits but
 another worker's claim or live session does, the resume is refused (exit 5,
 RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
@@ -1511,7 +1509,7 @@ ends the recovered session: run start again to pick it up.`,
 	cmd.Flags().StringVar(&tool, "tool", "", "driving tool, e.g. claude-code or codex")
 	cmd.Flags().StringVar(&model, "model", "", "LLM model driving the session")
 	cmd.Flags().StringVar(&reportsTo, "reports-to", "", "worker to report to at bind (name, URN or id); omit to preserve")
-	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "explicit team memory (optional since #399 — the worker's App is recorded as the worklog home; -m also cross-checks the App at start)")
+	cmd.Flags().StringVarP(&teamMemory, "memory", "m", "", "explicit team memory (optional: the worker's App is recorded as the worklog home; -m also cross-checks the App at start)")
 	cmd.Flags().StringVar(&pick, "session", "", "resume only: pick this candidate (a session id a resume listed)")
 	return cmd
 }
@@ -2114,7 +2112,7 @@ func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
 		Long: `Answer "what am I driving?" — the compaction-recovery read.
 
 It prefers this worktree's binding and FALLS BACK TO THE SERVER when there is
-none (#623), so losing the binding is a cache miss rather than data loss. The
+none, so losing the binding is a cache miss rather than data loss. The
 binding lives under the worktree's git dir, and ` + "`git worktree remove`" + ` takes it
 with the directory — which does NOT end the session. Before the fallback, that
 left a session open with its only local handle gone.
@@ -2122,7 +2120,7 @@ left a session open with its only local handle gone.
 --json carries "source": "worktree" when the binding answered, "server" when
 the fallback did.
 
---check ASKS THE SERVER about the bound session (#484). The
+--check ASKS THE SERVER about the bound session. The
 binding identity remains available locally for compaction recovery. The default
 also reads the worker's CURRENT reports-to relation (best effort, at most five
 seconds); failed or masked reads show ? (unavailable), not nobody. It never
@@ -2138,8 +2136,8 @@ else here), never "live" — an active session is not necessarily a driven one.
 the CLI works out: "live, lapses at <instant>", "LAPSED at <instant>" (open but
 not live; rebind), "DORMANT" (no agent act resumes it; its human holder must
 rebind) or "ENDED" (also shown when a session has hard-expired but is not yet
-reaped). Since hadron-server#1114 a developer session has no inactivity
-deadline, and an open one not driven for months is open, not stale. --json adds
+reaped). A developer session has no inactivity deadline, and an open one not
+driven for months is open, not stale. --json adds
 ` + "`live`, `lapsesAt`, `state` (live|lapsed|dormant|ended|unknown)" + ` and
 ` + "`candidateStates`" + `; ` + "`active`" + ` keeps its stable meaning (the row is
 not ended) and is NOT liveness. A server that predates Session.state answers
@@ -2160,14 +2158,14 @@ Neither branch asks whether a reported session is healthy; see ` + "`session lis
 
 If you are here because a chat session ended and you are not sure what you
 are still driving: the worker session survived it. YOU PROBABLY DO NOT NEED TO
-END IT. Worker sessions are meant to be long-lived (hadron-server#1114 removed
-the idle reaper on the principle that silence is not abandonment), so ending is
+END IT. Worker sessions are meant to be long-lived (no idle reaper ends one,
+because silence is not abandonment), so ending is
 for when the WORK ends — not when a chat session, a branch or a worktree does.
 ` + "`session end`" + ` is what ends it, and it does NOT release the NAME: a person who
-binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
+binds a worker holds its name until ` + "`worker release`" + `.
 
 --signature and --trailer print ONLY the bound worker's signature or trailer,
-as the server renders it from the worker's templates (hadron-server#2969), on
+as the server renders it from the worker's templates, on
 one line with no label: ` + "`$(hadron team session whoami --signature)`" + ` is the
 signature to put under anything you publish. The CLI fills in no variable
 itself. --json gives {"renderedSignature": "…"} or {"renderedTrailer": "…"}.
@@ -2438,13 +2436,13 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 team worklog — the collection behind the provenance query
 (` + "`session list --pr <ref>`" + `: which sessions produced this PR?).
 
-No memory flag is needed (#399) — just pick one artifact flag: the binding records the bound worker's App, the
+No memory flag is needed — just pick one artifact flag: the binding records the bound worker's App, the
 worklog is App-addressed, and the collection schema is the server's — no
-` + "`team init`" + ` first (#401), no -m. --memory stays as an explicit override;
+` + "`team init`" + ` first, no -m. --memory stays as an explicit override;
 it fails SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than
 the bound worker's (drop -m, or pass the worker's own team memory). Only
-bindings written by OLDER CLIs differ: a pre-#399 worker binding falls
-back to its recorded team memory and behaves as before; a pre-Worker
+bindings written by OLDER CLIs differ: a worker binding written before
+the worker's App was recorded falls back to its recorded team memory and behaves as before; a pre-Worker
 binding (no App recorded at all) degrades — --pr/--branch write only the
 Session denormalization, --issue/--commit refuse — with a note naming the
 remedy.
@@ -2942,7 +2940,7 @@ func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 		Short: "End this worktree's worker session — the session, not the name",
 		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
 
-MOST OF THE TIME, DO NOT END IT (#623). End it only when you stop being this
+MOST OF THE TIME, DO NOT END IT. End it only when you stop being this
 worker for good — not when a task, a chat session, a branch, a PR or a
 worktree ends; the session spans all of those. To reset your context and keep
 working as the same worker, use ` + "`session shed`" + ` instead. When you do end it,
@@ -2960,33 +2958,33 @@ either; ` + "`session list --active --as <worker>`" + ` shows what is still open
 
 IT DOES NOT RELEASE THE NAME. A person who binds a worker claims its name,
 and no session end, idle window, expiry or reap ever clears that hold
-(cor:agt:020:09) — only ` + "`worker release`" + ` does. So ending here frees the
+— only ` + "`worker release`" + ` does. So ending here frees the
 worker to be BOUND by you again; it does not hand the name to anyone else.
 
 Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
-worker — since hadron-server#1114 no idle window ends it either. Only an end
+worker — no idle window ends it either. Only an end
 here, your own next bind of the worker, or a hard deadline set at start does.
 
 WHY NOT END IT. Worker sessions are meant to be
-long-lived: #1114 removed the idle reaper on the principle that silence is
-not evidence of abandonment. Re-binding is not free: it
+long-lived: no idle reaper ends one, because silence is not evidence of
+abandonment. Re-binding is not free: it
 re-renders the boot briefing, takes several manual steps that are not
-Hadron's, and a mistyped worker name has a known failure mode
-(hadron-server#1157). If you are ending a healthy session to tidy something
+Hadron's, and a worker name typed by hand (into a signature, say) can name
+the wrong worker; take it from ` + "`session whoami --signature`" + `. If you are ending a healthy session to tidy something
 up, the tidying is the thing to reconsider.
 
 A WORKTREE IS REMOVABLE WITHOUT TOUCHING THE SESSION. The binding lives
 under the worktree's git dir, so ` + "`git worktree remove`" + ` deletes it — and that
 does NOT end the session. It used to leave the session open with its only
-local handle gone; since #623 ` + "`session whoami`" + ` falls back to the server, so
+local handle gone; ` + "`session whoami`" + ` now falls back to the server, so
 the id is recoverable and --session below ends it without a binding.
 
---handoff IS WHAT THE NEXT DRIVER READS (hadron-server#1029). Prose about
+--handoff IS WHAT THE NEXT DRIVER READS. Prose about
 what landed, what is open, what is blocked, and what they should not
 repeat — the server files it in the worker's own memory, and the next bind
-hands it over. Because handoffs follow the NAME rather than the holder
-(cor:agt:020:09), it may well be a colleague who receives it.
+hands it over. Because handoffs follow the NAME rather than the holder,
+it may well be a colleague who receives it.
 
 Written BEFORE the session ends, and a failed write REFUSES the end
 (HANDOFF_WRITE_FAILED, exit 1) rather than ending anyway: a still-bound
@@ -2994,8 +2992,7 @@ worker is recoverable — retry, or end without a handoff deliberately —
 while an ended session whose handoff evaporated is not, because the
 context that composed it is gone. A session with no worker has no sequence
 to write to, so passing --handoff there is refused rather than dropped.
-That ordering is a platform guarantee, not this client's choice
-(cor:agt:020:10).
+That ordering is a platform guarantee, not this client's choice.
 
 AFTER A SUCCESSFUL END THAT SENT A HANDOFF, the saved node is read back and
 its URN printed under the ✓ line ("handoff saved: <urn>"), and --json gains
@@ -3028,9 +3025,9 @@ CLI sees it; use --handoff-file there.
 
 --SUMMARY IS A DIFFERENT FIELD AND THE NEXT DRIVER NEVER SEES IT. It is a
 short label on the session row; nothing reads it back. That is not a
-quirk of today's build: cor:agt:020:10 makes --handoff the ONE field
+quirk of today's build: the platform makes --handoff the ONE field
 carrying continuity, and any other free-text field on a session
-display-only unless the corpus says otherwise — so writing continuity
+display-only — so writing continuity
 into --summary is a contract violation rather than a naming preference,
 and it fails silently, producing no error and no record. Both flags are
 kept deliberately; if you are writing one thing for whoever comes next,
@@ -3041,7 +3038,7 @@ when the binding is gone or unusable (a lost worktree, a failed binding
 write, a binding written by a pre-Worker CLI) but the server-side worker
 session is still open.
 
---resume-claim is for a ROTATION (hadron-cli#842, cor:agt:020:03): the server
+--resume-claim is for a ROTATION: the server
 writes a resume claim after the handoff and before the end, so the fresh
 context that follows recovers this worker by running ` + "`hadron team session start`" + `
 with no worker named, within 60 seconds. That start begins the worker's
@@ -3271,8 +3268,7 @@ attributed to you. So rows from other people and other Apps are expected.
 do.
 
 --active narrows to sessions that never ENDED, which is not the same as
-team presence: since hadron-server#1114 no idle window ends a developer
-session. Only ` + "`session end`" + `, the same person's next bind of that worker,
+team presence: no idle window ends a developer session. Only ` + "`session end`" + `, the same person's next bind of that worker,
 or a hard deadline set at start does, so an abandoned one stays listed until
 then. For "was this name driven recently, and does the server still count it
 as taken", read ` + "`worker list`'s" + ` LAST RECORDED ACTIVITY. --as narrows to one
@@ -3286,7 +3282,7 @@ and resolves each recorded session — several rows per PR are expected and
 desirable (a PR spanning three sessions yields three transcripts).
 --issue/--commit/--branch ask the same question of the other artifact
 kinds. The worklog's App comes from the worktree binding, or from --app /
--m when running unbound (#399). A recorded session that is no longer
+-m when running unbound. A recorded session that is no longer
 visible to you still lists (id only), rather than being silently
 dropped. The provenance JSON includes each matching worklog milestone with
 its reported event-time model; the human output prints those milestones below
