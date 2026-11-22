@@ -113,7 +113,7 @@ refusal restarts a service.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command,
 			}
 			return reportUnavailableSweep(cmd, f, cfg, configPath, host, reason, started)
 		}
-		return runHostUp(cmd, f, hostUpOptions{host: host, root: cfg.WorktreesRoot, orcaBin: orca, configPath: configPath, apply: true, timeout: 2 * time.Minute, lockHeld: true, readyChecked: cfg.UsesOrcaLaunch(), startedAt: started})
+		return runHostUp(cmd, f, sweepHostUpOptions(host, cfg.WorktreesRoot, orca, configPath, cfg.UsesOrcaLaunch(), started))
 	}}
 	c.Flags().StringVar(&configPath, "config", "", "host configuration (required)")
 	install := newScheduledInstall(f, healthsched.Sweep)
@@ -189,4 +189,12 @@ func reportUnavailableSweep(cmd *cobra.Command, f *cmdutil.Factory, cfg *hostpol
 	}
 	// An unavailable observation (OFF included) is a completed sweep, not a crash.
 	return nil
+}
+
+// sweepHostUpOptions is the timer pass's host-up run: applying, under the lock
+// the caller already holds, and exempt from the --apply sweep-mode refusal
+// (cli#2652) because its mode comes from the server's desired state and an OFF
+// App is a quiet pass the sweep records, not an error.
+func sweepHostUpOptions(host, root, orca, configPath string, readyChecked bool, started time.Time) hostUpOptions {
+	return hostUpOptions{host: host, root: root, orcaBin: orca, configPath: configPath, apply: true, skipSweepModeGate: true, timeout: 2 * time.Minute, lockHeld: true, readyChecked: readyChecked, startedAt: started}
 }
