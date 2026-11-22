@@ -115,6 +115,61 @@ func TestProtectedCreateIsStagedAndNeverSaysCreated_2815(t *testing.T) {
 	}
 }
 
+// TestProtectedCreateReturningSecretIsUnconfirmed_2815 (BLIND P1, create arm):
+// the contract is that createSecret(protected: true) STAGES the whole creation
+// and answers SECRET_PROTECTED_NEEDS_PASSKEY (hadron-server#3999 S4; the plan
+// doc). A server that instead returns the created secret did not stage what
+// this CLI asked for, so the requested protection is unconfirmed: exit 7, no
+// "created" success line, and the way to check — never a silent success for a
+// secret that may exist unprotected.
+func TestProtectedCreateReturningSecretIsUnconfirmed_2815(t *testing.T) {
+	srv, calls := fake2738(t, only2738(200, `{"data":{"createSecret":`+secretJSON+`}}`))
+	stdout, stderr, code := run2738(t, srv.URL, "create", "--name", "app-secret", "--scope", "app",
+		"--owner", "01app", "--kind", "generic", "--protected", "--value-file", valueFile2738(t))
+	if code != exitcode.Unavailable {
+		t.Fatalf("exit = %d, want 7 (unconfirmed)\n%s%s", code, stdout, stderr)
+	}
+	if got := callsTo2815(calls, "CreateSecret"); got != 1 {
+		t.Fatalf("createSecret must be sent exactly once, sent %d", got)
+	}
+	all := stdout + stderr
+	for _, want := range []string{"not confirmed", "hadron secret get"} {
+		if !strings.Contains(all, want) {
+			t.Fatalf("unconfirmed output must say the outcome is unconfirmed and how to check, missing %q:\n%s", want, all)
+		}
+	}
+	if strings.Contains(all, "created secret") {
+		t.Fatalf("an unconfirmed create must never print a success line:\n%s", all)
+	}
+}
+
+// TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815 (BLIND P1,
+// update arm): every explicit protection value on an App secret stages
+// (hadron-server#3999 S4), so a returned secret is not the promised staging
+// for either boolean: exit 7, no "updated" success line, same shape as
+// secret protect's answer to a returned secret.
+func TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815(t *testing.T) {
+	for _, flags := range []string{"--protected", "--protected=false"} {
+		srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretJSON+`}}`))
+		stdout, stderr, code := run2738(t, srv.URL, "update", "01sec", flags)
+		if code != exitcode.Unavailable {
+			t.Fatalf("%s: exit = %d, want 7 (unconfirmed)\n%s%s", flags, code, stdout, stderr)
+		}
+		if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
+			t.Fatalf("%s: updateSecret must be sent exactly once, sent %d", flags, got)
+		}
+		all := stdout + stderr
+		for _, want := range []string{"not confirmed", "hadron secret get"} {
+			if !strings.Contains(all, want) {
+				t.Fatalf("%s: unconfirmed output must say the outcome is unconfirmed and how to check, missing %q:\n%s", flags, want, all)
+			}
+		}
+		if strings.Contains(all, "updated secret") {
+			t.Fatalf("%s: an unconfirmed update must never print a success line:\n%s", flags, all)
+		}
+	}
+}
+
 // TestSecretUpdateWithoutProtectedSendsNoField_2815 (acceptance 2): a plain
 // update sends NO protected key, so a member's value/metadata change is not
 // silently turned manager-only.
