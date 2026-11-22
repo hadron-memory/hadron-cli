@@ -23,7 +23,7 @@ func TestHostResetCapabilityWiresOnlyOnDeclaration2057(t *testing.T) {
 			}
 			cfg := writeHostConfig(t, extra)
 			raw, _ := os.ReadFile(cfg)
-			raw = []byte(strings.Replace(string(raw), "launch: [claude-worker]", "launch: [claude-worker]\n    recover: [recover-worker]", 1))
+			raw = []byte(strings.Replace(string(raw), "    family: claude\n", "    family: claude\n    recover: [recover-worker]\n", 1))
 			if err := os.WriteFile(cfg, raw, 0600); err != nil {
 				t.Fatal(err)
 			}

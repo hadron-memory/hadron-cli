@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -35,7 +36,7 @@ func hostCfg(t *testing.T, extraTop string) string {
 	t.Helper()
 	dir := t.TempDir()
 	key := filepath.Join(dir, "host.key")
-	if err := os.WriteFile(key, []byte(sentinelKey+"\n"), 0o600); err != nil {
+	if err := os.WriteFile(key, []byte(hostyaml.Supervised(sentinelKey+"\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg := `app: hrn:app:acme.com:eng-team
@@ -52,7 +53,7 @@ workers:
     launch: [claude-worker]
 ` + extraTop
 	p := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(p, []byte(cfg), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -86,7 +87,7 @@ func TestStatusConfigPicksOrcaBin(t *testing.T) {
 	h := newHostRig(t)
 	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
 	bin := filepath.Join(t.TempDir(), "orca")
-	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+	if err := os.WriteFile(bin, []byte(hostyaml.Supervised("#!/bin/sh\n")), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+bin+"\n"))
@@ -101,7 +102,7 @@ func TestStatusConfigPicksOrcaBin(t *testing.T) {
 func TestStatusConfigStaleOrcaBinFallsBackToPath2166(t *testing.T) {
 	dir := t.TempDir()
 	notExec := filepath.Join(dir, "orca-noexec")
-	if err := os.WriteFile(notExec, []byte("x"), 0o644); err != nil {
+	if err := os.WriteFile(notExec, []byte(hostyaml.Supervised("x")), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for name, bin := range map[string]string{
@@ -147,7 +148,7 @@ func TestStatusConfigBadConfigIsUsage(t *testing.T) {
 	for name, body := range map[string]string{"bad yaml": "app: [", "unknown field": "app: x\nbogus: 1\n"} {
 		h := newHostRig(t)
 		p := filepath.Join(t.TempDir(), "host.yaml")
-		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte(hostyaml.Supervised(body)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		code, _ := h.run(t, true, "--all", "--config", p)
@@ -202,7 +203,7 @@ func TestStatusConfigNoKeyFileSettingIsAuthRequired(t *testing.T) {
 			lines = append(lines, l)
 		}
 	}
-	if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(strings.Join(lines, "\n"))), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	code, _ := h.run(t, true, "--all", "--config", p)
@@ -348,7 +349,7 @@ func TestStatusWithoutConfigNeverTouchesHostSeams(t *testing.T) {
 	}
 	dir := t.TempDir()
 	t.Chdir(dir)
-	if err := os.WriteFile(filepath.Join(dir, "host.yaml"), []byte("app: x\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "host.yaml"), []byte(hostyaml.Supervised("app: x\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	h.joshua(idleScreen)
@@ -457,7 +458,7 @@ func fakeOrcaScript(t *testing.T, dir, log string) string {
 		"{ echo ARGV; printf '%s\\n' \"$@\"; echo ENV; " + envBin + "; echo FDS; " + lsBin + " -l /proc/self/fd 2>/dev/null; } >> " + log + "\n" +
 		"echo '{\"ok\":true,\"result\":{\"terminals\":[]}}'\n"
 	p := filepath.Join(dir, "fake-orca")
-	if err := os.WriteFile(p, []byte(script), 0o700); err != nil { // #nosec G306 — a test executable
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(script)), 0o700); err != nil { // #nosec G306 — a test executable
 		t.Fatal(err)
 	}
 	return p

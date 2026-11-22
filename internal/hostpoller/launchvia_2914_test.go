@@ -105,9 +105,43 @@ func TestAnOldExecStyleConfigSaysWhatToSetInstead2914(t *testing.T) {
 	if err == nil {
 		t.Fatal("an exec-style config (launch: argv, no launcher_profile) must no longer load")
 	}
-	for _, want := range []string{`worker "iris"`, "launch", "exec launch path was removed", "launcher_profile", "disk_tmp"} {
+	for _, want := range []string{`worker "iris"`, "launch", "exec launch path, which was removed", "launcher_profile", "disk_tmp"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the refusal must say %q: %v", want, err)
 		}
+	}
+}
+
+// `host import` reads a LEGACY exec-style config to migrate it: it validates everything except the
+// per-worker launch-path rules, which such a config cannot satisfy, while host run's loader refuses it.
+func TestImportLoaderStillReadsALegacyExecConfig2914(t *testing.T) {
+	dir := t.TempDir()
+	key := filepath.Join(dir, "host.key")
+	if err := os.WriteFile(key, []byte("hk_key\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "host.yaml")
+	legacy := "app: hrn:app:acme.com:eng-team\nlabel: box1\npoll_interval_seconds: 30\nkey_file: " + key + "\nworktrees_root: " + filepath.Join(dir, "trees") +
+		"\nworkers:\n  iris:\n    family: claude\n    launch_via: exec\n    launch: [claude-worker, --model, opus]\n    worktrees: [r/iris]\n"
+	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadConfig(path); err == nil {
+		t.Fatal("host run's loader must refuse a legacy exec config")
+	}
+	cfg, err := LoadConfigForImport(path)
+	if err != nil {
+		t.Fatalf("host import must still read the legacy config it migrates: %v", err)
+	}
+	if w := cfg.Workers["iris"]; strings.Join(w.Launch, " ") != "claude-worker --model opus" {
+		t.Fatalf("import reads the legacy launch argv: %v", w.Launch)
+	}
+	// Everything else is still validated: a bad worktree is refused here too.
+	bad := strings.Replace(legacy, "worktrees: [r/iris]", "worktrees: [../up]", 1)
+	if err := os.WriteFile(path, []byte(bad), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadConfigForImport(path); err == nil {
+		t.Fatal("the import loader skips only the launch-path rules, not the rest")
 	}
 }

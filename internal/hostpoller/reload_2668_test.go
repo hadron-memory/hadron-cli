@@ -133,8 +133,9 @@ func TestAPathThroughARegularFileIsJudgedAsMissing2668(t *testing.T) {
 	if ev := fx.kinds("config-reload-refused"); len(ev) != 0 {
 		t.Fatalf("a path through a regular file must be judged as missing, not refused, got %+v", ev)
 	}
-	if w, _ := fx.p.config().Worker("iris"); w.Launch[0] != blocked {
-		t.Fatalf("the reload must apply the entry (it fails at use, as before), got %v", w.Launch)
+	// The launcher program is the account's bin (cli#2914): the reload applies it as written.
+	if a, _ := fx.p.config().Account("acct-iris"); a.Bin != blocked {
+		t.Fatalf("the reload must apply the entry (it fails at use, as before), got %v", a.Bin)
 	}
 }
 
@@ -145,10 +146,12 @@ func TestAPathThroughARegularFileIsJudgedAsMissing2668(t *testing.T) {
 // walk cannot know — so the reload is refused naming it, whether or not the
 // file happens to exist in the poller's directory.
 func TestARelativeProgramIsRefusedOnReload2668(t *testing.T) {
-	cases := []struct{ key, name, extra string }{
-		{"launch", "./prog", ""},
-		{"end", "./end-prog", "    launch: [claude-worker]\n"},
-		{"recover", "./rec-prog", "    launch: [claude-worker]\n"},
+	// The launcher program is the worker's account bin (cli#2914): a relative one is refused at load by
+	// the account launcher rule (before the reload walk), naming it; end and recover reach the walk.
+	cases := []struct{ key, name, extra, why string }{
+		{"launch", "./prog", "", "bare command name or an absolute path"},
+		{"end", "./end-prog", "    launch: [claude-worker]\n", "relative path"},
+		{"recover", "./rec-prog", "    launch: [claude-worker]\n", "relative path"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.key, func(t *testing.T) {
@@ -162,8 +165,8 @@ func TestARelativeProgramIsRefusedOnReload2668(t *testing.T) {
 			}
 			fx.edit(reloadBase + line)
 			ev := fx.kinds("config-reload-refused")
-			if len(ev) != 1 || !strings.Contains(ev[0].Detail, tc.name) || !strings.Contains(ev[0].Detail, "relative path") {
-				t.Fatalf("want one refusal naming %q as a relative path, got %+v", tc.name, ev)
+			if len(ev) != 1 || !strings.Contains(ev[0].Detail, tc.name) || !strings.Contains(ev[0].Detail, tc.why) {
+				t.Fatalf("want one refusal naming %q (%s), got %+v", tc.name, tc.why, ev)
 			}
 			if _, ok := fx.p.config().Worker("billie"); ok {
 				t.Fatal("a worker naming a relative program was applied")
@@ -184,8 +187,9 @@ func TestARelativeProgramIsRefusedEvenWhereItResolves2668(t *testing.T) {
 	t.Chdir(fx.dir)
 	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [./prog]\n")
 	ev := fx.kinds("config-reload-refused")
-	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "./prog") || !strings.Contains(ev[0].Detail, "relative path") {
-		t.Fatalf("want one refusal naming ./prog as a relative path, got %+v", ev)
+	// The launcher program is the account bin (cli#2914): refused by the account launcher rule, named.
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "./prog") || !strings.Contains(ev[0].Detail, "bare command name or an absolute path") {
+		t.Fatalf("want one refusal naming ./prog as not a bare command or absolute path, got %+v", ev)
 	}
 }
 
@@ -223,8 +227,8 @@ func TestACleanAbsoluteProgramIsStillAcceptedOnReload2668(t *testing.T) {
 	if ev := fx.kinds("config-reload-refused"); len(ev) != 0 {
 		t.Fatalf("a clean absolute program must not be refused, got %+v", ev)
 	}
-	if w, _ := fx.p.config().Worker("iris"); w.Launch[0] != prog {
-		t.Fatalf("the clean absolute program was not applied: %v", w.Launch)
+	if a, _ := fx.p.config().Account("acct-iris"); a.Bin != prog {
+		t.Fatalf("the clean absolute program was not applied: %v", a.Bin)
 	}
 }
 
@@ -241,18 +245,25 @@ func TestARelativeDiskTmpIsNotRefusedAsAProgram2668(t *testing.T) {
 	// its merits, not on whatever mode the checkout happens to carry.
 	t.Chdir(fx.dir)
 	fx.edit(reloadBase + "  billie:\n    family: claude\n    launch: [claude-worker]\n    disk_tmp: sub/tmp\n")
-	if ev := fx.kinds("config-reload-refused"); len(ev) != 0 {
-		t.Fatalf("a relative disk_tmp must not be refused as a relative program, got %+v", ev)
+	// Every worker launches through Orca now (cli#2914), and Orca's disk_tmp must be absolute, so a
+	// relative disk_tmp is refused at load by that rule and never reaches the reload walk: it is still
+	// not refused AS A PROGRAM (the walk's directory-versus-program split is covered by the codex_home
+	// and claude_config_dir cases of TestADirectoryAWorkerNamesForItsAgentIsJudged2623).
+	ev := fx.kinds("config-reload-refused")
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "needs an absolute disk_tmp") || strings.Contains(ev[0].Detail, "relative path") {
+		t.Fatalf("a relative disk_tmp is refused by the absolute disk_tmp rule, not as a relative program, got %+v", ev)
 	}
-	if w, _ := fx.p.config().Worker("billie"); w.DiskTmp != "sub/tmp" {
-		t.Fatalf("the reload must apply the relative disk_tmp as written, got %q", w.DiskTmp)
+	if _, ok := fx.p.config().Worker("billie"); ok {
+		t.Fatal("a worker with a relative disk_tmp was applied")
 	}
 }
 
 // A relative program on a worker the edit did not change is not judged again:
 // only the changed entries are.
 func TestARelativeProgramOnAnUnchangedWorkerIsNotRejudged2668(t *testing.T) {
-	start := reloadBase + "  billie:\n    family: claude\n    launch: [./billie-prog]\n"
+	// The relative program is billie's end program: a relative LAUNCH program (the account bin) is
+	// refused at load now (cli#2914), so an unchanged worker cannot carry one.
+	start := reloadBase + "  billie:\n    family: claude\n    launch: [claude-worker]\n    end: [./billie-end]\n"
 	fx := newReloadFixtureFrom(t, start)
 	fx.step()
 	fx.edit(start + "  carl:\n    family: claude\n    launch: [claude-worker]\n")
@@ -286,7 +297,7 @@ func linkedConfigSite(t *testing.T) (root, startPath string) {
 		t.Fatal(err)
 	}
 	writeAt := func(path, label string) {
-		text := strings.NewReplacer("%KEY%", filepath.Join(root, "host.key"), "%ROOT%", root).Replace(reloadBase)
+		text := strings.NewReplacer("%KEY%", filepath.Join(root, "host.key"), "%ROOT%", root).Replace(supervised2914(reloadBase))
 		if err := os.WriteFile(path, []byte(strings.Replace(text, "label: box1", "label: "+label, 1)), 0o600); err != nil {
 			t.Fatal(err)
 		}

@@ -198,7 +198,6 @@ type Poller struct {
 	// reader of startCfg in production code is a bug (cli#2623).
 	startCfg      *Config
 	live          atomic.Pointer[Config]
-	orcaWired     bool                     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
 	removed       map[string]removedWorker // by worker id: workers a reload removed, with their last entry (cli#2623)
 	trust         trustWalk                // the filesystem the reload trust check reads; a per-poller seam so tests may override it in parallel (cli#2653 item 3)
 	reloadSeen    [32]byte                 // content of a configuration file already refused or reported
@@ -308,7 +307,7 @@ type Poller struct {
 // launched agents' environments (defence in depth: it is never put there).
 func New(cfg *Config, server Server, host Host, state *State, key string, emit func(Event)) *Poller {
 	return &Poller{
-		startCfg: cfg, orcaWired: cfg != nil && cfg.UsesOrcaLaunch(), server: server, host: host, state: state, key: key, emit: emit,
+		startCfg: cfg, server: server, host: host, state: state, key: key, emit: emit,
 		now:         time.Now,
 		sleep:       sleepCtx,
 		bound:       delivery.WorktreeBinding,
