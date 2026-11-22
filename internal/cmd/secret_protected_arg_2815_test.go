@@ -360,6 +360,28 @@ func TestProtectedFlagHelpNamesTheThreeStates_2815(t *testing.T) {
 	}
 }
 
+// TestSecretUpdateHelpStatesTheNoOpConditionally_2815 (BLIND P2 fold): the
+// already-off clear is server-dependent (hadron-server#4749; fix #4805 still
+// open when 7eb4499b shipped): servers that stage the clear answer
+// SECRET_PROTECTED_NEEDS_PASSKEY — the exit-5 ceremony flow, not the updated
+// line — and servers with the no-op return the secret. The help must name
+// both answers, never state the no-op outcome as unconditional fact.
+func TestSecretUpdateHelpStatesTheNoOpConditionally_2815(t *testing.T) {
+	out := secretHelp2815(t, "secret", "update")
+	for _, want := range []string{
+		"answer differently",
+		"some stage the clear",
+		"others recognize the no change",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("secret update --help must state the already-off clear conditionally, missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "asks for no change: nothing is staged") {
+		t.Errorf("secret update --help still states the no-op outcome unconditionally:\n%s", out)
+	}
+}
+
 // secretHelp2815 renders a command's --help with wrapped lines joined.
 func secretHelp2815(t *testing.T, args ...string) string {
 	t.Helper()
