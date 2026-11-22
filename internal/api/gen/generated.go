@@ -46901,6 +46901,13 @@ type CreateSecretProtectedResponse struct {
 	// origin binding). A run resolves the name via the CSS cascade
 	// (user -> org) at entitled scopes only; an App secret is never resolved
 	// by a run (hrn:node:hadronmemory.com:specs:cor:sec:020:02).
+	// With protected: true the create is only STAGED: it answers the error
+	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl, no
+	// secret exists yet, and the requester's own passkey ceremony at that URL makes
+	// it (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged request lasts
+	// one hour; at most 5 are open per secret name and at most 2 per requester
+	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Those numbers are
+	// engineering bounds, not ruled values.
 	CreateSecret *CreateSecretProtectedCreateSecret `json:"createSecret"`
 }
 
@@ -123698,6 +123705,11 @@ type UpdateSecretProtectedResponse struct {
 	// any member of the App may store. Name, kind, and owner are immutable —
 	// the cascade and flow config reference the name; create a new name
 	// instead. The effective (metadata, value) pair is re-validated per kind.
+	// On a PROTECTED App secret a change is only staged: it answers the error
+	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl instead
+	// of a Secret, and nothing changes until the requester completes the passkey
+	// ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
+	// caps are as for createSecret.
 	UpdateSecret *UpdateSecretProtectedUpdateSecret `json:"updateSecret"`
 }
 
