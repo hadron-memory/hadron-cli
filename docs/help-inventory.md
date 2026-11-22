@@ -838,7 +838,7 @@ section between the markers.
 | `slack get` |  |  | y | #1396 | cd1e7c877ab9 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 | `slack status` |  |  | y | #1396 | 3d39cb70d59f | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 | `telegram` |  |  | y | #1396 | d21d80139204 |  | unread |  |
-| `telegram connect` |  |  | y | #1396 | 9671db2fa527 |  | unread |  |
+| `telegram connect` |  |  | y | #1396 | 0318ae5e30d6 |  | unread |  |
 | `telegram disconnect` |  |  | y | #1396 | f89b6a16bd44 |  | unread |  |
 | `telegram get` |  |  | y | #1396 | f342cc60cea4 |  | unread |  |
 | `telegram status` |  |  | y | #1396 | c41bb42e36ea |  | unread |  |

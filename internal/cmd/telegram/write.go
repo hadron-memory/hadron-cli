@@ -109,7 +109,7 @@ code, e.g. an invalid token). This command does not check any of them.
 One request is sent and never retried. If its answer is lost, the outcome is
 unknown: the bot may be registered even though nothing was confirmed — a lost
 registration answer can even leave a bot registered on the Telegram side that
-Hadron cannot see (hadron-server#4829). "hadron telegram status" lists the
+Hadron cannot see. "hadron telegram status" lists the
 connections you can see, one page at a time, so follow its --offset hint
 before deciding the bot is not connected.
 On success it shows the connection the way "hadron telegram get" does (never a
