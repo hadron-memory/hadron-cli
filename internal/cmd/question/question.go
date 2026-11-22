@@ -492,7 +492,14 @@ it again and retry with the new revision. The server decides who may amend what:
 before any answer any writer, after one a decider only, and priority and tier
 are a decider's to change.
 
-On success the question prints as question get shows it, prefixed "✓ amended".`,
+On success the question prints as question get shows it, prefixed "✓ amended".
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the amend may have been recorded.
+Nothing is resent: read the question with question get before trying again. A
+refusal before the mutation ran keeps its ordinary exit, and a connection that
+never opened is "could not reach the server" (also exit 7) with no claim about
+the amend.`,
 		Example: `  hadron question amend hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "clarify" --title "Pick a primary database"
   cat > amend.json <<'EOF'
 {"assignee":null,"specsTouched":[{"spec":"<a spec citation>"}]}
@@ -1068,7 +1075,14 @@ func newCmdWithdraw(f *cmdutil.Factory) *cobra.Command {
 		Short: "Withdraw a question (final; its code stays used)",
 		Long: `Withdraw a question. This is final, and its code is never reused. The server
 decides who may: the asker or a decider, and only a decider once it is answered.
-Prompts on a terminal; --yes is required otherwise.`,
+Prompts on a terminal; --yes is required otherwise.
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the withdrawal may have been recorded.
+Nothing is resent: read the question with question get before trying again. A
+refusal before the mutation ran keeps its ordinary exit, and a connection that
+never opened is "could not reach the server" (also exit 7) with no claim about
+the withdrawal.`,
 		Example: `  hadron question withdraw hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "no longer needed" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1118,7 +1132,15 @@ question is refused (QUESTION_ANSWERED). A question left in the older question
 format (before the shape change of November 2026) counts as never answered only
 while its payload holds no answer or answer history: the server refuses one that
 does. Prompts on a
-terminal; --yes is required otherwise.`,
+terminal; --yes is required otherwise.
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the purge may have happened. Nothing is
+resent: read it with question get. A question that is not found most likely
+means the purge happened (check the ref is the one you meant); one that is
+still there means it did not. A refusal before the mutation ran keeps its
+ordinary exit, and a connection that never opened is "could not reach the
+server" (also exit 7) with no claim about the purge.`,
 		Example: `  hadron question purge hrn:node:acme.com:eng:questions:QC --reason "test data" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

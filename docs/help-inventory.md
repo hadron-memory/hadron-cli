@@ -166,7 +166,7 @@ section between the markers.
 | `object get` |  |  | y | #1051 | b1d69137efe0 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `object update` |  |  | y | #1051 | b8cd5b0de76d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `question` |  |  | n | #1051 | 6b30cb459a70 |  | unread |  |
-| `question amend` |  |  | y | #1051 | 92a5132fb452 |  | unread |  |
+| `question amend` |  |  | y | #1051 | 2676ff2e6409 |  | unread |  |
 | `question answer` |  |  | y | #1051 | 8ba973eec8bf |  | unread |  |
 | `question ask` |  |  | y | #1051 | 4d63a5690b3f |  | unread |  |
 | `question get` |  |  | y | #1051 | d2cc5b6b5cc8 |  | unread |  |
@@ -176,10 +176,10 @@ section between the markers.
 | `question log get` |  |  | y | #1051 | ea1ba800ff9d |  | unread |  |
 | `question log list` | ls |  | y | #1051 | 48290b08bbf4 |  | unread |  |
 | `question log set-deciders` |  |  | y | #1051 | b9cf029fce8b |  | unread |  |
-| `question purge` |  |  | y | #1051 | fef2accddfdd |  | unread |  |
+| `question purge` |  |  | y | #1051 | 3506a304c129 |  | unread |  |
 | `question retract` |  |  | y | #1051 | 09dc7044d02d |  | unread |  |
 | `question verify` |  |  | y | #1051 | 22a4d8cae72c |  | unread |  |
-| `question withdraw` |  |  | y | #1051 | 8ae70cff2cea |  | unread |  |
+| `question withdraw` |  |  | y | #1051 | c19be2dfc92e |  | unread |  |
 | `replace` |  |  | y | #1051 | 369a60e32405 | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `replace text` |  |  | y | #1051 | 06b94f5754e7 |  | unread |  |
 | `search` |  |  | y | #1051 | a0f17aa172e1 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6509143748) |
