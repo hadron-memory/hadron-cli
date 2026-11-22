@@ -170,8 +170,12 @@ instead of) a value/metadata change.
   unprotected), and the `secret update` cross-reference says "asks for" with
   the answer map instead of "stages". Red pin first:
   `TestAgenticUsageStatesProtectedOutcomes_2815` (red at e107e08b on all five
-  arms). Jill's nine P3s are recorded as optional in the PR disposition, not
-  folded.
+  arms). Jill's nine P3s: the two that are one-line wording fixes are folded
+  with this head per Eden's direction (#137032) — the "Protection is changed
+  only through a signed request" sentence in both helps read as though update
+  could not change protection (it now names the update ceremony first), and
+  "the default shape said aloud" jargon in create's help ("asks for the
+  default outright") — the other seven stay optional in the PR disposition.
 - **BLIND P3 (create 'not confirmed' wording), folded by Eden's direction**
   (#136855: "fold that + the create 'not confirmed' wording P3 into ONE
   head"). The create guard's exit-7 message said only "The outcome is not

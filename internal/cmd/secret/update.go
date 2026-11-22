@@ -66,8 +66,9 @@ change (exit 5: the request id and ceremony URL print); others recognize
 the no change, stage nothing, and the rest of the update applies (or
 nothing does) with the normal updated line. Without the flag no protected
 field is sent — a value or metadata update does not touch protection.
-Protection is changed only through a signed request: hadron secret protect
-changes protection and nothing else.
+Protection never changes without a signed request: update --protected stages
+its change for the ceremony above, and hadron secret protect changes
+protection and nothing else.
 
 The server checks the resulting value and metadata against the secret's kind;
 a mismatch (say, a plain value for a webfetch-auth secret) exits 2.

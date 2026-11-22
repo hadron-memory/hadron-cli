@@ -61,9 +61,10 @@ user info, query or fragment). --type says what the value is:
 --protected (App secrets only) asks for a protected secret from the start: the
 creation itself is staged for a passkey ceremony, so the command prints the
 request id and the ceremony URL and never says "created" — nothing exists
-until a person signs it. --protected=false is the default shape said aloud
-(unprotected). Protection is changed only through a signed request: hadron
-secret protect does that for an existing secret.
+until a person signs it. --protected=false asks for the default outright
+(unprotected). Protection never changes without a signed request: the
+--protected creation above stages one, and hadron secret protect changes
+protection for an existing secret.
 
 Prints "✓ created secret <name>  <kind>/<id>  owner <type> <id>"; --json gives
 id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
