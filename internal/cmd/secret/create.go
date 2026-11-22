@@ -118,7 +118,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			// nothing, so only true is checked here.
 			if prot != nil && *prot {
 				return exitcode.Newf(exitcode.Unavailable,
-					"the server answered with the created secret instead of staging it for a passkey, which createSecret(protected: true) does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get %s",
+					"the server answered with the created secret instead of staging it for a passkey, which createSecret(protected: true) does not do; it reports protected: %t. The secret exists, and the protection you asked for is not confirmed — it may be unprotected: check it with: hadron secret get %s",
 					resp.CreateSecret.Protected, cmdutil.ShellQuote(output.SafeCell(dto.ID)))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

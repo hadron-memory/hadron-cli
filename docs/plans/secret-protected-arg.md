@@ -137,3 +137,30 @@ instead of) a value/metadata change.
   back and `protect.go`'s pre-#4745 guard exits 7 "not confirmed" for a state already
   true. Shipped surface, one mutation over — reported through QA intake for a follow-up
   slice rather than folded here (this PR does not touch `protect.go`).
+
+## BLIND fold at 7eb4499b (Jorge P2: help stated the #4805 no-op as fact)
+
+- **BLIND P2 (help overstated the no-op), folded.** `secret update --help` said
+  turning protection off when it is already off stages nothing and prints the
+  normal updated line — an outcome only servers with the `updateSecret` no-op
+  give (`hadron-server#4805`, open at 7eb4499b; `#4745` shipped the
+  `setSecretProtected` analogue on 2026-11-21). Servers that still stage the
+  clear answer `SECRET_PROTECTED_NEEDS_PASSKEY` → exit 5, the ceremony flow the
+  help did not name. The CLI behavior was already vintage-correct — the staged
+  answer errors out in `mapChange` before the confirm guard runs — so only the
+  claim was wrong. The help now states both answers ("some stage the clear …
+  others recognize the no change"). Red pin first:
+  `TestSecretUpdateHelpStatesTheNoOpConditionally_2815` (red at 7eb4499b on
+  both arms: the conditional phrasing absent, the unconditional one present).
+  Jorge's P3-1 (the same server dependency) closes with it; his remaining P3s
+  and Joran's P3 are recorded as optional in the PR disposition, not folded
+  (no P3-only folds without Eden directing).
+- **BLIND P3 (create 'not confirmed' wording), folded by Eden's direction**
+  (#136855: "fold that + the create 'not confirmed' wording P3 into ONE
+  head"). The create guard's exit-7 message said only "The outcome is not
+  confirmed" — but a returned secret means the creation was applied, not
+  staged, so the reader was not told the decisive fact: the secret exists and
+  may be unprotected. The message now says so. Red pin first: the extended
+  `TestProtectedCreateReturningSecretIsUnconfirmed_2815` wants "The secret
+  exists" / "may be unprotected" (red at 7eb4499b). Jonas's SECURITY P3 (same
+  #4805 dependency as Jorge's P2) closes with the conditional help above.
