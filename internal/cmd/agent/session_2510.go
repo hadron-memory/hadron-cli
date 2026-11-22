@@ -94,6 +94,15 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 			if err := nonBlank(ref, "agent reference"); err != nil {
 				return err
 			}
+			// cli#2895 F1/F2: flag values the help already rules out are
+			// refused locally, before the URN read or any mutation, so a bad
+			// invocation sends zero requests.
+			if cmd.Flags().Changed("timeout-seconds") && timeoutSeconds <= 0 {
+				return exitcode.Newf(exitcode.Usage, "--timeout-seconds must be positive, got %d", timeoutSeconds)
+			}
+			if cmd.Flags().Changed("external-user") && strings.TrimSpace(externalUser) == "" {
+				return exitcode.Newf(exitcode.Usage, "--external-user is empty or blank")
+			}
 			var userPtr *string
 			if cmd.Flags().Changed("external-user") {
 				userPtr = &externalUser
