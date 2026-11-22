@@ -22,7 +22,7 @@ import (
 )
 
 // taskStatusDoc is the one help-text spelling of the status set.
-const taskStatusDoc = "PENDING, BACKLOG, STARTED, FINISHED or CANCELLED (cor:agt:050:02)"
+const taskStatusDoc = "PENDING, BACKLOG, STARTED, FINISHED or CANCELLED"
 
 // alarmPageLimit bounds the tree's alarm paging even against a server that
 // advances: 100 pages at the 200 cap is twenty thousand alarm events, past
@@ -111,15 +111,14 @@ in each direction (total/hasMore included; ` + "`task dependencies`" + ` pages t
 rest) and its clone links. Check it before a lifecycle command to see what the
 task allows (the table in ` + "`team task --help`" + `).
 
-Clone links (` + "`task clone`" + `, cor:agt:050:02): "cloned from" names the task this
+Clone links (` + "`task clone`" + `): "cloned from" names the task this
 one was made from, or "replaces" when that source is FINISHED or CANCELLED; it
 is null when the task is no clone or the source is not readable to you. "clones"
 is the first page of the tasks made from this one (a clone you cannot read is
 left out), with total and hasMore; page it with --clones-limit/--clones-offset
 (default 20, cap 200). In --json, clonedFrom is an object or null and clones is
 {items, total, hasMore} with items [] when none. Reading the links needs a
-provider with hadron-server#2646; an older one rejects the document as schema
-skew (exit 2).
+newer server; an older one rejects the document as schema skew (exit 2).
 
 The task is named by its id or handle (AT0.7, AT1.2); the server works out the
 App, and an ambiguous bare handle needs an id or a qualified handle such as
@@ -451,7 +450,7 @@ none of them the command is refused.
 --unresolved narrows to FINISHED tasks with at least one finding without a
 disposition; all four codes (including deferred) resolve a finding. False or
 omission does not narrow. The server filters under the App read gate before
-paging, ANDed with the other filters. Requires server#3258; it cannot combine
+paging, ANDed with the other filters. Requires a server released after 2026-11-03; it cannot combine
 with --team, even when false. A separate operation keeps older plain/filtered
 list documents unchanged when this flag is omitted. No records is []/exit 0.
 
@@ -460,7 +459,7 @@ list documents unchanged when this flag is omitted. No records is []/exit 0.
 The server filters before paging under the App read gate. No results is []
 and exit 0. It cannot combine with the coordinator view --team (exit 2 before
 any read). Marked rows show the reason and time; JSON adds matchFailure only
-when present. Every task command requires provider server#3245 for these fields.
+when present. Every task command requires a server released after 2026-11-03 for these fields.
 
 Filters combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
@@ -493,15 +492,14 @@ task and a backlog task are never overdue, and neither is a task with
 neither time. Blocking is ignored and a person-assigned task counts like any
 other; --overdue=false lists all other tasks. This is a filter, not an alarm
 (the stall.finish-by deadline alarm is separate and unchanged). The
-finish-by arm needs a provider containing hadron-server#2654; an older one
-filters by start-by only.
+finish-by arm needs a newer server; an older one filters by start-by only.
 --created-/--started-/--finished-after and -before take RFC 3339 times
 with Z or an offset and are inclusive bounds; a task with no start or
 finish time never matches a range on it. A malformed time is a usage
 error (exit 2) and nothing is sent. These filters AND with the rest and
 do not combine with --team.
 
---team is a coordinator's view of work in flight (#1044). The team is the
+--team is a coordinator's view of work in flight. The team is the
 coordinator — the bound worker for a bare --team, or --team=worker:<id, URN
 or name> (attached with =) — plus every worker whose roster reportsTo chain
 reaches them, in this App. It lists the App's tasks a team member OWNS, is
@@ -510,7 +508,7 @@ sit outside the team; owner/assignee cells say "(outside)" for a worker in
 another reporting subtree and "(not on roster)" for one the roster does not
 list (a retired worker: the roster omits them, so their tasks join only as a
 descendant or through a current team member). A task a person created does not
-join through its creator, and other Apps are never read (hadron-server#2370). It reads every
+join through its creator, and other Apps are never read. It reads every
 page of the App's tasks (no truncation; a page that does not advance is
 refused, exit 1), then applies --status after the join, so an open task under
 a finished team task stays in view. It combines with --status, --text, --tree
@@ -520,7 +518,7 @@ Every other filter, and --limit/--offset, is refused with --team (exit 2);
 --tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
-The open-alarm counts are each task's alarms IN EFFECT (cor:agt:050:20), the
+The open-alarm counts are each task's alarms IN EFFECT, the
 server's answer — the same rows ` + "`team events --alarms-in-effect`" + ` returns,
 never worked out here — read by a complete oldest-first walk. An alarm whose
 escalation ended is not counted, even while no one has acknowledged it; the
@@ -1094,7 +1092,7 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a task's parent/child chain",
 		Long: `Render the task and every task below it — children, their children and so
 on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
-per node. The count is the task's alarms IN EFFECT (cor:agt:050:20): the
+per node. The count is the task's alarms IN EFFECT: the
 server's answer, the same rows ` + "`team events --alarms-in-effect`" + ` returns,
 joined onto the tree client-side — the join is presentation, the alarm facts
 are the server's, and nothing is worked out here. An alarm whose escalation

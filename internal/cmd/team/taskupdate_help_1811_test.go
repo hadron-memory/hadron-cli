@@ -11,7 +11,7 @@ import (
 // must not keep the stale "properties alone" claim.
 func TestTaskUpdateHelpAssigneeMayEditReferences(t *testing.T) {
 	long := newCmdTeamTaskUpdate(cmdutil.NewFactory()).Long
-	for _, want := range []string{"properties (--properties, --clear-properties) and references (--ref,", "--clear-refs), alone or together", "TASK_NOT_OWNER", "hadron-server#3718"} {
+	for _, want := range []string{"properties (--properties, --clear-properties) and references (--ref,", "--clear-refs), alone or together", "TASK_NOT_OWNER", "released after\n2026-11-08"} {
 		if !strings.Contains(strings.Join(strings.Fields(long), " "), strings.Join(strings.Fields(want), " ")) {
 			t.Errorf("help lacks %q", want)
 		}
