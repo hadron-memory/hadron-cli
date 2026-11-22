@@ -272,27 +272,35 @@ func TestAgentTasksCreateHelpSaysWhenToWriteATask2990(t *testing.T) {
 		t.Fatal(err)
 	}
 	help := strings.Join(strings.Fields(out.String()), " ")
-	contract := strings.Join(strings.Fields(string(readContract(t))), " ")
-	for name, text := range map[string]string{"help": help, "agentic-usage": contract} {
-		if strings.Contains(text, "lint advice") {
-			t.Errorf("%s promises only what the CLI does (the server's attached advice goes to stderr); it says nothing about lint advice", name)
+	// The contract is judged on the `agent tasks create` entry alone (its one line), never the whole file: a
+	// phrase elsewhere must not satisfy the check, nor an unrelated mention fail it.
+	raw := string(readContract(t))
+	at := strings.Index(raw, "hadron agent tasks create <agentRef>")
+	if at < 0 {
+		t.Fatal("agentic-usage has no agent tasks create entry")
+	}
+	entry := raw[at:]
+	if nl := strings.Index(entry, "\n"); nl >= 0 {
+		entry = entry[:nl]
+	}
+	entry = strings.Join(strings.Fields(entry), " ")
+	texts := []struct{ name, text string }{{"help", help}, {"agentic-usage entry", entry}}
+	for _, tx := range texts {
+		lower := strings.ToLower(tx.text)
+		if strings.Contains(lower, "lint advice") {
+			t.Errorf("%s promises only what the CLI does (the server's attached advice goes to stderr); it says nothing about lint advice", tx.name)
 		}
 		// One statement of the CLI's scope in both places: no content rule or lint of its own, not "no pre-check".
-		if !strings.Contains(text, "no content rule or lint of its own") {
-			t.Errorf("%s must say the CLI has no content rule or lint of its own", name)
-		}
-	}
-	for _, want := range []string{
-		"after doing the work once, never speculatively",
-		"a rule only one team follows belongs in that team's process, not a shared role memory",
-		"hadron agent tasks create",
-		"any advice the server attaches to its answer",
-	} {
-		if !strings.Contains(strings.ToLower(help), want) {
-			t.Errorf("help must say %q:\n%s", want, help)
-		}
-		if !strings.Contains(strings.ToLower(contract), want) {
-			t.Errorf("agentic-usage must say %q", want)
+		for _, want := range []string{
+			"no content rule or lint of its own",
+			"after doing the work once, never speculatively",
+			"a rule only one team follows belongs in that team's process, not a shared role memory",
+			"hadron agent tasks create",
+			"any advice the server attaches to its answer",
+		} {
+			if !strings.Contains(lower, want) {
+				t.Errorf("%s must say %q", tx.name, want)
+			}
 		}
 	}
 }
