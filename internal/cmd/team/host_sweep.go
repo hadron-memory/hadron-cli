@@ -197,5 +197,5 @@ func reportUnavailableSweep(cmd *cobra.Command, f *cmdutil.Factory, cfg *hostpol
 // (cli#2652) because its mode comes from the server's desired state and an OFF
 // App is a quiet pass the sweep records, not an error.
 func sweepHostUpOptions(host, root, orca, configPath string, readyChecked bool, started time.Time) hostUpOptions {
-	return hostUpOptions{host: host, root: root, orcaBin: orca, configPath: configPath, apply: true, sweepRun: true, timeout: 2 * time.Minute, lockHeld: true, readyChecked: readyChecked, startedAt: started}
+	return hostUpOptions{host: host, root: root, orcaBin: orca, configPath: configPath, apply: true, skipSweepModeGate: true, timeout: 2 * time.Minute, lockHeld: true, readyChecked: readyChecked, startedAt: started}
 }

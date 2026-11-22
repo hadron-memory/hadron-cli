@@ -50,17 +50,20 @@ type hostUpOptions struct {
 	host, worker, desiredFile, root, orcaBin string
 	configPath, runID                        string
 	apply, dryRun                            bool
-	// sweepRun marks the host sweep timer's own pass: its mode comes from the
-	// server's desired state and an OFF App is a quiet pass, not a refusal.
-	sweepRun bool
-	timeout  time.Duration
+	// skipSweepModeGate exempts the host sweep timer's own pass from the
+	// --apply sweep-mode refusal: its mode comes from the server's desired
+	// state and an OFF App is a quiet pass, not a refusal. Only
+	// sweepHostUpOptions sets it.
+	skipSweepModeGate bool
+	timeout           time.Duration
 }
 
-// requireAppSweepApply is the --apply gate (cli#2652, Holger's option b): the
+// requireAppSweepApply is the --apply gate (cli#2652, option (b)): the
 // server does not check the App's sweep switch when a host operation is
 // issued, so the CLI reads it and refuses unless it is APPLY, whatever the
 // desired state says. A mode it cannot read refuses too (fail closed). The
-// refusal names the mode only: no URL, no secret.
+// mode refusal names the mode and the fix only: no URL, no secret. A read
+// error is the server's mapped error, as every other read reports it.
 func requireAppSweepApply(ctx context.Context, client graphql.Client, appRef string) error {
 	r, err := gen.GetAppSweepMode(ctx, client, appRef)
 	if err != nil {
@@ -70,7 +73,11 @@ func requireAppSweepApply(ctx context.Context, client graphql.Client, appRef str
 		return exitcode.Newf(exitcode.NotFound, "could not read the App's sweep mode (App not found), so nothing issued")
 	}
 	if r.App.SweepMode != gen.SweepModeApply {
-		return exitcode.Newf(exitcode.Conflict, "the App's sweep mode is %s, so --apply is refused and nothing issued: a desired-state file does not override it; set it with `hadron team app sweep-mode APPLY`, or run without --apply", r.App.SweepMode)
+		mode := string(r.App.SweepMode)
+		if mode == "" {
+			mode = "not reported"
+		}
+		return exitcode.Newf(exitcode.Conflict, "the App's sweep mode is %s, so --apply is refused and nothing issued: a desired-state file does not override it; set it with `hadron team app sweep-mode APPLY`, or run without --apply", mode)
 	}
 	return nil
 }
@@ -287,11 +294,6 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 	if source == nil {
 		source = hostUpServerSource{client: client, app: scope.Ref}
 	}
-	if o.apply && !o.sweepRun {
-		if err := requireAppSweepApply(ctx, client, scope.Ref); err != nil {
-			return err
-		}
-	}
 	if o.apply && !o.lockHeld {
 		dir, err := config.Dir()
 		if err != nil {
@@ -305,6 +307,11 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 			return exitcode.Newf(exitcode.Error, "the host up lock: %v", err)
 		}
 		defer unlock()
+	}
+	if o.apply && !o.skipSweepModeGate {
+		if err := requireAppSweepApply(ctx, client, scope.Ref); err != nil {
+			return err
+		}
 	}
 	engine := hostup.Engine{
 		Source:   source,

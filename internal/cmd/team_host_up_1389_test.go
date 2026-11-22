@@ -71,6 +71,7 @@ type hostUpFixture1389 struct {
 	// its meaning; sweepErr is an error code the read answers instead.
 	sweepMode  string
 	sweepErr   string
+	sweepNoApp bool // the read answers {"app":null}
 	sweepReads int
 }
 
@@ -202,6 +203,10 @@ func newHostUpFixture1389(t *testing.T) *hostUpFixture1389 {
 			fx.sweepReads++
 			if fx.sweepErr != "" {
 				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + fx.sweepErr + `"}}]}`))
+				return
+			}
+			if fx.sweepNoApp {
+				_, _ = w.Write([]byte(`{"data":{"app":null}}`))
 				return
 			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"app": map[string]any{"sweepMode": fx.sweepMode}}})

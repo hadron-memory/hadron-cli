@@ -60,8 +60,26 @@ func TestHostUpApplyFailsClosedWhenSweepModeUnreadable2652(t *testing.T) {
 	fx.irisRunningJonasMissing()
 	fx.sweepErr = "FORBIDDEN"
 	_, raw, err := fx.run("--apply")
-	if err == nil || exitCodeFor(err) == exitcode.OK {
-		t.Fatalf("an unreadable mode did not refuse: %v\n%s", err, raw)
+	if exitCodeFor(err) != exitcode.Forbidden {
+		t.Fatalf("exit = %d (err %v), want %d (the server's refusal keeps its code)\n%s", exitCodeFor(err), err, exitcode.Forbidden, raw)
+	}
+	if !strings.Contains(err.Error(), "could not read the App's sweep mode") || !strings.Contains(err.Error(), "nothing issued") {
+		t.Fatalf("refusal = %q", err)
+	}
+	if len(fx.issued) != 0 || len(fx.mutations()) != 0 {
+		t.Fatalf("an operation was issued: %v", fx.issued)
+	}
+}
+
+// A mode answer with no App in it is unreadable too: refused as not found,
+// nothing issued.
+func TestHostUpApplyFailsClosedWhenSweepModeAnswerHasNoApp2652(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	fx.irisRunningJonasMissing()
+	fx.sweepNoApp = true
+	_, raw, err := fx.run("--apply")
+	if exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("exit = %d (err %v), want %d\n%s", exitCodeFor(err), err, exitcode.NotFound, raw)
 	}
 	if !strings.Contains(err.Error(), "could not read the App's sweep mode") || !strings.Contains(err.Error(), "nothing issued") {
 		t.Fatalf("refusal = %q", err)
@@ -87,7 +105,7 @@ func TestHostUpDryRunReadsNoSweepMode2652(t *testing.T) {
 	}
 }
 
-// The help says so, on the flag's own paragraph.
+// The help says so (substrings of the flattened help, not a paragraph).
 func TestHostUpHelpSaysApplyChecksTheServerSwitch2652(t *testing.T) {
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
