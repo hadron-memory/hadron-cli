@@ -78,24 +78,54 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # Sparse checkout of just the SDL source + export script — typeDefs.ts is a
-      # self-contained SDL string, so nothing else of the server is needed (and
-      # we pull as little of the private repo as possible).
+      # The files of hadron-server this job needs come from TWO places, merged into one sparse list:
+      # the server-owned manifest of the files its SDL export imports (scripts/sdl-export-files.txt,
+      # kept current by a server CI guard, hadron-server#4916), and the paths the CLI's other checks
+      # read (listed below, in this workflow). The manifest is read at ONE resolved server commit and
+      # the checkout is of that same commit, so the list and the files cannot come from different refs.
+      # An absent or unreadable manifest FAILS this step: there is deliberately no hand-kept list of
+      # SDL files to fall back to (it is what broke on 2026-11-22, hadron-cli#3021). A failure here is
+      # an infrastructure failure, not a drift verdict, and reaches the infrastructure reporter below.
+      - name: Read the server's SDL-export manifest
+        id: manifest
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api repos/hadron-memory/hadron-server/commits/HEAD --jq .sha) || {
+            echo "::error::cannot resolve hadron-memory/hadron-server HEAD with HADRON_SERVER_RO_TOKEN; there is no hand-kept fallback"
+            exit 1
+          }
+          manifest="$RUNNER_TEMP/sdl-export-files.txt"
+          if ! gh api -H 'Accept: application/vnd.github.raw' \
+              "repos/hadron-memory/hadron-server/contents/scripts/sdl-export-files.txt?ref=$sha" >"$manifest"; then
+            echo "::error::hadron-server@$sha has no scripts/sdl-export-files.txt that HADRON_SERVER_RO_TOKEN can read (hadron-server#4916 adds it); there is no hand-kept fallback for the SDL files"
+            exit 1
+          fi
+          # The CLI's own entries: what spec-check-tools and the onboard fixture check read.
+          sparse=$(bash scripts/sdl-sparse-list.sh "$manifest" \
+            src/mcp src/lib/runner/tools src/lib/hostOperations/types.ts) || {
+            echo "::error::the SDL-export manifest at hadron-server@$sha is not usable; there is no hand-kept fallback"
+            exit 1
+          }
+          {
+            echo "sha=$sha"
+            echo "sparse<<SPARSE_EOF"
+            echo "$sparse"
+            echo "SPARSE_EOF"
+          } >>"$GITHUB_OUTPUT"
+
       - name: Check out hadron-server SDL source
         if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           repository: hadron-memory/hadron-server
           token: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
+          ref: ${{ steps.manifest.outputs.sha }}
           path: .hadron-server
           persist-credentials: false
-          sparse-checkout: |
-            scripts/export-graphql-sdl.mjs
-            src/api/graphql/schema/typeDefs.ts
-            src/mcp
-            src/lib/runner/tools
-            src/lib/hostOperations/types.ts
-            src/lib/agentTasks/teamMetricsCaps.ts
+          sparse-checkout: ${{ steps.manifest.outputs.sparse }}
           sparse-checkout-cone-mode: false
 
       - name: Check onboard typed host-operation fixture
