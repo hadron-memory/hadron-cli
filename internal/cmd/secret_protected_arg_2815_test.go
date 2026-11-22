@@ -490,3 +490,262 @@ func secretHelp2815(t *testing.T, args ...string) string {
 	}
 	return strings.Join(strings.Fields(out.String()+" "+errOut.String()), " ")
 }
+
+// --- round 6 (Eden ruling, chat #137754): flag-conditional documents ---
+//
+// The BLIND round-5 P2: $protected sat in the static CreateSecret/UpdateSecret
+// documents, so a server from before the argument reached server main
+// (2026-11-21, hadron-server#4177 merge e42bb1897) rejected plain
+// create/update/set at validation even flag-omitted — commands that worked
+// before the flag existed. The fix follows the secret client list precedent
+// (cli#2758/2720: one document per server generation, stepping only as far as
+// the server forces): the shared documents keep their pre-#2815 shape and the
+// flag rides its own CreateSecretProtected/UpdateSecretProtected document,
+// chosen only when --protected is given. Wire behavior on servers that have the
+// argument is unchanged (Petra's tri-state conditions: omitted sends no field,
+// --protected sends true, --protected=false sends false).
+
+// callQueryOf2815 returns the recorded raw query of the first call to op.
+func callQueryOf2815(t *testing.T, calls *[]call2738, op string) string {
+	t.Helper()
+	for _, c := range *calls {
+		if c.Op == op {
+			return c.Query
+		}
+	}
+	t.Fatalf("no call to %s (ops: %v)", op, ops2738(calls))
+	return ""
+}
+
+// oneFlagChosenCall2815 asserts the request set is exactly one call to want
+// (any call to the other document fails: the flag must choose its document,
+// never both, never a retry).
+func oneFlagChosenCall2815(t *testing.T, calls *[]call2738, want, other string) {
+	t.Helper()
+	if got := callsTo2815(calls, want); got != 1 {
+		t.Fatalf("%s must be sent exactly once, sent %d", want, got)
+	}
+	if got := callsTo2815(calls, other); got != 0 {
+		t.Fatalf("%s must not be sent when the flag chose %s, sent %d", other, want, got)
+	}
+}
+
+// TestFlagOmittedRequestsStayUnprotected_2815 (BLIND round-5 P2, the
+// compatibility core): a flag-omitted create, a plain update and secret set
+// send the pre-#2815 documents — operation CreateSecret/UpdateSecret whose
+// query text carries no `protected` at all — so servers older than the
+// argument keep accepting the plain commands exactly as before the flag
+// existed. The old documents must stay byte-equivalent to their pre-#2815
+// shape; pinning the absence of the word in the query pins that.
+func TestFlagOmittedRequestsStayUnprotected_2815(t *testing.T) {
+	t.Run("create without the flag", func(t *testing.T) {
+		srv, calls := fake2738(t, only2738(200, `{"data":{"createSecret":`+secretJSON+`}}`))
+		_, _, code := run2738(t, srv.URL, "create", "--name", "github-token", "--scope", "user",
+			"--kind", "generic", "--value-file", valueFile2738(t))
+		if code != 0 {
+			t.Fatalf("exit = %d\n", code)
+		}
+		oneFlagChosenCall2815(t, calls, "CreateSecret", "CreateSecretProtected")
+		if q := callQueryOf2815(t, calls, "CreateSecret"); strings.Contains(q, "protected") {
+			t.Fatalf("the flag-omitted create document must carry no `protected` (the round-5 P2 regression):\n%s", q)
+		}
+	})
+	t.Run("update without the flag", func(t *testing.T) {
+		srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretJSON+`}}`))
+		_, _, code := run2738(t, srv.URL, "update", "01sec", "--meta", "env=prod")
+		if code != 0 {
+			t.Fatalf("exit = %d\n", code)
+		}
+		oneFlagChosenCall2815(t, calls, "UpdateSecret", "UpdateSecretProtected")
+		if q := callQueryOf2815(t, calls, "UpdateSecret"); strings.Contains(q, "protected") {
+			t.Fatalf("the flag-omitted update document must carry no `protected` (the round-5 P2 regression):\n%s", q)
+		}
+	})
+	t.Run("set never names the argument", func(t *testing.T) {
+		srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretJSON+`}}`))
+		_, _, code := run2738(t, srv.URL, "set", "01sec", "--value-file", valueFile2738(t))
+		if code != 0 {
+			t.Fatalf("exit = %d\n", code)
+		}
+		oneFlagChosenCall2815(t, calls, "UpdateSecret", "UpdateSecretProtected")
+		if q := callQueryOf2815(t, calls, "UpdateSecret"); strings.Contains(q, "protected") {
+			t.Fatalf("secret set rides the flag-omitted update document; it must carry no `protected`:\n%s", q)
+		}
+	})
+}
+
+// TestProtectedFlagUsesItsOwnDocuments_2815: every attached spelling of the
+// flag — --protected, --protected=true, --protected=false — sends the
+// Protected document with the explicit value, once, and never the shared one.
+func TestProtectedFlagUsesItsOwnDocuments_2815(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		flags []string
+		value bool
+	}{
+		{"create --protected", []string{"--protected"}, true},
+		{"create --protected=true", []string{"--protected=true"}, true},
+		{"create --protected=false", []string{"--protected=false"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, calls := fake2738(t, only2738(200, staged2738()))
+			args := append([]string{"create", "--name", "app-secret", "--scope", "app", "--owner", "01app",
+				"--kind", "generic", "--value-file", valueFile2738(t)}, tc.flags...)
+			_, _, code := run2738(t, srv.URL, args...)
+			if code != exitcode.Conflict {
+				t.Fatalf("exit = %d, want 5 (staged)\n", code)
+			}
+			oneFlagChosenCall2815(t, calls, "CreateSecretProtected", "CreateSecret")
+			vars := callVarsOf2815(t, calls, "CreateSecretProtected")
+			if got, has := vars["protected"]; !has || got != tc.value {
+				t.Fatalf("%s must send protected:%v on its own document, got %v (present=%v)", tc.name, tc.value, got, has)
+			}
+		})
+	}
+	t.Run("update --protected", func(t *testing.T) {
+		srv, calls := fake2738(t, only2738(200, staged2738()))
+		_, _, code := run2738(t, srv.URL, "update", "01sec", "--protected")
+		if code != exitcode.Conflict {
+			t.Fatalf("exit = %d, want 5 (staged)\n", code)
+		}
+		oneFlagChosenCall2815(t, calls, "UpdateSecretProtected", "UpdateSecret")
+		vars := callVarsOf2815(t, calls, "UpdateSecretProtected")
+		if got, has := vars["protected"]; !has || got != true {
+			t.Fatalf("--protected must send protected:true on its own document, got %v (present=%v)", got, has)
+		}
+	})
+}
+
+// TestProtectedUpdateWithValueFileSendsBoth_2815 (BLIND round-5 P3 pin): the
+// flag and a new value ride ONE UpdateSecretProtected with both variables — a
+// protection change that also rotates the value is one request, not two.
+func TestProtectedUpdateWithValueFileSendsBoth_2815(t *testing.T) {
+	srv, calls := fake2738(t, only2738(200, staged2738()))
+	_, _, code := run2738(t, srv.URL, "update", "01sec", "--protected", "--value-file", valueFile2738(t))
+	if code != exitcode.Conflict {
+		t.Fatalf("exit = %d, want 5 (staged)\n", code)
+	}
+	oneFlagChosenCall2815(t, calls, "UpdateSecretProtected", "UpdateSecret")
+	vars := callVarsOf2815(t, calls, "UpdateSecretProtected")
+	if got, has := vars["protected"]; !has || got != true {
+		t.Fatalf("--protected must send protected:true, got %v (present=%v)", got, has)
+	}
+	if v, ok := vars["value"]; !ok || v == nil {
+		t.Fatalf("--value-file alongside --protected must send the value in the same request: %v", vars)
+	}
+}
+
+// TestProtectedUpdateUnconfirmedNamesTheRest_2815 (BLIND round-5 P3): when the
+// exit-7 unconfirmed answer arrives for an update that carried a value or
+// metadata alongside the flag, the message must say THAT part may have been
+// applied — "not confirmed" alone hides the half-applied state the reader must
+// check. Text and --json arms.
+func TestProtectedUpdateUnconfirmedNamesTheRest_2815(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		json bool
+	}{
+		{"text", false},
+		{"json", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"data":{"updateSecret":` + secretProtected2815(true) +
+				`,"updateSecretProtected":` + secretProtected2815(true) + `}}`
+			srv, calls := fake2738(t, only2738(200, body))
+			args := []string{"update", "01sec", "--protected=false", "--value-file", valueFile2738(t)}
+			if tc.json {
+				args = append(args, "--json")
+			}
+			stdout, stderr, code := run2738(t, srv.URL, args...)
+			if code != exitcode.Unavailable {
+				t.Fatalf("exit = %d, want 7 (unconfirmed)\n%s%s", code, stdout, stderr)
+			}
+			oneFlagChosenCall2815(t, calls, "UpdateSecretProtected", "UpdateSecret")
+			all := stdout + stderr
+			for _, want := range []string{"not confirmed", "may have been applied", "hadron secret get"} {
+				if !strings.Contains(all, want) {
+					t.Fatalf("the unconfirmed update must say the value/metadata part may have been applied, missing %q:\n%s", want, all)
+				}
+			}
+			if strings.Contains(all, "✓ updated secret") {
+				t.Fatalf("an unconfirmed update must never print a success line:\n%s", all)
+			}
+		})
+	}
+}
+
+// TestProtectedParseBoolSpellingsRefused_2815 (BLIND round-5 P3): the detached
+// misparse guard caught only the words true/false; every other strconv.ParseBool
+// spelling — 1, 0, t, f, and the mixed-case words — died as an arg-count error
+// naming everything but the mistake. All spellings refuse exit 2 with the
+// attached-form message, nothing sent.
+func TestProtectedParseBoolSpellingsRefused_2815(t *testing.T) {
+	for _, v := range []string{"1", "0", "t", "f", "T", "F", "TRUE", "FALSE", "True", "False"} {
+		t.Run("create --protected "+v, func(t *testing.T) {
+			srv, calls := fake2738(t, only2738(200, `{"data":null}`))
+			_, _, code := run2738(t, srv.URL, "create", "--name", "s", "--scope", "user",
+				"--kind", "generic", "--value-file", valueFile2738(t), "--protected", v)
+			if code != exitcode.Usage {
+				t.Fatalf("exit = %d, want 2 (the detached value is a misparse whatever its spelling)\n", code)
+			}
+			for _, op := range []string{"CreateSecret", "CreateSecretProtected"} {
+				if got := callsTo2815(calls, op); got != 0 {
+					t.Fatalf("nothing must be sent for a misparsed flag value, sent %d to %s", got, op)
+				}
+			}
+			// The refusal must be the guard's message naming the attached
+			// spellings — the bare arg-count error a stray positional causes
+			// exits 2 too, naming everything but the mistake.
+			stdout, stderr, _ := run2738(t, srv.URL, "create", "--name", "s", "--scope", "user",
+				"--kind", "generic", "--value-file", valueFile2738(t), "--protected", v)
+			if all := stdout + stderr; !strings.Contains(all, "--protected takes no separate value") {
+				t.Fatalf("the %q misparse must be refused by the guard naming the attached spellings, got:\n%s", v, all)
+			}
+		})
+	}
+}
+
+// TestAgenticUsageFloorAndSingleOutcomeSentence_2815 (BLIND round-5 P3s): the
+// outcome sentence appears exactly once (round 5 shipped it twice), and the
+// floor sentence states the split truth — --protected needs a server from
+// 2026-11-21; the flag-omitted request is unchanged, so older servers keep
+// accepting it — never the round-4 "refuses the request even flag-omitted".
+func TestAgenticUsageFloorAndSingleOutcomeSentence_2815(t *testing.T) {
+	contract := string(readContract(t))
+	if n := strings.Count(contract, "The answers are the protected-secret changes entry above"); n != 1 {
+		t.Fatalf("the protected-outcome sentence must appear exactly once, found %d", n)
+	}
+	for _, want := range []string{
+		"needs a server from 2026-11-21",
+		"the flag-omitted request is unchanged",
+	} {
+		if !strings.Contains(contract, want) {
+			t.Errorf("agentic-usage must state the document-split floor truth, missing %q", want)
+		}
+	}
+	if strings.Contains(contract, "refuses the request even flag-omitted") {
+		t.Error("agentic-usage still claims the floor applies to flag-omitted requests")
+	}
+}
+
+// TestProtectedHelpStatesTheDocumentSplit_2815 (BLIND round-5 P3 + ruling):
+// both helps say --protected needs the newer server AND that without the flag
+// the request is unchanged — the old claim that a pre-argument server refuses
+// the request even without the flag is gone.
+func TestProtectedHelpStatesTheDocumentSplit_2815(t *testing.T) {
+	for _, verb := range []string{"create", "update"} {
+		out := secretHelp2815(t, "secret", verb)
+		for _, want := range []string{
+			"needs a server from 2026-11-21",
+			"without the flag",
+			"unchanged",
+		} {
+			if !strings.Contains(out, want) {
+				t.Errorf("secret %s --help must state the document split (missing %q):\n%s", verb, want, out)
+			}
+		}
+		if strings.Contains(out, "refuses the request even without the flag") {
+			t.Errorf("secret %s --help still claims the floor applies to flag-omitted calls:\n%s", verb, out)
+		}
+	}
+}
