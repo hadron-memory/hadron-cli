@@ -60,12 +60,14 @@ For a webfetch-auth secret, a new value needs --type (bearer; basic with
 the server judges). The flag alone is a valid update, and any protection
 change is staged for a passkey ceremony like every change to a protected
 secret: the command prints the request id and the ceremony URL, never
-"updated". Turning protection off when it is already off asks for no change:
-nothing is staged, the rest of the update applies (or nothing does) and the
-normal updated line prints. Without the flag no protected field is sent — a
-value or metadata update does not touch protection. Protection is changed
-only through a signed request: hadron secret protect changes protection and
-nothing else.
+"updated". Turning protection off when it is already off is a no-change ask
+that servers answer differently: some stage the clear like any protection
+change (exit 5: the request id and ceremony URL print); others recognize
+the no change, stage nothing, and the rest of the update applies (or
+nothing does) with the normal updated line. Without the flag no protected
+field is sent — a value or metadata update does not touch protection.
+Protection is changed only through a signed request: hadron secret protect
+changes protection and nothing else.
 
 The server checks the resulting value and metadata against the secret's kind;
 a mismatch (say, a plain value for a webfetch-auth secret) exits 2.
