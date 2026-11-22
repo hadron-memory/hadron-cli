@@ -21,19 +21,7 @@ team chat mark-read  # issue #1353 x1
 team chat post  # citation cor:agt:020:03 x1 | issue #842 x1
 team chat read  # citation cor:agt:020:04 x1 | issue #1121 x1 | issue #1261 x1 | issue #1262 x1 | issue #1353 x1 | issue #406 x1 | issue #42 x1 | issue #474 x1 | issue #801 x1 | issue #817 x1 | issue #979 x1
 team events  # citation cor:agt:050:20 x1 | issue #4135 x1
-team grant action  # citation cor:acl:140:02 x1
-team grant actions  # citation cor:acl:140:02 x1
-team grant request  # issue #4581 x1
-team grant request-signature  # issue #4581 x1
-team grant signing-request  # issue #4581 x1
-team grant signing-request get  # issue #4581 x1
-team grant signing-request withdraw  # issue #4581 x1
 team health sweep  # issue #2027 x1
-team host import  # issue #4230 x1 | issue #4241 x1
-team host issue  # issue #829 x1
-team host ops  # issue #4257 x1
-team host run  # issue #1178 x1 | issue #1263 x1 | issue #2057 x1 | issue #2058 x2 | issue #2068 x1 | issue #2072 x1 | issue #2121 x1 | issue #2201 x2 | issue #4224 x1 | issue #829 x1 | issue #940 x1
-team host up  # issue #4224 x1 | issue #4241 x1
 team init  # citation cor:dmo:050:03 x1 | issue #384 x1 | issue #400 x1 | issue #939 x1 | issue #958 x1
 team register  # issue #3312 x1
 team review-stats  # citation cor:agt:130:06 x1 | issue #4281 x1
