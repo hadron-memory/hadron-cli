@@ -62,3 +62,22 @@ func TestTeamMetricsHumanRenderOfEmptyChildrenAndNullOwner2972(t *testing.T) {
 		t.Errorf("a null owner renders as '(no owner shown)':\n%s", text)
 	}
 }
+
+// The live server never sends an empty children list: a started project with no tasks comes back with one
+// zero-count bucket per status (QA at e666a4b9). The project is printed with those buckets as returned (the
+// command never regroups or hides a zero), and the "no child tasks" wording above is the defensive case for
+// an empty list only.
+func TestTeamMetricsProjectWithOnlyZeroBucketsIsPrintedAsReturned2972(t *testing.T) {
+	var buckets []string
+	for _, st := range []string{"BACKLOG", "PENDING", "STARTED", "FINISHED", "CANCELLED"} {
+		buckets = append(buckets, `{"status":"`+st+`","tasks":{"total":0,"ids":[],"truncated":false}}`)
+	}
+	text := metricsText2972(t, metricsProjectItem2972("AT8", strings.Join(buckets, ",")), "false")
+	want := "AT8 Epic AT8: BACKLOG 0, PENDING 0, STARTED 0, FINISHED 0, CANCELLED 0\n"
+	if !strings.Contains(text, "Started projects: 1 shown") || !strings.Contains(text, want) {
+		t.Errorf("the live empty-project shape prints the project with its zero buckets:\n%s", text)
+	}
+	if strings.Contains(text, "no child tasks") {
+		t.Errorf("zero buckets are the server's answer, not an empty list:\n%s", text)
+	}
+}
