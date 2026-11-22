@@ -607,7 +607,7 @@ section between the markers.
 | `team task create` |  |  | y | #1054 | cc01556c9cc7 |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | 754051154aa6 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task dispose-finding` |  |  | y | #1054 | a3080a7c8f49 |  | unread |  |
-| `team task find-untracked` |  |  | y | #1054 | 55a8dc8a2749 |  | unread |  |
+| `team task find-untracked` |  |  | y | #1054 | a6abf6c70791 |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 4af1d580a868 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task finish` |  |  | y | #1054 | 0c4fd89648e3 |  | unread |  |

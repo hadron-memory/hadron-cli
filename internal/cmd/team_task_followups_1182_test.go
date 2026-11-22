@@ -469,22 +469,6 @@ func TestEveryTaskVerbRefusesAMalformedDependencyPage1182(t *testing.T) {
 	}
 }
 
-// The untracked-item claim writes too (it starts the tasks it returns): a
-// refused answer names every task it returned and says to check before retrying.
-func TestUntrackedClaimRefusesAMalformedDependencyPageAsUncertain1182(t *testing.T) {
-	bad := strings.Replace(claimedTaskJSON1524, `"status":"STARTED"`, `"blockedBy":{"items":[null],"total":1,"hasMore":false},"status":"STARTED"`, 1)
-	if bad == claimedTaskJSON1524 {
-		t.Fatal("fixture did not gain the page")
-	}
-	_, out, _, err := runFind1524(t, map[string]string{"ClaimUntrackedTaskItems": claimResult1524(bad, true, "", "")}, "--integration", "github", "--assign-to-me", "--json")
-	if err == nil || exitCodeFor(err) != exitcode.Error || out != "" {
-		t.Fatalf("want an exit-1 refusal and no output; got err=%v out=%q", err, out)
-	}
-	if msg := err.Error(); !strings.Contains(msg, "malformed blockedBy page") || !strings.Contains(msg, "the write may already have taken effect") || !strings.Contains(msg, "task1") {
-		t.Fatalf("the refusal must name the page and the claimed task and say the write may have taken effect: %q", msg)
-	}
-}
-
 // A page whose items list is null or missing is malformed too (the field is
 // non-null), and is never rendered as an empty page; a decoded empty array is
 // the one legitimate empty page. Through the real client, on get and dependencies.

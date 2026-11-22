@@ -21,10 +21,10 @@ func TestFindUntrackedClaimHelpQualifiesParties1600(t *testing.T) {
 			t.Errorf("help still claims the tasks are yours unconditionally: %q", stale)
 		}
 	}
+	// cli#1964: the integration path's claim paragraph is retired; the
+	// adapter's --track claim names who holds it, never "yours" outright.
 	for _, want := range []string{
-		"owned by and assigned to you unless --owner or --assignee names another party",
-		"(they stay claimed)",
-		"assigned to you unless --assignee names a party",
+		"The claim goes to --assignee, else --for, else your bound worker",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("help lacks %q", want)
