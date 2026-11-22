@@ -398,6 +398,7 @@ func TestAgenticUsageStatesProtectedOutcomes_2815(t *testing.T) {
 		"the creation was applied, not staged",
 		"the secret exists and may be unprotected",
 		"asks for a protection change in the same request",
+		"refuses the request even flag-omitted",
 	} {
 		if !strings.Contains(contract, want) {
 			t.Errorf("agentic-usage must state the protected-flag outcomes, missing %q", want)
@@ -405,6 +406,74 @@ func TestAgenticUsageStatesProtectedOutcomes_2815(t *testing.T) {
 	}
 	if strings.Contains(contract, "every explicit value stages like any protected change") {
 		t.Error("agentic-usage still claims every explicit --protected value stages")
+	}
+	// BLIND P3 fold, round 4: the contract states current behaviour, not issue
+	// history — "was display only until cli#2815" narrates the past.
+	if strings.Contains(contract, "was display only") {
+		t.Error("agentic-usage still narrates issue history (display-only past)")
+	}
+}
+
+// TestSecretCreateProtectedFalseAnsweredTrueIsUnconfirmed_2815 (BLIND P3 fold,
+// round 4): the create guard covered only --protected, so a --protected=false
+// create answered with protected: true returned a success line — the same
+// "server did not do what was asked" class the update guard catches (the
+// update pin covers its two arms above). An explicit false that the answer
+// reports protected did not get the protection asked for: exit 7, no success
+// line, and the reader is told the secret may be protected.
+func TestSecretCreateProtectedFalseAnsweredTrueIsUnconfirmed_2815(t *testing.T) {
+	srv, calls := fake2738(t, only2738(200, `{"data":{"createSecret":`+secretProtected2815(true)+`}}`))
+	stdout, stderr, code := run2738(t, srv.URL, "create", "--name", "app-secret", "--scope", "app",
+		"--owner", "01app", "--kind", "generic", "--protected=false", "--value-file", valueFile2738(t))
+	if code != exitcode.Unavailable {
+		t.Fatalf("exit = %d, want 7 (unconfirmed)\n%s%s", code, stdout, stderr)
+	}
+	if got := callsTo2815(calls, "CreateSecret"); got != 1 {
+		t.Fatalf("createSecret must be sent exactly once, sent %d", got)
+	}
+	all := stdout + stderr
+	for _, want := range []string{"not confirmed", "may be protected", "hadron secret get"} {
+		if !strings.Contains(all, want) {
+			t.Fatalf("unconfirmed output must say the outcome is unconfirmed, that it may be protected, and how to check; missing %q:\n%s", want, all)
+		}
+	}
+	if strings.Contains(all, "✓ created secret") {
+		t.Fatalf("an unconfirmed create must never print a success line:\n%s", all)
+	}
+}
+
+// TestProtectedSpaceSeparatedValueRefused_2815 (BLIND P3 fold, round 4):
+// "--protected false" with a space parses as --protected plus a stray
+// positional — on create it died as an "unknown command", on update as an
+// arg-count error, both naming everything but the actual mistake: the flag is
+// attached-form only. The refusal names the two spellings and NOTHING is sent.
+func TestProtectedSpaceSeparatedValueRefused_2815(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		op   string
+	}{
+		{"create --protected false", []string{"create", "--name", "s", "--scope", "user",
+			"--kind", "generic", "--value-file", valueFile2738(t), "--protected", "false"}, "CreateSecret"},
+		{"update <id> --protected false", []string{"update", "01sec", "--protected", "false"}, "UpdateSecret"},
+		{"update --protected false <id>", []string{"update", "--protected", "false", "01sec"}, "UpdateSecret"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretJSON+`}}`))
+			stdout, stderr, code := run2738(t, srv.URL, tc.args...)
+			if code != exitcode.Usage {
+				t.Fatalf("exit = %d, want 2 (usage)\n%s%s", code, stdout, stderr)
+			}
+			if got := callsTo2815(calls, tc.op); got != 0 {
+				t.Fatalf("nothing must be sent for a misparsed flag value, sent %d", got)
+			}
+			all := stdout + stderr
+			for _, want := range []string{"--protected", "--protected=false"} {
+				if !strings.Contains(all, want) {
+					t.Fatalf("the refusal must name the attached spellings, missing %q:\n%s", want, all)
+				}
+			}
+		})
 	}
 }
 
