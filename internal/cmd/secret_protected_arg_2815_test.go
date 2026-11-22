@@ -150,9 +150,12 @@ func TestProtectedCreateReturningSecretIsUnconfirmed_2815(t *testing.T) {
 		t.Fatalf("createSecret must be sent exactly once, sent %d", got)
 	}
 	all := stdout + stderr
-	for _, want := range []string{"not confirmed", "hadron secret get"} {
+	// BLIND P3 fold (Eden-directed, with the 7eb4499b bounce): the message
+	// must also say the secret EXISTS — the creation was applied, not staged —
+	// and may be unprotected, so the reader knows what state to check.
+	for _, want := range []string{"The secret exists", "may be unprotected", "not confirmed", "hadron secret get"} {
 		if !strings.Contains(all, want) {
-			t.Fatalf("unconfirmed output must say the outcome is unconfirmed and how to check, missing %q:\n%s", want, all)
+			t.Fatalf("unconfirmed output must say the secret exists and may be unprotected, that the outcome is unconfirmed, and how to check; missing %q:\n%s", want, all)
 		}
 	}
 	if strings.Contains(all, "✓ created secret") {
