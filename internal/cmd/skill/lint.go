@@ -59,7 +59,7 @@ never fire — and, for claudeSkill, holds nothing its upload validator
 refuses as an XML tag (a "<" followed later by a ">" with at least one
 character between, such as <memory>); isRunnable is true; the body is non-empty and carries no
 frontmatter of its own; no two nodes in the server's corpus ENABLE the same name for the same
-host (a declaration that is not enabled claims no name, cor:agt:030:06). Warnings: the declaration still uses a retired key; the description never
+host (a declaration that is not enabled claims no name). Warnings: the declaration still uses a retired key; the description never
 says when to use the skill; the stored body contains a {{…}} placeholder that ships
 as literal text (an include tag {{> part}} is resolved on export, so it is not flagged); a key under exports names no host (reported once, with no
 host — it is never read as an alias and never blocks a known host beside it).

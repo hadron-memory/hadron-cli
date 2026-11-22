@@ -17,11 +17,10 @@ func TestRedactSecretTextCoversEverySpellingAndSkipsEmpty(t *testing.T) {
 	// escape, the covered variant; a full ToLower of the escape is a
 	// mixed-case re-encode, one of the named limits. It is spelled as the
 	// PRECOMPUTED literal of url.QueryEscape(secret) with its percent-hex
-	// lowered — not built by calling lowercasePercentHex, which is the
+	// lowered, not built by calling lowercasePercentHex, which is the
 	// function under test through secretSpellings: a test spelling built with
 	// the same function is circular, and a mutant that breaks it (an identity
-	// lowercasePercentHex duplicates the plain escape instead) would pass
-	// (#2827 review, Jonas N2).
+	// lowercasePercentHex duplicates the plain escape instead) would pass.
 	for _, echo := range []string{secret, strings.ToUpper(secret), strings.ToLower(secret), url.QueryEscape(secret), url.PathEscape(secret), "Xoxb-A%2fb%2bc%3dd+Secret"} {
 		in := "bad " + echo + " end"
 		if !ContainsSecret(in, []string{secret}) {

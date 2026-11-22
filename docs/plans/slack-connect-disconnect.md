@@ -77,13 +77,15 @@ case in message, code and success fields (rendered through the real error render
 guidance kept, the confirmation paths, and (cli#2756) the U+2028/U+2029 separators.
 `internal/cmd/slack_followups_2756_test.go` (cli#2756): the trimmed `--org`/`--app`, the short `--app` form,
 the malformed-`--app` refusal, disconnect's text success line, the unknown-status refusal quoting a
-hostile status (one refused rune of every guarded class, exit code pinned), and the happy-path status
-table whose every cell renders quoted. `internal/api/secrettext_test.go` (cli#2756): the case-flipped
+hostile status (the allowlist refuses the whole value, which starts with ACTIVE so a prefix or trim
+match would let it through; one rune of every guarded class in it exercises the quoting of the refusal;
+the exit code and the rendered line are pinned), and the happy-path status
+table whose whole row renders quoted, in column order. `internal/api/secrettext_test.go` (cli#2756): the case-flipped
 spellings, from a mixed-case secret so either flip arm dropped fails, with the lower-hex escape spelled
 as a precomputed literal (a test spelling built by calling `lowercasePercentHex` would be circular with
-the function `secretSpellings` tests). Mutants killed: the redactor, the chain cut, the success-field
+the function `secretSpellings` calls). Mutants killed: the redactor, the chain cut, the success-field
 check, the recovery text, the code pass-through, a one-token secret list, the both-stdin refusal, the terminal refusal, the confirmation,
 the Zl/Zp guard, the once-trim, the case-flip spellings (either flip arm), the lower-hex escape arm, the
 status-allowlist refusal (toDTO's non-ACTIVE/ERROR refusal removed), and the status cell's quoted render
 (reverting it to a raw render fails the happy-path table pin; the SafeCell inside it is
-equivalent-under-allowlist and deliberately unpinned, as the SEC10 delta recorded).
+equivalent-under-allowlist and deliberately unpinned: the allowlist is the guard that is reachable).

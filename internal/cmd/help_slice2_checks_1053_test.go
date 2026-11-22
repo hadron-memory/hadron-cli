@@ -43,8 +43,8 @@ func TestSlice2PagesSayWhatRound1FoundMissing1053(t *testing.T) {
 		{[]string{"app", "member", "add"}, []string{`Run "hadron app member roles"`}},
 		// which App, and how to get an App key
 		{[]string{"app", "user", "create"}, []string{`mint one with "hadron app key create"`, "the global --app is not used"}},
-		// what a scope is, how to see them, and that nothing is asked first
-		{[]string{"app", "key", "scope", "revoke"}, []string{"attention:deliver or host:operate", "--scopes", "no confirmation prompt"}},
+		// what a scope is and where to read the list (the catalogue; the CLI keeps no copy, cli#2823), how to see a key's scopes, and that nothing is asked first
+		{[]string{"app", "key", "scope", "revoke"}, []string{`"hadron app key scope catalogue" lists the scopes`, "--scopes", "no confirmation prompt"}},
 		{[]string{"app", "key", "list"}, []string{"a host is a machine that launches a team App's workers", "PREVIEW"}},
 		// the Agents an App runs, and the column that is a plan not a promise
 		{[]string{"app", "agent", "list"}, []string{"which Agents does this App run?", "BOOT PROMPT (NEXT BIND)", "Approval is never inferred from a pointer"}},

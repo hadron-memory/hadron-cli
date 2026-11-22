@@ -33,8 +33,8 @@ exist, are silently excluded by the server.
 Counts may cover fewer memories than you named; the result does not identify
 which refs contributed. If all refs are excluded, no buckets are returned.
 Malformed refs are errors.
-An empty or unreadable resource result never falls back to your own activity
-(cor:acl:090:01). The server enforces reference-count limits and other rules.
+An empty or unreadable resource result never falls back to your own activity.
+The server enforces reference-count limits and other rules.
 
 --from is inclusive and --to exclusive (ISO date-times). --bucket is DAY, WEEK
 or MONTH; --time-zone is an IANA zone such as Asia/Tokyo. A flag you

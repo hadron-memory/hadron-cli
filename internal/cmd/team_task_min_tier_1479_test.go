@@ -121,11 +121,14 @@ func TestTaskMinTier1479Read(t *testing.T) {
 							t.Fatal(err)
 						}
 					} else {
-						var tasks []map[string]any
-						if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+						// cli#2734: list --json is the page object.
+						var page struct {
+							Tasks []map[string]any `json:"tasks"`
+						}
+						if err := json.Unmarshal([]byte(out), &page); err != nil {
 							t.Fatal(err)
 						}
-						task = tasks[0]
+						task = page.Tasks[0]
 					}
 					req := task["requirements"].(map[string]any)
 					v, ok := req["minTier"]

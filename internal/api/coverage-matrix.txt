@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 240: 208 command, 9 gap, 23 excluded
+[Query] 240: 209 command, 7 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -48,8 +48,8 @@ agentTaskExternalIdChanges  command team task find-untracked
 agentTaskList  command agent tasks list
 agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
-agentTasks  command team task list
-agentTasksPage  gap #2734
+agentTasks  excluded not-a-capability: legacy unpaged spelling; agentTasksPage carries the same capability (cli#2734); Proposed class unruled under #1334 (33-row review)
+agentTasksPage  command team task list
 agentTeamEvents  excluded not-a-capability: legacy unpaged spelling; agentTeamEventsPage carries the same capability (cli#1919); Proposed class unruled under #1334 (33-row review)
 agentTeamEventsPage  command team events
 agentTickerTemplates  command agent ticker-templates list
@@ -64,7 +64,7 @@ app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
 appGrants  gap #1846
-appKeyScopeCatalogue  gap #2787
+appKeyScopeCatalogue  command app key scope catalogue
 appKeys  excluded not-a-capability: legacy unpaged spelling; appKeysPage carries the same inventory capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
 appKeysPage  command app key list
 appMemoryScope  command app memories
@@ -664,8 +664,8 @@ Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); Proposed class unruled under #1334 (33-row review)
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded
-Query.agentTasks(reference.kind)  flag team task list --ref-kind
-Query.agentTasks(reference.target)  flag team task list --ref
+Query.agentTasksPage(reference.kind)  flag team task list --ref-kind
+Query.agentTasksPage(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
 Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility

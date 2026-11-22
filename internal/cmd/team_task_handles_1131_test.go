@@ -32,7 +32,7 @@ func handleResponses1131(handle string) map[string]string {
 	r["AgentTaskPark"] = `{"data":{"parkAgentTask":` + backlog + `}}`
 	r["AgentTaskReady"] = `{"data":{"makeAgentTaskReady":` + pending + `}}`
 	r["AgentTaskGet"] = `{"data":{"agentTask":` + pending + `}}`
-	r["AgentTaskList"] = `{"data":{"agentTasks":[` + pending + `]}}`
+	r["AgentTaskList"] = taskPage2734(pending, 1, false)
 	r["AgentTaskTree"] = `{"data":{"agentTaskTree":[` + pending + `]}}`
 	return r
 }
@@ -131,8 +131,11 @@ func TestTeamTaskHandleJSONIsAdditive1131(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var list []map[string]any
-	if json.Unmarshal([]byte(out), &list) != nil || len(list) != 1 || list[0]["handle"] != "AT3.405" || list[0]["id"] != "task1" {
+	// cli#2734: list --json is the page object {tasks, total, hasMore}.
+	var page struct {
+		Tasks []map[string]any `json:"tasks"`
+	}
+	if json.Unmarshal([]byte(out), &page) != nil || len(page.Tasks) != 1 || page.Tasks[0]["handle"] != "AT3.405" || page.Tasks[0]["id"] != "task1" {
 		t.Fatalf("list JSON %s", out)
 	}
 }
