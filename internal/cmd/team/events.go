@@ -100,9 +100,9 @@ too and shows worker <name>; its failure count and window stay in --json. A miss
 A task event's TASK cell is the task's handle, then the first 12 hex of its id
 (AT0.7234 01a1d71218bb); when the server names no handle (the task is gone) the
 cell stays the bare id. --json adds taskHandle beside taskId, exactly as the
-server sent it, null for an event with no task. --task takes either form. The
-handle needs a server released on or after 2026-11-14 (it carries the task
-handle on team events); an older one refuses the read and nothing is printed.
+server sent it, null for an event with no task. --task takes either form.
+Showing the handle needs a server released on or after 2026-11-14; an older
+one refuses the read and nothing is printed.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
