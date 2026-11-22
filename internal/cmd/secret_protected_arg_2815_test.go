@@ -15,19 +15,15 @@ import (
 // #2738 protected change: request id + ceremony URL byte for byte, exit 5,
 // never a success line. Fake HTTP only.
 
-// callVarsOf2815 returns the recorded variables of the n-th call to op.
-func callVarsOf2815(t *testing.T, calls *[]call2738, op string, n int) map[string]any {
+// callVarsOf2815 returns the recorded variables of the first call to op.
+func callVarsOf2815(t *testing.T, calls *[]call2738, op string) map[string]any {
 	t.Helper()
-	i := 0
 	for _, c := range *calls {
 		if c.Op == op {
-			if i == n {
-				return c.Vars
-			}
-			i++
+			return c.Vars
 		}
 	}
-	t.Fatalf("no call #%d to %s (ops: %v)", n, op, ops2738(calls))
+	t.Fatalf("no call to %s (ops: %v)", op, ops2738(calls))
 	return nil
 }
 
@@ -44,7 +40,10 @@ func callsTo2815(calls *[]call2738, op string) int {
 
 // TestProtectedCreateWireStates_2815 pins the tri-state on the wire: the key is
 // absent when the flag is omitted, true for --protected, false for
-// --protected=false, and the mutation is sent exactly once either way.
+// --protected=false, and the mutation is sent exactly once either way. The
+// contract answer differs per row (BLIND P2 hardening): a protected create
+// stages (the fake answers staged and the exit is 5), omission and explicit
+// false create unprotected (a secret comes back, exit 0).
 func TestProtectedCreateWireStates_2815(t *testing.T) {
 	created := `{"data":{"createSecret":` + secretJSON + `}}`
 	for _, tc := range []struct {
@@ -52,23 +51,30 @@ func TestProtectedCreateWireStates_2815(t *testing.T) {
 		flags   []string
 		present bool
 		value   bool
+		staged  bool
 	}{
-		{"omitted sends no field", nil, false, false},
-		{"--protected sends true", []string{"--protected"}, true, true},
-		{"--protected=false sends false", []string{"--protected=false"}, true, false},
+		{"omitted sends no field", nil, false, false, false},
+		{"--protected sends true", []string{"--protected"}, true, true, true},
+		{"--protected=false sends false", []string{"--protected=false"}, true, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			srv, calls := fake2738(t, only2738(200, created))
+			body := created
+			wantCode := 0
+			if tc.staged {
+				body = staged2738()
+				wantCode = exitcode.Conflict
+			}
+			srv, calls := fake2738(t, only2738(200, body))
 			args := append([]string{"create", "--name", "github-token", "--scope", "user",
 				"--kind", "generic", "--value-file", valueFile2738(t)}, tc.flags...)
 			stdout, stderr, code := run2738(t, srv.URL, args...)
-			if code != 0 {
-				t.Fatalf("exit = %d\n%s%s", code, stdout, stderr)
+			if code != wantCode {
+				t.Fatalf("exit = %d, want %d\n%s%s", code, wantCode, stdout, stderr)
 			}
 			if got := callsTo2815(calls, "CreateSecret"); got != 1 {
 				t.Fatalf("createSecret must be sent exactly once, sent %d", got)
 			}
-			vars := callVarsOf2815(t, calls, "CreateSecret", 0)
+			vars := callVarsOf2815(t, calls, "CreateSecret")
 			got, has := vars["protected"]
 			if has != tc.present {
 				t.Fatalf("protected key present=%v, want %v (vars %v)", has, tc.present, vars)
@@ -138,7 +144,7 @@ func TestProtectedCreateReturningSecretIsUnconfirmed_2815(t *testing.T) {
 			t.Fatalf("unconfirmed output must say the outcome is unconfirmed and how to check, missing %q:\n%s", want, all)
 		}
 	}
-	if strings.Contains(all, "created secret") {
+	if strings.Contains(all, "✓ created secret") {
 		t.Fatalf("an unconfirmed create must never print a success line:\n%s", all)
 	}
 }
@@ -164,7 +170,7 @@ func TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815(t *testing.T) {
 				t.Fatalf("%s: unconfirmed output must say the outcome is unconfirmed and how to check, missing %q:\n%s", flags, want, all)
 			}
 		}
-		if strings.Contains(all, "updated secret") {
+		if strings.Contains(all, "✓ updated secret") {
 			t.Fatalf("%s: an unconfirmed update must never print a success line:\n%s", flags, all)
 		}
 	}
@@ -182,23 +188,29 @@ func TestSecretUpdateWithoutProtectedSendsNoField_2815(t *testing.T) {
 	if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
 		t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
 	}
-	vars := callVarsOf2815(t, calls, "UpdateSecret", 0)
+	vars := callVarsOf2815(t, calls, "UpdateSecret")
 	if _, has := vars["protected"]; has {
 		t.Fatalf("an update without --protected must send no protected field (manager-only by stealth): %v", vars)
 	}
 }
 
 // TestSecretUpdateProtectedFalseSendsFalse_2815 (acceptance 3, wire arm):
-// --protected=false sends an explicit false.
+// --protected=false sends an explicit false. The fake answers staged — the
+// contract answer for ANY explicit value on an App secret (BLIND P2: a secret
+// payload here would ride the unconfirmed branch, not the wire) — so the pin
+// is the recorded variable, and no "updated" success line may print.
 func TestSecretUpdateProtectedFalseSendsFalse_2815(t *testing.T) {
-	srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretJSON+`}}`))
+	srv, calls := fake2738(t, only2738(200, staged2738()))
 	stdout, stderr, code := run2738(t, srv.URL, "update", "01sec", "--protected=false")
-	if code != 0 {
-		t.Fatalf("exit = %d\n%s%s", code, stdout, stderr)
+	if code != exitcode.Conflict {
+		t.Fatalf("exit = %d, want 5 (staged)\n%s%s", code, stdout, stderr)
 	}
-	vars := callVarsOf2815(t, calls, "UpdateSecret", 0)
+	vars := callVarsOf2815(t, calls, "UpdateSecret")
 	if got, has := vars["protected"]; !has || got != false {
 		t.Fatalf("--protected=false must send protected:false, got %v (present=%v)", got, has)
+	}
+	if strings.Contains(stdout+stderr, "✓ updated secret") {
+		t.Fatalf("a staged update must never print a success line:\n%s%s", stdout, stderr)
 	}
 }
 
@@ -234,11 +246,38 @@ func TestSecretUpdateProtectedAloneIsAChange_2815(t *testing.T) {
 	if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
 		t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
 	}
+	// BLIND P2: the staged answer must be earned by the request, not just the
+	// operation name — pin the variable, so clearing the usage guard while
+	// omitting the field cannot pass as a staged protection change.
+	vars := callVarsOf2815(t, calls, "UpdateSecret")
+	if got, has := vars["protected"]; !has || got != true {
+		t.Fatalf("--protected must send protected:true, got %v (present=%v); a staged answer without the field is the guard cleared but the change not sent", got, has)
+	}
 	all := stdout + stderr
 	for _, want := range []string{"staged, not applied", "request id: " + req2738, "ceremony URL: " + srv.URL + ceremonyPath2738} {
 		if !strings.Contains(all, want) {
 			t.Fatalf("staged output missing %q:\n%s", want, all)
 		}
+	}
+}
+
+// TestSecretSetSendsNoProtectedKey_2815 (SEC10 P3, folded): secret set is the
+// other updateSecret caller and is the value-only door — protection is never
+// sent. Without this pin a set that started sending protected would pass every
+// test (the fake answers by operation name), silently turning a value rotation
+// into a staged, manager-gated protection change.
+func TestSecretSetSendsNoProtectedKey_2815(t *testing.T) {
+	srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretJSON+`}}`))
+	stdout, stderr, code := run2738(t, srv.URL, "set", "01sec", "--value-file", valueFile2738(t))
+	if code != 0 {
+		t.Fatalf("exit = %d\n%s%s", code, stdout, stderr)
+	}
+	if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
+		t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
+	}
+	vars := callVarsOf2815(t, calls, "UpdateSecret")
+	if _, has := vars["protected"]; has {
+		t.Fatalf("secret set must send no protected field (value-only door): %v", vars)
 	}
 }
 

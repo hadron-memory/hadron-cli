@@ -68,3 +68,48 @@ instead of) a value/metadata change.
   `update --protected` cover it).
 - Any local pre-check of scope or manager status — the server judges both (Petra's
   condition; keeps one source of truth).
+
+## Review folds at the fix head (3fe6bd62 → fix head)
+
+- **BLIND P1 (unconfirmed staged protection), folded.** The contract is that a protected
+  create and every explicit protection change on update STAGE (`SECRET_PROTECTED_NEEDS_
+  PASSKEY`); a returned `Secret` means the server did not stage what the CLI asked for.
+  Both doors now take the `secret protect` shape for that answer: exit 7 (`Unavailable`),
+  the returned `protected` value quoted, "not confirmed", a `hadron secret get` pointer,
+  and never a success line. Create checks only explicit `true` (explicit `false` is the
+  default shape and legitimately returns a secret); update checks any explicit value
+  (every explicit value on an App secret stages; non-App is a `BAD_USER_INPUT` the server
+  words). Red pins first: `TestProtectedCreateReturningSecretIsUnconfirmed_2815`,
+  `TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815` (red at 3fe6bd62: both
+  printed the success line and exited 0).
+- **BLIND P2 (true-variable pin), folded.** The staged-alone update test now pins
+  `protected: true` in the recorded variables (mutant killed: clearing the guard while
+  omitting the field fails the pin); the explicit-false wire test's fake answers staged —
+  the contract answer for any explicit value — and asserts no "✓ updated" line; the
+  create wire-state table answers staged for the `--protected` row (exit 5) and a secret
+  for omission / explicit false (exit 0).
+- **SEC10 P3 (set pin), folded (Jonas, "recommend folding now").**
+  `TestSecretSetSendsNoProtectedKey_2815`: `secret set` — the other `updateSecret`
+  caller — sends no `protected` key (mutant killed: a set sending `protected: true`
+  fails the pin).
+- **BLIND P3 (help wording), not folded.** The help already names all three states on
+  both commands ("asks for a protected secret from the start"; "Without the flag no
+  protected field is sent"); the suggested rewording is lateral. Noted for a future help
+  pass: the help test's `--protected` substring is satisfied by `--protected=false`, so
+  the true-arm phrasing is unpinned.
+- **LOCAL P3s, not folded.** "Closes #2815" in 3fe6bd62's subject vs the Refs-only
+  convention: noted, the fix-head commits use Refs-only, the reviewed commit is not
+  rewritten. Non-App-scope `create --protected` refusal rendering unpinned: true; the
+  CLI never pre-checks scope and the server words that refusal — a pin would only fix
+  the fake's spelling of it. Neither blocks; both are recorded here and in the PR thread.
+- **Compatibility (Joost's verify item), answered.** The `protected` argument is static
+  SDL, present since hadron-server#3999 (S2/S3 landed 2026-11-14, `f30abba3e`/
+  `87926e929`); it is not gated by `PASSKEY_SIGNING_ENABLED` (a signing-off deployment
+  still exposes the argument and refuses with the bare code — already mapped by
+  `mapChange`'s no-request-id branch). genqlient documents are static, so a server
+  older than #3999 rejects the `createSecret`/`updateSecret` documents even for
+  flag-omitted calls. The server repo carries no tags; the CLI's committed schema
+  snapshot is the support floor by construction, and the already-shipped `secret
+  protect` / `secret change` surfaces require the same server generation — so this PR
+  adds no new floor. A formal minimum-server-version policy would be Petra/Holger's
+  call, not this PR's.

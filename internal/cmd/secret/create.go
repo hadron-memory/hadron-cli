@@ -109,6 +109,18 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
 			}
 			dto := dtoFromFields(resp.CreateSecret.SecretFields)
+			// A protected create is staged, never applied (hadron-server#3999
+			// S4): the answer is SECRET_PROTECTED_NEEDS_PASSKEY, mapped above.
+			// A returned secret means the server did not stage the creation
+			// this CLI asked for, so the requested protection is unconfirmed —
+			// never a success line; same shape as secret protect (BLIND P1 on
+			// #2932). Explicit false is the default shape and does stage
+			// nothing, so only true is checked here.
+			if prot != nil && *prot {
+				return exitcode.Newf(exitcode.Unavailable,
+					"the server answered with the created secret instead of staging it for a passkey, which createSecret(protected: true) does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get %s",
+					resp.CreateSecret.Protected, cmdutil.ShellQuote(output.SafeCell(dto.ID)))
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSecretLine(w, "✓ created", dto)
 			})

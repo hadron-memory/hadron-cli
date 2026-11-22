@@ -152,6 +152,16 @@ the same fields as hadron secret get.`,
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
 			}
 			dto := dtoFromFields(resp.UpdateSecret.SecretFields)
+			// Every explicit protection value on an App secret stages
+			// (hadron-server#3999 S4): the answer is SECRET_PROTECTED_NEEDS_
+			// PASSKEY, mapped above. A returned secret means the server did
+			// not stage the protection change this CLI asked for — never a
+			// success line; same shape as secret protect (BLIND P1 on #2932).
+			if prot != nil {
+				return exitcode.Newf(exitcode.Unavailable,
+					"the server answered with the secret instead of staging the protection change, which updateSecret(protected: …) does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get %s",
+					resp.UpdateSecret.Protected, cmdutil.ShellQuote(output.SafeCell(args[0])))
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSecretLine(w, "✓ updated", dto)
 			})
