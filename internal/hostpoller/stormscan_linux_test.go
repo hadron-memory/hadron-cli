@@ -82,6 +82,9 @@ type stopFixture struct {
 	realRead   func(string) ([]os.DirEntry, error) // nil unless storm
 	realSignal func(int, syscall.Signal) error
 	rec        signalRecorder
+	// beforeSettle, when set, runs at the start of settle (cli#2954: lets a test observe what is still
+	// installed at that moment).
+	beforeSettle func()
 }
 
 // newStormFixture installs both wrappers: the void-exhaustion storm over
@@ -149,6 +152,9 @@ func (f *stopFixture) settle(t *testing.T) {
 	t.Helper()
 	if !f.settled.CompareAndSwap(false, true) {
 		return
+	}
+	if f.beforeSettle != nil {
+		f.beforeSettle()
 	}
 	f.storming.Store(false) // idempotent on every exit path: waiting
 	// while the storm is on can never settle the watcher
