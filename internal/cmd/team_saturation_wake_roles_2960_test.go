@@ -128,24 +128,25 @@ func TestSaturationWakeRolesPlainSetFromABoundWorktreeIsThePersons2960(t *testin
 // The floor is the UTC day the server half merged; the help of both verbs and the --instruction
 // flag usage name it. Kills: the floor wording dropped or changed.
 func TestSaturationWakeRolesFloorWordingIsPinned2960(t *testing.T) {
-	for _, argv := range [][]string{{"team", "saturation-wake-roles", "get"}, {"team", "saturation-wake-roles", "set"}} {
+	// Each verb's own closing sentence, not just any mention (the --instruction usage and the shared
+	// instruction paragraph name a floor too, which would mask a dropped sentence).
+	for _, tc := range []struct {
+		argv []string
+		want string
+	}{
+		{[]string{"team", "saturation-wake-roles", "get"}, "lists a role. Needs server 2026-11-22 or later."},
+		{[]string{"team", "saturation-wake-roles", "set"}, "get stays a read. Needs server 2026-11-22 or later."},
+	} {
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs(append(argv, "--help"))
+		root.SetArgs(append(tc.argv, "--help"))
 		if err := root.Execute(); err != nil {
-			t.Fatalf("%v: %v", argv, err)
+			t.Fatalf("%v: %v", tc.argv, err)
 		}
 		help := strings.Join(strings.Fields(out.String()), " ")
-		if !strings.Contains(help, "Needs server 2026-11-22 or later") {
-			t.Errorf("%v --help must say the floor:\n%s", argv, help)
+		if !strings.Contains(help, tc.want) {
+			t.Errorf("%v --help must close with the floor sentence %q:\n%s", tc.argv, tc.want, help)
 		}
-	}
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "saturation-wake-roles", "set", "--help"})
-	_ = root.Execute()
-	if !strings.Contains(strings.Join(strings.Fields(out.String()), " "), "Needs server 2026-11-22 or later") {
-		t.Fatal("the --instruction flag usage names the floor")
 	}
 }
 

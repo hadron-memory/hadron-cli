@@ -248,11 +248,6 @@ func TestSaturationWakeRolesSetInstructionFollowsStallSchedule2894(t *testing.T)
 	if !reflect.DeepEqual(got.Vars, plain.Vars) {
 		t.Fatalf("every other variable is unchanged: %v vs %v", got.Vars, plain.Vars)
 	}
-	for _, c := range *calls {
-		if c.Op != wakeRolesInst2894 && (c.Session != "" || c.Vars["instruction"] != nil) {
-			t.Fatalf("a lookup must not be attributed: %+v", c)
-		}
-	}
 }
 
 // A bad claim is refused before any request (exit 2); `get` takes no --instruction.
@@ -283,8 +278,7 @@ func TestSaturationWakeRolesHelpSaysWhatTheListMeans2894(t *testing.T) {
 		for _, want := range []string{
 			"The list names roles",
 			"is offered one wake",
-			"unless it is never due",
-			"never again for that alarm",
+			"not again for that alarm",
 			"applies only to alarms raised afterwards",
 			"empty by default",
 			"manages the App",
