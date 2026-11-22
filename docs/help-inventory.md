@@ -553,8 +553,8 @@ section between the markers.
 | `team init` |  |  | y | #1054 | 28b798b2fe94 |  | unread |  |
 | `team metrics` |  |  | y | #1054 | 41ec29848d7f |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
-| `team pr` |  |  | y | #1054 | 2d195c1997f5 |  | unread |  |
-| `team pr freeze` |  |  | y | #1054 | b852da43e59c |  | unread |  |
+| `team pr` |  |  | y | #1054 | 056f7b4bcf2b |  | unread |  |
+| `team pr freeze` |  |  | y | #1054 | 2233ff3929cf |  | unread |  |
 | `team pr readiness` |  |  | y | #1054 | 978dcd7c3526 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | c8aad02c82cf |  | unread |  |
 | `team pr schedule` |  |  | y | #1054 | 0d8e3d0a727a |  | unread |  |

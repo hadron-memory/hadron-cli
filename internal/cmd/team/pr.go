@@ -310,14 +310,15 @@ readiness but not write.
 
 Each command makes one request and never retries or guesses a head. A write
 prints the task handle, id and status, then one register line: the register's
-answer about the action code (register <code> → <task URN>, → no runnable task
-found at <loc>, → no register entry matches this code, → not shown to this
-caller). UNMAPPED is the answer every pr code gets while no register entry
-ships for it. The line says where the code routes, never whether the write
-recorded: the task line is the receipt. --json is
+answer about the action code, as "register <code> → <task URN>", "→ no runnable
+task found at <loc>", "→ no register entry matches this code" or "→ not shown to
+this caller". The state UNMAPPED is the "no register entry" answer, and every pr
+code gets it while no register entry ships for it. The line says where the code
+routes, never whether the write recorded: the task line is the receipt. Text
+prints no placeholder for a missing loc or URN. --json is
 {task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (taskLoc and
-taskUrn are null when the state carries none). Readiness prints READY or NOT READY and a
-row per slot; --json is {ready,head,slots:[{slot,currentTaskId,state,verdict,
+taskUrn are null when the state carries none). Readiness prints READY or NOT
+READY and a row per slot; --json is {ready,head,slots:[{slot,currentTaskId,state,verdict,
 head,counts}]}. NOT READY is a successful read (exit 0). A refusal such as
 PR_NOT_READY (which names the slots that do not count) or a stale head exits 5,
 with serverCode in JSON; exit 7 means the outcome is unknown, so read the
@@ -377,7 +378,8 @@ The build task must carry a pull_request reference (hadron team task update
 <task> --ref pull-request=<PR URL>; --ref replaces the whole list); without it
 the server refuses with PR_REFERENCE_MISSING. A head that already has a negative
 seat verdict cannot be frozen again: answer the finding with a new head.
-Normally run it after "pr schedule" and before "pr seat". Prints the build task and the register line.` + prSeeGroup,
+Normally run it after "pr schedule" and before "pr seat". Prints the build task
+and the register line.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
 is named for that review. Only the seat task's owner chain may: its owner (the

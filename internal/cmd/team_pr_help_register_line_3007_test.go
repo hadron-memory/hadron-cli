@@ -3,46 +3,55 @@ package cmd
 import (
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // cli#3007: after #2979 a `team pr` write prints the task line and then ONE
 // register line, and no dash. The help must teach that, not the old receipt.
+// The output itself is pinned in team_pr_1664_test.go; this pins the help.
 func TestTeamPRHelpDescribesTheRegisterLine3007(t *testing.T) {
-	leaves := [][]string{
-		{"team", "pr"},
-		{"team", "pr", "schedule"},
-		{"team", "pr", "freeze"},
-		{"team", "pr", "seat"},
-		{"team", "pr", "verdict"},
-		{"team", "pr", "ready"},
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	group, _, err := root.Find([]string{"team", "pr"})
+	if err != nil || group == nil || group.Name() != "pr" {
+		t.Fatalf("team pr not found: %v", err)
 	}
-	for _, args := range leaves {
-		f, out := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs(append(append([]string{}, args...), "--help"))
-		if err := root.Execute(); err != nil {
-			t.Fatal(err)
-		}
-		help := strings.Join(strings.Fields(out.String()), " ")
-		name := strings.Join(args, " ")
+	helpOf := func(c *cobra.Command) string {
+		return strings.Join(strings.Fields(c.Long+" "+c.Example), " ")
+	}
+
+	// Every command under `team pr`, so a future leaf cannot bring the old
+	// receipt wording back unnoticed.
+	var walk func(c *cobra.Command)
+	leaves := 0
+	walk = func(c *cobra.Command) {
+		help := helpOf(c)
 		for _, gone := range []string{"the recorded action", "dash in text"} {
 			if strings.Contains(help, gone) {
-				t.Errorf("%s help still says %q:\n%s", name, gone, help)
+				t.Errorf("%s help still says %q", c.CommandPath(), gone)
 			}
 		}
-		want := "the register line"
-		if len(args) == 2 {
-			want = "one register line"
+		if c != group && strings.Contains(help, "Prints the") &&
+			!strings.Contains(help, "the register line") {
+			t.Errorf("%s help says what it prints but not %q", c.CommandPath(), "the register line")
 		}
-		if !strings.Contains(help, want) {
-			t.Errorf("%s help missing %q:\n%s", name, want, help)
+		if c != group {
+			leaves++
 		}
-		if len(args) == 2 {
-			for _, s := range []string{"UNMAPPED", "never whether the write recorded", "the task line is the receipt"} {
-				if !strings.Contains(help, s) {
-					t.Errorf("group help missing %q:\n%s", s, help)
-				}
-			}
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(group)
+	if leaves < 6 {
+		t.Errorf("walked %d leaves under team pr, want at least the six that print a receipt", leaves)
+	}
+
+	groupHelp := helpOf(group)
+	for _, s := range []string{"register line", "UNMAPPED", "the task line is the receipt"} {
+		if !strings.Contains(groupHelp, s) {
+			t.Errorf("group help missing %q:\n%s", s, groupHelp)
 		}
 	}
 }
