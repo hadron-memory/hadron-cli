@@ -129,7 +129,7 @@ func TestTeamMetricsRosterOnlyReaderKeepsNulls1826(t *testing.T) {
 	if n := strings.Count(text, "not visible to you"); n != 3 {
 		t.Errorf("each of the three task reports must say it is not visible to you, got %d:\n%s", n, text)
 	}
-	for _, zero := range []string{"Started owned tasks: 0", "Flow in the window: 0", "completed 0"} {
+	for _, zero := range []string{"Started owned tasks: 0", "Started projects: 0", "completed 0", "started 0"} {
 		if strings.Contains(text, zero) {
 			t.Errorf("a hidden report must never read as zero (%q):\n%s", zero, text)
 		}
@@ -245,17 +245,21 @@ func TestTeamMetricsIDsFlag1826(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(plain, "t4") || strings.Contains(plain, "w3") {
-		t.Errorf("no ids without --ids:\n%s", plain)
+	if idsLines2972(plain) != "" {
+		t.Errorf("no ids lines without --ids:\n%s", plain)
 	}
 	_, withIDs, err := runTeamTask(t, metricsResponses1826(metricsFull), "team", "metrics", "--ids")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range []string{"t1", "t2", "t3", "t4", "t8", "w1", "w3", "p12"} {
-		if !strings.Contains(withIDs, id) {
-			t.Errorf("--ids must list %q:\n%s", id, withIDs)
+	listed := " " + idsLines2972(withIDs) + " "
+	for _, id := range []string{"t1", "t2", "t3", "t4", "t8", "w1", "w3"} {
+		if !strings.Contains(listed, " "+id+" ") {
+			t.Errorf("--ids must list %q on an ids line:\n%s", id, withIDs)
 		}
+	}
+	if !strings.Contains(withIDs, "[p12]") {
+		t.Errorf("--ids shows the project task id beside the project:\n%s", withIDs)
 	}
 }
 
@@ -389,7 +393,10 @@ func TestTeamMetricsOlderServerGetsAPlainMessage1826(t *testing.T) {
 	// A validation error about some other field is not this answer.
 	r["TeamMetrics"] = missingFieldJSON("somethingElse")
 	_, _, err = runTeamTask(t, r, "team", "metrics")
-	if err != nil && strings.Contains(err.Error(), "does not serve teamMetrics") {
+	if err == nil {
+		t.Fatal("a validation error about another field is still an error")
+	}
+	if strings.Contains(err.Error(), "does not serve teamMetrics") {
 		t.Errorf("only a rejection of teamMetrics itself may say so: %v", err)
 	}
 }
@@ -416,4 +423,19 @@ func TestTeamMetricsHelpSaysWhatTheReportsCount1826(t *testing.T) {
 			t.Errorf("help must carry no %q:\n%s", banned, help)
 		}
 	}
+}
+
+// idsLines2972 joins what the "ids:" / "ids (first N of M):" lines list, so an id is looked for where the
+// command prints ids and not in the app id, the timestamps or a handle.
+func idsLines2972(text string) string {
+	var got []string
+	for _, l := range strings.Split(text, "\n") {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "ids") {
+			if i := strings.Index(l, ": "); i >= 0 {
+				got = append(got, l[i+2:])
+			}
+		}
+	}
+	return strings.Join(got, " ")
 }
