@@ -30,10 +30,11 @@ const saturationWakeRolesInspectHint = "check `team saturation-wake-roles get`"
 
 // saturationWakeRolesMeaning is what the list is, said once for every page: it names ROLES,
 // what a listed worker is offered, and that a change reaches later alarms only.
-const saturationWakeRolesMeaning = `The list names roles. When a saturation alarm is raised, each worker of the App
-in a listed role is offered one wake, unless it is never due, and never again for
-that alarm. A change to the list applies only to alarms raised afterwards. The
-list is empty by default, so nobody is woken until an App manager lists a role.`
+const saturationWakeRolesMeaning = `The list names roles. Each worker of the App in a listed role is offered one wake
+when a saturation alarm is raised, and not again for that alarm; a worker who is
+never due (retired, paused or dormant) is not woken. A change to the list applies
+only to alarms raised afterwards. The list is empty by default, so nobody is woken
+until an App manager lists a role.`
 
 type saturationWakeRolesDTO struct {
 	AppID string   `json:"appId"`
@@ -124,7 +125,7 @@ Needs server ` + saturationWakeRolesFloor + ` or later.`,
 }
 
 func newCmdTeamSaturationWakeRolesSet(f *cmdutil.Factory) *cobra.Command {
-	var clear bool
+	var clearList bool
 	var rawInstruction string
 	cmd := &cobra.Command{
 		Use:   "set <role>... | --clear",
@@ -154,10 +155,10 @@ Needs server ` + saturationWakeRolesFloor + ` or later.
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			if clear && len(args) > 0 {
+			if clearList && len(args) > 0 {
 				return exitcode.Newf(exitcode.Usage, "name roles or pass --clear, not both: --clear empties the list")
 			}
-			if !clear && len(args) == 0 {
+			if !clearList && len(args) == 0 {
 				return exitcode.Newf(exitcode.Usage, "name at least one role, or pass --clear to empty the list")
 			}
 			for _, r := range args {
@@ -226,7 +227,7 @@ Needs server ` + saturationWakeRolesFloor + ` or later.
 			})
 		},
 	}
-	cmd.Flags().BoolVar(&clear, "clear", false, "empty the list (nobody is woken)")
+	cmd.Flags().BoolVar(&clearList, "clear", false, "empty the list (nobody is woken)")
 	cmd.Flags().StringVar(&rawInstruction, "instruction", "", instruction.FlagUsageForServer(saturationWakeRolesFloor))
 	return cmd
 }
