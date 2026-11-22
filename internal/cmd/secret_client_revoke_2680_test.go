@@ -217,6 +217,13 @@ func TestSecretClientRevokeLostAnswerIsNotResent2680(t *testing.T) {
 	if strings.Contains(strings.ToLower(msg), "failed") {
 		t.Errorf("an unknown outcome is not 'failed': %v", err)
 	}
+	// cli#2847 (Jonas D5): this revoke ran as the person, so the recovery is the
+	// person list, exactly as the instructed fixtures pin their `--as-worker`
+	// form (2754). A mutant that hard-codes the instructed hint on the person
+	// branch must go red here, not only survive the focused 2754 set.
+	if !strings.Contains(msg, "`hadron secret client list --all`") || strings.Contains(msg, "--as-worker") {
+		t.Errorf("a person's lost answer recommends the person recovery, never the worker flag: %v", err)
+	}
 }
 
 // A state that is not an end (ACTIVE, PENDING) is NOT a confirmed revoke (exit 7);

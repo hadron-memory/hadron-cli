@@ -470,7 +470,7 @@ alternatives (--status PENDING --status STARTED lists both). --status takes
 filters by tag. --text matches a case-insensitive substring of title and description
 only, ANDed with other filters. Text is sent unchanged; the server trims and
 refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
---limit/--offset page (default 20, cap 200); a full default page says more may exist.
+--limit/--offset page (default 20, cap 200); the server's hasMore says whether rows remain past the page, and the continuation names the exact --offset.
 
 --tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
 tag, not a separator. --source matches the exact value, never a prefix, and so
@@ -665,10 +665,9 @@ ageFrom; --tree changes text only.`,
 			return listTasks(ctx, f, scope, taskListQuery{
 				assignee: assigneeIn, owner: ownerIn, creator: creatorIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
-				limitExplicit: cmd.Flags().Changed("limit"),
-				matchFailed:   matchFailedIn,
-				unresolved:    unresolvedIn,
-				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
+				matchFailed: matchFailedIn,
+				unresolved:  unresolvedIn,
+				tagsAny:     nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
 				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
 				finishedAfter: bounds[4], finishedBefore: bounds[5],
 			})
@@ -711,9 +710,6 @@ type taskListQuery struct {
 	queued, rootsOnly        *bool
 	status                   []gen.AgentTaskStatus
 	limit, offset            int
-	// limitExplicit is true when the user passed --limit: a full page of the
-	// default size is then their own page, not a silent truncation.
-	limitExplicit bool
 	// The #1250 filters; any one set routes the read through AgentTaskListFiltered.
 	tagsAny, tagsAll              []string
 	source                        *string
@@ -758,94 +754,150 @@ func checkTaskPage(limit, offset int) error {
 	return nil
 }
 
+// taskPageInfo is one agentTasksPage answer's metadata (server#4622): the
+// total the items were counted against in the same snapshot, whether rows
+// remain past this page, and Served — the row count of the page as the server
+// vouched for it. Walks and continuation lines advance by Served, never by a
+// DTO list's length, so a continuation offset cannot drift from the server's
+// offset even if the copy into taskDTOs ever changed shape (BLIND round 2,
+// cli#2734: listTasks printed offset+len(tasks), right only while taskPageOf
+// provably copies every row — the count is now carried, not re-derived).
+type taskPageInfo struct {
+	Total   int
+	HasMore bool
+	Served  int
+}
+
+// malformedTaskPage refuses an agentTasksPage answer that cannot be trusted:
+// no page object, or an items list that is missing or null (a decoded empty
+// array is non-nil, so that is never a legitimate empty page). The
+// dependencyPage precedent (cli#1135): exit 1, never an empty success that
+// would claim a quiet App (cli#2734).
+func malformedTaskPage(what string) error {
+	return exitcode.Newf(exitcode.Error, "server returned a malformed agentTasksPage answer: %s", what)
+}
+
+// taskPageOf validates one document's agentTasksPage answer and copies its
+// rows and metadata. A null item is refused, not skipped: a silent skip would
+// make the rows disagree with the page the server vouched for (cli#1182).
+// fields names the embedded AgentTaskFields so the five documents' distinct
+// generated item types share one copy.
+func taskPageOf[E any, I interface {
+	*E
+}](items []I, info taskPageInfo, fields func(I) gen.AgentTaskFields) ([]taskDTO, taskPageInfo, error) {
+	if items == nil {
+		return nil, taskPageInfo{}, malformedTaskPage("items is missing or null")
+	}
+	// An empty page that claims more remain can never advance a walk: the
+	// continuation is offset + rows served (cor:api:120:04), so offset + 0
+	// would re-ask the same page forever. Refused as untrustworthy, like any
+	// other malformed page, instead of looping to the page bound.
+	if len(items) == 0 && info.HasMore {
+		return nil, taskPageInfo{}, malformedTaskPage("an empty page claims more remain")
+	}
+	tasks := []taskDTO{}
+	for i, it := range items {
+		if it == nil {
+			return nil, taskPageInfo{}, exitcode.Newf(exitcode.Error, "server returned a malformed agentTasksPage answer: item %d of %d is empty", i+1, len(items))
+		}
+		task, err := taskDTOFrom(fields(it))
+		if err != nil {
+			return nil, taskPageInfo{}, err
+		}
+		tasks = append(tasks, task)
+	}
+	// The page's own row count, carried alongside the copy: every walk that
+	// advances by rows served reads this, so the offset it sends is the
+	// server's arithmetic on the server's count (len(items)), never a
+	// re-derivation from the DTO list.
+	info.Served = len(items)
+	return tasks, info, nil
+}
+
 // taskListPage preserves the original operation document when text is absent.
 // Omitting a JSON variable alone does not hide an argument from GraphQL validation.
-func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
-	tasks := []taskDTO{}
+// It returns the page's metadata so callers never guess completeness from a
+// full page (cli#2734).
+func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, taskPageInfo, error) {
 	if q.creator != nil {
 		r, err := gen.AgentTaskListCreator(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text, q.creator)
 		if err != nil {
-			return nil, 0, mapFindingError(err)
+			return nil, taskPageInfo{}, mapFindingError(err)
 		}
-		for _, t := range r.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if r.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(r.AgentTasks), nil
+		return taskPageOf(r.AgentTasksPage.Items, taskPageInfo{Total: r.AgentTasksPage.Total, HasMore: r.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	if q.unresolved != nil {
 		r, err := gen.AgentTaskListUnresolved(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
-			return nil, 0, mapFindingError(err)
+			return nil, taskPageInfo{}, mapFindingError(err)
 		}
-		for _, t := range r.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if r.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(r.AgentTasks), nil
+		return taskPageOf(r.AgentTasksPage.Items, taskPageInfo{Total: r.AgentTasksPage.Total, HasMore: r.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	if q.filtered() {
 		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
-			return nil, 0, mapTaskError(err)
+			return nil, taskPageInfo{}, mapTaskError(err)
 		}
-		for _, t := range resp.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if resp.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(resp.AgentTasks), nil
+		return taskPageOf(resp.AgentTasksPage.Items, taskPageInfo{Total: resp.AgentTasksPage.Total, HasMore: resp.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	if q.text != nil {
 		resp, err := gen.AgentTaskListText(ctx, client, appRef, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag, q.text)
 		if err != nil {
-			return nil, 0, mapTaskError(err)
+			return nil, taskPageInfo{}, mapTaskError(err)
 		}
-		for _, t := range resp.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if resp.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(resp.AgentTasks), nil
+		return taskPageOf(resp.AgentTasksPage.Items, taskPageInfo{Total: resp.AgentTasksPage.Total, HasMore: resp.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	resp, err := gen.AgentTaskList(ctx, client, appRef, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag)
 	if err != nil {
-		return nil, 0, mapTaskError(err)
+		return nil, taskPageInfo{}, mapTaskError(err)
 	}
-	for _, t := range resp.AgentTasks {
-		if t != nil {
-			task, err := taskDTOFrom(t.AgentTaskFields)
-			if err != nil {
-				return nil, 0, err
-			}
-			tasks = append(tasks, task)
-		}
+	if resp.AgentTasksPage == nil {
+		return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 	}
-	return tasks, len(resp.AgentTasks), nil
+	return taskPageOf(resp.AgentTasksPage.Items, taskPageInfo{Total: resp.AgentTasksPage.Total, HasMore: resp.AgentTasksPage.HasMore},
+		func(t *gen.AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+			return t.AgentTaskFields
+		})
+}
+
+// taskListPageDTO is `task list` and `task mine` --json (cli#2734): the page
+// object — tasks (never null, [] when the page is empty), the total they were
+// counted against, and whether rows remain past this page. Breaking change
+// from the bare array, per the cli#1919 events precedent; release note added.
+type taskListPageDTO struct {
+	Tasks   []taskDTO `json:"tasks"`
+	Total   int       `json:"total"`
+	HasMore bool      `json:"hasMore"`
 }
 
 // listTasks is `task list`'s request and render, shared with `task mine`
@@ -856,16 +908,11 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 	if err != nil {
 		return err
 	}
-	tasks, count, err := taskListPage(ctx, client, scope.Ref, q)
+	tasks, info, err := taskListPage(ctx, client, scope.Ref, q)
 	if err != nil {
 		return err
 	}
-	// agentTasks returns no total, so a full DEFAULT page cannot show that the
-	// list ended: say so on stderr (the output shape stays a bare array).
-	if !q.limitExplicit && count >= q.limit {
-		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing a full page of %d tasks; there may be more: --offset %d\n", q.limit, q.offset+q.limit)
-	}
-	return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
+	return output.Write(f.IOStreams, f.JSON, taskListPageDTO{Tasks: tasks, Total: info.Total, HasMore: info.HasMore}, func(w io.Writer) error {
 		// Unconditionally, and before the rows (#470): an empty list
 		// is the normal steady state of a quiet App, and without this
 		// line "no tasks" and "another team's App" look identical.
@@ -937,7 +984,25 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			}
 			t.Row(cells...)
 		}
-		return t.Flush()
+		if err := t.Flush(); err != nil {
+			return err
+		}
+		// The page end is the server's (cor:api:120:04), the events precedent
+		// (cli#1919): a continuation is named only when hasMore — with the
+		// total and the exact --offset that continues the walk. A page that
+		// merely happens to be full is the last page when hasMore is false,
+		// and an explicit --limit does not suppress the server's truth.
+		if info.HasMore {
+			// The continuation is offset + the ROWS SERVED, not offset+limit
+			// (cor:api:120:04, the cli#1919 events precedent): a short page
+			// with hasMore has consumed only the rows it returned, and
+			// offset+limit would skip limit-len rows. Served is the page's own
+			// row count, so the offset sent is the server's. On stderr with
+			// the other continuation lines, so stdout stays the table alone.
+			_, err := fmt.Fprintf(f.IOStreams.ErrOut, "more tasks remain of %d total: continue with --offset %d\n", info.Total, q.offset+info.Served)
+			return err
+		}
+		return nil
 	})
 }
 
@@ -955,7 +1020,7 @@ func newCmdTeamTaskMine(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the tasks assigned to this worktree's bound worker that are PENDING or
 STARTED — ` + "`task list --assignee worker:<bound worker> --status PENDING --status STARTED`" + `
 in the bound worker's App, with the same output. The filters are fixed.
---limit/--offset page (default 20, cap 200); a full default page says more may exist.
+--limit/--offset page (default 20, cap 200); the server's hasMore says whether rows remain past the page, and the continuation names the exact --offset.
 
 It needs a worker session binding: without one, start a session with
 ` + "`hadron team session start`" + ` (see its --help for resuming a session
@@ -1004,8 +1069,6 @@ binding's server must be the one this call targets.`,
 				status:   []gen.AgentTaskStatus{gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted},
 				limit:    limit,
 				offset:   offset,
-
-				limitExplicit: cmd.Flags().Changed("limit"),
 			})
 		},
 	}

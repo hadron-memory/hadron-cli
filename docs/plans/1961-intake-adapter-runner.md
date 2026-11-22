@@ -113,3 +113,7 @@ compatibility. Missing/blank assignee display names fall back to the server ID.
 `make schema` at ab3de2e0e also carries unrelated additions. `WorkerTerminalReportInput`
 gained `attempt` and `repair`; their omitempty annotations are added to
 `health_sweep.graphql` so an older server never sees them as `null`.
+
+## Not-mine answer (cli#2869)
+
+See docs/plans/1962-reconcile-and-release.md: a `describe` that sets `"notMine": true` makes exit 20 on a reconcile write call mean "not my item"; undeclared, exit 20 stays an ordinary refusal.

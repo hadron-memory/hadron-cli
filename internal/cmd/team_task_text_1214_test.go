@@ -12,7 +12,7 @@ import (
 func TestTaskListText1214(t *testing.T) {
 	for _, text := range []string{"needle", "", "   ", strings.Repeat("x", 201), `%_\\ literal`} {
 		t.Run(text, func(t *testing.T) {
-			response := `{"data":{"agentTasks":[]}}`
+			response := taskPage2734("", 0, false)
 			invalid := strings.TrimSpace(text) == "" || len(text) > 200
 			if invalid {
 				response = memberGQLError("text must contain 1 to 200 characters", "BAD_USER_INPUT")
@@ -28,8 +28,14 @@ func TestTaskListText1214(t *testing.T) {
 				}
 			} else if err != nil {
 				t.Fatal(err)
-			} else if out.String() != "[]\n" {
-				t.Fatalf("output changed: %q", out.String())
+			} else {
+				// cli#2734: an empty list is an empty page object, never [].
+				var empty struct {
+					Tasks []json.RawMessage `json:"tasks"`
+				}
+				if e := json.Unmarshal([]byte(out.String()), &empty); e != nil || len(empty.Tasks) != 0 {
+					t.Fatalf("output changed: %q", out.String())
+				}
 			}
 			var vars map[string]any
 			raw, ok := captured["AgentTaskListText"]
@@ -51,7 +57,7 @@ func TestTaskListText1214(t *testing.T) {
 }
 
 func TestTaskListTextOmitted1214(t *testing.T) {
-	srv, captured := captureGraphQL(t, map[string]string{"AgentTaskList": `{"data":{"agentTasks":[]}}`})
+	srv, captured := captureGraphQL(t, map[string]string{"AgentTaskList": taskPage2734("", 0, false)})
 	f, out := testFactory(t)
 	r := NewRootCmd(f)
 	r.SetArgs([]string{"team", "task", "list", "--app", "capp100000000000000000000", "--json", "--server", srv.URL})
@@ -69,7 +75,11 @@ func TestTaskListTextOmitted1214(t *testing.T) {
 	if _, ok := vars["text"]; ok {
 		t.Fatal("omitted flag sent text")
 	}
-	if out.String() != "[]\n" {
+	// cli#2734: an empty list is an empty page object, never [].
+	var empty struct {
+		Tasks []json.RawMessage `json:"tasks"`
+	}
+	if e := json.Unmarshal([]byte(out.String()), &empty); e != nil || len(empty.Tasks) != 0 {
 		t.Fatalf("omitted output %q", out.String())
 	}
 }
@@ -133,8 +143,8 @@ func runText1214(t *testing.T, roster []string, pages [][]task1044, argv ...stri
 	responses := rosterResponses993(roster...)
 	responses["TeamReportingLines"] = responses["TeamRoster"]
 	responses["AgentTeamEventsPage"] = `{"data":{"agentTeamEventsPage":{"events":[],"hasMore":false,"nextCursor":null}}}`
-	responses["AgentTaskList"] = taskPage1044(pages[0])
-	responses["AgentTaskListText"] = taskPage1044(pages[1])
+	responses["AgentTaskList"] = taskPage1044(pages[0], false)
+	responses["AgentTaskListText"] = taskPage1044(pages[1], false)
 	srv, calls := attnServer(t, responses)
 	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
@@ -181,9 +191,9 @@ func TestTeamTextPagedIntersectionAndFailures1214(t *testing.T) {
 		responses []string
 		code      int
 	}{
-		{"two pages", []string{taskPage1044(noise), taskPage1044([]task1044{child})}, 0},
-		{"later error", []string{taskPage1044(noise), memberGQLError("text read unavailable", "INTERNAL_SERVER_ERROR")}, 1},
-		{"non advancing", []string{taskPage1044(noise), taskPage1044(noise)}, 1},
+		{"two pages", []string{taskPage1044(noise, true), taskPage1044([]task1044{child}, false)}, 0},
+		{"later error", []string{taskPage1044(noise, true), memberGQLError("text read unavailable", "INTERNAL_SERVER_ERROR")}, 1},
+		{"non advancing", []string{taskPage1044(noise, true), taskPage1044(noise, true)}, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls, out, err := textPages1214(t, [][]task1044{all[:200], all[200:]}, tc.responses, "needle")
@@ -234,14 +244,14 @@ func textPages1214(t *testing.T, base [][]task1044, text []string, value string)
 	srv, calls := attnServerHook(t, responses, func(op string) {
 		switch op {
 		case "AgentTaskList":
-			r := `{"data":{"agentTasks":[]}}`
+			r := taskPage2734("", 0, false)
 			if b < len(base) {
-				r = taskPage1044(base[b])
+				r = taskPage1044(base[b], b < len(base)-1)
 			}
 			setAttnResponse(responses, op, r)
 			b++
 		case "AgentTaskListText":
-			r := `{"data":{"agentTasks":[]}}`
+			r := taskPage2734("", 0, false)
 			if n < len(text) {
 				r = text[n]
 			}

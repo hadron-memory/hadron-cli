@@ -130,8 +130,28 @@ The holder is you (the default, marked selfIssued) or, with --worker, a live
 worker of the App by its id. The server refuses any other holder. --reason is
 required and is shown to the signer. --max-reads 1 makes a one-use client.
 --starts-at and --expires-at take a timestamp such as 2026-12-01T09:00:00Z (the
-server parses it). --auto-delete is passed as given: the server refuses it until
-it is built.
+server parses it).
+
+--auto-delete marks the client: the server then deletes the secret at the client's
+last read or when its window ends, whichever comes first. It needs --expires-at
+or --max-reads (the server refuses it without a window or a read budget, and the
+CLI does not check that itself: the refusal comes back as the server wrote it).
+Only whoever manages the App, or the writer of the secret's current version, may
+set it; on a secret that does not exist or that you cannot see the refusal is the
+same "not permitted" (exit 8), never "not found". The mark is one of
+the grant's terms, and a grant's terms are what the person signs: nothing is
+deleted until a person has signed the grant, and a client that is never signed
+deletes nothing. When --auto-delete was sent the command prints a note on stderr stating the
+requested deletion; the issue answer itself does not carry the mark, so
+'secret client list' (AUTO-DELETE) is where to read it back.
+
+What cancels the deletion depends on the window. With --expires-at the deletion
+is a signed deadline: once signed, it happens at the end of the window whatever
+becomes of the client, so revoking a marked client (or the holder leaving) does
+not cancel the deletion. With only --max-reads there is no deadline: the secret
+is deleted at the client's LAST READ, and a client revoked (or whose holder left)
+before its last read never makes it, so revoking cancels the deletion. A deleted
+secret is gone for good.
 
 This is a person's act and never sends a worker session, even from a bound
 worktree. Whoever manages the App, or wrote the secret's current version, may
@@ -140,11 +160,12 @@ issue; the server decides, and its refusal is reported as it came.
 --wait polls the signing request every 2 seconds until it ends, up to
 --wait-timeout (10 minutes; not the request's own 24-hour life). The URL goes to
 stderr first so you can pass it on while waiting. Exit codes: 0 done (with
---wait: signed); 2 usage, a server without signing, or auto-delete not yet
-available; 4 not found; 5 the request ended without a signature (DECLINED,
+--wait: signed); 2 usage, a server without signing, or --auto-delete without
+--expires-at or --max-reads (or a time the server cannot parse); 4 not found; 5 the request ended without a signature (DECLINED,
 EXPIRED, STALE, WITHDRAWN), the issuer was superseded as writer, or the secret
-has too many live clients; 7 the answer to the issue was lost; 8 not permitted;
-13 --wait timed out. A timeout leaves the grant and the request as they are;
+has too many live clients; 7 the answer to the issue was lost; 8 not permitted
+(including --auto-delete on a secret you neither manage nor wrote the current
+version of); 13 --wait timed out. A timeout leaves the grant and the request as they are;
 nothing is withdrawn. A signer the server refuses leaves the request OPEN, so
 that wait ends by timeout: the request's lastRefusedAt, in 'hadron team grant
 signing-request get <request-id>', may show it.
@@ -207,6 +228,19 @@ was lost: the error says which, and how to ask again).`,
 				return exitcode.Newf(exitcode.Error, "server returned an unusable read client (no client or grant id); no signing request was made, and a pending read client may exist: check `hadron secret client list`")
 			}
 			dto := issueDTO{ClientID: issued.ClientId, GrantID: issued.GrantId, SecretName: issued.SecretName, SelfIssued: issued.SelfIssued}
+			if autoDelete {
+				// The mutation's answer does not carry the mark, so this states what was ASKED
+				// (never what the server recorded). It is printed as soon as the client exists,
+				// before the signing step, so a failure after it (the client is left pending
+				// with the mark armed) still shows it. stderr only: stdout and the --json shape
+				// are unchanged. What revoking does depends on the window (the CLI knows which
+				// flags it sent).
+				effect := "revoking the client before its last read cancels it (no window)"
+				if fl.Changed("expires-at") {
+					effect = "revoking the client will not stop it (the window is a signed deadline)"
+				}
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: --auto-delete was sent: once a person signs this grant, the secret %s is deleted at this client's last read or when its window ends; %s; read the mark back with `hadron secret client list`\n", output.SafeCell(issued.SecretName), effect)
+			}
 
 			sr, err := gen.TeamRequestGrantSignature(ctx, client, issued.GrantId)
 			var req *gen.TeamGrantSigningRequestFields
@@ -273,7 +307,7 @@ was lost: the error says which, and how to ask again).`,
 	fl.StringVar(&startsAt, "starts-at", "", "when the client starts to allow reads, a timestamp the server parses")
 	fl.StringVar(&expiresAt, "expires-at", "", "when the client stops allowing reads, a timestamp the server parses")
 	fl.IntVar(&maxReads, "max-reads", 0, "how many reads the client allows (1 = one-use)")
-	fl.BoolVar(&autoDelete, "auto-delete", false, "ask the server to delete the secret at the client's last read (the server refuses until it is built)")
+	fl.BoolVar(&autoDelete, "auto-delete", false, "the server deletes the secret at the client's last read or when its window ends (needs --expires-at or --max-reads; with --expires-at a signed deletion survives revoking the client, with only --max-reads revoking cancels it)")
 	fl.BoolVar(&wait, "wait", false, "poll the signing request until it ends")
 	fl.DurationVar(&waitTimeout, "wait-timeout", defaultSignWait, "max time to wait with --wait")
 	return cmd
@@ -386,13 +420,200 @@ type clientDTO struct {
 	SelfIssued   bool    `json:"selfIssued"`
 	EndReason    *string `json:"endReason"`
 	CreatedAt    string  `json:"createdAt"`
+	// DestroyOnEnd is the auto-delete mark: the secret is deleted at the client's last
+	// read or when its window ends (a person must have signed the grant first). It is
+	// null only when the server does not report the mark at all (a server older than
+	// the mark; the list says so on stderr): never false for "unknown".
+	DestroyOnEnd *bool `json:"destroyOnEnd"`
+	// RevealURL is the server's own link for a person holder (cli#2758), null for any other viewer.
+	RevealURL *string `json:"revealUrl"`
 }
 
-// fetchClientPage reads one page of the caller's read clients. The list is declared
-// non-null with non-null rows: a missing or null list, or a null row, is a
-// malformed answer, never an empty success (and a dropped row would shift the --all
-// offsets).
-func fetchClientPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+// listTier is how much of the list the server has shown it can answer: each field is a separate
+// server change, so a server may have the link without the mark or the mark without the link.
+type listTier int
+
+const (
+	tierBoth     listTier = iota // revealUrl and destroyOnEnd: the first try
+	tierLinkOnly                 // the server rejected destroyOnEnd only: the link, the mark unknown
+	tierMarkOnly                 // the server rejected revealUrl only: the mark, the link null
+	tierNeither                  // the mark-free, link-free page (revoke's lookup)
+)
+
+// markKnown and linkKnown say what a page read at this tier carries.
+func (t listTier) markKnown() bool { return t == tierBoth || t == tierMarkOnly }
+
+// fetchClientPage reads one page of the caller's read clients (`client list` and the reveal link
+// lookup) with as much as the server has: the auto-delete mark (cli#2720) and the server's
+// revealUrl (cli#2758). The list is declared non-null with non-null rows: a missing or null list,
+// a null row, or (where the mark is read) a row without the mark, is a malformed answer, never an
+// empty success (and a dropped row would shift the --all offsets); a row answered without
+// destroyOnEnd must not read as "no auto-delete" when the mark is the destructive one.
+//
+// A server that lacks a field rejects the document at validation naming only the rejected
+// fields; then, and only then, the ladder steps down, to the document without exactly the field(s)
+// it named: both rejected reads the page with neither (the mark unknown, the link null), only the
+// mark leaves the link, only the link leaves the mark. tier is kept so later pages skip the
+// documents already rejected.
+func fetchClientPage(ctx context.Context, client graphql.Client, tier *listTier, limit, offset *int) ([]clientDTO, error) {
+	for {
+		var (
+			page []clientDTO
+			err  error
+		)
+		switch *tier {
+		case tierBoth:
+			page, err = fetchBothPage(ctx, client, limit, offset)
+		case tierLinkOnly:
+			page, err = fetchLinkOnlyPage(ctx, client, limit, offset)
+		case tierMarkOnly:
+			page, err = fetchMarkOnlyPage(ctx, client, limit, offset)
+		default:
+			return fetchLookupPage(ctx, client, limit, offset)
+		}
+		if err == nil {
+			return page, nil
+		}
+		next, stepped := stepDown(*tier, err)
+		if !stepped {
+			var r rejectedErr
+			if errors.As(err, &r) {
+				return nil, api.MapErrorKeepingCode(r.err)
+			}
+			return nil, err
+		}
+		*tier = next
+	}
+}
+
+// rejectedErr marks a list failure that is a validation rejection of the fields the list
+// documents add, so the ladder may step down on it; it is mapped to the caller's error
+// only when no step applies.
+type rejectedErr struct{ err error }
+
+func (e rejectedErr) Error() string { return e.err.Error() }
+
+// stepDown is the next tier for a rejected document, or false when the failure is not a
+// validation rejection of exactly the field(s) the document at this tier selects beyond the
+// next tier's.
+func stepDown(t listTier, err error) (listTier, bool) {
+	var r rejectedErr
+	if !errors.As(err, &r) {
+		return t, false
+	}
+	raw := r.err
+	switch t {
+	case tierBoth:
+		switch {
+		case api.IsFrameworkValidationOnlyFor(raw, "destroyOnEnd"):
+			return tierLinkOnly, true
+		case api.IsFrameworkValidationOnlyFor(raw, "revealUrl"):
+			return tierMarkOnly, true
+		case api.IsFrameworkValidationOnlyFor(raw, "revealUrl", "destroyOnEnd"):
+			return tierNeither, true
+		}
+	case tierLinkOnly:
+		if api.IsFrameworkValidationOnlyFor(raw, "revealUrl") {
+			return tierNeither, true
+		}
+	case tierMarkOnly:
+		if api.IsFrameworkValidationOnlyFor(raw, "destroyOnEnd") {
+			return tierNeither, true
+		}
+	}
+	return t, false
+}
+
+// listFailure is the three list documents' shared failure handling: a GraphQL failure is
+// returned as a rejectedErr when the ladder might step down on it, else as the mapped error.
+func listFailure(err error) error {
+	if api.IsFrameworkValidationOnlyFor(err, "revealUrl", "destroyOnEnd") {
+		return rejectedErr{err}
+	}
+	return api.MapErrorKeepingCode(err)
+}
+
+func malformedList() error {
+	return exitcode.Newf(exitcode.Error, "server returned no read-client list; the answer is malformed, not empty")
+}
+
+func malformedRow() error {
+	return exitcode.Newf(exitcode.Error, "server returned an empty read-client row; the answer is malformed")
+}
+
+func markMissing() error {
+	return exitcode.Newf(exitcode.Error, "server returned a read-client row without its auto-delete mark; the answer is malformed, and a missing mark is not \"no\"")
+}
+
+func fetchBothPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.ListSecretReadClients(ctx, client, limit, offset)
+	if err != nil {
+		return nil, listFailure(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, malformedList()
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, malformedRow()
+		}
+		if c.DestroyOnEnd == nil {
+			return nil, markMissing()
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt,
+			DestroyOnEnd: c.DestroyOnEnd, RevealURL: c.RevealUrl})
+	}
+	return page, nil
+}
+
+func fetchLinkOnlyPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.ListSecretReadClientsLink(ctx, client, limit, offset)
+	if err != nil {
+		return nil, listFailure(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, malformedList()
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, malformedRow()
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, RevealURL: c.RevealUrl})
+	}
+	return page, nil
+}
+
+func fetchMarkOnlyPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
+	resp, err := gen.ListSecretReadClientsMark(ctx, client, limit, offset)
+	if err != nil {
+		return nil, listFailure(err)
+	}
+	if resp == nil || resp.MySecretReadClients == nil {
+		return nil, malformedList()
+	}
+	page := make([]clientDTO, 0, len(resp.MySecretReadClients))
+	for _, c := range resp.MySecretReadClients {
+		if c == nil {
+			return nil, malformedRow()
+		}
+		if c.DestroyOnEnd == nil {
+			return nil, markMissing()
+		}
+		page = append(page, clientDTO{ClientID: c.ClientId, ClientPrefix: c.ClientPrefix, GrantID: c.GrantId, SecretID: c.SecretId,
+			SecretName: c.SecretName, SelfIssued: c.SelfIssued, EndReason: c.EndReason, CreatedAt: c.CreatedAt, DestroyOnEnd: c.DestroyOnEnd})
+	}
+	return page, nil
+}
+
+// fetchLookupPage reads one page of the caller's read clients WITHOUT the mark and the link:
+// `client revoke`'s exact-id lookup (a safety action must not depend on a display column a
+// server may not have) and the fallback for a server that lacks either field. The rows carry
+// neither: DestroyOnEnd stays nil (unknown), never false, and RevealURL stays nil.
+func fetchLookupPage(ctx context.Context, client graphql.Client, limit, offset *int) ([]clientDTO, error) {
 	resp, err := gen.MySecretReadClients(ctx, client, limit, offset)
 	if err != nil {
 		return nil, api.MapErrorKeepingCode(err)
@@ -419,10 +640,12 @@ func newCmdClientList(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List the read clients you issued or hold",
 		Long: `List the read clients the caller issued or holds: client id, secret, whether it
-was self-issued, the end reason the server reported (SECRET_DELETED or PROTECTED;
-a dash means no reason reported, not that the client is live) and when it was
-created. The server returns nothing else: there is no window, read budget or
-live/spent column here.
+was self-issued, whether it carries the auto-delete mark (AUTO-DELETE yes: the
+secret is deleted at the client's last read or when its window ends, see
+'secret client issue --help'; --json destroyOnEnd), the end reason the server
+reported (SECRET_DELETED or PROTECTED; a dash means no reason reported, not that
+the client is live) and when it was created. The server returns nothing else:
+there is no window, read budget or live/spent column here.
 
 Acting as you (the default, no worker session) lists the clients you issued or
 hold. --as-worker sends this worktree's bound worker session and so lists the
@@ -461,7 +684,12 @@ use --limit and --offset beyond that).`,
 					return err
 				}
 			}
-			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, l, o) }
+			// A server that lacks the auto-delete mark or the reveal link rejects the list
+			// document: fetchClientPage steps down only as far as the rejection forces, so the
+			// field the server does have is kept and the mark is unknown (never "no") when it
+			// is missing; the check the recovery advice points at works on such a server.
+			tier := tierBoth
+			fetch := func(l, o *int) ([]clientDTO, error) { return fetchClientPage(sendCtx, client, &tier, l, o) }
 			rows := []clientDTO{}
 			if all {
 				for off, pages := 0, 0; ; pages++ {
@@ -488,14 +716,17 @@ use --limit and --offset beyond that).`,
 				}
 				rows = append(rows, page...)
 			}
+			if !tier.markKnown() {
+				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "note: this server does not report the auto-delete mark, so AUTO-DELETE is unknown (? in the table, destroyOnEnd null in --json), not \"no\"")
+			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				if len(rows) == 0 {
 					_, err := fmt.Fprintln(w, "no read clients")
 					return err
 				}
-				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "END REASON", "CREATED", "GRANT")
+				t := output.NewTable(w, "CLIENT", "SECRET", "SELF-ISSUED", "AUTO-DELETE", "END REASON", "CREATED", "GRANT")
 				for _, r := range rows {
-					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued),
+					t.Row(output.SafeCell(clientColumn(r)), output.SafeCell(r.SecretName), fmt.Sprint(r.SelfIssued), markCell(r.DestroyOnEnd),
 						output.SafeCell(output.Dash(r.EndReason)), output.SafeCell(r.CreatedAt), output.SafeCell(r.GrantID))
 				}
 				return t.Flush()
@@ -518,4 +749,16 @@ func clientColumn(r clientDTO) string {
 		return *r.ClientID
 	}
 	return r.ClientPrefix + "…"
+}
+
+// markCell renders the auto-delete mark: yes, no, or ? when the server did not report it.
+func markCell(b *bool) string {
+	switch {
+	case b == nil:
+		return "?"
+	case *b:
+		return "yes"
+	default:
+		return "no"
+	}
 }

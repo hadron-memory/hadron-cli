@@ -44,26 +44,44 @@ func TestConnectDegradedNoteNamesTheLookupOutcome2760(t *testing.T) {
 }
 
 // cli#2760 item 2: a malformed start names what is missing, still Unavailable
-// (exit 7), and nothing is shown, opened, polled or filled.
+// (exit 7), and nothing is shown, opened, polled or filled. cli#2845 F2 adds
+// the blank-link case (a whitespace-only authorize URL is no link — the pin is
+// red until the start check trims it) and F5 loops the output modes, so the
+// refusal is pinned in each of --json, --no-wait and --no-browser, not just
+// the human one.
 func TestConnectMalformedStartNamesTheMissingField2760(t *testing.T) {
 	for name, tc := range map[string]struct{ start, want string }{
 		"no start":      {`{"data":{"startConnection":null}}`, "server returned no connection start"},
 		"no link":       {strings.Replace(connectStart, `"authorizeUrl":"`+connectURL+`"`, `"authorizeUrl":""`, 1), "server returned a connection start with no authorize link"},
+		"blank link":    {strings.Replace(connectStart, `"authorizeUrl":"`+connectURL+`"`, `"authorizeUrl":"   "`, 1), "server returned a connection start with no authorize link"},
 		"empty flow id": {strings.Replace(connectStart, `"flowId":"flow_1"`, `"flowId":""`, 1), "server returned a connection start with no flow id"},
 		"blank flow id": {strings.Replace(connectStart, `"flowId":"flow_1"`, `"flowId":"  "`, 1), "server returned a connection start with no flow id"},
 	} {
-		t.Run(name, func(t *testing.T) {
-			r := runConnectionScript(t, tc.start, []string{done}, connRows(connRow("c9")), nil, "connection", "connect", "gmail", "--org", "org_1", "--no-browser")
-			if r.code != exitcode.Unavailable || r.err == nil || r.err.Error() != tc.want {
-				t.Fatalf("exit %d err %v, want Unavailable %d %q", r.code, r.err, exitcode.Unavailable, tc.want)
-			}
-			if len(r.opened) != 0 || strings.Contains(r.out, connectURL) || strings.Contains(r.errOut, connectURL) {
-				t.Fatalf("the link was shown or opened: opened %v out %q err %q", r.opened, r.out, r.errOut)
-			}
-			if count(r.ops, "ConnectionFlow") != 0 || count(r.ops, "EmailConnections") != 0 {
-				t.Fatalf("polled after a broken start: %v", r.ops)
-			}
-		})
+		for _, mode := range []string{"--json", "--no-wait", "--no-browser"} {
+			t.Run(name+"/"+mode, func(t *testing.T) {
+				r := runConnectionScript(t, tc.start, []string{done}, connRows(connRow("c9")), nil, "connection", "connect", "gmail", "--org", "org_1", mode)
+				if r.code != exitcode.Unavailable || r.err == nil || r.err.Error() != tc.want {
+					t.Fatalf("exit %d err %v, want Unavailable %d %q", r.code, r.err, exitcode.Unavailable, tc.want)
+				}
+				// Nothing is opened in any row. Whether a link could have been SHOWN depends on the
+				// fixture: where it carries connectURL (the missing-flow-id rows) that exact link must
+				// not appear; where it carries none (no start, no link, blank link) a Contains of
+				// connectURL could never fail, so the check is that no URL-looking text was printed at
+				// all, which a command that composed a replacement link would break (cor:api:230:01:
+				// the server's link verbatim, never composed).
+				carriesLink := strings.Contains(tc.start, connectURL)
+				shown := strings.Contains(r.out+r.errOut, "://")
+				if carriesLink {
+					shown = strings.Contains(r.out, connectURL) || strings.Contains(r.errOut, connectURL)
+				}
+				if len(r.opened) != 0 || shown {
+					t.Fatalf("a link was shown or opened: opened %v out %q err %q", r.opened, r.out, r.errOut)
+				}
+				if count(r.ops, "ConnectionFlow") != 0 || count(r.ops, "EmailConnections") != 0 {
+					t.Fatalf("polled after a broken start: %v", r.ops)
+				}
+			})
+		}
 	}
 }
 
@@ -75,12 +93,29 @@ func TestConnectListedRowWithEmptyFieldsIsNotDegraded2760(t *testing.T) {
 	if !strings.Contains(row, `"mailboxEmail":""`) {
 		t.Fatalf("fixture did not apply: %s", row)
 	}
+	// cli#2845 F4: the null display name is part of this fixture, not an
+	// accident of connRow — guard it explicitly instead of relying on it.
+	if !strings.Contains(row, `"displayName":null`) {
+		t.Fatalf("fixture lost its null displayName: %s", row)
+	}
 	r := runFlowConnect(t, []string{flowResp("CONNECTED", "c9", "")}, connRows(row), "connection", "connect", "gmail", "--org", "org_1", "--json")
 	if r.err != nil || r.code != 0 {
 		t.Fatalf("exit %d err %v", r.code, r.err)
 	}
-	if strings.Contains(r.out, "degraded") || strings.Contains(r.errOut, "could not be filled") {
-		t.Fatalf("a listed row was marked degraded: out %q err %q", r.out, r.errOut)
+	if strings.Contains(r.errOut, "could not be filled") {
+		t.Fatalf("a listed row was noted degraded: err %q", r.errOut)
+	}
+	// cli#2845 F3: assert by decoding, not by matching "degraded" as text, so
+	// the negative cannot pass on the encoder's spelling of the keys.
+	var raw struct {
+		Degraded       json.RawMessage `json:"degraded"`
+		DegradedFields json.RawMessage `json:"degradedFields"`
+	}
+	if err := json.Unmarshal([]byte(r.out), &raw); err != nil {
+		t.Fatalf("%v: %q", err, r.out)
+	}
+	if raw.Degraded != nil || raw.DegradedFields != nil {
+		t.Fatalf("a listed row carried the degraded marker: %q", r.out)
 	}
 	var dto degradedDTO
 	if err := json.Unmarshal([]byte(r.out), &dto); err != nil || dto.Connection.ID != "c9" || dto.Connection.MailboxEmail != "" || dto.Connection.DisplayName != nil {

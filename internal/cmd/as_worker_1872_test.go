@@ -202,28 +202,31 @@ func TestAsWorkerMutationsCarrySessionReadsDoNot1872(t *testing.T) {
 }
 
 // asWorkerRefusals are the bindings --as-worker must refuse, applied after the
-// binding is written and pointed at the fake.
+// binding is written and pointed at the fake. remedy says whether the refusal's
+// message offers dropping the flag as the way out (the malformed-binding read
+// error does not; its remedy is fixing the binding).
 var asWorkerRefusals = []struct {
-	name string
-	prep func(t *testing.T)
+	name   string
+	remedy bool
+	prep   func(t *testing.T)
 }{
-	{"no worktree", func(t *testing.T) {
+	{"no worktree", true, func(t *testing.T) {
 		t.Setenv(team.GitDirEnv, "")
 		t.Chdir(t.TempDir())
 	}},
-	{"no binding file", func(t *testing.T) {
+	{"no binding file", true, func(t *testing.T) {
 		_ = os.Remove(filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json"))
 	}},
-	{"malformed binding", func(t *testing.T) {
+	{"malformed binding", false, func(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json"), []byte("{not json"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}},
-	{"missing session", func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["sessionId"] = "" }) }},
-	{"missing worker", func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["workerId"] = "" }) }},
-	{"missing App", func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["appId"] = "" }) }},
-	{"missing server", func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["server"] = "" }) }},
-	{"binding for another server", func(t *testing.T) {
+	{"missing session", true, func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["sessionId"] = "" }) }},
+	{"missing worker", true, func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["workerId"] = "" }) }},
+	{"missing App", true, func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["appId"] = "" }) }},
+	{"missing server", true, func(t *testing.T) { rewriteBinding1592(t, func(b map[string]any) { b["server"] = "" }) }},
+	{"binding for another server", true, func(t *testing.T) {
 		rewriteBinding1592(t, func(b map[string]any) { b["server"] = "https://elsewhere.example.test" })
 	}},
 }
@@ -240,6 +243,17 @@ func TestAsWorkerStrictResolverRefusesAndSendsNothing1872(t *testing.T) {
 				}
 				if len(calls) != 0 {
 					t.Fatalf("a refused --as-worker sent requests: %+v", calls)
+				}
+				// cli#2847 (Jonas D6): the refusals run through a real command,
+				// so their wording is the flag contract. Every refusal names the
+				// flag it refused, and every one with a way out names dropping
+				// it: a mutant that empties WorkerWriteDiagnosticFlag's default
+				// loses `--as-worker` from all of them and must go red here.
+				if !strings.Contains(err.Error(), "--as-worker") {
+					t.Errorf("the refusal must name the flag it refused: %v", err)
+				}
+				if r.remedy && !strings.Contains(err.Error(), "drop --as-worker") {
+					t.Errorf("the refusal's remedy is to drop --as-worker: %v", err)
 				}
 			})
 		}

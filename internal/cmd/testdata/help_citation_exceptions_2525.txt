@@ -8,12 +8,6 @@
 #   go test ./internal/cmd -run TestHelpCarriesNoNewCitationsNumbersOrHashes2525 -rename-citation-exception 'old page=>new page'
 # (never by hand). Line: <page>  # <kind> <reference> x<count> | ...
 # The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
-auth token list  # issue #3189 x1
-marketplace  # citation cor:acl:080:04 x1
-node list  # issue #3494 x1 | issue #3520 x1
-orca terminal status  # issue #3755 x1
-schedule  # citation cor:agt:010 x1
-skill lint  # citation cor:agt:030:06 x1
 spec  # issue #1591 x1
 spec backlinks  # issue #1591 x1
 spec check-tools  # issue #240 x1
@@ -73,7 +67,7 @@ team router status  # issue #2027 x1 | issue #2138 x1
 team session  # citation cor:agt:020:09 x1 | issue #1034 x1 | issue #1114 x1
 team session end  # citation cor:agt:020:03 x1 | citation cor:agt:020:09 x2 | citation cor:agt:020:10 x2 | issue #1029 x1 | issue #1114 x2 | issue #1157 x1 | issue #623 x2 | issue #842 x1
 team session list  # issue #1114 x1 | issue #399 x1
-team session log  # issue #399 x2 | issue #401 x1 | issue #474 x1
+team session log  # issue #399 x2 | issue #401 x1
 team session recover  # issue #2062 x1
 team session reset-context  # issue #2161 x1
 team session resume-claim  # citation cor:agt:020:03 x1 | issue #842 x1
@@ -123,5 +117,3 @@ team worker release  # citation cor:agt:020:02 x1 | citation cor:agt:020:09 x1 |
 team worker retire  # citation cor:agt:020:02 x1
 team worker rm  # citation cor:dmo:050:11 x1 | issue #1735 x1
 team worker update  # citation cor:agt:040:04 x1
-ticker apply-templates  # citation cor:agt:080:33 x1 | issue #2096 x1
-usage activity  # citation cor:acl:090:01 x1

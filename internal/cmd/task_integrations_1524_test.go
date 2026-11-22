@@ -184,7 +184,7 @@ func TestTaskGetExternalID1524(t *testing.T) {
 func TestTaskListExternalID1524(t *testing.T) {
 	t.Run("the filter is sent exactly", func(t *testing.T) {
 		r := taskResponses()
-		r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`
+		r["AgentTaskListFiltered"] = taskPage2734(taskFieldsJSON, 1, false)
 		calls, _, err := runTeamTask(t, r, "team", "task", "list", "--external-id", issueURL1524)
 		if err != nil {
 			t.Fatal(err)

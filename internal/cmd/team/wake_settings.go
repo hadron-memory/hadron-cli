@@ -6,6 +6,7 @@ package team
 // Retired isolation surfaces are absent (cli#1743).
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -169,7 +170,14 @@ func newCmdTeamWakeSettingsSet(f *cmdutil.Factory) *cobra.Command {
 Only the flags you give are sent: a setting you do not name is kept. --mentions
 is immediate or off. --paused-until (RFC 3339, a time in the future) pauses the worker's wakes until
 that time; --clear-pause ends a pause and cannot be combined with
---paused-until. At least one of the three is required. Who may change them is
+--paused-until. At least one of the three is required. Without --instruction
+this is the person's write. With --instruction the write goes out through this
+worktree's worker session when that binding is complete, for this server, and
+unchanged since the command started; otherwise it goes out as the signed-in
+person with the claim still sent (a note on stderr says why). This command
+names no App: the server resolves the target, so the CLI cannot check the
+worker's App here. A binding for another App is sent as it is, with no note,
+and the server accepts or refuses it. Who may change them is
 the server's rule (cor:agt:080:21): the worker itself, its holder or whoever
 manages the App.`,
 		Example: `  hadron team wake-settings set --worker hrn:worker:acme.com:ops:iris --mentions off
@@ -177,6 +185,21 @@ manages the App.`,
   hadron team wake-settings set --worker <worker-id> --clear-pause`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#2774: parse the claim first; the write names no App, so the
+			// server resolves the target and the binding is verified locally
+			// (BeginServerTargetInstructedWrite), never inferred from the ref.
+			var claim *gen.ActInstructionInput
+			var instructed func(context.Context) (context.Context, bool, error)
+			if cmd.Flags().Changed("instruction") {
+				raw, err := cmd.Flags().GetString("instruction")
+				if err != nil {
+					return err
+				}
+				if claim, err = parseInstruction(raw); err != nil {
+					return err
+				}
+				instructed = BeginServerTargetInstructedWrite(f)(cmd.Context())
+			}
 			ref, err := wakeWorkerRef(worker)
 			if err != nil {
 				return err
@@ -208,7 +231,25 @@ manages the App.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SetWorkerWakeSettings(cmd.Context(), client, ref, &input)
+			ctx := cmd.Context()
+			if claim != nil {
+				// cli#2491 F1, as on host issue: an explicit instruction owns
+				// attribution, so the authored-write middleware must not
+				// attach a binding the claim did not verify — including when
+				// the helper below falls back to the person (then this write
+				// carries the claim, headerless, never the unverified session).
+				ctx = withAsPerson(ctx)
+				// Order: withAsPerson only makes the middleware skip its own
+				// ambient binding (it is a flag the middleware reads per request);
+				// it does not remove a session already on ctx, so the session header
+				// instructed attaches next still goes out with the claim.
+				var e error
+				ctx, _, e = instructed(ctx)
+				if e != nil {
+					return e
+				}
+			}
+			resp, err := sendWorkerWakeSettings(ctx, client, ref, &input, claim)
 			if err != nil {
 				return wakeSettingsError(err)
 			}
@@ -223,6 +264,7 @@ manages the App.`,
 	cmd.Flags().StringVar(&mentions, "mentions", "", "immediate or off")
 	cmd.Flags().StringVar(&pausedUntil, "paused-until", "", "pause the worker's wakes until this future RFC 3339 time")
 	cmd.Flags().BoolVar(&clearPause, "clear-pause", false, "end the worker's pause (not with --paused-until)")
+	addManagerInstruction(cmd)
 	_ = cmd.MarkFlagRequired("worker")
 	return cmd
 }

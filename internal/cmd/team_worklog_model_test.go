@@ -32,7 +32,8 @@ func captureOldWorklogServer(t *testing.T, responses map[string]string) (*httpte
 		}
 		captured[req.OperationName] = req.Variables
 		body, ok := responses[req.OperationName]
-		if !ok && req.OperationName == "GetBoundSessionEnd" {
+		// cli#2858: the unread advisory reads the worker's server cursor; default-answered.
+		if !ok && (req.OperationName == "GetBoundSessionEnd" || req.OperationName == "TeamDefaultChannel" || req.OperationName == "CheckChatCursor") {
 			body, ok = unstubbedDefault(req.OperationName)
 		}
 		if !ok {

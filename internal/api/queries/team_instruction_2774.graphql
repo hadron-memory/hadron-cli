@@ -1,0 +1,95 @@
+# cli#2774 (child of #1617, over hadron-server#3398): separate instructed
+# documents keep the no-flag wire bytes unchanged — the plain twins in team,
+# hosts, wake_settings and delivery .graphql are untouched, and the struct
+# casts in internal/cmd/team/instruction_2774.go make a selection drifting
+# from its plain twin a compile error. instruction is a required variable
+# here because these documents are sent only with --instruction; the claim
+# rides each one exactly as the flag gave it (cor:dmo:050:12).
+
+mutation SetTeamPauseInstructed($appRef: String!, $paused: Boolean!, $instruction: ActInstructionInput!) {
+  setTeamPause(appRef: $appRef, paused: $paused, instruction: $instruction) { teamPausedAt }
+}
+
+# Repeated from team.graphql: genqlient synthesizes the shared input struct
+# per discovering operation, so a file that names an annotated input type must
+# carry its directives too (same pattern as NodeFilter in
+# apps.graphql/spec_corpus.graphql) or the struct silently loses omitempty —
+# omitted keeps, null clears. The variable list sits on its own lines so the
+# directives bind to the operation, not the arguments (genqlient walks
+# preceding comments upward from each node; `for:` is invalid on a variable).
+# The blank line keeps this explanation out of the generated godoc: only the
+# directive lines below may sit adjacent to the operation.
+
+# @genqlient(for: "SetTeamStopSignalInput.host", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.until", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.worker", omitempty: true)
+mutation TeamStopSignalSetInstructed(
+  $input: SetTeamStopSignalInput!
+  $instruction: ActInstructionInput!
+) {
+  setTeamStopSignal(input: $input, instruction: $instruction) { ...StopSignalFields }
+}
+
+mutation TeamStopSignalLiftInstructed($appRef: String!, $id: ID!, $instruction: ActInstructionInput!) {
+  liftTeamStopSignal(appRef: $appRef, id: $id, instruction: $instruction) {
+    changed
+    signal { ...StopSignalFields }
+  }
+}
+
+# Repeated from wake_settings.graphql for the same reason as the stop-signal
+# directives above: keep omitted-keeps/null-clears on the shared input struct,
+# and keep the variable list off the directive lines. The blank line below
+# keeps this explanation out of the generated godoc.
+
+# @genqlient(for: "WorkerWakeSettingsInput.clearPause", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.mentions", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.pausedUntil", omitempty: true)
+mutation SetWorkerWakeSettingsInstructed(
+  $workerRef: String!
+  $input: WorkerWakeSettingsInput!
+  $instruction: ActInstructionInput!
+) {
+  setWorkerWakeSettings(workerRef: $workerRef, input: $input, instruction: $instruction) { ...WorkerWakeSettingsFields }
+}
+
+mutation IssueHostOperationInstructed($input: IssueHostOperationInput!, $instruction: ActInstructionInput!) {
+  issueHostOperation(input: $input, instruction: $instruction) { ...HostOperationFields }
+}
+
+# `team wakes due` is a read; with --instruction the claim rides the query
+# (cor:dmo:050:12's manager scope of dueWakes). An admitted instructed read
+# is recorded even when the page comes back empty, so the instruction is
+# bound wherever the flag is set and is never dropped for a quieter call.
+
+query TeamDueWakesInstructed($appRef: String!,
+ # @genqlient(omitempty: true)
+ $workerRefs: [String!],
+ # @genqlient(omitempty: true)
+ $first: Int,
+ # @genqlient(omitempty: true)
+ $after: String,
+ # @genqlient(omitempty: true)
+ $accepts: [WakeKind!],
+ $instruction: ActInstructionInput!
+) {
+  dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts, instruction: $instruction) {
+    ...DueWakesPageFields
+  }
+}
+
+query TeamDueWakesPreviewInstructed($appRef: String!,
+ # @genqlient(omitempty: true)
+ $workerRefs: [String!],
+ # @genqlient(omitempty: true)
+ $first: Int,
+ # @genqlient(omitempty: true)
+ $after: String,
+ # @genqlient(omitempty: true)
+ $accepts: [WakeKind!],
+ $instruction: ActInstructionInput!
+) {
+  dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts, preview: true, instruction: $instruction) {
+    ...DueWakesPageFields
+  }
+}
