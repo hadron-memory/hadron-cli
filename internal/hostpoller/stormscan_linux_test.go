@@ -70,9 +70,9 @@ const watcherSettleBound = 200 * time.Second
 type stopFixture struct {
 	storm      bool // wrap readProcDir with the void-exhaustion storm
 	flipOnTerm bool // matrix 1: clear the storm after the first recorded TERM
-	// flipAfterKill, when set, clears the storm that long AFTER the first recorded SIGKILL
-	// (cli#2853: churn that outlasts the ladder's own waits but not a longer final scan).
-	flipAfterKill time.Duration
+	// killed is set at the first recorded SIGKILL (cli#2853: the modelled host clears its churn a
+	// number of listings after it).
+	killed atomic.Bool
 
 	epoch    time.Time // monotonic base for the record/flip ordering proof
 	storming atomic.Bool
@@ -108,12 +108,8 @@ func (f *stopFixture) install(t *testing.T) {
 		// a TERM provably went out before any scan could see a clean
 		// listing (the contract's flip ordering).
 		f.rec.record(pgid, sig, time.Since(f.epoch))
-		if f.flipAfterKill > 0 && sig == syscall.SIGKILL {
-			time.AfterFunc(f.flipAfterKill, func() {
-				if f.storming.CompareAndSwap(true, false) {
-					f.flipAt.Store(int64(time.Since(f.epoch)))
-				}
-			})
+		if sig == syscall.SIGKILL {
+			f.killed.Store(true)
 		}
 		if f.flipOnTerm && sig == syscall.SIGTERM && f.storming.CompareAndSwap(true, false) {
 			f.flipAt.Store(int64(time.Since(f.epoch)))
@@ -428,7 +424,7 @@ func TestAForeverInconclusiveScanStopsUnconfirmedAndCleansUp(t *testing.T) {
 	}
 	// cli#2853: an unconfirmed stop says WHY the group could not be proven empty (a code, never
 	// /proc text): here every pass is voided by a listed pid that vanished, churn, not a member.
-	want := fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL (last membership scan: %s)", a.PID(), postKillWait, whyUnseenPid)
+	want := fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL, nor in a final scan of up to %s (last membership scan: %s)", a.PID(), postKillWait, groupStopScanDeadline, whyUnseenPid)
 	if detail != want {
 		t.Fatalf("the bounded ladder's exhaustion wording: detail=%q want %q", detail, want)
 	}
@@ -507,7 +503,7 @@ func assertTruthfulStopLadder(t *testing.T, f *stopFixture, a Agent, stopped boo
 		fmt.Sprintf("terminated the launched process group (pid %d)", pid):                                       true,
 		fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, ea.grace): true,
 	}
-	exhaust := fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
+	exhaust := fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL, nor in a final scan of up to %s", pid, postKillWait, groupStopScanDeadline)
 	// cli#2853: the exhaustion wording may carry the code of the last membership scan.
 	exhaustWithCode := func(d string) bool {
 		for _, w := range []drainWhy{whyLiveMember, whyUnseenPid, whyVanishedMember, whyLateFork, whyUnreadable} {

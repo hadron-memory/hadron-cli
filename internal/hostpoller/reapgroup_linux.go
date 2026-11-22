@@ -136,6 +136,13 @@ var (
 // QA at the first fold showed 1s found a clean pass in about 1 of 79 passes on a saturated host, so
 // a stop that must confirm gets a longer window, at the price of waiting up to this long under
 // endless churn instead of failing fast. The drain watcher's periodic probes keep groupScanDeadline.
+//
+// Worst case for one stop that cannot be confirmed: the initial drained check (up to
+// groupScanDeadline), the SIGTERM grace, the post-SIGKILL wait (postKillWait, probes of up to
+// groupScanDeadline each), then this final scan: about 1s + the grace + 2s + 5s, i.e. 15s with a
+// 5s grace, plus a pass's overshoot of each deadline. It runs on the worker's own dispatch goroutine
+// (stopLaunchedAgent), so it delays no other worker's operation, and only a stop that cannot be
+// confirmed pays the final scan.
 var groupStopScanDeadline = 5 * time.Second
 
 // readProcDir lists /proc, as a package var so a test can hand the scan a
