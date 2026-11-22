@@ -273,15 +273,19 @@ func TestAgentTasksCreateHelpSaysWhenToWriteATask2990(t *testing.T) {
 	}
 	help := strings.Join(strings.Fields(out.String()), " ")
 	contract := strings.Join(strings.Fields(string(readContract(t))), " ")
+	if strings.Contains(help, "lint advice") {
+		t.Errorf("the help promises only what the CLI does (the server's attached advice goes to stderr); it says nothing about lint advice")
+	}
 	for _, want := range []string{
 		"after doing the work once, never speculatively",
 		"a rule only one team follows belongs in that team's process, not a shared role memory",
 		"hadron agent tasks create",
+		"any advice the server attaches to its answer",
 	} {
-		if !strings.Contains(help, want) {
+		if !strings.Contains(strings.ToLower(help), want) {
 			t.Errorf("help must say %q:\n%s", want, help)
 		}
-		if !strings.Contains(contract, want) {
+		if !strings.Contains(strings.ToLower(contract), want) {
 			t.Errorf("agentic-usage must say %q", want)
 		}
 	}
@@ -303,5 +307,30 @@ func TestAgentTasksCreateMakesNoPreCheckOfItsOwn2990(t *testing.T) {
 	}
 	if exitCodeFor(run.err) != exitcode.Usage || !strings.Contains(run.err.Error(), "The Agent has no tasks index.") {
 		t.Errorf("the server's refusal maps through MapError: exit %d %v", exitCodeFor(run.err), run.err)
+	}
+}
+
+// The server's advice rides the response's extensions.warnings (the existing node-write warning sink): it
+// prints to stderr, stdout is unchanged and the create is never failed by it. (The help promises exactly this
+// and nothing about the server's lint beyond it.)
+func TestAgentTasksCreatePrintsTheServersAdviceToStderr2990(t *testing.T) {
+	plain := runRoleTask2990(t, roleTaskResponses2990(), roleTaskArgs2990(t)...)
+	resp := roleTaskResponses2990()
+	resp["CreateRoleTask"] = strings.TrimSuffix(roleTaskCreated2990, "}") + `,"extensions":{"warnings":[{"path":"createTaskNode","code":"skill.lint.warning","text":"The skill description is long."},{"path":"updateNode","code":"wrong.root","text":"must stay silent"}]}}`
+	run := runRoleTask2990(t, resp, roleTaskArgs2990(t)...)
+	if run.err != nil || run.out != plain.out {
+		t.Fatalf("advice never fails the create nor changes stdout: err=%v\n%s\nvs\n%s", run.err, run.out, plain.out)
+	}
+	if !strings.Contains(run.errOut, "warning: [skill.lint.warning] The skill description is long.") || strings.Contains(run.errOut, "must stay silent") {
+		t.Fatalf("the server's advice for this write is printed to stderr, another root's is not: %q", run.errOut)
+	}
+}
+
+// A template node that holds no fenced block under "## Template" is a clear error, not an empty print.
+func TestAgentTasksCreateTemplateWithoutABlockIsAnError2990(t *testing.T) {
+	resp := map[string]string{"GetNode": `{"data":{"node":{"id":"t1","loc":"tasks:add-role-task","urn":"hrn:node:hadronmemory.com:agent-team-system:tasks:add-role-task","name":"x","content":"# Add a task\n\nno template here\n"}}}`}
+	run := runRoleTask2990(t, resp, "--template")
+	if exitCodeFor(run.err) != exitcode.Error || run.out != "" || !strings.Contains(run.err.Error(), "## Template") {
+		t.Fatalf("want exit 1, nothing on stdout, naming the section: exit %d out %q err %v", exitCodeFor(run.err), run.out, run.err)
 	}
 }

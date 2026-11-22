@@ -48,7 +48,8 @@ tasks:<slug> in the Agent's own system memory, and its edge to the Agent's tasks
 index, written together, so a task never exists unindexed. The server owns every
 rule (hadron-server's task door): it refuses an existing slug, an Agent with no
 tasks index, an index outside the Agent's system memory, a malformed slug and a
-caller below the writer level, and the CLI adds no check or lint of its own; each
+caller below the writer level. The CLI has no content rule or lint of its own: it
+only asks for the inputs the call needs (and the two skill flags together); each
 refusal is printed with the server's message and its usual exit code.
 
 <agentRef> is the Agent (an id or hrn:agent:... URN), not its memory. <slug> is
@@ -68,8 +69,8 @@ read as an ordinary node) and creates nothing; start the body file from it.
 By default NO skill export is written. --export-skill <name> with
 --skill-description <text> (both together) asks the server for an enabled
 properties.exports.claudeSkill block; the server validates the declaration and
-refuses the whole call if its lint finds an error. Any lint advice the server
-returns is printed to stderr and never blocks the create.
+refuses the whole call if its lint finds an error. Any advice the server attaches
+to its answer is printed to stderr and never blocks the create.
 
 Prints the created node's loc and URN and the index edge; --json gives them as
 {id, loc, urn, name, edges:[{id, label, targetLoc, targetUrn}]}. Editing an
