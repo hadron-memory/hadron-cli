@@ -734,7 +734,7 @@ section between the markers.
 <!-- group:1056 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `(root)` |  |  | n | #1056 | 5a4a5cbce54f |  | unread |  |
+| `(root)` |  |  | n | #1056 | f35fccba255a |  | unread |  |
 | `agentic-usage` |  |  | y | #1056 | a77cfb7385c1 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `api` |  |  | y | #1056 | ecff45e61c3a | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `completion` |  | generated | n | #1056 | 532ef0768ca4 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
@@ -840,4 +840,9 @@ section between the markers.
 | `slack disconnect` |  |  | y | #1396 | 9bb536305e5c |  | unread |  |
 | `slack get` |  |  | y | #1396 | cd1e7c877ab9 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 | `slack status` |  |  | y | #1396 | 3d39cb70d59f | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
+| `telegram` |  |  | y | #1396 | d21d80139204 |  | unread |  |
+| `telegram connect` |  |  | y | #1396 | 0318ae5e30d6 |  | unread |  |
+| `telegram disconnect` |  |  | y | #1396 | f89b6a16bd44 |  | unread |  |
+| `telegram get` |  |  | y | #1396 | f342cc60cea4 |  | unread |  |
+| `telegram status` |  |  | y | #1396 | d6d916458ce3 |  | unread |  |
 <!-- group:1396 end -->
