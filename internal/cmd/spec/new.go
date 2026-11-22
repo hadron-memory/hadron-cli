@@ -60,7 +60,7 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"scaffold"},
 		Short:   "Create a spec node at a loc, or allocate the next legacy citation",
 		Long: fmt.Sprintf(`Create a spec node pre-filled with a scaffold (an abstract placeholder and
-a legacy section skeleton). Lint does not require those sections (#708);
+a legacy section skeleton). Lint does not require those sections;
 the sections a spec needs depend on its type.
 
   hadron spec new <loc> --title <title> [--role spec.rule]

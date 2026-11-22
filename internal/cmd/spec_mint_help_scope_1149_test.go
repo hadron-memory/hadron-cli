@@ -31,7 +31,7 @@ func TestSpecMintHelpStatesTheWholeMemoryScope(t *testing.T) {
 	if !strings.Contains(short, "memory") || strings.Contains(strings.ToLower(short), "spec corpus") {
 		t.Errorf("Short must name the memory and not a spec corpus, got %q", short)
 	}
-	for _, want := range []string{"every eligible node of the memory", "not only specs", "cor:dmo:120:06", "only comments are outside it"} {
+	for _, want := range []string{"every eligible node of the memory", "not only specs", "only comments are outside it"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("spec mint --help must say %q:\n%s", want, help)
 		}
