@@ -69,7 +69,7 @@ field is sent — a value or metadata update does not touch protection.
 Protection never changes without a signed request: update --protected stages
 its change for the ceremony above, and hadron secret protect changes
 protection and nothing else. The request names the protected argument, so a
-server from before the argument shipped (2026-11-14) refuses the request even
+server from before the argument shipped (2026-11-21) refuses the request even
 without the flag; a server with passkey signing off still accepts the
 command, refusing only an explicit protection change.
 

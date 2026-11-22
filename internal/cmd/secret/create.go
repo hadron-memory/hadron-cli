@@ -65,7 +65,7 @@ until a person signs it. --protected=false asks for the default outright
 (unprotected). Protection never changes without a signed request: the
 --protected creation above stages one, and hadron secret protect changes
 protection for an existing secret. The request names the protected argument,
-so a server from before the argument shipped (2026-11-14) refuses the request
+so a server from before the argument shipped (2026-11-21) refuses the request
 even without the flag; a server with passkey signing off still accepts the
 command, refusing only an explicit protection change.
 

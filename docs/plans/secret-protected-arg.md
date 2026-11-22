@@ -103,8 +103,9 @@ instead of) a value/metadata change.
   CLI never pre-checks scope and the server words that refusal — a pin would only fix
   the fake's spelling of it. Neither blocks; both are recorded here and in the PR thread.
 - **Compatibility (Joost's verify item), answered.** The `protected` argument is static
-  SDL, present since hadron-server#3999 (S2/S3 landed 2026-11-14, `f30abba3e`/
-  `87926e929`); it is not gated by `PASSKEY_SIGNING_ENABLED` (a signing-off deployment
+  SDL, present since hadron-server#3999 (S2/S3 authored 2026-11-14 as `f30abba3e`/
+  `87926e929`, both reaching server main only with the #4177 merge `e42bb1897` on
+  2026-11-21 — the branch commits' author dates are not landing dates); it is not gated by `PASSKEY_SIGNING_ENABLED` (a signing-off deployment
   still exposes the argument and refuses with the bare code — already mapped by
   `mapChange`'s no-request-id branch). genqlient documents are static, so a server
   older than #3999 rejects the `createSecret`/`updateSecret` documents even for
