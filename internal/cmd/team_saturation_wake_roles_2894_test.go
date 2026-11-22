@@ -248,6 +248,14 @@ func TestSaturationWakeRolesSetInstructionFollowsStallSchedule2894(t *testing.T)
 	if !reflect.DeepEqual(got.Vars, plain.Vars) {
 		t.Fatalf("every other variable is unchanged: %v vs %v", got.Vars, plain.Vars)
 	}
+	// Every call except the instructed write itself (the lookups) carries no worker session and no
+	// instruction. This guards that property; it does NOT guard withAsPerson, which reaches no field this
+	// command sends (cli#2960: dropping that line changes nothing, so no test can fail on it).
+	for _, c := range *calls {
+		if c.Op != wakeRolesInst2894 && (c.Session != "" || c.Vars["instruction"] != nil) {
+			t.Fatalf("a lookup must not be attributed: %+v", c)
+		}
+	}
 }
 
 // A bad claim is refused before any request (exit 2); `get` takes no --instruction.

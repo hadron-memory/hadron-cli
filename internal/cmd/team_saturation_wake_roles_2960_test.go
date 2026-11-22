@@ -18,7 +18,7 @@ import (
 const instructedArg2960 = "team-chat-message:" + taskInstructionRef2422
 
 // The instructed write keeps the server's code in the --json envelope (api.MapErrorKeepingCode, the
-// stall-schedule precedent); the plain write keeps its established envelope (no serverCode).
+// stall-schedule precedent). The plain write's envelope is the established one and is not exercised here.
 // Kills: the instructed write mapped with api.MapError.
 func TestSaturationWakeRolesInstructedRefusalsKeepTheCode2960(t *testing.T) {
 	for _, tc := range []struct {
@@ -53,7 +53,10 @@ func TestSaturationWakeRolesInstructedRefusalsKeepTheCode2960(t *testing.T) {
 					Message    string `json:"message"`
 				} `json:"error"`
 			}
-			rendered := run.Out.String() + stderrOf2552(t, run.Factory)
+			rendered := run.Out.String() // with --json the failure envelope is written to stdout
+			if e := stderrOf2552(t, run.Factory); e != "" {
+				t.Fatalf("nothing on stderr in --json mode: %q", e)
+			}
 			if err := json.Unmarshal([]byte(rendered), &envelope); err != nil {
 				t.Fatalf("not an envelope: %v\n%s", err, rendered)
 			}
@@ -83,20 +86,25 @@ func TestSaturationWakeRolesInstructedNullResultIsAnUnknownOutcome2960(t *testin
 func TestSaturationWakeRolesGetNullReadIsACommandError2960(t *testing.T) {
 	r := wakeRolesResponses2894()
 	r[wakeRolesGet2894] = `{"data":{"saturationAlarmWakeRoles":null}}`
-	_, out, err := runTeamTask(t, r, "team", "saturation-wake-roles", "get")
-	if err == nil || exitCodeFor(err) != exitcode.Error {
-		t.Fatalf("want exit 1, got %v (%d)", err, exitCodeFor(err))
-	}
-	if strings.Contains(out, "none (nobody is woken)") {
-		t.Fatalf("a null read must not read as an empty list: %q", out)
+	for _, argv := range [][]string{{"team", "saturation-wake-roles", "get"}, {"team", "saturation-wake-roles", "get", "--json"}} {
+		_, out, err := runTeamTask(t, r, argv...)
+		if err == nil || exitCodeFor(err) != exitcode.Error {
+			t.Fatalf("%v: want exit 1, got %v (%d)", argv, err, exitCodeFor(err))
+		}
+		if strings.Contains(out, "none (nobody is woken)") || strings.Contains(out, `"roles"`) {
+			t.Fatalf("%v: a null read must not read as an empty list: %q", argv, out)
+		}
 	}
 }
 
 // set --clear --json emits the stored empty array, never null.
 func TestSaturationWakeRolesSetClearJSONEmitsAnEmptyArray2960(t *testing.T) {
-	_, js, err := runTeamTask(t, wakeRolesResponses2894(), "team", "saturation-wake-roles", "set", "--clear", "--json")
+	calls, js, err := runTeamTask(t, wakeRolesResponses2894(), "team", "saturation-wake-roles", "set", "--clear", "--json")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if got := wakeRolesSent2894(t, calls, wakeRolesSet2894); got == nil || len(got) != 0 {
+		t.Fatalf("--clear sends [] (present, not null): %#v", got)
 	}
 	var dto struct {
 		Roles []string `json:"roles"`
@@ -115,6 +123,8 @@ func TestSaturationWakeRolesPlainSetFromABoundWorktreeIsThePersons2960(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The scaffold wrote a worktree binding before running (writeTeamBinding): state it, and that it
+	// carries a worker session, so "bound" is a checked fact and not an assumption.
 	b, rerr := os.ReadFile(filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json"))
 	if rerr != nil || !strings.Contains(string(b), `"sessionId"`) {
 		t.Fatalf("the scaffold must run from a BOUND worktree (a binding with a session): %v %s", rerr, b)
@@ -178,21 +188,23 @@ func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {
 			}
 		}
 	}
-	contract := strings.Join(strings.Fields(string(readContract(t))), " ")
-	i := strings.Index(contract, "hadron team saturation-wake-roles get | set")
+	// The entry is one line of the contract: slice the raw text at its newline, not a fixed window.
+	raw := string(readContract(t))
+	i := strings.Index(raw, "hadron team saturation-wake-roles get | set")
 	if i < 0 {
 		t.Fatal("agentic-usage has no saturation-wake-roles entry")
 	}
-	entry := contract[i:]
-	if len(entry) > 4000 {
-		entry = entry[:4000]
+	entry := raw[i:]
+	if nl := strings.Index(entry, "\n"); nl >= 0 {
+		entry = entry[:nl]
 	}
+	entry = strings.Join(strings.Fields(entry), " ")
 	for _, w := range []string{"offered one wake when a saturation alarm is raised, and not again for that alarm", "a worker who is never due (retired, paused or dormant) is not woken"} {
 		if !strings.Contains(entry, w) {
 			t.Errorf("the agentic-usage entry must say %q", w)
 		}
 	}
-	for _, bad := range []string{"unless it is never due", "while its episode is open"} {
+	for _, bad := range []string{"unless it is never due", "while its episode is open", "never again for that alarm"} {
 		if strings.Contains(entry, bad) {
 			t.Errorf("the agentic-usage entry must not say %q", bad)
 		}
