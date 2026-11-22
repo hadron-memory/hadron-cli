@@ -10,7 +10,6 @@
 # The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
 team  # citation cor:agt:020:01 x1 | citation cor:agt:020:02 x1 | issue #1050 x1 | issue #2027 x2 | issue #399 x1 | issue #400 x1 | issue #402 x1
 team alarms  # citation cor:agt:050:02 x1 | citation cor:agt:050:20 x1 | citation cor:agt:050:22 x1
-team app sweep-mode  # issue #4242 x2
 team attention  # issue #2027 x2
 team attention switchover  # issue #2027 x3
 team attention switchover apply  # issue #2027 x1
@@ -75,15 +74,3 @@ team wake-settings set  # citation cor:agt:080:21 x1
 team wakes  # citation cor:agt:080:08 x1
 team wakes ack  # citation cor:agt:080:16 x1
 team wakes due  # citation cor:agt:080:08 x1 | citation cor:agt:080:15 x1 | citation cor:agt:090:04 x2
-team worker  # citation cor:dmo:050:11 x1 | issue #991 x1
-team worker cast  # citation cor:agt:020:00 x1 | citation cor:agt:020:01 x1 | citation cor:agt:020:02 x1 | citation cor:agt:020:09 x1 | citation cor:dmo:050:11 x1 | issue #1050 x1 | issue #2468 x1 | issue #404 x1 | issue #933 x1
-team worker change-agent  # issue #2504 x1
-team worker compile  # citation cor:agt:040:13 x1 | issue #1463 x1
-team worker get  # citation cor:agt:040:13 x1 | citation cor:agt:060:02 x1 | citation cor:agt:060:12 x1 | citation cor:dmo:050:11 x1 | issue #3084 x1
-team worker leave-alone  # issue #4242 x2
-team worker list  # citation cor:agt:020:01 x1 | citation cor:agt:020:09 x1 | issue #458 x1
-team worker onboard  # citation cor:agt:070:05 x1 | issue #2027 x1
-team worker release  # citation cor:agt:020:02 x1 | citation cor:agt:020:09 x1 | issue #1073 x1
-team worker retire  # citation cor:agt:020:02 x1
-team worker rm  # citation cor:dmo:050:11 x1 | issue #1735 x1
-team worker update  # citation cor:agt:040:04 x1

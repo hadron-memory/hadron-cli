@@ -48,12 +48,12 @@ A served worker prompt replaces the App's and the Agent's (worker pointer,
 else the App install's, else the Agent's): the newest APPROVED revision is
 served, so a compile alone changes nothing a worker sees.
 
-WITHOUT A WORKER ARGUMENT the command compiles the App's workers in one run
-(cli#1463). By default it picks only the workers whose sources changed since
-their last compile: the server marks such a compiled prompt RECOMPILE_AVAILABLE
-(cor:agt:040:13), and a worker with no compiled prompt yet gets its first
-compile. Retired workers are never included. Nothing is written without
---apply; the dry run lists what each worker would get:
+WITHOUT A WORKER ARGUMENT the command compiles the App's workers in one run.
+By default it picks only the workers whose sources changed since their last
+compile: the server marks such a compiled prompt RECOMPILE_AVAILABLE, and a
+worker with no compiled prompt yet gets its first compile. Retired workers
+are never included. Nothing is written without --apply; the dry run lists
+what each worker would get:
   toCompile  a source changed, or no compiled prompt yet
   unchanged  no newer source revision: not compiled (no needless revision)
   unknown    the server could not answer for this worker: not compiled
