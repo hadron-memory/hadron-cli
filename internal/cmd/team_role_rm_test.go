@@ -51,7 +51,7 @@ func TestRoleHelpNoLongerTeachesTheRegister(t *testing.T) {
 	// task node, doc and habit in the team still says `role names add`, so the
 	// reader arriving with the old model needs the correction, not silence.
 	group := roleHelp(t, "team", "role", "--help")
-	if !strings.Contains(group, "hadron-server#1050") {
+	if !strings.Contains(group, "was removed") {
 		t.Errorf("group help must name the removal so the old model gets corrected:\n%s", group)
 	}
 }

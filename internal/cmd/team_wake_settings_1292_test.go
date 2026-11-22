@@ -187,7 +187,7 @@ func TestC1292HelpNamesTheFlagsAndTheOmissionRule(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"--worker", "--mentions", "--paused-until", "--clear-pause", "Only the flags you give are sent", "cor:agt:080:21"} {
+	for _, want := range []string{"--worker", "--mentions", "--paused-until", "--clear-pause", "Only the flags you give are sent", "whoever"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("set --help lacks %q", want)
 		}

@@ -34,7 +34,7 @@ A cast takes an explicit --name, and a worker's name is permanent in its App:
 retiring a role does NOT free a name for re-casting. 'role list' shows what is
 defined; 'create', 'update' and 'rm' change definitions. (History: the role name
 register, with 'role names ...', --name-range, --name-convention and
---transfer-register-to, was removed in hadron-server#1050.)
+--transfer-register-to, was removed.)
 
 Which App: the App resolves ambiently (--app, the configured App context, then
 the worktree binding). Each read opens with the App it landed on and where that
@@ -355,12 +355,12 @@ func newCmdRoleCreate(f *cmdutil.Factory) *cobra.Command {
 		Use:   "create <role> [--description <d>]",
 		Short: "Mint a role definition",
 		Long: `Create a roles:<role> definition in the Team Agent's system memory: ONE
-platform call (createTeamRole, hadron-server#960) that owns the spec
+platform call (createTeamRole) that owns the spec
 knowledge hand-authoring required — the loc shape and the node type. An
 existing role refuses (TEAM_ROLE_EXISTS); ` + "`role update`" + ` is the edit path.
 
---names, --name-range, --name-convention and --allow-out-of-range are gone
-(hadron-server#1050): there is no name register for them to describe.
+--names, --name-range, --name-convention and --allow-out-of-range are gone:
+there is no name register for them to describe.
 
 The boot prompt is compiled from boot:source in the Agent system memory
 (use hadron agent compile and hadron node approve). Authorization is the
@@ -406,7 +406,7 @@ advisory only, never an authorization or launch gate.
 
 Omitted is "preserve" on this server, so an update that names nothing is
 refused rather than sent: a no-op write that reports success is worse than
-a usage error. Sibling data keys always survive (hadron-server#960).`,
+a usage error. Sibling data keys always survive.`,
 		Example: `  hadron team role update backend-engineer --description "Go services and the GraphQL API"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
