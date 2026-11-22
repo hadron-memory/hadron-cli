@@ -1,4 +1,5 @@
-// Package telegram exposes the read-only Telegram connection metadata surface.
+// Package telegram exposes the Telegram bot-connection surface: two read-only
+// commands (status, get) and two writes (connect, disconnect).
 package telegram
 
 import (
@@ -107,7 +108,7 @@ Details:
 			if cmd.Flags().Changed("org") {
 				v := strings.TrimSpace(org)
 				if v == "" {
-					return exitcode.Newf(exitcode.Usage, "give a nonempty --org id or fully-qualified URN (check for an unset variable)")
+					return exitcode.Newf(exitcode.Usage, "give a nonempty --org id or URN, e.g. hrn:org:acme.com (check for an unset variable)")
 				}
 				o = &v
 			}
@@ -141,10 +142,7 @@ Details:
 				dto.Items = append(dto.Items, row)
 			}
 			dto.HasMore = dto.Offset+len(dto.Items) < dto.Total
-			if dto.HasMore && !f.JSON && len(dto.Items) > 0 {
-				defer fmt.Fprintf(f.IOStreams.ErrOut, "showing %d of %d; next page: --offset %d\n", len(dto.Items), dto.Total, dto.Offset+len(dto.Items))
-			}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			writeErr := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Items) == 0 {
 					_, e := fmt.Fprintf(w, "No Telegram connections returned to this caller (total %d).\n", dto.Total)
 					return e
@@ -155,9 +153,16 @@ Details:
 				}
 				return t.Flush()
 			})
+			// The hint is cosmetic and only follows a rendered page: a failed
+			// write prints nothing extra, and its own failure cannot fail a
+			// command whose table already rendered.
+			if writeErr == nil && !f.JSON && dto.HasMore && len(dto.Items) > 0 {
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "showing %d of %d; next page: --offset %d\n", len(dto.Items), dto.Total, dto.Offset+len(dto.Items))
+			}
+			return writeErr
 		}}
-	c.Flags().StringVar(&org, "org", "", "organization id or fully-qualified URN (default: all your organizations)")
-	c.Flags().IntVar(&limit, "limit", 0, "page size, 0 to 200 (server default; 0 returns only the total)")
+	c.Flags().StringVar(&org, "org", "", "organization id or URN (hrn:org:<slug>; default: all your organizations)")
+	c.Flags().IntVar(&limit, "limit", 0, "page size (omit for the server's default 20, at most 200; 0 returns only the total)")
 	c.Flags().IntVar(&offset, "offset", 0, "connections to skip")
 	return c
 }

@@ -34,15 +34,46 @@ type disconnectDTO struct {
 // redactor knows. The command's own recovery text is added BEFORE that, so an
 // echo never costs the operator the unknown-outcome notice; the exit class and
 // a clean server code survive.
-func redactConnectError(raw error, secrets []string, lead, tail string) error {
+//
+// A TELEGRAM_TOOL_* refusal is a definitive answer — the server says it refused
+// to register the bot — so it is never reworded as an unknown outcome and points
+// at nothing: there is no registration to look for. Everything else in the
+// exit-1/7 classes (a lost answer, an unmapped code, a post-commit crash) keeps
+// the unknown-outcome notice and the status pointer.
+func redactConnectError(raw error, secrets []string, where string) error {
 	mapped := api.MapError(raw)
+	// The Telegram error code rides its own extension (not extensions.code) on
+	// TELEGRAM_TOOL_* refusals; surface it next to the server's message so the
+	// operator sees e.g. invalid_token, as the help and agentic-usage promise.
+	if code := api.ServerCodeOf(raw); code != "" {
+		if tg, ok := api.ErrorCodeExtension(raw, code, "telegramErrorCode"); ok && tg != "" {
+			mapped = exitcode.Newf(exitcode.FromError(mapped), "%s (Telegram error code: %s)", mapped, tg)
+		}
+	}
 	base := mapped
 	if class := exitcode.FromError(mapped); class == exitcode.Error || class == exitcode.Unavailable {
-		// The server's text sits in the middle and the suggested command is the
-		// LAST thing in the message, so copying the end of the line is the command.
-		base = exitcode.Newf(class, "%s: %s. %s", lead, mapped, tail)
+		if telegramToolRefusedAt(raw) {
+			base = exitcode.Newf(class, "connect was refused: %s", mapped)
+		} else {
+			// The server's text sits in the middle and the suggested command is the
+			// LAST thing in the message, so copying the end of the line is the command.
+			base = exitcode.Newf(class, "%s: %s. %s", "connect outcome unknown (sent once, not retried)", mapped, where)
+		}
 	}
 	return api.Detached(api.WithServerCode(base, raw), func(s string) string { return api.RedactSecretText(s, secrets) })
+}
+
+// telegramToolRefusedAt reports whether raw is the server's definitive refusal
+// of the connect mutation itself: a TELEGRAM_TOOL_* code on
+// createTelegramConnection, answered on this HTTP response (a 5xx envelope
+// after a committed write is not a refusal — cli#1495), before or at the field
+// (an error below it happened after the write committed — cli#398). Unmapped
+// and INTERNAL codes deliberately fail this test: what the CLI cannot name, it
+// treats as an unknown outcome.
+func telegramToolRefusedAt(raw error) bool {
+	return strings.HasPrefix(api.ServerCodeOf(raw), "TELEGRAM_TOOL_") &&
+		api.IsDefiniteRefusalAt(raw, "createTelegramConnection") &&
+		!api.FromNon200Envelope(raw)
 }
 
 // hasControlOrFormatCharacter reports whether s carries a Unicode control or
@@ -126,10 +157,11 @@ token). Connecting a bot that was disconnected registers it again.`,
 			if err != nil {
 				return err
 			}
-			if strings.TrimSpace(botFile) == "" {
+			botSource := strings.TrimSpace(botFile)
+			if botSource == "" {
 				return exitcode.Newf(exitcode.Usage, "--bot-token-file is required: it takes a file path or - for stdin. Nothing was sent")
 			}
-			bot, err := readToken(f, botFile, "bot-token-file", "Telegram bot token", "bot token")
+			bot, err := readToken(f, botSource, "bot-token-file", "Telegram bot token", "bot token")
 			if err != nil {
 				return err
 			}
@@ -147,7 +179,7 @@ token). Connecting a bot that was disconnected registers it again.`,
 			where := "The listing is paged, so follow its --offset hint before deciding the bot is not connected. Check with:\n  hadron telegram status"
 			resp, err := gen.CreateTelegramConnection(cmd.Context(), client, canonicalAppRef, bot)
 			if err != nil {
-				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried)", where)
+				return redactConnectError(err, secrets, where)
 			}
 			if resp == nil || resp.CreateTelegramConnection == nil {
 				return exitcode.Newf(exitcode.Unavailable, "the server returned no connection. %s", where)

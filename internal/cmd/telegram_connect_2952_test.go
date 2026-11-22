@@ -221,30 +221,64 @@ func TestTelegramConnectRefusesStdinFromATerminal(t *testing.T) {
 	noTelegramSecret(t, "error", e.Error())
 }
 
+// The pass-through is pinned end to end (Joran's P2): every documented refusal
+// renders the server's own message as received, in BOTH renderers, and a
+// TELEGRAM_TOOL_* answer additionally carries its telegramErrorCode and its
+// serverCode in the --json envelope.
 func TestTelegramConnectPassesServerRefusalsThrough(t *testing.T) {
 	bot := tokenFile(t, "bot", tgBotTok)
 	args := []string{"connect", "--app", appID, "--bot-token-file", bot}
 	for name, c := range map[string]struct {
-		wire string
-		want int
+		wire    string
+		want    int
+		message string
+		extra   []string // asserted in the rendered output (both modes)
 	}{
 		// The ONE Forbidden: not an admin, unknown or ambiguous App, a user-owned
 		// App — rendered as received, never parsed into a guess.
-		"not an org admin":      {`{"errors":[{"message":"not allowed","extensions":{"code":"FORBIDDEN"}}],"data":null}`, exitcode.Forbidden},
-		"already has one":       {`{"errors":[{"message":"This App already has a Telegram connection.","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, exitcode.Usage},
-		"bot already connected": {`{"errors":[{"message":"This bot is already connected.","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, exitcode.Usage},
-		"tool not configured":   {`{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`, exitcode.Error},
+		"not an org admin":      {`{"errors":[{"message":"not allowed","extensions":{"code":"FORBIDDEN"}}],"data":null}`, exitcode.Forbidden, "not allowed", nil},
+		"already has one":       {`{"errors":[{"message":"This App already has a Telegram connection.","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, exitcode.Usage, "This App already has a Telegram connection.", nil},
+		"bot already connected": {`{"errors":[{"message":"This bot is already connected.","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, exitcode.Usage, "This bot is already connected.", nil},
+		"tool not configured":   {`{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`, exitcode.Error, "no token", []string{"not_configured", "connect was refused"}},
 	} {
-		t.Run(name, func(t *testing.T) {
-			_, _, n, e := runTelegramWrite(t, "CreateTelegramConnection", c.wire, "", args...)
-			if e == nil || n != 1 {
-				t.Fatalf("one request, then the refusal: err=%v requests=%d", e, n)
-			}
-			if exitCodeFor(e) != c.want {
-				t.Errorf("exit %d, want %d: %v", exitCodeFor(e), c.want, e)
-			}
-			noTelegramSecret(t, "error", e.Error())
-		})
+		for _, jsonMode := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/json=%v", name, jsonMode), func(t *testing.T) {
+				all, n, e := runTelegramRendered(t, c.wire, jsonMode, args...)
+				if e == nil || n != 1 {
+					t.Fatalf("one request, then the refusal: err=%v requests=%d", e, n)
+				}
+				if exitCodeFor(e) != c.want {
+					t.Errorf("exit %d, want %d: %v", exitCodeFor(e), c.want, e)
+				}
+				// The server's message reaches the operator unchanged.
+				if !strings.Contains(all, c.message) {
+					t.Errorf("the server's message must render as received, missing %q:\n%s", c.message, all)
+				}
+				for _, want := range c.extra {
+					if !strings.Contains(all, want) {
+						t.Errorf("missing %q:\n%s", want, all)
+					}
+				}
+				noTelegramSecret(t, "the rendered output", all)
+			})
+		}
+	}
+	// A TELEGRAM_TOOL_* refusal is definitive: it is never reworded as an
+	// unknown outcome and points at nothing (there is no registration to look
+	// for), and the --json envelope names the server code a script matches on.
+	all, _, e := runTelegramRendered(t, `{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`, true, args...)
+	if e == nil || !strings.Contains(all, `"serverCode": "TELEGRAM_TOOL_NOT_CONFIGURED"`) && !strings.Contains(all, `"serverCode":"TELEGRAM_TOOL_NOT_CONFIGURED"`) {
+		t.Errorf("the serverCode must ride the --json envelope: %v\n%s", e, all)
+	}
+	all, _, e = runTelegramRendered(t, `{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`, false, args...)
+	if e == nil || strings.Contains(all, "outcome unknown") || strings.Contains(all, "hadron telegram status") {
+		t.Errorf("a definitive refusal is not an unknown outcome and needs no pointer: %v\n%s", e, all)
+	}
+	// The invalid-token spelling a caller actually meets (the agentic line's
+	// example): the Telegram error code is surfaced, not swallowed.
+	all, _, e = runTelegramRendered(t, `{"errors":[{"message":"Telegram refused the token","extensions":{"code":"TELEGRAM_TOOL_ERROR","telegramErrorCode":"invalid_token"}}],"data":null}`, false, args...)
+	if e == nil || !strings.Contains(all, "invalid_token") || !strings.Contains(all, "Telegram refused the token") || !strings.Contains(all, "connect was refused") {
+		t.Fatalf("invalid_token must surface with the server's message: %v\n%s", e, all)
 	}
 }
 
@@ -304,15 +338,15 @@ func TestTelegramConnectScrubKeepsClassCodeAndRecoveryGuidance(t *testing.T) {
 	}
 	noTelegramSecret(t, "the rendered output", all)
 	all, _, e = runTelegramRendered(t, `{"errors":[{"message":"boom `+tgBotTok+`","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, false, telegramConnectArgs(t)...)
+	if e == nil {
+		t.Fatal("must fail")
+	}
 	for _, want := range []string{"outcome unknown", "not retried", "hadron telegram status", "--offset", redactedPlaceholder} {
 		if !strings.Contains(all, want) {
 			t.Errorf("an echoed token must not cost the recovery guidance, missing %q:\n%s", want, all)
 		}
 	}
 	noTelegramSecret(t, "the rendered output", all)
-	if e == nil {
-		t.Fatal("must fail")
-	}
 }
 
 // The success answer is the server's text too: a field repeating the token is
@@ -440,7 +474,7 @@ func TestTelegramConnectRecoveryCommandIsLastEvenWithAServerError(t *testing.T) 
 }
 
 func TestTelegramConnectHelpNamesNoTokenValue(t *testing.T) {
-	h := slackHelp(t, "telegram", "connect")
+	h := cmdHelp(t, "telegram", "connect")
 	for _, want := range []string{"--bot-token-file", "never retried", "hadron telegram status", "outcome is unknown"} {
 		if !strings.Contains(h, want) {
 			t.Errorf("connect help missing %q: %s", want, h)
@@ -483,6 +517,30 @@ func TestTelegramDisconnectPassesNotFoundThroughAndNeverPreReads(t *testing.T) {
 	_, _, n, e := runTelegramWrite(t, "DeleteTelegramConnection", `{"errors":[{"message":"not found","extensions":{"code":"NOT_FOUND"}}],"data":null}`, "", "disconnect", "t1", "--yes")
 	if e == nil || n != 1 || exitCodeFor(e) != exitcode.NotFound {
 		t.Fatalf("one mutation, no existence read, NOT_FOUND passed through: err=%v requests=%d", e, n)
+	}
+	// Juniper's surviving mutant: the refusal must keep its server code
+	// (MapErrorKeepingCode), so a script can tell NOT_FOUND from any other
+	// exit-4 behind the same number — pinned in the --json envelope.
+	all, _, e := runTelegramRenderedOp(t, "DeleteTelegramConnection", `{"errors":[{"message":"not found","extensions":{"code":"NOT_FOUND"}}],"data":null}`, true, "disconnect", "t1", "--yes")
+	if e == nil || !strings.Contains(all, `"serverCode": "NOT_FOUND"`) && !strings.Contains(all, `"serverCode":"NOT_FOUND"`) {
+		t.Fatalf("disconnect refusals carry their serverCode in --json: %v\n%s", e, all)
+	}
+}
+
+// The server's error text is rendered, never executed: control characters in a
+// refusal message reach the terminal only after the renderer neutralises them.
+func TestTelegramDisconnectScrubsControlCharactersFromServerText(t *testing.T) {
+	wire := `{"errors":[{"message":"boom\u001b[31m red\u000dinjected-line","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`
+	for _, jsonMode := range []bool{true, false} {
+		t.Run(fmt.Sprintf("json=%v", jsonMode), func(t *testing.T) {
+			all, _, e := runTelegramRenderedOp(t, "DeleteTelegramConnection", wire, jsonMode, "disconnect", "t1", "--yes")
+			if e == nil {
+				t.Fatal("must fail")
+			}
+			if strings.ContainsAny(all, "\x1b\r") {
+				t.Fatalf("no raw control character may reach the terminal:\n%q", all)
+			}
+		})
 	}
 }
 
@@ -593,7 +651,7 @@ func TestTelegramSuggestedIDCommandsSurviveADashPrefixedID(t *testing.T) {
 // The group page names what ACTIVE does and does not mean, and the recovery
 // order (disconnect first, then connect again).
 func TestTelegramGroupHelpTellsTheTruthAboutStatus(t *testing.T) {
-	h := slackHelp(t, "telegram")
+	h := cmdHelp(t, "telegram")
 	for _, want := range []string{"status", "get", "connect", "disconnect", "does not prove", "registers the bot again"} {
 		if !strings.Contains(h, want) {
 			t.Errorf("group help missing %q: %s", want, h)

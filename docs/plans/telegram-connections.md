@@ -38,9 +38,11 @@ value, not a health check, and the CLI never invents a meaning for one it does n
   token pasted where the App belongs).
 - **The server decides.** The ONE `Forbidden` renders as received (a non-admin, an unknown or
   ambiguous App, a user-owned App answer identically — the CLI does not guess which), as do the
-  `BAD_USER_INPUT` duplicates and the `TELEGRAM_TOOL_*` refusals with their `telegramErrorCode`.
-  Exit classes ride `api.MapError`'s table (8 / 2 / 4); the `TELEGRAM_TOOL_*` codes are unmapped
-  there and land in the exit-1 default with their serverCode intact.
+  `BAD_USER_INPUT` duplicates and the `TELEGRAM_TOOL_*` refusals. The `telegramErrorCode` extension
+  those carry (e.g. `invalid_token`) is surfaced next to the server's message — the promise the
+  help and agentic-usage make is pinned by tests in both renderers, with `serverCode` in the
+  `--json` envelope. Exit classes ride `api.MapError`'s table (8 / 2 / 4); the `TELEGRAM_TOOL_*`
+  codes are unmapped there and land in the exit-1 default with their serverCode intact.
 - **No token anywhere else.** The result renders the 10 fields `telegram get` shows. The server's
   text is untrusted everywhere it can reach the operator (the #2731 lineage): `redactConnectError`
   adds the command's own recovery text first (so an echo never costs the unknown-outcome notice),
@@ -53,7 +55,11 @@ value, not a health check, and the CLI never invents a meaning for one it does n
   an ERROR row prints "registered … recorded a failure", not "✓ connected"; an unknown status ends
   in the one command that cannot loop, `hadron telegram disconnect -- <id>` (get and status refuse
   the same status), named inline mid-sentence.
-- **One request, never retried.** An exit-1/7 failure is reworded as an unknown outcome and points
+- **One request, never retried.** A `TELEGRAM_TOOL_*` refusal is a *definitive* answer
+  (`api.IsDefiniteRefusalAt` on `createTelegramConnection`, `TELEGRAM_TOOL_`-prefixed, not from a
+  5xx envelope): it renders as "connect was refused" with no pointer — there is no registration to
+  look for. Every other exit-1/7 failure (a lost answer, an unmapped code, a post-commit crash) is
+  reworded as an unknown outcome and points
   at `hadron telegram status` — the UNFILTERED listing, because connect takes no `--org` whose
   value could be carried into the command (and a mistaken `--org` typed as a token can therefore
   never be echoed back through the pointer; the submitted token is still redacted everywhere). The

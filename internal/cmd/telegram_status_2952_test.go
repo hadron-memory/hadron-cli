@@ -124,6 +124,7 @@ func TestTelegramStatusRefusals(t *testing.T) {
 		{"null-row", `{"data":{"telegramConnections":{"total":1,"items":[null]}}}`, []string{"status"}, 7},
 		{"unknown-status", `{"data":{"telegramConnections":{"total":1,"items":[` + strings.Replace(telegramRow, `"ACTIVE"`, `"PAUSED"`, 1) + `]}}}`, []string{"status"}, 7},
 		{"denied", `{"errors":[{"message":"Forbidden","extensions":{"code":"FORBIDDEN"}}]}`, []string{"status"}, 8},
+		{"server-error", `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, []string{"status"}, 1},
 		{"limit-over-cap", ``, []string{"status", "--limit", "201"}, 2},
 		{"negative-offset", ``, []string{"status", "--offset", "-1"}, 2},
 		{"blank-org", ``, []string{"status", "--org", "  "}, 2},
@@ -142,12 +143,17 @@ func TestTelegramStatusRefusals(t *testing.T) {
 }
 
 func TestTelegramGet(t *testing.T) {
-	out, ops, e := runTelegram(t, `{"data":{"telegramConnection":`+telegramRow+`}}`, "get", "t1", "--json")
+	// " t1 ": the id is trimmed before it is sent (the trim is pinned by the
+	// variable capture, not just accepted).
+	out, ops, e := runTelegram(t, `{"data":{"telegramConnection":`+telegramRow+`}}`, "get", " t1 ", "--json")
 	if e != nil {
 		t.Fatal(e)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(ops["TelegramConnection"], &vars)
+	if vars["ref"] != "t1" {
+		t.Fatal("get must trim the id it sends", vars)
+	}
 	var m map[string]any
 	if vars["ref"] != "t1" || json.Unmarshal([]byte(out), &m) != nil || len(m) != 10 || m["status"] != "ACTIVE" || m["appId"] != "a1" || strings.Contains(out, "PRIVATE") {
 		t.Fatal(vars, out)
@@ -160,6 +166,14 @@ func TestTelegramGet(t *testing.T) {
 	// An invisible id (missing, other org, revoked member) answers null → 4.
 	if _, _, e := runTelegram(t, `{"data":{"telegramConnection":null}}`, "get", "nope"); exitCodeFor(e) != 4 {
 		t.Fatal("null must be not-found", e)
+	}
+	// get refuses what status refuses: an unrecognized status is exit 7 here too.
+	if _, _, e := runTelegram(t, `{"data":{"telegramConnection":`+strings.Replace(telegramRow, `"ACTIVE"`, `"PAUSED"`, 1)+`}}`, "get", "t1"); exitCodeFor(e) != 7 {
+		t.Fatal("an unknown status must be refused on get too", e)
+	}
+	// A non-FORBIDDEN API error maps like any read (exit 1, not 8).
+	if _, _, e := runTelegram(t, `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, "get", "t1"); exitCodeFor(e) != 1 {
+		t.Fatal("an internal error on get is exit 1", e)
 	}
 	if _, _, e := runTelegram(t, ``, "get"); exitCodeFor(e) != 2 {
 		t.Fatal(e)

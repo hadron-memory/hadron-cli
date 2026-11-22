@@ -844,5 +844,5 @@ section between the markers.
 | `telegram connect` |  |  | y | #1396 | 0318ae5e30d6 |  | unread |  |
 | `telegram disconnect` |  |  | y | #1396 | f89b6a16bd44 |  | unread |  |
 | `telegram get` |  |  | y | #1396 | f342cc60cea4 |  | unread |  |
-| `telegram status` |  |  | y | #1396 | c41bb42e36ea |  | unread |  |
+| `telegram status` |  |  | y | #1396 | d6d916458ce3 |  | unread |  |
 <!-- group:1396 end -->
