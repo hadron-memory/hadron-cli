@@ -145706,9 +145706,11 @@ query AgentSessionAgentID ($ref: ID!) {
 }
 `
 
-// startAgentSession looks its agentId up by ID only (a URN is answered as
-// "App is not allowed to operate this agent"), so `agent session start`
-// resolves a URN to the ID with this read first.
+// cli#2935: startAgentSession's argument is `agentRef` (hadron-server#4141 S5,
+// #4789; no alias). The server before S5 looked its agentId up by ID only (a
+// URN was answered as "App is not allowed to operate this agent"), so `agent
+// session start` resolves a URN to the ID with this read first; an ID is
+// still what it sends, which agentRef accepts.
 func AgentSessionAgentID(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -154100,7 +154102,7 @@ func AppRun(
 // The query executed by AppRuns.
 const AppRuns_Operation = `
 query AppRuns ($appRef: String, $orgRef: String, $status: AppRunStatus, $statuses: [AppRunStatus!], $parentRunId: ID, $sortBy: AppRunSortField, $sortDir: SortDirection, $limit: Int, $offset: Int) {
-	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunId: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
+	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunRef: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AppRunFields
@@ -156382,7 +156384,7 @@ func CalendarUpdateEvent(
 // The mutation executed by CancelAppRun.
 const CancelAppRun_Operation = `
 mutation CancelAppRun ($id: ID!) {
-	cancelAppRun(id: $id) {
+	cancelAppRun(ref: $id) {
 		... AppRunFields
 	}
 }
@@ -156422,7 +156424,9 @@ fragment AppRunFields on AppRun {
 }
 `
 
-// The kill switch — transitions a live run to CANCELLED.
+// The kill switch — transitions a live run to CANCELLED. cli#2935: the
+// argument is `ref` (hadron-server#4141 S5, #4789; no alias), the variable
+// keeps its name so the generated client is unchanged.
 func CancelAppRun(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -184375,7 +184379,7 @@ func SpecUnresolvedReferencesPage(
 // The mutation executed by StartAgentSession.
 const StartAgentSession_Operation = `
 mutation StartAgentSession ($agentId: ID!, $externalUserId: String, $sessionTimeoutSeconds: Int) {
-	startAgentSession(agentId: $agentId, externalUserId: $externalUserId, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
+	startAgentSession(agentRef: $agentId, externalUserId: $externalUserId, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
 		id
 		agentId
 		appId

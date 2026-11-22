@@ -8844,7 +8844,7 @@ type Mutation {
   """
   The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
   """
-  cancelAppRun(id: ID!): AppRun!
+  cancelAppRun(ref: ID!): AppRun!
 
   """
   Stop one of the organization's page-monitor watches (#1562; org ADMIN/OWNER,
@@ -12054,7 +12054,7 @@ type Mutation {
   Only one key-consuming operation may use the header in a request;
   a second attempt is BAD_UNLOCK_INPUT.
   """
-  startAgentSession(agentId: ID!, externalUserId: String, sessionTimeoutSeconds: Int): Session!
+  startAgentSession(agentRef: ID!, externalUserId: String, sessionTimeoutSeconds: Int): Session!
 
   """
   #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
@@ -15327,7 +15327,7 @@ type Query {
   sortBy / sortDir (#833) order the whole result set server-side, so a client
   table is no longer limited to sorting the page it happens to hold.
   """
-  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunId: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
+  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunRef: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
 
   """
   #1747 — an App's ticker settings: the cadence floor, the default self-subscription cadence, the live-ticker cap and the daily wake budget (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
