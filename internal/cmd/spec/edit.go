@@ -355,7 +355,8 @@ a legacy abstract past the server cap — re-affirming replaces it, and a
 replacement over the cap is rejected.`,
 		Example: `  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --dry-run
-  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id <id-from-preview> --expected-proposal-hash <hash-from-preview>
+  # NODE_ID and HASH are the values the dry run reported for this spec.
+  hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content-file body.md --expected-revision 7 --expected-node-id "$NODE_ID" --expected-proposal-hash "$HASH"
   cat rewrite.md | hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --content -
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --abstract-file abstract.md
   hadron spec edit msg:010:02 -m hrn:mem:micromentor.org:platform-specs --description-file description.md

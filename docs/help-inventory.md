@@ -698,8 +698,8 @@ section between the markers.
 | `spec citations` | check-citations |  | y | #1055 | c70c0c2f8857 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec describe` | desc |  | y | #1055 | 298ee7dba898 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec document` |  |  | y | #1055 | 942a2484ef17 |  | unread |  |
-| `spec edit` |  |  | y | #1055 | a9367dd594b2 |  | unread |  |
-| `spec extract` |  |  | y | #1055 | 4151b703a9aa |  | unread |  |
+| `spec edit` |  |  | y | #1055 | 569970b0cc97 |  | unread |  |
+| `spec extract` |  |  | y | #1055 | e39082d68d8e |  | unread |  |
 | `spec find` |  |  | y | #1055 | 394a26503004 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass3 |
 | `spec get` |  |  | y | #1055 | 2193e0f9175e |  | unread |  |
 | `spec grep` |  |  | y | #1055 | 50c517081e9e | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
@@ -708,8 +708,8 @@ section between the markers.
 | `spec import spec-kit` |  |  | n | #1055 | dbbe5ea3a633 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec label-report` |  |  | y | #1055 | f68672457ff8 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass3 |
 | `spec ledger` |  |  | y | #1055 | 2b9a2948d456 |  | unread |  |
-| `spec link` |  |  | y | #1055 | b4eb165e621c |  | unread |  |
-| `spec lint` | check, validate |  | y | #1055 | cc74076aad72 |  | unread |  |
+| `spec link` |  |  | y | #1055 | 64d9652ebaae |  | unread |  |
+| `spec lint` | check, validate |  | y | #1055 | fd6efbd0740e |  | unread |  |
 | `spec list` | ls |  | y | #1055 | f482dd92b9bc |  | unread |  |
 | `spec mint` |  |  | y | #1055 | 176744cc0f39 |  | unread |  |
 | `spec new` | scaffold |  | y | #1055 | 77286154345b |  | unread |  |
