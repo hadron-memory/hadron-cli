@@ -32,15 +32,32 @@ func paragraphFrom2969(t *testing.T, help, anchor string) []string {
 func raggedLines2969(lines []string, width int) []string {
 	var out []string
 	for i := 0; i+1 < len(lines); i++ {
-		next := strings.Fields(lines[i+1])
-		if len(next) == 0 {
+		next := strings.TrimSpace(lines[i+1])
+		if next == "" {
 			continue
 		}
-		if utf8.RuneCountInString(lines[i])+1+utf8.RuneCountInString(next[0]) <= width {
+		word := firstWord2969(next)
+		if utf8.RuneCountInString(lines[i])+1+utf8.RuneCountInString(word) <= width {
 			out = append(out, lines[i])
 		}
 	}
 	return out
+}
+
+// firstWord2969 is the first unbreakable word of a line: a code span such as
+// `team events --x` is one word, with any punctuation stuck to its end.
+func firstWord2969(line string) string {
+	end := strings.IndexByte(line, ' ')
+	if strings.HasPrefix(line, "`") {
+		if c := strings.IndexByte(line[1:], '`'); c >= 0 {
+			rest := line[c+2:]
+			end = c + 2 + strings.IndexByte(rest+" ", ' ')
+		}
+	}
+	if end < 0 {
+		return line
+	}
+	return line[:end]
 }
 
 // Item 1: the three pages the scrub left ragged, plus register's split floor line.
@@ -52,7 +69,7 @@ func TestHelpParagraphsAreNotRagged2969(t *testing.T) {
 		skip   int // leading lines of the paragraph that are a heading, not prose
 	}{
 		{"team alarms: IN EFFECT", []string{"team", "alarms"}, "IN EFFECT is the server's answer", 0},
-		{"team init: -m override", []string{"team", "init"}, "stays as an explicit override", 0},
+		{"team init: -m override", []string{"team", "init"}, "so no memory needs naming", 0},
 		{"team init: group chat", []string{"team", "init"}, "The team group chat needs no init", 0},
 		{"team: step 3", []string{"team"}, "(optional) A role definition", 1},
 	} {

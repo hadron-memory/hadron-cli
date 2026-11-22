@@ -66,10 +66,10 @@ from ` + "`hadron team --help`" + ` alone.
        it; the AppAgent join is the cast pool (` + "`app agent list`" + `).
 
   3. hadron team role create <role> [--description <d>]
-       (optional) A role definition — a label and a description. It used
-       to carry a name register the cast allocated from; that is gone,
-       so this step no longer affects step 4 and is
-       purely documentation of what the role is for.
+       (optional) A role definition — a label and a description. It used to
+       carry a name register the cast allocated from; that is gone, so this
+       step no longer affects step 4 and is purely documentation of what the
+       role is for.
 
   4. hadron team worker cast --app <app> --role <role> --name <Name>
        The named identity. The server resolves the agent (--role picks the
