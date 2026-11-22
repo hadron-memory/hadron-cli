@@ -22,14 +22,14 @@ func leaks2902(in string) []string {
 	return out
 }
 
-func assertNoEcho2902(t *testing.T, what, in string, err error, wantCode int) {
+func assertNoEcho2902(t *testing.T, what, in string, err error) {
 	t.Helper()
 	if err == nil {
 		t.Errorf("%s(%q): want a refusal", what, in)
 		return
 	}
-	if code := exitcode.FromError(err); code != wantCode {
-		t.Errorf("%s: exit = %d, want %d: %v", what, code, wantCode, err)
+	if code := exitcode.FromError(err); code != exitcode.Usage {
+		t.Errorf("%s: exit = %d, want Usage: %v", what, code, err)
 	}
 	msg := err.Error()
 	for _, leak := range leaks2902(in) {
@@ -57,7 +57,9 @@ func tokens2902() []string {
 }
 
 func TestURNValidatorsNeverEchoTheValue2902(t *testing.T) {
-	for _, in := range tokens2902() {
+	for _, tok := range tokens2902() {
+		// token-shaped AND refused by every validator: "!" is in no atom, slug or handle rule
+		in := tok + "!"
 		for name, fn := range map[string]func(string, string) error{
 			"ValidateURNSlug":      ValidateURNSlug,
 			"ValidateOrgSlug":      ValidateOrgSlug,
@@ -66,16 +68,16 @@ func TestURNValidatorsNeverEchoTheValue2902(t *testing.T) {
 			"ValidateAgentURNPath": ValidateAgentURNPath,
 		} {
 			err := fn("--flag", in)
-			assertNoEcho2902(t, name, in, err, exitcode.Usage)
+			assertNoEcho2902(t, name, in, err)
 			if err != nil && !strings.Contains(err.Error(), "--flag") {
 				t.Errorf("%s: the refusal names the flag: %v", name, err)
 			}
 		}
 		_, err := CanonicalizeURN("<agent>", in)
-		assertNoEcho2902(t, "CanonicalizeURN", in, err, exitcode.Usage)
+		assertNoEcho2902(t, "CanonicalizeURN", in, err)
 		// a scheme-prefixed value that fails the grammar takes the other branch
 		_, err = CanonicalizeURN("<agent>", "hrn:node:"+in)
-		assertNoEcho2902(t, "CanonicalizeURN(prefixed)", in, err, exitcode.Usage)
+		assertNoEcho2902(t, "CanonicalizeURN(prefixed)", in, err)
 	}
 }
 
@@ -90,12 +92,12 @@ func TestValidateURNPathNamesTheSegmentByPositionNotValue2902(t *testing.T) {
 func TestTimeAndKeyValueFlagsNeverEchoTheValue2902(t *testing.T) {
 	for _, in := range tokens2902() {
 		_, err := ParseTimeFlag("since", in)
-		assertNoEcho2902(t, "ParseTimeFlag", in, err, exitcode.Usage)
+		assertNoEcho2902(t, "ParseTimeFlag", in, err)
 		if err != nil && !strings.Contains(err.Error(), "--since") {
 			t.Errorf("ParseTimeFlag names the flag: %v", err)
 		}
 		_, err = KeyValsToJSON([]string{in}, "set")
-		assertNoEcho2902(t, "KeyValsToJSON", in, err, exitcode.Usage)
+		assertNoEcho2902(t, "KeyValsToJSON", in, err)
 		if err != nil && !strings.Contains(err.Error(), "--set") {
 			t.Errorf("KeyValsToJSON names the flag: %v", err)
 		}

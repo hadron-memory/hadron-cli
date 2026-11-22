@@ -72,7 +72,7 @@ func KeyValsToJSON(pairs []string, flag string) (*json.RawMessage, error) {
 	for _, p := range pairs {
 		k, v, ok := strings.Cut(p, "=")
 		if !ok || k == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "--%s must be key=value, got %q", flag, p)
+			return nil, exitcode.Newf(exitcode.Usage, "--%s must be key=value (the entry given is not shown)", flag)
 		}
 		var jv any
 		if json.Unmarshal([]byte(v), &jv) == nil {

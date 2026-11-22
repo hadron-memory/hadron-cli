@@ -277,7 +277,7 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 		// be rejected as the ambiguous form it is, not passed to the server.
 		if strings.Count(urn, "::") < 2 || urnlib.AssertFullyQualifiedUrn(urn, "node") != nil {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:start-here), or pass -m hrn:mem:<root>:<slug> with a bare loc", ref)
+				"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:start-here), or pass -m hrn:mem:<root>:<slug> with a bare loc")
 		}
 		urn = "hrn:node:" + urn
 	}
@@ -293,14 +293,14 @@ func ResolveNodeURN(cmd *cobra.Command, client graphql.Client, ref string) (stri
 			// One answer for foreign, missing and malformed alike: the server
 			// returns null for all three and the CLI adds no parse error of its own.
 			return "", exitcode.Newf(exitcode.NotFound,
-				"node %q not found — verify it exists; the URN forms are hrn:node:<root>:<slug>:<loc> and hrn:action:<root>:<agent-slug>:<code>", ref)
+				"node not found (the reference given is not shown) — verify it exists; the URN forms are hrn:node:<root>:<slug>:<loc> and hrn:action:<root>:<agent-slug>:<code>")
 		}
 		return "", exitcode.Newf(exitcode.NotFound,
-			"node %q not found — verify it exists; the URN form is hrn:node:<root>:<slug>:<loc>", ref)
+			"node not found (the reference given is not shown) — verify it exists; the URN form is hrn:node:<root>:<slug>:<loc>")
 	}
 	// An action URN resolves to the register entry's own node id (#1138).
 	if resp.ResolveUrn.Kind != "node" && resp.ResolveUrn.Kind != "action" {
-		return "", exitcode.Newf(exitcode.Usage, "%q resolves to a %s, not a node", ref, resp.ResolveUrn.Kind)
+		return "", exitcode.Newf(exitcode.Usage, "the reference given resolves to a %s, not a node (the reference is not shown)", resp.ResolveUrn.Kind)
 	}
 	return resp.ResolveUrn.Id, nil
 }
