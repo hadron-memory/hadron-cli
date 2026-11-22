@@ -140,7 +140,7 @@ func TestProtectOffOnAProtectedSecretStillStages2943(t *testing.T) {
 func TestProtectHelpStatesTheNoOp2943(t *testing.T) {
 	help := strings.Join(strings.Fields(cmdHelpOut(t, "secret", "protect")), " ")
 	for _, want := range []string{
-		"not protected changes nothing",
+		"asks for no change, and servers answer it differently",
 		"already off",
 		"0 --off on a secret that is not protected",
 	} {

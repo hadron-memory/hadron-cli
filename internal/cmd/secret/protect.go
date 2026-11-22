@@ -28,18 +28,20 @@ The same holds for any later secret create, update, set or rm that reaches a
 protected secret: it is staged, not applied, and answers with the same request
 id and URL.
 
-Turning protection off on a secret that is not protected changes nothing: the
-server stages no request and answers the secret with protected: false, and the
-command says protection is already off (exit 0). The server never applies any
-other change directly: a secret returned instead of a request is not reported
-as a change: exit 7, with hadron secret get to check.
+Turning protection off on a secret that is not protected asks for no change,
+and servers answer it differently: some stage it like any protection change
+(exit 5); others recognize the no change, stage nothing and answer the secret
+with protected: false, and the command then says protection is already off
+(exit 0). Any other secret returned instead of a request is not reported as a
+change: exit 7, with hadron secret get to check.
 A staged request that comes back with no ceremony URL cannot be signed by anyone:
 the command says so and names hadron secret change withdraw.
 
-Exit codes: 0 --off on a secret that is not protected (already off); 5 the change is staged (the request id and URL are on stderr, or in
-the --json error); 2 a server that does not offer protected-secret changes
-(signing is off), or a caller that is not a person acting as themselves, or
-neither --on nor --off; 8 you may not change this secret; 4 no such secret.
+Exit codes: 0 --off on a secret that is not protected (already off); 5 the
+change is staged (the request id and URL are on stderr, or in the --json
+error); 2 a server that does not offer protected-secret changes (signing is
+off), or a caller that is not a person acting as themselves, or neither --on
+nor --off; 8 you may not change this secret; 4 no such secret.
 Check a request with hadron secret change get, and withdraw it with
 hadron secret change withdraw.`,
 		Example: `  hadron secret protect 01a18cf643247d0fa261f320ec74d878 --on
