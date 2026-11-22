@@ -269,7 +269,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 363: 339 command, 13 gap, 11 excluded
+[Mutation] 363: 341 command, 11 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -418,7 +418,7 @@ emailSaveDraft  command email draft save
 emailSendDraft  command email draft send
 emailUpdateDraft  command email draft update
 encryptMemory  command memory encrypt
-endAgentSession  gap #2510
+endAgentSession  command agent session end
 endAgentlessSession  command team host run
 endSession  command team session end
 ensureAppMember  command app member add
@@ -566,7 +566,7 @@ setWorkerLeaveAlone  command team worker leave-alone
 setWorkerReportsTo  command team worker set-reports-to
 setWorkerWakeSettings  command team wake-settings set
 softDeleteAsset  command asset rm
-startAgentSession  gap #2510
+startAgentSession  command agent session start
 startAgentTask  command team task start
 startChat  gap #64
 startConnection  command connection connect
