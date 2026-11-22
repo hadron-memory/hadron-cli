@@ -57,7 +57,7 @@ func TestAgentLifecycleHelpStatesServerFacts(t *testing.T) {
 	}{
 		{[]string{"session"}, []string{"hadron team session", "App key"}},
 		// cli#2895 F5: the verb pages' own facts, not just the group page.
-		{[]string{"session", "start"}, []string{"must be positive", "implicit user creation"}},
+		{[]string{"session", "start"}, []string{"must be positive", "implicit user creation", "usage error, not an anonymous session"}},
 		{[]string{"session", "end"}, []string{"already ended succeeds"}},
 	} {
 		f, out := testFactory(t)
