@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -293,21 +294,26 @@ func TestProtectSendsTheDirection2738(t *testing.T) {
 	}
 }
 
-// setSecretProtected always stages a request (hadron-server#4177), so a returned
-// secret is NOT reported as a change that happened: it is an unconfirmed outcome
-// (exit 7) that names the protection the server reported and how to check.
+// setSecretProtected stages a request (hadron-server#4177), so a returned secret is
+// NOT reported as a change that happened: it is an unconfirmed outcome (exit 7)
+// that names the protection the server reported and how to check. The one
+// exception, --off answered with protected: false (the no-op on an unprotected
+// secret), is pinned in secret_protect_off_noop_2943_test.go.
 func TestProtectSecretAnswerIsNotReportedAsAChange2738(t *testing.T) {
-	for _, flag := range []string{"--on", "--off"} {
-		srv, calls := fake2738(t, only2738(200, `{"data":{"setSecretProtected":{"id":"sec-1","ownerType":"app","ownerId":"a1","name":"tok","kind":"generic","metadata":null,"currentVersion":1,"protected":false,"createdAt":"t","createdBy":null,"updatedAt":"t","updatedBy":null}}}`))
-		stdout, stderr, code := run2738(t, srv.URL, "protect", "sec-1", flag)
+	for _, tc := range []struct {
+		flag     string
+		reported bool
+	}{{"--on", false}, {"--on", true}, {"--off", true}} {
+		srv, calls := fake2738(t, only2738(200, `{"data":{"setSecretProtected":{"id":"sec-1","ownerType":"app","ownerId":"a1","name":"tok","kind":"generic","metadata":null,"currentVersion":1,"protected":`+strconv.FormatBool(tc.reported)+`,"createdAt":"t","createdBy":null,"updatedAt":"t","updatedBy":null}}}`))
+		stdout, stderr, code := run2738(t, srv.URL, "protect", "sec-1", tc.flag)
 		if code != exitcode.Unavailable {
-			t.Fatalf("%s: exit %d, want 7\n%s%s", flag, code, stdout, stderr)
+			t.Fatalf("%s reporting %v: exit %d, want 7\n%s%s", tc.flag, tc.reported, code, stdout, stderr)
 		}
-		if strings.Contains(stdout+stderr, "✓") || !strings.Contains(stderr, "not confirmed") || !strings.Contains(stderr, "protected: false") || !strings.Contains(stderr, "hadron secret get sec-1") {
-			t.Errorf("%s: must say it is unconfirmed and how to check: %q %q", flag, stdout, stderr)
+		if strings.Contains(stdout+stderr, "✓") || !strings.Contains(stderr, "not confirmed") || !strings.Contains(stderr, "protected: "+strconv.FormatBool(tc.reported)) || !strings.Contains(stderr, "hadron secret get sec-1") {
+			t.Errorf("%s reporting %v: must say it is unconfirmed and how to check: %q %q", tc.flag, tc.reported, stdout, stderr)
 		}
 		if len(*calls) != 1 {
-			t.Errorf("%s: sent once: %d", flag, len(*calls))
+			t.Errorf("%s: sent once: %d", tc.flag, len(*calls))
 		}
 	}
 }

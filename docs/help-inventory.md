@@ -263,13 +263,13 @@ section between the markers.
 | `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
 | `secret client issue` |  |  | y | #1052 | 1807021a758c |  | unread |  |
 | `secret client list` | ls |  | y | #1052 | ba1baa933224 |  | unread |  |
-| `secret client revoke` |  |  | y | #1052 | bf5f84b625e1 |  | unread |  |
+| `secret client revoke` |  |  | y | #1052 | 10241b746d74 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 700f54785ae1 |  | unread |  |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret exec` |  |  | y | #1052 | 9676504c1659 |  | unread |  |
 | `secret get` |  |  | y | #1052 | 3d942cb0742a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret list` | ls |  | y | #1052 | 9bc54e793ad3 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `secret protect` |  |  | y | #1052 | bda841822e6d |  | unread |  |
+| `secret protect` |  |  | y | #1052 | cd0f487e5549 |  | unread |  |
 | `secret reveal` |  |  | y | #1052 | c88c9aca1c54 |  | unread |  |
 | `secret rm` | delete |  | y | #1052 | db33bfb427be |  | unread |  |
 | `secret set` |  |  | y | #1052 | 84e1914ebb55 |  | unread |  |
@@ -594,7 +594,7 @@ section between the markers.
 | `team session shed` |  |  | y | #1054 | 8a844e44afac |  | unread |  |
 | `team session start` |  |  | y | #1054 | 593914c6fe46 |  | unread |  |
 | `team session sync-model` |  |  | y | #1054 | 17c144a7206a |  | unread |  |
-| `team session whoami` |  |  | y | #1054 | f4ef03f96070 |  | unread |  |
+| `team session whoami` |  |  | y | #1054 | f9aa532d998b |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | 709bc1b67fe7 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | aa1c65ef79dc |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
@@ -662,7 +662,7 @@ section between the markers.
 | `team worker onboard` |  |  | y | #1054 | 215124b2266a |  | unread |  |
 | `team worker release` |  |  | y | #1054 | 5482ce26b657 |  | unread |  |
 | `team worker retire` |  |  | y | #1054 | 9c700f8cd752 |  | unread |  |
-| `team worker rm` | delete |  | y | #1054 | a2d80fbfce3e |  | unread |  |
+| `team worker rm` | delete |  | y | #1054 | e4a9f40b06bf |  | unread |  |
 | `team worker served-prompt` |  |  | y | #1054 | d16deff01332 |  | unread |  |
 | `team worker set-boot-prompt` |  |  | y | #1054 | 448bcd0d9028 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker set-reports-to` |  |  | y | #1054 | f925fcd3b031 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |

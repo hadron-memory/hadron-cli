@@ -2126,7 +2126,11 @@ with the directory — which does NOT end the session. Without the fallback,
 that would leave a session open with its only local handle gone.
 
 --json carries "source": "worktree" when the binding answered, "server" when
-the fallback did.
+the fallback did. A binding answer also carries the optional "chatSeenSeq": how
+far this worktree has rendered the team chat (absent when it never read, 0 when
+it read an empty chat). It is a per-worktree cache, never an unread position and
+never your read state: it only decides whether a chat read counts as read through,
+and every unread count comes from the server read cursor.
 
 --check ASKS THE SERVER about the bound session. The
 binding identity remains available locally for compaction recovery. The default

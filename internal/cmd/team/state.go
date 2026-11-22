@@ -68,9 +68,14 @@ type binding struct {
 	Tool  string `json:"tool"`
 	Repo  string `json:"repo"`
 	Model string `json:"model"`
-	// ChatSeenSeq is the team-chat watermark this worktree has actually READ
-	// (#474): `chat read` records the seq it returned, `session log` compares
-	// against it to say how much landed while you were heads-down.
+	// ChatSeenSeq is a per-worktree RENDERING CACHE: how far this worktree has
+	// actually READ the team chat (#474). `chat read` records the seq it returned
+	// and is its only reader: the contiguity check there (chat.go) decides
+	// whether a read counts as read-through, and so whether the server-side mark
+	// counts. It is never an unread position and never the attendee's read
+	// state: every unread claim (`session log`, `chat check`) derives from the
+	// SERVER read cursor (cor:dmo:090:06), because one worker bound in two
+	// worktrees holds two of these. `session log` stopped reading it (#2858).
 	//
 	// NIL means never read through THIS binding, which is a distinct and
 	// louder signal than "nothing new" — it is the state Gil was in when a
