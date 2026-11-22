@@ -607,10 +607,10 @@ section between the markers.
 | `team task add-blocker` |  |  | y | #1054 | d43f6feaab7b |  | unread |  |
 | `team task assign` |  |  | y | #1054 | acbb55f94245 |  | unread |  |
 | `team task cancel` |  |  | y | #1054 | b30c88965ba2 |  | unread |  |
-| `team task clone` |  |  | y | #1054 | 27a66bc7fe6b |  | unread |  |
-| `team task create` |  |  | y | #1054 | cc01556c9cc7 |  | unread |  |
+| `team task clone` |  |  | y | #1054 | e0687f7925f1 |  | unread |  |
+| `team task create` |  |  | y | #1054 | 0a8e41961180 |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | 754051154aa6 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
-| `team task dispose-finding` |  |  | y | #1054 | a3080a7c8f49 |  | unread |  |
+| `team task dispose-finding` |  |  | y | #1054 | c86cda1528c5 |  | unread |  |
 | `team task find-untracked` |  |  | y | #1054 | 410894ca26d1 |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 4af1d580a868 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
@@ -629,7 +629,7 @@ section between the markers.
 | `team task set-priority` |  |  | y | #1054 | 21630b0e560a |  | unread |  |
 | `team task start` |  |  | y | #1054 | fbda4606d956 |  | unread |  |
 | `team task tree` |  |  | y | #1054 | f71a42a9f8f4 |  | unread |  |
-| `team task update` |  |  | y | #1054 | c6f065c0029d |  | unread |  |
+| `team task update` |  |  | y | #1054 | a59381deb333 |  | unread |  |
 | `team ticker` |  |  | n | #1054 | 94b5026458fd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |

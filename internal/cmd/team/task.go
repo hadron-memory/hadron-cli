@@ -352,8 +352,11 @@ first). The value is sent as given; only the server judges its form.
 
 --ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
 task points at: kind is issue, pull-request, node, task or url, and the label
-starts at the first |. The CLI checks only that shape; the server owns the form
-of each target and the caps (BAD_USER_INPUT, exit 2, naming the item's position).
+starts at the first |.
+` + taskRefCapsSentence + `
+The CLI checks that shape and the label length; the server owns the form of
+each target and the other caps (BAD_USER_INPUT, exit 2, naming the item's
+position).
 
 --properties <json|@file> gives it its own JSON object (the team's schedule
 and review notes, for example), which the platform stores and never reads. It
@@ -705,7 +708,7 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor) + "\n\
 	runFlags.register(cmd)
 	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; one ACTIVE task per App holds a value (finished and cancelled tasks keep it); set once, never edited")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
-	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc+taskRefCapsFlagDoc)
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
 	cmd.Flags().StringArrayVar(&requireRoles, "require-role", nil, "eligible role, comma-separated or repeatable; any one suffices")
 	cmd.Flags().BoolVar(&match, "match", false, "run one blocking match now; failed match prints the created task then exits 5")
