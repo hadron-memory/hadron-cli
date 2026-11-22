@@ -46490,6 +46490,162 @@ func (v *CreateRevisionResponse) GetCreateRevision() *CreateRevisionCreateRevisi
 	return v.CreateRevision
 }
 
+// CreateRoleTaskCreateTaskNode includes the requested fields of the GraphQL type Node.
+type CreateRoleTaskCreateTaskNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string `json:"nodeType"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
+	// gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
+	Role          *string                                          `json:"role"`
+	UpdatedAt     string                                           `json:"updatedAt"`
+	OutgoingEdges []*CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+}
+
+// GetId returns CreateRoleTaskCreateTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetId() string { return v.Id }
+
+// GetMemoryId returns CreateRoleTaskCreateTaskNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns CreateRoleTaskCreateTaskNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetLoc() string { return v.Loc }
+
+// GetUrn returns CreateRoleTaskCreateTaskNode.Urn, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetUrn() string { return v.Urn }
+
+// GetName returns CreateRoleTaskCreateTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetName() string { return v.Name }
+
+// GetNodeType returns CreateRoleTaskCreateTaskNode.NodeType, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetNodeType() string { return v.NodeType }
+
+// GetIsRunnable returns CreateRoleTaskCreateTaskNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns CreateRoleTaskCreateTaskNode.Role, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns CreateRoleTaskCreateTaskNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetOutgoingEdges returns CreateRoleTaskCreateTaskNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetOutgoingEdges() []*CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge {
+	return v.OutgoingEdges
+}
+
+// CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge struct {
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+}
+
+// GetId returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge) GetId() string { return v.Id }
+
+// GetName returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
+
+// GetTarget returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge) GetTarget() *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode {
+	return v.Target
+}
+
+// CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+}
+
+// GetId returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// GetUrn returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode.Urn, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode) GetUrn() string { return v.Urn }
+
+// CreateRoleTaskResponse is returned by CreateRoleTask on success.
+type CreateRoleTaskResponse struct {
+	// #1201 — the CREATE door for the task kind. A write that would produce a
+	// node with isRunnable: true must come through here; the generic createNode
+	// refuses it.
+	//
+	// PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
+	// the door for. The authoring RULES stay in the tool that owns them ('hadron
+	// spec', 'hadron coding'), which is a closed-list exception on the audience
+	// ground.
+	//
+	// STRENGTH: CAPABILITY. The only one of the three whose gate cannot be evaded by omission, which is why it carries the security case. It keys on 'isRunnable' rather than on 'role': a label is caller-set and freely dropped, while omitting the capability means the node does not run. The threat is a memory shared with someone who authors a runnable node that reads the owner's data when the OWNER runs it (#1202).
+	//
+	// Exempt from its OWN kind only — it is fully subject to every other kind and
+	// to Channel address protection, so it cannot forge a chat message.
+	// This mutation is not itself an MCP tool; its MCP counterpart is the
+	// deliberate hadron_create_task tool, separate from hadron_create_node,
+	// which refuses (#1301 names it in the refusal).
+	//
+	// #4864 — with index, the SAME door also writes the task's tasks-index
+	// edge, in its one transaction: the new node and one edge from it to the node
+	// the Agent's tasksIndexRef names, labelled index.trigger, stored by id
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:15). Either both exist or neither
+	// does. The node must be created in the Agent's own system memory, which is
+	// also where the index must lie: an Agent with no pointer, an index elsewhere,
+	// an existing loc and an unknown or unreadable Agent each refuse and write
+	// nothing. Refusals that read only the input (a malformed loc, a blank trigger,
+	// a skill the lint refuses) come first and disclose nothing; then the memory's
+	// read and write checks and the task writer level
+	// (hrn:node:hadronmemory.com:specs:cor:acl:010:03), so none of the refusals
+	// that read the Agent or the memory tells a caller who may not write the memory
+	// anything about it. With skill, it also writes an enabled properties.exports.claudeSkill
+	// block with the given name and description, validated by the skill lint; by
+	// default no block is written. Neither argument sets a role; without both the
+	// door behaves exactly as before.
+	CreateTaskNode *CreateRoleTaskCreateTaskNode `json:"createTaskNode"`
+}
+
+// GetCreateTaskNode returns CreateRoleTaskResponse.CreateTaskNode, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskResponse) GetCreateTaskNode() *CreateRoleTaskCreateTaskNode {
+	return v.CreateTaskNode
+}
+
 // CreateScopeCreateScope includes the requested fields of the GraphQL type Scope.
 // The GraphQL type's documentation follows.
 //
@@ -103903,6 +104059,21 @@ func (v *TaskFindingDispositionFieldsReferenceAgentTaskReference) GetTarget() st
 // GetLabel returns TaskFindingDispositionFieldsReferenceAgentTaskReference.Label, and is useful for accessing the field via an interface.
 func (v *TaskFindingDispositionFieldsReferenceAgentTaskReference) GetLabel() *string { return v.Label }
 
+// #4864 — createTaskNode's optional tasks-index edge: the Agent whose index lists
+// the new task, and the trigger the edge carries (hrn:node:hadronmemory.com:specs:cor:dmo:050:15).
+type TaskIndexInput struct {
+	// The Agent (ID or URN) whose tasks index lists this task. The node must be created in that Agent's own system memory.
+	Agent string `json:"agent"`
+	// The edge's name: the trigger for this task, as the Agent's task list shows it. One line of at most 200 characters; surrounding space is trimmed.
+	Trigger string `json:"trigger"`
+}
+
+// GetAgent returns TaskIndexInput.Agent, and is useful for accessing the field via an interface.
+func (v *TaskIndexInput) GetAgent() string { return v.Agent }
+
+// GetTrigger returns TaskIndexInput.Trigger, and is useful for accessing the field via an interface.
+func (v *TaskIndexInput) GetTrigger() string { return v.Trigger }
+
 // TaskLinkDefectInstructedLinkDefectToPullRequestDefectLink includes the requested fields of the GraphQL type DefectLink.
 // The GraphQL type's documentation follows.
 //
@@ -104010,6 +104181,20 @@ type TaskLinkDefectResponse struct {
 func (v *TaskLinkDefectResponse) GetLinkDefectToPullRequest() *TaskLinkDefectLinkDefectToPullRequestDefectLink {
 	return v.LinkDefectToPullRequest
 }
+
+// #4864 — createTaskNode's opt-in skill export: written as an enabled
+// properties.exports.claudeSkill block, validated by the skill lint (a finding at
+// error severity refuses the whole call). Omit it and no block is written.
+type TaskSkillExportInput struct {
+	Description string `json:"description"`
+	Name        string `json:"name"`
+}
+
+// GetDescription returns TaskSkillExportInput.Description, and is useful for accessing the field via an interface.
+func (v *TaskSkillExportInput) GetDescription() string { return v.Description }
+
+// GetName returns TaskSkillExportInput.Name, and is useful for accessing the field via an interface.
+func (v *TaskSkillExportInput) GetName() string { return v.Name }
 
 // #1708 — which task event a TASK reason is for.
 type TaskWakeEvent string
@@ -136869,6 +137054,22 @@ func (v *__CreateRevisionInput) GetAgentRef() string { return v.AgentRef }
 // GetDescription returns __CreateRevisionInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateRevisionInput) GetDescription() *string { return v.Description }
 
+// __CreateRoleTaskInput is used internally by genqlient
+type __CreateRoleTaskInput struct {
+	Input *CreateNodeInput      `json:"input,omitempty"`
+	Index *TaskIndexInput       `json:"index,omitempty"`
+	Skill *TaskSkillExportInput `json:"skill,omitempty"`
+}
+
+// GetInput returns __CreateRoleTaskInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateRoleTaskInput) GetInput() *CreateNodeInput { return v.Input }
+
+// GetIndex returns __CreateRoleTaskInput.Index, and is useful for accessing the field via an interface.
+func (v *__CreateRoleTaskInput) GetIndex() *TaskIndexInput { return v.Index }
+
+// GetSkill returns __CreateRoleTaskInput.Skill, and is useful for accessing the field via an interface.
+func (v *__CreateRoleTaskInput) GetSkill() *TaskSkillExportInput { return v.Skill }
+
 // __CreateScopeInput is used internally by genqlient
 type __CreateScopeInput struct {
 	Input *CreateScopeInput `json:"input,omitempty"`
@@ -163583,6 +163784,68 @@ func CreateRevision(
 	}
 
 	data_ = &CreateRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateRoleTask.
+const CreateRoleTask_Operation = `
+mutation CreateRoleTask ($input: CreateNodeInput!, $index: TaskIndexInput, $skill: TaskSkillExportInput) {
+	createTaskNode(input: $input, index: $index, skill: $skill) {
+		id
+		memoryId
+		loc
+		urn
+		name
+		nodeType
+		isRunnable
+		role
+		updatedAt
+		outgoingEdges {
+			id
+			name
+			target {
+				id
+				loc
+				urn
+			}
+		}
+	}
+}
+`
+
+// cli#2990: `agent tasks create`, a thin client of hadron-server#4864 (ccfac717). createTaskNode is the
+// existing task door; with `index` the SAME call also writes the task's tasks-index edge (node and edge in one
+// transaction, server-side), with `skill` an enabled properties.exports.claudeSkill block, validated by the
+// server's skill lint. Without both the door behaves exactly as before. The CLI adds no rule: the server's
+// refusals (an existing slug, an Agent with no tasks index, an index outside the Agent's system memory, a
+// malformed loc, write level) come back through api.MapError. `index` and `skill` are omitempty so an unset
+// variable is OMITTED, never sent as null.
+func CreateRoleTask(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateNodeInput,
+	index *TaskIndexInput,
+	skill *TaskSkillExportInput,
+) (data_ *CreateRoleTaskResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateRoleTask",
+		Query:  CreateRoleTask_Operation,
+		Variables: &__CreateRoleTaskInput{
+			Input: input,
+			Index: index,
+			Skill: skill,
+		},
+	}
+
+	data_ = &CreateRoleTaskResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

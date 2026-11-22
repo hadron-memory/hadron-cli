@@ -286,3 +286,22 @@ func TestAgentTasksCreateHelpSaysWhenToWriteATask2990(t *testing.T) {
 		}
 	}
 }
+
+// An Agent with no system memory is the SERVER's refusal to make (no tasks index / no pointer): the CLI makes
+// no pre-check, so the write is still sent once, without a memory id, and the server's answer decides.
+func TestAgentTasksCreateMakesNoPreCheckOfItsOwn2990(t *testing.T) {
+	resp := roleTaskResponses2990()
+	resp["GetAgent"] = `{"data":{"agent":` + agentJSON + `}}` // systemMemoryId: null
+	resp["CreateRoleTask"] = `{"errors":[{"message":"The Agent has no tasks index.","extensions":{"code":"BAD_USER_INPUT"}}]}`
+	run := runRoleTask2990(t, resp, roleTaskArgs2990(t)...)
+	if strings.Join(run.ops, ",") != "GetAgent,CreateRoleTask" {
+		t.Fatalf("the write is sent and the server decides: %v", run.ops)
+	}
+	in, _ := decodeVars2990(t, run.vars["CreateRoleTask"])["input"].(map[string]any)
+	if _, has := in["memoryId"]; has {
+		t.Errorf("an Agent with no system memory sends no memory id: %v", in["memoryId"])
+	}
+	if exitCodeFor(run.err) != exitcode.Usage || !strings.Contains(run.err.Error(), "The Agent has no tasks index.") {
+		t.Errorf("the server's refusal maps through MapError: exit %d %v", exitCodeFor(run.err), run.err)
+	}
+}
