@@ -110469,6 +110469,1247 @@ type TeamMemoryAppResponse struct {
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
 
+// TeamMetricsCountFields includes the GraphQL fields of TeamMetricsCount requested by the fragment TeamMetricsCountFields.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsCountFields struct {
+	Total     int      `json:"total"`
+	Ids       []string `json:"ids"`
+	Truncated bool     `json:"truncated"`
+}
+
+// GetTotal returns TeamMetricsCountFields.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetTotal() int { return v.Total }
+
+// GetIds returns TeamMetricsCountFields.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetIds() []string { return v.Ids }
+
+// GetTruncated returns TeamMetricsCountFields.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetTruncated() bool { return v.Truncated }
+
+// TeamMetricsProjectFields includes the GraphQL fields of TeamMetricsProject requested by the fragment TeamMetricsProjectFields.
+// The GraphQL type's documentation follows.
+//
+// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+type TeamMetricsProjectFields struct {
+	Handle    string  `json:"handle"`
+	NoProject bool    `json:"noProject"`
+	TaskId    *string `json:"taskId"`
+	Title     *string `json:"title"`
+}
+
+// GetHandle returns TeamMetricsProjectFields.Handle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetHandle() string { return v.Handle }
+
+// GetNoProject returns TeamMetricsProjectFields.NoProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetNoProject() bool { return v.NoProject }
+
+// GetTaskId returns TeamMetricsProjectFields.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetTaskId() *string { return v.TaskId }
+
+// GetTitle returns TeamMetricsProjectFields.Title, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetTitle() *string { return v.Title }
+
+// TeamMetricsResponse is returned by TeamMetrics on success.
+type TeamMetricsResponse struct {
+	// #4447 (hrn:node:hadronmemory.com:specs:cor:agt:150): server-computed counts of a team's task and worker flow, each with its ids. Reports 1-3 are snapshots; report 4 reads [since, until), defaulting to the last 7 days (an omitted until is now, an omitted since is until minus 7 days); a window over 31 days, or since after until, is BAD_USER_INPUT, judged before any read. Readers: the roster's audience; task-derived reports follow the App's task readers (hrn:node:hadronmemory.com:specs:cor:agt:050:21), and an unreadable App answers as a missing one.
+	TeamMetrics *TeamMetricsTeamMetrics `json:"teamMetrics"`
+}
+
+// GetTeamMetrics returns TeamMetricsResponse.TeamMetrics, and is useful for accessing the field via an interface.
+func (v *TeamMetricsResponse) GetTeamMetrics() *TeamMetricsTeamMetrics { return v.TeamMetrics }
+
+// TeamMetricsTeamMetrics includes the requested fields of the GraphQL type TeamMetrics.
+// The GraphQL type's documentation follows.
+//
+// #4447: a team's computed task and worker flow (hrn:node:hadronmemory.com:specs:cor:agt:150). startedOwned, projects and flow derive from
+// tasks and are null for a reader who may see the roster but not the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21); workers
+// follows the roster audience.
+type TeamMetricsTeamMetrics struct {
+	AppId string `json:"appId"`
+	// The instant the snapshot reports were read at.
+	AsOf         string                              `json:"asOf"`
+	Window       *TeamMetricsTeamMetricsWindow       `json:"window"`
+	StartedOwned *TeamMetricsTeamMetricsStartedOwned `json:"startedOwned"`
+	Projects     *TeamMetricsTeamMetricsProjects     `json:"projects"`
+	Workers      *TeamMetricsTeamMetricsWorkers      `json:"workers"`
+	Flow         *TeamMetricsTeamMetricsFlow         `json:"flow"`
+}
+
+// GetAppId returns TeamMetricsTeamMetrics.AppId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetAppId() string { return v.AppId }
+
+// GetAsOf returns TeamMetricsTeamMetrics.AsOf, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetAsOf() string { return v.AsOf }
+
+// GetWindow returns TeamMetricsTeamMetrics.Window, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetWindow() *TeamMetricsTeamMetricsWindow { return v.Window }
+
+// GetStartedOwned returns TeamMetricsTeamMetrics.StartedOwned, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetStartedOwned() *TeamMetricsTeamMetricsStartedOwned {
+	return v.StartedOwned
+}
+
+// GetProjects returns TeamMetricsTeamMetrics.Projects, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetProjects() *TeamMetricsTeamMetricsProjects { return v.Projects }
+
+// GetWorkers returns TeamMetricsTeamMetrics.Workers, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetWorkers() *TeamMetricsTeamMetricsWorkers { return v.Workers }
+
+// GetFlow returns TeamMetricsTeamMetrics.Flow, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetFlow() *TeamMetricsTeamMetricsFlow { return v.Flow }
+
+// TeamMetricsTeamMetricsFlow includes the requested fields of the GraphQL type TeamMetricsFlow.
+// The GraphQL type's documentation follows.
+//
+// Report 4: tasks completed (status FINISHED, by finishedAt) and tasks started (by startedAt) in [since, until). A cancelled task is never completed.
+type TeamMetricsTeamMetricsFlow struct {
+	Completed *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount `json:"completed"`
+	Started   *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount   `json:"started"`
+}
+
+// GetCompleted returns TeamMetricsTeamMetricsFlow.Completed, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlow) GetCompleted() *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount {
+	return v.Completed
+}
+
+// GetStarted returns TeamMetricsTeamMetricsFlow.Started, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlow) GetStarted() *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount {
+	return v.Started
+}
+
+// TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsFlowStartedTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsFlowStartedTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsFlowStartedTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsProjects includes the requested fields of the GraphQL type TeamMetricsProjects.
+// The GraphQL type's documentation follows.
+//
+// Report 2: started projects (a top-level task other than AT0, status STARTED) with child counts by status; at most 200 projects, truncated says when there were more. A snapshot at read time.
+type TeamMetricsTeamMetricsProjects struct {
+	Items     []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow `json:"items"`
+	Truncated bool                                                        `json:"truncated"`
+}
+
+// GetItems returns TeamMetricsTeamMetricsProjects.Items, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjects) GetItems() []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow {
+	return v.Items
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsProjects.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjects) GetTruncated() bool { return v.Truncated }
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow includes the requested fields of the GraphQL type TeamMetricsProjectRow.
+// The GraphQL type's documentation follows.
+//
+// One started project with its direct children counted by every status.
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow struct {
+	Project  *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject        `json:"project"`
+	Children []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus `json:"children"`
+}
+
+// GetProject returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow.Project, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow) GetProject() *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject {
+	return v.Project
+}
+
+// GetChildren returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow.Children, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow) GetChildren() []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus {
+	return v.Children
+}
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus includes the requested fields of the GraphQL type TeamMetricsChildStatus.
+// The GraphQL type's documentation follows.
+//
+// One project's direct child tasks of one status.
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus struct {
+	Status AgentTaskStatus                                                                                              `json:"status"`
+	Tasks  *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount `json:"tasks"`
+}
+
+// GetStatus returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus.Status, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus) GetStatus() AgentTaskStatus {
+	return v.Status
+}
+
+// GetTasks returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus.Tasks, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus) GetTasks() *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount {
+	return v.Tasks
+}
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject includes the requested fields of the GraphQL type TeamMetricsProject.
+// The GraphQL type's documentation follows.
+//
+// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject struct {
+	TeamMetricsProjectFields `json:"-"`
+}
+
+// GetHandle returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.Handle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetHandle() string {
+	return v.TeamMetricsProjectFields.Handle
+}
+
+// GetNoProject returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.NoProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetNoProject() bool {
+	return v.TeamMetricsProjectFields.NoProject
+}
+
+// GetTaskId returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetTaskId() *string {
+	return v.TeamMetricsProjectFields.TaskId
+}
+
+// GetTitle returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.Title, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetTitle() *string {
+	return v.TeamMetricsProjectFields.Title
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsProjectFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject struct {
+	Handle string `json:"handle"`
+
+	NoProject bool `json:"noProject"`
+
+	TaskId *string `json:"taskId"`
+
+	Title *string `json:"title"`
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject, error) {
+	var retval __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject
+
+	retval.Handle = v.TeamMetricsProjectFields.Handle
+	retval.NoProject = v.TeamMetricsProjectFields.NoProject
+	retval.TaskId = v.TeamMetricsProjectFields.TaskId
+	retval.Title = v.TeamMetricsProjectFields.Title
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwned includes the requested fields of the GraphQL type TeamMetricsStartedOwned.
+// The GraphQL type's documentation follows.
+//
+// Report 1: STARTED owned tasks (hrn:node:hadronmemory.com:specs:cor:agt:150:01): a task names an issue reference or source, so a STARTED task that
+// tracks no external work is not counted. A snapshot at read time.
+type TeamMetricsTeamMetricsStartedOwned struct {
+	All *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount `json:"all"`
+	// At most 200 owners; ownersTruncated says when there were more.
+	ByOwner         []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup `json:"byOwner"`
+	OwnersTruncated bool                                                              `json:"ownersTruncated"`
+}
+
+// GetAll returns TeamMetricsTeamMetricsStartedOwned.All, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwned) GetAll() *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount {
+	return v.All
+}
+
+// GetByOwner returns TeamMetricsTeamMetricsStartedOwned.ByOwner, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwned) GetByOwner() []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup {
+	return v.ByOwner
+}
+
+// GetOwnersTruncated returns TeamMetricsTeamMetricsStartedOwned.OwnersTruncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwned) GetOwnersTruncated() bool { return v.OwnersTruncated }
+
+// TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup includes the requested fields of the GraphQL type TeamMetricsOwnerGroup.
+// The GraphQL type's documentation follows.
+//
+// One task owner's started owned tasks (hrn:node:hadronmemory.com:specs:cor:agt:150:01): grouped by the task's OWNER, never its assignee, with no role filter.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup struct {
+	// The owner as the sanitized task party projection, never the Worker or User object.
+	Owner *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty   `json:"owner"`
+	Tasks *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount `json:"tasks"`
+	// The owner's tasks by project, the No project bucket (AT0) included, at most 200 projects.
+	ByProject         []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup `json:"byProject"`
+	ProjectsTruncated bool                                                                                              `json:"projectsTruncated"`
+}
+
+// GetOwner returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.Owner, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetOwner() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty {
+	return v.Owner
+}
+
+// GetTasks returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.Tasks, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetTasks() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount {
+	return v.Tasks
+}
+
+// GetByProject returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.ByProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetByProject() []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup {
+	return v.ByProject
+}
+
+// GetProjectsTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.ProjectsTruncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetProjectsTruncated() bool {
+	return v.ProjectsTruncated
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup includes the requested fields of the GraphQL type TeamMetricsProjectGroup.
+// The GraphQL type's documentation follows.
+//
+// One project's started owned tasks under one owner.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup struct {
+	Project *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject `json:"project"`
+	Tasks   *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount     `json:"tasks"`
+}
+
+// GetProject returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup.Project, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup) GetProject() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject {
+	return v.Project
+}
+
+// GetTasks returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup.Tasks, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup) GetTasks() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount {
+	return v.Tasks
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject includes the requested fields of the GraphQL type TeamMetricsProject.
+// The GraphQL type's documentation follows.
+//
+// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject struct {
+	TeamMetricsProjectFields `json:"-"`
+}
+
+// GetHandle returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.Handle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetHandle() string {
+	return v.TeamMetricsProjectFields.Handle
+}
+
+// GetNoProject returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.NoProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetNoProject() bool {
+	return v.TeamMetricsProjectFields.NoProject
+}
+
+// GetTaskId returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetTaskId() *string {
+	return v.TeamMetricsProjectFields.TaskId
+}
+
+// GetTitle returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.Title, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetTitle() *string {
+	return v.TeamMetricsProjectFields.Title
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsProjectFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject struct {
+	Handle string `json:"handle"`
+
+	NoProject bool `json:"noProject"`
+
+	TaskId *string `json:"taskId"`
+
+	Title *string `json:"title"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject
+
+	retval.Handle = v.TeamMetricsProjectFields.Handle
+	retval.NoProject = v.TeamMetricsProjectFields.NoProject
+	retval.TaskId = v.TeamMetricsProjectFields.TaskId
+	retval.Title = v.TeamMetricsProjectFields.Title
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetKind returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWindow includes the requested fields of the GraphQL type TeamMetricsWindow.
+// The GraphQL type's documentation follows.
+//
+// The half-open window [since, until) report 4 was read over (hrn:node:hadronmemory.com:specs:cor:agt:150): since is included, until is not. The other reports ignore it.
+type TeamMetricsTeamMetricsWindow struct {
+	Since string `json:"since"`
+	Until string `json:"until"`
+}
+
+// GetSince returns TeamMetricsTeamMetricsWindow.Since, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWindow) GetSince() string { return v.Since }
+
+// GetUntil returns TeamMetricsTeamMetricsWindow.Until, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWindow) GetUntil() string { return v.Until }
+
+// TeamMetricsTeamMetricsWorkers includes the requested fields of the GraphQL type TeamMetricsWorkers.
+// The GraphQL type's documentation follows.
+//
+// Report 3: worker counts at read time over the App's workers that are not retired, with worker ids.
+// active is the assignee of a STARTED task (hrn:node:hadronmemory.com:specs:cor:agt:150:02); idle is Available with no pending or started task
+// assigned (:03); overdue is the assignee of a task with a not-started, no-progress or finish-by stall alarm in effect, so an
+// acknowledged alarm or an ended episode does not count (:04); inop is a worker whose roster state is unavailable (stalled
+// included), no model family, or not launchable (:05, its roster-state clause only: no terminal-report clause is read). A worker may be in several.
+type TeamMetricsTeamMetricsWorkers struct {
+	Active  *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount  `json:"active"`
+	Idle    *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount    `json:"idle"`
+	Overdue *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount `json:"overdue"`
+	Inop    *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount    `json:"inop"`
+}
+
+// GetActive returns TeamMetricsTeamMetricsWorkers.Active, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetActive() *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount {
+	return v.Active
+}
+
+// GetIdle returns TeamMetricsTeamMetricsWorkers.Idle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetIdle() *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount {
+	return v.Idle
+}
+
+// GetOverdue returns TeamMetricsTeamMetricsWorkers.Overdue, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetOverdue() *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount {
+	return v.Overdue
+}
+
+// GetInop returns TeamMetricsTeamMetricsWorkers.Inop, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetInop() *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount {
+	return v.Inop
+}
+
+// TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWorkersInopTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersInopTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersInopTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
 // TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage includes the requested fields of the GraphQL type RegisterRoleCandidatePage.
 // The GraphQL type's documentation follows.
 //
@@ -142078,6 +143319,22 @@ type __TeamMemoryAppInput struct {
 
 // GetRef returns __TeamMemoryAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamMemoryAppInput) GetRef() string { return v.Ref }
+
+// __TeamMetricsInput is used internally by genqlient
+type __TeamMetricsInput struct {
+	AppRef string  `json:"appRef"`
+	Since  *string `json:"since,omitempty"`
+	Until  *string `json:"until,omitempty"`
+}
+
+// GetAppRef returns __TeamMetricsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamMetricsInput) GetAppRef() string { return v.AppRef }
+
+// GetSince returns __TeamMetricsInput.Since, and is useful for accessing the field via an interface.
+func (v *__TeamMetricsInput) GetSince() *string { return v.Since }
+
+// GetUntil returns __TeamMetricsInput.Until, and is useful for accessing the field via an interface.
+func (v *__TeamMetricsInput) GetUntil() *string { return v.Until }
 
 // __TeamRegisterCandidatesInput is used internally by genqlient
 type __TeamRegisterCandidatesInput struct {
@@ -188091,6 +189348,125 @@ func TeamMemoryApp(
 	}
 
 	data_ = &TeamMemoryAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamMetrics.
+const TeamMetrics_Operation = `
+query TeamMetrics ($appRef: ID!, $since: DateTime, $until: DateTime) {
+	teamMetrics(appRef: $appRef, since: $since, until: $until) {
+		appId
+		asOf
+		window {
+			since
+			until
+		}
+		startedOwned {
+			all {
+				... TeamMetricsCountFields
+			}
+			byOwner {
+				owner {
+					id
+					kind
+					name
+					urn
+				}
+				tasks {
+					... TeamMetricsCountFields
+				}
+				byProject {
+					project {
+						... TeamMetricsProjectFields
+					}
+					tasks {
+						... TeamMetricsCountFields
+					}
+				}
+				projectsTruncated
+			}
+			ownersTruncated
+		}
+		projects {
+			items {
+				project {
+					... TeamMetricsProjectFields
+				}
+				children {
+					status
+					tasks {
+						... TeamMetricsCountFields
+					}
+				}
+			}
+			truncated
+		}
+		workers {
+			active {
+				... TeamMetricsCountFields
+			}
+			idle {
+				... TeamMetricsCountFields
+			}
+			overdue {
+				... TeamMetricsCountFields
+			}
+			inop {
+				... TeamMetricsCountFields
+			}
+		}
+		flow {
+			completed {
+				... TeamMetricsCountFields
+			}
+			started {
+				... TeamMetricsCountFields
+			}
+		}
+	}
+}
+fragment TeamMetricsCountFields on TeamMetricsCount {
+	total
+	ids
+	truncated
+}
+fragment TeamMetricsProjectFields on TeamMetricsProject {
+	handle
+	noProject
+	taskId
+	title
+}
+`
+
+// A team's computed task and worker flow (server teamMetrics, cli#1826): every count
+// is the server's, with the ids behind it. since and until carry omitempty so an
+// unset flag is OMITTED (the server's own 7-day default window), never sent as null.
+func TeamMetrics(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	since *string,
+	until *string,
+) (data_ *TeamMetricsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamMetrics",
+		Query:  TeamMetrics_Operation,
+		Variables: &__TeamMetricsInput{
+			AppRef: appRef,
+			Since:  since,
+			Until:  until,
+		},
+	}
+
+	data_ = &TeamMetricsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
