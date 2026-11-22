@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 239: 209 command, 6 gap, 24 excluded
+[Query] 241: 211 command, 6 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -250,6 +250,8 @@ teamSpecSchema  gap #811
 teamStopSignals  command team stop list
 teamUtilization  command team utilization
 teamWorkItems  command team session list
+telegramConnection  command telegram get
+telegramConnections  command telegram status
 ticker  command ticker get
 tickers  command ticker list
 tickersPage  command ticker list
@@ -268,7 +270,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 363: 340 command, 12 gap, 11 excluded
+[Mutation] 365: 342 command, 12 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -365,6 +367,7 @@ createSpecNode  command node create
 createTaskNode  command node create
 createTeamChatMessage  command team chat post
 createTeamRole  command team role create
+createTelegramConnection  command telegram connect
 createTicker  command ticker create
 createUserApiKey  command auth token create
 createUserInvitation  command org invite create
@@ -402,6 +405,7 @@ deleteScope  command scope rm
 deleteSecret  command secret rm
 deleteSlackConnection  command slack disconnect
 deleteTeamRole  command team role rm
+deleteTelegramConnection  command telegram disconnect
 deleteTicker  command ticker delete
 deleteUser  command user delete
 deleteUserApiKey  command auth token delete
