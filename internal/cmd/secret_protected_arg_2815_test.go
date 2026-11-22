@@ -385,6 +385,29 @@ func TestSecretUpdateHelpStatesTheNoOpConditionally_2815(t *testing.T) {
 	}
 }
 
+// TestAgenticUsageStatesProtectedOutcomes_2815 (BLIND P2 fold at e107e08b,
+// round 3): the agent-facing contract said every explicit --protected value
+// "stages like any protected change" — but three answers are not staging (the
+// no-op clear exit 0; the not-confirmed returns exit 7 on update and create),
+// and an agent branching on that sentence misreads them. The contract states
+// the outcomes; this pin keeps it from drifting back to the blanket claim.
+func TestAgenticUsageStatesProtectedOutcomes_2815(t *testing.T) {
+	contract := string(readContract(t))
+	for _, want := range []string{
+		"stages nothing and returns the secret",
+		"the creation was applied, not staged",
+		"the secret exists and may be unprotected",
+		"asks for a protection change in the same request",
+	} {
+		if !strings.Contains(contract, want) {
+			t.Errorf("agentic-usage must state the protected-flag outcomes, missing %q", want)
+		}
+	}
+	if strings.Contains(contract, "every explicit value stages like any protected change") {
+		t.Error("agentic-usage still claims every explicit --protected value stages")
+	}
+}
+
 // secretHelp2815 renders a command's --help with wrapped lines joined.
 func secretHelp2815(t *testing.T, args ...string) string {
 	t.Helper()
