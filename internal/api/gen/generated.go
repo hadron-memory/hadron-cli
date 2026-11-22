@@ -47532,6 +47532,84 @@ func (v *CreateTeamRoleResponse) GetCreateTeamRole() *CreateTeamRoleCreateTeamRo
 	return v.CreateTeamRole
 }
 
+// CreateTelegramConnectionCreateTelegramConnection includes the requested fields of the GraphQL type TelegramConnection.
+// The GraphQL type's documentation follows.
+//
+// One Telegram bot registered for a Hadron App (#597). APP-owned: one active
+// connection per App, so the bot a person messages names the App. The bot
+// token lives ENCRYPTED IN THE TOOL (hadrontool-telegram): it is a write-only
+// input on createTelegramConnection and no field here ever returns it.
+type CreateTelegramConnectionCreateTelegramConnection struct {
+	Id string `json:"id"`
+	// The App's owning organization.
+	OrganizationId string `json:"organizationId"`
+	AppId          string `json:"appId"`
+	// Telegram provider backing this connection ('telegram' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status      string `json:"status"`
+	DisplayName string `json:"displayName"`
+	// The bot's Telegram user id.
+	BotId string `json:"botId"`
+	// The bot's @username, without the at sign.
+	BotUsername string `json:"botUsername"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateTelegramConnectionCreateTelegramConnection.Id, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns CreateTelegramConnectionCreateTelegramConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetAppId returns CreateTelegramConnectionCreateTelegramConnection.AppId, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetAppId() string { return v.AppId }
+
+// GetProvider returns CreateTelegramConnectionCreateTelegramConnection.Provider, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetProvider() string { return v.Provider }
+
+// GetStatus returns CreateTelegramConnectionCreateTelegramConnection.Status, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetStatus() string { return v.Status }
+
+// GetDisplayName returns CreateTelegramConnectionCreateTelegramConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetDisplayName() string {
+	return v.DisplayName
+}
+
+// GetBotId returns CreateTelegramConnectionCreateTelegramConnection.BotId, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetBotId() string { return v.BotId }
+
+// GetBotUsername returns CreateTelegramConnectionCreateTelegramConnection.BotUsername, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetBotUsername() string {
+	return v.BotUsername
+}
+
+// GetCreatedAt returns CreateTelegramConnectionCreateTelegramConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns CreateTelegramConnectionCreateTelegramConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateTelegramConnectionResponse is returned by CreateTelegramConnection on success.
+type CreateTelegramConnectionResponse struct {
+	// Register a Telegram bot for an App (#597). appRef accepts ID or URN
+	// (hrn:node:hadronmemory.com:specs:cor:api:140); the organization is the App's own. The bot token is
+	// validated live by the tool and stored encrypted THERE: core keeps identity
+	// only, and no field ever returns the token. Requires ADMIN/OWNER of the
+	// App's organization; every caller who may not, and an App that does not
+	// exist or has no organization, get the same refusal. One active connection
+	// per App.
+	CreateTelegramConnection *CreateTelegramConnectionCreateTelegramConnection `json:"createTelegramConnection"`
+}
+
+// GetCreateTelegramConnection returns CreateTelegramConnectionResponse.CreateTelegramConnection, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionResponse) GetCreateTelegramConnection() *CreateTelegramConnectionCreateTelegramConnection {
+	return v.CreateTelegramConnection
+}
+
 // CreateTickerCreateTicker includes the requested fields of the GraphQL type Ticker.
 // The GraphQL type's documentation follows.
 //
@@ -48956,6 +49034,17 @@ type DeleteTeamRoleResponse struct {
 // GetDeleteTeamRole returns DeleteTeamRoleResponse.DeleteTeamRole, and is useful for accessing the field via an interface.
 func (v *DeleteTeamRoleResponse) GetDeleteTeamRole() *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload {
 	return v.DeleteTeamRole
+}
+
+// DeleteTelegramConnectionResponse is returned by DeleteTelegramConnection on success.
+type DeleteTelegramConnectionResponse struct {
+	// Soft-delete a Telegram connection (org ADMIN/OWNER); tears down the tool side best-effort.
+	DeleteTelegramConnection bool `json:"deleteTelegramConnection"`
+}
+
+// GetDeleteTelegramConnection returns DeleteTelegramConnectionResponse.DeleteTelegramConnection, and is useful for accessing the field via an interface.
+func (v *DeleteTelegramConnectionResponse) GetDeleteTelegramConnection() bool {
+	return v.DeleteTelegramConnection
 }
 
 // DeleteTickerInstructedResponse is returned by DeleteTickerInstructed on success.
@@ -116532,6 +116621,183 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 	return &retval, nil
 }
 
+// TelegramConnectionResponse is returned by TelegramConnection on success.
+type TelegramConnectionResponse struct {
+	// Fetch one Telegram connection by id (#597). Returns null when the row does
+	// not exist OR the caller is not a live member of its org (a revoked member
+	// included): no existence disclosure.
+	TelegramConnection *TelegramConnectionTelegramConnection `json:"telegramConnection"`
+}
+
+// GetTelegramConnection returns TelegramConnectionResponse.TelegramConnection, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionResponse) GetTelegramConnection() *TelegramConnectionTelegramConnection {
+	return v.TelegramConnection
+}
+
+// TelegramConnectionTelegramConnection includes the requested fields of the GraphQL type TelegramConnection.
+// The GraphQL type's documentation follows.
+//
+// One Telegram bot registered for a Hadron App (#597). APP-owned: one active
+// connection per App, so the bot a person messages names the App. The bot
+// token lives ENCRYPTED IN THE TOOL (hadrontool-telegram): it is a write-only
+// input on createTelegramConnection and no field here ever returns it.
+type TelegramConnectionTelegramConnection struct {
+	Id string `json:"id"`
+	// The App's owning organization.
+	OrganizationId string `json:"organizationId"`
+	AppId          string `json:"appId"`
+	// Telegram provider backing this connection ('telegram' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status      string `json:"status"`
+	DisplayName string `json:"displayName"`
+	// The bot's Telegram user id.
+	BotId string `json:"botId"`
+	// The bot's @username, without the at sign.
+	BotUsername string `json:"botUsername"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns TelegramConnectionTelegramConnection.Id, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns TelegramConnectionTelegramConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetOrganizationId() string { return v.OrganizationId }
+
+// GetAppId returns TelegramConnectionTelegramConnection.AppId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetAppId() string { return v.AppId }
+
+// GetProvider returns TelegramConnectionTelegramConnection.Provider, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetProvider() string { return v.Provider }
+
+// GetStatus returns TelegramConnectionTelegramConnection.Status, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetStatus() string { return v.Status }
+
+// GetDisplayName returns TelegramConnectionTelegramConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetDisplayName() string { return v.DisplayName }
+
+// GetBotId returns TelegramConnectionTelegramConnection.BotId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetBotId() string { return v.BotId }
+
+// GetBotUsername returns TelegramConnectionTelegramConnection.BotUsername, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetBotUsername() string { return v.BotUsername }
+
+// GetCreatedAt returns TelegramConnectionTelegramConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns TelegramConnectionTelegramConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetUpdatedAt() string { return v.UpdatedAt }
+
+// TelegramConnectionsResponse is returned by TelegramConnections on success.
+type TelegramConnectionsResponse struct {
+	// Uniform paginated Telegram-connection list (hrn:node:hadronmemory.com:specs:cor:api:120). Default scope:
+	// the caller's member orgs. orgId follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
+	// org, non-member -> empty page, no disclosure, no admin bypass).
+	// Bot-username-ascending order (id tiebreak); limit default 20 / cap 200;
+	// limit: 0 -> count only.
+	TelegramConnections *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage `json:"telegramConnections"`
+}
+
+// GetTelegramConnections returns TelegramConnectionsResponse.TelegramConnections, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsResponse) GetTelegramConnections() *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage {
+	return v.TelegramConnections
+}
+
+// TelegramConnectionsTelegramConnectionsTelegramConnectionsPage includes the requested fields of the GraphQL type TelegramConnectionsPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform paginated list shape (hrn:node:hadronmemory.com:specs:cor:api:120).
+type TelegramConnectionsTelegramConnectionsTelegramConnectionsPage struct {
+	Total int                                                                                     `json:"total"`
+	Items []*TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection `json:"items"`
+}
+
+// GetTotal returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPage.Total, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetItems returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPage.Items, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage) GetItems() []*TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection {
+	return v.Items
+}
+
+// TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection includes the requested fields of the GraphQL type TelegramConnection.
+// The GraphQL type's documentation follows.
+//
+// One Telegram bot registered for a Hadron App (#597). APP-owned: one active
+// connection per App, so the bot a person messages names the App. The bot
+// token lives ENCRYPTED IN THE TOOL (hadrontool-telegram): it is a write-only
+// input on createTelegramConnection and no field here ever returns it.
+type TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection struct {
+	Id string `json:"id"`
+	// The App's owning organization.
+	OrganizationId string `json:"organizationId"`
+	AppId          string `json:"appId"`
+	// Telegram provider backing this connection ('telegram' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status      string `json:"status"`
+	DisplayName string `json:"displayName"`
+	// The bot's Telegram user id.
+	BotId string `json:"botId"`
+	// The bot's @username, without the at sign.
+	BotUsername string `json:"botUsername"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.Id, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetId() string {
+	return v.Id
+}
+
+// GetOrganizationId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetAppId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.AppId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetAppId() string {
+	return v.AppId
+}
+
+// GetProvider returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.Provider, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetStatus returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.Status, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetStatus() string {
+	return v.Status
+}
+
+// GetDisplayName returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetDisplayName() string {
+	return v.DisplayName
+}
+
+// GetBotId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.BotId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetBotId() string {
+	return v.BotId
+}
+
+// GetBotUsername returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.BotUsername, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetBotUsername() string {
+	return v.BotUsername
+}
+
+// GetCreatedAt returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
 // TestAiServiceConfigResponse is returned by TestAiServiceConfig on success.
 type TestAiServiceConfigResponse struct {
 	// #1378: test a SAVED config by id with one small real call, through the same
@@ -136576,6 +136842,18 @@ func (v *__CreateTeamRoleInput) GetRole() string { return v.Role }
 // GetDescription returns __CreateTeamRoleInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateTeamRoleInput) GetDescription() *string { return v.Description }
 
+// __CreateTelegramConnectionInput is used internally by genqlient
+type __CreateTelegramConnectionInput struct {
+	AppRef   string `json:"appRef"`
+	BotToken string `json:"botToken"`
+}
+
+// GetAppRef returns __CreateTelegramConnectionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateTelegramConnectionInput) GetAppRef() string { return v.AppRef }
+
+// GetBotToken returns __CreateTelegramConnectionInput.BotToken, and is useful for accessing the field via an interface.
+func (v *__CreateTelegramConnectionInput) GetBotToken() string { return v.BotToken }
+
 // __CreateTickerInput is used internally by genqlient
 type __CreateTickerInput struct {
 	AppRef string       `json:"appRef"`
@@ -136985,6 +137263,14 @@ func (v *__DeleteTeamRoleInput) GetTeamAgentRef() *string { return v.TeamAgentRe
 
 // GetRole returns __DeleteTeamRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__DeleteTeamRoleInput) GetRole() string { return v.Role }
+
+// __DeleteTelegramConnectionInput is used internally by genqlient
+type __DeleteTelegramConnectionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteTelegramConnectionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteTelegramConnectionInput) GetRef() string { return v.Ref }
 
 // __DeleteTickerInput is used internally by genqlient
 type __DeleteTickerInput struct {
@@ -143555,6 +143841,30 @@ func (v *__TeamWorkItemsLegacyInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamWorkItemsLegacyInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamWorkItemsLegacyInput) GetOffset() *int { return v.Offset }
+
+// __TelegramConnectionInput is used internally by genqlient
+type __TelegramConnectionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __TelegramConnectionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionInput) GetRef() string { return v.Ref }
+
+// __TelegramConnectionsInput is used internally by genqlient
+type __TelegramConnectionsInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __TelegramConnectionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionsInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __TelegramConnectionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TelegramConnectionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionsInput) GetOffset() *int { return v.Offset }
 
 // __TestAiServiceConfigInput is used internally by genqlient
 type __TestAiServiceConfigInput struct {
@@ -163579,6 +163889,53 @@ func CreateTeamRole(
 	return data_, err_
 }
 
+// The mutation executed by CreateTelegramConnection.
+const CreateTelegramConnection_Operation = `
+mutation CreateTelegramConnection ($appRef: ID!, $botToken: String!) {
+	createTelegramConnection(appRef: $appRef, botToken: $botToken) {
+		id
+		organizationId
+		appId
+		provider
+		status
+		displayName
+		botId
+		botUsername
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// cli#2952 connect/disconnect. The bot token is a write-only input: the server's
+// TelegramConnection type has no token field, and lastError is never requested.
+func CreateTelegramConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	botToken string,
+) (data_ *CreateTelegramConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateTelegramConnection",
+		Query:  CreateTelegramConnection_Operation,
+		Variables: &__CreateTelegramConnectionInput{
+			AppRef:   appRef,
+			BotToken: botToken,
+		},
+	}
+
+	data_ = &CreateTelegramConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateTicker.
 const CreateTicker_Operation = `
 mutation CreateTicker ($appRef: String!, $input: TickerInput!) {
@@ -165004,6 +165361,38 @@ func DeleteTeamRole(
 	}
 
 	data_ = &DeleteTeamRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteTelegramConnection.
+const DeleteTelegramConnection_Operation = `
+mutation DeleteTelegramConnection ($ref: ID!) {
+	deleteTelegramConnection(ref: $ref)
+}
+`
+
+func DeleteTelegramConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteTelegramConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteTelegramConnection",
+		Query:  DeleteTelegramConnection_Operation,
+		Variables: &__DeleteTelegramConnectionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteTelegramConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -190640,6 +191029,101 @@ func TeamWorkItemsLegacy(
 	}
 
 	data_ = &TeamWorkItemsLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TelegramConnection.
+const TelegramConnection_Operation = `
+query TelegramConnection ($ref: ID!) {
+	telegramConnection(ref: $ref) {
+		id
+		organizationId
+		appId
+		provider
+		status
+		displayName
+		botId
+		botUsername
+		createdAt
+		updatedAt
+	}
+}
+`
+
+func TelegramConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *TelegramConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TelegramConnection",
+		Query:  TelegramConnection_Operation,
+		Variables: &__TelegramConnectionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &TelegramConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TelegramConnections.
+const TelegramConnections_Operation = `
+query TelegramConnections ($orgId: ID, $limit: Int, $offset: Int) {
+	telegramConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			organizationId
+			appId
+			provider
+			status
+			displayName
+			botId
+			botUsername
+			createdAt
+			updatedAt
+		}
+	}
+}
+`
+
+// Read-only Telegram connection metadata (cli#2952, over hadron-server#4824).
+// Never request lastError; no field ever returns the bot token.
+func TelegramConnections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *TelegramConnectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TelegramConnections",
+		Query:  TelegramConnections_Operation,
+		Variables: &__TelegramConnectionsInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &TelegramConnectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

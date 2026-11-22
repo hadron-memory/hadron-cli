@@ -27,22 +27,22 @@ func newCmdInit(f *cmdutil.Factory) *cobra.Command {
 Idempotent and convergent: the server (re)sets each collection it owns to its
 canonical definition; every other collection in the schema is preserved.
 
-The definitions are the SERVER's (hadron-server#958) — this command asks it to
+The definitions are the SERVER's — this command asks it to
 converge them, so a memory declared by an older CLI is repaired rather than
 left on whatever that version happened to ship.
 
 The team App resolves like the rest of the group: --app, the configured App
-context, or the worktree binding (#400) — the server locates the App's ONE
+context, or the worktree binding — the server locates the App's ONE
 team shared memory itself (the worklog's home), so no memory needs naming.
 -m stays as an explicit override; it must name an ` + "`app`" + `-class memory (an
 Agent's system memory in particular is read-only from every App that runs
-it — cor:dmo:050:03 — so a collection declared there could never be written
-through the App, #384), and if it names some other app-class memory the
+it, so a collection declared there could never be written through the
+App), and if it names some other app-class memory the
 declaration still lands on the team memory, reported honestly.
 
-The team group chat needs no init: it is a platform operation
-(hadron-server#939) that the server bootstraps in the team App's shared
-memory on the first ` + "`team chat post`" + `.
+The team group chat needs no init: it is a platform operation that the
+server bootstraps in the team App's shared memory on the first
+` + "`team chat post`" + `.
 
 Messages are deliberately NOT a property-schema collection: the group chat
 speaks the canonical chat-NODE shape (body in content, envelope in data,
