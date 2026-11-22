@@ -484,12 +484,12 @@ server with that fix.
 Capabilities are an explicit full declaration on every registration refresh:
 Omitted or [] means none. On Linux, capabilities: [worker.reset-context]
 wires the reset protocol and requires an absolute reset_context.orca_bin
-(reserved for the C3 reader). This driver cannot yet bind an Orca terminal
+(reserved for a later reader). This driver cannot yet bind an Orca terminal
 and its controlling tty to the process it launched. It therefore remains
 built and off: even a matching binding/process refuses NOT_IDLE:
 TARGET_UNBOUND, before a new claim or stop. An idle-looking screen at the
-same worktree proves nothing about that process. The Orca launch work owns
-the terminal-aware success path; enabling a config cannot bypass this refusal.
+same worktree proves nothing about that process. No terminal-aware success path is built;
+enabling a config cannot bypass this refusal.
 Existing Git/identity refusals and no-signal recovery of recorded resets stay.
 Leave the capability unset until that path is built and separately authorized.
 Installing this CLI grants no live-host activation. Unknown declarations
@@ -503,7 +503,7 @@ The configuration (YAML):
   key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
-  # Reserved C3 reset configuration; this build stays fail-closed, no activation:
+  # Reserved reset configuration; this build stays fail-closed, no activation:
   # capabilities: [worker.reset-context]
   # reset_context:
   #   orca_bin: /absolute/path/to/orca
@@ -606,7 +606,6 @@ A single message longer than 131,071 bytes of UTF-8 cannot be typed (orca
 terminal send carries text as one argument). It fails as too-long-to-type,
 is never truncated or acknowledged, and stays due. The server delivers the
 oldest message first, so it BLOCKS all later chat delivery to that worker.
-Delivery for real workers stays off for that reason.
 
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
