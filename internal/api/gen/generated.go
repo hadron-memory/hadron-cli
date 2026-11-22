@@ -64942,16 +64942,16 @@ func (v *IssueHostOperationResponse) GetIssueHostOperation() *IssueHostOperation
 type IssueSecretReadClientInput struct {
 	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refusals, in the order they are judged: holderKind APP in REVEAL mode (GRANT_HOLDER_NOT_ALLOWED); an unreadable startsAt or expiresAt (BAD_USER_INPUT); a marked request without a window or a read budget (SECRET_AUTO_DELETE_NEEDS_LIMIT); a caller who is neither an App manager nor the writer of the secret's current version (SECRET_AUTO_DELETE_NOT_ALLOWED, where an unmarked request would get FORBIDDEN or SECRET_READ_CLIENT_SUPERSEDED).
 	AutoDelete    bool    `json:"autoDelete"`
-	BindingHeader *string `json:"bindingHeader"`
+	BindingHeader *string `json:"bindingHeader,omitempty"`
 	// USE requires a signed HTTPS origin and path prefix and an auth header name.
-	BindingPrefix *string `json:"bindingPrefix"`
+	BindingPrefix *string `json:"bindingPrefix,omitempty"`
 	ExpiresAt     *string `json:"expiresAt,omitempty"`
 	// REVEAL: WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused for REVEAL (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path. USE: an AGENT installed in the App, or the App itself (a person or a worker is refused).
 	HolderKind GrantHolderKind `json:"holderKind"`
 	HolderRef  *string         `json:"holderRef,omitempty"`
 	MaxReads   *int            `json:"maxReads,omitempty"`
 	// REVEAL by default; USE creates an injection-only client, used by reference from the holder's runs.
-	Mode   *SecretReadClientMode `json:"mode"`
+	Mode   *SecretReadClientMode `json:"mode,omitempty"`
 	Reason string                `json:"reason"`
 	// The App secret, by id or URN.
 	SecretRef string  `json:"secretRef"`
@@ -172491,6 +172491,8 @@ mutation IssueSecretReadClient ($input: IssueSecretReadClientInput!) {
 // cli#2631 slice 1: issue a read client for an App secret, and list the read
 // clients the caller issued or holds. Optional input fields are omitted when unset:
 // omitted keeps the server default, an explicit null would be read as a value.
+// The USE-mode arguments the server added (the CLI issues REVEAL clients only, gap #3014): omitted, never
+// sent as null, so the request without them is byte-identical to before the schema refresh (cli#3006).
 func IssueSecretReadClient(
 	ctx_ context.Context,
 	client_ graphql.Client,
