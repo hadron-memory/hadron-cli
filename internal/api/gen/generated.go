@@ -78984,6 +78984,82 @@ func (v *PRVerdictResponse) GetRecordReviewVerdict() *PRVerdictRecordReviewVerdi
 	return v.RecordReviewVerdict
 }
 
+// PRWithdrawResponse is returned by PRWithdraw on success.
+type PRWithdrawResponse struct {
+	// #4441 — withdraw a FINISHED review seat's negative verdict (CHANGES_REQUESTED, FAIL or REFUSED) at the head it was recorded at, on evidence (Holger's ruling, the withdraw verb). Who: the actor who recorded that verdict, or the coordinator: a worker whose current role is coordinator in the App, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; a worker whose holder manages it, with an instruction). Records one review.verdict.withdrawn event on the seat task naming the verdict event; the verdict event and the finished task are unchanged. A withdrawn negative no longer blocks the head: the head may be frozen again, a schedule may drop its slot, and a superseding seat may bind to its slot at the same head. It never counts as a positive verdict: the slot counts only through a superseding seat's APPROVE, PASS or CARRY. Refusals: TASK_NOT_FOUND (a caller who may not read the App's tasks), REVIEW_SEAT_UNASSIGNED, TASK_INVALID_TRANSITION (the seat is not FINISHED; a STARTED seat's holder re-rates instead), REVIEW_HEAD_MISMATCH, REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN, REVIEW_WITHDRAW_FORBIDDEN, BAD_USER_INPUT; each writes nothing.
+	WithdrawReviewVerdict *PRWithdrawWithdrawReviewVerdictPrProtocolResult `json:"withdrawReviewVerdict"`
+}
+
+// GetWithdrawReviewVerdict returns PRWithdrawResponse.WithdrawReviewVerdict, and is useful for accessing the field via an interface.
+func (v *PRWithdrawResponse) GetWithdrawReviewVerdict() *PRWithdrawWithdrawReviewVerdictPrProtocolResult {
+	return v.WithdrawReviewVerdict
+}
+
+// PRWithdrawWithdrawReviewVerdictPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRWithdrawWithdrawReviewVerdictPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRWithdrawWithdrawReviewVerdictPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRWithdrawWithdrawReviewVerdictPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRWithdrawWithdrawReviewVerdictPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRWithdrawWithdrawReviewVerdictPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRWithdrawWithdrawReviewVerdictPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) __premarshalJSON() (*__premarshalPRWithdrawWithdrawReviewVerdictPrProtocolResult, error) {
+	var retval __premarshalPRWithdrawWithdrawReviewVerdictPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
 // PasskeyRevokeUrlResponse is returned by PasskeyRevokeUrl on success.
 type PasskeyRevokeUrlResponse struct {
 	// Identity of the hadron-server this GraphQL endpoint is bound to: the
@@ -140162,6 +140238,22 @@ func (v *__PRVerdictInput) GetNode() *string { return v.Node }
 // GetReceipt returns __PRVerdictInput.Receipt, and is useful for accessing the field via an interface.
 func (v *__PRVerdictInput) GetReceipt() *string { return v.Receipt }
 
+// __PRWithdrawInput is used internally by genqlient
+type __PRWithdrawInput struct {
+	TaskRef string  `json:"taskRef"`
+	Head    string  `json:"head"`
+	Receipt *string `json:"receipt,omitempty"`
+}
+
+// GetTaskRef returns __PRWithdrawInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRWithdrawInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInput) GetHead() string { return v.Head }
+
+// GetReceipt returns __PRWithdrawInput.Receipt, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInput) GetReceipt() *string { return v.Receipt }
+
 // __PlanNodeMoveInput is used internally by genqlient
 type __PlanNodeMoveInput struct {
 	SourceRef       string  `json:"sourceRef"`
@@ -177267,6 +177359,60 @@ func PRVerdict(
 	}
 
 	data_ = &PRVerdictResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRWithdraw.
+const PRWithdraw_Operation = `
+mutation PRWithdraw ($taskRef: ID!, $head: String!, $receipt: String) {
+	withdrawReviewVerdict(taskRef: $taskRef, head: $head, receipt: $receipt) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+// cli#3006 (hadron-server#4869, #4441): withdraw a finished seat's negative verdict at the same head. $receipt
+// is omitted when unset; this command never sends an instruction (the gate's ruling): the manager arm for a
+// worker session is a follow-up.
+func PRWithdraw(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+	receipt *string,
+) (data_ *PRWithdrawResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRWithdraw",
+		Query:  PRWithdraw_Operation,
+		Variables: &__PRWithdrawInput{
+			TaskRef: taskRef,
+			Head:    head,
+			Receipt: receipt,
+		},
+	}
+
+	data_ = &PRWithdrawResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
