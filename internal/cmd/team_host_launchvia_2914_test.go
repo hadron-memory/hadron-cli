@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -44,27 +45,46 @@ func TestTeamHostRunRefusesTheRemovedExecLaunch2914(t *testing.T) {
 	}
 }
 
-// The host run help and the agent contract no longer describe the removed exec path (BLIND F1 at 76068636:
-// the entry still said "default exec; TRANSITIONAL", the reload refusal for unwired Orca, and the launch
-// program trust check).
+// The host run and host sweep help and the agent contract no longer describe the removed exec path: the
+// host-run entry once still said "default exec; TRANSITIONAL", the reload refusal for unwired Orca, the
+// launch-program trust check and "typed Orca-launch hosts".
 func TestHostRunDocsDoNotDescribeTheRemovedExecPath2914(t *testing.T) {
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "host", "run", "--help"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	help := strings.Join(strings.Fields(out.String()), " ")
-	contract := strings.Join(strings.Fields(string(readContract(t))), " ")
-	for _, bad := range []string{
-		"default exec", "launch, end and recover programs", "A launch, end, recover or account",
-		"that wiring is made at start", "exec-launch hosts", "TRANSITIONAL until S1b/C4",
-	} {
-		if strings.Contains(help, bad) {
-			t.Errorf("host run --help still says %q", bad)
+	helpOf := func(args ...string) string {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(args, "--help"))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
 		}
-		if strings.Contains(contract, bad) {
-			t.Errorf("agentic-usage still says %q", bad)
+		return strings.Join(strings.Fields(out.String()), " ")
+	}
+	texts := map[string]string{
+		"host run --help":   helpOf("team", "host", "run"),
+		"host sweep --help": helpOf("team", "host", "sweep"),
+		"agentic-usage":     strings.Join(strings.Fields(string(readContract(t))), " "),
+	}
+	for _, bad := range []string{
+		"default exec", "launch, end and recover programs", "A launch, end, recover or account", "launch/end/recover programs",
+		"that wiring is made at start", "exec-launch hosts", "TRANSITIONAL until S1b/C4", "typed Orca-launch hosts", "On typed Orca-launch",
+	} {
+		for name, text := range texts {
+			if strings.Contains(text, bad) {
+				t.Errorf("%s still says %q", name, bad)
+			}
+		}
+	}
+}
+
+// The platform rule of the supervised launch: only Linux (pidfd pins the launched agent). A pure function so
+// every host OS is pinned (the wiring refuses at host run startup, before any poll).
+func TestOrcaLaunchNeedsLinux2914(t *testing.T) {
+	if err := team.OrcaLaunchPlatformError("linux"); err != nil {
+		t.Fatalf("linux launches: %v", err)
+	}
+	for _, goos := range []string{"darwin", "windows", "freebsd"} {
+		err := team.OrcaLaunchPlatformError(goos)
+		if exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "needs Linux") || !strings.Contains(err.Error(), "cannot run workers") {
+			t.Errorf("%s: want a usage refusal naming Linux and that the host cannot run workers, got %v", goos, err)
 		}
 	}
 }

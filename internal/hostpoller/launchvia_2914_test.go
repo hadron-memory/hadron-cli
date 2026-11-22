@@ -145,3 +145,17 @@ func TestImportLoaderStillReadsALegacyExecConfig2914(t *testing.T) {
 		t.Fatal("the import loader skips only the launch-path rules, not the rest")
 	}
 }
+
+// A family with no launch template (anything but claude, glm, kimi and codex) is refused AT LOAD, not at
+// every worker.start: validation builds the profile's launch argv.
+func TestAFamilyWithNoLaunchTemplateIsRefusedAtLoad2914(t *testing.T) {
+	c := orcaPrereqConfig2914("")
+	w := c.Workers["iris"]
+	w.Family = "private.a"
+	w.Profile = &LauncherProfile{Family: "private.a", Mode: ModeLong, Account: "a"}
+	c.Workers["iris"] = w
+	err := c.validate()
+	if err == nil || !strings.Contains(err.Error(), `no launch template for family "private.a"`) {
+		t.Fatalf("a family with no launch template must be refused at load naming it, got %v", err)
+	}
+}

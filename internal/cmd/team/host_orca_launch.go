@@ -19,12 +19,22 @@ const orcaLaunchCallTimeout = 60 * time.Second
 // asks for it. The per-launch environment and marker files live in a 0700
 // directory beside the poller's state on the home disk, never /tmp (RAM,
 // shared inode cap).
+// OrcaLaunchPlatformError is the supervised launch's platform rule: only Linux (pidfd pins the launched
+// agent), and every worker launches this way (cli#2914), so any other host cannot run workers. Exported so a
+// test can pin every host OS.
+func OrcaLaunchPlatformError(goos string) error {
+	if goos != "linux" {
+		return exitcode.Newf(exitcode.Usage, "every worker launches through Orca (launch_via: orca, the default), which needs Linux (the launched agent is pinned by pidfd); this host cannot run workers")
+	}
+	return nil
+}
+
 func wireOrcaLaunch(p *hostpoller.Poller, cfg *hostpoller.Config) error {
 	if !cfg.UsesOrcaLaunch() {
 		return nil
 	}
-	if runtime.GOOS != "linux" {
-		return exitcode.Newf(exitcode.Usage, "every worker launches through Orca (launch_via: orca, the default), which needs Linux (the launched agent is pinned by pidfd); this host cannot run workers")
+	if err := OrcaLaunchPlatformError(runtime.GOOS); err != nil {
+		return err
 	}
 	run := orcaterm.LaunchGuard(orcaterm.Exec(cfg.OrcaLaunch.OrcaBin, orcaLaunchCallTimeout))
 	l := hostpoller.OrcaLauncher{
