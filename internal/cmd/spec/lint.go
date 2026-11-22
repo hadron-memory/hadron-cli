@@ -151,7 +151,7 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix msg:010 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
-  hadron spec lint --product msg -m hrn:mem:micromentor.org:platform-specs
+  hadron spec lint --product cli -m hrn:mem:hadronmemory.com:platform-specs
   hadron spec lint --all -m hrn:mem:micromentor.org:platform-specs --strict`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
