@@ -66,11 +66,11 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   Groups resolve live at match time: editing a group can change matches without
   a task edit. They are matching inputs only, never authorization.
   All task-record reads and mutation receipts require a server released
-  after 2026-11-03, even without group flags (see team task --help). Comma-split items stay
-  verbatim for the server to trim and drop empties.
+  on or after 2026-11-03, even without group flags (see team task --help).
+  Comma-split items stay verbatim for the server to trim and drop empties.
   --min-tier low|mid|high sets a minimum: the lowest sufficient tier is preferred;
   an unknown tier is ineligible when a minimum is set. Requires a server
-  released after 2026-10-31.
+  released on or after 2026-10-31.
 - --start-by <RFC 3339 time> or --clear-start-by. --start-by re-anchors only the
   not-started clock: it moves the deadline that task list
   --overdue and the not-started alarm read. An alarm already raised stays raised.
@@ -82,7 +82,7 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   than startBy is refused by the server (BAD_USER_INPUT, exit 2); changing only
   startBy to later than finishBy is also refused. Equal times are allowed;
   a refused edit changes nothing. The server owns time validation and alarms.
-  All task-record reads require a server released after 2026-11-01.
+  All task-record reads require a server released on or after 2026-11-03.
 - --properties <json|@file>: the task's own JSON object (the team's schedule
   and review notes, for example), which the platform stores and never reads.
   It replaces the whole value, never merges: send every key you want to keep.
@@ -106,8 +106,8 @@ manages the App. An assignee alone may set, change or remove only the task's
 properties (--properties, --clear-properties) and references (--ref,
 --clear-refs), alone or together in one call; if the call names any other field,
 even beside those, the whole edit is refused (TASK_NOT_OWNER) and nothing
-changes. The assignee's reference edit needs a server released after
-2026-11-08; an older server refuses it with TASK_NOT_OWNER.
+changes. The assignee's reference edit needs a server released on or
+after 2026-11-08; an older server refuses it with TASK_NOT_OWNER.
 A finished or cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
 a stall alarm. Success prints the task as task get does; --json returns it.
 

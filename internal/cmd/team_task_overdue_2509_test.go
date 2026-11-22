@@ -42,7 +42,7 @@ func TestTaskListOverdueHelpNamesTheFinishByArm2509(t *testing.T) {
 		"server clock",
 		"never overdue",
 		"Blocking is ignored",
-		"needs a newer server",
+		"needs a server released on or after 2026-11-17",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("team task list --help must say %q", want)
@@ -89,7 +89,7 @@ func TestTaskCreateFinishByHelpMentionsOverdue2509(t *testing.T) {
 	para := strings.Join(strings.Fields(helpParagraph(t, help, "sets a deadline to finish")), " ")
 	for _, want := range []string{
 		"overdue",
-		"needs a newer server",
+		"needs a server released on or after 2026-11-17",
 	} {
 		if !strings.Contains(para, want) {
 			t.Errorf("the --finish-by help must say %q:\n%s", want, para)

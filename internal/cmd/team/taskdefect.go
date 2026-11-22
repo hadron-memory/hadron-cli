@@ -41,11 +41,11 @@ func newCmdTaskLinkDefect(f *cmdutil.Factory) *cobra.Command {
 		Use:   "link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>] [--instruction <kind>:<ref>]",
 		Short: "Link a defect found after merge to the PR build task it escaped from",
 		Long: `Record that a defect found after a pull request merged traces back to that PR
-(a server released after 2026-11-16). <pr-build-task> is the PR's build task: a task with
-a pull_request reference. --defect is the defect's issue URL, stored as given.
---introduced-at-head names the full 40-hex head, frozen on that PR, that
-introduced the defect; the review-quality report counts the defect against
-approving reviews at that head or a later one.
+(a server released on or after 2026-11-16). <pr-build-task> is the PR's build
+task: a task with a pull_request reference. --defect is the defect's issue
+URL, stored as given. --introduced-at-head names the full 40-hex head, frozen
+on that PR, that introduced the defect; the review-quality report counts the
+defect against approving reviews at that head or a later one.
 
 The link is one review.defect-linked event on the build task. It never changes
 a verdict, a seat, readiness or the task. Linking the same defect and task

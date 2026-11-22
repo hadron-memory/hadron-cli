@@ -30,9 +30,10 @@ func newCmdTeamTaskClone(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clone <task>",
 		Short: "Make a new task from an existing one",
-		Long: `Make a NEW task from an existing one, in its App and linked to it. A clone is a create: whoever may read the source
-and create a task there may clone it, in any status. The source is never changed and an ended
-task is never reopened.
+		Long: `Make a NEW task from an existing one, in its App and linked to it. A clone
+is a create: whoever may read the source and create a task there may clone it,
+in any status. The source is never changed and an ended task is never
+reopened.
 
 The server copies the title, description, source, tags, requirements,
 references, close-session choice, priority, properties and parent. It does not
@@ -41,8 +42,9 @@ external id. The clone is PENDING (or BACKLOG with --status backlog) and a
 queued one is matched like any other. Priority and properties are copied only
 for a caller who may set them, and are otherwise left out without a refusal.
 A --properties value from a caller who may not set properties is not a refusal
-either: the clone is made without properties and the value is not judged. A properties refusal (PROPERTIES_*) is only for a
-caller who may set them and names an invalid value.
+either: the clone is made without properties and the value is not judged. A
+properties refusal (PROPERTIES_*) is only for a caller who may set them and
+names an invalid value.
 ` + "`task get`" + ` on either task shows the link ("cloned from" / "replaces" and the
 clones).
 
@@ -85,9 +87,10 @@ TASK_OWNER_INVALID (exit 2); TASK_NOT_ASSIGNEE and a priority you may not set
 A transport failure after the request left can leave the outcome unknown: list
 the App's tasks before you clone again, since a clone is not deduplicated.
 
-Needs a newer server; an older one rejects the document as schema skew
-(exit 2). Success prints the new task's handle, id and status;
---json returns the task with its warnings list, as ` + "`task create`" + ` does.`,
+Needs a server released on or after 2026-11-02; an older one rejects the
+document as schema skew (exit 2). Success prints the new task's handle, id and
+status; --json returns the task with its warnings list, as
+` + "`task create`" + ` does.`,
 		Example: `  # a plain copy
   hadron team task clone AT0.12
 

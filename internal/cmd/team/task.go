@@ -42,9 +42,10 @@ owns the lifecycle, the matcher and every permission check; each lifecycle
 write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
-Server compatibility: task-record commands require a server released after
-2026-11-03 (it carries the matching metadata, the finish-by time and the model
-groups), even when neither flag is named and no matching flag is named. The shared projection selects matchFailure,
+Server compatibility: task-record commands require a server released on or
+after 2026-11-03 (it carries the matching metadata, the finish-by time and the
+model groups), even when neither flag is named and no matching flag is named.
+The shared projection selects matchFailure,
 requirements.roles/teamWorkerId, finishBy and modelGroupIn/modelGroupNotIn
 for every command returning a task record, including hand-back and
 find-untracked. An older server rejects those documents as schema skew,
@@ -247,8 +248,8 @@ Who goes on it:
   go unchanged to the server for validation. Groups resolve live at match time:
   editing a group can change matches without a task edit. They are matching
   inputs only, never authorization. All task-record reads and mutation receipts
-  require a server released after 2026-11-03, even with no group flag (see
-  team task --help).
+  require a server released on or after 2026-11-03, even with no group flag
+  (see team task --help).
   Comma splitting keeps each item verbatim; the server trims and drops empty items.
 - --status backlog parks it instead: no assignee (the server refuses both),
   never matched, no alarms, until ` + "`task assign`" + ` or ` + "`task ready`" + `
@@ -305,16 +306,18 @@ stall windows do not apply; stall.finish-by is the deadline alarm for an
 unfinished task (a backlog task raises none, a blocked task waits for
 release). Once the finish-by passes, ` + "`task list --overdue`" + ` also lists the
 task, pending or started, until it ends — the same filter, not an alarm (this
-arm needs a newer server; an older one filters by start-by only). The server
-refuses a past value or one earlier than start-by (BAD_USER_INPUT, exit 2);
-equal times are allowed. It owns the clock and all alarm behavior. With no
-flag the key is omitted. Change or clear it with task update.
+arm needs a server released on or after 2026-11-17; an older one filters by
+start-by only). The server refuses a past value or one earlier than start-by
+(BAD_USER_INPUT, exit 2); equal times are allowed. It owns the clock
+and all alarm behavior. With no flag the key is omitted. Change or
+clear it with task update.
 
---family, --model or --tier, and --effort set the task's run settings: what to launch, not whom to match (that is --family-in and
---min-tier). --model and --tier exclude each other. They apply only when the
-assigned worker's Agent is short-lived; a platform start of a long-lived worker
-uses the worker's own record and ignores them, so --family codex does not
-relaunch a long-lived Claude worker. They are set at creation and never edited,
+--family, --model or --tier, and --effort set the task's run settings: what to
+launch, not whom to match (that is --family-in and --min-tier). --model and
+--tier exclude each other. They apply only when the assigned worker's Agent is
+short-lived; a platform start of a long-lived worker uses the worker's own
+record and ignores them, so --family codex does not relaunch a long-lived
+Claude worker. They are set at creation and never edited,
 and a clone copies none. The CLI refuses a model with a tier and an effort of
 NOT_APPLICABLE (exit 2); anything depending on the task's requirements is the
 server's, shown as TASK_RUN_SETTINGS_INVALID (exit 2) with its reason.
@@ -361,10 +364,11 @@ PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties
 
 The server owns eligibility, authority and matching; the CLI never selects a
 worker. Every task command reads fields that older servers lack, whichever flags
-you pass: run settings (a server released after 2026-11-17), the finish-by
-time, the matching metadata, the minimum tier and the model-group records (a
-server released after 2026-11-03). A server that lacks any one of them refuses
-every task command, even a plain create; there is no fallback.
+you pass: run settings (a server released on or after 2026-11-17), the
+finish-by time, the matching metadata, the minimum tier and the model-group
+records (a server released on or after 2026-11-03). A server that lacks any
+one of them refuses every task command, even a plain create; there is no
+fallback.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
@@ -842,8 +846,9 @@ when the assignee is unavailable, busy or paused (task.assign.assignee-*).
 Success prints the task, its status, the assignee and the close-session
 choice; --json returns the task with a warnings list.
 
---close-session/--no-close-session replace the task's close-when-done choice; with neither, the task keeps its current value. Give at most
-one: both together is a usage error, and ` + "`--close-session=false`" + ` is
+--close-session/--no-close-session replace the task's close-when-done choice;
+with neither, the task keeps its current value. Give at most one: both
+together is a usage error, and ` + "`--close-session=false`" + ` is
 indistinguishable from absence here and also means "keep the current value".
 The flags ride on a real assignment, and reassigning a task to its current
 assignee is refused (TASK_INVALID_TRANSITION) with the choice unchanged. To
@@ -960,11 +965,11 @@ the task with a warnings list, and a server warning also prints on stderr.`,
 
 func newCmdTeamTaskProgress(f *cmdutil.Factory) *cobra.Command {
 	return newSimpleTaskMutation(f, "progress", "recordAgentTaskProgress", "Record progress on a started task",
-		`Record that you are still working on a STARTED task: its assignee only. It carries no text. It writes task.progress to the event
-stream and resets the no-progress stall alarm's clock, which
-fires when a STARTED task with no open child sees no activity from its
-assignee for the App's window (`+"`team stall-schedule get`"+`; alarms in
-`+"`team events --alarms`"+`).
+		`Record that you are still working on a STARTED task: its assignee only. It
+carries no text. It writes task.progress to the event stream and resets the
+no-progress stall alarm's clock, which fires when a STARTED task with no open
+child sees no activity from its assignee for the App's window
+(`+"`team stall-schedule get`"+`; alarms in `+"`team events --alarms`"+`).
 
 To leave a written account, put it in the result: `+"`task finish --summary`"+`
 and --evidence (a PR, an issue comment or a node URN). There is no free-text
@@ -1064,10 +1069,10 @@ Who may: `+taskAssignerDoc+`.`,
 func newCmdTeamTaskReady(f *cmdutil.Factory) *cobra.Command {
 	return newInstructableTaskMutation(f, "ready", "makeAgentTaskReady", "Make a backlog task ready to work",
 		`Make the backlog task ready: BACKLOG becomes PENDING with no assignee and the
-task enters the queue, where the platform's matcher picks a worker. To choose the worker yourself, `+"`task assign`"+` the
-BACKLOG task instead. Success prints the task, PENDING, and "queued" while
-no one has it; --json returns the task with a warnings list, and a server
-warning also prints on stderr.
+task enters the queue, where the platform's matcher picks a worker. To choose
+the worker yourself, `+"`task assign`"+` the BACKLOG task instead. Success prints
+the task, PENDING, and "queued" while no one has it; --json returns the task
+with a warnings list, and a server warning also prints on stderr.
 
 Who may: `+taskAssignerDoc+`.`,
 		"  hadron team task ready AT0.7",
@@ -1129,7 +1134,7 @@ exit 2 before any mutation and never echo input text.
 
 Omitting this flag keeps the ordinary finish request and output unchanged;
 explicit [] is a present empty list. Only opt-in findings finish and the new
-findings read need a server released after 2026-11-02.
+findings read need a server released on or after 2026-11-02.
 Opt-in finish sends one mutation and shows its first page (20) with total and
 hasMore; use team task findings for continuation, never task get or a finish
 retry. JSON keeps the task/warnings shape and adds result.findings as a page.
@@ -1224,7 +1229,7 @@ and in --json as result.workedFromRoleTaskRefs [{nodeId, urn, revision}].`,
 	cmd.Flags().StringVar(&outcome, "outcome", "", "one-word result, e.g. succeeded or failed (required)")
 	cmd.Flags().StringVar(&summary, "summary", "", "one-line result summary")
 	cmd.Flags().StringVar(&evidence, "evidence", "", "URL or node URN backing the result")
-	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (requires a server released after 2026-11-02)")
+	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (needs a server from 2026-11-02)")
 	cmd.Flags().StringArrayVar(&workedFrom, "worked-from", nil, "role task node id or URN you followed; repeat for each, at most 10 (live, runnable, readable, no repeats)")
 	return cmd
 }
@@ -1275,8 +1280,9 @@ func newCmdTeamTaskHandBack(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "hand-back <taskRef> --code <code> [--text <text>]",
 		Short: "Hand a started task back with a reason",
-		Long: `Hand a STARTED task back to the queue with a reason: its assignee only. The task returns to PENDING for the platform's matcher;
-nothing is finished and nothing is lost.
+		Long: `Hand a STARTED task back to the queue with a reason: its assignee only.
+The task returns to PENDING for the platform's matcher; nothing is finished
+and nothing is lost.
 
 --code is required, one of: ` + strings.Join(handBackCodes, ", ") + `
 (case-insensitive; the enum names such as MISSING_INPUT are accepted too).

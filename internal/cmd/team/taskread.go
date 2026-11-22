@@ -118,7 +118,8 @@ is the first page of the tasks made from this one (a clone you cannot read is
 left out), with total and hasMore; page it with --clones-limit/--clones-offset
 (default 20, cap 200). In --json, clonedFrom is an object or null and clones is
 {items, total, hasMore} with items [] when none. Reading the links needs a
-newer server; an older one rejects the document as schema skew (exit 2).
+server released on or after 2026-11-02; an older one rejects the document as
+schema skew (exit 2).
 
 The task is named by its id or handle (AT0.7, AT1.2); the server works out the
 App, and an ambiguous bare handle needs an id or a qualified handle such as
@@ -450,16 +451,18 @@ none of them the command is refused.
 --unresolved narrows to FINISHED tasks with at least one finding without a
 disposition; all four codes (including deferred) resolve a finding. False or
 omission does not narrow. The server filters under the App read gate before
-paging, ANDed with the other filters. Requires a server released after 2026-11-03; it cannot combine
-with --team, even when false. A separate operation keeps older plain/filtered
-list documents unchanged when this flag is omitted. No records is []/exit 0.
+paging, ANDed with the other filters. Requires a server released on or after
+2026-11-03; it cannot combine with --team, even when false. A separate
+operation keeps older plain/filtered list documents unchanged when this flag
+is omitted. No records is []/exit 0.
 
 --match-failed selects tasks marked by an unsuccessful create --match;
 --match-failed=false selects unmarked tasks. Omission keeps the old list.
 The server filters before paging under the App read gate. No results is []
 and exit 0. It cannot combine with the coordinator view --team (exit 2 before
 any read). Marked rows show the reason and time; JSON adds matchFailure only
-when present. Every task command requires a server released after 2026-11-03 for these fields.
+when present. Every task command requires a server released on or after
+2026-11-03 for these fields.
 
 Filters combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
@@ -492,7 +495,8 @@ task and a backlog task are never overdue, and neither is a task with
 neither time. Blocking is ignored and a person-assigned task counts like any
 other; --overdue=false lists all other tasks. This is a filter, not an alarm
 (the stall.finish-by deadline alarm is separate and unchanged). The
-finish-by arm needs a newer server; an older one filters by start-by only.
+finish-by arm needs a server released on or after 2026-11-17; an older one
+filters by start-by only.
 --created-/--started-/--finished-after and -before take RFC 3339 times
 with Z or an offset and are inclusive bounds; a task with no start or
 finish time never matches a range on it. A malformed time is a usage

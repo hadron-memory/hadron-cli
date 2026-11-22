@@ -599,33 +599,33 @@ section between the markers.
 | `team stop lift` |  |  | n | #1054 | 97ff7478a8a7 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team stop set` |  |  | y | #1054 | 6891c254fb39 |  | unread |  |
-| `team task` |  |  | n | #1054 | d4f503d3a83e |  | unread |  |
+| `team task` |  |  | n | #1054 | c6cef5294ad9 |  | unread |  |
 | `team task add-blocker` |  |  | y | #1054 | d43f6feaab7b |  | unread |  |
-| `team task assign` |  |  | y | #1054 | 873853099911 |  | unread |  |
+| `team task assign` |  |  | y | #1054 | acbb55f94245 |  | unread |  |
 | `team task cancel` |  |  | y | #1054 | b30c88965ba2 |  | unread |  |
-| `team task clone` |  |  | y | #1054 | 6e7128ed2474 |  | unread |  |
-| `team task create` |  |  | y | #1054 | 0a47cbae371d |  | unread |  |
+| `team task clone` |  |  | y | #1054 | 27a66bc7fe6b |  | unread |  |
+| `team task create` |  |  | y | #1054 | bbb1c5b4a598 |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | 754051154aa6 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task dispose-finding` |  |  | y | #1054 | a3080a7c8f49 |  | unread |  |
-| `team task find-untracked` |  |  | y | #1054 | df001c9284af |  | unread |  |
+| `team task find-untracked` |  |  | y | #1054 | 55a8dc8a2749 |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 4af1d580a868 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
-| `team task finish` |  |  | y | #1054 | cf9881643546 |  | unread |  |
-| `team task get` |  |  | y | #1054 | 74509601efcd |  | unread |  |
-| `team task hand-back` |  |  | y | #1054 | 7e7b7ae6b609 |  | unread |  |
-| `team task link-defect` |  |  | y | #1054 | ba03ab1fb02e |  | unread |  |
-| `team task list` | ls |  | y | #1054 | 73d9c3106651 |  | unread |  |
+| `team task finish` |  |  | y | #1054 | 0c4fd89648e3 |  | unread |  |
+| `team task get` |  |  | y | #1054 | 52375ce744ca |  | unread |  |
+| `team task hand-back` |  |  | y | #1054 | 24b187bfb974 |  | unread |  |
+| `team task link-defect` |  |  | y | #1054 | fa7eb7bd1ff0 |  | unread |  |
+| `team task list` | ls |  | y | #1054 | e873787ba623 |  | unread |  |
 | `team task mine` |  |  | y | #1054 | f5a772aab8df |  | unread |  |
 | `team task park` |  |  | y | #1054 | 69bde9911495 |  | unread |  |
-| `team task progress` |  |  | y | #1054 | 50a2109b7c41 |  | unread |  |
-| `team task ready` |  |  | y | #1054 | 2101862347af |  | unread |  |
-| `team task reassign` |  |  | y | #1054 | 25061a1f0470 |  | unread |  |
-| `team task release` |  |  | y | #1054 | cd09dbdc0e88 |  | unread |  |
+| `team task progress` |  |  | y | #1054 | 6253ca7ee818 |  | unread |  |
+| `team task ready` |  |  | y | #1054 | 5a823565d5dc |  | unread |  |
+| `team task reassign` |  |  | y | #1054 | 978133202340 |  | unread |  |
+| `team task release` |  |  | y | #1054 | 408c7d5e9f08 |  | unread |  |
 | `team task remove-blocker` |  |  | y | #1054 | 188794c81ab8 |  | unread |  |
 | `team task set-priority` |  |  | y | #1054 | 21630b0e560a |  | unread |  |
 | `team task start` |  |  | y | #1054 | fbda4606d956 |  | unread |  |
 | `team task tree` |  |  | y | #1054 | f71a42a9f8f4 |  | unread |  |
-| `team task update` |  |  | y | #1054 | 76b0be832c30 |  | unread |  |
+| `team task update` |  |  | y | #1054 | 5ee0a034d8d5 |  | unread |  |
 | `team ticker` |  |  | n | #1054 | 94b5026458fd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |

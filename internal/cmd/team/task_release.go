@@ -26,13 +26,13 @@ back. `+"`task cancel`"+` ends a task and keeps the item; release is the way to 
 the item to someone else. An id is never set again on the same task.
 
 Who may: whoever may cancel the task, in any status. The
-assignee alone may not; that is TASK_NOT_OWNER (exit 8). Who may release is
-proposed policy and the server enforces it.
+assignee alone may not; that is TASK_NOT_OWNER (exit 8). The server enforces
+who may release; that rule is still only proposed.
 
 Refusals come from the server as they are: an unknown or unreadable task exits
 4, an uninstalled App exits 5, and a task that holds no external id (a second
-release included) is TASK_EXTERNAL_ID_NONE (exit 5). A server that predates
-the release call has none and the call fails with its own error. The
+release included) is TASK_EXTERNAL_ID_NONE (exit 5). A server released before
+2026-11-13 has no release call, and the call fails with its own error. The
 next `+"`find-untracked`"+` reconcile pass tells the team's tracker adapter
 (`+"`untrack`"+`) that the item was released.
 
