@@ -63,6 +63,7 @@ import (
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
 	teamcmd "github.com/hadron-memory/hadron-cli/internal/cmd/team"
+	telegramcmd "github.com/hadron-memory/hadron-cli/internal/cmd/telegram"
 	tickercmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticker"
 	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
 	usagecmd "github.com/hadron-memory/hadron-cli/internal/cmd/usage"
@@ -199,6 +200,7 @@ never ran that command, this does not apply to you.`,
 	root.AddCommand(agentcmd.NewCmdAgent(f))
 	root.AddCommand(orcacmd.NewCmdOrca(f))
 	root.AddCommand(teamcmd.NewCmdTeam(f))
+	root.AddCommand(telegramcmd.NewCmdTelegram(f))
 	root.AddCommand(tickercmd.NewCmdTicker(f))
 	root.AddCommand(usercmd.NewCmdUser(f))
 	root.AddCommand(usercmd.NewCmdProfile(f))

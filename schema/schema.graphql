@@ -9935,6 +9935,17 @@ type Mutation {
   createTeamRole(appRef: ID!, description: String, role: String!, teamAgentRef: ID): TeamRole!
 
   """
+  Register a Telegram bot for an App (#597). appRef accepts ID or URN
+  (hrn:node:hadronmemory.com:specs:cor:api:140); the organization is the App's own. The bot token is
+  validated live by the tool and stored encrypted THERE: core keeps identity
+  only, and no field ever returns the token. Requires ADMIN/OWNER of the
+  App's organization; every caller who may not, and an App that does not
+  exist or has no organization, get the same refusal. One active connection
+  per App.
+  """
+  createTelegramConnection(appRef: ID!, botToken: String!): TelegramConnection!
+
+  """
   #1747 — create a ticker in an App (hrn:node:hadronmemory.com:specs:cor:agt:080:01, :18). Any App participant, or a
   session bound to a worker of the App, up to the App live-ticker cap. The owner is the
   caller, never an argument. Refusals: TICKER_NAME_TAKEN, TICKER_CADENCE_OUT_OF_RANGE,
@@ -10238,6 +10249,11 @@ type Mutation {
   being moved.
   """
   deleteTeamRole(appRef: ID!, role: String!, teamAgentRef: ID): DeleteTeamRolePayload!
+
+  """
+  Soft-delete a Telegram connection (org ADMIN/OWNER); tears down the tool side best-effort.
+  """
+  deleteTelegramConnection(ref: ID!): Boolean!
 
   """
   #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -17301,6 +17317,22 @@ type Query {
   ): TeamWorkItemsPage!
 
   """
+  Fetch one Telegram connection by id (#597). Returns null when the row does
+  not exist OR the caller is not a live member of its org (a revoked member
+  included): no existence disclosure.
+  """
+  telegramConnection(ref: ID!): TelegramConnection
+
+  """
+  Uniform paginated Telegram-connection list (hrn:node:hadronmemory.com:specs:cor:api:120). Default scope:
+  the caller's member orgs. orgId follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
+  org, non-member -> empty page, no disclosure, no admin bypass).
+  Bot-username-ascending order (id tiebreak); limit default 20 / cap 200;
+  limit: 0 -> count only.
+  """
+  telegramConnections(limit: Int, offset: Int, orgId: ID): TelegramConnectionsPage!
+
+  """
   #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it. #2931: a host key reaches only its host's tickers (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
   """
   ticker(ref: String!): Ticker
@@ -17639,12 +17671,14 @@ type Question {
   viewerIsDecider: Boolean!
 
   """
-  #4427 — true when the caller may answer or take back an answer right now: one of the question's deciders, acting as
-  themselves (a person in a session bound to no worker or agent, no App key or run, no impersonation), still among the
-  log's deciders and able to write its memory, on a question that is not withdrawn, tampered or unverifiable
-  (hrn:node:hadronmemory.com:specs:cor:dmo:140:05). It is the capability to submit a new answer: it is false once the
-  answer history is full (the last entry is kept for taking an answer back), and it does not say that an answer stands to
-  take back (retractQuestionAnswer refuses QUESTION_NOT_ANSWERED otherwise).
+  #4427 — true when the caller may submit a NEW answer right now. The rule (hrn:node:hadronmemory.com:specs:cor:dmo:140:05,
+  Proposed where it was amended on 2026-11-18) is that a decider is a user who may write the log's memory, never a worker,
+  an Agent or an App key, and that this is re-checked at the moment of answering. So: one of the question's deciders,
+  acting as themselves (a person in a session bound to no worker or agent, no App key or run, no impersonation), still
+  among the log's deciders and able to write its memory, on a question that is not withdrawn, tampered or unverifiable.
+  It is not the capability to take an answer back: it is false once the answer history reaches its last free entry (that
+  entry is kept so a standing answer can still be taken back), even though the decider can still retract then, and it does
+  not say that an answer stands to take back (retractQuestionAnswer refuses QUESTION_NOT_ANSWERED otherwise).
   """
   viewerMayAnswer: Boolean!
 
@@ -21449,6 +21483,44 @@ type TeamWorkItem {
 
 type TeamWorkItemsPage {
   items: [TeamWorkItem!]!
+  total: Int!
+}
+
+"""
+One Telegram bot registered for a Hadron App (#597). APP-owned: one active
+connection per App, so the bot a person messages names the App. The bot
+token lives ENCRYPTED IN THE TOOL (hadrontool-telegram): it is a write-only
+input on createTelegramConnection and no field here ever returns it.
+"""
+type TelegramConnection {
+  appId: String!
+
+  """The bot's Telegram user id."""
+  botId: String!
+
+  """The bot's @username, without the at sign."""
+  botUsername: String!
+  createdAt: DateTime!
+  displayName: String!
+  id: ID!
+  lastError: String
+
+  """The App's owning organization."""
+  organizationId: String!
+
+  """Telegram provider backing this connection ('telegram' today)."""
+  provider: String!
+
+  """'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary)."""
+  status: String!
+  updatedAt: DateTime!
+}
+
+"""
+Uniform paginated list shape (hrn:node:hadronmemory.com:specs:cor:api:120).
+"""
+type TelegramConnectionsPage {
+  items: [TelegramConnection!]!
   total: Int!
 }
 
