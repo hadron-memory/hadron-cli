@@ -59,11 +59,10 @@ func newCmdTeamStallSchedule(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stall-schedule <command>",
 		Short: "An App's stall windows, host timings and session-end grace",
-		Long: `The App's stall schedule: how long a task may sit before each stall alarm
-(cor:agt:050:14–:17), how many missed host check-ins lapse a host's
-registration (cor:agt:070:01), how long a host has to report an operation it
-collected (cor:agt:070:02), and how long a worker asked to end its session
-has before the platform ends it (cor:agt:050:10). Each has a platform
+		Long: `The App's stall schedule: how long a task may sit before each stall alarm,
+how many missed host check-ins lapse a host's registration, how long a host
+has to report an operation it collected, and how long a worker asked to end
+its session has before the platform ends it. Each has a platform
 default the App can change. ` + "`get`" + ` shows it to any participant;
 ` + "`set`" + ` changes it and is for whoever manages the App.`,
 	}
@@ -125,19 +124,19 @@ type stallScheduleFlag struct {
 }
 
 var stallScheduleFlags = []stallScheduleFlag{
-	{"assignment-minutes", "minutes a task may go unassigned before its alarm (cor:agt:050:17), or default",
+	{"assignment-minutes", "minutes a task may go unassigned before its alarm, or default",
 		func(in *gqltypes.AgentTaskStallScheduleInput, v json.RawMessage) { in.AssignmentMinutes = v }, 0, 0},
-	{"not-started-minutes", "minutes an assigned task may go unstarted (cor:agt:050:14), or default",
+	{"not-started-minutes", "minutes an assigned task may go unstarted, or default",
 		func(in *gqltypes.AgentTaskStallScheduleInput, v json.RawMessage) { in.NotStartedMinutes = v }, 0, 0},
-	{"no-progress-minutes", "minutes a started task may go without progress (cor:agt:050:15), or default",
+	{"no-progress-minutes", "minutes a started task may go without progress, or default",
 		func(in *gqltypes.AgentTaskStallScheduleInput, v json.RawMessage) { in.NoProgressMinutes = v }, 0, 0},
-	{"owner-reaction-minutes", "minutes an owner may leave a finished or cancelled child unanswered (cor:agt:050:16), or default",
+	{"owner-reaction-minutes", "minutes an owner may leave a finished or cancelled child unanswered, or default",
 		func(in *gqltypes.AgentTaskStallScheduleInput, v json.RawMessage) { in.OwnerReactionMinutes = v }, 0, 0},
-	{"host-lapse-check-ins", "missed host check-ins before a registration lapses (cor:agt:070:01), or default",
+	{"host-lapse-check-ins", "missed host check-ins before a registration lapses, or default",
 		func(in *gqltypes.AgentTaskStallScheduleInput, v json.RawMessage) { in.HostLapseCheckIns = v }, 0, 0},
-	{"host-report-timeout-minutes", "minutes a host has to report an operation it collected (cor:agt:070:02; 5–1440, platform default 60), or default",
+	{"host-report-timeout-minutes", "minutes a host has to report an operation it collected (5–1440, platform default 60), or default",
 		func(in *gqltypes.AgentTaskStallScheduleInput, v json.RawMessage) { in.HostReportTimeoutMinutes = v }, 5, 1440},
-	{"session-end-grace-minutes", "minutes a worker asked to end its session has before the platform ends it (cor:agt:050:10; 1–1440, platform default 10), or default",
+	{"session-end-grace-minutes", "minutes a worker asked to end its session has before the platform ends it (1–1440, platform default 10), or default",
 		func(in *gqltypes.AgentTaskStallScheduleInput, v json.RawMessage) { in.SessionEndGraceMinutes = v }, 1, 1440},
 }
 

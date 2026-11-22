@@ -29,11 +29,10 @@ func newCmdTeamRoster(f *cmdutil.Factory) *cobra.Command {
 model family, tasks and open alarms — the server's teamRoster query,
 rendered as returned. The CLI derives nothing.
 
-The states are defined by
-hrn:node:hadronmemory.com:specs:cor:agt:050:22 (Definition: A worker's roster state;
-the states are Proposed). A worker can be in several at once; it is shown in the first that holds
-(the server's roster order, most actionable first): YOUR_MOVE, UNAVAILABLE,
-WAITING, WORKING, ASSIGNED_NOT_STARTED, AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE.
+A worker can be in several states at once; it is shown in the first that
+holds (the server's roster order, most actionable first): YOUR_MOVE,
+UNAVAILABLE, WAITING, WORKING, ASSIGNED_NOT_STARTED, AVAILABLE, NO_FAMILY,
+NOT_LAUNCHABLE. These states are proposed and may change.
 
 CHECK is the separate server-derived team-channel checking status:
 NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
@@ -44,11 +43,12 @@ age since lastActiveAt (30h or 3d, for example; whole days from 48h, truncated),
 NEVER_BOUND reads "never bound". A missing reason stays bare NO_SESSION.
 Quiet age uses this computer's clock for display only and decides nothing;
 a missing or invalid timestamp has no age. --json preserves lastActiveAt
-and checkStatus.noSessionReason (nullable). Requires hadron-server#3084 or newer.
+and checkStatus.noSessionReason (nullable). noSessionReason needs a server
+that serves it, from 2026-11-01 or later.
 
-TERMINAL is the worker's latest terminal report from a host (hadron-server
-#2771): the status (busy, idle, locked or dark), the reason for locked or dark,
-and the AGE of the report on every row — idle (3m), dark (no_turn_for_due_ticker,
+TERMINAL is the worker's latest terminal report from a host: the status
+(busy, idle, locked or dark), the reason for locked or dark, and the
+AGE of the report on every row — idle (3m), dark (no_turn_for_due_ticker,
 12m). A report checked more than 30 minutes ago reads stale (8h), not idle (8h):
 it is a stopped sweep's last word, not the worker's state, so its status is
 withheld and only the age shows. When every reported row is stale the table
@@ -65,14 +65,14 @@ server marked freeForWork (not state AVAILABLE) by that tier; a null or
 unrecognised tier counts as unknown. Needs a server that serves these fields.
 
 GROUPS are the model groups the worker's model is CURRENTLY in, computed live
-by the server (cor:agt:060:12) — live matching information shown for reading,
+by the server — live matching information shown for reading,
 never authorization, and never computed here. A dash is a real empty answer:
 the worker has no reported model, or its model is in no group. A row whose
 group lookup failed on the server reads "unavailable (CODE)" — the server's
 error code only, never its text — and --json gives modelGroups null plus
 modelGroupsError for that row; the rest of the roster is still shown. That is
 the only server error this command tolerates. Needs a server that serves
-modelGroups (hadron-server#3026).
+modelGroups, from 2026-11-01 or later.
 
 HELD BY / SINCE show who holds the worker's name and since when (heldBy /
 heldAt; in --json heldBy is {id, handle, urn, name} or null). The server

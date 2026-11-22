@@ -499,9 +499,9 @@ section between the markers.
 | `team attention switchover` |  |  | n | #1054 | bead3d11e709 |  | unread |  |
 | `team attention switchover apply` |  |  | n | #1054 | 245d6d9fffbc |  | unread |  |
 | `team attention switchover preview` |  |  | n | #1054 | 1fcad1f2b348 |  | unread |  |
-| `team availability` |  |  | n | #1054 | 4ba113cdde0c | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team availability` |  |  | n | #1054 | 2a1e2b44e311 |  | unread |  |
 | `team availability get` |  |  | n | #1054 | d0b01e0f621b | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team availability set` |  |  | y | #1054 | a26d70a4e176 |  | unread |  |
+| `team availability set` |  |  | y | #1054 | c20f3cd0d9a8 |  | unread |  |
 | `team channel` |  |  | y | #1054 | daf291779858 |  | unread |  |
 | `team chat` |  |  | n | #1054 | b23cf704d523 |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
@@ -565,14 +565,14 @@ section between the markers.
 | `team register candidates` |  |  | y | #1054 | 9474416b968d |  | unread |  |
 | `team register pick` |  |  | y | #1054 | 989dcccd90f7 |  | unread |  |
 | `team resume` |  |  | y | #1054 | f9f1ef2d0053 |  | unread |  |
-| `team review-stats` |  |  | y | #1054 | 597535b30638 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team role` | roles |  | n | #1054 | f556bba4e2bb |  | unread |  |
-| `team role create` |  |  | y | #1054 | 77016480c74b | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
+| `team review-stats` |  |  | y | #1054 | 35b1b28ad90b |  | unread |  |
+| `team role` | roles |  | n | #1054 | 36c3f271ea98 |  | unread |  |
+| `team role create` |  |  | y | #1054 | 5a66dc517bb6 |  | unread |  |
 | `team role get` |  |  | y | #1054 | f80ad4194e34 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
 | `team role list` | ls |  | y | #1054 | 52c3e94a8d71 |  | unread |  |
 | `team role rm` | delete |  | y | #1054 | a5ba6a17ef4e |  | unread |  |
-| `team role update` |  |  | y | #1054 | 92ee0e642555 |  | unread |  |
-| `team roster` |  |  | n | #1054 | 11d418e87c05 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team role update` |  |  | y | #1054 | 68673ad5939d |  | unread |  |
+| `team roster` |  |  | n | #1054 | 20c68831a396 |  | unread |  |
 | `team router` |  |  | n | #1054 | 126f5e26e347 |  | unread |  |
 | `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | f4dba7c31087 |  | unread |  |
@@ -592,9 +592,9 @@ section between the markers.
 | `team session sync-model` |  |  | y | #1054 | 17c144a7206a |  | unread |  |
 | `team session whoami` |  |  | y | #1054 | f4ef03f96070 |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | 709bc1b67fe7 |  | unread |  |
-| `team stall-schedule` |  |  | n | #1054 | 5fad72262b34 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
+| `team stall-schedule` |  |  | n | #1054 | aa1c65ef79dc |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
-| `team stall-schedule set` |  |  | n | #1054 | 11b132e34773 |  | unread |  |
+| `team stall-schedule set` |  |  | n | #1054 | 0663774fc0a2 |  | unread |  |
 | `team stop` |  |  | y | #1054 | 3e8cceb36967 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team stop lift` |  |  | n | #1054 | 97ff7478a8a7 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
@@ -639,9 +639,9 @@ section between the markers.
 | `team usage status` |  |  | y | #1054 | bf15aac44c75 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team usage uninstall` |  |  | y | #1054 | 366acfcd4fad | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team utilization` |  |  | y | #1054 | 60ff227d0163 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team wake-settings` |  |  | n | #1054 | 1dcb353939ed | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
+| `team wake-settings` |  |  | n | #1054 | fa519c03c3df |  | unread |  |
 | `team wake-settings get` |  |  | y | #1054 | d539cc4d9c80 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
-| `team wake-settings set` |  |  | y | #1054 | ec14dc4be555 |  | unread |  |
+| `team wake-settings set` |  |  | y | #1054 | 7627a413e70a |  | unread |  |
 | `team wakes` |  |  | n | #1054 | c4e1d7ef9f55 |  | unread |  |
 | `team wakes ack` |  |  | y | #1054 | 83e9d1f80545 |  | unread |  |
 | `team wakes due` |  |  | y | #1054 | f8648da2101d |  | unread |  |
