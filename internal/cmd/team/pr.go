@@ -319,10 +319,16 @@ worker, otherwise you write as the signed-in person; an App key may read
 readiness but not write.
 
 Each command makes one request and never retries or guesses a head. A write
-prints the task handle, id and status and the recorded action; --json is
-{task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (a missing loc or
-URN is a dash in text, null in JSON). Readiness prints READY or NOT READY and a
-row per slot; --json is {ready,head,slots:[{slot,currentTaskId,state,verdict,
+prints the task handle, id and status, then one register line: the register's
+answer about the action code, as "register <code> → <task URN>", "→ no runnable
+task found at <loc>", "→ no register entry matches this code" or "→ not shown to
+this caller". The state UNMAPPED is the "no register entry" answer, and every pr
+code gets it while no register entry ships for it. The line says where the code
+routes, never whether the write recorded: the task line is the receipt. Text
+prints no placeholder for a missing loc or URN. --json is
+{task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (taskLoc and
+taskUrn are null when the state carries none). Readiness prints READY or NOT
+READY and a row per slot; --json is {ready,head,slots:[{slot,currentTaskId,state,verdict,
 head,counts}]}. NOT READY is a successful read (exit 0). A refusal such as
 PR_NOT_READY (which names the slots that do not count) or a stale head exits 5,
 with serverCode in JSON; exit 7 means the outcome is unknown, so read the
@@ -369,8 +375,8 @@ Each call REPLACES the whole list: repeat every slot you still want. The slot
 ids are the ones "pr seat --slot" and "pr readiness" use, so keep them
 identical. A slot may be dropped, but not one whose seat already gave a
 negative verdict at the frozen head (REVIEW_SEAT_NOT_SUPERSEDABLE), unless that
-negative was withdrawn (pr withdraw). Prints the
-build task and the recorded action.
+negative was withdrawn (pr withdraw). Prints the build task and the register
+line.
 
 To see which slots are scheduled before a head is frozen, run hadron team task
 get <build-task> (its properties list review.schedule), or hadron team events
@@ -385,7 +391,7 @@ The build task must carry a pull_request reference (hadron team task update
 the server refuses with PR_REFERENCE_MISSING. A head that already has a negative
 seat verdict cannot be frozen again: answer the finding with a new head.
 Normally run it after "pr schedule" and before "pr seat". Prints the build task
-and the recorded action.` + prSeeGroup,
+and the register line.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
 is named for that review. Only the seat task's owner chain may: its owner (the
@@ -402,7 +408,7 @@ To replace a reviewer or move to a new head, create a new seat task and pass
 the slot's current seat task as --supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED
 if you do not). A seat that already gave CHANGES_REQUESTED, FAIL or REFUSED at
 this head cannot be replaced or moved (REVIEW_SEAT_NOT_SUPERSEDABLE): answer the
-finding with a new head. Prints the seat task and the recorded action.` + prReviewRules + prSeeGroup,
+finding with a new head. Prints the seat task and the register line.` + prReviewRules + prSeeGroup,
 
 	"verdict": `Record your verdict on a seat you were assigned, without finishing the seat
 task. Only the seat's assignee may, the task must be STARTED, the seat must
@@ -421,7 +427,7 @@ recorded a negative verdict may re-rate it at that head).
 
 --node names the Hadron node holding your saved review and --receipt the URL of
 your signed PR comment; both are recorded as text, not fetched. Prints the seat
-task and the recorded action.` + prReviewRules + prSeeGroup,
+task and the register line.` + prReviewRules + prSeeGroup,
 
 	"withdraw": `Withdraw a finished seat's negative verdict at the head it was recorded for
 (CHANGES_REQUESTED, FAIL or REFUSED), so it stops blocking. Use it when the
@@ -444,7 +450,7 @@ is not changed; the negative only stops blocking readiness, the head's refreeze,
 dropping the slot and moving or replacing the seat. The slot still needs a
 superseding seat (pr seat --supersedes) whose own APPROVE, PASS or CARRY counts
 at this head. A refused call writes nothing, so a refusal needs no repeat. Prints
-the seat task and the recorded action.` + prSeeGroup,
+the seat task and the register line.` + prSeeGroup,
 
 	"readiness": `Show whether every scheduled review is in at a head: READY, or NOT READY with
 a row per slot saying which seat, state and verdict it has and whether it
@@ -468,8 +474,7 @@ merge the PR or check CI. Only the build task's assignee may.
 
 Run "pr readiness" first. If any slot does not count the server refuses with
 PR_NOT_READY (exit 5) and names the failing slots; a head that is not the frozen
-one is refused too. A refused call records nothing. Prints the build task and
-the recorded action.` + prSeeGroup,
+one is refused too. A refused call records nothing. Prints the build task and the register line.` + prSeeGroup,
 }
 
 var prLeafExample = map[string]string{
