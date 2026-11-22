@@ -144,6 +144,9 @@ func TestUtilizationExistingRowsKeepTheirCells2896(t *testing.T) {
 		t.Fatalf("rows: %v", rows)
 	}
 	for i := range want {
+		if len(rows[i]) < 7 {
+			t.Fatalf("row %d is short (%d cells): %v", i, len(rows[i]), rows[i])
+		}
 		if strings.Join(rows[i][:7], " ") != strings.Join(want[i], " ") {
 			t.Errorf("row %d: %v, want the cells %v first", i, rows[i], want[i])
 		}
