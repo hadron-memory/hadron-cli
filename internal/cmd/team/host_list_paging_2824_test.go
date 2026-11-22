@@ -90,18 +90,12 @@ func hostListRun(t *testing.T, server string, args ...string) (string, error) {
 // text mode prints there (the old-server fallback disclosure).
 func hostListRunBoth(t *testing.T, server string, args ...string) (string, string, error) {
 	t.Helper()
-	return hostListRunApp(t, server, "hrn:app:acme.com:ops", args...)
+	return hostListRunFlags(t, server, "hrn:app:acme.com:ops", true, args...)
 }
 
-// hostListRunApp is hostListRunBoth with the --app flag value given ("" means the caller did not
-// pass --app: the App comes from the configured context instead) (cli#2939).
-func hostListRunApp(t *testing.T, server, appFlag string, args ...string) (string, string, error) {
-	t.Helper()
-	return hostListRunFlags(t, server, appFlag, true, args...)
-}
-
-// hostListRunFlags is hostListRunApp with the --server flag optional: serverFlag false reaches the
-// fake through HADRON_SERVER instead, so the caller "did not pass --server" (cli#2939).
+// hostListRunFlags runs `team host list` with the --app flag value given ("" means the caller did not
+// pass --app: the App comes from the configured context instead) and the --server flag optional:
+// serverFlag false reaches the fake through HADRON_SERVER instead (cli#2939).
 func hostListRunFlags(t *testing.T, server, appFlag string, serverFlag bool, args ...string) (string, string, error) {
 	t.Helper()
 	if os.Getenv("XDG_CONFIG_HOME") == "" {
@@ -672,7 +666,7 @@ func TestHostListLimitZeroPrintsNoContinueHint_2939(t *testing.T) {
 		"HostRegistrationsPage": {hostPageBody([]string{}, 5, true)},
 		"TeamAppIdentity":       {hostListLabelBody},
 	})
-	out, _, err := hostListRunApp(t, server, "hrn:app:acme.com:ops", "--limit", "0")
+	out, _, err := hostListRunFlags(t, server, "hrn:app:acme.com:ops", true, "--limit", "0")
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
@@ -688,7 +682,7 @@ func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
 		"HostRegistrationsPage": {hostPageBody([]string{"null", "null"}, 6, true)},
 		"TeamAppIdentity":       {hostListLabelBody},
 	})
-	out, _, err := hostListRunApp(t, server, "hrn:app:acme.com:ops", "--limit", "2")
+	out, _, err := hostListRunFlags(t, server, "hrn:app:acme.com:ops", true, "--limit", "2")
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
@@ -705,7 +699,7 @@ func TestHostListSinglePageSkipsANullRowAndContinuesPastIt_2939(t *testing.T) {
 		"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca1"), "null", hostListHost("orca3")}, 8, true)},
 		"TeamAppIdentity":       {hostListLabelBody},
 	})
-	out, _, err := hostListRunApp(t, server, "hrn:app:acme.com:ops", "--limit", "3")
+	out, _, err := hostListRunFlags(t, server, "hrn:app:acme.com:ops", true, "--limit", "3")
 	if err != nil {
 		t.Fatalf("a null row must be skipped, not fail: %v\n%s", err, out)
 	}
