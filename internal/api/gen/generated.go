@@ -48354,6 +48354,149 @@ func (v *CreateSecretCreateSecret) __premarshalJSON() (*__premarshalCreateSecret
 	return &retval, nil
 }
 
+// CreateSecretProtectedCreateSecret includes the requested fields of the GraphQL type Secret.
+type CreateSecretProtectedCreateSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns CreateSecretProtectedCreateSecret.Id, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns CreateSecretProtectedCreateSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns CreateSecretProtectedCreateSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns CreateSecretProtectedCreateSecret.Name, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns CreateSecretProtectedCreateSecret.Kind, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns CreateSecretProtectedCreateSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCurrentVersion returns CreateSecretProtectedCreateSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns CreateSecretProtectedCreateSecret.Protected, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetProtected() bool { return v.SecretFields.Protected }
+
+// GetCreatedAt returns CreateSecretProtectedCreateSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns CreateSecretProtectedCreateSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns CreateSecretProtectedCreateSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns CreateSecretProtectedCreateSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *CreateSecretProtectedCreateSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateSecretProtectedCreateSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateSecretProtectedCreateSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateSecretProtectedCreateSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *CreateSecretProtectedCreateSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateSecretProtectedCreateSecret) __premarshalJSON() (*__premarshalCreateSecretProtectedCreateSecret, error) {
+	var retval __premarshalCreateSecretProtectedCreateSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
+// CreateSecretProtectedResponse is returned by CreateSecretProtected on success.
+type CreateSecretProtectedResponse struct {
+	// Create a named, owner-scoped secret (#677). Gate per owner scope:
+	// user -> that user (ownerRef optional, defaults to the caller); org ->
+	// org ADMIN; app -> any member of the App, as a person (an App key, an
+	// impersonated session and a run are refused; the value is stored as
+	// version 1). value is the secret payload — encrypted at rest,
+	// write-only, never returned; at most 32 KiB of stored JSON, counted in
+	// bytes. kind selects validation: generic (opaque JSON) or
+	// webfetch-auth ({type: bearer|basic|header, ...} + metadata.urlPrefix
+	// origin binding). A run resolves the name via the CSS cascade
+	// (user -> org) at entitled scopes only; an App secret is never resolved
+	// by a run (hrn:node:hadronmemory.com:specs:cor:sec:020:02).
+	CreateSecret *CreateSecretProtectedCreateSecret `json:"createSecret"`
+}
+
+// GetCreateSecret returns CreateSecretProtectedResponse.CreateSecret, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedResponse) GetCreateSecret() *CreateSecretProtectedCreateSecret {
+	return v.CreateSecret
+}
+
 // CreateSecretResponse is returned by CreateSecret on success.
 type CreateSecretResponse struct {
 	// Create a named, owner-scoped secret (#677). Gate per owner scope:
@@ -125018,6 +125161,144 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 	return &retval, nil
 }
 
+// UpdateSecretProtectedResponse is returned by UpdateSecretProtected on success.
+type UpdateSecretProtectedResponse struct {
+	// Change a secret's value and/or metadata. For an org or user secret a
+	// value OVERWRITES (no versions). For an App secret a value ADDS the next
+	// version and never overwrites (hrn:node:hadronmemory.com:specs:cor:sec:010:03);
+	// any member of the App may store. Name, kind, and owner are immutable —
+	// the cascade and flow config reference the name; create a new name
+	// instead. The effective (metadata, value) pair is re-validated per kind.
+	UpdateSecret *UpdateSecretProtectedUpdateSecret `json:"updateSecret"`
+}
+
+// GetUpdateSecret returns UpdateSecretProtectedResponse.UpdateSecret, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedResponse) GetUpdateSecret() *UpdateSecretProtectedUpdateSecret {
+	return v.UpdateSecret
+}
+
+// UpdateSecretProtectedUpdateSecret includes the requested fields of the GraphQL type Secret.
+type UpdateSecretProtectedUpdateSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns UpdateSecretProtectedUpdateSecret.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns UpdateSecretProtectedUpdateSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns UpdateSecretProtectedUpdateSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns UpdateSecretProtectedUpdateSecret.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns UpdateSecretProtectedUpdateSecret.Kind, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns UpdateSecretProtectedUpdateSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCurrentVersion returns UpdateSecretProtectedUpdateSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns UpdateSecretProtectedUpdateSecret.Protected, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetProtected() bool { return v.SecretFields.Protected }
+
+// GetCreatedAt returns UpdateSecretProtectedUpdateSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns UpdateSecretProtectedUpdateSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns UpdateSecretProtectedUpdateSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns UpdateSecretProtectedUpdateSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *UpdateSecretProtectedUpdateSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateSecretProtectedUpdateSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateSecretProtectedUpdateSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateSecretProtectedUpdateSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateSecretProtectedUpdateSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateSecretProtectedUpdateSecret) __premarshalJSON() (*__premarshalUpdateSecretProtectedUpdateSecret, error) {
+	var retval __premarshalUpdateSecretProtectedUpdateSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
 // UpdateSecretResponse is returned by UpdateSecret on success.
 type UpdateSecretResponse struct {
 	// Change a secret's value and/or metadata. For an org or user secret a
@@ -136211,7 +136492,6 @@ type __CreateSecretInput struct {
 	Kind      string           `json:"kind"`
 	Metadata  *json.RawMessage `json:"metadata,omitempty"`
 	Value     json.RawMessage  `json:"value"`
-	Protected *bool            `json:"protected,omitempty"`
 }
 
 // GetOwnerType returns __CreateSecretInput.OwnerType, and is useful for accessing the field via an interface.
@@ -136232,8 +136512,37 @@ func (v *__CreateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 // GetValue returns __CreateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__CreateSecretInput) GetValue() json.RawMessage { return v.Value }
 
-// GetProtected returns __CreateSecretInput.Protected, and is useful for accessing the field via an interface.
-func (v *__CreateSecretInput) GetProtected() *bool { return v.Protected }
+// __CreateSecretProtectedInput is used internally by genqlient
+type __CreateSecretProtectedInput struct {
+	OwnerType string           `json:"ownerType"`
+	OwnerRef  *string          `json:"ownerRef,omitempty"`
+	Name      string           `json:"name"`
+	Kind      string           `json:"kind"`
+	Metadata  *json.RawMessage `json:"metadata,omitempty"`
+	Value     json.RawMessage  `json:"value"`
+	Protected *bool            `json:"protected"`
+}
+
+// GetOwnerType returns __CreateSecretProtectedInput.OwnerType, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetOwnerType() string { return v.OwnerType }
+
+// GetOwnerRef returns __CreateSecretProtectedInput.OwnerRef, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetOwnerRef() *string { return v.OwnerRef }
+
+// GetName returns __CreateSecretProtectedInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetName() string { return v.Name }
+
+// GetKind returns __CreateSecretProtectedInput.Kind, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetKind() string { return v.Kind }
+
+// GetMetadata returns __CreateSecretProtectedInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetValue returns __CreateSecretProtectedInput.Value, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetValue() json.RawMessage { return v.Value }
+
+// GetProtected returns __CreateSecretProtectedInput.Protected, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetProtected() *bool { return v.Protected }
 
 // __CreateSlackConnectionInput is used internally by genqlient
 type __CreateSlackConnectionInput struct {
@@ -144973,10 +145282,9 @@ func (v *__UpdateScopeInput) GetInput() *UpdateScopeInput { return v.Input }
 
 // __UpdateSecretInput is used internally by genqlient
 type __UpdateSecretInput struct {
-	Ref       string           `json:"ref"`
-	Metadata  *json.RawMessage `json:"metadata,omitempty"`
-	Value     *json.RawMessage `json:"value,omitempty"`
-	Protected *bool            `json:"protected,omitempty"`
+	Ref      string           `json:"ref"`
+	Metadata *json.RawMessage `json:"metadata,omitempty"`
+	Value    *json.RawMessage `json:"value,omitempty"`
 }
 
 // GetRef returns __UpdateSecretInput.Ref, and is useful for accessing the field via an interface.
@@ -144988,8 +145296,25 @@ func (v *__UpdateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 // GetValue returns __UpdateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__UpdateSecretInput) GetValue() *json.RawMessage { return v.Value }
 
-// GetProtected returns __UpdateSecretInput.Protected, and is useful for accessing the field via an interface.
-func (v *__UpdateSecretInput) GetProtected() *bool { return v.Protected }
+// __UpdateSecretProtectedInput is used internally by genqlient
+type __UpdateSecretProtectedInput struct {
+	Ref       string           `json:"ref"`
+	Metadata  *json.RawMessage `json:"metadata,omitempty"`
+	Value     *json.RawMessage `json:"value,omitempty"`
+	Protected *bool            `json:"protected"`
+}
+
+// GetRef returns __UpdateSecretProtectedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetRef() string { return v.Ref }
+
+// GetMetadata returns __UpdateSecretProtectedInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetValue returns __UpdateSecretProtectedInput.Value, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetValue() *json.RawMessage { return v.Value }
+
+// GetProtected returns __UpdateSecretProtectedInput.Protected, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetProtected() *bool { return v.Protected }
 
 // __UpdateSpecNodeClearingRoleAuthoredInput is used internally by genqlient
 type __UpdateSpecNodeClearingRoleAuthoredInput struct {
@@ -163473,8 +163798,8 @@ func CreateScope(
 
 // The mutation executed by CreateSecret.
 const CreateSecret_Operation = `
-mutation CreateSecret ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!, $protected: Boolean) {
-	createSecret(ownerType: $ownerType, ownerRef: $ownerRef, name: $name, kind: $kind, metadata: $metadata, value: $value, protected: $protected) {
+mutation CreateSecret ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!) {
+	createSecret(ownerType: $ownerType, ownerRef: $ownerRef, name: $name, kind: $kind, metadata: $metadata, value: $value) {
 		... SecretFields
 	}
 }
@@ -163503,7 +163828,6 @@ func CreateSecret(
 	kind string,
 	metadata *json.RawMessage,
 	value json.RawMessage,
-	protected *bool,
 ) (data_ *CreateSecretResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateSecret",
@@ -163515,11 +163839,81 @@ func CreateSecret(
 			Kind:      kind,
 			Metadata:  metadata,
 			Value:     value,
-			Protected: protected,
 		},
 	}
 
 	data_ = &CreateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateSecretProtected.
+const CreateSecretProtected_Operation = `
+mutation CreateSecretProtected ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!, $protected: Boolean) {
+	createSecret(ownerType: $ownerType, ownerRef: $ownerRef, name: $name, kind: $kind, metadata: $metadata, value: $value, protected: $protected) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	currentVersion
+	protected
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// cli#2815: the --protected tri-state is flag-conditional BY DOCUMENT (Eden's
+// ruling on the round-5 BLIND P2, chat #137754), following the client-list
+// precedent (cli#2758/2720: one document per server generation, stepping only
+// as far as the server's validation error forces). CreateSecret above keeps its
+// pre-#2815 shape — no `protected` anywhere — so a server from before the
+// argument reached server main (2026-11-21, hadron-server#4177 e42bb1897)
+// keeps accepting plain creates exactly as before the flag existed. This
+// document is chosen only when --protected is given, so its `protected`
+// argument is always sent (no omitempty): true stages the whole creation for a
+// passkey (App scope only, the server words the refusal), false asks for the
+// default outright.
+func CreateSecretProtected(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ownerType string,
+	ownerRef *string,
+	name string,
+	kind string,
+	metadata *json.RawMessage,
+	value json.RawMessage,
+	protected *bool,
+) (data_ *CreateSecretProtectedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSecretProtected",
+		Query:  CreateSecretProtected_Operation,
+		Variables: &__CreateSecretProtectedInput{
+			OwnerType: ownerType,
+			OwnerRef:  ownerRef,
+			Name:      name,
+			Kind:      kind,
+			Metadata:  metadata,
+			Value:     value,
+			Protected: protected,
+		},
+	}
+
+	data_ = &CreateSecretProtectedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -194210,8 +194604,8 @@ func UpdateScope(
 
 // The mutation executed by UpdateSecret.
 const UpdateSecret_Operation = `
-mutation UpdateSecret ($ref: ID!, $metadata: JSON, $value: JSON, $protected: Boolean) {
-	updateSecret(ref: $ref, metadata: $metadata, value: $value, protected: $protected) {
+mutation UpdateSecret ($ref: ID!, $metadata: JSON, $value: JSON) {
+	updateSecret(ref: $ref, metadata: $metadata, value: $value) {
 		... SecretFields
 	}
 }
@@ -194232,21 +194626,78 @@ fragment SecretFields on Secret {
 `
 
 // Overwrite a secret's value and/or metadata (v1 rotation: no versions). An
-// omitted argument preserves the stored half, so all three are omitempty.
-// cli#2815: an explicit $protected stages a protection change on an App secret
-// (false is manager-only; the server judges, the CLI never pre-checks).
+// omitted argument preserves the stored half, so both are omitempty. This
+// document keeps its pre-#2815 shape (no `protected`): `secret set` and every
+// flag-omitted update ride it, so servers from before the argument reached
+// server main keep accepting them (see CreateSecretProtected above).
 func UpdateSecret(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
 	metadata *json.RawMessage,
 	value *json.RawMessage,
-	protected *bool,
 ) (data_ *UpdateSecretResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateSecret",
 		Query:  UpdateSecret_Operation,
 		Variables: &__UpdateSecretInput{
+			Ref:      ref,
+			Metadata: metadata,
+			Value:    value,
+		},
+	}
+
+	data_ = &UpdateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSecretProtected.
+const UpdateSecretProtected_Operation = `
+mutation UpdateSecretProtected ($ref: ID!, $metadata: JSON, $value: JSON, $protected: Boolean) {
+	updateSecret(ref: $ref, metadata: $metadata, value: $value, protected: $protected) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	currentVersion
+	protected
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// cli#2815: the flag-conditional protection-change document, chosen only when
+// --protected is given (always sent, no omitempty): an explicit value stages a
+// protection change on an App secret (false is manager-only; the server judges
+// both, the CLI never pre-checks).
+func UpdateSecretProtected(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	metadata *json.RawMessage,
+	value *json.RawMessage,
+	protected *bool,
+) (data_ *UpdateSecretProtectedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSecretProtected",
+		Query:  UpdateSecretProtected_Operation,
+		Variables: &__UpdateSecretProtectedInput{
 			Ref:       ref,
 			Metadata:  metadata,
 			Value:     value,
@@ -194254,7 +194705,7 @@ func UpdateSecret(
 		},
 	}
 
-	data_ = &UpdateSecretResponse{}
+	data_ = &UpdateSecretProtectedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

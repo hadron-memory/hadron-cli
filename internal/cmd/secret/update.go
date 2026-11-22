@@ -68,10 +68,11 @@ nothing does) with the normal updated line. Without the flag no protected
 field is sent — a value or metadata update does not touch protection.
 Protection never changes without a signed request: update --protected stages
 its change for the ceremony above, and hadron secret protect changes
-protection and nothing else. The request names the protected argument, so a
-server from before the argument shipped (2026-11-21) refuses the request even
-without the flag; a server with passkey signing off still accepts the
-command, refusing only an explicit protection change.
+protection and nothing else. The request names the protected argument, so
+--protected needs a server from 2026-11-21, when the argument reached server
+main; without the flag the request is unchanged from before the flag existed,
+so older servers keep accepting this command. A server with passkey signing
+off still accepts the command, refusing only an explicit protection change.
 
 The server checks the resulting value and metadata against the secret's kind;
 a mismatch (say, a plain value for a webfetch-auth secret) exits 2.
@@ -152,20 +153,38 @@ the same fields as hadron secret get.`,
 			// value/metadata update does not touch protection and stays
 			// member-allowed), --protected/--protected=false stage turning it
 			// on/off on an App secret (false is manager-only; the server words
-			// both refusals, the CLI never pre-checks).
+			// both refusals, the CLI never pre-checks). The flag also chooses
+			// the DOCUMENT (Eden's ruling on the round-5 BLIND P2, chat
+			// #137754): omitted (and secret set) ride the pre-#2815
+			// UpdateSecret, so servers from before the argument reached
+			// server main (2026-11-21) keep accepting plain updates; given, it
+			// rides UpdateSecretProtected, which names the argument.
 			var prot *bool
 			if changed("protected") {
 				p := protected
 				prot = &p
 			}
-			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value, prot)
-			if err != nil {
-				return mapChange(err, "the update of secret "+output.SafeCell(args[0]))
+			var fields *gen.SecretFields
+			if prot == nil {
+				resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value)
+				if err != nil {
+					return mapChange(err, "the update of secret "+output.SafeCell(args[0]))
+				}
+				if resp == nil || resp.UpdateSecret == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no secret")
+				}
+				fields = &resp.UpdateSecret.SecretFields
+			} else {
+				resp, err := gen.UpdateSecretProtected(cmd.Context(), client, args[0], metadata, value, prot)
+				if err != nil {
+					return mapChange(err, "the update of secret "+output.SafeCell(args[0]))
+				}
+				if resp == nil || resp.UpdateSecret == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no secret")
+				}
+				fields = &resp.UpdateSecret.SecretFields
 			}
-			if resp == nil || resp.UpdateSecret == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no secret")
-			}
-			dto := dtoFromFields(resp.UpdateSecret.SecretFields)
+			dto := dtoFromFields(*fields)
 			// A protection change on an App secret stages (hadron-server#3999
 			// S4): the answer is SECRET_PROTECTED_NEEDS_PASSKEY, mapped above.
 			// A returned secret is therefore unconfirmed for --protected, and
@@ -176,11 +195,14 @@ the same fields as hadron secret get.`,
 			// (hadron-server#4749): clearing protection that is not on asks
 			// for no change, so the server sends the secret back — unchanged
 			// alone, or with the rest of the update applied — reporting
-			// exactly the unprotected state this CLI asked for.
-			if prot != nil && (*prot || resp.UpdateSecret.Protected) {
+			// exactly the unprotected state this CLI asked for. A server that
+			// cleared protection directly, with no ceremony, answers the same
+			// way and prints as confirmed: the server judges protection, and
+			// the answer reports the state asked for either way.
+			if prot != nil && (*prot || fields.Protected) {
 				return exitcode.Newf(exitcode.Unavailable,
-					"the server answered with the secret instead of staging the protection change, which updateSecret(protected: …) does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get %s",
-					resp.UpdateSecret.Protected, cmdutil.ShellQuote(output.SafeCell(args[0])))
+					"the server answered with the secret instead of staging the protection change, which updateSecret(protected: …) does not do; it reports protected: %t. The outcome is not confirmed — any value or metadata sent alongside the flag may have been applied; the protection change was not: check it with: hadron secret get %s",
+					fields.Protected, cmdutil.ShellQuote(output.SafeCell(args[0])))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSecretLine(w, "✓ updated", dto)

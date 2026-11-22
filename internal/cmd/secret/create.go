@@ -65,9 +65,11 @@ until a person signs it. --protected=false asks for the default outright
 (unprotected). Protection never changes without a signed request: the
 --protected creation above stages one, and hadron secret protect changes
 protection for an existing secret. The request names the protected argument,
-so a server from before the argument shipped (2026-11-21) refuses the request
-even without the flag; a server with passkey signing off still accepts the
-command, refusing only an explicit protection change.
+so --protected needs a server from 2026-11-21, when the argument reached
+server main; without the flag the request is unchanged from before the flag
+existed, so older servers keep accepting this command. A server with passkey
+signing off still accepts the command, refusing only an explicit protection
+change.
 
 Prints "✓ created secret <name>  <kind>/<id>  owner <type> <id>"; --json gives
 id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
@@ -105,19 +107,37 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			// default unprotected create), --protected stages the whole creation
 			// for a passkey (App scope only; the server words the refusal for
 			// other scopes), --protected=false is the default shape said aloud.
+			// The flag also chooses the DOCUMENT (Eden's ruling on the round-5
+			// BLIND P2, chat #137754): omitted rides the pre-#2815
+			// CreateSecret, so servers from before the argument reached server
+			// main (2026-11-21) keep accepting plain creates; given, it rides
+			// CreateSecretProtected, which names the argument.
 			var prot *bool
 			if cmd.Flags().Changed("protected") {
 				p := protected
 				prot = &p
 			}
-			resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value, prot)
-			if err != nil {
-				return mapChange(err, "the creation of secret "+output.SafeCell(name))
+			var fields *gen.SecretFields
+			if prot == nil {
+				resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
+				if err != nil {
+					return mapChange(err, "the creation of secret "+output.SafeCell(name))
+				}
+				if resp == nil || resp.CreateSecret == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no secret")
+				}
+				fields = &resp.CreateSecret.SecretFields
+			} else {
+				resp, err := gen.CreateSecretProtected(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value, prot)
+				if err != nil {
+					return mapChange(err, "the creation of secret "+output.SafeCell(name))
+				}
+				if resp == nil || resp.CreateSecret == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no secret")
+				}
+				fields = &resp.CreateSecret.SecretFields
 			}
-			if resp == nil || resp.CreateSecret == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no secret")
-			}
-			dto := dtoFromFields(resp.CreateSecret.SecretFields)
+			dto := dtoFromFields(*fields)
 			// A protected create is staged, never applied (hadron-server#3999
 			// S4): the answer is SECRET_PROTECTED_NEEDS_PASSKEY, mapped above.
 			// A returned secret means the server did not do what this CLI
@@ -130,9 +150,9 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			if prot != nil && *prot {
 				return exitcode.Newf(exitcode.Unavailable,
 					"the server answered with the created secret instead of staging it for a passkey, which createSecret(protected: true) does not do; it reports protected: %t. The secret exists, and the protection you asked for is not confirmed — it may be unprotected: check it with: hadron secret get %s",
-					resp.CreateSecret.Protected, cmdutil.ShellQuote(output.SafeCell(dto.ID)))
+					fields.Protected, cmdutil.ShellQuote(output.SafeCell(dto.ID)))
 			}
-			if prot != nil && !*prot && resp.CreateSecret.Protected {
+			if prot != nil && !*prot && fields.Protected {
 				return exitcode.Newf(exitcode.Unavailable,
 					"the server answered with the created secret reporting protected: true, which createSecret(protected: false) does not do. The secret exists, and the protection you asked for is not confirmed — it may be protected: check it with: hadron secret get %s",
 					cmdutil.ShellQuote(output.SafeCell(dto.ID)))

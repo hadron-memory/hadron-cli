@@ -65,8 +65,10 @@ one. --json gives the secret fields, including currentVersion and protected.`,
 			if err != nil {
 				return err
 			}
-			// cli#2815: set is the value-only door — protection is never sent.
-			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], nil, &v, nil)
+			// cli#2815: set is the value-only door — protection is never sent,
+			// so it rides the pre-#2815 UpdateSecret document (no `protected`
+			// anywhere in it).
+			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], nil, &v)
 			if err != nil {
 				return mapChange(err, "the new value for secret "+output.SafeCell(args[0]))
 			}

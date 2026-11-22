@@ -49,27 +49,34 @@ func callsTo2815(calls *[]call2738, op string) int {
 	return n
 }
 
-// TestProtectedCreateWireStates_2815 pins the tri-state on the wire: the key is
-// absent when the flag is omitted, true for --protected, false for
-// --protected=false, and the mutation is sent exactly once either way. The
-// contract answer differs per row (BLIND P2 hardening): a protected create
-// stages (the fake answers staged and the exit is 5), omission and explicit
-// false create unprotected (a secret comes back, exit 0).
+// TestProtectedCreateWireStates_2815 pins the tri-state on the wire: the key
+// is absent when the flag is omitted, true for --protected, false for
+// --protected=false, and the mutation is sent exactly once either way. Since
+// the round-6 document split the flag also chooses the operation: omitted
+// rides CreateSecret (no protected argument), the attached spellings ride
+// CreateSecretProtected. The contract answer differs per row (BLIND P2
+// hardening): a protected create stages (the fake answers staged and the exit
+// is 5), omission and explicit false create unprotected (a secret comes back,
+// exit 0).
 func TestProtectedCreateWireStates_2815(t *testing.T) {
-	created := `{"data":{"createSecret":` + secretJSON + `}}`
 	for _, tc := range []struct {
 		name    string
 		flags   []string
+		op      string
 		present bool
 		value   bool
 		staged  bool
 	}{
-		{"omitted sends no field", nil, false, false, false},
-		{"--protected sends true", []string{"--protected"}, true, true, true},
-		{"--protected=false sends false", []string{"--protected=false"}, true, false, false},
+		{"omitted sends no field", nil, "CreateSecret", false, false, false},
+		{"--protected sends true", []string{"--protected"}, "CreateSecretProtected", true, true, true},
+		{"--protected=false sends false", []string{"--protected=false"}, "CreateSecretProtected", true, false, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			body := created
+			// The response keys stay createSecret/updateSecret whichever
+			// document is sent: they name the GraphQL field, not the
+			// operation, so genqlient's unmarshaler reads the same key for
+			// both documents.
+			body := `{"data":{"createSecret":` + secretJSON + `}}`
 			wantCode := 0
 			if tc.staged {
 				body = staged2738()
@@ -82,10 +89,10 @@ func TestProtectedCreateWireStates_2815(t *testing.T) {
 			if code != wantCode {
 				t.Fatalf("exit = %d, want %d\n%s%s", code, wantCode, stdout, stderr)
 			}
-			if got := callsTo2815(calls, "CreateSecret"); got != 1 {
-				t.Fatalf("createSecret must be sent exactly once, sent %d", got)
+			if got := callsTo2815(calls, tc.op); got != 1 {
+				t.Fatalf("%s must be sent exactly once, sent %d", tc.op, got)
 			}
-			vars := callVarsOf2815(t, calls, "CreateSecret")
+			vars := callVarsOf2815(t, calls, tc.op)
 			got, has := vars["protected"]
 			if has != tc.present {
 				t.Fatalf("protected key present=%v, want %v (vars %v)", has, tc.present, vars)
@@ -106,7 +113,7 @@ func TestProtectedCreateWireStates_2815(t *testing.T) {
 // prints a secret URN; --json carries the #2738 envelope unchanged.
 func TestProtectedCreateIsStagedAndNeverSaysCreated_2815(t *testing.T) {
 	srv, calls := fake2738(t, func(op string, n int) (int, string) {
-		if op == "CreateSecret" {
+		if op == "CreateSecretProtected" {
 			return 200, staged2738()
 		}
 		return 200, `{"data":null}`
@@ -116,8 +123,8 @@ func TestProtectedCreateIsStagedAndNeverSaysCreated_2815(t *testing.T) {
 	if code != exitcode.Conflict {
 		t.Fatalf("exit = %d, want 5 (staged)\n%s%s", code, stdout, stderr)
 	}
-	if got := callsTo2815(calls, "CreateSecret"); got != 1 {
-		t.Fatalf("createSecret must be sent exactly once, sent %d", got)
+	if got := callsTo2815(calls, "CreateSecretProtected"); got != 1 {
+		t.Fatalf("createSecretProtected must be sent exactly once, sent %d", got)
 	}
 	noCeremonyRequest2738(t, calls)
 	e := envelope2738(t, stdout, stderr)
@@ -146,8 +153,8 @@ func TestProtectedCreateReturningSecretIsUnconfirmed_2815(t *testing.T) {
 	if code != exitcode.Unavailable {
 		t.Fatalf("exit = %d, want 7 (unconfirmed)\n%s%s", code, stdout, stderr)
 	}
-	if got := callsTo2815(calls, "CreateSecret"); got != 1 {
-		t.Fatalf("createSecret must be sent exactly once, sent %d", got)
+	if got := callsTo2815(calls, "CreateSecretProtected"); got != 1 {
+		t.Fatalf("createSecretProtected must be sent exactly once, sent %d", got)
 	}
 	all := stdout + stderr
 	// BLIND P3 fold (Eden-directed, with the 7eb4499b bounce): the message
@@ -186,8 +193,8 @@ func TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815(t *testing.T) {
 			if code != exitcode.Unavailable {
 				t.Fatalf("exit = %d, want 7 (unconfirmed)\n%s%s", code, stdout, stderr)
 			}
-			if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
-				t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
+			if got := callsTo2815(calls, "UpdateSecretProtected"); got != 1 {
+				t.Fatalf("updateSecretProtected must be sent exactly once, sent %d", got)
 			}
 			all := stdout + stderr
 			for _, want := range []string{"not confirmed", "hadron secret get"} {
@@ -226,10 +233,10 @@ func TestSecretUpdateProtectedFalseNoOpIsConfirmed_2815(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("exit = %d, want 0 (the no-op clear is the confirmed answer)\n%s%s", code, stdout, stderr)
 			}
-			if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
-				t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
+			if got := callsTo2815(calls, "UpdateSecretProtected"); got != 1 {
+				t.Fatalf("updateSecretProtected must be sent exactly once, sent %d", got)
 			}
-			vars := callVarsOf2815(t, calls, "UpdateSecret")
+			vars := callVarsOf2815(t, calls, "UpdateSecretProtected")
 			if got, has := vars["protected"]; !has || got != false {
 				t.Fatalf("--protected=false must send protected:false, got %v (present=%v)", got, has)
 			}
@@ -273,7 +280,7 @@ func TestSecretUpdateProtectedFalseSendsFalse_2815(t *testing.T) {
 	if code != exitcode.Conflict {
 		t.Fatalf("exit = %d, want 5 (staged)\n%s%s", code, stdout, stderr)
 	}
-	vars := callVarsOf2815(t, calls, "UpdateSecret")
+	vars := callVarsOf2815(t, calls, "UpdateSecretProtected")
 	if got, has := vars["protected"]; !has || got != false {
 		t.Fatalf("--protected=false must send protected:false, got %v (present=%v)", got, has)
 	}
@@ -302,7 +309,7 @@ func TestSecretUpdateProtectedFalseRefusalRendersAsSent_2815(t *testing.T) {
 // the mutation is sent once, and a staged answer takes the #2738 path.
 func TestSecretUpdateProtectedAloneIsAChange_2815(t *testing.T) {
 	srv, calls := fake2738(t, func(op string, n int) (int, string) {
-		if op == "UpdateSecret" {
+		if op == "UpdateSecretProtected" {
 			return 200, staged2738()
 		}
 		return 200, `{"data":null}`
@@ -311,13 +318,13 @@ func TestSecretUpdateProtectedAloneIsAChange_2815(t *testing.T) {
 	if code != exitcode.Conflict {
 		t.Fatalf("exit = %d, want 5 (staged; --protected alone must be accepted as a change)\n%s%s", code, stdout, stderr)
 	}
-	if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
-		t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
+	if got := callsTo2815(calls, "UpdateSecretProtected"); got != 1 {
+		t.Fatalf("updateSecretProtected must be sent exactly once, sent %d", got)
 	}
 	// BLIND P2: the staged answer must be earned by the request, not just the
 	// operation name — pin the variable, so clearing the usage guard while
 	// omitting the field cannot pass as a staged protection change.
-	vars := callVarsOf2815(t, calls, "UpdateSecret")
+	vars := callVarsOf2815(t, calls, "UpdateSecretProtected")
 	if got, has := vars["protected"]; !has || got != true {
 		t.Fatalf("--protected must send protected:true, got %v (present=%v); a staged answer without the field is the guard cleared but the change not sent", got, has)
 	}
@@ -398,7 +405,7 @@ func TestAgenticUsageStatesProtectedOutcomes_2815(t *testing.T) {
 		"the creation was applied, not staged",
 		"the secret exists and may be unprotected",
 		"asks for a protection change in the same request",
-		"refuses the request even flag-omitted",
+		"the flag-omitted request is unchanged",
 	} {
 		if !strings.Contains(contract, want) {
 			t.Errorf("agentic-usage must state the protected-flag outcomes, missing %q", want)
@@ -428,8 +435,8 @@ func TestSecretCreateProtectedFalseAnsweredTrueIsUnconfirmed_2815(t *testing.T) 
 	if code != exitcode.Unavailable {
 		t.Fatalf("exit = %d, want 7 (unconfirmed)\n%s%s", code, stdout, stderr)
 	}
-	if got := callsTo2815(calls, "CreateSecret"); got != 1 {
-		t.Fatalf("createSecret must be sent exactly once, sent %d", got)
+	if got := callsTo2815(calls, "CreateSecretProtected"); got != 1 {
+		t.Fatalf("createSecretProtected must be sent exactly once, sent %d", got)
 	}
 	all := stdout + stderr
 	for _, want := range []string{"not confirmed", "may be protected", "hadron secret get"} {
@@ -533,10 +540,13 @@ func oneFlagChosenCall2815(t *testing.T, calls *[]call2738, want, other string) 
 // TestFlagOmittedRequestsStayUnprotected_2815 (BLIND round-5 P2, the
 // compatibility core): a flag-omitted create, a plain update and secret set
 // send the pre-#2815 documents — operation CreateSecret/UpdateSecret whose
-// query text carries no `protected` at all — so servers older than the
+// query text names no `protected` ARGUMENT — so servers older than the
 // argument keep accepting the plain commands exactly as before the flag
-// existed. The old documents must stay byte-equivalent to their pre-#2815
-// shape; pinning the absence of the word in the query pins that.
+// existed. The pin is the argument, not the word: the SecretFields fragment
+// legitimately selects the `protected` field on the read path (floored on
+// main since cli#2738), so the absence of a `$protected` variable — the only
+// way these documents can pass the argument — is what pins the pre-#2815
+// shape.
 func TestFlagOmittedRequestsStayUnprotected_2815(t *testing.T) {
 	t.Run("create without the flag", func(t *testing.T) {
 		srv, calls := fake2738(t, only2738(200, `{"data":{"createSecret":`+secretJSON+`}}`))
@@ -546,8 +556,8 @@ func TestFlagOmittedRequestsStayUnprotected_2815(t *testing.T) {
 			t.Fatalf("exit = %d\n", code)
 		}
 		oneFlagChosenCall2815(t, calls, "CreateSecret", "CreateSecretProtected")
-		if q := callQueryOf2815(t, calls, "CreateSecret"); strings.Contains(q, "protected") {
-			t.Fatalf("the flag-omitted create document must carry no `protected` (the round-5 P2 regression):\n%s", q)
+		if q := callQueryOf2815(t, calls, "CreateSecret"); strings.Contains(q, "$protected") {
+			t.Fatalf("the flag-omitted create document must name no protected argument (the round-5 P2 regression):\n%s", q)
 		}
 	})
 	t.Run("update without the flag", func(t *testing.T) {
@@ -557,8 +567,8 @@ func TestFlagOmittedRequestsStayUnprotected_2815(t *testing.T) {
 			t.Fatalf("exit = %d\n", code)
 		}
 		oneFlagChosenCall2815(t, calls, "UpdateSecret", "UpdateSecretProtected")
-		if q := callQueryOf2815(t, calls, "UpdateSecret"); strings.Contains(q, "protected") {
-			t.Fatalf("the flag-omitted update document must carry no `protected` (the round-5 P2 regression):\n%s", q)
+		if q := callQueryOf2815(t, calls, "UpdateSecret"); strings.Contains(q, "$protected") {
+			t.Fatalf("the flag-omitted update document must name no protected argument (the round-5 P2 regression):\n%s", q)
 		}
 	})
 	t.Run("set never names the argument", func(t *testing.T) {
@@ -568,8 +578,8 @@ func TestFlagOmittedRequestsStayUnprotected_2815(t *testing.T) {
 			t.Fatalf("exit = %d\n", code)
 		}
 		oneFlagChosenCall2815(t, calls, "UpdateSecret", "UpdateSecretProtected")
-		if q := callQueryOf2815(t, calls, "UpdateSecret"); strings.Contains(q, "protected") {
-			t.Fatalf("secret set rides the flag-omitted update document; it must carry no `protected`:\n%s", q)
+		if q := callQueryOf2815(t, calls, "UpdateSecret"); strings.Contains(q, "$protected") {
+			t.Fatalf("secret set rides the flag-omitted update document; it must name no protected argument:\n%s", q)
 		}
 	})
 }
@@ -649,8 +659,7 @@ func TestProtectedUpdateUnconfirmedNamesTheRest_2815(t *testing.T) {
 		{"json", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			body := `{"data":{"updateSecret":` + secretProtected2815(true) +
-				`,"updateSecretProtected":` + secretProtected2815(true) + `}}`
+			body := `{"data":{"updateSecret":` + secretProtected2815(true) + `}}`
 			srv, calls := fake2738(t, only2738(200, body))
 			args := []string{"update", "01sec", "--protected=false", "--value-file", valueFile2738(t)}
 			if tc.json {
@@ -712,7 +721,7 @@ func TestProtectedParseBoolSpellingsRefused_2815(t *testing.T) {
 // accepting it — never the round-4 "refuses the request even flag-omitted".
 func TestAgenticUsageFloorAndSingleOutcomeSentence_2815(t *testing.T) {
 	contract := string(readContract(t))
-	if n := strings.Count(contract, "The answers are the protected-secret changes entry above"); n != 1 {
+	if n := strings.Count(strings.ToLower(contract), "the answers are the protected-secret changes entry above"); n != 1 {
 		t.Fatalf("the protected-outcome sentence must appear exactly once, found %d", n)
 	}
 	for _, want := range []string{
