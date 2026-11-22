@@ -1,0 +1,271 @@
+# `secret create|update --protected` (cli#2815)
+
+Status: built (branch `jimmy/2815-protected-arg`). Decision (Petra, on the issue, 2026-11-21): option (a) — a `--protected`
+tri-state flag on `secret create` and `secret update`, closing the coverage-matrix gaps
+`Mutation.createSecret(protected)` / `Mutation.updateSecret(protected)`.
+
+## Why
+
+With `secret protect` as the only way in, a secret that should be protected from the start
+must be created unprotected first and protected afterwards — a window in which it changes
+without a passkey, and two ceremonies. `createSecret(protected: true)` stages the whole
+creation in one act; `updateSecret(protected: …)` stages a protection change alongside (or
+instead of) a value/metadata change.
+
+## Server contract (read at hadron-server `04b5c66c8`, resolvers.secret.ts)
+
+- `createSecret(protected: true)` — App scope only (`--scope app`); any other scope is a
+  clean `BAD_USER_INPUT` the server words. Stages `STORE/absent` via `stageSecretChange`;
+  a taken name refuses at staging with the duplicate-name refusal and nothing staged.
+  `protected: false` on create is the default shape (unprotected); non-App ignores it.
+- `updateSecret(protected: …)` — any explicit value on a non-App secret is `BAD_USER_INPUT`.
+  On an App secret: an explicit value alone is a valid update (the all-omitted guard counts
+  it); `protected: false` is manager-only (FORBIDDEN otherwise — the server judges, the CLI
+  never pre-checks); `secret.protected || protected !== undefined` stages, so every explicit
+  value on an App secret stages a change request (`protectedResult`, `writeVersion`).
+- The staged answer is the #2738 shape: `SECRET_PROTECTED_NEEDS_PASSKEY` with
+  `extensions.requestId` / `extensions.ceremonyUrl`, already mapped by `mapChange` in
+  `internal/cmd/secret/staged.go` — the create/update doors ride it unchanged.
+
+## Design
+
+- One flag per command, `BoolVar` + `cmd.Flags().Changed("protected")` — the tri-state is
+  presence-based, the repo's `Changed()` precedent (`authored-with`, channel #638):
+  - omitted → pointer nil → `# @genqlient(omitempty: true)` omits the key (never `null`:
+    `null` is not "preserve" here, it is a third server meaning we do not want);
+  - `--protected` → `true`;
+  - `--protected=false` → `false`.
+- `internal/api/queries/secrets.graphql`: `$protected: Boolean` (omitempty) on the
+  flag-chosen documents — `CreateSecretProtected`/`UpdateSecretProtected`, selected only
+  when `--protected` is given; `make generate`. The shared `CreateSecret`/`UpdateSecret`
+  keep their pre-#2815 shape (no `protected` anywhere), so a flag-omitted create/update
+  and `secret set` (which passes no pointer and never touches protection) ride documents
+  a server from before the argument reached main (2026-11-21, hadron-server#4177) already
+  accepts. One document per server generation, stepping down only as validation forces —
+  the secret client list precedent (cli#2758/2720).
+- `update`'s "nothing to update" guard admits the flag: `--protected` alone is a change.
+- Output contract: a staged create/update prints the request id and ceremony URL byte for
+  byte via the existing `stagedChange` path (exit 5) and never says "created"/"updated" —
+  the error return precedes `output.Write`, so no success line can print. `--json` carries
+  the envelope unchanged. No `--json` DTO changes: the flag changes input only.
+- Help (both commands) names the flag, its three states, that it applies to App secrets,
+  and that protection changes go through a signed request. `agentic-usage.md`: the
+  synopsis gains the flag; the trailing sentence "create|update do not yet reach the
+  protected argument (cli#2815)" is replaced by the flag's contract; the long `secret
+  update` paragraph gains the flag.
+
+## Acceptance (red first — `internal/cmd/secret_protected_arg_2815_test.go`)
+
+1. `secret create --protected` sends `createSecret(protected: true)` once; a staged answer
+   prints request id + ceremony URL, never "created"/URN; `--json` envelope unchanged.
+2. `secret update` without the flag sends NO `protected` key (request-body pin) — a plain
+   member update is not silently turned manager-only.
+3. `secret update --protected=false` sends `false`; a non-manager FORBIDDEN renders as the
+   server returned it (exit 8).
+4. `--protected` alone on update is a valid change (no "nothing to update" refusal).
+5. Help names the flag, three states, signed-request wording on both commands.
+6. `make coverage-matrix` moves both `protected` rows from `gap #2815` to the commands;
+   `make coverage-matrix-check` green.
+
+## Out of scope
+
+- `secret set` protection changes (it is a value-only convenience door; `protect` and
+  `update --protected` cover it).
+- Any local pre-check of scope or manager status — the server judges both (Petra's
+  condition; keeps one source of truth).
+
+## Review folds at the fix head (3fe6bd62 → fix head)
+
+- **BLIND P1 (unconfirmed staged protection), folded.** The contract is that a protected
+  create and every explicit protection change on update STAGE (`SECRET_PROTECTED_NEEDS_
+  PASSKEY`); a returned `Secret` means the server did not stage what the CLI asked for.
+  Both doors now take the `secret protect` shape for that answer: exit 7 (`Unavailable`),
+  the returned `protected` value quoted, "not confirmed", a `hadron secret get` pointer,
+  and never a success line. Create checks only explicit `true` (explicit `false` is the
+  default shape and legitimately returns a secret); update checks any explicit value
+  (every explicit value on an App secret stages; non-App is a `BAD_USER_INPUT` the server
+  words). Red pins first: `TestProtectedCreateReturningSecretIsUnconfirmed_2815`,
+  `TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815` (red at 3fe6bd62: both
+  printed the success line and exited 0).
+- **BLIND P2 (true-variable pin), folded.** The staged-alone update test now pins
+  `protected: true` in the recorded variables (mutant killed: clearing the guard while
+  omitting the field fails the pin); the explicit-false wire test's fake answers staged —
+  the contract answer for any explicit value — and asserts no "✓ updated" line; the
+  create wire-state table answers staged for the `--protected` row (exit 5) and a secret
+  for omission / explicit false (exit 0).
+- **SEC10 P3 (set pin), folded (Jonas, "recommend folding now").**
+  `TestSecretSetSendsNoProtectedKey_2815`: `secret set` — the other `updateSecret`
+  caller — sends no `protected` key (mutant killed: a set sending `protected: true`
+  fails the pin).
+- **BLIND P3 (help wording), not folded.** The help already names all three states on
+  both commands ("asks for a protected secret from the start"; "Without the flag no
+  protected field is sent"); the suggested rewording is lateral. Noted for a future help
+  pass: the help test's `--protected` substring is satisfied by `--protected=false`, so
+  the true-arm phrasing is unpinned.
+- **LOCAL P3s, not folded.** "Closes #2815" in 3fe6bd62's subject vs the Refs-only
+  convention: noted, the fix-head commits use Refs-only, the reviewed commit is not
+  rewritten. Non-App-scope `create --protected` refusal rendering unpinned: true; the
+  CLI never pre-checks scope and the server words that refusal — a pin would only fix
+  the fake's spelling of it. Neither blocks; both are recorded here and in the PR thread.
+- **Compatibility (Joost's verify item), answered.** The `protected` argument is static
+  SDL, present since hadron-server#3999 (S2/S3 authored 2026-11-14 as `f30abba3e`/
+  `87926e929`, both reaching server main only with the #4177 merge `e42bb1897` on
+  2026-11-21 — the branch commits' author dates are not landing dates); it is not gated by `PASSKEY_SIGNING_ENABLED` (a signing-off deployment
+  still exposes the argument and refuses with the bare code — already mapped by
+  `mapChange`'s no-request-id branch). genqlient documents are static, so a server
+  older than #3999 rejects the `createSecret`/`updateSecret` documents even for
+  flag-omitted calls. The server repo carries no tags; the CLI's committed schema
+  snapshot is the support floor by construction, and the already-shipped `secret
+  protect` / `secret change` surfaces require the same server generation — so this PR
+  adds no new floor. A formal minimum-server-version policy would be Petra/Holger's
+  call, not this PR's.
+  **SDL check (round 4, replacing the commit-reference-only claim):** at hadron-server
+  `origin/main` `1a7914a6c8d3e0fa6340188a6c7aaa378b05bb38`, `deploymentSchema()` with
+  `PASSKEY_SIGNING_ENABLED=false` still declares
+  `createSecret(… protected: Boolean …)` and `updateSecret(… protected: Boolean …)`
+  in its printed SDL, while `setSecretProtected` is absent: the off-switch removes
+  signing *types* and capability *fields* (`src/api/graphql/schema/deploymentSchema.ts`)
+  but never *arguments*. So every server that has the argument accepts these documents
+  with signing off; only servers older than #3999 (which never had it) reject them,
+  flag or no flag — stated in both help texts and the agentic contract.
+
+## QA fold at 3fa0b2fa (Charles P2, hadron-server#4749)
+
+- **QA P2 (no-op clear reported unconfirmed), folded.** The server contract moved under
+  the guard: clearing protection that is not on asks for no change (`hadron-server#4749`,
+  the #4717 item-8 class reached through `updateSecret`; fix `hadron-server#4805`, open,
+  CI green at post time; the same normalisation already shipped for
+  `setSecretProtected` in `#4745`, merged 2026-11-21): nothing stages and the secret
+  comes back — unchanged when the flag is alone, or with the rest of the update applied
+  when a value or metadata rode along. The update guard now confirms exactly that answer
+  (`--protected=false` answered `protected: false` → the normal updated line, exit 0) and
+  keeps exit 7 for every other returned secret: any `--protected`, and a `false` the
+  answer still reports `protected: true` (the server neither staged nor cleared). Create
+  is unchanged (explicit `false` already returned the secret). Servers that still stage
+  the clear (main before #4805) keep answering `SECRET_PROTECTED_NEEDS_PASSKEY` → exit 5,
+  pinned by the staged/wire tests. Help names the no-op. Red pins first:
+  `TestSecretUpdateProtectedFalseNoOpIsConfirmed_2815` (red at 3fa0b2fa: exit 7), and
+  `TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815` narrowed to the two
+  answers that stay unconfirmed.
+- **Sibling defect spotted, reported (not this PR's diff).** `secret protect --off` on an
+  unprotected secret hits the same no-op answer since server `#4745`: the secret comes
+  back and `protect.go`'s pre-#4745 guard exits 7 "not confirmed" for a state already
+  true. Shipped surface, one mutation over — reported through QA intake for a follow-up
+  slice rather than folded here (this PR does not touch `protect.go`).
+
+## BLIND fold at 7eb4499b (Jorge P2: help stated the #4805 no-op as fact)
+
+- **BLIND P2 (help overstated the no-op), folded.** `secret update --help` said
+  turning protection off when it is already off stages nothing and prints the
+  normal updated line — an outcome only servers with the `updateSecret` no-op
+  give (`hadron-server#4805`, open at 7eb4499b; `#4745` shipped the
+  `setSecretProtected` analogue on 2026-11-21). Servers that still stage the
+  clear answer `SECRET_PROTECTED_NEEDS_PASSKEY` → exit 5, the ceremony flow the
+  help did not name. The CLI behavior was already vintage-correct — the staged
+  answer errors out in `mapChange` before the confirm guard runs — so only the
+  claim was wrong. The help now states both answers ("some stage the clear …
+  others recognize the no change"). Red pin first:
+  `TestSecretUpdateHelpStatesTheNoOpConditionally_2815` (red at 7eb4499b on
+  both arms: the conditional phrasing absent, the unconditional one present).
+  Jorge's P3-1 (the same server dependency) closes with it; his remaining P3s
+  and Joran's P3 are recorded as optional in the PR disposition, not folded
+  (no P3-only folds without Eden directing).
+
+## BLIND fold at e107e08b (Jill P2: the machine contract kept the blanket claim)
+
+- **BLIND P2 (agentic-usage overstated), folded.** The agent-facing contract
+  (`internal/cmd/agentic/agentic-usage.md`, the surface agents read instead of
+  `--help`) still said every explicit `--protected` value "stages like any
+  protected change" — the same blanket claim the help lost one round earlier,
+  plus two unstated exit-7 answers. The contract now states the three
+  not-staging outcomes at the protected-secret entry (the #4749 no-op clear →
+  exit 0, server-dependent; any other returned secret → exit 7 not confirmed,
+  update arm; `create --protected` answered with a secret → exit 7, the
+  creation applied, not staged, the secret existing and possibly
+  unprotected), and the `secret update` cross-reference says "asks for" with
+  the answer map instead of "stages". Red pin first:
+  `TestAgenticUsageStatesProtectedOutcomes_2815` (red at e107e08b on all five
+  arms). Jill's nine P3s: the two that are one-line wording fixes are folded
+  with this head per Eden's direction (#137032) — the "Protection is changed
+  only through a signed request" sentence in both helps read as though update
+  could not change protection (it now names the update ceremony first), and
+  "the default shape said aloud" jargon in create's help ("asks for the
+  default outright") — the other seven stay optional in the PR disposition.
+- **BLIND P3 (create 'not confirmed' wording), folded by Eden's direction**
+  (#136855: "fold that + the create 'not confirmed' wording P3 into ONE
+  head"). The create guard's exit-7 message said only "The outcome is not
+  confirmed" — but a returned secret means the creation was applied, not
+  staged, so the reader was not told the decisive fact: the secret exists and
+  may be unprotected. The message now says so. Red pin first: the extended
+  `TestProtectedCreateReturningSecretIsUnconfirmed_2815` wants "The secret
+  exists" / "may be unprotected" (red at 7eb4499b). Jonas's SECURITY P3 (same
+  #4805 dependency as Jorge's P2) closes with the conditional help above.
+
+## Round-4 fold (Juniper BLIND P2 + three P3s, Eden #137270)
+
+- **BLIND P2 (documents vs servers without the argument), closed with
+  evidence.** The plan's static-SDL claim was backed by a commit reference
+  only; the SDL check above is the evidence — run at `origin/main`
+  `1a7914a6c8d3`, signing off, `deploymentSchema()`'s printed SDL keeps the
+  `protected` argument on both mutations (the switch removes types and
+  capability fields, never arguments) and drops `setSecretProtected`. Both
+  helps and the agentic contract now state the floor: a server from before
+  #3999 refuses the request even flag-omitted; a signing-off server still
+  accepts the commands, refusing only an explicit protection change.
+- **BLIND P3 (create guard covered only the true arm), folded.** A
+  `--protected=false` create answered `protected: true` returned a success
+  line; the guard now catches it (exit 7, "may be protected", `secret get` to
+  check), mirroring the update guard's two arms. Red pin first:
+  `TestSecretCreateProtectedFalseAnsweredTrueIsUnconfirmed_2815`.
+- **BLIND P3 (`--protected false` with a space), folded.** The misparse read
+  the flag as true plus a stray positional and died as an unknown-command
+  (create) or arg-count (update) error naming everything but the mistake.
+  Both commands now refuse it in their Args validators — exit 2, the two
+  attached spellings named, nothing sent (`refuseDetachedProtectedValue`;
+  an id or URN is never literally true or false). Red pin first:
+  `TestProtectedSpaceSeparatedValueRefused_2815`.
+- **BLIND P3 (agentic-contract shape), folded.** The additions were very long
+  single-line paragraphs and one narrated the past ("was display only until
+  cli#2815"); the entry is now sentence-per-line and states current behaviour
+  only. `TestAgenticUsageStatesProtectedOutcomes_2815` pins the floor sentence
+  and the absence of the narrative phrase (both red at fceceb55).
+
+## Round-5 date fix (12cc7fae)
+
+- Round-4's floor sentence said the argument shipped 2026-11-14; it reached server main
+  2026-11-21 (hadron-server#4177, merge e42bb1897) — the shallow evidence clone hid the
+  author date. One-line text fix, no code. Verdicts at 12cc7fae: LOCAL/SECURITY/QA approve
+  or pass; BLIND (Abigail, fresh seat) CHANGES_REQUESTED — the P2 below.
+
+## Round-6 fold (Abigail BLIND P2 + four P3s, Eden #137754)
+
+- **BLIND P2 (the static documents broke pre-argument servers), folded via ruling (A).**
+  `$protected` sat in the shared `CreateSecret`/`UpdateSecret` documents, so a server from
+  before the argument reached main refused plain create/update/set at validation even
+  flag-omitted — commands that worked before the flag existed. The fix is Abigail's first
+  suggested arm and the repo's own precedent: the shared documents keep their pre-#2815
+  shape and the flag rides `CreateSecretProtected`/`UpdateSecretProtected`, chosen only
+  when `--protected` is given (the argument is then always sent — no omitempty on the
+  Protected documents). `secret set` is untouched by construction. Red pins first
+  (afaa6076): `TestFlagOmittedRequestsStayUnprotected_2815` (no `$protected` variable in
+  the flag-omitted documents — the SecretFields fragment legitimately selects the
+  `protected` field, so the pin targets the argument, not the word) and
+  `TestProtectedFlagUsesItsOwnDocuments_2815` (every attached spelling rides its own
+  document, once, with the explicit value). Response keys stay `createSecret`/`updateSecret`
+  whichever document is sent — they name the GraphQL field, not the operation.
+- **P3 folds in the same head:** the exit-7 update message now says a value/metadata sent
+  alongside the flag may have been applied (not "not confirmed" alone); the update guard's
+  success-on-`protected:false` arm carries the comment that a direct-clearing server is
+  indistinguishable and prints as confirmed (the server judges); the detached-value guard
+  catches every `strconv.ParseBool` spelling (`1`/`0`/`t`/`f`, any case) beside the words;
+  agentic-usage's split policy paragraph is one sentence (no duplicate), states the
+  flag-omitted request is unchanged, and drops the PR's own trailing space. The help date
+  phrase now says what the date is — "when the argument reached server main" — rather than
+  implying a release date. The red-pins commit also added Abigail's missing wire pins:
+  `--protected=true`, `--protected` with `--value-file` (both variables, one request), and
+  the `--json` arm of the exit-7 unconfirmed update.
+- **Not taken (disposition):** the synopsis-block prose lines (the block's convention
+  already mixes annotation lines; the CLI's own tests pin these lines as the contract);
+  the hedged `#4805` help sentence (stays conditional until the server lands it); the
+  non-App `create --protected` refusal pin (declined in scope above); trimming this round
+  log (the plan doc is the as-built record; the log is its history).
