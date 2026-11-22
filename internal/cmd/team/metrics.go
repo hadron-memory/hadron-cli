@@ -121,7 +121,8 @@ The reports:
                         (a task with an issue reference or a source), so its
                         total is not all started tasks.
   Started projects      each STARTED project with its direct child tasks
-                        counted by status.
+                        counted by status. The server sends no project
+                        total, so the heading says how many are shown.
   Workers               active, idle, overdue and inop. A worker can be in
                         several, so the four never add up to a head count.
   Flow in the window    tasks completed and tasks started in [since, until),
@@ -213,19 +214,22 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func metricsCount(c gen.TeamMetricsCountFields) metricsCountDTO {
+func countFromGen(c gen.TeamMetricsCountFields) metricsCountDTO {
 	out := metricsCountDTO{Total: c.Total, IDs: []string{}, Truncated: c.Truncated}
 	out.IDs = append(out.IDs, c.Ids...)
 	return out
 }
 
-func metricsProject(p gen.TeamMetricsProjectFields) metricsProjectDTO {
+func projectFromGen(p gen.TeamMetricsProjectFields) metricsProjectDTO {
 	return metricsProjectDTO{Handle: p.Handle, NoProject: p.NoProject, TaskID: p.TaskId, Title: p.Title}
 }
 
 // metricsFromGen copies the answer into the command's own DTO, so --json does
 // not move when the generated client does. A missing nested count (the schema
-// makes none optional) reads as an empty one rather than a crash.
+// makes none optional) reads as an empty one rather than a crash. The lists are
+// [X!]! in the SDL, so a nil list entry is unreachable from a conforming server;
+// the loops skip one rather than crash, and cannot make a truncated list read as
+// whole (truncation is its own flag, copied as sent).
 func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 	empty := metricsCountDTO{IDs: []string{}}
 	dto := metricsDTO{AppID: m.AppId, AsOf: m.AsOf}
@@ -235,7 +239,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 	if so := m.StartedOwned; so != nil {
 		out := &metricsStartedOwnedDTO{All: empty, ByOwner: []metricsOwnerGroupDTO{}, OwnersTruncated: so.OwnersTruncated}
 		if so.All != nil {
-			out.All = metricsCount(so.All.TeamMetricsCountFields)
+			out.All = countFromGen(so.All.TeamMetricsCountFields)
 		}
 		for _, g := range so.ByOwner {
 			if g == nil {
@@ -246,7 +250,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 				og.Owner = &metricsOwnerDTO{ID: g.Owner.Id, Kind: string(g.Owner.Kind), Name: g.Owner.Name, URN: g.Owner.Urn}
 			}
 			if g.Tasks != nil {
-				og.Tasks = metricsCount(g.Tasks.TeamMetricsCountFields)
+				og.Tasks = countFromGen(g.Tasks.TeamMetricsCountFields)
 			}
 			for _, pg := range g.ByProject {
 				if pg == nil {
@@ -254,10 +258,10 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 				}
 				row := metricsProjectGroupDTO{Tasks: empty}
 				if pg.Project != nil {
-					row.Project = metricsProject(pg.Project.TeamMetricsProjectFields)
+					row.Project = projectFromGen(pg.Project.TeamMetricsProjectFields)
 				}
 				if pg.Tasks != nil {
-					row.Tasks = metricsCount(pg.Tasks.TeamMetricsCountFields)
+					row.Tasks = countFromGen(pg.Tasks.TeamMetricsCountFields)
 				}
 				og.ByProject = append(og.ByProject, row)
 			}
@@ -273,7 +277,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 			}
 			row := metricsProjectRowDTO{Children: []metricsChildStatusDTO{}}
 			if it.Project != nil {
-				row.Project = metricsProject(it.Project.TeamMetricsProjectFields)
+				row.Project = projectFromGen(it.Project.TeamMetricsProjectFields)
 			}
 			for _, ch := range it.Children {
 				if ch == nil {
@@ -281,7 +285,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 				}
 				c := metricsChildStatusDTO{Status: string(ch.Status), Tasks: empty}
 				if ch.Tasks != nil {
-					c.Tasks = metricsCount(ch.Tasks.TeamMetricsCountFields)
+					c.Tasks = countFromGen(ch.Tasks.TeamMetricsCountFields)
 				}
 				row.Children = append(row.Children, c)
 			}
@@ -292,25 +296,25 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 	dto.Workers = metricsWorkersDTO{Active: empty, Idle: empty, Overdue: empty, Inop: empty}
 	if w := m.Workers; w != nil {
 		if w.Active != nil {
-			dto.Workers.Active = metricsCount(w.Active.TeamMetricsCountFields)
+			dto.Workers.Active = countFromGen(w.Active.TeamMetricsCountFields)
 		}
 		if w.Idle != nil {
-			dto.Workers.Idle = metricsCount(w.Idle.TeamMetricsCountFields)
+			dto.Workers.Idle = countFromGen(w.Idle.TeamMetricsCountFields)
 		}
 		if w.Overdue != nil {
-			dto.Workers.Overdue = metricsCount(w.Overdue.TeamMetricsCountFields)
+			dto.Workers.Overdue = countFromGen(w.Overdue.TeamMetricsCountFields)
 		}
 		if w.Inop != nil {
-			dto.Workers.Inop = metricsCount(w.Inop.TeamMetricsCountFields)
+			dto.Workers.Inop = countFromGen(w.Inop.TeamMetricsCountFields)
 		}
 	}
 	if fl := m.Flow; fl != nil {
 		out := &metricsFlowDTO{Completed: empty, Started: empty}
 		if fl.Completed != nil {
-			out.Completed = metricsCount(fl.Completed.TeamMetricsCountFields)
+			out.Completed = countFromGen(fl.Completed.TeamMetricsCountFields)
 		}
 		if fl.Started != nil {
-			out.Started = metricsCount(fl.Started.TeamMetricsCountFields)
+			out.Started = countFromGen(fl.Started.TeamMetricsCountFields)
 		}
 		dto.Flow = out
 	}
@@ -391,13 +395,19 @@ func renderMetrics(w io.Writer, dto metricsDTO, ids bool) error {
 	if pr := dto.Projects; pr == nil {
 		line(0, "Started projects: %s", metricsNotVisible)
 	} else {
-		line(0, "Started projects: %d", len(pr.Items))
+		// The projects report carries no total (cor:agt:150), so this is how many the CLI is showing, never the
+		// server's count: a truncated report says "(more projects than shown)" below.
+		line(0, "Started projects: %d shown", len(pr.Items))
 		for _, it := range pr.Items {
 			parts := make([]string, 0, len(it.Children))
 			for _, ch := range it.Children {
 				parts = append(parts, fmt.Sprintf("%s %d", output.SafeCell(ch.Status), ch.Tasks.Total))
 			}
-			line(1, "%s: %s", projectLabel(it.Project), strings.Join(parts, ", "))
+			counts := strings.Join(parts, ", ")
+			if counts == "" {
+				counts = "no child tasks"
+			}
+			line(1, "%s: %s", projectLabel(it.Project), counts)
 			for _, ch := range it.Children {
 				if ids && len(ch.Tasks.IDs) > 0 {
 					line(2, "%s", output.SafeCell(ch.Status))
