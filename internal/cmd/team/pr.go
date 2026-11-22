@@ -203,7 +203,7 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 			t, a := result.Task, result.Action
 			dto := prReceiptDTO{Task: prTaskDTO{ID: t.Id, Handle: t.Handle, Status: string(t.Status)}, Action: cmdutil.ActionAnswerDTO{Code: a.Code, State: string(a.State), TaskLoc: a.TaskLoc, TaskURN: a.TaskUrn}}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "%s %s (%s)\naction %s  %s\ntask loc %s  task URN %s\n", output.SafeCell(dto.Task.Handle), output.SafeCell(dto.Task.ID), output.SafeCell(dto.Task.Status), output.SafeCell(dto.Action.Code), output.SafeCell(dto.Action.State), prCell(dto.Action.TaskLoc), prCell(dto.Action.TaskURN))
+				_, err := fmt.Fprintf(w, "%s %s (%s)\n%s\n", output.SafeCell(dto.Task.Handle), output.SafeCell(dto.Task.ID), output.SafeCell(dto.Task.Status), prRegisterLine(dto.Action))
 				return err
 			})
 		}
@@ -232,6 +232,40 @@ func prCell(value *string) string {
 		return "—"
 	}
 	return output.SafeCell(*value)
+}
+
+// prRegisterLine renders the write receipt's register answer (hadron-server
+// #3448's optional guidance) as one self-describing line, cli#2941: the states
+// say where an action code routes, never whether the write recorded — the task
+// line above is that receipt — so a bare "action <code> UNMAPPED" with dash
+// placeholders read as a failed verdict and made reviewers re-check --json.
+// Values come from the server answer only; no state gains a fabricated loc/URN.
+func prRegisterLine(a cmdutil.ActionAnswerDTO) string {
+	code := output.SafeCell(a.Code)
+	switch a.State {
+	case "MAPPED":
+		if a.TaskURN != nil {
+			return "register " + code + " MAPPED → " + output.SafeCell(*a.TaskURN)
+		}
+	case "UNRESOLVED":
+		if a.TaskLoc != nil {
+			return "register " + code + " UNRESOLVED → no runnable task found at " + output.SafeCell(*a.TaskLoc)
+		}
+	case "UNMAPPED":
+		return "register " + code + " UNMAPPED — no register entry matches this code"
+	case "WITHHELD":
+		return "register " + code + " WITHHELD — code-only guidance, no register lookup"
+	}
+	// A state the server added, or one that broke its field contract: relay the
+	// state verbatim plus whatever fields arrived, still never a bare code.
+	line := "register " + code + " " + output.SafeCell(a.State)
+	if a.TaskLoc != nil {
+		line += "  task loc " + output.SafeCell(*a.TaskLoc)
+	}
+	if a.TaskURN != nil {
+		line += "  task URN " + output.SafeCell(*a.TaskURN)
+	}
+	return line
 }
 
 // Protocol conflicts carry typed slots; ordinary task refusals retain the
@@ -277,9 +311,13 @@ worker, otherwise you write as the signed-in person; an App key may read
 readiness but not write.
 
 Each command makes one request and never retries or guesses a head. A write
-prints the task handle, id and status and the recorded action; --json is
-{task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (a missing loc or
-URN is a dash in text, null in JSON). Readiness prints READY or NOT READY and a
+prints the task handle, id and status, then the action's register answer as one
+self-describing register line (MAPPED names the task the code maps to, UNRESOLVED
+the loc no runnable task was found at, UNMAPPED says no register entry matches
+the code); the register answer routes action codes, it never says whether the
+write recorded — the task line above it does. --json is
+{task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (null in JSON where
+a state carries no loc or URN). Readiness prints READY or NOT READY and a
 row per slot; --json is {ready,head,slots:[{slot,currentTaskId,state,verdict,
 head,counts}]}. NOT READY is a successful read (exit 0). A refusal such as
 PR_NOT_READY (which names the slots that do not count) or a stale head exits 5,

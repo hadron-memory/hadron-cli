@@ -167,8 +167,18 @@ func TestPR1664OptionalAndActions(t *testing.T) {
 				if json.Unmarshal([]byte(out), &dto) != nil || dto.Action.State != state || dto.Action.TaskLoc == nil || *dto.Action.TaskLoc != "tasks:\x1breview" || dto.Action.TaskURN == nil {
 					t.Fatal(out)
 				}
-			} else if !strings.Contains(out, state) || !strings.Contains(out, "tasks: review") || strings.Contains(out, "\x1b") {
-				t.Fatal(out)
+			} else {
+				// cli#2941: the register answer renders as one self-describing
+				// line; a state's own field decides which value shows.
+				want := map[string]string{
+					"MAPPED":     "register review.verdict MAPPED → hrn:node:acme.com:role:tasks:review",
+					"UNRESOLVED": "register review.verdict UNRESOLVED → no runnable task found at tasks: review",
+					"UNMAPPED":   "register review.verdict UNMAPPED — no register entry matches this code",
+					"WITHHELD":   "register review.verdict WITHHELD — code-only guidance, no register lookup",
+				}[state]
+				if !strings.Contains(out, want) || strings.Contains(out, "\x1b") || strings.Contains(out, "action review.verdict") || strings.Contains(out, "task loc") || strings.Contains(out, "task URN") {
+					t.Fatal(out)
+				}
 			}
 		}
 	}
