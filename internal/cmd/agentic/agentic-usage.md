@@ -3585,7 +3585,11 @@ server error fails the command).
   already recorded when it runs, so a failed or unreadable chat never fails the
   log, and `session log --json` is untouched. `chat read` still records the local
   watermark on the binding (`whoami --json` carries the optional `chatSeenSeq`, absent on a binding
-  that has never read, `0` on one that read an empty chat); `session log` no longer reads it.
+  that has never read, `0` on one that read an empty chat). It is a per-worktree rendering cache:
+  only `chat read` reads it, to decide whether a read counts as read through (and so whether the
+  server-side mark counts); it is never an unread position and never the attendee's read state
+  (cor:dmo:090:06: unread derives from the server read cursor, and one worker bound in two
+  worktrees holds two hints). `session log` does not read it.
   `session end` ends the bound worker session — the SESSION, never the name
   hold (`worker release` does that) — unless another active worker session
   still has it (check `session list --active`).
