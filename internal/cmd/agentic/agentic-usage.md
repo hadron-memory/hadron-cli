@@ -6388,7 +6388,9 @@ sessions with its installed Agents for its end users, NOT worker sessions
 (`team session`). They need an App key as the credential (e.g.
 `HADRON_TOKEN`). The server looks the Agent up by ID, so a URN is resolved
 first with one `agent` read (an unreadable URN is exit 4, nothing started: pass
-the ID). `--external-user` and `--timeout-seconds` unset are omitted. `--json`
+the ID). `--external-user` and `--timeout-seconds` unset are omitted; a blank
+`--external-user` or a non-positive `--timeout-seconds` is refused locally
+(exit 2, nothing sent). `--json`
 is `{id, agentId, appId, memoryId, userId, type, state, isLive, startedAt,
 expiresAt}`; no key material is printed, and Apps that identify users by a
 secret key are not supported (no operation-key header is ever sent). `end` of

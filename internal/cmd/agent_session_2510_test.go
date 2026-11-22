@@ -56,6 +56,9 @@ func TestAgentLifecycleHelpStatesServerFacts(t *testing.T) {
 		want []string
 	}{
 		{[]string{"session"}, []string{"hadron team session", "App key"}},
+		// cli#2895 F5: the verb pages' own facts, not just the group page.
+		{[]string{"session", "start"}, []string{"must be positive", "implicit user creation", "usage error, not an anonymous session"}},
+		{[]string{"session", "end"}, []string{"already ended succeeds"}},
 	} {
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -236,5 +239,88 @@ func TestAgentLifecycleBlankRefsAreUsage(t *testing.T) {
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(calls.ops) != 0 {
 			t.Fatalf("%v: blank ref must be usage with no call: err=%v ops=%v", args, err, calls.ops)
 		}
+	}
+}
+
+// cli#2895 F1: --timeout-seconds 0 or negative is refused locally (exit 2)
+// with nothing sent — the URN read must not even run, hence the URN ref here.
+func TestAgentSessionStartTimeoutSecondsRefusedLocally(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+	}{
+		{"zero", "0"},
+		{"negative", "-5"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _, err := runAgentLifecycle(t, nil,
+				"session", "start", "hrn:agent:acme.com:support-bot", "--timeout-seconds", tc.value)
+			if err == nil || exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("want a usage refusal, got %v (%d)", err, exitCodeFor(err))
+			}
+			if len(calls.ops) != 0 {
+				t.Fatalf("no read and no mutation may be sent: %v", calls.ops)
+			}
+			if !strings.Contains(err.Error(), "--timeout-seconds") {
+				t.Fatalf("the refusal must name the flag: %v", err)
+			}
+		})
+	}
+}
+
+// cli#2895 F2: an empty or whitespace-only --external-user is refused locally
+// (exit 2, nothing sent); omitting the flag stays the anonymous session.
+func TestAgentSessionStartExternalUserBlankRefused(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value string
+	}{
+		{"empty", ""},
+		{"whitespace", "  "},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _, err := runAgentLifecycle(t, nil,
+				"session", "start", "hrn:agent:acme.com:support-bot", "--external-user", tc.value)
+			if err == nil || exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("want a usage refusal, got %v (%d)", err, exitCodeFor(err))
+			}
+			if len(calls.ops) != 0 {
+				t.Fatalf("no read and no mutation may be sent: %v", calls.ops)
+			}
+			if !strings.Contains(err.Error(), "--external-user") {
+				t.Fatalf("the refusal must name the flag: %v", err)
+			}
+		})
+	}
+}
+
+// cli#2895 F2: a non-blank value is sent exactly as typed, no trimming.
+func TestAgentSessionStartExternalUserSentAsTyped(t *testing.T) {
+	calls, _, err := runAgentLifecycle(t, map[string]string{
+		"StartAgentSession": `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
+	}, "session", "start", "agt1", "--external-user", " u-42 ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := wantOneOp(t, calls, "StartAgentSession"); v["externalUserId"] != " u-42 " {
+		t.Fatalf("vars: %v", v)
+	}
+}
+
+// cli#2895 F6: the URN detection stays the `:`-contains check — a malformed
+// colon-bearing non-URN goes to the agent(ref) read and is refused as
+// not-found, never sent as a bare-ID mutation. Shape pinned per the attach.
+func TestAgentSessionStartColonRefGoesToTheRead(t *testing.T) {
+	calls, _, err := runAgentLifecycle(t, map[string]string{
+		"AgentSessionAgentID": `{"data":{"agent":null}}`,
+	}, "session", "start", "definitely:not-a-urn")
+	if err == nil || exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("want not-found, got %v (%d)", err, exitCodeFor(err))
+	}
+	if len(calls.ops) != 1 || calls.ops[0] != "AgentSessionAgentID" {
+		t.Fatalf("exactly the read, no mutation: %v", calls.ops)
+	}
+	if calls.vars["AgentSessionAgentID"]["ref"] != "definitely:not-a-urn" {
+		t.Fatalf("vars: %v", calls.vars)
 	}
 }
