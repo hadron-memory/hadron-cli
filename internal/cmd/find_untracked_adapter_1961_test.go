@@ -484,17 +484,28 @@ func TestAdapterFlagsRefusedLocallyWithZeroRequests1961(t *testing.T) {
 	}
 }
 
-func TestAdapterFromEnvironmentAndIntegrationWins1961(t *testing.T) {
-	path, _ := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+func TestAdapterFromEnvironmentAndIntegrationRefused1961(t *testing.T) {
+	path, log := fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
 	t.Setenv(adapterEnvForTest, path)
 	calls, _, _, err := runFind1524(t, withEmptyChanges1962(map[string]string{"IntakeTasksByExternalIds": held1961()}), "--json")
 	if err != nil || len(opsOf1961(calls, "IntakeTasksByExternalIds")) != 1 {
 		t.Fatalf("$HADRON_INTAKE_ADAPTER selects the adapter: %v %v", err, hadronOps1961(calls))
 	}
-	// An explicit --integration is the compat path, even with the variable set.
-	calls, _, _, err = runFind1524(t, claimOK1596(), "--integration", "github")
-	if err != nil || len(opsOf1961(calls, "UntrackedTaskItems")) != 1 {
-		t.Fatalf("--integration keeps the server path working: %v %v", err, *calls)
+	if err := os.Truncate(log, 0); err != nil {
+		t.Fatal(err)
+	}
+	// An explicit --integration still names the server path, even with the
+	// variable set, and that path is retired (cli#1964): it is refused, the
+	// adapter is not run, and nothing is sent.
+	calls, out, _, err := runFind1524(t, claimOK1596(), "--integration", "github")
+	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "retired") {
+		t.Fatalf("--integration must be refused as retired, exit 2: %v", err)
+	}
+	if len(*calls) != 0 || out != "" {
+		t.Fatalf("nothing may be sent or printed: %v %q", *calls, out)
+	}
+	if b, _ := os.ReadFile(log); len(b) != 0 {
+		t.Fatalf("the adapter must not be run beside --integration: %s", b)
 	}
 }
 

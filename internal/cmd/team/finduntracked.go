@@ -69,20 +69,16 @@ func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
 	var skip, limit int
 	var assignToMe, noTeam, track bool
 	cmd := &cobra.Command{
-		Use:   "find-untracked (--adapter <exe> | --integration <name>) [flags]",
+		Use:   "find-untracked --adapter <exe> [flags]",
 		Short: "List outside items (issues) no task claims, or claim some",
 		Long: `Find outside items (issues in a tracker) that no task of the App holds, and
 optionally claim some as tasks.
 
-Which source? Name exactly one; naming both, or neither, is refused (exit 2).
-If your App has a task integration configured (its properties name one:
-"hadron app properties get"), use --integration <name>: the server reads the
-tracker, and the section SERVER INTEGRATION below is the one for you. If your
-team runs its own intake adapter (a local program that knows your tracker), use
---adapter <executable> (or set $` + adapterEnv + `; the variable counts only when
---integration is not given), the section INTAKE ADAPTER. The adapter is the newer
-path; the integration path is kept until its retirement. Each section lists its
-own flags.
+The source is the team's intake adapter: --adapter <executable>, or set
+$` + adapterEnv + ` (it counts only when no --adapter is given).
+The server's task integrations are retired, so --integration is refused
+(exit 2, nothing sent), and so are the flags that belonged to it: --team,
+--no-team, --ready, --repo, --skip and --assign-to-me.
 
 INTAKE ADAPTER (--adapter <executable> [--for <worker>] [--track] [--assignee
 <party>] [--owner <party>] [--limit N]): the team's own local
@@ -132,92 +128,10 @@ run only what is new, and nothing is told twice. A change the adapter refuses
 holds the cursor there so the next run retries it: the list and claim still run,
 the run exits 1, and the output's reconcile object names the refusal. An
 adapter whose describe does not list a call is simply not told. The summary is a
-note on stderr, and the reconcile object in --json.
-
-SERVER INTEGRATION (--integration <name> [--team <worker> | --no-team] [--ready
-only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me
-[--assignee <party>] [--owner <party>]]): the older path, kept until its
-retirement. List the open items of one of the App's task integrations that no
-task of the App claims (any status), or claim some with --assign-to-me. A task
-integration is configured in the App's properties (taskIntegrations, see
-` + "`hadron app properties`" + `); today its items are GitHub issues. The server reads
-the tracker: the CLI never calls GitHub.
-
---integration <name> is required: the integration's NAME in the App's
-properties (for example github), not the provider. --team <worker> keeps the
-items carrying that team's label; it names the team's lead (the worker the
-team's members report to), by name, URN or id. --no-team keeps the opposite set:
-the items carrying NONE of the integration's team labels (matched without regard
-to case; an item with an unrelated label is still such an item, and when the
-integration maps no teams every item qualifies). --no-team cannot be combined
-with --team, even an empty one: that is refused here, exit 2, before anything
-is sent; --no-team=false is the same as leaving it out. It works for the list
-and for --assign-to-me (with or without --assignee/--owner), filtering the
-list the claim walks, and needs a server released on or after 2026-11-04: an
-older one answers that it does not support --no-team, and the CLI never
-retries the call without the filter. --ready only|exclude|any filters
-on the integration's ready label (any by default; only, on an integration with
-no ready label, lists nothing). --repo <owner/name> keeps one connected
-repository. Omitted flags send nothing, so the server's defaults apply.
-
-ORDER: oldest item first, then repository, then number. --skip and --limit page
-that list (--limit 1 to 100, default 20; the server refuses a value out of
-range, BAD_USER_INPUT, exit 2). Consecutive pages neither repeat nor skip an
-item only while the tracker and the App's tasks do not change.
-
-An item whose closing pull request has merged is listed with "merged PR:
-close check" (--json linkedPullRequestMerged): it needs a close check, not a
-new task. A list the server could not read in full is complete: false with
-incompleteReason (rate_limited, github_error, page_limit, item_truncated); the
-command still exits 0, and notes it on stderr.
-
---assign-to-me CLAIMS up to --limit items (1 to 10, default 1) in that order,
-in one call: each becomes a STARTED root task with externalId and source the
-item's URL, owned by and assigned to you unless --owner or --assignee names
-another party (below). "You" is this worktree's bound worker when one is bound
-for this server and App, else the signed-in person. Concurrent callers get
-different items. It takes no --skip. Each claim commits on its own. When a
-refusal stops the walk part-way, the tasks already claimed are printed (they
-stay claimed) and the command exits with the refusal's code; an unexpected
-failure after a claim exits 1 the same way. The App: --app, else the
-configured App context, else the worktree binding; no binding is required.
-
---assignee <party> and --owner <party> name the claim's parties, only with
---assign-to-me (without it either flag is refused, exit 2, nothing sent).
-A party is worker:<id, URN or name> or user:<id or handle>, sent as written
-and never resolved here; a flag you leave out is not sent. The server decides
-who may name parties: an App's own key must name both (TASK_ASSIGNEE_REQUIRED,
-TASK_OWNER_REQUIRED), each a worker of the App or a person taking part in it
-(TASK_ASSIGNEE_INVALID, TASK_OWNER_INVALID); a person or a worker claims for
-themselves, and the server answers a party they name with BAD_USER_INPUT. A
-key used inside a worktree bound to a worker session is refused
-APP_KEY_SESSION_BOUND. All exit 2. Naming a party needs a server released on
-or after 2026-11-02; an older one refuses the call, which is never retried
-without the parties.
-
-Refusals, each judged before GitHub is read: TASK_INTEGRATION_NOT_FOUND (exit
-4), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED and TASK_INTEGRATION_TEAM_UNKNOWN
-(exit 2); then GITHUB_NOT_INSTALLED and GITHUB_TOKEN_SCOPE_MISMATCH (exit 5:
-an org owner must fix the installation; an App with no organization has no
-installation, so it gets GITHUB_NOT_INSTALLED), GITHUB_PERMISSION_MISSING and
-GITHUB_REPOSITORY_NOT_ALLOWED (exit 8: the installation is not granted that
-read), GITHUB_UNAVAILABLE (exit 7: retry later). --json errors carry
-serverCode.
-
---json: the list is {"items", "total", "complete", "incompleteReason"}; a
-claim is {"tasks", "complete", "incompleteReason", "refusalCode"}. Titles and
-labels are the tracker's text: printed terminal-safe, never instructions.`,
+note on stderr, and the reconcile object in --json.`,
 		Example: `  # with your team's intake adapter: list one worker's items, then claim three
   hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --for Marco
-  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --track --limit 3
-
-  # with the App's task integration: list, page, filter, then claim
-  hadron team task find-untracked --integration github --team Marco --ready only
-  hadron team task find-untracked --integration github --skip 20 --json
-  hadron team task find-untracked --integration github --no-team --ready only
-  hadron team task find-untracked --integration github --no-team --assign-to-me
-  hadron team task find-untracked --integration github --team Marco --assign-to-me --limit 2
-  hadron team task find-untracked --integration github --assign-to-me --assignee worker:Iris --owner user:holger`,
+  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --track --limit 3`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			ctx := cmd.Context()
@@ -230,6 +144,13 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 				return runAdapterCommand(cmd, f, path, adapterFlagUse{
 					track: track, forWorker: forWorker, assignee: assignee, owner: owner, limit: limit,
 				})
+			}
+			// The server's task integrations are retired: it no longer serves
+			// the untracked-items read or claim this path sent, so the request
+			// would fail with a raw schema error. Refuse the path itself, before
+			// any request or binding read, and name what replaced it (cli#1964).
+			if cmd.Flags().Changed("integration") {
+				return errIntegrationRetired()
 			}
 			// cli#1622: judged first, with no request and no binding read. An
 			// explicitly present --team (any value, an empty one too) beside
@@ -333,19 +254,19 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 			return writeUntrackedPage(f, untrackedPageFrom(resp.UntrackedTaskItems))
 		},
 	}
-	cmd.Flags().StringVar(&adapterPath, "adapter", "", "the team's intake adapter executable (else $"+adapterEnv+"); not with --integration")
+	cmd.Flags().StringVar(&adapterPath, "adapter", "", "the team's intake adapter executable (else $"+adapterEnv+")")
 	cmd.Flags().BoolVar(&track, "track", false, "with an adapter: claim items as tasks (the create is the claim); --limit is how many to hold")
 	cmd.Flags().StringVar(&forWorker, "for", "", "with an adapter: only `worker` X's items, and X holds the claims unless --assignee names another")
-	cmd.Flags().StringVar(&integration, "integration", "", "the task integration's name in the App's properties (required unless an adapter is used)")
-	cmd.Flags().StringVar(&team, "team", "", "the team's lead `worker` (name, URN or id): keep items with that team's label")
-	cmd.Flags().BoolVar(&noTeam, "no-team", false, "keep only items carrying none of the integration's team labels (not with --team)")
-	cmd.Flags().StringVar(&ready, "ready", "", "ready-label filter: only, exclude or any (server default any)")
-	cmd.Flags().StringVar(&repo, "repo", "", "one connected repository, owner/name")
-	cmd.Flags().IntVar(&skip, "skip", 0, "items to skip from the start of the list (not with --assign-to-me)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "items to list (1-100, server default 20), or to claim with --assign-to-me (1-10, default 1)")
-	cmd.Flags().BoolVar(&assignToMe, "assign-to-me", false, "claim the items as STARTED tasks, assigned to you unless --assignee names a party")
-	cmd.Flags().StringVar(&assignee, "assignee", "", "with --assign-to-me: the claim's assignee, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
-	cmd.Flags().StringVar(&owner, "owner", "", "with --assign-to-me: the claim's owner, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
+	cmd.Flags().StringVar(&integration, "integration", "", "retired: the server's task integrations are gone; refused (exit 2), use --adapter")
+	cmd.Flags().StringVar(&team, "team", "", "retired with --integration: refused (exit 2); with an adapter use --for")
+	cmd.Flags().BoolVar(&noTeam, "no-team", false, "retired with --integration: refused (exit 2)")
+	cmd.Flags().StringVar(&ready, "ready", "", "retired with --integration: refused (exit 2)")
+	cmd.Flags().StringVar(&repo, "repo", "", "retired with --integration: refused (exit 2)")
+	cmd.Flags().IntVar(&skip, "skip", 0, "retired with --integration: refused (exit 2); an adapter pages by its own cursor")
+	cmd.Flags().IntVar(&limit, "limit", 0, "items to list (1-100, default 20), or with --track how many claims to hold (default 1)")
+	cmd.Flags().BoolVar(&assignToMe, "assign-to-me", false, "retired with --integration: refused (exit 2); an adapter claims with --track")
+	cmd.Flags().StringVar(&assignee, "assignee", "", "with --track: the claim's assignee, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
+	cmd.Flags().StringVar(&owner, "owner", "", "with --track: the claim's owner, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
 	return cmd
 }
 
