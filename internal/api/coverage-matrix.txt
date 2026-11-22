@@ -633,7 +633,7 @@ withdrawQuestion  command question withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 30: 5 gap, 25 excluded
+[Arguments] 30: 4 gap, 26 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -661,7 +661,7 @@ Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use u
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateSecret(protected)  gap #2815
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
-Query.hostDesiredState(worker)  gap #2948
+Query.hostDesiredState(worker)  excluded not-a-capability: a narrowing of the host-wide read, which `team host up` already consumes whole (the selector returns at most one worker's row of the same desired state, concealing a worker the host does not run exactly as an unknown one, cor:agt:020:08); a single-worker reconcile would be a new capability and a product ask, not a gap (cli#2948; cor:api:240:02: the reason is stated)
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); Proposed class unruled under #1334 (33-row review)
 
