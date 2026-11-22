@@ -2,7 +2,6 @@ package cmdutil
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	urn "github.com/hadron-memory/urn-lib-go"
@@ -12,22 +11,27 @@ import (
 
 const slugRule = "1-64 characters of [A-Za-z0-9._-], starting and ending with a letter or digit"
 
-func urnUsageError(flag, value string, err error) error {
+// urnUsageError refuses a flag value without echoing it (cli#2902, the #2898 policy): at flag validation no
+// secret is known to redact, so a credential pasted in the wrong place would print to the terminal, the
+// --json envelope and CI logs. It names the flag and the library's reason (a rule, never the input) and says
+// the value is not shown; the operator has the value in their own command line. The offending segment is
+// dropped for the same reason. pe.Reason is the urn-lib's typed Reason, a fixed set of machine-stable codes
+// ("invalid-charset", "reserved-word-slug", ...; urn-lib-go errors.go: they are part of its fixture contract),
+// never a fragment of the input, and TestURNValidatorsNeverEchoTheValue2902 checks every segment of a
+// token-shaped value against the message, so a Reason that began to carry input would fail it.
+func urnUsageError(flag string, err error) error {
 	var pe *urn.ParseError
 	if errors.As(err, &pe) {
-		if pe.OffendingSegment != "" && pe.OffendingSegment != value {
-			return exitcode.Newf(exitcode.Usage, "%s %q is not valid: %s at %q", flag, value, pe.Reason, pe.OffendingSegment)
-		}
-		return exitcode.Newf(exitcode.Usage, "%s %q is not valid: %s", flag, value, pe.Reason)
+		return exitcode.Newf(exitcode.Usage, "%s is not valid (the value given is not shown): %s", flag, pe.Reason)
 	}
-	return exitcode.Newf(exitcode.Usage, "%s %q is not valid: %v", flag, value, err)
+	return exitcode.Newf(exitcode.Usage, "%s is not valid (the value given is not shown)", flag)
 }
 
 // ValidateURNSlug checks a single URN slug atom supplied on a create/rename
 // flag. The shared urn-lib owns the create-time slug policy.
 func ValidateURNSlug(flag, slug string) error {
 	if err := urn.ValidateUserSlug(slug); err != nil {
-		return urnUsageError(flag, slug, err)
+		return urnUsageError(flag, err)
 	}
 	return nil
 }
@@ -40,7 +44,7 @@ func ValidateURNSlug(flag, slug string) error {
 // rather than surfacing a less actionable server error.
 func ValidateOrgSlug(flag, slug string) error {
 	if err := urn.ValidateOrgSlug(slug); err != nil {
-		return urnUsageError(flag, slug, err)
+		return urnUsageError(flag, err)
 	}
 	return nil
 }
@@ -50,7 +54,7 @@ func ValidateOrgSlug(flag, slug string) error {
 // and must additionally be dot-free (#692). The shared urn-lib owns the policy.
 func ValidateUserHandle(flag, handle string) error {
 	if err := urn.ValidateUserHandle(handle); err != nil {
-		return urnUsageError(flag, handle, err)
+		return urnUsageError(flag, err)
 	}
 	return nil
 }
@@ -61,10 +65,11 @@ func ValidateURNPath(flag, path string) error {
 	if path == "" {
 		return exitcode.Newf(exitcode.Usage, "%s must not be empty", flag)
 	}
-	for _, atom := range strings.Split(path, ":") {
+	for i, atom := range strings.Split(path, ":") {
 		if err := urn.ValidateAtomShape(path, atom); err != nil {
+			// The segment is named by position, never by text (cli#2902).
 			return exitcode.Newf(exitcode.Usage,
-				"%s %q is not valid — each colon-separated segment must be %s (%q is not)", flag, path, slugRule, atom)
+				"%s is not valid (the value given is not shown): each colon-separated segment must be %s, and segment %d is not", flag, slugRule, i+1)
 		}
 	}
 	return nil
@@ -79,10 +84,10 @@ func ValidateAgentURNPath(flag, path string) error {
 	}
 	check := strings.TrimPrefix(path, "agent:")
 	if strings.HasPrefix(check, "@") && !strings.Contains(check, ":") {
-		return exitcode.Newf(exitcode.Usage, "%s %q is not valid: handle owner context requires a slug", flag, path)
+		return exitcode.Newf(exitcode.Usage, "%s is not valid (the value given is not shown): handle owner context requires a slug", flag)
 	}
 	if _, err := urn.FormatCanonicalUrn("agent", check); err != nil {
-		return urnUsageError(flag, path, err)
+		return urnUsageError(flag, err)
 	}
 	return nil
 }
@@ -92,14 +97,14 @@ func ValidateAgentURNPath(flag, path string) error {
 // spec-047 golden tests, which pin CLI parser parity to urn-lib-go.
 func CanonicalizeURN(flag, input string) (string, error) {
 	if !urn.HasSchemePrefix(input) {
-		return "", exitcode.Newf(exitcode.Usage, "%s %q is not a valid URN: malformed grammar", flag, input)
+		return "", exitcode.Newf(exitcode.Usage, "%s is not a valid URN (the value given is not shown): malformed grammar", flag)
 	}
 	canon, err := urn.ToParserCanonical(input)
 	if err != nil {
-		return "", urnUsageError(flag, input, err)
+		return "", urnUsageError(flag, err)
 	}
 	if canon == "" {
-		return "", fmt.Errorf("canonicalizing %s: empty result", input)
+		return "", exitcode.Newf(exitcode.Error, "canonicalizing %s: empty result (the value given is not shown)", flag)
 	}
 	return canon, nil
 }
