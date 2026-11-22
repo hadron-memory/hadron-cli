@@ -82,6 +82,11 @@ client you do not see there (unknown, or someone else's) is a not-found (exit 4)
 and nothing is sent. The instructed lookup can find only clients the bound
 worker holds.
 
+A client you manage the App for but neither issued nor hold appears in the list
+only as a prefix of its id, with no full id to give here, so this command cannot
+select it: it never completes an id from a prefix (that choice would be
+ambiguous), exits 4 and sends nothing. There is no revoke by grant here.
+
 Without --instruction you act as yourself: no worker session is sent, even from
 a bound worktree. With --instruction <kind>:<ref>, the lookup and revoke use this
 worktree's bound worker session; only the revoke carries the instruction. kind
