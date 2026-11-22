@@ -574,20 +574,20 @@ section between the markers.
 | `team router loop` |  |  | n | #1054 | c100f2806407 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | e233ab165d18 |  | unread |  |
 | `team router status` |  |  | n | #1054 | 11cca1decbd2 |  | unread |  |
-| `team session` | sessions |  | n | #1054 | 7b5d9d908c89 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
-| `team session end` |  |  | y | #1054 | d998c705cb57 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
-| `team session list` | ls |  | y | #1054 | 45c0d6468da7 |  | unread |  |
-| `team session log` |  |  | y | #1054 | a4541a58539d |  | unread |  |
+| `team session` | sessions |  | n | #1054 | 0233b043af2d |  | unread |  |
+| `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
+| `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
+| `team session log` |  |  | y | #1054 | 01f969067a94 |  | unread |  |
 | `team session outcome` |  |  | y | #1054 | 447243aadda4 |  | unread |  |
-| `team session recover` |  |  | y | #1054 | 744b60d29200 |  | unread |  |
-| `team session reset-context` |  |  | y | #1054 | 1583aa56fef4 |  | unread |  |
-| `team session resume-claim` |  |  | y | #1054 | dae5d67e59af | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
+| `team session recover` |  |  | y | #1054 | 4d805e21068d |  | unread |  |
+| `team session reset-context` |  |  | y | #1054 | 1511799c059b |  | unread |  |
+| `team session resume-claim` |  |  | y | #1054 | b24e5577e030 |  | unread |  |
 | `team session served-prompts` |  |  | y | #1054 | 7ec1a1f7942e |  | unread |  |
-| `team session set-model` |  |  | y | #1054 | 26496655ddd1 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
-| `team session shed` |  |  | y | #1054 | 12fdac664c9a | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
-| `team session start` |  |  | y | #1054 | 8335518c2741 |  | unread |  |
-| `team session sync-model` |  |  | y | #1054 | 5ef1f03e101c | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de); example limit: the success path (native transcript hook) is untested |
-| `team session whoami` |  |  | y | #1054 | d5b38dbfc65e | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
+| `team session set-model` |  |  | y | #1054 | 57b8dd7335e3 |  | unread |  |
+| `team session shed` |  |  | y | #1054 | 8a844e44afac |  | unread |  |
+| `team session start` |  |  | y | #1054 | 593914c6fe46 |  | unread |  |
+| `team session sync-model` |  |  | y | #1054 | 17c144a7206a |  | unread |  |
+| `team session whoami` |  |  | y | #1054 | f4ef03f96070 |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | 709bc1b67fe7 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | 5fad72262b34 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |

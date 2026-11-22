@@ -46,10 +46,9 @@ func newCmdSessionSyncModel(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync-model [--hook]",
 		Short: "Report this worktree's session model, read from its recorded transcript (hook entry)",
-		Long: `Report the model the bound worker session is running, as the model reporting
-slice of hadron-server#2252 (hadron-cli#995). Built to be a native tool's hook
-command: the tool pipes its hook JSON ({"session_id","transcript_path","cwd"})
-on stdin.
+		Long: `Report the model the bound worker session is running. Built to be a native
+tool's hook command: the tool pipes its hook JSON
+({"session_id","transcript_path","cwd"}) on stdin.
 
 WHAT IT WILL AND WILL NOT READ. The only transcript it reads is the one the
 bound Hadron session ALREADY RECORDED as its transcriptPath (` + "`session start|resume --transcript`" + `).
@@ -257,8 +256,8 @@ worktree, through the same updateSession as ` + "`sync-model`" + `. Give at leas
 is PRESERVED (never cleared). With a model alone the server derives family and
 tier, and never clears family on a model it does not map.
 
---family is the deliberate way to state a family (hadron-server#1931: an
-explicit family wins over the derivation from the model). The token is passed
+--family is the deliberate way to state a family (an explicit family wins
+over the one the server derives from the model). The token is passed
 to the server as typed — the CLI normalizes and infers nothing, and a host
 such as claude-code is not a family. The server owns what it accepts; its
 refusal is shown and no success receipt is printed. The receipt names only

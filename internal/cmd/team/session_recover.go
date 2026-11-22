@@ -149,7 +149,7 @@ func newCmdSessionRecover(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "recover",
 		Short: "Print everything a fresh run needs to resume: worker, tasks, state note, mentions",
-		Long: `Recover your context in one read-only call (hadron-cli#2062). It prints, for this
+		Long: `Recover your context in one read-only call. It prints, for this
 worktree's bound worker:
 
   worker     who you are: name, role, URN, App, and the bound session
