@@ -86,8 +86,9 @@ func TestBatchNodeRefValidatesPrefixedRefs(t *testing.T) {
 			if err == nil {
 				t.Fatalf("BatchNodeRef(%q) = %q, want a usage error", tt.ref, got)
 			}
-			if !strings.Contains(err.Error(), tt.ref) {
-				t.Errorf("error should name the offending ref, got %v", err)
+			// cli#2902: the refusal never echoes the ref; it says so.
+			if strings.Contains(err.Error(), tt.ref) || !strings.Contains(err.Error(), "not shown") {
+				t.Errorf("error must not name the offending ref and must say it is not shown, got %v", err)
 			}
 		})
 	}

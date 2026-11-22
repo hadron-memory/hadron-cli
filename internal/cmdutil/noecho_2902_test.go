@@ -116,11 +116,11 @@ func TestTimeAndKeyValueFlagsNeverEchoTheValue2902(t *testing.T) {
 func TestNodeRefGatesNeverEchoTheValue2902(t *testing.T) {
 	for _, tok := range tokens2902() {
 		for name, run := range map[string]func() error{
-			"BatchNodeRef (bare ref)":    func() error { _, err := BatchNodeRef("", tok+":x"); return err },
-			"BatchNodeRef (hrn: prefix)": func() error { _, err := BatchNodeRef("", "hrn:node:"+tok+"!"); return err },
-			"BatchNodeRef (bad loc)":     func() error { _, err := BatchNodeRef("acme.com:dev", tok+"!"); return err },
-			"CanonicalNodeURN (bare)":    func() error { _, err := CanonicalNodeURN(tok + ":x"); return err },
-			"CanonicalNodeURN (prefix)":  func() error { _, err := CanonicalNodeURN("hrn:node:" + tok + "!"); return err },
+			"BatchNodeRef (bare ref)":       func() error { _, err := BatchNodeRef("", tok+":x"); return err },
+			"BatchNodeRef (wrong kind)":     func() error { _, err := BatchNodeRef("", "hrn:memory:"+tok); return err },
+			"BatchNodeRef (bad loc)":        func() error { _, err := BatchNodeRef("acme.com:dev", tok+"!"); return err },
+			"CanonicalNodeURN (bare)":       func() error { _, err := CanonicalNodeURN(tok + ":x"); return err },
+			"CanonicalNodeURN (wrong kind)": func() error { _, err := CanonicalNodeURN("hrn:memory:" + tok); return err },
 		} {
 			err := run()
 			if err == nil {

@@ -138,7 +138,7 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 			nodeURN := NodeURN(memory, loc)
 			if nodeURN == "" {
 				return "", exitcode.Newf(exitcode.Usage,
-					"%q is not a valid node loc — each colon-separated segment must be %s", loc, slugRule)
+					"the node loc is not valid (the value given is not shown) — each colon-separated segment must be %s", slugRule)
 			}
 			return ResolveNodeURN(cmd, client, nodeURN)
 		}
@@ -198,7 +198,7 @@ func BatchNodeRef(memory, ref string) (string, error) {
 			nodeURN := NodeURN(memory, ref)
 			if nodeURN == "" {
 				return "", exitcode.Newf(exitcode.Usage,
-					"%q is not a valid node loc — each colon-separated segment must be %s", ref, slugRule)
+					"the node loc is not valid (the value given is not shown) — each colon-separated segment must be %s", slugRule)
 			}
 			return nodeURN, nil
 		}
@@ -218,7 +218,7 @@ func BatchNodeRef(memory, ref string) (string, error) {
 		// where the memory ends and the loc begins.
 		if urnlib.AssertFullyQualifiedUrn(ref, "node") != nil {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc>", ref)
+				"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc>")
 		}
 		return ref, nil
 	}
@@ -227,7 +227,7 @@ func BatchNodeRef(memory, ref string) (string, error) {
 	// already returned above, before -m composition.)
 	if strings.Count(ref, "::") < 2 || urnlib.AssertFullyQualifiedUrn(ref, "node") != nil {
 		return "", exitcode.Newf(exitcode.Usage,
-			"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:start-here), or pass -m hrn:mem:<root>:<slug> with a bare loc", ref)
+			"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:start-here), or pass -m hrn:mem:<root>:<slug> with a bare loc")
 	}
 	return "hrn:node:" + ref, nil
 }

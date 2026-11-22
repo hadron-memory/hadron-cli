@@ -235,8 +235,9 @@ func TestNodeGetBatchMalformedRefIsLoud(t *testing.T) {
 	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want %d (usage) — a typo must not read as not-found", got, exitcode.Usage)
 	}
-	if !strings.Contains(err.Error(), "bare-loc") {
-		t.Errorf("the error must name the offending ref, got %v", err)
+	// cli#2902: loud (a usage error), but the refusal does not echo the ref; it says so.
+	if strings.Contains(err.Error(), "bare-loc") || !strings.Contains(err.Error(), "not shown") {
+		t.Errorf("the error must not name the offending ref and must say it is not shown, got %v", err)
 	}
 	// Nothing is read: a caller mistake is caught before any node is fetched,
 	// so there is no half-answer to misread.

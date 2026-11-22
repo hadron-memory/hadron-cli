@@ -45,7 +45,7 @@ func CanonicalNodeURN(ref string) (string, error) {
 	if urnlib.HasSchemePrefix(urn) {
 		if err := urnlib.AssertFullyQualifiedUrn(urn, "node"); err != nil {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)", ref)
+				"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)")
 		}
 		return urn, nil
 	}
@@ -54,7 +54,7 @@ func CanonicalNodeURN(ref string) (string, error) {
 	// rejected as ambiguous rather than passed on (cf. ResolveNodeURN).
 	if strings.Count(urn, "::") < 2 || urnlib.AssertFullyQualifiedUrn(urn, "node") != nil {
 		return "", exitcode.Newf(exitcode.Usage,
-			"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)", ref)
+			"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)")
 	}
 	return "hrn:node:" + urn, nil
 }
