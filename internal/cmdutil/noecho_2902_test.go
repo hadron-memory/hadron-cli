@@ -111,3 +111,23 @@ func TestTimeAndKeyValueFlagsNeverEchoTheValue2902(t *testing.T) {
 		}
 	}
 }
+
+// The sibling node-ref gates of ResolveNodeURN (the BLIND/LOCAL reviews of #3027): same text, same class.
+func TestNodeRefGatesNeverEchoTheValue2902(t *testing.T) {
+	for _, tok := range tokens2902() {
+		for name, run := range map[string]func() error{
+			"BatchNodeRef (bare ref)":    func() error { _, err := BatchNodeRef("", tok+":x"); return err },
+			"BatchNodeRef (hrn: prefix)": func() error { _, err := BatchNodeRef("", "hrn:node:"+tok+"!"); return err },
+			"BatchNodeRef (bad loc)":     func() error { _, err := BatchNodeRef("acme.com:dev", tok+"!"); return err },
+			"CanonicalNodeURN (bare)":    func() error { _, err := CanonicalNodeURN(tok + ":x"); return err },
+			"CanonicalNodeURN (prefix)":  func() error { _, err := CanonicalNodeURN("hrn:node:" + tok + "!"); return err },
+		} {
+			err := run()
+			if err == nil {
+				t.Errorf("%s(%q): want a refusal", name, tok)
+				continue
+			}
+			assertNoEcho2902(t, name, tok, err)
+		}
+	}
+}
