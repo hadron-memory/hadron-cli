@@ -1673,7 +1673,10 @@ func finishBind(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, s
 // overwritten or ended), and it prints neither the transcript path nor any
 // credential. It does not guess a tool. The repair it names for an
 // already-live session is cli#2940's: the first `session log --tool <name>`
-// fills the binding and later milestones reuse the fill.
+// fills the binding and later milestones reuse the fill — a promise that
+// holds wherever a worklog row is written (this App's worklog, or a team
+// memory / -m on a binding that records one); a binding that writes no
+// worklog row at all has nothing to label and refuses --tool.
 func warnNoTool(f *cmdutil.Factory, tool string) {
 	if strings.TrimSpace(tool) != "" {
 		return
@@ -1681,6 +1684,7 @@ func warnNoTool(f *cmdutil.Factory, tool string) {
 	_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "warning: this binding has no tool recorded, so `hadron team session log` will ask for one. "+
 		"The first `hadron team session log --tool <name>` fills this binding and later milestones reuse it "+
 		"(a provenance label, never authorization), or pass --tool when you start a session that will log work. "+
+		"On a binding that writes no worklog row (no App and no team memory recorded) there is nothing to label and --tool is refused. "+
 		"This session is already bound and was left unchanged.")
 }
 
@@ -2486,12 +2490,15 @@ still record ordinary milestones, but cannot accept an explicit --model.
 bound before --tool existed, or without it (the server refuses a worklog row
 with an empty tool, and without this flag such a binding could never log).
 The first --tool FILLS the binding and every later milestone reuses it: one
-spelling on the record and on the binding. A binding that already records a
-tool keeps it — a different --tool there is refused, not silently used — and
+spelling on the record and on the binding — the SERVER's spelling, which the
+CLI persists after the row is recorded. A binding that already records a
+tool keeps it — a --tool naming a different tool there is refused (case and
+surrounding space do not make a tool different), not silently used — and
 the value is a provenance label, never authorization. The CLI repairs only
-its local binding; it sends no session write for the tool. There is nothing
-to label on a binding that predates App recording (no worklog row is
-written), so --tool is refused there rather than silently dropped.`,
+its local binding: the tool rides the milestone's worklog row as always,
+with no separate server write for the repair. A binding that writes no
+worklog row at all — no recorded App or team memory, and no -m — has nothing
+to label, so --tool is refused there rather than silently dropped.`,
 		Example: `  hadron team session log --pr acme/widgets#7 --action merged
   # bare refs need the repo recorded at ` + "`session start --repo acme/widgets`" + `
   hadron team session log --pr 371
@@ -2508,9 +2515,9 @@ written), so --tool is refused there rather than silently dropped.`,
 					return exitcode.Newf(exitcode.Usage, "--model must name the model that produced this milestone; omit it to use the server's session-model fallback")
 				}
 			}
-			// cli#2940 condition 5: a blank tool is refused HERE, before any
-			// call, so the server's exit-2 "tool must be a non-empty string"
-			// can never recur from this command.
+			// A blank tool is refused HERE, before any call (cli#2940), so the
+			// server's exit-2 "tool must be a non-empty string" can never
+			// recur from this command.
 			toolFlag := ""
 			if cmd.Flags().Changed("tool") {
 				toolFlag = strings.TrimSpace(tool)
@@ -2546,7 +2553,7 @@ written), so --tool is refused there rather than silently dropped.`,
 			if err := checkBindingServer(f, b); err != nil {
 				return err
 			}
-			// cli#2940, remedy 1 (CHECKED): --tool FILLS a binding whose tool
+			// cli#2940: --tool FILLS a binding whose tool
 			// is empty, it never changes one that records a tool. The trimmed
 			// flag value becomes BOTH the tool on this milestone's row AND —
 			// once the row is recorded — the binding's stored value, so later
@@ -2559,7 +2566,11 @@ written), so --tool is refused there rather than silently dropped.`,
 					effectiveTool = toolFlag
 					fillTool = toolFlag
 				}
-			} else if toolFlag != "" && toolFlag != b.Tool {
+			} else if toolFlag != "" && !strings.EqualFold(toolFlag, strings.TrimSpace(b.Tool)) {
+				// The server's token equality is trim+lowercase (vocabToken),
+				// so "Claude-Code" and the stored "claude-code" are the SAME
+				// value and restatements must not be refused as a change
+				// (blind F1 on PR #2966). Only a different token refused.
 				return exitcode.Newf(exitcode.Usage,
 					"this binding already records tool %q; --tool only fills a binding with no tool and never changes a recorded one — nothing was recorded", b.Tool)
 			}
@@ -2599,18 +2610,24 @@ written), so --tool is refused there rather than silently dropped.`,
 			// above writes none — so there is nothing to label. Refusing is
 			// louder and cheaper than recording a Session-field milestone the
 			// caller believes carries a tool label it never got. In the other
-			// direction, a MODERN binding (it records its App, so the worklog
-			// path is certain) with no tool anywhere is refused HERE, before
-			// any write, with the repair named — the defect this issue exists
-			// for surfaced as an opaque server exit 2 mid-record. Bindings
-			// that predate App recording keep the server's own diagnostics
-			// below: their remedy is end-and-restart, and promising --tool
-			// there would promise a repair that cannot land.
+			// direction, any WORKER-ERA binding that WILL write a worklog row
+			// this call — appRef resolved from its recorded App, its team
+			// memory, or -m — and has no tool anywhere is refused HERE, before
+			// any write, with the repair named: the defect this issue exists
+			// for surfaced as an opaque server exit 2 mid-record, and the
+			// repair lands on every one of those paths (the fill below is not
+			// App-gated; blind F2 on PR #2966: a team-memory binding with no
+			// App hit the server refusal). A PRE-Worker binding (no workerId,
+			// no App) is deliberately left to the server's own diagnosis
+			// below: its session may never have been App-bound at all, and
+			// the honest remedy there is end-and-restart — the SESSION_NOT_IN_
+			// APP fork says so — not a --tool that cannot land.
 			if appRef == "" && toolFlag != "" {
 				return exitcode.Newf(exitcode.Usage,
 					"--tool labels a worklog milestone, but this binding predates App recording and writes no worklog row — nothing was recorded; start a new worker session (`session start --as <worker> --tool <name>`) to record worklog milestones")
 			}
-			if appRef != "" && b.AppID != "" && fillTool == "" && strings.TrimSpace(b.Tool) == "" {
+			if appRef != "" && fillTool == "" && strings.TrimSpace(b.Tool) == "" &&
+				(b.AppID != "" || b.WorkerID != "") {
 				return exitcode.Newf(exitcode.Usage,
 					"this binding records no tool, and the server refuses a worklog row without one — pass --tool <name> to record this milestone under a tool and fill the binding's gap (a provenance label, never authorization; later milestones reuse it); nothing was recorded")
 			}
@@ -2749,7 +2766,7 @@ written), so --tool is refused there rather than silently dropped.`,
 				if logged != nil && logged.RecordTeamWork != nil && logged.RecordTeamWork.Ref != "" {
 					canonical = logged.RecordTeamWork.Ref
 				}
-				// cli#2940 condition 2: ONE spelling. The server normalizes the
+				// cli#2940: ONE spelling. The server normalizes the
 				// tool token (vocabToken trims and lowercases it), so the row's
 				// spelling is the RESPONSE's, not the flag's — persist that, for
 				// the same reason the ref above prefers the server's: later
@@ -2767,16 +2784,25 @@ written), so --tool is refused there rather than silently dropped.`,
 				// filled another tool, and a concurrent start bound a different
 				// session entirely.
 				if fillTool != "" {
+					racedTool := ""
 					if err := updateBinding(ctx, func(cur *binding) error {
 						if cur.SessionID != b.SessionID {
 							return errBindingChangedSession
 						}
 						if strings.TrimSpace(cur.Tool) == "" {
 							cur.Tool = storedTool
+						} else if !strings.EqualFold(strings.TrimSpace(cur.Tool), storedTool) {
+							// A concurrent log filled a DIFFERENT tool while
+							// this one was in flight; fill-never-change leaves
+							// it, but the divergence from THIS row deserves a
+							// note, not silence (blind F6 on PR #2966).
+							racedTool = cur.Tool
 						}
 						return nil
 					}); err != nil {
 						fmt.Fprintf(f.IOStreams.ErrOut, "note: the milestone was recorded under tool %q, but filling this binding's tool locally failed: %v — pass --tool again on the next log\n", storedTool, err)
+					} else if racedTool != "" {
+						fmt.Fprintf(f.IOStreams.ErrOut, "note: this milestone was recorded under tool %q, but a concurrent log already filled this binding with tool %q, which later milestones will reuse — nothing was overwritten\n", storedTool, racedTool)
 					}
 				}
 				if err := touchSession(true); err != nil {
