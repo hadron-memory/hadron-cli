@@ -35,9 +35,14 @@ instead of) a value/metadata change.
     `null` is not "preserve" here, it is a third server meaning we do not want);
   - `--protected` → `true`;
   - `--protected=false` → `false`.
-- `internal/api/queries/secrets.graphql`: `$protected: Boolean` (omitempty) added to
-  `CreateSecret` and `UpdateSecret`; `make generate`. `secret set` passes `nil` (it never
-  touches protection).
+- `internal/api/queries/secrets.graphql`: `$protected: Boolean` (omitempty) on the
+  flag-chosen documents — `CreateSecretProtected`/`UpdateSecretProtected`, selected only
+  when `--protected` is given; `make generate`. The shared `CreateSecret`/`UpdateSecret`
+  keep their pre-#2815 shape (no `protected` anywhere), so a flag-omitted create/update
+  and `secret set` (which passes no pointer and never touches protection) ride documents
+  a server from before the argument reached main (2026-11-21, hadron-server#4177) already
+  accepts. One document per server generation, stepping down only as validation forces —
+  the secret client list precedent (cli#2758/2720).
 - `update`'s "nothing to update" guard admits the flag: `--protected` alone is a change.
 - Output contract: a staged create/update prints the request id and ceremony URL byte for
   byte via the existing `stagedChange` path (exit 5) and never says "created"/"updated" —
@@ -224,3 +229,43 @@ instead of) a value/metadata change.
   cli#2815"); the entry is now sentence-per-line and states current behaviour
   only. `TestAgenticUsageStatesProtectedOutcomes_2815` pins the floor sentence
   and the absence of the narrative phrase (both red at fceceb55).
+
+## Round-5 date fix (12cc7fae)
+
+- Round-4's floor sentence said the argument shipped 2026-11-14; it reached server main
+  2026-11-21 (hadron-server#4177, merge e42bb1897) — the shallow evidence clone hid the
+  author date. One-line text fix, no code. Verdicts at 12cc7fae: LOCAL/SECURITY/QA approve
+  or pass; BLIND (Abigail, fresh seat) CHANGES_REQUESTED — the P2 below.
+
+## Round-6 fold (Abigail BLIND P2 + four P3s, Eden #137754)
+
+- **BLIND P2 (the static documents broke pre-argument servers), folded via ruling (A).**
+  `$protected` sat in the shared `CreateSecret`/`UpdateSecret` documents, so a server from
+  before the argument reached main refused plain create/update/set at validation even
+  flag-omitted — commands that worked before the flag existed. The fix is Abigail's first
+  suggested arm and the repo's own precedent: the shared documents keep their pre-#2815
+  shape and the flag rides `CreateSecretProtected`/`UpdateSecretProtected`, chosen only
+  when `--protected` is given (the argument is then always sent — no omitempty on the
+  Protected documents). `secret set` is untouched by construction. Red pins first
+  (afaa6076): `TestFlagOmittedRequestsStayUnprotected_2815` (no `$protected` variable in
+  the flag-omitted documents — the SecretFields fragment legitimately selects the
+  `protected` field, so the pin targets the argument, not the word) and
+  `TestProtectedFlagUsesItsOwnDocuments_2815` (every attached spelling rides its own
+  document, once, with the explicit value). Response keys stay `createSecret`/`updateSecret`
+  whichever document is sent — they name the GraphQL field, not the operation.
+- **P3 folds in the same head:** the exit-7 update message now says a value/metadata sent
+  alongside the flag may have been applied (not "not confirmed" alone); the update guard's
+  success-on-`protected:false` arm carries the comment that a direct-clearing server is
+  indistinguishable and prints as confirmed (the server judges); the detached-value guard
+  catches every `strconv.ParseBool` spelling (`1`/`0`/`t`/`f`, any case) beside the words;
+  agentic-usage's split policy paragraph is one sentence (no duplicate), states the
+  flag-omitted request is unchanged, and drops the PR's own trailing space. The help date
+  phrase now says what the date is — "when the argument reached server main" — rather than
+  implying a release date. The red-pins commit also added Abigail's missing wire pins:
+  `--protected=true`, `--protected` with `--value-file` (both variables, one request), and
+  the `--json` arm of the exit-7 unconfirmed update.
+- **Not taken (disposition):** the synopsis-block prose lines (the block's convention
+  already mixes annotation lines; the CLI's own tests pin these lines as the contract);
+  the hedged `#4805` help sentence (stays conditional until the server lands it); the
+  non-App `create --protected` refusal pin (declined in scope above); trimming this round
+  log (the plan doc is the as-built record; the log is its history).
