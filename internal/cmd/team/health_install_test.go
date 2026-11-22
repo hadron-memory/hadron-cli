@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -77,7 +78,7 @@ func healthHarness(t *testing.T, tools ...string) (*healthFake, func(args ...str
 func orcaOnPath(t *testing.T) {
 	t.Helper()
 	d := t.TempDir()
-	if err := os.WriteFile(filepath.Join(d, "orca"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(d, "orca"), []byte(hostyaml.Supervised("#!/bin/sh\n")), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", d+":"+os.Getenv("PATH"))
@@ -87,7 +88,7 @@ func hostConfig(t *testing.T, orcaBin string) string {
 	t.Helper()
 	dir := t.TempDir()
 	key := filepath.Join(dir, "host.key")
-	if err := os.WriteFile(key, []byte("hdr_app_SENTINELKEY"), 0o600); err != nil {
+	if err := os.WriteFile(key, []byte(hostyaml.Supervised("hdr_app_SENTINELKEY")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	y := "app: hrn:app:example.com:team\nkey_file: " + key + "\nworktrees_root: " + dir + "\npoll_interval_seconds: 30\nworkers:\n  iris:\n    family: claude\n    launch: [claude-worker]\n"
@@ -95,7 +96,7 @@ func hostConfig(t *testing.T, orcaBin string) string {
 		y += "delivery:\n  orca_bin: " + orcaBin + "\n"
 	}
 	p := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(p, []byte(y), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(y)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -201,7 +202,7 @@ func TestHealthInstallRefusesWhenOrcaDoesNotResolve(t *testing.T) {
 func TestHealthInstallAcceptsOrcaBinWithoutOrcaOnPath(t *testing.T) {
 	t.Setenv("PATH", "/nonexistent")
 	orca := filepath.Join(t.TempDir(), "orca")
-	_ = os.WriteFile(orca, []byte("#!/bin/sh\n"), 0o755)
+	_ = os.WriteFile(orca, []byte(hostyaml.Supervised("#!/bin/sh\n")), 0o755)
 	_, run, _ := healthHarness(t, "systemctl")
 	out, _, err := run("install", "--config", hostConfig(t, orca), "--interval", "5m", "--bin", "/usr/local/bin/hadron", "--json")
 	if err != nil || !strings.Contains(out, `"orca": "`+orca+`"`) {
@@ -287,7 +288,7 @@ func TestHealthInstallDoesNotQuoteAnUnparsableConfig(t *testing.T) {
 	hf, run, _ := healthHarness(t, "systemctl")
 	_ = hf
 	key := filepath.Join(t.TempDir(), "host.key")
-	if err := os.WriteFile(key, []byte("hdr_app_SENTINELKEY"), 0o600); err != nil {
+	if err := os.WriteFile(key, []byte(hostyaml.Supervised("hdr_app_SENTINELKEY")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	out, errOut, err := run("install", "--config", key, "--interval", "5m")
@@ -310,7 +311,7 @@ func TestHealthInstallResolvesOrcaAgainstThePersistedPath(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "bin", "orca"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "bin", "orca"), []byte(hostyaml.Supervised("#!/bin/sh\n")), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	wd, _ := os.Getwd()
@@ -351,11 +352,11 @@ func TestHealthInstallKeepsTheWrittenConfigPath2674(t *testing.T) {
 		t.Fatal(err)
 	}
 	key := filepath.Join(root, "real", "host.key")
-	if err := os.WriteFile(key, []byte("hdr_app_SENTINELKEY"), 0o600); err != nil {
+	if err := os.WriteFile(key, []byte(hostyaml.Supervised("hdr_app_SENTINELKEY")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	y := "app: hrn:app:example.com:team\nkey_file: " + key + "\nworktrees_root: " + root + "\npoll_interval_seconds: 30\nworkers:\n  iris:\n    family: claude\n    launch: [claude-worker]\n"
-	if err := os.WriteFile(filepath.Join(root, "real", "host.yaml"), []byte(y), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "real", "host.yaml"), []byte(hostyaml.Supervised(y)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	written := root + "/link/../host.yaml"

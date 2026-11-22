@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -133,13 +134,13 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 	}))
 	defer srv.Close()
 	for name, content := range map[string]string{"key": "synthetic-host", "state.json": `{"hostId":"own"}`} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(hostyaml.Supervised(content)), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  wkr1:\n    family: claude\n    launch: [fake]\n    worktrees: [tree1]\n  wkr2:\n    family: claude\n    launch: [fake]\n    worktrees: [tree2]\n  wkr3:\n    family: claude\n    launch: [fake]\n    worktrees: [tree3]\ndelivery:\n  enabled: true\n  orca_bin: /bin/false\n", srv.URL, dir)
 	path := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(path, []byte(cfg), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	f := cmdutil.NewFactory()

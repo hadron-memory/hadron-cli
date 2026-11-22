@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -68,17 +68,17 @@ func TestSweepDaemonDownReadsAndRecordsButIssuesNoOperation2056(t *testing.T) {
 	}))
 	defer srv.Close()
 	dir := t.TempDir()
-	_ = os.WriteFile(filepath.Join(dir, "key"), []byte("host-only"), 0600)
-	_ = os.WriteFile(filepath.Join(dir, "hadron-host-state.json"), []byte(`{"hostId":"h1"}`), 0600)
+	_ = os.WriteFile(filepath.Join(dir, "key"), []byte(hostyaml.Supervised("host-only")), 0600)
+	_ = os.WriteFile(filepath.Join(dir, "hadron-host-state.json"), []byte(hostyaml.Supervised(`{"hostId":"h1"}`)), 0600)
 	fakeOrca := filepath.Join(dir, "orca")
-	if err := os.WriteFile(fakeOrca, []byte("#!/bin/sh\ncase \"$1\" in\nstatus) printf '%s' '{\"ok\":true,\"result\":{\"runtime\":{\"reachable\":true}}}';;\nterminal) printf '%s' '{\"ok\":true,\"result\":{\"terminals\":[]}}';;\n*) exit 1;;\nesac\n"), 0700); err != nil {
+	if err := os.WriteFile(fakeOrca, []byte(hostyaml.Supervised("#!/bin/sh\ncase \"$1\" in\nstatus) printf '%s' '{\"ok\":true,\"result\":{\"runtime\":{\"reachable\":true}}}';;\nterminal) printf '%s' '{\"ok\":true,\"result\":{\"terminals\":[]}}';;\n*) exit 1;;\nesac\n")), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(dir, "iris"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	cfg := filepath.Join(dir, "host.yaml")
-	_ = os.WriteFile(cfg, []byte(fmt.Sprintf("server: %s\napp: hrn:app:example.com:team\nkey_file: key\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n    worktrees: [iris]\ndelivery:\n  orca_bin: %s\n", srv.URL, dir, fakeOrca)), 0600)
+	_ = os.WriteFile(cfg, []byte(hostyaml.Supervised(fmt.Sprintf("server: %s\napp: hrn:app:example.com:team\nkey_file: key\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n    worktrees: [iris]\ndelivery:\n  orca_bin: %s\n", srv.URL, dir, fakeOrca))), 0600)
 	old := sweepDaemonReady
 	t.Cleanup(func() { sweepDaemonReady = old })
 	sweepDaemonReady = func(context.Context, *hostpoller.Config) error { return hostpoller.ErrOrcaDown }
@@ -98,42 +98,5 @@ func TestSweepDaemonDownReadsAndRecordsButIssuesNoOperation2056(t *testing.T) {
 	}
 	if writes != 1 || !dto.SweepRun.Recorded || len(dto.Planned) != 0 || len(dto.Applied) != 0 {
 		t.Fatalf("wrong unavailable sweep: %+v", dto)
-	}
-}
-
-func TestExecSweepUnavailableKeepsUsageExitWithoutServerWork2137(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	dir := t.TempDir()
-	calls := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
-		t.Errorf("unavailable exec sweep reached server")
-		w.WriteHeader(500)
-	}))
-	defer srv.Close()
-	for name, body := range map[string]string{"key": "private-test-key", "hadron-host-state.json": `{"hostId":"h1"}`, "orca": "#!/bin/sh\nprintf '%s' '{\"ok\":true,\"result\":{\"runtime\":{\"reachable\":false}}}'\n"} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0700); err != nil {
-			t.Fatal(err)
-		}
-	}
-	// The key is deliberately private even though no reporting call is reached.
-	if err := os.Chmod(filepath.Join(dir, "key"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	cfg := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(cfg, []byte(fmt.Sprintf("server: %s\napp: hrn:app:example.com:team\nkey_file: key\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\ndelivery:\n  orca_bin: %s\n", srv.URL, dir, filepath.Join(dir, "orca"))), 0600); err != nil {
-		t.Fatal(err)
-	}
-	streams, _, _ := output.Test()
-	f := &cmdutil.Factory{IOStreams: streams}
-	c := newCmdTeamHostSweep(f)
-	c.SilenceErrors = true
-	c.SilenceUsage = true
-	c.SetArgs([]string{"--config", cfg})
-	if err := c.Execute(); exitcode.FromError(err) != exitcode.Usage {
-		t.Fatalf("exec unavailable must retain Usage exit, got %v", err)
-	}
-	if calls != 0 {
-		t.Fatalf("server calls %d", calls)
 	}
 }

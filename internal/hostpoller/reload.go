@@ -89,10 +89,6 @@ func (p *Poller) reloadConfig() {
 		p.reloadRefused(sum, err.Error())
 		return
 	}
-	if next.UsesOrcaLaunch() && !p.orcaWired {
-		p.reloadRefused(sum, "a worker now launches through Orca, which this poller did not wire at start; restart it to apply any of this change")
-		return
-	}
 	added, removed, modified := diffWorkers(c, next)
 	others := reloadableChanges(c, next, "Workers")
 	if err := checkReloadTrust(p.trust, c, next, path, info, append(append([]string{}, added...), modified...)); err != nil {
@@ -331,7 +327,6 @@ func namedFiles(c, next *Config, workers []string) []namedFile {
 	}
 	for _, ref := range workers {
 		w := next.Workers[ref]
-		argv0(w.Launch)
 		argv0(w.End)
 		argv0(w.Recover)
 		dir(w.CodexHome)

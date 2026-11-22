@@ -285,7 +285,7 @@ func TestAConfigFileInADirectoryOthersCanWriteIsRefused2623(t *testing.T) {
 	d := looseDir(t, fx.dir, "cfg", false)
 	path := filepath.Join(d, "host.yaml")
 	text := strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(reloadBase)
-	if err := os.WriteFile(path, []byte(text), 0o600); err != nil { // the file itself is tight
+	if err := os.WriteFile(path, []byte(supervised2914(text)), 0o600); err != nil { // the file itself is tight
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(path)

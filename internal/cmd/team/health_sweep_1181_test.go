@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -120,13 +121,13 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 		if n == "state.json" && state == health1383MissingState {
 			continue // the state file does not exist at all (#1383)
 		}
-		if e := os.WriteFile(filepath.Join(dir, n), []byte(s), 0600); e != nil {
+		if e := os.WriteFile(filepath.Join(dir, n), []byte(hostyaml.Supervised(s)), 0600); e != nil {
 			t.Fatal(e)
 		}
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\n%s", srv.URL, dir, health1181WorkerExtra)
 	path := filepath.Join(dir, "host.yaml")
-	if e := os.WriteFile(path, []byte(cfg), 0600); e != nil {
+	if e := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0600); e != nil {
 		t.Fatal(e)
 	}
 	f := cmdutil.NewFactory()
@@ -269,7 +270,7 @@ func TestHealth1181StatusSubprocessBoundary(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "fake-status")
 	script := "#!/bin/sh\n[ -z \"$HADRON_TOKEN\" ] || exit 41\n[ -z \"$HADRON_LAUNCH_GRANT\" ] || exit 42\n[ \"$1 $2 $3 $4 $5 $6\" = 'orca terminal status --all --json --config' ] || exit 43\n[ \"$7\" = '" + filepath.Join(dir, "host.yaml") + "' ] || exit 44\nprintf '[]'\nprintf 'PRIVATE_SCREEN' >&2\n"
-	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
+	if err := os.WriteFile(bin, []byte(hostyaml.Supervised(script)), 0700); err != nil {
 		t.Fatal(err)
 	}
 	raw, code, err := runHealthStatusCommandEnv(context.Background(), bin, filepath.Join(dir, "host.yaml"), hostpoller.ScrubbedEnv(os.Environ(), "SYNTHETIC_BOUNDARY_KEY"))

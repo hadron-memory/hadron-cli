@@ -166,23 +166,15 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 	// The start's run settings (#2199). args.family is the family to LAUNCH,
 	// not an echo of the registration: a worker launched through Orca may run
 	// as another family when this host has a template and the worker's
-	// account can launch it (checked below, before any process). A worker on
-	// the exec path has one fixed argv, so it keeps the same-family guard
-	// (cli#971: compared as the canonical identity on BOTH sides; an empty or
-	// malformed family launches nothing).
+	// account can launch it (checked below, before any process). Every worker
+	// launches through Orca (the exec path was removed, cli#2914).
 	rs := RunSettingsFrom(op)
 	if err := rs.Validate(); err != nil {
 		p.finish(ctx, op, Failed, "", err.Error()+"; nothing was launched")
 		return
 	}
-	var run Resolved
-	if w.launchesViaOrca() {
-		var ok bool
-		if run, ok = p.resolveOrcaRun(ctx, op, ref, rs); !ok {
-			return
-		}
-	} else if !SameFamily(rs.Family, w.Family) {
-		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, rs.Family))
+	run, ok := p.resolveOrcaRun(ctx, op, ref, rs)
+	if !ok {
 		return
 	}
 	token := argString(op, "worktree")
@@ -211,14 +203,12 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", "the collected start carried no launch grant")
 		return
 	}
-	if w.launchesViaOrca() {
-		release, err := p.reserveWorktreeLaunch(token)
-		if err != nil {
-			p.finish(ctx, op, Failed, "", "another poller launch owns this worktree; nothing launched")
-			return
-		}
-		defer release()
+	release, err := p.reserveWorktreeLaunch(token)
+	if err != nil {
+		p.finish(ctx, op, Failed, "", "another poller launch owns this worktree; nothing launched")
+		return
 	}
+	defer release()
 	// One agent per worktree (#472). This sees only agents THIS poller
 	// launched: after a restart, an agent still booting from an earlier
 	// launch is invisible here, and its revoked grant fails its own bind.
@@ -269,41 +259,18 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		}
 	}
 	deadline := p.now().Add(LaunchGrantTTL)
-	var agent Agent
-	var err error
-	if w.launchesViaOrca() {
-		// C3 (#2058): through an Orca terminal, from the launcher profile.
-		// No fallback to the exec path: a worker configured for Orca that
-		// cannot launch there launches nothing.
-		agent, err = p.orcaStart(ctx, op, ref, w, dir, run)
-		if err != nil {
-			if agent != nil {
-				// An unproven launch whose terminal could not be closed: it
-				// stays recorded, so the one-agent-per-worktree guard refuses
-				// a second launch there and a stop retries the close.
-				p.trackAgent(op.WorkerID, token, agent)
-			}
-			p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: "+err.Error())
-			return
+	// C3 (#2058): through an Orca terminal, from the launcher profile. A worker that cannot launch
+	// there launches nothing (the exec path it once fell back to was removed, cli#2914).
+	agent, err := p.orcaStart(ctx, op, ref, w, dir, run)
+	if err != nil {
+		if agent != nil {
+			// An unproven launch whose terminal could not be closed: it
+			// stays recorded, so the one-agent-per-worktree guard refuses
+			// a second launch there and a stop retries the close.
+			p.trackAgent(op.WorkerID, token, agent)
 		}
-	} else {
-		// The exec path cannot apply the run's model, tier or effort (its
-		// argv is the worker's own fixed command), and does not refuse the
-		// start for it: it states they were not applied (#110836).
-		env := []string{launchGrantEnvVar + "=" + op.LaunchGrant}
-		if e, note, ok := settingsNotApplied(rs); ok {
-			env = append(env, e)
-			p.log("run-settings", op.ID, op.Type, "", note)
-		}
-		agent, err = p.host.Launch(ctx, LaunchSpec{
-			Argv: w.Launch,
-			Dir:  dir,
-			Env:  agentEnv(os.Environ(), p.key, env...),
-		})
-		if err != nil {
-			p.finish(ctx, op, Failed, "", "launching the agent failed: "+err.Error())
-			return
-		}
+		p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: "+err.Error())
+		return
 	}
 	p.trackAgent(op.WorkerID, token, agent)
 	p.log("launched", op.ID, op.Type, "", fmt.Sprintf("worker %s in %s", ref, token))
