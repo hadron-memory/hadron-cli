@@ -372,8 +372,9 @@ the App holds no more. --limit or --offset asks for ONE page instead: --limit
 N rows starting --offset M rows in. Both count from 0; the server caps a page
 at 200 and serves a larger ask as 200 rather than refusing; --limit 0 asks
 for the count alone. A one-page output always says it is one page —
-"page: <rows> of <total> from offset <o>" — and names the --offset that
-continues the list while more rows exist; an empty page names the total
+"page: <rows> of <total> from offset <o>" — and, while more rows exist, prints
+the command that continues the list: the --app and --limit you gave carried
+over, the --offset advanced by the rows served; an empty page names the total
 rather than reading as "no hosts". In single-page mode --json is an envelope
 {items,total,hasMore,offset,limit}; the default keeps the bare array. A
 server without the paged field is read whole in one call instead; the flags
@@ -420,7 +421,12 @@ need the paged field and are refused without it.`,
 					return exitcode.Newf(exitcode.Error, "server returned no host registrations page")
 				}
 				page := hostRegistrationPageDTO{Items: []hostRegistrationDTO{}, Total: resp.HostRegistrationsPage.Total, HasMore: resp.HostRegistrationsPage.HasMore, Offset: offset, Limit: lim}
+				// served is how many rows the server returned, null items included: the continue hint
+				// advances by it, so a skipped null's slot is not read again.
+				served := len(resp.HostRegistrationsPage.Items)
 				for _, r := range resp.HostRegistrationsPage.Items {
+					// A null item is a server contract fault, not an entry to act on: it is skipped
+					// silently (a recorded choice, cli#2939) rather than panicking the read.
 					if r == nil {
 						continue
 					}
@@ -445,7 +451,18 @@ need the paged field and are refused without it.`,
 						return err
 					}
 					if page.HasMore {
-						_, err := fmt.Fprintf(w, "continue: hadron team host list --offset %d\n", offset+len(page.Items))
+						// The hint carries what the caller gave and nothing else: --app only when
+						// --app was passed (the App is otherwise the context's), --limit only when
+						// --limit was passed (its value as given: the server caps a page at 200
+						// whatever is asked, so it widens nothing), and advances by the rows served.
+						hint := "continue: hadron team host list"
+						if f.AppFlag != "" {
+							hint += " --app " + cmdutil.ShellQuote(output.SafeCell(f.AppFlag))
+						}
+						if cmd.Flags().Changed("limit") {
+							hint += fmt.Sprintf(" --limit %d", limit)
+						}
+						_, err := fmt.Fprintf(w, "%s --offset %d\n", hint, offset+served)
 						return err
 					}
 					return nil
