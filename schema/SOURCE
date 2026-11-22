@@ -22,6 +22,11 @@
 # generate-drift check against this snapshot. Exit: after #4789 and #4810 merge, re-diff each head against this
 # block (they are mutable PR heads), then re-export at a server main SHA carrying both, set server_sha to it and
 # delete this block. Do not call the PR ready at this pin: the CLI merges after the server (ruling 0274).
+# Why no code guard or fallback (decided on #2962's BLIND F1/F2, Eden #138029): ruling 0274, an ordered hard
+# break (notices via hadron-client#24, then the server, then the CLI and portal companions), as applied to
+# #2922; cor:api:140:01 makes the rename hard with no alias, and a fallback to the old name would have to test a
+# capability token rather than attempt the operation (cor:api:220:01). The hold is the ready call, made only
+# after #4789 and #4810 merge; released CLIs break at the server cutover by design.
 #
 # tsx= and graphql= are the exporter's tool versions, the single place they live: the
 # schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
