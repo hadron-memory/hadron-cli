@@ -167,8 +167,20 @@ func TestPR1664OptionalAndActions(t *testing.T) {
 				if json.Unmarshal([]byte(out), &dto) != nil || dto.Action.State != state || dto.Action.TaskLoc == nil || *dto.Action.TaskLoc != "tasks:\x1breview" || dto.Action.TaskURN == nil {
 					t.Fatal(out)
 				}
-			} else if !strings.Contains(out, state) || !strings.Contains(out, "tasks: review") || strings.Contains(out, "\x1b") {
-				t.Fatal(out)
+			} else {
+				want := map[string]string{
+					"MAPPED":     "register review.verdict → hrn:node:acme.com:role:tasks:review",
+					"UNRESOLVED": "register review.verdict → no runnable task found at tasks: review",
+					"UNMAPPED":   "register review.verdict → no register entry matches this code",
+					"WITHHELD":   "register review.verdict → not shown to this caller",
+				}[state]
+				// The receipt leads with the task line; the register answer is ONE
+				// self-describing line; no dash placeholders, no raw state pair,
+				// no control bytes (cli#2941).
+				lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+				if len(lines) != 2 || !strings.HasPrefix(lines[0], "AT0.7 t1 (STARTED)") || lines[1] != want || strings.ContainsAny(out, "\x1b—") || strings.Contains(out, "task loc") {
+					t.Fatalf("%s: %q", state, out)
+				}
 			}
 		}
 	}
@@ -178,6 +190,26 @@ func TestPR1664OptionalAndActions(t *testing.T) {
 		t.Fatalf("%s %v", v, err)
 	}
 }
+
+// cli#2941: WITHHELD means no lookup was made, so it must never be worded as a
+// lookup result (the FIT's binding condition), and a state the CLI does not
+// know prints as given with its code rather than collapsing into a known one.
+func TestPR1664RegisterLineWithheldAndUnknown(t *testing.T) {
+	for state, want := range map[string]string{
+		"WITHHELD": "register pr.ready → not shown to this caller",
+		"FUTURE_X": "register pr.ready → state FUTURE_X",
+	} {
+		reply := `{"data":{"recordReadyCall":{"task":{"id":"t1","handle":"AT0.7","status":"STARTED"},"action":{"code":"pr.ready","state":"` + state + `","taskLoc":null,"taskUrn":null}}}}`
+		out, n, _, err := runPR1664(t, "PRReady", reply, "ready", "AT0.7", "--head", prHead1664)
+		if err != nil || n != 1 {
+			t.Fatalf("%s: %v %d", state, err, n)
+		}
+		if !strings.HasSuffix(strings.TrimRight(out, "\n"), "\n"+want) || strings.Contains(out, "no register entry") {
+			t.Fatalf("%s: %q", state, out)
+		}
+	}
+}
+
 func TestPR1664ReadinessViews(t *testing.T) {
 	for _, slots := range []string{`[]`, `[{"slot":"qa:portal","currentTaskId":"s1","state":"STARTED","verdict":null,"head":"` + prHead1664 + `","counts":false}]`} {
 		reply := `{"data":{"pullRequestReadiness":{"ready":false,"head":"` + prHead1664 + `","slots":` + slots + `}}}`
