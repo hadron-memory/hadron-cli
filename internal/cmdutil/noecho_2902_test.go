@@ -21,7 +21,7 @@ func leaks2902(in string) []string {
 		out = append(out, string(r[:10]), string(r[len(r)-10:]))
 	}
 	for _, seg := range strings.FieldsFunc(in, func(c rune) bool {
-		return !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9')
+		return (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9')
 	}) {
 		if len(seg) >= 6 {
 			out = append(out, seg)
