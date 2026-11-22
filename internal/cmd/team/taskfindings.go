@@ -163,7 +163,9 @@ current dispositions with "hadron team task finding-dispositions <task>".
 
 --disposition is required. --ref is optional: kind=target[|label], with kind
 issue, pull-request, node, task or url; a label starts at the first |, and the
-link is stored as text, never fetched. Writing again replaces the earlier
+link is stored as text, never fetched.
+` + taskRefCapsSentence + `
+Writing again replaces the earlier
 disposition (the latest wins; there is no clear), and omitting --ref on a
 replacement drops the old link. Any of the four codes counts as resolving the
 finding. The result itself is never changed. It prints the disposition the
@@ -252,7 +254,7 @@ server now holds; --json is {taskId, findingId, disposition, reference}
 		},
 	}
 	c.Flags().StringVar(&code, "disposition", "", "required: fixed, accepted, deferred or rejected")
-	c.Flags().StringVar(&reference, "ref", "", "optional kind=target[|label]; omission replaces any prior reference with none")
+	c.Flags().StringVar(&reference, "ref", "", "optional kind=target[|label]; omission replaces any prior reference with none"+taskRefCapsFlagDoc)
 	addTaskInstructionFlag(c, &rawInstruction)
 	return c
 }

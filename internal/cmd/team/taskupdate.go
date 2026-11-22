@@ -92,6 +92,10 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   against the team's task-properties schema (PROPERTIES_SCHEMA_VIOLATION, or
   PROPERTIES_SCHEMA_UNUSABLE when that schema itself cannot be used). The
   assignee may edit properties and references alone (see Who may edit).
+- --ref <kind>=<target>[|<label>] (repeatable) replaces the whole reference
+  list. A label is at most 120 characters, a target at most 512, and a task
+  takes at most 20 references; the CLI refuses a longer label before sending,
+  and the server judges the rest.
 - --close-session asks the assignee's worker session to end when the task
   finishes or is cancelled; --no-close-session says it should not. Neither flag
   leaves the choice as it is. ` + "`--close-session=false`" + ` is refused, because
@@ -307,7 +311,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.
 	cmd.Flags().BoolVar(&clearDescription, "clear-description", false, "remove the description")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole list")
 	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "remove every tag")
-	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole list; kind is "+taskRefKindsDoc)
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole list; kind is "+taskRefKindsDoc+taskRefCapsFlagDoc)
 	cmd.Flags().BoolVar(&clearRefs, "clear-refs", false, "remove every reference")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")

@@ -29,6 +29,11 @@ type utilizationDTO struct {
 	Combinations []utilizationComboDTO `json:"combinations"`
 }
 
+// utilizationServerFloor is the server floor: the UTC day hadron-server's failed-match saturation
+// (its lastMatchFailure field) merged to main, the house convention for a floor; merged is not
+// necessarily served.
+const utilizationServerFloor = "2026-11-21"
+
 type utilizationComboDTO struct {
 	// Family is null (an open family) when the failed task left it open: no family named, or
 	// some excluded (cli#2896); never "".
@@ -59,35 +64,42 @@ func newCmdTeamUtilization(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "utilization (--all | --family <f> [--tier <t>] [--role <r>]) [--window <hours>h] [--fail-on-saturated]",
 		Short: "Current worker utilization by model family, tier and role",
-		Long: `Show how busy the team's eligible workers are, per model family, tier and role
-(advisory; the server computes it and no matching or authority depends on it).
+		Long: `Show how busy the team's eligible workers are, per model family, tier and
+role (advisory; the server computes it and no matching or authority depends
+on it).
 
-Each combination has eligible workers, busy workers (holding a task) and their
-utilization, plus saturated: true when the combination's most recent match
-inside the window answered no worker (a later match clears it), or when it has
-workers and none eligible; utilization then reads 100%. An unknown tier is its
-own row (tier null in --json, "—" in the table). A combination whose family
-shows "—" (null in --json) has an open family: no family named, or some excluded
-(the task that failed to match left it open).
+Each combination has eligible workers, busy workers (holding a task) and
+their utilization, plus saturated: true when the combination's most recent
+match inside the window answered no worker (a later match clears it), or when
+it has workers and none eligible; utilization then reads 100%. An unknown
+tier is its own row (tier null in --json, "—" in the table). A combination
+whose family shows "—" (null in --json) has an open family: no family named,
+or some excluded (the task that failed to match left it open). --family
+cannot select an open-family row, so those rows are shown only with --all.
 
 LAST MATCH FAILURE is the time and the coarse reason of the latest no-worker
-match outcome inside the window, exactly as the server serves them; "—" (null in
---json) when there is none, because a later match clears it.
+match outcome inside the window, exactly as the server serves them; a null or
+empty reason prints the time alone, and "—" (null in --json) means there is
+none, because a later match clears it.
 
---all lists every combination in the server's order, which ranks by utilization,
-then the most recent no-worker match, then fewest eligible workers, then names:
-the first row is where to expand. The CLI does not re-sort. Without --all, several
-matching combinations are refused (add --tier/--role to narrow, or use --all);
-none matching prints an empty list and exits 0.
+--all lists every combination in the server's order, which ranks by
+utilization, then the most recent no-worker match, then fewest eligible
+workers, then names: the first row is where to expand. The CLI does not
+re-sort. Without --all, several matching combinations are refused (add
+--tier/--role to narrow, or use --all); none matching prints an empty list and
+exits 0.
 
 --all takes no --family/--tier/--role (refused, exit 2).
 
---window is a whole number of hours from 1h to 168h as a duration (e.g. 24h, 168h). When omitted
-the CLI sends none and prints the window the server used.
+--window is a whole number of hours from 1h to 168h as a duration (e.g. 24h,
+168h). When omitted the CLI sends none and prints the window the server used.
 
 --fail-on-saturated makes the command exit 5 when any combination shown is
 saturated, applied after the output is written; otherwise a successful read
-exits 0 whatever the numbers. It is a script exit code, not an alarm.`,
+exits 0 whatever the numbers. It is a script exit code, not an alarm.
+
+Needs server ` + utilizationServerFloor + ` or later: the query asks for the last match failure,
+which an older server rejects as an unknown field.`,
 		Example: `  hadron team utilization --all
   hadron team utilization --family claude --tier high --role qa --json
   hadron team utilization --all --window 168h --fail-on-saturated`,
@@ -205,7 +217,7 @@ func renderUtilization(w io.Writer, dto utilizationDTO) error {
 // time alone; the CLI never turns a reason into a promise), or the null word when there is none.
 func matchFailureCell(m *utilizationMatchFailureDTO) string {
 	if m == nil {
-		return "—"
+		return nullCell
 	}
 	if m.Reason == nil || *m.Reason == "" {
 		return output.SafeCell(m.At)
