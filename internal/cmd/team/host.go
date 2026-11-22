@@ -51,6 +51,155 @@ type hostRegistrationDTO struct {
 	Workers             []hostWorkerDTO `json:"workers"`
 }
 
+// pagedHostRegistration is one row of the paged registrations read (cli#2824),
+// aliased because genqlient's generated name is deeply nested.
+type pagedHostRegistration = gen.HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration
+
+// wholeHostRegistration is one row of the unpaged whole-set read, the same
+// registration through the field every server has.
+type wholeHostRegistration = gen.HostRegistrationsHostRegistrationsHostRegistration
+
+// hostRegistrationsPageMissing names the gap a server too old for the paged
+// read hits: it rejects the hostRegistrationsPage document itself
+// (GRAPHQL_VALIDATION_FAILED), before execution (hadron-server #2213 S3).
+const hostRegistrationsPageMissing = "this server has no hostRegistrationsPage (older than hadron-server #2213 S3)"
+
+// hostRegistrationPageDTO is `team host list`'s --json shape in SINGLE-PAGE
+// mode only (cli#2824): the page plus what a consumer needs to continue it.
+// The default drain keeps the bare array, so an agent can tell "the complete
+// set" from "one page" by the shape alone (cor:api:120:04).
+type hostRegistrationPageDTO struct {
+	Items   []hostRegistrationDTO `json:"items"`
+	Total   int                   `json:"total"`
+	HasMore bool                  `json:"hasMore"`
+	Offset  int                   `json:"offset"`
+	Limit   int                   `json:"limit"`
+}
+
+// hostRegistrationDTOFrom converts one paged row. A null worker entry is
+// skipped, not fatal: the page's total still counts it, and a null row can
+// come only from a non-conforming server — defensive, not a refusal path.
+func hostRegistrationDTOFrom(r *pagedHostRegistration) hostRegistrationDTO {
+	dto := hostRegistrationDTO{
+		HostID:              r.HostId,
+		Label:               r.Label,
+		PollIntervalSeconds: r.PollIntervalSeconds,
+		RegisteredAt:        r.RegisteredAt,
+		RefreshedAt:         r.RefreshedAt,
+		Live:                r.Live,
+		Workers:             []hostWorkerDTO{},
+	}
+	for _, w := range r.Workers {
+		if w == nil {
+			continue
+		}
+		hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: []string{}}
+		if w.Worker != nil {
+			hw.WorkerName = &w.Worker.Name
+		}
+		hw.Worktrees = append(hw.Worktrees, w.Worktrees...)
+		dto.Workers = append(dto.Workers, hw)
+	}
+	return dto
+}
+
+// hostRegistrationDTOFromWhole converts one whole-set row — the same
+// conversion as hostRegistrationDTOFrom, through the unpaged field's own
+// generated type (the two fields answer with identical rows).
+func hostRegistrationDTOFromWhole(r *wholeHostRegistration) hostRegistrationDTO {
+	dto := hostRegistrationDTO{
+		HostID:              r.HostId,
+		Label:               r.Label,
+		PollIntervalSeconds: r.PollIntervalSeconds,
+		RegisteredAt:        r.RegisteredAt,
+		RefreshedAt:         r.RefreshedAt,
+		Live:                r.Live,
+		Workers:             []hostWorkerDTO{},
+	}
+	for _, w := range r.Workers {
+		if w == nil {
+			continue
+		}
+		hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: []string{}}
+		if w.Worker != nil {
+			hw.WorkerName = &w.Worker.Name
+		}
+		hw.Worktrees = append(hw.Worktrees, w.Worktrees...)
+		dto.Workers = append(dto.Workers, hw)
+	}
+	return dto
+}
+
+// readWholeHostRegistrations reads the complete registration list through the
+// unpaged field every server has — the old-server fallback for `team host
+// list`'s default form (cli#2824): the same rows, App gate and refusals the
+// command read before the paged field existed.
+func readWholeHostRegistrations(ctx context.Context, client graphql.Client, appRef string) ([]hostRegistrationDTO, error) {
+	resp, err := gen.HostRegistrations(ctx, client, appRef)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp == nil || resp.HostRegistrations == nil {
+		return nil, exitcode.Newf(exitcode.Error, "server returned no host registrations")
+	}
+	hosts := []hostRegistrationDTO{}
+	for _, r := range resp.HostRegistrations {
+		if r == nil {
+			continue
+		}
+		hosts = append(hosts, hostRegistrationDTOFromWhole(r))
+	}
+	return hosts, nil
+}
+
+// readAllHosts reads the App's complete registration list for `team host
+// list`'s default form: it drains hostRegistrationsPage 20 rows at a time
+// until hasMore is false, and, on a server that rejects that document for not
+// knowing the field, falls back to one whole read through hostRegistrations —
+// so the default form keeps the answer it always gave while servers lag. The
+// second return says the fallback was taken (the caller discloses it).
+func readAllHosts(ctx context.Context, client graphql.Client, appRef string) ([]hostRegistrationDTO, bool, error) {
+	rows, err := api.CollectHasMore(func(pageOffset int) ([]*pagedHostRegistration, int, bool, error) {
+		resp, err := gen.HostRegistrationsPage(ctx, client, appRef, api.InventoryPageSize, pageOffset)
+		if err != nil {
+			// Raw, not MapError: the old-server check below reads the error's
+			// envelope; every other refusal is mapped where the error escapes.
+			return nil, 0, false, err
+		}
+		if resp == nil || resp.HostRegistrationsPage == nil {
+			return nil, 0, false, exitcode.Newf(exitcode.Error, "server returned no host registrations page")
+		}
+		return resp.HostRegistrationsPage.Items, resp.HostRegistrationsPage.Total, resp.HostRegistrationsPage.HasMore, nil
+	}, func(r *pagedHostRegistration) *string {
+		// CollectHasMore keys every row through this closure before any nil
+		// filtering of its own, so a null row must be answered here, not by
+		// the caller's skip — unguarded it would panic the whole drain
+		// (cli#2824 BLIND F1 / LOCAL F1; the single-page path skips nulls).
+		if r == nil {
+			return nil
+		}
+		return &r.HostId
+	})
+	if err == nil {
+		hosts := []hostRegistrationDTO{}
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			hosts = append(hosts, hostRegistrationDTOFrom(r))
+		}
+		return hosts, false, nil
+	}
+	if !api.IsFrameworkValidationOnlyFor(err, "hostRegistrationsPage") {
+		return nil, false, api.MapError(err)
+	}
+	hosts, ferr := readWholeHostRegistrations(ctx, client, appRef)
+	if ferr != nil {
+		return nil, false, ferr
+	}
+	return hosts, true, nil
+}
+
 type hostOperationDTO struct {
 	ID               string          `json:"id"`
 	AppID            string          `json:"appId"`
@@ -208,16 +357,32 @@ with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" +
 }
 
 func newCmdTeamHostLs(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	var limit, offset int
+	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List the App's host registrations",
 		Long: `List the App's host registrations: each host's id and label, how often it
 checks in, whether it is live now (refreshed within the App's host-lapse
 count of its check-ins), and the workers it can launch with
-their family and worktrees. Whoever reads the App's tasks and events may.`,
+their family and worktrees. Whoever reads the App's tasks and events may.
+
+By default the whole list is read, 20 rows at a time until the server says
+the App holds no more. --limit or --offset asks for ONE page instead: --limit
+N rows starting --offset M rows in. Both count from 0; the server caps a page
+at 200 and serves a larger ask as 200 rather than refusing; --limit 0 asks
+for the count alone. A one-page output always says it is one page —
+"page: <rows> of <total> from offset <o>" — and names the --offset that
+continues the list while more rows exist; an empty page names the total
+rather than reading as "no hosts". In single-page mode --json is an envelope
+{items,total,hasMore,offset,limit}; the default keeps the bare array. A
+server without the paged field is read whole in one call instead; the flags
+need the paged field and are refused without it.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 || offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be 0 or more")
+			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -232,36 +397,66 @@ their family and worktrees. Whoever reads the App's tasks and events may.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.HostRegistrations(ctx, client, scope.Ref)
-			if err != nil {
-				return api.MapError(err)
-			}
-			hosts := []hostRegistrationDTO{}
-			for _, r := range resp.HostRegistrations {
-				if r == nil {
-					continue
+			// Either paging flag selects ONE explicit page; neither drains the
+			// whole inventory 20 rows at a time (cli#2824, cor:api:120:04 — a
+			// client doesn't ask for more than 20 unless its user did).
+			if cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset") {
+				lim := limit
+				if !cmd.Flags().Changed("limit") {
+					lim = api.InventoryPageSize
 				}
-				dto := hostRegistrationDTO{
-					HostID:              r.HostId,
-					Label:               r.Label,
-					PollIntervalSeconds: r.PollIntervalSeconds,
-					RegisteredAt:        r.RegisteredAt,
-					RefreshedAt:         r.RefreshedAt,
-					Live:                r.Live,
-					Workers:             []hostWorkerDTO{},
+				resp, err := gen.HostRegistrationsPage(ctx, client, scope.Ref, lim, offset)
+				if err != nil {
+					// An old server cannot serve a page: the unpaged field has
+					// no offset to slice, so the flags are refused by name
+					// rather than failing on the raw validation error (cli#2824
+					// BLIND F2). The default form still reads the whole list.
+					if api.IsFrameworkValidationOnlyFor(err, "hostRegistrationsPage") {
+						return exitcode.Newf(exitcode.Error, "%s; --limit/--offset need it — leave the flags out to read the whole list", hostRegistrationsPageMissing)
+					}
+					return api.MapError(err)
 				}
-				for _, w := range r.Workers {
-					if w == nil {
+				if resp == nil || resp.HostRegistrationsPage == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no host registrations page")
+				}
+				page := hostRegistrationPageDTO{Items: []hostRegistrationDTO{}, Total: resp.HostRegistrationsPage.Total, HasMore: resp.HostRegistrationsPage.HasMore, Offset: offset, Limit: lim}
+				for _, r := range resp.HostRegistrationsPage.Items {
+					if r == nil {
 						continue
 					}
-					hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: []string{}}
-					if w.Worker != nil {
-						hw.WorkerName = &w.Worker.Name
-					}
-					hw.Worktrees = append(hw.Worktrees, w.Worktrees...)
-					dto.Workers = append(dto.Workers, hw)
+					page.Items = append(page.Items, hostRegistrationDTOFrom(r))
 				}
-				hosts = append(hosts, dto)
+				return output.Write(f.IOStreams, f.JSON, page, func(w io.Writer) error {
+					if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+						return err
+					}
+					if len(page.Items) == 0 {
+						// An empty page is not "no hosts": the App may hold rows
+						// beyond this offset (or --limit 0 asked for none). The
+						// total says which; a failed read never gets here — it
+						// exits non-zero above.
+						_, err := fmt.Fprintf(w, "no hosts on this page (total %d)\n", page.Total)
+						return err
+					}
+					if err := writeHostTable(w, page.Items); err != nil {
+						return err
+					}
+					if _, err := fmt.Fprintf(w, "page: %d of %d from offset %d\n", len(page.Items), page.Total, offset); err != nil {
+						return err
+					}
+					if page.HasMore {
+						_, err := fmt.Fprintf(w, "continue: hadron team host list --offset %d\n", offset+len(page.Items))
+						return err
+					}
+					return nil
+				})
+			}
+			hosts, legacy, err := readAllHosts(ctx, client, scope.Ref)
+			if err != nil {
+				return err
+			}
+			if legacy && !f.JSON {
+				fmt.Fprintln(f.IOStreams.ErrOut, "note: "+hostRegistrationsPageMissing+"; the whole list was read through hostRegistrations in one call")
 			}
 			return output.Write(f.IOStreams, f.JSON, hosts, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
@@ -271,18 +466,27 @@ their family and worktrees. Whoever reads the App's tasks and events may.`,
 					_, err := fmt.Fprintln(w, "no hosts registered")
 					return err
 				}
-				t := output.NewTable(w, "HOST", "LABEL", "LIVE", "CHECK-IN", "REFRESHED", "WORKERS")
-				for _, h := range hosts {
-					live := "no"
-					if h.Live {
-						live = "yes"
-					}
-					t.Row(output.SafeCell(h.HostID), output.SafeCell(h.Label), output.SafeCell(live), output.SafeCell(strconv.Itoa(h.PollIntervalSeconds)+"s"), output.SafeCell(h.RefreshedAt), output.SafeCell(hostWorkersCell(h.Workers)))
-				}
-				return t.Flush()
+				return writeHostTable(w, hosts)
 			})
 		},
 	}
+	cmd.Flags().IntVar(&limit, "limit", 0, "one page of N rows (default: the whole list, 20 at a time); 0 asks for the count alone")
+	cmd.Flags().IntVar(&offset, "offset", 0, "start the page this many rows in (selects single-page mode)")
+	return cmd
+}
+
+// writeHostTable renders the registrations table shared by both modes of
+// `team host list`.
+func writeHostTable(w io.Writer, hosts []hostRegistrationDTO) error {
+	t := output.NewTable(w, "HOST", "LABEL", "LIVE", "CHECK-IN", "REFRESHED", "WORKERS")
+	for _, h := range hosts {
+		live := "no"
+		if h.Live {
+			live = "yes"
+		}
+		t.Row(output.SafeCell(h.HostID), output.SafeCell(h.Label), output.SafeCell(live), output.SafeCell(strconv.Itoa(h.PollIntervalSeconds)+"s"), output.SafeCell(h.RefreshedAt), output.SafeCell(hostWorkersCell(h.Workers)))
+	}
+	return t.Flush()
 }
 
 // hostWorkersCell renders a registration's workers as name/family[worktrees].
