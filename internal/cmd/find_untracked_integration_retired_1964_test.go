@@ -23,7 +23,7 @@ func TestFindUntrackedIntegrationIsRefusedAsRetired_1964(t *testing.T) {
 		"claim, with parties": {"--integration", "github", "--assign-to-me", "--assignee", "worker:Iris", "--owner", "user:holger"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			t.Setenv("HADRON_INTAKE_ADAPTER", "")
+			t.Setenv(adapterEnvForTest, "") // empty reads as unset: selectAdapter trims it
 			calls, out, err := runTeamTask(t, map[string]string{}, append([]string{"team", "task", "find-untracked"}, argv...)...)
 			if err == nil {
 				t.Fatalf("--integration must be refused, got success:\n%s", out)
@@ -32,7 +32,7 @@ func TestFindUntrackedIntegrationIsRefusedAsRetired_1964(t *testing.T) {
 				t.Fatalf("exit %d, want %d (usage): %v", code, exitcode.Usage, err)
 			}
 			msg := err.Error()
-			for _, want := range []string{"--integration", "retired", "--adapter", "HADRON_INTAKE_ADAPTER", "nothing was sent"} {
+			for _, want := range []string{"--integration", "retired", "--adapter", adapterEnvForTest, "nothing was sent"} {
 				if !strings.Contains(msg, want) {
 					t.Errorf("refusal must name %q: %s", want, msg)
 				}
@@ -50,7 +50,7 @@ func TestFindUntrackedIntegrationIsRefusedAsRetired_1964(t *testing.T) {
 // With no source named and no $HADRON_INTAKE_ADAPTER, the usage error names
 // only the adapter: it no longer offers the retired --integration.
 func TestFindUntrackedNoSourceNamesOnlyTheAdapter_1964(t *testing.T) {
-	t.Setenv("HADRON_INTAKE_ADAPTER", "")
+	t.Setenv(adapterEnvForTest, "") // empty reads as unset: selectAdapter trims it
 	calls, _, err := runTeamTask(t, map[string]string{}, "team", "task", "find-untracked")
 	if code := exitCodeFor(err); code != exitcode.Usage {
 		t.Fatalf("exit %d, want %d: %v", code, exitcode.Usage, err)
@@ -85,13 +85,13 @@ func TestFindUntrackedRetiredFlagsAreRefusedByName_1964(t *testing.T) {
 		{"--integration", []string{"--adapter", path, "--integration", "github"}},
 	} {
 		t.Run(strings.Join(tc.argv, " "), func(t *testing.T) {
-			t.Setenv("HADRON_INTAKE_ADAPTER", "")
+			t.Setenv(adapterEnvForTest, "") // empty reads as unset: selectAdapter trims it
 			calls, out, err := runTeamTask(t, map[string]string{}, append([]string{"team", "task", "find-untracked"}, tc.argv...)...)
 			if code := exitCodeFor(err); code != exitcode.Usage {
 				t.Fatalf("exit %d, want %d: %v", code, exitcode.Usage, err)
 			}
 			msg := err.Error()
-			for _, want := range []string{tc.flag + " is retired", "--adapter", "HADRON_INTAKE_ADAPTER", "nothing was sent"} {
+			for _, want := range []string{tc.flag + " is retired", "--adapter", adapterEnvForTest, "nothing was sent"} {
 				if !strings.Contains(msg, want) {
 					t.Errorf("refusal must name %q: %s", want, msg)
 				}
