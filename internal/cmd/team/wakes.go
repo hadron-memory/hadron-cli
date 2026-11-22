@@ -169,9 +169,9 @@ may read: the ones you hold, or the whole App when you manage it. --first
 sets the page size (the server's default without it) and --after continues
 from the endCursor of the page before.
 
-A page the App's daily wake budget held back has status WAKE_BUDGET_EXHAUSTED. Its wakes stay due, so an empty list then
-proves nothing: the page is still printed, and the command exits 5 naming the
-status.
+A page the App's daily wake budget held back has status
+WAKE_BUDGET_EXHAUSTED. Its wakes stay due, so an empty list then proves
+nothing: the page is still printed, and the command exits 5 naming the status.
 
 --accept-stop also asks for stop notices (STOP). Passing it declares that you
 serve the lane you read and can deliver those notices. The

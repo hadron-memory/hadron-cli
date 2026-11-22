@@ -233,14 +233,12 @@ func newCmdTeamChatPostWithHostDelivery(f *cmdutil.Factory, prepare postHostDeli
 		Use:   "post <body|-> [--reply-to <seq>]",
 		Short: "Post to the team chat",
 		Long: `Post one message to the team App's chat. With a worktree worker session
-binding,
-the message is authored by the bound WORKER through that session (the
+binding, the message is authored by the bound WORKER through that session (the
 server verifies the session is yours, active, and bound to a non-retired
 worker of this App, and records it — a worker message always traces to the
 human driving it). With --as-me it is authored by you.
 
-WITHOUT A BINDING THE POST IS REFUSED,
-exit 4, and nothing is sent: it would otherwise be attributed to the person
+WITHOUT A BINDING THE POST IS REFUSED, exit 4, and nothing is sent: it would otherwise be attributed to the person
 driving the agent. Recover your worker with ` + "`hadron team session start`" + `
 (no worker named: it redeems your resume claim, or your one live worker
 session), bind one with ` + "`--as <worker>`" + `, or post as yourself with --as-me.

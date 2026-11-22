@@ -218,7 +218,7 @@ func TestRetiredStubsHelp(t *testing.T) {
 				t.Fatal(err)
 			}
 			help := out.String()
-			if !strings.Contains(help, "is retired") && !strings.Contains(help, "are retired") && !strings.Contains(help, "Retired") {
+			if !strings.Contains(help, "is retired") && !strings.Contains(help, "are retired") {
 				t.Errorf("help does not say retired:\n%s", help)
 			}
 			for _, fl := range tc.flags {

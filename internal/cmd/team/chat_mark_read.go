@@ -36,9 +36,9 @@ func newCmdTeamChatMarkRead(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mark-read --through <seq> [--channel <ref>]",
 		Short: "Mark the bound worker's team chat read through a seq",
-		Long: `Advance the bound worker's OWN read cursor on one Channel, through --through. Use it
-after a read that does not count by itself: a --mentions/--mentions-me,
---before or windowed read. An ordinary forward
+		Long: `Advance the bound worker's OWN read cursor on one Channel, through
+--through. Use it after a read that does not count by itself: a
+--mentions/--mentions-me, --before or windowed read. An ordinary forward
 ` + "`team chat read`" + ` already marks what it returned.
 
 The cursor only moves forward: a lower seq changes nothing (the result shows

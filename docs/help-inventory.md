@@ -506,8 +506,8 @@ section between the markers.
 | `team chat` |  |  | n | #1054 | b23cf704d523 |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
 | `team chat inbox` |  |  | n | #1054 | 99496731d1ef |  | unread |  |
-| `team chat mark-read` |  |  | y | #1054 | ba20aac8dddd |  | unread |  |
-| `team chat post` |  |  | y | #1054 | 6a747ebb94c3 |  | unread |  |
+| `team chat mark-read` |  |  | y | #1054 | 4af163a6f043 |  | unread |  |
+| `team chat post` |  |  | y | #1054 | 5d798fd18228 |  | unread |  |
 | `team chat read` | pull |  | y | #1054 | 18d66c7183e6 |  | unread |  |
 | `team chat search` |  |  | y | #1054 | 0ca12ea9a25e |  | unread |  |
 | `team composition` |  |  | n | #1054 | 56db72727109 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
@@ -574,9 +574,9 @@ section between the markers.
 | `team role update` |  |  | y | #1054 | 92ee0e642555 |  | unread |  |
 | `team roster` |  |  | n | #1054 | 11d418e87c05 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team router` |  |  | n | #1054 | 126f5e26e347 |  | unread |  |
-| `team router loop` |  |  | n | #1054 | 60235e912c99 |  | unread |  |
-| `team router poll` |  |  | n | #1054 | e6b0d9f7b456 |  | unread |  |
-| `team router status` |  |  | n | #1054 | e617495161d7 |  | unread |  |
+| `team router loop` |  |  | n | #1054 | 7e2de75619bd |  | unread |  |
+| `team router poll` |  |  | n | #1054 | a42c9e635371 |  | unread |  |
+| `team router status` |  |  | n | #1054 | 0e6c5587cbbe |  | unread |  |
 | `team session` | sessions |  | n | #1054 | 0233b043af2d |  | unread |  |
 | `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
@@ -644,7 +644,7 @@ section between the markers.
 | `team wake-settings set` |  |  | y | #1054 | ec14dc4be555 |  | unread |  |
 | `team wakes` |  |  | n | #1054 | c4e1d7ef9f55 |  | unread |  |
 | `team wakes ack` |  |  | y | #1054 | 83e9d1f80545 |  | unread |  |
-| `team wakes due` |  |  | y | #1054 | 1a5cf3e69e6c |  | unread |  |
+| `team wakes due` |  |  | y | #1054 | f8648da2101d |  | unread |  |
 | `team worker` | workers, staff |  | n | #1054 | 8da1cc915f07 |  | unread |  |
 | `team worker approve` |  |  | y | #1054 | 9fa5927cdf92 |  | unread |  |
 | `team worker cast` |  |  | y | #1054 | d83f42bd8ac8 |  | unread |  |
