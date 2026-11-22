@@ -60,11 +60,12 @@ const watcherSettleBound = 200 * time.Second
 // is gone again at stat time, so every pass voids identically for every
 // caller of the seam. The install registers its cleanup BEFORE the caller
 // launches, and that cleanup runs on EVERY exit path in the gate's order:
-// clear only the atomic storm flag (the installed wrappers then forward
-// the real functions — transparent pass-throughs), drain/reap as needed
-// through the production stop, wait for ACTUAL watcherDone closure on a
-// finite failing deadline, and only then restore the global pointers. On a
-// deadline miss the test fails with the wrappers still installed: no
+// clear the atomic storm flag and set the settle-empty gate (the installed
+// wrappers then forward the real functions, and every listing the drain
+// path sees is empty — a provably drained group, cli#2951), drain/reap as
+// needed through the production stop, wait for ACTUAL watcherDone closure
+// on a finite failing deadline, and only then restore the global pointers.
+// On a deadline miss the test fails with the wrappers still installed: no
 // restoration races a live watcher, and with storming cleared the
 // leftovers leak nothing behavioral into later tests.
 type stopFixture struct {
@@ -76,8 +77,13 @@ type stopFixture struct {
 
 	epoch    time.Time // monotonic base for the record/flip ordering proof
 	storming atomic.Bool
-	flipAt   atomic.Int64 // nanoseconds since epoch; 0 until the flip
-	settled  atomic.Bool
+	// settleEmpty, once set at settle, makes the wrapper's listings empty: a
+	// provably drained group (cli#2951), so the quiet-scan confirm-and-reap the
+	// settle performs is quiet by construction instead of hoping the host's
+	// churn yields a clean pass inside the settle bound.
+	settleEmpty atomic.Bool
+	flipAt      atomic.Int64 // nanoseconds since epoch; 0 until the flip
+	settled     atomic.Bool
 
 	realRead   func(string) ([]os.DirEntry, error) // nil unless storm
 	realSignal func(int, syscall.Signal) error
@@ -97,8 +103,9 @@ func newStormFixture(flipOnTerm bool) *stopFixture {
 
 // newJourneyFixture records signals with their ownership proof around an
 // unstormed real-/proc journey (the matrix 4 tolerance in detach_unix_test
-// delegates here). readProcDir is never touched: there is no storm to
-// shape, so the listing stays the host's own.
+// delegates here). The listing wrapper is still installed — settle needs
+// its empty gate (cli#2951) — but until then it is a transparent
+// pass-through: the listing the journey scans stays the host's own.
 func newJourneyFixture() *stopFixture {
 	return &stopFixture{epoch: time.Now()}
 }
@@ -119,35 +126,45 @@ func (f *stopFixture) install(t *testing.T) {
 		}
 		return err
 	}
+	// cli#2951: the listing wrapper is installed for every fixture shape, not
+	// only the storm. Until settle it is a transparent pass-through of the
+	// host's own listing (the storm shapes add their vanishing entry on top);
+	// settle flips settleEmpty below, and from that moment every listing the
+	// drain path sees is empty — a provably drained group.
+	f.realRead = readProcDir
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		if f.settleEmpty.Load() {
+			return nil, nil
+		}
+		entries, err := f.realRead(dir)
+		if err != nil {
+			return nil, err
+		}
+		if f.storming.Load() {
+			entries = append(entries, fakeDirEntry{name: abovePidMax})
+		}
+		return entries, nil
+	}
 	if f.storm {
 		// cli#2853: the scan retries until a wall-clock deadline; a storm that never clears
 		// would spend the production second on every probe, so the fixture uses a short one.
 		oldDeadline, oldStop := groupScanDeadline, groupStopScanDeadline
 		groupScanDeadline, groupStopScanDeadline = 20*time.Millisecond, 20*time.Millisecond
 		t.Cleanup(func() { groupScanDeadline, groupStopScanDeadline = oldDeadline, oldStop })
-		f.realRead = readProcDir
-		readProcDir = func(dir string) ([]os.DirEntry, error) {
-			entries, err := f.realRead(dir)
-			if err != nil {
-				return nil, err
-			}
-			if f.storming.Load() {
-				entries = append(entries, fakeDirEntry{name: abovePidMax})
-			}
-			return entries, nil
-		}
 		f.storming.Store(true)
 	}
 	t.Cleanup(func() { f.settle(t) })
 }
 
-// settle is the fixture's finite tail, in the gate's order: clear only the
-// atomic storm flag (the installed wrappers then forward the real
-// functions — transparent pass-throughs), drain what an unconfirmed stop
-// left held (a no-op once confirmed), wait for actual watcherDone closure
-// on the finite failing deadline, and only then restore the global
-// pointers and retire the recorder. Once-guarded: the inline call a
-// passing test makes and the deferred cleanup never double-run.
+// settle is the fixture's finite tail, in the gate's order: clear the
+// atomic storm flag and set the settle-empty gate (the installed wrappers
+// then forward the real functions, and every listing the drain path sees
+// is empty — a provably drained group, cli#2951), drain what an
+// unconfirmed stop left held (a no-op once confirmed), wait for actual
+// watcherDone closure on the finite failing deadline, and only then
+// restore the global pointers and retire the recorder. Once-guarded: the
+// inline call a passing test makes and the deferred cleanup never
+// double-run.
 func (f *stopFixture) settle(t *testing.T) {
 	t.Helper()
 	if !f.settled.CompareAndSwap(false, true) {
@@ -158,6 +175,8 @@ func (f *stopFixture) settle(t *testing.T) {
 	}
 	f.storming.Store(false) // idempotent on every exit path: waiting
 	// while the storm is on can never settle the watcher
+	f.settleEmpty.Store(true) // cli#2951: settle drains over an empty listing,
+	// never the host's real /proc — churn that outlasts the test cannot hold it
 	if a := f.rec.bound(); a != nil {
 		_, _ = a.Terminate() // bounded: the no-op (true, "") once
 		// confirmed, else one quiet-scan confirm-and-reap through the
@@ -590,6 +609,65 @@ func runPostExitJourneyLadder(t *testing.T) {
 	}
 	stopped, detail := a.Terminate()
 	assertTruthfulStopLadder(t, f, a, stopped, detail)
+}
+
+// cli#2951: a host whose ambient churn outlasts the test. The vanisher here
+// sits UNDER the fixture's wrapper and never clears — the shape orca showed
+// with no suite load at all (Jonas 3 runs, QA-filed): every pass voids, the
+// watcher holds by design (a wrong reap is worse than a held zombie), and a
+// settle that drains over the host's real /proc can run out the whole settle
+// bound waiting for a clean pass that never comes. The fixture's settle gate
+// makes its own listing empty, so the quiet-scan confirm-and-reap settle
+// already assumes is quiet by construction. The pin fails on the ungated
+// fixture at the full settle bound; with the gate it settles within a couple
+// of watcher ticks, and the churn listing under the wrapper is never
+// consulted again once settle has begun.
+func TestSettleDrainsDespiteChurnThatOutlastsTheTest(t *testing.T) {
+	if _, err := exec.LookPath("true"); err != nil {
+		t.Skip("no true")
+	}
+	if _, err := os.Stat("/proc/self/stat"); err != nil {
+		t.Skip("no /proc")
+	}
+	// Never-clearing churn, installed BEFORE the fixture so it sits under the
+	// fixture's wrapper: the journey body sees the real /proc plus one entry
+	// that is always gone again at stat time.
+	real := readProcDir
+	var listings atomic.Int64
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		listings.Add(1)
+		entries, err := real(dir)
+		if err != nil {
+			return nil, err
+		}
+		return append(entries, fakeDirEntry{name: abovePidMax}), nil
+	}
+	t.Cleanup(func() { readProcDir = real }) // registered first: restored last, after the fixture's settle
+	f := newJourneyFixture()
+	var atSettle int64
+	f.beforeSettle = func() { atSettle = listings.Load() }
+	f.install(t)
+	// The ladder's own waits stay short (the sibling pins' convention): this
+	// pin is about settle, not the stop's patience.
+	oldPost, oldStop, oldScan := postKillWait, groupStopScanDeadline, groupScanDeadline
+	postKillWait, groupStopScanDeadline, groupScanDeadline = 100*time.Millisecond, 200*time.Millisecond, 20*time.Millisecond
+	t.Cleanup(func() { postKillWait, groupStopScanDeadline, groupScanDeadline = oldPost, oldStop, oldScan })
+	a, err := ExecHost{TerminateGrace: 50 * time.Millisecond}.Launch(context.Background(),
+		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.rec.bind(a)
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("true exits at once")
+	}
+	stopped, detail := a.Terminate()
+	assertTruthfulStopLadder(t, f, a, stopped, detail)
+	if got := listings.Load(); got != atSettle {
+		t.Fatalf("settle consulted the churn listing after it began: %d listings at settle, %d after", atSettle, got)
+	}
 }
 
 func closedChan() chan struct{} {
