@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -99,22 +100,50 @@ func leaderZombieAlone(pid int) bool {
 	return threads == 1
 }
 
-// maxGroupScanPasses bounds the scan's retries on a /proc that never holds
-// still (a host churning short-lived processes through every pass): past
-// the bound the scan answers "members" — the fail-safe direction, which
-// keeps the stop probing and the zombie held rather than reading a live
-// group as empty. A process born and dead between a listing and its own stat
-// read is unknown (it could have been a member, or forked one), voids its
-// pass, and no later pass can rule it out, so a host that spawns short-lived
-// processes at ~100/s leaves most passes void. Measured on a busy host with
-// two spawners at ~100/s, 100 runs of the real-process zombie-drain test: at
-// 8 passes it failed up to 64 of 100 runs (the count tracks the host's load);
-// at 32 it failed 0 of 100. A retry is a listing plus some stats
-// (milliseconds), and a false answer still needs a CLEAN pass, so raising the
-// bound only buys more chances to find one: every vanished pid still voids its
-// pass, nothing is assumed about who a vanished process was, and no allocator
-// property is relied on (#2042).
-const maxGroupScanPasses = 32
+// groupScanDeadline bounds the scan's retries on a /proc that never holds
+// still (a host churning short-lived processes through every pass) by WALL-CLOCK
+// time, not by a pass count (cli#2853, Holger's ruling 2026-11-21): the scan
+// keeps retrying until the deadline, and past it answers "members", the
+// fail-safe direction, which keeps the stop probing and the zombie held rather
+// than reading a live group as empty. A process born and dead between a listing
+// and its own stat read is unknown (it could have been a member, or forked
+// one), voids its pass, and no later pass can rule it out, so a host that
+// spawns short-lived processes leaves most passes void. A pass count measured
+// the wrong thing: how many passes fit depends on the host's load (the count
+// went from 8 to 32 for ~100 spawns/s in #2042 and still ran out under 24
+// spawners, #2744), while what a stop can afford is time. A retry is a listing
+// plus some stats (milliseconds), and a false answer still needs a CLEAN pass,
+// so the deadline only buys more chances to find one: every vanished pid still
+// voids its pass, nothing is assumed about who a vanished process was, and no
+// allocator property is relied on. When the deadline expires the answer carries
+// the last void pass's code (unseen-pid under churn), which an unconfirmed stop
+// reports so an operator can tell churn from a live member.
+//
+// groupScanDeadline, scanClock and scanPause are package vars so a test drives
+// the bound with a modelled clock; scanPause keeps the retry a loop and not a
+// spin on one core while the deadline runs.
+var (
+	groupScanDeadline = time.Second
+	scanClock         = time.Now
+	scanPause         = 5 * time.Millisecond
+)
+
+// groupStopScanDeadline is the longer deadline of the stop's LAST scan (cli#2853): the ladder's
+// own waits (the grace, the post-SIGKILL wait) probe with the short package deadline so a stop
+// still signals and escalates promptly, but when they have not proved the group gone, one more
+// scan runs for this long before the stop is reported unconfirmed. It is the builder's value
+// inside Holger's ruling (scan until a wall-clock deadline, else report unconfirmed with its code):
+// QA at the first fold showed 1s found a clean pass in about 1 of 79 passes on a saturated host, so
+// a stop that must confirm gets a longer window, at the price of waiting up to this long under
+// endless churn instead of failing fast. The drain watcher's periodic probes keep groupScanDeadline.
+//
+// Worst case for one stop that cannot be confirmed: the initial drained check (up to
+// groupScanDeadline), the SIGTERM grace, the post-SIGKILL wait (postKillWait, probes of up to
+// groupScanDeadline each), then this final scan: about 1s + the grace + 2s + 5s, i.e. 15s with a
+// 5s grace, plus a pass's overshoot of each deadline. It runs on the worker's own dispatch goroutine
+// (stopLaunchedAgent), so it delays no other worker's operation, and only a stop that cannot be
+// confirmed pays the final scan.
+var groupStopScanDeadline = 5 * time.Second
 
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).
@@ -190,16 +219,34 @@ func groupMembership(pgid, leader int) (bool, drainWhy) {
 // that was given one (ExecHost.procList, tests only) scans through it, and the
 // package-wide seam is never touched.
 func groupMembershipWith(pgid, leader int, list procLister) (bool, drainWhy) {
+	return groupMembershipWithin(pgid, leader, list, groupScanDeadline)
+}
+
+// groupMembershipFor is the scan the stop's last step uses: over the launch's own lister when it
+// was given one, else the package listing, and with the given deadline.
+func groupMembershipFor(pgid, leader int, list procLister, deadline time.Duration) (bool, drainWhy) {
+	if list == nil {
+		list = func(dir string) ([]os.DirEntry, error) { return readProcDir(dir) }
+	}
+	return groupMembershipWithin(pgid, leader, list, deadline)
+}
+
+// groupMembershipWithin is groupMembershipWith with the scan's wall-clock deadline given (cli#2853).
+func groupMembershipWithin(pgid, leader int, list procLister, deadline time.Duration) (bool, drainWhy) {
 	prevZ := map[int]bool(nil) // pass 0 has no predecessor: every Z member is new
-	for pass := 0; ; pass++ {
+	start := scanClock()
+	for {
 		found, void, zs, why := scanGroupOnce(pgid, leader, prevZ, list)
 		if !void {
 			return found, why
 		}
-		if pass+1 >= maxGroupScanPasses {
-			return true, why // /proc never held still: not proof of an empty group
+		if scanClock().Sub(start) >= deadline {
+			return true, why // /proc never held still in time: not proof of an empty group
 		}
 		prevZ = zs
+		if scanPause > 0 {
+			time.Sleep(scanPause)
+		}
 	}
 }
 

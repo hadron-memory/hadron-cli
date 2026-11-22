@@ -186,6 +186,9 @@ type execAgent struct {
 	onDrain func(Event)
 	// procList is ExecHost.procList: this launch's own /proc lister, or nil.
 	procList procLister
+	// lastMembers is the drainWhy code of the last membership scan that answered "members"
+	// (a string; "" once a scan drained), which an unconfirmed stop reports (cli#2853).
+	lastMembers atomic.Value
 	// watcherDone is allocated at launch and closes exactly once — when
 	// the drain watcher exits, or when the waiter finishes without arming
 	// one — so tests can wait out a watcher before swapping the scan
@@ -425,10 +428,41 @@ func (a *execAgent) watchDrain() {
 // was given one, else the package default (drainMembership, which tests of the
 // loop alone replace).
 func (a *execAgent) members() (bool, drainWhy) {
+	var m bool
+	var why drainWhy
 	if a.procList != nil {
-		return groupMembershipWith(a.pid, a.pid, a.procList)
+		m, why = groupMembershipWith(a.pid, a.pid, a.procList)
+	} else {
+		m, why = drainMembership(a.pid, a.pid)
 	}
-	return drainMembership(a.pid, a.pid)
+	// cli#2853: the code of the last "members" answer, for the stop to report if it
+	// ends unconfirmed; a drained answer clears it.
+	if m {
+		a.lastMembers.Store(string(why))
+	} else {
+		a.lastMembers.Store("")
+	}
+	return m, why
+}
+
+// membersWithin is members for the stop's LAST scan (cli#2853): the launch's own lister (or the
+// package listing) with the given deadline, recording the code the same way. It does not go through
+// the drainMembership seam, which only the watcher's loop tests replace.
+func (a *execAgent) membersWithin(d time.Duration) (bool, drainWhy) {
+	m, why := groupMembershipFor(a.pid, a.pid, a.procList, d)
+	if m {
+		a.lastMembers.Store(string(why))
+	} else {
+		a.lastMembers.Store("")
+	}
+	return m, why
+}
+
+// lastMembersWhy is the code of the last membership scan that answered "members" ("" when
+// none ran or the last one drained), for an unconfirmed stop's wording.
+func (a *execAgent) lastMembersWhy() drainWhy {
+	w, _ := a.lastMembers.Load().(string)
+	return drainWhy(w)
 }
 
 func (a *execAgent) hasMembers() bool {

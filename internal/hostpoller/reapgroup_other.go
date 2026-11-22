@@ -2,7 +2,10 @@
 
 package hostpoller
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // leaderHoldCapable is false on the platforms without the zombie hold:
 // there is no /proc membership oracle to gate the reap on, and x/sys wraps
@@ -36,3 +39,15 @@ func groupMembership(pgid, leader int) (bool, drainWhy) { return true, whyUnread
 func groupMembershipWith(pgid, leader int, _ procLister) (bool, drainWhy) {
 	return true, whyUnreadable
 }
+
+// groupMembershipFor and groupMembershipWithin have no oracle here either.
+func groupMembershipFor(pgid, leader int, _ procLister, _ time.Duration) (bool, drainWhy) {
+	return true, whyUnreadable
+}
+
+func groupMembershipWithin(pgid, leader int, _ procLister, _ time.Duration) (bool, drainWhy) {
+	return true, whyUnreadable
+}
+
+// groupStopScanDeadline exists so the shared stop type-checks; no platform without the hold scans.
+var groupStopScanDeadline = time.Duration(0)
