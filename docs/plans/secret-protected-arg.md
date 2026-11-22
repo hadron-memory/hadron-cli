@@ -155,6 +155,23 @@ instead of) a value/metadata change.
   Jorge's P3-1 (the same server dependency) closes with it; his remaining P3s
   and Joran's P3 are recorded as optional in the PR disposition, not folded
   (no P3-only folds without Eden directing).
+
+## BLIND fold at e107e08b (Jill P2: the machine contract kept the blanket claim)
+
+- **BLIND P2 (agentic-usage overstated), folded.** The agent-facing contract
+  (`internal/cmd/agentic/agentic-usage.md`, the surface agents read instead of
+  `--help`) still said every explicit `--protected` value "stages like any
+  protected change" — the same blanket claim the help lost one round earlier,
+  plus two unstated exit-7 answers. The contract now states the three
+  not-staging outcomes at the protected-secret entry (the #4749 no-op clear →
+  exit 0, server-dependent; any other returned secret → exit 7 not confirmed,
+  update arm; `create --protected` answered with a secret → exit 7, the
+  creation applied, not staged, the secret existing and possibly
+  unprotected), and the `secret update` cross-reference says "asks for" with
+  the answer map instead of "stages". Red pin first:
+  `TestAgenticUsageStatesProtectedOutcomes_2815` (red at e107e08b on all five
+  arms). Jill's nine P3s are recorded as optional in the PR disposition, not
+  folded.
 - **BLIND P3 (create 'not confirmed' wording), folded by Eden's direction**
   (#136855: "fold that + the create 'not confirmed' wording P3 into ONE
   head"). The create guard's exit-7 message said only "The outcome is not
