@@ -1130,7 +1130,7 @@ terminal; --yes is required otherwise.
 Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
 with an error beneath the mutation, so the purge may have happened. Nothing is
 resent: read it with question get. A question that is not found most likely
-means the purge happened (check that the ref is the one you meant); one that is
+means the purge happened (check the ref is the one you meant); one that is
 still there means it did not. A refusal before the mutation ran keeps its
 ordinary exit, and a connection that never opened is "could not reach the
 server" (also exit 7) with no claim about the purge.`,

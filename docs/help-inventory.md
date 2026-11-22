@@ -176,7 +176,7 @@ section between the markers.
 | `question log get` |  |  | y | #1051 | ea1ba800ff9d |  | unread |  |
 | `question log list` | ls |  | y | #1051 | 48290b08bbf4 |  | unread |  |
 | `question log set-deciders` |  |  | y | #1051 | b9cf029fce8b |  | unread |  |
-| `question purge` |  |  | y | #1051 | f20898409b2a |  | unread |  |
+| `question purge` |  |  | y | #1051 | 3506a304c129 |  | unread |  |
 | `question retract` |  |  | y | #1051 | 09dc7044d02d |  | unread |  |
 | `question verify` |  |  | y | #1051 | 22a4d8cae72c |  | unread |  |
 | `question withdraw` |  |  | y | #1051 | c19be2dfc92e |  | unread |  |
