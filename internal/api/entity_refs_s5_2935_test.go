@@ -3,14 +3,12 @@ package api
 import (
 	"os"
 	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
+	"slices"
 	"testing"
 
 	"github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
-	"github.com/vektah/gqlparser/v2/gqlerror"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 // cli#2935, the entity-refs S5 companion (hadron-server#4141: #4789 and
@@ -21,14 +19,80 @@ import (
 //	startAgentSession(agentId:)  -> startAgentSession(agentRef:) (#4789)
 //	appRuns(parentRunId:)        -> appRuns(parentRunRef:)       (#4810)
 //
-// and every query document must validate against the committed snapshot, so a
-// document and the snapshot cannot drift apart (an unknown argument is an
-// operation-level validation failure on the live server).
+// That every document validates against the snapshot (so a document still
+// naming a retired argument fails) is TestDocumentedEntityRefArgsStillInSchema2696's
+// sweep; these pins add what it cannot say: which name each field sends, and
+// that the snapshot carries only the new ones.
 
-// loadQueryDocuments parses every query document against the snapshot. The
-// files are loaded as one source because fragments are shared across them.
-func loadQueryDocuments(t *testing.T) (*ast.Schema, *ast.QueryDocument) {
+var s5Renames = []struct {
+	op            ast.Operation // the root type the field hangs off
+	field         string
+	want, retired string
+}{
+	{ast.Mutation, "cancelAppRun", "ref", "id"},
+	{ast.Mutation, "startAgentSession", "agentRef", "agentId"},
+	{ast.Query, "appRuns", "parentRunRef", "parentRunId"},
+}
+
+// rootFieldArgs returns, for every operation of type op in every query
+// document, the argument names its root selection of field sends, keyed by
+// "<file>:<operation>". Only root selections count: the three fields are
+// root fields, so a same-named field nested under another type cannot match.
+func rootFieldArgs(t *testing.T, op ast.Operation, field string) map[string][]string {
 	t.Helper()
+	files, err := filepath.Glob(filepath.Join("queries", "*.graphql"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no query documents found: %v", err)
+	}
+	found := map[string][]string{}
+	for _, f := range files {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc, perr := parser.ParseQuery(&ast.Source{Name: f, Input: string(b)})
+		if perr != nil {
+			t.Fatalf("%s does not parse: %v", f, perr)
+		}
+		for _, o := range doc.Operations {
+			if o.Operation != op {
+				continue
+			}
+			for _, sel := range o.SelectionSet {
+				if fl, ok := sel.(*ast.Field); ok && fl.Name == field {
+					names := []string{}
+					for _, a := range fl.Arguments {
+						names = append(names, a.Name)
+					}
+					found[f+":"+o.Name] = names
+				}
+			}
+		}
+	}
+	return found
+}
+
+func TestS5DocumentsSendTheRefArgumentsNotTheRetiredOnes_2935(t *testing.T) {
+	for _, tc := range s5Renames {
+		uses := rootFieldArgs(t, tc.op, tc.field)
+		if len(uses) == 0 {
+			t.Errorf("no %s operation selects %s: the pin cannot see it", tc.op, tc.field)
+			continue
+		}
+		for where, names := range uses {
+			if !slices.Contains(names, tc.want) {
+				t.Errorf("%s: %s must send %s (hadron-server#4141 S5), sends %v", where, tc.field, tc.want, names)
+			}
+			if slices.Contains(names, tc.retired) {
+				t.Errorf("%s: %s still sends the retired %s, sends %v", where, tc.field, tc.retired, names)
+			}
+		}
+	}
+}
+
+// The snapshot carries the renamed arguments and not the retired ones, so the
+// 2696 sweep fails a document that still names a retired one.
+func TestS5SnapshotCarriesOnlyTheRefArguments_2935(t *testing.T) {
 	sdl, err := os.ReadFile(filepath.Join("..", "..", "schema", "schema.graphql"))
 	if err != nil {
 		t.Fatal(err)
@@ -37,112 +101,17 @@ func loadQueryDocuments(t *testing.T) (*ast.Schema, *ast.QueryDocument) {
 	if gerr != nil {
 		t.Fatalf("the snapshot does not load: %v", gerr)
 	}
-	files, err := filepath.Glob(filepath.Join("queries", "*.graphql"))
-	if err != nil || len(files) == 0 {
-		t.Fatalf("no query documents found: %v", err)
-	}
-	sort.Strings(files)
-	var all strings.Builder
-	for _, f := range files {
-		b, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
+	for _, tc := range s5Renames {
+		root := schema.Query
+		if tc.op == ast.Mutation {
+			root = schema.Mutation
 		}
-		all.Write(b)
-		all.WriteString("\n")
-	}
-	doc, errs := gqlparser.LoadQuery(schema, all.String())
-	for _, e := range errs {
-		t.Errorf("a query document does not validate against the snapshot: %s", describe(e))
-	}
-	if doc == nil {
-		t.FailNow()
-	}
-	return schema, doc
-}
-
-func describe(e *gqlerror.Error) string {
-	if len(e.Locations) > 0 {
-		return e.Message + " (line " + strconv.Itoa(e.Locations[0].Line) + " of the joined documents)"
-	}
-	return e.Message
-}
-
-// argsOf returns the argument names every selection of field `name` sends,
-// across all operations and fragments, one entry per occurrence.
-func argsOf(doc *ast.QueryDocument, name string) [][]string {
-	var found [][]string
-	var walk func(ast.SelectionSet)
-	walk = func(set ast.SelectionSet) {
-		for _, sel := range set {
-			switch s := sel.(type) {
-			case *ast.Field:
-				if s.Name == name {
-					var names []string
-					for _, a := range s.Arguments {
-						names = append(names, a.Name)
-					}
-					sort.Strings(names)
-					found = append(found, names)
-				}
-				walk(s.SelectionSet)
-			case *ast.InlineFragment:
-				walk(s.SelectionSet)
-			}
+		if root == nil {
+			t.Fatalf("the snapshot has no %s type", tc.op)
 		}
-	}
-	for _, op := range doc.Operations {
-		walk(op.SelectionSet)
-	}
-	for _, fr := range doc.Fragments {
-		walk(fr.SelectionSet)
-	}
-	return found
-}
-
-func TestEntityRefsS5DocumentsSendTheRefArguments_2935(t *testing.T) {
-	_, doc := loadQueryDocuments(t)
-	for _, tc := range []struct {
-		field        string
-		want, retire string
-	}{
-		{"cancelAppRun", "ref", "id"},
-		{"startAgentSession", "agentRef", "agentId"},
-		{"appRuns", "parentRunRef", "parentRunId"},
-	} {
-		uses := argsOf(doc, tc.field)
-		if len(uses) == 0 {
-			t.Errorf("no document selects %s: the pin cannot see it", tc.field)
-			continue
-		}
-		for _, names := range uses {
-			joined := "," + strings.Join(names, ",") + ","
-			if !strings.Contains(joined, ","+tc.want+",") {
-				t.Errorf("%s must send %s (hadron-server#4141 S5), sends %v", tc.field, tc.want, names)
-			}
-			if strings.Contains(joined, ","+tc.retire+",") {
-				t.Errorf("%s still sends the retired %s, sends %v", tc.field, tc.retire, names)
-			}
-		}
-	}
-}
-
-// The snapshot carries the renamed arguments and not the retired ones, so
-// a document still naming a retired one fails validation above.
-func TestEntityRefsS5SnapshotHasOnlyTheRefArguments_2935(t *testing.T) {
-	schema, _ := loadQueryDocuments(t)
-	for _, tc := range []struct {
-		root          *ast.Definition
-		field         string
-		want, retired string
-	}{
-		{schema.Mutation, "cancelAppRun", "ref", "id"},
-		{schema.Mutation, "startAgentSession", "agentRef", "agentId"},
-		{schema.Query, "appRuns", "parentRunRef", "parentRunId"},
-	} {
-		f := tc.root.Fields.ForName(tc.field)
+		f := root.Fields.ForName(tc.field)
 		if f == nil {
-			t.Errorf("the snapshot has no %s.%s", tc.root.Name, tc.field)
+			t.Errorf("the snapshot has no %s.%s", root.Name, tc.field)
 			continue
 		}
 		if f.Arguments.ForName(tc.want) == nil {
