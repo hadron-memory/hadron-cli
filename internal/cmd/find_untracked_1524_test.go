@@ -1,45 +1,13 @@
 package cmd
 
-// hadron-cli#1524 C3 fixtures: the claimed-task JSON and the find-untracked
-// runner the adapter tests (cli#1961) share. The server's task integration
-// path they were first written for is retired (cli#1964); its tests went with
-// it.
+// hadron-cli#1524 C3: the find-untracked runner the adapter tests (cli#1961)
+// share. The server's task integration path it was first written for is
+// retired (cli#1964); that path's tests and fixtures went with it.
 
 import (
-	"encoding/json"
 	"strings"
 	"testing"
 )
-
-func untrackedPage1524(items string, total int, complete bool, reason string) string {
-	r := "null"
-	if reason != "" {
-		r = `"` + reason + `"`
-	}
-	b, _ := json.Marshal(complete)
-	return `{"data":{"untrackedTaskItems":{"items":[` + items + `],"total":` + itoa1524(total) + `,"complete":` + string(b) + `,"incompleteReason":` + r + `}}}`
-}
-
-func itoa1524(n int) string {
-	b, _ := json.Marshal(n)
-	return string(b)
-}
-
-var claimedTaskJSON1524 = strings.NewReplacer(
-	`"status":"PENDING","queued":true`, `"status":"STARTED","queued":false`,
-	`"source":`, `"externalId":"https://github.com/acme/app/issues/42","source":`,
-).Replace(taskFieldsJSON)
-
-func claimResult1524(tasks string, complete bool, reason, refusal string) string {
-	q := func(s string) string {
-		if s == "" {
-			return "null"
-		}
-		return `"` + s + `"`
-	}
-	b, _ := json.Marshal(complete)
-	return `{"data":{"claimUntrackedTaskItems":{"tasks":[` + tasks + `],"complete":` + string(b) + `,"incompleteReason":` + q(reason) + `,"refusalCode":` + q(refusal) + `}}}`
-}
 
 func runFind1524(t *testing.T, responses map[string]string, argv ...string) (*[]attnCall, string, string, error) {
 	t.Helper()

@@ -471,7 +471,7 @@ func TestAdapterFlagsRefusedLocallyWithZeroRequests1961(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv(adapterEnvForTest, "")
-			calls, out, _, err := runFind1524(t, claimOK1596(), argv...)
+			calls, out, _, err := runFind1524(t, map[string]string{}, argv...)
 			if exitCodeFor(err) != exitcode.Usage {
 				t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Usage, err)
 			}
@@ -498,7 +498,7 @@ func TestAdapterFromEnvironmentAndIntegrationRefused1961(t *testing.T) {
 	// An explicit --integration still names the server path, even with the
 	// variable set, and that path is retired (cli#1964): it is refused, the
 	// adapter is not run, and nothing is sent.
-	calls, out, _, err := runFind1524(t, claimOK1596(), "--integration", "github")
+	calls, out, _, err := runFind1524(t, map[string]string{}, "--integration", "github")
 	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "retired") {
 		t.Fatalf("--integration must be refused as retired, exit 2: %v", err)
 	}

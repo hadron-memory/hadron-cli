@@ -13,17 +13,6 @@ import (
 // the party flags ride a SEPARATE document so the no-flag claim is the old
 // document byte for byte (an older server still validates it).
 
-const claimPartiesOp1596 = "ClaimUntrackedTaskItemsForParties"
-
-func claimOK1596() map[string]string {
-	ok := claimResult1524(claimedTaskJSON1524, true, "", "")
-	return map[string]string{
-		"ClaimUntrackedTaskItems": ok,
-		claimPartiesOp1596:        ok,
-		"UntrackedTaskItems":      untrackedPage1524("", 0, true, ""),
-	}
-}
-
 // The help no longer says an App key is refused, and names the server as the
 // judge of who may name parties.
 func TestFindUntrackedPartyHelp1596(t *testing.T) {
@@ -50,7 +39,7 @@ func TestFindUntrackedPartyHelp1596(t *testing.T) {
 // App id) makes: zero requests, not one TeamMemoryApp read.
 func TestFindUntrackedPartyRefusalBeforeAppLookup1596(t *testing.T) {
 	writeTeamBinding(t)
-	srv, calls := attnServer(t, claimOK1596())
+	srv, calls := attnServer(t, map[string]string{})
 	setTeamBindingServer(t, srv.URL)
 	rewriteBinding1592(t, func(b map[string]any) {
 		delete(b, "appId")
