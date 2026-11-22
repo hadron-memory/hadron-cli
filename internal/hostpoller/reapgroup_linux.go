@@ -128,6 +128,17 @@ var (
 	scanPause         = 5 * time.Millisecond
 )
 
+// groupStopScanDeadline is the longer deadline of the stop's LAST scan (cli#2853): after the
+// ladder's own waits have failed to prove the group gone, one more scan runs for this long
+// before the stop is reported unconfirmed. Declared ahead of the change that uses it.
+var groupStopScanDeadline = 5 * time.Second
+
+// groupMembershipWithin is groupMembershipWith with the scan's deadline given. Declared ahead
+// of the change that uses it: this stub still scans for the package deadline.
+func groupMembershipWithin(pgid, leader int, list procLister, _ time.Duration) (bool, drainWhy) {
+	return groupMembershipWith(pgid, leader, list)
+}
+
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).
 var readProcDir = os.ReadDir

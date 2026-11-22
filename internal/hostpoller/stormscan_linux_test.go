@@ -70,6 +70,9 @@ const watcherSettleBound = 200 * time.Second
 type stopFixture struct {
 	storm      bool // wrap readProcDir with the void-exhaustion storm
 	flipOnTerm bool // matrix 1: clear the storm after the first recorded TERM
+	// flipAfterKill, when set, clears the storm that long AFTER the first recorded SIGKILL
+	// (cli#2853: churn that outlasts the ladder's own waits but not a longer final scan).
+	flipAfterKill time.Duration
 
 	epoch    time.Time // monotonic base for the record/flip ordering proof
 	storming atomic.Bool
@@ -105,6 +108,13 @@ func (f *stopFixture) install(t *testing.T) {
 		// a TERM provably went out before any scan could see a clean
 		// listing (the contract's flip ordering).
 		f.rec.record(pgid, sig, time.Since(f.epoch))
+		if f.flipAfterKill > 0 && sig == syscall.SIGKILL {
+			time.AfterFunc(f.flipAfterKill, func() {
+				if f.storming.CompareAndSwap(true, false) {
+					f.flipAt.Store(int64(time.Since(f.epoch)))
+				}
+			})
+		}
 		if f.flipOnTerm && sig == syscall.SIGTERM && f.storming.CompareAndSwap(true, false) {
 			f.flipAt.Store(int64(time.Since(f.epoch)))
 		}
@@ -113,9 +123,9 @@ func (f *stopFixture) install(t *testing.T) {
 	if f.storm {
 		// cli#2853: the scan retries until a wall-clock deadline; a storm that never clears
 		// would spend the production second on every probe, so the fixture uses a short one.
-		oldDeadline := groupScanDeadline
-		groupScanDeadline = 20 * time.Millisecond
-		t.Cleanup(func() { groupScanDeadline = oldDeadline })
+		oldDeadline, oldStop := groupScanDeadline, groupStopScanDeadline
+		groupScanDeadline, groupStopScanDeadline = 20*time.Millisecond, 20*time.Millisecond
+		t.Cleanup(func() { groupScanDeadline, groupStopScanDeadline = oldDeadline, oldStop })
 		f.realRead = readProcDir
 		readProcDir = func(dir string) ([]os.DirEntry, error) {
 			entries, err := f.realRead(dir)
