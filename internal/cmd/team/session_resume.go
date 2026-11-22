@@ -293,8 +293,8 @@ func newCmdSessionResumeClaim(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "resume-claim [--session <id>]",
 		Short: "Write a resume claim before a context reset that keeps the session (a shed)",
-		Long: `Write a RESUME CLAIM for this worktree's worker session, before a deliberate context reset that keeps the session
-open: a shed. The fresh context then recovers the worker by running
+		Long: `Write a RESUME CLAIM for this worktree's worker session, before a deliberate
+context reset that keeps the session open: a shed. The fresh context then recovers the worker by running
 ` + "`hadron team session start`" + ` with no worker named, within 60 seconds of
 this write.
 

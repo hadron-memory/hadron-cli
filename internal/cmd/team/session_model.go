@@ -47,8 +47,8 @@ func newCmdSessionSyncModel(f *cmdutil.Factory) *cobra.Command {
 		Use:   "sync-model [--hook]",
 		Short: "Report this worktree's session model, read from its recorded transcript (hook entry)",
 		Long: `Report the model the bound worker session is running. Built to be a native
-tool's hook command: the tool pipes its hook JSON ({"session_id","transcript_path","cwd"})
-on stdin.
+tool's hook command: the tool pipes its hook JSON
+({"session_id","transcript_path","cwd"}) on stdin.
 
 WHAT IT WILL AND WILL NOT READ. The only transcript it reads is the one the
 bound Hadron session ALREADY RECORDED as its transcriptPath (` + "`session start|resume --transcript`" + `).

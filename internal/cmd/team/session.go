@@ -932,7 +932,8 @@ or lapsed binding once the server confirms it is not live; --force
 replaces a live one. Either way the rule above ends your old session. It
 never separates two live agents working in one tree.
 
-A LAUNCHED AGENT binds with --launch-grant instead. The host poller (` + "`team host run`" + `) hands the agent it starts
+A LAUNCHED AGENT binds with --launch-grant instead. The host poller
+(` + "`team host run`" + `) hands the agent it starts
 a single-use grant in HADRON_LAUNCH_GRANT, and this command reads it from
 there when neither --launch-grant nor --as is given. The grant names the
 worker, so --as is not needed with it; --as with --launch-grant has the
@@ -958,8 +959,8 @@ staffed by a coordinator is unheld until each person binds their own, and
 an APP-KEY session claims nothing at all (an App key is not a person and
 holds nothing).
 
-WITH NO WORKER NAMED AND NO GRANT, START RESUMES. It asks the server to recover your worker, judged only by
-your own token: an unused resume claim of yours (written by
+WITH NO WORKER NAMED AND NO GRANT, START RESUMES. It asks the server to
+recover your worker, judged only by your own token: an unused resume claim of yours (written by
 ` + "`session end --resume-claim`" + ` or ` + "`session resume-claim`" + ` before a context reset,
 redeemable for 60 seconds) binds it, RESUMED to the open session or STARTED
 as the worker's next one. With no claim, your one live worker session is
@@ -968,8 +969,8 @@ printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
 behalf. A worktree with a binding file sends that worker as the expected
-worker (an older server that cannot check the expected worker refuses the resume, exit 2,
-consuming nothing: use start --as <worker>): if nothing of that worker's waits but
+worker (an older server that cannot check the expected worker refuses the
+resume, exit 2, consuming nothing: use start --as <worker>): if nothing of that worker's waits but
 another worker's claim or live session does, the resume is refused (exit 5,
 RESUME_REFUSED, reason WORKER_MISMATCH) and spends nothing: that worker's item
 is untouched, no binding is written; run start in that worker's own worktree,
@@ -2114,7 +2115,7 @@ func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
 It prefers this worktree's binding and FALLS BACK TO THE SERVER when there is
 none, so losing the binding is a cache miss rather than data loss. The
 binding lives under the worktree's git dir, and ` + "`git worktree remove`" + ` takes it
-with the directory — which does NOT end the session. Before the fallback, that
+with the directory — which does NOT end the session. Without that fallback, it
 left a session open with its only local handle gone.
 
 --json carries "source": "worktree" when the binding answered, "server" when
@@ -2441,9 +2442,10 @@ worklog is App-addressed, and the collection schema is the server's — no
 ` + "`team init`" + ` first, no -m. --memory stays as an explicit override;
 it fails SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than
 the bound worker's (drop -m, or pass the worker's own team memory). Only
-bindings written by OLDER CLIs differ: a worker binding written before
-the worker's App was recorded falls back to its recorded team memory and behaves as before; a pre-Worker
-binding (no App recorded at all) degrades — --pr/--branch write only the
+bindings written by OLDER CLIs differ: a binding that names the worker but
+records no App falls back to its recorded team memory and behaves as before;
+a binding from before workers existed (no worker, no App, no team memory)
+degrades — --pr/--branch write only the
 Session denormalization, --issue/--commit refuse — with a note naming the
 remedy.
 
@@ -2970,9 +2972,10 @@ WHY NOT END IT. Worker sessions are meant to be
 long-lived: no idle reaper ends one, because silence is not evidence of
 abandonment. Re-binding is not free: it
 re-renders the boot briefing, takes several manual steps that are not
-Hadron's, and a worker name typed by hand (into a signature, say) can name
-the wrong worker; take it from ` + "`session whoami --signature`" + `. If you are ending a healthy session to tidy something
-up, the tidying is the thing to reconsider.
+Hadron's, and invites typing the worker name by hand into a signature, which
+can name the wrong worker (take it from ` + "`session whoami --signature`" + `). If you
+are ending a healthy session to tidy something up, the tidying is the thing
+to reconsider.
 
 A WORKTREE IS REMOVABLE WITHOUT TOUCHING THE SESSION. The binding lives
 under the worktree's git dir, so ` + "`git worktree remove`" + ` deletes it — and that
@@ -3026,10 +3029,10 @@ CLI sees it; use --handoff-file there.
 --SUMMARY IS A DIFFERENT FIELD AND THE NEXT DRIVER NEVER SEES IT. It is a
 short label on the session row; nothing reads it back. That is not a
 quirk of today's build: the platform makes --handoff the ONE field
-carrying continuity, and any other free-text field on a session
-display-only — so writing continuity
-into --summary is a contract violation rather than a naming preference,
-and it fails silently, producing no error and no record. Both flags are
+carrying continuity, and any other free-text field on a session is
+display-only unless the platform's documentation says otherwise — so
+writing continuity into --summary is a contract violation rather than a
+naming preference, and it fails silently, producing no error and no record. Both flags are
 kept deliberately; if you are writing one thing for whoever comes next,
 write --handoff.
 
@@ -3268,7 +3271,8 @@ attributed to you. So rows from other people and other Apps are expected.
 do.
 
 --active narrows to sessions that never ENDED, which is not the same as
-team presence: no idle window ends a developer session. Only ` + "`session end`" + `, the same person's next bind of that worker,
+team presence: no idle window ends a developer session. Only
+` + "`session end`" + `, the same person's next bind of that worker,
 or a hard deadline set at start does, so an abandoned one stays listed until
 then. For "was this name driven recently, and does the server still count it
 as taken", read ` + "`worker list`'s" + ` LAST RECORDED ACTIVITY. --as narrows to one
