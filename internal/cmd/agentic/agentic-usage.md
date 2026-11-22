@@ -3140,7 +3140,11 @@ Conventions:
   unavailable to you, not none; `worker rm` is the ONE removal escape, hard-deleting a
   NEVER-USED miscast and freeing its name. Persisted references or an
   unreleased stint refuse with `WORKER_IN_USE` (exit 5); an ended empty
-  stint alone is not attributed work. Before removing one, verify that no
+  stint alone is not attributed work. `WORKER_CENSUS_INCOMPLETE` (exit 5) is the
+  server's fail-closed refusal when its reference check did not finish: nothing was
+  deleted, and references were neither found nor ruled out. It is not `WORKER_IN_USE`
+  and never means the worker is unused or the delete is safe; retry later or retire
+  (no bypass flag exists). Before removing one, verify that no
   signed commit, trailer, PR, comment, review or other published artifact
   attributes work to it, then pass `--confirm-no-external-attribution`.
   Database checks cannot prove external absence. Known or uncertain history
@@ -3154,7 +3158,8 @@ Conventions:
   never falls back (an older server's schema refusal ends it). Combining it with
   `--confirm-no-external-attribution` is exit 2 before any request. Refusals keep
   their codes (`WORKER_NOT_FOUND`/`WORKER_REFERENCE_NOT_FOUND` exit 4,
-  `WORKER_IN_USE` 5, `FORBIDDEN` 8). `--json` is
+  `WORKER_IN_USE` and `WORKER_CENSUS_INCOMPLETE` 5, `FORBIDDEN` 8); a passing preview is
+  not a promise the real delete will pass. `--json` is
   `{id, name, attestationRequired, status: "preview"}` (never `deleted`); a null
   reply or one naming another worker fails. With `--instruction` it is NOT
   write-free: one claim event and a fence bump, disclosed in the text.
@@ -6967,8 +6972,13 @@ hadron app action record <code> [--task <task>] [--payload <json> | --payload-fi
 Task references accept the same id/handle/URN forms as `team task get`.
 The five writes return `{task:{id,handle,status},action:{code,state,taskLoc,taskUrn}}`.
 The action is the server's register guidance: MAPPED, UNMAPPED, UNRESOLVED or
-WITHHELD, with nullable loc/URN preserved. It is never authorization. The
-server alone enforces owner-chain/assignee gates and negative-verdict rules.
+WITHHELD, with nullable loc/URN preserved. It is never authorization. The text
+receipt is the task line, then ONE register line (cli#2941): `register <code> →
+<taskUrn>` (MAPPED), `→ no runnable task found at <loc>` (UNRESOLVED), `→ no
+register entry matches this code` (UNMAPPED, the honest answer for the pr-protocol
+codes while no entry ships for them: the write still succeeded), `→ not shown to
+this caller` (WITHHELD: no lookup was made) or `→ state <S>` for a state this CLI
+does not know. Never a placeholder loc/URN. `--json` is unchanged. The server alone enforces owner-chain/assignee gates and negative-verdict rules.
 Verified bound writes act as the worker, otherwise as the person; readiness
 also admits the App's own key. A verdict records a fact, never finishes a task.
 

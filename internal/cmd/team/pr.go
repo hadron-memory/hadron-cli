@@ -203,7 +203,7 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 			t, a := result.Task, result.Action
 			dto := prReceiptDTO{Task: prTaskDTO{ID: t.Id, Handle: t.Handle, Status: string(t.Status)}, Action: cmdutil.ActionAnswerDTO{Code: a.Code, State: string(a.State), TaskLoc: a.TaskLoc, TaskURN: a.TaskUrn}}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "%s %s (%s)\naction %s  %s\ntask loc %s  task URN %s\n", output.SafeCell(dto.Task.Handle), output.SafeCell(dto.Task.ID), output.SafeCell(dto.Task.Status), output.SafeCell(dto.Action.Code), output.SafeCell(dto.Action.State), prCell(dto.Action.TaskLoc), prCell(dto.Action.TaskURN))
+				_, err := fmt.Fprintf(w, "%s %s (%s)\n%s\n", output.SafeCell(dto.Task.Handle), output.SafeCell(dto.Task.ID), output.SafeCell(dto.Task.Status), prRegisterLine(dto.Action))
 				return err
 			})
 		}
@@ -227,6 +227,38 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 	}
 	return parent
 }
+
+// prRegisterLine renders the server's optional register guidance (the
+// receipt's action answer, cor:agt:130:04) as ONE self-describing line, so the
+// write's success is what the receipt leads with and a state is never read as
+// "the action was not recorded" (cli#2941). UNMAPPED is the honest answer for
+// the pr-protocol codes while no entry ships for them. WITHHELD means NO
+// lookup was made, so it never says "no register entry matches" — that would
+// be false and could disclose what the caller may not read. A state this CLI
+// does not know is printed as given, never mapped to one it does. No branch
+// fabricates a loc or URN. The --json shape is unchanged.
+func prRegisterLine(a cmdutil.ActionAnswerDTO) string {
+	code := output.SafeCell(a.Code)
+	switch a.State {
+	case "MAPPED":
+		if a.TaskURN != nil && *a.TaskURN != "" {
+			return "register " + code + " → " + output.SafeCell(*a.TaskURN)
+		}
+		return "register " + code + " → mapped, but the server named no task"
+	case "UNRESOLVED":
+		if a.TaskLoc != nil && *a.TaskLoc != "" {
+			return "register " + code + " → no runnable task found at " + output.SafeCell(*a.TaskLoc)
+		}
+		return "register " + code + " → no runnable task found"
+	case "UNMAPPED":
+		return "register " + code + " → no register entry matches this code"
+	case "WITHHELD":
+		return "register " + code + " → not shown to this caller"
+	default:
+		return "register " + code + " → state " + output.SafeCell(a.State)
+	}
+}
+
 func prCell(value *string) string {
 	if value == nil {
 		return "—"
