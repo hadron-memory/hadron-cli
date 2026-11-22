@@ -18506,7 +18506,7 @@ type AgentTeamEventFields struct {
 	TaskId *string `json:"taskId"`
 	// The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
 	TaskHandle *string `json:"taskHandle"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless, with an empty chain, so it wakes nobody: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -46766,6 +46766,156 @@ func (v *CreateSecretCreateSecret) __premarshalJSON() (*__premarshalCreateSecret
 	return &retval, nil
 }
 
+// CreateSecretProtectedCreateSecret includes the requested fields of the GraphQL type Secret.
+type CreateSecretProtectedCreateSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns CreateSecretProtectedCreateSecret.Id, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns CreateSecretProtectedCreateSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns CreateSecretProtectedCreateSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns CreateSecretProtectedCreateSecret.Name, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns CreateSecretProtectedCreateSecret.Kind, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns CreateSecretProtectedCreateSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCurrentVersion returns CreateSecretProtectedCreateSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns CreateSecretProtectedCreateSecret.Protected, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetProtected() bool { return v.SecretFields.Protected }
+
+// GetCreatedAt returns CreateSecretProtectedCreateSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns CreateSecretProtectedCreateSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns CreateSecretProtectedCreateSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns CreateSecretProtectedCreateSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedCreateSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *CreateSecretProtectedCreateSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateSecretProtectedCreateSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateSecretProtectedCreateSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateSecretProtectedCreateSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *CreateSecretProtectedCreateSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateSecretProtectedCreateSecret) __premarshalJSON() (*__premarshalCreateSecretProtectedCreateSecret, error) {
+	var retval __premarshalCreateSecretProtectedCreateSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
+// CreateSecretProtectedResponse is returned by CreateSecretProtected on success.
+type CreateSecretProtectedResponse struct {
+	// Create a named, owner-scoped secret (#677). Gate per owner scope:
+	// user -> that user (ownerRef optional, defaults to the caller); org ->
+	// org ADMIN; app -> any member of the App, as a person (an App key, an
+	// impersonated session and a run are refused; the value is stored as
+	// version 1). value is the secret payload — encrypted at rest,
+	// write-only, never returned; at most 32 KiB of stored JSON, counted in
+	// bytes. kind selects validation: generic (opaque JSON) or
+	// webfetch-auth ({type: bearer|basic|header, ...} + metadata.urlPrefix
+	// origin binding). A run resolves the name via the CSS cascade
+	// (user -> org) at entitled scopes only; an App secret is never resolved
+	// by a run (hrn:node:hadronmemory.com:specs:cor:sec:020:02).
+	// With protected: true the create is only STAGED: it answers the error
+	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl, no
+	// secret exists yet, and the requester's own passkey ceremony at that URL makes
+	// it (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged request lasts
+	// one hour; at most 5 are open per secret name and at most 2 per requester
+	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Those numbers are
+	// engineering bounds, not ruled values.
+	CreateSecret *CreateSecretProtectedCreateSecret `json:"createSecret"`
+}
+
+// GetCreateSecret returns CreateSecretProtectedResponse.CreateSecret, and is useful for accessing the field via an interface.
+func (v *CreateSecretProtectedResponse) GetCreateSecret() *CreateSecretProtectedCreateSecret {
+	return v.CreateSecret
+}
+
 // CreateSecretResponse is returned by CreateSecret on success.
 type CreateSecretResponse struct {
 	// Create a named, owner-scoped secret (#677). Gate per owner scope:
@@ -49027,7 +49177,9 @@ type DeleteWorkerInstructedResponse struct {
 	// #1162 — hard-delete a never-referenced miscast only.
 	// hrn:node:hadronmemory.com:specs:cor:dmo:050:11
 	// Empty normally ended and released stints are repairable; persisted
-	// attribution, including tombstones/history, refuses WORKER_IN_USE.
+	// attribution, including tombstones/history, refuses WORKER_IN_USE. A reference census that does not
+	// finish within its bound (#4809) refuses WORKER_CENSUS_INCOMPLETE: nothing is deleted, no reference was
+	// found, retry or retire.
 	// The requester must explicitly verify no signed commit, trailer, PR,
 	// comment, review or published artifact attributes work to this Worker.
 	// Database counts cannot prove external absence: known or uncertain
@@ -49080,7 +49232,7 @@ func (v *DeleteWorkerPreviewInstructedDeleteWorkerPreview) GetAttestationRequire
 // DeleteWorkerPreviewInstructedResponse is returned by DeleteWorkerPreviewInstructed on success.
 type DeleteWorkerPreviewInstructedResponse struct {
 	// #3599: preview deleteWorker without deleting anything: the same act gate and typed refusals
-	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
+	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE, WORKER_CENSUS_INCOMPLETE), nothing reserved. The real delete still requires
 	// confirmNoExternalAttribution and may refuse if anything changed
 	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. If the delete wins
@@ -49098,7 +49250,7 @@ func (v *DeleteWorkerPreviewInstructedResponse) GetDeleteWorkerPreview() *Delete
 // DeleteWorkerPreviewResponse is returned by DeleteWorkerPreview on success.
 type DeleteWorkerPreviewResponse struct {
 	// #3599: preview deleteWorker without deleting anything: the same act gate and typed refusals
-	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE), nothing reserved. The real delete still requires
+	// (WORKER_NOT_FOUND, FORBIDDEN, WORKER_IN_USE, WORKER_CENSUS_INCOMPLETE), nothing reserved. The real delete still requires
 	// confirmNoExternalAttribution and may refuse if anything changed
 	// (hrn:node:hadronmemory.com:specs:cor:agt:020:03). A validated instruction claim is recorded
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); the target is its subject. If the delete wins
@@ -49118,7 +49270,9 @@ type DeleteWorkerResponse struct {
 	// #1162 — hard-delete a never-referenced miscast only.
 	// hrn:node:hadronmemory.com:specs:cor:dmo:050:11
 	// Empty normally ended and released stints are repairable; persisted
-	// attribution, including tombstones/history, refuses WORKER_IN_USE.
+	// attribution, including tombstones/history, refuses WORKER_IN_USE. A reference census that does not
+	// finish within its bound (#4809) refuses WORKER_CENSUS_INCOMPLETE: nothing is deleted, no reference was
+	// found, retry or retire.
 	// The requester must explicitly verify no signed commit, trailer, PR,
 	// comment, review or published artifact attributes work to this Worker.
 	// Database counts cannot prove external absence: known or uncertain
@@ -92947,6 +93101,21 @@ type RunTaskWithAgentResponse struct {
 // GetRunTask returns RunTaskWithAgentResponse.RunTask, and is useful for accessing the field via an interface.
 func (v *RunTaskWithAgentResponse) GetRunTask() string { return v.RunTask }
 
+// cli#2894 (hadron-server#4777): the roles an App's saturation alarms wake. A participant
+// reads it through the roster's gate; whoever manages the App replaces the whole list.
+// roles is non-null both ways: an empty list is sent as [] (it clears), never omitted.
+type SaturationWakeRolesFields struct {
+	AppId string `json:"appId"`
+	// Stored trimmed, lower-cased, de-duplicated and sorted; empty by default.
+	Roles []string `json:"roles"`
+}
+
+// GetAppId returns SaturationWakeRolesFields.AppId, and is useful for accessing the field via an interface.
+func (v *SaturationWakeRolesFields) GetAppId() string { return v.AppId }
+
+// GetRoles returns SaturationWakeRolesFields.Roles, and is useful for accessing the field via an interface.
+func (v *SaturationWakeRolesFields) GetRoles() []string { return v.Roles }
+
 // ScopeExplainResponse is returned by ScopeExplain on success.
 type ScopeExplainResponse struct {
 	// Spec 049 Phase 2 — explain a scope for YOU. Pass scopeRef, or a bare name
@@ -111819,6 +111988,250 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) __prema
 	return &retval, nil
 }
 
+// TeamSaturationWakeRolesResponse is returned by TeamSaturationWakeRoles on success.
+type TeamSaturationWakeRolesResponse struct {
+	// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16): empty by default.
+	// Readers: whoever may read the App's roster, with the roster's refusal byte for byte (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	SaturationAlarmWakeRoles *TeamSaturationWakeRolesSaturationAlarmWakeRoles `json:"saturationAlarmWakeRoles"`
+}
+
+// GetSaturationAlarmWakeRoles returns TeamSaturationWakeRolesResponse.SaturationAlarmWakeRoles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesResponse) GetSaturationAlarmWakeRoles() *TeamSaturationWakeRolesSaturationAlarmWakeRoles {
+	return v.SaturationAlarmWakeRoles
+}
+
+// TeamSaturationWakeRolesSaturationAlarmWakeRoles includes the requested fields of the GraphQL type SaturationAlarmWakeRoles.
+// The GraphQL type's documentation follows.
+//
+// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16). Each worker of the App whose role
+// is listed, matched regardless of case and not retired, is offered one wake when an alarm is raised.
+type TeamSaturationWakeRolesSaturationAlarmWakeRoles struct {
+	SaturationWakeRolesFields `json:"-"`
+}
+
+// GetAppId returns TeamSaturationWakeRolesSaturationAlarmWakeRoles.AppId, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) GetAppId() string {
+	return v.SaturationWakeRolesFields.AppId
+}
+
+// GetRoles returns TeamSaturationWakeRolesSaturationAlarmWakeRoles.Roles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) GetRoles() []string {
+	return v.SaturationWakeRolesFields.Roles
+}
+
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSaturationWakeRolesSaturationAlarmWakeRoles
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSaturationWakeRolesSaturationAlarmWakeRoles = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SaturationWakeRolesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSaturationWakeRolesSaturationAlarmWakeRoles struct {
+	AppId string `json:"appId"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSaturationWakeRolesSaturationAlarmWakeRoles) __premarshalJSON() (*__premarshalTeamSaturationWakeRolesSaturationAlarmWakeRoles, error) {
+	var retval __premarshalTeamSaturationWakeRolesSaturationAlarmWakeRoles
+
+	retval.AppId = v.SaturationWakeRolesFields.AppId
+	retval.Roles = v.SaturationWakeRolesFields.Roles
+	return &retval, nil
+}
+
+// TeamSaturationWakeRolesSetInstructedResponse is returned by TeamSaturationWakeRolesSetInstructed on success.
+type TeamSaturationWakeRolesSetInstructedResponse struct {
+	// #4777 — set the roles an App's saturation alarms wake, the whole list at once (hrn:node:hadronmemory.com:specs:cor:agt:060:16): whoever
+	// manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). Names are trimmed and lower-cased, duplicates collapse, and the
+	// result is sorted; at most 32 names of 1 to 64 characters with no ":" or whitespace. The empty list clears it. A role no
+	// worker holds is accepted. Setting the stored list again changes nothing. The list is read when an alarm is raised: a
+	// change never wakes anyone for an alarm already raised. Refusals: BAD_USER_INPUT (before any other check),
+	// APP_NOT_FOUND, APP_MANAGER_REQUIRED, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction, recorded as one app.manager-act event, ids only.
+	SetSaturationAlarmWakeRoles *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles `json:"setSaturationAlarmWakeRoles"`
+}
+
+// GetSetSaturationAlarmWakeRoles returns TeamSaturationWakeRolesSetInstructedResponse.SetSaturationAlarmWakeRoles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetInstructedResponse) GetSetSaturationAlarmWakeRoles() *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles {
+	return v.SetSaturationAlarmWakeRoles
+}
+
+// TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles includes the requested fields of the GraphQL type SaturationAlarmWakeRoles.
+// The GraphQL type's documentation follows.
+//
+// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16). Each worker of the App whose role
+// is listed, matched regardless of case and not retired, is offered one wake when an alarm is raised.
+type TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles struct {
+	SaturationWakeRolesFields `json:"-"`
+}
+
+// GetAppId returns TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles.AppId, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) GetAppId() string {
+	return v.SaturationWakeRolesFields.AppId
+}
+
+// GetRoles returns TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles.Roles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) GetRoles() []string {
+	return v.SaturationWakeRolesFields.Roles
+}
+
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SaturationWakeRolesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles struct {
+	AppId string `json:"appId"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles) __premarshalJSON() (*__premarshalTeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles, error) {
+	var retval __premarshalTeamSaturationWakeRolesSetInstructedSetSaturationAlarmWakeRoles
+
+	retval.AppId = v.SaturationWakeRolesFields.AppId
+	retval.Roles = v.SaturationWakeRolesFields.Roles
+	return &retval, nil
+}
+
+// TeamSaturationWakeRolesSetResponse is returned by TeamSaturationWakeRolesSet on success.
+type TeamSaturationWakeRolesSetResponse struct {
+	// #4777 — set the roles an App's saturation alarms wake, the whole list at once (hrn:node:hadronmemory.com:specs:cor:agt:060:16): whoever
+	// manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). Names are trimmed and lower-cased, duplicates collapse, and the
+	// result is sorted; at most 32 names of 1 to 64 characters with no ":" or whitespace. The empty list clears it. A role no
+	// worker holds is accepted. Setting the stored list again changes nothing. The list is read when an alarm is raised: a
+	// change never wakes anyone for an alarm already raised. Refusals: BAD_USER_INPUT (before any other check),
+	// APP_NOT_FOUND, APP_MANAGER_REQUIRED, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction, recorded as one app.manager-act event, ids only.
+	SetSaturationAlarmWakeRoles *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles `json:"setSaturationAlarmWakeRoles"`
+}
+
+// GetSetSaturationAlarmWakeRoles returns TeamSaturationWakeRolesSetResponse.SetSaturationAlarmWakeRoles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetResponse) GetSetSaturationAlarmWakeRoles() *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles {
+	return v.SetSaturationAlarmWakeRoles
+}
+
+// TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles includes the requested fields of the GraphQL type SaturationAlarmWakeRoles.
+// The GraphQL type's documentation follows.
+//
+// #4777 — the roles an App's saturation alarms wake (hrn:node:hadronmemory.com:specs:cor:agt:060:16). Each worker of the App whose role
+// is listed, matched regardless of case and not retired, is offered one wake when an alarm is raised.
+type TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles struct {
+	SaturationWakeRolesFields `json:"-"`
+}
+
+// GetAppId returns TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles.AppId, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) GetAppId() string {
+	return v.SaturationWakeRolesFields.AppId
+}
+
+// GetRoles returns TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles.Roles, and is useful for accessing the field via an interface.
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) GetRoles() []string {
+	return v.SaturationWakeRolesFields.Roles
+}
+
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SaturationWakeRolesFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles struct {
+	AppId string `json:"appId"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles) __premarshalJSON() (*__premarshalTeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles, error) {
+	var retval __premarshalTeamSaturationWakeRolesSetSetSaturationAlarmWakeRoles
+
+	retval.AppId = v.SaturationWakeRolesFields.AppId
+	retval.Roles = v.SaturationWakeRolesFields.Roles
+	return &retval, nil
+}
+
 // TeamSessionFields includes the GraphQL fields of Session requested by the fragment TeamSessionFields.
 // The GraphQL type's documentation follows.
 //
@@ -123815,6 +124228,149 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 	return &retval, nil
 }
 
+// UpdateSecretProtectedResponse is returned by UpdateSecretProtected on success.
+type UpdateSecretProtectedResponse struct {
+	// Change a secret's value and/or metadata. For an org or user secret a
+	// value OVERWRITES (no versions). For an App secret a value ADDS the next
+	// version and never overwrites (hrn:node:hadronmemory.com:specs:cor:sec:010:03);
+	// any member of the App may store. Name, kind, and owner are immutable —
+	// the cascade and flow config reference the name; create a new name
+	// instead. The effective (metadata, value) pair is re-validated per kind.
+	// On a PROTECTED App secret a change is only staged: it answers the error
+	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl instead
+	// of a Secret, and nothing changes until the requester completes the passkey
+	// ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
+	// caps are as for createSecret.
+	UpdateSecret *UpdateSecretProtectedUpdateSecret `json:"updateSecret"`
+}
+
+// GetUpdateSecret returns UpdateSecretProtectedResponse.UpdateSecret, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedResponse) GetUpdateSecret() *UpdateSecretProtectedUpdateSecret {
+	return v.UpdateSecret
+}
+
+// UpdateSecretProtectedUpdateSecret includes the requested fields of the GraphQL type Secret.
+type UpdateSecretProtectedUpdateSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns UpdateSecretProtectedUpdateSecret.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns UpdateSecretProtectedUpdateSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns UpdateSecretProtectedUpdateSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns UpdateSecretProtectedUpdateSecret.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns UpdateSecretProtectedUpdateSecret.Kind, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns UpdateSecretProtectedUpdateSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCurrentVersion returns UpdateSecretProtectedUpdateSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns UpdateSecretProtectedUpdateSecret.Protected, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetProtected() bool { return v.SecretFields.Protected }
+
+// GetCreatedAt returns UpdateSecretProtectedUpdateSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns UpdateSecretProtectedUpdateSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns UpdateSecretProtectedUpdateSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns UpdateSecretProtectedUpdateSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretProtectedUpdateSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *UpdateSecretProtectedUpdateSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateSecretProtectedUpdateSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateSecretProtectedUpdateSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateSecretProtectedUpdateSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateSecretProtectedUpdateSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateSecretProtectedUpdateSecret) __premarshalJSON() (*__premarshalUpdateSecretProtectedUpdateSecret, error) {
+	var retval __premarshalUpdateSecretProtectedUpdateSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
 // UpdateSecretResponse is returned by UpdateSecret on success.
 type UpdateSecretResponse struct {
 	// Change a secret's value and/or metadata. For an org or user secret a
@@ -134909,6 +135465,38 @@ func (v *__CreateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 // GetValue returns __CreateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__CreateSecretInput) GetValue() json.RawMessage { return v.Value }
 
+// __CreateSecretProtectedInput is used internally by genqlient
+type __CreateSecretProtectedInput struct {
+	OwnerType string           `json:"ownerType"`
+	OwnerRef  *string          `json:"ownerRef,omitempty"`
+	Name      string           `json:"name"`
+	Kind      string           `json:"kind"`
+	Metadata  *json.RawMessage `json:"metadata,omitempty"`
+	Value     json.RawMessage  `json:"value"`
+	Protected *bool            `json:"protected"`
+}
+
+// GetOwnerType returns __CreateSecretProtectedInput.OwnerType, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetOwnerType() string { return v.OwnerType }
+
+// GetOwnerRef returns __CreateSecretProtectedInput.OwnerRef, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetOwnerRef() *string { return v.OwnerRef }
+
+// GetName returns __CreateSecretProtectedInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetName() string { return v.Name }
+
+// GetKind returns __CreateSecretProtectedInput.Kind, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetKind() string { return v.Kind }
+
+// GetMetadata returns __CreateSecretProtectedInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetValue returns __CreateSecretProtectedInput.Value, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetValue() json.RawMessage { return v.Value }
+
+// GetProtected returns __CreateSecretProtectedInput.Protected, and is useful for accessing the field via an interface.
+func (v *__CreateSecretProtectedInput) GetProtected() *bool { return v.Protected }
+
 // __CreateSlackConnectionInput is used internally by genqlient
 type __CreateSlackConnectionInput struct {
 	OrgRef   string `json:"orgRef"`
@@ -141555,6 +142143,44 @@ type __TeamRosterInput struct {
 // GetAppRef returns __TeamRosterInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamRosterInput) GetAppRef() string { return v.AppRef }
 
+// __TeamSaturationWakeRolesInput is used internally by genqlient
+type __TeamSaturationWakeRolesInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamSaturationWakeRolesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesInput) GetAppRef() string { return v.AppRef }
+
+// __TeamSaturationWakeRolesSetInput is used internally by genqlient
+type __TeamSaturationWakeRolesSetInput struct {
+	AppRef string   `json:"appRef"`
+	Roles  []string `json:"roles"`
+}
+
+// GetAppRef returns __TeamSaturationWakeRolesSetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInput) GetAppRef() string { return v.AppRef }
+
+// GetRoles returns __TeamSaturationWakeRolesSetInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInput) GetRoles() []string { return v.Roles }
+
+// __TeamSaturationWakeRolesSetInstructedInput is used internally by genqlient
+type __TeamSaturationWakeRolesSetInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Roles       []string             `json:"roles"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamSaturationWakeRolesSetInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetRoles returns __TeamSaturationWakeRolesSetInstructedInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInstructedInput) GetRoles() []string { return v.Roles }
+
+// GetInstruction returns __TeamSaturationWakeRolesSetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamSaturationWakeRolesSetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __TeamSessionsPageFilteredInput is used internally by genqlient
 type __TeamSessionsPageFilteredInput struct {
 	Repo        *string `json:"repo,omitempty"`
@@ -143680,6 +144306,26 @@ func (v *__UpdateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata
 
 // GetValue returns __UpdateSecretInput.Value, and is useful for accessing the field via an interface.
 func (v *__UpdateSecretInput) GetValue() *json.RawMessage { return v.Value }
+
+// __UpdateSecretProtectedInput is used internally by genqlient
+type __UpdateSecretProtectedInput struct {
+	Ref       string           `json:"ref"`
+	Metadata  *json.RawMessage `json:"metadata,omitempty"`
+	Value     *json.RawMessage `json:"value,omitempty"`
+	Protected *bool            `json:"protected"`
+}
+
+// GetRef returns __UpdateSecretProtectedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetRef() string { return v.Ref }
+
+// GetMetadata returns __UpdateSecretProtectedInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetValue returns __UpdateSecretProtectedInput.Value, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetValue() *json.RawMessage { return v.Value }
+
+// GetProtected returns __UpdateSecretProtectedInput.Protected, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretProtectedInput) GetProtected() *bool { return v.Protected }
 
 // __UpdateSpecNodeClearingRoleAuthoredInput is used internally by genqlient
 type __UpdateSpecNodeClearingRoleAuthoredInput struct {
@@ -161591,6 +162237,77 @@ func CreateSecret(
 	}
 
 	data_ = &CreateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateSecretProtected.
+const CreateSecretProtected_Operation = `
+mutation CreateSecretProtected ($ownerType: String!, $ownerRef: ID, $name: String!, $kind: String!, $metadata: JSON, $value: JSON!, $protected: Boolean) {
+	createSecret(ownerType: $ownerType, ownerRef: $ownerRef, name: $name, kind: $kind, metadata: $metadata, value: $value, protected: $protected) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	currentVersion
+	protected
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// cli#2815: the --protected tri-state is flag-conditional BY DOCUMENT (Eden's
+// ruling on the round-5 BLIND P2, chat #137754), following the client-list
+// precedent (cli#2758/2720: one document per server generation, stepping only
+// as far as the server's validation error forces). CreateSecret above keeps its
+// pre-#2815 shape — no `protected` anywhere — so a server from before the
+// argument reached server main (2026-11-21, hadron-server#4177 e42bb1897)
+// keeps accepting plain creates exactly as before the flag existed. This
+// document is chosen only when --protected is given, so its `protected`
+// argument is always sent (no omitempty): true stages the whole creation for a
+// passkey (App scope only, the server words the refusal), false asks for the
+// default outright.
+func CreateSecretProtected(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ownerType string,
+	ownerRef *string,
+	name string,
+	kind string,
+	metadata *json.RawMessage,
+	value json.RawMessage,
+	protected *bool,
+) (data_ *CreateSecretProtectedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateSecretProtected",
+		Query:  CreateSecretProtected_Operation,
+		Variables: &__CreateSecretProtectedInput{
+			OwnerType: ownerType,
+			OwnerRef:  ownerRef,
+			Name:      name,
+			Kind:      kind,
+			Metadata:  metadata,
+			Value:     value,
+			Protected: protected,
+		},
+	}
+
+	data_ = &CreateSecretProtectedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -187776,6 +188493,128 @@ func TeamRoster(
 	return data_, err_
 }
 
+// The query executed by TeamSaturationWakeRoles.
+const TeamSaturationWakeRoles_Operation = `
+query TeamSaturationWakeRoles ($appRef: ID!) {
+	saturationAlarmWakeRoles(appRef: $appRef) {
+		... SaturationWakeRolesFields
+	}
+}
+fragment SaturationWakeRolesFields on SaturationAlarmWakeRoles {
+	appId
+	roles
+}
+`
+
+func TeamSaturationWakeRoles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamSaturationWakeRolesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSaturationWakeRoles",
+		Query:  TeamSaturationWakeRoles_Operation,
+		Variables: &__TeamSaturationWakeRolesInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamSaturationWakeRolesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamSaturationWakeRolesSet.
+const TeamSaturationWakeRolesSet_Operation = `
+mutation TeamSaturationWakeRolesSet ($appRef: ID!, $roles: [String!]!) {
+	setSaturationAlarmWakeRoles(appRef: $appRef, roles: $roles) {
+		... SaturationWakeRolesFields
+	}
+}
+fragment SaturationWakeRolesFields on SaturationAlarmWakeRoles {
+	appId
+	roles
+}
+`
+
+func TeamSaturationWakeRolesSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	roles []string,
+) (data_ *TeamSaturationWakeRolesSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSaturationWakeRolesSet",
+		Query:  TeamSaturationWakeRolesSet_Operation,
+		Variables: &__TeamSaturationWakeRolesSetInput{
+			AppRef: appRef,
+			Roles:  roles,
+		},
+	}
+
+	data_ = &TeamSaturationWakeRolesSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamSaturationWakeRolesSetInstructed.
+const TeamSaturationWakeRolesSetInstructed_Operation = `
+mutation TeamSaturationWakeRolesSetInstructed ($appRef: ID!, $roles: [String!]!, $instruction: ActInstructionInput!) {
+	setSaturationAlarmWakeRoles(appRef: $appRef, roles: $roles, instruction: $instruction) {
+		... SaturationWakeRolesFields
+	}
+}
+fragment SaturationWakeRolesFields on SaturationAlarmWakeRoles {
+	appId
+	roles
+}
+`
+
+// The instructed manager write (cor:dmo:050:12, "Acting on an instruction"), in its own
+// document like every instructed write, so a request without the flag is the plain one.
+func TeamSaturationWakeRolesSetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	roles []string,
+	instruction *ActInstructionInput,
+) (data_ *TeamSaturationWakeRolesSetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSaturationWakeRolesSetInstructed",
+		Query:  TeamSaturationWakeRolesSetInstructed_Operation,
+		Variables: &__TeamSaturationWakeRolesSetInstructedInput{
+			AppRef:      appRef,
+			Roles:       roles,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamSaturationWakeRolesSetInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamSessionsPage.
 const TeamSessionsPage_Operation = `
 query TeamSessionsPage ($repo: String, $workerRef: String, $limit: Int, $offset: Int) {
@@ -192492,7 +193331,10 @@ fragment SecretFields on Secret {
 `
 
 // Overwrite a secret's value and/or metadata (v1 rotation: no versions). An
-// omitted argument preserves the stored half, so both are omitempty.
+// omitted argument preserves the stored half, so both are omitempty. This
+// document keeps its pre-#2815 shape (no `protected`): `secret set` and every
+// flag-omitted update ride it, so servers from before the argument reached
+// server main keep accepting them (see CreateSecretProtected above).
 func UpdateSecret(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -192511,6 +193353,64 @@ func UpdateSecret(
 	}
 
 	data_ = &UpdateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSecretProtected.
+const UpdateSecretProtected_Operation = `
+mutation UpdateSecretProtected ($ref: ID!, $metadata: JSON, $value: JSON, $protected: Boolean) {
+	updateSecret(ref: $ref, metadata: $metadata, value: $value, protected: $protected) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	currentVersion
+	protected
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// cli#2815: the flag-conditional protection-change document, chosen only when
+// --protected is given (always sent, no omitempty): an explicit value stages a
+// protection change on an App secret (false is manager-only; the server judges
+// both, the CLI never pre-checks).
+func UpdateSecretProtected(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	metadata *json.RawMessage,
+	value *json.RawMessage,
+	protected *bool,
+) (data_ *UpdateSecretProtectedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSecretProtected",
+		Query:  UpdateSecretProtected_Operation,
+		Variables: &__UpdateSecretProtectedInput{
+			Ref:       ref,
+			Metadata:  metadata,
+			Value:     value,
+			Protected: protected,
+		},
+	}
+
+	data_ = &UpdateSecretProtectedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

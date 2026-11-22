@@ -23,9 +23,10 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		username                 string
 		headerName               string
 		urlPrefix                string
+		protected                bool
 	)
 	cmd := &cobra.Command{
-		Use:   "create --name <name> --scope <user|org|app> [--owner <ref>] --kind <generic|webfetch-auth>",
+		Use:   "create --name <name> --scope <user|org|app> [--owner <ref>] --kind <generic|webfetch-auth> [--protected|--protected=false]",
 		Short: "Create an owner-scoped encrypted secret",
 		Long: `Create an encrypted secret and print its id. The value is never taken as an
 argument:
@@ -57,12 +58,30 @@ user info, query or fragment). --type says what the value is:
   header   a header value; also pass --header-name
 --meta and --meta-json are refused for this kind.
 
+--protected (App secrets only) asks for a protected secret from the start: the
+creation itself is staged for a passkey ceremony, so the command prints the
+request id and the ceremony URL and never says "created" — nothing exists
+until a person signs it. --protected=false asks for the default outright
+(unprotected). Protection never changes without a signed request: the
+--protected creation above stages one, and hadron secret protect changes
+protection for an existing secret. The request names the protected argument,
+so --protected needs a server from 2026-11-21, when the argument reached
+server main; without the flag the request is unchanged from before the flag
+existed, so older servers keep accepting this command. A server with passkey
+signing off still accepts the command, refusing only an explicit protection
+change.
+
 Prints "✓ created secret <name>  <kind>/<id>  owner <type> <id>"; --json gives
 id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
   hadron secret create --name poll-auth --scope org --owner hrn:org:acme.com \
     --kind webfetch-auth --type bearer --url-prefix https://api.example.com/ --value-file @token.txt`,
-		Args: cobra.NoArgs,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := refuseDetachedProtectedValue(cmd, args); err != nil {
+				return err
+			}
+			return cobra.NoArgs(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateName(name); err != nil {
 				return err
@@ -84,14 +103,60 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
-			if err != nil {
-				return mapChange(err, "the creation of secret "+output.SafeCell(name))
+			// cli#2815: tri-state by presence — omitted sends no field (the
+			// default unprotected create), --protected stages the whole creation
+			// for a passkey (App scope only; the server words the refusal for
+			// other scopes), --protected=false is the default shape said aloud.
+			// The flag also chooses the DOCUMENT (Eden's ruling on the round-5
+			// BLIND P2, chat #137754): omitted rides the pre-#2815
+			// CreateSecret, so servers from before the argument reached server
+			// main (2026-11-21) keep accepting plain creates; given, it rides
+			// CreateSecretProtected, which names the argument.
+			var prot *bool
+			if cmd.Flags().Changed("protected") {
+				p := protected
+				prot = &p
 			}
-			if resp == nil || resp.CreateSecret == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no secret")
+			var fields *gen.SecretFields
+			if prot == nil {
+				resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
+				if err != nil {
+					return mapChange(err, "the creation of secret "+output.SafeCell(name))
+				}
+				if resp == nil || resp.CreateSecret == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no secret")
+				}
+				fields = &resp.CreateSecret.SecretFields
+			} else {
+				resp, err := gen.CreateSecretProtected(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value, prot)
+				if err != nil {
+					return mapChange(err, "the creation of secret "+output.SafeCell(name))
+				}
+				if resp == nil || resp.CreateSecret == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no secret")
+				}
+				fields = &resp.CreateSecret.SecretFields
 			}
-			dto := dtoFromFields(resp.CreateSecret.SecretFields)
+			dto := dtoFromFields(*fields)
+			// A protected create is staged, never applied (hadron-server#3999
+			// S4): the answer is SECRET_PROTECTED_NEEDS_PASSKEY, mapped above.
+			// A returned secret means the server did not do what this CLI
+			// asked for, so the requested protection is unconfirmed — never a
+			// success line; same shape as secret protect (BLIND P1 on #2932)
+			// and the update guard. Both arms (BLIND P3 fold, round 4): a
+			// true ask must stage, so ANY returned secret is wrong; a false
+			// ask expects the secret back, and an answer reporting protected
+			// did not get the unprotected create asked for.
+			if prot != nil && *prot {
+				return exitcode.Newf(exitcode.Unavailable,
+					"the server answered with the created secret instead of staging it for a passkey, which createSecret(protected: true) does not do; it reports protected: %t. The secret exists, and the protection you asked for is not confirmed — it may be unprotected: check it with: hadron secret get %s",
+					fields.Protected, cmdutil.ShellQuote(output.SafeCell(dto.ID)))
+			}
+			if prot != nil && !*prot && fields.Protected {
+				return exitcode.Newf(exitcode.Unavailable,
+					"the server answered with the created secret reporting protected: true, which createSecret(protected: false) does not do. The secret exists, and the protection you asked for is not confirmed — it may be protected: check it with: hadron secret get %s",
+					cmdutil.ShellQuote(output.SafeCell(dto.ID)))
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSecretLine(w, "✓ created", dto)
 			})
@@ -108,6 +173,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 	cmd.Flags().StringVar(&username, "username", "", "webfetch-auth basic username")
 	cmd.Flags().StringVar(&headerName, "header-name", "", "webfetch-auth header name")
 	cmd.Flags().StringVar(&urlPrefix, "url-prefix", "", "webfetch-auth URL origin/path scope")
+	cmd.Flags().BoolVar(&protected, "protected", false, "create it protected (App secrets only; staged for a signed request)")
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("scope")
 	_ = cmd.MarkFlagRequired("kind")

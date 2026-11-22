@@ -48,6 +48,10 @@ type call2738 struct {
 	Op   string
 	Vars map[string]any
 	Path string
+	// Query is the raw request query text, so a test can pin WHICH document
+	// was sent (cli#2815 round 6: the flag-omitted documents must carry no
+	// `protected` at all, not just omit the variable).
+	Query string
 }
 
 // fake2738 answers each GraphQL operation from respond (called with its
@@ -67,11 +71,12 @@ func fake2738(t *testing.T, respond func(op string, n int) (int, string)) (*http
 		raw, _ := io.ReadAll(r.Body)
 		var b struct {
 			OperationName string         `json:"operationName"`
+			Query         string         `json:"query"`
 			Variables     map[string]any `json:"variables"`
 		}
 		_ = json.Unmarshal(raw, &b)
 		mu.Lock()
-		*calls = append(*calls, call2738{Op: b.OperationName, Vars: b.Variables, Path: r.URL.Path})
+		*calls = append(*calls, call2738{Op: b.OperationName, Vars: b.Variables, Path: r.URL.Path, Query: b.Query})
 		counts[b.OperationName]++
 		n := counts[b.OperationName]
 		mu.Unlock()

@@ -264,7 +264,7 @@ section between the markers.
 | `secret client issue` |  |  | y | #1052 | 1807021a758c |  | unread |  |
 | `secret client list` | ls |  | y | #1052 | ba1baa933224 |  | unread |  |
 | `secret client revoke` |  |  | y | #1052 | bf5f84b625e1 |  | unread |  |
-| `secret create` |  |  | y | #1052 | 230d9394ff41 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `secret create` |  |  | y | #1052 | 700f54785ae1 |  | unread |  |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret exec` |  |  | y | #1052 | 9676504c1659 |  | unread |  |
 | `secret get` |  |  | y | #1052 | 3d942cb0742a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
@@ -273,7 +273,7 @@ section between the markers.
 | `secret reveal` |  |  | y | #1052 | c88c9aca1c54 |  | unread |  |
 | `secret rm` | delete |  | y | #1052 | db33bfb427be |  | unread |  |
 | `secret set` |  |  | y | #1052 | 84e1914ebb55 |  | unread |  |
-| `secret update` |  |  | y | #1052 | bec0fb3d29b7 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `secret update` |  |  | y | #1052 | e0add87d5286 |  | unread |  |
 | `secret versions` |  |  | y | #1052 | 88687b5fc254 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `ticket` | tickets |  | y | #1052 | 711ad904534e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `ticket list` | ls |  | y | #1052 | e3708e782d3e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
@@ -489,7 +489,7 @@ section between the markers.
 | `chat read` | pull |  | y | #1054 | 837e2e5a8bcb |  | unread |  |
 | `chat served-prompts` |  |  | y | #1054 | b76c874719e7 |  | unread |  |
 | `chat tool-choice` |  |  | y | #1054 | 7579a9d1656b |  | unread |  |
-| `team` |  |  | n | #1054 | c3b5532375f7 |  | unread |  |
+| `team` |  |  | n | #1054 | e8a4c13d2f6f |  | unread |  |
 | `team alarm` |  |  | y | #1054 | d05b0126d4f8 |  | unread |  |
 | `team alarm ack` |  |  | y | #1054 | 29d38a098bfe |  | unread |  |
 | `team alarms` |  |  | y | #1054 | 2a5be666f524 |  | unread |  |
@@ -577,6 +577,9 @@ section between the markers.
 | `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | f4dba7c31087 |  | unread |  |
 | `team router status` |  |  | n | #1054 | 321a568050fe |  | unread |  |
+| `team saturation-wake-roles` |  |  | n | #1054 | dc73cb1768c4 |  | unread |  |
+| `team saturation-wake-roles get` |  |  | n | #1054 | 8fb02df0d30a |  | unread |  |
+| `team saturation-wake-roles set` |  |  | y | #1054 | 7580e28d9406 |  | unread |  |
 | `team session` | sessions |  | n | #1054 | 0233b043af2d |  | unread |  |
 | `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
