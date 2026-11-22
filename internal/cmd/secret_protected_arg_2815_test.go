@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -13,7 +14,17 @@ import (
 // turned manager-only), --protected sends true, --protected=false sends false.
 // A protected create or a protection change on update is staged like every
 // #2738 protected change: request id + ceremony URL byte for byte, exit 5,
-// never a success line. Fake HTTP only.
+// never a success line. One clear is no change at all: --protected=false on a
+// secret that is not protected asks for nothing (hadron-server#4749) and the
+// returned secret is the confirmed answer. Fake HTTP only.
+
+// secretProtected2815 is the shared secret fixture carrying the protected
+// field an updateSecret answer reports, for pins that assert on the
+// reported protection state.
+func secretProtected2815(protected bool) string {
+	return strings.Replace(secretJSON, `"kind":"generic",`,
+		`"kind":"generic","protected":`+strconv.FormatBool(protected)+`,`, 1)
+}
 
 // callVarsOf2815 returns the recorded variables of the first call to op.
 func callVarsOf2815(t *testing.T, calls *[]call2738, op string) map[string]any {
@@ -149,30 +160,84 @@ func TestProtectedCreateReturningSecretIsUnconfirmed_2815(t *testing.T) {
 	}
 }
 
-// TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815 (BLIND P1,
-// update arm): every explicit protection value on an App secret stages
+// TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815 (BLIND P1, QA P2
+// fold; update arm): a protection change on an App secret stages
 // (hadron-server#3999 S4), so a returned secret is not the promised staging
-// for either boolean: exit 7, no "updated" success line, same shape as
-// secret protect's answer to a returned secret.
+// for --protected: exit 7, no "updated" success line, same shape as secret
+// protect's answer to a returned secret. The one returned secret that IS the
+// confirmed answer is the #4749 no-op clear (pinned below); everything else
+// that reports protected: true while this CLI asked for false did neither —
+// no staging, no clear — so it stays unconfirmed.
 func TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815(t *testing.T) {
-	for _, flags := range []string{"--protected", "--protected=false"} {
-		srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretJSON+`}}`))
-		stdout, stderr, code := run2738(t, srv.URL, "update", "01sec", flags)
-		if code != exitcode.Unavailable {
-			t.Fatalf("%s: exit = %d, want 7 (unconfirmed)\n%s%s", flags, code, stdout, stderr)
-		}
-		if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
-			t.Fatalf("%s: updateSecret must be sent exactly once, sent %d", flags, got)
-		}
-		all := stdout + stderr
-		for _, want := range []string{"not confirmed", "hadron secret get"} {
-			if !strings.Contains(all, want) {
-				t.Fatalf("%s: unconfirmed output must say the outcome is unconfirmed and how to check, missing %q:\n%s", flags, want, all)
+	for _, tc := range []struct {
+		name   string
+		flags  string
+		answer string
+	}{
+		{"--protected with a returned secret", "--protected", secretJSON},
+		{"--protected=false the answer still reports protected", "--protected=false", secretProtected2815(true)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+tc.answer+`}}`))
+			stdout, stderr, code := run2738(t, srv.URL, "update", "01sec", tc.flags)
+			if code != exitcode.Unavailable {
+				t.Fatalf("exit = %d, want 7 (unconfirmed)\n%s%s", code, stdout, stderr)
 			}
-		}
-		if strings.Contains(all, "✓ updated secret") {
-			t.Fatalf("%s: an unconfirmed update must never print a success line:\n%s", flags, all)
-		}
+			if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
+				t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
+			}
+			all := stdout + stderr
+			for _, want := range []string{"not confirmed", "hadron secret get"} {
+				if !strings.Contains(all, want) {
+					t.Fatalf("unconfirmed output must say the outcome is unconfirmed and how to check, missing %q:\n%s", want, all)
+				}
+			}
+			if strings.Contains(all, "✓ updated secret") {
+				t.Fatalf("an unconfirmed update must never print a success line:\n%s", all)
+			}
+		})
+	}
+}
+
+// TestSecretUpdateProtectedFalseNoOpIsConfirmed_2815 (QA P2 fold): clearing
+// protection that is not on asks for no change (hadron-server#4749, the
+// #4717 item-8 class reached through updateSecret; fix hadron-server#4805):
+// the server stages nothing and returns the secret — unchanged when the flag
+// is alone, or with the rest of the update applied when a value or metadata
+// rode along. The CLI asked for unprotected and the answer reports
+// unprotected, so the outcome IS confirmed: exit 0 and the normal updated
+// line, never exit 7 for a state that is already true. Servers that still
+// stage the clear (main before #4805) answer SECRET_PROTECTED_NEEDS_PASSKEY
+// and take the exit-5 path pinned above.
+func TestSecretUpdateProtectedFalseNoOpIsConfirmed_2815(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		flags []string
+	}{
+		{"the flag alone", []string{"--protected=false"}},
+		{"with metadata", []string{"--protected=false", "--meta", "env=prod"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, calls := fake2738(t, only2738(200, `{"data":{"updateSecret":`+secretProtected2815(false)+`}}`))
+			stdout, stderr, code := run2738(t, srv.URL, append([]string{"update", "01sec"}, tc.flags...)...)
+			if code != 0 {
+				t.Fatalf("exit = %d, want 0 (the no-op clear is the confirmed answer)\n%s%s", code, stdout, stderr)
+			}
+			if got := callsTo2815(calls, "UpdateSecret"); got != 1 {
+				t.Fatalf("updateSecret must be sent exactly once, sent %d", got)
+			}
+			vars := callVarsOf2815(t, calls, "UpdateSecret")
+			if got, has := vars["protected"]; !has || got != false {
+				t.Fatalf("--protected=false must send protected:false, got %v (present=%v)", got, has)
+			}
+			all := stdout + stderr
+			if !strings.Contains(all, "✓ updated secret") {
+				t.Fatalf("a confirmed no-op clear prints the normal updated line:\n%s", all)
+			}
+			if strings.Contains(all, "not confirmed") {
+				t.Fatalf("the server did exactly what was asked; nothing is unconfirmed:\n%s", all)
+			}
+		})
 	}
 }
 
