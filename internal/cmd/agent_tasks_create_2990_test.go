@@ -275,10 +275,11 @@ func TestAgentTasksCreateHelpSaysWhenToWriteATask2990(t *testing.T) {
 	// The contract is judged on the `agent tasks create` entry alone (its one line), never the whole file: a
 	// phrase elsewhere must not satisfy the check, nor an unrelated mention fail it.
 	raw := string(readContract(t))
-	at := strings.Index(raw, "hadron agent tasks create <agentRef>")
-	if at < 0 {
-		t.Fatal("agentic-usage has no agent tasks create entry")
+	const anchor = "\nhadron agent tasks create <agentRef>"
+	if n := strings.Count(raw, anchor); n != 1 {
+		t.Fatalf("agentic-usage must carry exactly ONE agent tasks create entry, starting its line (found %d): a second one could satisfy or break this pin", n)
 	}
+	at := strings.Index(raw, anchor) + 1 // the entry is ONE physical line: judged up to its newline
 	entry := raw[at:]
 	if nl := strings.Index(entry, "\n"); nl >= 0 {
 		entry = entry[:nl]
