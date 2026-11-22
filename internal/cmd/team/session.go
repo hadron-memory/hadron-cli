@@ -1671,16 +1671,17 @@ func finishBind(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, s
 // stderr only (a nudge, not session data: --json stdout is unchanged), a
 // WARNING never a refusal (the session is bound and nothing is retried,
 // overwritten or ended), and it prints neither the transcript path nor any
-// credential. It does not guess a tool and does not prescribe a repair for an
-// already-live legacy session: that is a stated limitation, not something this
-// command can fix.
+// credential. It does not guess a tool. The repair it names for an
+// already-live session is cli#2940's: the first `session log --tool <name>`
+// fills the binding and later milestones reuse the fill.
 func warnNoTool(f *cmdutil.Factory, tool string) {
 	if strings.TrimSpace(tool) != "" {
 		return
 	}
-	_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "warning: this binding has no tool recorded, so `hadron team session log` will refuse. "+
-		"Pass --tool <name> (for example `hadron team session start --as <worker> --tool claude-code`) when you start a session "+
-		"that will log work; this session is already bound and was left unchanged.")
+	_, _ = fmt.Fprintln(f.IOStreams.ErrOut, "warning: this binding has no tool recorded, so `hadron team session log` will ask for one. "+
+		"The first `hadron team session log --tool <name>` fills this binding and later milestones reuse it "+
+		"(a provenance label, never authorization), or pass --tool when you start a session that will log work. "+
+		"This session is already bound and was left unchanged.")
 }
 
 // whoamiDTO is the stable --json shape of `session whoami`.
@@ -2431,7 +2432,7 @@ func pluralMentions(n int) string {
 }
 
 func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
-	var pr, issue, commit, branch, action, detail, memory, model string
+	var pr, issue, commit, branch, action, detail, memory, model, tool string
 	cmd := &cobra.Command{
 		Use:   "log (--pr | --issue | --commit | --branch) <ref> [--action <a>]",
 		Short: "Record an artifact milestone for the current worker session",
@@ -2479,10 +2480,23 @@ late record. Without it the server uses the recording session's initial model,
 if known; the CLI never copies a possibly stale model from its binding. The
 receipt and provenance query show the model stored on each worklog row. This
 is reported attribution, not cryptographic verification. An old server can
-still record ordinary milestones, but cannot accept an explicit --model.`,
+still record ordinary milestones, but cannot accept an explicit --model.
+
+--tool names the tool driving this session, for bindings that record none —
+bound before --tool existed, or without it (the server refuses a worklog row
+with an empty tool, and without this flag such a binding could never log).
+The first --tool FILLS the binding and every later milestone reuses it: one
+spelling on the record and on the binding. A binding that already records a
+tool keeps it — a different --tool there is refused, not silently used — and
+the value is a provenance label, never authorization. The CLI repairs only
+its local binding; it sends no session write for the tool. There is nothing
+to label on a binding that predates App recording (no worklog row is
+written), so --tool is refused there rather than silently dropped.`,
 		Example: `  hadron team session log --pr acme/widgets#7 --action merged
   # bare refs need the repo recorded at ` + "`session start --repo acme/widgets`" + `
   hadron team session log --pr 371
+  # a binding with no tool: the first --tool fills it for good
+  hadron team session log --pr 371 --tool claude-code
   hadron team session log --commit 1234567 --action pushed
   hadron team session log --branch team-chat --action pushed`,
 		Args: cobra.NoArgs,
@@ -2492,6 +2506,16 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				model = strings.TrimSpace(model)
 				if model == "" {
 					return exitcode.Newf(exitcode.Usage, "--model must name the model that produced this milestone; omit it to use the server's session-model fallback")
+				}
+			}
+			// cli#2940 condition 5: a blank tool is refused HERE, before any
+			// call, so the server's exit-2 "tool must be a non-empty string"
+			// can never recur from this command.
+			toolFlag := ""
+			if cmd.Flags().Changed("tool") {
+				toolFlag = strings.TrimSpace(tool)
+				if toolFlag == "" {
+					return exitcode.Newf(exitcode.Usage, "--tool must name the tool driving this session (a provenance label, never authorization); it cannot be blank")
 				}
 			}
 			kind, raw := "", ""
@@ -2521,6 +2545,23 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			}
 			if err := checkBindingServer(f, b); err != nil {
 				return err
+			}
+			// cli#2940, remedy 1 (CHECKED): --tool FILLS a binding whose tool
+			// is empty, it never changes one that records a tool. The trimmed
+			// flag value becomes BOTH the tool on this milestone's row AND —
+			// once the row is recorded — the binding's stored value, so later
+			// milestones reuse one spelling with no flag. Whitespace-only
+			// binding tools count as none (the server would refuse them).
+			effectiveTool := b.Tool
+			fillTool := ""
+			if strings.TrimSpace(b.Tool) == "" {
+				if toolFlag != "" {
+					effectiveTool = toolFlag
+					fillTool = toolFlag
+				}
+			} else if toolFlag != "" && toolFlag != b.Tool {
+				return exitcode.Newf(exitcode.Usage,
+					"this binding already records tool %q; --tool only fills a binding with no tool and never changes a recorded one — nothing was recorded", b.Tool)
 			}
 			canonical, number, err := normalizeArtifactRef(kind, raw, defaultRepo(ctx, b))
 			if err != nil {
@@ -2553,6 +2594,25 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			}
 			if appRef == "" && cmd.Flags().Changed("model") {
 				return exitcode.Newf(exitcode.Usage, "--model requires a team worklog record, but this binding predates App recording — pass -m <team-memory> or start a new worker session")
+			}
+			// cli#2940: --tool labels a WORKLOG row, and the degraded path
+			// above writes none — so there is nothing to label. Refusing is
+			// louder and cheaper than recording a Session-field milestone the
+			// caller believes carries a tool label it never got. In the other
+			// direction, a MODERN binding (it records its App, so the worklog
+			// path is certain) with no tool anywhere is refused HERE, before
+			// any write, with the repair named — the defect this issue exists
+			// for surfaced as an opaque server exit 2 mid-record. Bindings
+			// that predate App recording keep the server's own diagnostics
+			// below: their remedy is end-and-restart, and promising --tool
+			// there would promise a repair that cannot land.
+			if appRef == "" && toolFlag != "" {
+				return exitcode.Newf(exitcode.Usage,
+					"--tool labels a worklog milestone, but this binding predates App recording and writes no worklog row — nothing was recorded; start a new worker session (`session start --as <worker> --tool <name>`) to record worklog milestones")
+			}
+			if appRef != "" && b.AppID != "" && fillTool == "" && strings.TrimSpace(b.Tool) == "" {
+				return exitcode.Newf(exitcode.Usage,
+					"this binding records no tool, and the server refuses a worklog row without one — pass --tool <name> to record this milestone under a tool and fill the binding's gap (a provenance label, never authorization; later milestones reuse it); nothing was recorded")
 			}
 			// EVERY milestone touches the session: prNumber for PRs, branch
 			// (the name, without the repo qualifier) for branches, and the
@@ -2606,6 +2666,9 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			}
 			recorded := "session"
 			var recordedModel *string
+			// cli#2940: the tool the SERVER stored, for the binding fill below
+			// (the response's spelling, not the flag's — see the fill).
+			storedTool := fillTool
 			if appRef != "" {
 				// #396: the dedicated operation owns the record — its field set, the
 				// `at` stamp, and the worker derivation (the server resolves the
@@ -2634,19 +2697,22 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 					fmt.Fprintf(f.IOStreams.ErrOut, "note: the answer to the worklog record could NOT be confirmed, so the row may or may not have been recorded (the session pointer was not touched): %v — check `hadron team session list --%s %s` for it before re-running; a re-run may duplicate the row\n", e, kind, canonical)
 				}
 				logged, rerr := gen.RecordTeamWork(
-					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg, modelArg,
+					ctx, client, appRef, b.SessionID, effectiveTool, kind, canonical, action, detailArg, modelArg,
 				)
 				if unsupportedWorklogModel(rerr) {
 					if modelArg != nil {
 						return exitcode.Newf(exitcode.Usage, "this server does not support per-milestone model attribution (#1398) — nothing was recorded in the worklog; omit --model for ordinary logging or use a newer server")
 					}
-					legacy, lerr := gen.RecordTeamWorkLegacy(ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg)
+					legacy, lerr := gen.RecordTeamWorkLegacy(ctx, client, appRef, b.SessionID, effectiveTool, kind, canonical, action, detailArg)
 					if lerr != nil {
 						noteLostRecordAnswer(lerr)
 						return api.MapError(lerr)
 					}
 					if legacy.RecordTeamWork.Ref != "" {
 						canonical = legacy.RecordTeamWork.Ref
+					}
+					if legacy.RecordTeamWork.Tool != "" {
+						storedTool = legacy.RecordTeamWork.Tool
 					}
 					rerr = nil
 				} else if rerr == nil {
@@ -2682,6 +2748,36 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				// our own would let the two diverge.
 				if logged != nil && logged.RecordTeamWork != nil && logged.RecordTeamWork.Ref != "" {
 					canonical = logged.RecordTeamWork.Ref
+				}
+				// cli#2940 condition 2: ONE spelling. The server normalizes the
+				// tool token (vocabToken trims and lowercases it), so the row's
+				// spelling is the RESPONSE's, not the flag's — persist that, for
+				// the same reason the ref above prefers the server's: later
+				// milestones and whoami then carry exactly what the row carries.
+				if logged != nil && logged.RecordTeamWork != nil && logged.RecordTeamWork.Tool != "" {
+					storedTool = logged.RecordTeamWork.Tool
+				}
+				// The fill runs AFTER the record (a refused row fills nothing —
+				// the flag is simply passed again) and BEFORE the session touch
+				// (a touch failure must not un-fill a tool the append-only row
+				// already carries). Report, don't fail: the server write already
+				// succeeded, and a binding left unfilled self-heals — the next
+				// log refuses client-side and names --tool again. Fill, never
+				// change, against what is on disk NOW: a concurrent log may have
+				// filled another tool, and a concurrent start bound a different
+				// session entirely.
+				if fillTool != "" {
+					if err := updateBinding(ctx, func(cur *binding) error {
+						if cur.SessionID != b.SessionID {
+							return errBindingChangedSession
+						}
+						if strings.TrimSpace(cur.Tool) == "" {
+							cur.Tool = storedTool
+						}
+						return nil
+					}); err != nil {
+						fmt.Fprintf(f.IOStreams.ErrOut, "note: the milestone was recorded under tool %q, but filling this binding's tool locally failed: %v — pass --tool again on the next log\n", storedTool, err)
+					}
 				}
 				if err := touchSession(true); err != nil {
 					return err
@@ -2782,6 +2878,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 	cmd.Flags().StringVar(&action, "action", "worked-on", "what happened to the artifact (e.g. opened, merged, pushed)")
 	cmd.Flags().StringVar(&detail, "detail", "", "optional JSON bag of display extras stored with the milestone")
 	cmd.Flags().StringVar(&model, "model", "", "LLM model that produced this milestone; omit for server-side session fallback")
+	cmd.Flags().StringVar(&tool, "tool", "", "tool driving this session; fills a binding that records none (a provenance label, never authorization) — refused when the binding already has one")
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "explicit team-memory override (the binding's App is the default worklog home)")
 	cmd.MarkFlagsMutuallyExclusive("pr", "issue", "commit", "branch")
 	cmd.MarkFlagsOneRequired("pr", "issue", "commit", "branch")

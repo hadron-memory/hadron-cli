@@ -583,7 +583,7 @@ section between the markers.
 | `team session` | sessions |  | n | #1054 | 0233b043af2d |  | unread |  |
 | `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
-| `team session log` |  |  | y | #1054 | 01f969067a94 |  | unread |  |
+| `team session log` |  |  | y | #1054 | f9047bc2e430 |  | unread |  |
 | `team session outcome` |  |  | y | #1054 | 447243aadda4 |  | unread |  |
 | `team session recover` |  |  | y | #1054 | 4d805e21068d |  | unread |  |
 | `team session reset-context` |  |  | y | #1054 | 1511799c059b |  | unread |  |

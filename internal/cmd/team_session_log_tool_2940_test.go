@@ -178,7 +178,8 @@ func TestSessionLogToollessWithoutFlagRefusesClientSide(t *testing.T) {
 	path := bindFixture2940(t, bindingNoToolFixture)
 	gql, captured := captureGraphQL(t, logStubs2940())
 
-	_, _, err := runLog2940(t, gql.URL, "--pr", "371")
+	// The report's own argv (issue #2940), verbatim.
+	_, _, err := runLog2940(t, gql.URL, "--pr", "hadron-memory/hadron-cli#2932", "--action", "pushed")
 	if err == nil {
 		t.Fatal("a toolless binding without --tool must be refused client-side")
 	}
@@ -211,20 +212,23 @@ func TestSessionLogToolBlankRefused(t *testing.T) {
 	}
 }
 
-// A whitespace-recorded tool is the same as none: the flag fills it (and the
-// fill stores the trimmed value, never the whitespace).
+// A whitespace-recorded tool is the same as none, and ONE SPELLING means the
+// server's: the row stores the server's normalized token (vocabToken trims
+// and lowercases — the fake here echoes "claude-code" for a "Claude-Code "
+// flag), so the binding must persist the RESPONSE's spelling, not the flag's,
+// or later milestones and the provenance query would diverge from the row.
 func TestSessionLogToolTreatsWhitespaceToolAsNone(t *testing.T) {
 	path := bindFixture2940(t, strings.Replace(bindingNoToolFixture, `"tool":""`, `"tool":"   "`, 1))
 	gql, captured := captureGraphQL(t, logStubs2940())
 
-	if _, _, err := runLog2940(t, gql.URL, "--pr", "371", "--tool", " claude-code "); err != nil {
+	if _, _, err := runLog2940(t, gql.URL, "--pr", "371", "--tool", " Claude-Code "); err != nil {
 		t.Fatalf("a whitespace tool is empty for this purpose: %v", err)
 	}
-	if got := recordedTool2940(t, captured); got != "claude-code" {
-		t.Errorf("the trimmed value must be recorded, got %q", got)
+	if got := recordedTool2940(t, captured); got != "Claude-Code" {
+		t.Errorf("the CLI sends the trimmed flag value (the server normalizes), got %q", got)
 	}
 	if got := boundTool2940(t, path); got != "claude-code" {
-		t.Errorf("the trimmed value must be persisted, got %q", got)
+		t.Errorf("the binding must store the server's stored spelling, got %q", got)
 	}
 }
 

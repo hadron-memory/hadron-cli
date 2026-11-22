@@ -62,7 +62,9 @@ type binding struct {
 	// Tool, Repo, and Model mirror the startSession provenance inputs: Tool
 	// flows into every worklog row (a flat queried field, D13/D14), Repo
 	// qualifies bare `--pr 371`-style refs, and Model becomes the chat
-	// identity of worker-posted messages.
+	// identity of worker-posted messages. Tool has a second writer since
+	// cli#2940: `session log --tool` FILLS it on a binding that records none,
+	// persisting the server's stored spelling so later rows match.
 	Tool  string `json:"tool"`
 	Repo  string `json:"repo"`
 	Model string `json:"model"`
