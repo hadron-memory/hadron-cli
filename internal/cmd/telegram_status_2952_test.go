@@ -114,6 +114,23 @@ func TestTelegramStatusFinalPageHasNoHint(t *testing.T) {
 	}
 }
 
+// The continuation hint is cosmetic and follows only a page that RENDERED: a
+// stdout that rejects every write (a closed pipe) fails the command, and the
+// hint must not print beside that failure.
+func TestTelegramStatusFailedWritePrintsNoHint(t *testing.T) {
+	srv, _ := captureGraphQL(t, map[string]string{"TelegramConnections": `{"data":{"telegramConnections":{"total":3,"items":[` + telegramRow + `]}}}`})
+	f, _ := testFactory(t)
+	f.IOStreams.Out = failingWriter{}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"telegram", "status", "--server", srv.URL})
+	if e := root.Execute(); e == nil {
+		t.Fatal("a failed write fails the command")
+	}
+	if got := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(got, "next page") {
+		t.Fatal("no hint after a page that failed to render:", got)
+	}
+}
+
 func TestTelegramStatusRefusals(t *testing.T) {
 	for _, tc := range []struct {
 		name, wire string

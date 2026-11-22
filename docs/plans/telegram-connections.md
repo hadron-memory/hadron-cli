@@ -96,4 +96,11 @@ and the U+2028/U+2029 separators), the confirmation paths and prompt wording, th
 30 tests against `origin/main` (verified in a throwaway worktree before the dispositions were
 written). The coverage matrix rows land as `command telegram get|status|connect|disconnect`
 (`internal/api/coverage-matrix.txt`); the agentic contract is the `hadron telegram …` line in
-`internal/cmd/agentic/agentic-usage.md`.
+`internal/cmd/agentic/agentic-usage.md`. Fold round 2 tightened the connect tests (Joran's BLIND
+delta): the control-character scrub test asserts the server's words survive the neutralisation
+(text mode keeps `boom red injected-line` — the scrub lives at the root renderer's SafeError — and
+`--json` decodes to the server's bytes exactly), `--json` assertions read decoded envelope fields
+instead of key-spacing substrings, the definitive-refusal checks are subtests, a non-string
+`telegramErrorCode` extension is ignored, and a 502 body carrying `TELEGRAM_TOOL_*` keeps the
+unknown-outcome wording (the `FromNon200Envelope` guard, pinned red: without it the 502 renders
+"connect was refused").

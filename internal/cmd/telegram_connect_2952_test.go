@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -62,6 +64,31 @@ func decodeTelegramVars(t *testing.T, raw json.RawMessage, into *map[string]any)
 	if err := json.Unmarshal(raw, into); err != nil {
 		t.Fatalf("captured variables are not JSON: %v", err)
 	}
+}
+
+// telegramErrorEnvelope is the failure envelope the root renderer writes in
+// --json mode: the document a script actually parses. Assertions read decoded
+// fields, never substrings of the rendered bytes — the spacing between keys is
+// an encoder detail, not a contract.
+type telegramErrorEnvelope struct {
+	Error struct {
+		Code       int    `json:"code"`
+		Message    string `json:"message"`
+		ServerCode string `json:"serverCode"`
+	} `json:"error"`
+}
+
+// decodeTelegramErrorEnvelope decodes the first JSON value of the rendered
+// output. The envelope goes to stdout when the command wrote nothing yet,
+// else stderr; the telegram render helper returns the streams as the binary
+// wrote them, and only the first document is the envelope.
+func decodeTelegramErrorEnvelope(t *testing.T, all string) telegramErrorEnvelope {
+	t.Helper()
+	var env telegramErrorEnvelope
+	if err := json.NewDecoder(strings.NewReader(all)).Decode(&env); err != nil {
+		t.Fatalf("rendered --json output is not an error envelope: %v\n%s", err, all)
+	}
+	return env
 }
 
 func telegramConnectArgs(t *testing.T) []string {
@@ -225,6 +252,11 @@ func TestTelegramConnectRefusesStdinFromATerminal(t *testing.T) {
 // renders the server's own message as received, in BOTH renderers, and a
 // TELEGRAM_TOOL_* answer additionally carries its telegramErrorCode and its
 // serverCode in the --json envelope.
+// telegramToolNotConfigured is the wire form of the server's definitive
+// "the Telegram tool is not set up" refusal: a TELEGRAM_TOOL_* code with the
+// Telegram-side error code on its own extension.
+const telegramToolNotConfigured = `{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`
+
 func TestTelegramConnectPassesServerRefusalsThrough(t *testing.T) {
 	bot := tokenFile(t, "bot", tgBotTok)
 	args := []string{"connect", "--app", appID, "--bot-token-file", bot}
@@ -239,7 +271,7 @@ func TestTelegramConnectPassesServerRefusalsThrough(t *testing.T) {
 		"not an org admin":      {`{"errors":[{"message":"not allowed","extensions":{"code":"FORBIDDEN"}}],"data":null}`, exitcode.Forbidden, "not allowed", nil},
 		"already has one":       {`{"errors":[{"message":"This App already has a Telegram connection.","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, exitcode.Usage, "This App already has a Telegram connection.", nil},
 		"bot already connected": {`{"errors":[{"message":"This bot is already connected.","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`, exitcode.Usage, "This bot is already connected.", nil},
-		"tool not configured":   {`{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`, exitcode.Error, "no token", []string{"not_configured", "connect was refused"}},
+		"tool not configured":   {telegramToolNotConfigured, exitcode.Error, "no token", []string{"not_configured", "connect was refused"}},
 	} {
 		for _, jsonMode := range []bool{true, false} {
 			t.Run(fmt.Sprintf("%s/json=%v", name, jsonMode), func(t *testing.T) {
@@ -266,19 +298,147 @@ func TestTelegramConnectPassesServerRefusalsThrough(t *testing.T) {
 	// A TELEGRAM_TOOL_* refusal is definitive: it is never reworded as an
 	// unknown outcome and points at nothing (there is no registration to look
 	// for), and the --json envelope names the server code a script matches on.
-	all, _, e := runTelegramRendered(t, `{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`, true, args...)
-	if e == nil || !strings.Contains(all, `"serverCode": "TELEGRAM_TOOL_NOT_CONFIGURED"`) && !strings.Contains(all, `"serverCode":"TELEGRAM_TOOL_NOT_CONFIGURED"`) {
-		t.Errorf("the serverCode must ride the --json envelope: %v\n%s", e, all)
-	}
-	all, _, e = runTelegramRendered(t, `{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`, false, args...)
-	if e == nil || strings.Contains(all, "outcome unknown") || strings.Contains(all, "hadron telegram status") {
-		t.Errorf("a definitive refusal is not an unknown outcome and needs no pointer: %v\n%s", e, all)
-	}
+	t.Run("definitive refusal rides the --json envelope's serverCode", func(t *testing.T) {
+		all, _, e := runTelegramRendered(t, telegramToolNotConfigured, true, args...)
+		if e == nil {
+			t.Fatal("the refusal must fail")
+		}
+		if env := decodeTelegramErrorEnvelope(t, all); env.Error.ServerCode != "TELEGRAM_TOOL_NOT_CONFIGURED" {
+			t.Fatalf("the serverCode must ride the envelope, got %q:\n%s", env.Error.ServerCode, all)
+		}
+	})
+	t.Run("a definitive refusal is not an unknown outcome in text mode", func(t *testing.T) {
+		all, _, e := runTelegramRendered(t, telegramToolNotConfigured, false, args...)
+		if e == nil {
+			t.Fatal("the refusal must fail")
+		}
+		if strings.Contains(all, "outcome unknown") || strings.Contains(all, "hadron telegram status") {
+			t.Fatalf("a definitive refusal is not an unknown outcome and needs no pointer:\n%s", all)
+		}
+	})
 	// The invalid-token spelling a caller actually meets (the agentic line's
 	// example): the Telegram error code is surfaced, not swallowed.
-	all, _, e = runTelegramRendered(t, `{"errors":[{"message":"Telegram refused the token","extensions":{"code":"TELEGRAM_TOOL_ERROR","telegramErrorCode":"invalid_token"}}],"data":null}`, false, args...)
-	if e == nil || !strings.Contains(all, "invalid_token") || !strings.Contains(all, "Telegram refused the token") || !strings.Contains(all, "connect was refused") {
-		t.Fatalf("invalid_token must surface with the server's message: %v\n%s", e, all)
+	t.Run("invalid_token surfaces next to the server's message", func(t *testing.T) {
+		all, _, e := runTelegramRendered(t, `{"errors":[{"message":"Telegram refused the token","extensions":{"code":"TELEGRAM_TOOL_ERROR","telegramErrorCode":"invalid_token"}}],"data":null}`, false, args...)
+		if e == nil {
+			t.Fatal("the refusal must fail")
+		}
+		for _, want := range []string{"invalid_token", "Telegram refused the token", "connect was refused"} {
+			if !strings.Contains(all, want) {
+				t.Errorf("missing %q:\n%s", want, all)
+			}
+		}
+	})
+	// The Telegram error code is read as a STRING extension or not at all: a
+	// number is ignored (ErrorCodeExtension's type assertion fails closed), so
+	// the refusal stays definitive with no code surfaced next to it.
+	t.Run("a non-string telegramErrorCode is ignored", func(t *testing.T) {
+		all, _, e := runTelegramRendered(t, `{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":401}}],"data":null}`, false, args...)
+		if e == nil {
+			t.Fatal("the refusal must fail")
+		}
+		if !strings.Contains(all, "connect was refused") || strings.Contains(all, "Telegram error code") {
+			t.Fatalf("a non-string code is ignored, the refusal itself stays definitive:\n%s", all)
+		}
+	})
+	// An error BELOW createTelegramConnection happened after the write may
+	// have committed (cli#398): however well coded, it is not proof the
+	// server refused, so the unknown-outcome notice and the status pointer
+	// stay. Together with the 5xx case
+	// (TestTelegramConnectToolRefusalOnA5xxIsNotDefinitive) this pins both
+	// conditions telegramToolRefusedAt adds to the TELEGRAM_TOOL_ prefix.
+	t.Run("a below-field error is not definitive even with a TELEGRAM_TOOL code", func(t *testing.T) {
+		wire := `{"errors":[{"message":"late failure","extensions":{"code":"TELEGRAM_TOOL_ERROR"},"path":["createTelegramConnection","bot"]}],"data":null}`
+		all, _, e := runTelegramRendered(t, wire, false, args...)
+		if e == nil {
+			t.Fatal("must fail")
+		}
+		if !strings.Contains(all, "outcome unknown") || !strings.Contains(all, "hadron telegram status") {
+			t.Fatalf("a below-field error keeps the unknown outcome and the pointer:\n%s", all)
+		}
+		if strings.Contains(all, "connect was refused") {
+			t.Fatalf("a post-commit error is not a refusal:\n%s", all)
+		}
+	})
+}
+
+// The bot-token-file flag is trimmed before it names a file (the fold's own
+// message says so): a value padded with blanks still reads the token and
+// sends exactly one request.
+func TestTelegramConnectTrimsTheTokenFileFlag(t *testing.T) {
+	bot := tokenFile(t, "bot", tgBotTok+"\n")
+	out, ops, n, e := runTelegramWrite(t, "CreateTelegramConnection", `{"data":{"createTelegramConnection":`+telegramRow+`}}`, "",
+		"connect", "--app", tgAppRef, "--bot-token-file", " "+bot+" ", "--json")
+	if e != nil {
+		t.Fatal(e)
+	}
+	if n != 1 {
+		t.Fatalf("one request, got %d", n)
+	}
+	var vars map[string]any
+	decodeTelegramVars(t, ops["CreateTelegramConnection"], &vars)
+	if vars["botToken"] != tgBotTok {
+		t.Fatalf("the token the server received: %v", vars)
+	}
+	if !strings.Contains(out, `"id": "t1"`) {
+		t.Fatalf("connected: %s", out)
+	}
+	noTelegramSecret(t, "stdout", out)
+}
+
+// A 5xx envelope is not proof the server refused (cli#1495): a gateway can
+// answer 502 with a GraphQL body whose code says TELEGRAM_TOOL_* after the
+// write committed, so telegramToolRefusedAt's FromNon200Envelope guard keeps
+// the unknown-outcome wording and the status pointer. Pinned end to end in
+// both renderers: the definitive-refusal branch ("connect was refused") is
+// only ever earned by a 200 answer.
+func TestTelegramConnectToolRefusalOnA5xxIsNotDefinitive(t *testing.T) {
+	var posts int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		if r.Method == http.MethodPost {
+			atomic.AddInt32(&posts, 1)
+		}
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(telegramToolNotConfigured))
+	}))
+	defer srv.Close()
+	bot := tokenFile(t, "bot", tgBotTok)
+	for _, jsonMode := range []bool{true, false} {
+		t.Run(fmt.Sprintf("json=%v", jsonMode), func(t *testing.T) {
+			before := atomic.LoadInt32(&posts)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			a := []string{"telegram", "connect", "--app", appID, "--bot-token-file", bot, "--server", srv.URL}
+			if jsonMode {
+				a = append(a, "--json")
+			}
+			root.SetArgs(a)
+			e := root.Execute()
+			if e == nil {
+				t.Fatal("must fail")
+			}
+			renderError(f, e)
+			stderr, ok := f.IOStreams.ErrOut.(fmt.Stringer)
+			if !ok {
+				t.Fatal("stderr cannot be inspected: the helper needs a Stringer stream")
+			}
+			all := out.String() + stderr.String()
+			if got := atomic.LoadInt32(&posts) - before; got != 1 {
+				t.Fatalf("sent once, never retried: requests=%d", got)
+			}
+			if !strings.Contains(all, "outcome unknown") || !strings.Contains(all, "hadron telegram status") {
+				t.Fatalf("a 5xx envelope is an unknown outcome and keeps the pointer:\n%s", all)
+			}
+			if strings.Contains(all, "connect was refused") {
+				t.Fatalf("a gateway answer is not proof the server refused:\n%s", all)
+			}
+			noTelegramSecret(t, "rendered output", all)
+		})
 	}
 }
 
@@ -520,16 +680,27 @@ func TestTelegramDisconnectPassesNotFoundThroughAndNeverPreReads(t *testing.T) {
 	}
 	// Juniper's surviving mutant: the refusal must keep its server code
 	// (MapErrorKeepingCode), so a script can tell NOT_FOUND from any other
-	// exit-4 behind the same number — pinned in the --json envelope.
+	// exit-4 behind the same number — pinned as a decoded envelope field.
 	all, _, e := runTelegramRenderedOp(t, "DeleteTelegramConnection", `{"errors":[{"message":"not found","extensions":{"code":"NOT_FOUND"}}],"data":null}`, true, "disconnect", "t1", "--yes")
-	if e == nil || !strings.Contains(all, `"serverCode": "NOT_FOUND"`) && !strings.Contains(all, `"serverCode":"NOT_FOUND"`) {
-		t.Fatalf("disconnect refusals carry their serverCode in --json: %v\n%s", e, all)
+	if e == nil {
+		t.Fatal("the refusal must fail")
+	}
+	if env := decodeTelegramErrorEnvelope(t, all); env.Error.ServerCode != "NOT_FOUND" {
+		t.Fatalf("disconnect refusals carry their serverCode in --json, got %q:\n%s", env.Error.ServerCode, all)
 	}
 }
 
-// The server's error text is rendered, never executed: control characters in a
-// refusal message reach the terminal only after the renderer neutralises them.
+// The server's error text is rendered, never executed and never swallowed:
+// control characters in a refusal message reach the terminal only after the
+// renderer neutralises them, and the words themselves still arrive — a refusal
+// dropped on the floor would pass a control-character check vacuously. The
+// text-mode scrub lives at the ROOT renderer (output.SafeError): a terminal
+// escape sequence is removed whole (its parameters are not left as junk) and a
+// lone control character becomes a space. In --json the encoder writes the C0
+// controls as \u escapes, so the raw document cannot act on the terminal while
+// a decoding program still receives the server's bytes exactly (#1131).
 func TestTelegramDisconnectScrubsControlCharactersFromServerText(t *testing.T) {
+	const serverText = "boom\x1b[31m red\rinjected-line"
 	wire := `{"errors":[{"message":"boom\u001b[31m red\u000dinjected-line","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`
 	for _, jsonMode := range []bool{true, false} {
 		t.Run(fmt.Sprintf("json=%v", jsonMode), func(t *testing.T) {
@@ -537,8 +708,24 @@ func TestTelegramDisconnectScrubsControlCharactersFromServerText(t *testing.T) {
 			if e == nil {
 				t.Fatal("must fail")
 			}
+			// The message must survive its neutralisation, not be dropped with
+			// the controls.
+			if !strings.Contains(all, "boom") || !strings.Contains(all, "injected-line") {
+				t.Fatalf("the server's message text must still be rendered:\n%q", all)
+			}
 			if strings.ContainsAny(all, "\x1b\r") {
 				t.Fatalf("no raw control character may reach the terminal:\n%q", all)
+			}
+			if jsonMode {
+				env := decodeTelegramErrorEnvelope(t, all)
+				if !strings.Contains(env.Error.Message, serverText) {
+					t.Fatalf("--json carries the message as the server sent it (the encoder's escapes make it inert), got %q", env.Error.Message)
+				}
+				if env.Error.ServerCode != "SOMETHING_UNMAPPED" {
+					t.Fatalf("an unmapped code still rides the envelope as serverCode, got %q", env.Error.ServerCode)
+				}
+			} else if !strings.Contains(all, "boom red injected-line") {
+				t.Fatalf("text mode keeps every word and drops the controls:\n%q", all)
 			}
 		})
 	}
