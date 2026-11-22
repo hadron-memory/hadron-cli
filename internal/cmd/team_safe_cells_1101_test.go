@@ -336,7 +336,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		{"roster-no-session", []string{"roster"}, rosterNoSession, "TeamRoster", []cellAttack{
 			{"no-session-reason", "FUTURE_REASON"},
 		}},
-		{"host-list", []string{"host", "list"}, fixed(hostResponses()), "HostRegistrations", []cellAttack{
+		{"host-list", []string{"host", "list"}, fixed(hostResponses()), "HostRegistrationsPage", []cellAttack{
 			{"label", "Orca box 1"},
 			{"host", "orca1"},
 			{"refreshed-at", "2026-10-14T01:00:00Z"},

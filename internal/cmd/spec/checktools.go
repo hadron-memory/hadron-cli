@@ -58,7 +58,7 @@ func newCmdCheckTools(f *cmdutil.Factory) *cobra.Command {
 		Short: "Flag hadron_* tool references in specs that aren't real registered tools",
 		Long: `Scan every spec's body and abstract for ` + "`hadron_*`" + ` MCP/runner tool
 references and flag any that are not a real registered tool — the drift that let
-stale ` + "`h-*`" + ` shorthand rot silently (issue #240).
+stale ` + "`h-*`" + ` shorthand rot silently.
 
 The set of real tools is a manifest baked into this binary — the union of
 hadron-server's two tool registries (the MCP ` + "`server.tool()`" + ` names and the

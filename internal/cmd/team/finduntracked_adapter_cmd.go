@@ -17,72 +17,65 @@ import (
 
 // adapterFlagUse is the flag values the adapter selection judges.
 type adapterFlagUse struct {
-	team, ready, repo, forWorker, assignee, owner string
-	skip, limit                                   int
-	assignToMe, noTeam, track                     bool
+	forWorker, assignee, owner string
+	limit                      int
+	track                      bool
 }
 
-// selectAdapter decides which find-untracked path a call takes and refuses the
-// flags that belong to the other, before any request or binding read.
+// retiredFindUntrackedFlags are the flags of the server's task integration
+// path, retired with it (cli#1964), each with what the intake adapter offers
+// in its place. Naming one is refused by name (the first one named in argv).
+var retiredFindUntrackedFlags = map[string]string{
+	"integration":  "",
+	"team":         "with the adapter, --for <worker> names one worker's items",
+	"no-team":      "the adapter filters by its own configuration",
+	"ready":        "the adapter filters by its own configuration",
+	"repo":         "the adapter knows its own repositories",
+	"skip":         "the adapter pages by its own cursor; --limit bounds the list",
+	"assign-to-me": "with the adapter, --track claims items",
+}
+
+// errFlagRetired is find-untracked's answer to a retired flag: the server's
+// task integrations are retired, and the team's intake adapter replaced them.
+// It is a parse error, so nothing is sent.
+func errFlagRetired(name string) error {
+	if name == "integration" {
+		return exitcode.Newf(exitcode.Usage, "--integration is retired: the server no longer serves task integrations, so nothing was sent. Use the team's intake adapter instead: --adapter <executable> (or set $%s); see the INTAKE ADAPTER section of --help", adapterEnv)
+	}
+	return exitcode.Newf(exitcode.Usage, "--%s is retired with --integration: the server no longer serves task integrations, so nothing was sent; %s. The source is the team's intake adapter: --adapter <executable> (or set $%s); see the INTAKE ADAPTER section of --help", name, retiredFindUntrackedFlags[name], adapterEnv)
+}
+
+// selectAdapter names the intake adapter a find-untracked call runs and
+// refuses an incomplete call, before any request or binding read.
 //
-// The adapter is named by --adapter, else $HADRON_INTAKE_ADAPTER; --integration
-// names the server-side (compat-window) path and wins over the environment,
-// never over an explicit --adapter. Nothing is chosen silently: a call with
-// neither is a usage error.
-func selectAdapter(cmd *cobra.Command, adapterFlag, integration string, u adapterFlagUse) (string, bool, error) {
+// The adapter is named by --adapter, else $HADRON_INTAKE_ADAPTER. Nothing is
+// chosen silently: a call with neither is a usage error.
+func selectAdapter(cmd *cobra.Command, adapterFlag string, u adapterFlagUse) (string, error) {
 	fl := cmd.Flags()
 	adapterGiven := fl.Changed("adapter")
-	integrationGiven := fl.Changed("integration")
-	if integrationGiven && strings.TrimSpace(integration) == "" {
-		return "", false, exitcode.Newf(exitcode.Usage, "--integration needs an integration name; check for an unset variable")
-	}
 	if adapterGiven && strings.TrimSpace(adapterFlag) == "" {
-		return "", false, exitcode.Newf(exitcode.Usage, "--adapter needs the adapter executable's path")
-	}
-	if adapterGiven && integrationGiven {
-		return "", false, exitcode.Newf(exitcode.Usage, "--adapter and --integration cannot be combined: --adapter asks the team's intake adapter, --integration the server's task integration; nothing was sent")
+		return "", exitcode.Newf(exitcode.Usage, "--adapter needs the adapter executable's path")
 	}
 	path := strings.TrimSpace(adapterFlag)
-	if !adapterGiven && !integrationGiven {
+	if !adapterGiven {
 		path = strings.TrimSpace(os.Getenv(adapterEnv))
 	}
 	if path == "" {
 		if fl.Changed("track") || fl.Changed("for") {
-			return "", false, exitcode.Newf(exitcode.Usage, "--track and --for need an intake adapter: pass --adapter <executable> or set $%s; nothing was sent", adapterEnv)
+			return "", exitcode.Newf(exitcode.Usage, "--track and --for need an intake adapter: pass --adapter <executable> or set $%s; nothing was sent", adapterEnv)
 		}
-		if !integrationGiven {
-			return "", false, exitcode.Newf(exitcode.Usage, "name where the items come from: --adapter <executable> (or $%s) for the team's intake adapter, or --integration <name> for the server's task integration", adapterEnv)
-		}
-		return "", false, nil
-	}
-	// The adapter path. What belongs to the server's integration is refused
-	// loudly rather than ignored.
-	for _, bad := range []struct {
-		set  bool
-		flag string
-		why  string
-	}{
-		{fl.Changed("team"), "--team", "a lead resolves to their team in the adapter's own config, so no tracker label reaches Hadron; use --for"},
-		{fl.Changed("no-team"), "--no-team", "it filters the server integration's team labels"},
-		{fl.Changed("ready"), "--ready", "it filters the server integration's ready label"},
-		{fl.Changed("repo"), "--repo", "it names a repository connected to the server integration"},
-		{fl.Changed("skip"), "--skip", "an adapter is paged by its opaque cursor, never an offset (cor:agt:120:04)"},
-		{fl.Changed("assign-to-me"), "--assign-to-me", "an adapter claims with --track"},
-	} {
-		if bad.set {
-			return "", false, exitcode.Newf(exitcode.Usage, "%s does not combine with an intake adapter: %s; nothing was sent", bad.flag, bad.why)
-		}
+		return "", exitcode.Newf(exitcode.Usage, "name where the items come from: --adapter <executable> (or $%s), the team's intake adapter; nothing was sent", adapterEnv)
 	}
 	if !u.track && (fl.Changed("assignee") || fl.Changed("owner")) {
-		return "", false, exitcode.Newf(exitcode.Usage, "--assignee and --owner name a claim's parties: they need --track (a list takes neither); nothing was sent")
+		return "", exitcode.Newf(exitcode.Usage, "--assignee and --owner name a claim's parties: they need --track (a list takes neither); nothing was sent")
 	}
 	if fl.Changed("for") && strings.TrimSpace(u.forWorker) == "" {
-		return "", false, exitcode.Newf(exitcode.Usage, "--for needs a worker name")
+		return "", exitcode.Newf(exitcode.Usage, "--for needs a worker name")
 	}
 	if fl.Changed("limit") && (u.limit < 1 || u.limit > adapterMaxLimit) {
-		return "", false, exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d with an intake adapter, got %d", adapterMaxLimit, u.limit)
+		return "", exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d with an intake adapter, got %d", adapterMaxLimit, u.limit)
 	}
-	return path, true, nil
+	return path, nil
 }
 
 // runAdapterCommand resolves the App and the caller's binding, parses the

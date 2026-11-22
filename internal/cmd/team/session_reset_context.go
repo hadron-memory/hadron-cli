@@ -59,7 +59,7 @@ func newCmdSessionResetContext(f *cmdutil.Factory) *cobra.Command {
 		Use:   "reset-context [--note-file <path>] [--transcript <path>]",
 		Short: "Reset your context: checkpoint, end this agent, and have the host relaunch it at once",
 		Long: `Reset this worktree's worker context and come back at once, in the same
-session (hadron-cli#2161). In order:
+session. In order:
 
   1. the checkpoint node, ` + "`checkpoints:<YYYY-MM-DD-HHMMSS>`" + ` (UTC) in the worker's
      own memory, read back, exactly as ` + "`session shed`" + ` writes its node

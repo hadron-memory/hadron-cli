@@ -551,7 +551,7 @@ func newCmdSessionShed(f *cmdutil.Factory) *cobra.Command {
 		Use:   "shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>]",
 		Short: "Write the shed checkpoint node, recovery prompt and resume claim in one step",
 		Long: `Checkpoint this worktree's worker session before a deliberate context reset
-that keeps it open (hadron-cli#952): read the session, chat head and read
+that keeps it open: read the session, chat head and read
 cursor, open work and briefing pointers, write one ` + "`sheds:`" + ` node into the
 worker's own memory, read it back, and only then write the resume claim.
 

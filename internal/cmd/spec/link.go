@@ -62,9 +62,9 @@ convention ("documents <from> on the <to> entity"); refine it with
 
 Rerunning is safe: when <from> already has this edge (same target, same
 label), it reports "already linked" and writes nothing.`,
-		Example: `  hadron spec link cor:dmo:020:04 cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs \
-    --label "documents the nodeType field of Node"
-  hadron spec link cor:dmo:020:04 cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs --dry-run`,
+		Example: `  hadron spec link msg:010:02 msg:010:03 -m hrn:mem:micromentor.org:platform-specs \
+    --label "documents the Node type field"
+  hadron spec link msg:010:02 msg:010:03 -m hrn:mem:micromentor.org:platform-specs --dry-run`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			from, err := validateSpecLoc(args[0])

@@ -201,7 +201,7 @@ you need not remove anything: finishing or cancelling B releases it.`
 	}
 	return head + `
 
-Who may: ` + taskAssignerDoc + ` (cor:agt:050:09);
+Who may: ` + taskAssignerDoc + `;
 anyone else is refused with TASK_NOT_OWNER (exit 8). Check a task's status and
 blockers first with ` + "`task get`" + `.
 
