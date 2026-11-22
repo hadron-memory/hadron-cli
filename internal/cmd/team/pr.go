@@ -54,11 +54,11 @@ func validPRSlot(slot string) bool {
 }
 func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 	parent := &cobra.Command{Use: "pr <command>", Short: "Record PR review facts and read readiness at an explicit head", Long: prGroupLong, Example: prGroupExample}
-	for _, verb := range []string{"schedule", "freeze", "seat", "verdict", "readiness", "ready"} {
+	for _, verb := range []string{"schedule", "freeze", "seat", "verdict", "withdraw", "readiness", "ready"} {
 		var head, slot, supersedes, verdict, node, receiptURL string
 		var slots []string
-		uses := map[string]string{"schedule": "schedule <build-task> --slot <id> [--slot <id>...]", "freeze": "freeze <build-task> <40-hex-sha>", "seat": "seat <seat-task> --slot <id> --head <sha>", "verdict": "verdict <seat-task> --head <sha> --verdict <verdict>", "readiness": "readiness <build-task> --head <sha>", "ready": "ready <build-task> --head <sha>"}
-		shorts := map[string]string{"schedule": "Replace the review slots a PR needs (owner chain only)", "freeze": "Fix the head under review (build assignee only)", "seat": "Bind a seat task to a scheduled slot (the seat task's owner chain only)", "verdict": "Record a seat's verdict without finishing it (seat assignee only)", "readiness": "Show whether every scheduled review counts at a head", "ready": "Record the ready call once every review counts (build assignee only)"}
+		uses := map[string]string{"schedule": "schedule <build-task> --slot <id> [--slot <id>...]", "freeze": "freeze <build-task> <40-hex-sha>", "seat": "seat <seat-task> --slot <id> --head <sha>", "verdict": "verdict <seat-task> --head <sha> --verdict <verdict>", "withdraw": "withdraw <seat-task> --head <sha> [--receipt <url>]", "readiness": "readiness <build-task> --head <sha>", "ready": "ready <build-task> --head <sha>"}
+		shorts := map[string]string{"schedule": "Replace the review slots a PR needs (owner chain only)", "freeze": "Fix the head under review (build assignee only)", "seat": "Bind a seat task to a scheduled slot (the seat task's owner chain only)", "verdict": "Record a seat's verdict without finishing it (seat assignee only)", "withdraw": "Withdraw a finished seat's negative verdict at the same head (its reviewer or a coordinator)", "readiness": "Show whether every scheduled review counts at a head", "ready": "Record the ready call once every review counts (build assignee only)"}
 		c := &cobra.Command{Use: uses[verb], Short: shorts[verb], Long: prLeafLong[verb], Example: prLeafExample[verb], Args: cobra.ExactArgs(1)}
 		if verb == "freeze" {
 			c.Args = cobra.ExactArgs(2)
@@ -187,6 +187,12 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 				if r != nil && r.RecordReviewVerdict != nil {
 					result = &r.RecordReviewVerdict.PRProtocolReceipt
 				}
+			case "withdraw":
+				r, e := gen.PRWithdraw(cmd.Context(), client, task, head, url)
+				err = e
+				if r != nil && r.WithdrawReviewVerdict != nil {
+					result = &r.WithdrawReviewVerdict.PRProtocolReceipt
+				}
 			case "ready":
 				r, e := gen.PRReady(cmd.Context(), client, task, head)
 				err = e
@@ -222,6 +228,9 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 			c.Flags().StringVar(&verdict, "verdict", "", "required: APPROVE, CHANGES_REQUESTED, PASS, FAIL, CARRY or REFUSED (meanings in the description above)")
 			c.Flags().StringVar(&node, "node", "", "optional: the Hadron node holding your saved review (recorded as text, not fetched)")
 			c.Flags().StringVar(&receiptURL, "receipt", "", "optional: the URL of your signed PR comment (recorded as text, not fetched)")
+		}
+		if verb == "withdraw" {
+			c.Flags().StringVar(&receiptURL, "receipt", "", "optional: the URL of a signed PR comment saying why (recorded as text, not fetched)")
 		}
 		parent.AddCommand(c)
 	}
@@ -289,7 +298,8 @@ the PR's tip commit:
   1. pr schedule    the owner lists the slots the PR needs
   2. pr freeze      the build task's assignee fixes the head under review
   3. pr seat        the owner binds a seat task to each slot at that head
-  4. pr verdict     each reviewer records a verdict on their seat
+  4. pr verdict     each reviewer records a verdict on their seat (pr withdraw
+                    clears a finished negative one: its reviewer or a coordinator)
   5. pr readiness   anyone reads whether every slot counts at the head
   6. pr ready       the build task's assignee records the ready call
 After a push, freeze the new head and bind new seats (pr seat --supersedes
@@ -342,8 +352,9 @@ const prReviewRules = `
 The order is schedule, freeze, seat, verdict, finish. A seat binds to a task
 that has not ended (PENDING or STARTED); only pr verdict needs it STARTED, and a
 finished seat cannot take a verdict. A
-negative verdict at a head blocks every slot there until the head moves or its
-own reviewer re-rates it.
+negative verdict at a head blocks every slot there until the head moves, its own
+reviewer re-rates it, or (once the seat is finished) its reviewer or a
+coordinator withdraws it with pr withdraw.
 
 When a seat cannot bind or record (TASK_ENDED, REVIEW_SEAT_UNASSIGNED or
 REVIEW_HEAD_MISMATCH), only a verdict recorded with pr verdict counts: create a
@@ -363,8 +374,9 @@ alone).
 Each call REPLACES the whole list: repeat every slot you still want. The slot
 ids are the ones "pr seat --slot" and "pr readiness" use, so keep them
 identical. A slot may be dropped, but not one whose seat already gave a
-negative verdict at the frozen head (REVIEW_SEAT_NOT_SUPERSEDABLE). Prints the
-build task and the register line.
+negative verdict at the frozen head (REVIEW_SEAT_NOT_SUPERSEDABLE), unless that
+negative was withdrawn (pr withdraw). Prints the build task and the register
+line.
 
 To see which slots are scheduled before a head is frozen, run hadron team task
 get <build-task> (its properties list review.schedule), or hadron team events
@@ -417,6 +429,29 @@ recorded a negative verdict may re-rate it at that head).
 your signed PR comment; both are recorded as text, not fetched. Prints the seat
 task and the register line.` + prReviewRules + prSeeGroup,
 
+	"withdraw": `Withdraw a finished seat's negative verdict at the head it was recorded for
+(CHANGES_REQUESTED, FAIL or REFUSED), so it stops blocking. Use it when the
+finding was answered or the verdict was recorded in error and you cannot
+re-rate it: a seat that is still STARTED is re-rated by its own reviewer with
+pr verdict instead (TASK_INVALID_TRANSITION otherwise). Only the reviewer who
+recorded the verdict may, or a coordinator: a worker whose current role is
+coordinator in the App, or whoever manages the App.
+
+--head must be the head the verdict was recorded at (REVIEW_HEAD_MISMATCH
+otherwise); --receipt is the URL of a signed PR comment saying why, recorded as
+text and never fetched. The seat must have been bound and its latest verdict at
+that head must be negative and not already withdrawn
+(REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN). Anyone else is
+refused (REVIEW_WITHDRAW_FORBIDDEN): a worker session that manages the App only
+through its holder cannot withdraw from here; ask the reviewer or a coordinator.
+
+A withdrawal is never an approval. The verdict stays in the record and the seat
+is not changed; the negative only stops blocking readiness, the head's refreeze,
+dropping the slot and moving or replacing the seat. The slot still needs a
+superseding seat (pr seat --supersedes) whose own APPROVE, PASS or CARRY counts
+at this head. A refused call writes nothing, so a refusal needs no repeat. Prints
+the seat task and the register line.` + prSeeGroup,
+
 	"readiness": `Show whether every scheduled review is in at a head: READY, or NOT READY with
 a row per slot saying which seat, state and verdict it has and whether it
 counts. Anyone who can read the task may run it; it changes nothing.
@@ -447,6 +482,7 @@ var prLeafExample = map[string]string{
 	"freeze":    "  hadron team pr freeze AT0.7850 0123456789abcdef0123456789abcdef01234567",
 	"seat":      "  hadron team pr seat AT0.7850.1 --slot local --head 0123456789abcdef0123456789abcdef01234567\n  hadron team pr seat AT0.7850.4 --slot local --head <new-head> --supersedes AT0.7850.1",
 	"verdict":   "  hadron team pr verdict AT0.7850.1 --head 0123456789abcdef0123456789abcdef01234567 --verdict APPROVE --receipt https://github.com/acme/app/pull/9#issuecomment-1",
+	"withdraw":  "  hadron team pr withdraw AT0.7850.1 --head 0123456789abcdef0123456789abcdef01234567 --receipt https://github.com/acme/app/pull/9#issuecomment-2",
 	"readiness": "  hadron team pr readiness AT0.7850 --head 0123456789abcdef0123456789abcdef01234567 --json",
 	"ready":     "  hadron team pr ready AT0.7850 --head 0123456789abcdef0123456789abcdef01234567",
 }
