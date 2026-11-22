@@ -165,7 +165,7 @@ func TestUtilizationHelpSaysWhatTheNewFieldsMean2896(t *testing.T) {
 		"most recent match",
 		"a later match clears it",
 		"has workers and none eligible",
-		"last match failure",
+		"LAST MATCH FAILURE is",
 		"server's order",
 	} {
 		if !strings.Contains(help, want) {
