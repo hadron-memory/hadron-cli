@@ -27,6 +27,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -92,10 +94,21 @@ func hostListRunBoth(t *testing.T, server string, args ...string) (string, strin
 }
 
 // hostListRunApp is hostListRunBoth with the --app flag value given ("" means the caller did not
-// pass --app: the App then comes from the context the harness does not set, so the label read
-// fails closed and the App ref is the flag-less default) (cli#2939).
+// pass --app: the App comes from the configured context instead) (cli#2939).
 func hostListRunApp(t *testing.T, server, appFlag string, args ...string) (string, string, error) {
 	t.Helper()
+	if appFlag == "" {
+		// No --app: the App comes from the configured context (a config file in the temp
+		// XDG_CONFIG_HOME the fake set), so the run does not depend on a worktree binding or
+		// the developer's own config.
+		dir := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron")
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte("app = \"hrn:app:acme.com:ops\"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	f := cmdutil.NewFactory()
 	f.ServerFlag = server
 	f.AppFlag = appFlag
