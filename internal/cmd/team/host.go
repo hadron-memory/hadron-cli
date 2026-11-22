@@ -522,9 +522,9 @@ type, host, worker, status, who issued it and, once reported, its result or
 failure reason. When the platform issued it for no task, the BY cell adds the
 server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
 run and has no session; --json carries it as issuedReason, absent when the
-server names none. A server older than 2026-11-15 has no such field: the list then
-reads without it and says so once (a stderr note, or a warnings entry in
---json). Whoever reads the App's tasks and events may.
+server names none. A server older than 2026-11-15 has no such field: the
+list then reads without it and says so once (a stderr note, or a warnings
+entry in --json). Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
