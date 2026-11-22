@@ -88,9 +88,17 @@ func hostListRun(t *testing.T, server string, args ...string) (string, error) {
 // text mode prints there (the old-server fallback disclosure).
 func hostListRunBoth(t *testing.T, server string, args ...string) (string, string, error) {
 	t.Helper()
+	return hostListRunApp(t, server, "hrn:app:acme.com:ops", args...)
+}
+
+// hostListRunApp is hostListRunBoth with the --app flag value given ("" means the caller did not
+// pass --app: the App then comes from the context the harness does not set, so the label read
+// fails closed and the App ref is the flag-less default) (cli#2939).
+func hostListRunApp(t *testing.T, server, appFlag string, args ...string) (string, string, error) {
+	t.Helper()
 	f := cmdutil.NewFactory()
 	f.ServerFlag = server
-	f.AppFlag = "hrn:app:acme.com:ops"
+	f.AppFlag = appFlag
 	io, out, errOut := output.Test()
 	f.IOStreams = io
 	root := &cobra.Command{Use: "host", SilenceUsage: true, SilenceErrors: true}
@@ -264,8 +272,8 @@ func TestHostListSinglePageContinueHint_2824(t *testing.T) {
 	if !strings.Contains(out, "page: 2 of 3 from offset 0") {
 		t.Errorf("framing must count the rows served:\n%s", out)
 	}
-	if !strings.Contains(out, "continue: hadron team host list --offset 2") {
-		t.Errorf("the continuation hint must advance by rows served:\n%s", out)
+	if !strings.Contains(out, "continue: hadron team host list --app hrn:app:acme.com:ops --limit 2 --offset 2") {
+		t.Errorf("the continuation hint must advance by rows served and carry the --app and --limit the caller gave (cli#2939):\n%s", out)
 	}
 }
 
@@ -563,5 +571,74 @@ func TestHostListOldServerSinglePageRefused_2824(t *testing.T) {
 	}
 	if n := len(pageCalls(calls())); n != 1 {
 		t.Fatalf("the refusal is one paged attempt, no retry, got %d", n)
+	}
+}
+
+// cli#2939 (FIT AT0.9807.1): the single-page continue hint carries what the caller gave and nothing
+// else, and advances by the rows the server SERVED. A hint that drops a given --limit continues in
+// 20-row pages; one that drops a given --app reads the default App's list when copied; one that adds
+// a flag the caller did not give widens the ask.
+func TestHostListContinueHintCarriesWhatWasGiven_2939(t *testing.T) {
+	two := []string{hostListHost("orca1"), hostListHost("orca2")}
+	for _, tc := range []struct {
+		name string
+		app  string
+		args []string
+		want string
+		not  []string
+	}{
+		{"limit and offset and app", "hrn:app:acme.com:ops", []string{"--limit", "2", "--offset", "4"},
+			"continue: hadron team host list --app hrn:app:acme.com:ops --limit 2 --offset 6", nil},
+		{"offset alone carries no limit", "hrn:app:acme.com:ops", []string{"--offset", "4"},
+			"continue: hadron team host list --app hrn:app:acme.com:ops --offset 6", []string{"--limit"}},
+		{"no --app given carries no --app", "", []string{"--limit", "2"},
+			"continue: hadron team host list --limit 2 --offset 2", []string{"--app"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server, _ := hostListPageFake(t, map[string][]string{
+				"HostRegistrationsPage": {hostPageBody(two, 9, true)},
+				"TeamAppIdentity":       {hostListLabelBody},
+			})
+			out, _, err := hostListRunApp(t, server, tc.app, tc.args...)
+			if err != nil {
+				t.Fatalf("execute: %v\n%s", err, out)
+			}
+			if !strings.Contains(out, tc.want) {
+				t.Fatalf("hint must be %q:\n%s", tc.want, out)
+			}
+			var hint string
+			for _, l := range strings.Split(out, "\n") {
+				if strings.HasPrefix(l, "continue:") {
+					hint = l
+				}
+			}
+			for _, n := range tc.not {
+				if strings.Contains(hint, n) {
+					t.Fatalf("the hint must not carry %q the caller did not give: %q", n, hint)
+				}
+			}
+		})
+	}
+}
+
+// A null item in a single page is a server contract fault: it is skipped (silently, a recorded
+// choice) and never panics, and the continue hint advances by the rows the server SERVED (3), not
+// the rows rendered (2), so the null's slot is not re-read.
+func TestHostListSinglePageSkipsANullRowAndContinuesPastIt_2939(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca1"), "null", hostListHost("orca3")}, 8, true)},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	out, _, err := hostListRunApp(t, server, "hrn:app:acme.com:ops", "--limit", "3")
+	if err != nil {
+		t.Fatalf("a null row must be skipped, not fail: %v\n%s", err, out)
+	}
+	for _, want := range []string{"orca1", "orca3", "page: 2 of 8 from offset 0", "--limit 3 --offset 3"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "--offset 2") {
+		t.Fatalf("the hint must advance past the null's slot (3 served), not by the 2 rendered:\n%s", out)
 	}
 }
