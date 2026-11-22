@@ -47,6 +47,39 @@ query HostRegistrations($appRef: String!) {
   }
 }
 
+# One page of an App's host registrations, the paged sibling of the field
+# above (server #2213 S3, cli#2824): same rows, App gate and refusals, plus
+# the {items,total,hasMore} envelope. limit and offset are always sent —
+# `team host list` drains this field 20 at a time by default and reads one
+# explicit page with --limit/--offset, so it never wants the server's default
+# page; a limit of 0 asks for the count only. The callers that decide on the
+# whole set (host up/run/sweep, onboarding, the chat adapter) keep the
+# unpaged field.
+query HostRegistrationsPage($appRef: String!, $limit: Int!, $offset: Int!) {
+  hostRegistrationsPage(appRef: $appRef, limit: $limit, offset: $offset) {
+    items {
+      hostId
+      label
+      pollIntervalSeconds
+      registeredAt
+      refreshedAt
+      live
+      workers {
+        workerId
+        worker {
+          id
+          urn
+          name
+        }
+        family
+        worktrees
+      }
+    }
+    total
+    hasMore
+  }
+}
+
 query HostOperations(
   $appRef: String!
   # @genqlient(omitempty: true)
