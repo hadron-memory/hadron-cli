@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -20,40 +21,6 @@ func claimOK1596() map[string]string {
 		"ClaimUntrackedTaskItems": ok,
 		claimPartiesOp1596:        ok,
 		"UntrackedTaskItems":      untrackedPage1524("", 0, true, ""),
-	}
-}
-
-// Row 2 + malformed refs: refused locally, exit 2, ZERO requests of any kind
-// (not even the binding's App read), never a list turned into a write.
-func TestFindUntrackedPartyFlagsRefusedLocally1596(t *testing.T) {
-	for name, argv := range map[string][]string{
-		"--assignee without --assign-to-me":    {"--assignee", "worker:Iris"},
-		"--owner without --assign-to-me":       {"--owner", "user:holger"},
-		"both without --assign-to-me":          {"--assignee", "worker:Iris", "--owner", "user:holger"},
-		"--assignee empty":                     {"--assign-to-me", "--assignee", ""},
-		"--owner empty":                        {"--assign-to-me", "--owner", ""},
-		"--assignee without a kind":            {"--assign-to-me", "--assignee", "Iris"},
-		"--owner with an unknown kind":         {"--assign-to-me", "--owner", "team:Marco"},
-		"--assignee with an empty ref":         {"--assign-to-me", "--assignee", "worker:"},
-		"valid --assignee, malformed --owner":  {"--assign-to-me", "--assignee", "worker:Iris", "--owner", "holger"},
-		"empty --assignee without the switch":  {"--assignee", ""},
-		"--owner=user:x with --skip, no claim": {"--owner", "user:x", "--skip", "2"},
-	} {
-		t.Run(name, func(t *testing.T) {
-			calls, out, _, err := runFind1524(t, claimOK1596(), append([]string{"--integration", "github"}, argv...)...)
-			if exitCodeFor(err) != exitcode.Usage {
-				t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Usage, err)
-			}
-			if strings.Contains(err.Error(), "unknown flag") {
-				t.Fatalf("the flags must exist: %v", err)
-			}
-			if len(*calls) != 0 {
-				t.Errorf("zero requests expected, got %v", *calls)
-			}
-			if out != "" {
-				t.Errorf("nothing on stdout: %q", out)
-			}
-		})
 	}
 }
 
@@ -91,12 +58,19 @@ func TestFindUntrackedPartyRefusalBeforeAppLookup1596(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"--server", srv.URL, "team", "task", "find-untracked", "--integration", "github", "--owner", "user:holger"})
+	// cli#1964: on the adapter path (the integration path is retired), an
+	// --owner without --track is refused before the adapter, the binding's App
+	// lookup or anything else runs.
+	path, log := fakeAdapter1961(t, "", `echo '{"items":[]}'`, "")
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "find-untracked", "--adapter", path, "--owner", "user:holger"})
 	err := root.Execute()
 	if exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Usage, err)
 	}
 	if len(*calls) != 0 {
 		t.Errorf("zero requests expected, got %v", *calls)
+	}
+	if b, _ := os.ReadFile(log); len(b) != 0 {
+		t.Errorf("the adapter must not be run: %s", b)
 	}
 }

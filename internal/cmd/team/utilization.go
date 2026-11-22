@@ -130,8 +130,16 @@ exits 0 whatever the numbers. It is a script exit code, not an alarm.`,
 				if c == nil {
 					continue
 				}
+				// hadron-server#3819 slice 1 made family nullable (a row for a
+				// failed task that left it open). A null decodes as "" here,
+				// exactly as the released CLI decodes it today; how to show an
+				// open family is cli#2896's to decide.
+				family := ""
+				if c.Family != nil {
+					family = *c.Family
+				}
 				dto.Combinations = append(dto.Combinations, utilizationComboDTO{
-					Family: c.Family, Tier: c.Tier, Role: c.Role,
+					Family: family, Tier: c.Tier, Role: c.Role,
 					EligibleWorkers: c.EligibleWorkers, BusyWorkers: c.BusyWorkers,
 					Utilization: c.Utilization, Saturated: c.Saturated,
 				})
