@@ -404,9 +404,12 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 }
 
 // strOr renders an optional string, an em dash for none.
+// nullCell is the word a table prints for a null or empty value.
+const nullCell = "—"
+
 func strOr(s *string) string {
 	if s == nil || *s == "" {
-		return "—"
+		return nullCell
 	}
 	return *s
 }
