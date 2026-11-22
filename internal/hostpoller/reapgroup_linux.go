@@ -128,16 +128,15 @@ var (
 	scanPause         = 5 * time.Millisecond
 )
 
-// groupStopScanDeadline is the longer deadline of the stop's LAST scan (cli#2853): after the
-// ladder's own waits have failed to prove the group gone, one more scan runs for this long
-// before the stop is reported unconfirmed. Declared ahead of the change that uses it.
+// groupStopScanDeadline is the longer deadline of the stop's LAST scan (cli#2853): the ladder's
+// own waits (the grace, the post-SIGKILL wait) probe with the short package deadline so a stop
+// still signals and escalates promptly, but when they have not proved the group gone, one more
+// scan runs for this long before the stop is reported unconfirmed. It is the builder's value
+// inside Holger's ruling (scan until a wall-clock deadline, else report unconfirmed with its code):
+// QA at the first fold showed 1s found a clean pass in about 1 of 79 passes on a saturated host, so
+// a stop that must confirm gets a longer window, at the price of waiting up to this long under
+// endless churn instead of failing fast. The drain watcher's periodic probes keep groupScanDeadline.
 var groupStopScanDeadline = 5 * time.Second
-
-// groupMembershipWithin is groupMembershipWith with the scan's deadline given. Declared ahead
-// of the change that uses it: this stub still scans for the package deadline.
-func groupMembershipWithin(pgid, leader int, list procLister, _ time.Duration) (bool, drainWhy) {
-	return groupMembershipWith(pgid, leader, list)
-}
 
 // readProcDir lists /proc, as a package var so a test can hand the scan a
 // listing that changes between passes (the vanishing-entry race).
@@ -213,6 +212,20 @@ func groupMembership(pgid, leader int) (bool, drainWhy) {
 // that was given one (ExecHost.procList, tests only) scans through it, and the
 // package-wide seam is never touched.
 func groupMembershipWith(pgid, leader int, list procLister) (bool, drainWhy) {
+	return groupMembershipWithin(pgid, leader, list, groupScanDeadline)
+}
+
+// groupMembershipFor is the scan the stop's last step uses: over the launch's own lister when it
+// was given one, else the package listing, and with the given deadline.
+func groupMembershipFor(pgid, leader int, list procLister, deadline time.Duration) (bool, drainWhy) {
+	if list == nil {
+		list = func(dir string) ([]os.DirEntry, error) { return readProcDir(dir) }
+	}
+	return groupMembershipWithin(pgid, leader, list, deadline)
+}
+
+// groupMembershipWithin is groupMembershipWith with the scan's wall-clock deadline given (cli#2853).
+func groupMembershipWithin(pgid, leader int, list procLister, deadline time.Duration) (bool, drainWhy) {
 	prevZ := map[int]bool(nil) // pass 0 has no predecessor: every Z member is new
 	start := scanClock()
 	for {
@@ -220,7 +233,7 @@ func groupMembershipWith(pgid, leader int, list procLister) (bool, drainWhy) {
 		if !void {
 			return found, why
 		}
-		if scanClock().Sub(start) >= groupScanDeadline {
+		if scanClock().Sub(start) >= deadline {
 			return true, why // /proc never held still in time: not proof of an empty group
 		}
 		prevZ = zs

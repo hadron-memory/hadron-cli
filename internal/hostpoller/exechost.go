@@ -445,6 +445,19 @@ func (a *execAgent) members() (bool, drainWhy) {
 	return m, why
 }
 
+// membersWithin is members for the stop's LAST scan (cli#2853): the launch's own lister (or the
+// package listing) with the given deadline, recording the code the same way. It does not go through
+// the drainMembership seam, which only the watcher's loop tests replace.
+func (a *execAgent) membersWithin(d time.Duration) (bool, drainWhy) {
+	m, why := groupMembershipFor(a.pid, a.pid, a.procList, d)
+	if m {
+		a.lastMembers.Store(string(why))
+	} else {
+		a.lastMembers.Store("")
+	}
+	return m, why
+}
+
 // lastMembersWhy is the code of the last membership scan that answered "members" ("" when
 // none ran or the last one drained), for an unconfirmed stop's wording.
 func (a *execAgent) lastMembersWhy() drainWhy {

@@ -95,3 +95,39 @@ func TestAStopUnderChurnThatOutlastsTheLadderConfirmsOnTheFinalScan2853(t *testi
 		t.Fatalf("a confirmed stop completed its reap: reaped=%v confirmed=%v", ea.reaped.Load(), ea.confirmed.Load())
 	}
 }
+
+// The watcher's periodic probe (execAgent.members) keeps the SHORT package deadline: only the stop's
+// last scan is longer, so a held zombie under endless churn is not scanned for seconds every 200ms.
+func TestTheWatcherProbeKeepsTheShortDeadline2853(t *testing.T) {
+	f := churnHost(3)
+	f.install(t)
+	withFreshVanisher(f, 1<<30)
+	elapsed := withScanClock(t, 10*time.Millisecond, time.Second)
+	oldStop := groupStopScanDeadline
+	groupStopScanDeadline = 5 * time.Second
+	t.Cleanup(func() { groupStopScanDeadline = oldStop })
+	a := &execAgent{pid: churnPgid}
+	if m, why := a.members(); !m || why != whyUnseenPid {
+		t.Fatalf("endless churn is members/unseen-pid: %v/%s", m, why)
+	}
+	if elapsed() < time.Second || elapsed() > time.Second+50*time.Millisecond {
+		t.Fatalf("the watcher's probe runs to the package deadline (1s), not the stop's (5s): %s", elapsed())
+	}
+}
+
+// The stop's last scan records the code of what it found, so an unconfirmed stop names it.
+func TestTheFinalScanRecordsItsCodeForTheUnconfirmedWording2853(t *testing.T) {
+	f := churnHost(3)
+	f.install(t)
+	withFreshVanisher(f, 1<<30)
+	withScanClock(t, 10*time.Millisecond, time.Second)
+	m, why := (&execAgent{pid: churnPgid}).membersWithin(2 * time.Second)
+	if !m || why != whyUnseenPid {
+		t.Fatalf("endless churn is members/unseen-pid at the final scan: %v/%s", m, why)
+	}
+	ag := &execAgent{pid: churnPgid}
+	ag.membersWithin(2 * time.Second)
+	if got := ag.lastMembersWhy(); got != whyUnseenPid {
+		t.Fatalf("the final scan must record its code for the stop's wording, got %q", got)
+	}
+}
