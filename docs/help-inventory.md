@@ -594,7 +594,7 @@ section between the markers.
 | `team session shed` |  |  | y | #1054 | 8a844e44afac |  | unread |  |
 | `team session start` |  |  | y | #1054 | 593914c6fe46 |  | unread |  |
 | `team session sync-model` |  |  | y | #1054 | 17c144a7206a |  | unread |  |
-| `team session whoami` |  |  | y | #1054 | f4ef03f96070 |  | unread |  |
+| `team session whoami` |  |  | y | #1054 | f9aa532d998b |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | 709bc1b67fe7 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | aa1c65ef79dc |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
