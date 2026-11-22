@@ -3142,8 +3142,9 @@ Conventions:
   unreleased stint refuse with `WORKER_IN_USE` (exit 5); an ended empty
   stint alone is not attributed work. `WORKER_CENSUS_INCOMPLETE` (exit 5) is the
   server's fail-closed refusal when its reference check did not finish: nothing was
-  deleted and no reference was found. It never means the delete is safe and the worker
-  is not "in use"; retry later or retire (no bypass flag exists). Before removing one, verify that no
+  deleted, and references were neither found nor ruled out. It is not `WORKER_IN_USE`
+  and never means the worker is unused or the delete is safe; retry later or retire
+  (no bypass flag exists). Before removing one, verify that no
   signed commit, trailer, PR, comment, review or other published artifact
   attributes work to it, then pass `--confirm-no-external-attribution`.
   Database checks cannot prove external absence. Known or uncertain history

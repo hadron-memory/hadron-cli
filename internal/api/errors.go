@@ -1697,11 +1697,18 @@ func codeForExtension(code string) int {
 		// The caller must explicitly attest verified external absence; --yes
 		// alone confirms deletion, not that separate input (server#1162).
 		return exitcode.Usage
-	// A stale casting changed concurrently; an unchanged agent has nothing to
-	// change; a role-less agent cannot supply a new role. The caller must
-	// choose another agent or change that state. All three are conflict (5),
-	// never idempotent success, under the cli#1336 gate.
-	case code == "WORKER_IN_USE" || code == "WORKER_CENSUS_INCOMPLETE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
+	// A worker with references or an unreleased stint; a stale casting that
+	// changed concurrently; an unchanged agent; a role-less agent that cannot supply
+	// a new role. The caller must choose another agent or change that state.
+	// All are conflict (5), never idempotent success, under the cli#1336 gate.
+	// WORKER_CENSUS_INCOMPLETE (cli#2959) is the server's fail-closed "reference
+	// check did not finish": it ANSWERED and nothing was deleted, so the outcome is
+	// known and the state the caller must change is time (retry) or the choice
+	// (retire). That is a conflict, not unavailable (7), which is only for a request
+	// or answer that never arrived.
+	case code == "WORKER_CENSUS_INCOMPLETE":
+		return exitcode.Conflict
+	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
 		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE" ||
 		code == "WORKER_CASTING_STALE" || code == "WORKER_AGENT_UNCHANGED" || code == "WORKER_AGENT_HAS_NO_ROLE":
 		return exitcode.Conflict
