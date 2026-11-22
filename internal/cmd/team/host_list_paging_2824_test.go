@@ -700,7 +700,8 @@ func TestHostListLimitZeroPrintsNoContinueHint_2939(t *testing.T) {
 }
 
 // A page of only null items with more rows behind it renders as an empty page but the server SERVED
-// rows, so the hint is still printed and advances past them (else the list could not be continued).
+// rows, so the hint is still printed and advances past them (else the list could not be continued);
+// since cli#2971 the empty-page line also names the skipped rows.
 func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
 	server, _ := hostListPageFake(t, map[string][]string{
 		"HostRegistrationsPage": {hostPageBody([]string{"null", "null"}, 6, true)},
@@ -710,7 +711,7 @@ func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "no hosts on this page (total 6)") || !strings.Contains(out, "--limit 2 --offset 2") {
+	if !strings.Contains(out, "no hosts on this page (total 6, 2 null rows skipped)") || !strings.Contains(out, "--limit 2 --offset 2") {
 		t.Fatalf("an all-null page says so and still continues past the served rows:\n%s", out)
 	}
 }
