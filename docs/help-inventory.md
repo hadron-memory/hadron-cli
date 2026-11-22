@@ -326,7 +326,7 @@ section between the markers.
 | `agent rm` | delete |  | y | #1053 | 5e410603db21 |  | unread |  |
 | `agent session` |  |  | n | #1053 | 9e3ff7d2f95e |  | unread |  |
 | `agent session end` |  |  | y | #1053 | 1de047b2441b |  | unread |  |
-| `agent session start` |  |  | y | #1053 | dd63bcc551fd |  | unread |  |
+| `agent session start` |  |  | y | #1053 | 74361d31533c |  | unread |  |
 | `agent set-base` |  |  | n | #1053 | 262c332aec88 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent set-boot-prompt` |  |  | y | #1053 | b0ad7f8bd680 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent subscription` |  |  | n | #1053 | ab703c07e966 |  | unread |  |
