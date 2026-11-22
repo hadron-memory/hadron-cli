@@ -67,13 +67,18 @@ const hostRegistrationsPageMissing = "this server has no hostRegistrationsPage (
 // hostRegistrationPageDTO is `team host list`'s --json shape in SINGLE-PAGE
 // mode only (cli#2824): the page plus what a consumer needs to continue it.
 // The default drain keeps the bare array, so an agent can tell "the complete
-// set" from "one page" by the shape alone (cor:api:120:04).
+// set" from "one page" by the shape alone (cor:api:120:04). Served counts the
+// rows the server returned, null items included — the count the continue
+// point advances by — and NextOffset is that point: nil (null on the wire)
+// when no further page follows, a last page or a count-only one (cli#2971).
 type hostRegistrationPageDTO struct {
-	Items   []hostRegistrationDTO `json:"items"`
-	Total   int                   `json:"total"`
-	HasMore bool                  `json:"hasMore"`
-	Offset  int                   `json:"offset"`
-	Limit   int                   `json:"limit"`
+	Items      []hostRegistrationDTO `json:"items"`
+	Total      int                   `json:"total"`
+	HasMore    bool                  `json:"hasMore"`
+	Offset     int                   `json:"offset"`
+	Limit      int                   `json:"limit"`
+	Served     int                   `json:"served"`
+	NextOffset *int                  `json:"nextOffset"`
 }
 
 // hostRegistrationDTOFrom converts one paged row. A null worker entry is
@@ -101,6 +106,23 @@ func hostRegistrationDTOFrom(r *pagedHostRegistration) hostRegistrationDTO {
 		dto.Workers = append(dto.Workers, hw)
 	}
 	return dto
+}
+
+// nullRowsSkipped names the null items the server sent and the output
+// skipped, "" when there are none (cli#2971): the rows a page shows and the
+// offset its continue hint advances by disagree exactly when a row is
+// skipped, so the page line (and the empty-page line) account for it —
+// cor:api:120:04, the continue point must let the caller reach the rest
+// without a row seeming lost.
+func nullRowsSkipped(served, rendered int) string {
+	if served <= rendered {
+		return ""
+	}
+	rows := "rows"
+	if served-rendered == 1 {
+		rows = "row"
+	}
+	return fmt.Sprintf("%d null %s skipped", served-rendered, rows)
 }
 
 // hostRegistrationDTOFromWhole converts one whole-set row — the same
@@ -372,11 +394,15 @@ the App holds no more. --limit or --offset asks for ONE page instead: --limit
 N rows starting --offset M rows in. Both count from 0; the server caps a page
 at 200 and serves a larger ask as 200 rather than refusing; --limit 0 asks
 for the count alone. A one-page output always says it is one page —
-"page: <rows> of <total> from offset <o>" — and, while more rows exist, prints
-the command that continues the list: the --server, --app and --limit you gave
-carried over, the --offset advanced by the rows the server served; an empty page names the total
-rather than reading as "no hosts". In single-page mode --json is an envelope
-{items,total,hasMore,offset,limit}; the default keeps the bare array. A
+"page: <rows> of <total> from offset <o>", naming any null row it skipped —
+and, while more rows exist, prints the command that continues the list: the
+--server, --app and --limit you gave carried over, the --offset advanced by
+the rows the server served. Of the run's context only --server and --app
+are carried — an App resolved from the worktree binding makes the hint
+right only from that directory — and an empty page names the total rather
+than reading as "no hosts". In single-page mode --json is an envelope
+{items,total,hasMore,offset,limit,served,nextOffset}, nextOffset null when
+no further page follows; the default keeps the bare array. A
 server without the paged field is read whole in one call instead; the flags
 need the paged field and are refused without it.`,
 		Args: cobra.NoArgs,
@@ -402,11 +428,14 @@ need the paged field and are refused without it.`,
 			// whole inventory 20 rows at a time (cli#2824, cor:api:120:04 — a
 			// client doesn't ask for more than 20 unless its user did).
 			if cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset") {
-				lim := limit
+				// pageLimit is the limit to ask for: the --limit the caller gave,
+				// or the default page size when only --offset was (cli#2971: the
+				// old one-letter-apart `lim` was easy to misread for `limit`).
+				pageLimit := limit
 				if !cmd.Flags().Changed("limit") {
-					lim = api.InventoryPageSize
+					pageLimit = api.InventoryPageSize
 				}
-				resp, err := gen.HostRegistrationsPage(ctx, client, scope.Ref, lim, offset)
+				resp, err := gen.HostRegistrationsPage(ctx, client, scope.Ref, pageLimit, offset)
 				if err != nil {
 					// An old server cannot serve a page: the unpaged field has
 					// no offset to slice, so the flags are refused by name
@@ -420,13 +449,21 @@ need the paged field and are refused without it.`,
 				if resp == nil || resp.HostRegistrationsPage == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no host registrations page")
 				}
-				page := hostRegistrationPageDTO{Items: []hostRegistrationDTO{}, Total: resp.HostRegistrationsPage.Total, HasMore: resp.HostRegistrationsPage.HasMore, Offset: offset, Limit: lim}
-				// served is how many rows the server returned, null items included: the continue hint
-				// advances by it, so a skipped null's slot is not read again.
+				// served is how many rows the server returned, null items included: the continue
+				// point advances by it, so a skipped null's slot is not read again (cli#2971: the
+				// envelope states it, nextOffset, so a consumer need not recount items to know
+				// where to continue — cor:api:120:04).
 				served := len(resp.HostRegistrationsPage.Items)
+				page := hostRegistrationPageDTO{Items: []hostRegistrationDTO{}, Total: resp.HostRegistrationsPage.Total, HasMore: resp.HostRegistrationsPage.HasMore, Offset: offset, Limit: pageLimit, Served: served}
+				if page.HasMore && served > 0 {
+					next := offset + served
+					page.NextOffset = &next
+				}
 				for _, r := range resp.HostRegistrationsPage.Items {
 					// A null item is a server contract fault, not an entry to act on: it is skipped
-					// silently (a recorded choice, cli#2939) rather than panicking the read.
+					// (a recorded choice, cli#2939) rather than panicking the read — and the output
+					// names how many were skipped, so the rows shown and the offset the continue
+					// hint advances by do not disagree unexplained (cli#2971).
 					if r == nil {
 						continue
 					}
@@ -463,8 +500,12 @@ need the paged field and are refused without it.`,
 						// beyond this offset (or --limit 0 asked for none). The
 						// total says which; a failed read never gets here — it
 						// exits non-zero above. A page of only null items (served, none shown)
-						// still continues.
-						if _, err := fmt.Fprintf(w, "no hosts on this page (total %d)\n", page.Total); err != nil {
+						// still continues, and names the skipped rows (cli#2971).
+						skips := ""
+						if s := nullRowsSkipped(served, len(page.Items)); s != "" {
+							skips = ", " + s
+						}
+						if _, err := fmt.Fprintf(w, "no hosts on this page (total %d%s)\n", page.Total, skips); err != nil {
 							return err
 						}
 						if h := continueHint(); h != "" {
@@ -476,7 +517,11 @@ need the paged field and are refused without it.`,
 					if err := writeHostTable(w, page.Items); err != nil {
 						return err
 					}
-					if _, err := fmt.Fprintf(w, "page: %d of %d from offset %d\n", len(page.Items), page.Total, offset); err != nil {
+					skips := ""
+					if s := nullRowsSkipped(served, len(page.Items)); s != "" {
+						skips = " (" + s + ")"
+					}
+					if _, err := fmt.Fprintf(w, "page: %d of %d from offset %d%s\n", len(page.Items), page.Total, offset, skips); err != nil {
 						return err
 					}
 					if h := continueHint(); h != "" {
