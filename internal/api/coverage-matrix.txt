@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 242: 210 command, 8 gap, 24 excluded
+[Query] 243: 211 command, 8 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -245,6 +245,7 @@ teamAvailability  command team availability get
 teamChatMessages  command team chat check
 teamChatSearch  command team chat search
 teamComposition  command team composition
+teamMetrics  command team metrics
 teamRoles  command team role get
 teamRoster  command team roster
 teamSpecSchema  gap #811
