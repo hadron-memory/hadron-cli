@@ -114493,6 +114493,8 @@ type TeamUtilizationTeamUtilizationCombinationsWorkerUtilization struct {
 	Utilization     float64 `json:"utilization"`
 	// True when the combination's latest match outcome inside the window is no worker, or when it has workers and none eligible; utilization is then 1 (hrn:node:hadronmemory.com:specs:cor:agt:060:13). This read writes nothing: the saturation episode and its one alarm are the stall evaluator's (hrn:node:hadronmemory.com:specs:cor:agt:060:14, hrn:node:hadronmemory.com:specs:cor:agt:060:15).
 	Saturated bool `json:"saturated"`
+	// The latest outcome inside the window when it is no worker; null otherwise (the record keeps only the latest outcome, so an earlier failure followed by a match is not shown).
+	LastMatchFailure *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure `json:"lastMatchFailure"`
 }
 
 // GetFamily returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Family, and is useful for accessing the field via an interface.
@@ -114528,6 +114530,32 @@ func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetUtiliza
 // GetSaturated returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Saturated, and is useful for accessing the field via an interface.
 func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetSaturated() bool {
 	return v.Saturated
+}
+
+// GetLastMatchFailure returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.LastMatchFailure, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetLastMatchFailure() *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure {
+	return v.LastMatchFailure
+}
+
+// TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure includes the requested fields of the GraphQL type MatchFailure.
+// The GraphQL type's documentation follows.
+//
+// #3819 — the latest no-worker match outcome of a combination inside the read's window (hrn:node:hadronmemory.com:specs:cor:agt:060:13).
+type TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure struct {
+	// When the failed match was decided (the database clock).
+	At string `json:"at"`
+	// The coarse reason: NO_ROLE, REQUIREMENTS_EXCLUDED, NOBODY_FREE, STOP_SIGNAL or TEAM_POOL_EMPTY. Null on a row recorded without one.
+	Reason *string `json:"reason"`
+}
+
+// GetAt returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure.At, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure) GetAt() string {
+	return v.At
+}
+
+// GetReason returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure.Reason, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure) GetReason() *string {
+	return v.Reason
 }
 
 // TeamWithdrawGrantSigningRequestResponse is returned by TeamWithdrawGrantSigningRequest on success.
@@ -189351,6 +189379,10 @@ query TeamUtilization ($appRef: ID!, $family: String, $role: String, $tier: Stri
 			busyWorkers
 			utilization
 			saturated
+			lastMatchFailure {
+				at
+				reason
+			}
 		}
 	}
 }

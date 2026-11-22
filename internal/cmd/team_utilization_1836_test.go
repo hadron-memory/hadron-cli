@@ -34,7 +34,10 @@ func utilVars(t *testing.T, calls *[]attnCall) map[string]any {
 	return nil
 }
 
-func TestTeamUtilizationAllRanksByUtilizationDescending(t *testing.T) {
+// cli#2896: the server ranks the rows (utilization, then the most recent failed match, then fewest
+// eligible workers, then family, tier and role: a total order), so the CLI prints them as served and
+// never re-sorts. utilizationJSON is deliberately NOT in utilization order: a re-sort would move a row.
+func TestTeamUtilizationAllPrintsRowsInTheServersOrder(t *testing.T) {
 	_, out, err := runTeamTask(t, utilResponses(utilizationJSON), "team", "utilization", "--all", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -55,13 +58,12 @@ func TestTeamUtilizationAllRanksByUtilizationDescending(t *testing.T) {
 	if dto.WindowHours != 24 || dto.ComputedAt == "" || len(dto.Combinations) != 3 {
 		t.Fatalf("dto: %+v", dto)
 	}
-	// 1 (codex), 1 (glm; server order kept on a tie), then 0.25.
 	got := []string{dto.Combinations[0].Family, dto.Combinations[1].Family, dto.Combinations[2].Family}
-	if strings.Join(got, ",") != "codex,glm,claude" {
-		t.Fatalf("order %v", got)
+	if strings.Join(got, ",") != "claude,codex,glm" {
+		t.Fatalf("rows must keep the server's order (no re-sort): %v", got)
 	}
-	if dto.Combinations[1].Tier != nil {
-		t.Fatalf("unknown tier must stay null: %+v", dto.Combinations[1])
+	if dto.Combinations[2].Tier != nil {
+		t.Fatalf("unknown tier must stay null: %+v", dto.Combinations[2])
 	}
 }
 
@@ -254,21 +256,5 @@ func assertEmptyCombinations(t *testing.T, out string) {
 	}
 	if dto.Combinations == nil || len(dto.Combinations) != 0 {
 		t.Fatalf("combinations must be an empty array, got %s", out)
-	}
-}
-
-// hadron-server#3819 slice 1 made a combination's family nullable (a row for a
-// failed task that left it open). Until cli#2896 decides how to show an open
-// family, the CLI keeps exactly what the released CLI did with a null: it
-// decodes as "" (cli#1964 refreshed the snapshot that made the field a pointer).
-func TestTeamUtilizationNullFamilyStaysEmpty_1964(t *testing.T) {
-	body := `{"data":{"teamUtilization":{"appId":"capp100000000000000000000","windowHours":24,"computedAt":"2026-11-17T17:00:00Z","combinations":[
- {"family":null,"tier":"high","role":"qa","eligibleWorkers":0,"busyWorkers":0,"utilization":1,"saturated":true}]}}}`
-	_, out, err := runTeamTask(t, utilResponses(body), "team", "utilization", "--all", "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, `"family": ""`) || strings.Contains(out, `"family": null`) {
-		t.Fatalf("a null family must render as \"\" until cli#2896 decides: %s", out)
 	}
 }

@@ -8,7 +8,6 @@ package team
 import (
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"time"
 
@@ -31,13 +30,25 @@ type utilizationDTO struct {
 }
 
 type utilizationComboDTO struct {
-	Family          string  `json:"family"`
+	// Family is null (an open family) when the failed task left it open: no family named, or
+	// some excluded (cli#2896); never "".
+	Family          *string `json:"family"`
 	Tier            *string `json:"tier"`
 	Role            *string `json:"role"`
 	EligibleWorkers int     `json:"eligibleWorkers"`
 	BusyWorkers     int     `json:"busyWorkers"`
 	Utilization     float64 `json:"utilization"`
 	Saturated       bool    `json:"saturated"`
+	// LastMatchFailure is the latest no-worker match outcome inside the window, as the server
+	// serves it, or null (a later match clears it).
+	LastMatchFailure *utilizationMatchFailureDTO `json:"lastMatchFailure"`
+}
+
+// utilizationMatchFailureDTO is the server's MatchFailure: when the failed match was decided and
+// the coarse reason (null on a row recorded without one), both exactly as served.
+type utilizationMatchFailureDTO struct {
+	At     string  `json:"at"`
+	Reason *string `json:"reason"`
 }
 
 var utilizationTiers = map[string]bool{"high": true, "mid": true, "low": true}
@@ -52,13 +63,20 @@ func newCmdTeamUtilization(f *cmdutil.Factory) *cobra.Command {
 (advisory; the server computes it and no matching or authority depends on it).
 
 Each combination has eligible workers, busy workers (holding a task) and their
-utilization, plus saturated. In this slice saturated is true ONLY for zero
-eligible workers (utilization then reads 100%); failure-only saturation arrives
-with the server's match-outcome integration. An unknown tier is its own row
-(tier null in --json, "-" in the table).
+utilization, plus saturated: true when the combination's most recent match
+inside the window answered no worker (a later match clears it), or when it has
+workers and none eligible; utilization then reads 100%. An unknown tier is its
+own row (tier null in --json, "—" in the table). A combination whose family
+shows "—" (null in --json) has an open family: no family named, or some excluded
+(the task that failed to match left it open).
 
---all lists every combination, highest utilization first (a tie keeps the
-server's order): the first row is where to expand. Without --all, several
+LAST MATCH FAILURE is the time and the coarse reason of the latest no-worker
+match outcome inside the window, exactly as the server serves them; "—" (null in
+--json) when there is none, because a later match clears it.
+
+--all lists every combination in the server's order, which ranks by utilization,
+then the most recent no-worker match, then fewest eligible workers, then names:
+the first row is where to expand. The CLI does not re-sort. Without --all, several
 matching combinations are refused (add --tier/--role to narrow, or use --all);
 none matching prints an empty list and exits 0.
 
@@ -130,23 +148,19 @@ exits 0 whatever the numbers. It is a script exit code, not an alarm.`,
 				if c == nil {
 					continue
 				}
-				// hadron-server#3819 slice 1 made family nullable (a row for a
-				// failed task that left it open). A null decodes as "" here,
-				// exactly as the released CLI decodes it today; how to show an
-				// open family is cli#2896's to decide.
-				family := ""
-				if c.Family != nil {
-					family = *c.Family
+				var lastFailure *utilizationMatchFailureDTO
+				if c.LastMatchFailure != nil {
+					lastFailure = &utilizationMatchFailureDTO{At: c.LastMatchFailure.At, Reason: c.LastMatchFailure.Reason}
 				}
 				dto.Combinations = append(dto.Combinations, utilizationComboDTO{
-					Family: family, Tier: c.Tier, Role: c.Role,
+					Family: c.Family, Tier: c.Tier, Role: c.Role,
 					EligibleWorkers: c.EligibleWorkers, BusyWorkers: c.BusyWorkers,
-					Utilization: c.Utilization, Saturated: c.Saturated,
+					Utilization: c.Utilization, Saturated: c.Saturated, LastMatchFailure: lastFailure,
 				})
 			}
-			sort.SliceStable(dto.Combinations, func(i, j int) bool {
-				return dto.Combinations[i].Utilization > dto.Combinations[j].Utilization
-			})
+			// The rows are the server's, in its order: utilization, then the most recent failed
+			// match, then fewest eligible workers, then family, tier and role, a total order. The
+			// CLI never re-sorts (cli#2896).
 			if !all && len(dto.Combinations) > 1 {
 				return exitcode.Newf(exitcode.Usage, "%d combinations match; add --tier/--role to narrow to one, or use --all", len(dto.Combinations))
 			}
@@ -165,12 +179,12 @@ exits 0 whatever the numbers. It is a script exit code, not an alarm.`,
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&all, "all", false, "list every combination, highest utilization first")
+	cmd.Flags().BoolVar(&all, "all", false, "list every combination, in the server's order")
 	cmd.Flags().StringVar(&family, "family", "", "model family token, e.g. claude or codex")
 	cmd.Flags().StringVar(&tier, "tier", "", "model tier: high, mid or low")
 	cmd.Flags().StringVar(&role, "role", "", "worker role")
 	cmd.Flags().StringVar(&window, "window", "", "look-back window as whole hours, 1h to 168h, e.g. 24h (default: the server's)")
-	cmd.Flags().BoolVar(&failOnSaturated, "fail-on-saturated", false, "exit 5 when any combination shown is saturated (zero eligible workers in this slice)")
+	cmd.Flags().BoolVar(&failOnSaturated, "fail-on-saturated", false, "exit 5 when any combination shown is saturated")
 	return cmd
 }
 
@@ -178,11 +192,23 @@ func renderUtilization(w io.Writer, dto utilizationDTO) error {
 	if _, err := fmt.Fprintf(w, "window: %dh   computed: %s\n", dto.WindowHours, output.SafeCell(dto.ComputedAt)); err != nil {
 		return err
 	}
-	t := output.NewTable(w, "FAMILY", "TIER", "ROLE", "ELIGIBLE", "BUSY", "UTILIZATION", "SATURATED")
+	t := output.NewTable(w, "FAMILY", "TIER", "ROLE", "ELIGIBLE", "BUSY", "UTILIZATION", "SATURATED", "LAST MATCH FAILURE")
 	for _, c := range dto.Combinations {
-		t.Row(output.SafeCell(c.Family), output.SafeCell(strOr(c.Tier)), output.SafeCell(strOr(c.Role)),
+		t.Row(output.SafeCell(strOr(c.Family)), output.SafeCell(strOr(c.Tier)), output.SafeCell(strOr(c.Role)),
 			fmt.Sprint(c.EligibleWorkers), fmt.Sprint(c.BusyWorkers),
-			fmt.Sprintf("%.0f%%", c.Utilization*100), yesNo(c.Saturated))
+			fmt.Sprintf("%.0f%%", c.Utilization*100), yesNo(c.Saturated), matchFailureCell(c.LastMatchFailure))
 	}
 	return t.Flush()
+}
+
+// matchFailureCell is the failure's time and coarse reason exactly as served (a null reason prints the
+// time alone; the CLI never turns a reason into a promise), or the null word when there is none.
+func matchFailureCell(m *utilizationMatchFailureDTO) string {
+	if m == nil {
+		return "—"
+	}
+	if m.Reason == nil || *m.Reason == "" {
+		return output.SafeCell(m.At)
+	}
+	return output.SafeCell(m.At) + " " + output.SafeCell(*m.Reason)
 }
