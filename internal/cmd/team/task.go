@@ -43,17 +43,17 @@ write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
 Server compatibility: task-record commands require a server released on or
-after 2026-11-03 (it carries the matching metadata, the finish-by time and the
-model groups), even when neither flag is named and no matching flag is named.
+after 2026-11-17 (it carries the run settings, the matching metadata, the
+finish-by time and the model groups), even when neither flag is named and no
+matching flag is named.
 The shared projection selects matchFailure,
 requirements.roles/teamWorkerId, finishBy and modelGroupIn/modelGroupNotIn
 for every command returning a task record, including hand-back and
 find-untracked. An older server rejects those documents as schema skew,
 exit 2: upgrade that provider first, including self-hosted or staging servers.
 Omitted input keys do not hide output selections. The separate dependencies
-paging query is unaffected. The hosted server is always current; for a
-self-hosted or staging server, ask its operator when it was last released
-(` + "`hadron server-info`" + ` shows that it answers, not its release date).
+paging query is unaffected. To learn when a server was last released, ask its
+operator (` + "`hadron server-info`" + ` shows that it answers, not a release date).
 
 A typical flow, from the person or worker handing out the work to the
 assignee working in its bound worktree (the handles here and on every page are
@@ -250,7 +250,7 @@ Who goes on it:
   go unchanged to the server for validation. Groups resolve live at match time:
   editing a group can change matches without a task edit. They are matching
   inputs only, never authorization. All task-record reads and mutation receipts
-  require a server released on or after 2026-11-03, even with no group flag
+  require a server released on or after 2026-11-17, even with no group flag
   (see team task --help).
   Comma splitting keeps each item verbatim; the server trims and drops empty items.
 - --status backlog parks it instead: no assignee (the server refuses both),
@@ -366,11 +366,11 @@ PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties
 
 The server owns eligibility, authority and matching; the CLI never selects a
 worker. Every task command reads fields that older servers lack, whichever flags
-you pass: run settings (a server released on or after 2026-11-17), the
-finish-by time, the matching metadata, the minimum tier and the model-group
-records (a server released on or after 2026-11-03). A server that lacks any
-one of them refuses every task command, even a plain create; there is no
-fallback.
+you pass: the run settings, the finish-by time, the matching metadata, the
+minimum tier and the model-group records. The newest of them needs a server
+released on or after 2026-11-17, which is the floor for every task command. A
+server that lacks any one of them refuses every task command, even a plain
+create; there is no fallback.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a

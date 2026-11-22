@@ -326,7 +326,7 @@ func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
 				t.Fatalf("help err=%v calls=%v", err, *calls)
 			}
 			flat := strings.Join(strings.Fields(out), " ") // the help wraps lines: compare on one line
-			for _, want := range []string{"task-record", "released on or after 2026-11-03", tc.want} {
+			for _, want := range []string{"task-record", "released on or after 2026-11-17", tc.want} {
 				if !strings.Contains(flat, want) && !strings.Contains(out, want) {
 					t.Fatalf("help missing %q: %s", want, out)
 				}
@@ -373,7 +373,7 @@ func TestTaskModelGroupNullRequirements1485(t *testing.T) {
 }
 
 // cli#2811 review: the task-record floor is ONE date across the group page, create and update
-// (the projection every task command reads needs the newest field, 2026-11-03), stated as
+// (the projection every task command reads includes the run settings, the newest field, 2026-11-17), stated as
 // "on or after" so the first release that carries it is not excluded, and no page keeps an older
 // or "after"-only floor for the same statement.
 func TestTaskRecordFloorIsOneDateOnOrAfter(t *testing.T) {
@@ -383,13 +383,14 @@ func TestTaskRecordFloorIsOneDateOnOrAfter(t *testing.T) {
 			t.Fatal(err)
 		}
 		flat := strings.Join(strings.Fields(out), " ")
-		if !strings.Contains(flat, "released on or after 2026-11-03") {
+		if !strings.Contains(flat, "released on or after 2026-11-17") {
 			t.Errorf("%v: the task-record floor is 2026-11-03 on or after:\n%s", args, flat)
 		}
-		for _, bad := range []string{"released after 20", "released after\n"} {
-			if strings.Contains(out, bad) || strings.Contains(flat, "released after 20") {
-				t.Errorf("%v: floors are stated \"on or after\", never \"after\": %q", args, bad)
-			}
+		if strings.Contains(flat, "released after 20") {
+			t.Errorf("%v: floors are stated \"on or after\", never \"after\"", args)
+		}
+		if strings.Contains(flat, "on or after 2026-11-03)") || strings.Contains(flat, "released on or after 2026-11-01") {
+			t.Errorf("%v: the task-record floor is the newest field's date, 2026-11-17, on every page", args)
 		}
 	}
 }

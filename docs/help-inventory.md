@@ -599,12 +599,12 @@ section between the markers.
 | `team stop lift` |  |  | n | #1054 | 97ff7478a8a7 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team stop set` |  |  | y | #1054 | 6891c254fb39 |  | unread |  |
-| `team task` |  |  | n | #1054 | 30c81c28f2b7 |  | unread |  |
+| `team task` |  |  | n | #1054 | 3de2f4923013 |  | unread |  |
 | `team task add-blocker` |  |  | y | #1054 | d43f6feaab7b |  | unread |  |
 | `team task assign` |  |  | y | #1054 | acbb55f94245 |  | unread |  |
 | `team task cancel` |  |  | y | #1054 | b30c88965ba2 |  | unread |  |
 | `team task clone` |  |  | y | #1054 | 27a66bc7fe6b |  | unread |  |
-| `team task create` |  |  | y | #1054 | bbb1c5b4a598 |  | unread |  |
+| `team task create` |  |  | y | #1054 | cc01556c9cc7 |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | 754051154aa6 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task dispose-finding` |  |  | y | #1054 | a3080a7c8f49 |  | unread |  |
 | `team task find-untracked` |  |  | y | #1054 | 55a8dc8a2749 |  | unread |  |
@@ -614,7 +614,7 @@ section between the markers.
 | `team task get` |  |  | y | #1054 | 52375ce744ca |  | unread |  |
 | `team task hand-back` |  |  | y | #1054 | 24b187bfb974 |  | unread |  |
 | `team task link-defect` |  |  | y | #1054 | fa7eb7bd1ff0 |  | unread |  |
-| `team task list` | ls |  | y | #1054 | e873787ba623 |  | unread |  |
+| `team task list` | ls |  | y | #1054 | 8a36d8b1b3c0 |  | unread |  |
 | `team task mine` |  |  | y | #1054 | f5a772aab8df |  | unread |  |
 | `team task park` |  |  | y | #1054 | 69bde9911495 |  | unread |  |
 | `team task progress` |  |  | y | #1054 | 6253ca7ee818 |  | unread |  |
@@ -625,7 +625,7 @@ section between the markers.
 | `team task set-priority` |  |  | y | #1054 | 21630b0e560a |  | unread |  |
 | `team task start` |  |  | y | #1054 | fbda4606d956 |  | unread |  |
 | `team task tree` |  |  | y | #1054 | f71a42a9f8f4 |  | unread |  |
-| `team task update` |  |  | y | #1054 | 5ee0a034d8d5 |  | unread |  |
+| `team task update` |  |  | y | #1054 | c6f065c0029d |  | unread |  |
 | `team ticker` |  |  | n | #1054 | 94b5026458fd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |

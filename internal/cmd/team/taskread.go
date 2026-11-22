@@ -461,8 +461,7 @@ is omitted. No records is []/exit 0.
 The server filters before paging under the App read gate. No results is []
 and exit 0. It cannot combine with the coordinator view --team (exit 2 before
 any read). Marked rows show the reason and time; JSON adds matchFailure only
-when present. Every task command requires a server released on or after
-2026-11-03 for these fields.
+when present. These fields need a server released on or after 2026-11-03.
 
 Filters combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
