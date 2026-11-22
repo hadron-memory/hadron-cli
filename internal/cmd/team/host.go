@@ -275,7 +275,7 @@ type hostOperationPageDTO struct {
 	HasNextPage bool               `json:"hasNextPage"`
 	EndCursor   *string            `json:"endCursor"`
 	// Warnings is present only when the list was read without something the
-	// server could not give: a server older than #4257 has no issuedReason.
+	// server could not give: a server older than 2026-11-15 has no issuedReason.
 	Warnings []string `json:"warnings,omitempty"`
 }
 
@@ -522,9 +522,9 @@ type, host, worker, status, who issued it and, once reported, its result or
 failure reason. When the platform issued it for no task, the BY cell adds the
 server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
 run and has no session; --json carries it as issuedReason, absent when the
-server names none. A server older than #4257 has no such field: the list then
-reads without it and says so once (a stderr note, or a warnings entry in
---json). Whoever reads the App's tasks and events may.
+server names none. A server older than 2026-11-15 has no such field: the
+list then reads without it and says so once (a stderr note, or a warnings
+entry in --json). Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
@@ -680,7 +680,7 @@ Issuing worker.start by hand is the one-off form; the usual way to start
 workers is a reconcile — ` + "`team host up --apply`" + ` starts every worker the
 host's record says it runs, but plans nothing unless the App's sweepMode is
 APPLY (see ` + "`team host up --help`" + `). worker.deliver is not issued until a host has a
-delivery path for it (hadron-cli#829), refusing HOST_OPERATION_NOT_ISSUABLE
+delivery path for it, refusing HOST_OPERATION_NOT_ISSUABLE
 (exit 2). Any other type is HOST_OPERATION_TYPE_UNKNOWN (exit 2), and a
 missing, extra or malformed argument BAD_HOST_OPERATION_ARGS (exit 2). An
 unregistered host is HOST_NOT_FOUND (exit 4).

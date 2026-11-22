@@ -116,10 +116,10 @@ SWEEP RUN RECORDS (S10):
   Read server history with "team host sweep-runs --host <id>".
 
 WHERE THE DESIRED STATE COMES FROM:
-  By default, the server: hostDesiredState for the App and --host (S3,
-  hadron-server#4224). A worker whose desired is null (LEAVE_ALONE, SWEEP_OFF)
+  By default, the server: hostDesiredState for the App and --host. A
+  worker whose desired is null (LEAVE_ALONE, SWEEP_OFF)
   is reported under that reason and never acted on. Where a worker's setup
-  comes from depends on the App's switch (hostSetup, hadron-server#4241):
+  comes from depends on the App's switch (hostSetup, servers from 2026-11-15):
     - HOST (the default), or a server without hostSetup: the registration
       names the worktree. Exactly one registered worktree is the one acted on;
       none, several, or a value that is not a host name token is

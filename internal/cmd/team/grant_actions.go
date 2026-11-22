@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const grantActionsHelp = `Read an App's registered grant actions: the actions a grant can allow
-(cor:acl:140:02). Anyone in the App may read the list: a participating person
+const grantActionsHelp = `Read an App's registered grant actions: the actions a grant can allow.
+Anyone in the App may read the list: a participating person
 with their own credential, or a bound worker of that App through its session.
 No worker binding is required. When this worktree has a worker binding for
 this server, it takes precedence over the person credential: a bound worker

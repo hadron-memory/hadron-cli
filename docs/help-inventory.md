@@ -516,17 +516,17 @@ section between the markers.
 | `team delivery-settings set` |  |  | y | #1054 | 3c1f5a386a3f | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team events` |  |  | n | #1054 | 90ee678717b9 |  | unread |  |
 | `team grant` |  |  | n | #1054 | d70982b794a3 |  | unread |  |
-| `team grant action` |  |  | y | #1054 | 917faba0b917 |  | unread |  |
-| `team grant actions` |  |  | y | #1054 | 51f6ec4134c2 |  | unread |  |
+| `team grant action` |  |  | y | #1054 | d9969025ec27 |  | unread |  |
+| `team grant actions` |  |  | y | #1054 | 65acd4c4809a |  | unread |  |
 | `team grant add` |  |  | y | #1054 | 37a75f05031d |  | unread |  |
 | `team grant get` |  |  | y | #1054 | d015e80e46c9 |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | a0f37e8b8ece |  | unread |  |
-| `team grant request` |  |  | y | #1054 | 62d0b919e4a7 |  | unread |  |
-| `team grant request-signature` |  |  | y | #1054 | b8a381a76fa0 |  | unread |  |
+| `team grant request` |  |  | y | #1054 | 7bca2f2e111b |  | unread |  |
+| `team grant request-signature` |  |  | y | #1054 | 4fa83ee31037 |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 2bd8b7c6efef |  | unread |  |
-| `team grant signing-request` |  |  | n | #1054 | d890d37f03da |  | unread |  |
-| `team grant signing-request get` |  |  | y | #1054 | 76def6dd2e8c |  | unread |  |
-| `team grant signing-request withdraw` |  |  | y | #1054 | a277fb34de67 |  | unread |  |
+| `team grant signing-request` |  |  | n | #1054 | ac7d8916cda4 |  | unread |  |
+| `team grant signing-request get` |  |  | y | #1054 | 680183659b34 |  | unread |  |
+| `team grant signing-request withdraw` |  |  | y | #1054 | 666baabc02b9 |  | unread |  |
 | `team health` |  |  | n | #1054 | d1b3825cdd4d | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
@@ -535,12 +535,12 @@ section between the markers.
 | `team host` |  |  | n | #1054 | d05f602dd84b |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 70eef49e2e39 |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
-| `team host import` |  |  | y | #1054 | 46b8b93dcd91 |  | unread |  |
-| `team host issue` |  |  | y | #1054 | d72aa5599f69 |  | unread |  |
+| `team host import` |  |  | y | #1054 | dec913560d72 |  | unread |  |
+| `team host issue` |  |  | y | #1054 | 7abd3276625e |  | unread |  |
 | `team host list` | ls |  | n | #1054 | 204760938550 |  | unread |  |
-| `team host ops` |  |  | n | #1054 | 15bd38de777e |  | unread |  |
+| `team host ops` |  |  | n | #1054 | 1a23ca0e9226 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
-| `team host run` |  |  | y | #1054 | b97a670b3a75 |  | unread |  |
+| `team host run` |  |  | y | #1054 | 0415a8f3d55d |  | unread |  |
 | `team host setup` |  |  | y | #1054 | f6c071f5cd86 |  | unread |  |
 | `team host status` |  |  | n | #1054 | c3a3ecae8eed |  | unread |  |
 | `team host sweep` |  |  | n | #1054 | 22ee75e32e51 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
@@ -549,7 +549,7 @@ section between the markers.
 | `team host sweep uninstall` |  |  | y | #1054 | 5378961914a6 |  | unread |  |
 | `team host sweep-runs` |  |  | y | #1054 | 7ab708cbdc7f |  | unread |  |
 | `team host unassign` |  |  | y | #1054 | 27a1042772ef |  | unread |  |
-| `team host up` |  |  | y | #1054 | 4a83b9b6e9e9 |  | unread |  |
+| `team host up` |  |  | y | #1054 | 454fadaaebab |  | unread |  |
 | `team init` |  |  | y | #1054 | 36b43e94a913 |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
 | `team pr` |  |  | y | #1054 | 0c3918147cb8 |  | unread |  |
