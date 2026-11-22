@@ -4687,11 +4687,15 @@ is masked to `[]`) is `NO_WORKTREE_SOURCE`: a repo is never guessed. Under
 created. `--json` `hostSetupSource` is `"HOST"`, `"SERVER"` or null. A server answer for another host exits 1;
 the server's refusal keeps its code. `--desired-state-file <file>` reads the
 engine's own shape from a file instead (tests, offline dry runs), including
-the repo a `worktree.create` needs. The file is strict (unknown keys,
+the repo a `worktree.create` needs; the file never overrides the App's switch
+(below). The file is strict (unknown keys,
 duplicate workers and non-token setup values exit 2) and its `hostId` must
 equal `--host`:
 `{"hostId","sweepMode","workers":[{"workerId","name","desired":"RUNNING"|"STOPPED","reason","wouldBe","sessionId","setup":{"worktree","repo","baseBranch","branch","family"}}]}`.
 
+`--apply` first reads the App's own sweep mode from the server and refuses
+unless it is `APPLY` (exit 5, nothing issued), whatever a desired-state file
+says; a mode it cannot read refuses too. A dry run reads no mode of its own.
 Nothing is planned unless `sweepMode` is `APPLY`. A worker whose reason is
 `LEAVE_ALONE`, `HALTED`, `PAUSED`, `TEAM_PAUSED`, `RESETTING`, `RETIRED` or
 `SWEEP_OFF` is reported with that reason and never touched, and a RUNNING
