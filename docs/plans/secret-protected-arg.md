@@ -113,3 +113,27 @@ instead of) a value/metadata change.
   protect` / `secret change` surfaces require the same server generation — so this PR
   adds no new floor. A formal minimum-server-version policy would be Petra/Holger's
   call, not this PR's.
+
+## QA fold at 3fa0b2fa (Charles P2, hadron-server#4749)
+
+- **QA P2 (no-op clear reported unconfirmed), folded.** The server contract moved under
+  the guard: clearing protection that is not on asks for no change (`hadron-server#4749`,
+  the #4717 item-8 class reached through `updateSecret`; fix `hadron-server#4805`, open,
+  CI green at post time; the same normalisation already shipped for
+  `setSecretProtected` in `#4745`, merged 2026-11-21): nothing stages and the secret
+  comes back — unchanged when the flag is alone, or with the rest of the update applied
+  when a value or metadata rode along. The update guard now confirms exactly that answer
+  (`--protected=false` answered `protected: false` → the normal updated line, exit 0) and
+  keeps exit 7 for every other returned secret: any `--protected`, and a `false` the
+  answer still reports `protected: true` (the server neither staged nor cleared). Create
+  is unchanged (explicit `false` already returned the secret). Servers that still stage
+  the clear (main before #4805) keep answering `SECRET_PROTECTED_NEEDS_PASSKEY` → exit 5,
+  pinned by the staged/wire tests. Help names the no-op. Red pins first:
+  `TestSecretUpdateProtectedFalseNoOpIsConfirmed_2815` (red at 3fa0b2fa: exit 7), and
+  `TestSecretUpdateProtectedReturningSecretIsUnconfirmed_2815` narrowed to the two
+  answers that stay unconfirmed.
+- **Sibling defect spotted, reported (not this PR's diff).** `secret protect --off` on an
+  unprotected secret hits the same no-op answer since server `#4745`: the secret comes
+  back and `protect.go`'s pre-#4745 guard exits 7 "not confirmed" for a state already
+  true. Shipped surface, one mutation over — reported through QA intake for a follow-up
+  slice rather than folded here (this PR does not touch `protect.go`).

@@ -60,9 +60,12 @@ For a webfetch-auth secret, a new value needs --type (bearer; basic with
 the server judges). The flag alone is a valid update, and any protection
 change is staged for a passkey ceremony like every change to a protected
 secret: the command prints the request id and the ceremony URL, never
-"updated". Without the flag no protected field is sent — a value or metadata
-update does not touch protection. Protection is changed only through a signed
-request: hadron secret protect changes protection and nothing else.
+"updated". Turning protection off when it is already off asks for no change:
+nothing is staged, the rest of the update applies (or nothing does) and the
+normal updated line prints. Without the flag no protected field is sent — a
+value or metadata update does not touch protection. Protection is changed
+only through a signed request: hadron secret protect changes protection and
+nothing else.
 
 The server checks the resulting value and metadata against the secret's kind;
 a mismatch (say, a plain value for a webfetch-auth secret) exits 2.
@@ -152,12 +155,18 @@ the same fields as hadron secret get.`,
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
 			}
 			dto := dtoFromFields(resp.UpdateSecret.SecretFields)
-			// Every explicit protection value on an App secret stages
-			// (hadron-server#3999 S4): the answer is SECRET_PROTECTED_NEEDS_
-			// PASSKEY, mapped above. A returned secret means the server did
-			// not stage the protection change this CLI asked for — never a
-			// success line; same shape as secret protect (BLIND P1 on #2932).
-			if prot != nil {
+			// A protection change on an App secret stages (hadron-server#3999
+			// S4): the answer is SECRET_PROTECTED_NEEDS_PASSKEY, mapped above.
+			// A returned secret is therefore unconfirmed for --protected, and
+			// for --protected=false that the answer still reports protected —
+			// the server neither staged nor cleared; never a success line,
+			// same shape as secret protect (BLIND P1 on #2932). The one
+			// returned secret that IS the answer is the no-op clear
+			// (hadron-server#4749): clearing protection that is not on asks
+			// for no change, so the server sends the secret back — unchanged
+			// alone, or with the rest of the update applied — reporting
+			// exactly the unprotected state this CLI asked for.
+			if prot != nil && (*prot || resp.UpdateSecret.Protected) {
 				return exitcode.Newf(exitcode.Unavailable,
 					"the server answered with the secret instead of staging the protection change, which updateSecret(protected: …) does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get %s",
 					resp.UpdateSecret.Protected, cmdutil.ShellQuote(output.SafeCell(args[0])))
