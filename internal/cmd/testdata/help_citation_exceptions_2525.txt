@@ -9,7 +9,7 @@
 # (never by hand). Line: <page>  # <kind> <reference> x<count> | ...
 # The scrub is tracked in https://github.com/hadron-memory/hadron-cli/issues/2811, by group.
 team  # citation cor:agt:020:01 x1 | citation cor:agt:020:02 x1 | issue #1050 x1 | issue #2027 x2 | issue #399 x1 | issue #400 x1 | issue #402 x1
-team alarms  # citation cor:agt:050:02 x1 | citation cor:agt:050:20 x1 | citation cor:agt:050:22 x1
+team alarms  # citation cor:agt:050:20 x1 | citation cor:agt:050:22 x1
 team app sweep-mode  # issue #4242 x2
 team attention  # issue #2027 x2
 team attention switchover  # issue #2027 x3
@@ -48,28 +48,6 @@ team router poll  # issue #2027 x1 | issue #2138 x1
 team router status  # issue #2027 x1 | issue #2138 x1
 team stall-schedule  # citation cor:agt:050:10 x1 | citation cor:agt:050:14 x1 | citation cor:agt:070:01 x1 | citation cor:agt:070:02 x1
 team stall-schedule set  # citation cor:agt:050:10 x1 | citation cor:agt:050:14 x1 | citation cor:agt:050:15 x1 | citation cor:agt:050:16 x1 | citation cor:agt:050:17 x1 | citation cor:agt:070:01 x1 | citation cor:agt:070:02 x1
-team task  # citation cor:agt:050:08 x1 | issue #3029 x1 | issue #3088 x1 | issue #3245 x1
-team task add-blocker  # citation cor:agt:050:09 x1
-team task assign  # citation cor:agt:050:09 x1 | citation cor:agt:050:10 x1
-team task cancel  # citation cor:agt:050:09 x1
-team task clone  # citation cor:agt:050:02 x1 | citation cor:agt:050:28 x1 | issue #2646 x1
-team task create  # citation cor:agt:050:01 x2 | citation cor:agt:050:10 x1 | citation cor:agt:050:14 x1 | citation cor:agt:120:02 x1 | issue #1757 x1 | issue #2648 x1 | issue #2654 x1 | issue #2983 x1 | issue #3029 x2 | issue #3088 x1 | issue #3245 x1 | issue #4295 x1
-team task find-untracked  # issue #3132 x1 | issue #3422 x1
-team task finish  # citation cor:agt:050:08 x1 | citation cor:agt:050:30 x1 | issue #2662 x1 | issue #3248 x2
-team task get  # citation cor:agt:050:02 x1 | issue #2646 x1
-team task hand-back  # citation cor:agt:050:03 x1 | citation cor:agt:050:29 x1
-team task link-defect  # issue #4280 x1 | issue #4284 x1
-team task list  # citation cor:agt:050:02 x2 | citation cor:agt:050:20 x1 | issue #1044 x1 | issue #2370 x1 | issue #2654 x1 | issue #3245 x1 | issue #3258 x1
-team task park  # citation cor:agt:050:02 x1 | citation cor:agt:050:09 x1
-team task progress  # citation cor:agt:050:08 x1 | citation cor:agt:050:15 x1
-team task ready  # citation cor:agt:050:02 x1 | citation cor:agt:050:09 x1
-team task reassign  # citation cor:agt:050:09 x1 | citation cor:agt:050:10 x1
-team task release  # citation cor:agt:050:09 x1 | citation cor:agt:120:02 x1 | issue #4084 x1
-team task remove-blocker  # citation cor:agt:050:09 x1
-team task set-priority  # citation cor:agt:050:09 x1
-team task start  # citation cor:agt:050:08 x1
-team task tree  # citation cor:agt:050:20 x1
-team task update  # citation cor:agt:050:14 x1 | issue #2648 x1 | issue #2983 x1 | issue #3029 x1 | issue #3088 x1 | issue #3718 x1
 team wake-settings  # citation cor:agt:080:03 x1 | citation cor:agt:080:21 x1
 team wake-settings set  # citation cor:agt:080:21 x1
 team wakes  # citation cor:agt:080:08 x1
