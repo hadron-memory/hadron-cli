@@ -34,7 +34,10 @@ func utilVars(t *testing.T, calls *[]attnCall) map[string]any {
 	return nil
 }
 
-func TestTeamUtilizationAllRanksByUtilizationDescending(t *testing.T) {
+// cli#2896: the server ranks the rows (utilization, then the most recent failed match, then fewest
+// eligible workers, then family, tier and role: a total order), so the CLI prints them as served and
+// never re-sorts. utilizationJSON is deliberately NOT in utilization order: a re-sort would move a row.
+func TestTeamUtilizationAllPrintsRowsInTheServersOrder(t *testing.T) {
 	_, out, err := runTeamTask(t, utilResponses(utilizationJSON), "team", "utilization", "--all", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -55,10 +58,9 @@ func TestTeamUtilizationAllRanksByUtilizationDescending(t *testing.T) {
 	if dto.WindowHours != 24 || dto.ComputedAt == "" || len(dto.Combinations) != 3 {
 		t.Fatalf("dto: %+v", dto)
 	}
-	// 1 (codex), 1 (glm; server order kept on a tie), then 0.25.
 	got := []string{dto.Combinations[0].Family, dto.Combinations[1].Family, dto.Combinations[2].Family}
-	if strings.Join(got, ",") != "codex,glm,claude" {
-		t.Fatalf("order %v", got)
+	if strings.Join(got, ",") != "claude,codex,glm" {
+		t.Fatalf("rows must keep the server's order (no re-sort): %v", got)
 	}
 	if dto.Combinations[1].Tier != nil {
 		t.Fatalf("unknown tier must stay null: %+v", dto.Combinations[1])
