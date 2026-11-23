@@ -6687,9 +6687,14 @@ composed without a read and is refused (exit 2, nothing sent). A qualified ref
 `hrn:agenttask:hrn:app:<root>:<slug>:…`) naming another App than `--app` is
 refused (exit 2, nothing sent); naming the same App it is sent unchanged. A
 task id or any other non-handle is sent unchanged. Without `--app` nothing
-changes: the configured App context and the worktree binding never qualify a
-handle, so a member of more than one App still gets the server's
-`TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check; a pure permission refusal on its App read exits 2 as a missing App (cli#1896, #2239: see `--as-worker` above).
+changes: the configured App context never qualifies a handle. cli#3037: the
+worktree binding does, for the two READS only: `team task get` and `team pr
+readiness` (no --app) qualify a bare handle in the binding's App (one App-identity
+read, by the binding's App id; whatever cannot be established leaves the ref as
+given), `--app` now reaches all six `team pr` verbs' task refs (it was ignored),
+and the pr writes and `task start|progress|...` keep resolving through the
+worker session they send. A member of more than one App with no binding and no
+--app still gets the server's `TASK_HANDLE_QUALIFY` for a bare handle. `task mine` keeps its own --app check; a pure permission refusal on its App read exits 2 as a missing App (cli#1896, #2239: see `--as-worker` above).
 
 ## Task single-shot matching (cli#1549)
 

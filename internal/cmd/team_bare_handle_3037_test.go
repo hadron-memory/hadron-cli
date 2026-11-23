@@ -102,9 +102,9 @@ func TestBareHandleBindingDoesNotQualifyElsewhere3037(t *testing.T) {
 		{"no binding: bare reaches the server", false, "AT0.7", merge3037(id, map[string]string{"AgentTaskGet": refusal}), "AT0.7"},
 		{"a task id is unchanged", true, "01a1c78a26947a15a374469a1ec1eea2", id, "01a1c78a26947a15a374469a1ec1eea2"},
 		{"a qualified handle is unchanged", true, "hrn:agenttask:other.com:team:AT0.7", id, "hrn:agenttask:other.com:team:AT0.7"},
-		{"the lookup names another App than the binding's", true, "AT0.7", map[string]string{"TeamAppIdentity": identity3037("capp199999999999999999999", bound3037URN)}, "AT0.7"},
+		{"the lookup names another App than the binding's", true, "AT0.7", map[string]string{"TeamAppIdentity": identity3037("capp199999999999999999999", "hrn:app:evil.example:other")}, "AT0.7"},
 		{"the lookup finds no App", true, "AT0.7", map[string]string{"TeamAppIdentity": `{"data":{"app":null}}`}, "AT0.7"},
-		{"the lookup fails", true, "AT0.7", map[string]string{}, "AT0.7"},
+		{"the lookup fails", true, "AT0.7", map[string]string{"TeamAppIdentity": `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`}, "AT0.7"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls, out, _ := runBound3037(t, tc.bound, tc.ov, "team", "task", "get", tc.ref, "--json")
@@ -183,8 +183,10 @@ func TestPRVerbsHonorAppFlag3037(t *testing.T) {
 			if n != 1 || got != wantRef {
 				t.Fatalf("--app must qualify the task ref: want %q, got %d with %v\n%s", wantRef, n, vars, out)
 			}
-			if _, lookups := opVars3037(calls, "TeamAppIdentity"); lookups != 0 {
-				t.Errorf("--app is the one source: no binding lookup, got %d", lookups)
+			// the read needs no binding lookup when --app names the App (the writes make their own binding
+			// check for the worker session they send, which is not ours to count)
+			if _, lookups := opVars3037(calls, "TeamAppIdentity"); tc.op == "PRReadiness" && lookups != 0 {
+				t.Errorf("--app is the one source for a read: no binding lookup, got %d", lookups)
 			}
 		})
 	}

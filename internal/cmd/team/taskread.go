@@ -121,8 +121,11 @@ left out), with total and hasMore; page it with --clones-limit/--clones-offset
 server released on or after 2026-11-02; an older one rejects the document as
 schema skew (exit 2).
 
-The task is named by its id or handle (AT0.7, AT1.2); the server works out the
-App, and an ambiguous bare handle needs an id or a qualified handle such as
+The task is named by its id or handle (AT0.7, AT1.2). A bare handle is read in
+the App you name with --app, else in the App of this worktree's worker-session
+binding when it has one. With neither, the server works out the App and refuses
+a bare handle that is ambiguous (TASK_HANDLE_QUALIFY, for a person in several
+Apps): then use an id, --app, or a qualified handle such as
 hrn:agenttask:acme.com:eng-team:AT1.2. A task you may not read answers "not
 found", exit 4, exactly like a missing one (no existence oracle).
 
@@ -135,7 +138,7 @@ original values.`,
 			if err := checkTaskPage(clonesLimit, clonesOffset); err != nil {
 				return err
 			}
-			taskId, err := taskRefArg(f, args)
+			taskId, err := taskRefArgFromBinding(cmd.Context(), f, args)
 			if err != nil {
 				return err
 			}

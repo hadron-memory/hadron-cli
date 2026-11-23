@@ -117,6 +117,17 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// --app reaches every verb's task ref (it was ignored, cli#3037); readiness, a read, also
+			// qualifies a bare handle from the worktree binding. The writes resolve through the worker
+			// session they send and make no extra request.
+			if verb == "readiness" {
+				task, err = qualifyTaskRefFromBinding(cmd.Context(), f, task)
+			} else {
+				task, err = qualifyTaskRef(f, task)
+			}
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -309,8 +320,11 @@ bound to. Each command's own page says who may run it and what it refuses.
 Owner chain means ` + taskAssignerDoc + `. The assignee is the person or
 worker assigned to that task. The server judges authority and readiness; these
 commands do not check model families, merge a PR or finish a seat task. A task
-may be given as an id, handle or URN (as in team task get); a bare handle may
-need its App named when several are visible.
+may be given as an id, handle or URN (as in team task get). A bare handle is
+qualified with --app when you give it; pr readiness, a read, also uses the App
+of this worktree's worker-session binding, and the other pr commands resolve a
+bare handle through the worker session they send. Otherwise a bare handle
+may need its App named when several are visible (TASK_HANDLE_QUALIFY).
 
 Each write appends an event to the build task (review.scheduled, pr.frozen,
 review.seat.assigned, review.verdict, pr.ready): read them with hadron team
