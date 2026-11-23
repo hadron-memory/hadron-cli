@@ -37,6 +37,15 @@ func TestShellQuotePinsOneWordDirectly_3024(t *testing.T) {
 		{"two words", `'two words'`},
 		{"it's", `'it'\''s'`},
 		{`$(x)`, `'$(x)'`},
+		{"`id`", "'`id`'"},
+		{`back\slash`, `'back\slash'`},
+		{"line\nbreak", "'line\nbreak'"},
+		{"a#comment", `'a#comment'`},
+		{"ünïcode-örca", `'ünïcode-örca'`},
+		// A leading dash is one bare POSIX word (cli#3024): the shell does not split or
+		// expand it — whether the RECEIVING command reads it as an option is its concern,
+		// not the quote's; a value slot (as the hint uses these) takes it as-is.
+		{"-leading-dash", "-leading-dash"},
 		{"", `''`},
 	} {
 		if got := ShellQuote(tc.in); got != tc.want {

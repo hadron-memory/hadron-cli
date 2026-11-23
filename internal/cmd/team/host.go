@@ -401,9 +401,9 @@ for the count alone. A one-page output always says it is one page —
 and, while more rows exist, prints the command that continues the list:
 --server, --app and --limit when you gave them, the --offset advanced by
 the rows the server served. From the run's resolved context
-only --server and --app are carried — a --limit resolved from the context
-never is — and an App resolved from the worktree binding makes the hint
-right only from that directory — and an empty page names the total rather
+only --server and --app are carried; a --limit resolved from the context
+never is; and an App resolved from the worktree binding makes the hint
+right only from that directory. An empty page names the total rather
 than reading as "no hosts". In single-page mode --json is an envelope
 {items,total,hasMore,offset,limit,served,nextOffset}, nextOffset null when
 no further page follows; the default keeps the bare array. A
@@ -478,12 +478,13 @@ need the paged field and are refused without it.`,
 						return err
 					}
 					// continueHint is the command that continues the list, carrying what the caller gave and
-					// nothing else: --server and --app only when they were passed (otherwise the
-					// context's), --limit only when --limit was passed (its value as given: the server
-					// caps a page at 200 whatever is asked, so it widens nothing). The continue point
-					// itself is the envelope's NextOffset — the one place it is computed (cor:api:120:04)
-					// — so the text hint and --json nextOffset cannot disagree; nil (no further page,
-					// or nothing served by a count-only --limit 0 page) means no hint at all.
+					// nothing else: --server, --app and --limit only when they were passed — and of the
+					// run's resolved context, only --server and --app (never a context --limit; a passed
+					// one keeps its value as given: the server caps a page at 200 whatever is asked, so
+					// it widens nothing). The continue point itself is the envelope's NextOffset — the
+					// one place it is computed (cor:api:120:04) — so the text hint and --json nextOffset
+					// cannot disagree; nil (no further page, or nothing served by a count-only
+					// --limit 0 page) means no hint at all.
 					continueHint := func() string {
 						if page.NextOffset == nil {
 							return ""
