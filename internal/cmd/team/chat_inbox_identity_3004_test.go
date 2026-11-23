@@ -264,6 +264,10 @@ func TestInboxIdentityClientSetupFailureIsNotAServerFault3004(t *testing.T) {
 		t.Fatalf("exit %d, want 3: %v", got, run.err)
 	}
 	msg := run.err.Error()
+	// The auth remedy is part of the contract: a missing credential says how to fix it.
+	if !strings.Contains(msg, "not authenticated; run hadron auth login or set HADRON_TOKEN") {
+		t.Fatalf("a missing credential must carry its remedy: %q", msg)
+	}
 	if !strings.Contains(msg, "could not confirm the App for this worktree") || !strings.Contains(msg, "could not set up its server call") {
 		t.Fatalf("the message must name the client-setup stage: %q", msg)
 	}
@@ -378,5 +382,30 @@ func TestInboxIdentityFailureAppContextIsFixedWordingOnBothReads3004(t *testing.
 				t.Fatalf("the cause's own text must never be printed: %q", err.Error())
 			}
 		})
+	}
+}
+
+// A client-setup failure that is not a missing credential (a bad configured
+// server URL, say) says so in local wording and never in server wording
+// (LOCAL delta F1/F2): unit-driven, since the real factory only fails here for a
+// missing credential in this harness.
+func TestInboxIdentityClientSetupOtherFailureUsesLocalWording3004(t *testing.T) {
+	for _, recheck := range []bool{false, true} {
+		err := inboxIdentityFailure(&inboxIdentityStageError{stage: inboxStageClient, err: errors.New("parse /secret/path-3004: " + inboxIdentityLeak3004)}, "cannot read inbox binding", recheck)
+		if got := exitcode.FromError(err); got != exitcode.Error {
+			t.Fatalf("recheck=%v: exit %d, want 1: %v", recheck, got, err)
+		}
+		msg := err.Error()
+		verb := "could not confirm"
+		if recheck {
+			verb = "could not re-confirm"
+		}
+		want := verb + " the App for this worktree: the CLI could not set up its server call (check the server and credential configuration)"
+		if msg != want {
+			t.Fatalf("recheck=%v: got %q, want %q", recheck, msg, want)
+		}
+		if strings.Contains(msg, "/secret/path-3004") || strings.Contains(msg, inboxIdentityLeak3004) || strings.Contains(msg, "server unavailable") || strings.Contains(msg, "server error") {
+			t.Fatalf("recheck=%v: local setup failure printed cause text or server wording: %q", recheck, msg)
+		}
 	}
 }
