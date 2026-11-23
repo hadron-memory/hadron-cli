@@ -497,3 +497,13 @@ func TestFindAgentTaskHelp1897(t *testing.T) {
 		t.Fatal(c)
 	}
 }
+
+// cli#1897: the HANDLE cell is server text and goes through SafeCell like every
+// other cell, so a control sequence in a handle cannot reach the terminal.
+func TestFindHandleTerminalCell1897(t *testing.T) {
+	body := `{"data":{"globalSearch":{"hits":[{"id":"t1","entityType":"agentTask","name":"T","urn":null,"handle":"AT0.1\u001b[31mX","score":1,"matchedField":"name","description":null,"memoryId":null,"organizationId":null}],"total":1,"degraded":[],"scope":null}}}`
+	text, _, _ := findAgentTask(t, "AT0.1", body)
+	if strings.Contains(text, "\x1b") || !strings.Contains(text, "31mX") {
+		t.Fatalf("handle cell not sanitised:\n%q", text)
+	}
+}
