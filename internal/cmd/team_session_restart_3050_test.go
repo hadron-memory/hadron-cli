@@ -290,8 +290,9 @@ func TestSessionRestart3058BlankInputRefusedLocally(t *testing.T) {
 	}{
 		{"whitespace reason", []string{"Kit", "--reason", "   \t "}, "--reason is required"},
 		{"empty reason", []string{"Kit", "--reason", ""}, "--reason is required"},
-		{"blank worker", []string{"  ", "--reason", "unanswered 40m"}, "worker"},
-		{"empty worker", []string{"", "--reason", "unanswered 40m"}, "worker"},
+		{"blank worker", []string{"  ", "--reason", "unanswered 40m"}, "<worker> is required"},
+		{"empty worker", []string{"", "--reason", "unanswered 40m"}, "<worker> is required"},
+		{"both blank", []string{" ", "--reason", " "}, "<worker> is required"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := runTeamTaskFactory(t, restartResponses3050(restartSuccess3050),
@@ -380,6 +381,17 @@ func TestSessionRestart3058DegradedScopeReadStillPrintsReceipt(t *testing.T) {
 		t.Fatalf("a failed decorating read must not fail a restart that happened: %v", r.Err)
 	}
 	out := r.Out.String()
+	// The decorating read must actually have been tried and failed: without
+	// this the fallback line could come from a path that never read at all.
+	var tried bool
+	for _, c := range *r.Calls {
+		if c.Op == "TeamAppIdentity" {
+			tried = true
+		}
+	}
+	if !tried {
+		t.Fatal("the degraded path is only pinned if the scope read was issued and failed")
+	}
 	if !strings.Contains(out, "app: capp100000000000000000000 (from the worktree binding)") {
 		t.Fatalf("the scope line must degrade to the bare ref:\n%s", out)
 	}
@@ -412,5 +424,49 @@ func TestSessionRestart3058BindingServerMismatchRefused(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "restarted") {
 		t.Fatalf("no receipt on a refusal:\n%s", out.String())
+	}
+}
+
+// An unquoted unset variable drops the argument altogether: cobra's arity
+// check refuses it before any request (hadron-cli#3058 BLIND F4), so the
+// "unset variable" wording is true for both spellings. The exit class is
+// mapped to usage (2) by cmd/hadron/main.go, which this in-process harness does
+// not run, so the pin is the refusal and the zero requests.
+func TestSessionRestart3058MissingWorkerArgRefusedBeforeAnyRequest(t *testing.T) {
+	r := runTeamTaskFactory(t, restartResponses3050(restartSuccess3050),
+		"team", "session", "restart", "--reason", "unanswered 40m")
+	if r.Err == nil || !strings.Contains(r.Err.Error(), "accepts 1 arg(s), received 0") {
+		t.Fatalf("a missing worker argument must be refused by the arity check: %v", r.Err)
+	}
+	if n := len(*r.Calls); n != 0 {
+		t.Fatalf("a missing worker must reach the server zero times, got %d: %v", n, *r.Calls)
+	}
+	if strings.Contains(r.Out.String(), "restarted") {
+		t.Fatalf("a refused input must print no receipt:\n%s", r.Out.String())
+	}
+}
+
+// The worker the request carries is the TRIMMED one, and the receipt echoes it
+// (hadron-cli#3058 BLIND F1): a later line still reading args[0] must go red.
+func TestSessionRestart3058WorkerIsSentTrimmed(t *testing.T) {
+	r := runTeamTaskFactory(t, restartResponses3050(restartSuccess3050),
+		"team", "session", "restart", "  Kit \t", "--reason", "x")
+	if r.Err != nil {
+		t.Fatalf("refused: %v", r.Err)
+	}
+	var sent bool
+	for _, c := range *r.Calls {
+		if c.Op == "TeamSessionRestart" {
+			sent = true
+			if got := restartInput3050(t, c.RawVars)["worker"]; got != "Kit" {
+				t.Fatalf("the worker sent must be the trimmed one, got %q", got)
+			}
+		}
+	}
+	if !sent {
+		t.Fatal("the restart operation was not called")
+	}
+	if !strings.Contains(r.Out.String(), "✓ restarted Kit: ended") {
+		t.Fatalf("the receipt must echo the trimmed worker:\n%s", r.Out.String())
 	}
 }

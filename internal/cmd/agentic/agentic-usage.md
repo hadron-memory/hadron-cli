@@ -3703,7 +3703,8 @@ server error fails the command).
   `--reason` states it** (required; at most 500 characters — the server's
   limit): what was tried and why the session is dark. The server records the
   reason and judges nothing. A blank `--reason` or `<worker>` (empty or only
-  whitespace — an unset `$VAR` is the usual cause) is refused with exit 2
+  whitespace; a quoted unset `"$VAR"` is the usual cause, and an unquoted one drops the
+  argument, which the arity check refuses the same way) is refused with exit 2
   before any request, and the reason is sent trimmed. `<worker>` is the target's id, URN or name within
   the App (`appRef` from `--app`, an App context, or the binding). The end
   carries endReason `ended` and **NO handoff** — unlike `session end`, which a
