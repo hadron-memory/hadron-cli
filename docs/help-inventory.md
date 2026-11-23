@@ -577,7 +577,7 @@ section between the markers.
 | `team role update` |  |  | y | #1054 | 68673ad5939d |  | unread |  |
 | `team role-lists` |  |  | n | #1054 | 9d3395e1eab5 |  | unread |  |
 | `team role-lists get` |  |  | n | #1054 | b01504463e93 |  | unread |  |
-| `team role-lists set` |  |  | y | #1054 | 94b36d126d1f |  | unread |  |
+| `team role-lists set` |  |  | y | #1054 | 187718626bd3 |  | unread |  |
 | `team roster` |  |  | n | #1054 | 20c68831a396 |  | unread |  |
 | `team router` |  |  | n | #1054 | 126f5e26e347 |  | unread |  |
 | `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |
