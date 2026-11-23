@@ -96,6 +96,24 @@ func TestStatusConfigPicksOrcaBin(t *testing.T) {
 	}
 }
 
+// cli#3045 item 10: `orca status` reads delivery.orca_bin, as the field docs say, even when
+// orca_launch.orca_bin is also set (the sweep's worker launch reads that one first). The delivery-only
+// case is TestStatusConfigPicksOrcaBin; this is the case with both keys.
+func TestStatusConfigTakesDeliveryOrcaBinWhenOrcaLaunchIsAlsoSet3045(t *testing.T) {
+	h := newHostRig(t)
+	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "orca-delivery")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	launch := filepath.Join(dir, "orca-launch")
+	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+bin+"\norca_launch:\n  orca_bin: "+launch+"\n"))
+	if code != 0 || len(h.bins) != 1 || h.bins[0] != bin {
+		t.Fatalf("status must run delivery.orca_bin %q, not orca_launch's: exit %d bins %v out %s", bin, code, h.bins, out)
+	}
+}
+
 // cli#2166: a configured orca_bin that no longer resolves (gone, a directory,
 // not executable) must not block the health batch before the sweep's own PATH
 // fallback is reached: the status read takes the same fallback.

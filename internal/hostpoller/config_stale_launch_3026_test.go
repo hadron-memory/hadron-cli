@@ -46,7 +46,7 @@ func TestLaunchRefusalsDoNotCallOrcaTheDefault(t *testing.T) {
 	c := &Config{OrcaLaunch: OrcaLaunchConfig{OrcaBin: "/usr/bin/orca"}}
 	errs := validateOrcaWorker(c, "iris", WorkerConfig{Family: "claude", Launch: []string{"x"}})
 	if len(errs) != 1 || strings.Contains(errs[0], "the default") {
-		t.Fatalf("the launch-without-profile refusal must not say \"the default\": %q", errs)
+		t.Fatalf("the launch-without-profile refusal must be the one error and not say \"the default\": %q", errs)
 	}
 }
 
