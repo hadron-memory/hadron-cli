@@ -103,16 +103,16 @@ func inboxBoundIdentity(f *cmdutil.Factory) inboxIdentityReader {
 		}
 		app, err := f.App()
 		if err != nil {
-			return inboxIdentity{}, err
+			return inboxIdentity{}, &inboxIdentityStageError{stage: inboxStageAppContext, err: err}
 		}
 		if app != "" && app != b.AppID {
 			c, err := f.GraphQLClient()
 			if err != nil {
-				return inboxIdentity{}, err
+				return inboxIdentity{}, &inboxIdentityStageError{stage: inboxStageAppRead, err: err}
 			}
 			r, err := gen.TeamAppIdentity(ctx, c, app)
 			if err != nil {
-				return inboxIdentity{}, err
+				return inboxIdentity{}, &inboxIdentityStageError{stage: inboxStageAppRead, err: err}
 			}
 			if r == nil || r.App == nil || r.App.Id != b.AppID {
 				return inboxIdentity{}, inboxLocal("INBOX_APP_MISMATCH")

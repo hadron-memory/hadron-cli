@@ -58,7 +58,7 @@ type inboxTransport interface {
 func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentityReader, streams *output.IOStreams, jsonMode bool, ackOnly []string) error {
 	scope, err := identity(ctx)
 	if err != nil {
-		return inboxFailure(err, "cannot read inbox binding")
+		return inboxIdentityFailure(err, "cannot read inbox binding")
 	}
 	if scope.AppID == "" || scope.WorkerID == "" || scope.SessionID == "" || scope.Server == "" {
 		return inboxLocal("INBOX_UNBOUND")
@@ -69,7 +69,7 @@ func runInbox(ctx context.Context, source inboxTransport, identity inboxIdentity
 		}
 		current, err := identity(ctx)
 		if err != nil {
-			return inboxFailure(err, "cannot recheck inbox binding")
+			return inboxIdentityFailure(err, "cannot recheck inbox binding")
 		}
 		if current != scope {
 			return inboxLocal("INBOX_BINDING_CHANGED")

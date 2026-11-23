@@ -67,6 +67,65 @@ func inboxFailure(err error, message string) error {
 	}
 	return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s", message)
 }
+
+// The two stages of the App-identity step that can fail for a reason that is
+// not the binding file's (hadron-cli#3004): the caller's App context is
+// malformed (a usage error about the VALUE), or the server read that compares
+// it with the binding's App failed (a transport or server fault).
+const (
+	inboxStageAppContext = iota + 1
+	inboxStageAppRead
+)
+
+// inboxIdentityStageError marks an error from the App-identity step with the
+// stage that produced it, so the command can say WHICH step failed and why
+// instead of blaming a binding file that was read fine.
+type inboxIdentityStageError struct {
+	stage int
+	err   error
+}
+
+func (e *inboxIdentityStageError) Error() string { return e.err.Error() }
+func (e *inboxIdentityStageError) Unwrap() error { return e.err }
+
+// inboxCauseClass names a server or transport failure by its exit class only:
+// the response body, URL and any server text are untrusted and never printed
+// (the same rule as every other inbox failure).
+func inboxCauseClass(code int) string {
+	switch code {
+	case exitcode.Unavailable:
+		return "server unavailable (a gateway or network error; safe to retry)"
+	case exitcode.Error:
+		return "server error"
+	case exitcode.AuthRequired:
+		return "not authenticated"
+	case exitcode.Forbidden:
+		return "not permitted"
+	case exitcode.NotFound:
+		return "not found"
+	default:
+		return "the server could not answer"
+	}
+}
+
+// inboxIdentityFailure reports a failed identity step. A known reason keeps its
+// fixed public message; an invalid App context is a usage error naming the
+// value's problem; any other failure of the server read names the stage and the
+// cause class. The exit class is always the one the cause has today.
+func inboxIdentityFailure(err error, fallback string) error {
+	var stage *inboxIdentityStageError
+	if !errors.As(err, &stage) {
+		return inboxFailure(err, fallback)
+	}
+	if _, _, known := inboxReason(err); known {
+		return inboxFailure(err, fallback)
+	}
+	if stage.stage == inboxStageAppContext {
+		return exitcode.Newf(exitcode.FromError(api.MapError(stage.err)), "%s", stage.err.Error())
+	}
+	code := exitcode.FromError(api.MapError(stage.err))
+	return exitcode.Newf(code, "could not confirm the App for this worktree: %s", inboxCauseClass(code))
+}
 func inboxUnconfirmed(streamsErr io.Writer, jsonMode bool, err error) error {
 	failure := inboxFailure(err, "inbox acknowledgment unconfirmed")
 	if _, _, known := inboxReason(err); known {
