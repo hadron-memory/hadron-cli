@@ -332,8 +332,12 @@ func TestInboxIdentityUnreadableAppContextPrintsOnlyStageAndClass3004(t *testing
 		t.Fatalf("exit %d, want the cause's class 1: %v", got, run.err)
 	}
 	msg := run.err.Error()
-	if !strings.Contains(msg, "could not read the App context") {
-		t.Fatalf("the message must name the stage: %q", msg)
+	if !strings.Contains(msg, "could not read the App context: a local configuration problem") {
+		t.Fatalf("the message must name the stage and say it is local: %q", msg)
+	}
+	// A local fault is never labelled as a server fault (QA P3).
+	if strings.Contains(msg, "server") {
+		t.Fatalf("a local config fault must not be labelled a server fault: %q", msg)
 	}
 	if strings.Contains(msg, "/secret/path-3004") || strings.Contains(msg, "cannot read inbox binding") {
 		t.Fatalf("the message must not echo the cause text or blame the binding: %q", msg)
@@ -341,5 +345,38 @@ func TestInboxIdentityUnreadableAppContextPrintsOnlyStageAndClass3004(t *testing
 	assertNoLeak3004(t, msg)
 	if run.requests != 0 {
 		t.Fatalf("nothing may be sent, got %d requests", run.requests)
+	}
+}
+
+// The App-context stage prints only fixed CLI wording whatever the cause's own
+// text says, even for a usage-coded cause, on both reads (BLIND delta F1 and the
+// "every Usage error is CLI-authored" doubt): unit-driven because the real
+// factory cannot fail differently on the second read.
+func TestInboxIdentityFailureAppContextIsFixedWordingOnBothReads3004(t *testing.T) {
+	const own = "/secret/path-3004/config.toml: " + inboxIdentityLeak3004
+	for _, tc := range []struct {
+		name    string
+		cause   error
+		recheck bool
+		exit    int
+		want    string
+	}{
+		{"usage first read", exitcode.Newf(exitcode.Usage, "%s", own), false, exitcode.Usage, "could not read the App context (--app or the configured App): it is not a valid App reference"},
+		{"usage recheck", exitcode.Newf(exitcode.Usage, "%s", own), true, exitcode.Usage, "could not re-read the App context (--app or the configured App): it is not a valid App reference"},
+		{"config fault first read", errors.New(own), false, exitcode.Error, "could not read the App context: a local configuration problem"},
+		{"config fault recheck", errors.New(own), true, exitcode.Error, "could not re-read the App context: a local configuration problem"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := inboxIdentityFailure(&inboxIdentityStageError{stage: inboxStageAppContext, err: tc.cause}, "cannot read inbox binding", tc.recheck)
+			if got := exitcode.FromError(err); got != tc.exit {
+				t.Fatalf("exit %d, want %d: %v", got, tc.exit, err)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("want %q: %q", tc.want, err.Error())
+			}
+			if strings.Contains(err.Error(), "/secret/path-3004") || strings.Contains(err.Error(), inboxIdentityLeak3004) {
+				t.Fatalf("the cause's own text must never be printed: %q", err.Error())
+			}
+		})
 	}
 }

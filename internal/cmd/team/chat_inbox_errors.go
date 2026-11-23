@@ -114,9 +114,8 @@ func inboxCauseClass(code int) string {
 // inboxIdentityFailure reports a failed identity step. A known SERVER code on the
 // read (FORBIDDEN, UNAUTHENTICATED, APP_NOT_FOUND, ...) keeps its fixed public
 // message; the local INBOX_* refusals are returned unwrapped and never get here.
-// A usage error from the App context is the CLI's own text (it never echoes the
-// value, cli#2876); any other App-context failure and every other failure of
-// the step name the stage and the cause class. The exit class is always the one
+// An App-context failure prints only fixed CLI wording; every other failure of
+// the step names the stage and the cause class. The exit class is always the one
 // the cause has today. recheck says it was the second read, before an ack.
 func inboxIdentityFailure(err error, fallback string, recheck bool) error {
 	var stage *inboxIdentityStageError
@@ -131,12 +130,19 @@ func inboxIdentityFailure(err error, fallback string, recheck bool) error {
 	if recheck {
 		verb = "could not re-confirm"
 	}
+	read := "could not read"
+	if recheck {
+		read = "could not re-read"
+	}
 	switch stage.stage {
 	case inboxStageAppContext:
+		// Never an error's own text: Factory.App() can fail for a malformed
+		// value (a usage error) or a config fault, and only the CLI's fixed
+		// words below are printed for either (the value and any path stay out).
 		if code == exitcode.Usage {
-			return exitcode.Newf(code, "%s", stage.err.Error())
+			return exitcode.Newf(code, "%s the App context (--app or the configured App): it is not a valid App reference; name the App by id, hrn:app: URN or <org>:<slug> (the value is not shown; `hadron config get app` shows the configured one)", read)
 		}
-		return exitcode.Newf(code, "could not read the App context: %s", inboxCauseClass(code))
+		return exitcode.Newf(code, "%s the App context: a local configuration problem (`hadron config get app` shows what is set)", read)
 	case inboxStageClient:
 		// Local: nothing was sent, so never claim the server failed to answer.
 		return exitcode.Newf(code, "%s the App for this worktree: the CLI could not set up its server call (%s)", verb, inboxClientClass(code))
