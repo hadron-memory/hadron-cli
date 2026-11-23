@@ -88,17 +88,12 @@ type stopFixture struct {
 	// churn yields a clean pass inside the settle bound.
 	settleEmpty atomic.Bool
 	flipAt      atomic.Int64 // nanoseconds since epoch; 0 until the flip
-	// cleanAfterFlip (matrix 1's shape) answers every post-flip listing as
-	// a provably clean, immediate one — this test's own pid, a stat-readable
-	// non-member — instead of the host's real /proc. The flip's confirmation
-	// must be deterministic on the loaded host the matrix runs on: a real
-	// listing is voided by ANY process that vanishes inside it (whyUnseenPid),
-	// and no confirm budget bounds another process's exit — the matrix's own
-	// build loops churn /proc hard enough to void whole grace windows (#3019
-	// matrix run 9: every pass of an 808 ms derived grace voided, the stop
-	// truthfully escalated, and the "terminated" assert failed). stormRun's
-	// model leaves this clear: its post-TERM churn window must keep voiding
-	// passes until it closes.
+	// cleanAfterFlip answers every post-flip listing as the fixture's own
+	// synthetic clean one (this pid, a stat-readable non-member): a real
+	// listing is voided by any process that vanishes inside it, and no
+	// budget bounds another process's exit, so the flip's confirm is
+	// deterministic on the loaded host instead (#3019; set with
+	// withCleanAfterFlip).
 	cleanAfterFlip bool
 	settled        atomic.Bool
 	// missedBound is set only on the settle-bound miss, where the wrappers
@@ -119,12 +114,26 @@ type stopFixture struct {
 	failf func(format string, args ...any)
 }
 
+// stormOption is one optional shape of newStormFixture's storm.
+type stormOption func(*stopFixture)
+
+// withCleanAfterFlip sets cleanAfterFlip: every post-flip listing is the
+// fixture's synthetic clean one, for the finite→clean shapes whose confirm
+// must not depend on the host's real /proc (#3019).
+func withCleanAfterFlip() stormOption {
+	return func(f *stopFixture) { f.cleanAfterFlip = true }
+}
+
 // newStormFixture installs both wrappers: the void-exhaustion storm over
 // readProcDir and the recording signalGroup. flipOnTerm selects the
 // finite→clean flip (matrix 1); false storms for the whole journey
 // (matrix 3 and the ownership control's held-zombie row).
-func newStormFixture(flipOnTerm bool) *stopFixture {
-	return &stopFixture{storm: true, flipOnTerm: flipOnTerm, epoch: time.Now()}
+func newStormFixture(flipOnTerm bool, opts ...stormOption) *stopFixture {
+	f := &stopFixture{storm: true, flipOnTerm: flipOnTerm, epoch: time.Now()}
+	for _, opt := range opts {
+		opt(f)
+	}
+	return f
 }
 
 // newJourneyFixture records signals with their ownership proof around an
@@ -423,14 +432,15 @@ func TestSignalOwnershipProofRejectsEveryFalseShapeItIsFed(t *testing.T) {
 // launch (every scan voids), the stop sends exactly one TERM to its own
 // held group — ownership-proven at call time — and the first TERM flips
 // the storm off, so the stop's own bounded re-scan is the first scan that
-// can prove the group empty: the confirm is deterministic — constructed,
-// not hoped for: post-flip listings are the fixture's synthetic clean one
-// (cleanAfterFlip), because the host's real /proc is voided by any process
-// that vanishes inside a pass, and the loaded host the matrix runs on churns
-// constantly. Red-first evidence in the PR: the same fixture run against
-// the pre-#1970 strict asserts (detail=="" and signals==0,
-// detach_unix_test.go) failed them on demand, reproducing the filed flake,
-// before the truthful asserts below landed.
+// can prove the group empty. The confirm itself rides the fixture's
+// synthetic clean listing (withCleanAfterFlip): this test pins the
+// field-voiding mechanism — the hold, the one TERM, the truthful confirm
+// — not the budget, which the host's ambient churn would void inside any
+// grace (#3019 run 9; the cost dimension is the pin pair's, below).
+// Red-first evidence in the PR: the same fixture run against the
+// pre-#1970 strict asserts (detail=="" and signals==0,
+// detach_unix_test.go) failed them on demand, reproducing the filed
+// flake, before the truthful asserts below landed.
 func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
@@ -438,10 +448,13 @@ func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 	if _, err := os.Stat("/proc/self/cwd"); err != nil {
 		t.Skip("no /proc")
 	}
-	f := newStormFixture(true /* flip on the first TERM */)
-	f.cleanAfterFlip = true // the confirming listing is the fixture's own
-	f.install(t)            // cleanup registered BEFORE the launch (gate ordering)
-	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(),
+	f := newStormFixture(true /* flip on the first TERM */, withCleanAfterFlip())
+	f.install(t) // cleanup registered BEFORE the launch (gate ordering)
+	// cli#3019: the confirm budget is derived, not fixed — measured through
+	// the installed seam and handed to the launch through the same
+	// ExecHost.TerminateGrace production configures.
+	grace, _ := confirmBudgetAndWindow()
+	a, err := ExecHost{TerminateGrace: grace}.Launch(context.Background(),
 		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
 	if err != nil {
 		t.Fatal(err)
@@ -452,18 +465,14 @@ func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("true exits at once")
 	}
-	// cli#3019: the confirm budget is derived, not fixed. The launch was
-	// given the floor (unchanged semantics where the host is quiet); now,
-	// after Done and before the stop, the grace is re-derived from what a
-	// membership pass costs through the installed seam at this moment — the
-	// closest measurement to the stop itself. Writing the field here is
-	// race-free by construction: Terminate reads a.grace on THIS goroutine,
-	// inside the call that starts on the next line.
-	if ea := f.rec.bound(); ea != nil {
-		ea.grace = stormConfirmBudget()
+	ea := f.rec.bound()
+	if ea == nil {
+		t.Fatal("the launch is bound to the recorder before the stop")
+	}
+	if ea.grace != grace {
+		t.Fatalf("the derived budget reaches the stop through ExecHost.TerminateGrace: grace=%v configured=%v", ea.grace, grace)
 	}
 	stopped, detail := a.Terminate()
-	ea := f.rec.bound()
 	if !stopped {
 		t.Fatalf("the void-exhausted hold still stops truthfully: stopped=false %q", detail)
 	}
@@ -484,6 +493,8 @@ func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 	if !ea.reaped.Load() || !ea.confirmed.Load() {
 		t.Fatalf("the stop's own reap completed: reaped=%v confirmed=%v", ea.reaped.Load(), ea.confirmed.Load())
 	}
+	// The real /proc beside the synthetic listing: a reap failure cannot be
+	// masked by the fixture's own clean answer.
 	if _, err := os.Stat(filepath.Join("/proc", strconv.Itoa(a.PID()))); !os.IsNotExist(err) {
 		t.Fatalf("no /proc entry remains for the launch: %v", err)
 	}
@@ -494,29 +505,37 @@ func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 
 // cli#3019: matrix 1's confirm budget was a fixed wall clock (300 ms), and
 // that is the load sensitivity the issue filed. The confirm needs one clean
-// membership pass after the flip; a pass is a listing plus a stat per entry,
-// and under full-suite load a pass costs more — or the churn voids every
-// pass for longer — than the budget affords, so drainedOrAuthorityLost
-// misses, the ladder escalates to SIGKILL, and the count/detail asserts trip
-// (the filed shape: ~0.25 s passing, ~1.44 s failing — a walked ladder).
-// The pin below makes that literal and deterministic, in both directions,
-// and the fix is the budget's derivation from the measured pass cost.
+// membership pass after the TERM; under full-suite load a pass costs more —
+// or churn voids passes for longer — than a fixed budget affords, so the
+// ladder escalates (the filed shape: ~0.25 s passing standalone, ~1.44 s
+// failing loaded — a walked ladder). The fix is deriving the budget from
+// the measured pass cost; the two pins below make that deterministic in
+// both directions.
 //
 // slowScanSleep models the loaded host's /proc cost: every listing served
-// before the TERM costs at least this — the way a fork-stormed /proc does —
-// and it sits far above the storm fixture's 20 ms scan deadline, so a
-// membership attempt under it is one whole pass with the deadline expired
-// inside it. It is load-bearing for the pin's arithmetic: it lifts the
-// measured pass cost high enough that a window of a few passes' worth
-// outlasts the fixed 300 ms budget (the red) while a budget of many passes'
-// worth covers it (the green).
+// before the TERM costs at least this — the way a fork-stormed /proc does.
+// It is load-bearing for the pins' arithmetic: it lifts the measured pass
+// cost high enough that the window (a fifth of the derived budget)
+// outlasts the fixed floor while the budget itself covers it.
 const slowScanSleep = 150 * time.Millisecond
+
+const (
+	// confirmBudgetPasses is how many membership passes' worth of measured
+	// cost the derived budget affords — the observed field window was worth
+	// roughly fifteen passes.
+	confirmBudgetPasses = 20
+	// confirmBudgetFloor is the historical fixed budget, kept as the
+	// clamp's floor so a quiet host's shape is unchanged.
+	confirmBudgetFloor = 300 * time.Millisecond
+	// confirmWindowDivisor keeps the pin window structurally below the
+	// budget: window = budget/confirmWindowDivisor.
+	confirmWindowDivisor = 5
+)
 
 // measureScanPassCost times one membership pass over the CURRENTLY installed
 // listing seam — the same listing-plus-stat-per-entry walk a ladder attempt
 // takes — and answers the worst of n timed passes. The pass's verdict is
-// irrelevant (under the storm fixture it voids; only its cost is measured),
-// so this is honest under the fixture's wrapper and the pin's model alike.
+// irrelevant (under the storm fixture it voids; only its cost is measured).
 func measureScanPassCost(n int) time.Duration {
 	worst := time.Duration(0)
 	self := os.Getpid()
@@ -530,27 +549,26 @@ func measureScanPassCost(n int) time.Duration {
 	return worst
 }
 
-// stormConfirmBudget is the grace matrix 1's launch confirms within: derived
-// from the measured cost of one membership pass through the CURRENTLY
-// installed seam, so it scales with what the host's /proc actually costs at
-// the moment of the stop instead of being a fixed wall clock the loaded host
-// can outlast (#3019 — the filed flake: a ~1.44 s walked ladder under
-// full-suite load, passing at ~0.25 s standalone). Twenty passes' worth of
-// budget affords twenty confirm attempts — the observed field window was
-// worth roughly fifteen passes — clamped below by the historical floor (the
-// fixed 300 ms this replaces, kept so a quiet host's shape is unchanged) and
-// above by the production default grace (5 s: a pass cost implying more is
-// a host beyond what a stop should wait out; the confirm lands at the first
-// clean pass, so a large budget costs nothing when it is not needed).
-func stormConfirmBudget() time.Duration {
-	b := 20 * measureScanPassCost(3)
-	if b < 300*time.Millisecond {
-		return 300 * time.Millisecond
+// confirmBudgetAndWindow derives the confirm budget and its pin window from
+// ONE shared measurement of a membership pass through the currently
+// installed seam, so both scale with what the host's /proc actually costs
+// instead of a fixed wall clock the loaded host can outlast (#3019). The
+// budget is confirmBudgetPasses passes' worth, clamped to
+// [confirmBudgetFloor, defaultTerminateGrace] — a pass cost implying more
+// than the production default grace is a host beyond what a stop should
+// wait out, and the confirm lands at the first clean pass, so a large
+// budget costs nothing when it is not needed. The window is
+// budget/confirmWindowDivisor: structurally below the budget, so a grace
+// of one budget always covers the window and the floor never does.
+func confirmBudgetAndWindow() (budget, window time.Duration) {
+	budget = confirmBudgetPasses * measureScanPassCost(3)
+	if budget < confirmBudgetFloor {
+		budget = confirmBudgetFloor
 	}
-	if b > 5*time.Second {
-		return 5 * time.Second
+	if budget > defaultTerminateGrace {
+		budget = defaultTerminateGrace
 	}
-	return b
+	return budget, budget / confirmWindowDivisor
 }
 
 // runSlowScanWindowLadder runs matrix 1's finite→clean shape under a
@@ -560,18 +578,19 @@ func stormConfirmBudget() time.Duration {
 // every membership pass, the field flake's own condition, with zero real
 // churn and zero new processes. The model installs UNDER the storm fixture
 // (its wrappers layer on top), so the fixture's hold, recorder, flip and
-// settle all keep working. graceFor is evaluated AFTER the model is
-// installed, so a budget derived from the measured pass cost sees the
-// modelled slow seam, not the bare one; the churn window closes at the
-// earlier of four measured passes' worth after the TERM or the first
-// SIGKILL (killClosesOnly: at the KILL alone). That dual close is what
-// makes both pin directions deterministic despite the ladder's select
-// randomness once the grace expires — a ready timeout competes with the
-// ticker, so the escalation's exact moment is not fixed, only its
-// certainty: pre-KILL passes can never confirm while the window only the
-// KILL closes, and the time-bounded window sits at a fifth of the derived
-// budget's multiple, far inside it.
-func runSlowScanWindowLadder(t *testing.T, graceFor func() time.Duration, killClosesOnly bool) (*stopFixture, Agent, bool, string) {
+// settle all keep working. The budget and its window come from ONE shared
+// measurement taken after the install and before the launch, so the
+// derivation sees the modelled slow seam; the grace is whatever graceFor
+// picks from that budget — the ONLY thing the two pins differ on, so
+// confirm-versus-escalate is attributable to the grace alone. The churn
+// window opens and its close is ARMED at the actual SIGTERM (the first
+// TERM alone, by CompareAndSwap — no pre-TERM scan can consume window
+// time), and it closes at the earlier of budget/confirmWindowDivisor
+// after the TERM or the first SIGKILL. That dual close keeps both pin
+// directions deterministic despite the ladder's select randomness once
+// the grace expires: the escalation's exact moment is not fixed, only its
+// certain side of the window close.
+func runSlowScanWindowLadder(t *testing.T, graceFor func(derived time.Duration) time.Duration) (*stopFixture, Agent, bool, string) {
 	t.Helper()
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
@@ -582,7 +601,8 @@ func runSlowScanWindowLadder(t *testing.T, graceFor func() time.Duration, killCl
 	f := newStormFixture(true /* the fixture's own storm still flips at the first TERM */)
 	realRead, realSignal := readProcDir, signalGroup
 	epoch := time.Now()
-	var termAt, windowClose atomic.Int64 // ns since epoch; 0 until armed
+	var churnWindow time.Duration        // the window's width; set from the shared measurement below
+	var termAt, windowClose atomic.Int64 // ns since epoch; 0 until the TERM arms them
 	var churnOver atomic.Bool            // the KILL closes the window early
 	// Registered before install so LIFO restores AFTER the fixture's settle,
 	// and skipped when settle missed its bound and deliberately left the
@@ -596,7 +616,9 @@ func runSlowScanWindowLadder(t *testing.T, graceFor func() time.Duration, killCl
 		err := realSignal(pgid, sig)
 		switch sig {
 		case syscall.SIGTERM:
-			termAt.CompareAndSwap(0, int64(time.Since(epoch))) // the window opens at the TERM
+			if termAt.CompareAndSwap(0, int64(time.Since(epoch))) { // the FIRST TERM alone arms the window
+				windowClose.Store(termAt.Load() + int64(churnWindow))
+			}
 		case syscall.SIGKILL:
 			churnOver.Store(true) // the escalation is proven; what follows must be able to confirm
 		}
@@ -606,8 +628,8 @@ func runSlowScanWindowLadder(t *testing.T, graceFor func() time.Duration, killCl
 		if at := termAt.Load(); at != 0 {
 			if churnOver.Load() || (windowClose.Load() != 0 && time.Since(epoch) >= time.Duration(windowClose.Load())) {
 				// The churn window is closed: a provably clean, immediate
-				// listing (this test's own pid — a stat-read non-member), so
-				// the confirm is deterministic; ambient churn cannot void it.
+				// listing (this test's own pid — a stat-read non-member);
+				// the real /proc state of the launch is asserted beside it.
 				return []os.DirEntry{fakeDirEntry{name: strconv.Itoa(os.Getpid())}}, nil
 			}
 			entries, err := realRead(dir)
@@ -619,8 +641,9 @@ func runSlowScanWindowLadder(t *testing.T, graceFor func() time.Duration, killCl
 		time.Sleep(slowScanSleep) // the loaded host's listing cost
 		return realRead(dir)
 	}
-	f.install(t) // layers ON TOP of the model: its captured "real" functions are the wrappers above
-	grace := graceFor()
+	f.install(t)                                    // layers ON TOP of the model: its captured "real" functions are the wrappers above
+	budget, churnWindow := confirmBudgetAndWindow() // ONE shared measurement, through the modelled slow seam
+	grace := graceFor(budget)
 	a, err := ExecHost{TerminateGrace: grace}.Launch(context.Background(),
 		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
 	if err != nil {
@@ -632,30 +655,20 @@ func runSlowScanWindowLadder(t *testing.T, graceFor func() time.Duration, killCl
 	case <-time.After(5 * time.Second):
 		t.Fatal("true exits at once")
 	}
-	// Arm the window's close now, after Done and before the TERM that opens
-	// it: four measured passes' worth of churn (measured through the
-	// installed seam, whose pre-TERM listings carry the modelled cost). The
-	// measurement runs first and the close time is stamped after it: Go
-	// evaluates a call's arguments before the call, so a timestamp taken
-	// inline in the Store argument would predate the half second the
-	// measurement spends inside it and close the window before the TERM.
-	if !killClosesOnly {
-		w := 4 * measureScanPassCost(3)
-		windowClose.Store(int64(time.Since(epoch)) + int64(w))
-	}
 	stopped, detail := a.Terminate()
 	return f, a, stopped, detail
 }
 
 // The #3019 pin, green direction: the derived confirm budget holds a slow
-// post-TERM scan window the fixed wall clock lost. The window is four
-// measured passes' worth of churn; the budget stormConfirmBudget derives is
-// meant to be many passes' worth, so the ladder confirms on its own TERM —
-// matrix 1's outcome whole. Against the red commit (the stub returning the
-// fixed 300 ms) this fails with the escalation, which is the point: the
-// seats check the first commit is red on main.
+// post-TERM scan window the fixed wall clock lost. The window is the same
+// shared budget/confirmWindowDivisor the red control runs under; the only
+// difference is the grace, so the confirm here is attributable to the
+// derived budget alone. The pair's mutant teeth are the red control's: a
+// derivation that lets the window fall inside the fixed floor (the budget
+// stubbed away, the model's cost floor deleted) fails THAT test with a
+// confirm where the escalation belongs.
 func TestTheDerivedConfirmBudgetHoldsASlowPostTermScan(t *testing.T) {
-	f, a, stopped, detail := runSlowScanWindowLadder(t, stormConfirmBudget, false)
+	f, a, stopped, detail := runSlowScanWindowLadder(t, func(derived time.Duration) time.Duration { return derived })
 	ea := f.rec.bound()
 	if !stopped {
 		t.Fatalf("the derived budget confirms inside the churn window: stopped=false %q", detail)
@@ -677,25 +690,30 @@ func TestTheDerivedConfirmBudgetHoldsASlowPostTermScan(t *testing.T) {
 	if !ea.reaped.Load() || !ea.confirmed.Load() {
 		t.Fatalf("the stop's own reap completed: reaped=%v confirmed=%v", ea.reaped.Load(), ea.confirmed.Load())
 	}
+	// The real /proc beside the synthetic listing: a reap failure cannot be
+	// masked by the model's own clean answer.
 	if _, err := os.Stat(filepath.Join("/proc", strconv.Itoa(a.PID()))); !os.IsNotExist(err) {
 		t.Fatalf("no /proc entry remains for the launch: %v", err)
 	}
 }
 
-// The #3019 pin, red control: the fixed wall clock the slow window
-// outlasts escalates — deterministically, because the window closes only at
-// the KILL it exists to prove, so no pre-KILL pass can ever confirm and the
-// grace is spent without a confirm by construction. The escalation then
-// closes the window, and the first membership call after the KILL confirms:
-// the filed ~1.44 s shape — SIGKILL sent, the killed-wording detail, every
-// signal ownership-proven. This control passes on both commits; it pins the
-// mechanism, and the green test above pins the budget against it.
+// The #3019 pin, red control: the fixed floor the slow window outlasts
+// escalates — deterministically, because the window closes only at the
+// earlier of budget/confirmWindowDivisor after the TERM (far past the
+// floor) or the first SIGKILL, so no pre-KILL pass can confirm and the
+// grace is spent without a confirm by construction. The KILL then closes
+// the window, and the first membership call after it confirms: the filed
+// ~1.44 s shape — SIGKILL sent, the killed-wording detail, every signal
+// ownership-proven, the reap real (asserted against /proc beside the
+// synthetic listing). This control passes on both commits and carries the
+// pair's mutant teeth: a derivation that lets the window fall inside the
+// floor fails here with a confirm where the escalation belongs.
 func TestAFixedConfirmBudgetTheSlowScanOutlastsEscalates(t *testing.T) {
-	f, a, stopped, detail := runSlowScanWindowLadder(t, func() time.Duration { return 300 * time.Millisecond }, true /* the KILL alone closes the window */)
+	f, a, stopped, detail := runSlowScanWindowLadder(t, func(time.Duration) time.Duration { return confirmBudgetFloor })
 	if !stopped {
 		t.Fatalf("the walked ladder still confirms after its KILL: stopped=false %q", detail)
 	}
-	want := fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", a.PID(), 300*time.Millisecond)
+	want := fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", a.PID(), confirmBudgetFloor)
 	if detail != want {
 		t.Fatalf("the fixed budget escalates under the window it cannot cover: detail=%q want %q", detail, want)
 	}
@@ -706,6 +724,15 @@ func TestAFixedConfirmBudgetTheSlowScanOutlastsEscalates(t *testing.T) {
 		if s := f.rec.at(i); s.proof != "" {
 			t.Fatalf("signal %v not ownership-proven: %s", s.sig, s.proof)
 		}
+	}
+	ea := f.rec.bound()
+	if !ea.reaped.Load() || !ea.confirmed.Load() {
+		t.Fatalf("the walked ladder's own reap completed: reaped=%v confirmed=%v", ea.reaped.Load(), ea.confirmed.Load())
+	}
+	// The real /proc beside the synthetic listing: a reap failure cannot be
+	// masked by the model's own clean answer.
+	if _, err := os.Stat(filepath.Join("/proc", strconv.Itoa(a.PID()))); !os.IsNotExist(err) {
+		t.Fatalf("no /proc entry remains for the launch: %v", err)
 	}
 }
 

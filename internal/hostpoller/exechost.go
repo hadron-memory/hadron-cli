@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+// defaultTerminateGrace is the grace a zero TerminateGrace gets: how long
+// a failed start's SIGTERM waits before the SIGKILL escalation.
+const defaultTerminateGrace = 5 * time.Second
+
 // ExecHost is the real Host: git for worktrees, exec for agents. Every
 // command is a fixed argv — git's own, or the one in host configuration —
 // never a shell string, and nothing in it comes from an operation's
@@ -169,7 +173,7 @@ func (h ExecHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	}
 	grace := h.TerminateGrace
 	if grace <= 0 {
-		grace = 5 * time.Second
+		grace = defaultTerminateGrace
 	}
 	a := &execAgent{done: make(chan struct{}), watcherDone: make(chan struct{}), pid: cmd.Process.Pid, grace: grace, cmd: cmd, onDrain: h.OnDrain, procList: h.procList}
 	go a.waitExit()

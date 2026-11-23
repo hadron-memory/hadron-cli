@@ -24,7 +24,7 @@ import (
 func (h ExecHost) StopAgents(_ context.Context, path string, authorize Authorize) ([]AgentStop, error) {
 	grace := h.TerminateGrace
 	if grace <= 0 {
-		grace = 5 * time.Second
+		grace = defaultTerminateGrace
 	}
 	return stopWorktreeAgents(path, grace, authorize)
 }
