@@ -1430,6 +1430,7 @@ func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
 		Short: "The tasks the Agent's workers see",
 	}
 	cmd.AddCommand(newCmdAgentTasksList(f))
+	cmd.AddCommand(newCmdAgentTasksCreate(f))
 	return cmd
 }
 

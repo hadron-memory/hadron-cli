@@ -3069,6 +3069,18 @@ type AppRunsPage {
 """
 type AppScopedMemory {
   class: MemoryClass!
+
+  """
+  #4890: the memory's description, carried only where THIS caller could read
+  it through Memory.description — the record gate (canReadMemoryRecord) that
+  Query.memory applies, reused, never the row's own admission. Null when the
+  record gate would refuse the caller; the row is still listed, only the
+  description is withheld. The memory record is never enciphered
+  (hrn:node:hadronmemory.com:specs:cor:sec:040:03 enciphers node content
+  only), so an encrypted memory's description is carried with no key in
+  play, exactly as Memory.description serves it.
+  """
+  description: String
   memoryId: ID!
   memoryUrn: String!
   name: String!
@@ -7752,7 +7764,9 @@ type Memory {
 
   """
   Spec 033 FR-026 — timestamp at which the memory owner accepted the
-  encrypted-memory vector-inversion disclosure. Set when the caller
+  encrypted-memory vector disclosure (plaintext vectors and, when the index
+  includes content passages, the verbatim chunk text stored unencrypted in
+  node_embeddings.chunk_text; #433). Set when the caller
   passes acknowledgeVectorInversionRisk: true on updateMemory for an
   isEncrypted: true memory enabling vectorIndexEnabled for the first
   time. The portal surfaces this readback so the user can confirm
@@ -9219,10 +9233,11 @@ type Mutation {
   `extensions.warnings` (not in `errors`): a list of
   { path (the mutation's response key), code, text, register? }. Codes are a
   closed list per release (task.create.no-source, task.assign.assignee-unavailable,
-  task.assign.assignee-busy, task.assign.assignee-paused,
+  task.assign.assignee-busy, task.assign.assignee-paused, task.assign.session-open (#4855: the
+  assignee has an open session, live or quiet, so the platform did not start it; the assignment reaches it there),
   task.finish.open-children, from #3267 task.start.other-started,
   task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
-  (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+  (on recordAgentTaskProgress; other-started and children-ended, like the four assign
   facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
   cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
   a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
@@ -9883,8 +9898,25 @@ type Mutation {
   This mutation is not itself an MCP tool; its MCP counterpart is the
   deliberate hadron_create_task tool, separate from hadron_create_node,
   which refuses (#1301 names it in the refusal).
+  
+  #4864 — with index, the SAME door also writes the task's tasks-index
+  edge, in its one transaction: the new node and one edge from it to the node
+  the Agent's tasksIndexRef names, labelled index.trigger, stored by id
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:15). Either both exist or neither
+  does. The node must be created in the Agent's own system memory, which is
+  also where the index must lie: an Agent with no pointer, an index elsewhere,
+  an existing loc and an unknown or unreadable Agent each refuse and write
+  nothing. Refusals that read only the input (a malformed loc, a blank trigger,
+  a skill the lint refuses) come first and disclose nothing; then the memory's
+  read and write checks and the task writer level
+  (hrn:node:hadronmemory.com:specs:cor:acl:010:03), so none of the refusals
+  that read the Agent or the memory tells a caller who may not write the memory
+  anything about it. With skill, it also writes an enabled properties.exports.claudeSkill
+  block with the given name and description, validated by the skill lint; by
+  default no block is written. Neither argument sets a role; without both the
+  door behaves exactly as before.
   """
-  createTaskNode(input: CreateNodeInput!): Node!
+  createTaskNode(index: TaskIndexInput, input: CreateNodeInput!, skill: TaskSkillExportInput): Node!
 
   """
   Post a message into a team App's chat (#939) as a platform operation.
@@ -12526,7 +12558,10 @@ type Mutation {
   requires `acknowledgeVectorInversionRisk: true` in the same call. Without
   the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
   the full four-point disclosure on `error.disclosure` (single source of
-  truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
+  truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). The
+  disclosure states that the vectors are stored unencrypted and, when the
+  index includes content passages, that the verbatim chunk text is stored
+  unencrypted too, and that revoking removes both. On a
   non-encrypted memory the flag is a no-op.
   """
   updateMemory(acknowledgeVectorInversionRisk: Boolean, category0: String, category1: String, category2: String, chunkOverlap: Int, chunkTokens: Int, data: JSON, description: String, embeddingSource: EmbeddingSource, forceFixedSize: Boolean, heroUrl: String, homeUrl: String, iconUrl: String, license: String, listedOnMarketplace: Boolean, maxRevCount: Int, name: String, orgRef: ID, readBranch: String, ref: ID!, schema: JSON, shortDescription: String, source: String, tags: [String!], urn: String, vectorIndexEnabled: Boolean, visibility: MemoryVisibility, writeBranch: String): Memory!
@@ -21015,6 +21050,32 @@ enum SyncStatus {
   OK
   PENDING
   SYNCING
+}
+
+"""
+#4864 — createTaskNode's optional tasks-index edge: the Agent whose index lists
+the new task, and the trigger the edge carries (hrn:node:hadronmemory.com:specs:cor:dmo:050:15).
+"""
+input TaskIndexInput {
+  """
+  The Agent (ID or URN) whose tasks index lists this task. The node must be created in that Agent's own system memory.
+  """
+  agent: String!
+
+  """
+  The edge's name: the trigger for this task, as the Agent's task list shows it. One line of at most 200 characters; surrounding space is trimmed.
+  """
+  trigger: String!
+}
+
+"""
+#4864 — createTaskNode's opt-in skill export: written as an enabled
+properties.exports.claudeSkill block, validated by the skill lint (a finding at
+error severity refuses the whole call). Omit it and no block is written.
+"""
+input TaskSkillExportInput {
+  description: String!
+  name: String!
 }
 
 """#1708 — which task event a TASK reason is for."""
