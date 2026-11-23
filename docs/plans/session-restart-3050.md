@@ -86,7 +86,7 @@ session id on the wire (`X-Hadron-Session`), the three required input
 variables as sent (a nil catches both omission and explicit null), the receipt
 text, `--json` keyset with `"endedSessionIds": []` and `"taskId": null`, the
 taskless receipt line, all eleven refusal codes → their exits, missing
-`--reason` (exit 2, nothing sent), no binding (exit 4, nothing sent),
+`--reason` and (#3058) blank/whitespace `--reason` or `<worker>` (exit 2, nothing sent, trimmed reason on the wire), an empty server `taskId` rendering `null`, the null-result "outcome unknown" branch (exit 1, one request, no receipt), the degraded scope read (receipt still prints), the cross-server binding refusal (exit 2, nothing sent), no binding (exit 4, nothing sent),
 `--app` winning over the binding (canonicalized URN, as every team command
 sends it), and the no-team-role-name help rule. `TestMapError` rows pin the
 code→exit mapping at the `api` layer.

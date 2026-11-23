@@ -12,6 +12,7 @@ package team
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -101,10 +102,19 @@ itself deliberately, with a handoff.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			workerRef := args[0]
+			// Blank input is refused here, before any request (#3058): a
+			// whitespace-only value is no more an answer than an empty one, and
+			// the refusal names only the missing input — it says nothing about
+			// the target. What is sent is the trimmed text.
+			workerRef := strings.TrimSpace(args[0])
+			if workerRef == "" {
+				return exitcode.Newf(exitcode.Usage,
+					"<worker> is required: name the worker to restart by id, URN or name (a blank value, such as an unset variable, is refused)")
+			}
+			reason = strings.TrimSpace(reason)
 			if reason == "" {
 				return exitcode.Newf(exitcode.Usage,
-					"--reason is required: say what was tried and why the session is dark — the server records it and judges nothing")
+					"--reason is required: say what was tried and why the session is dark — the server records it and judges nothing (a blank value, such as an unset variable, is refused)")
 			}
 			// The caller IS this worktree's bound session (S4a: the restart
 			// acts only through it). The binding is the admission, so there
@@ -160,6 +170,12 @@ itself deliberately, with a handoff.`,
 				TaskID:          r.TaskId,
 			}
 			dto.EndedSessionIds = append(dto.EndedSessionIds, r.EndedSessionIds...)
+			// The documented contract is null for "no open task" (#3058): an
+			// empty string from the server is the same fact, so --json says it
+			// the one way the help promises.
+			if dto.TaskID != nil && *dto.TaskID == "" {
+				dto.TaskID = nil
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err

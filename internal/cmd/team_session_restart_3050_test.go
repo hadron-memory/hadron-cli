@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -261,5 +263,154 @@ func TestSessionRestart3050HelpNamesNoRole(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("help missing %q:\n%s", want, text)
 		}
+	}
+}
+
+// ---- hadron-cli#3058: the follow-up pins on #3056's branches ---------------
+
+// restartCalls3058 counts the restart mutation among the recorded calls.
+func restartCalls3058(calls []attnCall) int {
+	n := 0
+	for _, c := range calls {
+		if c.Op == "TeamSessionRestart" {
+			n++
+		}
+	}
+	return n
+}
+
+// A blank --reason or a blank worker is refused locally with the usage class
+// BEFORE any request, and the refusal names only the flag: it discloses nothing
+// about the target (gate decision 1). The reason that is sent is the trimmed one.
+func TestSessionRestart3058BlankInputRefusedLocally(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		argv []string
+		want string
+	}{
+		{"whitespace reason", []string{"Kit", "--reason", "   \t "}, "--reason is required"},
+		{"empty reason", []string{"Kit", "--reason", ""}, "--reason is required"},
+		{"blank worker", []string{"  ", "--reason", "unanswered 40m"}, "worker"},
+		{"empty worker", []string{"", "--reason", "unanswered 40m"}, "worker"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := runTeamTaskFactory(t, restartResponses3050(restartSuccess3050),
+				append([]string{"team", "session", "restart"}, tc.argv...)...)
+			if got := exitOf(r.Err); got != exitcode.Usage {
+				t.Fatalf("exits %d, want usage 2 (err %v)", got, r.Err)
+			}
+			if r.Err == nil || !strings.Contains(r.Err.Error(), tc.want) {
+				t.Fatalf("the refusal must name %q: %v", tc.want, r.Err)
+			}
+			if n := len(*r.Calls); n != 0 {
+				t.Fatalf("a blank input must reach the server zero times, got %d calls: %v", n, *r.Calls)
+			}
+			if strings.Contains(r.Out.String(), "restarted") {
+				t.Fatalf("a refused input must print no receipt:\n%s", r.Out.String())
+			}
+		})
+	}
+}
+
+func TestSessionRestart3058ReasonIsSentTrimmed(t *testing.T) {
+	r := runTeamTaskFactory(t, restartResponses3050(restartSuccess3050),
+		"team", "session", "restart", "Kit", "--reason", "  unanswered 40m \n")
+	if r.Err != nil {
+		t.Fatalf("refused: %v", r.Err)
+	}
+	for _, c := range *r.Calls {
+		if c.Op == "TeamSessionRestart" {
+			if got := restartInput3050(t, c.RawVars)["reason"]; got != "unanswered 40m" {
+				t.Fatalf("the reason sent must be the trimmed one, got %q", got)
+			}
+			return
+		}
+	}
+	t.Fatal("the restart operation was not called")
+}
+
+// The documented contract is taskId null in --json when the worker has no open
+// task. A server that answers an empty string must not leak "" onto the wire
+// (the text receipt already treats "" as none).
+func TestSessionRestart3058EmptyTaskIdRendersNullInJSON(t *testing.T) {
+	empty := `{"data":{"restartWorkerSession":{"endedSessionIds":[],"hostId":"host-7","operationId":"op-44","taskId":""}}}`
+	r := runTeamTaskFactory(t, restartResponses3050(empty),
+		"team", "session", "restart", "Kit", "--reason", "unanswered 40m", "--json")
+	if r.Err != nil {
+		t.Fatalf("refused: %v", r.Err)
+	}
+	if !strings.Contains(r.Out.String(), `"taskId": null`) {
+		t.Fatalf("an empty taskId must render null in --json:\n%s", r.Out.String())
+	}
+	// Text keeps the "task none" line (gate decision 2: do not change it).
+	rt := runTeamTaskFactory(t, restartResponses3050(empty),
+		"team", "session", "restart", "Kit", "--reason", "unanswered 40m")
+	if rt.Err != nil || !strings.Contains(rt.Out.String(), "  task none — the worker has no open task; the start is taskless") {
+		t.Fatalf("text must keep the task none line (err %v):\n%s", rt.Err, rt.Out.String())
+	}
+}
+
+// The request was sent, so a null result is an UNKNOWN outcome: exit 1, never a
+// success receipt, never a second request.
+func TestSessionRestart3058NullResultIsOutcomeUnknown(t *testing.T) {
+	r := runTeamTaskFactory(t, restartResponses3050(`{"data":{"restartWorkerSession":null}}`),
+		"team", "session", "restart", "Kit", "--reason", "unanswered 40m")
+	if got := exitOf(r.Err); got != exitcode.Error {
+		t.Fatalf("a null result exits %d, want 1 (err %v)", got, r.Err)
+	}
+	if r.Err == nil || !strings.Contains(r.Err.Error(), "outcome unknown") {
+		t.Fatalf("the refusal must say the outcome is unknown: %v", r.Err)
+	}
+	if strings.Contains(r.Out.String(), "restarted") {
+		t.Fatalf("an unknown outcome must print no success receipt:\n%s", r.Out.String())
+	}
+	if n := restartCalls3058(*r.Calls); n != 1 {
+		t.Fatalf("the restart must be sent exactly once, never retried: %d (%v)", n, *r.Calls)
+	}
+}
+
+// After a successful restart the scope line's decorating read is best-effort: a
+// failing read degrades to the bare App ref and the receipt still prints, exit 0.
+func TestSessionRestart3058DegradedScopeReadStillPrintsReceipt(t *testing.T) {
+	r := runTeamTaskFactory(t, map[string]string{
+		"TeamSessionRestart": restartSuccess3050,
+		"TeamAppIdentity":    gqlErrorJSON("INTERNAL"),
+	}, "team", "session", "restart", "Kit", "--reason", "unanswered 40m")
+	if r.Err != nil {
+		t.Fatalf("a failed decorating read must not fail a restart that happened: %v", r.Err)
+	}
+	out := r.Out.String()
+	if !strings.Contains(out, "app: capp100000000000000000000 (from the worktree binding)") {
+		t.Fatalf("the scope line must degrade to the bare ref:\n%s", out)
+	}
+	if !strings.Contains(out, "✓ restarted Kit: ended 2 session(s), start issued as operation op-42") {
+		t.Fatalf("the receipt must still print:\n%s", out)
+	}
+}
+
+// A binding made against ANOTHER server is refused with the usage class before
+// anything is sent: its session id means nothing there.
+func TestSessionRestart3058BindingServerMismatchRefused(t *testing.T) {
+	dir := teamGitDir(t)
+	other := strings.Replace(bindingFixture, `"startedAt"`, `"server":"https://elsewhere.example","startedAt"`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(other), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	srv, calls := attnServer(t, restartResponses3050(restartSuccess3050))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "session", "restart", "Kit", "--reason", "unanswered 40m"})
+	err := root.Execute()
+	if got := exitOf(err); got != exitcode.Usage {
+		t.Fatalf("a cross-server binding exits %d, want usage 2 (err %v)", got, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "https://elsewhere.example") || !strings.Contains(err.Error(), "--server") {
+		t.Fatalf("the refusal must name the bound server and the --server fix: %v", err)
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("nothing must be sent on a cross-server binding: %v", *calls)
+	}
+	if strings.Contains(out.String(), "restarted") {
+		t.Fatalf("no receipt on a refusal:\n%s", out.String())
 	}
 }
