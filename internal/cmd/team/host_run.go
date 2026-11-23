@@ -591,9 +591,8 @@ per line; --json prints each as a JSON object.`,
 			// Only implemented declarations avoid the unsupported warning
 			// (worker.reset-context never gets this far: config load refuses it).
 			for _, capability := range cfg.Capabilities {
-				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
-					return err
-				}
+				// Advice too (cli#3045): a stderr that cannot be written must not stop the check-ins.
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability)
 			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil {

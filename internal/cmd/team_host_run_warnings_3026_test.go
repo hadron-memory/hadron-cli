@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -38,9 +39,10 @@ func TestHostRunSaysTheStaleLaunchWarningOnceAndStatusStaysQuiet(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
 	err := root.Execute()
-	// cli#3045 item 8: the refused key is what ends the run, on any OS (the warning is written before the
-	// Linux-only wiring refusal), and the warning is the first thing stderr says.
-	if err == nil || !strings.Contains(err.Error(), "no host scope") {
+	// cli#3045 item 8: the warning is written before the Linux-only wiring refusal, so it is the first
+	// thing stderr says on any OS. What ENDS the run is OS-dependent (off Linux the Orca wiring refuses
+	// before registration), so the refused-key ending is asserted on Linux only.
+	if runtime.GOOS == "linux" && (err == nil || !strings.Contains(err.Error(), "no host scope")) {
 		t.Fatalf("the run must end on the refused key, got %v", err)
 	}
 	got := f.IOStreams.ErrOut.(*strings.Builder).String()
@@ -78,6 +80,9 @@ func TestHostRunGoesOnWhenItCannotWriteTheLoadWarning3045(t *testing.T) {
 	err := root.Execute()
 	if err == nil || strings.Contains(err.Error(), "write failed") {
 		t.Fatalf("a failed warning write must not end the run; got %v", err)
+	}
+	if runtime.GOOS != "linux" {
+		return // off Linux the Orca wiring refuses before registration; the write-failure check above holds
 	}
 	registered := false
 	for _, c := range calls() {

@@ -50,7 +50,15 @@ func TestHostSweepSaysNothingOfALoadWarning3045(t *testing.T) {
 	c := newCmdTeamHostSweep(f)
 	c.SetArgs([]string{"--config", cfg})
 	c.SetContext(context.Background())
-	_ = c.Execute() // the unavailable observation ends the pass; only what it printed matters here
+	// The pass must have run to its end: an unavailable daemon is a completed sweep (nil error) that
+	// prints the host-up result for the registered host. Silence from a sweep that failed earlier
+	// (config, key, state file) would prove nothing.
+	if err := c.Execute(); err != nil {
+		t.Fatalf("the sweep must complete on the unavailable observation, got %v", err)
+	}
+	if !strings.Contains(out.String(), "h1") {
+		t.Fatalf("the sweep never reported its pass for the registered host h1; stdout:\n%s", out.String())
+	}
 	for name, got := range map[string]string{"stdout": out.String(), "stderr": errOut.String()} {
 		if strings.Contains(got, "warning:") {
 			t.Errorf("the sweep must not repeat a load warning each run; %s:\n%s", name, got)
