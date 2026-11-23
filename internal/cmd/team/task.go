@@ -105,16 +105,17 @@ owner records what became of each one.
   hadron team task dispose-finding <seat-task> F1 --disposition fixed --ref <kind>=<target>
   hadron team task finding-dispositions <seat-task>     # list the latest disposition of each
 
-For AI workers: --instruction <kind>:<ref> is on every single-task write (a batch create
-takes none). The holder is the person responsible for the worker; the flag claims, for that one call, that
-the holder told the worker to make this change. A person, or a worker acting on
+For AI workers: --instruction <kind>:<ref> is on every single-task write (a batch
+create takes none). The holder is the person responsible for the worker; the flag
+claims, for that one call, that the holder told the worker to make this change. A person, or a worker acting on
 its own authority, leaves it out. The full rules:
 ` + taskInstructionHelp + `
 
 Server needs: task-record commands (every command that returns a task) require a
 server released on or after 2026-11-17; an older server fails each of them with
 exit 2 (schema skew), even when you pass no model-group flag (--model-group,
---model-group-not). ` + "`task dependencies`" + ` pages its own query and is unaffected. Ask the
+--model-group-not). ` + "`task dependencies`" + ` runs its own query, which reads
+only each task's id, handle, title and status, so an older server answers it. Ask the
 server's operator when it was released (` + "`hadron server-info`" + ` shows only that it
 answers). Each page below says what its command takes.`,
 	}
