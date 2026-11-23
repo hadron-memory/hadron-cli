@@ -700,8 +700,9 @@ func TestHostListLimitZeroPrintsNoContinueHint_2939(t *testing.T) {
 }
 
 // A page of only null items with more rows behind it renders as an empty page but the server SERVED
-// rows, so the hint is still printed and advances past them (else the list could not be continued);
-// since cli#2971 the empty-page line also names the skipped rows.
+// rows, so the hint is still printed and advances past them (else the list could not be continued).
+// The empty-page line's naming of the skipped rows is pinned once, by
+// TestHostListAllNullPageNamesTheSkippedRows_2971 (cli#3024 dropped the duplicate here).
 func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
 	server, _ := hostListPageFake(t, map[string][]string{
 		"HostRegistrationsPage": {hostPageBody([]string{"null", "null"}, 6, true)},
@@ -711,8 +712,8 @@ func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "no hosts on this page (total 6, 2 null rows skipped)") || !strings.Contains(out, "--limit 2 --offset 2") {
-		t.Fatalf("an all-null page says so and still continues past the served rows:\n%s", out)
+	if !strings.Contains(out, "--limit 2 --offset 2") {
+		t.Fatalf("an all-null page still continues past the served rows:\n%s", out)
 	}
 }
 
@@ -854,7 +855,7 @@ func TestHostListPageJSONServedAndNextOffset_2971(t *testing.T) {
 		{"a null row is served and counted", []string{hostListHost("orca1"), "null", hostListHost("orca3")}, 8, true,
 			[]string{"--limit", "3"}, 2, "3", "3"},
 		{"the last page has no next offset", []string{hostListHost("orca9")}, 9, false,
-			[]string{"--limit", "3"}, 1, "1", "null"},
+			[]string{"--limit", "3", "--offset", "8"}, 1, "1", "null"},
 		{"a count-only page has none either", nil, 5, true,
 			[]string{"--limit", "0"}, 0, "0", "null"},
 	} {
@@ -935,12 +936,92 @@ func TestHostListMinimalHintAndHintlessLastPage_2971(t *testing.T) {
 			"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca9")}, 9, false)},
 			"TeamAppIdentity":       {hostListLabelBody},
 		})
-		out, _, err := hostListRunBoth(t, server, "--limit", "3")
+		// The real last page of the nine (cli#3024): offset 8 serves the 9th row and
+		// hasMore is false — not the former offset-0 artifice of 1 row served out of 9.
+		out, _, err := hostListRunBoth(t, server, "--limit", "3", "--offset", "8")
 		if err != nil {
 			t.Fatalf("execute: %v\n%s", err, out)
 		}
-		if !strings.Contains(out, "page: 1 of 9 from offset 0") || strings.Contains(out, "continue:") {
+		if !strings.Contains(out, "page: 1 of 9 from offset 8") || strings.Contains(out, "continue:") {
 			t.Fatalf("a last page keeps its page line and prints no continue hint:\n%s", out)
 		}
 	})
+}
+
+// An inconsistent last page, DELIBERATE (cli#3024): hasMore false while offset+served falls
+// short of the total — a server contract fault the former last-page fixtures covered only by
+// accident (offset 0 serving 1 of 9). The CLI relays the envelope rather than second-guessing
+// it: the page line states its own numbers, and no continue hint is printed (nextOffset is
+// null; the CLI does not invent a continuation the server never offered).
+func TestHostListInconsistentLastPageIsRelayedNotFixed_3024(t *testing.T) {
+	server, _ := hostListPageFake(t, map[string][]string{
+		"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca1")}, 9, false)},
+		"TeamAppIdentity":       {hostListLabelBody},
+	})
+	out, _, err := hostListRunBoth(t, server, "--limit", "3")
+	if err != nil {
+		t.Fatalf("execute: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "page: 1 of 9 from offset 0") || strings.Contains(out, "continue:") {
+		t.Fatalf("an inconsistent last page keeps its page line and prints no hint:\n%s", out)
+	}
+}
+
+// The text hint and the --json envelope agree on the continue point (cli#3024): NextOffset is
+// computed once, so the hint's --offset and the envelope's nextOffset cannot drift apart —
+// neither on a page that served null rows (the continue point advances by rows served, not
+// rows shown) nor on a last page, where the envelope says null and the text prints no hint.
+func TestHostListHintAgreesWithEnvelopeNextOffset_3024(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		items   []string
+		total   int
+		hasMore bool
+		args    []string
+	}{
+		{"null rows advance both", []string{hostListHost("orca1"), "null", hostListHost("orca3")}, 8, true,
+			[]string{"--limit", "3"}},
+		{"the last page continues nowhere", []string{hostListHost("orca9")}, 9, false,
+			[]string{"--limit", "3", "--offset", "8"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// Two bodies per operation: the fixture is read twice, once per mode.
+			page := hostPageBody(tc.items, tc.total, tc.hasMore)
+			server, _ := hostListPageFake(t, map[string][]string{
+				"HostRegistrationsPage": {page, page},
+				"TeamAppIdentity":       {hostListLabelBody, hostListLabelBody},
+			})
+			// One fixture read both ways: text for the hint, --json for nextOffset.
+			text, _, err := hostListRunBoth(t, server, tc.args...)
+			if err != nil {
+				t.Fatalf("execute: %v\n%s", err, text)
+			}
+			asJSON, _, err := hostListRunBoth(t, server, append(tc.args, "--json")...)
+			if err != nil {
+				t.Fatalf("execute --json: %v\n%s", err, asJSON)
+			}
+			var env struct {
+				NextOffset *int `json:"nextOffset"`
+			}
+			if err := json.Unmarshal([]byte(asJSON), &env); err != nil {
+				t.Fatalf("single-page --json must be the envelope, got %s", asJSON)
+			}
+			hint := ""
+			for _, l := range strings.Split(text, "\n") {
+				if strings.HasPrefix(l, "continue: ") {
+					hint = strings.TrimPrefix(l, "continue: ")
+				}
+			}
+			if env.NextOffset == nil {
+				if hint != "" {
+					t.Fatalf("a null nextOffset must print no hint, got %q:\n%s", hint, text)
+				}
+				return
+			}
+			want := fmt.Sprintf("--offset %d", *env.NextOffset)
+			if !strings.HasSuffix(hint, want) {
+				t.Fatalf("the hint must end %q (the envelope's nextOffset), got %q:\n%s", want, hint, text)
+			}
+		})
+	}
 }
