@@ -28,6 +28,9 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
+	// Warnings are findings that do not stop a load (cli#3026), set by LoadConfig. `host run` says each
+	// once at start; the sweep and the status read reload the file every run and say nothing.
+	Warnings []string `yaml:"-"`
 	// legacyLaunchPath is set only by LoadConfigForImport: validation then skips the per-worker
 	// launch-path rules (the removed exec path's, and the supervised path's prerequisites) because
 	// the config is being read to be migrated away from them (cli#2914).
@@ -97,7 +100,8 @@ type OrcaLaunchConfig struct {
 	// CleanupDeadTabs opts into C5's conservative post-relaunch tab cleanup.
 	// Default false until the operator validates the live close path.
 	CleanupDeadTabs bool `yaml:"cleanup_dead_tabs"`
-	// OrcaBin is the absolute Orca CLI path.
+	// OrcaBin is the absolute Orca CLI path. The worker launch and the one-minute host sweep read this
+	// one; the sweep falls back to delivery.orca_bin, then to "orca" on PATH, only when it is empty.
 	OrcaBin string `yaml:"orca_bin"`
 	// Group is refused (cli#2121): it ran the command under `sg <group>`,
 	// and the launch proof reads the process through /proc, which an
@@ -141,9 +145,14 @@ func validateOrcaWorker(c *Config, ref string, w WorkerConfig) []string {
 	if w.Profile == nil {
 		if len(w.Launch) > 0 {
 			// An old exec-style worker: say what the removed key was and what replaces it.
-			return append(errs, fmt.Sprintf("worker %q: launch (an argv) belonged to the exec launch path, which was removed; set a launcher_profile (and an absolute disk_tmp) instead: every worker now launches through Orca (launch_via: orca, the default)", ref))
+			return append(errs, fmt.Sprintf("worker %q: launch (an argv) belonged to the exec launch path, which was removed; set a launcher_profile (and an absolute disk_tmp) instead: every worker now launches through Orca", ref))
 		}
 		return append(errs, fmt.Sprintf("worker %q: launch_via orca needs a launcher_profile", ref))
+	}
+	if len(w.Launch) > 0 {
+		// cli#3026: worker.start launches from the profile; a launch argv beside it is a leftover that
+		// used to be ignored without a word. Load still succeeds: it is a warning, said once by `host run`.
+		c.Warnings = append(c.Warnings, fmt.Sprintf("worker %q: launch is not used (worker.start launches from launcher_profile); remove the launch line", ref))
 	}
 	a, ok := c.Accounts[w.Profile.Account]
 	if !ok {
@@ -184,7 +193,9 @@ type DeliveryConfig struct {
 	// AckMixed asserts that the server carries A-prime (issue #2072, PR #2102): mixed wake
 	// acknowledgment records ticks/tasks without advancing any chat mark.
 	AckMixed bool `yaml:"ack_mixed"`
-	// OrcaBin is the absolute path of the orca CLI.
+	// OrcaBin is the absolute path of the orca CLI that delivery, the health checks and `orca status`
+	// use. The sweep reads it only when orca_launch.orca_bin is empty. The two can differ; nothing
+	// checks that they agree.
 	OrcaBin string `yaml:"orca_bin"`
 }
 

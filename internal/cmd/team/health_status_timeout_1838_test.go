@@ -236,7 +236,7 @@ func TestHealth1838ChildPastTheFloorButInsideTheSizedDeadlineIsStored(t *testing
 	deadline, stored, writes := sweepStoresN(t, n, func(rows, dir string) healthStatusReader {
 		bin := filepath.Join(dir, "fake-status")
 		script := "#!/bin/sh\nsleep 1\ncat <<'EOF'\n[" + rows[1:len(rows)-1] + "]\nEOF\n"
-		if err := os.WriteFile(bin, []byte(hostyaml.Supervised(script)), 0o700); err != nil {
+		if err := os.WriteFile(bin, []byte(script), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		return func(ctx context.Context, path string, _ *hostpoller.Config) ([]byte, int, error) {

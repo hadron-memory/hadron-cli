@@ -14,14 +14,17 @@ import (
 	"strings"
 )
 
-// Supervised renders the `launch: [program, ...]` worker shorthand into the profile, disk_tmp, account
-// profile and orca_launch the supervised launch needs. Everything else in the text is untouched.
 var (
-	fixtureWorkerLine2914 = regexp.MustCompile(`^  (\S+):\s*$`)
-	fixtureFamilyLine2914 = regexp.MustCompile(`^    family:\s*(\S+)\s*$`)
-	fixtureLaunchLine2914 = regexp.MustCompile(`^    launch:\s*\[(.*)\]\s*$`)
+	workerLine = regexp.MustCompile(`^  (\S+):\s*$`)
+	familyLine = regexp.MustCompile(`^    family:\s*(\S+)\s*$`)
+	launchLine = regexp.MustCompile(`^    launch:\s*\[(.*)\]\s*$`)
 )
 
+// Supervised renders the `launch: [program, ...]` worker shorthand into the profile, disk_tmp, account
+// profile and orca_launch the supervised launch needs. Everything else in the text is untouched.
+//
+// It reads block-style workers only: a flow-style `workers: {iris: {launch: [x]}}` is not seen and comes
+// back as written (pinned in the tests). Apply it to host YAML a test writes, not to other files.
 func Supervised(text string) string {
 	lines := strings.Split(text, "\n")
 	var out []string
@@ -32,12 +35,12 @@ func Supervised(text string) string {
 	// starting with prefix.
 	blockHas := func(i int, prefix string) bool {
 		start := i
-		for start > 0 && !fixtureWorkerLine2914.MatchString(lines[start]) {
+		for start > 0 && !workerLine.MatchString(lines[start]) {
 			start--
 		}
 		for j := start + 1; j < len(lines); j++ {
 			l := lines[j]
-			if fixtureWorkerLine2914.MatchString(l) || (len(l) > 0 && l[0] != ' ' && l[0] != '#') {
+			if workerLine.MatchString(l) || (len(l) > 0 && l[0] != ' ' && l[0] != '#') {
 				return false
 			}
 			if strings.HasPrefix(l, prefix) {
@@ -55,13 +58,13 @@ func Supervised(text string) string {
 			inWorkers = false
 		}
 		if inWorkers {
-			if m := fixtureWorkerLine2914.FindStringSubmatch(l); m != nil {
+			if m := workerLine.FindStringSubmatch(l); m != nil {
 				ref, family = m[1], ""
 			}
-			if m := fixtureFamilyLine2914.FindStringSubmatch(l); m != nil {
+			if m := familyLine.FindStringSubmatch(l); m != nil {
 				family = m[1]
 			}
-			if m := fixtureLaunchLine2914.FindStringSubmatch(l); m != nil && ref != "" {
+			if m := launchLine.FindStringSubmatch(l); m != nil && ref != "" {
 				if blockHas(i, "    launcher_profile:") || blockHas(i, "    launch_via:") {
 					continue // the worker states its own launch: the shorthand is just dropped
 				}
@@ -70,7 +73,7 @@ func Supervised(text string) string {
 				accounts = append(accounts, account{name, bin})
 				out = append(out, fmt.Sprintf("    launcher_profile: {family: %s, mode: long, account: %s}", family, name))
 				if !blockHas(i, "    disk_tmp:") {
-					out = append(out, "    disk_tmp: /tmp/supervised2914/"+ref)
+					out = append(out, "    disk_tmp: /tmp/hostyaml-fixture/"+ref)
 				}
 				continue
 			}

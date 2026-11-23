@@ -193,7 +193,7 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 		"  \"terminal close\") if [ -f \"" + w.closeFail + "\" ]; then exit 1; fi; echo \"$4\" >> \"" + w.orcaCloses + "\"; printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"  \"terminal rename\") printf '%s' '{\"ok\":true,\"result\":{}}';;\n" +
 		"esac\n"
-	if err := os.WriteFile(orcaBin, []byte(hostyaml.Supervised(script)), 0o755); err != nil {
+	if err := os.WriteFile(orcaBin, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	// A single agent tab with chrome on it: the default, "clean but normal".
@@ -286,7 +286,7 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	}
 
 	w.agentTerms = filepath.Join(dir, "agent-terms.txt")
-	if err := os.WriteFile(w.agentTerms, []byte(hostyaml.Supervised("")), 0o600); err != nil {
+	if err := os.WriteFile(w.agentTerms, []byte(""), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	w.stateFileWrite(t, w.state)
@@ -300,7 +300,7 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "key"), []byte(hostyaml.Supervised(key)), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "key"), []byte(key), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	w.cfgPath = path
@@ -372,7 +372,7 @@ func (w *health2027World) setRecheckList(t *testing.T, terms []health2027Term) {
 // the recheck cannot verify the tab and must decline.
 func (w *health2027World) failRecheckList(t *testing.T) {
 	t.Helper()
-	if err := os.WriteFile(w.failRecheckListPath, []byte(hostyaml.Supervised("")), 0o600); err != nil {
+	if err := os.WriteFile(w.failRecheckListPath, []byte(""), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -432,14 +432,14 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(bin, []byte(hostyaml.Supervised(script)), 0o755); err != nil {
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	var c *exec.Cmd
 	if supervised {
 		wrap := filepath.Join(w.dir, "bin", "worker-supervise")
 		if _, err := os.Stat(wrap); err != nil {
-			if err := os.WriteFile(wrap, []byte(hostyaml.Supervised("#!/bin/sh\n\"$1\" &\nwait\n")), 0o755); err != nil {
+			if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -592,16 +592,16 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	w.spawns++
 	ready := filepath.Join(w.dir, fmt.Sprintf("ready-%d-chain", w.spawns))
 	child := filepath.Join(w.dir, "bin", "claude-child")
-	if err := os.WriteFile(child, []byte(hostyaml.Supervised("#!/bin/sh\ntrap 'echo \"term chain-child\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\ntouch \""+ready+"\"\nwhile :; do sleep 1; done\n")), 0o755); err != nil {
+	if err := os.WriteFile(child, []byte("#!/bin/sh\ntrap 'echo \"term chain-child\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\ntouch \""+ready+"\"\nwhile :; do sleep 1; done\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	shim := filepath.Join(w.dir, "bin", "claude")
-	if err := os.WriteFile(shim, []byte(hostyaml.Supervised("#!/bin/sh\ntrap 'echo \"term chain-shim\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\n\""+child+"\" &\nwait\n")), 0o755); err != nil {
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\ntrap 'echo \"term chain-shim\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\n\""+child+"\" &\nwait\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	wrap := filepath.Join(w.dir, "bin", "worker-supervise")
 	if _, err := os.Stat(wrap); err != nil {
-		if err := os.WriteFile(wrap, []byte(hostyaml.Supervised("#!/bin/sh\n\"$1\" &\nwait\n")), 0o755); err != nil {
+		if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}

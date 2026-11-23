@@ -9,7 +9,7 @@ func TestSupervisedRendersTheShorthandIntoAValidSupervisedConfig(t *testing.T) {
 	text := "app: hrn:app:acme.com:team\nlabel: b\nworkers:\n  iris:\n    family: claude\n    launch: [claude-worker, --model, opus]\n  uma:\n    family: codex\n    launch: [codex-x]\n    disk_tmp: /d/uma\n"
 	got := Supervised(text)
 	for _, want := range []string{
-		"launcher_profile: {family: claude, mode: long, account: acct-iris}", "disk_tmp: /tmp/supervised2914/iris",
+		"launcher_profile: {family: claude, mode: long, account: acct-iris}", "disk_tmp: /tmp/hostyaml-fixture/iris",
 		"launcher_profile: {family: codex, mode: long, account: acct-uma}", "acct-iris: {bin: claude-worker}", "acct-uma: {bin: codex-x}",
 		"orca_bin: /usr/bin/orca",
 	} {
@@ -21,10 +21,6 @@ func TestSupervisedRendersTheShorthandIntoAValidSupervisedConfig(t *testing.T) {
 		t.Errorf("one disk_tmp per worker (uma keeps its own) and no argv left:\n%s", got)
 	}
 }
-
-// supervisedWorker2914 is a worker of family fam with what the supervised launch needs (cli#2914): a
-// launcher profile on the account "x" and an absolute disk_tmp. A Config holding one also needs
-// supervisedAccounts2914 (the account's bin) and an orca binary.
 
 // cli#3026 item 1: the limits and the pass-through cases are pinned, not left implied.
 func TestSupervisedLeavesTextWithoutTheShorthandUntouched(t *testing.T) {
@@ -53,7 +49,7 @@ func TestSupervisedDoesNotSeeFlowStyleWorkers(t *testing.T) {
 func TestSupervisedGivesEachWorkerItsOwnDiskTmpAndKeepsAStatedLaunch(t *testing.T) {
 	text := "workers:\n  a:\n    family: claude\n    launch: [x]\n  b:\n    family: claude\n    launch: [y]\n  c:\n    family: claude\n    launch: [z]\n    launcher_profile: {family: claude, mode: long, account: own}\n"
 	got := Supervised(text)
-	for _, want := range []string{"disk_tmp: /tmp/supervised2914/a", "disk_tmp: /tmp/supervised2914/b", "account: acct-a", "account: acct-b", "account: own"} {
+	for _, want := range []string{"disk_tmp: /tmp/hostyaml-fixture/a", "disk_tmp: /tmp/hostyaml-fixture/b", "account: acct-a", "account: acct-b", "account: own"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q:\n%s", want, got)
 		}

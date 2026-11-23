@@ -68,10 +68,10 @@ func TestSweepDaemonDownReadsAndRecordsButIssuesNoOperation2056(t *testing.T) {
 	}))
 	defer srv.Close()
 	dir := t.TempDir()
-	_ = os.WriteFile(filepath.Join(dir, "key"), []byte(hostyaml.Supervised("host-only")), 0600)
-	_ = os.WriteFile(filepath.Join(dir, "hadron-host-state.json"), []byte(hostyaml.Supervised(`{"hostId":"h1"}`)), 0600)
+	_ = os.WriteFile(filepath.Join(dir, "key"), []byte("host-only"), 0600)
+	_ = os.WriteFile(filepath.Join(dir, "hadron-host-state.json"), []byte(`{"hostId":"h1"}`), 0600)
 	fakeOrca := filepath.Join(dir, "orca")
-	if err := os.WriteFile(fakeOrca, []byte(hostyaml.Supervised("#!/bin/sh\ncase \"$1\" in\nstatus) printf '%s' '{\"ok\":true,\"result\":{\"runtime\":{\"reachable\":true}}}';;\nterminal) printf '%s' '{\"ok\":true,\"result\":{\"terminals\":[]}}';;\n*) exit 1;;\nesac\n")), 0700); err != nil {
+	if err := os.WriteFile(fakeOrca, []byte("#!/bin/sh\ncase \"$1\" in\nstatus) printf '%s' '{\"ok\":true,\"result\":{\"runtime\":{\"reachable\":true}}}';;\nterminal) printf '%s' '{\"ok\":true,\"result\":{\"terminals\":[]}}';;\n*) exit 1;;\nesac\n"), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Mkdir(filepath.Join(dir, "iris"), 0700); err != nil {

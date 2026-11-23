@@ -42,3 +42,20 @@ func TestWriteHostConfigWarnings(t *testing.T) {
 		t.Fatalf("no warnings, no output: %q %v", out.String(), err)
 	}
 }
+
+// cli#3026 item 4: which orca_bin the sweep uses. orca_launch.orca_bin when set, then delivery.orca_bin,
+// then "orca" on PATH. The two keys are documented on the config fields; this pins the order they state.
+func TestConfiguredOrcaBinOrder(t *testing.T) {
+	cfg := &hostpoller.Config{}
+	if got := configuredOrcaBin(cfg); got != "orca" {
+		t.Errorf("neither set: %q", got)
+	}
+	cfg.Delivery.OrcaBin = "/delivery/orca"
+	if got := configuredOrcaBin(cfg); got != "/delivery/orca" {
+		t.Errorf("delivery only: %q", got)
+	}
+	cfg.OrcaLaunch.OrcaBin = "/launch/orca"
+	if got := configuredOrcaBin(cfg); got != "/launch/orca" {
+		t.Errorf("both set, orca_launch wins: %q", got)
+	}
+}

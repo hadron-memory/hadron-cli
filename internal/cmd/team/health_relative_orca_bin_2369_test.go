@@ -83,7 +83,7 @@ func TestHealthRefusesRelativeOrcaBin2369(t *testing.T) {
 				if e := os.MkdirAll(filepath.Dir(p), 0o755); e != nil {
 					t.Fatal(e)
 				}
-				if e := os.WriteFile(p, []byte(hostyaml.Supervised("#!/bin/sh\nexit 0\n")), 0o700); e != nil {
+				if e := os.WriteFile(p, []byte("#!/bin/sh\nexit 0\n"), 0o700); e != nil {
 					t.Fatal(e)
 				}
 			}
@@ -105,7 +105,7 @@ func TestHealthRefusesRelativeOrcaBin2369(t *testing.T) {
 // the sweep goes on to the status read; an over-refusing guard fails this.
 func TestHealthAcceptsAbsoluteOrcaBin2369(t *testing.T) {
 	bin := filepath.Join(t.TempDir(), "orca")
-	if e := os.WriteFile(bin, []byte(hostyaml.Supervised("#!/bin/sh\nexit 0\n")), 0o700); e != nil {
+	if e := os.WriteFile(bin, []byte("#!/bin/sh\nexit 0\n"), 0o700); e != nil {
 		t.Fatal(e)
 	}
 	requests, _, _, err := relativeOrcaBin2369(t, bin)

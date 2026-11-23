@@ -122,7 +122,7 @@ func TestAWorkerAddedToARunningPollersConfigGetsItsWake2623(t *testing.T) {
 	t.Cleanup(func() { orcaRunner = prev })
 
 	keyFile := filepath.Join(root, "host.key")
-	if err := os.WriteFile(keyFile, []byte(hostyaml.Supervised("hk_fixture")), 0o600); err != nil {
+	if err := os.WriteFile(keyFile, []byte("hk_fixture"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	conf := filepath.Join(root, "host.yaml")
