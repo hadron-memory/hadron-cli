@@ -52,6 +52,13 @@ type hostServer struct {
 	// document, and look again every refusedReprobeEvery, so a server upgraded
 	// while the host runs is noticed (cli#2091, cli#2100).
 	noRefusedAt atomic.Int64
+	// noSelectorAt is when this server refused the one-worker desired read's
+	// `worker` selector (cli#2816) while the host-wide read worked (unix
+	// nanos; 0 = not pinned): it predates hadron-server#4693, so per-worker
+	// freshness reads fall back to the host-wide document, and ask for the
+	// selector again every refusedReprobeEvery, so an upgrade while the host
+	// runs is noticed.
+	noSelectorAt atomic.Int64
 	// now dates a batch read, for its proof's expiry; time.Now when nil.
 	now func() time.Time
 }

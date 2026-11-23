@@ -62903,6 +62903,129 @@ func (v *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsRe
 	return &retval, nil
 }
 
+// HostRelaunchWorkerHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostRelaunchWorkerHostDesiredState struct {
+	HostId    string                                                         `json:"hostId"`
+	SweepMode SweepMode                                                      `json:"sweepMode"`
+	Workers   []*HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState `json:"workers"`
+}
+
+// GetHostId returns HostRelaunchWorkerHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredState) GetHostId() string { return v.HostId }
+
+// GetSweepMode returns HostRelaunchWorkerHostDesiredState.SweepMode, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredState) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetWorkers returns HostRelaunchWorkerHostDesiredState.Workers, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredState) GetWorkers() []*HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState {
+	return v.Workers
+}
+
+// HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState includes the requested fields of the GraphQL type WorkerDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: one worker's desired state on one host, with the setup the host needs to start it.
+type HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState struct {
+	WorkerId string `json:"workerId"`
+	// The model family the host registered the worker to run as.
+	Family string `json:"family"`
+	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+	Desired *DesiredRunState   `json:"desired"`
+	Reason  DesiredStateReason `json:"reason"`
+	// The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+	OpenSessionId *string `json:"openSessionId"`
+	// The worker's existing worktrees on this host, as the host names them; empty when it has none.
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetWorkerId returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetFamily returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetFamily() string {
+	return v.Family
+}
+
+// GetDesired returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Desired, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetDesired() *DesiredRunState {
+	return v.Desired
+}
+
+// GetReason returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Reason, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetReason() DesiredStateReason {
+	return v.Reason
+}
+
+// GetOpenSessionId returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.OpenSessionId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetOpenSessionId() *string {
+	return v.OpenSessionId
+}
+
+// GetWorktrees returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostRelaunchWorkerMyApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostRelaunchWorkerMyApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostRelaunchWorkerMyApp.Id, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerMyApp) GetId() string { return v.Id }
+
+// HostRelaunchWorkerResponse is returned by HostRelaunchWorker on success.
+type HostRelaunchWorkerResponse struct {
+	// The App authenticated by the current AppKey (null for JWT users without an App)
+	MyApp *HostRelaunchWorkerMyApp `json:"myApp"`
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	// #4260: the optional worker selector (a worker id or an exact name) narrows the rows this answer returns to the
+	// workers of this host it names, for a host's per-worker re-reads — AT MOST ONE ROW: the id form is exactly one
+	// (ids are unique), and the name form is at most one because a worker's name is unique per App,
+	// case-insensitively (workers_app_name_uniq, a functional unique on (app_id, lower(name)) that Prisma's schema
+	// cannot express — prisma/post-push.sql and migration 20260814130000); the name match itself is exact-case, so
+	// a differently-cased selector selects nothing. Worker names are stored trimmed (the cast path trims a name
+	// before storing it; there is no rename) and a non-empty selector is trimmed the same way, so an exact name
+	// comparison always reaches a stored name. A null, empty or whitespace-only worker is treated as omitted — the
+	// full host list returns. An exact id match takes precedence over a name match, so a worker whose name equals
+	// another listed worker's id selects the id's row alone. A worker this host does not run — another host's, a
+	// retired worker not on this host, an unknown id or name — answers the same empty workers list as an unknown
+	// worker (hrn:node:hadronmemory.com:specs:cor:agt:020:08: denial and absence indistinguishable), so the
+	// selector never probes the App's roster; a retired worker this host still lists keeps its row. The gates,
+	// refusals, key-use recording, row semantics and sweepMode are exactly the host-wide read's; omit it and the
+	// full list returns.
+	HostDesiredState *HostRelaunchWorkerHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetMyApp returns HostRelaunchWorkerResponse.MyApp, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerResponse) GetMyApp() *HostRelaunchWorkerMyApp { return v.MyApp }
+
+// GetHostDesiredState returns HostRelaunchWorkerResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerResponse) GetHostDesiredState() *HostRelaunchWorkerHostDesiredState {
+	return v.HostDesiredState
+}
+
 // HostSetupAssignmentFields includes the GraphQL fields of HostWorkerAssignment requested by the fragment HostSetupAssignmentFields.
 // The GraphQL type's documentation follows.
 //
@@ -139483,6 +139606,22 @@ func (v *__HostRelaunchVerifyFailureInput) GetCheckedAt() string { return v.Chec
 // GetAttempt returns __HostRelaunchVerifyFailureInput.Attempt, and is useful for accessing the field via an interface.
 func (v *__HostRelaunchVerifyFailureInput) GetAttempt() int { return v.Attempt }
 
+// __HostRelaunchWorkerInput is used internally by genqlient
+type __HostRelaunchWorkerInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns __HostRelaunchWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostRelaunchWorkerInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchWorkerInput) GetHostId() string { return v.HostId }
+
+// GetWorker returns __HostRelaunchWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchWorkerInput) GetWorker() string { return v.Worker }
+
 // __HostSweepIdentityInput is used internally by genqlient
 type __HostSweepIdentityInput struct {
 	AppRef string `json:"appRef"`
@@ -172249,6 +172388,64 @@ func HostRelaunchVerifyFailure(
 	}
 
 	data_ = &HostRelaunchVerifyFailureResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostRelaunchWorker.
+const HostRelaunchWorker_Operation = `
+query HostRelaunchWorker ($appRef: String!, $hostId: String!, $worker: String!) {
+	myApp {
+		id
+	}
+	hostDesiredState(appRef: $appRef, hostId: $hostId, worker: $worker) {
+		hostId
+		sweepMode
+		workers {
+			workerId
+			family
+			desired
+			reason
+			openSessionId
+			worktrees
+		}
+	}
+}
+`
+
+// C5's fresh read about ONE worker (cli#2816): the fields of HostRelaunchSnapshot
+// (host_relaunch_2060.graphql) with hadron-server#4693's `worker` selector.
+// The answer carries at most that worker's row, and the same empty list for a
+// worker of another host, a retired one and an unknown one. It is its own
+// document on purpose: a server without the selector refuses only this read, so
+// hostServer.RelaunchWorker can still fall back to the host-wide one.
+// Sent without the worker session (no X-Hadron-Session): the host key drives no
+// session, and reads only.
+func HostRelaunchWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+	worker string,
+) (data_ *HostRelaunchWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRelaunchWorker",
+		Query:  HostRelaunchWorker_Operation,
+		Variables: &__HostRelaunchWorkerInput{
+			AppRef: appRef,
+			HostId: hostId,
+			Worker: worker,
+		},
+	}
+
+	data_ = &HostRelaunchWorkerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
