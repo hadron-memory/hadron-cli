@@ -31,15 +31,13 @@ func TestWireOrcaLaunchRefusesANonLinuxHost(t *testing.T) {
 func TestWriteHostConfigWarnings(t *testing.T) {
 	var out bytes.Buffer
 	cfg := &hostpoller.Config{Warnings: []string{`worker "iris": launch is ignored`, `worker "ada": launch is ignored`}}
-	if err := writeHostConfigWarnings(&out, cfg); err != nil {
-		t.Fatal(err)
-	}
+	writeHostConfigWarnings(&out, cfg)
 	if got, want := out.String(), "warning: worker \"iris\": launch is ignored\nwarning: worker \"ada\": launch is ignored\n"; got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
 	out.Reset()
-	if err := writeHostConfigWarnings(&out, &hostpoller.Config{}); err != nil || out.Len() != 0 {
-		t.Fatalf("no warnings, no output: %q %v", out.String(), err)
+	if writeHostConfigWarnings(&out, &hostpoller.Config{}); out.Len() != 0 {
+		t.Fatalf("no warnings, no output: %q", out.String())
 	}
 }
 

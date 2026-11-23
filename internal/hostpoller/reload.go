@@ -98,6 +98,8 @@ func (p *Poller) reloadConfig() {
 	changed := fixedChanges(c, next)
 	merged := *c
 	merged.sourceHash = sum
+	fresh := newWarnings(c.Warnings, next.Warnings)
+	merged.Warnings = next.Warnings
 	apply := len(added)+len(removed)+len(modified)+len(others) > 0
 	if apply {
 		merged.Workers, merged.Repos, merged.Accounts = next.Workers, next.Repos, next.Accounts
@@ -108,9 +110,29 @@ func (p *Poller) reloadConfig() {
 	if apply {
 		p.log("config-reloaded", "", "", "", reloadDetail(added, removed, modified, others))
 	}
+	for _, w := range fresh {
+		p.log("config-warning", "", "", "", w)
+	}
 	if len(changed) > 0 {
 		p.log("config-restart-needed", "", "", "", "changed in the file but read only at start, so not applied: "+strings.Join(changed, ", ")+"; restart the poller to apply it")
 	}
+}
+
+// newWarnings is what a reload's load says that the configuration in force did not: a worker the file
+// gained, or one whose entry now earns a warning. A warning already said (at start, or by an earlier
+// reload) is not said again (cli#3045 item 3).
+func newWarnings(held, next []string) []string {
+	seen := make(map[string]bool, len(held))
+	for _, w := range held {
+		seen[w] = true
+	}
+	var out []string
+	for _, w := range next {
+		if !seen[w] {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 // readConfigFile reads path through one open file and returns its content and

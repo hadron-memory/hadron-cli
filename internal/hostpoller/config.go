@@ -28,8 +28,9 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
-	// Warnings are findings that do not stop a load (cli#3026), set by LoadConfig. `host run` says each
-	// once at start; the sweep and the status read reload the file every run and say nothing.
+	// Warnings are findings that do not stop a load (cli#3026), filled by validate (validateOrcaWorker adds
+	// a worker's) and reset at the top of each pass. `host run` says each once at start, and a hot reload says a
+	// newly added worker's once (cli#3045); the sweep and the status read reload the file every run and say nothing.
 	Warnings []string `yaml:"-"`
 	// legacyLaunchPath is set only by LoadConfigForImport: validation then skips the per-worker
 	// launch-path rules (the removed exec path's, and the supervised path's prerequisites) because

@@ -364,6 +364,17 @@ func TestHealthOrcaBinFallsBackToPath2017(t *testing.T) {
 	}
 }
 
+// cli#3045 item 10: the health sweep's title pass reads delivery.orca_bin even when orca_launch.orca_bin
+// is also set; only the worker launch and the host sweep read orca_launch's first.
+func TestHealthOrcaBinIgnoresOrcaLaunchBin3045(t *testing.T) {
+	cfg := &hostpoller.Config{}
+	cfg.Delivery.OrcaBin = fakeExecutable2166(t)
+	cfg.OrcaLaunch.OrcaBin = "/launch/orca"
+	if got := healthOrcaBin(cfg); got != cfg.Delivery.OrcaBin {
+		t.Fatalf("health must take delivery.orca_bin %q, got %q", cfg.Delivery.OrcaBin, got)
+	}
+}
+
 // No registered worker means nothing to retitle and no Orca call to fail.
 func TestHealthTitlesNoWorkersMakesNoOrcaCall2017(t *testing.T) {
 	old := orcaRunner

@@ -234,13 +234,17 @@ func operationFrom(o *gen.HostOperationFields) hostpoller.Operation {
 // writeHostConfigWarnings says each load warning once, on stderr, when `host run` starts. The sweep
 // timer and the status read load the same file every run and stay quiet, so a warning does not
 // repeat each minute (cli#3026).
-func writeHostConfigWarnings(w io.Writer, cfg *hostpoller.Config) error {
+//
+// A warning is advice, so a stderr that cannot be written (closed, a dead pipe) ends the writing and
+// nothing else: it returns no error. `host run` aborting on it would stop the check-ins, and a host
+// that stops checking in lapses (cor:agt:070:01); an unreadable warning is not worth a lapsed host
+// (cli#3045 item 2).
+func writeHostConfigWarnings(w io.Writer, cfg *hostpoller.Config) {
 	for _, warning := range cfg.Warnings {
 		if _, err := fmt.Fprintf(w, "warning: %s\n", warning); err != nil {
-			return err
+			return
 		}
 	}
-	return nil
 }
 
 // loadHostPoller reads the configuration and the key, and builds the client
@@ -506,7 +510,8 @@ The configuration (YAML):
 The file is re-read every poll. A worker added to or removed from workers, a
 worker's entry changed in place, and changes to repos and account_profiles
 take effect on the next poll, with no restart (the poller logs
-config-reloaded, naming the workers). Content is applied on the second poll
+config-reloaded, naming the workers, and config-warning once for a load
+warning a newly added or changed worker brings). Content is applied on the second poll
 that sees it, so a file still being written is never applied half-written.
 Everything else in the file (the key file, poll_interval_seconds,
 capabilities, state_file, delivery, orca_launch and the rest)
@@ -582,15 +587,12 @@ per line; --json prints each as a JSON object.`,
 			if err != nil {
 				return err
 			}
-			if err := writeHostConfigWarnings(f.IOStreams.ErrOut, cfg); err != nil {
-				return err
-			}
+			writeHostConfigWarnings(f.IOStreams.ErrOut, cfg)
 			// Only implemented declarations avoid the unsupported warning
 			// (worker.reset-context never gets this far: config load refuses it).
 			for _, capability := range cfg.Capabilities {
-				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
-					return err
-				}
+				// Advice too (cli#3045): a stderr that cannot be written must not stop the check-ins.
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability)
 			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil {
