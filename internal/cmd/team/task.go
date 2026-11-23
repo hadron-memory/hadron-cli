@@ -107,8 +107,8 @@ owner records what became of each one.
 
 For AI workers: --instruction <kind>:<ref> is on every single-task write (a batch
 create takes none). The holder is the person responsible for the worker; the flag
-claims, for that one call, that the holder told the worker to make this change. A person, or a worker acting on
-its own authority, leaves it out. The full rules:
+claims, for that one call, that the holder told the worker to make this change.
+A person, or a worker acting on its own authority, leaves it out. The full rules:
 ` + taskInstructionHelp + `
 
 Server needs: task-record commands (every command that returns a task) require a
