@@ -479,7 +479,8 @@ ACTIVE task (backlog, pending or started) per App; finished and cancelled
 tasks keep it, so the list can hold several, newest first. The live holder is
 the one still active, and one call finds it, against the same App as the refused
 create and with no other narrowing filter:
-  --external-id <id> --status BACKLOG --status PENDING --status STARTED An empty list then means no active
+  --external-id <id> --status BACKLOG --status PENDING --status STARTED
+An empty list then means no active
 task matched under these filters (the newest ended task is not a holder); any
 other filter can hide the holder. --ref <target> lists tasks carrying a typed
 reference with exactly that target (never a prefix; the label is ignored), and
@@ -1101,11 +1102,11 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 on — as an indented tree. The root is an id or a handle (--app qualifies a bare
 handle); a hidden or missing root exits 4.
 
-Each line is:  • <handle> [<status>] <owner> → <assignee>  and, when they apply,
+Each line is:  • <handle> <id> [<status>] <owner> → <assignee>  and, when they apply,
 "waiting-on-children" (the task is held until its child tasks end) and
 "⏰ N open alarm(s)". An assignee of — means none yet. Sample:
-  • AT1 [STARTED] user:ada → worker:Iris  ⏰ 1 open alarm
-    • AT1.1 [FINISHED] user:ada → worker:Uma
+  • AT1 01a2…c3 [STARTED] Eden → Iris  waiting-on-children  ⏰ 1 open alarm
+    • AT1.1 01a2…d4 [FINISHED] Iris → Uma
 
 The server returns at most 1000 rows and gives no sign when a larger tree is
 cut: if the tree looks short, list the subtree with ` + "`team task list`" + ` instead.

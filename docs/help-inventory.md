@@ -609,7 +609,7 @@ section between the markers.
 | `team stop lift` |  |  | n | #1054 | 97ff7478a8a7 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team stop set` |  |  | y | #1054 | 6891c254fb39 |  | unread |  |
-| `team task` |  |  | n | #1054 | 153eac6aa335 |  | unread |  |
+| `team task` |  |  | n | #1054 | db606f6a3cdb |  | unread |  |
 | `team task add-blocker` |  |  | y | #1054 | 6a71fa61f898 |  | unread |  |
 | `team task assign` |  |  | y | #1054 | bdc2ae545c23 |  | unread |  |
 | `team task cancel` |  |  | y | #1054 | 5ee9935e400a |  | unread |  |
@@ -624,7 +624,7 @@ section between the markers.
 | `team task get` |  |  | y | #1054 | ba098f2ca6ca |  | unread |  |
 | `team task hand-back` |  |  | y | #1054 | 24b187bfb974 |  | unread |  |
 | `team task link-defect` |  |  | y | #1054 | 677861264c97 |  | unread |  |
-| `team task list` | ls |  | y | #1054 | 113ec8fcdac2 |  | unread |  |
+| `team task list` | ls |  | y | #1054 | adc4f6f732ab |  | unread |  |
 | `team task mine` |  |  | y | #1054 | aa45a7075e39 |  | unread |  |
 | `team task park` |  |  | y | #1054 | de4dde1e2f8a |  | unread |  |
 | `team task progress` |  |  | y | #1054 | 6253ca7ee818 |  | unread |  |
@@ -634,7 +634,7 @@ section between the markers.
 | `team task remove-blocker` |  |  | y | #1054 | 9c1f4348cae3 |  | unread |  |
 | `team task set-priority` |  |  | y | #1054 | d3e8261836e1 |  | unread |  |
 | `team task start` |  |  | y | #1054 | fbda4606d956 |  | unread |  |
-| `team task tree` |  |  | y | #1054 | 8c2aad54bfa6 |  | unread |  |
+| `team task tree` |  |  | y | #1054 | 173238f731ac |  | unread |  |
 | `team task update` |  |  | y | #1054 | d68506a49933 |  | unread |  |
 | `team ticker` |  |  | n | #1054 | 94b5026458fd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |

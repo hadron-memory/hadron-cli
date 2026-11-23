@@ -112,7 +112,7 @@ its own authority, leaves it out. The full rules:
 ` + taskInstructionHelp + `
 
 Server needs: task-record commands (every command that returns a task) require a server released on or after 2026-11-17;
-an older server fails every task command with exit 2 (schema skew), even when neither flag is named
+an older server fails every task command with exit 2 (schema skew), even when you pass no model-group flag
 (--model-group, --model-group-not). Ask the
 server's operator when it was released (` + "`hadron server-info`" + ` shows only that it
 answers). Each page below says what its command takes.`,
