@@ -460,6 +460,210 @@ func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 	// here that depends on it.
 }
 
+// cli#3019: matrix 1's confirm budget was a fixed wall clock (300 ms), and
+// that is the load sensitivity the issue filed. The confirm needs one clean
+// membership pass after the flip; a pass is a listing plus a stat per entry,
+// and under full-suite load a pass costs more — or the churn voids every
+// pass for longer — than the budget affords, so drainedOrAuthorityLost
+// misses, the ladder escalates to SIGKILL, and the count/detail asserts trip
+// (the filed shape: ~0.25 s passing, ~1.44 s failing — a walked ladder).
+// The pin below makes that literal and deterministic, in both directions,
+// and the fix is the budget's derivation from the measured pass cost.
+//
+// slowScanSleep models the loaded host's /proc cost: every listing served
+// before the TERM costs at least this — the way a fork-stormed /proc does —
+// and it sits far above the storm fixture's 20 ms scan deadline, so a
+// membership attempt under it is one whole pass with the deadline expired
+// inside it. It is load-bearing for the pin's arithmetic: it lifts the
+// measured pass cost high enough that a window of a few passes' worth
+// outlasts the fixed 300 ms budget (the red) while a budget of many passes'
+// worth covers it (the green).
+const slowScanSleep = 150 * time.Millisecond
+
+// measureScanPassCost times one membership pass over the CURRENTLY installed
+// listing seam — the same listing-plus-stat-per-entry walk a ladder attempt
+// takes — and answers the worst of n timed passes. The pass's verdict is
+// irrelevant (under the storm fixture it voids; only its cost is measured),
+// so this is honest under the fixture's wrapper and the pin's model alike.
+func measureScanPassCost(n int) time.Duration {
+	worst := time.Duration(0)
+	self := os.Getpid()
+	for i := 0; i < n; i++ {
+		start := time.Now()
+		scanGroupOnce(self, self, nil, func(dir string) ([]os.DirEntry, error) { return readProcDir(dir) })
+		if d := time.Since(start); d > worst {
+			worst = d
+		}
+	}
+	return worst
+}
+
+// stormConfirmBudget is the grace matrix 1's launch confirms within. RED
+// STATE — cli#3019's first commit: main's fixed wall clock, returned
+// verbatim so the pin below fails against exactly today's shape. The
+// derivation (a generous multiple of measureScanPassCost, clamped to this
+// floor and the production default grace as the ceiling) lands with the fix
+// commit.
+func stormConfirmBudget() time.Duration {
+	return 300 * time.Millisecond
+}
+
+// runSlowScanWindowLadder runs matrix 1's finite→clean shape under a
+// modelled loaded host: every pre-TERM listing costs slowScanSleep (the
+// fork-stormed /proc), and for a window after the TERM every listing also
+// carries one entry that is gone again at stat time — the churn that voids
+// every membership pass, the field flake's own condition, with zero real
+// churn and zero new processes. The model installs UNDER the storm fixture
+// (its wrappers layer on top), so the fixture's hold, recorder, flip and
+// settle all keep working. graceFor is evaluated AFTER the model is
+// installed, so a budget derived from the measured pass cost sees the
+// modelled slow seam, not the bare one; the churn window closes at the
+// earlier of four measured passes' worth after the TERM or the first
+// SIGKILL (killClosesOnly: at the KILL alone). That dual close is what
+// makes both pin directions deterministic despite the ladder's select
+// randomness once the grace expires — a ready timeout competes with the
+// ticker, so the escalation's exact moment is not fixed, only its
+// certainty: pre-KILL passes can never confirm while the window only the
+// KILL closes, and the time-bounded window sits at a fifth of the derived
+// budget's multiple, far inside it.
+func runSlowScanWindowLadder(t *testing.T, graceFor func() time.Duration, killClosesOnly bool) (*stopFixture, Agent, bool, string) {
+	t.Helper()
+	if _, err := exec.LookPath("true"); err != nil {
+		t.Skip("no true")
+	}
+	if _, err := os.Stat("/proc/self/cwd"); err != nil {
+		t.Skip("no /proc")
+	}
+	f := newStormFixture(true /* the fixture's own storm still flips at the first TERM */)
+	realRead, realSignal := readProcDir, signalGroup
+	epoch := time.Now()
+	var termAt, windowClose atomic.Int64 // ns since epoch; 0 until armed
+	var churnOver atomic.Bool            // the KILL closes the window early
+	// Registered before install so LIFO restores AFTER the fixture's settle,
+	// and skipped when settle missed its bound and deliberately left the
+	// wrappers installed over a still-live watcher (the sibling pins' guard).
+	t.Cleanup(func() {
+		if !f.missedBound.Load() {
+			readProcDir, signalGroup = realRead, realSignal
+		}
+	})
+	signalGroup = func(pgid int, sig syscall.Signal) error {
+		err := realSignal(pgid, sig)
+		switch sig {
+		case syscall.SIGTERM:
+			termAt.CompareAndSwap(0, int64(time.Since(epoch))) // the window opens at the TERM
+		case syscall.SIGKILL:
+			churnOver.Store(true) // the escalation is proven; what follows must be able to confirm
+		}
+		return err
+	}
+	readProcDir = func(dir string) ([]os.DirEntry, error) {
+		if at := termAt.Load(); at != 0 {
+			if churnOver.Load() || (windowClose.Load() != 0 && time.Since(epoch) >= time.Duration(windowClose.Load())) {
+				// The churn window is closed: a provably clean, immediate
+				// listing (this test's own pid — a stat-read non-member), so
+				// the confirm is deterministic; ambient churn cannot void it.
+				return []os.DirEntry{fakeDirEntry{name: strconv.Itoa(os.Getpid())}}, nil
+			}
+			entries, err := realRead(dir)
+			if err != nil {
+				return nil, err
+			}
+			return append(entries, fakeDirEntry{name: abovePidMax}), nil // the churn: gone again at stat time
+		}
+		time.Sleep(slowScanSleep) // the loaded host's listing cost
+		return realRead(dir)
+	}
+	f.install(t) // layers ON TOP of the model: its captured "real" functions are the wrappers above
+	grace := graceFor()
+	a, err := ExecHost{TerminateGrace: grace}.Launch(context.Background(),
+		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.rec.bind(a)
+	select {
+	case <-a.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("true exits at once")
+	}
+	// Arm the window's close now, after Done and before the TERM that opens
+	// it: four measured passes' worth of churn (measured through the
+	// installed seam, whose pre-TERM listings carry the modelled cost). The
+	// measurement runs first and the close time is stamped after it: Go
+	// evaluates a call's arguments before the call, so a timestamp taken
+	// inline in the Store argument would predate the half second the
+	// measurement spends inside it and close the window before the TERM.
+	if !killClosesOnly {
+		w := 4 * measureScanPassCost(3)
+		windowClose.Store(int64(time.Since(epoch)) + int64(w))
+	}
+	stopped, detail := a.Terminate()
+	return f, a, stopped, detail
+}
+
+// The #3019 pin, green direction: the derived confirm budget holds a slow
+// post-TERM scan window the fixed wall clock lost. The window is four
+// measured passes' worth of churn; the budget stormConfirmBudget derives is
+// meant to be many passes' worth, so the ladder confirms on its own TERM —
+// matrix 1's outcome whole. Against the red commit (the stub returning the
+// fixed 300 ms) this fails with the escalation, which is the point: the
+// seats check the first commit is red on main.
+func TestTheDerivedConfirmBudgetHoldsASlowPostTermScan(t *testing.T) {
+	f, a, stopped, detail := runSlowScanWindowLadder(t, stormConfirmBudget, false)
+	ea := f.rec.bound()
+	if !stopped {
+		t.Fatalf("the derived budget confirms inside the churn window: stopped=false %q", detail)
+	}
+	want := fmt.Sprintf("terminated the launched process group (pid %d)", a.PID())
+	if detail != want {
+		t.Fatalf("the stop's own re-scan confirms after the window: detail=%q want %q", detail, want)
+	}
+	if n := f.rec.count(); n != 1 {
+		t.Fatalf("exactly one signal under the derived budget rules out a KILL escalation: %d signals", n)
+	}
+	s := f.rec.at(0)
+	if s.sig != syscall.SIGTERM || s.proof != "" {
+		t.Fatalf("the one TERM is ownership-proven: sig=%v proof=%q", s.sig, s.proof)
+	}
+	if flip := time.Duration(f.flipAt.Load()); flip == 0 || s.at > flip {
+		t.Fatalf("the flip lands only after the recorded TERM: term at %v, flip at %v", s.at, flip)
+	}
+	if !ea.reaped.Load() || !ea.confirmed.Load() {
+		t.Fatalf("the stop's own reap completed: reaped=%v confirmed=%v", ea.reaped.Load(), ea.confirmed.Load())
+	}
+	if _, err := os.Stat(filepath.Join("/proc", strconv.Itoa(a.PID()))); !os.IsNotExist(err) {
+		t.Fatalf("no /proc entry remains for the launch: %v", err)
+	}
+}
+
+// The #3019 pin, red control: the fixed wall clock the slow window
+// outlasts escalates — deterministically, because the window closes only at
+// the KILL it exists to prove, so no pre-KILL pass can ever confirm and the
+// grace is spent without a confirm by construction. The escalation then
+// closes the window, and the first membership call after the KILL confirms:
+// the filed ~1.44 s shape — SIGKILL sent, the killed-wording detail, every
+// signal ownership-proven. This control passes on both commits; it pins the
+// mechanism, and the green test above pins the budget against it.
+func TestAFixedConfirmBudgetTheSlowScanOutlastsEscalates(t *testing.T) {
+	f, a, stopped, detail := runSlowScanWindowLadder(t, func() time.Duration { return 300 * time.Millisecond }, true /* the KILL alone closes the window */)
+	if !stopped {
+		t.Fatalf("the walked ladder still confirms after its KILL: stopped=false %q", detail)
+	}
+	want := fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", a.PID(), 300*time.Millisecond)
+	if detail != want {
+		t.Fatalf("the fixed budget escalates under the window it cannot cover: detail=%q want %q", detail, want)
+	}
+	if n := f.rec.count(); n != 2 {
+		t.Fatalf("the churn window outlasting the fixed budget escalates to exactly TERM then KILL: %d signals", n)
+	}
+	for i := 0; i < f.rec.count(); i++ {
+		if s := f.rec.at(i); s.proof != "" {
+			t.Fatalf("signal %v not ownership-proven: %s", s.sig, s.proof)
+		}
+	}
+}
+
 // Matrix 3 — the forever-inconclusive negative control. The storm never
 // clears during the body, so the stop cannot prove the group empty inside
 // its bounded waits: it walks the whole ladder truthfully and KEEPS ITS
