@@ -142,7 +142,7 @@ func TestInboxIdentityStageFailuresNameStageAndCause3004(t *testing.T) {
 			name:   "503",
 			answer: httpStatus3004(http.StatusServiceUnavailable),
 			exit:   exitcode.Unavailable,
-			want:   []string{"could not confirm the App for this worktree", "server unavailable"},
+			want:   []string{"could not confirm the App for this worktree", "server unavailable", "this read is safe to retry"},
 		},
 		{
 			name:   "INTERNAL_SERVER_ERROR",
@@ -336,12 +336,11 @@ func TestInboxIdentityUnreadableAppContextPrintsOnlyStageAndClass3004(t *testing
 		t.Fatalf("exit %d, want the cause's class 1: %v", got, run.err)
 	}
 	msg := run.err.Error()
-	if !strings.Contains(msg, "could not read the App context: a local configuration problem") {
-		t.Fatalf("the message must name the stage and say it is local: %q", msg)
-	}
-	// A local fault is never labelled as a server fault (QA P3).
-	if strings.Contains(msg, "server") {
-		t.Fatalf("a local config fault must not be labelled a server fault: %q", msg)
+	// Exact, so a local fault can never pick up server wording (QA P3) and a
+	// stray word cannot hide behind a substring match.
+	const want = "could not read the App context: a local configuration problem (`hadron config get app` shows what is set)"
+	if msg != want {
+		t.Fatalf("the message must be exactly %q, got %q", want, msg)
 	}
 	if strings.Contains(msg, "/secret/path-3004") || strings.Contains(msg, "cannot read inbox binding") {
 		t.Fatalf("the message must not echo the cause text or blame the binding: %q", msg)
