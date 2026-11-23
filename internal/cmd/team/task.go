@@ -177,6 +177,15 @@ func taskRefArg(f *cmdutil.Factory, args []string) (string, error) {
 	return qualifyTaskRef(f, strings.TrimSpace(args[0]))
 }
 
+// taskRefArgFromBinding is taskRefArg for `team task get`, which also qualifies a bare handle from the
+// worktree binding when there is no --app (qualifyTaskRefFromBinding, cli#3037).
+func taskRefArgFromBinding(ctx context.Context, f *cmdutil.Factory, args []string) (string, error) {
+	if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "pass the task id shown by `team task list`/`get`")
+	}
+	return qualifyTaskRefFromBinding(ctx, f, strings.TrimSpace(args[0]))
+}
+
 // taskOutcomeRe is the one-word outcome contract (cor:agt:050:01): the
 // event stream copies it verbatim, so it excludes everything else.
 var taskOutcomeRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)

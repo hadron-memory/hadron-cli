@@ -554,7 +554,7 @@ section between the markers.
 | `team init` |  |  | y | #1054 | 28b798b2fe94 |  | unread |  |
 | `team metrics` |  |  | y | #1054 | 768724e1529d |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
-| `team pr` |  |  | y | #1054 | 6e164b6be717 |  | unread |  |
+| `team pr` |  |  | y | #1054 | cd9933287e43 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | 2233ff3929cf |  | unread |  |
 | `team pr readiness` |  |  | y | #1054 | 978dcd7c3526 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | c8aad02c82cf |  | unread |  |
@@ -620,7 +620,7 @@ section between the markers.
 | `team task finding-dispositions` |  |  | y | #1054 | 4af1d580a868 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task finish` |  |  | y | #1054 | 0c4fd89648e3 |  | unread |  |
-| `team task get` |  |  | y | #1054 | 52375ce744ca |  | unread |  |
+| `team task get` |  |  | y | #1054 | bf75cfb0ec50 |  | unread |  |
 | `team task hand-back` |  |  | y | #1054 | 24b187bfb974 |  | unread |  |
 | `team task link-defect` |  |  | y | #1054 | fa7eb7bd1ff0 |  | unread |  |
 | `team task list` | ls |  | y | #1054 | 8a36d8b1b3c0 |  | unread |  |
