@@ -609,7 +609,7 @@ section between the markers.
 | `team stop lift` |  |  | n | #1054 | 97ff7478a8a7 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team stop set` |  |  | y | #1054 | 6891c254fb39 |  | unread |  |
-| `team task` |  |  | n | #1054 | ad677d3d90b0 |  | unread |  |
+| `team task` |  |  | n | #1054 | ad677d3d90b0 | Jill | pass | [evaluator task AT0.10234, summary](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task add-blocker` |  |  | y | #1054 | c0912bc676f8 | Jill | pass | [evaluator task AT0.10234, summary](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task assign` |  |  | y | #1054 | bdc2ae545c23 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task cancel` |  |  | y | #1054 | 5ee9935e400a | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
