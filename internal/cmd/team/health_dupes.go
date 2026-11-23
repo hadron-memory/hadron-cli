@@ -66,9 +66,8 @@ type dupesResult struct {
 // a wedged sweep cannot signal a long-stale decision.
 const stopLease = 5 * time.Second
 
-// runHealthDupes is the fix phase. applying is the --dry-run=false posture;
-// regs is the host registration the sweep already read. Errors are reported
-// in the result, never returned.
+// runHealthDupes is the fix phase. applying is the --dry-run=false posture.
+// Errors are reported in the result, never returned.
 func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Config, server *hostServer, workers []dupeWorker, applying bool, errOut io.Writer) dupesResult {
 	res := dupesResult{Fixes: []dupeFix{}, Alerts: []dupeAlert{}, Skips: []dupeSkip{}}
 	inScope := worktreesOf(cfg, workers)

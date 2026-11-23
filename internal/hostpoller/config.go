@@ -248,7 +248,9 @@ type WorkerConfig struct {
 	// Recover was the argv that handed a relaunched agent its recovery prompt
 	// after a worker.reset-context (#1043). That consumer was removed with the
 	// reset handler (hadron-cli#3017); the key is still parsed so a legacy
-	// config loads, and the reload diff still names the binary it points at.
+	// config loads (the decoder refuses unknown keys), but it is no longer
+	// judged on reload: nothing runs it, so a changed recover program must
+	// not refuse a reload.
 	Recover []string `yaml:"recover"`
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created. A plain directory

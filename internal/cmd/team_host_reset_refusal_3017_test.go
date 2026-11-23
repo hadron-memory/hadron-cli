@@ -50,7 +50,7 @@ func TestCollectedResetContextIsAnsweredFailedWithTheRemoval3017(t *testing.T) {
 	if err := json.Unmarshal(got[2].vars, &report); err != nil {
 		t.Fatal(err)
 	}
-	if report.Input.Outcome != "FAILED" || !strings.Contains(report.Input.Reason, "worker.reset-context") || !strings.Contains(report.Input.Reason, "hadron-cli#3017") {
-		t.Fatalf("a collected reset-context must be answered FAILED naming the removal, got outcome=%q reason=%q", report.Input.Outcome, report.Input.Reason)
+	if report.Input.Outcome != "FAILED" || !strings.HasPrefix(report.Input.Reason, "HOST_UNSUPPORTED: ") || !strings.Contains(report.Input.Reason, "worker.reset-context") || !strings.Contains(report.Input.Reason, "hadron-cli#3017") {
+		t.Fatalf("a collected reset-context must be answered FAILED with the pre-claim code naming the removal (the server refuses an unlisted reason with BAD_CONTEXT_RESET_INPUT and re-delivers), got outcome=%q reason=%q", report.Input.Outcome, report.Input.Reason)
 	}
 }

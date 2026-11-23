@@ -139,7 +139,7 @@ func TestAPathThroughARegularFileIsJudgedAsMissing2668(t *testing.T) {
 	}
 }
 
-// ---- item 4: a relative launch, end or recover program refuses the reload ----
+// ---- item 4: a relative launch or end program refuses the reload ----
 
 // A program the changed entries name as a relative path (a slash, not
 // absolute) cannot be judged — it runs from the worker's directory, which the
@@ -147,11 +147,11 @@ func TestAPathThroughARegularFileIsJudgedAsMissing2668(t *testing.T) {
 // file happens to exist in the poller's directory.
 func TestARelativeProgramIsRefusedOnReload2668(t *testing.T) {
 	// The launcher program is the worker's account bin (cli#2914): a relative one is refused at load by
-	// the account launcher rule (before the reload walk), naming it; end and recover reach the walk.
+	// the account launcher rule (before the reload walk), naming it; end reaches the walk. A recover
+	// argv no longer reaches the walk (hadron-cli#3017): nothing has run it since the reset handler went.
 	cases := []struct{ key, name, extra, why string }{
 		{"launch", "./prog", "", "bare command name or an absolute path"},
 		{"end", "./end-prog", "    launch: [claude-worker]\n", "relative path"},
-		{"recover", "./rec-prog", "    launch: [claude-worker]\n", "relative path"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.key, func(t *testing.T) {
@@ -194,8 +194,8 @@ func TestARelativeProgramIsRefusedEvenWhereItResolves2668(t *testing.T) {
 }
 
 // The relative refusal covers the account program too: it is argv[0] of the
-// worker's command (LaunchArgv), run from the worker's directory like launch,
-// end and recover. An account a worker references has its form checked at
+// worker's command (LaunchArgv), run from the worker's directory like launch
+// and end. An account a worker references has its form checked at
 // load (validateOrcaWorker refuses it before the walk runs), but an account
 // no worker references is not validated — its program is still named by the
 // changed entries, so a relative bin is refused on reload naming it (cli#2673
