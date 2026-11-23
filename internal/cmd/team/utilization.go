@@ -79,8 +79,9 @@ cannot select an open-family row, so those rows are shown only with --all.
 
 LAST MATCH FAILURE is the time and the coarse reason of the latest no-worker
 match outcome inside the window, exactly as the server serves them; a null
-reason prints the time alone, an empty reason prints the time and "(empty)",
-and "—" (null in --json) means there is none (a later match clears it).
+reason prints the time alone, an empty or blank reason prints the time and
+"(empty)", and "—" (null in --json) means there is none (a later match
+clears it).
 
 --all lists every combination in the server's order, which ranks by
 utilization, then the most recent no-worker match, then fewest eligible
@@ -219,7 +220,7 @@ func renderUtilization(w io.Writer, dto utilizationDTO) error {
 const emptyReasonCell = "(empty)"
 
 // matchFailureCell is the failure's time and coarse reason exactly as served (a null reason prints
-// the time alone, an empty one the time and emptyReasonCell so it does not read as "nothing
+// the time alone, an empty or blank one the time and emptyReasonCell so it does not read as "nothing
 // recorded"; the CLI never turns a reason into a promise), or the null word when there is none.
 func matchFailureCell(m *utilizationMatchFailureDTO) string {
 	if m == nil {
@@ -228,7 +229,7 @@ func matchFailureCell(m *utilizationMatchFailureDTO) string {
 	if m.Reason == nil {
 		return output.SafeCell(m.At)
 	}
-	if *m.Reason == "" {
+	if strings.TrimSpace(*m.Reason) == "" {
 		return output.SafeCell(m.At) + " " + emptyReasonCell
 	}
 	return output.SafeCell(m.At) + " " + output.SafeCell(*m.Reason)
