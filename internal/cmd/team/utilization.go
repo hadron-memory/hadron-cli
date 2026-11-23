@@ -78,9 +78,9 @@ or some excluded (the task that failed to match left it open). --family
 cannot select an open-family row, so those rows are shown only with --all.
 
 LAST MATCH FAILURE is the time and the coarse reason of the latest no-worker
-match outcome inside the window, exactly as the server serves them; a null or
-empty reason prints the time alone, and "—" (null in --json) means there is
-none, because a later match clears it.
+match outcome inside the window, exactly as the server serves them; a null
+reason prints the time alone, an empty reason prints the time and "(empty)",
+and "—" (null in --json) means there is none (a later match clears it).
 
 --all lists every combination in the server's order, which ranks by
 utilization, then the most recent no-worker match, then fewest eligible
@@ -213,14 +213,23 @@ func renderUtilization(w io.Writer, dto utilizationDTO) error {
 	return t.Flush()
 }
 
-// matchFailureCell is the failure's time and coarse reason exactly as served (a null reason prints the
-// time alone; the CLI never turns a reason into a promise), or the null word when there is none.
+// emptyReasonCell is the word an empty reason prints after the time (cli#2986). It is not the null
+// word: "—" already means "no failure at all", and a reason the server served as "" is neither that
+// nor a null reason.
+const emptyReasonCell = "(empty)"
+
+// matchFailureCell is the failure's time and coarse reason exactly as served (a null reason prints
+// the time alone, an empty one the time and emptyReasonCell so it does not read as "nothing
+// recorded"; the CLI never turns a reason into a promise), or the null word when there is none.
 func matchFailureCell(m *utilizationMatchFailureDTO) string {
 	if m == nil {
 		return nullCell
 	}
-	if m.Reason == nil || *m.Reason == "" {
+	if m.Reason == nil {
 		return output.SafeCell(m.At)
+	}
+	if *m.Reason == "" {
+		return output.SafeCell(m.At) + " " + emptyReasonCell
 	}
 	return output.SafeCell(m.At) + " " + output.SafeCell(*m.Reason)
 }
