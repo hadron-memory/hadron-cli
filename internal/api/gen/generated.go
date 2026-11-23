@@ -25110,6 +25110,67 @@ type AppPropertiesGetResponse struct {
 // GetApp returns AppPropertiesGetResponse.App, and is useful for accessing the field via an interface.
 func (v *AppPropertiesGetResponse) GetApp() *AppPropertiesGetApp { return v.App }
 
+// AppRoleListFields includes the GraphQL fields of AppRoleList requested by the fragment AppRoleListFields.
+// The GraphQL type's documentation follows.
+//
+// #4921 — one of an App's role lists after a set.
+type AppRoleListFields struct {
+	AppId   string         `json:"appId"`
+	Purpose AppRolePurpose `json:"purpose"`
+	// Stored trimmed, lower-cased, de-duplicated and sorted; empty by default.
+	Roles []string `json:"roles"`
+}
+
+// GetAppId returns AppRoleListFields.AppId, and is useful for accessing the field via an interface.
+func (v *AppRoleListFields) GetAppId() string { return v.AppId }
+
+// GetPurpose returns AppRoleListFields.Purpose, and is useful for accessing the field via an interface.
+func (v *AppRoleListFields) GetPurpose() AppRolePurpose { return v.Purpose }
+
+// GetRoles returns AppRoleListFields.Roles, and is useful for accessing the field via an interface.
+func (v *AppRoleListFields) GetRoles() []string { return v.Roles }
+
+// cli#3030 (hadron-server#4921 slice A, server 330e16176): an App's three role lists (who may link a
+// defect, the register pick's role route, who may withdraw a negative review verdict). A participant reads them
+// through the roster's gate; whoever manages the App replaces ONE list whole. roles is non-null both ways: an
+// empty list is sent as [] (it clears to the default), never omitted.
+type AppRoleListsFields struct {
+	AppId          string   `json:"appId"`
+	DefectLink     []string `json:"defectLink"`
+	RegisterPick   []string `json:"registerPick"`
+	ReviewWithdraw []string `json:"reviewWithdraw"`
+}
+
+// GetAppId returns AppRoleListsFields.AppId, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetAppId() string { return v.AppId }
+
+// GetDefectLink returns AppRoleListsFields.DefectLink, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetDefectLink() []string { return v.DefectLink }
+
+// GetRegisterPick returns AppRoleListsFields.RegisterPick, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetRegisterPick() []string { return v.RegisterPick }
+
+// GetReviewWithdraw returns AppRoleListsFields.ReviewWithdraw, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetReviewWithdraw() []string { return v.ReviewWithdraw }
+
+// #4921 — what an App lists a role list for. The App names the roles; the platform names none.
+type AppRolePurpose string
+
+const (
+	// Who may link a defect to a pull request.
+	AppRolePurposeDefectLink AppRolePurpose = "DEFECT_LINK"
+	// The role route of the register pick.
+	AppRolePurposeRegisterPick AppRolePurpose = "REGISTER_PICK"
+	// Who may withdraw a negative review verdict besides the reviewer who recorded it.
+	AppRolePurposeReviewWithdraw AppRolePurpose = "REVIEW_WITHDRAW"
+)
+
+var AllAppRolePurpose = []AppRolePurpose{
+	AppRolePurposeDefectLink,
+	AppRolePurposeRegisterPick,
+	AppRolePurposeReviewWithdraw,
+}
+
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -112806,6 +112867,254 @@ func (v *TeamRoleFieldsRoleAgent) GetName() string { return v.Name }
 // GetPersonaRole returns TeamRoleFieldsRoleAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *TeamRoleFieldsRoleAgent) GetPersonaRole() *string { return v.PersonaRole }
 
+// TeamRoleListSetInstructedResponse is returned by TeamRoleListSetInstructed on success.
+type TeamRoleListSetInstructedResponse struct {
+	// #4921 — set ONE of the App's role lists, the whole list at once. Whoever manages the App only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12): a participant who does not manage it gets APP_MANAGER_REQUIRED, a caller who cannot see the App gets the missing App's answer. Names are trimmed and lower-cased and duplicates collapse; at most 32 names of 1 to 64 characters with no ':' or whitespace; an empty list clears it. Stores the list only: no door reads it yet.
+	SetAppRoleList *TeamRoleListSetInstructedSetAppRoleList `json:"setAppRoleList"`
+}
+
+// GetSetAppRoleList returns TeamRoleListSetInstructedResponse.SetAppRoleList, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedResponse) GetSetAppRoleList() *TeamRoleListSetInstructedSetAppRoleList {
+	return v.SetAppRoleList
+}
+
+// TeamRoleListSetInstructedSetAppRoleList includes the requested fields of the GraphQL type AppRoleList.
+// The GraphQL type's documentation follows.
+//
+// #4921 — one of an App's role lists after a set.
+type TeamRoleListSetInstructedSetAppRoleList struct {
+	AppRoleListFields `json:"-"`
+}
+
+// GetAppId returns TeamRoleListSetInstructedSetAppRoleList.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedSetAppRoleList) GetAppId() string { return v.AppRoleListFields.AppId }
+
+// GetPurpose returns TeamRoleListSetInstructedSetAppRoleList.Purpose, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedSetAppRoleList) GetPurpose() AppRolePurpose {
+	return v.AppRoleListFields.Purpose
+}
+
+// GetRoles returns TeamRoleListSetInstructedSetAppRoleList.Roles, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedSetAppRoleList) GetRoles() []string {
+	return v.AppRoleListFields.Roles
+}
+
+func (v *TeamRoleListSetInstructedSetAppRoleList) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRoleListSetInstructedSetAppRoleList
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRoleListSetInstructedSetAppRoleList = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRoleListFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRoleListSetInstructedSetAppRoleList struct {
+	AppId string `json:"appId"`
+
+	Purpose AppRolePurpose `json:"purpose"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamRoleListSetInstructedSetAppRoleList) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRoleListSetInstructedSetAppRoleList) __premarshalJSON() (*__premarshalTeamRoleListSetInstructedSetAppRoleList, error) {
+	var retval __premarshalTeamRoleListSetInstructedSetAppRoleList
+
+	retval.AppId = v.AppRoleListFields.AppId
+	retval.Purpose = v.AppRoleListFields.Purpose
+	retval.Roles = v.AppRoleListFields.Roles
+	return &retval, nil
+}
+
+// TeamRoleListSetResponse is returned by TeamRoleListSet on success.
+type TeamRoleListSetResponse struct {
+	// #4921 — set ONE of the App's role lists, the whole list at once. Whoever manages the App only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12): a participant who does not manage it gets APP_MANAGER_REQUIRED, a caller who cannot see the App gets the missing App's answer. Names are trimmed and lower-cased and duplicates collapse; at most 32 names of 1 to 64 characters with no ':' or whitespace; an empty list clears it. Stores the list only: no door reads it yet.
+	SetAppRoleList *TeamRoleListSetSetAppRoleList `json:"setAppRoleList"`
+}
+
+// GetSetAppRoleList returns TeamRoleListSetResponse.SetAppRoleList, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetResponse) GetSetAppRoleList() *TeamRoleListSetSetAppRoleList {
+	return v.SetAppRoleList
+}
+
+// TeamRoleListSetSetAppRoleList includes the requested fields of the GraphQL type AppRoleList.
+// The GraphQL type's documentation follows.
+//
+// #4921 — one of an App's role lists after a set.
+type TeamRoleListSetSetAppRoleList struct {
+	AppRoleListFields `json:"-"`
+}
+
+// GetAppId returns TeamRoleListSetSetAppRoleList.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetSetAppRoleList) GetAppId() string { return v.AppRoleListFields.AppId }
+
+// GetPurpose returns TeamRoleListSetSetAppRoleList.Purpose, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetSetAppRoleList) GetPurpose() AppRolePurpose {
+	return v.AppRoleListFields.Purpose
+}
+
+// GetRoles returns TeamRoleListSetSetAppRoleList.Roles, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetSetAppRoleList) GetRoles() []string { return v.AppRoleListFields.Roles }
+
+func (v *TeamRoleListSetSetAppRoleList) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRoleListSetSetAppRoleList
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRoleListSetSetAppRoleList = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRoleListFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRoleListSetSetAppRoleList struct {
+	AppId string `json:"appId"`
+
+	Purpose AppRolePurpose `json:"purpose"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamRoleListSetSetAppRoleList) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRoleListSetSetAppRoleList) __premarshalJSON() (*__premarshalTeamRoleListSetSetAppRoleList, error) {
+	var retval __premarshalTeamRoleListSetSetAppRoleList
+
+	retval.AppId = v.AppRoleListFields.AppId
+	retval.Purpose = v.AppRoleListFields.Purpose
+	retval.Roles = v.AppRoleListFields.Roles
+	return &retval, nil
+}
+
+// TeamRoleListsAppRoleLists includes the requested fields of the GraphQL type AppRoleLists.
+// The GraphQL type's documentation follows.
+//
+// #4921 — an App's role lists, each stored trimmed, lower-cased, de-duplicated and sorted; empty by default.
+type TeamRoleListsAppRoleLists struct {
+	AppRoleListsFields `json:"-"`
+}
+
+// GetAppId returns TeamRoleListsAppRoleLists.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetAppId() string { return v.AppRoleListsFields.AppId }
+
+// GetDefectLink returns TeamRoleListsAppRoleLists.DefectLink, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetDefectLink() []string { return v.AppRoleListsFields.DefectLink }
+
+// GetRegisterPick returns TeamRoleListsAppRoleLists.RegisterPick, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetRegisterPick() []string {
+	return v.AppRoleListsFields.RegisterPick
+}
+
+// GetReviewWithdraw returns TeamRoleListsAppRoleLists.ReviewWithdraw, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetReviewWithdraw() []string {
+	return v.AppRoleListsFields.ReviewWithdraw
+}
+
+func (v *TeamRoleListsAppRoleLists) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRoleListsAppRoleLists
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRoleListsAppRoleLists = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRoleListsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRoleListsAppRoleLists struct {
+	AppId string `json:"appId"`
+
+	DefectLink []string `json:"defectLink"`
+
+	RegisterPick []string `json:"registerPick"`
+
+	ReviewWithdraw []string `json:"reviewWithdraw"`
+}
+
+func (v *TeamRoleListsAppRoleLists) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRoleListsAppRoleLists) __premarshalJSON() (*__premarshalTeamRoleListsAppRoleLists, error) {
+	var retval __premarshalTeamRoleListsAppRoleLists
+
+	retval.AppId = v.AppRoleListsFields.AppId
+	retval.DefectLink = v.AppRoleListsFields.DefectLink
+	retval.RegisterPick = v.AppRoleListsFields.RegisterPick
+	retval.ReviewWithdraw = v.AppRoleListsFields.ReviewWithdraw
+	return &retval, nil
+}
+
+// TeamRoleListsResponse is returned by TeamRoleLists on success.
+type TeamRoleListsResponse struct {
+	// #4921 — the App's role lists, one per purpose (link a defect, the register pick's role route, withdraw a negative review verdict). For whoever may read the App's roster, refused as the roster is (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	AppRoleLists *TeamRoleListsAppRoleLists `json:"appRoleLists"`
+}
+
+// GetAppRoleLists returns TeamRoleListsResponse.AppRoleLists, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsResponse) GetAppRoleLists() *TeamRoleListsAppRoleLists { return v.AppRoleLists }
+
 // TeamRolesResponse is returned by TeamRoles on success.
 type TeamRolesResponse struct {
 	// An App's role definitions (#960): every roles:<role> node in the Team
@@ -143787,6 +144096,52 @@ func (v *__TeamReviewQualityReportInput) GetAppRef() string { return v.AppRef }
 
 // GetMonth returns __TeamReviewQualityReportInput.Month, and is useful for accessing the field via an interface.
 func (v *__TeamReviewQualityReportInput) GetMonth() string { return v.Month }
+
+// __TeamRoleListSetInput is used internally by genqlient
+type __TeamRoleListSetInput struct {
+	AppRef  string         `json:"appRef"`
+	Purpose AppRolePurpose `json:"purpose"`
+	Roles   []string       `json:"roles"`
+}
+
+// GetAppRef returns __TeamRoleListSetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInput) GetAppRef() string { return v.AppRef }
+
+// GetPurpose returns __TeamRoleListSetInput.Purpose, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInput) GetPurpose() AppRolePurpose { return v.Purpose }
+
+// GetRoles returns __TeamRoleListSetInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInput) GetRoles() []string { return v.Roles }
+
+// __TeamRoleListSetInstructedInput is used internally by genqlient
+type __TeamRoleListSetInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Purpose     AppRolePurpose       `json:"purpose"`
+	Roles       []string             `json:"roles"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamRoleListSetInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetPurpose returns __TeamRoleListSetInstructedInput.Purpose, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetPurpose() AppRolePurpose { return v.Purpose }
+
+// GetRoles returns __TeamRoleListSetInstructedInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetRoles() []string { return v.Roles }
+
+// GetInstruction returns __TeamRoleListSetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
+// __TeamRoleListsInput is used internally by genqlient
+type __TeamRoleListsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamRoleListsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListsInput) GetAppRef() string { return v.AppRef }
 
 // __TeamRolesInput is used internally by genqlient
 type __TeamRolesInput struct {
@@ -190229,6 +190584,136 @@ func TeamReviewQualityReport(
 	}
 
 	data_ = &TeamReviewQualityReportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamRoleListSet.
+const TeamRoleListSet_Operation = `
+mutation TeamRoleListSet ($appRef: ID!, $purpose: AppRolePurpose!, $roles: [String!]!) {
+	setAppRoleList(appRef: $appRef, purpose: $purpose, roles: $roles) {
+		... AppRoleListFields
+	}
+}
+fragment AppRoleListFields on AppRoleList {
+	appId
+	purpose
+	roles
+}
+`
+
+func TeamRoleListSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	purpose AppRolePurpose,
+	roles []string,
+) (data_ *TeamRoleListSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoleListSet",
+		Query:  TeamRoleListSet_Operation,
+		Variables: &__TeamRoleListSetInput{
+			AppRef:  appRef,
+			Purpose: purpose,
+			Roles:   roles,
+		},
+	}
+
+	data_ = &TeamRoleListSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamRoleListSetInstructed.
+const TeamRoleListSetInstructed_Operation = `
+mutation TeamRoleListSetInstructed ($appRef: ID!, $purpose: AppRolePurpose!, $roles: [String!]!, $instruction: ActInstructionInput!) {
+	setAppRoleList(appRef: $appRef, purpose: $purpose, roles: $roles, instruction: $instruction) {
+		... AppRoleListFields
+	}
+}
+fragment AppRoleListFields on AppRoleList {
+	appId
+	purpose
+	roles
+}
+`
+
+// The instructed manager write (cor:dmo:050:12, "Acting on an instruction"), in its own document like every
+// instructed write, so a request without the flag is the plain one.
+func TeamRoleListSetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	purpose AppRolePurpose,
+	roles []string,
+	instruction *ActInstructionInput,
+) (data_ *TeamRoleListSetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoleListSetInstructed",
+		Query:  TeamRoleListSetInstructed_Operation,
+		Variables: &__TeamRoleListSetInstructedInput{
+			AppRef:      appRef,
+			Purpose:     purpose,
+			Roles:       roles,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamRoleListSetInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamRoleLists.
+const TeamRoleLists_Operation = `
+query TeamRoleLists ($appRef: ID!) {
+	appRoleLists(appRef: $appRef) {
+		... AppRoleListsFields
+	}
+}
+fragment AppRoleListsFields on AppRoleLists {
+	appId
+	defectLink
+	registerPick
+	reviewWithdraw
+}
+`
+
+func TeamRoleLists(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamRoleListsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoleLists",
+		Query:  TeamRoleLists_Operation,
+		Variables: &__TeamRoleListsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamRoleListsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

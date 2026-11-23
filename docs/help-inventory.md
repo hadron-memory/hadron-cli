@@ -490,7 +490,7 @@ section between the markers.
 | `chat read` | pull |  | y | #1054 | 837e2e5a8bcb |  | unread |  |
 | `chat served-prompts` |  |  | y | #1054 | b76c874719e7 |  | unread |  |
 | `chat tool-choice` |  |  | y | #1054 | 7579a9d1656b |  | unread |  |
-| `team` |  |  | n | #1054 | 86c109bca8ed |  | unread |  |
+| `team` |  |  | n | #1054 | 7793845b93a3 |  | unread |  |
 | `team alarm` |  |  | y | #1054 | d05b0126d4f8 |  | unread |  |
 | `team alarm ack` |  |  | y | #1054 | 29d38a098bfe |  | unread |  |
 | `team alarms` |  |  | y | #1054 | 6901ce29ba26 |  | unread |  |
@@ -575,6 +575,9 @@ section between the markers.
 | `team role list` | ls |  | y | #1054 | 52c3e94a8d71 |  | unread |  |
 | `team role rm` | delete |  | y | #1054 | a5ba6a17ef4e |  | unread |  |
 | `team role update` |  |  | y | #1054 | 68673ad5939d |  | unread |  |
+| `team role-lists` |  |  | n | #1054 | de5cbb48557d |  | unread |  |
+| `team role-lists get` |  |  | n | #1054 | 8cd5aad19396 |  | unread |  |
+| `team role-lists set` |  |  | y | #1054 | b3d56fe05ba8 |  | unread |  |
 | `team roster` |  |  | n | #1054 | 20c68831a396 |  | unread |  |
 | `team router` |  |  | n | #1054 | 126f5e26e347 |  | unread |  |
 | `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |

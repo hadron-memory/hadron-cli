@@ -190,6 +190,23 @@ func TestRoleListsSetRefusesLocallyBeforeAnyRequest3030(t *testing.T) {
 	}
 	// Names the server accepts are NOT refused locally: surrounding space, upper case, and duplicates that
 	// collapse (the server trims, lower-cases and de-duplicates before it counts).
+	// Forty names that collapse to ten are under the 32 limit, a 64-character name is the longest accepted, and a
+	// multi-byte name is measured in UTF-16 units like the server's (40 CJK characters are 40 units, 120 bytes).
+	var many []string
+	for i := 0; i < 40; i++ {
+		many = append(many, "role"+string(rune('a'+i%10)))
+	}
+	cjk := strings.Repeat("界", 40)
+	for name, names := range map[string][]string{"forty names, ten distinct": many, "exactly 64 characters": {strings.Repeat("a", 64)}, "multi-byte under the limit": {cjk}} {
+		calls, _, err := runTeamTask(t, roleListsResponses3030("DEFECT_LINK", "x"), append([]string{"team", "role-lists", "set", "defect-link"}, names...)...)
+		if err != nil {
+			t.Errorf("%s: a list the server accepts is not refused locally: %v", name, err)
+			continue
+		}
+		if _, got := roleListsSent3030(t, calls, roleListsSet3030); len(got) != len(names) {
+			t.Errorf("%s: sent as typed (%d names), got %d", name, len(names), len(got))
+		}
+	}
 	calls, _, err := runTeamTask(t, roleListsResponses3030("DEFECT_LINK", "qa"), "team", "role-lists", "set", "defect-link", " QA ", "qa", "Qa")
 	if err != nil {
 		t.Fatalf("a name the server normalises is not refused locally: %v", err)
