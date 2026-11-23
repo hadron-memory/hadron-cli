@@ -88,7 +88,19 @@ type stopFixture struct {
 	// churn yields a clean pass inside the settle bound.
 	settleEmpty atomic.Bool
 	flipAt      atomic.Int64 // nanoseconds since epoch; 0 until the flip
-	settled     atomic.Bool
+	// cleanAfterFlip (matrix 1's shape) answers every post-flip listing as
+	// a provably clean, immediate one — this test's own pid, a stat-readable
+	// non-member — instead of the host's real /proc. The flip's confirmation
+	// must be deterministic on the loaded host the matrix runs on: a real
+	// listing is voided by ANY process that vanishes inside it (whyUnseenPid),
+	// and no confirm budget bounds another process's exit — the matrix's own
+	// build loops churn /proc hard enough to void whole grace windows (#3019
+	// matrix run 9: every pass of an 808 ms derived grace voided, the stop
+	// truthfully escalated, and the "terminated" assert failed). stormRun's
+	// model leaves this clear: its post-TERM churn window must keep voiding
+	// passes until it closes.
+	cleanAfterFlip bool
+	settled        atomic.Bool
 	// missedBound is set only on the settle-bound miss, where the wrappers
 	// deliberately stay installed over a still-live watcher: an outer
 	// cleanup must not restore the seam then (it would race that watcher).
@@ -150,6 +162,12 @@ func (f *stopFixture) install(t *testing.T) {
 	readProcDir = func(dir string) ([]os.DirEntry, error) {
 		if f.settleEmpty.Load() {
 			return nil, nil
+		}
+		if f.cleanAfterFlip && f.flipAt.Load() != 0 {
+			// The synthetic clean listing the flip shape confirms on: one
+			// entry that stats (this pid, never a member of the launched
+			// group), so ambient churn cannot void the pass.
+			return []os.DirEntry{fakeDirEntry{name: strconv.Itoa(os.Getpid())}}, nil
 		}
 		entries, err := f.realRead(dir)
 		if err != nil {
@@ -405,11 +423,14 @@ func TestSignalOwnershipProofRejectsEveryFalseShapeItIsFed(t *testing.T) {
 // launch (every scan voids), the stop sends exactly one TERM to its own
 // held group — ownership-proven at call time — and the first TERM flips
 // the storm off, so the stop's own bounded re-scan is the first scan that
-// can prove the group empty: the confirm is deterministic. Red-first
-// evidence in the PR: the same fixture run against the pre-#1970 strict
-// asserts (detail=="" and signals==0, detach_unix_test.go) failed them on
-// demand, reproducing the filed flake, before the truthful asserts below
-// landed.
+// can prove the group empty: the confirm is deterministic — constructed,
+// not hoped for: post-flip listings are the fixture's synthetic clean one
+// (cleanAfterFlip), because the host's real /proc is voided by any process
+// that vanishes inside a pass, and the loaded host the matrix runs on churns
+// constantly. Red-first evidence in the PR: the same fixture run against
+// the pre-#1970 strict asserts (detail=="" and signals==0,
+// detach_unix_test.go) failed them on demand, reproducing the filed flake,
+// before the truthful asserts below landed.
 func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 	if _, err := exec.LookPath("true"); err != nil {
 		t.Skip("no true")
@@ -418,7 +439,8 @@ func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 		t.Skip("no /proc")
 	}
 	f := newStormFixture(true /* flip on the first TERM */)
-	f.install(t) // cleanup registered BEFORE the launch (gate ordering)
+	f.cleanAfterFlip = true // the confirming listing is the fixture's own
+	f.install(t)            // cleanup registered BEFORE the launch (gate ordering)
 	a, err := ExecHost{TerminateGrace: 300 * time.Millisecond}.Launch(context.Background(),
 		LaunchSpec{Argv: []string{"true"}, Dir: t.TempDir(), Env: os.Environ()})
 	if err != nil {
