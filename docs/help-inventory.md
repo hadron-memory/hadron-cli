@@ -707,7 +707,7 @@ section between the markers.
 | `skill status` |  |  | y | #1055 | 27eea1c4afc7 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec` | specs |  | n | #1055 | d3dc93c7e31a |  | unread |  |
 | `spec backlinks` |  |  | y | #1055 | 9c56b5482858 |  | unread |  |
-| `spec check-tools` |  |  | y | #1055 | a84d7ed6ff80 |  | unread |  |
+| `spec check-tools` |  |  | y | #1055 | 47114400e0bc |  | unread |  |
 | `spec citations` | check-citations |  | y | #1055 | c70c0c2f8857 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec describe` | desc |  | y | #1055 | 298ee7dba898 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec document` |  |  | y | #1055 | 942a2484ef17 |  | unread |  |

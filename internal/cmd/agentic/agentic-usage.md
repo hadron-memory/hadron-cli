@@ -2383,7 +2383,7 @@ Conventions:
   registered tool (checked against a manifest baked into the binary — the union
   of the MCP + runner tool registries — with a small ignore-list for known
   non-tools like the `hadron_token` cookie), exit 5 on findings so CI can gate on
-  tool-name drift; `spec ledger` (#662) is a READ-ONLY cross-check of the
+  tool-name drift. A retired spec (tag `superseded`: replaced or rescinded) is skipped, unread and counted ("1 retired spec skipped" in the OK line and under the findings table; `--json` stays the bare findings array, `[]` when clean), because a retired rule is history and may cite a since-removed tool (cli#3051); a live spec is always checked. `spec ledger` (#662) is a READ-ONLY cross-check of the
   hadron-concept decision registry file (`--registry`, default
   `design-discussions/_registry/decisions.md`) against the corpus: (1) decided
   entries from 2026-09-22 (by the date in the ID) with no `Corpus:` line, (2)
