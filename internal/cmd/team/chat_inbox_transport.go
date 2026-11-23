@@ -108,7 +108,7 @@ func inboxBoundIdentity(f *cmdutil.Factory) inboxIdentityReader {
 		if app != "" && app != b.AppID {
 			c, err := f.GraphQLClient()
 			if err != nil {
-				return inboxIdentity{}, &inboxIdentityStageError{stage: inboxStageAppRead, err: err}
+				return inboxIdentity{}, &inboxIdentityStageError{stage: inboxStageClient, err: err}
 			}
 			r, err := gen.TeamAppIdentity(ctx, c, app)
 			if err != nil {

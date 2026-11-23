@@ -2,14 +2,17 @@ package team
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -29,18 +32,33 @@ type inboxIdentityRun3004 struct {
 	requests int
 }
 
+// inboxIdentityOpts3004 shapes one run. answer receives the 1-based index of
+// the identity read it answers; nil means no request may be sent.
+type inboxIdentityOpts3004 struct {
+	appFlag    string
+	answer     func(n int, w http.ResponseWriter, r *http.Request)
+	bindingRaw string
+	noToken    bool
+	configErr  error
+	args       []string
+}
+
 // driveInboxIdentity3004 writes a complete binding (App id "own-app"), points a
-// fake server at identity, runs `team chat inbox` and returns the outcome. A
-// nil answer means the identity call must never be sent.
-func driveInboxIdentity3004(t *testing.T, appFlag string, answer http.HandlerFunc, bindingRaw string) inboxIdentityRun3004 {
+// fake server at the identity read, runs `team chat inbox` and returns the
+// outcome.
+func driveInboxIdentity3004(t *testing.T, o inboxIdentityOpts3004) inboxIdentityRun3004 {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("HADRON_TOKEN", "synthetic-token-3004")
+	if o.noToken {
+		t.Setenv("HADRON_TOKEN", "")
+	} else {
+		t.Setenv("HADRON_TOKEN", "synthetic-token-3004")
+	}
 	dir := t.TempDir()
 	t.Setenv(GitDirEnv, dir)
-	var requests int
+	var requests atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests++
+		n := int(requests.Add(1))
 		var q struct {
 			OperationName string `json:"operationName"`
 		}
@@ -48,68 +66,94 @@ func driveInboxIdentity3004(t *testing.T, appFlag string, answer http.HandlerFun
 		if q.OperationName != "TeamAppIdentity" {
 			t.Errorf("only the identity read may be sent before the App is confirmed, got %q", q.OperationName)
 		}
-		if answer == nil {
+		if o.answer == nil {
 			t.Error("no request was expected")
+			http.Error(w, "unexpected request", http.StatusInternalServerError)
 			return
 		}
-		answer(w, r)
+		o.answer(n, w, r)
 	}))
 	t.Cleanup(srv.Close)
 	f := cmdutil.NewFactory()
 	f.ServerFlag = srv.URL
-	f.AppFlag = appFlag
+	f.AppFlag = o.appFlag
+	if o.configErr != nil {
+		f.ConfigFn = func() (*config.Config, error) { return nil, o.configErr }
+	}
 	f.IOStreams, _, _ = output.Test()
-	raw := bindingRaw
+	raw := o.bindingRaw
 	if raw == "" {
-		b, _ := json.Marshal(binding{AppID: "own-app", WorkerID: "self", SessionID: "session", Server: srv.URL})
+		b, err := json.Marshal(binding{AppID: "own-app", WorkerID: "self", SessionID: "session", Server: srv.URL})
+		if err != nil {
+			t.Fatal(err)
+		}
 		raw = string(b)
 	}
 	if err := os.WriteFile(filepath.Join(dir, bindingFileName), []byte(raw), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	c := newCmdTeamChatInbox(f)
-	c.SetArgs([]string{})
+	c.SetArgs(o.args)
 	c.SilenceUsage, c.SilenceErrors = true, true
 	err := c.Execute()
-	return inboxIdentityRun3004{err: err, requests: requests}
+	return inboxIdentityRun3004{err: err, requests: int(requests.Load())}
+}
+
+// leaks3004 lists what no public message may carry: the response body, any
+// URL, the token and the loopback host.
+var leaks3004 = []string{inboxIdentityLeak3004, "://", "synthetic-token-3004", "127.0.0.1"}
+
+func assertNoLeak3004(t *testing.T, msg string) {
+	t.Helper()
+	for _, leak := range leaks3004 {
+		if strings.Contains(msg, leak) {
+			t.Fatalf("the message leaks %q: %q", leak, msg)
+		}
+	}
+}
+
+func gqlCode3004(code string) func(int, http.ResponseWriter, *http.Request) {
+	return func(_ int, w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"errors":[{"message":"` + inboxIdentityLeak3004 + `","extensions":{"code":"` + code + `"}}],"data":null}`))
+	}
+}
+
+func httpStatus3004(status int) func(int, http.ResponseWriter, *http.Request) {
+	return func(_ int, w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, inboxIdentityLeak3004, status)
+	}
 }
 
 func TestInboxIdentityStageFailuresNameStageAndCause3004(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
-		answer  http.HandlerFunc
+		answer  func(int, http.ResponseWriter, *http.Request)
 		exit    int
 		want    []string
 		wantNot []string
 	}{
 		{
-			name: "502",
-			answer: func(w http.ResponseWriter, _ *http.Request) {
-				http.Error(w, inboxIdentityLeak3004, http.StatusBadGateway)
-			},
-			exit: exitcode.Unavailable,
-			want: []string{"could not confirm the App for this worktree", "server unavailable"},
+			name:   "502",
+			answer: httpStatus3004(http.StatusBadGateway),
+			exit:   exitcode.Unavailable,
+			want:   []string{"could not confirm the App for this worktree", "server unavailable", "this read is safe to retry"},
 		},
 		{
-			name: "503",
-			answer: func(w http.ResponseWriter, _ *http.Request) {
-				http.Error(w, inboxIdentityLeak3004, http.StatusServiceUnavailable)
-			},
-			exit: exitcode.Unavailable,
-			want: []string{"could not confirm the App for this worktree", "server unavailable"},
+			name:   "503",
+			answer: httpStatus3004(http.StatusServiceUnavailable),
+			exit:   exitcode.Unavailable,
+			want:   []string{"could not confirm the App for this worktree", "server unavailable"},
 		},
 		{
-			name: "INTERNAL_SERVER_ERROR",
-			answer: func(w http.ResponseWriter, _ *http.Request) {
-				_, _ = w.Write([]byte(`{"errors":[{"message":"` + inboxIdentityLeak3004 + `","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`))
-			},
-			exit: exitcode.Error,
-			want: []string{"could not confirm the App for this worktree", "server error"},
+			name:   "INTERNAL_SERVER_ERROR",
+			answer: gqlCode3004("INTERNAL_SERVER_ERROR"),
+			exit:   exitcode.Error,
+			want:   []string{"could not confirm the App for this worktree", "server error"},
 		},
 		{
 			// The one row that was already right: a known reason, named.
 			name: "mismatching id",
-			answer: func(w http.ResponseWriter, _ *http.Request) {
+			answer: func(_ int, w http.ResponseWriter, _ *http.Request) {
 				_, _ = w.Write([]byte(`{"data":{"app":{"id":"different-app"}}}`))
 			},
 			exit: exitcode.Conflict,
@@ -117,7 +161,7 @@ func TestInboxIdentityStageFailuresNameStageAndCause3004(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			run := driveInboxIdentity3004(t, "hrn:app:test:other", tc.answer, "")
+			run := driveInboxIdentity3004(t, inboxIdentityOpts3004{appFlag: "hrn:app:test:other", answer: tc.answer})
 			if run.err == nil {
 				t.Fatal("the identity failure must fail the command")
 			}
@@ -135,11 +179,7 @@ func TestInboxIdentityStageFailuresNameStageAndCause3004(t *testing.T) {
 				t.Fatalf("a failed App-identity step must not be reported as a binding fault: %q", msg)
 			}
 			// No raw response body, no URL, no token in the public message.
-			for _, leak := range []string{inboxIdentityLeak3004, "http://", "https://", "synthetic-token-3004", "127.0.0.1"} {
-				if strings.Contains(msg, leak) {
-					t.Fatalf("the message leaks %q: %q", leak, msg)
-				}
-			}
+			assertNoLeak3004(t, msg)
 			if run.requests != 1 {
 				t.Fatalf("exactly the identity read, got %d requests", run.requests)
 			}
@@ -150,7 +190,7 @@ func TestInboxIdentityStageFailuresNameStageAndCause3004(t *testing.T) {
 // A malformed --app value is a usage error naming the VALUE's problem, sent
 // nowhere, and never blamed on the binding.
 func TestInboxIdentityInvalidAppValueIsAUsageErrorNamingTheValue3004(t *testing.T) {
-	run := driveInboxIdentity3004(t, "app-id-1", nil, "")
+	run := driveInboxIdentity3004(t, inboxIdentityOpts3004{appFlag: "app-id-1"})
 	if run.err == nil {
 		t.Fatal("an invalid --app must fail")
 	}
@@ -161,6 +201,11 @@ func TestInboxIdentityInvalidAppValueIsAUsageErrorNamingTheValue3004(t *testing.
 	if !strings.Contains(msg, "--app") || strings.Contains(msg, "cannot read inbox binding") {
 		t.Fatalf("the refusal must name the --app value's problem, not the binding: %q", msg)
 	}
+	// The value is never echoed (cli#2876): a token pasted into --app must not
+	// reach the terminal, and a later change must not start printing it.
+	if strings.Contains(msg, "app-id-1") {
+		t.Fatalf("the refusal must not echo the --app value: %q", msg)
+	}
 	if run.requests != 0 {
 		t.Fatalf("an invalid --app must send nothing, got %d requests", run.requests)
 	}
@@ -168,7 +213,7 @@ func TestInboxIdentityInvalidAppValueIsAUsageErrorNamingTheValue3004(t *testing.
 
 // A binding that is genuinely unreadable keeps today's message and class.
 func TestInboxIdentityUnreadableBindingKeepsItsMessage3004(t *testing.T) {
-	run := driveInboxIdentity3004(t, "hrn:app:test:other", nil, `{"appId":"","workerId":"self"}`)
+	run := driveInboxIdentity3004(t, inboxIdentityOpts3004{appFlag: "hrn:app:test:other", bindingRaw: `{"appId":"","workerId":"self"}`})
 	if run.err == nil {
 		t.Fatal("an unreadable binding must fail")
 	}
@@ -180,5 +225,121 @@ func TestInboxIdentityUnreadableBindingKeepsItsMessage3004(t *testing.T) {
 	}
 	if run.requests != 0 {
 		t.Fatalf("no request for an unreadable binding, got %d", run.requests)
+	}
+}
+
+// Server codes that already have a fixed public message keep it when they come
+// from the identity read (the stage wrapper must not swallow them).
+func TestInboxIdentityKnownServerCodesKeepTheirFixedMessage3004(t *testing.T) {
+	for _, tc := range []struct {
+		code string
+		exit int
+		want string
+	}{
+		{"UNAUTHENTICATED", exitcode.AuthRequired, "UNAUTHENTICATED: the inbox caller is not authenticated"},
+		{"FORBIDDEN", exitcode.Forbidden, "FORBIDDEN: this caller is not permitted"},
+		{"APP_NOT_FOUND", exitcode.NotFound, "APP_NOT_FOUND: the inbox App was not found for this caller"},
+	} {
+		t.Run(tc.code, func(t *testing.T) {
+			run := driveInboxIdentity3004(t, inboxIdentityOpts3004{appFlag: "hrn:app:test:other", answer: gqlCode3004(tc.code)})
+			if run.err == nil || exitcode.FromError(run.err) != tc.exit {
+				t.Fatalf("exit %d, want %d: %v", exitcode.FromError(run.err), tc.exit, run.err)
+			}
+			if !strings.Contains(run.err.Error(), tc.want) {
+				t.Fatalf("want %q: %q", tc.want, run.err.Error())
+			}
+			assertNoLeak3004(t, run.err.Error())
+		})
+	}
+}
+
+// A failure to SET UP the server call is local: nothing is sent, and the
+// message must not claim the server failed to answer.
+func TestInboxIdentityClientSetupFailureIsNotAServerFault3004(t *testing.T) {
+	run := driveInboxIdentity3004(t, inboxIdentityOpts3004{appFlag: "hrn:app:test:other", noToken: true})
+	if run.err == nil {
+		t.Fatal("a missing credential must fail")
+	}
+	if got := exitcode.FromError(run.err); got != exitcode.AuthRequired {
+		t.Fatalf("exit %d, want 3: %v", got, run.err)
+	}
+	msg := run.err.Error()
+	if !strings.Contains(msg, "could not confirm the App for this worktree") || !strings.Contains(msg, "could not set up its server call") {
+		t.Fatalf("the message must name the client-setup stage: %q", msg)
+	}
+	if strings.Contains(msg, "server unavailable") || strings.Contains(msg, "server error") || strings.Contains(msg, "cannot read inbox binding") {
+		t.Fatalf("a local setup failure must not read as a server fault or a binding fault: %q", msg)
+	}
+	if run.requests != 0 {
+		t.Fatalf("nothing may be sent, got %d requests", run.requests)
+	}
+}
+
+// The ack-only path reads the identity a SECOND time before acknowledging. A
+// failure there says it could not RE-confirm, with the same class, and no
+// acknowledgment is attempted.
+func TestInboxIdentityRecheckFailureSaysReconfirm3004(t *testing.T) {
+	ackFile := filepath.Join(t.TempDir(), "ack.json")
+	if err := os.WriteFile(ackFile, []byte(`{"batchIds":["proof-1"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		second func(int, http.ResponseWriter, *http.Request)
+		exit   int
+		want   string
+	}{
+		{"502", httpStatus3004(http.StatusBadGateway), exitcode.Unavailable, "could not re-confirm the App for this worktree: server unavailable"},
+		{"INTERNAL_SERVER_ERROR", gqlCode3004("INTERNAL_SERVER_ERROR"), exitcode.Error, "could not re-confirm the App for this worktree: server error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run := driveInboxIdentity3004(t, inboxIdentityOpts3004{
+				appFlag: "hrn:app:test:other",
+				args:    []string{"--ack-file", ackFile},
+				answer: func(n int, w http.ResponseWriter, r *http.Request) {
+					if n == 1 {
+						_, _ = w.Write([]byte(`{"data":{"app":{"id":"own-app"}}}`))
+						return
+					}
+					tc.second(n, w, r)
+				},
+			})
+			if run.err == nil || exitcode.FromError(run.err) != tc.exit {
+				t.Fatalf("exit %d, want %d: %v", exitcode.FromError(run.err), tc.exit, run.err)
+			}
+			if !strings.Contains(run.err.Error(), tc.want) {
+				t.Fatalf("want %q: %q", tc.want, run.err.Error())
+			}
+			assertNoLeak3004(t, run.err.Error())
+			if run.requests != 2 {
+				t.Fatalf("two identity reads and nothing else, got %d requests", run.requests)
+			}
+		})
+	}
+}
+
+// An App context that cannot be READ at all (a config fault, not a malformed
+// value) is not the CLI's own usage text: it may carry a path or server text,
+// so only the stage and the class are printed (BLIND F1).
+func TestInboxIdentityUnreadableAppContextPrintsOnlyStageAndClass3004(t *testing.T) {
+	run := driveInboxIdentity3004(t, inboxIdentityOpts3004{
+		configErr: errors.New("read /secret/path-3004/config.json: " + inboxIdentityLeak3004),
+	})
+	if run.err == nil {
+		t.Fatal("an unreadable App context must fail")
+	}
+	if got := exitcode.FromError(run.err); got != exitcode.Error {
+		t.Fatalf("exit %d, want the cause's class 1: %v", got, run.err)
+	}
+	msg := run.err.Error()
+	if !strings.Contains(msg, "could not read the App context") {
+		t.Fatalf("the message must name the stage: %q", msg)
+	}
+	if strings.Contains(msg, "/secret/path-3004") || strings.Contains(msg, "cannot read inbox binding") {
+		t.Fatalf("the message must not echo the cause text or blame the binding: %q", msg)
+	}
+	assertNoLeak3004(t, msg)
+	if run.requests != 0 {
+		t.Fatalf("nothing may be sent, got %d requests", run.requests)
 	}
 }

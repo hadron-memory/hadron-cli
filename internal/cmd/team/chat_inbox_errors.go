@@ -68,12 +68,15 @@ func inboxFailure(err error, message string) error {
 	return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s", message)
 }
 
-// The two stages of the App-identity step that can fail for a reason that is
-// not the binding file's (hadron-cli#3004): the caller's App context is
-// malformed (a usage error about the VALUE), or the server read that compares
-// it with the binding's App failed (a transport or server fault).
+// The stages of the App-identity step that can fail for a reason that is not
+// the binding file's (hadron-cli#3004): the caller's App context is unusable, the
+// CLI could not set up its server client (local: no server was contacted), or
+// the server read that compares the context with the binding's App failed.
+type inboxStage int
+
 const (
-	inboxStageAppContext = iota + 1
+	inboxStageAppContext inboxStage = iota + 1
+	inboxStageClient
 	inboxStageAppRead
 )
 
@@ -81,20 +84,20 @@ const (
 // stage that produced it, so the command can say WHICH step failed and why
 // instead of blaming a binding file that was read fine.
 type inboxIdentityStageError struct {
-	stage int
+	stage inboxStage
 	err   error
 }
 
 func (e *inboxIdentityStageError) Error() string { return e.err.Error() }
 func (e *inboxIdentityStageError) Unwrap() error { return e.err }
 
-// inboxCauseClass names a server or transport failure by its exit class only:
-// the response body, URL and any server text are untrusted and never printed
-// (the same rule as every other inbox failure).
+// inboxCauseClass names a failure by its exit class only: the response body,
+// URL and any server text are untrusted and never printed (the same rule as
+// every other inbox failure).
 func inboxCauseClass(code int) string {
 	switch code {
 	case exitcode.Unavailable:
-		return "server unavailable (a gateway or network error; safe to retry)"
+		return "server unavailable (a gateway or network error)"
 	case exitcode.Error:
 		return "server error"
 	case exitcode.AuthRequired:
@@ -108,11 +111,14 @@ func inboxCauseClass(code int) string {
 	}
 }
 
-// inboxIdentityFailure reports a failed identity step. A known reason keeps its
-// fixed public message; an invalid App context is a usage error naming the
-// value's problem; any other failure of the server read names the stage and the
-// cause class. The exit class is always the one the cause has today.
-func inboxIdentityFailure(err error, fallback string) error {
+// inboxIdentityFailure reports a failed identity step. A known SERVER code on the
+// read (FORBIDDEN, UNAUTHENTICATED, APP_NOT_FOUND, ...) keeps its fixed public
+// message; the local INBOX_* refusals are returned unwrapped and never get here.
+// A usage error from the App context is the CLI's own text (it never echoes the
+// value, cli#2876); any other App-context failure and every other failure of
+// the step name the stage and the cause class. The exit class is always the one
+// the cause has today. recheck says it was the second read, before an ack.
+func inboxIdentityFailure(err error, fallback string, recheck bool) error {
 	var stage *inboxIdentityStageError
 	if !errors.As(err, &stage) {
 		return inboxFailure(err, fallback)
@@ -120,12 +126,36 @@ func inboxIdentityFailure(err error, fallback string) error {
 	if _, _, known := inboxReason(err); known {
 		return inboxFailure(err, fallback)
 	}
-	if stage.stage == inboxStageAppContext {
-		return exitcode.Newf(exitcode.FromError(api.MapError(stage.err)), "%s", stage.err.Error())
-	}
 	code := exitcode.FromError(api.MapError(stage.err))
-	return exitcode.Newf(code, "could not confirm the App for this worktree: %s", inboxCauseClass(code))
+	verb := "could not confirm"
+	if recheck {
+		verb = "could not re-confirm"
+	}
+	switch stage.stage {
+	case inboxStageAppContext:
+		if code == exitcode.Usage {
+			return exitcode.Newf(code, "%s", stage.err.Error())
+		}
+		return exitcode.Newf(code, "could not read the App context: %s", inboxCauseClass(code))
+	case inboxStageClient:
+		// Local: nothing was sent, so never claim the server failed to answer.
+		return exitcode.Newf(code, "%s the App for this worktree: the CLI could not set up its server call (%s)", verb, inboxClientClass(code))
+	}
+	msg := fmt.Sprintf("%s the App for this worktree: %s", verb, inboxCauseClass(code))
+	if code == exitcode.Unavailable {
+		msg += "; this read is safe to retry"
+	}
+	return exitcode.Newf(code, "%s", msg)
 }
+
+// inboxClientClass names a local client-setup failure without server wording.
+func inboxClientClass(code int) string {
+	if code == exitcode.AuthRequired {
+		return "not authenticated; run hadron auth login or set HADRON_TOKEN"
+	}
+	return "check the server and credential configuration"
+}
+
 func inboxUnconfirmed(streamsErr io.Writer, jsonMode bool, err error) error {
 	failure := inboxFailure(err, "inbox acknowledgment unconfirmed")
 	if _, _, known := inboxReason(err); known {
