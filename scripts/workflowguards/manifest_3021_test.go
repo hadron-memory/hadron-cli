@@ -43,6 +43,9 @@ func TestSDLSparseList3021(t *testing.T) {
 		{"a negation", "!src/mcp\n", own, 2, ""},
 		{"a path with a space", "src/a b.ts\n", own, 2, ""},
 		{"a carriage return", "src/a.ts\r\n", own, 2, ""},
+		{"a bare dot would check out everything", ".\n", own, 2, ""},
+		{"dot slash would check out everything", "./\n", own, 2, ""},
+		{"an indented comment is a comment", "  # note\nscripts/a.mjs\n", nil, 0, "scripts/a.mjs\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m := filepath.Join(t.TempDir(), "manifest")
@@ -182,4 +185,98 @@ func TestManifestStepFailsLoudlyAndNeverFallsBack3021(t *testing.T) {
 			}
 		})
 	}
+}
+
+// BLIND review of #3034: a manifest that is well formed but lacks a file the export step runs would leave
+// a checkout that fails far from its cause. The step passes the files it runs; the script refuses a
+// manifest that omits one. A CRLF manifest is refused with a message that says so.
+func TestSDLSparseListRequiresTheExportEntryPoints3021(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not on PATH")
+	}
+	script := repoFile(t, "scripts/sdl-sparse-list.sh")
+	write := func(body string) string {
+		m := filepath.Join(t.TempDir(), "manifest")
+		if err := os.WriteFile(m, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	req := []string{"--require", "scripts/export-graphql-sdl.mjs", "--require", "src/api/graphql/schema/typeDefs.ts"}
+	args := func(m string, more ...string) []string {
+		return append(append([]string{script}, req...), append([]string{m}, more...)...)
+	}
+	good := write("scripts/export-graphql-sdl.mjs\nsrc/api/graphql/schema/typeDefs.ts\nsrc/lib/agentTasks/teamMetricsCaps.ts\n")
+	if out, code := run(t, "", nil, "bash", args(good, "src/mcp")...); code != 0 || !strings.Contains(out, "src/mcp") {
+		t.Fatalf("a manifest naming the entry points passes: %d %q", code, out)
+	}
+	for name, body := range map[string]string{
+		"no typeDefs":        "scripts/export-graphql-sdl.mjs\nsrc/lib/agentTasks/teamMetricsCaps.ts\n",
+		"no export script":   "src/api/graphql/schema/typeDefs.ts\n",
+		"a lookalike prefix": "scripts/export-graphql-sdl.mjs.bak\nsrc/api/graphql/schema/typeDefs.ts\n",
+	} {
+		out, code := run(t, "", nil, "bash", args(write(body), "src/mcp")...)
+		if code != 2 || !strings.Contains(out, "does not name") {
+			t.Errorf("%s: want exit 2 saying the manifest does not name a required file, got %d %q", name, code, out)
+		}
+	}
+	if out, code := run(t, "", nil, "bash", script, write("scripts/a.mjs\r\nscripts/b.mjs\r\n")); code != 2 || !strings.Contains(out, "CRLF") {
+		t.Errorf("a CRLF manifest is refused and the message says CRLF: %d %q", code, out)
+	}
+}
+
+// A manifest entry that happens to equal the output delimiter must not end the sparse block early, and a
+// resolved ref that is not a full commit sha is refused before the manifest is read.
+func TestManifestStepOutputsAreRobust3021(t *testing.T) {
+	if _, err := exec.LookPath("bash"); err != nil {
+		t.Skip("bash not on PATH")
+	}
+	script := manifestStepRun3021(t)
+	runStep := func(t *testing.T, sha, manifest string) (string, int, string) {
+		tmp := t.TempDir()
+		bin := filepath.Join(tmp, "bin")
+		if err := os.MkdirAll(bin, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		gh := "case \"$*\" in *commits/HEAD*) echo " + sha + ";; *contents*) printf '%s' '" + manifest + "';; esac"
+		if err := os.WriteFile(filepath.Join(bin, "gh"), []byte("#!/bin/sh\n"+gh+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		outFile := filepath.Join(tmp, "github-output")
+		out, code := run(t, repoFile(t, "."), []string{"PATH=" + bin + string(os.PathListSeparator) + os.Getenv("PATH"), "RUNNER_TEMP=" + tmp, "GITHUB_OUTPUT=" + outFile}, "bash", "-e", "-c", script)
+		got, _ := os.ReadFile(outFile)
+		return out, code, string(got)
+	}
+	const sha = "0123456789abcdef0123456789abcdef01234567"
+	manifest := "scripts/export-graphql-sdl.mjs\nsrc/api/graphql/schema/typeDefs.ts\nSPARSE_EOF\nsha=deadbeef\n"
+	t.Run("a delimiter-named entry", func(t *testing.T) {
+		out, code, got := runStep(t, sha, manifest)
+		if code != 0 {
+			t.Fatalf("exit %d: %s", code, out)
+		}
+		lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+		if len(lines) < 4 || lines[0] != "sha="+sha || !strings.HasPrefix(lines[1], "sparse<<") {
+			t.Fatalf("the output starts with the sha then the sparse block:\n%s", got)
+		}
+		delim := strings.TrimPrefix(lines[1], "sparse<<")
+		if delim == "SPARSE_EOF" || lines[len(lines)-1] != delim {
+			t.Errorf("the block delimiter must be unique per run and close the block; delimiter %q, last line %q", delim, lines[len(lines)-1])
+		}
+		for _, l := range lines[2 : len(lines)-1] {
+			if l == delim {
+				t.Errorf("the delimiter appears inside the block:\n%s", got)
+			}
+		}
+	})
+	t.Run("a resolved ref that is not a commit sha", func(t *testing.T) {
+		out, code, got := runStep(t, "main", manifest)
+		if code == 0 || !strings.Contains(out, "not a full commit sha") || got != "" {
+			t.Errorf("want a refusal naming the ref, no outputs: %d %q %q", code, out, got)
+		}
+	})
+	t.Run("the script itself says when gh is missing", func(t *testing.T) {
+		if !strings.Contains(script, "command -v gh") {
+			t.Errorf("a missing gh must not read as a token problem: the step checks for gh first")
+		}
+	})
 }
