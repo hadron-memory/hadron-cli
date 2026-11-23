@@ -76,17 +76,19 @@ type Config struct {
 	Accounts map[string]AccountProfile `yaml:"account_profiles"`
 	// OrcaLaunch configures launches through Orca (launch_via: orca).
 	OrcaLaunch OrcaLaunchConfig `yaml:"orca_launch"`
-	// ResetContext reserves the C3 reader path for an explicitly declared reset capability.
+	// ResetContext was the reserved reset-context block. The reset-context
+	// host handler was removed (hadron-cli#3017), so it is parsed only so a
+	// legacy file is refused naming the removal, never "unknown key".
 	ResetContext ResetContextConfig `yaml:"reset_context"`
 }
 
-// ResetContextConfig neither activates resets nor proves a terminal/process binding.
+// ResetContextConfig is no longer read: validate() refuses a file that sets it.
 type ResetContextConfig struct {
 	OrcaBin string `yaml:"orca_bin"`
 }
 
-// ResetContextEnabled reports the operator's explicit capability declaration.
-func (c *Config) ResetContextEnabled() bool {
+// declaresResetContext reports the operator's explicit capability declaration.
+func (c *Config) declaresResetContext() bool {
 	for _, capability := range c.Capabilities {
 		if capability == CapabilityResetContext {
 			return true
@@ -243,11 +245,10 @@ type WorkerConfig struct {
 	// or one that failed, there is nothing to wait for and the stop is
 	// immediate.
 	StopWait string `yaml:"stop_wait"`
-	// Recover is an optional argv that hands a relaunched agent its recovery
-	// prompt after a worker.reset-context (#1043), the way End prompts an
-	// end. It gets HADRON_SESSION_ID, HADRON_WORKER_ID and
-	// HADRON_RECOVERY_NODE (the checkpoint node's reference): ids only. A
-	// worker without it is never reset on this host.
+	// Recover was the argv that handed a relaunched agent its recovery prompt
+	// after a worker.reset-context (#1043). That consumer was removed with the
+	// reset handler (hadron-cli#3017); the key is still parsed so a legacy
+	// config loads, and the reload diff still names the binary it points at.
 	Recover []string `yaml:"recover"`
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created. A plain directory
@@ -544,8 +545,16 @@ func (c *Config) validate() error {
 			errs = append(errs, "delivery.orca_bin must be an absolute path")
 		}
 	}
-	if c.ResetContextEnabled() && !filepath.IsAbs(c.ResetContext.OrcaBin) {
-		errs = append(errs, "reset_context.orca_bin must be an absolute path when worker.reset-context is declared")
+	// The reset-context host handler is gone (hadron-cli#3017): no host
+	// performs the operation, so declaring the capability would invite
+	// resets this host cannot carry out (cor:agt:070:03), and the reserved
+	// block is read by nothing. Refuse both at load — the registration
+	// payload can never carry the name.
+	if c.declaresResetContext() {
+		errs = append(errs, "capabilities: worker.reset-context is no longer supported: the reset-context host handler was removed (hadron-cli#3017) and no host performs it; remove the capability")
+	}
+	if c.ResetContext.OrcaBin != "" {
+		errs = append(errs, "reset_context is no longer read (hadron-cli#3017); remove the block")
 	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))

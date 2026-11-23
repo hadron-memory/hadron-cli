@@ -285,13 +285,6 @@ type Poller struct {
 	// budgetLogged is the UTC day an exhausted wake budget was last logged.
 	budgetLogged string
 
-	// worker.reset-context (#1043): off unless EnableResets.
-	resets    ResetServer
-	resetDeps ResetDeps
-	// resetStopWait bounds how long the old agent has to exit after the
-	// one stop; zero means defaultResetStopWait.
-	resetStopWait time.Duration
-
 	// Exit relaunch (cli#2161): exitWake is made by EnableRelaunch and wakes
 	// the run loop when a tracked agent exits; exited holds those agents by
 	// worker id until an exit pass takes them.
@@ -614,7 +607,10 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 	case OpWorkerEnd:
 		p.workerEnd(ctx, op)
 	case OpWorkerResetContext:
-		p.workerResetContext(ctx, op)
+		// The reset-context host handler was removed (hadron-cli#3017): no
+		// host declares the capability, so the server issues this to no host.
+		// A server that does anyway is answered, not left to time out.
+		p.finish(ctx, op, Failed, "", "this host carries out no worker.reset-context (hadron-cli#3017)")
 	case OpWorkerDeliver:
 		// A per-task-event operation (hostOperations/types.ts:45). Chat
 		// delivery reads S1's batches instead (cli#907), so this host has

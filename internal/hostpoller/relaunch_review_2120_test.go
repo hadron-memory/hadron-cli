@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -182,6 +183,16 @@ func TestC5RequiresTheBindingLock2120(t *testing.T) {
 	}
 }
 
+// fakeHandle stands in for the pinned handle the relaunch proof compares
+// identities against: it answers a chosen identity and signals nothing.
+type fakeHandle struct{ id ProcessIdentity }
+
+func (h *fakeHandle) Identity() ProcessIdentity { return h.id }
+func (h *fakeHandle) SignalWithin(syscall.Signal, time.Duration, time.Duration, func() (time.Duration, error)) (time.Duration, error) {
+	return 0, nil
+}
+func (h *fakeHandle) Close() {}
+
 func TestProductionVerifyRequiresOwnUniqueLiveIdentity2120(t *testing.T) {
 	pid := os.Getpid()
 	handle, err := (LinuxProcessControl{}).Observe(pid)
@@ -201,7 +212,7 @@ func TestProductionVerifyRequiresOwnUniqueLiveIdentity2120(t *testing.T) {
 	}
 	wrong := handle.Identity()
 	wrong.StartTime += "-stale"
-	a.h = &fakeHandle{p: &fakeProc{}, id: wrong}
+	a.h = &fakeHandle{id: wrong}
 	if err := verifyRelaunchProcess(context.Background(), a, target, hostrelaunch.Observation{Proven: true, PIDs: []int{pid}}); err == nil {
 		t.Fatal("accepted stale pinned identity")
 	}

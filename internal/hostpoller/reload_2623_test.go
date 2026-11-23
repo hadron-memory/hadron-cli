@@ -659,18 +659,3 @@ func TestRemovingAWorkerFromTheFileStopsItsAgentNever2623(t *testing.T) {
 		t.Fatalf("the reload stopped a process: terminations %d, stop calls %v", agent.terminations(), fx.host.stopped)
 	}
 }
-
-// An idle proof is built from the worker's own entry; once a reload has taken
-// the worker out of the file there is none, and nothing may go on to process
-// control with an empty interface.
-func TestTheIdleTargetOfAWorkerAReloadRemovedIsRefused2623(t *testing.T) {
-	fx := newReloadFixtureFrom(t, reloadBase+billie)
-	fx.step()
-	if tgt, ok := fx.p.resetIdleTarget(Operation{WorkerID: "id-billie"}, "billie", "repo/billie", ProcessIdentity{}); !ok || tgt.Family == "" {
-		t.Fatalf("a configured worker must yield its interface: %+v ok=%v", tgt, ok)
-	}
-	fx.edit(reloadBase)
-	if tgt, ok := fx.p.resetIdleTarget(Operation{WorkerID: "id-billie"}, "billie", "repo/billie", ProcessIdentity{}); ok || tgt.Family != "" {
-		t.Fatalf("a removed worker yielded a target: %+v ok=%v", tgt, ok)
-	}
-}

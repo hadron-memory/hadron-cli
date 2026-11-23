@@ -2,6 +2,12 @@
 
 Slice of the Team on Orca epic (hadron-server#4229). Design as built.
 
+> **The Windows half went with
+> [#3017](https://github.com/hadron-memory/hadron-cli/issues/3017): the
+> synchronous `taskkill` runner was removed, and `StopAgents` on a non-Linux
+> host now errors (`finding a worker's agent process needs Linux`) without
+> signalling. The Unix stop below is unchanged.**
+
 ## What changed
 `worker.end` used to prompt, wait `end_wait` (15 m) and report FAILED; it never
 touched the process. With the per-worker host-config field `stop_on_end` it now

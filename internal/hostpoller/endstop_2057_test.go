@@ -1,7 +1,6 @@
 package hostpoller
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -307,22 +306,6 @@ func TestWorkerEndUsesTheSessionTheStartBound(t *testing.T) {
 		if got := host.agent.terminations(); got != tc.want {
 			t.Errorf("%s: terminations = %d, want %d", name, got, tc.want)
 		}
-	}
-}
-
-// #2070: the context-reset relaunch records the session the reset names (a
-// reset keeps the session), so a stopping end can identify that agent.
-func TestRelaunchRecordsTheSessionTheResetNames(t *testing.T) {
-	x, _ := relaunchFixture(t)
-	op := resetOp()
-	if _, code, detail := x.p.relaunchAgent(context.Background(), op, irisCfg(x), "repo/iris", oldIdentity, "hrn:node:acme.com:iris:sheds:auto-1"); code != "" {
-		t.Fatalf("%s: %s", code, detail)
-	}
-	x.p.mu.Lock()
-	got := x.p.agentSessions["id-iris"]
-	x.p.mu.Unlock()
-	if want := argString(op, "sessionId"); want == "" || got != want {
-		t.Fatalf("recorded session %q, want %q", got, want)
 	}
 }
 

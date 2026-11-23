@@ -764,9 +764,8 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 	p.watchForExit(workerID, a)
 }
 
-// launchIdentity observes a just-launched agent's process identity, when
-// resets are enabled. An unreaped child keeps its pid, so an identity read
-// while Done is still open, checked after the read, is the agent's own.
+// launchIdentity observes a just-launched agent's process identity for the
+// relaunch pin, when the launch holds a process handle.
 func (p *Poller) launchIdentity(a Agent) (ProcessIdentity, bool) {
 	if agent, ok := a.(*OrcaAgent); ok && agent.h != nil {
 		select {
@@ -779,21 +778,7 @@ func (p *Poller) launchIdentity(a Agent) (ProcessIdentity, bool) {
 			return identity, true
 		}
 	}
-
-	if p.resetDeps.Proc == nil || a.PID() <= 0 {
-		return ProcessIdentity{}, false
-	}
-	h, err := p.resetDeps.Proc.Observe(a.PID())
-	if err != nil {
-		return ProcessIdentity{}, false
-	}
-	defer h.Close()
-	select {
-	case <-a.Done():
-		return ProcessIdentity{}, false
-	default:
-		return h.Identity(), true
-	}
+	return ProcessIdentity{}, false
 }
 
 // agentWorktree is the worktree this worker's launched agent runs in: this
@@ -842,19 +827,19 @@ func contains(list []string, s string) bool {
 }
 
 // bindingLockWait bounds how long a stop waits for a binding writer: a bind
-// holds the lock for one write, so this is generous, and a writer is never made
-// to wait on Unix beyond one read and signal (#2068). On Windows the
-// authority spans synchronous taskkill; this constant bounds acquisition only.
+// holds the lock for one write, so this is generous, and a writer is never
+// made to wait beyond one read and signal (#2068). The stop that holds the
+// lock is Linux-only and releases right after the signal, before any grace
+// wait, so this constant bounds acquisition only.
 const bindingLockWait = 2 * time.Second
 
 // authorizeStop is the Authorize for one worktree: before each signal it takes
 // the worktree's session-binding lock (the lock `team session start` holds
 // while it writes), re-reads the binding under it through check, and returns
-// the release the caller invokes after the action (a Unix signal syscall or
-// the synchronous Windows taskkill runner). A lock that cannot be
-// taken within bindingLockWait declines the stop, and so does a check that no
-// longer passes; both are logged. Unix releases before grace waits; Windows
-// keeps authority until its taskkill runner returns, including cancellation.
+// the release the caller invokes right after the one signal syscall it
+// authorized. A lock that cannot be taken within bindingLockWait declines the
+// stop, and so does a check that no longer passes; both are logged. The
+// release precedes every grace wait.
 func (p *Poller) authorizeStop(token string, check func() bool, op Operation) Authorize {
 	return func() (func(), bool) {
 		release, err := p.lockBinding(p.config().WorktreePath(token), bindingLockWait)

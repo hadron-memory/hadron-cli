@@ -541,7 +541,7 @@ section between the markers.
 | `team host list` | ls |  | n | #1054 | a7b2e8db1192 |  | unread |  |
 | `team host ops` |  |  | n | #1054 | 1a23ca0e9226 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
-| `team host run` |  |  | y | #1054 | 54d4a8422008 |  | unread |  |
+| `team host run` |  |  | y | #1054 | 545f4e993824 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | f6c071f5cd86 |  | unread |  |
 | `team host status` |  |  | n | #1054 | c3a3ecae8eed |  | unread |  |
 | `team host sweep` |  |  | n | #1054 | 61efdf815c30 |  | unread |  |

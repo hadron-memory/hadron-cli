@@ -2,6 +2,11 @@
 
 Companion to hadron-server#4258 (S4b, closes #4225). The server now issues a `worker.reset-context` for an Agent's context cap with **no `taskId`** (args `workerId`, `sessionId`, `resetId`); `ContextReset.taskId` is nullable and `ContextReset.cause` is `task-end` or `context-cap`.
 
+> **The CLI handler described below (`reset_handler.go`, `host_reset.go`,
+> `reset_forward.go`) was removed by
+> [#3017](https://github.com/hadron-memory/hadron-cli/issues/3017); the server
+> schema facts (nullable `taskId`, the `cause` enum) still stand.**
+
 ## What changed
 - **Handler** (`reset_handler.go`): `resetId` and `sessionId` stay required; `taskId` is optional (absent, null and "" all read as none). A cap reset runs the same claim, checkpoint, stop and relaunch path as a task-end reset. The reset driver stays off until C3's proof (#2088); this only stops a declared host from failing every cap reset with `HOST_UNSUPPORTED`.
 - **Recovery** (`host_reset.go`): with no task, `registerContextResetRecovery` is sent **without** `taskId` (the server refuses a named task with `RECOVERY_REF_INVALID`). The generated input omits it (`omitempty`), because an omitted field is "none" and an explicit null is a different statement (the wire gotcha in CLAUDE.md).
