@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 243: 213 command, 6 gap, 24 excluded
+[Query] 244: 214 command, 6 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -71,6 +71,7 @@ appMemoryScope  command app memories
 appMemoryWriteGrants  command app memory-grant list
 appNodes  excluded not-a-capability: appNodesPage returns the same rows under the same admission, filters and refusals, paged (SDL); cor:api:120:04; equivalent-form precedent cor:api:240:02; Proposed class unruled under #1334 (33-row review)
 appNodesPage  command app nodes
+appRoleLists  command team role-lists get
 appRun  command run get
 appRuns  command run list
 appTickerSettings  command team ticker settings get
@@ -272,7 +273,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 367: 344 command, 12 gap, 11 excluded
+[Mutation] 368: 345 command, 12 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -545,6 +546,7 @@ setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
+setAppRoleList  command team role-lists set
 setAppSweepMode  command team app sweep-mode
 setAppTickerSettings  command team ticker settings set
 setAssetPublicLink  command asset public-link
