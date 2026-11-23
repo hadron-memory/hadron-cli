@@ -334,7 +334,7 @@ status; --json returns the task with its warnings list, as
 	cmd.Flags().StringVar(&properties, "properties", "", "the clone's own JSON object, or @file; replaces the copied value (left out, not refused, for a caller who may not set properties)")
 	cmd.Flags().BoolVar(&clearProperties, "clear-properties", false, "the clone has no properties")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
-	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	cmd.Flags().StringVar(&requireRole, "require-role", "", "the one role a worker must hold (a single name: a comma is part of it, not a list; task create takes a list); replaces the task's whole requirements")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")
