@@ -38,7 +38,8 @@ a pull request), register-pick (the role route of the register pick) and
 review-withdraw (who may withdraw a negative review verdict besides the reviewer who
 recorded it). The App names the roles; the platform names none. A purpose whose
 list is empty uses the platform's default: an empty list means the default for that
-purpose, and setting a list replaces the default.`
+purpose. Today the server only stores the lists: no door reads them yet, so setting
+one changes nothing until the doors read it (its answer says what it stored).`
 
 // roleListPurposes maps the command's spelling of a purpose to the server's enum, in the order they print.
 var roleListPurposes = []struct {
@@ -61,20 +62,26 @@ func roleListPurposeNames() string {
 // roleListLimits is the server's limit on a list, stated in every local refusal.
 const roleListLimits = "a list holds at most 32 names of 1 to 64 characters each, none containing ':' or whitespace (the server trims, lower-cases and collapses duplicates first)"
 
+// isJSSpace is the server's whitespace: JavaScript's String.trim and /\s/ (hadron-server normalizeWakeRoles
+// runs on JS strings). It is Go's unicode.IsSpace except U+0085 (JS does not count it) and with U+FEFF (JS does).
+func isJSSpace(r rune) bool { return (unicode.IsSpace(r) && r != 0x85) || r == 0xFEFF }
+
 // checkRoleList mirrors the server's own refusals (hadron-server src/lib/agentTasks/saturation.ts
-// normalizeWakeRoles, the one role-list format): a name empty after trimming, over 64 characters or holding a
-// ':' or whitespace, and more than 32 names after collapsing. It refuses ONLY what the server refuses; the
-// list is still sent as typed and the server's stored form is what is printed.
+// normalizeWakeRoles, the one role-list format): a name empty after trimming, over 64 UTF-16 units or holding a
+// ':' or whitespace, and more than 32 names after collapsing. It refuses ONLY what the server refuses, judged
+// with the server's whitespace set; the one residual difference is Go's lower-casing, which can differ from
+// JavaScript's toLowerCase for a few special-case letters, so a name at the 64-unit edge may be judged by the
+// server instead. The list is still sent as typed and the server's stored form is what is printed.
 func checkRoleList(names []string) error {
 	distinct := map[string]bool{}
 	for _, raw := range names {
-		r := strings.ToLower(strings.TrimSpace(raw))
+		r := strings.ToLower(strings.TrimFunc(raw, isJSSpace))
 		switch {
 		case r == "":
 			return exitcode.Newf(exitcode.Usage, "a role is empty (an unset variable?): name each role, or pass --clear to empty the list; %s", roleListLimits)
 		case len(utf16.Encode([]rune(r))) > 64:
 			return exitcode.Newf(exitcode.Usage, "role %q is over 64 characters: %s", output.SafeCell(raw), roleListLimits)
-		case strings.ContainsRune(r, ':') || strings.IndexFunc(r, unicode.IsSpace) >= 0:
+		case strings.ContainsRune(r, ':') || strings.IndexFunc(r, isJSSpace) >= 0:
 			return exitcode.Newf(exitcode.Usage, "role %q holds a ':' or whitespace: %s", output.SafeCell(raw), roleListLimits)
 		}
 		distinct[r] = true

@@ -168,6 +168,7 @@ func TestRoleListsSetRefusesLocallyBeforeAnyRequest3030(t *testing.T) {
 		"a blank role":        {"set", "defect-link", "qa", ""},
 		"a colon":             {"set", "defect-link", "a:b"},
 		"whitespace":          {"set", "defect-link", "a b"},
+		"U+FEFF inside":       {"set", "defect-link", "a\ufeffb"},
 		"too long":            {"set", "defect-link", long},
 		"over 32 names":       append([]string{"set", "defect-link"}, thirtyThree...),
 	} {
@@ -181,7 +182,7 @@ func TestRoleListsSetRefusesLocallyBeforeAnyRequest3030(t *testing.T) {
 					t.Fatalf("nothing may be sent: %+v", c)
 				}
 			}
-			if strings.Contains(name, "colon") || strings.Contains(name, "whitespace") || strings.Contains(name, "long") || strings.Contains(name, "32") {
+			if strings.Contains(name, "colon") || strings.Contains(name, "whitespace") || strings.Contains(name, "FEFF") || strings.Contains(name, "long") || strings.Contains(name, "32") {
 				if !strings.Contains(err.Error(), "at most 32 names of 1 to 64 characters") || !strings.Contains(err.Error(), "':' or whitespace") {
 					t.Fatalf("the local refusal states the server's limits: %v", err)
 				}
@@ -197,7 +198,10 @@ func TestRoleListsSetRefusesLocallyBeforeAnyRequest3030(t *testing.T) {
 		many = append(many, "role"+string(rune('a'+i%10)))
 	}
 	cjk := strings.Repeat("界", 40)
-	for name, names := range map[string][]string{"forty names, ten distinct": many, "exactly 64 characters": {strings.Repeat("a", 64)}, "multi-byte under the limit": {cjk}} {
+	// The server's whitespace is JavaScript's: U+0085 is NOT whitespace there (so a name holding it is accepted),
+	// U+FEFF IS (so a name holding it is refused, and one only padded with it is trimmed, then accepted).
+	for name, names := range map[string][]string{"forty names, ten distinct": many, "exactly 64 characters": {strings.Repeat("a", 64)}, "multi-byte under the limit": {cjk},
+		"U+0085 inside is not whitespace to the server": {"a\u0085b"}, "U+FEFF padding is trimmed": {"\ufeffqa\ufeff"}} {
 		calls, _, err := runTeamTask(t, roleListsResponses3030("DEFECT_LINK", "x"), append([]string{"team", "role-lists", "set", "defect-link"}, names...)...)
 		if err != nil {
 			t.Errorf("%s: a list the server accepts is not refused locally: %v", name, err)
@@ -309,7 +313,7 @@ func TestRoleListsHelpSaysWhatTheListsAre3030(t *testing.T) {
 			t.Fatalf("%v: %v", argv, err)
 		}
 		help := strings.Join(strings.Fields(out.String()), " ")
-		for _, want := range []string{"defect-link", "register-pick", "review-withdraw", "manages the App", "an empty list means the default"} {
+		for _, want := range []string{"defect-link", "register-pick", "review-withdraw", "manages the App", "an empty list means the default", "the server only stores the lists: no door reads them yet"} {
 			if !strings.Contains(help, want) {
 				t.Errorf("%v --help must say %q:\n%s", argv, want, help)
 			}
