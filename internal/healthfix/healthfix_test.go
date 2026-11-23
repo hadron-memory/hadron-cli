@@ -109,18 +109,6 @@ func TestLoneTabClosesNothing(t *testing.T) {
 	}
 }
 
-// Gate edge 3: a resetting worker is skipped entirely — even a plain
-// duplicate is left for the next sweep, so a relaunch is never stopped
-// mid-window.
-func TestResettingWorkerSkippedEntirely(t *testing.T) {
-	w := wt(agents(supervised(1), stray(2, "claude")), Tab{"t-bare", true}, Tab{"t-solid", false})
-	w.Resetting = true
-	p := Decide(w, applying())
-	if len(p.Fixes) != 0 || len(p.Alerts) != 0 || len(p.Skips) != 1 || p.Skips[0] != (Skip{"w1", "resetting"}) {
-		t.Fatalf("a resetting worker must yield only the skip: %+v", p)
-	}
-}
-
 // Gate edge 4: under a pause the plan is still reported, never applied, and
 // the worker is marked so the receipt can say why.
 func TestPauseReportsWithoutMarkingFixesApplied(t *testing.T) {

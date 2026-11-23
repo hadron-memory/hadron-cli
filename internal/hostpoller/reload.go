@@ -304,10 +304,13 @@ type namedFile struct {
 }
 
 // namedFiles is what the entries that changed would make the poller run or
-// use: each worker's launch, end and recover programs, the launcher account
+// use: each worker's launch and end programs, the launcher account
 // program of a worker or account that changed, a changed repo's clone, and the
 // directories a worker or account names for its agent to run in (CODEX_HOME,
-// CLAUDE_CONFIG_DIR and TMPDIR hold settings and hooks an agent runs).
+// CLAUDE_CONFIG_DIR and TMPDIR hold settings and hooks an agent runs). A
+// worker's recover argv is deliberately absent: nothing has run it since the
+// reset-context handler was removed (hadron-cli#3017), so judging it would
+// refuse reloads on a dead key.
 func namedFiles(c, next *Config, workers []string) []namedFile {
 	var out []namedFile
 	argv0 := func(argv []string) {
@@ -330,7 +333,6 @@ func namedFiles(c, next *Config, workers []string) []namedFile {
 	for _, ref := range workers {
 		w := next.Workers[ref]
 		argv0(w.End)
-		argv0(w.Recover)
 		dir(w.CodexHome)
 		dir(w.ClaudeConfigDir)
 		dir(w.DiskTmp)

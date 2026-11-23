@@ -48,7 +48,10 @@ change). For each account that was added or changed: its program (`bin`) and
 its `codex_home`. For each repo that was added or whose path changed: the new
 path. A worker that was removed names nothing to judge. A setting that is read
 only at start (key file, state file, `orca_launch`, `delivery`,
-`reset_context`, and the rest) is not judged, because it is not applied. A
+and the rest) is not judged, because it is not applied. The reserved
+`reset_context` block is refused when the file loads
+([#3017](https://github.com/hadron-memory/hadron-cli/issues/3017)), so it
+never reaches reload judgment at all. A
 name with no slash is looked up on `PATH` and the program found is judged; a
 name that is not found is skipped (starting that worker fails on it as
 before).

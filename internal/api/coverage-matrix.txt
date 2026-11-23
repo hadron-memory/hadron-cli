@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 244: 214 command, 6 gap, 24 excluded
+[Query] 244: 213 command, 6 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -107,7 +107,7 @@ compiledPromptProvenance  command node provenance
 connectionFlow  command connection flow
 connectionGrant  command connection grant get
 connectionGrants  command connection grant list
-contextReset  command team host run
+contextReset  excluded host-protocol: the host-side context-reset handler was removed (cli#3017); this CLI declares no worker.reset-context capability and answers a collected reset op FAILED, so the query is never sent — the server protocol stands for hosts that implement it
 creditBalance  command billing balance
 creditLedgerEntries  command billing ledger
 dashboardWidgetData  excluded graphical: the data feed for the widgets placed on the portal dashboard grid, one entry per placement in grid order; the data has its own routes: MEMORY_STATS is `memory list --owned-by-me`, AGENT_STATS is `agent list --owned-by-me`, USAGE_ACTIVITY is `usage activity`
@@ -273,7 +273,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 369: 345 command, 13 gap, 11 excluded
+[Mutation] 369: 339 command, 13 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -300,7 +300,7 @@ assignAgentTask  command team task assign
 assignHostWorker  command team host assign
 assignReviewSeat  command team pr seat
 attachMemoryToApp  command memory attach
-authorizeContextResetStop  command team host run
+authorizeContextResetStop  excluded host-protocol: the host-side stop authorization went with the removed reset handler (cli#3017); nothing claims or stops a reset, so the mutation is never sent
 beginAssetUpload  excluded not-a-capability: the v1 twin of beginAssetUploadV2, which `asset upload` reaches; it adds no capability
 beginAssetUploadV2  command asset upload
 beginMergeUsersConsent  gap #1304
@@ -313,7 +313,7 @@ cancelAppRun  command run cancel
 cancelWebPoll  command web-poll cancel
 castWorker  command team worker cast
 changeWorkerAgent  command team worker change-agent
-claimContextReset  command team host run
+claimContextReset  excluded host-protocol: claiming a reset went with the removed host-side handler (cli#3017); a collected reset op is answered FAILED instead, so the claim is never sent
 clearAgentAIConfig  command agent ai-config clear
 clearNodeHistory  command node revision clear
 cloneAgent  command agent clone
@@ -477,7 +477,7 @@ recordSessionOutcome  command team session outcome
 recordTeamWork  command team session log
 recordUsage  command usage record
 regenerateAppKey  command app key rotate
-registerContextResetRecovery  command team host run
+registerContextResetRecovery  excluded host-protocol: reset recovery went with the removed host-side handler (cli#3017); no reset runs, so no checkpoint is registered or replayed
 registerHost  command team host run
 reinstallApp  command app reinstall
 releaseAgentTaskExternalId  command team task release
@@ -495,9 +495,9 @@ reopenCommentThread  command comment resolve
 repairAgentSystemMemory  command agent repair-system-memory
 replaceSubtree  excluded deprecated: @deprecated: Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.
 replyToComment  command comment reply
-reportContextResetAgentStopped  command team host run
-reportContextResetRelaunchFailed  command team host run
-reportContextResetRelaunched  command team host run
+reportContextResetAgentStopped  excluded host-protocol: agent-stop reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no stop is reported
+reportContextResetRelaunchFailed  excluded host-protocol: relaunch-failure reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no relaunch failure is reported
+reportContextResetRelaunched  excluded host-protocol: relaunch reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no relaunch is reported
 reportHostOperation  command team host run
 requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
@@ -644,7 +644,7 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 31: 6 gap, 25 excluded
+[Arguments] 30: 6 gap, 24 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -661,7 +661,6 @@ Mutation.issueSecretReadClient(input.bindingHeader)  gap #3014: the USE (injecti
 Mutation.issueSecretReadClient(input.bindingPrefix)  gap #3014: the USE (injection) read-client mode and its binding arguments; `secret client issue` issues REVEAL clients only
 Mutation.issueSecretReadClient(input.mode)  gap #3014: the USE (injection) read-client mode and its binding arguments; `secret client issue` issues REVEAL clients only
 Mutation.mergeUsers(input.consentProof)  gap #1304
-Mutation.registerContextResetRecovery(input.checkpointNode)  excluded host-protocol: registering an existing checkpoint node is a distinct host-plane input; this CLI writes a new checkpoint through input.checkpoint (ruling 0090 A, cli#1043), which does not retire checkpointNode; Proposed class unruled under #1334 (33-row review)
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)

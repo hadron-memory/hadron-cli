@@ -392,7 +392,7 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 				dto.OrcaVersion = healthOrcaVersion(c.Context(), run)
 			}
 			dto.Renames = append(dto.Renames, renames...)
-			dupes := runHealthDupes(c.Context(), f, cfg, state, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
+			dupes := runHealthDupes(c.Context(), f, cfg, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
 			dto.Fixes, dto.Alerts, dto.Skips = dupes.Fixes, dupes.Alerts, dupes.Skips
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				refused := map[string]string{}

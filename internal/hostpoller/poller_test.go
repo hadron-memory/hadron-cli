@@ -136,7 +136,7 @@ type fakeHost struct {
 	trees    map[string]WorktreeState
 	created  []string
 	removed  []string
-	launches []LaunchSpec
+	launches []OrcaLaunchSpec
 	prompts  [][]string
 	agent    *fakeAgent
 	occupant string
@@ -244,13 +244,9 @@ func (h *fakeHost) RemoveWorktree(_ context.Context, path string) error {
 	return nil
 }
 
-// orcaLaunch is the supervised launch as this fake sees it: the same recording, gating and failure
-// injection the exec launch had, so a test asserts a launch the same way (cli#2914).
-func (h *fakeHost) orcaLaunch(ctx context.Context, spec OrcaLaunchSpec) (Agent, error) {
-	return h.Launch(ctx, LaunchSpec{Argv: spec.Argv, Dir: spec.Dir, Env: spec.Env})
-}
-
-func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
+// orcaLaunch is the supervised launch as this fake sees it: the recording,
+// gating and failure injection the tests assert a launch with (cli#2914).
+func (h *fakeHost) orcaLaunch(_ context.Context, spec OrcaLaunchSpec) (Agent, error) {
 	if h.beforeLaunch != nil {
 		h.beforeLaunch()
 	}

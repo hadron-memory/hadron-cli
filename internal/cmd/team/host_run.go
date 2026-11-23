@@ -322,8 +322,9 @@ reports every outcome. One poller per host or container.
                    the grant);
                    refused before launching when any process is working in the
                    tree (Linux /proc, the pid and a short redacted argv
-                   named), and a start that fails stops the process group it
-                   launched and leaves no agents entry in the state file.
+                   named), and a start that fails stops what it launched
+                   (the Orca terminal's whole scope) and leaves no agents
+                   entry in the state file.
                    With reset_on_start (default off; TRANSITIONAL like
                    stop_on_end, replaced by the Agent's lifecycle) the
                    worker's EXISTING worktree is first brought back to a
@@ -375,7 +376,7 @@ reports every outcome. One poller per host or container.
                    missing is declined, not created, when this host runs
                    as a different user from the worktree's owner; the
                    same refusal applies wherever the host takes that
-                   lock (the stop, a reset relaunch and its cleanup).
+                   lock (the stop and a relaunch's cleanup).
                    An existing lock is opened under ordinary file
                    permissions, so a user who cannot read and write it
                    is refused by the OS, not by this rule.
@@ -453,75 +454,16 @@ Slack, sk-, AWS access-key ids, the webhook hpt value and path secret). A
 credential with neither a keyword nor a listed prefix still renders
 verbatim: there is no entropy or general secret scanning.
 
-THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
-its exit is read as the agent's. A launcher that starts a detached session
-and returns (a tmux or wrapper script) is reported failed if no session has
-bound by then, which revokes the grant. A start reported failed stops what
-it launched and forgets its entry in the state file, so a wrapper that keeps
-relaunching its agent does not outlive the failure. On Unix that stop is
-TERM, a short grace, then KILL to the whole process group — which still
-covers a wrapper's children after the launcher itself exited. On Linux the
-launch's group id is its own for the agent's whole tracked life: an exited
-leader is kept as an unreaped zombie while anything of its group still runs,
-and is reaped only once the group is observed empty (or after the stop's
-KILL), so another process cannot take the group's number while the launch
-may still signal it — the stop can only ever reach this launch's group. A
-launch that provably left nothing behind (its group was empty at the exit)
-confirms a later stop without signalling anything at all. A Linux kernel
-or policy that refuses waitid (an exotic environment) has no hold either:
-the stop takes the same shape as the platforms below. Other Unix
-platforms (macOS, the BSDs) reap the leader at its exit and have no such
-hold, so their stop signals the group id only while the leader is still
-live — the number is bound to a live leader and cannot be reused — and
-once the leader's exit is observed there, the stop refuses to reach for
-the number (an exit frees it at a moment no mutex governs, and a process
-that took the reused number would answer a probe or take a signal): the
-stop reports it unconfirmed and keeps the records instead. On those
-platforms, and on a Linux host that refuses waitid (the same no-hold
-path), a stop that signals a live launch is reported unconfirmed even when
-the launch did stop, and its entry is kept (an approximation: a probe that
-lands between the kernel's reap and the exit being recorded can confirm
-soundly). The instant
-between a stop's last exit-check and its signal is those platforms'
-un-closable window — no syscall there both proves the number is bound and
-signals it. Linux is the hardened platform for this stop. On Windows the
-process tree is force-killed at once. If the launch's exit is observed after
-the binding-authorization wait, taskkill is skipped (its pid may have been
-reused). The final exit check and taskkill are not atomic: the launch can
-still exit between them. Children it left behind cannot be reached without
-a Job Object, which this runner does not yet assign. Binding authority stays
-held until taskkill returns. Its cancellation is requested after 10 seconds;
-a timeout leaves the stop unconfirmed and its records kept even if taskkill
-then reports success. The tree may already be dead or partly stopped.
-Available runner error/output is retained as bounded, control-safe single-line
-diagnostic context. If a successful helper exits but inherited output pipes
-stay open past the 1-second WaitDelay, output collection is incomplete: the
-stop remains unconfirmed and records are kept. Cancellation takes precedence
-if both conditions occur. These are not real-time OS latency guarantees.
-The stopper waits up to 2 seconds to acquire binding authority. Session writers
-block on flock/LockFileEx without that deadline; a session start can wait until
-the synchronous Windows taskkill and cancellation/drain return releases it.
-An entry survives a stop that could not be confirmed. A refusal
-saying the operation was already reported stops the launch only when it
-names the recorded outcome as failed; one naming success, or naming nothing,
-leaves what was launched running.
-
 A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a
 re-collect omits a start whose grant is still live): run this against a
 server with that fix.
 
 Capabilities are an explicit full declaration on every registration refresh:
-Omitted or [] means none. On Linux, capabilities: [worker.reset-context]
-wires the reset protocol and requires an absolute reset_context.orca_bin
-(reserved for a later reader). This driver cannot yet bind an Orca terminal
-and its controlling tty to the process it launched. It therefore remains
-built and off: even a matching binding/process refuses NOT_IDLE:
-TARGET_UNBOUND, before a new claim or stop. An idle-looking screen at the
-same worktree proves nothing about that process. No terminal-aware success path is built;
-enabling a config cannot bypass this refusal.
-Existing Git/identity refusals and no-signal recovery of recorded resets stay.
-Leave the capability unset until that path is built and separately authorized.
+omitted or [] means none. worker.reset-context is carried out by no host of
+this CLI: the reset handler was removed, and a config naming the capability —
+or setting the reserved reset_context block — is refused when the file loads,
+so a registration can never declare it.
 Installing this CLI grants no live-host activation. Unknown declarations
 still warn on stderr before registration and add no handler.
 
@@ -533,10 +475,6 @@ The configuration (YAML):
   key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
-  # Reserved reset configuration; this build stays fail-closed, no activation:
-  # capabilities: [worker.reset-context]
-  # reset_context:
-  #   orca_bin: /absolute/path/to/orca
   repos:
     hadron-memory/hadron-cli: /srv/repos/hadron-cli
   workers:
@@ -549,7 +487,6 @@ The configuration (YAML):
       stop_on_end: never            # never (default) | manager | always
       stop_wait: 60s                # the wait before a stopping end acts
       reset_on_start: false         # true: reset the existing worktree at worker.start
-      # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
     # A short-lived worker:
     # iris:
@@ -572,7 +509,7 @@ take effect on the next poll, with no restart (the poller logs
 config-reloaded, naming the workers). Content is applied on the second poll
 that sees it, so a file still being written is never applied half-written.
 Everything else in the file (the key file, poll_interval_seconds,
-capabilities, state_file, delivery, reset_context, orca_launch and the rest)
+capabilities, state_file, delivery, orca_launch and the rest)
 is read once at start: a change to it is logged as config-restart-needed,
 naming the settings, and is not applied until the poller restarts.
 
@@ -648,11 +585,9 @@ per line; --json prints each as a JSON object.`,
 			if err := writeHostConfigWarnings(f.IOStreams.ErrOut, cfg); err != nil {
 				return err
 			}
-			// Only implemented declarations avoid the unsupported warning.
+			// Only implemented declarations avoid the unsupported warning
+			// (worker.reset-context never gets this far: config load refuses it).
 			for _, capability := range cfg.Capabilities {
-				if capability == hostpoller.CapabilityResetContext {
-					continue
-				}
 				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
 					return err
 				}
@@ -665,10 +600,7 @@ per line; --json prints each as a JSON object.`,
 				return exitcode.Newf(exitcode.Usage, "%s: %v", configPath, err)
 			}
 			emit := hostEventPrinter(f)
-			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{OnDrain: emit}, state, key, emit)
-			if err := wireResets(p, cfg, srv); err != nil {
-				return err
-			}
+			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
 			if cfg.Delivery.Enabled {
 				wireDelivery(p, cfg, srv, emit)
 			}
