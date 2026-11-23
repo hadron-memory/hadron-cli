@@ -82,7 +82,12 @@ func (p *Poller) relaunchExit(ctx context.Context, workerID string, old Agent) {
 		return
 	}
 	hostID := p.state.RegisteredHostID()
-	snap, err := d.Source.RelaunchSnapshot(ctx, hostID)
+	// The pass reads only the exited worker (cli#2816): the host-wide list is
+	// the sweep's discovery read, not this pass's. A read that fails is
+	// unproven and leaves the worker to the sweep; a read that names no row is
+	// the selector's own answer — the platform does not show the worker as
+	// desired here — and ends the pass silently.
+	snap, err := d.Source.RelaunchWorker(ctx, hostID, workerID)
 	if err != nil || snap.HostID != hostID || snap.AppID == "" || snap.Server == "" {
 		p.log("relaunch-unproven", "", "worker.relaunch", "skipped", hostrelaunch.Unproven)
 		return

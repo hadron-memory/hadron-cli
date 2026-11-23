@@ -16,10 +16,51 @@ import (
 type loopSource2060 struct {
 	snapshot RelaunchSnapshot
 	err      error
+
+	// cli#2816: the per-worker freshness read (hadron-server#4693's selector)
+	// is counted and scripted apart from the host-wide discovery read.
+	snapshotReads int
+	workerReads   int
+	// workerAsks is the (host, worker) of every per-worker read, in order.
+	workerAsks [][2]string
+	// workerFailAt is the per-worker read (1-based) that fails with workerErr; 0 = none.
+	workerFailAt int
+	workerErr    error
+	// workerNth scripts the answer of per-worker read n (1-based); nil = the snapshot, narrowed.
+	workerNth func(read int) RelaunchSnapshot
 }
 
 func (s *loopSource2060) RelaunchSnapshot(context.Context, string) (RelaunchSnapshot, error) {
+	s.snapshotReads++
 	return s.snapshot, s.err
+}
+
+// RelaunchWorker answers as the selector does: the asked worker's row alone (a
+// copy, so a test can still change the shared snapshot) or an empty list.
+func (s *loopSource2060) RelaunchWorker(_ context.Context, host, worker string) (RelaunchSnapshot, error) {
+	s.workerReads++
+	s.workerAsks = append(s.workerAsks, [2]string{host, worker})
+	if s.workerFailAt != 0 && s.workerReads == s.workerFailAt {
+		return RelaunchSnapshot{}, s.workerErr
+	}
+	snap := s.snapshot
+	if s.workerNth != nil {
+		snap = s.workerNth(s.workerReads)
+	}
+	return narrow2816(snap, worker), nil
+}
+
+// narrow2816 is the shape of a selector's answer: at most the named worker's
+// row, in a list of its own.
+func narrow2816(snap RelaunchSnapshot, worker string) RelaunchSnapshot {
+	out := snap
+	out.Workers = []RelaunchWorker{}
+	for _, row := range snap.Workers {
+		if row.WorkerID == worker {
+			out.Workers = append(out.Workers, row)
+		}
+	}
+	return out
 }
 
 type loopJournal2060 map[string]hostrelaunch.Record

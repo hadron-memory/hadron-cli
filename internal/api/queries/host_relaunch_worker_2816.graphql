@@ -1,0 +1,23 @@
+# C5's fresh read about ONE worker (cli#2816): the fields of HostRelaunchSnapshot
+# (host_relaunch_2060.graphql) with hadron-server#4693's `worker` selector.
+# The answer carries at most that worker's row, and the same empty list for a
+# worker of another host, a retired one and an unknown one. It is its own
+# document on purpose: a server without the selector refuses only this read, so
+# hostServer.RelaunchWorker can still fall back to the host-wide one.
+# Sent without the worker session (no X-Hadron-Session): the host key drives no
+# session, and reads only.
+query HostRelaunchWorker($appRef: String!, $hostId: String!, $worker: String!) {
+  myApp { id }
+  hostDesiredState(appRef: $appRef, hostId: $hostId, worker: $worker) {
+    hostId
+    sweepMode
+    workers {
+      workerId
+      family
+      desired
+      reason
+      openSessionId
+      worktrees
+    }
+  }
+}

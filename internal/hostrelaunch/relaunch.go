@@ -25,12 +25,16 @@ const (
 	Unproven          = "RELAUNCH_UNPROVEN"
 	CensusUnavailable = "RELAUNCH_CENSUS_UNAVAILABLE"
 	AgentPresent      = "RELAUNCH_AGENT_PRESENT"
-	DuplicateAgents   = "DUPLICATE_AGENTS"
-	NoProfile         = "NO_LAUNCHER_PROFILE"
-	LaunchFailed      = "RELAUNCH_FAILED"
-	VerifyFailed      = "RELAUNCH_UNVERIFIED"
-	RollbackFailed    = "RELAUNCH_CLEANUP_UNCONFIRMED"
-	StateUnavailable  = "RELAUNCH_STATE_UNAVAILABLE"
+	// NotDesired is the definite answer of a fresh read that names no row for
+	// the worker on this host (cli#2816): the selector's own answer, not a
+	// failure, and no evidence about the worker anywhere else.
+	NotDesired       = "NOT_DESIRED_ON_HOST"
+	DuplicateAgents  = "DUPLICATE_AGENTS"
+	NoProfile        = "NO_LAUNCHER_PROFILE"
+	LaunchFailed     = "RELAUNCH_FAILED"
+	VerifyFailed     = "RELAUNCH_UNVERIFIED"
+	RollbackFailed   = "RELAUNCH_CLEANUP_UNCONFIRMED"
+	StateUnavailable = "RELAUNCH_STATE_UNAVAILABLE"
 	// NoExitProof: an exit pass (cli#2161) found no proof the agent ended for
 	// a context reset of this session; the sweep's two-absence rule decides.
 	NoExitProof = "RELAUNCH_NO_EXIT_PROOF"
@@ -38,6 +42,13 @@ const (
 
 // ErrCensusUnavailable means a complete process census remained unavailable.
 var ErrCensusUnavailable = errors.New("complete relaunch census unavailable")
+
+// ErrNotDesired means a fresh read about one worker returned its definite
+// empty answer: this host key is not shown the worker as desired on this
+// host. The guard maps it to NotDesired; the post-launch revalidation does
+// not special-case it, so a target that vanishes under a launch still fails
+// verification and rolls back (cli#2816).
+var ErrNotDesired = errors.New("worker is not desired on this host")
 
 // Target is an exact, already-bound identity, not a request to bind one.
 type Target struct{ AppID, HostID, WorkerID, SessionID, Server, Worktree string }
@@ -153,6 +164,9 @@ func fingerprint(t Target, profile string) string {
 func (r Runner) guard(ctx context.Context, t Target) (string, error) {
 	d, err := r.Current(ctx, t)
 	if err != nil {
+		if errors.Is(err, ErrNotDesired) {
+			return NotDesired, nil
+		}
 		return "RELAUNCH_SOURCE_UNAVAILABLE", err
 	}
 	if d.Target != t {

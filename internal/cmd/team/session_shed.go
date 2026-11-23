@@ -418,7 +418,15 @@ func gather(ctx context.Context, client graphql.Client, b *binding, now time.Tim
 		k := c.Worker.Continuity
 		s.Continuity = shedField{Text: "none (" + string(k.Status) + ")", OK: true}
 		if k.Handoff != nil {
-			s.Continuity.Text = k.Handoff.Urn + " (" + string(k.Status) + ")"
+			// A status in parentheses after an existing URN reads as a missing
+			// node; MISSING names the gap in words first and labels the URN as
+			// history, the way the bind renders it (cli#3010,
+			// conventions:worker-handoff-canonical-placement, cor:agt:020:03).
+			if k.Status == gen.WorkerContinuityStatusMissing {
+				s.Continuity.Text = "none current (the previous stint ended without one); older handoff (history, not the current state): " + k.Handoff.Urn
+			} else {
+				s.Continuity.Text = k.Handoff.Urn + " (" + string(k.Status) + ")"
+			}
 		}
 		s.Previous = shedField{Text: "none", OK: true}
 		if k.PreviousSession != nil {

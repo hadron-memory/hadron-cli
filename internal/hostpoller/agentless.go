@@ -139,7 +139,9 @@ func (p *Poller) sweepAgentlessEnd(ctx context.Context, d *RelaunchDependencies,
 		}
 		return finish("SKIPPED", agentlessCensusUnproven, proof.Detail)
 	}
-	fresh, err := d.Source.RelaunchSnapshot(ctx, initial.HostID)
+	// The end's fresh read is about the one worker it ends (cli#2816): a read
+	// that fails or names no row is a changed state, never an end.
+	fresh, err := d.Source.RelaunchWorker(ctx, initial.HostID, row.WorkerID)
 	if err != nil || fresh.AppID != initial.AppID || fresh.HostID != initial.HostID || fresh.SweepMode != "APPLY" {
 		return finish("SKIPPED", agentlessStateChanged, "the desired state could not be re-read as APPLY for this App and host")
 	}
