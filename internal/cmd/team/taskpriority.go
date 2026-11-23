@@ -207,7 +207,7 @@ blockers first with ` + "`task get`" + `.
 
 Task references are ids or handles (AT1.2). Sign in first. --app names the App
 a bare handle belongs to, for every task argument. Without --app, a bare handle
-that matches tasks in more than one of your Apps is refused (TASK_HANDLE_QUALIFY):
+is refused (TASK_HANDLE_QUALIFY) when you belong to more than one App:
 pass --app, an id or a qualified handle such as hrn:agenttask:example.com:team:AT1.2.
 Success prints the returned task with its priority and dependency summaries;
 --json returns the same fields as structured data. A refusal prints its code
@@ -252,8 +252,8 @@ tasks it waits for, "blocks" the tasks waiting for it (see
 command pages both directions together with --limit/--offset and reports each
 direction's total and hasMore — follow hasMore, never infer completeness from
 a short page. Refs are ids or handles. Sign in first. --app names the App a
-bare handle belongs to; without it, a handle that matches tasks in more than one
-of your Apps is refused (pass --app, an id or a qualified handle such as
+bare handle belongs to; without it, a bare handle is refused (TASK_HANDLE_QUALIFY) when you belong
+to more than one App (pass --app, an id or a qualified handle such as
 hrn:agenttask:example.com:team:AT1.2). Text prints each
 direction's page and counts; --json returns id, blockedBy and blocks with
 items/total/hasMore. A hidden or missing task exits 4. Reads write nothing.`,
