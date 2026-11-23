@@ -280,6 +280,12 @@ func (h *holdSource2161) RelaunchSnapshot(ctx context.Context, host string) (Rel
 	return h.inner.RelaunchSnapshot(ctx, host)
 }
 
+func (h *holdSource2161) RelaunchWorker(ctx context.Context, host, worker string) (RelaunchSnapshot, error) {
+	// The held read is the sweep's discovery; a per-worker read (cli#2816)
+	// passes through, blocked only by whatever holds the inner source.
+	return h.inner.RelaunchWorker(ctx, host, worker)
+}
+
 // Jibril's and Julius's P2: an exit while another relaunch job holds the
 // lock. The run loop takes the wake, its exit step finds the lock busy, and
 // the exit must be woken again once that job ends, not left for the next

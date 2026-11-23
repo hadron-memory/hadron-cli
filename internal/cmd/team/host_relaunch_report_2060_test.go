@@ -49,7 +49,7 @@ func TestRelaunchRepairWireUsesOnlyHonestClosedOutcomes2060(t *testing.T) {
 					t.Error(err)
 				}
 				w.Header().Set("Content-Type", "application/json")
-				if request.OperationName == "HostRelaunchSnapshot" {
+				if request.OperationName == "HostRelaunchWorker" {
 					queries++
 					_, _ = w.Write([]byte(`{"data":{"myApp":{"id":"app-id"},"hostDesiredState":{"hostId":"h1","sweepMode":"APPLY","workers":[{"workerId":"w","family":"claude","reason":"LONG_LIVED","desired":"RUNNING","openSessionId":"still-open","worktrees":["repo/w"]}]}}}`))
 					return
