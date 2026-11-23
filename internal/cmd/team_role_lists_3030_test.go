@@ -126,7 +126,8 @@ func TestRoleListsSetSendsOnePurposesWholeList3030(t *testing.T) {
 				Purpose string   `json:"purpose"`
 				Roles   []string `json:"roles"`
 			}
-			if err := json.Unmarshal([]byte(js), &dto); err != nil || dto.Purpose != enum || !reflect.DeepEqual(dto.Roles, []string{"backend-engineer", "qa-engineer"}) {
+			if err := json.Unmarshal([]byte(js), &dto); err != nil || dto.Purpose != cli || !reflect.DeepEqual(dto.Roles, []string{"backend-engineer", "qa-engineer"}) {
+				// purpose is the command's spelling since cli#3046 (it was the server's enum)
 				t.Fatalf("--json is the stored list: %v %s", err, js)
 			}
 		})

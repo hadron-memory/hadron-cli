@@ -51,6 +51,18 @@ var roleListPurposes = []struct {
 	{"review-withdraw", gen.AppRolePurposeReviewWithdraw},
 }
 
+// roleListPurposeName is the command's spelling of a purpose the server answered with: the table's name, or for a
+// purpose this CLI does not know yet the enum lower-cased with its underscores as dashes, so an answer is never
+// printed as a purpose the operator did not name.
+func roleListPurposeName(enum gen.AppRolePurpose) string {
+	for _, p := range roleListPurposes {
+		if p.enum == enum {
+			return p.name
+		}
+	}
+	return strings.ToLower(strings.ReplaceAll(string(enum), "_", "-"))
+}
+
 func roleListPurposeNames() string {
 	names := make([]string, len(roleListPurposes))
 	for i, p := range roleListPurposes {
@@ -202,8 +214,9 @@ func newCmdTeamRoleListsSet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "set <purpose> <role>... | <purpose> --clear",
 		Short: "Replace one of the App's role lists",
 		Long: `Replace ONE role list whole with the roles you name, or empty it with --clear (the
-purpose then uses the platform's default). <purpose> is one of ` + roleListPurposeNames() + `. The
-result printed is what the server stored, not what you sent.
+purpose then uses the platform's default). <purpose> is one of ` + roleListPurposeNames() + ` (any
+case). The result printed is what the server stored, not what you sent; --json
+carries it as {appId, purpose, roles} with purpose in this spelling.
 
 ` + roleListsMeaning + `
 
@@ -229,10 +242,13 @@ Needs server ` + roleListsFloor + ` or later.
 			if len(args) == 0 {
 				return exitcode.Newf(exitcode.Usage, "name the purpose (%s): set <purpose> <role>... | <purpose> --clear", roleListPurposeNames())
 			}
+			// The purpose is matched without regard to case or surrounding space (cli#3046), and what is SENT is the
+			// server's enum from the table, never what was typed, so a local match is never looser than the server.
 			var purpose gen.AppRolePurpose
 			var purposeName string
+			typed := strings.ToLower(strings.TrimSpace(args[0]))
 			for _, p := range roleListPurposes {
-				if args[0] == p.name {
+				if typed == p.name {
 					purpose, purposeName = p.enum, p.name
 				}
 			}
@@ -300,7 +316,9 @@ Needs server ` + roleListsFloor + ` or later.
 				}
 				fields = resp.SetAppRoleList.AppRoleListFields
 			}
-			dto := roleListDTO{AppID: fields.AppId, Purpose: string(fields.Purpose), Roles: copyRoles(fields.Roles)}
+			// purpose is the command's own spelling (defect-link), what the operator typed and get's keys are named
+			// for, not the server's enum (cli#3046).
+			dto := roleListDTO{AppID: fields.AppId, Purpose: roleListPurposeName(fields.Purpose), Roles: copyRoles(fields.Roles)}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ %s role list set for %s\n", purposeName, appLabel()); err != nil {
 					return err
