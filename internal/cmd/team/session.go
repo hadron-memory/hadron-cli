@@ -88,6 +88,7 @@ clears one. An APP-KEY session claims no hold (an App key
 holds nothing), so it has nothing to release.`,
 	}
 	cmd.AddCommand(newCmdSessionStart(f))
+	cmd.AddCommand(newCmdSessionRestart(f))
 	cmd.AddCommand(newCmdSessionWhoami(f))
 	cmd.AddCommand(newCmdSessionRecover(f))
 	cmd.AddCommand(newCmdSessionLog(f))
