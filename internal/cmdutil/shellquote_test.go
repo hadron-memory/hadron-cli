@@ -23,3 +23,24 @@ func TestShellQuoteSurvivesTheShell(t *testing.T) {
 		t.Error("a plain citation stays bare")
 	}
 }
+
+// A direct pin of the quoting itself, no shell spawned (cli#3024): a metacharacter-bearing
+// value must come out as ONE single-quoted word with every ' escaped the POSIX way, and a
+// word no shell treats specially must stay bare. The survive-the-shell test above proves the
+// contract end to end but skips where no POSIX sh exists; this pin stands alone, so the
+// one-word guarantee holds wherever ShellQuote is relied on (e.g. the host-list continue hint).
+func TestShellQuotePinsOneWordDirectly_3024(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"plain", "plain"},
+		{"hrn:app:acme.com:ops", "hrn:app:acme.com:ops"},
+		{"https://srv.example/?a=b&c=d", `'https://srv.example/?a=b&c=d'`},
+		{"two words", `'two words'`},
+		{"it's", `'it'\''s'`},
+		{`$(x)`, `'$(x)'`},
+		{"", `''`},
+	} {
+		if got := ShellQuote(tc.in); got != tc.want {
+			t.Errorf("ShellQuote(%q) = %q, want the one word %q", tc.in, got, tc.want)
+		}
+	}
+}

@@ -206,6 +206,9 @@ func readAllHosts(ctx context.Context, client graphql.Client, appRef string) ([]
 		hosts := []hostRegistrationDTO{}
 		for _, r := range rows {
 			if r == nil {
+				// A deliberate SILENT skip, unlike the single-page mode's named one
+				// (cli#2939's recorded choice): the whole-set drain prints no page
+				// line to carry a skipped-count.
 				continue
 			}
 			hosts = append(hosts, hostRegistrationDTOFrom(r))
@@ -395,10 +398,11 @@ N rows starting --offset M rows in. Both count from 0; the server caps a page
 at 200 and serves a larger ask as 200 rather than refusing; --limit 0 asks
 for the count alone. A one-page output always says it is one page —
 "page: <rows> of <total> from offset <o>", naming any null row it skipped —
-and, while more rows exist, prints the command that continues the list: the
---server, --app and --limit you gave carried over, the --offset advanced by
-the rows the server served. Of the run's context only --server and --app
-are carried — an App resolved from the worktree binding makes the hint
+and, while more rows exist, prints the command that continues the list:
+--server, --app and --limit when you gave them, the --offset advanced by
+the rows the server served. From the run's resolved context
+only --server and --app are carried — a --limit resolved from the context
+never is — and an App resolved from the worktree binding makes the hint
 right only from that directory — and an empty page names the total rather
 than reading as "no hosts". In single-page mode --json is an envelope
 {items,total,hasMore,offset,limit,served,nextOffset}, nextOffset null when
@@ -476,11 +480,12 @@ need the paged field and are refused without it.`,
 					// continueHint is the command that continues the list, carrying what the caller gave and
 					// nothing else: --server and --app only when they were passed (otherwise the
 					// context's), --limit only when --limit was passed (its value as given: the server
-					// caps a page at 200 whatever is asked, so it widens nothing), and --offset advanced
-					// by the rows the server SERVED, null items included. "" when nothing was served
-					// (a count-only --limit 0 page): there is nothing to continue from.
+					// caps a page at 200 whatever is asked, so it widens nothing). The continue point
+					// itself is the envelope's NextOffset — the one place it is computed (cor:api:120:04)
+					// — so the text hint and --json nextOffset cannot disagree; nil (no further page,
+					// or nothing served by a count-only --limit 0 page) means no hint at all.
 					continueHint := func() string {
-						if !page.HasMore || served == 0 {
+						if page.NextOffset == nil {
 							return ""
 						}
 						hint := "continue: hadron team host list"
@@ -493,7 +498,7 @@ need the paged field and are refused without it.`,
 						if cmd.Flags().Changed("limit") {
 							hint += fmt.Sprintf(" --limit %d", limit)
 						}
-						return fmt.Sprintf("%s --offset %d", hint, offset+served)
+						return fmt.Sprintf("%s --offset %d", hint, *page.NextOffset)
 					}
 					if len(page.Items) == 0 {
 						// An empty page is not "no hosts": the App may hold rows

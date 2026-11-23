@@ -700,8 +700,9 @@ func TestHostListLimitZeroPrintsNoContinueHint_2939(t *testing.T) {
 }
 
 // A page of only null items with more rows behind it renders as an empty page but the server SERVED
-// rows, so the hint is still printed and advances past them (else the list could not be continued);
-// since cli#2971 the empty-page line also names the skipped rows.
+// rows, so the hint is still printed and advances past them (else the list could not be continued).
+// The empty-page line's naming of the skipped rows is pinned once, by
+// TestHostListAllNullPageNamesTheSkippedRows_2971 (cli#3024 dropped the duplicate here).
 func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
 	server, _ := hostListPageFake(t, map[string][]string{
 		"HostRegistrationsPage": {hostPageBody([]string{"null", "null"}, 6, true)},
@@ -711,8 +712,8 @@ func TestHostListAPageOfOnlyNullsStillContinues_2939(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "no hosts on this page (total 6, 2 null rows skipped)") || !strings.Contains(out, "--limit 2 --offset 2") {
-		t.Fatalf("an all-null page says so and still continues past the served rows:\n%s", out)
+	if !strings.Contains(out, "--limit 2 --offset 2") {
+		t.Fatalf("an all-null page still continues past the served rows:\n%s", out)
 	}
 }
 
@@ -854,7 +855,7 @@ func TestHostListPageJSONServedAndNextOffset_2971(t *testing.T) {
 		{"a null row is served and counted", []string{hostListHost("orca1"), "null", hostListHost("orca3")}, 8, true,
 			[]string{"--limit", "3"}, 2, "3", "3"},
 		{"the last page has no next offset", []string{hostListHost("orca9")}, 9, false,
-			[]string{"--limit", "3"}, 1, "1", "null"},
+			[]string{"--limit", "3", "--offset", "8"}, 1, "1", "null"},
 		{"a count-only page has none either", nil, 5, true,
 			[]string{"--limit", "0"}, 0, "0", "null"},
 	} {
@@ -935,11 +936,13 @@ func TestHostListMinimalHintAndHintlessLastPage_2971(t *testing.T) {
 			"HostRegistrationsPage": {hostPageBody([]string{hostListHost("orca9")}, 9, false)},
 			"TeamAppIdentity":       {hostListLabelBody},
 		})
-		out, _, err := hostListRunBoth(t, server, "--limit", "3")
+		// The real last page of the nine (cli#3024): offset 8 serves the 9th row and
+		// hasMore is false — not the former offset-0 artifice of 1 row served out of 9.
+		out, _, err := hostListRunBoth(t, server, "--limit", "3", "--offset", "8")
 		if err != nil {
 			t.Fatalf("execute: %v\n%s", err, out)
 		}
-		if !strings.Contains(out, "page: 1 of 9 from offset 0") || strings.Contains(out, "continue:") {
+		if !strings.Contains(out, "page: 1 of 9 from offset 8") || strings.Contains(out, "continue:") {
 			t.Fatalf("a last page keeps its page line and prints no continue hint:\n%s", out)
 		}
 	})
