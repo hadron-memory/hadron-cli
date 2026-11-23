@@ -430,6 +430,16 @@ func TestStormVoidExhaustionHoldsThenOneTermConfirms(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("true exits at once")
 	}
+	// cli#3019: the confirm budget is derived, not fixed. The launch was
+	// given the floor (unchanged semantics where the host is quiet); now,
+	// after Done and before the stop, the grace is re-derived from what a
+	// membership pass costs through the installed seam at this moment — the
+	// closest measurement to the stop itself. Writing the field here is
+	// race-free by construction: Terminate reads a.grace on THIS goroutine,
+	// inside the call that starts on the next line.
+	if ea := f.rec.bound(); ea != nil {
+		ea.grace = stormConfirmBudget()
+	}
 	stopped, detail := a.Terminate()
 	ea := f.rec.bound()
 	if !stopped {
@@ -498,14 +508,27 @@ func measureScanPassCost(n int) time.Duration {
 	return worst
 }
 
-// stormConfirmBudget is the grace matrix 1's launch confirms within. RED
-// STATE — cli#3019's first commit: main's fixed wall clock, returned
-// verbatim so the pin below fails against exactly today's shape. The
-// derivation (a generous multiple of measureScanPassCost, clamped to this
-// floor and the production default grace as the ceiling) lands with the fix
-// commit.
+// stormConfirmBudget is the grace matrix 1's launch confirms within: derived
+// from the measured cost of one membership pass through the CURRENTLY
+// installed seam, so it scales with what the host's /proc actually costs at
+// the moment of the stop instead of being a fixed wall clock the loaded host
+// can outlast (#3019 — the filed flake: a ~1.44 s walked ladder under
+// full-suite load, passing at ~0.25 s standalone). Twenty passes' worth of
+// budget affords twenty confirm attempts — the observed field window was
+// worth roughly fifteen passes — clamped below by the historical floor (the
+// fixed 300 ms this replaces, kept so a quiet host's shape is unchanged) and
+// above by the production default grace (5 s: a pass cost implying more is
+// a host beyond what a stop should wait out; the confirm lands at the first
+// clean pass, so a large budget costs nothing when it is not needed).
 func stormConfirmBudget() time.Duration {
-	return 300 * time.Millisecond
+	b := 20 * measureScanPassCost(3)
+	if b < 300*time.Millisecond {
+		return 300 * time.Millisecond
+	}
+	if b > 5*time.Second {
+		return 5 * time.Second
+	}
+	return b
 }
 
 // runSlowScanWindowLadder runs matrix 1's finite→clean shape under a
