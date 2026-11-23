@@ -21,6 +21,7 @@ type hitDTO struct {
 	EntityType     string  `json:"entityType"`
 	Name           *string `json:"name"`
 	URN            *string `json:"urn"`
+	Handle         *string `json:"handle"`
 	Description    *string `json:"description"`
 	Score          float64 `json:"score"`
 	MatchedField   string  `json:"matchedField"`
@@ -48,7 +49,7 @@ func NewCmdFind(f *cmdutil.Factory) *cobra.Command {
 	var org, scope, app string
 	var limit, offset int
 	cmd := &cobra.Command{Use: "find <query>", Short: "Find entities across the resources you may see",
-		Long: `Find organizations, memories, nodes, agents, Apps, AI configs and users in one
+		Long: `Find organizations, memories, nodes, agents, Apps, AI configs, users and tasks in one
 server-ranked list. Unlike search (node-only, vector-aware), this is a
 cross-entity lookup. No App, org or saved scope is applied implicitly.
 
@@ -69,11 +70,19 @@ server's per-entity candidate cap, not a complete database count. Results keep
 the server's order. A next-page hint uses the number actually returned.
 Degraded notes report reduced search fidelity (not "no results").
 
---json is {hits:[{id,entityType,name,urn,description,score,matchedField,memoryId,
-organizationId}],total,degraded:[],scope}; nullable fields stay null. A user
-without a legal handle and an AI config may have no URN. Credentials are used
-when available; the server decides what anonymous callers may see.`,
+--json is {hits:[{id,entityType,name,urn,handle,description,score,matchedField,
+memoryId,organizationId}],total,degraded:[],scope}; nullable fields stay null. A
+user without a legal handle and an AI config may have no URN. Credentials are
+used when available; the server decides what anonymous callers may see.
+
+A task hit (--entity-type agentTask) shows the task's handle (AT0.8313) in
+HANDLE, its title in NAME, and matchedField name for a title or handle match.
+The handle and score are the server's, shown as given; urn is null for tasks.
+Tasks are found only for a signed-in user, and only the ones that user may see:
+an App key, or a run with no user, gets no task hits, the same empty answer as
+a handle that does not exist.`,
 		Example: `  hadron find 'nightly digest' --entity-type agent,app
+  hadron find AT0.8313 --entity-type agentTask --json
   hadron find hrn:mem:acme.com:kb --field urn --json
   hadron find 'routing' --scope work --app acme.com:ops --limit 10`,
 		Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
@@ -164,7 +173,7 @@ when available; the server decides what anonymous callers may see.`,
 				if h == nil {
 					return exitcode.Newf(exitcode.Unavailable, "server returned a null discovery hit")
 				}
-				dto.Hits = append(dto.Hits, hitDTO{ID: h.Id, EntityType: string(h.EntityType), Name: h.Name, URN: h.Urn, Description: h.Description, Score: h.Score, MatchedField: string(h.MatchedField), MemoryID: h.MemoryId, OrganizationID: h.OrganizationId})
+				dto.Hits = append(dto.Hits, hitDTO{ID: h.Id, EntityType: string(h.EntityType), Name: h.Name, URN: h.Urn, Handle: h.Handle, Description: h.Description, Score: h.Score, MatchedField: string(h.MatchedField), MemoryID: h.MemoryId, OrganizationID: h.OrganizationId})
 			}
 			if page.Scope != nil {
 				s := page.Scope.DiscoveryScopeFields
@@ -182,9 +191,9 @@ when available; the server decides what anonymous callers may see.`,
 				if _, err := fmt.Fprintf(w, "Ranked matches (bounded): %d\n", dto.Total); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "TYPE", "ID", "NAME", "URN", "SCORE", "MATCHED")
+				t := output.NewTable(w, "TYPE", "ID", "HANDLE", "NAME", "URN", "SCORE", "MATCHED")
 				for _, h := range dto.Hits {
-					t.Row(output.SafeCell(h.EntityType), output.SafeCell(h.ID), output.SafeCell(output.Dash(h.Name)), output.SafeCell(output.Dash(h.URN)), fmt.Sprint(h.Score), output.SafeCell(h.MatchedField))
+					t.Row(output.SafeCell(h.EntityType), output.SafeCell(h.ID), output.SafeCell(output.Dash(h.Handle)), output.SafeCell(output.Dash(h.Name)), output.SafeCell(output.Dash(h.URN)), fmt.Sprint(h.Score), output.SafeCell(h.MatchedField))
 				}
 				return t.Flush()
 			}); err != nil {
@@ -197,7 +206,7 @@ when available; the server decides what anonymous callers may see.`,
 			}
 			return nextPage(f, "bounded ranked matches", offset, len(dto.Hits), dto.Total, limit)
 		}}
-	cmd.Flags().StringSliceVar(&types, "entity-type", nil, "organization,memory,node,agent,app,aiServiceConfig,user (comma-separated or repeated)")
+	cmd.Flags().StringSliceVar(&types, "entity-type", nil, "organization,memory,node,agent,app,aiServiceConfig,user,agentTask (comma-separated or repeated)")
 	cmd.Flags().StringSliceVar(&fields, "field", nil, "pk,urn,name,description,content; overrides server sniff (comma-separated or repeated)")
 	cmd.Flags().StringVar(&org, "org", "", "narrow org-anchored kinds to this org id or fully qualified URN (does not narrow users)")
 	cmd.Flags().StringVar(&scope, "scope", "", "memory/node scope id, name, app or global (never a saved default)")

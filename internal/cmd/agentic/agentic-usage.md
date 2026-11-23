@@ -6281,7 +6281,7 @@ message. This CLI build does not claim a production deploy or production probe.
 
 ## Cross-entity discovery and catalogue (cli#1345)
 
-hadron find <query> [--entity-type organization,memory,node,agent,app,aiServiceConfig,user] [--field pk,urn,name,description,content] [--org <ref>] [--scope <id|name|app|global>] [--app <ref>] [--limit 1..200] [--offset N]
+hadron find <query> [--entity-type organization,memory,node,agent,app,aiServiceConfig,user,agentTask] [--field pk,urn,name,description,content] [--org <ref>] [--scope <id|name|app|global>] [--app <ref>] [--limit 1..200] [--offset N]
 hadron marketplace agents|memories|orgs [--limit 0..200] [--offset N]
 
 `find` is the cross-entity globalSearch surface; node-only vector-aware search
@@ -6295,10 +6295,20 @@ and node slices; a bare name or app needs explicit --app. The server decides
 all visibility, matching, ranking and scope resolution. One request/page,
 limit 20/offset 0 defaults, order unchanged. Total is the bounded candidate-list
 count, not the full database count. JSON is {hits:[{id,entityType,name,urn,
-description,score,matchedField,memoryId,organizationId}],total,degraded:[],scope};
-nullable names/URNs remain null, and scope retains kind,label,source,ownerUrn,
+handle,description,score,matchedField,memoryId,organizationId}],total,degraded:[],scope};
+nullable names/URNs/handles remain null, and scope retains kind,label,source,ownerUrn,
 memoryUrns,droppedCount. Degraded notes also go to stderr; no hit enrichment or
 fallback query. A nullable URN is valid (AI config, user without legal handle).
+`--entity-type agentTask` (cli#1897, hadron-server#3945) finds tasks, GraphQL
+only (the MCP `hadron_search` stays at seven kinds). A task hit's `handle` is the
+bare stored handle (AT0.8313), exactly as the server returns it, `name` is the
+title, `matchedField` is `name` for a title or handle match, and `urn` is null;
+the CLI never composes or parses a handle, never computes a total, and never
+runs a per-hit lookup. The text table has a HANDLE column (a dash for kinds
+without one). Task hits are for a signed-in user and only tasks that user may
+see: an outsider, an App key and a userless run (even one holding the team-read
+grant) all get the server's empty page, indistinguishable from a handle that
+does not exist, in text and `--json`, with the server's `total`.
 
 Catalogue reads are public and work signed out (available stored credentials
 are attached). Listing is advertisement, not access: unlisted public resources
