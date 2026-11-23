@@ -612,9 +612,10 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 		// A server that does anyway is answered, not left to time out. The
 		// reason must carry the pre-claim code HOST_UNSUPPORTED: the server
 		// judges a FAILED reset report's leading code against its allow-list
-		// (hadron-server src/lib/contextReset/types.ts, pinned until #3017 by
-		// reset_reasons_1043_test.go) and refuses anything else with
-		// BAD_CONTEXT_RESET_INPUT, re-delivering the operation forever.
+		// (hadron-server src/lib/contextReset/types.ts; pinned by
+		// internal/cmd/team_host_reset_refusal_3017_test.go) and refuses
+		// anything else with BAD_CONTEXT_RESET_INPUT, re-delivering the
+		// operation forever.
 		p.finish(ctx, op, Failed, "", "HOST_UNSUPPORTED: this host carries out no worker.reset-context (hadron-cli#3017)")
 	case OpWorkerDeliver:
 		// A per-task-event operation (hostOperations/types.ts:45). Chat
