@@ -49,3 +49,20 @@ func TestLaunchRefusalsDoNotCallOrcaTheDefault(t *testing.T) {
 		t.Fatalf("the launch-without-profile refusal must not say \"the default\": %q", errs)
 	}
 }
+
+// LOCAL seat F2/F3 on #3043: a second validate must not repeat the warning, and the text must not claim
+// more than is true: worker.start ignores the line, while host import and host status still read it.
+func TestStaleLaunchWarningIsOnceAndSaysWhatIsIgnored(t *testing.T) {
+	cfg := loadStaleLaunchFixture(t, "    launch: [claude-worker]\n")
+	for i := 0; i < 2; i++ {
+		if err := cfg.validate(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(cfg.Warnings) != 1 {
+		t.Fatalf("validating again must not add the warning again: %q", cfg.Warnings)
+	}
+	if !strings.Contains(cfg.Warnings[0], "worker.start") || strings.Contains(cfg.Warnings[0], "is not used") {
+		t.Errorf("say that worker.start ignores the line, not that nothing uses it: %s", cfg.Warnings[0])
+	}
+}
