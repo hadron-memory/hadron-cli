@@ -624,7 +624,7 @@ hadron team worker find-filtered [worker] [--json]   # cli#953 slice A: operator
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; --family is compared and queued as the server's canonical family (anthropic=claude, openai=codex, case/space folded; custom tokens stay themselves); prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team grant list [--limit N] [--offset N] | get <id> | actions [--limit N] [--offset N] | action <name> | request --action <name> --values <json|@file> --reason <text> [--holder worker|agent] [--holder-id <id>] [--starts-at <time>] [--expires-at <time>] [--max-uses <n>] | request-signature <grant-id> | signing-request get <request-id> | signing-request withdraw <request-id>   # worker-bound; see "Worker-own grants" below
-hadron team session work-items --worker <ref> [--limit N] [--offset N] | start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check | --signature | --trailer] | recover [--mentions-limit N] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [--tool <t>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>] | set-model [<model>] [--family <token>] [--effort <level>]
+hadron team session work-items --worker <ref> [--limit N] [--offset N] | start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check | --signature | --trailer] | recover [--mentions-limit N] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [--tool <t>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | restart <worker> --reason <text> | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>] | set-model [<model>] [--family <token>] [--effort <level>]
 # cli#960: a bind whose resulting binding records no tool prints `warning: this binding has no tool recorded…` on STDERR (exit unchanged, --json stdout unchanged): `session log` then asks for a tool, so pass --tool when you start a session that will log work; a resume of a session that already has a tool stays quiet without --tool
 # cli#2940: `session log --tool <t>` FILLS a binding whose tool is empty (the row records it and the binding stores the server's spelling, so later milestones need no flag) — a binding that already records a tool keeps it (a --tool naming a different tool is refused, exit 2; case and space do not make a tool different), a blank --tool and a toolless binding with no flag are both refused client-side before any request (the latter wherever a worklog row will be written: recorded App, team memory, or -m), and the value is a provenance label, never authorization
 hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config PATH [--push]] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--wait <dur> [--poll-interval <dur>]] [--mentions-me | --mentions <ref>] [--thread <seq>] [--team-head <id>... | --untagged | --tagged] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
@@ -3687,7 +3687,47 @@ server error fails the command).
   gone or unusable (including one written by a pre-Worker CLI, which whoami
   reports as a degraded read); `end` also refuses (exit 2) when the binding
   was started against a different `--server` than the current one.
+  `session restart <worker> --reason <text>` (cli#3050, cor:agt:070:08 S4a) ends
+  a DARK open session of the named worker and starts the worker again, one
+  transaction, no person in the loop. **The caller is this worktree's bound
+  session — there is no `--session` escape and no unbound spelling**: restart
+  acts only through the calling worker's own session, so bind first
+  (`session start`). The bound worker must hold a live `worker.session.restart`
+  grant signed by a person who manages the App and naming the TARGET (no
+  wildcard); **the grant is the server's admission and the CLI adds no check of
+  its own** — a caller without it gets exactly one refusal,
+  `RESTART_GRANT_REQUIRED` (exit 8), before anything about the target is read,
+  and neither that answer nor the CLI says anything about the target.
+  **QUIET IS NOT DARK**: the door is for a session you cannot get going or get
+  an answer from, not a merely idle one. **DARK IS YOUR JUDGEMENT and
+  `--reason` states it** (required; at most 500 characters — the server's
+  limit): what was tried and why the session is dark. The server records the
+  reason and judges nothing. `<worker>` is the target's id, URN or name within
+  the App (`appRef` from `--app`, an App context, or the binding). The end
+  carries endReason `ended` and **NO handoff** — unlike `session end`, which a
+  session's own worktree uses to leave continuity, a dark session cannot speak
+  and has nothing to hand over; `shed` resets your own context without ending;
+  `worker release` is the only thing that frees a held name. The issued start
+  carries the worker's oldest open task (taskless when none) and names the
+  caller as its issuer; the host collects it by operation id. Each restart
+  records one USE of the grant — repeating, so uses are not a budget, but every
+  one is recorded. Refusals (each the server's, nothing ended, no use spent —
+  except the grant refusal, which reads nothing about the target):
+  `RESTART_GRANT_REQUIRED` 8, `APP_NOT_FOUND`/`WORKER_NOT_FOUND` 4,
+  `WORKER_LIVE` (the session answers — it is not dark), `NO_OPEN_SESSION`,
+  `WORKER_NOT_HELD`, `WORKER_RETIRED`, `WORKER_START_PENDING`, `NO_LIVE_HOST`,
+  `TEAM_PAUSED`, `WORKER_STOPPED` all 5. `--json`:
+  `{worker (the ref as passed), endedSessionIds (never null), hostId,
+  operationId, taskId (null when the worker has no open task)}`. The text
+  receipt first names the App the restart landed in and which branch answered
+  (`--app` / the App context / the worktree binding) — a same-named worker in
+  a wrong ambient App is exactly the silent hazard that line exists for, and
+  the decorating read never runs under `--json`. A null result
+  after a sent request exits 1 saying the outcome is unknown — read
+  `session list --as <worker>` before retrying, never blind-retry.
+
   `session list` lists sessions newest first, worker names joined in.
+
   **It is NOT a presence view**: `--active` narrows to sessions that never
   ENDED, and since hadron-server#1114 no idle window ends a developer session:
   only `session end`, the same person's next bind of that worker (it
