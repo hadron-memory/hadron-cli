@@ -68,7 +68,7 @@ const onboardRoutingUnverified = "Routing is unverified: team router is retired 
 func newCmdWorkerOnboard(f *cmdutil.Factory) *cobra.Command {
 	var o onboardOptions
 	cmd := &cobra.Command{
-		Use:   "onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <name> --family <family> --worktrees-root <path> --config <router.json>",
+		Use:   "onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <name> --family <family> --worktrees-root <path> --config <config.json>",
 		Short: "Onboard an existing worker (Orca-hosted workers only)",
 		Long: `Onboard an existing, held worker — Orca-hosted workers only.
 The default is a dry-run: it submits NOTHING and changes no host files.
@@ -121,7 +121,7 @@ Orca must be reachable before any operation is queued, including on dry-run.
 --repo is the registered queue token, not a local path. The printed human
 remainder asks you to check the worker's pickup and mention delivery, and
 says routing is unverified.`,
-		Example: "  hadron team host list --app acme.com:eng-team      # host id, live, launchable workers\n  hadron team worker onboard --app acme.com:eng-team --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/router.json\n  # inspect the dry-run, then repeat with --apply --as-person",
+		Example: "  hadron team host list --app acme.com:eng-team      # host id, live, launchable workers\n  hadron team worker onboard --app acme.com:eng-team --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/onboard-config.json\n  # inspect the dry-run, then repeat with --apply --as-person",
 		Args:    cobra.NoArgs,
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runWorkerOnboard(cmd, f, o) },
 	}
@@ -133,7 +133,7 @@ says routing is unverified.`,
 	cmd.Flags().StringVar(&o.label, "label", "", "worktree label token (required)")
 	cmd.Flags().StringVar(&o.family, "family", "", "host-configured model family (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root used by the host poller (required)")
-	cmd.Flags().StringVar(&o.config, "config", "", "router config path (required)")
+	cmd.Flags().StringVar(&o.config, "config", "", "host config file, JSON (required; see the page for its keys)")
 	cmd.Flags().StringVar(&o.display, "display-name", "", "Orca display name (default: worker name and cast role)")
 	cmd.Flags().BoolVar(&o.apply, "apply", false, "apply the plan (default: dry-run)")
 	cmd.Flags().BoolVar(&o.asPerson, "as-person", false, "issue as yourself, not the bound worker")
