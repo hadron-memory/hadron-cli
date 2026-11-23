@@ -656,24 +656,24 @@ section between the markers.
 | `team wakes ack` |  |  | y | #1054 | 83e9d1f80545 |  | unread |  |
 | `team wakes due` |  |  | y | #1054 | f8648da2101d |  | unread |  |
 | `team worker` | workers, staff |  | n | #1054 | 8da1cc915f07 |  | unread |  |
-| `team worker approve` |  |  | y | #1054 | 9fa5927cdf92 |  | unread |  |
-| `team worker cast` |  |  | y | #1054 | d83f42bd8ac8 |  | unread |  |
+| `team worker approve` |  |  | y | #1054 | b374cb0a8142 |  | unread |  |
+| `team worker cast` |  |  | y | #1054 | 36d2b591c8c0 |  | unread |  |
 | `team worker change-agent` |  |  | y | #1054 | bd1a776b4268 |  | unread |  |
 | `team worker compile` |  |  | y | #1054 | 6588a641761c |  | unread |  |
-| `team worker find-filtered` |  |  | y | #1054 | 0576280d6e54 |  | unread |  |
-| `team worker get` |  |  | y | #1054 | 3754242d9526 |  | unread |  |
+| `team worker find-filtered` |  |  | y | #1054 | bf492824353c |  | unread |  |
+| `team worker get` |  |  | y | #1054 | d24e2adbf74d |  | unread |  |
 | `team worker held` |  |  | y | #1054 | 59aa7ad5f2ee |  | unread |  |
-| `team worker leave-alone` |  |  | y | #1054 | 67eb989ee52e |  | unread |  |
-| `team worker list` | ls |  | y | #1054 | 71c4a625c679 |  | unread |  |
+| `team worker leave-alone` |  |  | y | #1054 | 5e374e052dfe |  | unread |  |
+| `team worker list` | ls |  | y | #1054 | e7047796bd62 |  | unread |  |
 | `team worker onboard` |  |  | y | #1054 | 215124b2266a |  | unread |  |
 | `team worker release` |  |  | y | #1054 | 5482ce26b657 |  | unread |  |
 | `team worker retire` |  |  | y | #1054 | 9c700f8cd752 |  | unread |  |
-| `team worker rm` | delete |  | y | #1054 | e4a9f40b06bf |  | unread |  |
+| `team worker rm` | delete |  | y | #1054 | 102f9ad07e1e |  | unread |  |
 | `team worker served-prompt` |  |  | y | #1054 | d16deff01332 |  | unread |  |
 | `team worker set-boot-prompt` |  |  | y | #1054 | 448bcd0d9028 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker set-reports-to` |  |  | y | #1054 | f925fcd3b031 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker terminal-title` |  |  | y | #1054 | 0bfb023e2169 |  | unread |  |
-| `team worker update` |  |  | y | #1054 | fe8f07d2bfbf |  | unread |  |
+| `team worker update` |  |  | y | #1054 | c1a69102b61f |  | unread |  |
 <!-- group:1054 end -->
 
 ## Group: maintenance commands (#1055)

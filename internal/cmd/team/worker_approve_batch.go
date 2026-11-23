@@ -132,8 +132,8 @@ with its code). The CLI still checks no grant. --as-worker never falls back to
 you: without a usable binding for this server and App it refuses (exit 2) and
 sends nothing, even for a preview. The grant does not cover signing: where
 an organisation has switched on signing of compiled boot prompts (its own
-setting, not the passkey switch), a person still signs each compiled prompt. A refusal for one worker does
-not stop the others; every worker is reported. Each approval is its own server
+setting, not the passkey switch), a person still signs each compiled prompt.
+A refusal for one worker does not stop the others; every worker is reported. Each approval is its own server
 transaction, with no rollback: an earlier approval stands when a later one
 fails. Nothing is signed and no signing request is opened.
 
