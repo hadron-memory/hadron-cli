@@ -273,7 +273,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 369: 339 command, 13 gap, 17 excluded
+[Mutation] 369: 340 command, 12 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -503,7 +503,7 @@ requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
 resolveCommentThread  command comment resolve
-restartWorkerSession  gap #3050: dark-session restart door (server#4930, #4855); command task gated on this snapshot landing
+restartWorkerSession  command team session restart
 restoreAsset  command asset restore
 restoreNode  command node restore
 restoreNodeRevision  command node revision restore

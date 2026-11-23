@@ -586,13 +586,14 @@ section between the markers.
 | `team saturation-wake-roles` |  |  | n | #1054 | 614f1abb9415 |  | unread |  |
 | `team saturation-wake-roles get` |  |  | n | #1054 | ad8d3049cbb7 |  | unread |  |
 | `team saturation-wake-roles set` |  |  | y | #1054 | ddf2c7fd77ae |  | unread |  |
-| `team session` | sessions |  | n | #1054 | 0233b043af2d |  | unread |  |
+| `team session` | sessions |  | n | #1054 | f52bd5eeec2e |  | unread |  |
 | `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
 | `team session log` |  |  | y | #1054 | 40076c9ea5c4 |  | unread |  |
 | `team session outcome` |  |  | y | #1054 | 447243aadda4 |  | unread |  |
 | `team session recover` |  |  | y | #1054 | 4d805e21068d |  | unread |  |
 | `team session reset-context` |  |  | y | #1054 | 1511799c059b |  | unread |  |
+| `team session restart` |  |  | y | #1054 | 0498c3bc78f1 |  | unread |  |
 | `team session resume-claim` |  |  | y | #1054 | b24e5577e030 |  | unread |  |
 | `team session served-prompts` |  |  | y | #1054 | 7ec1a1f7942e |  | unread |  |
 | `team session set-model` |  |  | y | #1054 | 57b8dd7335e3 |  | unread |  |

@@ -89179,6 +89179,24 @@ type ResolveUrnResponse struct {
 // GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
 func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
 
+// #4855 - the dark session to end and the worker to start again.
+type RestartWorkerSessionInput struct {
+	AppRef string `json:"appRef"`
+	// What was tried and why the session is dark (required, at most 500 characters).
+	Reason string `json:"reason"`
+	// The worker whose session is dark: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns RestartWorkerSessionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *RestartWorkerSessionInput) GetAppRef() string { return v.AppRef }
+
+// GetReason returns RestartWorkerSessionInput.Reason, and is useful for accessing the field via an interface.
+func (v *RestartWorkerSessionInput) GetReason() string { return v.Reason }
+
+// GetWorker returns RestartWorkerSessionInput.Worker, and is useful for accessing the field via an interface.
+func (v *RestartWorkerSessionInput) GetWorker() string { return v.Worker }
+
 // RestoreAssetResponse is returned by RestoreAsset on success.
 type RestoreAssetResponse struct {
 	RestoreAsset *RestoreAssetRestoreAsset `json:"restoreAsset"`
@@ -113455,6 +113473,60 @@ func (v *TeamSessionFieldsWorkerReportsToWorker) __premarshalJSON() (*__premarsh
 	retval.Name = v.WorkerReportingRefFields.Name
 	retval.Urn = v.WorkerReportingRefFields.Urn
 	return &retval, nil
+}
+
+// TeamSessionRestartResponse is returned by TeamSessionRestart on success.
+type TeamSessionRestartResponse struct {
+	// #4855 (hrn:node:hadronmemory.com:specs:cor:agt:070:08 S4a, Holger 2026-11-22; hrn:node:hadronmemory.com:specs:cor:acl:140:02) - end a DARK open session of a
+	// worker and start the worker again, in one transaction, with no person in the loop. Dark is the caller's judgement (it
+	// cannot get the session going or get an answer from it), never the platform's: an assignment alone never ends a session
+	// (quiet is not dark, S4). The caller is a worker, through its own session, holding a live worker.session.restart grant
+	// that a person who manages the App signed and that names the target worker (no wildcard); every other caller, and a
+	// worker with no such grant for this target, gets the one refusal RESTART_GRANT_REQUIRED, before anything about the target
+	// is read (a caller who is no participant of the App gets APP_NOT_FOUND, as at every task door). reason is required (at most 500 characters): what was tried and why it is dark. A LIVE session is never dark
+	// (WORKER_LIVE). Also refused, with nothing ended and no use of the grant spent: WORKER_NOT_FOUND (the target is gone), NO_OPEN_SESSION, WORKER_NOT_HELD,
+	// WORKER_RETIRED, WORKER_START_PENDING (a start is already in flight, so a restart and a fresh assignment cannot both
+	// launch the worker), NO_LIVE_HOST (no live host lists the worker with a worktree), TEAM_PAUSED, WORKER_STOPPED. The
+	// session is ended with endReason ended and no handoff; the start carries the worker's oldest open task, if any, and names
+	// the caller as its issuer. The host collects it and the holder's agent binds as for any start. Each use is recorded as a
+	// USE event of the grant.
+	RestartWorkerSession *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult `json:"restartWorkerSession"`
+}
+
+// GetRestartWorkerSession returns TeamSessionRestartResponse.RestartWorkerSession, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartResponse) GetRestartWorkerSession() *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult {
+	return v.RestartWorkerSession
+}
+
+// TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult includes the requested fields of the GraphQL type RestartWorkerSessionResult.
+type TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult struct {
+	// The open sessions that were ended (endReason ended).
+	EndedSessionIds []string `json:"endedSessionIds"`
+	HostId          string   `json:"hostId"`
+	// The worker.start operation issued.
+	OperationId string `json:"operationId"`
+	// The open task the start carries, or null when the worker has none.
+	TaskId *string `json:"taskId"`
+}
+
+// GetEndedSessionIds returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.EndedSessionIds, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetEndedSessionIds() []string {
+	return v.EndedSessionIds
+}
+
+// GetHostId returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.HostId, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetHostId() string {
+	return v.HostId
+}
+
+// GetOperationId returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.OperationId, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetOperationId() string {
+	return v.OperationId
+}
+
+// GetTaskId returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetTaskId() *string {
+	return v.TaskId
 }
 
 // TeamSessionsPageFilteredResponse is returned by TeamSessionsPageFiltered on success.
@@ -143231,6 +143303,14 @@ func (v *__TeamSaturationWakeRolesSetInstructedInput) GetRoles() []string { retu
 func (v *__TeamSaturationWakeRolesSetInstructedInput) GetInstruction() *ActInstructionInput {
 	return v.Instruction
 }
+
+// __TeamSessionRestartInput is used internally by genqlient
+type __TeamSessionRestartInput struct {
+	Input *RestartWorkerSessionInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamSessionRestartInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamSessionRestartInput) GetInput() *RestartWorkerSessionInput { return v.Input }
 
 // __TeamSessionsPageFilteredInput is used internally by genqlient
 type __TeamSessionsPageFilteredInput struct {
@@ -189692,6 +189772,51 @@ func TeamSaturationWakeRolesSetInstructed(
 	}
 
 	data_ = &TeamSaturationWakeRolesSetInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamSessionRestart.
+const TeamSessionRestart_Operation = `
+mutation TeamSessionRestart ($input: RestartWorkerSessionInput!) {
+	restartWorkerSession(input: $input) {
+		endedSessionIds
+		hostId
+		operationId
+		taskId
+	}
+}
+`
+
+// hadron-cli#3050 over hadron-server#4930 (hrn:node:hadronmemory.com:specs:cor:agt:070:08
+// S4a, cor:acl:140:02): end a DARK open session of a worker and start the worker
+// again, in one transaction, with no person in the loop. The caller is a worker,
+// through its own bound session, holding a live worker.session.restart grant that
+// names the target worker (no wildcard); dark is the caller's judgement, stated in
+// the required reason (at most 500 characters), never the platform's. Every
+// documented refusal is the server's answer; this operation renders it, it does
+// not re-implement any of it.
+func TeamSessionRestart(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RestartWorkerSessionInput,
+) (data_ *TeamSessionRestartResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSessionRestart",
+		Query:  TeamSessionRestart_Operation,
+		Variables: &__TeamSessionRestartInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamSessionRestartResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
