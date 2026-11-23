@@ -658,15 +658,15 @@ section between the markers.
 | `team worker` | workers, staff |  | n | #1054 | 8da1cc915f07 |  | unread |  |
 | `team worker approve` |  |  | y | #1054 | b374cb0a8142 |  | unread |  |
 | `team worker cast` |  |  | y | #1054 | 36d2b591c8c0 |  | unread |  |
-| `team worker change-agent` |  |  | y | #1054 | bd1a776b4268 |  | unread |  |
+| `team worker change-agent` |  |  | y | #1054 | 39a1b59930dc |  | unread |  |
 | `team worker compile` |  |  | y | #1054 | 6588a641761c |  | unread |  |
 | `team worker find-filtered` |  |  | y | #1054 | bf492824353c |  | unread |  |
 | `team worker get` |  |  | y | #1054 | d24e2adbf74d |  | unread |  |
-| `team worker held` |  |  | y | #1054 | 59aa7ad5f2ee |  | unread |  |
+| `team worker held` |  |  | y | #1054 | 0473a1c6a70e |  | unread |  |
 | `team worker leave-alone` |  |  | y | #1054 | 5e374e052dfe |  | unread |  |
 | `team worker list` | ls |  | y | #1054 | e7047796bd62 |  | unread |  |
-| `team worker onboard` |  |  | y | #1054 | 215124b2266a |  | unread |  |
-| `team worker release` |  |  | y | #1054 | 5482ce26b657 |  | unread |  |
+| `team worker onboard` |  |  | y | #1054 | 692b3cf99b08 |  | unread |  |
+| `team worker release` |  |  | y | #1054 | 8eb38abed75a |  | unread |  |
 | `team worker retire` |  |  | y | #1054 | 9c700f8cd752 |  | unread |  |
 | `team worker rm` | delete |  | y | #1054 | 102f9ad07e1e |  | unread |  |
 | `team worker served-prompt` |  |  | y | #1054 | d16deff01332 |  | unread |  |

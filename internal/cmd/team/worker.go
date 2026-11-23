@@ -1898,7 +1898,7 @@ func newCmdWorkerRelease(f *cmdutil.Factory) *cobra.Command {
 		// (PR #504 review).
 		Short: "Clear the hold on a worker name",
 		Long: `Release the HOLD on a worker name. A name is held by a
-PERSON, and this is the ONLY thing that frees one — not ` + "`session end`" + `, not
+PERSON, and this is the ONLY thing that frees one — not ` + "`team session end`" + `, not
 an idle window, not an expiry, not a reap, not closing your chat session.
 
 RELEASING IS NOT RETIRING. The worker keeps working, keeps its name, keeps

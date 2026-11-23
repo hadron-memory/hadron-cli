@@ -91,12 +91,19 @@ WHERE EACH PREREQUISITE COMES FROM:
   --worktrees-root       the poller's worktrees_root for that worker
   register row           channel register add --channel <team chat Channel>
                          --owner <app> --attendee <worker> --mention-only
-  --config               the host's router.json, kept from the retired team
-                         router: it names the App, the team chat Channel and
-                         orca_cli, and holds the roster onboard writes into
+  --config               a JSON file kept on the host, which onboard also
+                         writes the worker's roster entry into. Required keys:
+                         "app" (hrn:app:...), "channel" (the team chat
+                         Channel) and "stateDir"; "orcaCli" is optional. An
+                         existing file is required: the operator who set up
+                         the host keeps it (it dates from the retired team
+                         router, and nothing here creates one). Minimal:
+                         {"app":"hrn:app:acme.com:eng-team",
+                          "channel":"<channel>","stateDir":"/home/orca/state"}
 Run the dry-run first: it checks Orca and reads these without queuing work.
-Starting a worker requires the App manager; --as-person uses your authority
-instead of the bound worker's. Server authority checks still apply.
+Starting a worker requires the App manager. By default the operations go out as
+the bound worker; --as-person sends them as you instead. Server authority
+checks apply either way.
 
 Only two host-local steps follow: roster entry and Orca display name.
 Routing is not verified: team router is retired.
