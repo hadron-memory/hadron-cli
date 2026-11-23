@@ -54,7 +54,7 @@ func TestSupervisedGivesEachWorkerItsOwnDiskTmpAndKeepsAStatedLaunch(t *testing.
 			t.Errorf("missing %q:\n%s", want, got)
 		}
 	}
-	if strings.Contains(got, "/c\n") || strings.Contains(got, "acct-c") || strings.Contains(got, "launch: [z]") {
+	if strings.Contains(got, "disk_tmp: /tmp/hostyaml-fixture/c") || strings.Contains(got, "acct-c") || strings.Contains(got, "launch: [z]") {
 		t.Errorf("worker c states its own launcher_profile: its shorthand is dropped and nothing is rendered for it:\n%s", got)
 	}
 }

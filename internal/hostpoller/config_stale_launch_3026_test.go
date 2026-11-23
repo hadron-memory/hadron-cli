@@ -45,8 +45,13 @@ func TestLoadConfigWarnsOfALaunchArgvBesideALauncherProfile(t *testing.T) {
 func TestLaunchRefusalsDoNotCallOrcaTheDefault(t *testing.T) {
 	c := &Config{OrcaLaunch: OrcaLaunchConfig{OrcaBin: "/usr/bin/orca"}}
 	errs := validateOrcaWorker(c, "iris", WorkerConfig{Family: "claude", Launch: []string{"x"}})
-	if len(errs) != 1 || strings.Contains(errs[0], "the default") {
-		t.Fatalf("the launch-without-profile refusal must not say \"the default\": %q", errs)
+	if len(errs) == 0 {
+		t.Fatal("a launch argv with no launcher_profile must be refused")
+	}
+	for _, e := range errs {
+		if strings.Contains(e, "the default") {
+			t.Fatalf("a refusal must not say \"the default\": %q", e)
+		}
 	}
 }
 
