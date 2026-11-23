@@ -50,15 +50,15 @@ func roleListsResponses3030(purpose string, stored ...string) map[string]string 
 	return r
 }
 
-func roleListsSent3030(t *testing.T, calls *[]attnCall, op string) (string, []any) {
+func roleListsSent3030(t *testing.T, calls *[]attnCall) (string, []any) {
 	t.Helper()
-	c := oneCall2422(t, calls, op)
+	c := oneCall2422(t, calls, roleListsSet3030)
 	if c.Vars["appRef"] != roleListsApp3030 {
 		t.Fatalf("appRef %v", c.Vars["appRef"])
 	}
 	roles, present := c.Vars["roles"]
 	if !present {
-		t.Fatalf("%s must send the roles list (an empty list is sent, never omitted): %v", op, c.Vars)
+		t.Fatalf("the set must send the roles list (an empty list is sent, never omitted): %v", c.Vars)
 	}
 	list, ok := roles.([]any)
 	if !ok {
@@ -110,7 +110,7 @@ func TestRoleListsSetSendsOnePurposesWholeList3030(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			purpose, roles := roleListsSent3030(t, calls, roleListsSet3030)
+			purpose, roles := roleListsSent3030(t, calls)
 			if purpose != enum || !reflect.DeepEqual(roles, []any{"QA-Engineer", "backend-engineer", "QA-Engineer"}) {
 				t.Fatalf("purpose %q roles %v: the list goes as typed, for one purpose", purpose, roles)
 			}
@@ -139,7 +139,7 @@ func TestRoleListsSetClearSendsTheEmptyList3030(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if purpose, got := roleListsSent3030(t, calls, roleListsSet3030); purpose != "DEFECT_LINK" || len(got) != 0 {
+	if purpose, got := roleListsSent3030(t, calls); purpose != "DEFECT_LINK" || len(got) != 0 {
 		t.Fatalf("--clear sends the empty list for the purpose, got %q %v", purpose, got)
 	}
 	if !strings.Contains(out, "defect-link: none (the default applies)") {
@@ -203,7 +203,7 @@ func TestRoleListsSetRefusesLocallyBeforeAnyRequest3030(t *testing.T) {
 			t.Errorf("%s: a list the server accepts is not refused locally: %v", name, err)
 			continue
 		}
-		if _, got := roleListsSent3030(t, calls, roleListsSet3030); len(got) != len(names) {
+		if _, got := roleListsSent3030(t, calls); len(got) != len(names) {
 			t.Errorf("%s: sent as typed (%d names), got %d", name, len(names), len(got))
 		}
 	}
@@ -211,7 +211,7 @@ func TestRoleListsSetRefusesLocallyBeforeAnyRequest3030(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a name the server normalises is not refused locally: %v", err)
 	}
-	if _, got := roleListsSent3030(t, calls, roleListsSet3030); !reflect.DeepEqual(got, []any{" QA ", "qa", "Qa"}) {
+	if _, got := roleListsSent3030(t, calls); !reflect.DeepEqual(got, []any{" QA ", "qa", "Qa"}) {
 		t.Fatalf("sent as typed: %v", got)
 	}
 }
