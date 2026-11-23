@@ -297,7 +297,7 @@ func linkedConfigSite(t *testing.T) (root, startPath string) {
 		t.Fatal(err)
 	}
 	writeAt := func(path, label string) {
-		text := strings.NewReplacer("%KEY%", filepath.Join(root, "host.key"), "%ROOT%", root).Replace(supervised2914(reloadBase))
+		text := strings.NewReplacer("%KEY%", filepath.Join(root, "host.key"), "%ROOT%", root).Replace(supervisedYAML(reloadBase))
 		if err := os.WriteFile(path, []byte(strings.Replace(text, "label: box1", "label: "+label, 1)), 0o600); err != nil {
 			t.Fatal(err)
 		}

@@ -183,7 +183,7 @@ func sandboxSliceA(t *testing.T) string {
 	stubDir := t.TempDir()
 	const stub = "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$0.log\"\nexit 3\n"
 	for _, name := range []string{"orca", "systemctl", "launchctl"} {
-		if err := os.WriteFile(filepath.Join(stubDir, name), []byte(hostyaml.Supervised(stub)), 0o755); err != nil {
+		if err := os.WriteFile(filepath.Join(stubDir, name), []byte(stub), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -390,7 +390,7 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 				}
 				for _, a := range args {
 					if strings.HasPrefix(a, "@") && len(a) > 1 {
-						if err := os.WriteFile(filepath.Join(dir, a[1:]), []byte(hostyaml.Supervised(`{"team":{"x":1}}`)), 0o600); err != nil {
+						if err := os.WriteFile(filepath.Join(dir, a[1:]), []byte(`{"team":{"x":1}}`), 0o600); err != nil {
 							t.Fatal(err)
 						}
 					}
@@ -427,7 +427,7 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 						if flag == "--config" || flag == "--from" {
 							// The host key the fixture config names (mode 0600,
 							// as ReadHostKey requires).
-							if err := os.WriteFile(filepath.Join(dir, "host.key"), []byte(hostyaml.Supervised("hdr_host_fixture")), 0o600); err != nil {
+							if err := os.WriteFile(filepath.Join(dir, "host.key"), []byte("hdr_host_fixture"), 0o600); err != nil {
 								t.Fatal(err)
 							}
 						}

@@ -506,7 +506,7 @@ func TestHealthTitlesReceiptCarriesOrcaCode2040(t *testing.T) {
 func fakeExecutable2166(t *testing.T) string {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "orca")
-	if err := os.WriteFile(p, []byte(hostyaml.Supervised("#!/bin/sh\n")), 0o755); err != nil {
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -547,7 +547,7 @@ func TestHealthTitlesRunnerReceivesResolvedBin2166(t *testing.T) {
 func TestHealthOrcaBinUnresolvableFallsBack2166(t *testing.T) {
 	dir := t.TempDir()
 	notExec := filepath.Join(dir, "orca-noexec")
-	if err := os.WriteFile(notExec, []byte(hostyaml.Supervised("x")), 0o644); err != nil {
+	if err := os.WriteFile(notExec, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	for name, bin := range map[string]string{

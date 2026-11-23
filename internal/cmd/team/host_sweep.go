@@ -47,8 +47,8 @@ command never starts a second agent directly. The 15-minute health timer and
 5-minute report-stops timer remain explicitly separate: they still handle
 health and unreported stop notices. Install creates only the new one-minute
 sweep timer. Managed-daemon preflight is shared with the poller's
-relaunch loop (every worker launches through Orca). A missing daemon scope or an unreachable terminal list records
-ORCA_DOWN skips and queues nothing; unreadable or ambiguous readiness stays
+relaunch loop (every worker launches through Orca). A missing daemon scope or
+an unreachable terminal list records ORCA_DOWN skips and queues nothing; unreadable or ambiguous readiness stays
 RELAUNCH_UNPROVEN. The poller reports the first outage once and replays its
 token until confirmed, backing off while the server's sweep-run records are
 unavailable; it records only applied/failed passes, so this one-minute

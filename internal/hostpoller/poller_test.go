@@ -1052,8 +1052,8 @@ func TestFailedWorkerEndKeepsTheWorktree(t *testing.T) {
 
 func TestConfigRefusesWhatTheServerWould(t *testing.T) {
 	base := func() Config {
-		return *withSupervised2914(&Config{App: "a", Label: "l", WorktreesRoot: "/w",
-			Workers: map[string]WorkerConfig{"iris": supervisedWorker2914("claude")}})
+		return *withSupervisedAccounts(&Config{App: "a", Label: "l", WorktreesRoot: "/w",
+			Workers: map[string]WorkerConfig{"iris": supervisedWorker("iris", "claude")}})
 	}
 	// Each case changes ONE thing in a worker that is otherwise valid (cli#2914).
 	with := func(change func(w *WorkerConfig)) func(*Config) {

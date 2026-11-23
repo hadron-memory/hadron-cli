@@ -99,7 +99,7 @@ func writeHostConfig(t *testing.T, extra string) string {
 	t.Helper()
 	dir := t.TempDir()
 	key := filepath.Join(dir, "host.key")
-	if err := os.WriteFile(key, []byte(hostyaml.Supervised("hk_host_key\n")), 0o600); err != nil {
+	if err := os.WriteFile(key, []byte("hk_host_key\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg := `app: hrn:app:acme.com:eng-team
@@ -249,7 +249,7 @@ func TestTeamHostRunMapsARefusedHostKey(t *testing.T) {
 
 func TestTeamHostStatusShowsConfigAndRegistration(t *testing.T) {
 	cfg := writeHostConfig(t, "    worktrees: [repo/iris]\n")
-	if err := os.WriteFile(filepath.Join(filepath.Dir(cfg), "hadron-host-state.json"), []byte(hostyaml.Supervised(`{"created":{},"keep":{},"hostId":"h1"}`)), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(filepath.Dir(cfg), "hadron-host-state.json"), []byte(`{"created":{},"keep":{},"hostId":"h1"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	srv, calls := hostServerFake(t, map[string]string{
@@ -658,7 +658,7 @@ func TestTeamHostStatusDeliveryIsStaleWhenMissingCorruptOrOld(t *testing.T) {
 		cfg := writeHostConfig(t, deliveryOn)
 		dir := filepath.Join(filepath.Dir(cfg), "delivery")
 		_ = os.MkdirAll(dir, 0o700)
-		_ = os.WriteFile(filepath.Join(dir, "status.json"), []byte(hostyaml.Supervised("{")), 0o600)
+		_ = os.WriteFile(filepath.Join(dir, "status.json"), []byte("{"), 0o600)
 		d := hostStatusJSON(t, cfg).Delivery
 		if !d.Stale || d.Error == nil || *d.Error != "status-unreadable" {
 			t.Fatalf("%+v", d)

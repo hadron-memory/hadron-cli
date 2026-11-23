@@ -231,6 +231,18 @@ func operationFrom(o *gen.HostOperationFields) hostpoller.Operation {
 	return op
 }
 
+// writeHostConfigWarnings says each load warning once, on stderr, when `host run` starts. The sweep
+// timer and the status read load the same file every run and stay quiet, so a warning does not
+// repeat each minute (cli#3026).
+func writeHostConfigWarnings(w io.Writer, cfg *hostpoller.Config) error {
+	for _, warning := range cfg.Warnings {
+		if _, err := fmt.Fprintf(w, "warning: %s\n", warning); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // loadHostPoller reads the configuration and the key, and builds the client
 // the poller uses: the host key only, and no session header (a session on a
 // host call is refused APP_KEY_SESSION_BOUND).
@@ -631,6 +643,9 @@ per line; --json prints each as a JSON object.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, key, srv, err := loadHostPoller(f, configPath)
 			if err != nil {
+				return err
+			}
+			if err := writeHostConfigWarnings(f.IOStreams.ErrOut, cfg); err != nil {
 				return err
 			}
 			// Only implemented declarations avoid the unsupported warning.

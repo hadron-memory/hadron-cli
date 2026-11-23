@@ -173,7 +173,7 @@ func TestPostHostBoundaryPins(t *testing.T) {
 				app = "hrn:app:test:other"
 			}
 			enabled := tc.mode != "disabled"
-			if err := os.WriteFile(filepath.Join(dir, "key"), []byte(hostyaml.Supervised("synthetic-host")), 0600); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, "key"), []byte("synthetic-host"), 0600); err != nil {
 				t.Fatal(err)
 			}
 			cfg := fmt.Sprintf("server: %s\napp: %s\nkey_file: key\nstate_file: state.json\nworktrees_root: %s\nworkers:\n  w1:\n    family: claude\n    launch: [fake]\n    worktrees: [tree]\n  w2:\n    family: claude\n    launch: [fake]\n    worktrees: [alias]\ndelivery:\n  enabled: %t\n  orca_bin: /bin/false\n", hostURL, app, dir, enabled)

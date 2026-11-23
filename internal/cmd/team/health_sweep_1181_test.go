@@ -270,7 +270,7 @@ func TestHealth1181StatusSubprocessBoundary(t *testing.T) {
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "fake-status")
 	script := "#!/bin/sh\n[ -z \"$HADRON_TOKEN\" ] || exit 41\n[ -z \"$HADRON_LAUNCH_GRANT\" ] || exit 42\n[ \"$1 $2 $3 $4 $5 $6\" = 'orca terminal status --all --json --config' ] || exit 43\n[ \"$7\" = '" + filepath.Join(dir, "host.yaml") + "' ] || exit 44\nprintf '[]'\nprintf 'PRIVATE_SCREEN' >&2\n"
-	if err := os.WriteFile(bin, []byte(hostyaml.Supervised(script)), 0700); err != nil {
+	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
 	raw, code, err := runHealthStatusCommandEnv(context.Background(), bin, filepath.Join(dir, "host.yaml"), hostpoller.ScrubbedEnv(os.Environ(), "SYNTHETIC_BOUNDARY_KEY"))

@@ -266,8 +266,8 @@ func TestAStoppingPollerStartsNoDelivery(t *testing.T) {
 
 func TestDeliveryConfig(t *testing.T) {
 	base := func() *Config {
-		return withSupervised2914(&Config{App: "a", Label: "l", WorktreesRoot: "/w", StateFile: "/s/state.json",
-			Workers: map[string]WorkerConfig{"iris": supervisedWorker2914("glm")}})
+		return withSupervisedAccounts(&Config{App: "a", Label: "l", WorktreesRoot: "/w", StateFile: "/s/state.json",
+			Workers: map[string]WorkerConfig{"iris": supervisedWorker("iris", "glm")}})
 	}
 	c := base()
 	c.Delivery = DeliveryConfig{Enabled: true}

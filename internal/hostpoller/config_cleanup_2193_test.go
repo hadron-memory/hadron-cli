@@ -19,7 +19,7 @@ func TestCleanupConfigOptIn2193(t *testing.T) {
 			dir := t.TempDir()
 			path := filepath.Join(dir, "host.yaml")
 			text := "server: http://x\napp: hrn:app:t:t\nkey_file: " + filepath.Join(dir, "k") + "\nstate_file: " + filepath.Join(dir, "s.json") + "\nworktrees_root: " + dir + "\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n" + tc.extra
-			if err := os.WriteFile(path, []byte(supervised2914(text)), 0600); err != nil {
+			if err := os.WriteFile(path, []byte(supervisedYAML(text)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			cfg, err := LoadConfig(path)

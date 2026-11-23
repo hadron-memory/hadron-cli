@@ -544,7 +544,7 @@ section between the markers.
 | `team host run` |  |  | y | #1054 | 54d4a8422008 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | f6c071f5cd86 |  | unread |  |
 | `team host status` |  |  | n | #1054 | c3a3ecae8eed |  | unread |  |
-| `team host sweep` |  |  | n | #1054 | 1a0e8754463f |  | unread |  |
+| `team host sweep` |  |  | n | #1054 | 61efdf815c30 |  | unread |  |
 | `team host sweep install` |  |  | y | #1054 | 963f6f18deb7 |  | unread |  |
 | `team host sweep status` |  |  | y | #1054 | 49f6a1dd42c4 |  | unread |  |
 | `team host sweep uninstall` |  |  | y | #1054 | 5378961914a6 |  | unread |  |

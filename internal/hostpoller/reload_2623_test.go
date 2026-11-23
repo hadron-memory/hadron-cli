@@ -93,7 +93,7 @@ func newReloadFixtureFrom(t *testing.T, text string) *reloadFixture {
 // write replaces the file with text, filling the two path placeholders.
 func (fx *reloadFixture) write(text string) {
 	fx.t.Helper()
-	text = strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(supervised2914(text))
+	text = strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(supervisedYAML(text))
 	if err := os.WriteFile(fx.path, []byte(text), 0o600); err != nil {
 		fx.t.Fatal(err)
 	}
@@ -524,7 +524,7 @@ func TestASymlinkedConfigIsJudgedByItsTarget2623(t *testing.T) {
 	fx := newReloadFixture(t)
 	fx.step()
 	real := filepath.Join(fx.dir, "real.yaml")
-	text := strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(supervised2914(reloadBase + billie))
+	text := strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(supervisedYAML(reloadBase + billie))
 	if err := os.WriteFile(real, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}

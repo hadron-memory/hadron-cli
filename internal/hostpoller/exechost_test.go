@@ -177,8 +177,8 @@ func TestRemoveIsIdempotentOnTheRealHost(t *testing.T) {
 	root := filepath.Join(base, "trees")
 	cfg := &Config{App: "a", Label: "l", PollIntervalSeconds: 30, WorktreesRoot: root,
 		StateFile: filepath.Join(base, "state.json"), Repos: map[string]string{"acme/repo": repo},
-		Workers: map[string]WorkerConfig{"iris": supervisedWorker2914("claude")}}
-	withSupervised2914(cfg)
+		Workers: map[string]WorkerConfig{"iris": supervisedWorker("iris", "claude")}}
+	withSupervisedAccounts(cfg)
 	if err := cfg.validate(); err != nil {
 		t.Fatal(err)
 	}

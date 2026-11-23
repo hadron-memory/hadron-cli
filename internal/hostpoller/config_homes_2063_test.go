@@ -17,7 +17,7 @@ func TestConfigWorkerHomesMustBeAbsolute(t *testing.T) {
 		p := filepath.Join(dir, "h.yaml")
 		cfg := "server: http://x\napp: hrn:app:t:t\nkey_file: " + filepath.Join(dir, "k") + "\nstate_file: " + filepath.Join(dir, "s.json") +
 			"\nworktrees_root: " + dir + "\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n" + tc.extra
-		if err := os.WriteFile(p, []byte(supervised2914(cfg)), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte(supervisedYAML(cfg)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		_ = os.WriteFile(filepath.Join(dir, "k"), []byte("key"), 0o600)

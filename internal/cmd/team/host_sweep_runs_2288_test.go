@@ -63,7 +63,7 @@ func TestSweepRecordClientFailureReadsAsClientUnavailable2288(t *testing.T) {
 		t.Run(server, func(t *testing.T) {
 			dir := t.TempDir()
 			key := filepath.Join(dir, "host.key")
-			if err := os.WriteFile(key, []byte(hostyaml.Supervised("private-host-key")), 0600); err != nil {
+			if err := os.WriteFile(key, []byte("private-host-key"), 0600); err != nil {
 				t.Fatal(err)
 			}
 			cfg := filepath.Join(dir, "host.yaml")
