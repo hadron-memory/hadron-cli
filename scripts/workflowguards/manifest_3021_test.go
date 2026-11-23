@@ -142,13 +142,13 @@ func TestManifestStepFailsLoudlyAndNeverFallsBack3021(t *testing.T) {
 		wantFail     bool
 		wantContains []string
 	}{
-		{"good", "case \"$*\" in *commits/HEAD*) echo abc123def456;; *contents*) printf '%s' '" + manifest + "';; esac", false, nil},
-		{"manifest absent at that ref", "case \"$*\" in *commits/HEAD*) echo abc123def456;; *contents*) echo 'gh: Not Found (HTTP 404)' >&2; exit 1;; esac", true,
-			[]string{"scripts/sdl-export-files.txt", "abc123def456", "no hand-kept", "hadron-server#4916"}},
-		{"token cannot read it", "case \"$*\" in *commits/HEAD*) echo abc123def456;; *contents*) echo 'gh: Resource not accessible (HTTP 403)' >&2; exit 1;; esac", true,
+		{"good", "case \"$*\" in *commits/HEAD*) echo abc123def4560123456789abcdef0123456789ab;; *contents*) printf '%s' '" + manifest + "';; esac", false, nil},
+		{"manifest absent at that ref", "case \"$*\" in *commits/HEAD*) echo abc123def4560123456789abcdef0123456789ab;; *contents*) echo 'gh: Not Found (HTTP 404)' >&2; exit 1;; esac", true,
+			[]string{"scripts/sdl-export-files.txt", "abc123def4560123456789abcdef0123456789ab", "no hand-kept", "hadron-server#4916"}},
+		{"token cannot read it", "case \"$*\" in *commits/HEAD*) echo abc123def4560123456789abcdef0123456789ab;; *contents*) echo 'gh: Resource not accessible (HTTP 403)' >&2; exit 1;; esac", true,
 			[]string{"HADRON_SERVER_RO_TOKEN", "no hand-kept"}},
 		{"the ref cannot be resolved", "exit 1", true, []string{"HADRON_SERVER_RO_TOKEN"}},
-		{"an empty manifest", "case \"$*\" in *commits/HEAD*) echo abc123def456;; *contents*) true;; esac", true, []string{"no hand-kept"}},
+		{"an empty manifest", "case \"$*\" in *commits/HEAD*) echo abc123def4560123456789abcdef0123456789ab;; *contents*) true;; esac", true, []string{"no hand-kept"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tmp := t.TempDir()
@@ -177,7 +177,7 @@ func TestManifestStepFailsLoudlyAndNeverFallsBack3021(t *testing.T) {
 				t.Errorf("a failed read must leave no outputs behind: %q", got)
 			}
 			if !tc.wantFail {
-				for _, want := range []string{"sha=abc123def456", "scripts/export-graphql-sdl.mjs", "src/lib/agentTasks/teamMetricsCaps.ts", "src/mcp", "src/lib/runner/tools", "src/lib/hostOperations/types.ts"} {
+				for _, want := range []string{"sha=abc123def4560123456789abcdef0123456789ab", "scripts/export-graphql-sdl.mjs", "src/lib/agentTasks/teamMetricsCaps.ts", "src/mcp", "src/lib/runner/tools", "src/lib/hostOperations/types.ts"} {
 					if !strings.Contains(string(got), want) {
 						t.Errorf("the output lacks %q:\n%s", want, got)
 					}

@@ -93,10 +93,12 @@ jobs:
           GH_TOKEN: ${{ secrets.HADRON_SERVER_RO_TOKEN }}
         run: |
           set -euo pipefail
+          command -v gh >/dev/null || { echo "::error::the gh CLI is not installed on this runner"; exit 1; }
           sha=$(gh api repos/hadron-memory/hadron-server/commits/HEAD --jq .sha) || {
             echo "::error::cannot resolve hadron-memory/hadron-server HEAD with HADRON_SERVER_RO_TOKEN; there is no hand-kept fallback"
             exit 1
           }
+          [[ $sha =~ ^[0-9a-f]{40}$ ]] || { echo "::error::hadron-server HEAD resolved to '$sha', not a full commit sha"; exit 1; }
           manifest="$RUNNER_TEMP/sdl-export-files.txt"
           if ! gh api -H 'Accept: application/vnd.github.raw' \
               "repos/hadron-memory/hadron-server/contents/scripts/sdl-export-files.txt?ref=$sha" >"$manifest"; then
@@ -104,16 +106,21 @@ jobs:
             exit 1
           fi
           # The CLI's own entries: what spec-check-tools and the onboard fixture check read.
-          sparse=$(bash scripts/sdl-sparse-list.sh "$manifest" \
-            src/mcp src/lib/runner/tools src/lib/hostOperations/types.ts) || {
+          # The two files the export step runs must be in the manifest; the script refuses one that omits either.
+          sparse=$(bash scripts/sdl-sparse-list.sh \
+            --require scripts/export-graphql-sdl.mjs --require src/api/graphql/schema/typeDefs.ts \
+            "$manifest" src/mcp src/lib/runner/tools src/lib/hostOperations/types.ts) || {
             echo "::error::the SDL-export manifest at hadron-server@$sha is not usable; there is no hand-kept fallback"
             exit 1
           }
+          # A delimiter no manifest entry can know in advance: an entry equal to a fixed one would end the
+          # block early and let later lines be read as further outputs (for example a forged sha=).
+          delim="SPARSE_EOF_${RANDOM}${RANDOM}${RANDOM}"
           {
             echo "sha=$sha"
-            echo "sparse<<SPARSE_EOF"
+            echo "sparse<<$delim"
             echo "$sparse"
-            echo "SPARSE_EOF"
+            echo "$delim"
           } >>"$GITHUB_OUTPUT"
 
       - name: Check out hadron-server SDL source
