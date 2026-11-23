@@ -62,9 +62,10 @@ func renderFindingDispositions(w io.Writer, rows []findingDispositionDTO) error 
 
 // findingDispositionSharedDoc is the paragraph both disposition pages share: who
 // may read, how a task is named, the read refusal, and how output is rendered.
-const findingDispositionSharedDoc = `Sign in first. The task may be an id, a handle or a URN; it decides the App, so
---app does not qualify an ambiguous handle (use an id, or a qualified handle such
-as hrn:agenttask:example.com:team:AT1.2). A missing or unreadable task exits 4.
+const findingDispositionSharedDoc = `Sign in first. The task may be an id, a handle or a URN. --app names the App a bare
+handle belongs to; without it, a bare handle is refused (TASK_HANDLE_QUALIFY) when you belong to more
+than one App (pass --app, an id, or a qualified handle such as
+hrn:agenttask:example.com:team:AT1.2). A missing or unreadable task exits 4.
 A server without finding dispositions refuses the command.
 
 Human output bounds values and neutralizes terminal controls. JSON retains

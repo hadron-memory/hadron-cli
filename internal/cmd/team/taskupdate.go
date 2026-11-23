@@ -115,7 +115,7 @@ after 2026-11-08; an older server refuses it with TASK_NOT_OWNER.
 A finished or cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
 a stall alarm. Success prints the task as task get does; --json returns it.
 
-` + taskInstructionHelp,
+` + taskInstructionHelpShort(taskInstructionFloor),
 		Example: `  # fix a title and clear the description
   hadron team task update AT1.2 --title "Fix the login redirect" --clear-description
 
@@ -123,7 +123,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.
   hadron team task update AT1.2 --tag auth --tag urgent --require-role qa-engineer --family-not-in codex
 
   # push the not-started deadline out, and ask the session to end with the task
-  hadron team task update AT1.2 --start-by 2026-11-02T09:00:00Z --close-session`,
+  hadron team task update AT1.2 --start-by 2027-01-15T09:00:00Z --close-session`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			claim, err := taskClaim(cmd, rawInstruction)
@@ -314,7 +314,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.
 	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole list; kind is "+taskRefKindsDoc+taskRefCapsFlagDoc)
 	cmd.Flags().BoolVar(&clearRefs, "clear-refs", false, "remove every reference")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
-	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	cmd.Flags().StringVar(&requireRole, "require-role", "", "the one role a worker must hold (a single name: a comma is part of it, not a list; task create takes a list); replaces the task's whole requirements")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")

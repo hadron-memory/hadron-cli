@@ -609,33 +609,33 @@ section between the markers.
 | `team stop lift` |  |  | n | #1054 | 97ff7478a8a7 |  | unread |  |
 | `team stop list` | ls |  | n | #1054 | a70c0fb0eaac | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team stop set` |  |  | y | #1054 | 6891c254fb39 |  | unread |  |
-| `team task` |  |  | n | #1054 | 3de2f4923013 |  | unread |  |
-| `team task add-blocker` |  |  | y | #1054 | d43f6feaab7b |  | unread |  |
-| `team task assign` |  |  | y | #1054 | acbb55f94245 |  | unread |  |
-| `team task cancel` |  |  | y | #1054 | b30c88965ba2 |  | unread |  |
-| `team task clone` |  |  | y | #1054 | e0687f7925f1 |  | unread |  |
-| `team task create` |  |  | y | #1054 | 0a8e41961180 |  | unread |  |
-| `team task dependencies` |  |  | y | #1054 | 754051154aa6 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
-| `team task dispose-finding` |  |  | y | #1054 | c86cda1528c5 |  | unread |  |
-| `team task find-untracked` |  |  | y | #1054 | 410894ca26d1 |  | unread |  |
-| `team task finding-dispositions` |  |  | y | #1054 | 4af1d580a868 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
+| `team task` |  |  | n | #1054 | ad677d3d90b0 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task add-blocker` |  |  | y | #1054 | c0912bc676f8 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task assign` |  |  | y | #1054 | bdc2ae545c23 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task cancel` |  |  | y | #1054 | 5ee9935e400a | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task clone` |  |  | y | #1054 | 4f89973851c1 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task create` |  |  | y | #1054 | 973891f18413 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task dependencies` |  |  | y | #1054 | f8736a762e4d | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task dispose-finding` |  |  | y | #1054 | f713057fa30a | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task find-untracked` |  |  | y | #1054 | 1c41cc256580 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task finding-dispositions` |  |  | y | #1054 | 30d1e3cd8a22 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
-| `team task finish` |  |  | y | #1054 | 0c4fd89648e3 |  | unread |  |
-| `team task get` |  |  | y | #1054 | bf75cfb0ec50 |  | unread |  |
-| `team task hand-back` |  |  | y | #1054 | 24b187bfb974 |  | unread |  |
-| `team task link-defect` |  |  | y | #1054 | fa7eb7bd1ff0 |  | unread |  |
-| `team task list` | ls |  | y | #1054 | 8a36d8b1b3c0 |  | unread |  |
-| `team task mine` |  |  | y | #1054 | f5a772aab8df |  | unread |  |
-| `team task park` |  |  | y | #1054 | 69bde9911495 |  | unread |  |
-| `team task progress` |  |  | y | #1054 | 6253ca7ee818 |  | unread |  |
-| `team task ready` |  |  | y | #1054 | 5a823565d5dc |  | unread |  |
-| `team task reassign` |  |  | y | #1054 | 978133202340 |  | unread |  |
-| `team task release` |  |  | y | #1054 | 408c7d5e9f08 |  | unread |  |
-| `team task remove-blocker` |  |  | y | #1054 | 188794c81ab8 |  | unread |  |
-| `team task set-priority` |  |  | y | #1054 | 21630b0e560a |  | unread |  |
-| `team task start` |  |  | y | #1054 | fbda4606d956 |  | unread |  |
-| `team task tree` |  |  | y | #1054 | f71a42a9f8f4 |  | unread |  |
-| `team task update` |  |  | y | #1054 | a59381deb333 |  | unread |  |
+| `team task finish` |  |  | y | #1054 | 0c4fd89648e3 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task get` |  |  | y | #1054 | ba098f2ca6ca | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task hand-back` |  |  | y | #1054 | 24b187bfb974 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task link-defect` |  |  | y | #1054 | 677861264c97 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task list` | ls |  | y | #1054 | adc4f6f732ab | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task mine` |  |  | y | #1054 | aa45a7075e39 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task park` |  |  | y | #1054 | de4dde1e2f8a | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task progress` |  |  | y | #1054 | 6253ca7ee818 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task ready` |  |  | y | #1054 | 11f5ef7f837c | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task reassign` |  |  | y | #1054 | 70d55a060c7f | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task release` |  |  | y | #1054 | aad929bfcfbf | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task remove-blocker` |  |  | y | #1054 | f1ed8abccc2c | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task set-priority` |  |  | y | #1054 | 251518f2aaf9 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task start` |  |  | y | #1054 | fbda4606d956 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task tree` |  |  | y | #1054 | 6d391c672ff7 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task update` |  |  | y | #1054 | d68506a49933 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team ticker` |  |  | n | #1054 | 94b5026458fd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |

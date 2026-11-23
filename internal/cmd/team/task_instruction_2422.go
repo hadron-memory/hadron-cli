@@ -53,20 +53,12 @@ func addTaskInstructionFlag(cmd *cobra.Command, raw *string) {
 	cmd.Flags().StringVar(raw, "instruction", "", taskInstructionFlagUsage)
 }
 
-// taskInstructionHelpFor and taskInstructionFlagUsageFor render the shared
-// task-write instruction help and flag line for a command whose instructed
-// path needs the server floor `floor` instead of taskInstructionFloor (cli#2504,
-// mirroring instructionHelpFor for the non-task help). Like it, they panic
-// when the shared text no longer names taskInstructionFloor: a silent no-op replace would
-// print the wrong minimum server with no test failing, and the panic fires
-// while the command tree is built, so every test run sees it.
-func taskInstructionHelpFor(floor string) string {
-	if !strings.Contains(taskInstructionHelp, taskInstructionFloor) {
-		panic("taskInstructionHelpFor: the shared task instruction help no longer names its floor")
-	}
-	return strings.ReplaceAll(taskInstructionHelp, taskInstructionFloor, floor)
-}
-
+// taskInstructionFlagUsageFor renders the shared task-write instruction flag
+// line for a command whose instructed path needs the server floor `floor`
+// instead of taskInstructionFloor (cli#2504). It panics when the shared text no
+// longer names taskInstructionFloor: a silent no-op replace would print the
+// wrong minimum server with no test failing, and the panic fires while the
+// command tree is built, so every test run sees it.
 func taskInstructionFlagUsageFor(floor string) string {
 	if !strings.Contains(taskInstructionFlagUsage, taskInstructionFloor) {
 		panic("taskInstructionFlagUsageFor: the shared task instruction flag usage no longer names its floor")
