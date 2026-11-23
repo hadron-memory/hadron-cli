@@ -266,7 +266,9 @@ func fixedChanges(c, next *Config) []string {
 	a, b := reflect.ValueOf(c).Elem(), reflect.ValueOf(next).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if !f.IsExported() || isReloadable(f.Name) {
+		// A field with the yaml tag "-" is not read from the file (Warnings is derived at each load), so a
+		// difference in it is never a setting that needs a restart.
+		if !f.IsExported() || isReloadable(f.Name) || f.Tag.Get("yaml") == "-" {
 			continue
 		}
 		if !reflect.DeepEqual(a.Field(i).Interface(), b.Field(i).Interface()) {
