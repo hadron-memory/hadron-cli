@@ -1109,7 +1109,8 @@ Each line is:  • <handle> <id> [<status>] <owner> → <assignee>  and, when th
     • AT1.1 01a2…d4 [FINISHED] Iris → Uma
 
 The server returns at most 1000 rows and gives no sign when a larger tree is
-cut: if the tree looks short, list the subtree with ` + "`team task list`" + ` instead.
+cut: if the tree looks short, read the next level with ` + "`team task list --parent <task>`" + `
+(one level of children per call) instead.
 
 An alarm is the platform's stall warning (` + "`team stall-schedule get`" + ` shows the
 windows). The count is the alarms still in effect, the same rows

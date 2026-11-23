@@ -75,13 +75,13 @@ parties and blockers before you retry.
 Who acts: with a worktree worker-session binding, writes are made by the bound
 WORKER (the server records the session); without one, by you, the signed-in
 person. The App: create and list use --app, else the configured App context,
-else the worktree binding; commands that take a task id or handle work out the
-App from the task. A task is named by its id or its handle (AT0.7: AT0 holds
+else the worktree binding; commands that take a task id, a qualified handle or
+an unambiguous handle work out the App from it. A task is named by its id or its handle (AT0.7: AT0 holds
 tasks outside any project, AT1, AT2, … are projects, AT1.2 is a task under AT1);
 if you belong to more than one App, a bare handle is refused: pass --app <app>,
 or qualify it as hrn:agenttask:acme.com:eng-team:AT1.2. --app qualifies a bare
-handle on every command (in every task argument and in --parent/--blocked-by); it must be
-the App's URN or <root>:<slug>, not an App id. A task id, or a qualified
+handle on every command (in every task argument and in --parent/--blocked-by);
+it must be the App's URN or <root>:<slug>, not an App id. A task id, or a qualified
 handle in that same App, is sent unchanged; one naming another App is refused.
 
 A party is named worker:<id, URN or name> or user:<id or handle> — the kind
@@ -105,15 +105,16 @@ owner records what became of each one.
   hadron team task dispose-finding <seat-task> F1 --disposition fixed --ref <kind>=<target>
   hadron team task finding-dispositions <seat-task>     # list the latest disposition of each
 
-For AI workers: --instruction <kind>:<ref> is on every task write. The holder is
-the person responsible for the worker; the flag claims, for that one call, that
+For AI workers: --instruction <kind>:<ref> is on every single-task write (a batch create
+takes none). The holder is the person responsible for the worker; the flag claims, for that one call, that
 the holder told the worker to make this change. A person, or a worker acting on
 its own authority, leaves it out. The full rules:
 ` + taskInstructionHelp + `
 
-Server needs: task-record commands (every command that returns a task) require a server released on or after 2026-11-17;
-an older server fails every task command with exit 2 (schema skew), even when you pass no model-group flag
-(--model-group, --model-group-not). Ask the
+Server needs: task-record commands (every command that returns a task) require a
+server released on or after 2026-11-17; an older server fails each of them with
+exit 2 (schema skew), even when you pass no model-group flag (--model-group,
+--model-group-not). ` + "`task dependencies`" + ` pages its own query and is unaffected. Ask the
 server's operator when it was released (` + "`hadron server-info`" + ` shows only that it
 answers). Each page below says what its command takes.`,
 	}
@@ -390,7 +391,7 @@ Several at once: --batch-file <path|-> creates 1 to 25 tasks in one call, all or
 none (a path, or - for piped stdin). The file is a JSON array; each item is
 {"task": {...}, "blockedByPositions": [...]}. "task" takes the same fields as the
 flags above, by their API names (title, assignee, description, tags, ...): for
-example {"title": "Fix login", "assignee": {"worker": "Iris"}} .
+example {"title": "Fix login", "assignee": {"worker": "Iris"}}.
 "blockedByPositions" lists the 1-based positions, in this same file, of tasks
 that must end first; a self-block or a cycle is refused (TASK_BLOCKER_CYCLE). The
 single-create flags do not combine with it (--distinct-assignees does), and the
@@ -399,7 +400,7 @@ batch takes no --instruction.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
-warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor) + "\n\n--instruction does not combine with --batch-file: the batch write takes no instruction.",
+warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 		Example: `  # assign to a named worker, with a deadline to start
   hadron team task create "Fix login redirect" --app acme.com:eng-team --assignee worker:Iris \
     --priority 2 --start-by 2027-01-15T09:00:00Z --source https://github.com/acme/app/issues/7
@@ -853,8 +854,6 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 	return cmd
 }
 
-// assignLong is the assign/reassign page: what each verb accepts, who may
-// run it (cor:agt:050:09), then the shared close-when-done paragraph.
 // closeSessionVerbNote is the one sentence on assign/reassign's close-session
 // flags that differs by verb.
 func closeSessionVerbNote(verb string) string {
@@ -864,6 +863,8 @@ func closeSessionVerbNote(verb string) string {
 	return "A choice you give is set on this assignment; reassigning a task to its\ncurrent assignee is refused (TASK_INVALID_TRANSITION) with the choice unchanged."
 }
 
+// assignLong is the assign/reassign page: what each verb accepts, who may
+// run it (cor:agt:050:09), then the shared close-when-done paragraph.
 func assignLong(verb string) string {
 	head := `Assign a task that has no assignee: a PENDING task waiting in the queue, or
 a BACKLOG task, which assigning moves to PENDING. The assignee then starts it
