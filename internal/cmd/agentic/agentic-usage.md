@@ -6309,6 +6309,7 @@ without one). Task hits are for a signed-in user and only tasks that user may
 see: an outsider, an App key and a userless run (even one holding the team-read
 grant) all get the server's empty page, indistinguishable from a handle that
 does not exist, in text and `--json`, with the server's `total`.
+Server compatibility: every `find` now selects `hits.handle`, so a server older than hadron-server#3945 rejects the document (GraphQL validation error, a typed non-zero exit, nothing on stdout); there is no per-kind fallback document.
 
 Catalogue reads are public and work signed out (available stored credentials
 are attached). Listing is advertisement, not access: unlisted public resources

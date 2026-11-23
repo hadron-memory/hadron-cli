@@ -8,6 +8,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 func TestFind1345(t *testing.T) {
@@ -287,7 +288,14 @@ const agentTaskHit = `{"id":"01a2093fa3447c9bbd2e57b15dd8d67d","entityType":"age
 
 func findAgentTask(t *testing.T, query, body string, extra ...string) (string, string, map[string]json.RawMessage) {
 	t.Helper()
-	g, c := captureGraphQL(t, map[string]string{"GlobalSearch": body})
+	// Any operation other than GlobalSearch (a per-hit lookup, a second read)
+	// fails the test: captureGraphQLFunc reports an unstubbed operation.
+	g, c := captureGraphQLFunc(t, func(op string) string {
+		if op == "GlobalSearch" {
+			return body
+		}
+		return ""
+	})
 	f, out := testFactory(t)
 	errOut := &strings.Builder{}
 	f.IOStreams.ErrOut = errOut
@@ -310,8 +318,15 @@ func TestFindAgentTaskRequest1897(t *testing.T) {
 	if string(v["entityTypes"]) != `["agentTask"]` {
 		t.Fatalf("entityTypes = %s", v["entityTypes"])
 	}
-	if !strings.Contains(strings.Join(strings.Fields(gen.GlobalSearch_Operation), " "), "organizationId handle }") {
-		t.Fatalf("the hits selection does not carry handle:\n%s", gen.GlobalSearch_Operation)
+	op := strings.Join(strings.Fields(gen.GlobalSearch_Operation), " ")
+	start := strings.Index(op, "hits {")
+	if start < 0 {
+		t.Fatalf("no hits selection in the operation:\n%s", op)
+	}
+	hits := op[start:]
+	hits = hits[:strings.Index(hits, "}")]
+	if !strings.Contains(" "+hits+" ", " handle ") {
+		t.Fatalf("the hits selection does not carry handle: %s", hits)
 	}
 }
 
@@ -371,8 +386,46 @@ func TestFindNonTaskHandleNull1897(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &d); err != nil {
 		t.Fatal(err)
 	}
+	if len(d.Hits) != 1 {
+		t.Fatal(out.String())
+	}
 	if got, ok := d.Hits[0]["handle"]; !ok || string(got) != "null" {
 		t.Fatalf("handle = %s (present %v)", got, ok)
+	}
+	// Text mode: HANDLE is a labelled column and the row shows a dash in it.
+	f2, out2 := testFactory(t)
+	r2 := NewRootCmd(f2)
+	r2.SetArgs([]string{"find", "kb", "--server", g.URL})
+	if err := r2.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out2.String()), "\n")
+	var header, row string
+	for i, l := range lines {
+		if strings.HasPrefix(l, "TYPE") && i+1 < len(lines) {
+			header, row = l, lines[i+1]
+		}
+	}
+	col := strings.Index(header, "HANDLE")
+	if col < 0 || len(row) <= col || !strings.HasPrefix(row[col:], output.Dash(nil)) {
+		t.Fatalf("HANDLE column or its dash missing:\n%s", out2.String())
+	}
+}
+
+// cli#1897: find now selects `handle` on every search, so a server older than
+// hadron-server#3945 rejects the document. The failure is a typed error with
+// nothing printed to stdout, never a partial or empty success.
+func TestFindOlderServerRejectsHandle1897(t *testing.T) {
+	g, _ := captureGraphQL(t, map[string]string{"GlobalSearch": `{"errors":[{"message":"Cannot query field \"handle\" on type \"GlobalSearchHit\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"find", "kb", "--server", g.URL})
+	err := r.Execute()
+	if err == nil || !strings.Contains(err.Error(), "handle") {
+		t.Fatalf("want an error naming the rejected field, got %v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatal(out.String())
 	}
 }
 

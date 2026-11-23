@@ -80,7 +80,8 @@ HANDLE, its title in NAME, and matchedField name for a title or handle match.
 The handle and score are the server's, shown as given; urn is null for tasks.
 Tasks are found only for a signed-in user, and only the ones that user may see:
 an App key, or a run with no user, gets no task hits, the same empty answer as
-a handle that does not exist.`,
+a handle that does not exist. Every find asks for the handle field, so a server
+that predates task search rejects the request: update the server.`,
 		Example: `  hadron find 'nightly digest' --entity-type agent,app
   hadron find AT0.8313 --entity-type agentTask --json
   hadron find hrn:mem:acme.com:kb --field urn --json
