@@ -152,7 +152,7 @@ func validateOrcaWorker(c *Config, ref string, w WorkerConfig) []string {
 	if len(w.Launch) > 0 {
 		// cli#3026: worker.start launches from the profile; a launch argv beside it is a leftover that
 		// used to be ignored without a word. Load still succeeds: it is a warning, said once by `host run`.
-		c.Warnings = append(c.Warnings, fmt.Sprintf("worker %q: launch is not used (worker.start launches from launcher_profile); remove the launch line", ref))
+		c.Warnings = append(c.Warnings, fmt.Sprintf("worker %q: launch is ignored by worker.start, which launches from launcher_profile; remove the launch line", ref))
 	}
 	a, ok := c.Accounts[w.Profile.Account]
 	if !ok {
@@ -444,6 +444,7 @@ const CodeOrcaGroupUnprovable = "ORCA_GROUP_UNPROVABLE"
 
 func (c *Config) validate() error {
 	var errs []string
+	c.Warnings = nil // findings of this pass only: validating again must not repeat them
 	if c.OrcaLaunch.Group != "" {
 		errs = append(errs, CodeOrcaGroupUnprovable+": orca_launch.group is not supported: the launch proves its process through /proc, which a process started through sg did not allow on the tested deployment (orca1, even for a group the poller already held) (cli#2121); remove it, and start the Orca daemon with the groups the agent needs")
 	}
