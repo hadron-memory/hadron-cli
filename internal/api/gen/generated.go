@@ -59285,6 +59285,8 @@ type GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit struct {
 	MatchedField   SearchField      `json:"matchedField"`
 	MemoryId       *string          `json:"memoryId"`
 	OrganizationId *string          `json:"organizationId"`
+	// The entity's short handle when its kind has one (an agentTask's bare AT0.6508), else null. Render as given; never compose or parse.
+	Handle *string `json:"handle"`
 }
 
 // GetId returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Id, and is useful for accessing the field via an interface.
@@ -59328,6 +59330,11 @@ func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetMemor
 // GetOrganizationId returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.OrganizationId, and is useful for accessing the field via an interface.
 func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetOrganizationId() *string {
 	return v.OrganizationId
+}
+
+// GetHandle returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Handle, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetHandle() *string {
+	return v.Handle
 }
 
 // GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo includes the requested fields of the GraphQL type SearchScopeInfo.
@@ -170140,6 +170147,7 @@ query GlobalSearch ($query: String!, $entityTypes: [SearchEntityType!], $fields:
 			matchedField
 			memoryId
 			organizationId
+			handle
 		}
 		total
 		degraded
