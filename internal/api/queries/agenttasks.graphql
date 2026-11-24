@@ -103,6 +103,7 @@ fragment AgentTaskFields on AgentTask {
 # must not be sent as null. Per-field omitempty on this one input field.
 # Schema-only optional fields must stay absent for older providers.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.isProject", omitempty: true)
 # cli#1514: finishBy omitted unless --finish-by is given; never send null by default.
 # @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
@@ -160,7 +161,7 @@ mutation AgentTaskAssign(
   # @genqlient(omitempty: true)
   $closeSessionWhenDone: Boolean
 ) {
-  assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+  assignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
     ...AgentTaskFields
   }
 }
@@ -171,19 +172,19 @@ mutation AgentTaskReassign(
   # @genqlient(omitempty: true)
   $closeSessionWhenDone: Boolean
 ) {
-  reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+  reassignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
     ...AgentTaskFields
   }
 }
 
 mutation AgentTaskStart($taskId: ID!) {
-  startAgentTask(taskId: $taskId) {
+  startAgentTask(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
 
 mutation AgentTaskProgress($taskId: ID!) {
-  recordAgentTaskProgress(taskId: $taskId) {
+  recordAgentTaskProgress(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -195,7 +196,7 @@ mutation AgentTaskFinish(
   $taskId: ID!
   $result: AgentTaskResultInput!
 ) {
-  finishAgentTask(taskId: $taskId, result: $result) {
+  finishAgentTask(taskRef: $taskId, result: $result) {
     ...AgentTaskFields
   }
 }
@@ -211,7 +212,7 @@ mutation AgentTaskHandBack(
 }
 
 mutation AgentTaskCancel($taskId: ID!) {
-  cancelAgentTask(taskId: $taskId) {
+  cancelAgentTask(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -221,7 +222,7 @@ mutation AgentTaskCancel($taskId: ID!) {
 # and raises no alarms. Whoever may assign a task may park it
 # (cor:agt:050:09). TASK_INVALID_TRANSITION when not pending or assigned.
 mutation AgentTaskPark($taskId: ID!) {
-  parkAgentTask(taskId: $taskId) {
+  parkAgentTask(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -230,7 +231,7 @@ mutation AgentTaskPark($taskId: ID!) {
 # Whoever may assign a task may make it ready. TASK_INVALID_TRANSITION when
 # not backlog.
 mutation AgentTaskReady($taskId: ID!) {
-  makeAgentTaskReady(taskId: $taskId) {
+  makeAgentTaskReady(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -240,7 +241,7 @@ mutation AgentTaskReady($taskId: ID!) {
 # not the shared AgentTaskFields projection, so only `get` needs a provider that
 # has them.
 query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
-  agentTask(id: $id) {
+  agentTask(ref: $id) {
     ...AgentTaskFields
     clonedFrom { ...AgentTaskDependencyFields }
     clones(limit: $clonesLimit, offset: $clonesOffset) { total hasMore items { ...AgentTaskDependencyFields } }
@@ -264,6 +265,7 @@ query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
 # @genqlient(for: "CloneAgentTaskInput.parentTaskId", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.isProject", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.properties", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.references", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.requirements", omitempty: true, bind: "encoding/json.RawMessage")
@@ -276,7 +278,7 @@ mutation AgentTaskClone(
   $taskId: ID!
   $input: CloneAgentTaskInput!
 ) {
-  cloneAgentTask(taskId: $taskId, input: $input) {
+  cloneAgentTask(taskRef: $taskId, input: $input) {
     ...AgentTaskFields
   }
 }
@@ -326,7 +328,7 @@ query AgentTaskList(
     limit: $limit
     offset: $offset
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     rootsOnly: $rootsOnly
     status: $status
@@ -370,7 +372,7 @@ query AgentTaskListText(
     limit: $limit
     offset: $offset
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     rootsOnly: $rootsOnly
     status: $status
@@ -465,7 +467,7 @@ query AgentTeamEventsPage(
     alarmsInEffect: $alarmsInEffect
     limit: $limit
     since: $since
-    taskId: $taskId
+    taskRef: $taskId
     types: $types
   ) {
     events {
@@ -683,7 +685,7 @@ mutation AgentTaskRemoveBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
 # limit and offset for both (cli#1135, server#2726 at cf9bcfece). The task ref is
 # passed to the server as given.
 query AgentTaskDependencies($taskRef: ID!, $limit: Int!, $offset: Int!) {
-  agentTask(id: $taskRef) {
+  agentTask(ref: $taskRef) {
     id
     blockedBy(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
     blocks(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
@@ -757,7 +759,7 @@ query AgentTaskListFiltered(
     offset: $offset
     overdue: $overdue
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     reference: $reference
     rootsOnly: $rootsOnly
@@ -806,7 +808,7 @@ mutation AgentTaskUpdate(
   $taskId: ID!
   $input: UpdateAgentTaskInput!
 ) {
-  updateAgentTask(taskId: $taskId, input: $input) {
+  updateAgentTask(taskRef: $taskId, input: $input) {
     ...AgentTaskFields
   }
 }
@@ -877,7 +879,7 @@ query AgentTaskListUnresolved(
     offset: $offset
     overdue: $overdue
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     reference: $reference
     rootsOnly: $rootsOnly
@@ -905,7 +907,7 @@ fragment TaskFindingDispositionFields on AgentTaskFindingDisposition {
   reference { kind target label }
 }
 query AgentTaskFindingDispositions($taskRef: ID!, $limit: Int!, $offset: Int!) {
-  agentTask(id: $taskRef) {
+  agentTask(ref: $taskRef) {
     findingDispositions(limit: $limit, offset: $offset) {
       items { ...TaskFindingDispositionFields }
       total
@@ -941,7 +943,7 @@ mutation AgentTaskFinishWithFindings(
   # @genqlient(bind: "encoding/json.RawMessage")
   $findings: [AgentTaskFindingInput!]!
 ) {
-  finishAgentTask(taskId: $taskId, result: {outcome: $outcome, summary: $summary, evidence: $evidence, findings: $findings, workedFromRoleTaskRefs: $workedFrom}) {
+  finishAgentTask(taskRef: $taskId, result: {outcome: $outcome, summary: $summary, evidence: $evidence, findings: $findings, workedFromRoleTaskRefs: $workedFrom}) {
     ...AgentTaskFields
     findingsResult: result { findings(limit: 20, offset: 0) { ...ImmutableTaskFindingPage } }
   }
@@ -963,7 +965,7 @@ fragment ImmutableTaskFindingPage on AgentTaskFindingPage {
 }
 
 query AgentTaskResultFindings($id: ID!, $limit: Int!, $offset: Int!) {
-  agentTask(id: $id) {
+  agentTask(ref: $id) {
     id
     result { findings(limit: $limit, offset: $offset) { ...ImmutableTaskFindingPage } }
   }
@@ -1038,7 +1040,7 @@ query AgentTaskListCreator(
     offset: $offset
     overdue: $overdue
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     reference: $reference
     rootsOnly: $rootsOnly

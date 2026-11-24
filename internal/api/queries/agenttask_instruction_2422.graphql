@@ -9,6 +9,7 @@
 # directives repeat here: a type is generated once, and a document that lacks
 # them would flip its bindings from one generate run to the next.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.isProject", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
@@ -52,7 +53,7 @@ mutation AgentTaskUpdateInstructed(
   $input: UpdateAgentTaskInput!
   $instruction: ActInstructionInput!
 ) {
-  updateAgentTask(taskId: $taskId, input: $input, instruction: $instruction) {
+  updateAgentTask(taskRef: $taskId, input: $input, instruction: $instruction) {
     ...AgentTaskFields
   }
 }
@@ -76,7 +77,7 @@ mutation AgentTaskAssignInstructed(
   $closeSessionWhenDone: Boolean
   $instruction: ActInstructionInput!
 ) {
-  assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+  assignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
     ...AgentTaskFields
   }
 }
@@ -88,25 +89,25 @@ mutation AgentTaskReassignInstructed(
   $closeSessionWhenDone: Boolean
   $instruction: ActInstructionInput!
 ) {
-  reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+  reassignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
     ...AgentTaskFields
   }
 }
 
 mutation AgentTaskCancelInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
-  cancelAgentTask(taskId: $taskId, instruction: $instruction) {
+  cancelAgentTask(taskRef: $taskId, instruction: $instruction) {
     ...AgentTaskFields
   }
 }
 
 mutation AgentTaskParkInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
-  parkAgentTask(taskId: $taskId, instruction: $instruction) {
+  parkAgentTask(taskRef: $taskId, instruction: $instruction) {
     ...AgentTaskFields
   }
 }
 
 mutation AgentTaskReadyInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
-  makeAgentTaskReady(taskId: $taskId, instruction: $instruction) {
+  makeAgentTaskReady(taskRef: $taskId, instruction: $instruction) {
     ...AgentTaskFields
   }
 }
@@ -128,7 +129,7 @@ mutation AgentTaskDisposeFindingInstructed(
 }
 
 mutation AgentTaskReleaseInstructed($taskId: ID!, $instruction: ActInstructionInput!) {
-  releaseAgentTaskExternalId(taskId: $taskId, instruction: $instruction) {
+  releaseAgentTaskExternalId(taskRef: $taskId, instruction: $instruction) {
     ...AgentTaskFields
   }
 }
