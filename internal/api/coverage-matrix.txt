@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 248: 214 command, 9 gap, 25 excluded
+[Query] 249: 214 command, 10 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -196,6 +196,7 @@ orgBootPromptSigning  command org signing get
 orgBootPromptSigningPreview  command org signing preview
 organization  command org get
 organizations  command org list
+ownerLimits  gap #3072
 previewAgentSchedule  command schedule preview
 previewAutomation  command automation preview
 principalGrant  command grant get
@@ -277,7 +278,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 371: 340 command, 14 gap, 17 excluded
+[Mutation] 373: 340 command, 16 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -321,6 +322,7 @@ changeWorkerAgent  command team worker change-agent
 claimContextReset  excluded host-protocol: claiming a reset went with the removed host-side handler (cli#3017); a collected reset op is answered FAILED instead, so the claim is never sent
 clearAgentAIConfig  command agent ai-config clear
 clearNodeHistory  command node revision clear
+clearOwnerLimits  gap #3072
 cloneAgent  command agent clone
 cloneAgentTask  command team task clone
 cloneMemory  command memory clone
@@ -566,6 +568,7 @@ setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  command memory sync set-token
 setModelFamilyAvailability  command team availability set
 setOrgBootPromptSigning  command org signing on
+setOwnerLimits  gap #3072
 setQuestionLogDeciders  command question log set-deciders
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
@@ -650,7 +653,7 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 22: 9 gap, 13 excluded
+[Arguments] 24: 11 gap, 13 excluded
 Mutation.cloneAgentTask(input.isProject)  gap #3109
 Mutation.createAgentTask(input.isProject)  gap #3109
 Mutation.createAgentTasks(tasks.task.isProject)  gap #3109
@@ -664,6 +667,7 @@ Mutation.issueSecretReadClient(input.bindingHeader)  gap #3014: the USE (injecti
 Mutation.issueSecretReadClient(input.bindingPrefix)  gap #3014: the USE (injection) read-client mode and its binding arguments; `secret client issue` issues REVEAL clients only
 Mutation.issueSecretReadClient(input.mode)  gap #3014: the USE (injection) read-client mode and its binding arguments; `secret client issue` issues REVEAL clients only
 Mutation.mergeUsers(input.consentProof)  gap #1304
+Mutation.setQuotaLimit(input.userRef)  gap #3139
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -672,6 +676,7 @@ Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts o
 Mutation.withdrawReviewVerdict(instruction)  gap #3013: `pr withdraw` ships without --instruction (the gate's ruling on #3006); the manager arm from a worker session is a follow-up
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
+Query.quotaCounters(userRef)  gap #3139
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); Proposed class unruled under #1334 (33-row review)
 
 [Filters] 76: 68 flag, 3 gap, 5 excluded

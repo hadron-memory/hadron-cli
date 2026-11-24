@@ -41,7 +41,7 @@ fields as a hadron quota list row.`,
 			if strings.TrimSpace(org) == "" || strings.TrimSpace(action) == "" || !cmd.Flags().Changed("limit") {
 				return exitcode.Newf(exitcode.Usage, "--org, --action and --limit are required")
 			}
-			input := &gen.SetQuotaLimitInput{OrgRef: org, Action: action, Limit: limit}
+			input := &gen.SetQuotaLimitInput{OrgRef: &org, Action: action, Limit: limit}
 			if cmd.Flags().Changed("app") {
 				if strings.TrimSpace(app) == "" {
 					return exitcode.Newf(exitcode.Usage, "--app is empty; pass an App, or leave --app out to set the org-level limit")

@@ -78,8 +78,9 @@ func TestAppKeyHostUsesPage3134Text(t *testing.T) {
 		"all shown":   {`{"items":[` + use + `],"total":1,"hasMore":false}`, "host uses: 1 of 1\n"},
 		"none":        {`{"items":[],"total":0,"hasMore":false}`, "host uses: none\n"},
 		// An empty page is not proof of an empty list.
-		"empty page of some": {`{"items":[],"total":3,"hasMore":true}`, "host uses: 0 of 3 (more remain)\n"},
-		"empty page, more":   {`{"items":[],"total":0,"hasMore":true}`, "host uses: 0 of 0 (more remain)\n"},
+		"empty page of some":     {`{"items":[],"total":3,"hasMore":true}`, "host uses: 0 of 3 (more remain)\n"},
+		"empty page, total only": {`{"items":[],"total":3,"hasMore":false}`, "host uses: 0 of 3\n"},
+		"empty page, more":       {`{"items":[],"total":0,"hasMore":true}`, "host uses: 0 of 0 (more remain)\n"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv, _ := keyServer(t, 200, `{"data":{"appKeysPage":{"items":[{"id":"key_1","keyPreview":"p","createdAt":"2026-10-01T00:00:00Z","scopes":[],"hostUsesPage":`+tc.page+`}],"total":1,"hasMore":false}}}`)
@@ -91,6 +92,15 @@ func TestAppKeyHostUsesPage3134Text(t *testing.T) {
 				t.Errorf("out = %q, want %q", r.out, tc.want)
 			}
 		})
+	}
+}
+
+// A key without its page is refused, not shown as a key with no uses.
+func TestAppKeyHostUsesPage3134NullPage(t *testing.T) {
+	srv, _ := keyServer(t, 200, `{"data":{"appKeysPage":{"items":[{"id":"key_1","keyPreview":"p","createdAt":"2026-10-01T00:00:00Z","scopes":[],"hostUsesPage":null}],"total":1,"hasMore":false}}}`)
+	r := runKeyArgs(t, srv, "list", app1223, "--scopes", "--host-uses", "1", "--json")
+	if r.err == nil || !strings.Contains(r.err.Error(), "invalid App-key row") || r.out != "" {
+		t.Fatalf("err = %v out = %q", r.err, r.out)
 	}
 }
 

@@ -15,7 +15,7 @@ changes only for the migrated operations; no generated file was edited by hand.
 | auth token list, default / --include-hidden | myUserApiKeysPage | UserApiKeyFields; includeHidden omitted unless true |
 | app key list | appKeysPage | metadata only |
 | app key list --scopes | appKeysPage | metadata + current scopes |
-| app key list --scopes --host-uses N | appKeysPage | metadata + scopes + newest N host uses per key |
+| app key list --scopes --host-uses N | appKeysPage | metadata + scopes + newest N host uses per key, with total and hasMore (hostUsesPage, cli#3134) |
 | all three App-key variants with --instruction | appKeysPage | separate instructed documents; same claim and session each page |
 
 No subscription-list consumer exists: agentSubscriptionsPage and
