@@ -392,7 +392,11 @@ Several at once: --batch-file <path|-> creates 1 to 25 tasks in one call, all or
 none (a path, or - for piped stdin). The file is a JSON array; each item is
 {"task": {...}, "blockedByPositions": [...]}. "task" takes the same fields as the
 flags above, by their API names (title, assignee, description, tags, ...): for
-example {"title": "Fix login", "assignee": {"worker": "Iris"}}.
+example {"title": "Fix login", "assignee": {"worker": "Iris"}}. Every field is
+listed in the published schema: an item is CreateAgentTasksItemInput and its
+"task" is CreateAgentTaskInput
+(https://github.com/hadron-memory/hadron-cli/blob/main/schema/schema.graphql;
+a server newer than that file can have fields it does not list yet).
 "blockedByPositions" lists the 1-based positions, in this same file, of tasks
 that must end first; a self-block or a cycle is refused (TASK_BLOCKER_CYCLE). The
 single-create flags do not combine with it (--distinct-assignees does), and the

@@ -8,7 +8,7 @@ package team
 // the orca binary is a script named by delivery.orca_bin, the duplicate
 // agents are real sleeping processes whose argv[0] basename is claude/codex
 // and whose cwd is a real git worktree with a session binding, and the
-// supervised ones run under a real worker-supervise wrapper. The stop is a
+// supervised ones run under a real launcher the poller state records. The stop is a
 // real SIGTERM the agent's trap records, so "nothing was stopped" is
 // observable, not inferred.
 
@@ -69,6 +69,8 @@ type health2027World struct {
 	pause string
 	// state is the poller state file's content (hostId).
 	state string
+	// launch is the worker's recorded launch in the state file (cli#2059).
+	launch map[string]any
 	// chatBodies records every CreateTeamChatMessage body that arrived.
 	chatBodies []string
 	chatRefs   []*string
@@ -322,9 +324,37 @@ func (w *health2027World) writeBinding(t *testing.T, session string) {
 
 func (w *health2027World) stateFileWrite(t *testing.T, content string) {
 	t.Helper()
+	if w.launch != nil {
+		// The poller's record of the worker's launch is the supervision
+		// anchor (cli#2059); every state rewrite keeps it, as the poller does.
+		var m map[string]any
+		if err := json.Unmarshal([]byte(content), &m); err != nil {
+			t.Fatal(err)
+		}
+		m["agents"] = map[string]any{"w1": w.launch}
+		b, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		content = string(b)
+	}
 	if err := os.WriteFile(filepath.Join(w.dir, "state.json"), []byte(hostyaml.Supervised(content)), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// recordLaunch records pid as the worker's launch in the poller state, with
+// the start time the kernel reports for it: what the poller writes when it
+// launches an agent (cli#2059).
+func (w *health2027World) recordLaunch(t *testing.T, pid int) {
+	t.Helper()
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := strings.Fields(string(b)[strings.LastIndexByte(string(b), ')')+1:])
+	w.launch = map[string]any{"worktree": "wt", "pid": pid, "start": fields[19]}
+	w.stateFileWrite(t, w.state)
 }
 
 // awaitReady polls a fixture's ready marker for up to 5s and fails the test
@@ -346,7 +376,8 @@ func (w *health2027World) awaitReady(t *testing.T, ready string) {
 }
 
 // spawnAgent starts a sleeping process named claude or codex with its cwd in
-// the worktree; supervised runs it under a worker-supervise wrapper.
+// the worktree; supervised runs it under a launcher the poller state records
+// as the worker's launch (cli#2059).
 func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool) int {
 	t.Helper()
 	bin := filepath.Join(w.dir, "bin", name)
@@ -361,7 +392,7 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 	}
 	var c *exec.Cmd
 	if supervised {
-		wrap := filepath.Join(w.dir, "bin", "worker-supervise")
+		wrap := filepath.Join(w.dir, "bin", "launcher")
 		if _, err := os.Stat(wrap); err != nil {
 			if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
 				t.Fatal(err)
@@ -375,6 +406,9 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 	startFixture2078(t, c)
 	w.agents = append(w.agents, c)
 	w.awaitReady(t, ready)
+	if supervised {
+		w.recordLaunch(t, c.Process.Pid)
+	}
 	return c.Process.Pid
 }
 
@@ -488,9 +522,9 @@ func TestHealth2027SupervisedDuplicateIsStopped(t *testing.T) {
 		t.Fatalf("the supervised agent was signalled: %q", w.terms())
 	}
 	for _, c := range w.agents {
-		if filepath.Base(c.Path) == "worker-supervise" {
+		if filepath.Base(c.Path) == "launcher" {
 			if !w.alive(c.Process.Pid) {
-				t.Fatal("the wrapper is gone; the stop reached the supervised tree")
+				t.Fatal("the launcher is gone; the stop reached the supervised tree")
 			}
 		}
 	}
@@ -501,7 +535,7 @@ func TestHealth2027SupervisedDuplicateIsStopped(t *testing.T) {
 }
 
 // spawnChain starts the layered launch of one logical agent (#2027 review
-// P1): a worker-supervise wrapper whose shim runs the real (trapped) agent as
+// P1): a recorded launcher whose shim runs the real (trapped) agent as
 // a CHILD — the shape that used to count twice, dooming the real agent. The
 // shim and the child both record their names when signalled, so "the chain
 // was left alone" is observable member by member.
@@ -520,7 +554,7 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	if err := os.WriteFile(shim, []byte("#!/bin/sh\ntrap 'echo \"term chain-shim\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\n\""+child+"\" &\nwait\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	wrap := filepath.Join(w.dir, "bin", "worker-supervise")
+	wrap := filepath.Join(w.dir, "bin", "launcher")
 	if _, err := os.Stat(wrap); err != nil {
 		if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
 			t.Fatal(err)
@@ -533,9 +567,10 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	// The LEAF is the chain's last member up; its marker proves the whole
 	// chain exists before the census reads it.
 	w.awaitReady(t, ready)
+	w.recordLaunch(t, c.Process.Pid)
 }
 
-// #2027 review P1: one logical agent running as a CHAIN (wrapper → shim →
+// #2027 review P1: one logical agent running as a CHAIN (launcher → shim →
 // child) beside a typed stray is ONE supervised agent plus one duplicate —
 // the sweep stops the stray and lays a finger on no member of the chain.
 // The pre-fix census read this as two agents with exactly one supervised and

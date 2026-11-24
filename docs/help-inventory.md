@@ -585,9 +585,9 @@ section between the markers.
 | `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | f4dba7c31087 |  | unread |  |
 | `team router status` |  |  | n | #1054 | 321a568050fe |  | unread |  |
-| `team saturation-wake-roles` |  |  | n | #1054 | 614f1abb9415 |  | unread |  |
-| `team saturation-wake-roles get` |  |  | n | #1054 | ad8d3049cbb7 |  | unread |  |
-| `team saturation-wake-roles set` |  |  | y | #1054 | ddf2c7fd77ae |  | unread |  |
+| `team saturation-wake-roles` |  |  | n | #1054 | 0762906b3e27 |  | unread |  |
+| `team saturation-wake-roles get` |  |  | n | #1054 | f6458be8446f |  | unread |  |
+| `team saturation-wake-roles set` |  |  | y | #1054 | 79a345c5f27c |  | unread |  |
 | `team session` | sessions |  | n | #1054 | 9a0433b08b0e |  | unread |  |
 | `team session end` |  |  | y | #1054 | 33caa1010adf |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
@@ -616,7 +616,7 @@ section between the markers.
 | `team task assign` |  |  | y | #1054 | 5788b2abae89 |  | unread |  |
 | `team task cancel` |  |  | y | #1054 | 5ee9935e400a | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task clone` |  |  | y | #1054 | 4f89973851c1 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
-| `team task create` |  |  | y | #1054 | 973891f18413 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
+| `team task create` |  |  | y | #1054 | 6bdb2ee0d1cf |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | f8736a762e4d | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task dispose-finding` |  |  | y | #1054 | f713057fa30a | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task find-untracked` |  |  | y | #1054 | 6c5cd0fd565a |  | unread |  |

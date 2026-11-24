@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
 )
 
@@ -44,9 +46,17 @@ type AgentRecord struct {
 	Start string `json:"start,omitempty"`
 }
 
+// EmptyState is a state with no records and NO file: it cannot fail, and it
+// cannot be saved over a real state file (save refuses a state without one).
+// A caller that must carry on without an unreadable file relies on both.
+func EmptyState() *State {
+	return &State{Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
+}
+
 // LoadState reads the state file; a missing file is an empty state.
 func LoadState(path string) (*State, error) {
-	s := &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
+	s := EmptyState()
+	s.path = path
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -70,6 +80,9 @@ func LoadState(path string) (*State, error) {
 }
 
 func (s *State) save() error {
+	if s.path == "" {
+		return errors.New("poller state has no file to save to")
+	}
 	raw, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
@@ -176,6 +189,36 @@ func (s *State) agentPIDsIn(token string) []int {
 	return pids
 }
 
+// LaunchAnchor is a launch this poller recorded for a worker, by pid and the
+// kernel start time (clock ticks, /proc stat field 22) observed while it ran:
+// the process a census agent must be, or run under, to count as the worker's
+// own (cli#2059; it replaced the wrapper's name as the supervision anchor).
+type LaunchAnchor struct {
+	PID        int
+	StartTicks int64
+}
+
+// LaunchAnchorsAt is the recorded launches of the workers whose recorded
+// worktree is path (worktreesRoot joined with the recorded token). A record
+// with no pid, or a start that is not a tick count, yields an anchor that
+// cannot match (StartTicks 0): without the start a reused pid could pass.
+func (s *State) LaunchAnchorsAt(worktreesRoot, path string) []LaunchAnchor {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []LaunchAnchor{}
+	for _, a := range s.Agents {
+		if a.PID <= 0 || !sameDir(filepath.Join(worktreesRoot, a.Worktree), path) {
+			continue
+		}
+		ticks, err := strconv.ParseInt(a.Start, 10, 64)
+		if err != nil || ticks <= 0 {
+			ticks = 0
+		}
+		out = append(out, LaunchAnchor{PID: a.PID, StartTicks: ticks})
+	}
+	return out
+}
+
 // recordedAgent is the agent last recorded for the worker (zero when none).
 func (s *State) recordedAgent(workerID string) AgentRecord {
 	s.mu.Lock()
@@ -233,4 +276,17 @@ func (s *State) Snapshot() (map[string][]string, map[string]string) {
 		k[t] = r
 	}
 	return c, k
+}
+
+// sameDir says two spellings name one directory: the same cleaned path, or the
+// same path once symlinks are resolved (a worktrees root reached through a
+// link). A path that cannot be resolved is compared as cleaned, never wider.
+func sameDir(a, b string) bool {
+	a, b = filepath.Clean(a), filepath.Clean(b)
+	if a == b {
+		return true
+	}
+	ra, errA := filepath.EvalSymlinks(a)
+	rb, errB := filepath.EvalSymlinks(b)
+	return errA == nil && errB == nil && ra == rb
 }
