@@ -15,6 +15,9 @@ import (
 // the App; `set --instruction` follows `stall-schedule set` (the instructed manager
 // write, in its own document so a no-flag request is what it always was). The list
 // names ROLES; the result printed is what the server stored.
+//
+// "FIT" in these comments is the specs engineer's spec-fit verdict on an issue (it is defined in
+// team_saturation_wake_roles_2960_test.go): it settles the help wording the pins below require.
 
 const (
 	wakeRolesApp2894  = "capp100000000000000000000"
@@ -285,7 +288,7 @@ func TestSaturationWakeRolesHelpSaysWhatTheListMeans2894(t *testing.T) {
 		help := strings.Join(strings.Fields(out.String()), " ")
 		for _, want := range []string{
 			"The list names roles",
-			"is offered one wake",
+			"is woken once",
 			"not again for that alarm",
 			"applies only to alarms raised afterwards",
 			"empty by default",
