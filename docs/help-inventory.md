@@ -589,18 +589,18 @@ section between the markers.
 | `team session` | sessions |  | n | #1054 | f1c9ef12cbd6 |  | unread |  |
 | `team session end` |  |  | y | #1054 | 33caa1010adf |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
-| `team session log` |  |  | y | #1054 | 70dcebe730b6 |  | unread |  |
+| `team session log` |  |  | y | #1054 | 98dcd2702482 |  | unread |  |
 | `team session outcome` |  |  | y | #1054 | 447243aadda4 |  | unread |  |
 | `team session recover` |  |  | y | #1054 | 26a71dd0e860 |  | unread |  |
 | `team session reset-context` |  |  | y | #1054 | 648babebbe50 |  | unread |  |
 | `team session restart` |  |  | y | #1054 | 0498c3bc78f1 |  | unread |  |
 | `team session resume-claim` |  |  | y | #1054 | 766da90e0ff4 |  | unread |  |
-| `team session served-prompts` |  |  | y | #1054 | 7ec1a1f7942e |  | unread |  |
+| `team session served-prompts` |  |  | y | #1054 | d668bb78f149 |  | unread |  |
 | `team session set-model` |  |  | y | #1054 | e51736abe5b9 |  | unread |  |
 | `team session shed` |  |  | y | #1054 | 3a98d6ff8a57 |  | unread |  |
-| `team session start` |  |  | y | #1054 | 915a234121d7 |  | unread |  |
-| `team session sync-model` |  |  | y | #1054 | a27e0c951377 |  | unread |  |
-| `team session whoami` |  |  | y | #1054 | f1bc10ef853c |  | unread |  |
+| `team session start` |  |  | y | #1054 | 823afd9b6216 |  | unread |  |
+| `team session sync-model` |  |  | y | #1054 | 28bc63be5c00 |  | unread |  |
+| `team session whoami` |  |  | y | #1054 | d8c7541f5907 |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | aa707c9c9f95 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | aa1c65ef79dc |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |

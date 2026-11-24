@@ -52,8 +52,8 @@ tool's hook command: the tool pipes its hook JSON
 
 WHAT IT WILL AND WILL NOT READ. The only transcript it reads is the one the
 bound Hadron session ALREADY RECORDED as its transcriptPath (` + "`session start --transcript`" + `).
-The hook's path, native session id and cwd are claims it verifies against
-that file — never an association source. It does not pick a "newest" file, and
+The hook's path, native session id and cwd are only checked against that
+file; they never choose which file is read. It does not pick a "newest" file, and
 a session with no recorded transcript reports nothing. The file must sit under
 the tool's transcript root, be the same file the recorded path names, carry
 the hook's native session id in its own header, and stay unchanged while read.

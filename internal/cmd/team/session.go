@@ -947,8 +947,7 @@ worker, so --as is not needed with it; --as with --launch-grant has the
 server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
 the variable, so a spent grant left in the environment never gets in the
 way of an ordinary bind later. When the host could not apply the run
-settings its start named (an exec-path worker runs its own fixed command), it
-also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
+settings its start named, it also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
 tells the server (startSettingsApplied: false) so the bind records none of
 those settings as run. Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
@@ -2148,8 +2147,8 @@ have outlived what it describes — a session can be ended from ANOTHER worktree
 or machine with ` + "`session end --session <id>`" + `, which does not clear this
 worktree's file. It reports "ended" and, when the server reaped it rather than
 a person ending it, says so: endedAt answers WHETHER, autoExpiredAt answers HOW.
-The --json answer is "active" (the endedAt-IS-NULL predicate, as everywhere
-else here), never "live" — an active session is not necessarily a driven one.
+The --json answer is "active", meaning only that the session is not ended,
+never "live" — an active session is not necessarily a driven one.
 
 --check asks the server about the session and shows its own state, never one
 the CLI works out: "live, lapses at <instant>", "LAPSED at <instant>" (open but
@@ -2464,7 +2463,7 @@ the bound worker's (drop -m, or pass the worker's own team memory). Only
 bindings written by OLDER CLIs differ: a binding that records no App but
 does record a team memory falls back to that team memory and behaves as
 before; a binding that records neither an App nor a team memory degrades —
---pr/--branch write only the Session denormalization, --issue/--commit
+--pr/--branch write only the session's own PR and branch fields, --issue/--commit
 refuse — with a note naming the remedy.
 
 Refs are normalized to one canonical string per artifact (owner/repo#371,
