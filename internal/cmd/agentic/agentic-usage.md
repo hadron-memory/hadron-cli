@@ -6229,6 +6229,15 @@ get/update/rm take a sender ID. List spans accessible orgs unless `--org-id`
 sets a raw organization ID (not a slug/URN). Without pagination flags list
 pages to exhaustion; either `--limit` or `--offset` requests one page.
 
+`get` also reports `domainVerified` (report only): whether Resend says the
+domain of the sender's address is verified, `true, false or null`. It is read
+live from Resend on each `get` (never cached; one lookup per call), so `null`
+means the state could not be read and says nothing about the domain, and a
+`false` includes "Resend has no record of the domain". `list`, `create` and
+`update` do not carry the field. `get` does not verify a domain and there is no
+test-send: verify the domain in Resend. `get` needs server 2026-11-22 or later
+(an older server rejects the field, so the whole `get` fails).
+
 The Resend API key is write-only. Never put it on the command line: use
 `--api-key-file ./resend.key` or `--api-key-file -` with stdin. Create with no
 file flag reads piped stdin or a masked terminal prompt. Update only rotates
@@ -6503,6 +6512,9 @@ hadron-server#3125; plan `plans:1524-find-untracked`. Specs `cor:dmo:050:02`,
 integrations (`cor:agt:120:01`/`:03`) are retired (cli#1964, below). A thin client: every
 rule is the server's (`cor:api:240:01`), the CLI sends values as given and maps
 refusals. Nothing here is on MCP.
+
+Writing an intake adapter (what each call receives and answers, a runnable
+sample): `docs/how-to/write-an-intake-adapter.md` in the CLI repository (cli#3062).
 
 ```
 hadron app properties get <app-ref>
