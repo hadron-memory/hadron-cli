@@ -336,7 +336,7 @@ section between the markers.
 | `agent subscription list` | ls |  | y | #1053 | 666653b230ea |  | unread |  |
 | `agent subscription revoke` |  |  | y | #1053 | 2872033bfe78 |  | unread |  |
 | `agent tasks` |  |  | n | #1053 | 3bfa51c3de8b |  | unread |  |
-| `agent tasks create` |  |  | y | #1053 | 35023e3afca2 |  | unread |  |
+| `agent tasks create` |  |  | y | #1053 | a6cf95ecbc9a |  | unread |  |
 | `agent tasks list` | ls |  | y | #1053 | afe0c812983d | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `agent ticker-templates` | ticker-template |  | n | #1053 | 6fe99803bec1 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent ticker-templates create` |  |  | y | #1053 | 69974fa4d306 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
