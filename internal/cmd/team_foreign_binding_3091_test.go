@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -24,19 +25,22 @@ func run3091(t *testing.T, invoker, optIn string, argv ...string) (*[]attnCall, 
 	t.Setenv(team.ForeignBindingOptInEnv, optIn)
 	t.Cleanup(team.SetGitToplevelRunner(func(_ context.Context) (string, error) { return foreignRoot3091, nil }))
 	r := runTeamTaskFactory(t, map[string]string{
-		"AgentTaskStart":      `{"data":{"startAgentTask":{"id":"task1","status":"STARTED"}}}`,
-		"PRVerdict":           `{"data":{"recordReviewVerdict":{"task":{"id":"t1","handle":"AT0.7","status":"STARTED"},"action":{"code":"review.verdict","state":"WITHHELD","taskLoc":null,"taskUrn":null}}}}`,
-		"TeamDefaultChannel":  `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
-		"MarkOwnTeamChatRead": markReadJSON,
+		"AgentTaskStart":        `{"data":{"startAgentTask":{"id":"task1","status":"STARTED"}}}`,
+		"PRVerdict":             `{"data":{"recordReviewVerdict":{"task":{"id":"t1","handle":"AT0.7","status":"STARTED"},"action":{"code":"review.verdict","state":"WITHHELD","taskLoc":null,"taskUrn":null}}}}`,
+		"TeamDefaultChannel":    `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`,
+		"MarkOwnTeamChatRead":   markReadJSON,
+		"CreateTeamChatMessage": `{"data":{"createTeamChatMessage":{"id":"m1","seq":1,"body":"hello","createdAt":"2026-11-24T00:00:00Z"}}}`,
+		"TeamAppIdentity":       teamAppIdentityJSON,
+		"EndTeamSession":        `{"data":{"endTeamSession":{"id":"s-new","status":"ENDED"}}}`,
 	}, argv...)
 	return r.Calls, r.Err
 }
 
 func sessionsSent3091(calls *[]attnCall) (n int, foreign bool) {
 	for _, c := range *calls {
-		if c.Op == "AgentTaskStart" || c.Op == "PRVerdict" || c.Op == "MarkOwnTeamChatRead" {
+		if c.Op == "AgentTaskStart" || c.Op == "PRVerdict" || c.Op == "MarkOwnTeamChatRead" || c.Op == "CreateTeamChatMessage" || c.Op == "EndTeamSession" {
 			n++
-			if c.Session == "s-new" {
+			if c.Session == "s-new" || strings.Contains(fmt.Sprint(c.Vars), "s-new") {
 				foreign = true
 			}
 		}
@@ -45,9 +49,11 @@ func sessionsSent3091(calls *[]attnCall) (n int, foreign bool) {
 }
 
 var cmds3091 = map[string][]string{
-	"task start": {"team", "task", "start", "task1"},
-	"pr verdict": {"team", "pr", "verdict", "task1", "--head", prHead1664, "--verdict", "APPROVE"},
-	"mark-read":  {"team", "chat", "mark-read", "--through", "5"},
+	"task start":  {"team", "task", "start", "task1"},
+	"pr verdict":  {"team", "pr", "verdict", "task1", "--head", prHead1664, "--verdict", "APPROVE"},
+	"mark-read":   {"team", "chat", "mark-read", "--through", "5"},
+	"chat post":   {"team", "chat", "post", "hello"},
+	"session end": {"team", "session", "end"},
 }
 
 func TestForeignBindingRefusesCrossWorkerMutations3091(t *testing.T) {
