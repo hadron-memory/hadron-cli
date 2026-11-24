@@ -561,23 +561,31 @@ func TestTeamHostIssueNoOperationInReply(t *testing.T) {
 // on a server older than hadron-server#4257.
 func TestTeamHostOpsNoDataInReply(t *testing.T) {
 	const oldServer = `{"errors":[{"message":"Cannot query field \"issuedReason\" on type \"HostOperation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
-	replies := map[string]string{
-		"null data":     `{"data":null}`,
-		"empty data":    `{"data":{}}`,
-		"explicit null": `{"data":{"hostOperations":null}}`,
+	type readShape struct {
+		name      string
+		stage     func(r map[string]string, reply string)
+		wantCalls []string // the operations the command must send, in order
 	}
-	for _, read := range []string{"with reason", "plain fallback"} {
-		for name, reply := range replies {
-			t.Run(read+"/"+name, func(t *testing.T) {
+	reads := []readShape{
+		{"with reason", func(r map[string]string, reply string) { r["HostOperationsWithReason"] = reply },
+			[]string{"HostOperationsWithReason"}},
+		{"plain fallback", func(r map[string]string, reply string) {
+			r["HostOperationsWithReason"] = oldServer
+			r["HostOperations"] = reply
+		}, []string{"HostOperationsWithReason", "HostOperations"}},
+	}
+	replies := []struct{ name, body string }{
+		{"null data", `{"data":null}`},
+		{"empty data", `{"data":{}}`},
+		{"explicit null", `{"data":{"hostOperations":null}}`},
+	}
+	for _, read := range reads {
+		for _, reply := range replies {
+			t.Run(read.name+"/"+reply.name, func(t *testing.T) {
 				r := hostResponses()
-				if read == "with reason" {
-					r["HostOperationsWithReason"] = reply
-				} else {
-					r["HostOperationsWithReason"] = oldServer
-					r["HostOperations"] = reply
-				}
+				read.stage(r, reply.body)
 				for _, argv := range [][]string{{"team", "host", "ops"}, {"team", "host", "ops", "--json"}} {
-					_, out, err := runTeamTask(t, r, argv...)
+					calls, out, err := runTeamTask(t, r, argv...)
 					if err == nil {
 						t.Fatalf("want an error for a reply with no host operations, got output %q", out)
 					}
@@ -590,8 +598,44 @@ func TestTeamHostOpsNoDataInReply(t *testing.T) {
 					if out != "" {
 						t.Fatalf("a refused read printed %q", out)
 					}
+					// Which read ran is part of the claim: the fallback case must have sent the plain
+					// query after the rejected one, and the other case must not have fallen back.
+					var sent []string
+					for _, c := range *calls {
+						if c.Op == "HostOperationsWithReason" || c.Op == "HostOperations" {
+							sent = append(sent, c.Op)
+						}
+					}
+					if strings.Join(sent, ",") != strings.Join(read.wantCalls, ",") {
+						t.Fatalf("operations sent %v, want %v", sent, read.wantCalls)
+					}
 				}
 			})
 		}
+	}
+}
+
+// A hostOperations field that is present but holds no items, or a null items
+// list, is an empty page, not a refusal (cli#3077 draws the line at the field).
+func TestTeamHostOpsPresentFieldWithNoItemsIsAnEmptyPage(t *testing.T) {
+	for name, body := range map[string]string{
+		"empty items": `{"data":{"hostOperations":{"items":[],"hasNextPage":false,"endCursor":null}}}`,
+		"null items":  `{"data":{"hostOperations":{"items":null,"hasNextPage":false,"endCursor":null}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := hostResponses()
+			r["HostOperationsWithReason"] = body
+			_, out, err := runTeamTask(t, r, "team", "host", "ops", "--json")
+			if err != nil {
+				t.Fatalf("a present field with no items must not be refused: %v", err)
+			}
+			var page struct {
+				Items       []any `json:"items"`
+				HasNextPage bool  `json:"hasNextPage"`
+			}
+			if err := json.Unmarshal([]byte(out), &page); err != nil || page.Items == nil || len(page.Items) != 0 {
+				t.Fatalf("want an empty items list ([]), got %q (%v)", out, err)
+			}
+		})
 	}
 }
