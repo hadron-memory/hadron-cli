@@ -78,6 +78,7 @@ const (
 	inboxStageAppContext inboxStage = iota + 1
 	inboxStageClient
 	inboxStageAppRead
+	inboxStageServer
 )
 
 // inboxIdentityStageError marks an error from the App-identity step with the
