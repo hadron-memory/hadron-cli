@@ -29,6 +29,7 @@ func runRoute2915(t *testing.T, router, target string, extra ...string) (map[str
 		"GetNode":    {target},
 		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
 		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`, `{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -204,5 +205,76 @@ func TestPreflightRouteHelpCrossMemoryParagraph3002(t *testing.T) {
 	}
 	if !strings.Contains(flat, "preflight lint then skips only route-target-moved-memory for a marked route") {
 		t.Errorf("the lint sentence names a marked route: %q", flat)
+	}
+}
+
+// hadron-cli#3002 (blind review of the note): the contract the release note states.
+// A --dry-run judges "already routed" exactly as the real run does, in every case,
+// and the key is only ever present as true.
+func TestPreflightRouteDryRunAlreadyRoutedMatchesTheRealRun3002(t *testing.T) {
+	cases := []struct {
+		name           string
+		router, target string
+		extra          []string
+		want           bool
+	}{
+		{"mirrored, both edges exist", existingRouter2736("null"), existingTarget2736("null"), nil, true},
+		{"mirrored, back-edge missing", existingRouter2736("null"), crossTarget2736(), nil, false},
+		{"mirrored, nothing exists", codingRouterWithBody(flatRouterBody), crossTarget2736(), nil, false},
+		{"leaf, the leaf's edge exists", codingRouterWithBody(flatRouterBody), existingTarget2736("null"), []string{"--route-model", "leaf"}, true},
+		{"no back-edge, route edge exists", existingRouter2736("null"), crossTarget2736(), []string{"--no-back-edge"}, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			for _, mode := range [][]string{{"--dry-run"}, {}} {
+				args := append(append([]string{"--json"}, c.extra...), mode...)
+				_, out, err := runRoute2915(t, c.router, c.target, args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if has := alreadyRouted2844(t, out); has != c.want {
+					t.Errorf("%v: alreadyRouted = %v, want %v:\n%s", args, has, c.want, out)
+				}
+				if !c.want && strings.Contains(out, `"alreadyRouted"`) {
+					t.Errorf("%v: the key is omitted, never false:\n%s", args, out)
+				}
+			}
+		})
+	}
+}
+
+// With --cross-memory an existing edge that still needs the marker is NOT already
+// routed: a rehearsal omits the key, as the real run (which would write the marker) does.
+func TestPreflightRouteDryRunMarkerNeededIsNotAlreadyRouted3002(t *testing.T) {
+	_, out, err := runRoute2915(t, existingRouter2736("null"), existingTarget2736("null"), "--cross-memory", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if alreadyRouted2844(t, out) || strings.Contains(out, `"alreadyRouted"`) {
+		t.Errorf("an existing edge that needs the marker is not already routed, and the key is omitted:\n%s", out)
+	}
+	// Only the route edge lacks the marker (the back-edge has it): still not routed.
+	_, out, err = runRoute2915(t, existingRouter2736("null"), existingTarget2736(crossMemoryMarker2736), "--cross-memory", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if alreadyRouted2844(t, out) {
+		t.Errorf("an unmarked route edge needs the marker even when the back-edge has it:\n%s", out)
+	}
+	// And only the back-edge lacks it: not routed either.
+	_, out, err = runRoute2915(t, existingRouter2736(crossMemoryMarker2736), existingTarget2736("null"), "--cross-memory", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if alreadyRouted2844(t, out) {
+		t.Errorf("an unmarked back-edge needs the marker even when the route edge has it:\n%s", out)
+	}
+	// Once the edges carry the marker, the same rehearsal is already routed.
+	_, out, err = runRoute2915(t, existingRouter2736(crossMemoryMarker2736), existingTarget2736(crossMemoryMarker2736), "--cross-memory", "--dry-run", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !alreadyRouted2844(t, out) {
+		t.Errorf("marked edges are already routed:\n%s", out)
 	}
 }
