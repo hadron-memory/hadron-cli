@@ -6,8 +6,8 @@ import (
 )
 
 // cli#3098 (hadron-server#4368 / #5046): `app asset-upload enable|disable <agent>` sends the Agent as
-// input.agentRef, not the retired input.agentUrn, and the user-facing --agent value is unchanged: the same
-// ID or URN is passed through as typed. A hard rename with no alias (ruling 0274).
+// input.agentRef, not the retired input.agentUrn. The Agent argument (a positional ID or URN) is unchanged: the
+// same ID or URN is passed through as typed. A hard rename with no alias (ruling 0274).
 func TestAppAssetUploadSendsAgentRef_3098(t *testing.T) {
 	for _, tc := range []struct {
 		verb    string
