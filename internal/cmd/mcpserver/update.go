@@ -92,7 +92,7 @@ active state.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.UpdateMcpServer == nil {
-				return exitcode.Newf(exitcode.NotFound, "MCP server %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "MCP server not found (the id given is not shown)")
 			}
 			dto := dtoFromFields(resp.UpdateMcpServer.McpServerFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

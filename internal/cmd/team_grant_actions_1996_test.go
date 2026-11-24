@@ -216,9 +216,11 @@ func TestTeamGrantAction1996NotFoundIdenticalAcrossArms(t *testing.T) {
 			if out != "" || errOut != "" {
 				t.Errorf("stdout/stderr must be empty before main prints the error: %q %q", out, errOut)
 			}
-			msgs = append(msgs, strings.ReplaceAll(err.Error(), ref, "<REF>"))
-			if !strings.Contains(err.Error(), ref) {
-				t.Errorf("message must echo the ref as given: %v", err)
+			msgs = append(msgs, err.Error())
+			// cli#3029 (#2898 policy): the refusal no longer echoes the --app ref or the name, so the arms
+			// now read identically without masking the ref out first.
+			if strings.Contains(err.Error(), ref) || strings.Contains(err.Error(), "no.such") {
+				t.Errorf("the refusal must not echo the ref or the name: %v", err)
 			}
 		}
 	}

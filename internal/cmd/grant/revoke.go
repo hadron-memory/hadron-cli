@@ -47,7 +47,7 @@ refuses with exit 2. --yes skips only the prompt, not the server's checks.`,
 			// but honor a false defensively (webhook rm precedent; PR-214
 			// review) instead of reporting a revoke that didn't happen.
 			if resp == nil || !resp.RevokePrincipalGrant {
-				return exitcode.Newf(exitcode.NotFound, "grant %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "grant not found (the id given is not shown)")
 			}
 			dto := map[string]string{"id": args[0], "status": "revoked"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

@@ -62,7 +62,7 @@ Asks for confirmation on a terminal; pass --yes in scripts.`,
 			}
 			a := resp.SoftDeleteAsset
 			if a == nil {
-				return exitcode.Newf(exitcode.NotFound, "no asset found for %q", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no asset found (the asset ref given is not shown)")
 			}
 			dto := assetDeleteDTO{ID: a.Id, URN: a.Urn, Filename: a.Filename, DeletedAt: a.DeletedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -101,7 +101,7 @@ not ask for confirmation.`,
 			}
 			a := resp.RestoreAsset
 			if a == nil {
-				return exitcode.Newf(exitcode.NotFound, "no asset found for %q", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no asset found (the asset ref given is not shown)")
 			}
 			dto := assetDeleteDTO{ID: a.Id, URN: a.Urn, Filename: a.Filename, DeletedAt: a.DeletedAt}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

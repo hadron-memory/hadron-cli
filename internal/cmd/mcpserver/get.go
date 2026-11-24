@@ -30,7 +30,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				return api.MapError(err)
 			}
 			if resp == nil || resp.McpServer == nil {
-				return exitcode.Newf(exitcode.NotFound, "MCP server %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "MCP server not found (the id given is not shown)")
 			}
 			dto := dtoFromFields(resp.McpServer.McpServerFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

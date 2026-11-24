@@ -311,7 +311,7 @@ number. If the child cannot start after the read was spent, exit 1 says so.`,
 				return exitcode.Newf(exitcode.Usage, "name the command to run after --: hadron secret exec --client <id> --env <NAME> -- <command>; nothing was sent")
 			}
 			if dash > 0 {
-				return exitcode.Newf(exitcode.Usage, "unexpected argument %q before --; nothing was sent", args[0])
+				return exitcode.Newf(exitcode.Usage, "unexpected argument before -- (not shown): the command to run goes after --; nothing was sent")
 			}
 			argv := args
 			path, err := osexec.LookPath(argv[0])

@@ -325,7 +325,7 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 					case (dryRun || clearRole) && gerr != nil:
 						return api.MapError(gerr)
 					case dryRun || clearRole:
-						return exitcode.Newf(exitcode.NotFound, "node %q not found, or not readable by you", args[0])
+						return exitcode.Newf(exitcode.NotFound, "node not found, or not readable by you (the ref given is not shown)")
 					}
 				} else {
 					existing, gerr := gen.GetNode(cmd.Context(), client, nodeID)
@@ -336,7 +336,7 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 						stored = existing.Node
 					}
 					if clearRole && stored == nil {
-						return exitcode.Newf(exitcode.NotFound, "node %q not found, or not readable by you", args[0])
+						return exitcode.Newf(exitcode.NotFound, "node not found, or not readable by you (the ref given is not shown)")
 					}
 				}
 				if stored != nil {

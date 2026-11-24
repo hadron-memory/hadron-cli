@@ -39,7 +39,7 @@ runs referencing its mcp__<slug>__<tool> tools fail loud afterwards.`,
 			// honor a false defensively instead of reporting a delete that didn't
 			// happen.
 			if resp == nil || !resp.DeleteMcpServer {
-				return exitcode.Newf(exitcode.NotFound, "MCP server %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "MCP server not found (the id given is not shown)")
 			}
 			dto := map[string]string{"id": args[0], "status": "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

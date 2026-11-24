@@ -40,7 +40,7 @@ Only the memories you may read are listed; the rest are reported as a count.`,
 				// Missing and unreadable are the same null by design ("no
 				// existence disclosure"), so the message asserts only that we
 				// could not read it — not that it does not exist.
-				return exitcode.Newf(exitcode.NotFound, "no scope %q is readable here", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no scope is readable here (the name or id given is not shown)")
 			}
 			d := dtoFromFields(resp.Scope.ScopeFields)
 			d.Memories = memoriesFromEntries(resp.Scope.ScopeMemories)

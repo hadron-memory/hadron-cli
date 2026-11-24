@@ -237,7 +237,7 @@ listed unless --limit or --offset asks for one page; --json prints
 				return api.MapError(err)
 			}
 			if resp.Node == nil {
-				return exitcode.Newf(exitcode.NotFound, "node %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "node not found (the ref given is not shown)")
 			}
 
 			edges := []edgeListDTO{}

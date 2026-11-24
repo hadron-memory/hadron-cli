@@ -100,7 +100,7 @@ func checkTeamListFlags(cmd *cobra.Command, args []string, team, staleOver strin
 		return 0, nil
 	}
 	if len(args) > 0 {
-		return 0, exitcode.Newf(exitcode.Usage, "unexpected argument %q: --team takes its worker attached, as --team=worker:<ref>", args[0])
+		return 0, exitcode.Newf(exitcode.Usage, "unexpected argument (not shown): --team takes its worker attached, as --team=worker:<ref>")
 	}
 	for _, name := range teamListFlagConflicts {
 		if cmd.Flags().Changed(name) {

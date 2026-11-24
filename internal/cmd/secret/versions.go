@@ -75,11 +75,11 @@ writtenByWorkerId); an empty list is [].`,
 					return nil, 0, api.MapErrorKeepingCode(err)
 				}
 				if resp == nil || resp.Secret == nil {
-					return nil, 0, exitcode.Newf(exitcode.NotFound, "secret %q not found (or not visible to you)", args[0])
+					return nil, 0, exitcode.Newf(exitcode.NotFound, "secret not found, or not visible to you (the id or URN given is not shown)")
 				}
 				s := resp.Secret
 				if s.Versions == nil {
-					return nil, 0, exitcode.Newf(exitcode.Error, "server returned no versions page for secret %q", args[0])
+					return nil, 0, exitcode.Newf(exitcode.Error, "server returned no versions page for the secret (the id or URN given is not shown)")
 				}
 				out.ID, out.Name, out.CurrentVersion, out.Protected = s.Id, s.Name, s.CurrentVersion, s.Protected
 				out.Total, out.HasMore = s.Versions.Total, s.Versions.HasMore

@@ -118,7 +118,7 @@ refuses the flag with its own error, which is passed through, never retried with
 				return mapped
 			}
 			if dto.ID == "" {
-				return exitcode.Newf(exitcode.NotFound, "no asset found for %q", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no asset found (the asset ref given is not shown)")
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintln(w, publicLinkState(dto.PublicLinkEnabled, dto.PublicLinkAvailable, dto.PublicURL))
