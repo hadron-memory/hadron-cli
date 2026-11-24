@@ -204,9 +204,10 @@ func TestTeamGrantAction1996ReadByName(t *testing.T) {
 
 func TestTeamGrantAction1996NotFoundIdenticalAcrossArms(t *testing.T) {
 	var msgs []string
+	const name = "no.such"
 	for _, ref := range []string{"hrn:app:acme.com:unknown", "hrn:app:acme.com:not-mine", "###"} {
 		for _, bound := range []bool{false, true} {
-			calls, out, errOut, err := runActions1996(t, bound, map[string]string{"GrantAction": `{"data":{"action":null}}`}, "team", "grant", "action", "no.such", "--app", ref)
+			calls, out, errOut, err := runActions1996(t, bound, map[string]string{"GrantAction": `{"data":{"action":null}}`}, "team", "grant", "action", name, "--app", ref)
 			if err == nil || exitCodeFor(err) != exitcode.NotFound {
 				t.Fatalf("want NotFound, got %v", err)
 			}
@@ -216,9 +217,11 @@ func TestTeamGrantAction1996NotFoundIdenticalAcrossArms(t *testing.T) {
 			if out != "" || errOut != "" {
 				t.Errorf("stdout/stderr must be empty before main prints the error: %q %q", out, errOut)
 			}
-			msgs = append(msgs, strings.ReplaceAll(err.Error(), ref, "<REF>"))
-			if !strings.Contains(err.Error(), ref) {
-				t.Errorf("message must echo the ref as given: %v", err)
+			msgs = append(msgs, err.Error())
+			// cli#3029 (#2898 policy): the refusal no longer echoes the --app ref or the name, so the arms
+			// now read identically without masking the ref out first.
+			if strings.Contains(err.Error(), ref) || strings.Contains(err.Error(), name) {
+				t.Errorf("the refusal must not echo the ref or the name: %v", err)
 			}
 		}
 	}

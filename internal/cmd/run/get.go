@@ -36,7 +36,7 @@ recorded.`,
 				return api.MapError(err)
 			}
 			if resp.AppRun == nil {
-				return exitcode.Newf(exitcode.NotFound, "run %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "run not found (the id given is not shown)")
 			}
 			dto := dtoFromFields(resp.AppRun.AppRunFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

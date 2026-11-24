@@ -175,7 +175,7 @@ Prints "✓ ended session <id>"; --json is {"sessionId", "ended": true}.`,
 				return api.MapError(err)
 			}
 			if !resp.EndAgentSession {
-				return exitcode.Newf(exitcode.Error, "session %s was not ended", args[0])
+				return exitcode.Newf(exitcode.Error, "the session was not ended (the session id given is not shown)")
 			}
 			dto := agentSessionEndedDTO{SessionID: args[0], Ended: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

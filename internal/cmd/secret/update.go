@@ -201,8 +201,8 @@ the same fields as hadron secret get.`,
 			// the answer reports the state asked for either way.
 			if prot != nil && (*prot || fields.Protected) {
 				return exitcode.Newf(exitcode.Unavailable,
-					"the server answered with the secret instead of staging the protection change, which updateSecret(protected: …) does not do; it reports protected: %t. The outcome is not confirmed — any value or metadata sent alongside the flag may have been applied; the protection change was not: check it with: hadron secret get %s",
-					fields.Protected, cmdutil.ShellQuote(output.SafeCell(args[0])))
+					"the server answered with the secret instead of staging the protection change, which updateSecret(protected: …) does not do; it reports protected: %t. The outcome is not confirmed — any value or metadata sent alongside the flag may have been applied; the protection change was not: check it with: hadron secret get <id|urn> (the secret ref given is not shown)",
+					fields.Protected)
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return writeSecretLine(w, "✓ updated", dto)

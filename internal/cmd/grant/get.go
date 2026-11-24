@@ -40,7 +40,7 @@ hadron grant list row).`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.PrincipalGrant == nil {
-				return exitcode.Newf(exitcode.NotFound, "grant %q not found (or not visible to you)", args[0])
+				return exitcode.Newf(exitcode.NotFound, "grant not found, or not visible to you (the id given is not shown)")
 			}
 			dto := dtoFromFields(resp.PrincipalGrant.PrincipalGrantFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

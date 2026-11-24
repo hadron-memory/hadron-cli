@@ -87,7 +87,7 @@ Pass an App ID, hrn:app:<root>:<slug>, or the <root>:<slug> short form.`,
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp.App == nil {
-				return exitcode.Newf(exitcode.NotFound, "no App found for %q", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no App found (the App ref given is not shown)")
 			}
 			return writeAppProperties(f, appPropertiesDTO{AppID: resp.App.Id, PropertiesRevision: resp.App.PropertiesRevision, Properties: resp.App.Properties})
 		},

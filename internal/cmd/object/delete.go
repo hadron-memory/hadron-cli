@@ -54,7 +54,7 @@ be restored.`,
 			// success. Unlike node rm, object delete doesn't pre-resolve the ref, so
 			// this is a real outcome to surface.
 			if resp == nil || !resp.DeleteObject {
-				return exitcode.Newf(exitcode.NotFound, "object %q not found or already deleted", args[0])
+				return exitcode.Newf(exitcode.NotFound, "object not found or already deleted (the ref given is not shown)")
 			}
 			status, verb := "deleted", "Deleted"
 			if hard {

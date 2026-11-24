@@ -44,7 +44,7 @@ the external server.`,
 			// server or a non-member caller — distinct from a real, empty tool set.
 			// Treat null as not-found, consistent with get/update/delete.
 			if resp == nil || resp.McpServerTools == nil {
-				return exitcode.Newf(exitcode.NotFound, "MCP server %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "MCP server not found (the id given is not shown)")
 			}
 			tools := make([]mcpToolDTO, 0, len(resp.McpServerTools))
 			for _, t := range resp.McpServerTools {

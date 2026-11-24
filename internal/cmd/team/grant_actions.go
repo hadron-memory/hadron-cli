@@ -223,7 +223,7 @@ unknown name and every refused caller get the same not-found line and exit 4.
 			return api.MapError(err)
 		}
 		if resp == nil || resp.Action == nil {
-			return exitcode.Newf(exitcode.NotFound, "grant action %q not found in App %q (or not visible to this caller)", args[0], ref)
+			return exitcode.Newf(exitcode.NotFound, "grant action not found in this App, or not visible to this caller (the name and the App ref given are not shown)")
 		}
 		dto := grantActionFrom(&resp.Action.GrantActionFields)
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

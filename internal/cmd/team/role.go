@@ -321,7 +321,7 @@ func newCmdRoleGet(f *cmdutil.Factory) *cobra.Command {
 				})
 			}
 			return exitcode.Newf(exitcode.NotFound,
-				"no role %q in this App — `hadron team role list` shows the definitions", args[0])
+				"no such role in this App (the role given is not shown) — `hadron team role list` shows the definitions")
 		},
 	}
 	cmd.Flags().StringVar(&teamAgent, "team-agent", "", "Team Agent holding the roles branch, when the App installs more than one")

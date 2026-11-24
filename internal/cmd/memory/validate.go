@@ -186,7 +186,7 @@ deliberately, and preferably on a narrowed --check.`,
 			}
 			r := resp.ValidateMemory
 			if r == nil {
-				return notFoundMemory(args[0])
+				return notFoundMemory()
 			}
 
 			dto := buildValidateDTO(cmdutil.CanonicalMemoryRef(args[0]), r, want)

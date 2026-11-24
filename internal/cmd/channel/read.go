@@ -203,7 +203,7 @@ For your own team chat use "hadron team chat read --mentions-me".`,
 				}
 			}
 			if page == nil {
-				return exitcode.Newf(exitcode.NotFound, "no Channel %q is readable here", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no Channel is readable here (the id or address given is not shown)")
 			}
 			result := readResultDTO{Messages: []messageDTO{}, Total: page.Total}
 			for _, m := range page.Items {

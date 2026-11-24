@@ -47,7 +47,7 @@ successful Channel result, with no extra memory lookup.`,
 			if resp == nil || resp.Channel == nil {
 				// A null parent discloses neither existence nor readability.
 				// Null nested memory, by contrast, preserves this Channel.
-				return exitcode.Newf(exitcode.NotFound, "no Channel %q is readable here", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no Channel is readable here (the id or address given is not shown)")
 			}
 			d := channelGetDTO{channelDTO: dtoFrom(resp.Channel.ChannelFields, resp.Channel.ChannelMemory)}
 			// The pointer is optional enrichment. Channel facts remain usable

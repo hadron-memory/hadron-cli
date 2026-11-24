@@ -149,7 +149,7 @@ worker, a person or an App is not visible here.
 			return api.MapError(err)
 		}
 		if resp == nil || resp.Grant == nil {
-			return exitcode.Newf(exitcode.NotFound, "grant %q not found (or not visible to this worker-bound caller)", args[0])
+			return exitcode.Newf(exitcode.NotFound, "grant not found, or not visible to this worker-bound caller (the id given is not shown)")
 		}
 		dto := workerGrantFrom(resp.Grant)
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

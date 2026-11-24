@@ -69,7 +69,7 @@ same way: the confirmation names the --org you gave.`,
 				return api.MapError(err)
 			}
 			if resp.Memory == nil {
-				return exitcode.Newf(exitcode.NotFound, "memory %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "memory not found (the memory ref given is not shown)")
 			}
 			subs := make([]subscriptionDTO, 0, len(resp.Memory.Subscriptions))
 			for _, s := range resp.Memory.Subscriptions {

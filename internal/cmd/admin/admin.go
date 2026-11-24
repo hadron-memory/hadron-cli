@@ -244,7 +244,7 @@ does not say which. --json is the record described under list.`,
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.ImpersonationSession == nil {
-				return exitcode.Newf(exitcode.NotFound, "no impersonation session %q is readable here", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no impersonation session is readable here (the id given is not shown)")
 			}
 			d := toImpersonationDTO(resp.ImpersonationSession.ImpersonationSessionFields)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
