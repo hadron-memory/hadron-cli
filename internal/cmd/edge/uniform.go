@@ -118,7 +118,7 @@ route marker {"crossMemory": true}), verbatim, or null when the edge has none.`,
 				return api.MapError(err)
 			}
 			if resp.Edge == nil {
-				return exitcode.Newf(exitcode.NotFound, "edge %q not found — or you cannot read its memory", args[0])
+				return exitcode.Newf(exitcode.NotFound, "edge not found — or you cannot read its memory (the id or URN given is not shown)")
 			}
 			dto := uniformEdgeFrom(resp.Edge.UniformEdge)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

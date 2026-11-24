@@ -482,8 +482,8 @@ replacement over the cap is rejected.`,
 			if changed("expected-revision") {
 				if node.Id != expectedID {
 					return exitcode.Newf(exitcode.Conflict,
-						"%s now names node %s, not the previewed node %s — nothing was written. Re-read the spec and get the proposal approved again before saving",
-						args[0], node.Id, expectedID)
+						"the citation now names node %s, not the previewed node %s — nothing was written (the citation given is not shown). Re-read the spec and get the proposal approved again before saving",
+						node.Id, expectedID)
 				}
 				if node.Revision != expectedRev {
 					return exitcode.Newf(exitcode.Conflict,

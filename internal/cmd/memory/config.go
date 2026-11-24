@@ -213,7 +213,7 @@ a rule in force: repoint or add the rule yourself.`,
 			}
 			cfg := resp.MemoryConfig
 			if cfg == nil {
-				return notFoundMemory(args[0])
+				return notFoundMemory()
 			}
 			dto := memoryConfigDTO{
 				ID: cfg.Id, MemoryID: cfg.MemoryId, Rules: []nodeRoleRuleDTO{}, DefaultSkips: []defaultSkipDTO{},
@@ -388,7 +388,7 @@ func findRule(cmd *cobra.Command, f *cmdutil.Factory, memoryRef, role string) (*
 		return nil, "", api.MapError(err)
 	}
 	if resp.MemoryConfig == nil {
-		return nil, "", notFoundMemory(memoryRef)
+		return nil, "", notFoundMemory()
 	}
 	roles := []string{}
 	for _, r := range resp.MemoryConfig.Rules {

@@ -78,7 +78,7 @@ whether the value is unset or withheld. The server decides access.`,
 			}
 			a := resp.App
 			if a == nil {
-				return exitcode.Newf(exitcode.NotFound, "no App found for %q", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no App found (the App ref given is not shown)")
 			}
 			pinID, err := readChatbotPin(cmd.Context(), client, ref, args[0], true)
 			if err != nil {

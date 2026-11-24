@@ -34,7 +34,7 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 				return api.MapError(err)
 			}
 			if !resp.DeleteAgentSchedule {
-				return exitcode.Newf(exitcode.NotFound, "schedule %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "schedule not found (the id given is not shown)")
 			}
 			dto := map[string]string{"id": args[0], "status": "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

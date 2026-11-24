@@ -31,7 +31,7 @@ node that is not a record.`,
 			// object(ref:) returns JSON null (not an error) when absent or not an
 			// object — a nil pointer, or the literal `null`.
 			if resp.Object == nil || string(*resp.Object) == "null" {
-				return exitcode.Newf(exitcode.NotFound, "object %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "object not found (the ref given is not shown)")
 			}
 			return writeObject(f, *resp.Object)
 		},

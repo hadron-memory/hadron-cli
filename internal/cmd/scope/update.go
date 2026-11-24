@@ -86,7 +86,7 @@ empty string rather than removing the value.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.UpdateScope == nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server returned no scope for %q", args[0])
+				return exitcode.Newf(exitcode.Unavailable, "the server returned no scope (the name or id given is not shown)")
 			}
 			d := dtoFromFields(resp.UpdateScope.ScopeFields)
 			d.Memories = memoriesFromEntries(resp.UpdateScope.ScopeMemories)

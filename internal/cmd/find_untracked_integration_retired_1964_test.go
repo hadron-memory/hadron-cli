@@ -108,8 +108,9 @@ func TestFindUntrackedRetiredFlagsAreRefusedByName_1964(t *testing.T) {
 		})
 	}
 	_, _, err := runTeamTask(t, map[string]string{}, "team", "task", "find-untracked", "--teamx", "a")
-	if err == nil || !strings.Contains(err.Error(), "unknown flag: --teamx") {
-		t.Fatalf("a flag that never existed keeps cobra's error: %v", err)
+	// cli#3029: the unknown-flag refusal no longer echoes the typed flag (#2898 policy).
+	if err == nil || !strings.Contains(err.Error(), "unknown flag") || strings.Contains(err.Error(), "teamx") || strings.Contains(err.Error(), "retired") {
+		t.Fatalf("a flag that never existed keeps the unknown-flag error, not the retired one: %v", err)
 	}
 }
 

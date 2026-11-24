@@ -158,7 +158,7 @@ router body that was not updated. The message says which part is missing.`,
 			}
 			if targetID == router.Node.Id {
 				return exitcode.Newf(exitcode.Usage,
-					"%q is the router itself — a route must lead somewhere else", args[0])
+					"the node given is the router itself — a route must lead somewhere else (the ref given is not shown)")
 			}
 			// Read the target for its loc, memory and description. This is the
 			// difference from `create`: the node is already authored, so its own
@@ -168,7 +168,7 @@ router body that was not updated. The message says which part is missing.`,
 				return api.MapError(err)
 			}
 			if target.Node == nil {
-				return exitcode.Newf(exitcode.NotFound, "node %q could not be read", args[0])
+				return exitcode.Newf(exitcode.NotFound, "the node could not be read (the ref given is not shown)")
 			}
 
 			if crossMemory && target.Node.MemoryId == router.Node.MemoryId {

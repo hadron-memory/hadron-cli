@@ -75,7 +75,8 @@ func checkUnknownSubcommand(args []string) (jsonOut bool, err error) {
 // up explicitly with a command's SuggestFor (e.g. spec edit answers
 // for "update").
 func unknownSubcommandErr(cmd *cobra.Command, typed string) error {
-	msg := fmt.Sprintf("unknown command %q for %q", typed, cmd.CommandPath())
+	// cli#3029: the typed name is not echoed (#2898 policy); the suggestions are command names.
+	msg := fmt.Sprintf("unknown command for %q (the name given is not shown)", cmd.CommandPath())
 	if suggestions := cmd.SuggestionsFor(typed); len(suggestions) > 0 {
 		msg += fmt.Sprintf("; did you mean %s?", orList(suggestions))
 	}

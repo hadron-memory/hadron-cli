@@ -238,7 +238,7 @@ is one call instead of four.`, abstractSoftMax),
 					// --new-path is the legacy chain scaffolder; any other loc is
 					// created as-is without it (#708).
 					return exitcode.Newf(exitcode.Usage,
-						"--new-path scaffolds a legacy citation chain, and %q is not one (%v) — to create a spec at this loc, drop --new-path", args[0], perr)
+						"--new-path scaffolds a legacy citation chain, and the citation given is not one (not shown) — a legacy citation is %s; to create a spec at this loc, drop --new-path", legacyCitationGrammar)
 				}
 				if err := refuseNewTitlePrefix(title, target.Format()); err != nil {
 					return err

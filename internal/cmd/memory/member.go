@@ -59,7 +59,7 @@ subscription are not listed (memory share list, memory subscription list).`,
 				return api.MapError(err)
 			}
 			if resp.Memory == nil {
-				return exitcode.Newf(exitcode.NotFound, "memory %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "memory not found (the memory ref given is not shown)")
 			}
 			members := make([]memberDTO, 0, len(resp.Memory.Members))
 			for _, m := range resp.Memory.Members {

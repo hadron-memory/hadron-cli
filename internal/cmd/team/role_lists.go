@@ -253,7 +253,7 @@ Needs server ` + roleListsFloor + ` or later.
 				}
 			}
 			if purposeName == "" {
-				return exitcode.Newf(exitcode.Usage, "unknown purpose %q: it is one of %s", output.SafeCell(args[0]), roleListPurposeNames())
+				return exitcode.Newf(exitcode.Usage, "unknown purpose (the value given is not shown): it is one of %s", roleListPurposeNames())
 			}
 			names := args[1:]
 			if clearList && len(names) > 0 {

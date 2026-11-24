@@ -189,7 +189,8 @@ func TestRetiredStubsRejectUnknownFlagsAsUsage(t *testing.T) {
 			if got := exitOf(err); got != exitcode.Usage {
 				t.Fatalf("exit = %d (%v), want %d", got, err, exitcode.Usage)
 			}
-			if !strings.Contains(err.Error(), "unknown flag: --bogus") || strings.Contains(err.Error(), "retired") {
+			// cli#3029: the unknown-flag refusal no longer echoes the typed flag (#2898 policy).
+			if !strings.Contains(err.Error(), "unknown flag") || strings.Contains(err.Error(), "bogus") || strings.Contains(err.Error(), "retired") {
 				t.Fatalf("message = %q, want cobra's unknown-flag error", err.Error())
 			}
 		})

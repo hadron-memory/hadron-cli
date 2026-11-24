@@ -168,9 +168,7 @@ never ran that command, this does not apply to you.`,
 	root.PersistentFlags().StringArrayVar(&unlock.Files, "unlock-passphrase-file", nil, "file holding the --unlock passphrase, one per --unlock in the same order; refused unless only you can read it (chmod 600)")
 	root.PersistentFlags().BoolVar(&unlock.Stdin, "unlock-passphrase-stdin", false, "read the passphrase for a single --unlock memory from stdin")
 
-	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
-		return exitcode.New(exitcode.Usage, err)
-	})
+	root.SetFlagErrorFunc(flagErrorWithoutValue)
 
 	root.AddCommand(admincmd.NewCmdAdmin(f))
 	root.AddCommand(authcmd.NewCmdAuth(f))
@@ -431,6 +429,7 @@ func humanErrorText(err error) string {
 }
 
 func renderError(f *cmdutil.Factory, err error) int {
+	err = withoutEchoedCommand(err)
 	code := exitCodeFor(err)
 	err = withStoredCredentialHint(f, code, err)
 
