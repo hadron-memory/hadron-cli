@@ -196,10 +196,15 @@ var (
 	// carries the banner's "429" prefix or its reset clause (the line captured
 	// in the cli#2676 report has both), so a variant without one still reads.
 	usageLimitPhrase = regexp.MustCompile(`(?i)usage limit reached`)
-	usageLimitLine   = regexp.MustCompile(`(?i)\b429 usage limit reached`)
+	// The banner's "429" may be parenthesised or bracket-coded ("API Error 429
+	// [1308] usage limit, resets ..."), so the digits need not touch the phrase:
+	// "429" then "usage limit" on one line.
+	usageLimitLine = regexp.MustCompile(`(?i)\b429\b.*usage limit`)
 	// The reset time: "reset YYYY-MM-DD HH:MM:SS", then an optional "(UTC+8)",
 	// "(UTC-5)" or "(UTC+5:30)".
-	usageLimitReset = regexp.MustCompile(`(?i)\breset (\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?: \(UTC(?:([+-])(\d{1,2})(?::?(\d{2}))?)?\))?`)
+	// The harness may say "reset", "resets" or "will reset at", and may leave the
+	// seconds off ("resets 2026-11-23 18:58").
+	usageLimitReset = regexp.MustCompile(`(?i)\bresets? (?:at )?(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?(?: \(UTC(?:([+-])(\d{1,2})(?::?(\d{2}))?)?\))?`)
 )
 
 // usageLimit reports whether the screen shows a usage-limit line and, when it
@@ -216,7 +221,10 @@ func usageLimit(tail []string, now time.Time) (limited bool, resetAt *time.Time,
 		}
 		seen++
 		m := usageLimitReset.FindStringSubmatch(s)
-		if !usageLimitPhrase.MatchString(s) || (!usageLimitLine.MatchString(s) && m == nil) {
+		// A banner is "429" with the phrase "usage limit" on one line, or the
+		// phrase "usage limit reached" with a reset clause. Either way a plain
+		// mention does not count.
+		if !usageLimitLine.MatchString(s) && (!usageLimitPhrase.MatchString(s) || m == nil) {
 			continue
 		}
 		if m == nil {
