@@ -121,8 +121,10 @@ func TestFlagErrorStillRendersJSON(t *testing.T) {
 	if code != exitcode.Usage {
 		t.Errorf("a flag error is exit 2, got %d", code)
 	}
-	if !strings.Contains(msg, "nosuchflag") {
-		t.Errorf("the envelope must name the offending flag: %q", msg)
+	// cli#3029 (#2898 policy): the envelope says the flag is unknown and points at --help; it no longer
+	// echoes the typed flag (was: "must name the offending flag").
+	if !strings.Contains(msg, "unknown flag") || !strings.Contains(msg, "hadron node get --help") || strings.Contains(msg, "nosuchflag") {
+		t.Errorf("the envelope says the flag is unknown without echoing it: %q", msg)
 	}
 }
 

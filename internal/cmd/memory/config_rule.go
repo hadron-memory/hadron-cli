@@ -229,7 +229,7 @@ you cannot read is refused exactly like a missing one (exit 4).`,
 			}
 			p := resp.CreateNodeRoleRule
 			if p == nil || p.Rule == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no rule for role %q", args[1])
+				return exitcode.Newf(exitcode.Error, "the server returned no rule for the role (the role given is not shown)")
 			}
 			dto := ruleWriteDTO{Rule: dtoFromRule(&p.Rule.NodeRoleRuleFields), Warnings: []configWarningDTO{}}
 			for _, w := range p.Warnings {

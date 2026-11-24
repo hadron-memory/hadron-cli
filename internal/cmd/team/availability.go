@@ -39,14 +39,14 @@ func newCmdTeamAvailability(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "availability <command>",
 		Short: "Worker and model-family availability for work",
-		Long: `Who and what is free for work in the team App (cor:agt:060:05).
+		Long: `Who and what is free for work in the team App.
 ` + "`get`" + ` shows every worker's and family's record; ` + "`set`" + ` writes one.
 
 Setting a WORKER's availability is the worker itself (only ever to
-unavailable), the person holding its name, or whoever manages the App
-(cor:agt:060:08). Setting a FAMILY's is whoever manages the App
-(cor:agt:060:09). A reason is required when unavailable and refused when
-available; --until (RFC 3339, future) is an unavailable-only bound — a
+unavailable), the person holding its name, or whoever manages the App.
+Setting a FAMILY's is whoever manages the App. A reason is required when
+unavailable and refused when available;
+--until (RFC 3339, future) is an unavailable-only bound — a
 passed until reads as available at once. Then, for a WORKER record, within
 a minute the server records the lapse: the record becomes available, set by
 LAPSE (setBy in --json), which ` + "`get`" + ` shows as "AVAILABLE (lapsed
@@ -193,7 +193,7 @@ future) bounds an unavailable record.
 With --instruction, the binding is captured before lookups and checked again
 before the one write. An unusable or changed binding sends the claim as the
 signed-in person instead, with no worker session. Refusals are never retried.
-The instructed path requires server ` + instruction.ServerFloorInstructionManagerWrites + ` (merged as hadron-server#3376).
+The instructed path requires server ` + instruction.ServerFloorInstructionManagerWrites + `.
 
 --instruction <kind>:<ref> claims that the holder told this worker to make
 this one change. kind is team-chat-message, task or live-chat. ref names the

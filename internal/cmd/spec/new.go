@@ -60,7 +60,7 @@ func newCmdNew(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"scaffold"},
 		Short:   "Create a spec node at a loc, or allocate the next legacy citation",
 		Long: fmt.Sprintf(`Create a spec node pre-filled with a scaffold (an abstract placeholder and
-a legacy section skeleton). Lint does not require those sections (#708);
+a legacy section skeleton). Lint does not require those sections;
 the sections a spec needs depend on its type.
 
   hadron spec new <loc> --title <title> [--role spec.rule]
@@ -238,7 +238,7 @@ is one call instead of four.`, abstractSoftMax),
 					// --new-path is the legacy chain scaffolder; any other loc is
 					// created as-is without it (#708).
 					return exitcode.Newf(exitcode.Usage,
-						"--new-path scaffolds a legacy citation chain, and %q is not one (%v) — to create a spec at this loc, drop --new-path", args[0], perr)
+						"--new-path scaffolds a legacy citation chain, and the citation given is not one (not shown) — a legacy citation is %s; to create a spec at this loc, drop --new-path", legacyCitationGrammar)
 				}
 				if err := refuseNewTitlePrefix(title, target.Format()); err != nil {
 					return err

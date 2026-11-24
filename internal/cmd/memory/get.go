@@ -59,7 +59,7 @@ subscription list (organizations). To see its nodes, use node list -m.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.Memory == nil {
-				return notFoundMemory(args[0])
+				return notFoundMemory()
 			}
 
 			m := resp.Memory

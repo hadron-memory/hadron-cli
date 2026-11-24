@@ -3,6 +3,7 @@ package team
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +22,7 @@ func TestAckMixed1229ConfigWiringAndStatus(t *testing.T) {
 			dir := t.TempDir()
 			path := filepath.Join(dir, "host.yaml")
 			body := "app: app1\nworkers:\n  iris:\n    family: claude\n    launch: [claude]\nkey_file: key\nworktrees_root: " + dir + "\ndelivery:\n  enabled: true\n  orca_bin: /bin/true\n" + c.key
-			if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+			if err := os.WriteFile(path, []byte(hostyaml.Supervised(body)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			cfg, err := hostpoller.LoadConfig(path)
@@ -63,7 +64,7 @@ func TestAckMixed1229RejectsNonBoolean(t *testing.T) {
 			dir := t.TempDir()
 			p := filepath.Join(dir, "host.yaml")
 			body := "app: app1\nworkers:\n  iris:\n    family: claude\n    launch: [claude]\nkey_file: key\nworktrees_root: " + dir + "\ndelivery:\n  ack_mixed: " + v + "\n"
-			if err := os.WriteFile(p, []byte(body), 0600); err != nil {
+			if err := os.WriteFile(p, []byte(hostyaml.Supervised(body)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := hostpoller.LoadConfig(p); err == nil {
@@ -84,7 +85,7 @@ func TestAckMixed1229YAMLCompatibility(t *testing.T) {
 			dir := t.TempDir()
 			path := filepath.Join(dir, "host.yaml")
 			body := "app: app1\nworkers:\n  iris:\n    family: claude\n    launch: [claude]\nworktrees_root: " + dir + "\n" + fragment
-			if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+			if err := os.WriteFile(path, []byte(hostyaml.Supervised(body)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			cfg, err := hostpoller.LoadConfig(path)
@@ -104,7 +105,7 @@ func TestAckMixed1229KeepsKnownFieldDiagnostics(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "host.yaml")
 	body := "app: app1\nworkers: {iris: {family: claude, launch: [claude]}}\nworktrees_root: " + dir + "\ndelivery:\n  unexpected: true\n"
-	if err := os.WriteFile(p, []byte(body), 0600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(body)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	_, err := hostpoller.LoadConfig(p)

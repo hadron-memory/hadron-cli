@@ -1332,6 +1332,15 @@ func codeForExtension(code string) int {
 	// WORKER_TRIGGER_GRANT_ENFORCED is off).
 	case code == "TRIGGER_GRANT_REQUIRED":
 		return exitcode.Forbidden
+	// The dark-session restart's grant gate (hadron-cli#3050 over
+	// hadron-server#4930, cor:agt:070:08 S4a / cor:acl:140:02): a caller
+	// without a covering worker.session.restart grant — or one that does not
+	// name the target — gets this ONE refusal, before anything about the
+	// target is read. An authority refusal like the two above, so it
+	// precedes the _REQUIRED suffix rule, which would read it as a missing
+	// argument; the remedy is a signed grant, not a different flag.
+	case code == "RESTART_GRANT_REQUIRED":
+		return exitcode.Forbidden
 	case code == "BOOT_PROMPT_TARGET_RETIRED" || code == "BOOT_PROMPT_NO_SOURCE" || code == "BOOT_PROMPT_SOURCE_INVALID" || code == "BOOT_PROMPT_INCLUDE_RETIRED" || code == "BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE":
 		return exitcode.Conflict
 	case code == "BOOT_PROMPT_INCLUDE_UNAVAILABLE":
@@ -1697,10 +1706,17 @@ func codeForExtension(code string) int {
 		// The caller must explicitly attest verified external absence; --yes
 		// alone confirms deletion, not that separate input (server#1162).
 		return exitcode.Usage
-	// A stale casting changed concurrently; an unchanged agent has nothing to
-	// change; a role-less agent cannot supply a new role. The caller must
-	// choose another agent or change that state. All three are conflict (5),
-	// never idempotent success, under the cli#1336 gate.
+	// A worker with references or an unreleased stint; a stale casting that
+	// changed concurrently; an unchanged agent; a role-less agent that cannot supply
+	// a new role. The caller must choose another agent or change that state.
+	// All are conflict (5), never idempotent success, under the cli#1336 gate.
+	// WORKER_CENSUS_INCOMPLETE (cli#2959) is the server's fail-closed "reference
+	// check did not finish": it ANSWERED and nothing was deleted, so the outcome is
+	// known and the state the caller must change is time (retry) or the choice
+	// (retire). That is a conflict, not unavailable (7), which is only for a request
+	// or answer that never arrived.
+	case code == "WORKER_CENSUS_INCOMPLETE":
+		return exitcode.Conflict
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
 		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE" ||
 		code == "WORKER_CASTING_STALE" || code == "WORKER_AGENT_UNCHANGED" || code == "WORKER_AGENT_HAS_NO_ROLE":
@@ -1762,6 +1778,18 @@ func codeForExtension(code string) int {
 	case code == "HOST_OPERATION_NOT_COLLECTED" || code == "HOST_OPERATION_ALREADY_REPORTED" ||
 		code == "HOST_OPERATION_NOT_DONE" || code == "LAUNCH_REFUSED" ||
 		code == "WORKER_NOT_HELD" || code == "WORKER_LIVE" || code == "WORKER_START_PENDING":
+		return exitcode.Conflict
+	// The dark-session restart's target-state refusals (hadron-cli#3050 over
+	// hadron-server#4930, cor:agt:070:08 S4a): nothing ended and no use of
+	// the grant spent, and a same-call retry cannot succeed until the state
+	// moves — no open session to restart, nowhere to start it (no live host
+	// lists the worker with a worktree), a paused team, a stopped worker —
+	// Conflict, like their WORKER_LIVE / WORKER_NOT_HELD /
+	// WORKER_START_PENDING neighbours directly above. WORKER_NOT_FOUND and
+	// APP_NOT_FOUND ride the _NOT_FOUND rule below (4); WORKER_RETIRED and
+	// WORKER_START_PENDING already have their rows here.
+	case code == "NO_OPEN_SESSION" || code == "NO_LIVE_HOST" ||
+		code == "TEAM_PAUSED" || code == "WORKER_STOPPED":
 		return exitcode.Conflict
 	// cli#1567: a distinct-assignees match that found nobody (reason NOBODY_FREE,
 	// …) is the team's availability, not the caller's input: the call is valid and

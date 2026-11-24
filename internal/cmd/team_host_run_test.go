@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -49,12 +50,22 @@ func hostServerFake(t *testing.T, responses map[string]string) (*httptest.Server
 				answerAs, derive = "RegisterHost", true
 			}
 		}
-		mu.Lock()
-		calls = append(calls, hostCall{recorded, r.Header.Get("Authorization"), r.Header.Get("X-Hadron-Session"), body.Variables})
-		mu.Unlock()
+		_, stubbed := responses[recorded]
+		if recorded != "HostRelaunchSnapshot" || stubbed {
+			// A test that does not stub the relaunch snapshot (every host run reads it now, cli#2914) is
+			// not asserting on it: it is answered below without being recorded.
+			mu.Lock()
+			calls = append(calls, hostCall{recorded, r.Header.Get("Authorization"), r.Header.Get("X-Hadron-Session"), body.Variables})
+			mu.Unlock()
+		}
 		resp, ok := responses[answerAs]
 		if derive {
 			resp = withEmptyRefused(resp)
+		}
+		if !ok && body.OperationName == "HostRelaunchSnapshot" {
+			// Every worker launches through Orca now (cli#2914), so every host run wires the relaunch owner
+			// and reads this snapshot: unless a test stubs it, the server has no desired state for the host.
+			resp, ok = `{"data":{"myApp":{"id":"app1"},"hostDesiredState":{"hostId":"h1","sweepMode":"OFF","workers":[]}}}`, true
 		}
 		if !ok {
 			t.Errorf("unexpected operation %q", body.OperationName)
@@ -102,7 +113,7 @@ workers:
     launch: [claude-worker]
 ` + extra
 	p := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(p, []byte(cfg), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -180,7 +191,7 @@ func TestTeamHostRunOnceUsesOnlyTheHostKey(t *testing.T) {
 func TestTeamHostRunRefusesWithoutAHostKey(t *testing.T) {
 	dir := t.TempDir()
 	cfg := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(cfg, []byte("app: a\nworktrees_root: /w\nworkers:\n  iris:\n    family: claude\n    launch: [x]\n"), 0o600); err != nil {
+	if err := os.WriteFile(cfg, []byte(hostyaml.Supervised("app: a\nworktrees_root: /w\nworkers:\n  iris:\n    family: claude\n    launch: [x]\n")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("HADRON_HOST_KEY", "")
@@ -204,7 +215,7 @@ func TestTeamHostRunRefusesABadConfig(t *testing.T) {
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
 			cfg := filepath.Join(t.TempDir(), "host.yaml")
-			if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+			if err := os.WriteFile(cfg, []byte(hostyaml.Supervised(body)), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			f, _ := testFactory(t)

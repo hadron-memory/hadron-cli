@@ -69,7 +69,7 @@ rejected name is reported in the server's own words.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.CreateScope == nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server returned no scope for %q", args[0])
+				return exitcode.Newf(exitcode.Unavailable, "the server returned no scope (the name given is not shown)")
 			}
 			d := dtoFromFields(resp.CreateScope.ScopeFields)
 			d.Memories = memoriesFromEntries(resp.CreateScope.ScopeMemories)

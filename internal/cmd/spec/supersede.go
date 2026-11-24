@@ -79,7 +79,7 @@ an error. Credentials without a user keep the existing preview. The real
 write remains authoritative for other refusals.
 
 A RESCINDED or WITHDRAWN spec (lead, or the rescinded/withdrawn tag) has no
-successor (cor:spc:010:01): both modes, --dry-run included, refuse it with
+successor: both modes, --dry-run included, refuse it with
 exit 5 before any write. If it becomes one after the link or replacement has
 landed, the retirement is refused (exit 5) and that link stays, reported.
 

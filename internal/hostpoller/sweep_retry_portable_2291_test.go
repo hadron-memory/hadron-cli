@@ -30,6 +30,21 @@ func (s *portableSource2291) RelaunchSnapshot(context.Context, string) (Relaunch
 	return s.snapshot, nil
 }
 
+// RelaunchWorker answers as the selector does (cli#2816): the asked worker's
+// row alone. The narrowing is inlined because narrow2816 lives in the
+// linux-tagged loop fixture and this file must compile for every release
+// target.
+func (s *portableSource2291) RelaunchWorker(_ context.Context, _ string, worker string) (RelaunchSnapshot, error) {
+	out := s.snapshot
+	out.Workers = []RelaunchWorker{}
+	for _, row := range s.snapshot.Workers {
+		if row.WorkerID == worker {
+			out.Workers = append(out.Workers, row)
+		}
+	}
+	return out, nil
+}
+
 type portableJournal2291 map[string]hostrelaunch.Record
 
 func (j portableJournal2291) Load(k string) (hostrelaunch.Record, error) { return j[k], nil }

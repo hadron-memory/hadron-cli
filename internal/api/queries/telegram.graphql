@@ -1,0 +1,62 @@
+# Read-only Telegram connection metadata (cli#2952, over hadron-server#4824).
+# Never request lastError; no field ever returns the bot token.
+query TelegramConnections(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  telegramConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      organizationId
+      appId
+      provider
+      status
+      displayName
+      botId
+      botUsername
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+query TelegramConnection($ref: ID!) {
+  telegramConnection(ref: $ref) {
+    id
+    organizationId
+    appId
+    provider
+    status
+    displayName
+    botId
+    botUsername
+    createdAt
+    updatedAt
+  }
+}
+
+# cli#2952 connect/disconnect. The bot token is a write-only input: the server's
+# TelegramConnection type has no token field, and lastError is never requested.
+mutation CreateTelegramConnection($appRef: ID!, $botToken: String!) {
+  createTelegramConnection(appRef: $appRef, botToken: $botToken) {
+    id
+    organizationId
+    appId
+    provider
+    status
+    displayName
+    botId
+    botUsername
+    createdAt
+    updatedAt
+  }
+}
+
+mutation DeleteTelegramConnection($ref: ID!) {
+  deleteTelegramConnection(ref: $ref)
+}

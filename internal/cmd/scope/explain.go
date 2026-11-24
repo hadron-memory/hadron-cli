@@ -115,7 +115,7 @@ server; answer it by passing the scope's id instead.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.ScopeExplain == nil || resp.ScopeExplain.Scope == nil {
-				return exitcode.Newf(exitcode.NotFound, "no scope %q is readable here", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no scope is readable here (the name or id given is not shown)")
 			}
 			ex := resp.ScopeExplain
 

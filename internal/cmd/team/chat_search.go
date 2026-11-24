@@ -21,28 +21,29 @@ func newCmdTeamChatSearch(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <query> [--limit <n>] [--cursor <c>]",
 		Short: "Search the team chat's history for a text",
-		Long: `Search the team chat's history for messages containing <query>, newest
-first. The match is a literal, case-insensitive substring of the message text.
-Results are REFERENCES only (the seq and the message URN): there is no body or
-snippet, so read a hit with ` + "`team chat read --since <seq-1> --limit 1`" + `.
+		Long: `Find messages in the team chat's history whose text contains <query>, newest
+first. The match is a literal, case-insensitive piece of the message text, not
+a pattern. Results are references only, the seq and the message URN, with no
+text: read a hit with ` + "`" + `team chat read --since <seq-1> --limit 1` + "`" + `.
 
-A call stops at a full page or at the server's scan bound, whichever comes
-first. "complete" means the search reached the start of the history. Otherwise
-the footer prints the cursor: pass it as --cursor, with the SAME query, to
-continue. An empty page that is not complete is not "no matches"; the scan
-bound fired before any match, so continue. Only "no matches" with "complete"
-means the chat holds none.
+A search stops at a full page or at the server's scan limit, whichever comes
+first. The output says "complete" only when the search reached the start of the
+chat's history. Otherwise it prints a cursor: pass it as --cursor, with the
+SAME query, to continue. An empty page that is not complete does not mean "no
+matches"; the scan limit was reached before any match, so continue. Only "no
+matches" together with "complete" means the chat has none.
 
-The server owns the numbers (query length, default and maximum --limit, scan
-bound); this command passes --limit and --cursor through and never clamps
-them. Typed refusals keep the server's code in the --json envelope
-(serverCode): TEAM_CHAT_SEARCH_QUERY_LENGTH and TEAM_CHAT_SEARCH_CURSOR_INVALID
-exit 2, TEAM_CHAT_SEARCH_ENCRYPTED exit 5 — a chat in an encrypted memory is
+The server sets the limits (longest query, default and largest --limit, how
+far one call scans); this command passes --limit and --cursor through
+unchanged. Refusals keep the server's name in the --json error as serverCode:
+TEAM_CHAT_SEARCH_QUERY_LENGTH (query too long) and
+TEAM_CHAT_SEARCH_CURSOR_INVALID (cursor not valid for this query) exit 2;
+TEAM_CHAT_SEARCH_ENCRYPTED exits 5, because a chat in an encrypted memory is
 refused, never shown as an empty result.
 
-Searching changes no read position and marks nothing read. The team App
-resolves like the other team chat commands (--app, the App context, or the
-worktree binding). To search another channel, use ` + "`hadron channel search`" + `.`,
+Searching does not change your read position or mark anything read. The team
+is chosen as in ` + "`" + `hadron team chat --help` + "`" + `. To search another channel, use
+` + "`" + `hadron channel search` + "`" + `.`,
 		Example: `  hadron team chat search "release freeze"
   hadron team chat search deploy --limit 50 --json
   hadron team chat search deploy --cursor <cursor from the last page>`,

@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -89,15 +90,18 @@ var localOnlySliceA = []string{
 // #2578, Wolfgang's stop, hadron-cli
 // findings:host-command-help-harness-must-sandbox).
 var expectedRefusalsSliceA = map[string]string{
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees":                                                         "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --apply":                                                 "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host sweep --config /etc/hadron/host.yaml":                                                                                             "refuses before any request when the host has no saved registration; the page documents it in its exit codes (5: no saved registration, start the host poller first)",
 	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json":                       "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 }
 
 // knownPanicsSliceA lists commands that panic on a reply with no data, each
 // tracked by a follow-up issue (a panic is a defect of the command, not of
-// the help). It is empty: `team host issue` was the one entry (#2572) and no
-// longer panics. An entry that stops panicking fails the harness as stale
-// (cli#2617), so a fixed panic cannot stay allowlisted.
+// the help). It is empty: `team host issue` (#2572) and `team host ops` (#3077)
+// were its entries and no longer panic. An entry that stops panicking fails the
+// harness as stale (cli#2617), so a fixed panic cannot stay allowlisted.
 var knownPanicsSliceA = map[string]string{}
 
 // sliceAFileContent is the fixture document a file-taking flag of this slice
@@ -420,7 +424,7 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 						if !filepath.IsAbs(p) {
 							p = filepath.Join(dir, p)
 						}
-						if err := os.WriteFile(p, []byte(sliceAFileContent(flag, dir)), 0o600); err != nil {
+						if err := os.WriteFile(p, []byte(hostyaml.Supervised(sliceAFileContent(flag, dir))), 0o600); err != nil {
 							t.Fatal(err)
 						}
 						if flag == "--config" || flag == "--from" {
@@ -530,7 +534,7 @@ func TestSliceAHelpExamplesAreWired1054(t *testing.T) {
 		for _, r := range results {
 			fmt.Fprintf(&b, "| `%s` | `%s` | %s | %s |\n", r.Page, strings.ReplaceAll(r.Example, "|", "\\|"), r.Mode, strings.ReplaceAll(r.Outcome, "|", "\\|"))
 		}
-		if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+		if err := os.WriteFile(path, []byte(hostyaml.Supervised(b.String())), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -135,7 +135,7 @@ Writes to stdout by default (so it composes in a pipe with node import);
 				return api.MapError(err)
 			}
 			if resp == nil || resp.NodeExport == nil {
-				return exitcode.Newf(exitcode.NotFound, "node %q is not readable", args[0])
+				return exitcode.Newf(exitcode.NotFound, "the node is not readable (the ref given is not shown)")
 			}
 
 			// The payload encoding is deterministic by format: md/json come back as

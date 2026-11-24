@@ -54,7 +54,7 @@ Requires write access to the host memory.`,
 				return api.MapError(err)
 			}
 			if resp == nil || !resp.DeleteChannel {
-				return exitcode.Newf(exitcode.NotFound, "no Channel %q was deleted — it is unreadable or already gone", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no Channel was deleted — it is unreadable or already gone (the id or address given is not shown)")
 			}
 			dto := map[string]string{"ref": args[0], "status": "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

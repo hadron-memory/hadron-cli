@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -120,13 +121,13 @@ func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bo
 		if n == "state.json" && state == health1383MissingState {
 			continue // the state file does not exist at all (#1383)
 		}
-		if e := os.WriteFile(filepath.Join(dir, n), []byte(s), 0600); e != nil {
+		if e := os.WriteFile(filepath.Join(dir, n), []byte(hostyaml.Supervised(s)), 0600); e != nil {
 			t.Fatal(e)
 		}
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\n%s", srv.URL, dir, health1181WorkerExtra)
 	path := filepath.Join(dir, "host.yaml")
-	if e := os.WriteFile(path, []byte(cfg), 0600); e != nil {
+	if e := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0600); e != nil {
 		t.Fatal(e)
 	}
 	f := cmdutil.NewFactory()

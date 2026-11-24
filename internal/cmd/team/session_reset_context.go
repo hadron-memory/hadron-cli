@@ -59,7 +59,7 @@ func newCmdSessionResetContext(f *cmdutil.Factory) *cobra.Command {
 		Use:   "reset-context [--note-file <path>] [--transcript <path>]",
 		Short: "Reset your context: checkpoint, end this agent, and have the host relaunch it at once",
 		Long: `Reset this worktree's worker context and come back at once, in the same
-session (hadron-cli#2161). In order:
+session. In order:
 
   1. the checkpoint node, ` + "`checkpoints:<YYYY-MM-DD-HHMMSS>`" + ` (UTC) in the worker's
      own memory, read back, exactly as ` + "`session shed`" + ` writes its node
@@ -71,12 +71,12 @@ session (hadron-cli#2161). In order:
      exported as ` + AgentPIDEnv + `, and only while that pid is an
      ancestor of this command. Never a pattern, never another process.
 
-The host's poller sees the agent it launched exit, finds the fresh stamp for
+The host (team host run) sees the agent it launched exit, finds the fresh stamp for
 the same session, and starts a new agent in the same worktree through the
 same launcher, guards and hourly cap as its periodic relaunch. The new
 agent's first prompt is ` + "`session recover`" + `, which finds the checkpoint.
 If anything does not line up (no stamp, another session, a refusal, the cap,
-no poller), nothing is started early and the host's ordinary relaunch sweep
+the host is not running), nothing is started early and the host's ordinary relaunch sweep
 brings the worker back. A failed checkpoint writes no stamp and ends nothing.
 
 --json prints {"status":"written|failed","node","claim":"written|failed|none",
@@ -91,7 +91,7 @@ through Orca by the host or its pid could not be proven. Exit your agent
 yourself within two minutes.
 Exit 0 unless the command line is wrong.`,
 		Example: `  # reset with your own narrative carried into the checkpoint
-  hadron team session reset-context --note-file /tmp/reset-notes.md --json`,
+  hadron team session reset-context --note-file reset-notes.md --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			o.transcriptEmpty = cmd.Flags().Changed("transcript") && strings.TrimSpace(o.transcript) == ""

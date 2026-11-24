@@ -149,7 +149,7 @@ func TestTaskModelGroupOutput1485(t *testing.T) {
 			for _, jsonMode := range []bool{false, true} {
 				resp := taskResponses()
 				resp["AgentTaskGet"] = `{"data":{"agentTask":` + row + `}}`
-				resp["AgentTaskList"] = `{"data":{"agentTasks":[` + row + `]}}`
+				resp["AgentTaskList"] = taskPage2734(row, 1, false)
 				args := []string{"team", "task", verb}
 				if verb == "get" {
 					args = append(args, "AT1.2")
@@ -184,7 +184,8 @@ func TestTaskModelGroupOutput1485(t *testing.T) {
 					if verb == "get" {
 						task = val.(map[string]any)
 					} else {
-						task = val.([]any)[0].(map[string]any)
+						// cli#2734: list --json is the page object.
+						task = val.(map[string]any)["tasks"].([]any)[0].(map[string]any)
 					}
 					req := task["requirements"].(map[string]any)
 					for _, k := range []string{"modelGroupIn", "modelGroupNotIn"} {
@@ -310,7 +311,7 @@ func TestTaskModelGroupRefusalSink1485(t *testing.T) {
 
 func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
 	for _, tc := range []struct{ verb, want string }{
-		{"", "even when neither flag is named"},
+		{"", "even when you pass no model-group flag"},
 		{"create", "even with no group flag"},
 		{"update", "even without group flags"},
 	} {
@@ -324,8 +325,9 @@ func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
 			if err != nil || len(*calls) != 0 {
 				t.Fatalf("help err=%v calls=%v", err, *calls)
 			}
-			for _, want := range []string{"task-record", "hadron-server#3029", tc.want} {
-				if !strings.Contains(out, want) {
+			flat := strings.Join(strings.Fields(out), " ") // the help wraps lines: compare on one line
+			for _, want := range []string{"task-record", "released on or after 2026-11-17", tc.want} {
+				if !strings.Contains(flat, want) && !strings.Contains(out, want) {
 					t.Fatalf("help missing %q: %s", want, out)
 				}
 			}
@@ -337,7 +339,7 @@ func TestTaskModelGroupNullRequirements1485(t *testing.T) {
 	for _, verb := range []string{"get", "list"} {
 		resp := taskResponses()
 		resp["AgentTaskGet"] = `{"data":{"agentTask":` + startedTaskFieldsJSON + `}}`
-		resp["AgentTaskList"] = `{"data":{"agentTasks":[` + startedTaskFieldsJSON + `]}}`
+		resp["AgentTaskList"] = taskPage2734(startedTaskFieldsJSON, 1, false)
 		args := []string{"team", "task", verb}
 		if verb == "get" {
 			args = append(args, "AT1.2")
@@ -353,17 +355,42 @@ func TestTaskModelGroupNullRequirements1485(t *testing.T) {
 				t.Fatal(err)
 			}
 		} else {
-			var tasks []map[string]json.RawMessage
-			if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+			var page struct {
+				Tasks []map[string]json.RawMessage `json:"tasks"`
+			}
+			if err := json.Unmarshal([]byte(out), &page); err != nil {
 				t.Fatal(err)
 			}
-			if len(tasks) != 1 {
+			if len(page.Tasks) != 1 {
 				t.Fatalf("tasks=%s", out)
 			}
-			task = tasks[0]
+			task = page.Tasks[0]
 		}
 		if string(task["requirements"]) != "null" {
 			t.Fatalf("requirements=%s", task["requirements"])
+		}
+	}
+}
+
+// cli#2811 review: the task-record floor is ONE date across the group page, create and update
+// (the projection every task command reads includes the run settings, the newest field, 2026-11-17), stated as
+// "on or after" so the first release that carries it is not excluded, and no page keeps an older
+// or "after"-only floor for the same statement.
+func TestTaskRecordFloorIsOneDateOnOrAfter(t *testing.T) {
+	for _, args := range [][]string{{"team", "task", "--help"}, {"team", "task", "create", "--help"}, {"team", "task", "update", "--help"}} {
+		_, out, err := runTeamTask(t, taskResponses(), args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		flat := strings.Join(strings.Fields(out), " ")
+		if !strings.Contains(flat, "released on or after 2026-11-17") {
+			t.Errorf("%v: the task-record floor is 2026-11-03 on or after:\n%s", args, flat)
+		}
+		if strings.Contains(flat, "released after 20") {
+			t.Errorf("%v: floors are stated \"on or after\", never \"after\"", args)
+		}
+		if strings.Contains(flat, "on or after 2026-11-03)") || strings.Contains(flat, "released on or after 2026-11-01") {
+			t.Errorf("%v: the task-record floor is the newest field's date, 2026-11-17, on every page", args)
 		}
 	}
 }

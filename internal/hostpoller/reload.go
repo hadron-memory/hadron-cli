@@ -89,10 +89,6 @@ func (p *Poller) reloadConfig() {
 		p.reloadRefused(sum, err.Error())
 		return
 	}
-	if next.UsesOrcaLaunch() && !p.orcaWired {
-		p.reloadRefused(sum, "a worker now launches through Orca, which this poller did not wire at start; restart it to apply any of this change")
-		return
-	}
 	added, removed, modified := diffWorkers(c, next)
 	others := reloadableChanges(c, next, "Workers")
 	if err := checkReloadTrust(p.trust, c, next, path, info, append(append([]string{}, added...), modified...)); err != nil {
@@ -102,6 +98,8 @@ func (p *Poller) reloadConfig() {
 	changed := fixedChanges(c, next)
 	merged := *c
 	merged.sourceHash = sum
+	fresh := newWarnings(c.Warnings, next.Warnings)
+	merged.Warnings = next.Warnings
 	apply := len(added)+len(removed)+len(modified)+len(others) > 0
 	if apply {
 		merged.Workers, merged.Repos, merged.Accounts = next.Workers, next.Repos, next.Accounts
@@ -112,9 +110,29 @@ func (p *Poller) reloadConfig() {
 	if apply {
 		p.log("config-reloaded", "", "", "", reloadDetail(added, removed, modified, others))
 	}
+	for _, w := range fresh {
+		p.log("config-warning", "", "", "", w)
+	}
 	if len(changed) > 0 {
 		p.log("config-restart-needed", "", "", "", "changed in the file but read only at start, so not applied: "+strings.Join(changed, ", ")+"; restart the poller to apply it")
 	}
+}
+
+// newWarnings is what a reload's load says that the configuration in force did not: a worker the file
+// gained, or one whose entry now earns a warning. A warning already said (at start, or by an earlier
+// reload) is not said again (cli#3045 item 3).
+func newWarnings(held, next []string) []string {
+	seen := make(map[string]bool, len(held))
+	for _, w := range held {
+		seen[w] = true
+	}
+	var out []string
+	for _, w := range next {
+		if !seen[w] {
+			out = append(out, w)
+		}
+	}
+	return out
 }
 
 // readConfigFile reads path through one open file and returns its content and
@@ -270,7 +288,9 @@ func fixedChanges(c, next *Config) []string {
 	a, b := reflect.ValueOf(c).Elem(), reflect.ValueOf(next).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
-		if !f.IsExported() || isReloadable(f.Name) {
+		// A field with the yaml tag "-" is not read from the file (Warnings is derived at each load), so a
+		// difference in it is never a setting that needs a restart.
+		if !f.IsExported() || isReloadable(f.Name) || f.Tag.Get("yaml") == "-" {
 			continue
 		}
 		if !reflect.DeepEqual(a.Field(i).Interface(), b.Field(i).Interface()) {
@@ -306,10 +326,13 @@ type namedFile struct {
 }
 
 // namedFiles is what the entries that changed would make the poller run or
-// use: each worker's launch, end and recover programs, the launcher account
+// use: each worker's launch and end programs, the launcher account
 // program of a worker or account that changed, a changed repo's clone, and the
 // directories a worker or account names for its agent to run in (CODEX_HOME,
-// CLAUDE_CONFIG_DIR and TMPDIR hold settings and hooks an agent runs).
+// CLAUDE_CONFIG_DIR and TMPDIR hold settings and hooks an agent runs). A
+// worker's recover argv is deliberately absent: nothing has run it since the
+// reset-context handler was removed (hadron-cli#3017), so judging it would
+// refuse reloads on a dead key.
 func namedFiles(c, next *Config, workers []string) []namedFile {
 	var out []namedFile
 	argv0 := func(argv []string) {
@@ -331,9 +354,7 @@ func namedFiles(c, next *Config, workers []string) []namedFile {
 	}
 	for _, ref := range workers {
 		w := next.Workers[ref]
-		argv0(w.Launch)
 		argv0(w.End)
-		argv0(w.Recover)
 		dir(w.CodexHome)
 		dir(w.ClaudeConfigDir)
 		dir(w.DiskTmp)

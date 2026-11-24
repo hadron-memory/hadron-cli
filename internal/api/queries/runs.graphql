@@ -147,7 +147,7 @@ query AppRuns(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunId: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
+  appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunRef: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
     total
     items {
       ...AppRunFields
@@ -162,9 +162,11 @@ query AppRun($ref: ID!) {
   }
 }
 
-# The kill switch — transitions a live run to CANCELLED.
+# The kill switch — transitions a live run to CANCELLED. cli#2935: the
+# argument is `ref` (hadron-server#4141 S5, #4789; no alias), the variable
+# keeps its name so the generated client is unchanged.
 mutation CancelAppRun($id: ID!) {
-  cancelAppRun(id: $id) {
+  cancelAppRun(ref: $id) {
     ...AppRunFields
   }
 }

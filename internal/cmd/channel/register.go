@@ -489,7 +489,7 @@ column).`,
 				return api.MapError(err)
 			}
 			if resp == nil || !resp.DeleteRegisterEntry {
-				return exitcode.Newf(exitcode.NotFound, "no register entry %q was removed — it is unreadable or already gone", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no register entry was removed — it is unreadable or already gone (the ref given is not shown)")
 			}
 			dto := registerRemovalDTO{Ref: args[0], Status: "removed"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

@@ -2,10 +2,11 @@ package app
 
 // `hadron app properties get|set|clear` (hadron-cli#1524 C2, hadron-server#3125
 // S1, cor:dmo:050:02, cor:dmo:050:20): the App's own JSON object. The platform
-// reads only its taskIntegrations key (cor:agt:120:01); every other key is the
-// team's. The CLI is a thin client: who may read or write, the size bound and
-// the taskIntegrations shape are the server's (cor:api:240:01). Without the flag
-// it never reads before writing: concurrency is the server's expectedRevision check.
+// reads no key of it: every key is the team's (the taskIntegrations key it once
+// read retired with the server's task integrations, cli#1964). The CLI is a thin
+// client: who may read or write and the size bound are the server's
+// (cor:api:240:01). Without --instruction it never reads before writing:
+// concurrency is the server's expectedRevision check.
 //
 // A dedicated group rather than an `app update` flag (plan A1): the write is
 // its own mutation behind its own gate (the person who manages the App, or
@@ -41,9 +42,8 @@ func newCmdProperties(f *cmdutil.Factory) *cobra.Command {
 		Use:   "properties",
 		Short: "Read or replace an App's own properties object",
 		Long: `An App's properties are one JSON object of its own (at most 16 KiB of JSON,
-64 levels). The platform reads only the taskIntegrations key, which configures
-the outside trackers ` + "`hadron team task find-untracked`" + ` reads; every other
-key is the team's, stored as written. Never put a secret here.
+64 levels). The platform reads no key of it: every key is the team's, stored
+as written. Never put a secret here.
 
 Whoever may read the App reads them (null for anyone else). Only whoever
 manages the App writes them. Without --instruction, set acts as the person;
@@ -87,7 +87,7 @@ Pass an App ID, hrn:app:<root>:<slug>, or the <root>:<slug> short form.`,
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp.App == nil {
-				return exitcode.Newf(exitcode.NotFound, "no App found for %q", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no App found (the App ref given is not shown)")
 			}
 			return writeAppProperties(f, appPropertiesDTO{AppID: resp.App.Id, PropertiesRevision: resp.App.PropertiesRevision, Properties: resp.App.Properties})
 		},
@@ -101,14 +101,13 @@ func newCmdPropertiesSet(f *cmdutil.Factory) *cobra.Command {
 		Short: "Replace an App's properties object",
 		Long: `Replace the App's whole properties object with the one you give, in one call.
 Properties are one JSON object the App carries for its team: the platform reads
-only its taskIntegrations key and keeps every other key as written (it cannot
+no key of it and keeps every key as written (it cannot
 store a key named __proto__: PROPERTIES_KEY_RESERVED; see "hadron app properties
 --help"). A minimal object is {"team": {"note": "hello"}}. Give
 a JSON object, @file to read one from a file, or - to read it from stdin. The
-CLI checks only that it is JSON and not null; whether it is an object, how
-large it is, and the shape of the taskIntegrations key are the server's to
-judge. An empty object {} clears the properties, like "hadron app properties
-clear". Prints the object as stored.
+CLI checks only that it is JSON and not null; whether it is an object and how
+large it is are the server's to judge. An empty object {} clears the
+properties, like "hadron app properties clear". Prints the object as stored.
 
 Nothing is merged: whatever you send replaces what is there, so read the
 current object first ("hadron app properties get"), change it and send it back.
@@ -121,7 +120,6 @@ their values.
 
 Refusals and exit codes: FORBIDDEN (exit 8) when you do not manage the App, or
 you are a worker session without an admitted instruction, or you use an App key;
-TASK_INTEGRATION_INVALID (exit 2), which names the JSON path at fault;
 PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE and PROPERTIES_KEY_RESERVED (exit
 2); APP_PROPERTIES_CONFLICT (exit 5).`,
 		Example: `  hadron app properties set acme.com:eng-team @props.json --expected-revision 3
@@ -170,9 +168,8 @@ func newCmdPropertiesClear(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clear <app-ref> --yes",
 		Short: "Remove an App's properties object",
-		Long: `Remove the App's whole properties object, its task integrations included,
-so ` + "`team task find-untracked`" + ` has nothing to read until it is set again.
-Prompts on a terminal; non-interactively --yes is required. Takes
+		Long: `Remove the App's whole properties object. Prompts on a terminal;
+non-interactively --yes is required. Takes
 --expected-revision like ` + "`set`" + `, and is refused the same way.`,
 		Example: `  hadron app properties clear acme.com:eng-team --yes --expected-revision 4`,
 		Args:    cobra.ExactArgs(1),

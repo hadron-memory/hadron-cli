@@ -14,9 +14,9 @@ import (
 // WorktreeAgent is one LOGICAL agent found working in a worktree (#2027):
 // its pid (the chain's oldest member when a shim or nested one-shot runs
 // under it), the redacted #1474 display line (the operator's way to tell
-// WHICH process it is), its executable's basename, whether any ancestor names
-// worker-supervise (the codebase's supervision anchor; comm is truncated to
-// worker-supervis, so ancestors are matched on their cmdline), and /proc's
+// WHICH process it is), its executable's basename, whether it is, or runs
+// under, a launch the host poller recorded for the worker (its LaunchAnchor:
+// the supervision anchor since the wrapper went, cli#2059), and /proc's
 // start-time ticks — bigger means started later, the keep-oldest key.
 type WorktreeAgent struct {
 	PID        int
@@ -31,20 +31,13 @@ type WorktreeAgent struct {
 var agentBasenames = map[string]bool{"claude": true, "codex": true}
 
 // shellBasenames is the interpreter set an agent shim can hide behind: an
-// agent launched as a #! script (a family picker shim, or a supervised
-// wrapper's child) shows the interpreter as argv[0] and the script path
-// after it.
+// agent launched as a #! script (a family picker shim) shows the interpreter
+// as argv[0] and the script path after it.
 var shellBasenames = map[string]bool{"sh": true, "bash": true, "dash": true, "ash": true, "zsh": true}
-
-// superviseName is the wrapper script every supervised agent runs under; its
-// comm is truncated to worker-supervis, so parents are matched on their
-// command line instead.
-const superviseName = "worker-supervise"
 
 // agentBase names the agent a /proc cmdline runs, or "". A direct invocation
 // names the agent as argv[0]; an interpreter invocation counts only the
-// script it runs — and never the supervisor wrapper, whose own argv names the
-// agent it watches. Everything else (a shell running "-c", a command merely
+// script it runs. Everything else (a shell running "-c", a command merely
 // mentioning an agent) is not an agent: no positive spelling, no match.
 func agentBase(argv []string) string {
 	if len(argv) == 0 {
@@ -58,9 +51,6 @@ func agentBase(argv []string) string {
 	}
 	for _, a := range argv[1:] {
 		b := filepath.Base(a)
-		if b == superviseName {
-			return ""
-		}
 		if agentBasenames[b] {
 			return b
 		}
@@ -75,13 +65,17 @@ func agentBase(argv []string) string {
 // shell, is the SAME agent as the chain's top (#2037 review: counting the
 // chain twice made the real agent of a single healthy worker a stop subject).
 // A chain member's descendants merge into the chain's oldest member; an agent
-// is supervised when ANY ancestor up to the worktree boundary names
-// worker-supervise — the wrapper may sit several layers out (sg, shims) and
-// its tree stays inside the worktree, while the typed stray's chain leaves
-// through the terminal emulator. Where the host cannot tell
+// is supervised when it, or ANY ancestor up to the worktree boundary, is a
+// process the host poller recorded as the worker's launch (anchors; the
+// recorded terminal shell or launcher may sit several layers out), checked
+// against its start time so a reused pid is not the launch. A typed stray's
+// chain has no recorded launch above it. Where the host cannot tell
 // (no /proc), it reports none: detection degrades, never the report. A
-// process that cannot be read is skipped, not guessed at.
-func ScanWorktreeAgents(root string) []WorktreeAgent {
+// process that cannot be read is skipped, not guessed at. An agent still running
+// from a wrapper that predates the poller records (cli#2059) has no recorded
+// launch above it until the poller relaunches it, so it reads unsupervised: the
+// sweep alerts on it and never stops it for that alone.
+func ScanWorktreeAgents(root string, anchors []LaunchAnchor) []WorktreeAgent {
 	real, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		return nil
@@ -121,7 +115,7 @@ func ScanWorktreeAgents(root string) []WorktreeAgent {
 			StartTicks: start,
 		}, ppid: ppid})
 	}
-	return collapseChains(found, real)
+	return collapseChains(found, real, anchors)
 }
 
 // chainWalkBound caps every ancestry walk (own, merge and supervision) in
@@ -152,9 +146,9 @@ func ownAncestry() map[int]bool {
 // collapseChains merges every raw match that is a descendant of another match
 // (through any intermediary — a shim above the binary, a tool shell between
 // an agent and its one-shot) into that match, keeping the chain's oldest
-// member as the logical agent, and marks the survivor supervised when any
-// ancestor up to the worktree boundary names worker-supervise.
-func collapseChains(found []rawAgent, root string) []WorktreeAgent {
+// member as the logical agent, and marks the survivor supervised when it or
+// any ancestor up to the worktree boundary is a recorded launch (anchors).
+func collapseChains(found []rawAgent, root string, anchors []LaunchAnchor) []WorktreeAgent {
 	byPid := map[int]rawAgent{}
 	for _, r := range found {
 		byPid[r.agent.PID] = r
@@ -186,7 +180,7 @@ func collapseChains(found []rawAgent, root string) []WorktreeAgent {
 		if top := rootOf(r); top != r.agent.PID {
 			continue // a descendant of another match: the same logical agent
 		}
-		r.agent.Supervised = supervisedChain(r.agent.PID, root)
+		r.agent.Supervised = supervisedChain(r.agent.PID, root, anchors)
 		out = append(out, r.agent)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].PID < out[j].PID })
@@ -199,28 +193,68 @@ type rawAgent struct {
 	ppid  int
 }
 
-// supervisedChain reports whether any ancestor of pid, up to the worktree
-// boundary, names worker-supervise: the wrapper may launch through sg or a
-// shim, so the immediate parent alone under-detects supervision, and the
-// wrapper's own tree stays inside the worktree — a typed stray's chain leaves
-// through the terminal emulator, so the boundary is what tells the worker's
-// own process tree from a shell someone typed into. The walk reads live
-// parentage; a process never GAINS worker-supervise above it (orphan
-// re-parenting goes to init or a subreaper, never to a fresh wrapper), so a
-// supervision read at census time can only be stale toward KEEPING an agent.
-func supervisedChain(pid int, root string) bool {
-	ppid, _, ok := procStat(pid)
+// statOf and inRootOf are the two /proc reads the supervision walk makes,
+// swapped by tests so the ancestor walk is pinned without live processes.
+var (
+	statOf   = procStat
+	inRootOf = withinRoot
+)
+
+// isLaunch reports whether pid is one of the recorded launches: the pid
+// matches AND its live start time is the recorded one. An anchor with no
+// recorded start cannot prove a pid is not a reused one, so it never
+// matches. A launch that cannot be proven leaves its agent unsupervised, and
+// the decision core (healthfix.Decide) stops an unsupervised agent only when
+// exactly ONE other agent in the worktree is supervised; with none supervised
+// it only alerts. So a lost or stale record can fail to stop a stray, and it
+// can stop a real agent only if a stray were the one process proven to be the
+// recorded launch's own.
+func isLaunch(pid int, anchors []LaunchAnchor) bool {
+	for _, a := range anchors {
+		if a.PID != pid || a.StartTicks <= 0 {
+			continue
+		}
+		if _, start, ok := statOf(pid); ok && start == a.StartTicks {
+			return true
+		}
+	}
+	return false
+}
+
+// supervisedChain reports whether pid, or any ancestor up to the worktree
+// boundary, is a recorded launch: the launch may be the agent itself or the
+// terminal shell or shim it runs under, so the immediate parent alone
+// under-detects, and the launch's own tree stays inside the worktree — a
+// typed stray's chain leaves through the terminal emulator, so the boundary
+// is what tells the worker's own process tree from a shell someone typed
+// into. The walk reads live parentage; a process never GAINS an ancestor
+// that is a recorded launch (orphan re-parenting goes to init or a
+// subreaper), so a read at census time can only be stale toward KEEPING an
+// agent.
+//
+// The boundary test runs BEFORE the anchor test on purpose: a recorded launch
+// that works outside the worktree is not this worker's own process tree, so it
+// is refused rather than honored (an earlier version honored the first
+// out-of-worktree ancestor).
+func supervisedChain(pid int, root string, anchors []LaunchAnchor) bool {
+	if len(anchors) == 0 {
+		return false
+	}
+	if isLaunch(pid, anchors) {
+		return true
+	}
+	ppid, _, ok := statOf(pid)
 	if !ok {
 		return false
 	}
 	for p, hops := ppid, 0; p > 1 && hops < chainWalkBound; hops++ {
-		if supervisedParent(p) {
+		if !inRootOf(p, root) {
+			break // past the worktree boundary: nobody's launch record
+		}
+		if isLaunch(p, anchors) {
 			return true
 		}
-		if !withinRoot(p, root) {
-			break // past the worktree boundary: nobody's supervision anchor
-		}
-		next, _, ok := procStat(p)
+		next, _, ok := statOf(p)
 		if !ok || next == p {
 			break
 		}
@@ -280,20 +314,4 @@ func parseStatLine(stat string) (ppid int, start int64, ok bool) {
 		return 0, 0, false
 	}
 	return ppid, start, true
-}
-
-// supervisedParent reports whether pid's command line names worker-supervise:
-// the wrapper is invoked as `bash /path/worker-supervise …` (and re-execs
-// through sg), so any argv slot whose basename is the wrapper counts.
-func supervisedParent(pid int) bool {
-	argv, ok := argvFromCmdline(readProcFile(strconv.Itoa(pid), "cmdline"))
-	if !ok {
-		return false
-	}
-	for _, a := range argv {
-		if filepath.Base(a) == superviseName {
-			return true
-		}
-	}
-	return false
 }

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -58,7 +59,7 @@ func TestPostHostBoundaryPins(t *testing.T) {
 			state := filepath.Join(dir, "state.json")
 			writeState := func(id string) {
 				t.Helper()
-				if err := os.WriteFile(state, []byte(fmt.Sprintf(`{"hostId":%q}`, id)), 0600); err != nil {
+				if err := os.WriteFile(state, []byte(hostyaml.Supervised(fmt.Sprintf(`{"hostId":%q}`, id))), 0600); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -177,7 +178,7 @@ func TestPostHostBoundaryPins(t *testing.T) {
 			}
 			cfg := fmt.Sprintf("server: %s\napp: %s\nkey_file: key\nstate_file: state.json\nworktrees_root: %s\nworkers:\n  w1:\n    family: claude\n    launch: [fake]\n    worktrees: [tree]\n  w2:\n    family: claude\n    launch: [fake]\n    worktrees: [alias]\ndelivery:\n  enabled: %t\n  orca_bin: /bin/false\n", hostURL, app, dir, enabled)
 			path := filepath.Join(dir, "host.yaml")
-			if err := os.WriteFile(path, []byte(cfg), 0600); err != nil {
+			if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			f := cmdutil.NewFactory()

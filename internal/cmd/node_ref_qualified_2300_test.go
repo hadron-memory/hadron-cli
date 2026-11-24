@@ -62,14 +62,23 @@ func TestNodeGet2300BareLocStillComposes(t *testing.T) {
 	}
 }
 
-func TestNodeGet2300UnknownQualifiedNamesURNAsGiven(t *testing.T) {
+// cli#2902 (the #2898 no-echo policy): the not-found no longer names the URN at all, as given or composed.
+// What cli#2300 protected stays: a qualified ref is never rewritten with -m, and the message does not
+// pretend it was.
+func TestNodeGet2300UnknownQualifiedIsNotComposedAndNotEchoed(t *testing.T) {
 	const ref = "hrn:node:example.test:source:missing"
 	_, err := nodeGetResolveSent2300(t, `{"data":{"resolveUrn":null}}`, ref, "-m", "example.test:other")
 	if got := exitCodeFor(err); got != exitcode.NotFound {
 		t.Fatalf("exit = %d, want NotFound (%v)", got, err)
 	}
-	if !strings.Contains(err.Error(), ref) || strings.Contains(err.Error(), "example.test:other:") {
-		t.Fatalf("not-found must name the URN as given, not a composed one: %v", err)
+	if strings.Contains(err.Error(), ref) {
+		t.Errorf("not-found must not name the URN as given: %v", err)
+	}
+	if strings.Contains(err.Error(), "example.test:other:") {
+		t.Errorf("not-found must not name a composed URN: %v", err)
+	}
+	if !strings.Contains(err.Error(), "not shown") {
+		t.Errorf("not-found says the reference is not shown: %v", err)
 	}
 }
 

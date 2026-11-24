@@ -328,6 +328,7 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	// The spec commands read this env var ahead of the (temp-dir) config, so a
 	// developer with it exported would silently scope the unscoped-path tests.
 	t.Setenv("HADRON_SPEC_MEMORY", "")
+	pinLauncherEnv3091(t)
 	io, _, _ := output.Test()
 	out := &strings.Builder{}
 	errOut := &strings.Builder{}

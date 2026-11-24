@@ -9,8 +9,16 @@ import (
 )
 
 func addTaskModelGroupFlags(cmd *cobra.Command, in, notIn *string) {
-	cmd.Flags().StringVar(in, "model-group", "", "comma list of model groups: model must match at least one; replaces whole requirements on update")
-	cmd.Flags().StringVar(notIn, "model-group-not", "", "comma list of model groups: model must match none; replaces whole requirements on update")
+	// What the flag does to the task's requirements differs by command.
+	effect := "sets the task's matching requirements"
+	switch cmd.Name() {
+	case "update":
+		effect = "replaces the task's whole requirements"
+	case "clone":
+		effect = "replaces the clone's whole requirements"
+	}
+	cmd.Flags().StringVar(in, "model-group", "", "comma list of model groups: the worker's model must match at least one; "+effect)
+	cmd.Flags().StringVar(notIn, "model-group-not", "", "comma list of model groups: the worker's model must match none; "+effect)
 }
 
 // taskModelGroupFlags only splits syntax. Keep case, whitespace, duplicates,

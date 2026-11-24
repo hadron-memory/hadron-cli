@@ -76,16 +76,16 @@ chunk leaves the source alone with a warning.
 A denied caller gets exit 8 and no plan; a failed access lookup is an error.
 Credentials without a user keep the existing preview. The real write
 remains authoritative for other refusals.`,
-		Example: `  # Carve the "Node type" field out of the Node entity spec into feature 020.
+		Example: `  # Carve the "Node type" field out of the spec at msg:010:02 into feature 020.
   # The awk prints from that heading up to, not including, the next "## " heading;
   # run the pipeline without extract first to inspect the chunk before --strip-source.
-  hadron spec get cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs --body-only \
+  hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs --body-only \
     | awk '/^## Node type/{p=1; print; next} /^## /{p=0} p' \
-    | hadron spec extract cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs \
+    | hadron spec extract msg:010:02 -m hrn:mem:micromentor.org:platform-specs \
         --to-feature 020 --title "Node type" --content - --strip-source \
-        --ref-label "documents the nodeType field of Node"
+        --ref-label "documents the Node type field"
 
-  hadron spec extract cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs --to-feature 020 --rule 04 --title "Node type" --dry-run`,
+  hadron spec extract msg:010:02 -m hrn:mem:micromentor.org:platform-specs --to-feature 020 --rule 04 --title "Node type" --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source, err := ParseCitation(args[0])
@@ -95,7 +95,7 @@ remains authoritative for other refusals.`,
 				// Any other spec: create the new one with `spec new <loc>` and
 				// edit the source.
 				return exitcode.Newf(exitcode.Usage,
-					"extract allocates the new spec's number under a legacy citation, and %q is not one (%v) — for any other spec, create the new one with `hadron spec new <loc>` and edit the source with `hadron spec edit`", args[0], err)
+					"extract allocates the new spec's number under a legacy citation, and the citation given is not one (not shown) — a legacy citation is %s; for any other spec, create the new one with `hadron spec new <loc>` and edit the source with `hadron spec edit`", legacyCitationGrammar)
 			}
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")

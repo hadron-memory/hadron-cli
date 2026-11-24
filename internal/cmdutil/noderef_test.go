@@ -86,8 +86,9 @@ func TestBatchNodeRefValidatesPrefixedRefs(t *testing.T) {
 			if err == nil {
 				t.Fatalf("BatchNodeRef(%q) = %q, want a usage error", tt.ref, got)
 			}
-			if !strings.Contains(err.Error(), tt.ref) {
-				t.Errorf("error should name the offending ref, got %v", err)
+			// cli#2902: the refusal never echoes the ref; it says so.
+			if strings.Contains(err.Error(), tt.ref) || !strings.Contains(err.Error(), "not shown") {
+				t.Errorf("error must not name the offending ref and must say it is not shown, got %v", err)
 			}
 		})
 	}
@@ -234,6 +235,22 @@ func TestIsQualifiedNodeRef(t *testing.T) {
 	for _, ref := range bare {
 		if IsQualifiedNodeRef(ref) {
 			t.Errorf("%q is not a fully-qualified node ref", ref)
+		}
+	}
+}
+
+// ComposesWithMemory mirrors ResolveNodeRef's branch order: only a bare loc composes with -m.
+func TestComposesWithMemory(t *testing.T) {
+	for ref, want := range map[string]bool{
+		"sheds:rolling-checkpoint":                   true,
+		"start-here":                                 true,
+		"01a1d9c2453a782189ceeafb18c37d61":           false, // a node id
+		"hrn:node:acme.com:kb:findings:x":            false, // a qualified URN
+		"acme.com::kb::findings:x":                   false, // a legacy qualified ref
+		"hrn:action:acme.com:agent:task.finish.open": false, // an action URN
+	} {
+		if got := ComposesWithMemory(ref); got != want {
+			t.Errorf("ComposesWithMemory(%q) = %v, want %v", ref, got, want)
 		}
 	}
 }

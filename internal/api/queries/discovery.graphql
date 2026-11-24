@@ -15,7 +15,7 @@ query GlobalSearch(
   $appRef: ID
 ) {
   globalSearch(query: $query, entityTypes: $entityTypes, fields: $fields, orgId: $orgId, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef) {
-    hits { id entityType name urn description score matchedField memoryId organizationId }
+    hits { id entityType name urn description score matchedField memoryId organizationId handle }
     total
     degraded
     scope { ...DiscoveryScopeFields }

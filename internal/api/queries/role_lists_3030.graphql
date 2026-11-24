@@ -1,0 +1,36 @@
+# cli#3030 (hadron-server#4921 slice A, server 330e16176): an App's three role lists (who may link a
+# defect, the register pick's role route, who may withdraw a negative review verdict). A participant reads them
+# through the roster's gate; whoever manages the App replaces ONE list whole. roles is non-null both ways: an
+# empty list is sent as [] (it clears to the default), never omitted.
+fragment AppRoleListsFields on AppRoleLists {
+  appId
+  defectLink
+  registerPick
+  reviewWithdraw
+}
+
+fragment AppRoleListFields on AppRoleList {
+  appId
+  purpose
+  roles
+}
+
+query TeamRoleLists($appRef: ID!) {
+  appRoleLists(appRef: $appRef) {
+    ...AppRoleListsFields
+  }
+}
+
+mutation TeamRoleListSet($appRef: ID!, $purpose: AppRolePurpose!, $roles: [String!]!) {
+  setAppRoleList(appRef: $appRef, purpose: $purpose, roles: $roles) {
+    ...AppRoleListFields
+  }
+}
+
+# The instructed manager write (cor:dmo:050:12, "Acting on an instruction"), in its own document like every
+# instructed write, so a request without the flag is the plain one.
+mutation TeamRoleListSetInstructed($appRef: ID!, $purpose: AppRolePurpose!, $roles: [String!]!, $instruction: ActInstructionInput!) {
+  setAppRoleList(appRef: $appRef, purpose: $purpose, roles: $roles, instruction: $instruction) {
+    ...AppRoleListFields
+  }
+}

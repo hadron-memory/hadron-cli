@@ -149,14 +149,14 @@ func newCmdSessionRecover(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "recover",
 		Short: "Print everything a fresh run needs to resume: worker, tasks, state note, mentions",
-		Long: `Recover your context in one read-only call (hadron-cli#2062). It prints, for this
+		Long: `Recover your context in one read-only call. It prints, for this
 worktree's bound worker:
 
   worker     who you are: name, role, URN, App, and the bound session
              (open or ended, as the server says)
   tasks      your PENDING and STARTED tasks (up to 200; tasksMore says more exist)
   state note the worker's state note: the node "` + recoverStateNoteLoc + `" in its own working
-             memory (Worker.memoryId); null when there is none
+             memory; null when there is none
   directions the note's "Standing directions" section, verbatim; null without one
   mentions   team-chat messages that mention you after your server read
              watermark (oldest first, --mentions-limit, default 20)
@@ -164,7 +164,7 @@ worktree's bound worker:
 It REPLACES: session whoami, worker get, the state note read, chat read
 --mentions-me --since <watermark>, task mine.
 
-STRICTLY READ-ONLY. It sends no X-Hadron-Session header, so it records no
+STRICTLY READ-ONLY. It sends no session identity, so it records no
 heartbeat and acknowledges nothing: it does not advance your read watermark
 (run ` + "`team chat mark-read`" + ` yourself once you have acted on the mentions) and
 reading never makes a session live. It needs a worker binding; without one it
@@ -240,7 +240,7 @@ func runSessionRecover(cmd *cobra.Command, f *cmdutil.Factory, mentionsLimit int
 
 	// Tasks: `task mine`'s fixed filters.
 	worker := b.WorkerID
-	if tasks, count, err := taskListPage(ctx, client, b.AppID, taskListQuery{
+	if tasks, info, err := taskListPage(ctx, client, b.AppID, taskListQuery{
 		assignee: &gen.AgentTaskPartyInput{Worker: &worker},
 		status:   []gen.AgentTaskStatus{gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted},
 		limit:    recoverTaskCap,
@@ -251,7 +251,8 @@ func runSessionRecover(cmd *cobra.Command, f *cmdutil.Factory, mentionsLimit int
 			dto.Tasks = append(dto.Tasks, recoverTaskDTO{ID: t.ID, Handle: t.Handle, Status: t.Status, Priority: t.Priority,
 				Title: t.Title, Blocked: t.Blocked, WaitingOnChildren: t.WaitingOnChildren, ParentTaskID: t.ParentTaskID})
 		}
-		dto.TasksMore = count >= recoverTaskCap
+		// The server's answer, not a full-page guess (cli#2734).
+		dto.TasksMore = info.HasMore
 	}
 
 	// State note and standing directions, from the worker's own working
@@ -353,7 +354,9 @@ func renderRecover(w io.Writer, d recoverDTO) error {
 		}
 	}
 	if d.TasksMore {
-		p("  (a full page: more tasks may exist)\n")
+		// The server's hasMore, not a full-page guess (cli#2734): the page can
+		// be short and still not be the end.
+		p("  (the task page did not end: more tasks may exist)\n")
 	}
 
 	p("\nstate note: ")

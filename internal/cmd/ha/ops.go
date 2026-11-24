@@ -39,7 +39,7 @@ the server (HA_INSTANCE_DISABLED) and that message is shown as it came.`,
 			}
 			// Null = absent or not visible, distinct from a real empty op set.
 			if resp == nil || resp.HomeAssistantInstanceOps == nil {
-				return exitcode.Newf(exitcode.NotFound, "Home Assistant instance %q not found or not visible to you", args[0])
+				return exitcode.Newf(exitcode.NotFound, "Home Assistant instance not found or not visible to you (the id given is not shown)")
 			}
 			ops := make([]opDTO, 0, len(resp.HomeAssistantInstanceOps))
 			for _, o := range resp.HomeAssistantInstanceOps {

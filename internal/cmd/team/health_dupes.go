@@ -66,15 +66,31 @@ type dupesResult struct {
 // a wedged sweep cannot signal a long-stale decision.
 const stopLease = 5 * time.Second
 
-// runHealthDupes is the fix phase. applying is the --dry-run=false posture;
-// regs is the host registration the sweep already read; state is the poller
-// state it already loaded. Errors are reported in the result, never returned.
-func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Config, state *hostpoller.State, server *hostServer, workers []dupeWorker, applying bool, errOut io.Writer) dupesResult {
+// launchAnchorState reads the poller's record of what it launched, which is the
+// supervision anchor (cli#2059). The sweep's caller already refused a corrupt or
+// unreadable state before this read, so reaching the error branch means the
+// file changed since (a race). Then it answers an empty state: no anchors, so no
+// agent counts as supervised and the sweep only reports. The fallback is bound to
+// no file, so nothing can overwrite the unreadable one. A missing file is not
+// an error (LoadState reads it as empty) and prints nothing.
+func launchAnchorState(path string, errOut io.Writer) *hostpoller.State {
+	state, err := hostpoller.LoadState(path)
+	if err != nil {
+		fmt.Fprintf(errOut, "health: poller state unreadable, no launch anchors: %v\n", err)
+		return hostpoller.EmptyState()
+	}
+	return state
+}
+
+// runHealthDupes is the fix phase. applying is the --dry-run=false posture.
+// Errors are reported in the result, never returned.
+func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Config, server *hostServer, workers []dupeWorker, applying bool, errOut io.Writer) dupesResult {
 	res := dupesResult{Fixes: []dupeFix{}, Alerts: []dupeAlert{}, Skips: []dupeSkip{}}
 	inScope := worktreesOf(cfg, workers)
 	if len(inScope) == 0 {
 		return res // nothing bound on this host: ask Orca and the server nothing
 	}
+	state := launchAnchorState(cfg.StateFile, errOut)
 	client, terms := sweepOrcaClient(ctx, cfg)
 	census := map[string][]hostpoller.WorktreeAgent{}
 	tabs := map[string][]healthfix.Tab{}
@@ -82,7 +98,7 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 	candidates := map[string]bool{}
 	for _, tree := range inScope {
 		wt[tree.path] = tree
-		agents := hostpoller.ScanWorktreeAgents(tree.path)
+		agents := hostpoller.ScanWorktreeAgents(tree.path, state.LaunchAnchorsAt(cfg.WorktreesRoot, tree.path))
 		census[tree.path] = agents
 		tb := worktreeTabs(ctx, client, terms, tree.path)
 		tabs[tree.path] = tb
@@ -101,22 +117,9 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 	}
 	mode := healthfix.Mode{Applying: applying, Paused: paused}
 	apply := applying && !paused
-	// A reset recorded since the sweep's initial state read must still gate
-	// the stop (#2037 N2 note: the state is a snapshot, the gate is not): a
-	// reset record is written before its claim is sent, so a fresh read sees
-	// every reset the server has already accepted. The read is repeated at
-	// each worker's turn (#2344), so a reset recorded while an earlier worker
-	// was being handled is seen by the later ones; see freshResetState.
 	var appliedActions []string
 	for _, w := range sortedPaths(candidates) {
-		state = freshResetState(cfg.StateFile, state)
 		observation := healthfix.Worktree{WorkerID: wt[w].workerID, WorkerName: wt[w].workerName, Path: w, Agents: toFixAgents(census[w]), Tabs: tabs[w]}
-		if apply {
-			observation.Resetting = workerResetting(ctx, server, cfg.App, state, wt[w].workerID)
-		} else if hasResetRecord(state, wt[w].workerID) {
-			// Report-only runs still show the skip a resetting worker earns.
-			observation.Resetting = workerResetting(ctx, server, cfg.App, state, wt[w].workerID)
-		}
 		plan := healthfix.Decide(observation, mode)
 		for _, a := range plan.Alerts {
 			res.Alerts = append(res.Alerts, dupeAlert{Worker: a.Worker, Code: a.Code, Count: a.Count})
@@ -171,36 +174,6 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 		postSweepNotice(ctx, f, cfg.App, res.applied, appliedActions, errOut)
 	}
 	return res
-}
-
-// freshResetState re-reads the poller state for the next worker's decision and
-// returns it unioned with the snapshot it replaces (#2344). A read that fails
-// keeps the snapshot (fail closed, #2037): every reset it names is still asked.
-// A read that succeeds adds to the snapshot and never removes from it: an
-// empty successful read (a file rewritten with no resets) must not drop a reset
-// the snapshot already holds, and a reset the snapshot holds that recovery has
-// since pruned costs one more server query that finds it ended. Where both name
-// the same reset the fresh record wins. Only the resets are unioned: they are
-// the only part of the state the fixing loop's gate reads. The read narrows the
-// window, it does not close it: a reset recorded after a worker's own read and
-// before its action is still missed by that worker, and the next sweep sees it.
-func freshResetState(path string, snapshot *hostpoller.State) *hostpoller.State {
-	fresh, err := hostpoller.LoadState(path)
-	if err != nil {
-		return snapshot
-	}
-	if snapshot == nil {
-		return fresh
-	}
-	if fresh.Resets == nil { // LoadState always initializes it; the union must not depend on that
-		fresh.Resets = map[string]hostpoller.ResetRecord{}
-	}
-	for id, r := range snapshot.Resets {
-		if _, ok := fresh.Resets[id]; !ok {
-			fresh.Resets[id] = r
-		}
-	}
-	return fresh
 }
 
 // dupeWorker is one registered worker of this host.
@@ -335,81 +308,6 @@ func sweepPause(ctx context.Context, server *hostServer, appRef string) (paused,
 		}
 	}
 	return false, true
-}
-
-// resetsForWorker returns the worker's recorded resets in descending resetId
-// order (#2055 item 3). The order is deterministic — a map's is not — so the
-// gate's pin kills a first-read-only mutant (the historical "newest by string
-// max" shape) every run, not by map luck; descending puts the max id first,
-// the exact reset such a mutant stops at. Every reset is still asked; only
-// the order changes (cor:agt:050:27: unreadable counts as in flight).
-//
-// The worker filter (r.WorkerID == workerID) is the same predicate hasResetRecord
-// applies without building this slice; keep the two in step (the differential
-// test in health_dupes_2346_test.go is the tripwire).
-func resetsForWorker(state *hostpoller.State, workerID string) []hostpoller.ResetRecord {
-	if state == nil {
-		return nil
-	}
-	out := make([]hostpoller.ResetRecord, 0, len(state.Resets))
-	for _, r := range state.Resets {
-		if r.WorkerID == workerID {
-			out = append(out, r)
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ResetID > out[j].ResetID })
-	return out
-}
-
-// hasResetRecord reports whether the poller state holds any reset for the
-// worker, ended or not. It answers a boolean, so it stops at the first match:
-// no slice and no sort (cli#2346). The sorted read of resetsForWorker stays
-// where the order is load-bearing, in workerResetting. Its predicate is the one
-// resetsForWorker filters on (WorkerID equality; a record carries no "ended"
-// field, the server's endedAt decides that), so the two answer alike.
-func hasResetRecord(state *hostpoller.State, workerID string) bool {
-	if state == nil {
-		return false
-	}
-	for _, r := range state.Resets {
-		if r.WorkerID == workerID {
-			return true
-		}
-	}
-	return false
-}
-
-// workerResetting reports whether any of the worker's recorded resets is
-// still in flight (gate edge 3: a sweep landing in the reset window would see
-// old and new side by side, and could stop the relaunch). The state file only
-// says a reset was collected; the server's endedAt decides whether it ended.
-// Every reset of the worker is asked, not a "newest" one: resetIds are
-// server-minted with no ordering contract the CLI may lean on (#2037), so
-// picking by max id could read an old, ended reset while a younger in-flight
-// one hides below it in the sort. A read that fails counts as in flight, and
-// so does a reset the query cannot see (null): a permission mask and a reaped
-// record are indistinguishable here, and of the two, refusing to act is the
-// one the gate allows. The cost is one query per recorded reset (recovery
-// prunes, so a worker carries few) and that any reaped-but-never-pruned reset
-// keeps the worker in this skip until the state clears — visible in every
-// receipt, and the operator's to clear; never the sweep's to guess.
-func workerResetting(ctx context.Context, server *hostServer, appRef string, state *hostpoller.State, workerID string) bool {
-	if state == nil {
-		return false
-	}
-	for _, r := range resetsForWorker(state, workerID) {
-		resp, err := gen.ContextReset(ctx, server.client, appRef, r.ResetID)
-		if err != nil {
-			return true // unreadable: in flight
-		}
-		if resp == nil || resp.ContextReset == nil {
-			return true // invisible (masked or reaped): in flight, fail closed
-		}
-		if resp.ContextReset.EndedAt == nil {
-			return true // this one is still running
-		}
-	}
-	return false // no recorded reset, or every one of them visibly ended
 }
 
 // stopAgent sends one SIGTERM to the duplicate agent, pinned: the pidfd holds
