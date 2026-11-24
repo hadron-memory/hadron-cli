@@ -50,7 +50,7 @@ type AgentRecord struct {
 // cannot be saved over a real state file (save refuses a state without one).
 // A caller that must carry on without an unreadable file relies on both.
 func EmptyState() *State {
-	return &State{ Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
+	return &State{Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
 }
 
 // LoadState reads the state file; a missing file is an empty state.
