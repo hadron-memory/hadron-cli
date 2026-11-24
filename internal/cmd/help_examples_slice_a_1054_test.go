@@ -100,11 +100,9 @@ var expectedRefusalsSliceA = map[string]string{
 // knownPanicsSliceA lists commands that panic on a reply with no data, each
 // tracked by a follow-up issue (a panic is a defect of the command, not of
 // the help). It is empty: `team host issue` was the one entry (#2572) and no
-// longer panics. An entry that stops panicking fails the harness as stale
+// longer panics, and `team host ops` the second (#3077). An entry that stops panicking fails the harness as stale
 // (cli#2617), so a fixed panic cannot stay allowlisted.
-var knownPanicsSliceA = map[string]string{
-	"team host ops": "https://github.com/hadron-memory/hadron-cli/issues/3077: readHostOperations dereferences a reply with no data",
-}
+var knownPanicsSliceA = map[string]string{}
 
 // sliceAFileContent is the fixture document a file-taking flag of this slice
 // gets. A host.yaml must pass LoadConfig's full validation (app, absolute
