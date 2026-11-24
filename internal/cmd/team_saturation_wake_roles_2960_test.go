@@ -120,23 +120,52 @@ func TestSaturationWakeRolesSetClearJSONEmitsAnEmptyArray2960(t *testing.T) {
 }
 
 // The help says the plain write is the signed-in person's "including from a bound worktree": this
-// test STATES the binding (a worktree binding with a worker session exists) and shows the write still
-// carries no worker session and no instruction.
+// test STATES the binding first (it writes a worktree binding and READS it back, with a worker session,
+// before anything runs) and then shows the write still carries no worker session and no instruction.
+// runTeamTask writes its own binding inside the call, so this test does its few steps itself: the
+// check has to come before the run, not after it.
 func TestSaturationWakeRolesPlainSetFromABoundWorktreeIsThePersons2960(t *testing.T) {
-	r := wakeRolesResponses2894("qa-engineer")
-	calls, _, err := runTeamTask(t, r, "team", "saturation-wake-roles", "set", "qa-engineer")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The scaffold wrote a worktree binding before running (writeTeamBinding): state it, and that it
-	// carries a worker session, so "bound" is a checked fact and not an assumption.
+	writeTeamBinding(t)
 	b, rerr := os.ReadFile(filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json"))
 	if rerr != nil || !strings.Contains(string(b), `"sessionId"`) {
-		t.Fatalf("the scaffold must run from a BOUND worktree (a binding with a session): %v %s", rerr, b)
+		t.Fatalf("the worktree must be BOUND before the run (a binding with a session): %v %s", rerr, b)
+	}
+	srv, calls := attnServer(t, wakeRolesResponses2894("qa-engineer"))
+	setTeamBindingServer(t, srv.URL)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "saturation-wake-roles", "set", "qa-engineer"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
 	}
 	plain := oneCall2422(t, calls, wakeRolesSet2894)
 	if plain.Session != "" || plain.Vars["instruction"] != nil {
 		t.Fatalf("bound or not, the plain write is the person's: %+v", plain)
+	}
+}
+
+// A SET answer whose stored list is null (the server's non-null contract broken, or an older shape) reads
+// as an EMPTY list: "none" in text and [] in --json, never null and never a panic.
+// Kills: saturationWakeRolesDTOFrom returning the stored slice as is (a nil slice marshals as null).
+func TestSaturationWakeRolesSetNullStoredListReadsAsEmpty2960(t *testing.T) {
+	r := wakeRolesResponses2894()
+	r[wakeRolesSet2894] = `{"data":{"setSaturationAlarmWakeRoles":{"appId":"` + wakeRolesApp2894 + `","roles":null}}}`
+	_, out, err := runTeamTask(t, r, "team", "saturation-wake-roles", "set", "--clear")
+	if err != nil {
+		t.Fatalf("a null stored list must not fail the command: %v", err)
+	}
+	if !strings.Contains(out, "wake roles: none (nobody is woken)") {
+		t.Fatalf("a null stored list reads as none: %q", out)
+	}
+	_, js, err := runTeamTask(t, r, "team", "saturation-wake-roles", "set", "--clear", "--json")
+	if err != nil {
+		t.Fatalf("a null stored list must not fail --json: %v", err)
+	}
+	var dto struct {
+		Roles []string `json:"roles"`
+	}
+	if jerr := json.Unmarshal([]byte(js), &dto); jerr != nil || dto.Roles == nil || len(dto.Roles) != 0 {
+		t.Fatalf(`a null stored list is "roles": [] in --json (never null): %v %s`, jerr, js)
 	}
 }
 
@@ -168,7 +197,7 @@ func TestSaturationWakeRolesFloorWordingIsPinned2960(t *testing.T) {
 // The FIT's wording (cli#2993, cor:agt:080:11 "Who is never due"): a listed worker is woken once when the
 // alarm is raised and not again for that alarm; a worker who is never due, such as one that is retired, paused
 // or dormant, is not woken NOW (the rule names a fourth case, a short-lived Agent's worker with no open
-// session, so the list is never closed, and nothing is lost: what was due is handed out later); a change
+// session, so the list is never closed, and for that case nothing is dropped); a change
 // applies only to later alarms. One verb throughout ("woken", never "offered"). Not the jargon "unless it is
 // never due", not the server detail "while its episode is open".
 func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {

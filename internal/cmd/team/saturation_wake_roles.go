@@ -29,12 +29,19 @@ const saturationWakeRolesFloor = "2026-11-22"
 const saturationWakeRolesInspectHint = "check `team saturation-wake-roles get`"
 
 // saturationWakeRolesMeaning is what the list is, said once for every page: it names ROLES,
-// what a listed worker is offered, and that a change reaches later alarms only.
-const saturationWakeRolesMeaning = `The list names roles. Each worker of the App in a listed role is offered one wake
+// who is woken, that a worker who is never due is not woken now, and that a change reaches
+// later alarms only. The never-due clause describes the rule (cor:agt:080:11, "Who is never
+// due") and does not enumerate it: the rule names more cases than the three given as examples
+// (a short-lived Agent's worker with no open session is due nothing too), the server's own scan
+// leaves it to its caller ("Who is never due (cor:agt:080:11) is the caller's", taskWakes.ts), and
+// for that case the rule says nothing is dropped. So the help says
+// "such as", never a closed list, and "not woken now", never that the wake is lost. One verb
+// ("woken") throughout, the one the command's own output uses.
+const saturationWakeRolesMeaning = `The list names roles. Each worker of the App in a listed role is woken once
 when a saturation alarm is raised, and not again for that alarm; a worker who is
-never due (retired, paused or dormant) is not woken. A change to the list applies
-only to alarms raised afterwards. The list is empty by default, so nobody is woken
-until an App manager lists a role.`
+never due, such as one that is retired, paused or dormant, is not woken now. A change
+to the list applies only to alarms raised afterwards. The list is empty by default, so
+nobody is woken until an App manager lists a role.`
 
 type saturationWakeRolesDTO struct {
 	AppID string   `json:"appId"`

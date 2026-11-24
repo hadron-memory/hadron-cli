@@ -585,9 +585,9 @@ section between the markers.
 | `team router loop` |  |  | n | #1054 | eb7d402d5194 |  | unread |  |
 | `team router poll` |  |  | n | #1054 | f4dba7c31087 |  | unread |  |
 | `team router status` |  |  | n | #1054 | 321a568050fe |  | unread |  |
-| `team saturation-wake-roles` |  |  | n | #1054 | 614f1abb9415 |  | unread |  |
-| `team saturation-wake-roles get` |  |  | n | #1054 | ad8d3049cbb7 |  | unread |  |
-| `team saturation-wake-roles set` |  |  | y | #1054 | ddf2c7fd77ae |  | unread |  |
+| `team saturation-wake-roles` |  |  | n | #1054 | d5b06a8fe317 |  | unread |  |
+| `team saturation-wake-roles get` |  |  | n | #1054 | 12fce79a1195 |  | unread |  |
+| `team saturation-wake-roles set` |  |  | y | #1054 | f457c0160c98 |  | unread |  |
 | `team session` | sessions |  | n | #1054 | 9a0433b08b0e |  | unread |  |
 | `team session end` |  |  | y | #1054 | 33caa1010adf |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
