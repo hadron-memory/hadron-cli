@@ -267,3 +267,68 @@ func TestRunCancelWithYes(t *testing.T) {
 		t.Errorf("cancel output missing status: %s", out.String())
 	}
 }
+
+// #3080: the server's cancelAppRun is idempotent and returns an already-ended
+// run unchanged, so the CLI must not claim a cancellation it did not perform.
+// Exit stays 0: the run is not live, which is what the caller asked for.
+func TestRunCancelAlreadyEndedSaysSo(t *testing.T) {
+	for _, status := range []string{"COMPLETED", "FAILED", "TIMED_OUT"} {
+		t.Run(status, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"CancelAppRun": `{"data":{"cancelAppRun":` + strings.Replace(appRunJSON, `"status":"COMPLETED"`, `"status":"`+status+`"`, 1) + `}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"run", "cancel", "run1", "--yes", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("an already-ended run must exit 0, got %v", err)
+			}
+			got := out.String()
+			if want := "run run1 is already " + status + "; nothing to cancel"; !strings.Contains(got, want) {
+				t.Errorf("output %q missing %q", got, want)
+			}
+			if strings.Contains(got, "cancelled") {
+				t.Errorf("must not claim a cancellation that did not happen: %q", got)
+			}
+		})
+	}
+}
+
+// An already-CANCELLED run is indistinguishable from a fresh cancel without a
+// read first (out of scope, #3080), so it keeps the cancelled line.
+func TestRunCancelCancelledKeepsCancelledLine(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CancelAppRun": `{"data":{"cancelAppRun":` + strings.Replace(appRunJSON, `"status":"COMPLETED"`, `"status":"CANCELLED"`, 1) + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"run", "cancel", "run1", "--yes", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := out.String(); !strings.Contains(got, "✓ cancelled run run1 (CANCELLED)") {
+		t.Errorf("output %q", got)
+	}
+}
+
+// A live run coming back means the cancel did not take effect: an error, never
+// "already <STATUS>; nothing to cancel".
+func TestRunCancelLiveStatusIsAnError(t *testing.T) {
+	for _, status := range []string{"RUNNING", "PENDING"} {
+		t.Run(status, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"CancelAppRun": `{"data":{"cancelAppRun":` + strings.Replace(appRunJSON, `"status":"COMPLETED"`, `"status":"`+status+`"`, 1) + `}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"run", "cancel", "run1", "--yes", "--server", gql.URL})
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "still "+status) {
+				t.Fatalf("want a 'still %s' error, got %v", status, err)
+			}
+			if strings.Contains(out.String(), "nothing to cancel") || strings.Contains(out.String(), "cancelled") {
+				t.Errorf("must not print a success/no-op line: %q", out.String())
+			}
+		})
+	}
+}
