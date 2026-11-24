@@ -156,7 +156,7 @@ worktree's bound worker:
              (open or ended, as the server says)
   tasks      your PENDING and STARTED tasks (up to 200; tasksMore says more exist)
   state note the worker's state note: the node "` + recoverStateNoteLoc + `" in its own working
-             memory (Worker.memoryId); null when there is none
+             memory; null when there is none
   directions the note's "Standing directions" section, verbatim; null without one
   mentions   team-chat messages that mention you after your server read
              watermark (oldest first, --mentions-limit, default 20)
@@ -164,7 +164,7 @@ worktree's bound worker:
 It REPLACES: session whoami, worker get, the state note read, chat read
 --mentions-me --since <watermark>, task mine.
 
-STRICTLY READ-ONLY. It sends no X-Hadron-Session header, so it records no
+STRICTLY READ-ONLY. It sends no session identity, so it records no
 heartbeat and acknowledges nothing: it does not advance your read watermark
 (run ` + "`team chat mark-read`" + ` yourself once you have acted on the mentions) and
 reading never makes a session live. It needs a worker binding; without one it

@@ -38,7 +38,7 @@ func newCmdSessionWorkItems(f *cmdutil.Factory) *cobra.Command {
 		Use: "work-items --worker <ref> [--limit <n>] [--offset <n>]", Short: "Read one worker's worklog, including retired workers",
 		Long: `Read one worker's recorded work in the team App. The server resolves its
 name within the App, id or URN, including retired workers. Retirement ends a
-casting, not its history. No roster lookup or client-side session fan-out.
+casting, not its history. It reads the worklog directly, not the roster or each session.
 A ref that resolves to nothing readable returns an empty page, not an
 existence error: no rows does not prove the worker exists or never worked.
 
@@ -47,7 +47,7 @@ One server page is returned (default 50); --limit 0 asks for a count only.
 JSON is {total, items}; total is the server's count under the worker filter.
 Use the returned row count to advance --offset. A refusal never retries
 without the worker filter.`,
-		Example: "  hadron team session work-items --worker Iris --app acme.com:eng-team --json",
+		Example: "  hadron team session work-items --worker Iris --app acme.com:eng-team --json\n  # count only\n  hadron team session work-items --worker Iris --app acme.com:eng-team --limit 0",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(worker) == "" {
