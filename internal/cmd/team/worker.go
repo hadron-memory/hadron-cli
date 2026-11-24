@@ -1357,13 +1357,18 @@ their absence yourself, then explicitly pass --confirm-no-external-attribution.
 Known or uncertain external attribution means retire instead. --yes only
 skips the deletion prompt; it never supplies this separate attestation.
 Missing attestation is WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED (exit 2);
-WORKER_IN_USE is exit 5. WORKER_CENSUS_INCOMPLETE (also exit 5) is the server's
-fail-closed refusal when its check for references did not finish: nothing was
-deleted, and references were neither found nor ruled out. It is not
-WORKER_IN_USE and never means the worker is unused or the delete is safe;
-retry later or retire (no bypass flag exists). A refusal from an older server
-is never retried without the attestation. Who may delete: the same people who
-may cast. The App the change targets is the worker's own.
+WORKER_IN_USE is exit 5.
+
+WORKER_CENSUS_INCOMPLETE (also exit 5) is the server's fail-closed refusal when
+its check for references did not finish: nothing was deleted, and references
+were neither found nor ruled out. It is not WORKER_IN_USE and never means the
+worker is unused or the delete is safe; retry later or retire (no bypass flag
+exists). Exit 5 is shared, so a script branches on the --json failure
+envelope's serverCode, on the real delete and on --dry-run alike.
+
+A refusal from an older server is never retried without the attestation. Who
+may delete: the same people who may cast. The App the change targets is the
+worker's own.
 
 --dry-run (deleteWorkerPreview) asks the server whether a delete would
 be accepted by the same worker reference and act gate, and deletes nothing. It

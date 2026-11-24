@@ -219,6 +219,16 @@ func TestNotEncryptedIsUsage(t *testing.T) {
 	}
 }
 
+// cli#2982: the census refusal and its sibling both exit 5 (a state conflict), so the code table is the
+// one place a rename or reclassification of either would show.
+func TestWorkerRefusalsAreConflicts2982(t *testing.T) {
+	for _, code := range []string{"WORKER_CENSUS_INCOMPLETE", "WORKER_IN_USE"} {
+		if got := codeForExtension(code); got != exitcode.Conflict {
+			t.Errorf("%s → %d, want %d", code, got, exitcode.Conflict)
+		}
+	}
+}
+
 // PR #1616 BLIND P2-1: a passphrase can be a short, common word — even one of
 // the envelope's own keys or a substring of the refusal code. Redaction must
 // scrub what is RENDERED without rewriting the structure the refusal is
