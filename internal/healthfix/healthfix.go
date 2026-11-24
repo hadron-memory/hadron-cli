@@ -1,7 +1,7 @@
 // Package healthfix decides the health sweep's duplicate fixes (hadron-cli
 // #2027). It is pure over what the sweep observed — agent processes, terminal
-// tabs, the reset and pause guards — so every rule of the issue's acceptance
-// and the gate's edge limits is a table row here, not a wiring path.
+// tabs, the pause guard — so every rule of the issue's acceptance and the
+// gate's edge limits is a table row here, not a wiring path.
 //
 // The guards this package owns, from the issue and Xabat's CHECKED gate:
 //   - the only agent is never stopped (nothing to decide below two agents);
@@ -15,9 +15,12 @@
 //     same worktree remains — a worktree whose every tab is a bare shell is
 //     a no_agent report (relaunch is #1947's), and a tab running an agent
 //     never positively classifies bare shell in the first place;
-//   - a resetting worker is skipped entirely and rechecked next sweep;
 //   - under a team pause the fixes are decided but the worker is marked so
 //     the caller reports without applying.
+//
+// The reset guard this package once carried (a resetting worker skipped
+// entirely) went with the reset-context host handler (hadron-cli#3017): no
+// host records a reset, so no worker can be resetting.
 package healthfix
 
 import "fmt"
@@ -44,7 +47,6 @@ type (
 		Path       string
 		Agents     []Agent
 		Tabs       []Tab
-		Resetting  bool
 	}
 	// Mode is the sweep's posture.
 	Mode struct {
@@ -66,7 +68,7 @@ type (
 	// Skip is a worker the sweep deliberately left alone, and why.
 	Skip struct {
 		Worker string
-		Code   string // resetting | team-paused
+		Code   string // team-paused
 	}
 	// Plan is what one worktree's observation adds up to.
 	Plan struct {
@@ -83,14 +85,10 @@ const (
 )
 
 // Decide turns one worktree's observation into its plan. It never stops the
-// only agent, never proposes a close that would empty the worktree of agent
-// tabs, and never proposes anything for a resetting worker.
+// only agent and never proposes a close that would empty the worktree of
+// agent tabs.
 func Decide(w Worktree, m Mode) Plan {
 	p := Plan{Fixes: []Fix{}, Alerts: []Alert{}, Skips: []Skip{}}
-	if w.Resetting {
-		p.Skips = append(p.Skips, Skip{Worker: w.WorkerID, Code: "resetting"})
-		return p
-	}
 	supervised := 0
 	for i := range w.Agents {
 		if w.Agents[i].Supervised {

@@ -46,29 +46,79 @@ type handoffRequest1720 struct {
 
 type handoffRoundTrip1720 func(*http.Request) (*http.Response, error)
 
+// handoffFault1720 names the fault a run injects (cli#2258 F5), instead of a bare string selector
+// compared in several places. A fault is either injected at the HTTP boundary of the post-commit
+// read-back (the transport, cancel, 500, GraphQL-error and malformed-JSON faults) or edits the end
+// answer so no read-back is made (the missing/empty worker id faults).
+type handoffFault1720 string
+
+const (
+	faultNone1720          handoffFault1720 = ""
+	faultTransport1720     handoffFault1720 = "transport"
+	faultCancel1720        handoffFault1720 = "cancel"
+	faultHTTP500_1720      handoffFault1720 = "http-500"
+	faultGraphQLErrors1720 handoffFault1720 = "graphql-errors"
+	faultMalformedJSON1720 handoffFault1720 = "malformed-json"
+	faultMissingWorker1720 handoffFault1720 = "missing-worker"
+	faultEmptyWorker1720   handoffFault1720 = "empty-worker"
+)
+
+// injectsAtReadBack reports whether the fault is injected when the read-back reaches the HTTP boundary.
+func (f handoffFault1720) injectsAtReadBack() bool {
+	switch f {
+	case faultTransport1720, faultCancel1720, faultHTTP500_1720, faultGraphQLErrors1720, faultMalformedJSON1720:
+		return true
+	}
+	return false
+}
+
+// editsEndAnswer reports whether the fault changes the end answer so the worker id is absent or empty,
+// which leaves no read-back to make.
+func (f handoffFault1720) editsEndAnswer() bool {
+	return f == faultMissingWorker1720 || f == faultEmptyWorker1720
+}
+
+// withWorkerIDFault1720 edits the end answer structurally (cli#2258 F6): decode, drop or blank the
+// session's workerId, encode. A drifted fixture (no endSession object or no workerId key) fails the
+// test loudly, as the old guarded literal replacement did.
+func withWorkerIDFault1720(t *testing.T, endAnswer string, fault handoffFault1720) string {
+	t.Helper()
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(endAnswer), &doc); err != nil {
+		t.Fatalf("end fixture is not JSON: %v", err)
+	}
+	data, _ := doc["data"].(map[string]any)
+	session, _ := data["endSession"].(map[string]any)
+	if _, ok := session["workerId"]; !ok {
+		t.Fatal("worker-id fixture shape changed: no data.endSession.workerId")
+	}
+	if fault == faultEmptyWorker1720 {
+		session["workerId"] = ""
+	} else {
+		delete(session, "workerId")
+	}
+	out, err := json.Marshal(doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
 func (fn handoffRoundTrip1720) RoundTrip(req *http.Request) (*http.Response, error) { return fn(req) }
 
 func runEnd1720(t *testing.T, readBack string, extra ...string) end1720 {
 	t.Helper()
-	return runEndFault1720(t, readBack, "", extra...)
+	return runEndFault1720(t, readBack, faultNone1720, extra...)
 }
 
 // Inject faults only when the post-commit read reaches the HTTP boundary.
 // Record every GraphQL attempt, including repeats; retain the loopback guard.
-func runEndFault1720(t *testing.T, readBack, fault string, extra ...string) end1720 {
+func runEndFault1720(t *testing.T, readBack string, fault handoffFault1720, extra ...string) end1720 {
 	t.Helper()
 	bindWorktree(t)
 	stubs := endStubs()
-	if fault == "missing-worker" || fault == "empty-worker" {
-		const old = `"workerId":"wkr1",`
-		if strings.Count(stubs["EndTeamSession"], old) != 1 {
-			t.Fatal("worker-id fixture anchor changed")
-		}
-		replacement := ""
-		if fault == "empty-worker" {
-			replacement = `"workerId":"",`
-		}
-		stubs["EndTeamSession"] = strings.Replace(stubs["EndTeamSession"], old, replacement, 1)
+	if fault.editsEndAnswer() {
+		stubs["EndTeamSession"] = withWorkerIDFault1720(t, stubs["EndTeamSession"], fault)
 	}
 	if readBack != "" {
 		stubs["GetWorkerHandoffReadBack"] = readBack
@@ -103,24 +153,27 @@ func runEndFault1720(t *testing.T, readBack, fault string, extra ...string) end1
 		}
 		mu.Lock()
 		calls = append(calls, call)
-		inject := call.Operation == "GetWorkerHandoffReadBack" && (fault == "transport" || fault == "cancel" || fault == "http-500" || fault == "graphql-errors" || fault == "malformed-json")
+		inject := call.Operation == "GetWorkerHandoffReadBack" && fault.injectsAtReadBack()
 		mu.Unlock()
 		if inject {
-			if fault == "cancel" {
+			if fault == faultCancel1720 {
 				cancel()
 				if !errors.Is(req.Context().Err(), context.Canceled) {
 					t.Error("read-back request did not inherit command cancellation")
 				}
-				return nil, req.Context().Err()
+				// An explicit sentinel (cli#2258 F3), never req.Context().Err(): that is nil when the
+				// inherited-context assertion above has already failed, and a fixture must not hand
+				// RoundTrip a (nil, nil).
+				return nil, context.Canceled
 			}
-			if fault == "transport" {
+			if fault == faultTransport1720 {
 				return nil, errors.New("fixture read-back transport failure")
 			}
 			status, body := http.StatusOK, `{"errors":[{"message":"fixture read-back refused"}]}`
-			if fault == "http-500" {
+			if fault == faultHTTP500_1720 {
 				status = http.StatusInternalServerError
 			}
-			if fault == "malformed-json" {
+			if fault == faultMalformedJSON1720 {
 				body = `{`
 			}
 			return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(body)), Request: req}, nil
@@ -231,9 +284,9 @@ func TestSessionEndOnAServerWithoutContinuityIsToday1720(t *testing.T) {
 // Read-back is narration after a committed end: even cancellation must not
 // turn the successful mutation into an error or cause a retry/second write.
 func TestSessionEndReadBackFaults1799(t *testing.T) {
-	for _, fault := range []string{"transport", "cancel", "http-500", "graphql-errors", "malformed-json", "missing-worker", "empty-worker"} {
+	for _, fault := range []handoffFault1720{faultTransport1720, faultCancel1720, faultHTTP500_1720, faultGraphQLErrors1720, faultMalformedJSON1720, faultMissingWorker1720, faultEmptyWorker1720} {
 		for _, jsonOutput := range []bool{false, true} {
-			t.Run(fault+map[bool]string{false: "/text", true: "/json"}[jsonOutput], func(t *testing.T) {
+			t.Run(string(fault)+map[bool]string{false: "/text", true: "/json"}[jsonOutput], func(t *testing.T) {
 				args := []string{"--handoff", "text"}
 				if jsonOutput {
 					args = append(args, "--json")
@@ -243,10 +296,10 @@ func TestSessionEndReadBackFaults1799(t *testing.T) {
 					t.Fatalf("committed end must remain successful: err=%v stderr=%q stdout=%q", r.err, r.errOut, r.out)
 				}
 				wantReads := 1
-				if fault == "missing-worker" || fault == "empty-worker" {
+				if fault.editsEndAnswer() {
 					wantReads = 0
 				}
-				assertHandoffRequests1799(t, r.calls, wantReads)
+				assertHandoffRequests1720(t, r.calls, wantReads)
 				if jsonOutput {
 					var dto map[string]any
 					if err := json.Unmarshal([]byte(r.out), &dto); err != nil {
@@ -270,7 +323,10 @@ func TestSessionEndReadBackFaults1799(t *testing.T) {
 	}
 }
 
-func assertHandoffRequests1799(t *testing.T, calls []handoffRequest1720, reads int) {
+// assertHandoffRequests1720 checks the exact GraphQL traffic of one `session end --handoff`: the end
+// first, then reads read-back attempts for the ended session's worker. The #1799 tests below share this
+// file's helpers and keep the 1720 suffix of the file they live in.
+func assertHandoffRequests1720(t *testing.T, calls []handoffRequest1720, reads int) {
 	t.Helper()
 	if len(calls) != 1+reads {
 		t.Fatalf("want one end and %d read-back attempts, got %+v", reads, calls)
@@ -302,14 +358,17 @@ func TestSessionEndReadBackRequestShapeAndCounts1799(t *testing.T) {
 		if r.err != nil || r.errOut != "" {
 			t.Fatalf("end: %v %s", r.err, r.errOut)
 		}
-		assertHandoffRequests1799(t, r.calls, 1)
+		assertHandoffRequests1720(t, r.calls, 1)
 		if jsonOutput {
 			var dto map[string]any
 			if err := json.Unmarshal([]byte(r.out), &dto); err != nil {
 				t.Fatal(err)
 			}
-			if dto["handoff"] != handoffURN1720 {
-				t.Fatalf("positive-control handoff absent: %s", r.out)
+			// Compared whole, like the degraded payload above (cli#2258 F7): the success payload is
+			// the degraded one plus the handoff URN, nothing else.
+			want := map[string]any{"sessionId": "s-new", "workerName": "Iris", "endedAt": "2026-08-10T18:00:00Z", "resumeClaim": false, "handoff": handoffURN1720}
+			if !reflect.DeepEqual(dto, want) {
+				t.Fatalf("positive-control payload=%v want=%v", dto, want)
 			}
 		} else if !strings.Contains(r.out, "handoff saved: "+handoffURN1720) {
 			t.Fatalf("positive-control handoff absent: %q", r.out)

@@ -169,8 +169,8 @@ thread is -. --json adds commentSummary {openThreads, oldestOpenThreadAt},
 keeping the server's timestamp string, not the displayed age. Without the
 flag neither the query nor the output gains that summary. A malformed summary
 fails the whole command (exit 1, no partial rows); an older provider refusing
-the field is schema skew (exit 2), with no unfiltered retry. Needs the provider
-from hadron-server#3494 / #3520.
+the field is schema skew (exit 2), with no unfiltered retry. Needs a server
+released after 2026-11-05.
 
 Groom boot prompts with --has-unresolved-comments --memory-class system
 --role boot-prompt; role tasks with --has-unresolved-comments --memory-class

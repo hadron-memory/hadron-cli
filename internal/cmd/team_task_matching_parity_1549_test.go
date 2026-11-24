@@ -12,6 +12,8 @@ import (
 // The GraphQL document adds selections; unchanged inputs/output are the contract.
 // get json re-pinned for cli#1565: task get --json gains clonedFrom and clones (every
 // other hash, and the create variables, are unchanged).
+// list json re-pinned for cli#2734: list --json becomes the agentTasksPage object
+// {tasks,total,hasMore} — a deliberate contract change, not drift.
 func TestTaskMatching1549LegacyParity(t *testing.T) {
 	cases := []struct {
 		name string
@@ -22,7 +24,7 @@ func TestTaskMatching1549LegacyParity(t *testing.T) {
 		{"create human", []string{"create", "example"}, "9f592f1fcb6e727886a55f1d0e9ca674b2d1c76a675e36c89429f2a7b661e6e0"},
 		{"get json", []string{"get", "task1", "--json"}, "0566bcb88ca421ade169d828338e018e57a0aa0c272a4fe19c7c9aa7aae40aad"},
 		{"get human", []string{"get", "task1"}, "7b142eb9d2927fb33cb0cf711e9200bf4477eceacc34900721f0b9a4993a7d15"},
-		{"list json", []string{"list", "--json"}, "4c306c3440669022382ddd4a042886cbb237e8984d7a793d7a3475264d70b6f9"},
+		{"list json", []string{"list", "--json"}, "33f274d8c76f58df9e85e1983be1fe6e816f5331849f3d50f5561b035a47493b"},
 		{"list human", []string{"list"}, "71ace79388fbcf77328ea206f6955986da515ac3cba40f6eb95511fdebc59e66"},
 	}
 	for _, tc := range cases {

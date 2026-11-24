@@ -39,6 +39,25 @@ func reaped(c *exec.Cmd) <-chan struct{} {
 	return ch
 }
 
+// groupHasOtherMembers reports whether any live process other than except
+// runs in process group pgid — the sync point the group-stop tests wait on.
+func groupHasOtherMembers(pgid, except int) bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		pid, err := strconv.Atoi(e.Name())
+		if err != nil || pid == except {
+			continue
+		}
+		if st, ok := readStat(pid); ok && st.pgrp == pgid && st.state != "Z" {
+			return true
+		}
+	}
+	return false
+}
+
 func TestStopWorktreeAgentsStopsTheAgentAndItsGroup(t *testing.T) {
 	patientKillWait(t)
 	root := t.TempDir()

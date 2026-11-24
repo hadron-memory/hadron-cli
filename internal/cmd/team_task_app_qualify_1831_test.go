@@ -124,10 +124,11 @@ func TestTaskAppQualify1831Get(t *testing.T) {
 }
 
 // Acceptance 3: no --app is exactly today's request, and the server's refusal
-// comes through unchanged.
+// comes through unchanged. Since cli#3037 that holds where there is no worktree binding to qualify from
+// (a bound worktree now qualifies the bare handle of `task get`; TestBareHandleReadsQualifyFromTheBinding3037).
 func TestTaskAppQualify1831NoAppUnchanged(t *testing.T) {
 	refusal := `{"errors":[{"message":"You belong to more than one App, so a bare handle is ambiguous.","extensions":{"code":"TASK_HANDLE_QUALIFY"}}]}`
-	calls, out, err := run1831(t, map[string]string{"AgentTaskGet": refusal}, "team", "task", "get", "AT0.5")
+	calls, out, err := runBound3037(t, false, map[string]string{"AgentTaskGet": refusal}, "team", "task", "get", "AT0.5")
 	if err == nil {
 		t.Fatal("want the server refusal")
 	}

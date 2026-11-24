@@ -72,7 +72,7 @@ func runAlarms1829(t *testing.T, tasks []task1044, pages func(int) string, argv 
 	t.Helper()
 	responses := taskResponses()
 	responses["TeamAlarmRoster"] = `{"data":{"teamRoster":{"appId":"capp100000000000000000000","workers":[` + strings.Join(alarmsRoster1829(), ",") + `]}}}`
-	responses["AgentTaskList"] = taskPage1044(tasks)
+	responses["AgentTaskList"] = taskPage1044(tasks, false)
 	return pagesServer1919(t, responses, pages, append([]string{"team", "alarms"}, argv...)...)
 }
 
@@ -380,7 +380,7 @@ func TestTeamAlarms1829BareTeamIsTheBoundWorkersTeam(t *testing.T) {
 	responses := taskResponses()
 	responses["TeamAlarmRoster"] = `{"data":{"teamRoster":{"appId":"capp100000000000000000000","workers":[` +
 		alarmsRosterRow1829("wkr1", "Iris", "", "AVAILABLE", true, true, checkOK1829) + `]}}}`
-	responses["AgentTaskList"] = taskPage1044([]task1044{{id: "t1", handle: "AT0.1", owner: `{"id":"wkr1","kind":"WORKER","name":"Iris","urn":null}`}})
+	responses["AgentTaskList"] = taskPage1044([]task1044{{id: "t1", handle: "AT0.1", owner: `{"id":"wkr1","kind":"WORKER","name":"Iris","urn":null}`}}, false)
 	out, _, _, err := pagesServer1919(t, responses, alarmsPage1829(
 		alarmEvent1829("a1", "t1", "stall.no-progress", "2026-11-17T18:00:00Z", "", "", "")), "team", "alarms", "--team", "--json")
 	if err != nil {
@@ -429,7 +429,7 @@ func TestTeamAlarms1829TextRowAndSanitising(t *testing.T) {
 func TestTeamAlarms1829NamedTeamWithoutABindingDoesNotPanic(t *testing.T) {
 	responses := taskResponses()
 	responses["TeamAlarmRoster"] = `{"data":{"teamRoster":{"appId":"capp100000000000000000000","workers":[` + strings.Join(alarmsRoster1829(), ",") + `]}}}`
-	responses["AgentTaskList"] = taskPage1044(alarmsTasks1829())
+	responses["AgentTaskList"] = taskPage1044(alarmsTasks1829(), false)
 	setAttnResponse(responses, pagedOp1919, alarmsPage1829()(0))
 	srv, _ := attnServerHook(t, responses, func(string) {})
 	noWorktreeCwd(t)
@@ -460,7 +460,7 @@ func TestTeamAlarms1829MissingSelectedResultIsAnErrorNotAPanic(t *testing.T) {
 				pages = static1919(c.page)
 			}
 			responses := taskResponses()
-			responses["AgentTaskList"] = taskPage1044(alarmsTasks1829())
+			responses["AgentTaskList"] = taskPage1044(alarmsTasks1829(), false)
 			responses["TeamAlarmRoster"] = c.roster
 			setAttnResponse(responses, pagedOp1919, pages(0))
 			srv, _ := attnServerHook(t, responses, func(string) {})

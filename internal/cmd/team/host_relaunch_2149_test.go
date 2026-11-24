@@ -66,7 +66,7 @@ func TestRelaunchNewReasonsOlderServerFallback2149(t *testing.T) {
 					return
 				}
 				w.Header().Set("Content-Type", "application/json")
-				if req.OperationName == "HostRelaunchSnapshot" {
+				if req.OperationName == "HostRelaunchWorker" {
 					reads.Add(1)
 					_, _ = w.Write([]byte(`{"data":{"myApp":{"id":"app"},"hostDesiredState":{"hostId":"host","sweepMode":"APPLY","workers":[{"workerId":"worker","family":"claude","reason":"LONG_LIVED","desired":"RUNNING","openSessionId":"session","worktrees":["repo/worker"]}]}}}`))
 					return
@@ -148,7 +148,7 @@ func TestNewRelaunchReasonReportsAndErrors2149(t *testing.T) {
 						return
 					}
 					w.Header().Set("Content-Type", "application/json")
-					if req.OperationName == "HostRelaunchSnapshot" {
+					if req.OperationName == "HostRelaunchWorker" {
 						reads.Add(1)
 						_, _ = w.Write([]byte(`{"data":{"myApp":{"id":"app"},"hostDesiredState":{"hostId":"host","sweepMode":"APPLY","workers":[{"workerId":"worker","family":"claude","reason":"LONG_LIVED","desired":"RUNNING","openSessionId":"session","worktrees":["repo/worker"]}]}}}`))
 						return

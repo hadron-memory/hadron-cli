@@ -36,11 +36,11 @@ func NewCmdSpec(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain product specs (loc-as-citation nodes)",
 		Long: `Maintain product specs in a Hadron memory.
 
-A governed spec has a spec / spec.* role, and its loc is its citation.
-List, describe and lint mark legacy tag-only candidates as not governed.
-Other spec commands retain their existing legacy-marker support. Any valid node
-loc works, at any depth and in any shape: create one with
-"spec new <loc> --title <title>".
+A governed spec has a spec / spec.* role, and its loc is its citation (for
+example msg:010:02). List, describe and lint mark legacy tag-only candidates
+as not governed. Other spec commands retain their existing legacy-marker
+support. Any valid node loc works, at any depth and in any shape: create one
+with "spec new <loc> --title <title>".
 
 Some corpora use a legacy numbering, <module>:<feature>:<rule>:<flow>
 (e.g. msg:010:02:03), with a register node holding its module codes and
@@ -50,8 +50,8 @@ extract" work in that numbering; nothing else requires it.
 Mint state is recorded per node. Minted nodes cannot be renumbered by the
 spec door; other citation permanence enforcement is currently off.
 
-Draft rights are per node (hadron-server#1591): every new node starts
-unminted, in any memory, until its first mint. "spec reserve" holds a citation
+Draft rights are per node: every new node starts unminted, in any memory,
+until its first mint. "spec reserve" holds a citation
 as a placeholder, "spec renumber" moves an unminted spec and
 rewrites references to it, and "spec backlinks" and "spec unresolved" read
 the references. "spec mint" stamps approved, unminted nodes. Approve one first

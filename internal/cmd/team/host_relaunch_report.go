@@ -35,7 +35,10 @@ func (s *hostServer) ReportRelaunch(ctx context.Context, t hostrelaunch.Target, 
 	// a launch's cancellation/timeout. It authorizes no further launch or stop.
 	reportCtx, cancel := context.WithTimeout(api.WithoutSession(context.WithoutCancel(ctx)), 30*time.Second)
 	defer cancel()
-	fresh, err := s.RelaunchSnapshot(reportCtx, t.HostID)
+	// The report's fresh read is about the worker it reports (cli#2816): the
+	// targeted read, so a row the host key is not shown for this worker is
+	// the selector's own answer and not another worker's state.
+	fresh, err := s.RelaunchWorker(reportCtx, t.HostID, t.WorkerID)
 	if err != nil {
 		return err
 	}

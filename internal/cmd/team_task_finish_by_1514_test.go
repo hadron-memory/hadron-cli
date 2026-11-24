@@ -99,7 +99,7 @@ func TestTaskFinishByReads(t *testing.T) {
 				t.Run(verb+"/"+value+"/"+map[bool]string{true: "json", false: "text"}[jsonMode], func(t *testing.T) {
 					responses := taskResponses()
 					responses["AgentTaskGet"] = `{"data":{"agentTask":` + task + `}}`
-					responses["AgentTaskList"] = `{"data":{"agentTasks":[` + task + `]}}`
+					responses["AgentTaskList"] = taskPage2734(task, 1, false)
 					args := []string{"team", "task", verb}
 					if verb == "get" {
 						args = append(args, "AT1.2")
@@ -114,9 +114,14 @@ func TestTaskFinishByReads(t *testing.T) {
 					if jsonMode {
 						var rows []map[string]json.RawMessage
 						if verb == "list" {
-							if err := json.Unmarshal([]byte(out), &rows); err != nil {
+							// cli#2734: list --json is the page object.
+							var page struct {
+								Tasks []map[string]json.RawMessage `json:"tasks"`
+							}
+							if err := json.Unmarshal([]byte(out), &page); err != nil {
 								t.Fatal(err)
 							}
+							rows = page.Tasks
 						} else {
 							var row map[string]json.RawMessage
 							if err := json.Unmarshal([]byte(out), &row); err != nil {

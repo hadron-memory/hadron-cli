@@ -88,22 +88,22 @@ SCOPE is the one "team" means in ` + "`team task list --team`" + `: bare --team 
 worker's team, --team=worker:<ref> another coordinator's. Without --team the
 view is every task of the App.
 
-IN EFFECT is the server's answer (cor:agt:050:20), the same filter as
-` + "`team events --alarms-in-effect`" + `: unacknowledged and with no escalation end
-recorded. The CLI never works it out itself. --all lists every alarm instead,
-acknowledged or past its escalation end, and adds per task the number of its
-acknowledged alarms (ACKED) and the age of its last recorded activity (IDLE):
-an acknowledgement stops the climb, not the stall. ACKED counts only the
-alarms this command's walk read — a lower bound whenever the walk is
-incomplete — and IDLE is absent, not zero, when the task's own timestamp is
-unreadable: an unknown age is not a zero one.
+IN EFFECT is the server's answer: unacknowledged and with no escalation end
+recorded, the same filter as ` + "`team events --alarms-in-effect`" + `. The CLI never
+works it out itself. --all lists every alarm instead, acknowledged or past its
+escalation end, and adds per task the number of its acknowledged alarms
+(ACKED) and the age of its last recorded activity (IDLE): an acknowledgement
+stops the climb, not the stall. ACKED counts only the alarms this command's
+walk read — a lower bound whenever the walk is incomplete — and IDLE is
+absent, not zero, when the task's own timestamp is unreadable: an unknown age
+is not a zero one.
 
 Only alarms on a task appear; task-less alarms (dark-worker, alarm.lead-cadence, start-failing)
 are read with ` + "`team events --alarms`" + `. Tasks are PENDING and STARTED unless --status
 names others, so an alarm on a finished task is not listed by default.
 
 The roster state is the server's TeamRosterState as returned (YOUR_MOVE ...
-NOT_LAUNCHABLE; cor:agt:050:22), not relabelled, with the check status beside it
+NOT_LAUNCHABLE), not relabelled, with the check status beside it
 (NO_SESSION and its reason say the assignee has no session). An assignee the
 roster does not list, or a person, has none.
 

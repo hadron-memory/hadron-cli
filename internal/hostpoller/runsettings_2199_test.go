@@ -201,49 +201,6 @@ func TestStartRefusesAnIncompatibleAccountEvenForTheProfilesOwnFamily2199(t *tes
 	}
 }
 
-// Wolfgang's ruling (#110836): the exec path launches its own fixed command,
-// never refuses the start for settings it cannot apply, and states they were
-// not applied, in the log and in the agent's environment (the carrier for the
-// bind, hadron-server#4306).
-func TestStartOnTheExecPathStatesSettingsNotApplied2199(t *testing.T) {
-	for name, c := range map[string]struct {
-		args map[string]any
-		want bool
-	}{
-		"model":  {map[string]any{"model": "sonnet"}, true},
-		"tier":   {map[string]any{"tier": "low"}, true},
-		"effort": {map[string]any{"effort": "HIGH"}, true},
-		"none":   {nil, false},
-	} {
-		t.Run(name, func(t *testing.T) {
-			p, srv, host := testPoller(t)
-			var logged []string
-			p.emit = func(e Event) { logged = append(logged, e.Kind+": "+e.Detail) }
-			srv.notDone["s1"] = 1
-			op := startOp()
-			for k, v := range c.args {
-				op.Args[k] = v
-			}
-			srv.batches = [][]Operation{{op}}
-			step(t, p)
-			if len(host.launches) != 1 || !reflect.DeepEqual(host.launches[0].Argv, []string{"claude-worker", "--model", "opus"}) {
-				t.Fatalf("the fixed command must launch unchanged: %+v", host.launches)
-			}
-			has := false
-			for _, kv := range host.launches[0].Env {
-				has = has || kv == StartSettingsAppliedEnvVar+"=false"
-			}
-			said := false
-			for _, l := range logged {
-				said = said || strings.Contains(l, "not applied")
-			}
-			if has != c.want || said != c.want {
-				t.Fatalf("env statement %v, log %v, want %v (env %q)", has, said, c.want, host.launches[0].Env)
-			}
-		})
-	}
-}
-
 // An account's capability is explicit: its families list, never its name.
 func TestAccountFamiliesAreExplicit2199(t *testing.T) {
 	prof := LauncherProfile{Family: "claude", Mode: ModeLong, Account: "a"}

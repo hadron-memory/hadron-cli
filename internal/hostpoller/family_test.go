@@ -31,7 +31,11 @@ func startWith(t *testing.T, cfgFamily, opFamily string) (report, int) {
 	p, srv, host := testPoller(t)
 	w := p.startCfg.Workers["iris"]
 	w.Family = cfgFamily
+	// The supervised launch (cli#2914): the worker's profile is its own family, and its account launches
+	// only that family, so a start naming another one is the genuine mismatch it always was.
+	w.Profile = &LauncherProfile{Family: cfgFamily, Mode: ModeLong, Account: "a"}
 	p.startCfg.Workers["iris"] = w
+	p.startCfg.Accounts = map[string]AccountProfile{"a": {Bin: "claude-worker", Families: []string{CanonicalFamily(cfgFamily)}}}
 	srv.notDone["s1"] = 3
 	op := startOp()
 	op.Args["family"] = opFamily
@@ -45,7 +49,7 @@ func TestWorkerStartAcceptsAliasAndCanonicalFamiliesInBothDirections(t *testing.
 		{"openai", "codex"}, {"codex", "openai"}, {"anthropic", "claude"}, {"claude", "anthropic"},
 		{"openai", "openai"}, {"anthropic", "anthropic"}, {"codex", "codex"}, {"claude", "claude"},
 		{"openai", " Codex "}, {"anthropic", "CLAUDE"}, {"claude", " Anthropic "},
-		{"private.model-7", "private.model-7"}, {"glm", "glm"}, {"claude-opus", "claude-opus"},
+		{"glm", "glm"},
 	} {
 		t.Run(c.cfg+"/"+c.op, func(t *testing.T) {
 			r, launches := startWith(t, c.cfg, c.op)
@@ -64,8 +68,23 @@ func TestWorkerStartGenuineFamilyMismatchLaunchesNothing(t *testing.T) {
 	} {
 		t.Run(c.cfg+"/"+c.op, func(t *testing.T) {
 			r, launches := startWith(t, c.cfg, c.op)
-			if r.outcome != Failed || launches != 0 || !strings.Contains(r.reason, "runs the worker as") {
+			// The supervised launch's refusal (cli#2914): this host's account cannot launch that family.
+			if r.outcome != Failed || launches != 0 || !strings.Contains(r.reason, "cannot launch family") {
 				t.Errorf("config %q op %q must be refused with nothing launched: %+v launches=%d", c.cfg, c.op, r, launches)
+			}
+		})
+	}
+}
+
+// A family with no launch template (anything but claude, glm, kimi and codex) cannot start at all now:
+// the fixed-argv exec path was the only way to run one, and it was removed (cli#2914). Refused with
+// nothing launched, saying so.
+func TestWorkerStartRefusesAFamilyWithNoLaunchTemplate2914(t *testing.T) {
+	for _, fam := range []string{"private.model-7", "claude-opus"} {
+		t.Run(fam, func(t *testing.T) {
+			r, launches := startWith(t, fam, fam)
+			if r.outcome != Failed || launches != 0 || !strings.Contains(r.reason, "no launch template") {
+				t.Errorf("family %q has no launch template: %+v launches=%d", fam, r, launches)
 			}
 		})
 	}

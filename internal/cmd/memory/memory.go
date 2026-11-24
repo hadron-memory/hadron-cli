@@ -208,8 +208,9 @@ func annotateMemoryRefHelp(cmd *cobra.Command) {
 }
 
 // resolveMemoryID maps a memory URN to its ID via memory(ref:), which
-// dispatches PKs and URNs server-side (hadron-server#473). The mutations
-// this feeds (updateMemory, member/share writes) still accept PK ids only.
+// dispatches PKs and URNs server-side (hadron-server#473). The member/share
+// writes now take memoryRef (an id or URN, #4137), but these commands keep the
+// lookup: it fails fast on an unknown memory before the write is sent.
 func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
 	if err := validateMemoryRef(ref); err != nil {
 		return "", err

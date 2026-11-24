@@ -145,7 +145,7 @@ func taskResponses() map[string]string {
 		"AgentTaskPark":              `{"data":{"parkAgentTask":` + backlogTaskFieldsJSON + `}}`,
 		"AgentTaskReady":             `{"data":{"makeAgentTaskReady":` + taskFieldsJSON + `}}`,
 		"AgentTaskGet":               `{"data":{"agentTask":` + taskFieldsJSON + `}}`,
-		"AgentTaskList":              `{"data":{"agentTasks":[` + taskFieldsJSON + `]}}`,
+		"AgentTaskList":              taskPage2734(taskFieldsJSON, 1, false),
 		"AgentTaskTree":              `{"data":{"agentTaskTree":[` + taskFieldsJSON + `]}}`,
 		"AgentTeamEventsPage":        `{"data":{"agentTeamEventsPage":{"events":[` + eventFieldsJSON + `],"hasMore":false,"nextCursor":null}}}`,
 		"AlarmAcknowledge":           `{"data":{"acknowledgeAlarm":` + ackedAlarmEventFieldsJSON + `}}`,
@@ -882,8 +882,7 @@ func TestTeamRosterRendersServerStates(t *testing.T) {
 func TestTeamRosterHelpCitesProposedStates2331(t *testing.T) {
 	help := strings.Join(strings.Fields(cmdHelpOut(t, "team", "roster")), " ")
 	for _, want := range []string{
-		"hrn:node:hadronmemory.com:specs:cor:agt:050:22",
-		"the states are Proposed", "AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE",
+		"These states are proposed and may change", "AVAILABLE, NO_FAMILY, NOT_LAUNCHABLE",
 		"the server's roster order",
 	} {
 		if !strings.Contains(help, want) {

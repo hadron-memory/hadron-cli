@@ -93,7 +93,7 @@ func newReloadFixtureFrom(t *testing.T, text string) *reloadFixture {
 // write replaces the file with text, filling the two path placeholders.
 func (fx *reloadFixture) write(text string) {
 	fx.t.Helper()
-	text = strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(text)
+	text = strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(supervisedYAML(text))
 	if err := os.WriteFile(fx.path, []byte(text), 0o600); err != nil {
 		fx.t.Fatal(err)
 	}
@@ -225,9 +225,9 @@ func TestAnOperationForARemovedWorkerFailsWithAReason2623(t *testing.T) {
 func TestAWorkerChangedInPlaceIsApplied2623(t *testing.T) {
 	fx := newReloadFixture(t)
 	fx.step()
-	fx.edit(strings.Replace(reloadBase, "launch: [claude-worker]", "launch: [claude-worker, --model, opus]", 1))
-	if w, _ := fx.p.config().Worker("iris"); strings.Join(w.Launch, " ") != "claude-worker --model opus" {
-		t.Fatalf("launch = %v", w.Launch)
+	fx.edit(reloadBase + "    end_wait: 20ms\n") // iris is the last worker: the line is its own
+	if w, _ := fx.p.config().Worker("iris"); w.EndWait != "20ms" {
+		t.Fatalf("end_wait = %q", w.EndWait)
 	}
 	if ev := fx.kinds("config-reloaded"); len(ev) != 1 || !strings.Contains(ev[0].Detail, "workers changed: iris") {
 		t.Fatalf("got %+v", ev)
@@ -253,14 +253,14 @@ func TestChangedReposAndAccountsAreNamedInTheEvent2623(t *testing.T) {
 func TestAnInvalidEditChangesNothingAndIsSaidOnce2623(t *testing.T) {
 	fx := newReloadFixture(t)
 	fx.step()
-	bad := reloadBase + "  billie:\n    family: claude\n" // no launch command: refused at start too
+	bad := reloadBase + "  billie:\n    family: claude\n" // no launcher profile: refused at start too
 	fx.edit(bad)
 	fx.step()
 	if got := fx.registered(); got != "iris" {
 		t.Fatalf("an invalid edit changed the registration to %q", got)
 	}
 	ev := fx.kinds("config-reload-refused")
-	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "launch must name a command") || !strings.Contains(ev[0].Detail, "keeps the one it has") {
+	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "needs a launcher_profile") || !strings.Contains(ev[0].Detail, "keeps the one it has") {
 		t.Fatalf("want one refusal naming the cause, got %+v", ev)
 	}
 	// Mending the file applies it.
@@ -341,21 +341,22 @@ orca_launch:
   orca_bin: /usr/bin/orca
 `
 
-func TestAWorkerThatNeedsOrcaLaunchWiringIsRefused2623(t *testing.T) {
+// Every worker launches through the wiring made at start (cli#2914: there is no other launch), so a worker a
+// reload adds is applied, never refused for wiring. (It used to be refused when the poller had started with
+// only exec-launched workers and so wired no Orca launcher.)
+func TestAWorkerAddedByAReloadUsesTheWiringMadeAtStart2623(t *testing.T) {
 	fx := newReloadFixture(t)
 	fx.step()
 	fx.edit(reloadBase + reloadOrcaWorker)
-	if got := fx.registered(); got != "iris" {
-		t.Fatalf("registration = %q: an Orca-launched worker needs wiring made at start", got)
+	if got := fx.registered(); got != "iris,oscar" {
+		t.Fatalf("registration = %q: the added worker launches through the wiring made at start", got)
 	}
-	ev := fx.kinds("config-reload-refused")
-	if len(ev) != 1 || !strings.Contains(ev[0].Detail, "restart") {
-		t.Fatalf("want one refusal that says to restart, got %+v", ev)
+	if ev := fx.kinds("config-reload-refused"); len(ev) != 0 {
+		t.Fatalf("an added worker must not be refused for wiring, got %+v", ev)
 	}
 }
 
-// The wiring is judged by what the poller started with, not by the file now in
-// force: an Orca worker removed and later re-added is not refused.
+// An Orca worker removed and later re-added is not refused.
 func TestAnOrcaWorkerRemovedAndReAddedIsNotRefused2623(t *testing.T) {
 	fx := newReloadFixtureFrom(t, reloadBase+reloadOrcaWorker)
 	fx.step()
@@ -523,7 +524,7 @@ func TestASymlinkedConfigIsJudgedByItsTarget2623(t *testing.T) {
 	fx := newReloadFixture(t)
 	fx.step()
 	real := filepath.Join(fx.dir, "real.yaml")
-	text := strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(reloadBase + billie)
+	text := strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(supervisedYAML(reloadBase + billie))
 	if err := os.WriteFile(real, []byte(text), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -656,20 +657,5 @@ func TestRemovingAWorkerFromTheFileStopsItsAgentNever2623(t *testing.T) {
 	}
 	if agent.terminations() != 0 || len(fx.host.stopped) != 0 {
 		t.Fatalf("the reload stopped a process: terminations %d, stop calls %v", agent.terminations(), fx.host.stopped)
-	}
-}
-
-// An idle proof is built from the worker's own entry; once a reload has taken
-// the worker out of the file there is none, and nothing may go on to process
-// control with an empty interface.
-func TestTheIdleTargetOfAWorkerAReloadRemovedIsRefused2623(t *testing.T) {
-	fx := newReloadFixtureFrom(t, reloadBase+billie)
-	fx.step()
-	if tgt, ok := fx.p.resetIdleTarget(Operation{WorkerID: "id-billie"}, "billie", "repo/billie", ProcessIdentity{}); !ok || tgt.Family == "" {
-		t.Fatalf("a configured worker must yield its interface: %+v ok=%v", tgt, ok)
-	}
-	fx.edit(reloadBase)
-	if tgt, ok := fx.p.resetIdleTarget(Operation{WorkerID: "id-billie"}, "billie", "repo/billie", ProcessIdentity{}); ok || tgt.Family != "" {
-		t.Fatalf("a removed worker yielded a target: %+v ok=%v", tgt, ok)
 	}
 }

@@ -304,26 +304,62 @@ type itemHolders struct {
 	IDs    map[string]bool // every task the lookup returned
 }
 
+// lookupHolders reads who holds an outside item in the App now, following
+// hasMore to the end (cli#2734, server#4622): an ended task keeps its external
+// id, so the holder history can outgrow one page and the ACTIVE holder can sit
+// past a page of finished predecessors — a lookup that stops early answers
+// "nobody holds it" about an item a later page holds. The read steps by the
+// rows served (the server's own continuation), and a malformed page ends the
+// run as a server failure, like any failed holder read.
 func lookupHolders(ctx context.Context, client graphql.Client, appRef, externalID string) (itemHolders, error) {
-	resp, err := gen.IntakeItemHolders(ctx, client, appRef, externalID)
-	if err != nil {
-		return itemHolders{}, &holderLookupError{err: mapTaskError(err)}
-	}
 	h := itemHolders{IDs: map[string]bool{}}
-	for _, t := range resp.AgentTasks {
-		if t == nil {
-			continue
+	for offset, page := 0, 0; ; page++ {
+		if page >= intakeReadPageLimit {
+			return itemHolders{}, &holderLookupError{err: exitcode.Newf(exitcode.Error, "the holder read did not end after %d pages; nothing was told and the cursor stays", page)}
 		}
-		h.Any = true
-		h.IDs[t.Id] = true
-		switch t.Status {
-		case gen.AgentTaskStatusBacklog, gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted:
-			if h.Active == "" {
-				h.Active = t.Id
+		var off *int
+		if offset > 0 {
+			o := offset
+			off = &o
+		}
+		resp, err := gen.IntakeItemHolders(ctx, client, appRef, externalID, nil, off)
+		if err != nil {
+			if api.IsGraphQLValidationOnlyFor(err, "agentTasksPage") {
+				return itemHolders{}, &holderLookupError{err: exitcode.Newf(exitcode.Usage, "this server cannot page its task reads (it predates hadron-server#4622); the holder of the outside item was not read")}
+			}
+			return itemHolders{}, &holderLookupError{err: mapTaskError(err)}
+		}
+		if resp.AgentTasksPage == nil {
+			return itemHolders{}, &holderLookupError{err: malformedTaskPage("the page object is missing or null")}
+		}
+		items := resp.AgentTasksPage.Items
+		if items == nil {
+			return itemHolders{}, &holderLookupError{err: malformedTaskPage("items is missing or null")}
+		}
+		// An empty page that claims more remain can never advance: the read
+		// steps by rows served, so offset+0 would re-ask this page until the
+		// page bound. Refused at once as a server failure (cli#2734).
+		if len(items) == 0 && resp.AgentTasksPage.HasMore {
+			return itemHolders{}, &holderLookupError{err: malformedTaskPage("an empty page claims more remain")}
+		}
+		for i, t := range items {
+			if t == nil {
+				return itemHolders{}, &holderLookupError{err: exitcode.Newf(exitcode.Error, "server returned a malformed agentTasksPage answer: item %d of %d is empty", i+1, len(items))}
+			}
+			h.Any = true
+			h.IDs[t.Id] = true
+			switch t.Status {
+			case gen.AgentTaskStatusBacklog, gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted:
+				if h.Active == "" {
+					h.Active = t.Id
+				}
 			}
 		}
+		if !resp.AgentTasksPage.HasMore {
+			return h, nil
+		}
+		offset += len(items)
 	}
-	return h, nil
 }
 
 // heldElsewhere reports (and counts) a change the pass must not tell the adapter.

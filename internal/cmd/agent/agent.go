@@ -200,6 +200,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
 	cmd.AddCommand(newCmdAgentBootPrompt(f))
 	cmd.AddCommand(newCmdAgentModelGroup(f))
+	cmd.AddCommand(newCmdAgentSession(f))
 	cmd.AddCommand(bootcompile.NewAgent(f))
 	return cmd
 }
@@ -1429,6 +1430,7 @@ func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
 		Short: "The tasks the Agent's workers see",
 	}
 	cmd.AddCommand(newCmdAgentTasksList(f))
+	cmd.AddCommand(newCmdAgentTasksCreate(f))
 	return cmd
 }
 

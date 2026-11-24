@@ -1,0 +1,9 @@
+# cli#2823: the server's closed list of App key scopes (cor:aut:010:03). The CLI
+# keeps no copy of it, so a scope added server-side shows up without a release.
+query AppKeyScopeCatalogue {
+  appKeyScopeCatalogue {
+    scope
+    description
+    requiresHostId
+  }
+}

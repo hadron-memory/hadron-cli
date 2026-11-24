@@ -164,12 +164,12 @@ func TestNodeRevisionRestoreDefaultOmitsTruncate(t *testing.T) {
 		t.Errorf("unexpected output: %s", out.String())
 	}
 	var vars struct {
-		RevisionId string `json:"revisionId"`
+		NodeRevRef string `json:"nodeRevRef"`
 		Truncate   *bool  `json:"truncate"`
 	}
 	_ = json.Unmarshal(captured["RestoreNodeRevision"], &vars)
-	if vars.RevisionId != "v2" {
-		t.Errorf("revisionId should be v2, got %q", vars.RevisionId)
+	if vars.NodeRevRef != "v2" {
+		t.Errorf("nodeRevRef should be v2, got %q", vars.NodeRevRef)
 	}
 	if vars.Truncate != nil {
 		t.Errorf("truncate must be omitted by default, got %v", *vars.Truncate)
@@ -232,11 +232,11 @@ func TestNodeRevisionLabel(t *testing.T) {
 		t.Errorf("unexpected output: %s", out.String())
 	}
 	var vars struct {
-		RevisionId string `json:"revisionId"`
+		NodeRevRef string `json:"nodeRevRef"`
 		RevLabel   string `json:"revLabel"`
 	}
 	_ = json.Unmarshal(captured["UpdateNodeRevision"], &vars)
-	if vars.RevisionId != "v2" || vars.RevLabel != "pinned baseline" {
+	if vars.NodeRevRef != "v2" || vars.RevLabel != "pinned baseline" {
 		t.Errorf("unexpected label vars: %+v", vars)
 	}
 }
@@ -268,11 +268,11 @@ func TestNodeRevisionDelete(t *testing.T) {
 		t.Errorf("unexpected output: %s", out.String())
 	}
 	var vars struct {
-		RevisionId string `json:"revisionId"`
+		NodeRevRef string `json:"nodeRevRef"`
 	}
 	_ = json.Unmarshal(captured["DeleteNodeRevision"], &vars)
-	if vars.RevisionId != "v2" {
-		t.Errorf("revisionId should be v2, got %q", vars.RevisionId)
+	if vars.NodeRevRef != "v2" {
+		t.Errorf("nodeRevRef should be v2, got %q", vars.NodeRevRef)
 	}
 }
 

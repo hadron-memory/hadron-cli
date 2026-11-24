@@ -1,0 +1,42 @@
+# cli#2510 (gap #58): agent session start|end. The other four #58 operations
+# (ai-config clear, import publish|rm, repair-system-memory) live in agent.graphql (cli#2729).
+
+# cli#2935: startAgentSession's argument is `agentRef` (hadron-server#4141 S5,
+# #4789; no alias). The server before S5 looked its agentId up by ID only (a
+# URN was answered as "App is not allowed to operate this agent"), so `agent
+# session start` resolves a URN to the ID with this read first; an ID is
+# still what it sends, which agentRef accepts.
+query AgentSessionAgentID($ref: ID!) {
+  agent(ref: $ref) {
+    id
+  }
+}
+
+mutation StartAgentSession(
+  $agentId: ID!
+  # @genqlient(pointer: true, omitempty: true)
+  $externalUserId: String
+  # @genqlient(pointer: true, omitempty: true)
+  $sessionTimeoutSeconds: Int
+) {
+  startAgentSession(
+    agentRef: $agentId
+    externalUserId: $externalUserId
+    sessionTimeoutSeconds: $sessionTimeoutSeconds
+  ) {
+    id
+    agentId
+    appId
+    memoryId
+    userId
+    type
+    state
+    isLive
+    startedAt
+    expiresAt
+  }
+}
+
+mutation EndAgentSession($sessionId: ID!) {
+  endAgentSession(sessionId: $sessionId)
+}

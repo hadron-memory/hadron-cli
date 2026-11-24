@@ -1,0 +1,55 @@
+# cli#2990: `agent tasks create`, a thin client of hadron-server#4864 (ccfac717). createTaskNode is the
+# existing task door; with `index` the SAME call also writes the task's tasks-index edge (node and edge in one
+# transaction, server-side), with `skill` an enabled properties.exports.claudeSkill block, validated by the
+# server's skill lint. Without both the door behaves exactly as before. The CLI adds no rule: the server's
+# refusals (an existing slug, an Agent with no tasks index, an index outside the Agent's system memory, a
+# malformed loc, write level) come back through api.MapError. `index` and `skill` are omitempty so an unset
+# variable is OMITTED, never sent as null.
+# @genqlient(for: "CreateNodeInput.abstract", omitempty: true)
+# @genqlient(for: "CreateNodeInput.aiAgent", omitempty: true)
+# @genqlient(for: "CreateNodeInput.alias", omitempty: true)
+# @genqlient(for: "CreateNodeInput.content", omitempty: true)
+# @genqlient(for: "CreateNodeInput.contentType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.data", omitempty: true)
+# @genqlient(for: "CreateNodeInput.description", omitempty: true)
+# @genqlient(for: "CreateNodeInput.edges", omitempty: true)
+# @genqlient(for: "CreateNodeInput.id", omitempty: true)
+# @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
+# @genqlient(for: "CreateNodeInput.memoryId", pointer: false, omitempty: true)
+# @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
+# @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.objectType", omitempty: true)
+# @genqlient(for: "CreateNodeInput.ownerRepo", omitempty: true)
+# @genqlient(for: "CreateNodeInput.reason", omitempty: true)
+# @genqlient(for: "CreateNodeInput.properties", omitempty: true)
+# @genqlient(for: "CreateNodeInput.role", omitempty: true)
+# @genqlient(for: "CreateNodeInput.seq", omitempty: true)
+# @genqlient(for: "CreateNodeInput.tags", omitempty: true)
+mutation CreateRoleTask(
+  $input: CreateNodeInput!
+  # @genqlient(omitempty: true)
+  $index: TaskIndexInput
+  # @genqlient(omitempty: true)
+  $skill: TaskSkillExportInput
+) {
+  createTaskNode(input: $input, index: $index, skill: $skill) {
+    id
+    memoryId
+    loc
+    urn
+    name
+    nodeType
+    isRunnable
+    role
+    updatedAt
+    outgoingEdges {
+      id
+      name
+      target {
+        id
+        loc
+        urn
+      }
+    }
+  }
+}

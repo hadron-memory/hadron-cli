@@ -36,23 +36,26 @@ func newCmdTeamChatMarkRead(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mark-read --through <seq> [--channel <ref>]",
 		Short: "Mark the bound worker's team chat read through a seq",
-		Long: `Advance the bound worker's OWN read cursor on one Channel, through --through
-(hadron-server#1353). Use it after a read that does not count by itself: a
---mentions/--mentions-me, --before or windowed read. An ordinary forward
-` + "`team chat read`" + ` already marks what it returned.
+		Long: `Move your worker's own read position in a chat forward to --through <seq>.
+Use it after a read that did not mark by itself, such as one with --mentions,
+--mentions-me or --thread, a --before read, or a window (see
+` + "`" + `hadron team chat read --help` + "`" + ` for which reads mark). An ordinary forward
+` + "`" + `team chat read` + "`" + ` already marks what it returned.
 
-The cursor only moves forward: a lower seq changes nothing (the result shows
-where it already is), and a seq beyond the Channel's latest message is refused
-(exit 2). --channel defaults to the App's team chat.
+The position only moves forward: a lower seq changes nothing (the result shows
+where it already is), and a seq beyond the chat's newest message is refused
+(exit 2). --channel names another channel by id or address; the default is the
+App's team chat.
 
-On the App's team chat the mark also moves this worktree's local read hint (the
-one ` + "`team session log`" + ` compares against) up to --through, and never back;
-if the server refuses the mark the hint is left as it was. A Channel named with
---channel does not touch the hint, which counts the team chat only.
+On the team chat, a successful mark also moves this worktree's local read
+watermark (the one ` + "`" + `hadron team session log` + "`" + ` compares against) up to
+--through, never backwards; if the server refuses the mark, the local watermark
+stays as it was. A channel given with --channel leaves the local watermark
+alone, because it counts the team chat only.
 
-Needs a worker session binding (` + "`hadron team session start`" + `) that records
-this server: the cursor belongs to the bound worker, and the server accepts
-only your own live session.`,
+Needs a worker session bound to this worktree (` + "`" + `hadron team session start` + "`" + `)
+on this server: the position belongs to the bound worker, and the server only
+accepts it from that worker's own live session.`,
 		Example: `  hadron team chat mark-read --through 1878`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

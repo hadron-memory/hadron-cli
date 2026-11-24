@@ -24,22 +24,25 @@ func newCmdRole(f *cmdutil.Factory) *cobra.Command {
 		Use:     "role <command>",
 		Aliases: []string{"roles"},
 		Short:   "The team's role definitions",
-		Long: `A role is a named job on the team, such as backend-engineer: a role name
-and a short description. Workers are cast into a role ('hadron team worker
-cast'), and the role's agent carries the prompt template they start from (see
-'agent get'). A role definition is stored as a roles:<role> node in the Team
-Agent's system memory (the installed agent that carries the roles: branch).
+		Long: `A role is a named job on the team, such as backend-engineer: a name and a
+short description. Workers are cast into a role (` + "`" + `hadron team worker cast` + "`" + `),
+and the role's agent carries the prompt template they start from (see
+` + "`" + `hadron agent get` + "`" + `). A role definition is stored as a roles:<role> node in
+the system memory of the team's agent (the installed agent that carries the
+roles: branch).
 
-A cast takes an explicit --name, and a worker's name is permanent in its App:
-retiring a role does NOT free a name for re-casting. 'role list' shows what is
-defined; 'create', 'update' and 'rm' change definitions. (History: the role name
-register, with 'role names ...', --name-range, --name-convention and
---transfer-register-to, was removed in hadron-server#1050.)
+Names: a cast takes an explicit --name, and a worker's name is permanent in its
+App, so retiring a role does NOT free a name for re-casting. (History: the role
+name register, with 'role names ...', --name-range, --name-convention and
+--transfer-register-to, was removed.)
 
-Which App: the App resolves ambiently (--app, the configured App context, then
-the worktree binding). Each read opens with the App it landed on and where that
-scope came from, each write names it in the receipt, and 'role rm' names it in
-the confirmation.`,
+Commands: ` + "`" + `role list` + "`" + ` and ` + "`" + `role get` + "`" + ` show what is defined; ` + "`" + `create` + "`" + `, ` + "`" + `update` + "`" + `
+and ` + "`" + `rm` + "`" + ` change definitions. Each write is a platform call, so whoever may
+write that agent's system memory may change roles.
+
+Which App: --app, else the configured App context, else the worktree binding.
+Each read opens with the App it landed on and where that choice came from, each
+write names the App in its receipt, and ` + "`" + `role rm` + "`" + ` names it in the confirmation.`,
 	}
 	cmd.AddCommand(newCmdRoleList(f))
 	cmd.AddCommand(newCmdRoleGet(f))
@@ -147,10 +150,13 @@ func newCmdRoleList(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "The App's role definitions and their role agents",
 		Long: `List the App's role definitions: each role, its description and its role
-agent. --team-agent disambiguates when more than one installed agent carries a
-roles: branch. An empty AGENT cell means no installed agent (or more than one)
-carries that role. To see whether a worker name is already taken before casting,
-use 'worker list --include-retired': retired workers keep their names.
+agent. The role agent is the installed agent whose persona role is that role;
+it carries the prompt template workers in the role start from. --team-agent
+picks the agent that holds the roles: branch when more than one installed agent
+carries one. An empty AGENT cell means no installed agent (or more than one)
+carries that role. The App is chosen as in ` + "`" + `hadron team role --help` + "`" + `.
+To see whether a worker name is already taken before casting, use
+'worker list --include-retired': retired workers keep their names.
 
 After the table, text mode may add warnings (never errors; --json has none):
   ! role <name>: no installed agent carries this persona role
@@ -354,17 +360,23 @@ func newCmdRoleCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create <role> [--description <d>]",
 		Short: "Mint a role definition",
-		Long: `Create a roles:<role> definition in the Team Agent's system memory: ONE
-platform call (createTeamRole, hadron-server#960) that owns the spec
-knowledge hand-authoring required — the loc shape and the node type. An
-existing role refuses (TEAM_ROLE_EXISTS); ` + "`role update`" + ` is the edit path.
+		Long: `Create a role definition, a roles:<role> node in the team agent's system
+memory, in one platform call: it sets the node's place and type for you, so
+nothing is written by hand. Give the role name and, optionally, a
+--description. A role that already exists is refused (TEAM_ROLE_EXISTS); use
+` + "`" + `role update` + "`" + ` to edit it. On success it prints a receipt naming the App
+(--json prints the result).
 
---names, --name-range, --name-convention and --allow-out-of-range are gone
-(hadron-server#1050): there is no name register for them to describe.
+This creates only the definition. The boot prompt that workers in the role
+start from is compiled from boot:source in the agent's system memory (use
+` + "`" + `hadron agent compile` + "`" + ` and ` + "`" + `hadron node approve` + "`" + `). Who may create a role is
+decided by that agent's definition-edit rule: whoever may write its system
+memory.
 
-The boot prompt is compiled from boot:source in the Agent system memory
-(use hadron agent compile and hadron node approve). Authorization is the
-Team Agent's definition-edit gate — whoever may write its system memory.`,
+--team-agent names the agent that holds the roles: branch when the App
+installs more than one. The old --names, --name-range, --name-convention and
+--allow-out-of-range flags are gone: there is no name register for them to
+describe.`,
 		Example: `  hadron team role create backend-engineer --description "Go services" --app acme.com:eng-team`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -399,14 +411,21 @@ func newCmdRoleUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <role> [--description <d>] [--repo <owner/repo> | --clear-repos]",
 		Short: "Edit a role's description or repository affinity",
-		Long: `Edit a role description or repository affinity. Repeat --repo for each
-repository; --clear-repos sends an empty list (--clear-repos=false is the same
-as leaving it out). Omitted fields preserve their values. Repository affinity is
-advisory only, never an authorization or launch gate.
+		Long: `Edit a role's description or its repository affinity. Repository affinity is
+advisory only: it is never a permission or launch check. Fields you leave out
+keep their values, and other data stored on the role is kept.
 
-Omitted is "preserve" on this server, so an update that names nothing is
-refused rather than sent: a no-op write that reports success is worse than
-a usage error. Sibling data keys always survive (hadron-server#960).`,
+--repo <owner/repo> names a repository; repeat it for each one.
+--clear-repos empties the list (--clear-repos=false is the same as leaving it
+out). Give --repo or --clear-repos, not both, and --repo must not be empty.
+
+An update that names nothing (no --description, --repo or --clear-repos) is
+refused as a usage error instead of being sent, because a write that changes
+nothing but reports success would be misleading. An unknown role is exit 4. On
+success it prints a receipt naming the App (--json prints the result).
+
+--team-agent names the agent that holds the roles: branch when the App
+installs more than one.`,
 		Example: `  hadron team role update backend-engineer --description "Go services and the GraphQL API"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -502,12 +521,12 @@ brought back. To recover one, find it with 'hadron node recovery list' in the
 Team Agent's system memory and run 'hadron node restore' on it; each sub-node is
 restored separately, the role node first.
 
-Nothing refuses a retirement. Workers already cast in the role are not retired
-or renamed by this command (it retires the definition only), and retiring does
-NOT free a name for re-casting: a worker's name is permanent in its App. The
-role AGENT is a separate object and is not touched: retire it with 'app agent
-remove <app> <agent> --yes' and 'agent rm <agent> --yes' once nothing else needs
-it.
+Nothing blocks a retirement, not even workers already cast in the role: they
+are not retired or renamed (this command retires the definition only), and
+retiring does NOT free a name for re-casting: a worker's name is permanent in
+its App. The role AGENT is a separate object and is not touched: retire it
+with 'app agent remove <app> <agent> --yes' and 'agent rm <agent> --yes' once
+nothing else needs it.
 
 The confirmation names the App before the role, because an ambient App is the
 mistake the prompt is best placed to catch. --yes skips the prompt (required

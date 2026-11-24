@@ -102,8 +102,9 @@ handle's kernel start-time identity is compared with the census's ticks before
 the signal goes out through `SignalWithin(SIGTERM, …)` with a short
 self-chosen lease; a mismatch skips, never signals. A stop that fails or
 lands on nothing is reported as a failed fix, not an error exit; the next sweep
-re-detects. Non-Linux: no `/proc` census ⇒ no stops (same platform limit as
-`worker.reset-context`).
+re-detects. Non-Linux: no `/proc` census ⇒ no stops (the same platform limit the
+`worker.reset-context` host handler had; that handler was removed by
+[#3017](https://github.com/hadron-memory/hadron-cli/issues/3017)).
 
 ### 4. Posture: dry by default, applying on the timer
 

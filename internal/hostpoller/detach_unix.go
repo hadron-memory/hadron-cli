@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -16,12 +15,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 )
-
-// detach starts the agent in a new session, so it outlives the poller and
-// the poller's signals do not reach it.
-func detach(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-}
 
 func realPath(p string) (string, error) { return filepath.EvalSymlinks(p) }
 
@@ -460,21 +453,9 @@ func quoteArg(arg string) string {
 	return arg
 }
 
-// signalGroup and probeGroup are the group primitives terminateGroup uses,
-// as package vars so tests can make them fail (#1474: the signal-fails and
-// does-not-exit paths are otherwise unreachable on a healthy host).
-var (
-	signalGroup = func(pgid int, sig syscall.Signal) error {
-		return syscall.Kill(-pgid, sig)
-	}
-	probeGroup = func(pgid int) error {
-		return syscall.Kill(-pgid, 0)
-	}
-)
-
-// groupPollInterval is how often terminateGroup probes a group it is
-// waiting on. It is far below any sane grace, so the probe cost bounds the
-// latency of noticing the group emptied.
+// groupPollInterval is how often the worker.end stop probes a group it is
+// waiting on (endstop_linux.go). It is far below any sane grace, so the
+// probe cost bounds the latency of noticing the group emptied.
 var groupPollInterval = 20 * time.Millisecond
 
 // postKillWait bounds the wait after SIGKILL. It is deliberately NOT
@@ -482,219 +463,3 @@ var groupPollInterval = 20 * time.Millisecond
 // unkillable (D-state) member can outlive it, and that is reported rather
 // than waited on twice.
 var postKillWait = 2 * time.Second
-
-// groupGone reports whether the process group no longer exists: an ESRCH
-// answer to a signal-0 probe of the group.
-func groupGone(pgid int) bool {
-	return errors.Is(probeGroup(pgid), syscall.ESRCH)
-}
-
-// stop ends the launch by its process group, and is safe at any point of
-// the agent's life because the launch's own leader is the ownership proof:
-// while it is alive, or while it is the unreaped zombie the hold keeps
-// (waitid WNOWAIT or the /proc poll, reapgroup_linux.go), its pid — the
-// process-group id — stays allocated to THIS launch, so a probe or a
-// signal by that number can only ever reach this launch's group, never a
-// process that took a reused number, and an ESRCH answer means the group
-// is gone, not that the number was taken (#1474: a pidfd holds the pid
-// OBJECT but not its allocator slot — free_pid drops the idr entry at the
-// reap, so a reaped launch's number can be retaken and killed by number;
-// the zombie hold is what closes that). The zombie is reaped HERE, only
-// once the group has drained (or the group was already proven empty at
-// the waiter's reap — or by its drain watcher), so the number is never
-// public while the launch may still be signalled. Launches without any
-// hold — the non-Linux Unix platforms, and a Linux launch whose waitid
-// was refused — reap at the leader's exit; their stop signals only while
-// the leader is live and aborts to unconfirmed at the first sight of the
-// exit, keeping every record: the reuse residual documented in host_run's
-// help. Windows gates on Done instead (detach_windows.go).
-func (a *execAgent) stopAuthorized(authorize Authorize) (bool, string) {
-	if a.confirmed.Load() {
-		return true, "" // a confirmed stop stays confirmed; a repeat signals nothing
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if a.holdsZombie() && a.exited.Load() && a.reaped.Load() {
-		// On a hold-keeping launch a reap can precede a stop only after a
-		// scan found the group EMPTY (emptyAtReap): nothing of this
-		// launch ran at the reap, the number became public then, and a
-		// group answering it now is not ours — confirm without touching
-		// it. A reaped launch without that proof (a reap whose wait
-		// failed) can claim nothing: report unconfirmed and keep the
-		// records rather than signal a number the launch may no longer
-		// own. A no-hold launch skips this branch entirely: its reap
-		// proves nothing about the number, and its stop below confirms
-		// only through the probe oracle an ESRCH answer closes.
-		if a.emptyAtReap.Load() {
-			a.confirmed.Store(true)
-			return true, ""
-		}
-		return false, fmt.Sprintf("the launch (pid %d) could not be tracked through its exit; its stop is left unconfirmed and its records kept", a.pid)
-	}
-	stopped, detail := a.terminateGroup(authorize)
-	if stopped {
-		a.confirmed.Store(true)
-		if a.exited.Load() {
-			// The group has drained and the leader is the held zombie (a
-			// no-hold platform never gets here post-exit — the abort
-			// above returned first): reap now, releasing the number only
-			// once nothing of the launch can be signalled.
-			a.reap()
-		}
-	}
-	return stopped, detail
-}
-
-// stopAuthorityGone reports whether this stop may no longer signal the
-// group by number: a launch without the hold — a no-hold platform, or a
-// hold-capable platform whose waitid was refused — frees the number at
-// the leader's exit, unserialized with any stop, so once the exit is
-// observed a signal by number could reach whatever took the reused
-// number. While the leader is live the number is bound to it and
-// signalling stays sound. A launch keeping the zombie hold never loses
-// authority: the zombie keeps the number allocated until a reap under the
-// stop mutex, so false there is a fact, not a sample.
-func (a *execAgent) stopAuthorityGone() bool {
-	return !a.holdsZombie() && a.exited.Load()
-}
-
-// terminateGroup stops the launch's process group by number and confirms
-// the WHOLE group is gone — the leader being gone is not the group being
-// gone: a wrapper's child can outlive its leader (#1474). A launched agent
-// runs as its own session leader (detach sets Setsid), so its group id is
-// its pid, and every signal below goes out while the leader — live, or
-// the zombie the hold keeps — owns that number. On a launch without the
-// hold the loop re-checks stopAuthorityGone before every signal and every
-// probe answer it acts on: the leader's exit there releases the number
-// unserialized with this stop, and the first observation of it ends the
-// procedure unconfirmed instead of signalling a number the launch may no
-// longer own (#1474). SIGTERM, a bounded grace, SIGKILL, then a short
-// fixed wait; stopped is false whenever the group could not be confirmed
-// empty. Called with a.mu held.
-func (a *execAgent) terminateGroup(authorize Authorize) (stopped bool, detail string) {
-	pid := a.pid
-	if a.drained() {
-		// The group is already gone: nothing was running, nothing was
-		// signalled, and the stop needs no words. This check runs BEFORE
-		// the authority abort on purpose: an ESRCH answer is sound even
-		// after the number went public — a group answering the number
-		// would not be ESRCH — so a no-hold launch whose group is already
-		// gone still confirms instead of degrading to unconfirmed.
-		return true, ""
-	}
-	if a.stopAuthorityGone() {
-		return false, a.unconfirmedDetail()
-	}
-	if err := a.signalAuthorized(authorize, pid, syscall.SIGTERM); errors.Is(err, errStopDeclined) {
-		return false, declinedDetail(pid)
-	} else if errors.Is(err, errAuthorityLost) {
-		return false, a.unconfirmedDetail()
-	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
-		return false, fmt.Sprintf("could not stop the launched process group (pid %d): %v", pid, err)
-	}
-	if a.drainedOrAuthorityLost(a.grace) {
-		if a.stopAuthorityGone() {
-			return false, a.unconfirmedDetail()
-		}
-		return true, fmt.Sprintf("terminated the launched process group (pid %d)", pid)
-	}
-	if a.stopAuthorityGone() {
-		return false, a.unconfirmedDetail()
-	}
-	if err := a.signalAuthorized(authorize, pid, syscall.SIGKILL); errors.Is(err, errStopDeclined) {
-		return false, declinedDetail(pid)
-	} else if errors.Is(err, errAuthorityLost) {
-		return false, a.unconfirmedDetail()
-	} else if err != nil && !errors.Is(err, syscall.ESRCH) {
-		return false, fmt.Sprintf("could not stop the launched process group (pid %d): it ignored SIGTERM for %s and SIGKILL failed: %v", pid, a.grace, err)
-	}
-	if a.drainedOrAuthorityLost(postKillWait) {
-		if a.stopAuthorityGone() {
-			return false, a.unconfirmedDetail()
-		}
-		return true, fmt.Sprintf("killed the launched process group (pid %d) after it ignored SIGTERM for %s", pid, a.grace)
-	}
-	return false, fmt.Sprintf("the launched process group (pid %d) did not exit within %s of SIGKILL", pid, postKillWait)
-}
-
-// errAuthorityLost: the launch's ownership of its group number ended while the
-// authorization was waited for, so nothing was signalled.
-var errAuthorityLost = errors.New("the launch's authority over its process group ended before the signal")
-
-// signalAuthorized sends one signal to the launch's group, first asking the
-// authorization TerminateWith installed (none: a plain Terminate) and holding
-// what it grants only until the signal is sent; authority is re-checked once
-// the authorization is held. Called with a.mu held.
-func (a *execAgent) signalAuthorized(authorize Authorize, pid int, sig syscall.Signal) error {
-	if authorize == nil {
-		return signalGroup(pid, sig)
-	}
-	release, ok := authorize()
-	if !ok {
-		return errStopDeclined
-	}
-	defer release()
-	// The authorization may have waited (up to the binding lock's bound) for
-	// a writer. On a launch without the zombie hold the leader's exit frees
-	// the group's number unserialized with this stop, so the authority that
-	// was proved BEFORE that wait is proved again, now that the lock is held
-	// and immediately before the signal: a number that may have been reused
-	// is never signalled (hadron-cli#2082).
-	if a.stopAuthorityGone() {
-		return errAuthorityLost
-	}
-	return signalGroup(pid, sig)
-}
-
-// unconfirmedDetail is the no-hold launch's abort wording: records kept,
-// nothing signalled past the exit, the operator told why.
-func (a *execAgent) unconfirmedDetail() string {
-	return fmt.Sprintf("the launch (pid %d) exited while being stopped without the ownership hold (its platform or kernel policy provides none); its stop is left unconfirmed and its records kept", a.pid)
-}
-
-// drained reports whether nothing of this launch's group runs, other than
-// the held zombie leader itself. While the leader is alive the number is
-// the launch's and an ESRCH probe means the whole group — leader
-// included — is gone. Once the leader has exited, a hold-keeping launch's
-// zombie answers that probe forever, so the oracle switches to the /proc
-// scan, which excludes the zombie; the zombie-state check catches the
-// exit even in the waiter's notice lag (a TERM the stop itself just sent
-// may have killed the leader a tick before the waiter stored exited) —
-// and it requires the zombie's thread group to have FULLY exited: a
-// leader in state Z whose thread count is still above one has running
-// threads, so the group is not drained and the probe oracle below says so
-// (those threads answer it) — Z alone is not proof a leader's whole
-// thread group left (#1474). On a launch without the hold there is no
-// zombie (the waiter reaped at the exit) and the probe keeps its meaning
-// until stopAuthorityGone ends the procedure.
-func (a *execAgent) drained() bool {
-	if a.holdsZombie() && (a.exited.Load() || leaderZombieAlone(a.pid)) {
-		return !a.hasMembers()
-	}
-	return groupGone(a.pid)
-}
-
-// drainedOrAuthorityLost polls until drained, the wait passes, or — on a
-// platform without the hold — the leader's exit is observed, which ends
-// the stop's authority to signal (the caller then answers unconfirmed).
-// True when drained was seen; the caller re-checks stopAuthorityGone to
-// tell "drained" from "aborted". Called with a.mu held.
-func (a *execAgent) drainedOrAuthorityLost(wait time.Duration) bool {
-	if a.drained() {
-		return true
-	}
-	ticker := time.NewTicker(groupPollInterval)
-	defer ticker.Stop()
-	timeout := time.NewTimer(wait)
-	defer timeout.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			if a.drained() || a.stopAuthorityGone() {
-				return true
-			}
-		case <-timeout.C:
-			return a.drained() || a.stopAuthorityGone()
-		}
-	}
-}

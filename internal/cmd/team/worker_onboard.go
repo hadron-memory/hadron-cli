@@ -68,12 +68,12 @@ const onboardRoutingUnverified = "Routing is unverified: team router is retired 
 func newCmdWorkerOnboard(f *cmdutil.Factory) *cobra.Command {
 	var o onboardOptions
 	cmd := &cobra.Command{
-		Use:   "onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <name> --family <family> --worktrees-root <path> --config <router.json>",
+		Use:   "onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <name> --family <family> --worktrees-root <path> --config <config.json>",
 		Short: "Onboard an existing worker (Orca-hosted workers only)",
 		Long: `Onboard an existing, held worker — Orca-hosted workers only.
 The default is a dry-run: it submits NOTHING and changes no host files.
 Pass --apply to issue worktree.create, wait for its verified outcome, then
-issue worker.start through the typed host-operation queue (cor:agt:070:05).
+issue worker.start through the typed host-operation queue.
 There are no direct Orca worktree-create or terminal-create calls.
 
 Operator prerequisites: a live host registration with this worker and family,
@@ -91,15 +91,22 @@ WHERE EACH PREREQUISITE COMES FROM:
   --worktrees-root       the poller's worktrees_root for that worker
   register row           channel register add --channel <team chat Channel>
                          --owner <app> --attendee <worker> --mention-only
-  --config               the host's router.json, kept from the retired team
-                         router: it names the App, the team chat Channel and
-                         orca_cli, and holds the roster onboard writes into
+  --config               a JSON file kept on the host, which onboard also
+                         writes the worker's roster entry into. Required keys:
+                         "app" (hrn:app:...), "channel" (the team chat
+                         Channel) and "stateDir"; "orcaCli" is optional. An
+                         existing file is required: the operator who set up
+                         the host keeps it (it dates from the retired team
+                         router, and nothing here creates one). Minimal:
+                         {"app":"hrn:app:acme.com:eng-team",
+                          "channel":"<channel>","stateDir":"/home/orca/state"}
 Run the dry-run first: it checks Orca and reads these without queuing work.
-Starting a worker requires the App manager; --as-person uses your authority
-instead of the bound worker's. Server authority checks still apply.
+Starting a worker requires the App manager. By default the operations go out as
+the bound worker; --as-person sends them as you instead. Server authority
+checks apply either way.
 
 Only two host-local steps follow: roster entry and Orca display name.
-Routing is not verified: team router is retired (hadron-server#2027).
+Routing is not verified: team router is retired.
 Routing means whether the worker's mentions reach its terminal. Check it
 yourself: mention the worker in team chat and watch for its pickup, or watch
 the delivery events of 'team host run' on its host.
@@ -114,7 +121,7 @@ Orca must be reachable before any operation is queued, including on dry-run.
 --repo is the registered queue token, not a local path. The printed human
 remainder asks you to check the worker's pickup and mention delivery, and
 says routing is unverified.`,
-		Example: "  hadron team host list --app acme.com:eng-team      # host id, live, launchable workers\n  hadron team worker onboard --app acme.com:eng-team --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/router.json\n  # inspect the dry-run, then repeat with --apply --as-person",
+		Example: "  hadron team host list --app acme.com:eng-team      # host id, live, launchable workers\n  hadron team worker onboard --app acme.com:eng-team --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/onboard-config.json\n  # inspect the dry-run, then repeat with --apply --as-person",
 		Args:    cobra.NoArgs,
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runWorkerOnboard(cmd, f, o) },
 	}
@@ -126,7 +133,7 @@ says routing is unverified.`,
 	cmd.Flags().StringVar(&o.label, "label", "", "worktree label token (required)")
 	cmd.Flags().StringVar(&o.family, "family", "", "host-configured model family (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root used by the host poller (required)")
-	cmd.Flags().StringVar(&o.config, "config", "", "router config path (required)")
+	cmd.Flags().StringVar(&o.config, "config", "", "host config file, JSON (required; see the page for its keys)")
 	cmd.Flags().StringVar(&o.display, "display-name", "", "Orca display name (default: worker name and cast role)")
 	cmd.Flags().BoolVar(&o.apply, "apply", false, "apply the plan (default: dry-run)")
 	cmd.Flags().BoolVar(&o.asPerson, "as-person", false, "issue as yourself, not the bound worker")
