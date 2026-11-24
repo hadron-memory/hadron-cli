@@ -267,3 +267,29 @@ func TestRunCancelWithYes(t *testing.T) {
 		t.Errorf("cancel output missing status: %s", out.String())
 	}
 }
+
+// #3080: the server's cancelAppRun is idempotent and returns an already-ended
+// run unchanged, so the CLI must not claim a cancellation it did not perform.
+// Exit stays 0 (named by the gate): the run is not live.
+func TestRunCancelAlreadyEndedSaysSo3080(t *testing.T) {
+	for _, status := range []string{"COMPLETED", "FAILED"} {
+		t.Run(status, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"CancelAppRun": `{"data":{"cancelAppRun":` + strings.Replace(appRunJSON, `"status":"COMPLETED"`, `"status":"`+status+`"`, 1) + `}}`,
+			})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"run", "cancel", "run1", "--yes", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("an already-ended run must exit 0, got %v", err)
+			}
+			got := out.String()
+			if want := "run run1 is already " + status + "; nothing to cancel"; !strings.Contains(got, want) {
+				t.Errorf("output %q missing %q", got, want)
+			}
+			if strings.Contains(got, "cancelled") {
+				t.Errorf("must not claim a cancellation that did not happen: %q", got)
+			}
+		})
+	}
+}
