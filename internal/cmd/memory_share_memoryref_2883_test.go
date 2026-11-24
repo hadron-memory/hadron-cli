@@ -86,7 +86,8 @@ func TestShareAndMemberOperationsDeclareRefVariablesAsID2883(t *testing.T) {
 		"DeleteMemoryShare":      {gen.DeleteMemoryShare_Operation, []string{"$memoryRef: ID!", "$granteeRef: String"}},
 	} {
 		for _, w := range tc.want {
-			if !strings.Contains(tc.doc, w) {
+			// Anchored, so "$granteeRef: String" does not also match String!.
+			if !regexp.MustCompile(regexp.QuoteMeta(w) + `(?:[^!\w]|$)`).MatchString(tc.doc) {
 				t.Errorf("%s must declare %q:\n%s", name, w, tc.doc)
 			}
 		}
