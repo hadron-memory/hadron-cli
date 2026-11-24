@@ -47,11 +47,11 @@ where it already is), and a seq beyond the chat's newest message is refused
 (exit 2). --channel names another channel by id or address; the default is the
 App's team chat.
 
-On the team chat, a successful mark also moves this worktree's local read count
-(the one ` + "`" + `hadron team session log` + "`" + ` compares against) up to --through, never
-backwards; if the server refuses the mark, the local count stays as it was. A
-channel given with --channel leaves the local count alone, because it counts
-the team chat only.
+On the team chat, a successful mark also moves this worktree's local read
+watermark (the one ` + "`" + `hadron team session log` + "`" + ` compares against) up to
+--through, never backwards; if the server refuses the mark, the local watermark
+stays as it was. A channel given with --channel leaves the local watermark
+alone, because it counts the team chat only.
 
 Needs a worker session bound to this worktree (` + "`" + `hadron team session start` + "`" + `)
 on this server: the position belongs to the bound worker, and the server only

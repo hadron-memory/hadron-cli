@@ -264,15 +264,20 @@ once and never retries; with --json the refusal name is in error.serverCode.
 Delivering to terminals (optional). Posting only writes to the chat; nobody's
 terminal is typed into. --orca-host-config PATH adds a step after a confirmed
 post: it checks this host's configuration first, then delivers any messages
-now due to workers on this host, including older ones. The host must already be
-registered for the same App and server; this command never registers it. If
-delivery is held or fails, the post still stands and the exit stays 0: do not
-post again, run ` + "`" + `hadron team host run --config <host.yaml>` + "`" + ` instead.
+now due to workers on this host, including older unrelated ones. Without the
+flag no host configuration or key is read. The host uses its own key, separate
+from any worker session, and must already be registered for the same App and
+server; this command never registers it. If delivery is held or fails, the post
+still stands and the exit stays 0: do not post again, run
+` + "`" + `hadron team host run --config <host.yaml>` + "`" + ` instead. Held deliveries are
+counted locally but not reported to the server, so no alarm is raised and
+nobody is escalated to.
 
 --push, which needs --orca-host-config (without it the command exits 2 before
 posting), also sends the post to the terminals of the workers it mentions, and
 only them. @all and @team reach no terminal. Nothing is typed over a draft the
-worker is writing. The report gives each mentioned worker one of:
+worker is writing, and a held worker's read position does not move. The
+report gives each mentioned worker one of:
   pushed         delivered and acknowledged
   typed          the text reached the terminal but the acknowledgement did
                  not land (reason ack-pending); it is still due and will not
@@ -283,7 +288,10 @@ worker is writing. The report gives each mentioned worker one of:
   not-pushed     not-on-host: the worker is not registered on this host, so
                  push from that worker's host; or no-due-batch: this host has
                  the worker but the server had nothing due for it
-With --json the same states are under "push". Every state exits 0, so test the
+With --json the same states are under "push", and each worker also has "acked"
+(how many batches' acknowledgements were accepted) and "batch" (the span of the
+batch that decided the state, or none). A refusal's error.code is a number; its
+name is in error.serverCode. Every state exits 0, so test the
 state, not the exit code; a failed push never undoes the post.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"
@@ -532,9 +540,12 @@ Choose the window:
                  not with --before or --limit
   --limit N      page size, 1 to 200 (default 20)
 To go on, pass the nextSince shown on the page as --since, or its prevBefore
-as --before. An empty page back means you reached the start of the history; do
-not judge "is there more" from the count shown, which covers only the part of
-the chat past your cursor.
+as --before. prevBefore is NULL when the page came back empty, and that is the
+ONLY signal that you have reached the start of the history. Do not judge "is
+there more" from a count: the server's total is scoped to the cursor, not to the
+whole chat. With a filter, nextSince advances only past the messages returned
+(the server re-scans the skipped ones next time, which is free and never
+delivers them again).
 
 Filter the messages:
   --mentions-me      only messages that mention your bound worker
@@ -560,23 +571,34 @@ Filter the messages:
 
 What counts as read. An ordinary forward read of your own team's chat, with no
 filter, from the point you already reached, records what it returned: it moves
-the local watermark that ` + "`" + `team session log` + "`" + ` counts from, and marks your worker
-read on the server up to the same seq. Messages are marked only after they are
-printed, so a read that fails partway marks nothing. These reads mark nothing
-and leave the watermark alone: the newest-page read with no cursor (the server's
-count and fetch can race), --before, a window that starts ahead of what you
-have read or past the end of the chat, any filter above, --thread, and a read
-of another team. After one of them, run ` + "`" + `hadron team chat mark-read --through
-<seq>` + "`" + ` when you have really read up to there. To read everything in order, use
---since with the last seq you read.
+the local watermark that ` + "`" + `team session log` + "`" + ` counts from and, when the binding
+records this server, marks your worker read on the server up to the same seq.
+Messages are marked only after they are printed, so a read that fails partway
+marks nothing. An older server that cannot mark skips the mark; any other mark
+failure prints a note on stderr and the read still succeeds. These reads mark
+nothing and leave the watermark alone: the newest-page read with no cursor (the
+server's count and fetch can race), --before, a window that starts ahead of
+what you have read or past the end of the chat, any filter above, --thread, and
+a read of another team. After one of them, run
+` + "`" + `hadron team chat mark-read --through <seq>` + "`" + ` when you have really read up
+to there. To read everything in order, use --since with the last seq you read.
 
 Stale reads. Before printing, the command samples the newest message and
 compares. If a forward or newest-page read looks shorter than the chat is (a
 stale or incomplete answer from the server) it exits 5: the messages it got are
 still shown but nothing is marked read, so retry from your original --since.
+A post that arrives after the sample is not a discrepancy, and two equally stale
+answers cannot be detected. Filtered and backward windows need not reach the
+newest message. If the check itself fails, the read fails.
 The read-state line (JSON: readState) shows the newest seq seen, the highest
 allocated seq, and your server read position before this read; null means not
 available, not zero.
+
+Activity. On the team App your worktree is bound to, a read carries your worker
+session without marking anything on the server: it counts as activity and keeps
+your worker live, but does not acknowledge messages before they are shown. An
+older server that rejects that argument is retried without the session, with a
+note.
 
 Waiting. Chat is not pushed to you. --wait <duration> (needs --since, not with
 --before or --all) repeats the same read every --poll-interval (default 5s,

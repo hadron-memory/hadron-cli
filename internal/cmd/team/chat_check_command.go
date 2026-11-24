@@ -46,9 +46,9 @@ App your worktree is bound to (see ` + "`" + `hadron team chat --help` + "`" + `
 What it does, in order:
   1. Notes the chat's newest seq once (call it the head). Messages that arrive
      after that are left unmarked for the next check.
-  2. Starts from your stored read position, if the server still trusts it.
-     When it does not (the chat was reset), it scans from the beginning and
-     may show messages you have seen before.
+  2. Starts from your stored read position when that was recorded for the
+     same incarnation of the chat (its reset generation). When it was not, it
+     scans from the beginning and may show messages you have seen before.
   3. Collects every message up to the head that tags you, including @all and
      @team tags, and writes them, in order, as JSON to a private file (mode
      0600, in a new 0700 cache directory). The file path is printed to stderr
@@ -67,8 +67,10 @@ roster's CHECK column is not changed or asserted; look at the roster for that.
 Exit codes: 0 messages written and the mark confirmed; 9 nothing tagged you and
 the mark is confirmed (not an error, so handle it in scripts that stop on
 errors); 10 the mark may or may not have landed. On 10, the file (if any) is
-kept; check whether your read position moved, and only if it did not repeat
-exactly this check ONCE. Do not retry in a loop. An old-server fallback is not
+kept. Verify that your read position in the same incarnation reached the head
+(the read-state line of ` + "`team chat read`" + ` shows it); only if it did not, retry
+that one mark at the same head ONCE, and never when the incarnation differs. Do
+not retry in a loop. An old-server fallback is not
 used. If the server keeps answering with a position from an older chat, check
 can keep returning 10 until a ` + "`" + `team chat mark-read` + "`" + ` moves it. Errors 1 to 8
 mean what they do everywhere. A failure before the mark sends no change, though
