@@ -30,9 +30,10 @@ external id (` + "`task create --external-id`" + `).
 
 The source is the team's intake adapter: a small executable your team owns that
 talks to the tracker, so Hadron never does. Ask whoever runs your intake for its
-path, or see "App properties, task externalId and find-untracked" in
-` + "`hadron agentic-usage`" + ` and docs/plans/1961-intake-adapter-runner.md in the CLI
-repository for the contract it must speak. Name it with --adapter <executable>,
+path. To write one, see docs/how-to/write-an-intake-adapter.md in the CLI
+repository (the calls it must answer, and a sample to try), and "App
+properties, task externalId and find-untracked" in ` + "`hadron agentic-usage`" + `
+for the machine contract. Name it with --adapter <executable>,
 or set $HADRON_INTAKE_ADAPTER (it counts only when no --adapter is given).
 Without an adapter the command cannot run. The server's task integrations are
 retired, and so are --integration and the flags that belonged to it (--team,

@@ -50,7 +50,7 @@ func TestKeyPagination1547(t *testing.T) {
 				} else if _, ok := req.Variables["instruction"]; ok || r.Header.Get("X-Hadron-Session") != "" {
 					t.Error("ordinary page acquired instruction/session")
 				}
-				if strings.Contains(tc.name, "host uses") && req.Variables["first"] != float64(2) {
+				if strings.Contains(tc.name, "host uses") && req.Variables["usesLimit"] != float64(2) {
 					t.Error("host-use bound lost")
 				}
 				offset := 0
@@ -72,7 +72,7 @@ func TestKeyPagination1547(t *testing.T) {
 					fmt.Fprint(w, `{"errors":[{"message":"fixture exhausted"}]}`)
 					return
 				}
-				row := fmt.Sprintf(`{"id":"key-%d","keyPreview":"preview","createdAt":"2026-01-01T00:00:00Z","issuedVia":"cli","scopes":[],"hostUses":[]}`, offset)
+				row := fmt.Sprintf(`{"id":"key-%d","keyPreview":"preview","createdAt":"2026-01-01T00:00:00Z","issuedVia":"cli","scopes":[],"hostUsesPage":{"items":[],"total":0,"hasMore":false}}`, offset)
 				w.Header().Set("Content-Type", "application/json")
 				if paged {
 					fmt.Fprintf(w, `{"data":{"%sPage":{"items":[%s],"total":0,"hasMore":%t}}}`, tc.field, row, offset < 2)

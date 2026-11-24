@@ -24149,8 +24149,8 @@ type AppKeysScopesHostUsesRows1595 struct {
 	RevokedAt  *string `json:"revokedAt"`
 	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
 	Scopes []*AppKeysScopesHostUsesRows1595ScopesAppKeyScope `json:"scopes"`
-	// #1709 — what this key did as a host, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use is recorded). Whoever manages the App only.
-	HostUses []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse `json:"hostUses"`
+	// #5061 — what this key did as a host, one page, newest first (usedAt, then id): the paged sibling of hostUses (hrn:node:hadronmemory.com:specs:cor:api:120:04, hrn:node:hadronmemory.com:specs:cor:agt:070:07). Whoever manages the App only, refused exactly as hostUses is, before anything is counted. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. Continue with offset; hasMore says whether rows remain past this page.
+	HostUsesPage *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage `json:"hostUsesPage"`
 }
 
 // GetId returns AppKeysScopesHostUsesRows1595.Id, and is useful for accessing the field via an interface.
@@ -24176,16 +24176,37 @@ func (v *AppKeysScopesHostUsesRows1595) GetScopes() []*AppKeysScopesHostUsesRows
 	return v.Scopes
 }
 
-// GetHostUses returns AppKeysScopesHostUsesRows1595.HostUses, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse {
-	return v.HostUses
+// GetHostUsesPage returns AppKeysScopesHostUsesRows1595.HostUsesPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetHostUsesPage() *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage {
+	return v.HostUsesPage
 }
 
-// AppKeysScopesHostUsesRows1595HostUsesHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage includes the requested fields of the GraphQL type HostKeyUsePage.
+// The GraphQL type's documentation follows.
+//
+// #5061 — one page of a host key's uses (AppKey.hostUsesPage). total counts every use of the key; hasMore is whether rows remain past this page.
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage struct {
+	Items   []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse `json:"items"`
+	Total   int                                                                       `json:"total"`
+	HasMore bool                                                                      `json:"hasMore"`
+}
+
+// GetItems returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetItems() []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse {
+	return v.Items
+}
+
+// GetTotal returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetHasMore() bool { return v.HasMore }
+
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
 // The GraphQL type's documentation follows.
 //
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
-type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse struct {
 	HostId string `json:"hostId"`
 	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#4292) an endAgentlessSession, accepted or refused, or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
@@ -24198,27 +24219,35 @@ type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	UsedAt      string  `json:"usedAt"`
 }
 
-// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.HostId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetHostId() string { return v.HostId }
+// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetHostId() string {
+	return v.HostId
+}
 
-// GetAction returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Action, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetAction() string { return v.Action }
+// GetAction returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Action, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetAction() string {
+	return v.Action
+}
 
-// GetCount returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Count, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetCount() *int { return v.Count }
+// GetCount returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Count, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetCount() *int {
+	return v.Count
+}
 
-// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.OperationId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetOperationId() *string {
+// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.OperationId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetOperationId() *string {
 	return v.OperationId
 }
 
-// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetRefusedCode() *string {
+// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetRefusedCode() *string {
 	return v.RefusedCode
 }
 
-// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetUsedAt() string { return v.UsedAt }
+// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetUsedAt() string {
+	return v.UsedAt
+}
 
 // AppKeysScopesHostUsesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
@@ -56209,7 +56238,20 @@ func (v *GetRegisterEntryResponse) GetRegisterEntry() *GetRegisterEntryRegisterE
 // One org-owned BYO Resend sender. The API key is encrypted and write-only.
 type GetResendSenderResendSender struct {
 	ResendSenderFields `json:"-"`
+	// #4865 — report only. Whether the domain of the from address is verified at Resend, read
+	// live through the hadrontool-resend capability tool each time this field is selected: never
+	// cached, so it is current as of this read, and it costs one tool call per sender. Core never
+	// calls Resend itself (hrn:node:hadronmemory.com:specs:cor:int:030:01).
+	// true: Resend reports the domain verified.
+	// false: Resend reports it not verified, including when Resend has no record of the domain.
+	// null: the state could not be read. The caller is not a member of the sender's organization
+	// (an App key may list senders, but reads null here); the tool is not configured; or the
+	// lookup failed or ran past its bound of 12 seconds. A null says nothing about the domain.
+	DomainVerified *bool `json:"domainVerified"`
 }
+
+// GetDomainVerified returns GetResendSenderResendSender.DomainVerified, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetDomainVerified() *bool { return v.DomainVerified }
 
 // GetId returns GetResendSenderResendSender.Id, and is useful for accessing the field via an interface.
 func (v *GetResendSenderResendSender) GetId() string { return v.ResendSenderFields.Id }
@@ -56266,6 +56308,8 @@ func (v *GetResendSenderResendSender) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalGetResendSenderResendSender struct {
+	DomainVerified *bool `json:"domainVerified"`
+
 	Id string `json:"id"`
 
 	OrganizationId string `json:"organizationId"`
@@ -56296,6 +56340,7 @@ func (v *GetResendSenderResendSender) MarshalJSON() ([]byte, error) {
 func (v *GetResendSenderResendSender) __premarshalJSON() (*__premarshalGetResendSenderResendSender, error) {
 	var retval __premarshalGetResendSenderResendSender
 
+	retval.DomainVerified = v.DomainVerified
 	retval.Id = v.ResendSenderFields.Id
 	retval.OrganizationId = v.ResendSenderFields.OrganizationId
 	retval.From = v.ResendSenderFields.From
@@ -133915,17 +133960,17 @@ func (v *__AppKeysMetadataInstructedInput) GetOffset() int { return v.Offset }
 
 // __AppKeysScopesHostUsesInput is used internally by genqlient
 type __AppKeysScopesHostUsesInput struct {
-	AppRef string `json:"appRef"`
-	First  int    `json:"first"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
+	AppRef    string `json:"appRef"`
+	UsesLimit int    `json:"usesLimit"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesHostUsesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetLimit returns __AppKeysScopesHostUsesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetLimit() int { return v.Limit }
@@ -133936,7 +133981,7 @@ func (v *__AppKeysScopesHostUsesInput) GetOffset() int { return v.Offset }
 // __AppKeysScopesHostUsesInstructedInput is used internally by genqlient
 type __AppKeysScopesHostUsesInstructedInput struct {
 	AppRef      string               `json:"appRef"`
-	First       int                  `json:"first"`
+	UsesLimit   int                  `json:"usesLimit"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
 	Limit       int                  `json:"limit"`
 	Offset      int                  `json:"offset"`
@@ -133945,8 +133990,8 @@ type __AppKeysScopesHostUsesInstructedInput struct {
 // GetAppRef returns __AppKeysScopesHostUsesInstructedInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInstructedInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInstructedInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInstructedInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetInstruction returns __AppKeysScopesHostUsesInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetInstruction() *ActInstructionInput {
@@ -155171,7 +155216,7 @@ func AppKeysScopes(
 
 // The query executed by AppKeysScopesHostUses.
 const AppKeysScopesHostUses_Operation = `
-query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUses ($appRef: ID!, $usesLimit: Int!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155188,13 +155233,17 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155202,12 +155251,13 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 `
 
 // cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
-// host uses (cor:agt:070:07). N is always sent here, so no omitempty.
+// host uses (cor:agt:070:07), read through hostUsesPage (cli#3134) so total and
+// hasMore come with them. N is always sent here, so no omitempty.
 func AppKeysScopesHostUses(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	limit int,
 	offset int,
 ) (data_ *AppKeysScopesHostUsesResponse, err_ error) {
@@ -155215,10 +155265,10 @@ func AppKeysScopesHostUses(
 		OpName: "AppKeysScopesHostUses",
 		Query:  AppKeysScopesHostUses_Operation,
 		Variables: &__AppKeysScopesHostUsesInput{
-			AppRef: appRef,
-			First:  first,
-			Limit:  limit,
-			Offset: offset,
+			AppRef:    appRef,
+			UsesLimit: usesLimit,
+			Limit:     limit,
+			Offset:    offset,
 		},
 	}
 
@@ -155236,7 +155286,7 @@ func AppKeysScopesHostUses(
 
 // The query executed by AppKeysScopesHostUsesInstructed.
 const AppKeysScopesHostUsesInstructed_Operation = `
-query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUsesInstructed ($appRef: ID!, $usesLimit: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155253,13 +155303,17 @@ query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction:
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155270,7 +155324,7 @@ func AppKeysScopesHostUsesInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	instruction *ActInstructionInput,
 	limit int,
 	offset int,
@@ -155280,7 +155334,7 @@ func AppKeysScopesHostUsesInstructed(
 		Query:  AppKeysScopesHostUsesInstructed_Operation,
 		Variables: &__AppKeysScopesHostUsesInstructedInput{
 			AppRef:      appRef,
-			First:       first,
+			UsesLimit:   usesLimit,
 			Instruction: instruction,
 			Limit:       limit,
 			Offset:      offset,
@@ -169137,6 +169191,7 @@ const GetResendSender_Operation = `
 query GetResendSender ($ref: ID!) {
 	resendSender(ref: $ref) {
 		... ResendSenderFields
+		domainVerified
 	}
 }
 fragment ResendSenderFields on ResendSender {
@@ -169152,6 +169207,8 @@ fragment ResendSenderFields on ResendSender {
 }
 `
 
+// domainVerified is selected HERE and nowhere else: the server reads it live from Resend, one tool call per
+// sender, every time it is selected (hadron-server#4865), so list/create/update must not ask for it (cli#2588).
 func GetResendSender(
 	ctx_ context.Context,
 	client_ graphql.Client,

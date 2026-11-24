@@ -592,7 +592,7 @@ hadron app member roles [--app <ref>] (cli#1226, R211 cor:dmo:050:04: App.availa
     an explicit empty or whitespace-only `--label` is exit 2 before the file is opened or anything is sent (omit --label for the server's default); the lost-answer message says "no file was kept" only when the cleanup removed it; --json {id,keyPreview,label,out}; a refused mint removes the file it created;
     createAppKey is sent once and never retried: a lost answer (exit 7/1) names the label and says to run `app key list <app-ref>` and revoke any unexpected key; write-after-mint failure names the key id and `app key revoke <key-id>` (exit 1); a new key holds no scope, so follow with `app key scope grant`;
     a person who manages the App mints, as themselves (App key / impersonation / worker session refused, exit 8)
-  App key list: `key list --scopes` (cli#1333) pages through `appKeysPage` to the end, adding each key's `scopes` ([] when none) and, with `--host-uses <n>` (needs --scopes, n>=1, else exit 2), its newest n `hostUses` (absent from --json otherwise); the default list stays metadata-only (#1057)
+  App key list: `key list --scopes` (cli#1333) pages through `appKeysPage` to the end, adding each key's `scopes` ([] when none) and, with `--host-uses <n>` (needs --scopes, n>=1, else exit 2), its newest n `hostUses` plus `hostUsesTotal` and `hostUsesHasMore` (cli#3134, AppKey.hostUsesPage; all three absent from --json otherwise; n over 200 is served as 200 with a stderr note; a server before 2026-11-24 is refused, exit 1, no fallback); the default list stays metadata-only (#1057)
   App key revoke and rotate: `key revoke <key-id>` (revokeAppKey, irreversible) and `key rotate` (regenerateAppKey: revokes EVERY active key of the App, the new key holds NO scopes so scope grants are redone) both confirm on a TTY and exit 2 with nothing sent when non-interactive without --yes;
     revoke --json {id,revoked}; revoke is never retried: a transport-class lost answer (exit 7), or an answer that is not a definite refusal (an internal server error, an unreadable reply or an unrecognised error: exit 1, serverCode and requestId kept, cli#1441), says the key may already be revoked and names `app key list <app-ref>`; server refusals keep their mapped exit and serverCode;
     rotate keeps `create`'s secret-file contract (--out 0600 opened first, raw key never in stdout/--json unless --print-key, never retried: a lost answer (exit 7/1) says every key may be revoked and to run `app key list <app-ref>`), --json {appId,appUrn,out,allOtherKeysRevoked};
@@ -6229,6 +6229,15 @@ get/update/rm take a sender ID. List spans accessible orgs unless `--org-id`
 sets a raw organization ID (not a slug/URN). Without pagination flags list
 pages to exhaustion; either `--limit` or `--offset` requests one page.
 
+`get` also reports `domainVerified` (report only): whether Resend says the
+domain of the sender's address is verified, `true, false or null`. It is read
+live from Resend on each `get` (never cached; one lookup per call), so `null`
+means the state could not be read and says nothing about the domain, and a
+`false` includes "Resend has no record of the domain". `list`, `create` and
+`update` do not carry the field. `get` does not verify a domain and there is no
+test-send: verify the domain in Resend. `get` needs server 2026-11-22 or later
+(an older server rejects the field, so the whole `get` fails).
+
 The Resend API key is write-only. Never put it on the command line: use
 `--api-key-file ./resend.key` or `--api-key-file -` with stdin. Create with no
 file flag reads piped stdin or a masked terminal prompt. Update only rotates
@@ -6503,6 +6512,9 @@ hadron-server#3125; plan `plans:1524-find-untracked`. Specs `cor:dmo:050:02`,
 integrations (`cor:agt:120:01`/`:03`) are retired (cli#1964, below). A thin client: every
 rule is the server's (`cor:api:240:01`), the CLI sends values as given and maps
 refusals. Nothing here is on MCP.
+
+Writing an intake adapter (what each call receives and answers, a runnable
+sample): `docs/how-to/write-an-intake-adapter.md` in the CLI repository (cli#3062).
 
 ```
 hadron app properties get <app-ref>
