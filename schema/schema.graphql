@@ -2081,7 +2081,7 @@ type AiProviderEndpoint {
 036-ai-service-config: a named AI service configuration (masked
 management view — never carries key material beyond the preview).
 Owned by exactly one of HadronServer / Organization / App / Agent.
-Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 returns the first ENABLED config with the requested name. Well-known
 fallback name: 'default' (conventional extras: 'fast', 'frontier').
 Name is unique per owner.
@@ -2789,6 +2789,11 @@ type AppKey {
   #1709 — what this key did as a host, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use is recorded). Whoever manages the App only.
   """
   hostUses(first: Int): [HostKeyUse!]!
+
+  """
+  #5061 — what this key did as a host, one page, newest first (usedAt, then id): the paged sibling of hostUses (hrn:node:hadronmemory.com:specs:cor:api:120:04, hrn:node:hadronmemory.com:specs:cor:agt:070:07). Whoever manages the App only, refused exactly as hostUses is, before anything is counted. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. Continue with offset; hasMore says whether rows remain past this page.
+  """
+  hostUsesPage(limit: Int, offset: Int): HostKeyUsePage!
   id: ID!
   keyPreview: String!
   label: String
@@ -3709,7 +3714,8 @@ input AuthoredWithInput {
 }
 
 """
-How to load the author task, per surface. A surface with no route is null.
+How to load the author task, per surface. graphql always has a route and is never null; mcp and cli are null when the
+task has no URN to name.
 """
 type AuthoringCheckLoad {
   cli: String
@@ -4559,6 +4565,31 @@ input ClaimContextResetInput {
   """
   process: ObservedProcessInput!
   resetId: ID!
+}
+
+input ClearOwnerLimitsInput {
+  """The keys to clear. Omit for every key; an empty list is refused."""
+  keys: [String!]
+
+  """
+  Why. Not stored, since the row is deleted. Must not hold personal data.
+  """
+  note: String!
+
+  """Clear only limits written with this source type."""
+  onlySourceType: String
+
+  """The organization, an id or a URN. Exactly one of orgRef and userRef."""
+  orgRef: String
+
+  """Which one. Must not hold personal data: it is logged."""
+  sourceId: String!
+
+  """What cleared these limits. Must not hold personal data: it is logged."""
+  sourceType: String!
+
+  """The person, an id or a URN. Exactly one of orgRef and userRef."""
+  userRef: ID
 }
 
 """
@@ -7051,6 +7082,15 @@ type HostKeyUse {
 }
 
 """
+#5061 — one page of a host key's uses (AppKey.hostUsesPage). total counts every use of the key; hasMore is whether rows remain past this page.
+"""
+type HostKeyUsePage {
+  hasMore: Boolean!
+  items: [HostKeyUse!]!
+  total: Int!
+}
+
+"""
 #1709 — one typed operation issued to one host (hrn:node:hadronmemory.com:specs:cor:agt:070:02, :03). type is one of
 worktree.create, worker.start, worker.deliver, worker.end, worktree.remove, worker.reset-context; args are its typed
 arguments (ids and name tokens only, never a command): worktree.create {workerId, repo, baseBranch, branchName,
@@ -8871,7 +8911,7 @@ type Mutation {
   ): OrgMember!
 
   """
-  Write a signed adjustment entry on an org's credit ledger, e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN ONLY. Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
+  Write a signed adjustment entry on an org's credit ledger, e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN or the BILLING platform role only (#5012). Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
   """
   adjustCredits(input: AdjustCreditsInput!): CreditLedgerEntry!
 
@@ -9291,6 +9331,11 @@ type Mutation {
   soft-deleted node (purging residual history is a cleanup op).
   """
   clearNodeHistory(nodeRef: ID!): Int!
+
+  """
+  Delete an owner's limits, so the deployment default applies again (hadron-server issue 5009). PLATFORM ADMIN ONLY. Returns the owner's limits after the change.
+  """
+  clearOwnerLimits(input: ClearOwnerLimitsInput!): [OwnerLimitUsage!]!
 
   """
   Clone an Agent into an organization you administer: a new PERSONAL-draft Agent
@@ -10200,7 +10245,8 @@ type Mutation {
   
   Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
   TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
-  SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume),
+  SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume; extensions.reason
+  names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE or NOT_OWNER),
   SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
   SESSION_EXPIRED (encrypted team memory without an active session key),
   TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
@@ -10925,7 +10971,7 @@ type Mutation {
   grantAppKeyScope(hostId: String, id: ID!, scope: String!): AppKey!
 
   """
-  Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
+  Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN or the BILLING platform role only (self-grant risk; #5012); processor top-ups land here.
   """
   grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
 
@@ -12284,6 +12330,11 @@ type Mutation {
   setOrgBootPromptSigning(org: ID!, previewToken: String, required: Boolean!): OrgBootPromptSigning!
 
   """
+  Set an owner's limits (hadron-server issue 5009). PLATFORM ADMIN ONLY. Returns the owner's limits after the change.
+  """
+  setOwnerLimits(input: SetOwnerLimitsInput!): [OwnerLimitUsage!]!
+
+  """
   #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing questions keep theirs. Needs management rights on the memory, or the owner role in its App.
   """
   setQuestionLogDeciders(defaultDeciders: [ID!]!, eligibleDeciders: [ID!], expectedRevision: Int!, logRef: ID!, reason: String!): QuestionLog!
@@ -13232,6 +13283,10 @@ type Mutation {
   #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
   updateTicker(input: TickerPatch!, instruction: ActInstructionInput, ref: String!): Ticker!
+
+  """
+  Set a user's platform roles (platform ADMIN). BILLING stands alone: a list holding it with any other role is BAD_USER_INPUT (#5012).
+  """
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
 
   """
@@ -13720,7 +13775,8 @@ input NodeAuthoringCheckInput {
 
 """
 #4168 (hrn:node:hadronmemory.com:specs:cor:dmo:060:17): the verdict of a proposed write's authoring
-attestation check. PASS: the write would pass. REFUSED: the write would be refused, with the code,
+attestation check. PASS: the write would pass the authoring attestation check; the answer covers that check and not the
+rest of the write's validation. REFUSED: the write would be refused, with the code,
 the governed role, the prose and the recovery the write returns. UNAVAILABLE: the caller reads the
 memory but does not write it, one answer for every node and role, so it shows nothing about the
 memory's rules. A preview, never a reservation, and a pass is never proof the procedure was followed.
@@ -14822,6 +14878,33 @@ type OwnTeamChatReadState {
   cursorIncarnation: Int
   lastSeenSeq: Int!
   workerId: ID!
+}
+
+input OwnerLimitInput {
+  key: String!
+
+  """
+  A non-negative base-10 integer string. Null or omitted means unlimited, which lifts the deployment default.
+  """
+  limit: String
+}
+
+"""
+One owner limit of an organization or a person (hadron-server issue 5009): what may be held and how much of it is held now.
+"""
+type OwnerLimitUsage {
+  """Which measure this is."""
+  key: String!
+
+  """
+  The limit in force, a base-10 integer string: the owner's own limit, else the deployment default for that kind of owner. Null means unlimited.
+  """
+  limit: String
+
+  """
+  How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+  """
+  used: String!
 }
 
 """
@@ -16023,8 +16106,8 @@ type Query {
 
   """
   #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): what a chat of this App may choose from — the App's OWN enabled AI configs plus one
-  `default` entry, which resolves through the App -> Agent -> Org -> Host walk at turn time. Send an entry's
-  `value` back as the chat's aiConfigChoice. Never a key, key preview, params or endpoint. Any App member may
+  `default` entry, which resolves through the App -> Agent -> Org -> Host walk at turn time (a person's App reaches only its own and its Agent's configurations, #5075). Send an entry's
+  `value` back as the chat's aiConfigChoice. Never a key, key preview, params or endpoint. Any App member, or the owner of a personal App, may
   call it (a platform admin too); anyone else, a missing App and a request that is not a signed-in person get
   the same APP_NOT_FOUND answer.
   """
@@ -16033,7 +16116,7 @@ type Query {
   """
   #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10, hrn:node:hadronmemory.com:specs:cor:acl:030:01): the tool-choice decision the chat turn will use for this chat's
   effective config: same predicate, same resolve order as the turn (the chat's stored choice, else the App's chatbot
-  config, else the `default` walk). Null when no level matches, and for a user-owned App whose walk lands on the platform's config (which that App may not use); otherwise non-null.
+  config, else the `default` walk). Null when no level matches (the walk gives a person's App no organization or platform level, #5075); otherwise non-null.
   Authorized through the single-chat read gate chatHistory uses: a chat has no access layer of its own, so read is
   decided by the host memory. A chat the caller may not read answers exactly as a chat that does not exist.
   The decision only: no key, id, name, provider or model.
@@ -16202,7 +16285,7 @@ type Query {
 
   """
   #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-  An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+  An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
   the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
   """
   deliveryBatches(after: String, appRef: String!, first: Int, workerRefs: [String!]): DeliveryBatchPage!
@@ -16996,7 +17079,15 @@ type Query {
     "hadron node import". Requires MD or JSON; sections is ignored.
   full: false returns a PRESENTATION render of the selected sections
     (default: all); not guaranteed round-trippable.
-  Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+  format: PDF is always a presentation render and `full` does not apply
+    (hrn:node:hadronmemory.com:specs:cor:int:020:02, #395). The node's content
+    is always printed; the sections you name are ADDED after it (naming
+    CONTENT changes nothing), in the fixed order Abstract, Data, Properties,
+    Edges, Metadata whatever order you gave: Data and Properties as two-column
+    tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
+    left out. No sections named prints the content only. Comments is not a
+    section yet.
+  Auth: same node-read gate as node(ref:). (HTML + asUrl delivery land
   later; the result shape is forward-compatible.)
   """
   nodeExport(format: NodeExportFormat = MD, full: Boolean = true, id: ID!, sections: [NodeExportSection!]): NodeExportResult!
@@ -17099,6 +17190,11 @@ type Query {
   tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
   """
   organizations(filter: OrganizationFilter, limit: Int, offset: Int): OrganizationsPage!
+
+  """
+  The owner limits of an organization or a person, one row per measure (hadron-server issue 5009). Give exactly one ref. An organization's: its ADMIN or OWNER. A person's: that person in their own session. A platform admin reads any.
+  """
+  ownerLimits(orgRef: String, userRef: ID): [OwnerLimitUsage!]!
 
   """
   #3457: what a schedule would do before it exists (org ADMIN of the App, checked first; writes nothing). Admin, App, Agent and timing refusals are createAgentSchedule's errors; an entry create would store UNADOPTED is the typed outcome CANNOT_BE_ADOPTED.
@@ -17219,9 +17315,9 @@ type Query {
   ): QuestionPage!
 
   """
-  Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
+  Usage-vs-limit counters (#510, #5074, hrn:node:hadronmemory.com:specs:cor:acl:050:04). orgRef: the org's (+ one app with appRef), org-ADMIN. appRef alone: the App's and its organization's, or for a person's App the App's and, for its owner or a platform admin, the owner's user counters; every denial is NOT_FOUND. userRef alone: that person's, the person or a platform admin (FORBIDDEN otherwise). No ref, or userRef with another ref: BAD_USER_INPUT. Rows materialize on first view, seeded with platform defaults.
   """
-  quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
+  quotaCounters(appRef: String, orgRef: String, userRef: ID): [QuotaCounter!]!
 
   """
   Live platform ADMIN/OWNER human only; bounded five-row policy read (#1793).
@@ -17314,8 +17410,14 @@ type Query {
   and return its identity, with decrypted credentials only for a caller
   authorized to manage the selected source (successor to agentAIConfig/appAIConfig).
   
-  Walk: App -> Agent -> Org (of the App, else of the Agent) ->
-  HadronServer; disabled configs are skipped. When name is omitted,
+  Walk: App -> Agent -> Org -> HadronServer; disabled configs are skipped.
+  The tenant decides the last two levels (#5075,
+  hrn:node:hadronmemory.com:specs:cor:dmo:050:10): it is the owner of the
+  App when an App is named, else the explicit organization, else the owner
+  of the Agent. An organization's tenant consults that organization's
+  level and then the platform's. A person's App consults its own
+  configurations and the named Agent's own, and nothing else: no
+  organization level (never the publisher's) and no platform level. When name is omitted,
   'default' is resolved. When an explicit name misses, resolution falls
   back to 'default'; if that also misses, errors with
   NoAiConfigAvailableError. Consumers (webhooks, scheduled tasks, the
@@ -17328,7 +17430,7 @@ type Query {
   context requires platform ADMIN/OWNER. A user-owned Agent is strictly
   owner-only, including when an App is also named. With no effective org,
   its owner can decrypt that Agent's own config or a user-owned App's
-  config; a host fallback is unavailable through this query. A user-owned
+  config; no organization or host level answers there. A user-owned
   App's owner needs the outer source's own authority to decrypt an installed
   Agent or org config; its App ownership alone grants only its App config.
   A HADRON_SERVER fallback can back a server-side call, but only a platform
@@ -17354,8 +17456,9 @@ type Query {
   execution context — every distinct config name a chat in this context
   could select. Populates a config picker in the chatbot UI.
   
-  Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-  the Agent) -> HadronServer), but returns ALL names instead of resolving
+  Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+  HadronServer; a person's App lists only its own and the named Agent's
+  configurations), but returns ALL names instead of resolving
   one: configs are deduped by name with the innermost owner winning, so
   each entry is the row the resolution walk selects for that name; this
   masked listing does not grant permission to decrypt it. Only
@@ -17365,7 +17468,7 @@ type Query {
   unless the caller manages the selected source.
   
   Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-  appRef, be a member of that App, and (when an agentRef is given) the Agent
+  appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
   must be installed and live-licensed in that App. Because the result is
   masked (no key material), App membership — not org admin — is the bar, unlike
   resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -18492,7 +18595,9 @@ type QuotaCounter {
   resetAt: DateTime!
   scopeId: String!
 
-  """app or org."""
+  """
+  app, org or user. A user row is the person's shared counter for their Apps; it is read and set now and enforced once a person's App can run (F3a).
+  """
   scopeKind: String!
   used: Int!
 
@@ -19408,6 +19513,13 @@ type RevisionResult {
 
 enum Role {
   ADMIN
+
+  """
+  A platform role for a payment service (#5012): it may write credit grants and adjustments (grantCredits,
+  adjustCredits) and nothing else. Refused (BAD_USER_INPUT) as an organization member's, a memory subscription's
+  or an invitation's role, and never combined with another platform role on one user.
+  """
+  BILLING
   CONTRIBUTOR
   OWNER
   READER
@@ -19781,6 +19893,11 @@ type Secret {
 Requester-only state, never the value or ciphertext. hrn:node:hadronmemory.com:specs:cor:sec:070:02
 """
 type SecretChangeRequest {
+  """
+  The server-hosted ceremony page where the requester completes or declines this change with a passkey (hrn:node:hadronmemory.com:specs:cor:sec:070:02): the server origin plus /secret-changes/<id>, with no token. The same link SECRET_PROTECTED_NEEDS_PASSKEY carries in its ceremonyUrl extension. Copy it verbatim; never compose it. Served on every state, because it is a stable address: an ended request's page only explains that it ended. Read through the same requester-only gate as the rest of this type.
+  """
+  ceremonyUrl: String!
+
   """Creation time."""
   createdAt: DateTime!
 
@@ -20497,12 +20614,42 @@ input SetModelFamilyAvailabilityInput {
   until: DateTime
 }
 
+input SetOwnerLimitsInput {
+  """The limits to write. Each key at most once."""
+  limits: [OwnerLimitInput!]!
+
+  """Why. Must not hold personal data."""
+  note: String!
+
+  """
+  Narrows the deletion of replace to limits written with this source type. Refused without replace.
+  """
+  onlySourceType: String
+
+  """The organization, an id or a URN. Exactly one of orgRef and userRef."""
+  orgRef: String
+
+  """When true, also delete the owner's limits for keys not named here."""
+  replace: Boolean
+
+  """Which one. Must not hold personal data: it is logged."""
+  sourceId: String!
+
+  """
+  What set these limits, for example manual. Must not hold personal data: it is logged.
+  """
+  sourceType: String!
+
+  """The person, an id or a URN. Exactly one of orgRef and userRef."""
+  userRef: ID
+}
+
 input SetQuotaLimitInput {
   """run.execute, llm.tokens, sms.send, or email.send."""
   action: String!
 
   """
-  Optional app scope - ref: PK or URN; must belong to the org. Omit to set the org-level limit.
+  App scope - ref: PK or URN. With orgRef it must belong to the org; alone it names an organization's App (the org-ADMIN callers) or a person's App (its owner, owner-role members, a platform admin). Every denial answers NOT_FOUND, as for an unknown ref.
   """
   appRef: String
 
@@ -20511,8 +20658,15 @@ input SetQuotaLimitInput {
   """
   limit: Int!
 
-  """Org - ref: PK or URN."""
-  orgRef: String!
+  """
+  Org - ref: PK or URN. Alone: the organization's limit; with appRef: that App's. Omit with appRef alone (an App of an organization or of a person) or with userRef alone.
+  """
+  orgRef: String
+
+  """
+  A person (user id): that person's own counters. The person as themself or a platform admin; never with orgRef or appRef (BAD_USER_INPUT).
+  """
+  userRef: ID
 }
 
 """
