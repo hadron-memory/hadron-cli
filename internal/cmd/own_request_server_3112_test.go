@@ -17,6 +17,11 @@ func ownRequestServer(t *testing.T, token string, h func(w http.ResponseWriter, 
 	t.Helper()
 	own, strangers = new(int32), new(int32)
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+token {
+			atomic.AddInt32(strangers, 1)
+			http.NotFound(w, r)
+			return
+		}
 		atomic.AddInt32(own, 1)
 		h(w, r)
 	}))

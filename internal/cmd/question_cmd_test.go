@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1142,14 +1143,14 @@ func TestQuestionAnswerAndRetractErrorsBelowTheMutationAreUnknown(t *testing.T) 
 // connection that never opened is "could not reach the server" (7) with no claim about the write.
 // Both verbs; the exit code and the --json envelope are pinned, one request at most.
 func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T) {
-	serve := func(t *testing.T, h func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *int32) {
-		var n int32
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			atomic.AddInt32(&n, 1)
-			h(w, r)
-		}))
-		t.Cleanup(srv.Close)
-		return srv, &n
+	// cli#3112: only requests carrying this leg's own bearer token are the CLI's. Another process dialing
+	// a recycled loopback port is not, and must not make a one-request leg read as two.
+	legs := 0
+	serve := func(t *testing.T, h func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *int32, string) {
+		legs++
+		token := fmt.Sprintf("hdr_user_leg-%d", legs)
+		srv, n, _ := ownRequestServer(t, token, h)
+		return srv, n, token
 	}
 	status := func(code int, body string) func(w http.ResponseWriter, r *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -1195,12 +1196,13 @@ func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T
 			"the connection dropped after the request": {hangup, exitcode.Unavailable, true},
 		} {
 			for _, asJSON := range []bool{false, true} {
-				srv, n := serve(t, tc.h)
+				srv, n, token := serve(t, tc.h)
 				args := append([]string{"question"}, verb...)
 				if asJSON {
 					args = append(args, "--json")
 				}
 				f, out := testFactory(t)
+				t.Setenv("HADRON_TOKEN", token) // after testFactory, which sets the default
 				var errOut strings.Builder
 				f.IOStreams.ErrOut = &errOut
 				root := NewRootCmd(f)
