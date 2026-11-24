@@ -6871,7 +6871,7 @@ type AgentTaskDependencyFields struct {
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
 	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
-	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
+	// App's urn (as written; only the handle is read in either case). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Title  string          `json:"title"`
 	Status AgentTaskStatus `json:"status"`
@@ -7147,7 +7147,7 @@ type AgentTaskFields struct {
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
 	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
-	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
+	// App's urn (as written; only the handle is read in either case). The handle is not the number of any GitHub issue the task's source names.
 	Handle string `json:"handle"`
 	// This task's own number inside its handle (the last segment), counted per parent. Permanent: never changed, never given to another task.
 	TaskNumber  string          `json:"taskNumber"`
@@ -18513,7 +18513,7 @@ type AgentTeamEventFields struct {
 	TaskId *string `json:"taskId"`
 	// The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
 	TaskHandle *string `json:"taskHandle"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.lead-cadence (#2763, #4375: task-less, subjectWorker is the lead that stopped assigning: a worker that at least one worker reports to; events raised before #4375 carry the type alarm.coordinator-cadence, the same alarm under its old name); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -25904,6 +25904,11 @@ type AppRunsResponse struct {
 	// When statuses is non-null it wins, including an empty list; omitted or
 	// null statuses falls back to status. No removal date is promised here.
 	//
+	// parentRunRef (#4141, renamed from parentRunId) is the run whose fan-out children are listed: its id or
+	// its hrn:apprun URN. Omitted means no filter, null means top-level runs only, a ref means that run's
+	// children. A ref that cannot name a run is BAD_USER_INPUT; a ref naming no run in scope (unknown,
+	// outside the org, ambiguous legacy) answers the exactly empty page. It composes AND with appRef.
+	//
 	// sortBy / sortDir (#833) order the whole result set server-side, so a client
 	// table is no longer limited to sorting the page it happens to hold.
 	AppRuns *AppRunsAppRunsAppRunsPage `json:"appRuns"`
@@ -31653,7 +31658,10 @@ func (v *CancelAppRunCancelAppRun) __premarshalJSON() (*__premarshalCancelAppRun
 
 // CancelAppRunResponse is returned by CancelAppRun on success.
 type CancelAppRunResponse struct {
-	// The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
+	// The kill switch manual handle: PENDING/RUNNING to CANCELLED (hrn:node:hadronmemory.com:specs:cor:agt:010:02).
+	// 'ref' is the run's id or its hrn:apprun URN (renamed from 'id', #4141).
+	// A ref that cannot name a run is BAD_USER_INPUT; an unknown run answers
+	// NOT_FOUND "Run not found."; a non-admin keeps FORBIDDEN.
 	CancelAppRun *CancelAppRunCancelAppRun `json:"cancelAppRun"`
 }
 
@@ -53224,6 +53232,11 @@ type FindNodesFindNodesFindNodesResult struct {
 	// this search ran under lists memories you cannot read; they were dropped
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
+	// #4779: also when a hybrid page's fused order could not be certified inside
+	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// hydration left short (or filled past the depth its ranking was certified
+	// to) was still incomplete after its one deeper re-ranking (chunk
+	// granularity flags a short page without re-ranking);
 	// `reason` is also stopped_early when the page is empty).
 	Degraded *string                                         `json:"degraded"`
 	Reason   *string                                         `json:"reason"`
@@ -53442,6 +53455,11 @@ type FindNodesWithCommentSummaryFindNodesFindNodesResult struct {
 	// this search ran under lists memories you cannot read; they were dropped
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
+	// #4779: also when a hybrid page's fused order could not be certified inside
+	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// hydration left short (or filled past the depth its ranking was certified
+	// to) was still incomplete after its one deeper re-ranking (chunk
+	// granularity flags a short page without re-ranking);
 	// `reason` is also stopped_early when the page is empty).
 	Degraded *string                                                           `json:"degraded"`
 	Reason   *string                                                           `json:"reason"`
@@ -58883,7 +58901,8 @@ func (v *GetWorkerTerminalResponse) GetWorker() *GetWorkerTerminalWorker { retur
 // cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
 // by its id or by the computed `urn` below (#991).
 type GetWorkerTerminalWorker struct {
-	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — the latest terminal report a host made for this worker. Stored, decides nothing;
+	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — the latest terminal report a host made for this worker. Stored; since #4933 a fresh report from a host that
+	// registers the worker and shows an agent withholds the platform's desired-running start on every host (hrn:node:hadronmemory.com:specs:cor:agt:070:08), and it decides nothing else;
 	// judge its age from checkedAt. Null until a host reports, and masked to null on the same read gate as checkStatus.
 	Terminal *GetWorkerTerminalWorkerTerminal `json:"terminal"`
 }
@@ -60215,7 +60234,7 @@ type HealthSweepSetTerminalsResponse struct {
 	// malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
 	// refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
 	// is skipped (TERMINAL_REPORT_STALE). The result lists the stored items and the refused items, each refusal with a reason.
-	// The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+	// Since #4933 it decides one thing: the platform issues no desired-running start for a worker whose agent this host already runs (hrn:node:hadronmemory.com:specs:cor:agt:070:08); it feeds no check status, availability, stall rule or alarm.
 	SetHostWorkerTerminals *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult `json:"setHostWorkerTerminals"`
 }
 
@@ -62012,7 +62031,7 @@ type HostRelaunchSetupFailureResponse struct {
 	// malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
 	// refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
 	// is skipped (TERMINAL_REPORT_STALE). The result lists the stored items and the refused items, each refusal with a reason.
-	// The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+	// Since #4933 it decides one thing: the platform issues no desired-running start for a worker whose agent this host already runs (hrn:node:hadronmemory.com:specs:cor:agt:070:08); it feeds no check status, availability, stall rule or alarm.
 	SetHostWorkerTerminals *HostRelaunchSetupFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult `json:"setHostWorkerTerminals"`
 }
 
@@ -62217,7 +62236,7 @@ type HostRelaunchVerifyFailureResponse struct {
 	// malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
 	// refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
 	// is skipped (TERMINAL_REPORT_STALE). The result lists the stored items and the refused items, each refusal with a reason.
-	// The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+	// Since #4933 it decides one thing: the platform issues no desired-running start for a worker whose agent this host already runs (hrn:node:hadronmemory.com:specs:cor:agt:070:08); it feeds no check status, availability, stall rule or alarm.
 	SetHostWorkerTerminals *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsResult `json:"setHostWorkerTerminals"`
 }
 
@@ -63603,7 +63622,7 @@ type IntakeClaimTaskCreateAgentTask struct {
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
 	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
-	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
+	// App's urn (as written; only the handle is read in either case). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Title  string          `json:"title"`
 	Status AgentTaskStatus `json:"status"`
@@ -63789,7 +63808,7 @@ type IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangeP
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
 	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
-	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
+	// App's urn (as written; only the handle is read in either case). The handle is not the number of any GitHub issue the task's source names.
 	Handle string `json:"handle"`
 	// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120) — the portal page that opens this task,
 	// <FRONTEND_URL>/app/apps/<appId>/tasks/<taskId>, printed by the server so no client builds it. Null when FRONTEND_URL
@@ -78333,7 +78352,7 @@ type PRProtocolReceiptTaskAgentTask struct {
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
 	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
-	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
+	// App's urn (as written; only the handle is read in either case). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Status AgentTaskStatus `json:"status"`
 }
@@ -92520,6 +92539,14 @@ type RunTaskResponse struct {
 	// MANUAL app run for the resolved task under that App and returns the run id
 	// (poll appRun(ref:) for status + output). runAsSelf attributes the run to
 	// the caller. Without appRef, behavior is unchanged.
+	// Required task arguments (#317, hrn:node:hadronmemory.com:specs:cor:dmo:060:11):
+	// when the task node's data.args declares an argument with required: true and no
+	// default, args must carry it (present and not null) or the call is refused
+	// BAD_USER_INPUT, naming every missing argument, before anything renders or runs
+	// (no AppRun, no usage event). Judged after the read-access check, so a task the
+	// caller cannot read answers as it always did. A hop of an already-minted run (the
+	// run kernel assembling through this call) is exempt. Undeclared arguments pass through;
+	// data_type is not checked and defaults are not filled in.
 	// Spec cor:api:060.
 	RunTask string `json:"runTask"`
 }
@@ -92544,6 +92571,14 @@ type RunTaskWithAgentResponse struct {
 	// MANUAL app run for the resolved task under that App and returns the run id
 	// (poll appRun(ref:) for status + output). runAsSelf attributes the run to
 	// the caller. Without appRef, behavior is unchanged.
+	// Required task arguments (#317, hrn:node:hadronmemory.com:specs:cor:dmo:060:11):
+	// when the task node's data.args declares an argument with required: true and no
+	// default, args must carry it (present and not null) or the call is refused
+	// BAD_USER_INPUT, naming every missing argument, before anything renders or runs
+	// (no AppRun, no usage event). Judged after the read-access check, so a task the
+	// caller cannot read answers as it always did. A hop of an already-minted run (the
+	// run kernel assembling through this call) is exempt. Undeclared arguments pass through;
+	// data_type is not checked and defaults are not filled in.
 	// Spec cor:api:060.
 	RunTask string `json:"runTask"`
 }
@@ -93337,6 +93372,11 @@ type SearchNodesFindNodesFindNodesResult struct {
 	// this search ran under lists memories you cannot read; they were dropped
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
+	// #4779: also when a hybrid page's fused order could not be certified inside
+	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// hydration left short (or filled past the depth its ranking was certified
+	// to) was still incomplete after its one deeper re-ranking (chunk
+	// granularity flags a short page without re-ranking);
 	// `reason` is also stopped_early when the page is empty).
 	Degraded *string `json:"degraded"`
 	Reason   *string `json:"reason"`
@@ -102076,6 +102116,13 @@ type StartAgentSessionResponse struct {
 	// after the new session commits; USER_ID mode rejects key supply.
 	// Only one key-consuming operation may use the header in a request;
 	// a second attempt is BAD_UNLOCK_INPUT.
+	// 'agentRef' is the Agent's id or its hrn:agent URN (renamed from 'agentId',
+	// #4141). An Agent that does not exist, is deleted, or is not installed in
+	// this App all answer the one FORBIDDEN "App is not allowed to operate this
+	// agent". A ref that is neither an id nor a qualified hrn:agent URN (a
+	// relative URN, a malformed ref, another entity's URN) is refused as
+	// URN_NOT_QUALIFIED; cancelAppRun answers the same kind of ref with
+	// BAD_USER_INPUT, its own door's existing shape code.
 	StartAgentSession *StartAgentSessionStartAgentSession `json:"startAgentSession"`
 }
 

@@ -34,17 +34,28 @@ var s5Renames = []struct {
 	{ast.Query, "appRuns", "parentRunRef", "parentRunId"},
 }
 
-// rootFieldArgs returns, for every operation of type op in every query
-// document, the argument names its root selection of field sends, keyed by
-// "<file>:<operation>". Only root selections count: the three fields are
-// root fields, so a same-named field nested under another type cannot match.
-func rootFieldArgs(t *testing.T, op ast.Operation, field string) map[string][]string {
+// fieldUse is one root selection of a field: where it is and the argument
+// names it sends.
+type fieldUse struct {
+	where string
+	names []string
+}
+
+// rootFieldArgs returns every root selection of field in every operation of
+// type op across the query documents, one entry per occurrence (an operation
+// that selects the field twice, for example under two aliases, yields two).
+// Root inline fragments and fragment spreads are followed, so a selection
+// moved into a fragment on the root type is still seen. Only root selections
+// count: the three fields are root fields, so a same-named field nested under
+// another type cannot match.
+func rootFieldArgs(t *testing.T, op ast.Operation, field string) []fieldUse {
 	t.Helper()
 	files, err := filepath.Glob(filepath.Join("queries", "*.graphql"))
 	if err != nil || len(files) == 0 {
 		t.Fatalf("no query documents found: %v", err)
 	}
-	found := map[string][]string{}
+	docs := map[string]*ast.QueryDocument{}
+	fragments := map[string]*ast.FragmentDefinition{}
 	for _, f := range files {
 		b, err := os.ReadFile(f)
 		if err != nil {
@@ -54,19 +65,45 @@ func rootFieldArgs(t *testing.T, op ast.Operation, field string) map[string][]st
 		if perr != nil {
 			t.Fatalf("%s does not parse: %v", f, perr)
 		}
-		for _, o := range doc.Operations {
+		docs[f] = doc
+		for _, fr := range doc.Fragments {
+			fragments[fr.Name] = fr
+		}
+	}
+	var found []fieldUse
+	var walk func(where string, set ast.SelectionSet, seen map[string]bool)
+	walk = func(where string, set ast.SelectionSet, seen map[string]bool) {
+		for _, sel := range set {
+			switch s := sel.(type) {
+			case *ast.Field:
+				if s.Name == field {
+					names := []string{}
+					for _, a := range s.Arguments {
+						names = append(names, a.Name)
+					}
+					found = append(found, fieldUse{where, names})
+				}
+			case *ast.InlineFragment:
+				walk(where, s.SelectionSet, seen)
+			case *ast.FragmentSpread:
+				fr, ok := fragments[s.Name]
+				if !ok {
+					t.Fatalf("%s spreads unknown fragment %s", where, s.Name)
+				}
+				if seen[s.Name] {
+					continue
+				}
+				seen[s.Name] = true
+				walk(where+"..."+s.Name, fr.SelectionSet, seen)
+			}
+		}
+	}
+	for _, f := range files {
+		for _, o := range docs[f].Operations {
 			if o.Operation != op {
 				continue
 			}
-			for _, sel := range o.SelectionSet {
-				if fl, ok := sel.(*ast.Field); ok && fl.Name == field {
-					names := []string{}
-					for _, a := range fl.Arguments {
-						names = append(names, a.Name)
-					}
-					found[f+":"+o.Name] = names
-				}
-			}
+			walk(f+":"+o.Name, o.SelectionSet, map[string]bool{})
 		}
 	}
 	return found
@@ -79,12 +116,12 @@ func TestS5DocumentsSendTheRefArgumentsNotTheRetiredOnes_2935(t *testing.T) {
 			t.Errorf("no %s operation selects %s: the pin cannot see it", tc.op, tc.field)
 			continue
 		}
-		for where, names := range uses {
-			if !slices.Contains(names, tc.want) {
-				t.Errorf("%s: %s must send %s (hadron-server#4141 S5), sends %v", where, tc.field, tc.want, names)
+		for _, u := range uses {
+			if !slices.Contains(u.names, tc.want) {
+				t.Errorf("%s: %s must send %s (hadron-server#4141 S5), sends %v", u.where, tc.field, tc.want, u.names)
 			}
-			if slices.Contains(names, tc.retired) {
-				t.Errorf("%s: %s still sends the retired %s, sends %v", where, tc.field, tc.retired, names)
+			if slices.Contains(u.names, tc.retired) {
+				t.Errorf("%s: %s still sends the retired %s, sends %v", u.where, tc.field, tc.retired, u.names)
 			}
 		}
 	}

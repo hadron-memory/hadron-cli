@@ -10,27 +10,9 @@
 # checkout and fails when the generated client would change for an operation the CLI
 # uses; the schema-drift workflow runs it nightly against server main, and its snapshot-reproduces job exports exactly server_sha with the tool versions below and compares the bytes.
 #
-# PRE-MERGE DELTA (hadron-cli#2935, the entity-refs S5 companion of hadron-server#4141): schema.graphql is
-# NOT a plain export of server_sha. It is the export of server_sha PLUS three argument renames, applied by hand:
-#   cancelAppRun(id:) -> (ref:) and startAgentSession(agentId:) -> (agentRef:), from the #4789 head
-#     456e0f64f8b31079947e88a4b6fca00c0d9b504d over its merge base with main 04b5c66c88321ff74f34696bca33eaa4fcb6cd42;
-#   appRuns(parentRunId:) -> (parentRunRef:), from the #4810 head
-#     0e414a129789c183493a758cadd364286fe2b594 over its merge base with main 32312abbff0e544d13fa45c00a2a225b72f47f37.
-# Argument names only: the heads' reworded descriptions are not mirrored, and each rename keeps its printSchema
-# position (the new name sorts where the old one did). #4789 and #4810 are not on main, so the
-# snapshot-reproduces job cannot match these bytes. internal/api/gen/generated.go is covered by the
-# generate-drift check against this snapshot. Exit: after #4789 and #4810 merge, re-diff each head against this
-# block (they are mutable PR heads), then re-export at a server main SHA carrying both, set server_sha to it and
-# delete this block. Do not call the PR ready at this pin: the CLI merges after the server (ruling 0274).
-# Why no code guard or fallback (decided on #2962's BLIND F1/F2, Eden #138029): ruling 0274, an ordered hard
-# break (notices via hadron-client#24, then the server, then the CLI and portal companions), as applied to
-# #2922; cor:api:140:01 makes the rename hard with no alias, and a fallback to the old name would have to test a
-# capability token rather than attempt the operation (cor:api:220:01). The hold is the ready call, made only
-# after #4789 and #4810 merge; released CLIs break at the server cutover by design.
-#
 # tsx= and graphql= are the exporter's tool versions, the single place they live: the
 # schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
 # because a floating graphql minor can change printSchema bytes. Bump deliberately.
-server_sha=27e56ff731f847998d2ddc82c4382573076884be
+server_sha=5b00dbe89ca69837801cc6c1a8abb90a3c3f61a2
 tsx=4.23.15
 graphql=16.15.0
