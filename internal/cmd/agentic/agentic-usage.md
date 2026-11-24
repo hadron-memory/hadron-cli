@@ -6504,6 +6504,9 @@ integrations (`cor:agt:120:01`/`:03`) are retired (cli#1964, below). A thin clie
 rule is the server's (`cor:api:240:01`), the CLI sends values as given and maps
 refusals. Nothing here is on MCP.
 
+Writing an intake adapter (what each call receives and answers, a runnable
+sample): `docs/how-to/write-an-intake-adapter.md` in the CLI repository (cli#3062).
+
 ```
 hadron app properties get <app-ref>
 hadron app properties set <app-ref> <json|@file|-> [--expected-revision <n>] [--instruction <kind>:<ref>]
