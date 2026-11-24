@@ -27,9 +27,9 @@ func TestSweepPassIsExemptFromTheApplySweepModeRefusal2652(t *testing.T) {
 // is also proved to get PAST the gate's position (the desired state is then
 // read, cli#3020), and a refused apply never gets that far. A mode the server
 // does not report fails closed with its own message whatever shape "not
-// reported" takes on the wire: an empty string, null, a missing field (all one
-// zero value after decoding) or an unknown value (refused naming it); an App
-// the read cannot find is its own refusal (cli#3020).
+// reported" takes on the wire, however the client decodes it: an empty string,
+// null, a missing field or an unknown value (refused naming it); an App the
+// read cannot find is its own refusal (cli#3020).
 func TestRunHostUpReadsTheSweepModeOnlyForAManualApply2652(t *testing.T) {
 	manual := hostUpOptions{host: "h1", apply: true, readyChecked: true, lockHeld: true, orcaBin: "/nonexistent/fixture-orca", timeout: time.Second}
 	const notReported = "sweep mode is not reported, so --apply is refused and nothing issued"
