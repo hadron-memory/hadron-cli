@@ -32,7 +32,10 @@ Turning protection off on a secret that is not protected asks for no change,
 and servers answer it differently: some stage it like any protection change
 (exit 5); others recognize the no change, stage nothing and answer the secret
 with protected: false, and the command then says protection is already off
-(exit 0). Any other secret returned instead of a request is not reported as a
+(exit 0). "Already off" is read from the returned secret alone: the command
+cannot tell a secret that was already unprotected from one a server cleared
+without a signed request, so it relies on the server's own check of who may ask.
+Any other secret returned instead of a request is not reported as a
 change: exit 7, with hadron secret get to check.
 A staged request that comes back with no ceremony URL cannot be signed by anyone:
 the command says so and names hadron secret change withdraw.

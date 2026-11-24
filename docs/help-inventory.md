@@ -271,7 +271,7 @@ section between the markers.
 | `secret exec` |  |  | y | #1052 | 9676504c1659 |  | unread |  |
 | `secret get` |  |  | y | #1052 | 3d942cb0742a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret list` | ls |  | y | #1052 | 9bc54e793ad3 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `secret protect` |  |  | y | #1052 | cd0f487e5549 |  | unread |  |
+| `secret protect` |  |  | y | #1052 | a64fd7ac3574 |  | unread |  |
 | `secret reveal` |  |  | y | #1052 | c88c9aca1c54 |  | unread |  |
 | `secret rm` | delete |  | y | #1052 | db33bfb427be |  | unread |  |
 | `secret set` |  |  | y | #1052 | 84e1914ebb55 |  | unread |  |

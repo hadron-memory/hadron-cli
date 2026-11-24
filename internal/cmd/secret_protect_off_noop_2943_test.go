@@ -10,6 +10,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -151,6 +152,42 @@ func TestProtectHelpStatesTheNoOp2943(t *testing.T) {
 	for _, banned := range []string{"cor:sec", "hadron-server#", "hadron-cli#"} {
 		if strings.Contains(help, banned) {
 			t.Errorf("help carries no %q:\n%s", banned, help)
+		}
+	}
+}
+
+// hadron-cli#2984: the contract word for --off on an unprotected secret is as
+// conditional as the help (some servers stage it, exit 5; others recognize the
+// no change, exit 0), and both say what "already off" rests on.
+func TestProtectOffWordingIsConditionalAndNamesItsBasis2984(t *testing.T) {
+	help := strings.Join(strings.Fields(cmdHelpOut(t, "secret", "protect")), " ")
+	b, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Join(strings.Fields(string(b)), " ")
+	for name, tc := range map[string]struct {
+		text  string
+		wants []string
+		bans  []string
+	}{
+		"help": {help, []string{
+			"cannot tell a secret that was already unprotected from one a server cleared without a signed request",
+		}, nil},
+		"agentic-usage": {doc, []string{
+			"Turning protection off on a secret that is NOT protected is a no-change ask and servers answer it differently: some stage it like any protection change (exit 5 above); others recognize the no change, stage nothing and answer the secret with `protected: false`",
+			"cannot tell a secret that was already unprotected from one a server cleared without a signed request",
+		}, []string{"The one exception is `--off` on a secret that is NOT protected: the server stages nothing"}},
+	} {
+		for _, w := range tc.wants {
+			if !strings.Contains(tc.text, w) {
+				t.Errorf("%s lacks %q", name, w)
+			}
+		}
+		for _, bad := range tc.bans {
+			if strings.Contains(tc.text, bad) {
+				t.Errorf("%s still says %q", name, bad)
+			}
 		}
 	}
 }
