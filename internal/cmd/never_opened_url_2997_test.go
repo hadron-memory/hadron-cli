@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"net/http/httptest"
 	neturl "net/url"
 	"testing"
 	"time"
@@ -25,10 +24,7 @@ import (
 // way a net.Error, which the CLI maps to "could not reach the server").
 func neverOpenedServerURL(t *testing.T) string {
 	t.Helper()
-	srv := httptest.NewServer(http.NotFoundHandler())
-	url := srv.URL
-	srv.Close()
-	return url
+	return "http://127.0.0.1:0"
 }
 
 // The property that matters: even when something takes the very port a naive "close a server and reuse its URL"

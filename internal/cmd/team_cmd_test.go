@@ -2598,9 +2598,7 @@ func TestTeamSessionWhoamiCheckExitCodes1835(t *testing.T) {
 	// real transport classifier: exactly 7, never 0 or 14.
 	t.Run("an unreachable server exits exactly 7", func(t *testing.T) {
 		root, _ := bindWhoami(t, map[string]string{}, "team", "session", "whoami", "--check")
-		dead := httptest.NewServer(http.NotFoundHandler())
-		url := dead.URL
-		dead.Close()
+		url := neverOpenedServerURL(t)
 		root.SetArgs([]string{"team", "session", "whoami", "--check", "--server", url})
 		if code := exitCodeFor(root.Execute()); code != exitcode.Unavailable {
 			t.Errorf("an unanswered check must exit %d, got %d", exitcode.Unavailable, code)
