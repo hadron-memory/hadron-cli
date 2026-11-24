@@ -18,7 +18,7 @@ func TestAiConfig1347UniformList(t *testing.T) {
 	}
 	vars := unmarshalVars(t, captured["AiServiceConfigsMaskedWithUrn"])
 	filter, ok := vars["filter"].(map[string]any)
-	if !ok || filter["ownerType"] != "APP" || filter["ownerId"] != "app1" || vars["limit"] != float64(0) || vars["offset"] != float64(3) {
+	if !ok || filter["ownerType"] != "APP" || filter["ownerRef"] != "app1" || vars["limit"] != float64(0) || vars["offset"] != float64(3) {
 		t.Fatalf("variables: %+v", vars)
 	}
 	var dto struct {

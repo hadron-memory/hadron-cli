@@ -8,7 +8,7 @@
 # The server treats an omitted NodeFilter field as "no constraint"; nil
 # pointers must therefore be omitted, not sent as null — same contract as
 # nodes.graphql.
-# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryRefs", omitempty: true)
 # @genqlient(for: "NodeFilter.approvalState", omitempty: true)
 # @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
@@ -90,7 +90,7 @@ query SearchNodes(
     offset: $offset
     scope: $scope
     appRef: $appRef
-    orgId: $orgId
+    orgRef: $orgId
     expand: $expand
     fields: $fields
     granularity: $granularity

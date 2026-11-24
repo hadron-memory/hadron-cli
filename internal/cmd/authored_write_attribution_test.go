@@ -138,7 +138,7 @@ func TestAuthoredWriteRechecksAfterLookupAndAcrossWrites(t *testing.T) {
 			if _, err := gen.GetNode(ctx, client, "n1"); err != nil {
 				t.Fatal(err)
 			}
-			input := &gen.UpdateNodeInput{Id: writeTestPtr("n1"), Name: writeTestPtr("Edited")}
+			input := &gen.UpdateNodeInput{Ref: writeTestPtr("n1"), Name: writeTestPtr("Edited")}
 			for i := 0; i < 2; i++ {
 				if _, err := gen.UpdateNode(ctx, client, input); err != nil {
 					t.Fatal(err)
@@ -280,7 +280,7 @@ func TestAuthoredWriteCorruptBindingIsUnattributedWithOneDiagnostic(t *testing.T
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
-		if _, err := gen.CreateNode(context.Background(), client, &gen.CreateNodeInput{MemoryId: "m1", Loc: "x", Name: "X"}); err != nil {
+		if _, err := gen.CreateNode(context.Background(), client, &gen.CreateNodeInput{MemoryRef: "m1", Loc: "x", Name: "X"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -347,7 +347,7 @@ func twoAuthoredCreates(t *testing.T, f interface {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
-		if _, err := gen.CreateNode(context.Background(), client, &gen.CreateNodeInput{MemoryId: "m1", Loc: "x", Name: "X"}); err != nil {
+		if _, err := gen.CreateNode(context.Background(), client, &gen.CreateNodeInput{MemoryRef: "m1", Loc: "x", Name: "X"}); err != nil {
 			t.Fatal(err)
 		}
 	}

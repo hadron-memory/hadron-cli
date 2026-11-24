@@ -18,7 +18,7 @@ query Memories(
   # @genqlient(omitempty: true)
   $orgId: ID
 ) {
-  memories(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+  memories(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
     total
     items {
       id

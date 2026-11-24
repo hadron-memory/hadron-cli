@@ -163,7 +163,7 @@ func TestNodeUpdate2300QualifiedURNIgnoresMemory(t *testing.T) {
 		Input map[string]any `json:"input"`
 	}
 	_ = json.Unmarshal(captured["UpdateNode"], &vars)
-	if vars.Input["id"] != "n1" {
+	if vars.Input["ref"] != "n1" {
 		t.Fatalf("update must target the resolved node: %v", vars.Input)
 	}
 }

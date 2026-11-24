@@ -52,7 +52,7 @@ func parseEdgeFlags(values []string) ([]*gen.NodeEdgeInput, error) {
 				return nil, exitcode.Newf(exitcode.Usage, "--edge %s has no target. Nothing was sent", v)
 			}
 			out = append(out, &gen.NodeEdgeInput{
-				TargetId: strings.TrimSpace(spec.Target), Name: spec.Name, Loc: spec.Loc,
+				TargetRef: strings.TrimSpace(spec.Target), Name: spec.Name, Loc: spec.Loc,
 				Description: spec.Description, IsRunnable: spec.Runnable,
 			})
 			continue
@@ -62,7 +62,7 @@ func parseEdgeFlags(values []string) ([]*gen.NodeEdgeInput, error) {
 		if !ok || name == "" || target == "" {
 			return nil, exitcode.Newf(exitcode.Usage, "--edge %q must be <name>=<target> (or a JSON object). Nothing was sent", raw)
 		}
-		out = append(out, &gen.NodeEdgeInput{TargetId: target, Name: &name})
+		out = append(out, &gen.NodeEdgeInput{TargetRef: target, Name: &name})
 	}
 	return out, nil
 }

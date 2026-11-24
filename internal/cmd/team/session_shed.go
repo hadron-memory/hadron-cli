@@ -514,7 +514,7 @@ func runShed(ctx context.Context, f *cmdutil.Factory, o shedOptions) shedOutcome
 	body := renderShedBody(snap, prompt, notes, tail)
 	nt := "info"
 	created, err := gen.CreateNode(rctx, client, &gen.CreateNodeInput{
-		MemoryId: memoryID, Loc: loc, Name: checkpointName(now, o, b), Content: &body, NodeType: &nt,
+		MemoryRef: memoryID, Loc: loc, Name: checkpointName(now, o, b), Content: &body, NodeType: &nt,
 	})
 	if err != nil || created.CreateNode == nil {
 		return fail("the checkpoint node could not be written")

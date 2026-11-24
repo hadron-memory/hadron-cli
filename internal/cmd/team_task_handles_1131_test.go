@@ -227,8 +227,8 @@ func TestTeamTaskReferencesPassThroughByteForByte1131(t *testing.T) {
 			for _, c := range *calls {
 				if c.Op == "AgentTaskCreate" {
 					input, _ := c.Vars["input"].(map[string]any)
-					if input["parentTaskId"] != ref {
-						t.Fatalf("parentTaskId %v, want %q", input["parentTaskId"], ref)
+					if input["parentTaskRef"] != ref {
+						t.Fatalf("parentTaskRef %v, want %q", input["parentTaskId"], ref)
 					}
 					return
 				}
@@ -279,7 +279,7 @@ func TestTeamTaskCreateProjectFlag1131(t *testing.T) {
 		t.Fatalf("--project=false must send false: %v", input)
 	}
 	// --project with --parent: the server refuses; the CLI adds no check of its own.
-	if input := create(t, "--project", "--parent", "AT3"); input["project"] != true || input["parentTaskId"] != "AT3" {
+	if input := create(t, "--project", "--parent", "AT3"); input["project"] != true || input["parentTaskRef"] != "AT3" {
 		t.Fatalf("both must reach the server: %v", input)
 	}
 }

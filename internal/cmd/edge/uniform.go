@@ -181,7 +181,7 @@ func listUniformEdges(cmd *cobra.Command, f *cmdutil.Factory, memory string, u u
 		// Every memory spelling the CLI accepts (v2, <org>:<slug>, legacy
 		// <org>::<slug>, an id) normalizes as it does for -m elsewhere.
 		m := cmdutil.CanonicalMemoryRef(memory)
-		filter.MemoryId = &m
+		filter.MemoryRef = &m
 	}
 	// --source and --target go to the server as typed, and a ref it cannot
 	// resolve matches no edge — an empty list, not "not found". So take only
@@ -195,11 +195,11 @@ func listUniformEdges(cmd *cobra.Command, f *cmdutil.Factory, memory string, u u
 	}
 	if changed("source") {
 		s := strings.TrimSpace(u.source)
-		filter.SourceNodeId = &s
+		filter.SourceRef = &s
 	}
 	if changed("target") {
 		t := strings.TrimSpace(u.target)
-		filter.TargetNodeId = &t
+		filter.TargetRef = &t
 	}
 	if changed("runnable") {
 		r := u.runnable

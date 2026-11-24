@@ -61,7 +61,7 @@ query Channels(
   # @genqlient(omitempty: true)
   $orgId: ID
 ) {
-  channels(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+  channels(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
     total
     items {
       ...ChannelFields
@@ -285,7 +285,7 @@ query RegisterEntries(
   # @genqlient(omitempty: true)
   $orgId: ID
 ) {
-  registerEntries(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+  registerEntries(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
     total
     items {
       ...RegisterEntryFields

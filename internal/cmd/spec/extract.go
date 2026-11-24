@@ -245,7 +245,7 @@ remains authoritative for other refusals.`,
 			nodeType := "info"
 			input := gen.CreateNodeInput{
 				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-				MemoryId:     memURN,
+				MemoryRef:    memURN,
 				Loc:          target.Format(),
 				Name:         name,
 				Tags:         tagSet,
@@ -267,7 +267,7 @@ remains authoritative for other refusals.`,
 				if result.StripMatched {
 					srcInput := gen.UpdateNodeInput{
 						AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-						MemoryId:     &srcNode.MemoryId,
+						MemoryRef:    &srcNode.MemoryId,
 						Loc:          &srcNode.Loc,
 						Content:      &strippedBody, // content-only update; omitted fields preserved
 					}

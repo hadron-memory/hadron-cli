@@ -346,10 +346,10 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 
 				input := gen.UpdateNodeInput{
 					AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-					Id:           &nodeID,
+					Ref:          &nodeID,
 				}
 				if target != nil {
-					input.Id = nil
+					input.Ref = nil
 					input.Install = target
 					input.Loc = &args[0]
 				}

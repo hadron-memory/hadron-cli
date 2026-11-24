@@ -1,6 +1,6 @@
 # Explicit org-admin metadata read; never request credentials or lastError.
 query EmailConnections($orgId: ID!) {
-  exchangeConnections(orgId: $orgId) {
+  exchangeConnections(orgRef: $orgId) {
     id
     organizationId
     userId
@@ -25,7 +25,7 @@ query EmailConnectionsPage(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  exchangeConnectionsPage(orgId: $orgId, limit: $limit, offset: $offset) {
+  exchangeConnectionsPage(orgRef: $orgId, limit: $limit, offset: $offset) {
     items {
       id
       organizationId

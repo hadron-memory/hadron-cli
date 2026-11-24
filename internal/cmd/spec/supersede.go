@@ -424,7 +424,7 @@ then; it never edits the register).`,
 			}
 			in := gen.CreateNodeInput{
 				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-				MemoryId:     memURN, Loc: newLoc, Name: name,
+				MemoryRef:    memURN, Loc: newLoc, Name: name,
 				Tags: newTags, NodeType: &nodeType,
 				Abstract: &abs, Content: &body, Data: specDataRaw(),
 				Seq: newSeq, Role: successorRole,
@@ -804,15 +804,15 @@ func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *ge
 	}
 	retireIn := gen.UpdateNodeInput{
 		AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-		MemoryId:     &oldNode.MemoryId, Loc: &oldNode.Loc,
+		MemoryRef:    &oldNode.MemoryId, Loc: &oldNode.Loc,
 		Tags: retireTags, Content: &retired, Abstract: &abstract,
 	}
 	if !appendNote {
 		retireIn.Content = nil
 	} // --by does not rewrite the retired body.
 	if expectedRevision != nil {
-		retireIn.Id = &oldNode.Id
-		retireIn.MemoryId = nil
+		retireIn.Ref = &oldNode.Id
+		retireIn.MemoryRef = nil
 		retireIn.Loc = nil
 		retireIn.ExpectedRevision = expectedRevision
 	}

@@ -77,7 +77,7 @@ query Agents(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+  agents(orgRef: $orgId, filter: $filter, limit: $limit, offset: $offset) {
     total
     items {
       ...AgentFields

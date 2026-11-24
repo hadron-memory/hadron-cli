@@ -134,7 +134,7 @@ type findNodesVars struct {
 	Limit  *int    `json:"limit"`
 	Offset *int    `json:"offset"`
 	Filter struct {
-		MemoryIds  []string `json:"memoryIds"`
+		MemoryIds  []string `json:"memoryRefs"`
 		LocPrefix  string   `json:"locPrefix"`
 		NodeType   string   `json:"nodeType"`
 		Tags       []string `json:"tags"`
@@ -447,7 +447,7 @@ func TestNodeUpdatePreservesUnsetFields(t *testing.T) {
 	if vars.Input["name"] != "Flaky CI (resolved)" {
 		t.Errorf("name not updated: %v", vars.Input)
 	}
-	if vars.Input["id"] != "n1" {
+	if vars.Input["ref"] != "n1" {
 		t.Errorf("update must target the resolved node id: %v", vars.Input)
 	}
 	// Unset optional fields must be OMITTED (server: omitted = preserve,

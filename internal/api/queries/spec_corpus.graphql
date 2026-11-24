@@ -153,7 +153,7 @@ mutation MintMemoryNodes($memoryRef: ID!, $dryRun: Boolean!) {
 # isPlaceholder: an older server would reject every spec read over it.
 # Keep NodeFilter omission semantics even when genqlient discovers this
 # operation before FindNodes during generation.
-# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryRefs", omitempty: true)
 # @genqlient(for: "NodeFilter.approvalState", omitempty: true)
 # @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)

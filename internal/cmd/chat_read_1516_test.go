@@ -193,7 +193,7 @@ func chatRowsReader1516(t *testing.T, rows map[string][]string, broken string) (
 			OperationName string
 			Variables     struct {
 				Filter struct {
-					MemoryIds []string
+					MemoryIds []string `json:"memoryRefs"`
 					LocPrefix string
 					NodeType  *string
 				}

@@ -39,7 +39,7 @@ func TestTaskMatching1549LegacyParity(t *testing.T) {
 			}
 			for _, c := range *calls {
 				if c.Op == "AgentTaskCreate" {
-					if string(c.RawVars) != `{"input":{"appRef":"capp100000000000000000000","closeSessionWhenDone":null,"description":null,"parentTaskId":null,"source":null,"startBy":null,"status":null,"tags":null,"title":"example"}}` {
+					if string(c.RawVars) != `{"input":{"appRef":"capp100000000000000000000","closeSessionWhenDone":null,"description":null,"parentTaskRef":null,"source":null,"startBy":null,"status":null,"tags":null,"title":"example"}}` {
 						t.Fatalf("legacy variables changed: %s", c.RawVars)
 					}
 				}

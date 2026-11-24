@@ -47,7 +47,7 @@ func TestSpecEditTitleOnlyIsGuardedAndReportsApproval(t *testing.T) {
 		t.Fatalf("UpdateSpecNode calls = %d, want 1", n)
 	}
 	in := sentTitleEditInput(t, captured["UpdateSpecNode"][0])
-	if in["name"] != "msg:010:02 — New title" || in["id"] != "sp1" || in["expectedRevision"] != float64(7) {
+	if in["name"] != "msg:010:02 — New title" || in["ref"] != "sp1" || in["expectedRevision"] != float64(7) {
 		t.Fatalf("payload %v", in)
 	}
 	for _, k := range []string{"content", "abstract", "description", "loc", "role", "tags"} {

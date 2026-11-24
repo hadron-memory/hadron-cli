@@ -22,7 +22,7 @@ mutation UpdateNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $expectedRevision: Int
   # @genqlient(omitempty: true)
-  $id: String
+  $ref: String
   # @genqlient(omitempty: true)
   $isRunnable: Boolean
   # @genqlient(omitempty: true)
@@ -30,7 +30,7 @@ mutation UpdateNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $loc: String
   # @genqlient(omitempty: true)
-  $memoryId: String
+  $memoryRef: String
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
@@ -61,11 +61,11 @@ mutation UpdateNodeClearingRoleAuthored(
     description: $description
     edges: $edges
     expectedRevision: $expectedRevision
-    id: $id
+    ref: $ref
     isRunnable: $isRunnable
     llmModel: $llmModel
     loc: $loc
-    memoryId: $memoryId
+    memoryRef: $memoryRef
     name: $name
     nodeType: $nodeType
     objectType: $objectType
@@ -101,7 +101,7 @@ mutation UpdateSpecNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $expectedRevision: Int
   # @genqlient(omitempty: true)
-  $id: String
+  $ref: String
   # @genqlient(omitempty: true)
   $isRunnable: Boolean
   # @genqlient(omitempty: true)
@@ -109,7 +109,7 @@ mutation UpdateSpecNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $loc: String
   # @genqlient(omitempty: true)
-  $memoryId: String
+  $memoryRef: String
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
@@ -140,11 +140,11 @@ mutation UpdateSpecNodeClearingRoleAuthored(
     description: $description
     edges: $edges
     expectedRevision: $expectedRevision
-    id: $id
+    ref: $ref
     isRunnable: $isRunnable
     llmModel: $llmModel
     loc: $loc
-    memoryId: $memoryId
+    memoryRef: $memoryRef
     name: $name
     nodeType: $nodeType
     objectType: $objectType
@@ -180,7 +180,7 @@ mutation UpdateReviewNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $expectedRevision: Int
   # @genqlient(omitempty: true)
-  $id: String
+  $ref: String
   # @genqlient(omitempty: true)
   $isRunnable: Boolean
   # @genqlient(omitempty: true)
@@ -188,7 +188,7 @@ mutation UpdateReviewNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $loc: String
   # @genqlient(omitempty: true)
-  $memoryId: String
+  $memoryRef: String
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
@@ -219,11 +219,11 @@ mutation UpdateReviewNodeClearingRoleAuthored(
     description: $description
     edges: $edges
     expectedRevision: $expectedRevision
-    id: $id
+    ref: $ref
     isRunnable: $isRunnable
     llmModel: $llmModel
     loc: $loc
-    memoryId: $memoryId
+    memoryRef: $memoryRef
     name: $name
     nodeType: $nodeType
     objectType: $objectType
@@ -259,7 +259,7 @@ mutation UpdateTaskNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $expectedRevision: Int
   # @genqlient(omitempty: true)
-  $id: String
+  $ref: String
   # @genqlient(omitempty: true)
   $isRunnable: Boolean
   # @genqlient(omitempty: true)
@@ -267,7 +267,7 @@ mutation UpdateTaskNodeClearingRoleAuthored(
   # @genqlient(omitempty: true)
   $loc: String
   # @genqlient(omitempty: true)
-  $memoryId: String
+  $memoryRef: String
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
@@ -298,11 +298,11 @@ mutation UpdateTaskNodeClearingRoleAuthored(
     description: $description
     edges: $edges
     expectedRevision: $expectedRevision
-    id: $id
+    ref: $ref
     isRunnable: $isRunnable
     llmModel: $llmModel
     loc: $loc
-    memoryId: $memoryId
+    memoryRef: $memoryRef
     name: $name
     nodeType: $nodeType
     objectType: $objectType

@@ -119,10 +119,10 @@ func TestSessionShedWritesNodeThenClaimLast(t *testing.T) {
 		t.Errorf("the node is created, then read back, before any claim: %v", rig.calls)
 	}
 	var in struct {
-		Input struct{ MemoryId, Loc, Content string } `json:"input"`
+		Input struct{ MemoryRef, Loc, Content string } `json:"input"`
 	}
 	_ = json.Unmarshal(rig.captured["CreateNode"], &in)
-	if in.Input.MemoryId != "mw1" || !strings.HasPrefix(in.Input.Loc, "sheds:") {
+	if in.Input.MemoryRef != "mw1" || !strings.HasPrefix(in.Input.Loc, "sheds:") {
 		t.Errorf("the node goes in the worker's own memory under sheds:, got %+v", in.Input)
 	}
 	pos := -1

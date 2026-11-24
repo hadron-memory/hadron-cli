@@ -677,7 +677,7 @@ Query.agentTasksPage(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
 Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
-Query.aiServiceConfigs(filter.ownerId)  flag ai-config list --owner-id
+Query.aiServiceConfigs(filter.ownerRef)  flag ai-config list --owner-id
 Query.aiServiceConfigs(filter.ownerType)  flag ai-config list --owner-type
 Query.appNodesPage(filter.approvalState)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.childrenOf)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
@@ -688,7 +688,7 @@ Query.appNodesPage(filter.includeDeleted)  flag app nodes --include-deleted
 Query.appNodesPage(filter.isRunnable)  flag app nodes --runnable
 Query.appNodesPage(filter.locPrefix)  flag app nodes --prefix
 Query.appNodesPage(filter.memoryClasses)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
-Query.appNodesPage(filter.memoryIds)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
+Query.appNodesPage(filter.memoryRefs)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
 Query.appNodesPage(filter.minted)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.nodeType)  flag app nodes --type
 Query.appNodesPage(filter.nodeTypes)  flag app nodes --types
@@ -698,7 +698,7 @@ Query.appNodesPage(filter.tags)  flag app nodes --tag
 Query.appNodesPage(filter.updatedAfter)  flag app nodes --updated-after
 Query.appNodesPage(filter.updatedBefore)  flag app nodes --updated-before
 Query.appNodesPage(filter.where)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source; server#3427 closed by #3430); use node list; Proposed class unruled under #1334 (33-row review)
-Query.apps(filter.agentId)  flag app list --agent
+Query.apps(filter.agentRef)  flag app list --agent
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
 Query.assets(filter.includeDeleted)  flag asset list --include-deleted
 Query.assets(filter.memoryRefs)  flag asset list --memory
@@ -709,9 +709,9 @@ Query.channels(filter.appRef)  flag channel list --owner-app
 Query.channels(filter.memoryRef)  flag channel list --memory
 Query.edges(filter.includeDeleted)  flag edge list --include-deleted
 Query.edges(filter.isRunnable)  flag edge list --runnable
-Query.edges(filter.memoryId)  flag edge list --memory
-Query.edges(filter.sourceNodeId)  flag edge list --source
-Query.edges(filter.targetNodeId)  flag edge list --target
+Query.edges(filter.memoryRef)  flag edge list --memory
+Query.edges(filter.sourceRef)  flag edge list --source
+Query.edges(filter.targetRef)  flag edge list --target
 Query.findNodes(filter.approvalState)  flag spec list --approved --unapproved
 Query.findNodes(filter.childrenOf)  flag node list --children-of
 Query.findNodes(filter.contentScope)  flag search --comments-only
@@ -721,7 +721,7 @@ Query.findNodes(filter.includeDeleted)  flag node list --include-deleted
 Query.findNodes(filter.isRunnable)  flag node list --runnable
 Query.findNodes(filter.locPrefix)  flag node list --prefix
 Query.findNodes(filter.memoryClasses)  flag node list --memory-class
-Query.findNodes(filter.memoryIds)  flag node list --memory
+Query.findNodes(filter.memoryRefs)  flag node list --memory
 Query.findNodes(filter.minted)  flag spec list --minted --unminted
 Query.findNodes(filter.nodeType)  flag node list --type
 Query.findNodes(filter.nodeTypes)  flag node list --types

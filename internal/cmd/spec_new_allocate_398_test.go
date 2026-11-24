@@ -155,8 +155,8 @@ func TestSpecNewAllocatesOnceThenFillsOnceGuarded398(t *testing.T) {
 		t.Errorf("without --rule-after the floor must be OMITTED, got %v", a["after"])
 	}
 	in, _ := fk.first(t, "UpdateSpecNode")["input"].(map[string]any)
-	if in["id"] != "new1" || in["expectedRevision"] != float64(3) {
-		t.Errorf("fill must carry the allocated id and revision, got id=%v rev=%v", in["id"], in["expectedRevision"])
+	if in["ref"] != "new1" || in["expectedRevision"] != float64(3) {
+		t.Errorf("fill must carry the allocated id and revision, got id=%v rev=%v", in["ref"], in["expectedRevision"])
 	}
 	if in["name"] != "msg:010:07 — Test" {
 		t.Errorf("fill name = %v, want the SERVER's loc composed with the title", in["name"])

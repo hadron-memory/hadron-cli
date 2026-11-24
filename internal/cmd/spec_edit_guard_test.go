@@ -51,8 +51,8 @@ func sentNodeID(t *testing.T, vars json.RawMessage) (id *string, memoryID *strin
 	t.Helper()
 	var v struct {
 		Input struct {
-			ID       *string `json:"id"`
-			MemoryID *string `json:"memoryId"`
+			ID       *string `json:"ref"`
+			MemoryID *string `json:"memoryRef"`
 			Loc      *string `json:"loc"`
 		} `json:"input"`
 	}

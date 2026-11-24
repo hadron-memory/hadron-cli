@@ -96,7 +96,7 @@ version history. node update --properties replaces every field instead.`,
 			var dto setPropertiesDTO
 			if isTaskNode(cmd, client, id) {
 				props := json.RawMessage(raw)
-				input := gen.UpdateNodeInput{AuthoredWith: cmdutil.AuthoredWith(cmd.Context()), Id: &id, Properties: &props, Reason: reasonArg}
+				input := gen.UpdateNodeInput{AuthoredWith: cmdutil.AuthoredWith(cmd.Context()), Ref: &id, Properties: &props, Reason: reasonArg}
 				resp, err := gen.MergeTaskNodeProperties(cmd.Context(), client, &input, true)
 				if err != nil {
 					return api.MapError(err)

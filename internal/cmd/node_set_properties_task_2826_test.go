@@ -55,12 +55,12 @@ func TestSetPropertiesOnATaskNodeUsesTheTaskDoorWithMergeExports2826(t *testing.
 		t.Errorf("mergeExports must be true: %v", v)
 	}
 	in, _ := v["input"].(map[string]any)
-	if in["id"] != "n1" || asJSON(in["properties"]) != `{"exports":{"codexSkill":{"enable":false}}}` || in["reason"] != "disable on Codex" {
+	if in["ref"] != "n1" || asJSON(in["properties"]) != `{"exports":{"codexSkill":{"enable":false}}}` || in["reason"] != "disable on Codex" {
 		t.Errorf("the input is the node id, the patch as properties and the reason: %v", in)
 	}
 	for k := range in {
-		if k != "id" && k != "properties" && k != "reason" {
-			t.Errorf("only id, properties and reason are sent, got %q", k)
+		if k != "ref" && k != "properties" && k != "reason" {
+			t.Errorf("only ref, properties and reason are sent, got %q", k)
 		}
 	}
 	var dto map[string]any

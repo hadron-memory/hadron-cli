@@ -27,7 +27,7 @@ query HomeAssistantInstances(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  homeAssistantInstances(orgId: $orgId, limit: $limit, offset: $offset) {
+  homeAssistantInstances(orgRef: $orgId, limit: $limit, offset: $offset) {
     items {
       ...HomeAssistantInstanceFields
     }

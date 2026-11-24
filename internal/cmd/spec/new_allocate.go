@@ -210,7 +210,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	id := a.Id
 	fill := gen.UpdateNodeInput{
 		AuthoredWith:     cmdutil.AuthoredWith(cmd.Context()),
-		Id:               &id,
+		Ref:              &id,
 		ExpectedRevision: &rev,
 		Name:             &name,
 		Tags:             in.tags,
@@ -254,7 +254,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 			cname := specName(cc, ctitle)
 			cIn := gen.CreateNodeInput{
 				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-				MemoryId:     memURN,
+				MemoryRef:    memURN,
 				Loc:          cc.Format(),
 				Name:         cname,
 				Tags:         in.tags,

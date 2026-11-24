@@ -31,7 +31,7 @@ func TestSearchCommentsOnlyWireAndOutput(t *testing.T) {
 				if err := json.Unmarshal(captured["SearchNodes"], &vars); err != nil {
 					t.Fatal(err)
 				}
-				for key, want := range map[string]string{"contentScope": `"COMMENTS"`, "memoryIds": `["hrn:mem:acme.com:kb"]`, "locPrefix": `"comments:"`, "tags": `["review"]`} {
+				for key, want := range map[string]string{"contentScope": `"COMMENTS"`, "memoryRefs": `["hrn:mem:acme.com:kb"]`, "locPrefix": `"comments:"`, "tags": `["review"]`} {
 					if string(vars.Filter[key]) != want {
 						t.Errorf("filter.%s = %s, want %s", key, vars.Filter[key], want)
 					}

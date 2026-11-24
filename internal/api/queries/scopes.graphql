@@ -59,7 +59,7 @@ query Scopes(
   # @genqlient(omitempty: true)
   $orgId: ID
 ) {
-  scopes(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+  scopes(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
     total
     items {
       ...ScopeFields

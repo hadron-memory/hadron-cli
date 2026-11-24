@@ -14,9 +14,9 @@ query GetEdge($ref: ID!) {
 # one as "no constraint".
 # @genqlient(for: "EdgeFilter.includeDeleted", omitempty: true)
 # @genqlient(for: "EdgeFilter.isRunnable", omitempty: true)
-# @genqlient(for: "EdgeFilter.memoryId", omitempty: true)
-# @genqlient(for: "EdgeFilter.sourceNodeId", omitempty: true)
-# @genqlient(for: "EdgeFilter.targetNodeId", omitempty: true)
+# @genqlient(for: "EdgeFilter.memoryRef", omitempty: true)
+# @genqlient(for: "EdgeFilter.sourceRef", omitempty: true)
+# @genqlient(for: "EdgeFilter.targetRef", omitempty: true)
 query ListEdges(
   # @genqlient(omitempty: true)
   $filter: EdgeFilter
@@ -27,7 +27,7 @@ query ListEdges(
   # @genqlient(omitempty: true)
   $orgId: ID
 ) {
-  edges(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+  edges(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
     total
     items {
       ...UniformEdge

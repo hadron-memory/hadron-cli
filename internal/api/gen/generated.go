@@ -20842,12 +20842,12 @@ func (v *AiServiceConfigFields) GetUpdatedAt() *string { return v.UpdatedAt }
 // owning org, mirroring the management-surface gate).
 type AiServiceConfigFilter struct {
 	// The owning entity — accepts ID or URN (HADRON_SERVER: ID only).
-	OwnerId   string            `json:"ownerId"`
+	OwnerRef  string            `json:"ownerRef"`
 	OwnerType AiConfigOwnerType `json:"ownerType"`
 }
 
-// GetOwnerId returns AiServiceConfigFilter.OwnerId, and is useful for accessing the field via an interface.
-func (v *AiServiceConfigFilter) GetOwnerId() string { return v.OwnerId }
+// GetOwnerRef returns AiServiceConfigFilter.OwnerRef, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigFilter) GetOwnerRef() string { return v.OwnerRef }
 
 // GetOwnerType returns AiServiceConfigFilter.OwnerType, and is useful for accessing the field via an interface.
 func (v *AiServiceConfigFilter) GetOwnerType() AiConfigOwnerType { return v.OwnerType }
@@ -23807,7 +23807,7 @@ type AppFilter struct {
 	// or a fully-qualified URN. The Agent must be one the caller can read: an
 	// unreadable, deleted, unresolvable or nonexistent Agent yields an empty page,
 	// never a not-found or forbidden error. Combines with ownedByMe and orgId.
-	AgentId *string `json:"agentId,omitempty"`
+	AgentRef *string `json:"agentRef,omitempty"`
 	// #782 — true restricts the list to the caller's OWN user-owned (org-less)
 	// apps: organizationId IS NULL AND ownerUserId = the caller. For ALL callers
 	// INCLUDING platform ADMIN/OWNER (owner scope is never an admin-bypass
@@ -23817,8 +23817,8 @@ type AppFilter struct {
 	OwnedByMe *bool `json:"ownedByMe,omitempty"`
 }
 
-// GetAgentId returns AppFilter.AgentId, and is useful for accessing the field via an interface.
-func (v *AppFilter) GetAgentId() *string { return v.AgentId }
+// GetAgentRef returns AppFilter.AgentRef, and is useful for accessing the field via an interface.
+func (v *AppFilter) GetAgentRef() *string { return v.AgentRef }
 
 // GetOwnedByMe returns AppFilter.OwnedByMe, and is useful for accessing the field via an interface.
 func (v *AppFilter) GetOwnedByMe() *bool { return v.OwnedByMe }
@@ -29843,13 +29843,13 @@ var AllAvailabilityState = []AvailabilityState{
 }
 
 type BatchThrough struct {
-	ChannelId string `json:"channelId"`
+	ChannelRef string `json:"channelRef"`
 	// A seq this batch rendered in that channel.
 	Seq int `json:"seq"`
 }
 
-// GetChannelId returns BatchThrough.ChannelId, and is useful for accessing the field via an interface.
-func (v *BatchThrough) GetChannelId() string { return v.ChannelId }
+// GetChannelRef returns BatchThrough.ChannelRef, and is useful for accessing the field via an interface.
+func (v *BatchThrough) GetChannelRef() string { return v.ChannelRef }
 
 // GetSeq returns BatchThrough.Seq, and is useful for accessing the field via an interface.
 func (v *BatchThrough) GetSeq() int { return v.Seq }
@@ -36807,7 +36807,7 @@ type CloneAgentTaskInput struct {
 	FinishBy             *string              `json:"finishBy,omitempty"`
 	Owner                *AgentTaskPartyInput `json:"owner,omitempty"`
 	// Another parent in the same App, or null for none (a root under AT0, or a project with project: true).
-	ParentTaskId json.RawMessage `json:"parentTaskId,omitempty"`
+	ParentTaskRef json.RawMessage `json:"parentTaskRef,omitempty"`
 	// A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
 	Priority     *int                   `json:"priority,omitempty"`
 	Project      *bool                  `json:"project,omitempty"`
@@ -36836,8 +36836,8 @@ func (v *CloneAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
 // GetOwner returns CloneAgentTaskInput.Owner, and is useful for accessing the field via an interface.
 func (v *CloneAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
 
-// GetParentTaskId returns CloneAgentTaskInput.ParentTaskId, and is useful for accessing the field via an interface.
-func (v *CloneAgentTaskInput) GetParentTaskId() json.RawMessage { return v.ParentTaskId }
+// GetParentTaskRef returns CloneAgentTaskInput.ParentTaskRef, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetParentTaskRef() json.RawMessage { return v.ParentTaskRef }
 
 // GetPriority returns CloneAgentTaskInput.Priority, and is useful for accessing the field via an interface.
 func (v *CloneAgentTaskInput) GetPriority() *int { return v.Priority }
@@ -40485,8 +40485,8 @@ type CreateAgentTaskInput struct {
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
 	// child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
-	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
-	ParentTaskId *string              `json:"parentTaskId"`
+	Owner         *AgentTaskPartyInput `json:"owner,omitempty"`
+	ParentTaskRef *string              `json:"parentTaskRef"`
 	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
 	Priority *int `json:"priority,omitempty"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
@@ -40539,8 +40539,8 @@ func (v *CreateAgentTaskInput) GetMatch() *bool { return v.Match }
 // GetOwner returns CreateAgentTaskInput.Owner, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
 
-// GetParentTaskId returns CreateAgentTaskInput.ParentTaskId, and is useful for accessing the field via an interface.
-func (v *CreateAgentTaskInput) GetParentTaskId() *string { return v.ParentTaskId }
+// GetParentTaskRef returns CreateAgentTaskInput.ParentTaskRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetParentTaskRef() *string { return v.ParentTaskRef }
 
 // GetPriority returns CreateAgentTaskInput.Priority, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetPriority() *int { return v.Priority }
@@ -44518,9 +44518,9 @@ type CreateNodeInput struct {
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
 	// qualified (hrn:mem:<root>:<memory>) per spec 022 — relative-form URNs are
 	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
-	MemoryId string  `json:"memoryId,omitempty"`
-	Name     string  `json:"name"`
-	NodeType *string `json:"nodeType,omitempty"`
+	MemoryRef string  `json:"memoryRef,omitempty"`
+	Name      string  `json:"name"`
+	NodeType  *string `json:"nodeType,omitempty"`
 	// #725 — collection discriminator (e.g. "competitor" / "insight"). NULL for an ordinary node.
 	ObjectType *string          `json:"objectType,omitempty"`
 	OwnerRepo  *string          `json:"ownerRepo,omitempty"`
@@ -44578,8 +44578,8 @@ func (v *CreateNodeInput) GetLlmModel() *string { return v.LlmModel }
 // GetLoc returns CreateNodeInput.Loc, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetLoc() string { return v.Loc }
 
-// GetMemoryId returns CreateNodeInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *CreateNodeInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns CreateNodeInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetName returns CreateNodeInput.Name, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetName() string { return v.Name }
@@ -50787,11 +50787,11 @@ type EdgeFilter struct {
 	// #2999 — runnability is tri-state, with parity to the node filter. true returns only runnable edges; false returns only edges explicitly marked not runnable. An edge never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:dmo:060:03)
 	IsRunnable *bool `json:"isRunnable,omitempty"`
 	// Confine to edges whose (denormalized, source-side) memory is this one.
-	MemoryId *string `json:"memoryId,omitempty"`
+	MemoryRef *string `json:"memoryRef,omitempty"`
 	// Edges leaving this node.
-	SourceNodeId *string `json:"sourceNodeId,omitempty"`
+	SourceRef *string `json:"sourceRef,omitempty"`
 	// Edges arriving at this node.
-	TargetNodeId *string `json:"targetNodeId,omitempty"`
+	TargetRef *string `json:"targetRef,omitempty"`
 }
 
 // GetIncludeDeleted returns EdgeFilter.IncludeDeleted, and is useful for accessing the field via an interface.
@@ -50800,14 +50800,14 @@ func (v *EdgeFilter) GetIncludeDeleted() *bool { return v.IncludeDeleted }
 // GetIsRunnable returns EdgeFilter.IsRunnable, and is useful for accessing the field via an interface.
 func (v *EdgeFilter) GetIsRunnable() *bool { return v.IsRunnable }
 
-// GetMemoryId returns EdgeFilter.MemoryId, and is useful for accessing the field via an interface.
-func (v *EdgeFilter) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns EdgeFilter.MemoryRef, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetMemoryRef() *string { return v.MemoryRef }
 
-// GetSourceNodeId returns EdgeFilter.SourceNodeId, and is useful for accessing the field via an interface.
-func (v *EdgeFilter) GetSourceNodeId() *string { return v.SourceNodeId }
+// GetSourceRef returns EdgeFilter.SourceRef, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetSourceRef() *string { return v.SourceRef }
 
-// GetTargetNodeId returns EdgeFilter.TargetNodeId, and is useful for accessing the field via an interface.
-func (v *EdgeFilter) GetTargetNodeId() *string { return v.TargetNodeId }
+// GetTargetRef returns EdgeFilter.TargetRef, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetTargetRef() *string { return v.TargetRef }
 
 // EditCommentEditComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
@@ -63291,7 +63291,7 @@ type ImportNodeInput struct {
 	// Target loc within 'memoryId'. XOR with 'nodeUrn'.
 	Loc *string `json:"loc,omitempty"`
 	// Target memory (ID or fully-qualified URN), with 'loc'. XOR with 'nodeUrn'.
-	MemoryId *string `json:"memoryId,omitempty"`
+	MemoryRef *string `json:"memoryRef,omitempty"`
 	// Display name. Default: the extracted page/article/document title; on a re-import of an existing node the current name is preserved; a fresh create without either falls back to the loc leaf.
 	Name *string `json:"name,omitempty"`
 	// Default 'webpage' (or 'info' when contentType is application/pdf).
@@ -63326,8 +63326,8 @@ func (v *ImportNodeInput) GetContentType() *string { return v.ContentType }
 // GetLoc returns ImportNodeInput.Loc, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns ImportNodeInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *ImportNodeInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns ImportNodeInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns ImportNodeInput.Name, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetName() *string { return v.Name }
@@ -73236,7 +73236,7 @@ type NodeEdgeInput struct {
 	// (hrn:node:<memory-urn>:<loc>), a memory-prefixed loc
 	// (<memory-urn>:<loc>), or a short loc resolved within the source
 	// node's memory.
-	TargetId string `json:"targetId"`
+	TargetRef string `json:"targetRef"`
 }
 
 // GetDescription returns NodeEdgeInput.Description, and is useful for accessing the field via an interface.
@@ -73251,8 +73251,8 @@ func (v *NodeEdgeInput) GetLoc() *string { return v.Loc }
 // GetName returns NodeEdgeInput.Name, and is useful for accessing the field via an interface.
 func (v *NodeEdgeInput) GetName() *string { return v.Name }
 
-// GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
-func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
+// GetTargetRef returns NodeEdgeInput.TargetRef, and is useful for accessing the field via an interface.
+func (v *NodeEdgeInput) GetTargetRef() string { return v.TargetRef }
 
 // NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval includes the requested fields of the GraphQL type NodeEdgeRemoval.
 // The GraphQL type's documentation follows.
@@ -73877,7 +73877,7 @@ type NodeFilter struct {
 	// Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
 	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
-	MemoryIds []string `json:"memoryIds,omitempty"`
+	MemoryRefs []string `json:"memoryRefs,omitempty"`
 	// #1591 — only minted (true) or unminted (false) nodes.
 	Minted *bool `json:"minted,omitempty"`
 	// Without it, system and chat-message nodes are left out (hrn:node:hadronmemory.com:specs:cor:api:090:02); naming one of them returns it. record nodes are never left out. An explicit 'comment' with no contentScope searches comments (as COMMENTS).
@@ -73930,8 +73930,8 @@ func (v *NodeFilter) GetLocPrefix() *string { return v.LocPrefix }
 // GetMemoryClasses returns NodeFilter.MemoryClasses, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetMemoryClasses() []MemoryClass { return v.MemoryClasses }
 
-// GetMemoryIds returns NodeFilter.MemoryIds, and is useful for accessing the field via an interface.
-func (v *NodeFilter) GetMemoryIds() []string { return v.MemoryIds }
+// GetMemoryRefs returns NodeFilter.MemoryRefs, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetMemoryRefs() []string { return v.MemoryRefs }
 
 // GetMinted returns NodeFilter.Minted, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetMinted() *bool { return v.Minted }
@@ -93644,11 +93644,11 @@ type SearchReplaceInNodesInput struct {
 	// Which text fields to search. At least one required.
 	Fields []NodeTextField `json:"fields"`
 	// Memory IDs or URNs — selects every live node in each.
-	MemoryIds []string `json:"memoryIds"`
+	MemoryRefs []string `json:"memoryRefs"`
 	// Replacement. May be empty (deletes the matched text). Regex mode honors dollar-sign backrefs.
 	NewText string `json:"newText"`
 	// Explicit node IDs or fully-qualified URNs.
-	NodeIds []string `json:"nodeIds"`
+	NodeRefs []string `json:"nodeRefs"`
 	// Text (literal) or RegExp source (regex mode) to find. Must be non-empty.
 	OldText string `json:"oldText"`
 	// Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
@@ -93673,14 +93673,14 @@ func (v *SearchReplaceInNodesInput) GetDryRun() *bool { return v.DryRun }
 // GetFields returns SearchReplaceInNodesInput.Fields, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesInput) GetFields() []NodeTextField { return v.Fields }
 
-// GetMemoryIds returns SearchReplaceInNodesInput.MemoryIds, and is useful for accessing the field via an interface.
-func (v *SearchReplaceInNodesInput) GetMemoryIds() []string { return v.MemoryIds }
+// GetMemoryRefs returns SearchReplaceInNodesInput.MemoryRefs, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetMemoryRefs() []string { return v.MemoryRefs }
 
 // GetNewText returns SearchReplaceInNodesInput.NewText, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesInput) GetNewText() string { return v.NewText }
 
-// GetNodeIds returns SearchReplaceInNodesInput.NodeIds, and is useful for accessing the field via an interface.
-func (v *SearchReplaceInNodesInput) GetNodeIds() []string { return v.NodeIds }
+// GetNodeRefs returns SearchReplaceInNodesInput.NodeRefs, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetNodeRefs() []string { return v.NodeRefs }
 
 // GetOldText returns SearchReplaceInNodesInput.OldText, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesInput) GetOldText() string { return v.OldText }
@@ -101888,7 +101888,7 @@ type SpecSearchReplaceInput struct {
 	MaxNodesChanged *int     `json:"maxNodesChanged,omitempty"`
 	MemoryRef       string   `json:"memoryRef"`
 	NewText         string   `json:"newText"`
-	NodeIds         []string `json:"nodeIds"`
+	NodeRefs        []string `json:"nodeRefs"`
 	OldText         string   `json:"oldText"`
 	Reason          *string  `json:"reason,omitempty"`
 	Regex           *bool    `json:"regex"`
@@ -101920,8 +101920,8 @@ func (v *SpecSearchReplaceInput) GetMemoryRef() string { return v.MemoryRef }
 // GetNewText returns SpecSearchReplaceInput.NewText, and is useful for accessing the field via an interface.
 func (v *SpecSearchReplaceInput) GetNewText() string { return v.NewText }
 
-// GetNodeIds returns SpecSearchReplaceInput.NodeIds, and is useful for accessing the field via an interface.
-func (v *SpecSearchReplaceInput) GetNodeIds() []string { return v.NodeIds }
+// GetNodeRefs returns SpecSearchReplaceInput.NodeRefs, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetNodeRefs() []string { return v.NodeRefs }
 
 // GetOldText returns SpecSearchReplaceInput.OldText, and is useful for accessing the field via an interface.
 func (v *SpecSearchReplaceInput) GetOldText() string { return v.OldText }
@@ -117289,7 +117289,7 @@ type TickerInput struct {
 	// Tick counting starts here. Defaults to now.
 	AnchorAt       *string          `json:"anchorAt,omitempty"`
 	CadenceSeconds int              `json:"cadenceSeconds"`
-	ChannelIds     []string         `json:"channelIds,omitempty"`
+	ChannelRefs    []string         `json:"channelRefs,omitempty"`
 	Enabled        *bool            `json:"enabled,omitempty"`
 	Name           string           `json:"name"`
 	QuietHours     *json.RawMessage `json:"quietHours,omitempty"`
@@ -117304,8 +117304,8 @@ func (v *TickerInput) GetAnchorAt() *string { return v.AnchorAt }
 // GetCadenceSeconds returns TickerInput.CadenceSeconds, and is useful for accessing the field via an interface.
 func (v *TickerInput) GetCadenceSeconds() int { return v.CadenceSeconds }
 
-// GetChannelIds returns TickerInput.ChannelIds, and is useful for accessing the field via an interface.
-func (v *TickerInput) GetChannelIds() []string { return v.ChannelIds }
+// GetChannelRefs returns TickerInput.ChannelRefs, and is useful for accessing the field via an interface.
+func (v *TickerInput) GetChannelRefs() []string { return v.ChannelRefs }
 
 // GetEnabled returns TickerInput.Enabled, and is useful for accessing the field via an interface.
 func (v *TickerInput) GetEnabled() *bool { return v.Enabled }
@@ -117326,7 +117326,7 @@ func (v *TickerInput) GetRelevance() *TickerRelevance { return v.Relevance }
 type TickerPatch struct {
 	AnchorAt        *string          `json:"anchorAt,omitempty"`
 	CadenceSeconds  *int             `json:"cadenceSeconds,omitempty"`
-	ChannelIds      []string         `json:"channelIds,omitempty"`
+	ChannelRefs     []string         `json:"channelRefs,omitempty"`
 	ClearChannels   *bool            `json:"clearChannels,omitempty"`
 	ClearQuietHours *bool            `json:"clearQuietHours,omitempty"`
 	Enabled         *bool            `json:"enabled,omitempty"`
@@ -117343,8 +117343,8 @@ func (v *TickerPatch) GetAnchorAt() *string { return v.AnchorAt }
 // GetCadenceSeconds returns TickerPatch.CadenceSeconds, and is useful for accessing the field via an interface.
 func (v *TickerPatch) GetCadenceSeconds() *int { return v.CadenceSeconds }
 
-// GetChannelIds returns TickerPatch.ChannelIds, and is useful for accessing the field via an interface.
-func (v *TickerPatch) GetChannelIds() []string { return v.ChannelIds }
+// GetChannelRefs returns TickerPatch.ChannelRefs, and is useful for accessing the field via an interface.
+func (v *TickerPatch) GetChannelRefs() []string { return v.ChannelRefs }
 
 // GetClearChannels returns TickerPatch.ClearChannels, and is useful for accessing the field via an interface.
 func (v *TickerPatch) GetClearChannels() *bool { return v.ClearChannels }
@@ -123164,7 +123164,7 @@ type UpdateNodeInput struct {
 	// Read the baseline from Node.revision.
 	ExpectedRevision *int `json:"expectedRevision,omitempty"`
 	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
-	Id *string `json:"id,omitempty"`
+	Ref *string `json:"ref,omitempty"`
 	// #2044 — selector, with 'loc', in place of 'memoryId': the App's install memory. Creates nothing (the first createNode does). XOR with 'id'.
 	Install *InstallTargetInput `json:"install,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
@@ -123173,7 +123173,7 @@ type UpdateNodeInput struct {
 	// Selector, with 'memoryId': the target's current loc. Not writable here — moveNode relocates.
 	Loc *string `json:"loc,omitempty"`
 	// Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'id'.
-	MemoryId *string `json:"memoryId,omitempty"`
+	MemoryRef *string `json:"memoryRef,omitempty"`
 	// Omit to preserve (D4).
 	Name     *string `json:"name,omitempty"`
 	NodeType *string `json:"nodeType,omitempty"`
@@ -123227,8 +123227,8 @@ func (v *UpdateNodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
 // GetExpectedRevision returns UpdateNodeInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
-// GetId returns UpdateNodeInput.Id, and is useful for accessing the field via an interface.
-func (v *UpdateNodeInput) GetId() *string { return v.Id }
+// GetRef returns UpdateNodeInput.Ref, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetRef() *string { return v.Ref }
 
 // GetInstall returns UpdateNodeInput.Install, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetInstall() *InstallTargetInput { return v.Install }
@@ -123242,8 +123242,8 @@ func (v *UpdateNodeInput) GetLlmModel() *string { return v.LlmModel }
 // GetLoc returns UpdateNodeInput.Loc, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns UpdateNodeInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *UpdateNodeInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns UpdateNodeInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns UpdateNodeInput.Name, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetName() *string { return v.Name }
@@ -144863,11 +144863,11 @@ type __UpdateNodeClearingRoleAuthoredInput struct {
 	Description      *string            `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput   `json:"edges,omitempty"`
 	ExpectedRevision *int               `json:"expectedRevision,omitempty"`
-	Id               *string            `json:"id,omitempty"`
+	Ref              *string            `json:"ref,omitempty"`
 	IsRunnable       *bool              `json:"isRunnable,omitempty"`
 	LlmModel         *string            `json:"llmModel,omitempty"`
 	Loc              *string            `json:"loc,omitempty"`
-	MemoryId         *string            `json:"memoryId,omitempty"`
+	MemoryRef        *string            `json:"memoryRef,omitempty"`
 	Name             *string            `json:"name,omitempty"`
 	NodeType         *string            `json:"nodeType,omitempty"`
 	ObjectType       *string            `json:"objectType,omitempty"`
@@ -144910,8 +144910,8 @@ func (v *__UpdateNodeClearingRoleAuthoredInput) GetEdges() []*NodeEdgeInput { re
 // GetExpectedRevision returns __UpdateNodeClearingRoleAuthoredInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleAuthoredInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
-// GetId returns __UpdateNodeClearingRoleAuthoredInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateNodeClearingRoleAuthoredInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateNodeClearingRoleAuthoredInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleAuthoredInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateNodeClearingRoleAuthoredInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleAuthoredInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -144922,8 +144922,8 @@ func (v *__UpdateNodeClearingRoleAuthoredInput) GetLlmModel() *string { return v
 // GetLoc returns __UpdateNodeClearingRoleAuthoredInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleAuthoredInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateNodeClearingRoleAuthoredInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateNodeClearingRoleAuthoredInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateNodeClearingRoleAuthoredInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleAuthoredInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateNodeClearingRoleAuthoredInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleAuthoredInput) GetName() *string { return v.Name }
@@ -144960,11 +144960,11 @@ type __UpdateNodeClearingRoleInput struct {
 	Description      *string          `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
 	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
-	Id               *string          `json:"id,omitempty"`
+	Ref              *string          `json:"ref,omitempty"`
 	IsRunnable       *bool            `json:"isRunnable,omitempty"`
 	LlmModel         *string          `json:"llmModel,omitempty"`
 	Loc              *string          `json:"loc,omitempty"`
-	MemoryId         *string          `json:"memoryId,omitempty"`
+	MemoryRef        *string          `json:"memoryRef,omitempty"`
 	Name             *string          `json:"name,omitempty"`
 	NodeType         *string          `json:"nodeType,omitempty"`
 	ObjectType       *string          `json:"objectType,omitempty"`
@@ -145002,8 +145002,8 @@ func (v *__UpdateNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { return v.E
 // GetExpectedRevision returns __UpdateNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
-// GetId returns __UpdateNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateNodeClearingRoleInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateNodeClearingRoleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -145014,8 +145014,8 @@ func (v *__UpdateNodeClearingRoleInput) GetLlmModel() *string { return v.LlmMode
 // GetLoc returns __UpdateNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateNodeClearingRoleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeClearingRoleInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeClearingRoleInput) GetName() *string { return v.Name }
@@ -145313,11 +145313,11 @@ type __UpdateReviewNodeClearingRoleAuthoredInput struct {
 	Description      *string            `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput   `json:"edges,omitempty"`
 	ExpectedRevision *int               `json:"expectedRevision,omitempty"`
-	Id               *string            `json:"id,omitempty"`
+	Ref              *string            `json:"ref,omitempty"`
 	IsRunnable       *bool              `json:"isRunnable,omitempty"`
 	LlmModel         *string            `json:"llmModel,omitempty"`
 	Loc              *string            `json:"loc,omitempty"`
-	MemoryId         *string            `json:"memoryId,omitempty"`
+	MemoryRef        *string            `json:"memoryRef,omitempty"`
 	Name             *string            `json:"name,omitempty"`
 	NodeType         *string            `json:"nodeType,omitempty"`
 	ObjectType       *string            `json:"objectType,omitempty"`
@@ -145362,8 +145362,8 @@ func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetExpectedRevision() *int
 	return v.ExpectedRevision
 }
 
-// GetId returns __UpdateReviewNodeClearingRoleAuthoredInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateReviewNodeClearingRoleAuthoredInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateReviewNodeClearingRoleAuthoredInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -145374,8 +145374,8 @@ func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetLlmModel() *string { re
 // GetLoc returns __UpdateReviewNodeClearingRoleAuthoredInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateReviewNodeClearingRoleAuthoredInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateReviewNodeClearingRoleAuthoredInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateReviewNodeClearingRoleAuthoredInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateReviewNodeClearingRoleAuthoredInput) GetName() *string { return v.Name }
@@ -145414,11 +145414,11 @@ type __UpdateReviewNodeClearingRoleInput struct {
 	Description      *string          `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
 	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
-	Id               *string          `json:"id,omitempty"`
+	Ref              *string          `json:"ref,omitempty"`
 	IsRunnable       *bool            `json:"isRunnable,omitempty"`
 	LlmModel         *string          `json:"llmModel,omitempty"`
 	Loc              *string          `json:"loc,omitempty"`
-	MemoryId         *string          `json:"memoryId,omitempty"`
+	MemoryRef        *string          `json:"memoryRef,omitempty"`
 	Name             *string          `json:"name,omitempty"`
 	NodeType         *string          `json:"nodeType,omitempty"`
 	ObjectType       *string          `json:"objectType,omitempty"`
@@ -145456,8 +145456,8 @@ func (v *__UpdateReviewNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { retu
 // GetExpectedRevision returns __UpdateReviewNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__UpdateReviewNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
-// GetId returns __UpdateReviewNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateReviewNodeClearingRoleInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateReviewNodeClearingRoleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateReviewNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateReviewNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -145468,8 +145468,8 @@ func (v *__UpdateReviewNodeClearingRoleInput) GetLlmModel() *string { return v.L
 // GetLoc returns __UpdateReviewNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateReviewNodeClearingRoleInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateReviewNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateReviewNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateReviewNodeClearingRoleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateReviewNodeClearingRoleInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateReviewNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateReviewNodeClearingRoleInput) GetName() *string { return v.Name }
@@ -145563,11 +145563,11 @@ type __UpdateSpecNodeClearingRoleAuthoredInput struct {
 	Description      *string            `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput   `json:"edges,omitempty"`
 	ExpectedRevision *int               `json:"expectedRevision,omitempty"`
-	Id               *string            `json:"id,omitempty"`
+	Ref              *string            `json:"ref,omitempty"`
 	IsRunnable       *bool              `json:"isRunnable,omitempty"`
 	LlmModel         *string            `json:"llmModel,omitempty"`
 	Loc              *string            `json:"loc,omitempty"`
-	MemoryId         *string            `json:"memoryId,omitempty"`
+	MemoryRef        *string            `json:"memoryRef,omitempty"`
 	Name             *string            `json:"name,omitempty"`
 	NodeType         *string            `json:"nodeType,omitempty"`
 	ObjectType       *string            `json:"objectType,omitempty"`
@@ -145612,8 +145612,8 @@ func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetExpectedRevision() *int {
 	return v.ExpectedRevision
 }
 
-// GetId returns __UpdateSpecNodeClearingRoleAuthoredInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateSpecNodeClearingRoleAuthoredInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateSpecNodeClearingRoleAuthoredInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -145624,8 +145624,8 @@ func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetLlmModel() *string { retu
 // GetLoc returns __UpdateSpecNodeClearingRoleAuthoredInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateSpecNodeClearingRoleAuthoredInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateSpecNodeClearingRoleAuthoredInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateSpecNodeClearingRoleAuthoredInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeClearingRoleAuthoredInput) GetName() *string { return v.Name }
@@ -145664,11 +145664,11 @@ type __UpdateSpecNodeClearingRoleInput struct {
 	Description      *string          `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
 	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
-	Id               *string          `json:"id,omitempty"`
+	Ref              *string          `json:"ref,omitempty"`
 	IsRunnable       *bool            `json:"isRunnable,omitempty"`
 	LlmModel         *string          `json:"llmModel,omitempty"`
 	Loc              *string          `json:"loc,omitempty"`
-	MemoryId         *string          `json:"memoryId,omitempty"`
+	MemoryRef        *string          `json:"memoryRef,omitempty"`
 	Name             *string          `json:"name,omitempty"`
 	NodeType         *string          `json:"nodeType,omitempty"`
 	ObjectType       *string          `json:"objectType,omitempty"`
@@ -145706,8 +145706,8 @@ func (v *__UpdateSpecNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { return
 // GetExpectedRevision returns __UpdateSpecNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
-// GetId returns __UpdateSpecNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateSpecNodeClearingRoleInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateSpecNodeClearingRoleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateSpecNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -145718,8 +145718,8 @@ func (v *__UpdateSpecNodeClearingRoleInput) GetLlmModel() *string { return v.Llm
 // GetLoc returns __UpdateSpecNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeClearingRoleInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateSpecNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateSpecNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateSpecNodeClearingRoleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateSpecNodeClearingRoleInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateSpecNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateSpecNodeClearingRoleInput) GetName() *string { return v.Name }
@@ -145765,11 +145765,11 @@ type __UpdateTaskNodeClearingRoleAuthoredInput struct {
 	Description      *string            `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput   `json:"edges,omitempty"`
 	ExpectedRevision *int               `json:"expectedRevision,omitempty"`
-	Id               *string            `json:"id,omitempty"`
+	Ref              *string            `json:"ref,omitempty"`
 	IsRunnable       *bool              `json:"isRunnable,omitempty"`
 	LlmModel         *string            `json:"llmModel,omitempty"`
 	Loc              *string            `json:"loc,omitempty"`
-	MemoryId         *string            `json:"memoryId,omitempty"`
+	MemoryRef        *string            `json:"memoryRef,omitempty"`
 	Name             *string            `json:"name,omitempty"`
 	NodeType         *string            `json:"nodeType,omitempty"`
 	ObjectType       *string            `json:"objectType,omitempty"`
@@ -145814,8 +145814,8 @@ func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetExpectedRevision() *int {
 	return v.ExpectedRevision
 }
 
-// GetId returns __UpdateTaskNodeClearingRoleAuthoredInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateTaskNodeClearingRoleAuthoredInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateTaskNodeClearingRoleAuthoredInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -145826,8 +145826,8 @@ func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetLlmModel() *string { retu
 // GetLoc returns __UpdateTaskNodeClearingRoleAuthoredInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateTaskNodeClearingRoleAuthoredInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateTaskNodeClearingRoleAuthoredInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateTaskNodeClearingRoleAuthoredInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateTaskNodeClearingRoleAuthoredInput) GetName() *string { return v.Name }
@@ -145866,11 +145866,11 @@ type __UpdateTaskNodeClearingRoleInput struct {
 	Description      *string          `json:"description,omitempty"`
 	Edges            []*NodeEdgeInput `json:"edges,omitempty"`
 	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
-	Id               *string          `json:"id,omitempty"`
+	Ref              *string          `json:"ref,omitempty"`
 	IsRunnable       *bool            `json:"isRunnable,omitempty"`
 	LlmModel         *string          `json:"llmModel,omitempty"`
 	Loc              *string          `json:"loc,omitempty"`
-	MemoryId         *string          `json:"memoryId,omitempty"`
+	MemoryRef        *string          `json:"memoryRef,omitempty"`
 	Name             *string          `json:"name,omitempty"`
 	NodeType         *string          `json:"nodeType,omitempty"`
 	ObjectType       *string          `json:"objectType,omitempty"`
@@ -145908,8 +145908,8 @@ func (v *__UpdateTaskNodeClearingRoleInput) GetEdges() []*NodeEdgeInput { return
 // GetExpectedRevision returns __UpdateTaskNodeClearingRoleInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__UpdateTaskNodeClearingRoleInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
-// GetId returns __UpdateTaskNodeClearingRoleInput.Id, and is useful for accessing the field via an interface.
-func (v *__UpdateTaskNodeClearingRoleInput) GetId() *string { return v.Id }
+// GetRef returns __UpdateTaskNodeClearingRoleInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetRef() *string { return v.Ref }
 
 // GetIsRunnable returns __UpdateTaskNodeClearingRoleInput.IsRunnable, and is useful for accessing the field via an interface.
 func (v *__UpdateTaskNodeClearingRoleInput) GetIsRunnable() *bool { return v.IsRunnable }
@@ -145920,8 +145920,8 @@ func (v *__UpdateTaskNodeClearingRoleInput) GetLlmModel() *string { return v.Llm
 // GetLoc returns __UpdateTaskNodeClearingRoleInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UpdateTaskNodeClearingRoleInput) GetLoc() *string { return v.Loc }
 
-// GetMemoryId returns __UpdateTaskNodeClearingRoleInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateTaskNodeClearingRoleInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryRef returns __UpdateTaskNodeClearingRoleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateTaskNodeClearingRoleInput) GetMemoryRef() *string { return v.MemoryRef }
 
 // GetName returns __UpdateTaskNodeClearingRoleInput.Name, and is useful for accessing the field via an interface.
 func (v *__UpdateTaskNodeClearingRoleInput) GetName() *string { return v.Name }
@@ -153535,7 +153535,7 @@ func AgentWebhooks(
 // The query executed by Agents.
 const Agents_Operation = `
 query Agents ($orgId: ID, $filter: AgentFilter, $limit: Int, $offset: Int) {
-	agents(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+	agents(orgRef: $orgId, filter: $filter, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AgentFields
@@ -156280,7 +156280,7 @@ func ApproveNode(
 // The query executed by Apps.
 const Apps_Operation = `
 query Apps ($orgId: ID, $filter: AppFilter, $limit: Int, $offset: Int) {
-	apps(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+	apps(orgRef: $orgId, filter: $filter, limit: $limit, offset: $offset) {
 		total
 		items {
 			id
@@ -157223,7 +157223,7 @@ func AutomationTeamSnapshotGrantsInstructed(
 // The mutation executed by BeginAssetUpload.
 const BeginAssetUpload_Operation = `
 mutation BeginAssetUpload ($memoryId: ID!, $filename: String!, $mimeType: String!, $sizeBytes: Int!, $intent: UploadIntent!, $description: String, $uploadRequestId: String) {
-	beginAssetUploadV2(input: {memoryId:$memoryId,filename:$filename,mimeType:$mimeType,sizeBytes:$sizeBytes,uploadIntent:$intent,description:$description,uploadRequestId:$uploadRequestId}) {
+	beginAssetUploadV2(input: {memoryRef:$memoryId,filename:$filename,mimeType:$mimeType,sizeBytes:$sizeBytes,uploadIntent:$intent,description:$description,uploadRequestId:$uploadRequestId}) {
 		uploadId
 		putUrl
 		putHeaders {
@@ -158824,7 +158824,7 @@ func ChannelThread(
 // The query executed by Channels.
 const Channels_Operation = `
 query Channels ($filter: ChannelFilter, $limit: Int, $offset: Int, $orgId: ID) {
-	channels(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+	channels(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
 		total
 		items {
 			... ChannelFields
@@ -161127,7 +161127,7 @@ func CreateAgentWithLifecycle(
 // The mutation executed by CreateAiServiceConfig.
 const CreateAiServiceConfig_Operation = `
 mutation CreateAiServiceConfig ($name: String!, $provider: String!, $model: String!, $ownerId: ID!, $ownerType: AiConfigOwnerType!, $apiKey: String, $enabled: Boolean, $params: JSON) {
-	createAiServiceConfig(name: $name, provider: $provider, model: $model, ownerId: $ownerId, ownerType: $ownerType, apiKey: $apiKey, enabled: $enabled, params: $params) {
+	createAiServiceConfig(name: $name, provider: $provider, model: $model, ownerRef: $ownerId, ownerType: $ownerType, apiKey: $apiKey, enabled: $enabled, params: $params) {
 		... AiServiceConfigFields
 	}
 }
@@ -161192,7 +161192,7 @@ func CreateAiServiceConfig(
 // The mutation executed by CreateAiServiceConfigWithApiStyle.
 const CreateAiServiceConfigWithApiStyle_Operation = `
 mutation CreateAiServiceConfigWithApiStyle ($name: String!, $provider: String!, $model: String!, $ownerId: ID!, $ownerType: AiConfigOwnerType!, $apiStyle: AiApiStyle!, $apiKey: String, $enabled: Boolean, $params: JSON, $endpoint: String) {
-	createAiServiceConfig(name: $name, provider: $provider, model: $model, ownerId: $ownerId, ownerType: $ownerType, apiStyle: $apiStyle, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+	createAiServiceConfig(name: $name, provider: $provider, model: $model, ownerRef: $ownerId, ownerType: $ownerType, apiStyle: $apiStyle, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
 		... AiServiceConfigStyleFields
 	}
 }
@@ -161265,7 +161265,7 @@ func CreateAiServiceConfigWithApiStyle(
 // The mutation executed by CreateAiServiceConfigWithEndpoint.
 const CreateAiServiceConfigWithEndpoint_Operation = `
 mutation CreateAiServiceConfigWithEndpoint ($name: String!, $provider: String!, $model: String!, $ownerId: ID!, $ownerType: AiConfigOwnerType!, $apiKey: String, $enabled: Boolean, $params: JSON, $endpoint: String) {
-	createAiServiceConfig(name: $name, provider: $provider, model: $model, ownerId: $ownerId, ownerType: $ownerType, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+	createAiServiceConfig(name: $name, provider: $provider, model: $model, ownerRef: $ownerId, ownerType: $ownerType, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
 		... AiServiceConfigEndpointFields
 	}
 }
@@ -166307,7 +166307,7 @@ func EmailCategorizeMessage(
 // The query executed by EmailConnections.
 const EmailConnections_Operation = `
 query EmailConnections ($orgId: ID!) {
-	exchangeConnections(orgId: $orgId) {
+	exchangeConnections(orgRef: $orgId) {
 		id
 		organizationId
 		userId
@@ -166352,7 +166352,7 @@ func EmailConnections(
 // The query executed by EmailConnectionsPage.
 const EmailConnectionsPage_Operation = `
 query EmailConnectionsPage ($orgId: ID!, $limit: Int, $offset: Int) {
-	exchangeConnectionsPage(orgId: $orgId, limit: $limit, offset: $offset) {
+	exchangeConnectionsPage(orgRef: $orgId, limit: $limit, offset: $offset) {
 		items {
 			id
 			organizationId
@@ -170227,7 +170227,7 @@ func GetWorkerTerminal(
 // The query executed by GlobalSearch.
 const GlobalSearch_Operation = `
 query GlobalSearch ($query: String!, $entityTypes: [SearchEntityType!], $fields: [SearchField!], $orgId: ID, $limit: Int!, $offset: Int!, $scope: String, $appRef: ID) {
-	globalSearch(query: $query, entityTypes: $entityTypes, fields: $fields, orgId: $orgId, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef) {
+	globalSearch(query: $query, entityTypes: $entityTypes, fields: $fields, orgRef: $orgId, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef) {
 		hits {
 			id
 			entityType
@@ -170674,7 +170674,7 @@ func HomeAssistantInstanceOps(
 // The query executed by HomeAssistantInstances.
 const HomeAssistantInstances_Operation = `
 query HomeAssistantInstances ($orgId: ID, $limit: Int, $offset: Int) {
-	homeAssistantInstances(orgId: $orgId, limit: $limit, offset: $offset) {
+	homeAssistantInstances(orgRef: $orgId, limit: $limit, offset: $offset) {
 		items {
 			... HomeAssistantInstanceFields
 		}
@@ -171549,7 +171549,7 @@ func ImpersonationSession(
 // The query executed by ImpersonationSessions.
 const ImpersonationSessions_Operation = `
 query ImpersonationSessions ($orgId: String, $filter: ImpersonationSessionFilter, $limit: Int, $offset: Int) {
-	impersonationSessions(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+	impersonationSessions(orgRef: $orgId, filter: $filter, limit: $limit, offset: $offset) {
 		total
 		items {
 			... ImpersonationSessionFields
@@ -172568,7 +172568,7 @@ func LinkMemoryToUser(
 // The query executed by ListAssets.
 const ListAssets_Operation = `
 query ListAssets ($filter: AssetFilter, $limit: Int, $offset: Int, $orgId: ID) {
-	assets(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+	assets(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
 		total
 		items {
 			id
@@ -172630,7 +172630,7 @@ func ListAssets(
 // The query executed by ListEdges.
 const ListEdges_Operation = `
 query ListEdges ($filter: EdgeFilter, $limit: Int, $offset: Int, $orgId: ID) {
-	edges(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+	edges(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
 		total
 		items {
 			... UniformEdge
@@ -172705,7 +172705,7 @@ func ListEdges(
 // The query executed by ListResendSenders.
 const ListResendSenders_Operation = `
 query ListResendSenders ($orgId: ID, $limit: Int, $offset: Int) {
-	resendSenders(orgId: $orgId, limit: $limit, offset: $offset) {
+	resendSenders(orgRef: $orgId, limit: $limit, offset: $offset) {
 		items {
 			... ResendSenderFields
 		}
@@ -173345,7 +173345,7 @@ func McpServerTools(
 // The query executed by McpServers.
 const McpServers_Operation = `
 query McpServers ($orgId: ID, $limit: Int, $offset: Int) {
-	mcpServers(orgId: $orgId, limit: $limit, offset: $offset) {
+	mcpServers(orgRef: $orgId, limit: $limit, offset: $offset) {
 		items {
 			... McpServerFields
 		}
@@ -173434,7 +173434,7 @@ func Me(
 // The query executed by Memories.
 const Memories_Operation = `
 query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int, $orgId: ID) {
-	memories(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+	memories(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
 		total
 		items {
 			id
@@ -176607,7 +176607,7 @@ func OrgAgentGrants(
 // The query executed by OrgBootPromptSigning.
 const OrgBootPromptSigning_Operation = `
 query OrgBootPromptSigning ($org: ID!) {
-	orgBootPromptSigning(org: $org) {
+	orgBootPromptSigning(orgRef: $org) {
 		required
 		enforced
 		deploymentSigns
@@ -176643,7 +176643,7 @@ func OrgBootPromptSigning(
 // The query executed by OrgBootPromptSigningPreview.
 const OrgBootPromptSigningPreview_Operation = `
 query OrgBootPromptSigningPreview ($org: ID!, $first: Int, $after: String) {
-	orgBootPromptSigningPreview(org: $org, first: $first, after: $after) {
+	orgBootPromptSigningPreview(orgRef: $org, first: $first, after: $after) {
 		enforced
 		deploymentSigns
 		total
@@ -178969,7 +178969,7 @@ func RegenerateAppKey(
 // The query executed by RegisterEntries.
 const RegisterEntries_Operation = `
 query RegisterEntries ($filter: RegisterEntryFilter, $limit: Int, $offset: Int, $orgId: ID) {
-	registerEntries(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+	registerEntries(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
 		total
 		items {
 			... RegisterEntryFields
@@ -182379,7 +182379,7 @@ func ScopeExplain(
 // The query executed by Scopes.
 const Scopes_Operation = `
 query Scopes ($filter: ScopeFilter, $limit: Int, $offset: Int, $orgId: ID) {
-	scopes(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+	scopes(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
 		total
 		items {
 			... ScopeFields
@@ -182436,7 +182436,7 @@ func Scopes(
 // The query executed by SearchNodes.
 const SearchNodes_Operation = `
 query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID, $orgId: ID, $withProperties: Boolean!, $withData: Boolean!, $expand: Int, $fields: [NodeField!], $granularity: SearchGranularity, $minScore: Float) {
-	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef, orgId: $orgId, expand: $expand, fields: $fields, granularity: $granularity, minScore: $minScore) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef, orgRef: $orgId, expand: $expand, fields: $fields, granularity: $granularity, minScore: $minScore) {
 		total
 		degraded
 		reason
@@ -184384,7 +184384,7 @@ func SetMemorySourceToken(
 // The mutation executed by SetOrgBootPromptSigning.
 const SetOrgBootPromptSigning_Operation = `
 mutation SetOrgBootPromptSigning ($org: ID!, $required: Boolean!, $previewToken: String) {
-	setOrgBootPromptSigning(org: $org, required: $required, previewToken: $previewToken) {
+	setOrgBootPromptSigning(orgRef: $org, required: $required, previewToken: $previewToken) {
 		required
 		enforced
 		deploymentSigns
@@ -185336,7 +185336,7 @@ func SlackConnection(
 // The query executed by SlackConnections.
 const SlackConnections_Operation = `
 query SlackConnections ($orgId: ID, $limit: Int, $offset: Int) {
-	slackConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+	slackConnections(orgRef: $orgId, limit: $limit, offset: $offset) {
 		total
 		items {
 			id
@@ -190994,7 +190994,7 @@ func TelegramConnection(
 // The query executed by TelegramConnections.
 const TelegramConnections_Operation = `
 query TelegramConnections ($orgId: ID, $limit: Int, $offset: Int) {
-	telegramConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+	telegramConnections(orgRef: $orgId, limit: $limit, offset: $offset) {
 		total
 		items {
 			id
@@ -193434,8 +193434,8 @@ func UpdateNode(
 
 // The mutation executed by UpdateNodeClearingRole.
 const UpdateNodeClearingRole_Operation = `
-mutation UpdateNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -193464,11 +193464,11 @@ func UpdateNodeClearingRole(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -193491,11 +193491,11 @@ func UpdateNodeClearingRole(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,
@@ -193521,8 +193521,8 @@ func UpdateNodeClearingRole(
 
 // The mutation executed by UpdateNodeClearingRoleAuthored.
 const UpdateNodeClearingRoleAuthored_Operation = `
-mutation UpdateNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -193552,11 +193552,11 @@ func UpdateNodeClearingRoleAuthored(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -193580,11 +193580,11 @@ func UpdateNodeClearingRoleAuthored(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,
@@ -194380,8 +194380,8 @@ func UpdateReviewNode(
 
 // The mutation executed by UpdateReviewNodeClearingRole.
 const UpdateReviewNodeClearingRole_Operation = `
-mutation UpdateReviewNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateReviewNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateReviewNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateReviewNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -194408,11 +194408,11 @@ func UpdateReviewNodeClearingRole(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -194435,11 +194435,11 @@ func UpdateReviewNodeClearingRole(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,
@@ -194465,8 +194465,8 @@ func UpdateReviewNodeClearingRole(
 
 // The mutation executed by UpdateReviewNodeClearingRoleAuthored.
 const UpdateReviewNodeClearingRoleAuthored_Operation = `
-mutation UpdateReviewNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateReviewNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateReviewNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateReviewNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -194494,11 +194494,11 @@ func UpdateReviewNodeClearingRoleAuthored(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -194522,11 +194522,11 @@ func UpdateReviewNodeClearingRoleAuthored(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,
@@ -194796,8 +194796,8 @@ func UpdateSpecNode(
 
 // The mutation executed by UpdateSpecNodeClearingRole.
 const UpdateSpecNodeClearingRole_Operation = `
-mutation UpdateSpecNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateSpecNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateSpecNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateSpecNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -194824,11 +194824,11 @@ func UpdateSpecNodeClearingRole(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -194851,11 +194851,11 @@ func UpdateSpecNodeClearingRole(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,
@@ -194881,8 +194881,8 @@ func UpdateSpecNodeClearingRole(
 
 // The mutation executed by UpdateSpecNodeClearingRoleAuthored.
 const UpdateSpecNodeClearingRoleAuthored_Operation = `
-mutation UpdateSpecNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateSpecNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateSpecNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateSpecNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -194910,11 +194910,11 @@ func UpdateSpecNodeClearingRoleAuthored(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -194938,11 +194938,11 @@ func UpdateSpecNodeClearingRoleAuthored(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,
@@ -195011,8 +195011,8 @@ func UpdateTaskNode(
 
 // The mutation executed by UpdateTaskNodeClearingRole.
 const UpdateTaskNodeClearingRole_Operation = `
-mutation UpdateTaskNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateTaskNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateTaskNodeClearingRole ($abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateTaskNode(input: {role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -195039,11 +195039,11 @@ func UpdateTaskNodeClearingRole(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -195066,11 +195066,11 @@ func UpdateTaskNodeClearingRole(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,
@@ -195096,8 +195096,8 @@ func UpdateTaskNodeClearingRole(
 
 // The mutation executed by UpdateTaskNodeClearingRoleAuthored.
 const UpdateTaskNodeClearingRoleAuthored_Operation = `
-mutation UpdateTaskNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $id: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryId: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
-	updateTaskNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,id:$id,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryId:$memoryId,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
+mutation UpdateTaskNodeClearingRoleAuthored ($authoredWith: AuthoredWithInput, $abstract: String, $aiAgent: String, $alias: String, $content: String, $contentType: String, $data: JSON, $description: String, $edges: [NodeEdgeInput!], $expectedRevision: Int, $ref: String, $isRunnable: Boolean, $llmModel: String, $loc: String, $memoryRef: String, $name: String, $nodeType: String, $objectType: String, $ownerRepo: String, $properties: JSON, $reason: String, $seq: Int, $tags: [String!]) {
+	updateTaskNode(input: {authoredWith:$authoredWith,role:null,abstract:$abstract,aiAgent:$aiAgent,alias:$alias,content:$content,contentType:$contentType,data:$data,description:$description,edges:$edges,expectedRevision:$expectedRevision,ref:$ref,isRunnable:$isRunnable,llmModel:$llmModel,loc:$loc,memoryRef:$memoryRef,name:$name,nodeType:$nodeType,objectType:$objectType,ownerRepo:$ownerRepo,properties:$properties,reason:$reason,seq:$seq,tags:$tags}) {
 		id
 		memoryId
 		loc
@@ -195125,11 +195125,11 @@ func UpdateTaskNodeClearingRoleAuthored(
 	description *string,
 	edges []*NodeEdgeInput,
 	expectedRevision *int,
-	id *string,
+	ref *string,
 	isRunnable *bool,
 	llmModel *string,
 	loc *string,
-	memoryId *string,
+	memoryRef *string,
 	name *string,
 	nodeType *string,
 	objectType *string,
@@ -195153,11 +195153,11 @@ func UpdateTaskNodeClearingRoleAuthored(
 			Description:      description,
 			Edges:            edges,
 			ExpectedRevision: expectedRevision,
-			Id:               id,
+			Ref:              ref,
 			IsRunnable:       isRunnable,
 			LlmModel:         llmModel,
 			Loc:              loc,
-			MemoryId:         memoryId,
+			MemoryRef:        memoryRef,
 			Name:             name,
 			NodeType:         nodeType,
 			ObjectType:       objectType,

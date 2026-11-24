@@ -92,7 +92,7 @@ func (o *maskedListFlags) run(cmd *cobra.Command, f *cmdutil.Factory) error {
 		default:
 			return exitcode.Newf(exitcode.Usage, "--owner-type must be APP, AGENT, ORGANIZATION or HADRON_SERVER")
 		}
-		filter = &gen.AiServiceConfigFilter{OwnerType: t, OwnerId: o.ownerID}
+		filter = &gen.AiServiceConfigFilter{OwnerType: t, OwnerRef: o.ownerID}
 	}
 	var limit, offset *int
 	if changed("limit") {

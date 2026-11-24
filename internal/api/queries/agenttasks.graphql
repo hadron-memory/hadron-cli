@@ -261,7 +261,7 @@ query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
 # @genqlient(for: "CloneAgentTaskInput.description", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.finishBy", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.owner", omitempty: true)
-# @genqlient(for: "CloneAgentTaskInput.parentTaskId", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "CloneAgentTaskInput.parentTaskRef", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.project", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.properties", omitempty: true, bind: "encoding/json.RawMessage")

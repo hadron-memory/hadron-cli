@@ -95,7 +95,7 @@ func TestEmailConnections198Document(t *testing.T) {
 		t.Fatal("extra root selection")
 	}
 	field := op.SelectionSet[0].(*ast.Field)
-	if field.Name != "exchangeConnections" || len(field.Arguments) != 1 || field.Arguments.ForName("orgId").Value.Raw != "orgId" {
+	if field.Name != "exchangeConnections" || len(field.Arguments) != 1 || field.Arguments.ForName("orgRef").Value.Raw != "orgId" {
 		t.Fatal(field)
 	}
 	want := []string{"id", "organizationId", "userId", "mailboxEmail", "provider", "displayName", "syncEnabled", "syncStatus", "lastSyncAt", "createdAt", "updatedAt"}

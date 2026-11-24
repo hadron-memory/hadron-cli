@@ -22,7 +22,7 @@ mutation BeginAssetUpload(
 ) {
   beginAssetUploadV2(
     input: {
-      memoryId: $memoryId
+      memoryRef: $memoryId
       filename: $filename
       mimeType: $mimeType
       sizeBytes: $sizeBytes

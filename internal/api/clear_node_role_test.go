@@ -45,7 +45,7 @@ func TestClearRoleOtherFieldsAndOmission(t *testing.T) {
 		for _, door := range []string{"Node", "SpecNode", "ReviewNode", "TaskNode"} {
 			t.Run(door+map[bool]string{false: "/omit", true: "/all"}[allFields], func(t *testing.T) {
 				id, text, zero, no := "n1", "verbatim", 0, false
-				input := &gen.UpdateNodeInput{Id: &id}
+				input := &gen.UpdateNodeInput{Ref: &id}
 				if allFields {
 					v := reflect.ValueOf(input).Elem()
 					for i := 0; i < v.NumField(); i++ {

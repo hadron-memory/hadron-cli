@@ -172,7 +172,7 @@ edit through the review door for you.`,
 					"no %q node in %s — create the parent first, or pass --root", root, mem.raw)
 			}
 
-			edges := []*gen.NodeEdgeInput{{TargetId: parent.Node.Id, Name: &label}}
+			edges := []*gen.NodeEdgeInput{{TargetRef: parent.Node.Id, Name: &label}}
 			outLinks := []linkDTO{}
 			for _, l := range parsedLinks {
 				// A --link commonly points at the canonical convention/finding
@@ -198,12 +198,12 @@ edit through the review door for you.`,
 					return rerr
 				}
 				lbl := l.Label
-				edges = append(edges, &gen.NodeEdgeInput{TargetId: targetID, Name: &lbl})
+				edges = append(edges, &gen.NodeEdgeInput{TargetRef: targetID, Name: &lbl})
 				outLinks = append(outLinks, linkDTO{Target: l.Ref, Label: l.Label})
 			}
 
 			input := gen.CreateNodeInput{
-				MemoryId:    mem.Ref,
+				MemoryRef:   mem.Ref,
 				Loc:         loc,
 				Name:        checkName(loc),
 				Description: &description,

@@ -8,7 +8,7 @@ query SlackConnections(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  slackConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+  slackConnections(orgRef: $orgId, limit: $limit, offset: $offset) {
     total
     items {
       id

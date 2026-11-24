@@ -510,7 +510,7 @@ ticker get" before trying again; this command never retries.`
 			}
 			return writeOne(cmd.Context(), client, f, *tf, "")
 		}
-		in := &gen.TickerInput{Name: v.name, CadenceSeconds: v.cadence, AnchorAt: p.AnchorAt, QuietHours: p.QuietHours, ChannelIds: p.ChannelIds, Relevance: p.Relevance, Reasons: p.Reasons, Enabled: p.Enabled}
+		in := &gen.TickerInput{Name: v.name, CadenceSeconds: v.cadence, AnchorAt: p.AnchorAt, QuietHours: p.QuietHours, ChannelRefs: p.ChannelRefs, Relevance: p.Relevance, Reasons: p.Reasons, Enabled: p.Enabled}
 		mctx, sink := api.WithWarningSinkForFields(cmd.Context(), "createTicker")
 		r, e := gen.CreateTicker(mctx, client, app, in)
 		if e != nil {
@@ -557,7 +557,7 @@ func (v *writeFlags) patch(c *cobra.Command) (*gen.TickerPatch, error) {
 				return nil, exitcode.Newf(exitcode.Usage, "--channel-ids contains an empty ID")
 			}
 		}
-		p.ChannelIds = v.channels
+		p.ChannelRefs = v.channels
 	}
 	if changed("enabled") {
 		p.Enabled = &v.enabled

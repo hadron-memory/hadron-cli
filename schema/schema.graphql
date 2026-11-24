@@ -2118,7 +2118,7 @@ owning org, mirroring the management-surface gate).
 """
 input AiServiceConfigFilter {
   """The owning entity — accepts ID or URN (HADRON_SERVER: ID only)."""
-  ownerId: ID!
+  ownerRef: ID!
   ownerType: AiConfigOwnerType!
 }
 
@@ -2636,7 +2636,7 @@ input AppFilter {
   unreadable, deleted, unresolvable or nonexistent Agent yields an empty page,
   never a not-found or forbidden error. Combines with ownedByMe and orgId.
   """
-  agentId: ID
+  agentRef: ID
 
   """
   #782 — true restricts the list to the caller's OWN user-owned (org-less)
@@ -3830,7 +3830,7 @@ enum AvailabilityState {
 }
 
 input BatchThrough {
-  channelId: ID!
+  channelRef: ID!
 
   """A seq this batch rendered in that channel."""
   seq: Int!
@@ -3872,7 +3872,7 @@ input BeginAssetUploadV2Input {
   qualified (org:memory) per spec 022 — relative-form URNs are
   rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
   """
-  memoryId: ID!
+  memoryRef: ID!
   mimeType: String!
   sizeBytes: Int!
   uploadIntent: UploadIntent!
@@ -4473,7 +4473,7 @@ input CloneAgentTaskInput {
   """
   Another parent in the same App, or null for none (a root under AT0, or a project with project: true).
   """
-  parentTaskId: ID
+  parentTaskRef: ID
 
   """
   A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
@@ -5071,7 +5071,7 @@ input CreateAgentTaskInput {
   child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
   """
   owner: AgentTaskPartyInput
-  parentTaskId: ID
+  parentTaskRef: ID
 
   """
   #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
@@ -5348,7 +5348,7 @@ input CreateNodeInput {
   qualified (hrn:mem:<root>:<memory>) per spec 022 — relative-form URNs are
   rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
   """
-  memoryId: String
+  memoryRef: String
   name: String!
   nodeType: String
 
@@ -6039,13 +6039,13 @@ input EdgeFilter {
   isRunnable: Boolean
 
   """Confine to edges whose (denormalized, source-side) memory is this one."""
-  memoryId: ID
+  memoryRef: ID
 
   """Edges leaving this node."""
-  sourceNodeId: ID
+  sourceRef: ID
 
   """Edges arriving at this node."""
-  targetNodeId: ID
+  targetRef: ID
 }
 
 """
@@ -7251,7 +7251,7 @@ input ImportNodeInput {
   """
   Target memory (ID or fully-qualified URN), with 'loc'. XOR with 'nodeUrn'.
   """
-  memoryId: String
+  memoryRef: String
 
   """
   Display name. Default: the extracted page/article/document title; on a re-import of an existing node the current name is preserved; a fresh create without either falls back to the loc leaf.
@@ -9448,7 +9448,7 @@ type Mutation {
     endpoint: String
     model: String!
     name: String!
-    ownerId: ID!
+    ownerRef: ID!
     ownerType: AiConfigOwnerType!
     params: JSON
     provider: String!
@@ -12150,7 +12150,7 @@ type Mutation {
   since changed. That refusal comes only after the audience check. On when already on, with a valid token, succeeds and
   changes nothing. Turning the switch on does not turn on the deployment's signing: read enforced.
   """
-  setOrgBootPromptSigning(org: ID!, previewToken: String, required: Boolean!): OrgBootPromptSigning!
+  setOrgBootPromptSigning(orgRef: ID!, previewToken: String, required: Boolean!): OrgBootPromptSigning!
 
   """
   #1641 — replace a log's default (and, when given, other eligible) deciders, as an audited revision of the log. Existing questions keep theirs. Needs management rights on the memory, or the owner role in its App.
@@ -13574,7 +13574,7 @@ input NodeAuthoringCheckInput {
   loc: String
 
   """With loc: the memory (ID or fully-qualified URN). XOR with ref."""
-  memoryId: String
+  memoryRef: String
 
   """
   An existing node: PK or fully-qualified node URN. XOR with memoryId+loc.
@@ -13709,6 +13709,24 @@ type NodeContentValidationStatus {
 
 """Outgoing edge on a node, used in NodeInput.edges"""
 input NodeEdgeInput {
+  description: String
+  isRunnable: Boolean
+
+  """Explicit edge loc. Omit to derive <sourceLoc>:<name>:<targetLoc>."""
+  loc: String
+
+  """Relationship name (was 'label'). Optional — loc is the identity."""
+  name: String
+
+  """
+  Reference to the target node. Accepts a node ID, a full URN
+  (hrn:node:<memory-urn>:<loc>), a memory-prefixed loc
+  (<memory-urn>:<loc>), or a short loc resolved within the source
+  node's memory.
+  """
+  targetRef: String!
+}
+input LegacyNodeEdgeInput {
   description: String
   isRunnable: Boolean
 
@@ -13881,7 +13899,7 @@ input NodeFilter {
   """
   Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
   """
-  memoryIds: [ID!]
+  memoryRefs: [ID!]
 
   """#1591 — only minted (true) or unminted (false) nodes."""
   minted: Boolean
@@ -13951,7 +13969,7 @@ input NodeInput {
   """
   Replace all outgoing edges when provided (omit to leave edges unchanged)
   """
-  edges: [NodeEdgeInput!]
+  edges: [LegacyNodeEdgeInput!]
 
   """
   Forced PK (importer-supplied UUIDv7 from node.yaml, stable across moves). Omit to mint.
@@ -15443,7 +15461,7 @@ type Query {
   agents for every caller including platform admins. Name-ascending order
   (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
   """
-  agents(filter: AgentFilter, limit: Int, offset: Int, orgId: ID): AgentsPage!
+  agents(filter: AgentFilter, limit: Int, offset: Int, orgRef: ID): AgentsPage!
 
   """
   One provider rate row by id (spec 046). Authenticated read - rates are not a secret.
@@ -15660,7 +15678,7 @@ type Query {
   limit: 0 -> count only. filter.ownedByMe (#782) narrows to the caller's own
   user-owned (org-less) Apps for every caller including platform admins.
   """
-  apps(filter: AppFilter, limit: Int, offset: Int, orgId: ID): AppsPage!
+  apps(filter: AppFilter, limit: Int, offset: Int, orgRef: ID): AppsPage!
 
   """
   Mint a short-TTL presigned GET URL for an asset. Default TTL
@@ -15678,7 +15696,7 @@ type Query {
   The three tabs of a top-level Assets section are filters over this,
   not separate queries: mine: true, no filter, and orgId respectively.
   """
-  assets(filter: AssetFilter, limit: Int = 20, offset: Int = 0, orgId: ID): AssetsPage!
+  assets(filter: AssetFilter, limit: Int = 20, offset: Int = 0, orgRef: ID): AssetsPage!
 
   """
   Spec 049 Phase 6 — an attendee's RESOLVED register: the rows that apply to
@@ -15883,7 +15901,7 @@ type Query {
   App (its host memories' Channels) or by one memory, and by the cor:api:100:01
   orgId. Loc-ascending (id tiebreak); limit default 20 / cap 200.
   """
-  channels(filter: ChannelFilter, limit: Int, offset: Int, orgId: ID): ChannelsPage!
+  channels(filter: ChannelFilter, limit: Int, offset: Int, orgRef: ID): ChannelsPage!
 
   """
   #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): what a chat of this App may choose from — the App's OWN enabled AI configs plus one
@@ -16136,7 +16154,7 @@ type Query {
   no disclosure, no admin bypass). Deterministic loc-ascending order
   (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
   """
-  edges(filter: EdgeFilter, limit: Int, offset: Int, orgId: ID): EdgesPage!
+  edges(filter: EdgeFilter, limit: Int, offset: Int, orgRef: ID): EdgesPage!
 
   """
   issue #323: resolve the effective access a single user has to a single
@@ -16182,14 +16200,14 @@ type Query {
   
   Accepts the entity's ID or URN.
   """
-  exchangeConnections(orgId: ID!): [ExchangeConnection!]!
+  exchangeConnections(orgRef: ID!): [ExchangeConnection!]!
 
   """
   #2213 — `exchangeConnections` as a page: the same admission (org ADMIN/OWNER,
   platform admin) and FORBIDDEN refusal, the same rows and order, with the real
   total. Sizes as `tickersPage`.
   """
-  exchangeConnectionsPage(limit: Int, offset: Int, orgId: ID!): ExchangeConnectionPage!
+  exchangeConnectionsPage(limit: Int, offset: Int, orgRef: ID!): ExchangeConnectionPage!
   exchangeFolders(connectionId: ID!): [ExchangeFolder!]!
   exchangeMessages(
     connectionId: ID!
@@ -16254,7 +16272,7 @@ type Query {
     #437 — page offset, default 0 (also null); negative values become 0. No offset ceiling. #2991: in vector and hybrid modes, offset pages are not snapshot-stable while the memory's vector index is filling (an embedding landing between reads can repeat one hit and skip another); callers who need complete, duplicate-free paging use mode: keyword on one memory, ordered score DESC then loc (unique within a memory; across memories, hits with equal score and loc have no defined order). hrn:node:hadronmemory.com:specs:cor:api:090
     """
     offset: Int
-    orgId: ID
+    orgRef: ID
     query: String
 
     """
@@ -16337,7 +16355,7 @@ type Query {
     fields: [SearchField!]
     limit: Int
     offset: Int
-    orgId: ID
+    orgRef: ID
     query: String!
 
     """
@@ -16403,7 +16421,7 @@ type Query {
   bypass). Slug-ascending order (id tiebreak); limit default 20 / cap
   200; limit: 0 -> count only.
   """
-  homeAssistantInstances(limit: Int, offset: Int, orgId: ID): HomeAssistantInstancesPage!
+  homeAssistantInstances(limit: Int, offset: Int, orgRef: ID): HomeAssistantInstancesPage!
 
   """
   #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
@@ -16484,7 +16502,7 @@ type Query {
   org they are a live ADMIN/OWNER of. filter.activeOnly keeps only
   currently-live sessions. limit default 20 / cap 200.
   """
-  impersonationSessions(filter: ImpersonationSessionFilter, limit: Int, offset: Int, orgId: String): ImpersonationSessionList!
+  impersonationSessions(filter: ImpersonationSessionFilter, limit: Int, offset: Int, orgRef: String): ImpersonationSessionList!
 
   """
   #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — the App's install memory for an Agent: where the App
@@ -16545,7 +16563,7 @@ type Query {
   Slug-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  mcpServers(limit: Int, offset: Int, orgId: ID): McpServersPage!
+  mcpServers(limit: Int, offset: Int, orgRef: ID): McpServersPage!
 
   """Current authenticated user"""
   me: User
@@ -16574,7 +16592,7 @@ type Query {
   Name-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  memories(filter: MemoryFilter, limit: Int, offset: Int, orgId: ID): MemoriesPage!
+  memories(filter: MemoryFilter, limit: Int, offset: Int, orgRef: ID): MemoriesPage!
 
   """
   Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
@@ -16938,14 +16956,14 @@ type Query {
   included), an App key, an App run, impersonation, a non-member (a platform admin included), a revoked member, a member
   below ADMIN, and an organisation that does not exist are all refused with the same FORBIDDEN.
   """
-  orgBootPromptSigning(org: ID!): OrgBootPromptSigning!
+  orgBootPromptSigning(orgRef: ID!): OrgBootPromptSigning!
 
   """
   #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: what switching the organisation's boot-prompt signing on
   would change, paged (first at least 1, default 20, served at 200 when more is asked, hrn:node:hadronmemory.com:specs:cor:api:120:04; after is the previous page's endCursor). The audience and refusals are
   orgBootPromptSigning's.
   """
-  orgBootPromptSigningPreview(after: String, first: Int, org: ID!): BootPromptSigningPreview!
+  orgBootPromptSigningPreview(after: String, first: Int, orgRef: ID!): BootPromptSigningPreview!
 
   """
   Fetch an Organization (org member or platform ADMIN).
@@ -17113,7 +17131,7 @@ type Query {
   and by the cor:api:100:01 orgId. A filter naming something foreign returns
   the same empty page as one naming nothing. Oldest first; limit default 20 / cap 200.
   """
-  registerEntries(filter: RegisterEntryFilter, limit: Int, offset: Int, orgId: ID): RegisterEntriesPage!
+  registerEntries(filter: RegisterEntryFilter, limit: Int, offset: Int, orgRef: ID): RegisterEntriesPage!
 
   """
   Spec 049 Phase 5 — one register entry. Null when missing OR when you may
@@ -17171,7 +17189,7 @@ type Query {
   """
   Uniform paginated BYO Resend sender list scoped to the caller's member orgs.
   """
-  resendSenders(limit: Int, offset: Int, orgId: ID): ResendSendersPage!
+  resendSenders(limit: Int, offset: Int, orgRef: ID): ResendSendersPage!
 
   """
   036-ai-service-config: resolve a config name for an execution context
@@ -17306,7 +17324,7 @@ type Query {
   page). Name-ascending (id tiebreak); limit default 20 / cap 200; limit: 0
   ⇒ count only.
   """
-  scopes(filter: ScopeFilter, limit: Int, offset: Int, orgId: ID): ScopesPage!
+  scopes(filter: ScopeFilter, limit: Int, offset: Int, orgRef: ID): ScopesPage!
 
   """
   Fetch one secret's inspectable half (never the value). Null when the
@@ -17426,7 +17444,7 @@ type Query {
   Team-name-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  slackConnections(limit: Int, offset: Int, orgId: ID): SlackConnectionsPage!
+  slackConnections(limit: Int, offset: Int, orgRef: ID): SlackConnectionsPage!
 
   """
   #1449 — what refers to the spec at loc in a spec corpus (any memory since
@@ -17699,7 +17717,7 @@ type Query {
   Bot-username-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  telegramConnections(limit: Int, offset: Int, orgId: ID): TelegramConnectionsPage!
+  telegramConnections(limit: Int, offset: Int, orgRef: ID): TelegramConnectionsPage!
 
   """
   #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it. #2931: a host key reaches only its host's tickers (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
@@ -19480,7 +19498,7 @@ input SearchReplaceInNodesInput {
   fields: [NodeTextField!]!
 
   """Memory IDs or URNs — selects every live node in each."""
-  memoryIds: [ID!]
+  memoryRefs: [ID!]
 
   """
   Replacement. May be empty (deletes the matched text). Regex mode honors dollar-sign backrefs.
@@ -19488,7 +19506,7 @@ input SearchReplaceInNodesInput {
   newText: String!
 
   """Explicit node IDs or fully-qualified URNs."""
-  nodeIds: [ID!]
+  nodeRefs: [ID!]
 
   """
   Text (literal) or RegExp source (regex mode) to find. Must be non-empty.
@@ -21155,7 +21173,7 @@ input SpecSearchReplaceInput {
   maxNodesChanged: Int
   memoryRef: ID!
   newText: String!
-  nodeIds: [ID!]!
+  nodeRefs: [ID!]!
   oldText: String!
   reason: String
   regex: Boolean = false
@@ -22257,7 +22275,7 @@ input TickerInput {
   """Tick counting starts here. Defaults to now."""
   anchorAt: DateTime
   cadenceSeconds: Int!
-  channelIds: [ID!]
+  channelRefs: [ID!]
   enabled: Boolean
   name: String!
   quietHours: JSON
@@ -22282,7 +22300,7 @@ Absent fields are unchanged. Use clearQuietHours / clearChannels to remove those
 input TickerPatch {
   anchorAt: DateTime
   cadenceSeconds: Int
-  channelIds: [ID!]
+  channelRefs: [ID!]
   clearChannels: Boolean
   clearQuietHours: Boolean
   enabled: Boolean
@@ -22560,7 +22578,7 @@ input UpdateNodeInput {
   """
   The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
   """
-  id: String
+  ref: String
 
   """
   #2044 — selector, with 'loc', in place of 'memoryId': the App's install memory. Creates nothing (the first createNode does). XOR with 'id'.
@@ -22581,7 +22599,7 @@ input UpdateNodeInput {
   """
   Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'id'.
   """
-  memoryId: String
+  memoryRef: String
 
   """Omit to preserve (D4)."""
   name: String

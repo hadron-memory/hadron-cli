@@ -42,7 +42,7 @@ query ImpersonationSessions(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  impersonationSessions(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+  impersonationSessions(orgRef: $orgId, filter: $filter, limit: $limit, offset: $offset) {
     total
     items {
       ...ImpersonationSessionFields

@@ -121,8 +121,8 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 	// proves its own paging progress before the results are merged by loc.
 	platformType := "chat-message"
 	filters := []*gen.NodeFilter{
-		{MemoryIds: []string{c.Memory}, LocPrefix: &prefix},
-		{MemoryIds: []string{c.Memory}, LocPrefix: &prefix, NodeType: &platformType},
+		{MemoryRefs: []string{c.Memory}, LocPrefix: &prefix},
+		{MemoryRefs: []string{c.Memory}, LocPrefix: &prefix, NodeType: &platformType},
 	}
 	var nodes []*messageNode
 	for _, filter := range filters {

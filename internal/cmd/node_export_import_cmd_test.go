@@ -386,7 +386,7 @@ func TestNodeImportCreate(t *testing.T) {
 	}
 	in := vars.Input
 	checks := map[string]any{
-		"memoryId": "acme.com:kb", "loc": "findings:flaky-ci", "name": "Flaky CI",
+		"memoryRef": "acme.com:kb", "loc": "findings:flaky-ci", "name": "Flaky CI",
 		"content": "The body.", "nodeType": "task", "alias": "flaky",
 		"description": "One liner", "abstract": "A summary.", "seq": float64(3),
 	}
@@ -418,11 +418,11 @@ func TestNodeImportCreate(t *testing.T) {
 	if err := json.Unmarshal(captured["UpdateNode"], &upd); err != nil {
 		t.Fatalf("UpdateNode vars: %v", err)
 	}
-	if upd.Input["memoryId"] != "acme.com:kb" || upd.Input["loc"] != "findings:flaky-ci" || upd.Input["name"] != "Flaky CI" {
-		t.Errorf("update attempt must select by (memoryId, loc) and carry the file's name: %v", upd.Input)
+	if upd.Input["memoryRef"] != "acme.com:kb" || upd.Input["loc"] != "findings:flaky-ci" || upd.Input["name"] != "Flaky CI" {
+		t.Errorf("update attempt must select by (memoryRef, loc) and carry the file's name: %v", upd.Input)
 	}
-	if _, present := upd.Input["id"]; present {
-		t.Errorf("update attempt must not send id, got %v", upd.Input["id"])
+	if _, present := upd.Input["ref"]; present {
+		t.Errorf("update attempt must not send id, got %v", upd.Input["ref"])
 	}
 }
 
@@ -501,7 +501,7 @@ func TestNodeImportTargetPrecedenceAndCreateOnly(t *testing.T) {
 		Input map[string]any `json:"input"`
 	}
 	_ = json.Unmarshal(captured["CreateNode"], &vars)
-	if vars.Input["memoryId"] != "acme.com:other" || vars.Input["loc"] != "moved:here" {
+	if vars.Input["memoryRef"] != "acme.com:other" || vars.Input["loc"] != "moved:here" {
 		t.Errorf("flags must override frontmatter target: %v", vars.Input)
 	}
 	// --create-only goes straight to createNode — no update attempt first

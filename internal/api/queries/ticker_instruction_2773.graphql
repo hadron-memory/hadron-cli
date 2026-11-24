@@ -15,7 +15,7 @@
 # @genqlient(for: "TickerPatch.anchorAt", omitempty: true)
 # @genqlient(for: "TickerPatch.quietHours", omitempty: true)
 # @genqlient(for: "TickerPatch.clearQuietHours", omitempty: true)
-# @genqlient(for: "TickerPatch.channelIds", omitempty: true)
+# @genqlient(for: "TickerPatch.channelRefs", omitempty: true)
 # @genqlient(for: "TickerPatch.clearChannels", omitempty: true)
 # @genqlient(for: "TickerPatch.relevance", omitempty: true)
 # @genqlient(for: "TickerPatch.reasons", omitempty: true)

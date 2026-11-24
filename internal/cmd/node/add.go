@@ -131,7 +131,7 @@ Details:
 
 			input := gen.CreateNodeInput{
 				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-				MemoryId:     memory,
+				MemoryRef:    memory,
 				Install:      target,
 				Loc:          loc,
 				Name:         name,

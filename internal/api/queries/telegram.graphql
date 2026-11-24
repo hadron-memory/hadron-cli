@@ -8,7 +8,7 @@ query TelegramConnections(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  telegramConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+  telegramConnections(orgRef: $orgId, limit: $limit, offset: $offset) {
     total
     items {
       id

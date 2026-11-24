@@ -87,26 +87,26 @@ func TestTaskCloneSendsOnlyNamedOverrides1565(t *testing.T) {
 	if _, ok := input["assignee"]; !ok {
 		t.Errorf("assignee not sent: %s", input)
 	}
-	if _, ok := input["parentTaskId"]; ok {
-		t.Errorf("parentTaskId sent unasked: %s", input)
+	if _, ok := input["parentTaskRef"]; ok {
+		t.Errorf("parentTaskRef sent unasked: %s", input)
 	}
 }
 
 func TestTaskCloneParentIsThreeState1565(t *testing.T) {
 	// omitted: the source's parent is kept, so no key at all.
 	input, _ := cloneInput1565(t, "AT1.4", "--title", "x")
-	if _, ok := input["parentTaskId"]; ok {
+	if _, ok := input["parentTaskRef"]; ok {
 		t.Fatalf("omitted parent must send no key: %s", input)
 	}
 	// --no-parent: explicit null (the parent is dropped).
 	input, _ = cloneInput1565(t, "AT1.4", "--no-parent")
-	if got, ok := input["parentTaskId"]; !ok || string(got) != "null" {
-		t.Fatalf("--no-parent must send parentTaskId null, got %q present=%t", got, ok)
+	if got, ok := input["parentTaskRef"]; !ok || string(got) != "null" {
+		t.Fatalf("--no-parent must send parentTaskRef null, got %q present=%t", got, ok)
 	}
 	// --parent: the named task.
 	input, _ = cloneInput1565(t, "AT1.4", "--parent", "AT2")
-	if string(input["parentTaskId"]) != `"AT2"` {
-		t.Fatalf("--parent AT2 must send the id, got %s", input["parentTaskId"])
+	if string(input["parentTaskRef"]) != `"AT2"` {
+		t.Fatalf("--parent AT2 must send the id, got %s", input["parentTaskRef"])
 	}
 }
 

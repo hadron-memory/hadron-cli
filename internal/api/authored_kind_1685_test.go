@@ -84,9 +84,9 @@ func TestAuthoredKindDoors1685(t *testing.T) {
 					id := "n1"
 					var err error
 					if action == "Create" {
-						_, err = CreateNodeByKind(ctx, client, &gen.CreateNodeInput{MemoryId: id, Loc: "x", Name: "X", Role: &role, IsRunnable: &runnable, AuthoredWith: claim})
+						_, err = CreateNodeByKind(ctx, client, &gen.CreateNodeInput{MemoryRef: id, Loc: "x", Name: "X", Role: &role, IsRunnable: &runnable, AuthoredWith: claim})
 					} else {
-						input := &gen.UpdateNodeInput{Id: &id, AuthoredWith: claim}
+						input := &gen.UpdateNodeInput{Ref: &id, AuthoredWith: claim}
 						cur := NodeKindState{Role: &role, IsRunnable: runnable}
 						if action == "Clear" {
 							_, err = UpdateNodeClearingRoleByKind(ctx, client, input, cur)

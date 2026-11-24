@@ -97,7 +97,7 @@ this is a question about a user. (To CREATE an App in this slice, see
 				if filter == nil {
 					filter = &gen.AppFilter{}
 				}
-				filter.AgentId = &agent
+				filter.AgentRef = &agent
 			}
 			// Paged { items, total } envelope (hadron-server#473), drained to
 			// exhaustion — this command's contract is "all Apps in the slice".

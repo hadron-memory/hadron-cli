@@ -57,7 +57,7 @@ func TestReplaceDryRun(t *testing.T) {
 			OldText   string   `json:"oldText"`
 			NewText   string   `json:"newText"`
 			Fields    []string `json:"fields"`
-			MemoryIds []string `json:"memoryIds"`
+			MemoryIds []string `json:"memoryRefs"`
 			DryRun    *bool    `json:"dryRun"`
 		} `json:"input"`
 	}

@@ -101,7 +101,7 @@ query ListAssets(
   # @genqlient(omitempty: true)
   $orgId: ID
 ) {
-  assets(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+  assets(filter: $filter, limit: $limit, offset: $offset, orgRef: $orgId) {
     total
     items {
       id

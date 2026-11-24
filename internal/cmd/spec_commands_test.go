@@ -820,7 +820,7 @@ func TestSpecNew(t *testing.T) {
 
 	var up struct {
 		Input struct {
-			ID       string          `json:"id"`
+			ID       string          `json:"ref"`
 			Rev      *int            `json:"expectedRevision"`
 			Name     string          `json:"name"`
 			Tags     []string        `json:"tags"`
@@ -980,8 +980,8 @@ func TestSpecNewWiresEdgesInline(t *testing.T) {
 	}
 	labels := map[string]bool{}
 	for _, e := range edges {
-		if e["targetId"] != "t1" {
-			t.Errorf("edge target = %v, want the RESOLVED id t1, never a loc the server re-resolves", e["targetId"])
+		if e["targetRef"] != "t1" {
+			t.Errorf("edge target = %v, want the RESOLVED id t1, never a loc the server re-resolves", e["targetRef"])
 		}
 		labels[fmt.Sprint(e["name"])] = true
 	}
@@ -1508,7 +1508,7 @@ func TestSpecNewModuleAutoContract(t *testing.T) {
 		t.Errorf("the contract→root edge must travel inline, not as a createEdge: %s", raw)
 	}
 	edges := sentSpecEdges(t, captured["CreateSpecNode"])
-	if len(edges) != 1 || edges[0]["targetId"] != "new1" || edges[0]["name"] != "Brand general provisions" {
+	if len(edges) != 1 || edges[0]["targetRef"] != "new1" || edges[0]["name"] != "Brand general provisions" {
 		t.Errorf("contract edges = %v, want one inline edge to the root's id new1", edges)
 	}
 }
@@ -1561,7 +1561,7 @@ func TestSpecNewPathWiresEachNodeInline(t *testing.T) {
 		_ = json.Unmarshal(raw, &v)
 		targets := map[string]bool{}
 		for _, e := range sentSpecEdges(t, raw) {
-			targets[fmt.Sprint(e["targetId"])] = true
+			targets[fmt.Sprint(e["targetRef"])] = true
 		}
 		edgesByLoc[v.Input.Loc] = targets
 	}
@@ -3473,7 +3473,7 @@ func TestSpecExtractWiresEdgesInline(t *testing.T) {
 	}
 	byName := map[string]any{}
 	for _, e := range sentSpecEdges(t, captured["CreateSpecNode"]) {
-		byName[fmt.Sprint(e["name"])] = e["targetId"]
+		byName[fmt.Sprint(e["name"])] = e["targetRef"]
 	}
 	if len(byName) != 3 {
 		t.Fatalf("want ToC + inheritance + cross-ref inline, got %v", byName)
@@ -3852,7 +3852,7 @@ func editMocksStoring(hash string) map[string]string {
 
 type editUpdateInput struct {
 	Input struct {
-		ID       string  `json:"id"`
+		ID       string  `json:"ref"`
 		Loc      string  `json:"loc"`
 		Name     string  `json:"name"`
 		Content  *string `json:"content"`
@@ -4258,8 +4258,8 @@ func TestSpecReplaceDryRun(t *testing.T) {
 			Regex     bool     `json:"regex"`
 			DryRun    bool     `json:"dryRun"`
 			Fields    []string `json:"fields"`
-			NodeIds   []string `json:"nodeIds"`
-			MemoryIds []string `json:"memoryIds"`
+			NodeIds   []string `json:"nodeRefs"`
+			MemoryIds []string `json:"memoryRefs"`
 		} `json:"input"`
 	}
 	if err := json.Unmarshal(captured["SearchReplaceInNodes"], &vars); err != nil {

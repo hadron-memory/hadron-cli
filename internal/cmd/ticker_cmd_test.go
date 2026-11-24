@@ -29,7 +29,7 @@ func TestTickerCreateReasonsWire(t *testing.T) {
 			if err := json.Unmarshal(captured["CreateTicker"], &v); err != nil {
 				t.Fatal(err)
 			}
-			for _, key := range []string{"enabled", "anchorAt", "quietHours", "channelIds", "relevance"} {
+			for _, key := range []string{"enabled", "anchorAt", "quietHours", "channelRefs", "relevance"} {
 				if _, ok := v.Input[key]; ok {
 					t.Errorf("omitted %s sent: %s", key, captured["CreateTicker"])
 				}
@@ -284,7 +284,7 @@ func TestTickerExplicitInputsAndNarrowing(t *testing.T) {
 	if len(v.Input) != 8 || v.Input["name"] != "renamed" || v.Input["cadenceSeconds"] != float64(900) || v.Input["anchorAt"] != "2026-10-19T12:00:00Z" || v.Input["relevance"] != "MENTIONS" || v.Input["enabled"] != false {
 		t.Fatalf("wire %s", captured["UpdateTicker"])
 	}
-	for key, want := range map[string]string{"channelIds": `["c1","c2"]`, "reasons": `["READ_TEAM_CHANNEL"]`, "quietHours": `{"timezone":"UTC","windows":[]}`} {
+	for key, want := range map[string]string{"channelRefs": `["c1","c2"]`, "reasons": `["READ_TEAM_CHANNEL"]`, "quietHours": `{"timezone":"UTC","windows":[]}`} {
 		got, e := json.Marshal(v.Input[key])
 		if e != nil || string(got) != want {
 			t.Fatalf("%s: %s, %v", key, got, e)

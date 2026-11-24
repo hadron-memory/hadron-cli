@@ -214,7 +214,7 @@ func TestAckSendsACoveredPrefix(t *testing.T) {
 	if _, err := s.Ack(context.Background(), "p", []delivery.Through{{ChannelID: "ch1", Seq: 7}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := string(calls()[0].vars["through"]); got != `[{"channelId":"ch1","seq":7}]` {
+	if got := string(calls()[0].vars["through"]); got != `[{"channelRef":"ch1","seq":7}]` {
 		t.Fatalf("through %s", got)
 	}
 }

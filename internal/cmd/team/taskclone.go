@@ -276,14 +276,14 @@ status; --json returns the task with its warnings list, as
 			} else if flags.Changed("no-close-session") {
 				input.CloseSessionWhenDone = boolPtr(!noCloseSession)
 			}
-			// parentTaskId is three-state: omitted keeps the source's parent, an
+			// parentTaskRef is three-state: omitted keeps the source's parent, an
 			// id names another, an explicit null means none.
 			switch {
 			case noParent:
-				input.ParentTaskId = json.RawMessage("null")
+				input.ParentTaskRef = json.RawMessage("null")
 			case flags.Changed("parent"):
 				id, _ := json.Marshal(strings.TrimSpace(parent)) // a string cannot fail JSON encoding
-				input.ParentTaskId = id
+				input.ParentTaskRef = id
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -324,7 +324,7 @@ status; --json returns the task with its warnings list, as
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
 	cmd.Flags().StringVar(&finishBy, "finish-by", "", "RFC 3339 deadline to finish by")
 	cmd.Flags().StringVar(&parent, "parent", "", "another parent task (same App) instead of the source's")
-	cmd.Flags().BoolVar(&noParent, "no-parent", false, "no parent: a root under AT0 (sends parentTaskId null)")
+	cmd.Flags().BoolVar(&noParent, "no-parent", false, "no parent: a root under AT0 (sends parentTaskRef null)")
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole copied list")

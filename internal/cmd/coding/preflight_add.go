@@ -222,7 +222,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 			backEdge := !leaf && !noBackEdge
 			if leaf || backEdge {
 				lbl := label
-				edges = append(edges, &gen.NodeEdgeInput{TargetId: router.Node.Id, Name: &lbl})
+				edges = append(edges, &gen.NodeEdgeInput{TargetRef: router.Node.Id, Name: &lbl})
 			}
 			outLinks := []linkDTO{}
 			linkTargetIDs := []string{} // resolved ids, positionally aligned with outLinks
@@ -240,7 +240,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 					return rerr
 				}
 				lbl := l.Label
-				edges = append(edges, &gen.NodeEdgeInput{TargetId: targetID, Name: &lbl})
+				edges = append(edges, &gen.NodeEdgeInput{TargetRef: targetID, Name: &lbl})
 				outLinks = append(outLinks, linkDTO{Target: l.Ref, Label: l.Label})
 				linkTargetIDs = append(linkTargetIDs, targetID)
 			}
@@ -259,7 +259,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 			}
 
 			input := gen.CreateNodeInput{
-				MemoryId:    mem.Ref,
+				MemoryRef:   mem.Ref,
 				Loc:         loc,
 				Name:        nodeName,
 				NodeType:    &nodeType,
@@ -642,7 +642,7 @@ func appendRoutingLine(ctx context.Context, client graphql.Client, routerRef, se
 	if err != nil || plan.Skipped {
 		return plan, err // Skipped: already linked by hand, nothing to add
 	}
-	input := gen.UpdateNodeInput{Id: &fresh.Node.Id, Content: &plan.Body}
+	input := gen.UpdateNodeInput{Ref: &fresh.Node.Id, Content: &plan.Body}
 	if _, err := gen.UpdateNode(ctx, client, &input); err != nil {
 		return routingPlan{}, api.MapError(err)
 	}

@@ -359,7 +359,7 @@ func listDeclaredIDs(cmd *cobra.Command, client graphql.Client, memIDs []string)
 		{Field: &col, Path: []string{"skill"}, Exists: &exists},
 		{Field: &col, Path: []string{"claudeSkill"}, Exists: &exists},
 	}}
-	filter := &gen.NodeFilter{MemoryIds: memIDs, Where: where}
+	filter := &gen.NodeFilter{MemoryRefs: memIDs, Where: where}
 	sortBy := gen.NodeSortLoc
 	var ids []string
 	err := api.PageNodes(listPageSize, func(limit, offset int) ([]*api.ListNode, error) {

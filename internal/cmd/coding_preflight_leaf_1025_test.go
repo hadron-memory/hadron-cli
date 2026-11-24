@@ -52,7 +52,7 @@ func leafCreateArgs(serverURL string, extra ...string) []string {
 type capturedEdges struct {
 	Input struct {
 		Edges []struct {
-			TargetID string `json:"targetId"`
+			TargetID string `json:"targetRef"`
 			Name     string `json:"name"`
 		} `json:"edges"`
 	} `json:"input"`
@@ -133,7 +133,7 @@ func TestC1025LeafCreateSectionSplicesIntoTheAttachTarget(t *testing.T) {
 	}
 	_ = json.Unmarshal(captured["UpdateNode"][0], &upd)
 	var id, body string
-	_ = json.Unmarshal(upd.Input["id"], &id)
+	_ = json.Unmarshal(upd.Input["ref"], &id)
 	_ = json.Unmarshal(upd.Input["content"], &body)
 	if id != "area" {
 		t.Errorf("the line belongs in the ATTACH TARGET's body (area), written to %q", id)

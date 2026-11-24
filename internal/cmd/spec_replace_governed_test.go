@@ -76,8 +76,8 @@ func TestSpecReplaceUnionsRoleOnlySpecsBeforeDryRunAndNoMatch(t *testing.T) {
 					searchCalls++
 					var vars struct {
 						Input struct {
-							NodeIds   []string `json:"nodeIds"`
-							MemoryIds []string `json:"memoryIds"`
+							NodeIds   []string `json:"nodeRefs"`
+							MemoryIds []string `json:"memoryRefs"`
 							DryRun    bool     `json:"dryRun"`
 						} `json:"input"`
 					}
@@ -164,7 +164,7 @@ func TestSpecReplaceReportsTheGovernedSpecsItCouldNotSearch(t *testing.T) {
 			// The CLI does not filter; the server skips.
 			var vars struct {
 				Input struct {
-					NodeIds []string `json:"nodeIds"`
+					NodeIds []string `json:"nodeRefs"`
 				} `json:"input"`
 			}
 			_ = json.Unmarshal(captured["SearchReplaceInNodes"], &vars)

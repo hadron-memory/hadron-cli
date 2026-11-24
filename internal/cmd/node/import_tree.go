@@ -375,11 +375,11 @@ func (e *treeExecutor) create(n *planNode) (string, error) {
 		}
 		if id != "" {
 			name := "contains"
-			edges = append(edges, &gen.NodeEdgeInput{Name: &name, TargetId: id})
+			edges = append(edges, &gen.NodeEdgeInput{Name: &name, TargetRef: id})
 		}
 	}
 
-	input := &gen.CreateNodeInput{MemoryId: e.memory, Loc: n.loc, Name: n.name}
+	input := &gen.CreateNodeInput{MemoryRef: e.memory, Loc: n.loc, Name: n.name}
 	if n.content != "" {
 		input.Content = &n.content
 	}
@@ -427,7 +427,7 @@ func (e *treeExecutor) skipExisting(n *planNode, edges []*gen.NodeEdgeInput) (st
 	// Best-effort: an edge that already exists (a prior run, or a child that
 	// also pre-existed) is rejected server-side on its derived loc — ignore it.
 	for _, ed := range edges {
-		if _, werr := gen.CreateEdge(e.ctx, e.client, id, ed.TargetId, "contains", nil, nil, nil, nil, nil, nil); werr == nil {
+		if _, werr := gen.CreateEdge(e.ctx, e.client, id, ed.TargetRef, "contains", nil, nil, nil, nil, nil, nil); werr == nil {
 			e.edgesWired++
 		}
 	}
@@ -445,7 +445,7 @@ func (e *treeExecutor) resolveExistingID(loc string) (string, bool, error) {
 			return resp.ResolveUrn.Id, true, nil
 		}
 	}
-	filter := &gen.NodeFilter{MemoryIds: []string{e.memory}, LocPrefix: &loc}
+	filter := &gen.NodeFilter{MemoryRefs: []string{e.memory}, LocPrefix: &loc}
 	sortLoc := gen.NodeSortLoc
 	return findExactLoc(loc, func(limit, offset int) ([]*api.ListNode, error) {
 		page, err := api.FindNodes(e.ctx, e.client, nil, nil, filter, &sortLoc, nil, &limit, &offset)

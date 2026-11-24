@@ -167,7 +167,7 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 				IsRunnable: &runnable,
 			}
 			if sm := agentResp.Agent.SystemMemoryId; sm != nil {
-				input.MemoryId = *sm // omitted when the Agent has none: the server refuses, the CLI does not pre-check
+				input.MemoryRef = *sm // omitted when the Agent has none: the server refuses, the CLI does not pre-check
 			}
 			var skill *gen.TaskSkillExportInput
 			if exportSkill != "" {
