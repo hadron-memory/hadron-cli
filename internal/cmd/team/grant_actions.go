@@ -15,14 +15,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const grantActionsHelp = `Read an App's registered grant actions: the actions a grant can allow.
-Anyone in the App may read the list: a participating person
-with their own credential, or a bound worker of that App through its session.
-No worker binding is required. When this worktree has a worker binding for
-this server, it takes precedence over the person credential: a bound worker
-reading another App gets the empty answer even if the person participates
-there. An empty or blank --app is absent: the App context applies, and the
-App: header names which one was used.
+const grantActionsHelp = `A grant action is one thing a grant can allow, such as schedule.create; each
+App registers its own list. Anyone in the App may read it: a participating
+person with their own credential, or a bound worker of that App through its
+session. No worker binding is required. When this worktree has a worker
+binding for this server, it takes precedence over the person credential: a
+bound worker reading another App gets the empty answer even if the person
+participates there. An empty or blank --app is absent: the App context
+applies, and the "App:" line printed above the result names which one was
+used.
 
 The App is named with --app (or the App context) and goes to the server exactly
 as given; nothing resolves or looks it up first. Every refused caller (not in
@@ -33,8 +34,8 @@ has no actions.
 Each action has: name (its dotted code, such as schedule.create), parameters
 (the values a grant of it must supply, as name:kind; "no wildcard" means a
 wildcard value is refused), issuerRule (a key naming who may issue a grant of
-it), source (PLATFORM today), tool (the tool that performs it, if any) and
-enforcement. enforcement is the level the action DECLARES: what the platform
+it; the platform's own spelling), source (PLATFORM today), tool (the tool that
+performs it, if any) and enforcement. enforcement is the level the action DECLARES: what the platform
 promises, not an active guarantee that a gate enforces it today.
 
 To read ANOTHER App's actions while this worktree is bound, run the command
@@ -122,7 +123,7 @@ func grantActionsClient(ctx context.Context, f *cmdutil.Factory) (context.Contex
 
 func newCmdTeamGrantActions(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
-	cmd := &cobra.Command{Use: "actions", Short: "List an App's registered grant actions", Long: grantActionsHelp + `
+	cmd := &cobra.Command{Use: "actions", Short: "List an App's registered grant actions", Long: "List the actions registered for an App, with their parameters and rules.\n\n" + grantActionsHelp + `
 
 --limit 0 prints only the total count; --offset selects the page start. The
 default page limit is 20. --json returns {items:[],total:N}, or {total:N} for
@@ -198,7 +199,7 @@ count-only: the known fields, values unchanged.`, Example: "  hadron team grant 
 }
 
 func newCmdTeamGrantAction(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{Use: "action <name>", Short: "Read one registered grant action by exact name", Long: grantActionsHelp + `
+	return &cobra.Command{Use: "action <name>", Short: "Read one registered grant action by exact name", Long: "Read one registered action by its exact dotted name, with its parameters\nand rules.\n\n" + grantActionsHelp + `
 
 <name> is the action's exact dotted code, for example schedule.create. An
 unknown name and every refused caller get the same not-found line and exit 4.

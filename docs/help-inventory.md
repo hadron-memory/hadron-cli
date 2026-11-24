@@ -519,17 +519,17 @@ section between the markers.
 | `team delivery-settings set` |  |  | y | #1054 | 3c1f5a386a3f | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team events` |  |  | n | #1054 | bfbf2d40f15f |  | unread |  |
 | `team grant` |  |  | n | #1054 | d70982b794a3 |  | unread |  |
-| `team grant action` |  |  | y | #1054 | d9969025ec27 |  | unread |  |
-| `team grant actions` |  |  | y | #1054 | 65acd4c4809a |  | unread |  |
-| `team grant add` |  |  | y | #1054 | 37a75f05031d |  | unread |  |
+| `team grant action` |  |  | y | #1054 | 34485f899092 |  | unread |  |
+| `team grant actions` |  |  | y | #1054 | 73d20c4ad639 |  | unread |  |
+| `team grant add` |  |  | y | #1054 | 0ac0e4065359 |  | unread |  |
 | `team grant get` |  |  | y | #1054 | d015e80e46c9 |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | a0f37e8b8ece |  | unread |  |
-| `team grant request` |  |  | y | #1054 | 7bca2f2e111b |  | unread |  |
-| `team grant request-signature` |  |  | y | #1054 | 4fa83ee31037 |  | unread |  |
-| `team grant rm` |  |  | y | #1054 | 2bd8b7c6efef |  | unread |  |
-| `team grant signing-request` |  |  | n | #1054 | ac7d8916cda4 |  | unread |  |
-| `team grant signing-request get` |  |  | y | #1054 | 680183659b34 |  | unread |  |
-| `team grant signing-request withdraw` |  |  | y | #1054 | 666baabc02b9 |  | unread |  |
+| `team grant request` |  |  | y | #1054 | 1c55a0ea19ed |  | unread |  |
+| `team grant request-signature` |  |  | y | #1054 | dd785a61045e |  | unread |  |
+| `team grant rm` |  |  | y | #1054 | d54661531e8a |  | unread |  |
+| `team grant signing-request` |  |  | n | #1054 | 13ac1b5e0093 |  | unread |  |
+| `team grant signing-request get` |  |  | y | #1054 | a930b7244c63 |  | unread |  |
+| `team grant signing-request withdraw` |  |  | y | #1054 | 5fb35ea50cf1 |  | unread |  |
 | `team health` |  |  | n | #1054 | d1b3825cdd4d | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |

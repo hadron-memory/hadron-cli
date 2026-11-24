@@ -64,31 +64,42 @@ type appGrantDTO struct {
 	RevokedAt *string `json:"revokedAt"`
 }
 
-const appGrantHelp = `A named App grant is one permission, from a short fixed list, given to one
+// appGrantHelpIntro opens both add and rm; the verb-specific paragraph follows.
+const appGrantHelpIntro = `A named App grant is one permission, from a short fixed list, held by one
 worker in an App. It is separate from worker action grants ('hadron team grant
-request') and from organization action grants ('hadron grant'). The server
-checks who may manage the App.
+request') and from organization action grants ('hadron grant').`
+
+const appGrantAddHelp = `
 
 add is person-only: the CLI always sends it as the signed-in person, never as a
-worker session, so a worker cannot give itself a grant; the server refuses a
-caller who does not manage the App (FORBIDDEN, exit 8), so it must be run by a
-person who manages the App. Without --instruction, rm is sent the same way.
-Only rm accepts the holder's instruction claim; its help describes binding
-checks and the person fallback.
+worker session, so a worker cannot give itself a grant. The server refuses a
+caller who does not manage the App (FORBIDDEN, exit 8), so a person who manages
+the App must run it. Giving a grant the worker already holds changes nothing.`
 
-Names follow the server's closed list:
-TICKER_SUBSCRIBE_WORKERS: subscribe and unsubscribe other workers of the App,
-at any cadence. WORKERS_STAFF: named permission for headless casting,
-retiring and deleting workers; the holder's own staffing rights still apply.
-APP_MEMBERS: named permission for headless App-member add/remove; the
-holder's own member-management rights still apply. The last two are recorded
-now; the server may not yet enforce them against a headless action; this
-CLI adds no gating of its own. add is idempotent; revocation takes effect at the
-grantee's next call. Worker references are passed to the server as given (use a
-worker id or URN). --app selects the App; otherwise the configured App or
-binding supplies it. --json prints the returned grant's id, appId, workerId,
-name, grantedAt and nullable revokedAt (null until revoked). That returned grant
-is the only confirmation: no command lists named App grants yet.`
+const appGrantRmHelp = `
+
+rm takes a permission away; it takes effect at the worker's next call. By
+default it is sent as the signed-in person, so a person who manages the App must
+run it (the server refuses anyone else with FORBIDDEN, exit 8). Only rm accepts
+--instruction, for an AI worker acting on its holder's say-so (described below).`
+
+const appGrantHelp = `
+
+The names are a closed list:
+  TICKER_SUBSCRIBE_WORKERS  subscribe and unsubscribe other workers of the App,
+                            at any cadence.
+  WORKERS_STAFF             headless casting, retiring and deleting of workers;
+                            the holder's own staffing rights still apply.
+  APP_MEMBERS               headless App-member add and remove; the holder's own
+                            member-management rights still apply.
+The last two are recorded now; the server may not yet enforce them against a
+headless action, and this CLI adds no gating of its own.
+
+Pass the worker as an id or URN; it goes to the server as given. --app selects
+the App; otherwise the configured App or the binding supplies it. --json prints
+the returned grant: id, appId, workerId, name, grantedAt and revokedAt (null
+until revoked). That returned grant is the only confirmation: no command lists
+named App grants yet.`
 
 func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 	verb, short := "add", "Give a worker a named App grant"
@@ -96,7 +107,11 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 		verb, short = "rm", "Revoke a worker's named App grant"
 	}
 	var yes bool
-	c := &cobra.Command{Use: verb + " <worker-ref> <name>", Short: short, Long: appGrantHelp, Example: "  hadron team grant " + verb + " hrn:worker:acme.com:eng:iris WORKERS_STAFF --app acme.com:eng", Args: cobra.ExactArgs(2)}
+	lead := appGrantAddHelp
+	if remove {
+		lead = appGrantRmHelp
+	}
+	c := &cobra.Command{Use: verb + " <worker-ref> <name>", Short: short, Long: appGrantHelpIntro + lead + appGrantHelp, Example: "  hadron team grant " + verb + " hrn:worker:acme.com:eng:iris WORKERS_STAFF --app acme.com:eng", Args: cobra.ExactArgs(2)}
 	if remove {
 		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes.\nWith --instruction and a prompt, the App is selected once from --app, the\nconfigured App, or the binding AppID; that exact App is confirmed and sent.\nA legacy binding with only teamMemory needs --app or a configured App for\nthis instructed interactive path (exit 2 before any prompt or request).\nThe plain path and instructed --yes path retain their existing scope resolution."
 		c.Flags().BoolVar(&yes, "yes", false, "skip the revocation confirmation")
