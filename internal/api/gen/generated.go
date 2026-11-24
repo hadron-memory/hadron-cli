@@ -98753,9 +98753,9 @@ type SetQuotaLimitInput struct {
 	// Non-negative integer; 0 pauses the scope (every launch denies QUOTA_EXCEEDED).
 	Limit int `json:"limit"`
 	// Org - ref: PK or URN. Alone: the organization's limit; with appRef: that App's. Omit with appRef alone (an App of an organization or of a person) or with userRef alone.
-	OrgRef *string `json:"orgRef"`
+	OrgRef *string `json:"orgRef,omitempty"`
 	// A person (user id): that person's own counters. The person as themself or a platform admin; never with orgRef or appRef (BAD_USER_INPUT).
-	UserRef *string `json:"userRef"`
+	UserRef *string `json:"userRef,omitempty"`
 }
 
 // GetAction returns SetQuotaLimitInput.Action, and is useful for accessing the field via an interface.
