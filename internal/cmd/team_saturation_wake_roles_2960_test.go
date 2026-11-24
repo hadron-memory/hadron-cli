@@ -196,14 +196,15 @@ func TestSaturationWakeRolesFloorWordingIsPinned2960(t *testing.T) {
 
 // The FIT's wording (cli#2993, cor:agt:080:11 "Who is never due"): a listed worker is woken once when the
 // alarm is raised and not again for that alarm; a worker who is never due, such as one that is retired, paused
-// or dormant, is not woken NOW (the rule names a fourth case, a short-lived Agent's worker with no open
-// session, so the list is never closed, and for that case nothing is dropped); a change
+// or dormant, is not woken WHILE THAT HOLDS (the rule's own word: "never due a wake while it is retired /
+// paused / dormant"; it promises a later wake only for a short-lived Agent's worker with no open session, the
+// fourth case, so the help neither hints at a later wake nor says the wake is lost); a change
 // applies only to later alarms. One verb throughout ("woken", never "offered"). Not the jargon "unless it is
 // never due", not the server detail "while its episode is open".
 func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {
 	want := []string{
 		"is woken once when a saturation alarm is raised, and not again for that alarm",
-		"a worker who is never due, such as one that is retired, paused or dormant, is not woken now",
+		"a worker who is never due, such as one that is retired, paused or dormant, is not woken while that holds",
 		"applies only to alarms raised afterwards",
 	}
 	bad := []string{
@@ -212,8 +213,8 @@ func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {
 		"offered",
 		// not a closed list: the rule names four cases, so no parenthetical that reads as the whole set
 		"(retired, paused or dormant)", "never due (retired",
-		// the wake is not lost
-		"loses the wake", "wake is lost", "is never woken",
+		// the wake is not lost, and "now" would hint at a later wake the rule gives only for one case
+		"loses the wake", "wake is lost", "is never woken", "is not woken now",
 	}
 	for _, argv := range [][]string{{"team", "saturation-wake-roles"}, {"team", "saturation-wake-roles", "get"}, {"team", "saturation-wake-roles", "set"}} {
 		f, out := testFactory(t)
@@ -247,7 +248,9 @@ func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {
 	entry = strings.Join(strings.Fields(entry), " ")
 	for _, w := range []string{
 		"woken once when a saturation alarm is raised, and not again for that alarm",
-		"a worker who is never due (cor:agt:080:11), such as one that is retired, paused or dormant, is not woken now",
+		"a worker who is never due (cor:agt:080:11), such as one that is retired, paused or dormant, is not woken while that holds",
+		// the entry says the list is never closed (the rule names a fourth case): pin it, or it can be deleted
+		"the rule names more cases than these examples, so the list is never closed",
 	} {
 		if !strings.Contains(entry, w) {
 			t.Errorf("the agentic-usage entry must say %q", w)
