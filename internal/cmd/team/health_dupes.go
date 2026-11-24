@@ -68,15 +68,16 @@ const stopLease = 5 * time.Second
 
 // launchAnchorState reads the poller's record of what it launched, which is the
 // supervision anchor (cli#2059). The sweep's caller already refused a corrupt or
-// absent state before this read, so reaching the error branch means the file
-// changed since (a race). Then it answers an empty state: no anchors, so no
-// agent counts as supervised and the sweep only reports. A missing file is not
+// unreadable state before this read, so reaching the error branch means the
+// file changed since (a race). Then it answers an empty state: no anchors, so no
+// agent counts as supervised and the sweep only reports. The fallback is bound to
+// no file, so nothing can overwrite the unreadable one. A missing file is not
 // an error (LoadState reads it as empty) and prints nothing.
 func launchAnchorState(path string, errOut io.Writer) *hostpoller.State {
 	state, err := hostpoller.LoadState(path)
 	if err != nil {
 		fmt.Fprintf(errOut, "health: poller state unreadable, no launch anchors: %v\n", err)
-		return hostpoller.EmptyState(path)
+		return hostpoller.EmptyState()
 	}
 	return state
 }

@@ -46,15 +46,17 @@ type AgentRecord struct {
 	Start string `json:"start,omitempty"`
 }
 
-// EmptyState is a state with no records, bound to path. It cannot fail, which
-// is what a caller that must carry on without the file relies on.
-func EmptyState(path string) *State {
-	return &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
+// EmptyState is a state with no records and NO file: it cannot fail, and it
+// cannot be saved over a real state file (save refuses a state without one).
+// A caller that must carry on without an unreadable file relies on both.
+func EmptyState() *State {
+	return &State{ Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
 }
 
 // LoadState reads the state file; a missing file is an empty state.
 func LoadState(path string) (*State, error) {
-	s := EmptyState(path)
+	s := EmptyState()
+	s.path = path
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -78,6 +80,9 @@ func LoadState(path string) (*State, error) {
 }
 
 func (s *State) save() error {
+	if s.path == "" {
+		return errors.New("poller state has no file to save to")
+	}
 	raw, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
