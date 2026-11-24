@@ -474,9 +474,10 @@ counts. Anyone who can read the task may run it; it changes nothing.
 guessed. A slot counts when its current seat is finished, was bound at this
 head, holds an APPROVE, PASS or CARRY verdict from someone other than the build
 task's assignee or the head's freezer (the person who ran pr freeze on this
-head), and no seat of the head holds a negative verdict. NOT READY is a successful read (exit 0): fix the slots that do not
-count (seat a reviewer, wait for the verdict, finish the seat task), then run it
-again. When every slot counts, the build task's assignee runs "pr ready".
+head), and no seat of the head holds a negative verdict. NOT READY is a
+successful read (exit 0): fix the slots that do not count (seat a reviewer, wait
+for the verdict, finish the seat task), then run it again. When every slot
+counts, the build task's assignee runs "pr ready".
 
 To see which slots are scheduled before a head is frozen, run hadron team task
 get <build-task> (its properties list review.schedule), or hadron team events

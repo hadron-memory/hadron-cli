@@ -558,7 +558,7 @@ section between the markers.
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
 | `team pr` |  |  | y | #1054 | cd9933287e43 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | 2233ff3929cf |  | unread |  |
-| `team pr readiness` |  |  | y | #1054 | ab0383bc4f42 |  | unread |  |
+| `team pr readiness` |  |  | y | #1054 | db17ab01601e |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | 601744d45cc2 |  | unread |  |
 | `team pr schedule` |  |  | y | #1054 | dfed9683957e |  | unread |  |
 | `team pr seat` |  |  | y | #1054 | cc740b365b95 |  | unread |  |
