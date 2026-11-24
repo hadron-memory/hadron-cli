@@ -166,7 +166,7 @@ func TestQuestionOtherWritesAreSentOnceAndMapTransportShapes2854(t *testing.T) {
 			}
 		}
 		// A connection that never opened: nothing was sent, nothing is claimed about the write.
-		url := neverOpenedServerURL(t)
+		url := neverOpenedServerURL
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(append([]string{"question"}, verb...), "--server", url))
