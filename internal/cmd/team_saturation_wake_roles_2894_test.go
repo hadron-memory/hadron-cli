@@ -285,7 +285,7 @@ func TestSaturationWakeRolesHelpSaysWhatTheListMeans2894(t *testing.T) {
 		help := strings.Join(strings.Fields(out.String()), " ")
 		for _, want := range []string{
 			"The list names roles",
-			"is offered one wake",
+			"is woken once",
 			"not again for that alarm",
 			"applies only to alarms raised afterwards",
 			"empty by default",

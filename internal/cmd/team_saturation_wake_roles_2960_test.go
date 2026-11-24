@@ -14,6 +14,11 @@ import (
 // cli#2960: pins for the instructed path and the null reads of `team saturation-wake-roles`
 // (cli#2894's follow-ups), the three test gaps, and the help wording as the FIT settles it.
 // Each pin names the mutant it kills.
+//
+// FIT: the specs engineer's spec-fit verdict on an issue, posted on it before it is CHECKED, saying which
+// spec governs a piece of wording and what the wording must and must not claim. The one that binds the wording
+// below is the FIT on cli#2993 (cor:agt:080:11, "Who is never due"): the rule names FOUR never-due cases, so
+// the help gives examples and never a closed list, and says "is not woken now", never that the wake is lost.
 
 const instructedArg2960 = "team-chat-message:" + taskInstructionRef2422
 
@@ -160,14 +165,26 @@ func TestSaturationWakeRolesFloorWordingIsPinned2960(t *testing.T) {
 	}
 }
 
-// The FIT's wording: one wake when the alarm is raised and not again for that alarm; a worker who is
-// never due (retired, paused or dormant) is not woken; a change applies only to later alarms. Not the
-// jargon "unless it is never due", and not the server detail "while its episode is open".
+// The FIT's wording (cli#2993, cor:agt:080:11 "Who is never due"): a listed worker is woken once when the
+// alarm is raised and not again for that alarm; a worker who is never due, such as one that is retired, paused
+// or dormant, is not woken NOW (the rule names a fourth case, a short-lived Agent's worker with no open
+// session, so the list is never closed, and nothing is lost: what was due is handed out later); a change
+// applies only to later alarms. One verb throughout ("woken", never "offered"). Not the jargon "unless it is
+// never due", not the server detail "while its episode is open".
 func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {
 	want := []string{
-		"is offered one wake when a saturation alarm is raised, and not again for that alarm",
-		"a worker who is never due (retired, paused or dormant) is not woken",
+		"is woken once when a saturation alarm is raised, and not again for that alarm",
+		"a worker who is never due, such as one that is retired, paused or dormant, is not woken now",
 		"applies only to alarms raised afterwards",
+	}
+	bad := []string{
+		"unless it is never due", "while its episode is open", "never again for that alarm",
+		// one verb: the same lines said "offered" and "woken"
+		"offered",
+		// not a closed list: the rule names four cases, so no parenthetical that reads as the whole set
+		"(retired, paused or dormant)", "never due (retired",
+		// the wake is not lost
+		"loses the wake", "wake is lost", "is never woken",
 	}
 	for _, argv := range [][]string{{"team", "saturation-wake-roles"}, {"team", "saturation-wake-roles", "get"}, {"team", "saturation-wake-roles", "set"}} {
 		f, out := testFactory(t)
@@ -182,9 +199,9 @@ func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {
 				t.Errorf("%v --help must say %q:\n%s", argv, w, help)
 			}
 		}
-		for _, bad := range []string{"unless it is never due", "while its episode is open", "never again for that alarm"} {
-			if strings.Contains(help, bad) {
-				t.Errorf("%v --help must not say %q", argv, bad)
+		for _, b := range bad {
+			if strings.Contains(help, b) {
+				t.Errorf("%v --help must not say %q", argv, b)
 			}
 		}
 	}
@@ -199,14 +216,17 @@ func TestSaturationWakeRolesHelpWordingIsTheFITs2960(t *testing.T) {
 		entry = entry[:nl]
 	}
 	entry = strings.Join(strings.Fields(entry), " ")
-	for _, w := range []string{"offered one wake when a saturation alarm is raised, and not again for that alarm", "a worker who is never due (retired, paused or dormant) is not woken"} {
+	for _, w := range []string{
+		"woken once when a saturation alarm is raised, and not again for that alarm",
+		"a worker who is never due (cor:agt:080:11), such as one that is retired, paused or dormant, is not woken now",
+	} {
 		if !strings.Contains(entry, w) {
 			t.Errorf("the agentic-usage entry must say %q", w)
 		}
 	}
-	for _, bad := range []string{"unless it is never due", "while its episode is open", "never again for that alarm"} {
-		if strings.Contains(entry, bad) {
-			t.Errorf("the agentic-usage entry must not say %q", bad)
+	for _, b := range bad {
+		if strings.Contains(entry, b) {
+			t.Errorf("the agentic-usage entry must not say %q", b)
 		}
 	}
 }
