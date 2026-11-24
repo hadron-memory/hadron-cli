@@ -429,18 +429,19 @@ finding with a new head. Prints the seat task and the register line.` + prReview
 task. Only the seat's assignee may, the task must be STARTED, the seat must
 have been bound with "pr seat" (REVIEW_SEAT_UNASSIGNED otherwise) and --head
 must be the head it was bound to (REVIEW_HEAD_MISMATCH). Record it, then finish
-the seat task (hadron team task finish <seat-task> --outcome <word>, with
---findings-file <path> to attach findings): a seat counts toward readiness only
-once finished.
+the seat task (hadron team task finish <seat-task> --outcome <one word, such
+as approved>, adding --findings-file <path> to attach findings): a seat counts
+toward readiness only once finished.
 
 The verdicts: APPROVE and CHANGES_REQUESTED are for a code review; PASS and
 FAIL for QA or another check (the team's convention: the server accepts any of
 the six on any seat). CARRY says your earlier verdict still holds at this new
-head, because what you reviewed did not change. REFUSED records that you
-declined to review this seat (use it instead of CHANGES_REQUESTED when you
-give no judgment of the change itself). APPROVE, PASS and CARRY count toward readiness; CHANGES_REQUESTED,
-FAIL and REFUSED are negative and block it at this head (only the reviewer who
-recorded a negative verdict may re-rate it at that head).
+head, because what you reviewed did not change. REFUSED records that the
+reviewer refused the review; the spec defines it only as a negative verdict
+(cor:agt:130:02), so it blocks readiness like CHANGES_REQUESTED. APPROVE, PASS
+and CARRY count toward readiness; CHANGES_REQUESTED, FAIL and REFUSED are
+negative and block it at this head (only the reviewer who recorded a negative
+verdict may re-rate it at that head).
 
 --node names the Hadron node holding your saved review and --receipt the URL of
 your signed PR comment; both are recorded as text, not fetched. Prints the seat
@@ -463,8 +464,8 @@ refused (REVIEW_WITHDRAW_FORBIDDEN): a worker session that manages the App only
 through the person holding it cannot withdraw from here; ask the reviewer or a coordinator.
 
 A withdrawal is never an approval. The verdict stays in the record and the seat
-is not changed; the negative only stops blocking four things: readiness,
-freezing this head again, dropping the slot, and moving or replacing the seat. The slot still needs a
+is not changed; the negative only stops blocking these: readiness, freezing
+this head again, dropping the slot, and moving or replacing the seat. The slot still needs a
 superseding seat (pr seat --supersedes) whose own APPROVE, PASS or CARRY counts
 at this head. A refused call writes nothing, so a refusal needs no repeat.
 Prints the seat task and the register line.` + prSeeGroup,
