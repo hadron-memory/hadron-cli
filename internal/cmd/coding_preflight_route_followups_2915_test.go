@@ -16,8 +16,8 @@ import (
 const routedLine2915 = "\n- **\"To mint a spec\"** → `tasks:mint` in `hrn:mem:acme.com:specs` — How to mint.\n"
 
 // routerWithLine2915 is existingRouter2736 whose body already carries the routing line.
-func routerWithLine2915(data string) string {
-	edge := `{"id":"e_route","name":"to mint a spec","loc":"preflight:to-mint-a-spec:tasks:mint","isRunnable":false,"priority":0,"data":` + data + `,
+func routerWithLine2915() string {
+	edge := `{"id":"e_route","name":"to mint a spec","loc":"preflight:to-mint-a-spec:tasks:mint","isRunnable":false,"priority":0,"data":null,
 		"target":{"id":"n_target","name":"tasks:mint","loc":"tasks:mint","memoryId":"mem2"}}`
 	return strings.Replace(codingRouterWithBody(flatRouterBody+routedLine2915), `"outgoingEdges":[]`, `"outgoingEdges":[`+edge+`]`, 1)
 }
@@ -93,7 +93,7 @@ func TestPreflightRouteDryRunReportsAlreadyRouted2915(t *testing.T) {
 
 // Item 2, text: the rehearsal reads "already routed", never "would route".
 func TestPreflightRouteDryRunTextSaysAlreadyRouted2915(t *testing.T) {
-	_, out, err := runRoute2915(t, routerWithLine2915("null"), existingTarget2736("null"), "--dry-run")
+	_, out, err := runRoute2915(t, routerWithLine2915(), existingTarget2736("null"), "--dry-run")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestPreflightRouteAlreadyRoutedRepairsAMissingBodyLine2915(t *testing.T) {
 		t.Errorf("the verb must say the edges were already there and that a body line was added:\n%s", out)
 	}
 
-	counts, out, err = runRoute2915(t, routerWithLine2915("null"), existingTarget2736("null"))
+	counts, out, err = runRoute2915(t, routerWithLine2915(), existingTarget2736("null"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,10 +289,10 @@ func TestPreflightRouteDryRunTextVerbs3002(t *testing.T) {
 		extra          []string
 		want           string
 	}{
-		{"already routed, nothing to write", routerWithLine2915("null"), existingTarget2736("null"), []string{"--dry-run"}, "already routed (nothing to write)"},
+		{"already routed, nothing to write", routerWithLine2915(), existingTarget2736("null"), []string{"--dry-run"}, "already routed (nothing to write)"},
 		{"already routed, body line missing", existingRouter2736("null"), existingTarget2736("null"), []string{"--dry-run"}, "already routed (edges); would add the body line"},
 		{"not routed yet", codingRouterWithBody(flatRouterBody), crossTarget2736(), []string{"--dry-run"}, "would route"},
-		{"real run, already routed", routerWithLine2915("null"), existingTarget2736("null"), nil, "✓ already routed"},
+		{"real run, already routed", routerWithLine2915(), existingTarget2736("null"), nil, "✓ already routed"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
