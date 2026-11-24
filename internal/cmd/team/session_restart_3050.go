@@ -27,7 +27,7 @@ func newCmdSessionRestart(f *cmdutil.Factory) *cobra.Command {
 	var reason string
 	cmd := &cobra.Command{
 		Use:   "restart <worker> --reason <text>",
-		Short: "End a dark worker session and start the worker again — the grant door",
+		Short: "End a dark worker session and start the worker again (needs a signed grant)",
 		Long: `End the named worker's DARK open session and start it again, in one
 transaction, with no person in the loop. This is the door for a session you
 cannot get going or get an answer from — chat pings unanswered, the agent
