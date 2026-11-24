@@ -20,11 +20,17 @@ import (
 //	usageEvents(memoryId:, nodeId:)     -> (memoryRef:, nodeRef:)
 //	usageEventsPage(memoryId:, nodeId:) -> (memoryRef:, nodeRef:)
 //
-// No alias and no fallback, by ruling 0274 (an ordered hard break: the server
-// first, then this companion inside the paired window; cor:api:140:01). A
-// fallback to the old names would have to test a capability token rather than
-// try the operation (cor:api:220:01), so released CLIs older than this change
-// stop working with those reads at the server cutover, by design.
+// No alias and no fallback. The renames follow cor:api:140:01 (a reference
+// argument's name carries its capability: a both-accepting reference is ref
+// or <entity>Ref, and <entity>Id is reserved for genuine primary keys).
+// Ruling 0274 orders the break rather than gating it: the breaking-change
+// notices go out first, then the server slices merge, then the companions —
+// this CLI among them — each at its exact frozen, fully seated head. And a
+// fallback to the old names could not probe for support: cor:api:220:01
+// requires a client to test for the feature's capability token, and forbids
+// inferring support from the version number or discovering it by attempting
+// the operation. Released CLIs older than this change therefore stop working
+// with those reads at the server cutover, by design.
 //
 // The CLI selects memoryAssets, memoryLocSegments and usageEventsPage;
 // usageEvents has no CLI document, so only its snapshot side is pinned.
