@@ -76,6 +76,9 @@ Settings for automation (optional; an ordinary link needs none of them):
 			if err != nil {
 				return err
 			}
+			// The skip below is safe only because neither ref composes with -m, which is
+			// what ComposesWithMemory says; TestComposesWithMemoryAgreesWithResolveNodeRef3000
+			// ties it to ResolveNodeRef, so a new branch there cannot silently diverge.
 			// A memory ID on -m is read once for both endpoints (cli#3000), and only when an
 			// endpoint is a bare loc: two URN endpoints name their own nodes, so -m (and a
 			// fault reading it) must not affect them. After this the memory is a URN and the

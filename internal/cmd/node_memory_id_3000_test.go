@@ -326,8 +326,13 @@ func TestNodeGetBatchUnresolvableMemoryID3000(t *testing.T) {
 // add with URN endpoints and an ignored -m passed before cli#3000 and still does).
 func TestEdgeAddURNEndpointsNeverReadTheMemoryID3000(t *testing.T) {
 	url, calls := serve3000(t, "HTTP 502", map[string]string{"ResolveUrn": resolveNode3000})
-	_ = run3000(t, url, "edge", "add", "-m", memID3000,
+	err := run3000(t, url, "edge", "add", "-m", memID3000,
 		"--from", "hrn:node:acme.com:kb:a:one", "--to", "hrn:node:acme.com:kb:b:two", "--name", "routes-to")
+	// The run's tail (the create, unstubbed here) may fail, but never as the 502 the memory
+	// read would have been: that read is not sent at all.
+	if err != nil && exitCodeFor(err) == exitcode.Unavailable {
+		t.Fatalf("a URN-endpoint add failed as the memory read's 502: %v", err)
+	}
 	c := calls()
 	if got := find3000(c, "GetMemory"); len(got) != 0 {
 		t.Fatalf("URN endpoints must not read the -m memory: %v", ops3000(c))
