@@ -511,7 +511,7 @@ section between the markers.
 | `team chat inbox` |  |  | n | #1054 | 098ce787ca9f |  | unread |  |
 | `team chat mark-read` |  |  | y | #1054 | 32128682f35a |  | unread |  |
 | `team chat post` |  |  | y | #1054 | 78b985ffef96 |  | unread |  |
-| `team chat read` | pull |  | y | #1054 | 650e23c8bb44 |  | unread |  |
+| `team chat read` | pull |  | y | #1054 | 99f61b8dfc39 |  | unread |  |
 | `team chat search` |  |  | y | #1054 | 761bf8adfcb1 |  | unread |  |
 | `team composition` |  |  | n | #1054 | 56db72727109 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
 | `team delivery-settings` |  |  | n | #1054 | b93ae59855e1 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |

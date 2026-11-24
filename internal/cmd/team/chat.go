@@ -524,7 +524,7 @@ func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
 	// --wait loop (chat_wait.go) polls until it is non-zero.
 	var returned int
 	cmd := &cobra.Command{
-		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>]",
+		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>] [--thread <seq>] [--tagged | --untagged | --team-head <id>] [--wait <duration>]",
 		Aliases: []string{"pull"},
 		Short:   "Read one page of team chat, newest page by default",
 		Long: `Read messages from the team chat, oldest first within the page. Each line
@@ -560,9 +560,10 @@ Filter the messages:
   --tagged, --untagged, --team-head ID (repeatable)
                      only messages with a stored team head, with none, or with
                      one of these head IDs, used exactly as given (an ID,
-                     not a name; commas are part of the ID; at most 20). Give
-                     only one of the three, not with --thread. Where the
-                     deployment stamps heads, text output shows their labels
+                     not a name; commas are part of the ID; the server
+                     caps how many). Give only one of the three, not with
+                     --thread. Where the deployment stamps heads, text output
+                     shows their labels
                      and --json adds teamTags: [{headId,label}] ([] for none,
                      null where history lacks or withholds it); key on headId.
                      Refusals are exit 4 (TEAM_CHAT_TEAM_HEAD_INVALID), exit 8
