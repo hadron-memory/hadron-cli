@@ -96173,12 +96173,13 @@ type SetAgentAssetUploadEnabledInput struct {
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
 	// qualified (org:agent) per spec 022 — relative-form URNs are rejected
 	// as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
-	AgentUrn string `json:"agentUrn"`
+	// #4368: renamed from agentUrn (hrn:node:hadronmemory.com:specs:cor:api:140:01); no alias.
+	AgentRef string `json:"agentRef"`
 	Enabled  bool   `json:"enabled"`
 }
 
-// GetAgentUrn returns SetAgentAssetUploadEnabledInput.AgentUrn, and is useful for accessing the field via an interface.
-func (v *SetAgentAssetUploadEnabledInput) GetAgentUrn() string { return v.AgentUrn }
+// GetAgentRef returns SetAgentAssetUploadEnabledInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *SetAgentAssetUploadEnabledInput) GetAgentRef() string { return v.AgentRef }
 
 // GetEnabled returns SetAgentAssetUploadEnabledInput.Enabled, and is useful for accessing the field via an interface.
 func (v *SetAgentAssetUploadEnabledInput) GetEnabled() bool { return v.Enabled }
