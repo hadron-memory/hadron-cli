@@ -1,0 +1,240 @@
+package cmd
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+// cli#3000 (Xabat's ruling: resolve-ID): a bare memory ID on -m resolves through the same
+// memory read a URN would pass, then composes the bare loc. An ID that resolves to nothing the
+// caller can read keeps today's plain refusal, and no request is sent for the node.
+
+const memID3000 = "01a1d9c2453a782189ceeafb18c37d61"
+
+type req3000 struct {
+	op   string
+	vars map[string]json.RawMessage
+}
+
+// serve3000 answers GetMemory with memoryBody and every other operation from stubs, recording the
+// requests in order. An unstubbed operation answers an error (the commands under test are checked
+// on what they SEND, so the tail of a run may fail).
+func serve3000(t *testing.T, memoryBody string, stubs map[string]string) (url string, calls func() []req3000) {
+	t.Helper()
+	var mu sync.Mutex
+	var got []req3000
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		var q struct {
+			OperationName string                     `json:"operationName"`
+			Variables     map[string]json.RawMessage `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&q)
+		mu.Lock()
+		got = append(got, req3000{q.OperationName, q.Variables})
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if q.OperationName == "GetMemory" {
+			if strings.HasPrefix(memoryBody, "HTTP ") {
+				http.Error(w, "upstream", http.StatusBadGateway)
+				return
+			}
+			_, _ = w.Write([]byte(memoryBody))
+			return
+		}
+		if body, ok := stubs[q.OperationName]; ok {
+			_, _ = w.Write([]byte(body))
+			return
+		}
+		_, _ = w.Write([]byte(`{"errors":[{"message":"unstubbed in this test"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL, func() []req3000 {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]req3000(nil), got...)
+	}
+}
+
+const memFound3000 = `{"data":{"memory":{"id":"` + memID3000 + `","urn":"hrn:mem:acme.com:kb","name":"KB","isEncrypted":false}}}`
+const memNull3000 = `{"data":{"memory":null}}`
+const resolveNode3000 = `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"` + memID3000 + `"}}}`
+
+func ops3000(c []req3000) []string {
+	var o []string
+	for _, r := range c {
+		o = append(o, r.op)
+	}
+	return o
+}
+
+func str3000(r req3000, key string) string {
+	var s string
+	_ = json.Unmarshal(r.vars[key], &s)
+	return s
+}
+
+func find3000(c []req3000, op string) []req3000 {
+	var out []req3000
+	for _, r := range c {
+		if r.op == op {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func run3000(t *testing.T, url string, args ...string) error {
+	t.Helper()
+	withSigningProbe(t, false, nil)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(args, "--server", url))
+	return root.Execute()
+}
+
+// A memory ID + a bare loc reads the memory, composes the canonical node URN and resolves it.
+func TestNodeGetMemoryIDResolves3000(t *testing.T) {
+	url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolve3000(), "GetNode": nodeGetJSON(testNodeURL)})
+	// The run's tail (the revision bracket) is not stubbed: what matters is what was sent.
+	err := run3000(t, url, "node", "get", "-m", memID3000, "sheds:rolling-checkpoint")
+	c := calls()
+	if err != nil && strings.Contains(err.Error(), "not a fully-qualified node URN") {
+		t.Fatalf("a memory ID on -m was refused: %v", err)
+	}
+	mem := find3000(c, "GetMemory")
+	if len(mem) != 1 || str3000(mem[0], "ref") != memID3000 {
+		t.Fatalf("want one GetMemory for the id, got %v", ops3000(c))
+	}
+	res := find3000(c, "ResolveUrn")
+	if len(res) != 1 || str3000(res[0], "urn") != "hrn:node:acme.com:kb:sheds:rolling-checkpoint" {
+		t.Fatalf("the node was not resolved by the composed URN: %v", c)
+	}
+}
+
+func resolve3000() string { return resolveNode3000 }
+
+// An ID that resolves to nothing readable (absent, foreign or forbidden answer the same null) keeps
+// today's plain refusal: a usage error that discloses nothing, and the node is never asked for.
+func TestNodeGetMemoryIDUnresolvableKeepsThePlainRefusal3000(t *testing.T) {
+	var msgs []string
+	for _, id := range []string{memID3000, "01a1d9c2453a782189ceeafb18c37d62"} {
+		url, calls := serve3000(t, memNull3000, map[string]string{"ResolveUrn": resolveNode3000})
+		err := run3000(t, url, "node", "get", "-m", id, "sheds:x")
+		wantExit(t, err, exitcode.Usage)
+		if got := find3000(calls(), "ResolveUrn"); len(got) != 0 {
+			t.Fatalf("an unresolvable memory must not reach the node resolve: %v", ops3000(calls()))
+		}
+		if !strings.Contains(err.Error(), "not a fully-qualified node URN") {
+			t.Fatalf("the refusal changed: %v", err)
+		}
+		msgs = append(msgs, strings.ReplaceAll(err.Error(), id, "<id>"))
+	}
+	if msgs[0] != msgs[1] {
+		t.Fatalf("two unresolvable ids must be refused identically:\n%q\n%q", msgs[0], msgs[1])
+	}
+}
+
+// A server fault on the memory read is the fault's own class, never the usage refusal.
+func TestNodeGetMemoryIDServerFaultIsNotARefusal3000(t *testing.T) {
+	url, _ := serve3000(t, "HTTP 502", nil)
+	err := run3000(t, url, "node", "get", "-m", memID3000, "sheds:x")
+	wantExit(t, err, exitcode.Unavailable)
+}
+
+// Every other -m spelling is untouched: no extra memory read.
+func TestNodeGetMemoryURNFormsSendNoMemoryRead3000(t *testing.T) {
+	for _, m := range []string{"hrn:mem:acme.com:kb", "acme.com:kb", "acme.com::kb"} {
+		url, calls := serve3000(t, memNull3000, map[string]string{"ResolveUrn": resolveNode3000, "GetNode": nodeGetJSON(testNodeURL)})
+		err := run3000(t, url, "node", "get", "-m", m, "start-here")
+		if err != nil && strings.Contains(err.Error(), "not a fully-qualified node URN") {
+			t.Fatalf("-m %s was refused: %v", m, err)
+		}
+		if got := find3000(calls(), "GetMemory"); len(got) != 0 {
+			t.Fatalf("-m %s sent a memory read: %v", m, ops3000(calls()))
+		}
+		if got := find3000(calls(), "ResolveUrn"); len(got) != 1 || str3000(got[0], "urn") != "hrn:node:acme.com:kb:start-here" {
+			t.Fatalf("-m %s did not resolve the composed URN: %v", m, ops3000(calls()))
+		}
+	}
+}
+
+// The batch read: one memory read for the whole set, every ref composed against the URN.
+func TestNodeGetBatchMemoryID3000(t *testing.T) {
+	url, calls := serve3000(t, memFound3000, map[string]string{"NodeBatch": nodeBatchResult([]string{}, "")})
+	_ = run3000(t, url, "node", "get", "-m", memID3000, "a:one", "b:two")
+	c := calls()
+	if got := find3000(c, "GetMemory"); len(got) != 1 {
+		t.Fatalf("want exactly one memory read for the batch, got %v", ops3000(c))
+	}
+	// The first read of the set carries the refs (the revision bracket, then the batch itself).
+	var nb []req3000
+	for _, r := range c {
+		if _, ok := r.vars["refs"]; ok {
+			nb = append(nb, r)
+		}
+	}
+	if len(nb) == 0 {
+		t.Fatalf("no read carried the refs: %v", ops3000(c))
+	}
+	var refs []string
+	_ = json.Unmarshal(nb[0].vars["refs"], &refs)
+	if len(refs) != 2 || refs[0] != "hrn:node:acme.com:kb:a:one" || refs[1] != "hrn:node:acme.com:kb:b:two" {
+		t.Fatalf("batch refs = %v", refs)
+	}
+}
+
+// The edge commands that take a bare loc use the same resolution.
+func TestEdgeMemoryID3000(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		urns []string
+	}{
+		{"edge ls", []string{"edge", "ls", "-m", memID3000, "sheds:x"}, []string{"hrn:node:acme.com:kb:sheds:x"}},
+		{"edge add", []string{"edge", "add", "-m", memID3000, "--from", "a:one", "--to", "b:two", "--name", "routes-to"}, []string{"hrn:node:acme.com:kb:a:one", "hrn:node:acme.com:kb:b:two"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolveNode3000})
+			_ = run3000(t, url, tc.args...)
+			c := calls()
+			if got := find3000(c, "GetMemory"); len(got) < 1 {
+				t.Fatalf("no memory read: %v", ops3000(c))
+			}
+			res := find3000(c, "ResolveUrn")
+			if len(res) < len(tc.urns) {
+				t.Fatalf("want %d resolves, got %v", len(tc.urns), ops3000(c))
+			}
+			for i, want := range tc.urns {
+				if got := str3000(res[i], "urn"); got != want {
+					t.Fatalf("resolve %d = %q, want %q", i, got, want)
+				}
+			}
+		})
+	}
+}
+
+// The help says -m takes a memory ID as well as a URN, on the three commands that compose a bare loc.
+func TestMemoryFlagHelpNamesTheID3000(t *testing.T) {
+	for _, args := range [][]string{{"node", "get", "--help"}, {"edge", "add", "--help"}, {"edge", "ls", "--help"}} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		flat := strings.Join(strings.Fields(out.String()), " ")
+		if !strings.Contains(flat, "a memory ID or URN") {
+			t.Errorf("%v must say -m accepts a memory ID or URN:\n%s", args, out.String())
+		}
+	}
+}

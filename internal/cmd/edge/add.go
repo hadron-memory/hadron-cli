@@ -128,7 +128,7 @@ Settings for automation (optional; an ordinary link needs none of them):
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve bare --from/--to locs against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "a memory ID or URN (hrn:mem:<root>:<slug>) to resolve bare --from/--to locs against")
 	cmd.Flags().StringVar(&from, "from", "", "the node the link starts from: a node URN, or a bare loc with -m (required)")
 	cmd.Flags().StringVar(&to, "to", "", "the node the link points to: a node URN, or a bare loc with -m (required)")
 	cmd.Flags().StringVar(&name, "name", "", "relationship name, for example routes-to (required)")

@@ -805,7 +805,12 @@ Conventions:
   (`services:secureid:user-reporting`), so it's ambiguous; the `hrn:node:` prefix
   is what removes that ambiguity for the flat v2 form. A bare loc is rejected
   (exit 2) *unless* you pass `-m/--memory hrn:mem:<root>:<slug>` (the short
-  `<org>:<slug>` / `<org>::<slug>` forms also accepted) to name the memory — then
+  `<org>:<slug>` / `<org>::<slug>` forms also accepted, and so is the memory's
+  32-hex ID, cli#3000: the CLI reads that memory first through the memory read any
+  URN would pass, so an ID that is missing, foreign or unreadable gets the same
+  plain refusal as any other unresolvable reference, and a server fault on that
+  read is reported as the fault, not as a bad reference; one read serves a whole
+  `node get` batch) to name the memory — then
   `node get|update|move|clone|rm|export` and `edge add|list` take a bare `<loc>`
   (e.g. `node get start-here -m hrn:mem:hadronmemory.com:dev`; `edge add -m
   hrn:mem:a:m --from x --to y …` applies the memory to both endpoints). For `node move|clone`, `-m`
