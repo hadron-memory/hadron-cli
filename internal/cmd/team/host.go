@@ -248,6 +248,12 @@ type hostOperationDTO struct {
 	FailureReason *string         `json:"failureReason"`
 }
 
+// errNoHostOperations is a reply that came back without the hostOperations
+// field at all (data null, {} or an explicit null): a named exit-1 refusal, as
+// `team host issue` gives for a reply with no operation (#2572), never a nil
+// dereference (cli#3077). It is not an empty page, which is a field holding no items.
+var errNoHostOperations = exitcode.Newf(exitcode.Error, "server returned no host operations")
+
 const hostOpsNoReasonWarning = "issuedReason is not shown: this server predates hadron-server#4257 and has no such field"
 
 // readHostOperations reads one page of the App's host operations with the
@@ -258,6 +264,9 @@ func readHostOperations(ctx context.Context, client graphql.Client, appRef strin
 	page := hostOperationPageDTO{Items: []hostOperationDTO{}}
 	resp, err := gen.HostOperationsWithReason(ctx, client, appRef, hostID, status, worker, first, after)
 	if err == nil {
+		if resp == nil || resp.HostOperations == nil {
+			return page, errNoHostOperations
+		}
 		page.HasNextPage, page.EndCursor = resp.HostOperations.HasNextPage, resp.HostOperations.EndCursor
 		for _, o := range resp.HostOperations.Items {
 			if o != nil {
@@ -274,6 +283,9 @@ func readHostOperations(ctx context.Context, client graphql.Client, appRef strin
 	plain, err := gen.HostOperations(ctx, client, appRef, hostID, status, worker, first, after)
 	if err != nil {
 		return page, err
+	}
+	if plain == nil || plain.HostOperations == nil {
+		return page, errNoHostOperations
 	}
 	page.Warnings = []string{hostOpsNoReasonWarning}
 	page.HasNextPage, page.EndCursor = plain.HostOperations.HasNextPage, plain.HostOperations.EndCursor
