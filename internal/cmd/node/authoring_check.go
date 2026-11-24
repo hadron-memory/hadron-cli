@@ -53,7 +53,7 @@ func newCmdAuthoringCheck(f *cmdutil.Factory) *cobra.Command {
 	var authoredRevision int
 	var runnable, noContentChange bool
 	cmd := &cobra.Command{
-		Use:   "authoring-check <node> [-m <memory>] [--role <role>] [--authored-with <task> --authored-revision <n>]",
+		Use:   "authoring-check <node> [-m <memory>] [--role <role>] [--runnable[=false]] [--no-content-change] [--authored-with <task> --authored-revision <n>]",
 		Short: "Preview whether a governed write would pass the authoring check",
 		Long: `Ask the server what the authoring attestation check would answer for a write
 you are about to make, without making it. Use it before writing a node whose
@@ -131,7 +131,10 @@ func authoringCheckInput(cmd *cobra.Command, nodeRef, memory, role, task string,
 		return nil, exitcode.Newf(exitcode.Usage, "a bare loc needs -m/--memory <memory>; otherwise pass a node id or node URN")
 	}
 	if flags.Changed("role") {
-		if role == "" {
+		// Blank clears, exactly as node update's clearRole decides
+		// (TrimSpace == ""), so the preview agrees with the write; a role with
+		// surrounding spaces is sent as typed, never trimmed into a different one.
+		if strings.TrimSpace(role) == "" {
 			in.ClearRole = true
 		} else {
 			in.Role = &role
@@ -178,12 +181,12 @@ func authoringCheckToDTO(c *gen.NodeAuthoringCheckNodeAuthoringCheck) authoringC
 // the server's prose and a task ref, shown to a terminal. The wording never
 // says a write will succeed: a PASS is a preview, not a reservation.
 func renderAuthoringCheck(w io.Writer, d authoringCheckDTO) error {
-	switch d.State {
-	case "PASS":
+	switch gen.NodeAuthoringCheckState(d.State) {
+	case gen.NodeAuthoringCheckStatePass:
 		fmt.Fprintln(w, "PASS: the write would pass the authoring check now. This is a preview, not a reservation, and not proof the task was read or followed.")
-	case "UNAVAILABLE":
+	case gen.NodeAuthoringCheckStateUnavailable:
 		fmt.Fprintln(w, "UNAVAILABLE: you can read this memory but do not write it, so the check shows nothing about its rules. This is not a pass.")
-	case "REFUSED":
+	case gen.NodeAuthoringCheckStateRefused:
 		fmt.Fprintln(w, "REFUSED: the write would be refused.")
 		if d.Code != nil {
 			fmt.Fprintf(w, "  code:    %s\n", output.SafeLine(*d.Code, 128))
@@ -195,7 +198,7 @@ func renderAuthoringCheck(w io.Writer, d authoringCheckDTO) error {
 			fmt.Fprintf(w, "  message: %s\n", output.SafeLine(*d.Message, 2048))
 		}
 		if r := d.Recovery; r != nil {
-			if r.TaskAccess == "READABLE" && r.Task != nil {
+			if gen.AuthoringCheckTaskAccess(r.TaskAccess) == gen.AuthoringCheckTaskAccessReadable && r.Task != nil {
 				fmt.Fprintf(w, "  task:    %s", output.SanitizeLine(*r.Task))
 				if r.TaskRevision != nil {
 					fmt.Fprintf(w, ", revision %d", *r.TaskRevision)

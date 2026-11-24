@@ -164,3 +164,78 @@ func TestNodeAuthoringCheckLocalRefusals3089(t *testing.T) {
 		}
 	}
 }
+
+// Omission is a state: with no flag, input carries NO role, isRunnable,
+// changesAuthoredContent or authoredWith key (keep-own, never set-empty), and a
+// whitespace-only --role clears as node update does.
+func TestNodeAuthoringCheckOmissionAndBlankRole3089(t *testing.T) {
+	pass := `{"data":{"nodeAuthoringCheck":{"state":"PASS","code":null,"message":null,"role":null,"recovery":null}}}`
+	inputOf := func(args ...string) map[string]json.RawMessage {
+		captured, _, err := runAuthoringCheck3089(t, pass, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var vars struct {
+			Input map[string]json.RawMessage `json:"input"`
+		}
+		_ = json.Unmarshal(captured["NodeAuthoringCheck"], &vars)
+		return vars.Input
+	}
+	in := inputOf("hrn:node:acme.com:kb:specs:x")
+	for _, k := range []string{"role", "isRunnable", "changesAuthoredContent", "authoredWith", "memoryId", "loc"} {
+		if _, ok := in[k]; ok {
+			t.Errorf("input.%s sent although not asked for: %v", k, in)
+		}
+	}
+	if string(inputOf("hrn:node:acme.com:kb:specs:x", "--role", "  ")["role"]) != "null" {
+		t.Errorf("whitespace-only --role must clear (null), as node update does")
+	}
+	if string(inputOf("hrn:node:acme.com:kb:specs:x", "--runnable")["isRunnable"]) != "true" {
+		t.Errorf("--runnable must send true")
+	}
+}
+
+// An id and an action URN go as ref; an out-of-range revision is refused
+// locally; the unreadable-task recovery and an unknown state render honestly.
+func TestNodeAuthoringCheckRoutesAndRendersEdges3089(t *testing.T) {
+	id := strings.Repeat("a", 32)
+	for _, ref := range []string{id, "hrn:action:acme.com:agent:code"} {
+		captured, _, err := runAuthoringCheck3089(t, `{"data":{"nodeAuthoringCheck":{"state":"PASS","code":null,"message":null,"role":null,"recovery":null}}}`, ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var vars struct {
+			Input map[string]json.RawMessage `json:"input"`
+		}
+		_ = json.Unmarshal(captured["NodeAuthoringCheck"], &vars)
+		if string(vars.Input["ref"]) != `"`+ref+`"` {
+			t.Errorf("%s: input = %v", ref, vars.Input)
+		}
+	}
+	captured, _, err := runAuthoringCheck3089(t, authoringCheckRefused3089, "hrn:node:acme.com:kb:x", "--authored-with", "t1", "--authored-revision", "2147483648")
+	if err == nil || exitCodeFor(err) != 2 {
+		t.Errorf("out-of-range revision: err=%v", err)
+	}
+	if _, sent := captured["NodeAuthoringCheck"]; sent {
+		t.Error("out-of-range revision sent a request")
+	}
+	for name, resp := range map[string]string{
+		"unreadable task": `{"data":{"nodeAuthoringCheck":{"state":"REFUSED","code":"AUTHOR_TASK_BROKEN","message":"m","role":"spec","recovery":{"taskAccess":"UNAVAILABLE","task":null,"taskId":null,"taskRevision":null,"load":null}}}}`,
+		"unknown state":   `{"data":{"nodeAuthoringCheck":{"state":"FUTURE","code":null,"message":null,"role":null,"recovery":null}}}`,
+	} {
+		srv, _ := captureGraphQL(t, map[string]string{"NodeAuthoringCheck": resp})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"node", "authoring-check", "hrn:node:acme.com:kb:specs:x", "--server", srv.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		text := out.String()
+		if name == "unreadable task" && !strings.Contains(text, "unavailable to you") {
+			t.Errorf("%s: %q", name, text)
+		}
+		if name == "unknown state" && strings.TrimSpace(text) != "FUTURE" {
+			t.Errorf("%s: %q", name, text)
+		}
+	}
+}
