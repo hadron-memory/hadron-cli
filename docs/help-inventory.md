@@ -571,12 +571,12 @@ section between the markers.
 | `team register pick` |  |  | y | #1054 | 989dcccd90f7 |  | unread |  |
 | `team resume` |  |  | y | #1054 | f9f1ef2d0053 |  | unread |  |
 | `team review-stats` |  |  | y | #1054 | 35b1b28ad90b |  | unread |  |
-| `team role` | roles |  | n | #1054 | 36c3f271ea98 |  | unread |  |
-| `team role create` |  |  | y | #1054 | 5a66dc517bb6 |  | unread |  |
+| `team role` | roles |  | n | #1054 | cc66149dd689 |  | unread |  |
+| `team role create` |  |  | y | #1054 | 8f4d4d7f6a84 |  | unread |  |
 | `team role get` |  |  | y | #1054 | f80ad4194e34 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
-| `team role list` | ls |  | y | #1054 | 52c3e94a8d71 |  | unread |  |
-| `team role rm` | delete |  | y | #1054 | a5ba6a17ef4e |  | unread |  |
-| `team role update` |  |  | y | #1054 | 68673ad5939d |  | unread |  |
+| `team role list` | ls |  | y | #1054 | 0c7024c4bb5e |  | unread |  |
+| `team role rm` | delete |  | y | #1054 | 2ef5e88356e0 |  | unread |  |
+| `team role update` |  |  | y | #1054 | 2dd5af276e7a |  | unread |  |
 | `team role-lists` |  |  | n | #1054 | 9d3395e1eab5 |  | unread |  |
 | `team role-lists get` |  |  | n | #1054 | b01504463e93 |  | unread |  |
 | `team role-lists set` |  |  | y | #1054 | 187718626bd3 |  | unread |  |
