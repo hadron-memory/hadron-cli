@@ -437,9 +437,9 @@ The verdicts: APPROVE and CHANGES_REQUESTED are for a code review; PASS and
 FAIL for QA or another check (the team's convention: the server accepts any of
 the six on any seat). CARRY says your earlier verdict still holds at this new
 head, because what you reviewed did not change. REFUSED records that the
-reviewer refused the review; the spec defines it only as a negative verdict
-(cor:agt:130:02), so it blocks readiness like CHANGES_REQUESTED. APPROVE, PASS
-and CARRY count toward readiness; CHANGES_REQUESTED, FAIL and REFUSED are
+reviewer refused the review; the protocol defines it only as a negative
+verdict, so it blocks readiness like CHANGES_REQUESTED. APPROVE, PASS and CARRY
+count toward readiness; CHANGES_REQUESTED, FAIL and REFUSED are
 negative and block it at this head (only the reviewer who recorded a negative
 verdict may re-rate it at that head).
 
