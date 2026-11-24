@@ -349,6 +349,40 @@ type AddMemoryMemberPayload {
 }
 
 """
+A signed correction on an organization's credit ledger, such as a refund
+(hrn:node:hadronmemory.com:specs:cor:dmo:170:03). It is written as a new
+adjustment entry, never as an edit of another
+(hrn:node:hadronmemory.com:specs:cor:dmo:170:08).
+"""
+input AdjustCreditsInput {
+  """
+  Signed, non-zero micro-cents, base-10 integer string within int8 (a
+  leading minus lowers the balance; no plus sign or fraction).
+  """
+  amountMicroCents: String!
+
+  """
+  Why the correction was made; must not be blank. Kept as long as the
+  entry: codes and ids, never personal data.
+  """
+  note: String!
+  orgRef: String!
+
+  """The id within sourceType; must not be blank."""
+  sourceId: String!
+
+  """
+  Idempotency + provenance pair, e.g. ('refund', <refund id>); neither
+  half may be blank. The same pair, account, amount and kind returns the
+  EXISTING entry; any other entry on that pair, a grant included, is
+  IDEMPOTENCY_CONFLICT. Refused (trimmed, case-insensitive) are the source
+  types the server writes itself: usage-event, grant-expiry, period-grant,
+  cost-correction.
+  """
+  sourceType: String!
+}
+
+"""
 The reusable definition a Builder creates and the marketplace can list.
 Agents are installed into runtime Apps through the AppAgent N:M join: an App
 may install many Agents, and an Agent may be installed in many Apps. The App,
@@ -976,6 +1010,12 @@ type AgentTask {
   """
   handle: String!
   id: ID!
+
+  """
+  #4997 (hrn:node:hadronmemory.com:specs:cor:agt:050:01 Project marker): whether this task is a project for the team metrics
+  (hrn:node:hadronmemory.com:specs:cor:agt:150). Set only when the task is created and never changed; AT0 is never one.
+  """
+  isProject: Boolean!
 
   """
   Null unless an opt-in single-shot match failed. No assignment-unassignable alarm is raised for it.
@@ -2204,6 +2244,68 @@ type AiServiceConfigTestUsed {
 type AiServiceConfigsPage {
   items: [AiServiceConfig!]!
   total: Int!
+}
+
+"""
+How aiSpend groups units. Each row's key is the group's value; a unit with no value for the grouping is the row with the empty key.
+"""
+enum AiSpendGroup {
+  """The id of the App that spent it. An id only, never an App."""
+  APP
+
+  """The UTC date of the unit, YYYY-MM-DD."""
+  DAY
+
+  """
+  Who held the key that served the call, for example HADRON_SERVER (the platform key) or ORGANIZATION (its own key).
+  """
+  KEY_OWNER
+
+  """provider/model, either half empty when it is not recorded."""
+  MODEL
+}
+
+"""
+One group of aiSpend. costMicroCents and chargedMicroCents are two figures, never one (hrn:node:hadronmemory.com:specs:cor:dmo:170:04): cost is what the units cost and charge is what was debited for them, so a unit on the organization's own key has a cost and no charge. costMicroCents sums the PRICED units only and unpricedEvents counts the rest, so a group with unpriced units is never read as complete and a group of unpriced units is not a cost of zero.
+"""
+type AiSpendRow {
+  """
+  The absolute sum of the debits of the units, in micro-cents. A separate figure from cost.
+  """
+  chargedMicroCents: String!
+
+  """
+  Sum of the cost of the priced units, in micro-cents. Units with no price are not in it; see unpricedEvents.
+  """
+  costMicroCents: String!
+
+  """Units in the group, priced or not."""
+  events: Int!
+  key: String!
+  tokensIn: String!
+  tokensOut: String!
+
+  """Units with no recorded price: shown as unpriced, never as a zero cost."""
+  unpricedEvents: Int!
+}
+
+type AiSpendSummary {
+  """The range start as read, ISO 8601 UTC, inclusive."""
+  from: String!
+
+  """At most 500 groups, largest charge first, then cost, events and key."""
+  rows: [AiSpendRow!]!
+
+  """The range end as read, ISO 8601 UTC, exclusive."""
+  to: String!
+
+  """
+  The exact number of groups, so a short list is never read as the whole one.
+  """
+  totalGroups: Int!
+
+  """True when more groups exist than rows returned."""
+  truncated: Boolean!
 }
 
 """
@@ -4468,6 +4570,11 @@ input CloneAgentTaskInput {
   closeSessionWhenDone: Boolean
   description: String
   finishBy: DateTime
+
+  """
+  #4997 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): the clone's project marker; left out, the clone keeps the source's. false with project: true is refused.
+  """
+  isProject: Boolean
   owner: AgentTaskPartyInput
 
   """
@@ -4479,6 +4586,10 @@ input CloneAgentTaskInput {
   A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
   """
   priority: Int
+
+  """
+  #4997: true makes the clone a top-level task and a project; false places it under AT0 and unmarked unless isProject says otherwise.
+  """
   project: Boolean
   properties: JSON
   references: [AgentTaskReferenceInput!]
@@ -5060,6 +5171,13 @@ input CreateAgentTaskInput {
   finishBy: DateTime
 
   """
+  #4997 (hrn:node:hadronmemory.com:specs:cor:agt:050:01 Project marker): mark this task as a project for the team metrics, wherever it sits
+  (under a parent or with no project). Set only here, never changed afterwards. false together with project: true is
+  refused, and nothing is created.
+  """
+  isProject: Boolean
+
+  """
   Run one blocking match. Failure is marked and skipped by automatic runs. Assignment, cancellation, or park then ready clears it. Only for pending, unblocked tasks without an assignee; a blocked create refuses BAD_USER_INPUT atomically. Batch items run requested attempts in list order after the whole commit; a blocked match item refuses the whole call before commit, with its position. No distinct-workers guarantee.
   """
   match: Boolean
@@ -5079,7 +5197,7 @@ input CreateAgentTaskInput {
   priority: Int
 
   """
-  Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
+  Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0, carrying the project marker (#4997). Not with parentTaskId.
   """
   project: Boolean
 
@@ -5443,7 +5561,8 @@ type CreditBalance {
 
 """
 046-usage-metering: append-only org credit ledger row. Signed
-micro-cents as a base-10 integer string (grants +, debits -).
+micro-cents as a base-10 integer string (grants +, debits -,
+adjustments either sign).
 """
 type CreditLedgerEntry {
   amountMicroCents: String!
@@ -6500,13 +6619,20 @@ input GrantCreditsInput {
   expiresAt: String
   note: String
   orgRef: String!
+
+  """The id within sourceType; required with it when the mutation runs."""
   sourceId: String
 
   """
-  Idempotency + provenance pair (both or neither), e.g.
-  ('stripe-checkout', <session id>). (sourceType, sourceId) is unique
-  across the ledger - re-granting the same pair returns the EXISTING
-  entry instead of double-crediting (at-least-once webhook safety).
+  Idempotency + provenance pair, e.g. ('stripe-checkout', <session id>).
+  Required when the mutation runs (BAD_USER_INPUT when either half is
+  missing or blank; hrn:node:hadronmemory.com:specs:cor:dmo:170:03, every
+  entry names its source). (sourceType, sourceId) is unique across the
+  ledger - re-granting the same pair, account, amount and kind returns the
+  EXISTING entry instead of double-crediting (at-least-once webhook
+  safety); any other entry on that pair is IDEMPOTENCY_CONFLICT. Refused
+  (trimmed, case-insensitive) are the source types the server writes
+  itself: usage-event, grant-expiry, period-grant, cost-correction.
   """
   sourceType: String
 }
@@ -8745,6 +8871,11 @@ type Mutation {
   ): OrgMember!
 
   """
+  Write a signed adjustment entry on an org's credit ledger, e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN ONLY. Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
+  """
+  adjustCredits(input: AdjustCreditsInput!): CreditLedgerEntry!
+
+  """
   Spec 049 Phase 7 — advance an attendee's cursor on a Channel (the relay's
   write; §8.7 gate: the caller must be the attendee's DRIVER — a user whose
   live session is bound to that Worker, or the App-key principal of the
@@ -8894,7 +9025,7 @@ type Mutation {
   reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #4222 — assign a worker to a host of its App: the workdir it runs in there, and its launcher profile (#4230: family,
@@ -8990,7 +9121,7 @@ type Mutation {
   `extensions.warnings` (see createAgentTask); it does not end them.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  cancelAgentTask(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  cancelAgentTask(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   The kill switch manual handle: PENDING/RUNNING to CANCELLED (hrn:node:hadronmemory.com:specs:cor:agt:010:02).
@@ -9194,7 +9325,7 @@ type Mutation {
   (an unknown, unreadable or cross-App source or parent), BAD_USER_INPUT (AT0 cannot be cloned), TASK_NOT_ASSIGNEE,
   TASK_NOT_OWNER (a priority you name and may not set), TASK_ENDED (a named parent that has ended).
   """
-  cloneAgentTask(input: CloneAgentTaskInput, taskId: ID!): AgentTask!
+  cloneAgentTask(input: CloneAgentTaskInput, taskRef: ID!): AgentTask!
 
   """
   Clone a Memory into a new Memory at `targetUrn`.
@@ -10580,7 +10711,7 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  encryptMemory(dataKey: String @deprecated(reason: "Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion."), memoryRef: ID!, passphrase: String @deprecated(reason: "Send the passphrase in x-hadron-memory-keys.")): Memory!
+  encryptMemory(memoryRef: ID!): Memory!
 
   """
   App Key callers only: end one of this App's agent sessions. Re-ending an
@@ -10770,7 +10901,7 @@ type Mutation {
   every finish. Both are judged after the assignee and status checks and before any write or event: the task
   stays started. With no set, any one word is accepted. The set is read only at finish.
   """
-  finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
+  finishAgentTask(result: AgentTaskResultInput!, taskRef: ID!): AgentTask!
 
   """
   #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding. A negative withdrawn by its holder or the coordinator (#4441) no longer refuses.
@@ -10981,7 +11112,7 @@ type Mutation {
   TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  makeAgentTaskReady(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  makeAgentTaskReady(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #3818 / hrn:node:hadronmemory.com:specs:cor:agt:020:03: an acting superseded sessionRef refuses SESSION_SUPERSEDED.
@@ -11137,7 +11268,7 @@ type Mutation {
   SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  parkAgentTask(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  parkAgentTask(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   Plan with the real move's gates and raised refusals, without locks, reconciliation, writes or mirror effects. Nodes in loc order; limit clamps to 1–1000 (default 100), with total and truncation disclosed. No edges. A point-in-time answer, not a reservation. This plan-only call is on the mutation root by rulings 0210/0211, so impersonation sessions are refused even though planning writes nothing. hrn:node:hadronmemory.com:specs:cor:api:190:03.
@@ -11203,14 +11334,14 @@ type Mutation {
   TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  reassignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  reassignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #1705 — record progress on a started task: its assignee only
   (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. #3267: may succeed with a
   warning, as startAgentTask does. Refusals as startAgentTask.
   """
-  recordAgentTaskProgress(taskId: ID!): AgentTask!
+  recordAgentTaskProgress(taskRef: ID!): AgentTask!
 
   """
   #3449: App action app.<current-app-slug>.<name>, lower-case legal URN atom, at most 64 characters.
@@ -11379,7 +11510,7 @@ type Mutation {
   changes, and a refusal writes nothing. One task.external-id-released team event names the released id. The id is never
   set again on this task. #3323's instruction arm applies as on cancelAgentTask.
   """
-  releaseAgentTaskExternalId(instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  releaseAgentTaskExternalId(instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   Release the editor lock for an Agent's system memory. The lock is ADVISORY
@@ -12299,7 +12430,7 @@ type Mutation {
   Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
   TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
-  startAgentTask(taskId: ID!): AgentTask!
+  startAgentTask(taskRef: ID!): AgentTask!
 
   """
   Start an AGENT CHAT (creates chat nodes, loads conversation, returns
@@ -12575,7 +12706,7 @@ type Mutation {
   Source is fixed. Event carries changed field names only (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  updateAgentTask(input: UpdateAgentTaskInput!, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+  updateAgentTask(input: UpdateAgentTaskInput!, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   #2024 — change a template; absent fields are unchanged. expectedRevision must be the revision you read, else
@@ -15124,7 +15255,7 @@ type Query {
   not read it (no existence oracle). Readers: the App's participants, workers
   acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
   """
-  agentTask(id: ID!): AgentTask
+  agentTask(ref: ID!): AgentTask
 
   """
   #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120, minimal write-back) — what changed on this App's tasks that carry an
@@ -15235,7 +15366,7 @@ type Query {
     """
     overdue: Boolean
     owner: AgentTaskPartyInput
-    parentTaskId: ID
+    parentTaskRef: ID
     queued: Boolean
 
     """
@@ -15332,7 +15463,7 @@ type Query {
     """
     overdue: Boolean
     owner: AgentTaskPartyInput
-    parentTaskId: ID
+    parentTaskRef: ID
     queued: Boolean
 
     """
@@ -15414,7 +15545,7 @@ type Query {
     """
     newestFirst: Boolean
     since: DateTime
-    taskId: ID
+    taskRef: ID
     types: [String!]
   ): [AgentTeamEvent!]!
 
@@ -15441,7 +15572,7 @@ type Query {
     limit: Int
     newestFirst: Boolean
     since: DateTime
-    taskId: ID
+    taskRef: ID
     types: [String!]
   ): AgentTeamEventsPage!
 
@@ -15512,6 +15643,11 @@ type Query {
   limit: 0 -> count only.
   """
   aiServiceConfigs(filter: AiServiceConfigFilter, limit: Int, offset: Int): AiServiceConfigsPage!
+
+  """
+  One organization's AI spend for [from, to), grouped one way (#5008, hrn:node:hadronmemory.com:specs:cor:dmo:170:04). Org-ADMIN, the gate of creditBalance, answered before the range is read. from is inclusive and to exclusive; both are ISO 8601 dates or date-times, a value with no offset is UTC and a date alone is midnight UTC. The range is at most 366 days. At most 500 rows are returned, largest charge first; truncated says more groups exist and totalGroups is the exact number of groups. Only token-bearing units of the organization count, soft-deleted ones are left out.
+  """
+  aiSpend(from: String!, groupBy: AiSpendGroup!, orgRef: String!, to: String!): AiSpendSummary!
 
   """
   Fetch an App (member of the App's org, or platform ADMIN — the myApps
@@ -21652,7 +21788,9 @@ type TeamMetrics {
   workers: TeamMetricsWorkers!
 }
 
-"""One project's direct child tasks of one status."""
+"""
+One project's tasks of one status: the tasks it is the nearest marked ancestor of, at any depth.
+"""
 type TeamMetricsChildStatus {
   status: AgentTaskStatus!
   tasks: TeamMetricsCount!
@@ -21698,7 +21836,7 @@ One task owner's started owned tasks (hrn:node:hadronmemory.com:specs:cor:agt:15
 """
 type TeamMetricsOwnerGroup {
   """
-  The owner's tasks by project, the No project bucket (AT0) included, at most 200 projects.
+  The owner's tasks by project (each task under its nearest marked ancestor, counted once), the No project bucket (AT0) included, at most 200 projects.
   """
   byProject: [TeamMetricsProjectGroup!]!
 
@@ -21711,7 +21849,7 @@ type TeamMetricsOwnerGroup {
 }
 
 """
-A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+A project in a metrics report: a task carrying the project marker, at any depth (isProject; hrn:node:hadronmemory.com:specs:cor:agt:050:01, hrn:node:hadronmemory.com:specs:cor:agt:150), or the visible No project bucket, AT0, for tasks with no marked ancestor (noProject true; taskId and title null when the App has no AT0 row).
 """
 type TeamMetricsProject {
   handle: String!
@@ -21726,14 +21864,16 @@ type TeamMetricsProjectGroup {
   tasks: TeamMetricsCount!
 }
 
-"""One started project with its direct children counted by every status."""
+"""
+One started project with the tasks counted under it (nearest marked ancestor, at any depth, each once) by every status.
+"""
 type TeamMetricsProjectRow {
   children: [TeamMetricsChildStatus!]!
   project: TeamMetricsProject!
 }
 
 """
-Report 2: started projects (a top-level task other than AT0, status STARTED) with child counts by status; at most 200 projects, truncated says when there were more. A snapshot at read time.
+Report 2: started projects (tasks carrying the project marker, status STARTED, by creation) with the counts of the tasks under each by status; at most 200 projects, truncated says when there were more. A snapshot at read time.
 """
 type TeamMetricsProjects {
   items: [TeamMetricsProjectRow!]!

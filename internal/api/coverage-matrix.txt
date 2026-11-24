@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 247: 213 command, 9 gap, 25 excluded
+[Query] 248: 213 command, 10 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -60,6 +60,7 @@ aiModelPrices  command billing prices
 aiProviderEndpoints  command ai-config endpoints
 aiServiceConfig  command ai-config get
 aiServiceConfigs  command ai-config list
+aiSpend  gap #3071
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
@@ -276,7 +277,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 370: 340 command, 13 gap, 17 excluded
+[Mutation] 371: 340 command, 14 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -287,6 +288,7 @@ addAgentToApp  excluded deprecated: @deprecated: Use installAgentIntoApp (spec 0
 addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
+adjustCredits  gap #3071
 advanceChannelReadState  command channel mark-read
 allocateSpecNode  command spec new
 amendQuestion  command question amend
@@ -648,15 +650,16 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 21: 6 gap, 15 excluded
+[Arguments] 22: 9 gap, 13 excluded
+Mutation.cloneAgentTask(input.isProject)  gap #3109
+Mutation.createAgentTask(input.isProject)  gap #3109
+Mutation.createAgentTasks(tasks.task.isProject)  gap #3109
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
 Mutation.createGrant(input.appRef)  gap #1846: a person who manages an App creates a grant in it (server#3711); companion to appGrants
-Mutation.encryptMemory(dataKey)  excluded deprecated: @deprecated: Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion.
-Mutation.encryptMemory(passphrase)  excluded deprecated: @deprecated: Send the passphrase in x-hadron-memory-keys.
 Mutation.issueSecretReadClient(input.bindingHeader)  gap #3014: the USE (injection) read-client mode and its binding arguments; `secret client issue` issues REVEAL clients only
 Mutation.issueSecretReadClient(input.bindingPrefix)  gap #3014: the USE (injection) read-client mode and its binding arguments; `secret client issue` issues REVEAL clients only
 Mutation.issueSecretReadClient(input.mode)  gap #3014: the USE (injection) read-client mode and its binding arguments; `secret client issue` issues REVEAL clients only

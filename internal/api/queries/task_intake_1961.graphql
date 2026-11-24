@@ -39,6 +39,7 @@ query IntakeTasksByExternalIds(
 # per-field omitempty from whichever documents name it, so a document without
 # them makes the generated tags flip between runs.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.isProject", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
@@ -78,7 +79,7 @@ mutation IntakeClaimTask(
 
 # The claimant starts a task it assigned to itself (assignee-only).
 mutation IntakeStartTask($taskId: ID!) {
-  startAgentTask(taskId: $taskId) {
+  startAgentTask(taskRef: $taskId) {
     id
     status
   }

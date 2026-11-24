@@ -36805,11 +36805,14 @@ type CloneAgentTaskInput struct {
 	CloseSessionWhenDone *bool                `json:"closeSessionWhenDone,omitempty"`
 	Description          *string              `json:"description,omitempty"`
 	FinishBy             *string              `json:"finishBy,omitempty"`
-	Owner                *AgentTaskPartyInput `json:"owner,omitempty"`
+	// #4997 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): the clone's project marker; left out, the clone keeps the source's. false with project: true is refused.
+	IsProject *bool                `json:"isProject,omitempty"`
+	Owner     *AgentTaskPartyInput `json:"owner,omitempty"`
 	// Another parent in the same App, or null for none (a root under AT0, or a project with project: true).
 	ParentTaskRef json.RawMessage `json:"parentTaskRef,omitempty"`
 	// A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
-	Priority     *int                   `json:"priority,omitempty"`
+	Priority *int `json:"priority,omitempty"`
+	// #4997: true makes the clone a top-level task and a project; false places it under AT0 and unmarked unless isProject says otherwise.
 	Project      *bool                  `json:"project,omitempty"`
 	Properties   json.RawMessage        `json:"properties,omitempty"`
 	References   json.RawMessage        `json:"references,omitempty"`
@@ -36832,6 +36835,9 @@ func (v *CloneAgentTaskInput) GetDescription() *string { return v.Description }
 
 // GetFinishBy returns CloneAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
 func (v *CloneAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
+
+// GetIsProject returns CloneAgentTaskInput.IsProject, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetIsProject() *bool { return v.IsProject }
 
 // GetOwner returns CloneAgentTaskInput.Owner, and is useful for accessing the field via an interface.
 func (v *CloneAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
@@ -40479,6 +40485,10 @@ type CreateAgentTaskInput struct {
 	ExternalId *string `json:"externalId,omitempty"`
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
+	// #4997 (hrn:node:hadronmemory.com:specs:cor:agt:050:01 Project marker): mark this task as a project for the team metrics, wherever it sits
+	// (under a parent or with no project). Set only here, never changed afterwards. false together with project: true is
+	// refused, and nothing is created.
+	IsProject *bool `json:"isProject,omitempty"`
 	// Run one blocking match. Failure is marked and skipped by automatic runs. Assignment, cancellation, or park then ready clears it. Only for pending, unblocked tasks without an assignee; a blocked create refuses BAD_USER_INPUT atomically. Batch items run requested attempts in list order after the whole commit; a blocked match item refuses the whole call before commit, with its position. No distinct-workers guarantee.
 	Match *bool `json:"match,omitempty"`
 	// Defaults to the creator. A root task's creator may name any other
@@ -40489,7 +40499,7 @@ type CreateAgentTaskInput struct {
 	ParentTaskRef *string              `json:"parentTaskRef"`
 	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
 	Priority *int `json:"priority,omitempty"`
-	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
+	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0, carrying the project marker (#4997). Not with parentTaskId.
 	Project *bool `json:"project,omitempty"`
 	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): the task's own properties, a JSON object with the same limits
 	// and refusal codes as on update. Only set when the creator is one of the task's writers (its owner, someone above the
@@ -40532,6 +40542,9 @@ func (v *CreateAgentTaskInput) GetExternalId() *string { return v.ExternalId }
 
 // GetFinishBy returns CreateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
+
+// GetIsProject returns CreateAgentTaskInput.IsProject, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetIsProject() *bool { return v.IsProject }
 
 // GetMatch returns CreateAgentTaskInput.Match, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetMatch() *bool { return v.Match }
@@ -47805,7 +47818,8 @@ func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList) GetItems()
 // The GraphQL type's documentation follows.
 //
 // 046-usage-metering: append-only org credit ledger row. Signed
-// micro-cents as a base-10 integer string (grants +, debits -).
+// micro-cents as a base-10 integer string (grants +, debits -,
+// adjustments either sign).
 type CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry struct {
 	CreditLedgerEntryFields `json:"-"`
 }
@@ -47946,7 +47960,8 @@ func (v *CreditLedgerEntriesResponse) GetCreditLedgerEntries() *CreditLedgerEntr
 // The GraphQL type's documentation follows.
 //
 // 046-usage-metering: append-only org credit ledger row. Signed
-// micro-cents as a base-10 integer string (grants +, debits -).
+// micro-cents as a base-10 integer string (grants +, debits -,
+// adjustments either sign).
 type CreditLedgerEntryFields struct {
 	Id               string  `json:"id"`
 	OrganizationId   string  `json:"organizationId"`
@@ -59893,7 +59908,8 @@ func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantA
 // The GraphQL type's documentation follows.
 //
 // 046-usage-metering: append-only org credit ledger row. Signed
-// micro-cents as a base-10 integer string (grants +, debits -).
+// micro-cents as a base-10 integer string (grants +, debits -,
+// adjustments either sign).
 type GrantCreditsGrantCreditsCreditLedgerEntry struct {
 	CreditLedgerEntryFields `json:"-"`
 }
@@ -60026,11 +60042,17 @@ type GrantCreditsInput struct {
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	Note      *string `json:"note,omitempty"`
 	OrgRef    string  `json:"orgRef"`
-	SourceId  *string `json:"sourceId,omitempty"`
-	// Idempotency + provenance pair (both or neither), e.g.
-	// ('stripe-checkout', <session id>). (sourceType, sourceId) is unique
-	// across the ledger - re-granting the same pair returns the EXISTING
-	// entry instead of double-crediting (at-least-once webhook safety).
+	// The id within sourceType; required with it when the mutation runs.
+	SourceId *string `json:"sourceId,omitempty"`
+	// Idempotency + provenance pair, e.g. ('stripe-checkout', <session id>).
+	// Required when the mutation runs (BAD_USER_INPUT when either half is
+	// missing or blank; hrn:node:hadronmemory.com:specs:cor:dmo:170:03, every
+	// entry names its source). (sourceType, sourceId) is unique across the
+	// ledger - re-granting the same pair, account, amount and kind returns the
+	// EXISTING entry instead of double-crediting (at-least-once webhook
+	// safety); any other entry on that pair is IDEMPOTENCY_CONFLICT. Refused
+	// (trimmed, case-insensitive) are the source types the server writes
+	// itself: usage-event, grant-expiry, period-grant, cost-correction.
 	SourceType *string `json:"sourceType,omitempty"`
 }
 
@@ -110053,7 +110075,7 @@ func (v *TeamMetricsCountFields) GetTruncated() bool { return v.Truncated }
 // TeamMetricsProjectFields includes the GraphQL fields of TeamMetricsProject requested by the fragment TeamMetricsProjectFields.
 // The GraphQL type's documentation follows.
 //
-// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+// A project in a metrics report: a task carrying the project marker, at any depth (isProject; hrn:node:hadronmemory.com:specs:cor:agt:050:01, hrn:node:hadronmemory.com:specs:cor:agt:150), or the visible No project bucket, AT0, for tasks with no marked ancestor (noProject true; taskId and title null when the App has no AT0 row).
 type TeamMetricsProjectFields struct {
 	Handle    string  `json:"handle"`
 	NoProject bool    `json:"noProject"`
@@ -110300,7 +110322,7 @@ func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) __premarshalJSON() (
 // TeamMetricsTeamMetricsProjects includes the requested fields of the GraphQL type TeamMetricsProjects.
 // The GraphQL type's documentation follows.
 //
-// Report 2: started projects (a top-level task other than AT0, status STARTED) with child counts by status; at most 200 projects, truncated says when there were more. A snapshot at read time.
+// Report 2: started projects (tasks carrying the project marker, status STARTED, by creation) with the counts of the tasks under each by status; at most 200 projects, truncated says when there were more. A snapshot at read time.
 type TeamMetricsTeamMetricsProjects struct {
 	Items     []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow `json:"items"`
 	Truncated bool                                                        `json:"truncated"`
@@ -110317,7 +110339,7 @@ func (v *TeamMetricsTeamMetricsProjects) GetTruncated() bool { return v.Truncate
 // TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow includes the requested fields of the GraphQL type TeamMetricsProjectRow.
 // The GraphQL type's documentation follows.
 //
-// One started project with its direct children counted by every status.
+// One started project with the tasks counted under it (nearest marked ancestor, at any depth, each once) by every status.
 type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow struct {
 	Project  *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject        `json:"project"`
 	Children []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus `json:"children"`
@@ -110336,7 +110358,7 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow) GetChildren()
 // TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus includes the requested fields of the GraphQL type TeamMetricsChildStatus.
 // The GraphQL type's documentation follows.
 //
-// One project's direct child tasks of one status.
+// One project's tasks of one status: the tasks it is the nearest marked ancestor of, at any depth.
 type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus struct {
 	Status AgentTaskStatus                                                                                              `json:"status"`
 	Tasks  *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount `json:"tasks"`
@@ -110433,7 +110455,7 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 // TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject includes the requested fields of the GraphQL type TeamMetricsProject.
 // The GraphQL type's documentation follows.
 //
-// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+// A project in a metrics report: a task carrying the project marker, at any depth (isProject; hrn:node:hadronmemory.com:specs:cor:agt:050:01, hrn:node:hadronmemory.com:specs:cor:agt:150), or the visible No project bucket, AT0, for tasks with no marked ancestor (noProject true; taskId and title null when the App has no AT0 row).
 type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject struct {
 	TeamMetricsProjectFields `json:"-"`
 }
@@ -110622,7 +110644,7 @@ type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup struct {
 	// The owner as the sanitized task party projection, never the Worker or User object.
 	Owner *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty   `json:"owner"`
 	Tasks *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount `json:"tasks"`
-	// The owner's tasks by project, the No project bucket (AT0) included, at most 200 projects.
+	// The owner's tasks by project (each task under its nearest marked ancestor, counted once), the No project bucket (AT0) included, at most 200 projects.
 	ByProject         []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup `json:"byProject"`
 	ProjectsTruncated bool                                                                                              `json:"projectsTruncated"`
 }
@@ -110669,7 +110691,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 // TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject includes the requested fields of the GraphQL type TeamMetricsProject.
 // The GraphQL type's documentation follows.
 //
-// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+// A project in a metrics report: a task carrying the project marker, at any depth (isProject; hrn:node:hadronmemory.com:specs:cor:agt:050:01, hrn:node:hadronmemory.com:specs:cor:agt:150), or the visible No project bucket, AT0, for tasks with no marked ancestor (noProject true; taskId and title null when the App has no AT0 row).
 type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject struct {
 	TeamMetricsProjectFields `json:"-"`
 }
@@ -147654,7 +147676,7 @@ func AgentTaskAddBlockerInstructed(
 // The mutation executed by AgentTaskAssign.
 const AgentTaskAssign_Operation = `
 mutation AgentTaskAssign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
-	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+	assignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
 		... AgentTaskFields
 	}
 }
@@ -147804,7 +147826,7 @@ func AgentTaskAssign(
 // The mutation executed by AgentTaskAssignInstructed.
 const AgentTaskAssignInstructed_Operation = `
 mutation AgentTaskAssignInstructed ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean, $instruction: ActInstructionInput!) {
-	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+	assignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -147954,7 +147976,7 @@ func AgentTaskAssignInstructed(
 // The mutation executed by AgentTaskCancel.
 const AgentTaskCancel_Operation = `
 mutation AgentTaskCancel ($taskId: ID!) {
-	cancelAgentTask(taskId: $taskId) {
+	cancelAgentTask(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -148098,7 +148120,7 @@ func AgentTaskCancel(
 // The mutation executed by AgentTaskCancelInstructed.
 const AgentTaskCancelInstructed_Operation = `
 mutation AgentTaskCancelInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	cancelAgentTask(taskId: $taskId, instruction: $instruction) {
+	cancelAgentTask(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -148244,7 +148266,7 @@ func AgentTaskCancelInstructed(
 // The mutation executed by AgentTaskClone.
 const AgentTaskClone_Operation = `
 mutation AgentTaskClone ($taskId: ID!, $input: CloneAgentTaskInput!) {
-	cloneAgentTask(taskId: $taskId, input: $input) {
+	cloneAgentTask(taskRef: $taskId, input: $input) {
 		... AgentTaskFields
 	}
 }
@@ -148884,7 +148906,7 @@ func AgentTaskCreateInstructed(
 // The query executed by AgentTaskDependencies.
 const AgentTaskDependencies_Operation = `
 query AgentTaskDependencies ($taskRef: ID!, $limit: Int!, $offset: Int!) {
-	agentTask(id: $taskRef) {
+	agentTask(ref: $taskRef) {
 		id
 		blockedBy(limit: $limit, offset: $offset) {
 			total
@@ -149051,7 +149073,7 @@ func AgentTaskDisposeFindingInstructed(
 // The query executed by AgentTaskFindingDispositions.
 const AgentTaskFindingDispositions_Operation = `
 query AgentTaskFindingDispositions ($taskRef: ID!, $limit: Int!, $offset: Int!) {
-	agentTask(id: $taskRef) {
+	agentTask(ref: $taskRef) {
 		findingDispositions(limit: $limit, offset: $offset) {
 			items {
 				... TaskFindingDispositionFields
@@ -149104,7 +149126,7 @@ func AgentTaskFindingDispositions(
 // The mutation executed by AgentTaskFinish.
 const AgentTaskFinish_Operation = `
 mutation AgentTaskFinish ($taskId: ID!, $result: AgentTaskResultInput!) {
-	finishAgentTask(taskId: $taskId, result: $result) {
+	finishAgentTask(taskRef: $taskId, result: $result) {
 		... AgentTaskFields
 	}
 }
@@ -149252,7 +149274,7 @@ func AgentTaskFinish(
 // The mutation executed by AgentTaskFinishWithFindings.
 const AgentTaskFinishWithFindings_Operation = `
 mutation AgentTaskFinishWithFindings ($taskId: ID!, $outcome: String!, $summary: String, $evidence: String, $workedFrom: [ID!], $findings: [AgentTaskFindingInput!]!) {
-	finishAgentTask(taskId: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings,workedFromRoleTaskRefs:$workedFrom}) {
+	finishAgentTask(taskRef: $taskId, result: {outcome:$outcome,summary:$summary,evidence:$evidence,findings:$findings,workedFromRoleTaskRefs:$workedFrom}) {
 		... AgentTaskFields
 		findingsResult: result {
 			findings(limit: 20, offset: 0) {
@@ -149422,7 +149444,7 @@ func AgentTaskFinishWithFindings(
 // The query executed by AgentTaskGet.
 const AgentTaskGet_Operation = `
 query AgentTaskGet ($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
-	agentTask(id: $id) {
+	agentTask(ref: $id) {
 		... AgentTaskFields
 		clonedFrom {
 			... AgentTaskDependencyFields
@@ -149773,7 +149795,7 @@ func AgentTaskIndexList(
 // The query executed by AgentTaskList.
 const AgentTaskList_Operation = `
 query AgentTaskList ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, $offset: Int, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $status: [AgentTaskStatus!], $tag: String) {
-	agentTasksPage(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag) {
+	agentTasksPage(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag) {
 		items {
 			... AgentTaskFields
 		}
@@ -149942,7 +149964,7 @@ func AgentTaskList(
 // The query executed by AgentTaskListCreator.
 const AgentTaskListCreator_Operation = `
 query AgentTaskListCreator ($appRef: ID!, $unresolvedFindings: Boolean, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String, $creator: AgentTaskPartyInput) {
-	agentTasksPage(appRef: $appRef, creator: $creator, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+	agentTasksPage(appRef: $appRef, creator: $creator, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		items {
 			... AgentTaskFields
 		}
@@ -150141,7 +150163,7 @@ func AgentTaskListCreator(
 // The query executed by AgentTaskListFiltered.
 const AgentTaskListFiltered_Operation = `
 query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasksPage(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+	agentTasksPage(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		items {
 			... AgentTaskFields
 		}
@@ -150339,7 +150361,7 @@ func AgentTaskListFiltered(
 // The query executed by AgentTaskListText.
 const AgentTaskListText_Operation = `
 query AgentTaskListText ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, $offset: Int, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $status: [AgentTaskStatus!], $tag: String, $text: String) {
-	agentTasksPage(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag, text: $text) {
+	agentTasksPage(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag, text: $text) {
 		items {
 			... AgentTaskFields
 		}
@@ -150508,7 +150530,7 @@ func AgentTaskListText(
 // The query executed by AgentTaskListUnresolved.
 const AgentTaskListUnresolved_Operation = `
 query AgentTaskListUnresolved ($appRef: ID!, $unresolvedFindings: Boolean, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasksPage(appRef: $appRef, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+	agentTasksPage(appRef: $appRef, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskRef: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		items {
 			... AgentTaskFields
 		}
@@ -150705,7 +150727,7 @@ func AgentTaskListUnresolved(
 // The mutation executed by AgentTaskPark.
 const AgentTaskPark_Operation = `
 mutation AgentTaskPark ($taskId: ID!) {
-	parkAgentTask(taskId: $taskId) {
+	parkAgentTask(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -150853,7 +150875,7 @@ func AgentTaskPark(
 // The mutation executed by AgentTaskParkInstructed.
 const AgentTaskParkInstructed_Operation = `
 mutation AgentTaskParkInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	parkAgentTask(taskId: $taskId, instruction: $instruction) {
+	parkAgentTask(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -150999,7 +151021,7 @@ func AgentTaskParkInstructed(
 // The mutation executed by AgentTaskProgress.
 const AgentTaskProgress_Operation = `
 mutation AgentTaskProgress ($taskId: ID!) {
-	recordAgentTaskProgress(taskId: $taskId) {
+	recordAgentTaskProgress(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -151143,7 +151165,7 @@ func AgentTaskProgress(
 // The mutation executed by AgentTaskReady.
 const AgentTaskReady_Operation = `
 mutation AgentTaskReady ($taskId: ID!) {
-	makeAgentTaskReady(taskId: $taskId) {
+	makeAgentTaskReady(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -151290,7 +151312,7 @@ func AgentTaskReady(
 // The mutation executed by AgentTaskReadyInstructed.
 const AgentTaskReadyInstructed_Operation = `
 mutation AgentTaskReadyInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	makeAgentTaskReady(taskId: $taskId, instruction: $instruction) {
+	makeAgentTaskReady(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -151436,7 +151458,7 @@ func AgentTaskReadyInstructed(
 // The mutation executed by AgentTaskReassign.
 const AgentTaskReassign_Operation = `
 mutation AgentTaskReassign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
-	reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+	reassignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
 		... AgentTaskFields
 	}
 }
@@ -151584,7 +151606,7 @@ func AgentTaskReassign(
 // The mutation executed by AgentTaskReassignInstructed.
 const AgentTaskReassignInstructed_Operation = `
 mutation AgentTaskReassignInstructed ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean, $instruction: ActInstructionInput!) {
-	reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
+	reassignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -151734,7 +151756,7 @@ func AgentTaskReassignInstructed(
 // The mutation executed by AgentTaskRelease.
 const AgentTaskRelease_Operation = `
 mutation AgentTaskRelease ($taskId: ID!) {
-	releaseAgentTaskExternalId(taskId: $taskId) {
+	releaseAgentTaskExternalId(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -151882,7 +151904,7 @@ func AgentTaskRelease(
 // The mutation executed by AgentTaskReleaseInstructed.
 const AgentTaskReleaseInstructed_Operation = `
 mutation AgentTaskReleaseInstructed ($taskId: ID!, $instruction: ActInstructionInput!) {
-	releaseAgentTaskExternalId(taskId: $taskId, instruction: $instruction) {
+	releaseAgentTaskExternalId(taskRef: $taskId, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -152324,7 +152346,7 @@ func AgentTaskRemoveBlockerInstructed(
 // The query executed by AgentTaskResultFindings.
 const AgentTaskResultFindings_Operation = `
 query AgentTaskResultFindings ($id: ID!, $limit: Int!, $offset: Int!) {
-	agentTask(id: $id) {
+	agentTask(ref: $id) {
 		id
 		result {
 			findings(limit: $limit, offset: $offset) {
@@ -152672,7 +152694,7 @@ func AgentTaskSetPriorityInstructed(
 // The mutation executed by AgentTaskStart.
 const AgentTaskStart_Operation = `
 mutation AgentTaskStart ($taskId: ID!) {
-	startAgentTask(taskId: $taskId) {
+	startAgentTask(taskRef: $taskId) {
 		... AgentTaskFields
 	}
 }
@@ -153014,7 +153036,7 @@ func AgentTaskTree(
 // The mutation executed by AgentTaskUpdate.
 const AgentTaskUpdate_Operation = `
 mutation AgentTaskUpdate ($taskId: ID!, $input: UpdateAgentTaskInput!) {
-	updateAgentTask(taskId: $taskId, input: $input) {
+	updateAgentTask(taskRef: $taskId, input: $input) {
 		... AgentTaskFields
 	}
 }
@@ -153174,7 +153196,7 @@ func AgentTaskUpdate(
 // The mutation executed by AgentTaskUpdateInstructed.
 const AgentTaskUpdateInstructed_Operation = `
 mutation AgentTaskUpdateInstructed ($taskId: ID!, $input: UpdateAgentTaskInput!, $instruction: ActInstructionInput!) {
-	updateAgentTask(taskId: $taskId, input: $input, instruction: $instruction) {
+	updateAgentTask(taskRef: $taskId, input: $input, instruction: $instruction) {
 		... AgentTaskFields
 	}
 }
@@ -153323,7 +153345,7 @@ func AgentTaskUpdateInstructed(
 // The query executed by AgentTeamEventsPage.
 const AgentTeamEventsPage_Operation = `
 query AgentTeamEventsPage ($appRef: ID!, $after: ID, $before: ID, $newestFirst: Boolean, $codePrefix: String, $alarmsOnly: Boolean, $alarmsInEffect: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
-	agentTeamEventsPage(appRef: $appRef, after: $after, before: $before, newestFirst: $newestFirst, codePrefix: $codePrefix, alarmsOnly: $alarmsOnly, alarmsInEffect: $alarmsInEffect, limit: $limit, since: $since, taskId: $taskId, types: $types) {
+	agentTeamEventsPage(appRef: $appRef, after: $after, before: $before, newestFirst: $newestFirst, codePrefix: $codePrefix, alarmsOnly: $alarmsOnly, alarmsInEffect: $alarmsInEffect, limit: $limit, since: $since, taskRef: $taskId, types: $types) {
 		events {
 			... AgentTeamEventFields
 		}
@@ -171927,7 +171949,7 @@ func IntakeItemHolders(
 // The mutation executed by IntakeStartTask.
 const IntakeStartTask_Operation = `
 mutation IntakeStartTask ($taskId: ID!) {
-	startAgentTask(taskId: $taskId) {
+	startAgentTask(taskRef: $taskId) {
 		id
 		status
 	}
@@ -171963,7 +171985,7 @@ func IntakeStartTask(
 // The query executed by IntakeTaskExternalId.
 const IntakeTaskExternalId_Operation = `
 query IntakeTaskExternalId ($id: ID!) {
-	agentTask(id: $id) {
+	agentTask(ref: $id) {
 		externalId
 	}
 }
