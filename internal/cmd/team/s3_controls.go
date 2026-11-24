@@ -43,25 +43,27 @@ func newCmdWorkerLeaveAlone(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "leave-alone <worker> [--on|--off] [--reason <text>]",
 		Short: "Show or change a worker's leave-alone marker",
-		Long: `Read the server's leave-alone marker, or change it as the App manager.
-The host sweep
-observes and reports a marked worker, but never starts, stops or repairs it.
-This command changes the marker only; it does not change a running process.
-With neither --on nor --off, read the marker without changing it. For a
-write, exactly one of --on or --off must be true. --reason is optional with --on
-only; the server limits it to 500 characters. Repeating a call is accepted.
-Not permitted exits 8; a missing worker exits 4, retired exits 5, and bad
-input exits 2. Correct the input or ask the App manager; nothing is retried.
+		Long: `Show whether a worker is marked leave-alone, or mark or unmark it as the App
+manager. Mark a worker leave-alone while a person works on it by hand (for
+example during maintenance): the host sweep, which keeps an App's workers
+running, still observes and reports a marked worker but never starts, stops or
+repairs it. This command changes the marker only; it does not change a running
+process.
+
+With neither --on nor --off, the command reads the marker and changes nothing.
+To change it, give exactly one of --on or --off. --reason is optional, only
+with --on, and the server limits it to 500 characters. Repeating a call is
+accepted. Exit codes: 8 not permitted, 4 no such worker, 5 worker retired,
+2 bad input. Fix the input or ask the App manager; nothing is retried.
 
 A worker id or URN is resolved by the server; a name needs --app, the App
 context or this worktree's binding. --json prints workerId, leaveAlone,
-reason, by and at (each null when the server withholds it). Existing worker
-get/list keep their earlier server compatibility and do not request these
-fields. Null leaveAlone means unknown (not visible to you), never false. The
-server withholds all four working-state fields from a profile-only reader.
+reason, by and at (each null when the server withholds it). Null leaveAlone
+means unknown (not visible to you), never false. The server withholds all four
+fields from a reader who may see only the worker's profile.
 
 ` + s3InstructionHelp,
-		Example: "  hadron team worker leave-alone Iris --app acme.com:eng --json\n  hadron team worker leave-alone Iris --on --reason maintenance --app acme.com:eng\n  hadron team worker leave-alone Iris --off --instruction task:hrn:task:acme.com:eng:42",
+		Example: "  hadron team worker leave-alone Iris --app acme.com:eng --json\n  hadron team worker leave-alone Iris --on --reason maintenance --app acme.com:eng\n  hadron team worker leave-alone Iris --off --instruction task:hrn:agenttask:hrn:app:acme.com:eng:AT0.12",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reading := !cmd.Flags().Changed("on") && !cmd.Flags().Changed("off")

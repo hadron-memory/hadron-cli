@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -115,5 +116,33 @@ func TestOnboardPlanMatchesServerContractFixture(t *testing.T) {
 		if !reflect.DeepEqual(keys, want) {
 			t.Fatalf("argument drift %s: %v vs %v", step.Type, keys, want)
 		}
+	}
+}
+
+// The help's "Minimal" --config example must load with the real loader, so
+// the page cannot drift from what onboard accepts.
+func TestOnboardHelpMinimalConfigLoads(t *testing.T) {
+	long := newCmdWorkerOnboard(nil).Long
+	i := strings.Index(long, "Minimal:")
+	if i < 0 {
+		t.Fatal("help has no Minimal: example")
+	}
+	rest := long[i+len("Minimal:"):]
+	start, end := strings.Index(rest, "{"), strings.Index(rest, "}")
+	if start < 0 || end < start {
+		t.Fatalf("no JSON object after Minimal: %q", rest)
+	}
+	// The example is wrapped over two lines; join them.
+	example := strings.Join(strings.Fields(rest[start:end+1]), "")
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, []byte(example), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := teamrouter.LoadConfig(path)
+	if err != nil {
+		t.Fatalf("help example does not load: %v\n%s", err, example)
+	}
+	if cfg.App == "" || cfg.Channel == "" || cfg.StateDir == "" {
+		t.Fatalf("required keys not read: %+v", cfg)
 	}
 }
