@@ -670,7 +670,7 @@ section between the markers.
 | `team worker onboard` |  |  | y | #1054 | acc0fa9e66b4 |  | unread |  |
 | `team worker release` |  |  | y | #1054 | 8eb38abed75a |  | unread |  |
 | `team worker retire` |  |  | y | #1054 | 9c700f8cd752 |  | unread |  |
-| `team worker rm` | delete |  | y | #1054 | 102f9ad07e1e |  | unread |  |
+| `team worker rm` | delete |  | y | #1054 | 9a66b4aba134 |  | unread |  |
 | `team worker served-prompt` |  |  | y | #1054 | d16deff01332 |  | unread |  |
 | `team worker set-boot-prompt` |  |  | y | #1054 | 448bcd0d9028 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |
 | `team worker set-reports-to` |  |  | y | #1054 | f925fcd3b031 | Clark | pass | [pass 2](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-pass2-c9adec39), [delta](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1054:clark-slice2-delta-a5ca87de) |

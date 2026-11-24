@@ -3147,7 +3147,8 @@ Conventions:
   server's fail-closed refusal when its reference check did not finish: nothing was
   deleted, and references were neither found nor ruled out. It is not `WORKER_IN_USE`
   and never means the worker is unused or the delete is safe; retry later or retire
-  (no bypass flag exists). Before removing one, verify that no
+  (no bypass flag exists). Exit 5 is shared, so a script branches on the --json failure
+  envelope's serverCode, on the real delete and on `--dry-run` alike. Before removing one, verify that no
   signed commit, trailer, PR, comment, review or other published artifact
   attributes work to it, then pass `--confirm-no-external-attribution`.
   Database checks cannot prove external absence. Known or uncertain history
