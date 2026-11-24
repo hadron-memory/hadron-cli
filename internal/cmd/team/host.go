@@ -344,14 +344,16 @@ func newCmdTeamHost(f *cmdutil.Factory) *cobra.Command {
 		Long: `The machines that launch a team App's workers. A host is one machine
 running this CLI as a poller: it registers which workers it can run, as
 which model family and in which worktree, collects the operations queued
-for it, carries them out and reports the outcome.
+for it, carries them out and reports the outcome. A host has an id (shown
+by ` + "`list`" + `) and a configuration file, host.yaml, kept on that machine.
 
-By goal: see what hosts exist and who they run (` + "`list`" + `, ` + "`setup`" + `); check
+By goal: see which hosts exist (` + "`list`" + `) and who runs what (` + "`setup`" + `); check
 one host's configuration and registration (` + "`status`" + `); read or issue queued
 operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
 (` + "`assign`" + `, ` + "`unassign`" + `, ` + "`setup`" + `, ` + "`import`" + `); reconcile workers to that
 record (` + "`up`" + `, ` + "`sweep`" + `, and the recorded outcomes in ` + "`sweep-runs`" + `); keep one
-host running (` + "`run`" + `, ` + "`report-stops`" + `, ` + "`availability`" + `). The three
+host running (` + "`run`" + `, ` + "`report-stops`" + `); mark a worker unavailable for new work from
+the host (` + "`availability`" + `). The three
 reconcile forms differ in who drives: ` + "`run`" + ` is the long-lived poller loop
 that keeps one host's workers up; ` + "`up`" + ` performs one reconcile pass now,
 from a desired state you name; ` + "`sweep`" + ` is the same pass keyed to the
@@ -392,23 +394,21 @@ checks in, whether it is live now (refreshed within the App's host-lapse
 count of its check-ins), and the workers it can launch with
 their family and worktrees. Whoever reads the App's tasks and events may.
 
-By default the whole list is read, 20 rows at a time until the server says
-the App holds no more. --limit or --offset asks for ONE page instead: --limit
-N rows starting --offset M rows in. Both count from 0; the server caps a page
-at 200 and serves a larger ask as 200 rather than refusing; --limit 0 asks
-for the count alone. A one-page output always says it is one page —
-"page: <rows> of <total> from offset <o>", naming any null row it skipped —
-and, while more rows exist, prints the command that continues the list:
---server, --app and --limit when you gave them, the --offset advanced by
-the rows the server served. From the run's resolved context
-only --server and --app are carried; a --limit resolved from the context
-never is; and an App resolved from the worktree binding makes the hint
-right only from that directory. An empty page names the total rather
-than reading as "no hosts". In single-page mode --json is an envelope
-{items,total,hasMore,offset,limit,served,nextOffset}, nextOffset null when
-no further page follows; the default keeps the bare array. A
-server without the paged field is read whole in one call instead; the flags
-need the paged field and are refused without it.`,
+By default the whole list is read, 20 rows at a time, until the App holds no
+more. --limit or --offset asks for ONE page instead: --limit N rows, starting
+--offset M rows in (both count from 0). The server caps a page at 200 and
+serves a larger ask as 200 rather than refusing; --limit 0 asks for the count
+alone. A one-page output says so ("page: <rows> of <total> from offset <o>",
+naming any null row it skipped) and, while more rows exist, prints the command
+that continues the list. Of the run's context only --server and --app are
+carried into it (--limit too when you gave it), and an App resolved from the
+worktree binding makes the hint right only from that directory. An empty page names the total rather than reading as
+"no hosts". In single-page mode --json is an envelope
+{items,total,hasMore,offset,limit,served,nextOffset} (nextOffset is null when
+no page follows); the default keeps the bare array. A server without paging
+reads the whole list in one call, and --limit and --offset are refused there.`,
+		Example: `  hadron team host list --app acme.com:eng-team
+  hadron team host list --limit 10 --offset 10 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if limit < 0 || offset < 0 {
@@ -618,6 +618,8 @@ When more follow, the receipt names the --after that continues the list;
 --json carries it as endCursor, with hasNextPage. If display sanitizes or
 shortens the cursor, the text omits the reusable --after suggestion: obtain
 the original cursor from --json.`,
+		Example: `  hadron team host ops --host orca1 --status failed
+  hadron team host ops --worker Iris --limit 5`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -783,7 +785,7 @@ operation is that worker's: it qualifies only as the target's reports-to.
 Pass --as-person to issue it as yourself instead — as the target's holder or
 the App's manager — with no worker session. With --instruction the write
 goes out through a verified manager-held worker session with the holder's
-claim, as the shared instruction help below describes.`,
+claim, as the --instruction paragraph above describes.`,
 		Example: `  hadron team host issue worktree.create --host orca1 --worker Jonas \
     --arg repo=hadron-memory/hadron-cli --arg baseBranch=main --arg branchName=jonas/871 --arg label=jonas-3
   hadron team host issue worktree.remove --host orca1 --worker Jonas --arg worktree=hadron-memory/hadron-cli/jonas-3 --as-person`,

@@ -90,6 +90,9 @@ var localOnlySliceA = []string{
 // #2578, Wolfgang's stop, hadron-cli
 // findings:host-command-help-harness-must-sandbox).
 var expectedRefusalsSliceA = map[string]string{
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees":                                                         "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --apply":                                                 "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host sweep --config /etc/hadron/host.yaml":                                                                                             "refuses before any request when the host has no saved registration; the page documents it in its exit codes (5: no saved registration, start the host poller first)",
 	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json":                       "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 }
@@ -99,7 +102,9 @@ var expectedRefusalsSliceA = map[string]string{
 // the help). It is empty: `team host issue` was the one entry (#2572) and no
 // longer panics. An entry that stops panicking fails the harness as stale
 // (cli#2617), so a fixed panic cannot stay allowlisted.
-var knownPanicsSliceA = map[string]string{}
+var knownPanicsSliceA = map[string]string{
+	"team host ops": "https://github.com/hadron-memory/hadron-cli/issues/3077: readHostOperations dereferences a reply with no data",
+}
 
 // sliceAFileContent is the fixture document a file-taking flag of this slice
 // gets. A host.yaml must pass LoadConfig's full validation (app, absolute

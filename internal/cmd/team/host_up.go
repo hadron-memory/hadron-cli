@@ -131,7 +131,7 @@ worker.start. There is no direct Orca create or launch call. (The examples'
 desired.json is the --desired-state-file shape, documented under WHERE THE
 DESIRED STATE COMES FROM below.)
 
-SWEEP RUN RECORDS (S10):
+SWEEP RUN RECORDS:
   --config supplies a separate host key for recording this run. It never
   replaces the manager credential used to reconcile. Each completed engine
   pass in OBSERVE or APPLY reports one run token, times, counts and up to 50
@@ -139,7 +139,7 @@ SWEEP RUN RECORDS (S10):
   nothing. --run-id replays the same host token (default: a fresh UUID).
   No --config: prints "sweep run not recorded: no host key (pass --config)";
   JSON includes sweepRun.recorded=false and reason NO_HOST_KEY. An old server
-  without S10 reports S10_UNAVAILABLE. Other record errors are codes only.
+  without sweep-run records reports S10_UNAVAILABLE. Other record errors are codes only.
   Recording failures never change the reconcile exit code. The server owns
   summary posts and stale-sweep alarms; this command posts nothing itself.
   Read server history with "team host sweep-runs --host <id>".
@@ -225,13 +225,17 @@ Exit codes: 0 nothing failed; 1 a step failed; 2 usage, or Orca is not
 reachable here; 3 your credential was refused as not accepted (the run
 stops); 4 --worker names a worker this host should not run; 5 another run
 holds the lock; 8 you are authenticated but not permitted (the run stops).`,
-		Example: `  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json
+		Example: `  # Normal use: desired state from the server. Dry run first, then apply.
+  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees
+  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --apply
+  # Offline or test: desired state from a file
+  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json
   hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json --worker Iris --apply`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return runHostUp(cmd, f, o) },
 	}
-	cmd.Flags().StringVar(&o.configPath, "config", "", "host YAML supplying only the separate S10 reporting key")
-	cmd.Flags().StringVar(&o.runID, "run-id", "", "host run token for S10 replay (default: fresh UUID)")
+	cmd.Flags().StringVar(&o.configPath, "config", "", "host YAML supplying only the separate sweep-run reporting key")
+	cmd.Flags().StringVar(&o.runID, "run-id", "", "host run token for replaying a sweep-run record (default: fresh UUID)")
 	cmd.Flags().StringVar(&o.host, "host", "", "registered host id (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root the host's worktrees live under (required)")
 	cmd.Flags().StringVar(&o.desiredFile, "desired-state-file", "", "read the desired state from this JSON file instead of the server")

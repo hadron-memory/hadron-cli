@@ -65,56 +65,57 @@ sweep's App and server), or an exec-host preflight refusal (records
 nothing, waits for the next tick, no service restart); 1 host state
 unreadable or an unexpected error; 5 lock contention (another sweep holds
 the lock) or no saved registration (start the host poller first). No
-refusal restarts a service.`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		started := time.Now()
-		if configPath == "" {
-			return exitcode.Newf(exitcode.Usage, "--config is required")
-		}
-		cfg, err := hostpoller.LoadConfig(configPath)
-		if err != nil {
-			return exitcode.Newf(exitcode.Usage, "cannot read host configuration")
-		}
-		state, err := hostpoller.LoadState(cfg.StateFile)
-		if err != nil {
-			return exitcode.Newf(exitcode.Error, "cannot read host state")
-		}
-		host := state.RegisteredHostID()
-		if host == "" {
-			return exitcode.Newf(exitcode.Conflict, "host has no saved registration; start the host poller first")
-		}
-		// The host config owns this sweep, regardless of ambient worktree scope.
-		if f.AppFlag != "" && f.AppFlag != cfg.App {
-			return exitcode.Newf(exitcode.Usage, "sweep App comes from --config; omit --app")
-		}
-		f.AppFlag = cfg.App
-		if cfg.Server != "" {
-			if f.ServerFlag != "" && f.ServerFlag != cfg.Server {
-				return exitcode.Newf(exitcode.Usage, "sweep server comes from --config; omit --server")
+refusal restarts a service.`, Example: "  hadron team host sweep --config /etc/hadron/host.yaml",
+		Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+			started := time.Now()
+			if configPath == "" {
+				return exitcode.Newf(exitcode.Usage, "--config is required")
 			}
-			f.ServerFlag = cfg.Server
-		}
-		orca := configuredOrcaBin(cfg) // never empty: it falls back to "orca"
-		dir, err := config.Dir()
-		if err != nil {
-			return exitcode.New(exitcode.Error, err)
-		}
-		unlock, err := hostup.Lock(dir, host)
-		if errors.Is(err, hostup.ErrLocked) {
-			return exitcode.Newf(exitcode.Conflict, "another sweep holds the lock; nothing issued")
-		}
-		if err != nil {
-			return exitcode.Newf(exitcode.Error, "sweep lock unavailable")
-		}
-		defer unlock()
-		if err := sweepDaemonReady(cmd.Context(), cfg); err != nil {
-			reason := "RELAUNCH_UNPROVEN"
-			if errors.Is(err, hostpoller.ErrOrcaDown) {
-				reason = "ORCA_DOWN"
+			cfg, err := hostpoller.LoadConfig(configPath)
+			if err != nil {
+				return exitcode.Newf(exitcode.Usage, "cannot read host configuration")
 			}
-			return reportUnavailableSweep(cmd, f, cfg, configPath, host, reason, started)
-		}
-		return runHostUp(cmd, f, sweepHostUpOptions(host, cfg.WorktreesRoot, orca, configPath, cfg.UsesOrcaLaunch(), started))
-	}}
+			state, err := hostpoller.LoadState(cfg.StateFile)
+			if err != nil {
+				return exitcode.Newf(exitcode.Error, "cannot read host state")
+			}
+			host := state.RegisteredHostID()
+			if host == "" {
+				return exitcode.Newf(exitcode.Conflict, "host has no saved registration; start the host poller first")
+			}
+			// The host config owns this sweep, regardless of ambient worktree scope.
+			if f.AppFlag != "" && f.AppFlag != cfg.App {
+				return exitcode.Newf(exitcode.Usage, "sweep App comes from --config; omit --app")
+			}
+			f.AppFlag = cfg.App
+			if cfg.Server != "" {
+				if f.ServerFlag != "" && f.ServerFlag != cfg.Server {
+					return exitcode.Newf(exitcode.Usage, "sweep server comes from --config; omit --server")
+				}
+				f.ServerFlag = cfg.Server
+			}
+			orca := configuredOrcaBin(cfg) // never empty: it falls back to "orca"
+			dir, err := config.Dir()
+			if err != nil {
+				return exitcode.New(exitcode.Error, err)
+			}
+			unlock, err := hostup.Lock(dir, host)
+			if errors.Is(err, hostup.ErrLocked) {
+				return exitcode.Newf(exitcode.Conflict, "another sweep holds the lock; nothing issued")
+			}
+			if err != nil {
+				return exitcode.Newf(exitcode.Error, "sweep lock unavailable")
+			}
+			defer unlock()
+			if err := sweepDaemonReady(cmd.Context(), cfg); err != nil {
+				reason := "RELAUNCH_UNPROVEN"
+				if errors.Is(err, hostpoller.ErrOrcaDown) {
+					reason = "ORCA_DOWN"
+				}
+				return reportUnavailableSweep(cmd, f, cfg, configPath, host, reason, started)
+			}
+			return runHostUp(cmd, f, sweepHostUpOptions(host, cfg.WorktreesRoot, orca, configPath, cfg.UsesOrcaLaunch(), started))
+		}}
 	c.Flags().StringVar(&configPath, "config", "", "host configuration (required)")
 	install := newScheduledInstall(f, healthsched.Sweep)
 	install.Use = "install --config <host.yaml> [--bin <path>]"
@@ -135,7 +136,7 @@ exits 2, so it waits for the next one-minute tick.
 
 The unit embeds no server or token. The scheduled user's normal login and server
 configuration performs reconciliation; the 0600 key_file is used only to record
-S10. Test drop-ins that pin a non-default server are not production setup.`
+the sweep run on the server. Test drop-ins that pin a non-default server are not production setup.`
 	if err := install.Flags().Set("interval", "1m"); err != nil {
 		panic(err)
 	}
@@ -154,7 +155,7 @@ S10. Test drop-ins that pin a non-default server are not production setup.`
 	status := newScheduledStatus(f, healthsched.Sweep)
 	status.Example = "  hadron team host sweep status --json"
 	status.Short = "Inspect the host sweep scheduler"
-	status.Long = "Inspect only the installed host sweep timer and its last run. Does not read server history; use host sweep-runs for S10 records."
+	status.Long = "Inspect only the installed host sweep timer and its last run. Does not read server history;\nuse host sweep-runs for the server's recorded runs."
 	c.AddCommand(install, uninstall, status)
 	return c
 }

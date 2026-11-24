@@ -533,24 +533,24 @@ section between the markers.
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health sweep` |  |  | y | #1054 | f7b10eca095b |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team host` |  |  | n | #1054 | d05f602dd84b |  | unread |  |
-| `team host assign` |  |  | y | #1054 | 70eef49e2e39 |  | unread |  |
+| `team host` |  |  | n | #1054 | 5e6860b89ede |  | unread |  |
+| `team host assign` |  |  | y | #1054 | 4a7f3430748b |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
 | `team host import` |  |  | y | #1054 | dec913560d72 |  | unread |  |
-| `team host issue` |  |  | y | #1054 | 7abd3276625e |  | unread |  |
-| `team host list` | ls |  | n | #1054 | a7b2e8db1192 |  | unread |  |
-| `team host ops` |  |  | n | #1054 | 1a23ca0e9226 |  | unread |  |
+| `team host issue` |  |  | y | #1054 | 76d1ecad5fd3 |  | unread |  |
+| `team host list` | ls |  | y | #1054 | f76136bcd459 |  | unread |  |
+| `team host ops` |  |  | y | #1054 | a435002b8aa7 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
-| `team host run` |  |  | y | #1054 | 8baf4b57f12b |  | unread |  |
-| `team host setup` |  |  | y | #1054 | f6c071f5cd86 |  | unread |  |
-| `team host status` |  |  | n | #1054 | c3a3ecae8eed |  | unread |  |
-| `team host sweep` |  |  | n | #1054 | 61efdf815c30 |  | unread |  |
-| `team host sweep install` |  |  | y | #1054 | 963f6f18deb7 |  | unread |  |
-| `team host sweep status` |  |  | y | #1054 | 49f6a1dd42c4 |  | unread |  |
+| `team host run` |  |  | y | #1054 | b6e84c347235 |  | unread |  |
+| `team host setup` |  |  | y | #1054 | ced4dce47e88 |  | unread |  |
+| `team host status` |  |  | y | #1054 | 3fa54104f682 |  | unread |  |
+| `team host sweep` |  |  | y | #1054 | d5bf0fc70bdd |  | unread |  |
+| `team host sweep install` |  |  | y | #1054 | 847cc4b45005 |  | unread |  |
+| `team host sweep status` |  |  | y | #1054 | e8fa5ab87211 |  | unread |  |
 | `team host sweep uninstall` |  |  | y | #1054 | 5378961914a6 |  | unread |  |
 | `team host sweep-runs` |  |  | y | #1054 | 7ab708cbdc7f |  | unread |  |
 | `team host unassign` |  |  | y | #1054 | 27a1042772ef |  | unread |  |
-| `team host up` |  |  | y | #1054 | 663911c40c8e |  | unread |  |
+| `team host up` |  |  | y | #1054 | a0cb59cf71f9 |  | unread |  |
 | `team init` |  |  | y | #1054 | 28b798b2fe94 |  | unread |  |
 | `team metrics` |  |  | y | #1054 | 768724e1529d |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
