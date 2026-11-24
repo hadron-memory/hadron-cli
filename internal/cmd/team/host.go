@@ -352,7 +352,8 @@ one host's configuration and registration (` + "`status`" + `); read or issue qu
 operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
 (` + "`assign`" + `, ` + "`unassign`" + `, ` + "`setup`" + `, ` + "`import`" + `); reconcile workers to that
 record (` + "`up`" + `, ` + "`sweep`" + `, and the recorded outcomes in ` + "`sweep-runs`" + `); keep one
-host running (` + "`run`" + `, ` + "`report-stops`" + `, ` + "`availability`" + `). The three
+host running (` + "`run`" + `, ` + "`report-stops`" + `); mark a worker unavailable for new work from
+the host (` + "`availability`" + `). The three
 reconcile forms differ in who drives: ` + "`run`" + ` is the long-lived poller loop
 that keeps one host's workers up; ` + "`up`" + ` performs one reconcile pass now,
 from a desired state you name; ` + "`sweep`" + ` is the same pass keyed to the
