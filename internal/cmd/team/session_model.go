@@ -51,7 +51,7 @@ tool's hook command: the tool pipes its hook JSON
 ({"session_id","transcript_path","cwd"}) on stdin.
 
 WHAT IT WILL AND WILL NOT READ. The only transcript it reads is the one the
-bound Hadron session ALREADY RECORDED as its transcriptPath (` + "`session start|resume --transcript`" + `).
+bound Hadron session ALREADY RECORDED as its transcriptPath (` + "`session start --transcript`" + `).
 The hook's path, native session id and cwd are claims it verifies against
 that file — never an association source. It does not pick a "newest" file, and
 a session with no recorded transcript reports nothing. The file must sit under
@@ -59,7 +59,7 @@ the tool's transcript root, be the same file the recorded path names, carry
 the hook's native session id in its own header, and stay unchanged while read.
 Anything unproven means UNAVAILABLE: nothing is sent.
 
-ONE write: updateSession with the model only — never family or tier (the
+ONE write: a session update with the model only — never family or tier (the
 server derives them; only set-model --family ever sends a family), never clearing a stored model. The worktree binding is
 re-read just before the write; if it changed meanwhile the observation is
 discarded, not retried against either session.
@@ -251,7 +251,7 @@ func newCmdSessionSetModel(f *cmdutil.Factory) *cobra.Command {
 		Use:   "set-model [<model>] [--family <token>] [--effort <level>]",
 		Short: "Report the model, family or effort this worktree's session is running (manual)",
 		Long: `Report the model, family or effort of the worker session bound to this
-worktree, through the same updateSession as ` + "`sync-model`" + `. Give at least one of
+worktree, through the same session update as ` + "`sync-model`" + `. Give at least one of
 <model>, --family or --effort; only what you give is sent, so anything omitted
 is PRESERVED (never cleared). With a model alone the server derives family and
 tier, and never clears family on a model it does not map.

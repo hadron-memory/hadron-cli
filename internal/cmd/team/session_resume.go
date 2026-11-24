@@ -316,7 +316,8 @@ handoff, before the end.
 when the binding is gone). Someone else's session answers as an absent one;
 an ended session refuses SESSION_ENDED, and a session with no worker refuses
 SESSION_NOT_WORKER_BOUND.`,
-		Example: `  hadron team session resume-claim   # then reset; in the new context, with no binding:
+		Example: `  # write the claim, reset, then in the new context (no binding) resume
+  hadron team session resume-claim
   hadron team session start --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

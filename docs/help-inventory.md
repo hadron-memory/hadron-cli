@@ -586,22 +586,22 @@ section between the markers.
 | `team saturation-wake-roles` |  |  | n | #1054 | 614f1abb9415 |  | unread |  |
 | `team saturation-wake-roles get` |  |  | n | #1054 | ad8d3049cbb7 |  | unread |  |
 | `team saturation-wake-roles set` |  |  | y | #1054 | ddf2c7fd77ae |  | unread |  |
-| `team session` | sessions |  | n | #1054 | f52bd5eeec2e |  | unread |  |
-| `team session end` |  |  | y | #1054 | 71aa73e22e87 |  | unread |  |
+| `team session` | sessions |  | n | #1054 | f1c9ef12cbd6 |  | unread |  |
+| `team session end` |  |  | y | #1054 | 33caa1010adf |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
-| `team session log` |  |  | y | #1054 | 40076c9ea5c4 |  | unread |  |
+| `team session log` |  |  | y | #1054 | 70dcebe730b6 |  | unread |  |
 | `team session outcome` |  |  | y | #1054 | 447243aadda4 |  | unread |  |
-| `team session recover` |  |  | y | #1054 | 4d805e21068d |  | unread |  |
-| `team session reset-context` |  |  | y | #1054 | 1511799c059b |  | unread |  |
+| `team session recover` |  |  | y | #1054 | 26a71dd0e860 |  | unread |  |
+| `team session reset-context` |  |  | y | #1054 | 648babebbe50 |  | unread |  |
 | `team session restart` |  |  | y | #1054 | 0498c3bc78f1 |  | unread |  |
-| `team session resume-claim` |  |  | y | #1054 | b24e5577e030 |  | unread |  |
+| `team session resume-claim` |  |  | y | #1054 | 766da90e0ff4 |  | unread |  |
 | `team session served-prompts` |  |  | y | #1054 | 7ec1a1f7942e |  | unread |  |
-| `team session set-model` |  |  | y | #1054 | 57b8dd7335e3 |  | unread |  |
-| `team session shed` |  |  | y | #1054 | 8a844e44afac |  | unread |  |
-| `team session start` |  |  | y | #1054 | 593914c6fe46 |  | unread |  |
-| `team session sync-model` |  |  | y | #1054 | 17c144a7206a |  | unread |  |
-| `team session whoami` |  |  | y | #1054 | f9aa532d998b |  | unread |  |
-| `team session work-items` |  |  | y | #1054 | 709bc1b67fe7 |  | unread |  |
+| `team session set-model` |  |  | y | #1054 | e51736abe5b9 |  | unread |  |
+| `team session shed` |  |  | y | #1054 | 3a98d6ff8a57 |  | unread |  |
+| `team session start` |  |  | y | #1054 | 915a234121d7 |  | unread |  |
+| `team session sync-model` |  |  | y | #1054 | a27e0c951377 |  | unread |  |
+| `team session whoami` |  |  | y | #1054 | f1bc10ef853c |  | unread |  |
+| `team session work-items` |  |  | y | #1054 | aa707c9c9f95 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | aa1c65ef79dc |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team stall-schedule set` |  |  | n | #1054 | 0663774fc0a2 |  | unread |  |

@@ -603,8 +603,9 @@ lasts 60 seconds, so reset immediately afterwards.
 
 THE EXIT CODE DOES NOT PROVE THE SHED. Failures still exit 0 (above), so read
 the status: "written" with claim "written" is a complete shed. Then reset the
-context with your HOST's own command (Claude Code: /clear; this CLI has none),
-and in the fresh context follow the recovery prompt: ` + "`session whoami --check`" + `
+context with your HOST's own command (Claude Code: /clear), or let
+` + "`session reset-context`" + ` do the checkpoint and the relaunch in one step on an
+Orca host, and in the fresh context follow the recovery prompt: ` + "`session whoami --check`" + `
 first, then ` + "`session start`" + ` with no --as if the binding is gone. A failed
 claim is not fatal: the binding usually survives the reset, and the node
 still holds the handoff.`,

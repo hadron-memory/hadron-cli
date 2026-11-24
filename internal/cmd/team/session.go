@@ -55,9 +55,15 @@ WHICH COMMAND, IN ORDER:
                                exist: ` + "`team worker list`" + `, or ` + "`team worker cast`" + `)
   record a PR, commit, branch  session log
   finished a task, PR or chat  NOTHING — keep the session; it spans tasks
-  reset my context, keep work  session shed (or session resume-claim)
+  reset my context, keep work  session reset-context (relaunches at once on an
+                               Orca host), or session shed then your host's own
+                               reset; session resume-claim alone for a manual one
+  get my bearings after one    session recover (worker, tasks, state note, mentions)
   stop being this worker       session end --handoff-file <notes> — only now
   see sessions                 session list
+  report my model or effort    session set-model (sync-model is the hook form)
+  read a worker's worklog      session work-items --worker <ref>
+  restart a dark worker        session restart <worker> --reason <text> (needs a grant)
   read one session's prompts   session served-prompts <session-id>
   record how a session went    session outcome <session-id> <0..1>
 
@@ -70,9 +76,9 @@ This group manages the first:
                    the Claude Code session, the IDE chat
 
 Closing your CHAT SESSION does not end the worker session. It outlives the
-chat, and no idle window ends it either. Apart from
-a hard deadline some sessions are given at start (whoami --check then says
-auto-expired), two things end it: ` + "`session end`" + `, and your own NEXT BIND of
+chat, and no idle window ends it either. Apart from a hard deadline some
+sessions are given at start (whoami --check then says auto-expired), two
+things end it: ` + "`session end`" + `, and your own NEXT BIND of
 the same worker (from any worktree, --force or not), which ends your old open
 sessions on it without a handoff (` + "`session start --help`" + `). A resume of the
 same session is not a new bind. Being TAKEN is separate and does clear
@@ -801,7 +807,7 @@ func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start [--as <worker> | --launch-grant <grant> | --session <id>] [--transcript <path>] [--tool <t>] [--force]",
 		Short: "Start a worker session: bind this worktree to a worker",
-		Long: `Start a coding session as a worker.
+		Long: `Start a worker session: bind this worktree to a worker and print its briefing.
 
 BEFORE YOU START:
   1. Sign in (` + "`hadron auth login`" + `, or HADRON_TOKEN) and work in a git worktree of
@@ -854,13 +860,13 @@ model) and the binding is written under this worktree's git dir so
 ` + "`whoami`" + ` can recover it. The session binds the WORKER;
 the server stamps the role-agent and the worker's App itself, so every
 worker session is App-bound. On success the worker's resolved boot
-briefing (its prompt) is printed — adopt it. The previous stint's
-Worker.continuity is delivered above the briefing: CURRENT includes its
+briefing (its prompt) is printed — adopt it. The previous
+stint's continuity record is delivered above the briefing: CURRENT includes its
 handoff URN and prose; MISSING names the gap before showing any older
 handoff as history; FIRST_STINT says there is no previous handoff. --json
 adds continuity with the same status, handoff and previousSession fields.
-Null continuity means unavailable, not "no handoff". Older servers without
-Worker.continuity still bind and omit the text quietly.
+Null continuity means unavailable, not "no handoff". Older servers that
+predate the record still bind and omit the text quietly.
 
 --as takes three spellings. The worker's NAME resolves within the team App,
 from -m, the persistent --app flag, or the configured App context. Its URN
@@ -2118,7 +2124,7 @@ func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "whoami [--check | --signature | --trailer]",
 		Short: "Show which worker you are driving (worker session)",
-		Long: `Answer "what am I driving?" — the compaction-recovery read.
+		Long: `Answer "what am I driving?" — the read to run after your context is reset or compacted.
 
 It prefers this worktree's binding and FALLS BACK TO THE SERVER when there is
 none, so losing the binding is a cache miss rather than data loss. The
@@ -2465,10 +2471,10 @@ Refs are normalized to one canonical string per artifact (owner/repo#371,
 owner/repo@sha, owner/repo:branch) — a URL, the short form, or a bare
 number/sha/branch are all accepted; a bare value is qualified by the
 session's recorded --repo (or the git remote). --pr and --branch
-additionally denormalize onto Session.prNumber / Session.branch (latest
-wins; display convenience only). Every logged milestone — issue and
-commit included — is a heartbeat feeding the server's liveness
-derivation, so logging keeps the worker taken while work is in flight.
+additionally copy onto the session's PR number and branch fields (latest
+wins; display convenience only). Every logged milestone, issue and
+commit included, counts as activity for the server's liveness check, so
+logging keeps the worker taken while work is in flight.
 
 It also tells you what landed in the TEAM CHAT while you were heads-down: a
 stderr note counting messages since your server-side read position (the one
@@ -3100,10 +3106,9 @@ here, your own next bind of the worker, or a hard deadline set at start does.
 
 WHY NOT END IT. Worker sessions are meant to be
 long-lived: no idle reaper ends one, because silence is not evidence of
-abandonment. Re-binding is not free: it
-re-renders the boot briefing, takes several manual steps that are not
-Hadron's. If you are ending a healthy session to tidy something up, the
-tidying is the thing to reconsider.
+abandonment. Re-binding is not free: it re-renders the boot briefing and
+costs you several manual steps. If you are ending a healthy session to tidy
+something up, the tidying is the thing to reconsider.
 
 A WORKTREE IS REMOVABLE WITHOUT TOUCHING THE SESSION. The binding lives
 under the worktree's git dir, so ` + "`git worktree remove`" + ` deletes it — and that
@@ -3121,7 +3126,7 @@ Written BEFORE the session ends, and a failed write REFUSES the end
 (HANDOFF_WRITE_FAILED, exit 1) rather than ending anyway: a still-bound
 worker is recoverable — retry, or end without a handoff deliberately —
 while an ended session whose handoff evaporated is not, because the
-context that composed it is gone. A session with no worker has no sequence
+context that composed it is gone. A session with no worker has no worker memory
 to write to, so passing --handoff there is refused rather than dropped.
 That ordering is a platform guarantee, not this client's choice.
 
@@ -3131,7 +3136,7 @@ its URN printed under the ✓ line ("handoff saved: <urn>"), and --json gains
 THIS session; otherwise the end still succeeds, exit 0, with one line "handoff
 saved; URN not read back (<reason>)" and no "handoff" key. The end is already
 committed: nothing is retried and no second handoff is written. Ending without
-a handoff, or against an older server without Worker.continuity, prints what it
+a handoff, or against an older server that has no continuity record, prints what it
 always did.
 
 RETRY IS SAFE, and cannot double-write. One stint records one handoff,
