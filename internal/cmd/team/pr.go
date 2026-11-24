@@ -335,12 +335,13 @@ readiness but not write.
 Each command makes one request and never retries or guesses a head. A write
 prints the task handle, id and status, then one register line (the register is
 the team's table that maps an action code to the task that handles it): the
-register's answer about the action code, as "register <code> → <task URN>", "→ no runnable
-task found at <loc>", "→ no register entry matches this code" or "→ not shown to
-this caller". The state UNMAPPED is the "no register entry" answer, and every pr
-code gets it while no register entry ships for it. The line says where the code
-routes, never whether the write recorded: the task line is the receipt. Text
-prints no placeholder for a missing loc or URN. --json is
+register's answer about the action code, as "register <code> → <task
+URN>", "→ no runnable task found at <loc>", "→ no register entry matches
+this code" or "→ not shown to this caller". The state UNMAPPED is the "no
+register entry" answer, and every pr code gets it while no register entry
+ships for it. The line says where the code routes, never whether the write
+recorded: the task line is the receipt. Text prints no placeholder for a
+missing loc or URN. --json is
 {task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (taskLoc and
 taskUrn are null when the state carries none). Readiness prints READY or NOT
 READY and a row per slot; --json is {ready,head,slots:[{slot,currentTaskId,state,verdict,
@@ -405,8 +406,9 @@ The build task must carry a pull_request reference (hadron team task update
 <task> --ref pull-request=<PR URL>; --ref replaces the whole list); without it
 the server refuses with PR_REFERENCE_MISSING. A head that already has a negative
 seat verdict cannot be frozen again, unless that verdict was withdrawn (pr
-withdraw): otherwise answer the finding with a new head. Normally run it after "pr schedule" and before "pr seat". Prints the build task
-and the register line.` + prSeeGroup,
+withdraw): otherwise answer the finding with a new head. Normally run it
+after "pr schedule" and before "pr seat". Prints the build task and the
+register line.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
 is named for that review. Only the seat task's owner chain may: its owner (the
@@ -461,14 +463,15 @@ text and never fetched. The seat must have been bound and its latest verdict at
 that head must be negative and not already withdrawn
 (REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN). Anyone else is
 refused (REVIEW_WITHDRAW_FORBIDDEN): a worker session that manages the App only
-through the person holding it cannot withdraw from here; ask the reviewer or a coordinator.
+through the person holding it cannot withdraw from here; ask the reviewer or
+a coordinator.
 
 A withdrawal is never an approval. The verdict stays in the record and the seat
 is not changed; the negative only stops blocking these: readiness, freezing
-this head again, dropping the slot, and moving or replacing the seat. The slot still needs a
-superseding seat (pr seat --supersedes) whose own APPROVE, PASS or CARRY counts
-at this head. A refused call writes nothing, so a refusal needs no repeat.
-Prints the seat task and the register line.` + prSeeGroup,
+this head again, dropping the slot, and moving or replacing the seat. The slot
+still needs a superseding seat (pr seat --supersedes) whose own APPROVE, PASS
+or CARRY counts at this head. A refused call writes nothing, so a refusal
+needs no repeat. Prints the seat task and the register line.` + prSeeGroup,
 
 	"readiness": `Show whether every scheduled review is in at a head: READY, or NOT READY with
 a row per slot saying which seat, state and verdict it has and whether it
