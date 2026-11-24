@@ -6205,6 +6205,14 @@ get/update/rm take a sender ID. List spans accessible orgs unless `--org-id`
 sets a raw organization ID (not a slug/URN). Without pagination flags list
 pages to exhaustion; either `--limit` or `--offset` requests one page.
 
+`get` also reports `domainVerified` (report only): whether Resend says the
+domain of the sender's address is verified, `true, false or null`. It is read
+live from Resend on each `get` (never cached; one lookup per call), so `null`
+means the state could not be read and says nothing about the domain, and a
+`false` includes "Resend has no record of the domain". `list`, `create` and
+`update` do not carry the field. There is no test-send and no way to verify a
+domain from the CLI: verify it in Resend.
+
 The Resend API key is write-only. Never put it on the command line: use
 `--api-key-file ./resend.key` or `--api-key-file -` with stdin. Create with no
 file flag reads piped stdin or a masked terminal prompt. Update only rotates

@@ -196,6 +196,7 @@ func TestResendSenderGetHelpDescribesTheDomainLine2588(t *testing.T) {
 		"read live on each get",
 		"yes, no (Resend reports it not verified, or has no record of the domain), or unknown",
 		"unknown says nothing about the domain",
+		"In --json it is domainVerified: true, false or null",
 		"get sends no mail and changes nothing at Resend",
 	} {
 		if !strings.Contains(help, w) {
