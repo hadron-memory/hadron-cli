@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -32,6 +33,12 @@ func pastedUpper3029() string {
 // command inside Find, before any command code, so its raw error carries the value until renderError
 // rewrites it; what is checked is therefore the rendered output, which is everything the CLI prints.
 func renderedNoEcho3029(t *testing.T, responses map[string]string, argv ...string) (seen string, code int) {
+	codes := map[int]bool{}
+	defer func() {
+		if len(codes) != 1 {
+			t.Errorf("text and --json exit differently: %v", codes)
+		}
+	}()
 	t.Helper()
 	gql, _ := captureGraphQL(t, responses)
 	var all strings.Builder
@@ -50,6 +57,7 @@ func renderedNoEcho3029(t *testing.T, responses map[string]string, argv ...strin
 			t.Fatalf("%v: want a refusal", argv)
 		}
 		code = renderFailure(f, args, err)
+		codes[code] = true
 		all.WriteString(out.String() + stderr.String())
 	}
 	return all.String(), code
@@ -122,13 +130,49 @@ func TestUnknownSubcommandProbeNeverEchoesTheName3029(t *testing.T) {
 	}
 }
 
-// A flag type's own reason is kept when it does not carry the value; the value itself never is.
-func TestInvalidFlagValueKeepsAReasonWithoutTheValue3029(t *testing.T) {
-	seen, code := renderedNoEcho3029(t, nil, "asset", "list", "--limit", "12x")
-	if code != exitcode.Usage {
-		t.Errorf("exit = %d, want %d", code, exitcode.Usage)
+// An invalid flag value names the flag and its expected type, never the value, not even through the
+// parse error underneath. BLIND delta N1: strconv embeds the value %q-escaped, so a value with a quote
+// or a backslash slipped past a substring check on the raw value.
+func TestInvalidFlagValueNeverEchoesTheValue3029(t *testing.T) {
+	for _, v := range []string{"12x", `C:\Users\me`, `pa"ss` + pastedUpper3029(), "{\"token\":\"" + pastedUpper3029() + "\"}"} {
+		seen, code := renderedNoEcho3029(t, nil, "asset", "list", "--limit", v)
+		if code != exitcode.Usage {
+			t.Errorf("%q: exit = %d, want %d", v, code, exitcode.Usage)
+		}
+		if !strings.Contains(seen, "invalid value for --limit: expected int") {
+			t.Errorf("%q: names the flag and the expected type: %q", v, seen)
+		}
+		for _, leak := range []string{"12x", "Users", `pa"ss`, `pa\"ss`, "AbCdEf", "token", "parsing"} {
+			if strings.Contains(seen, leak) {
+				t.Errorf("%q: echoes %q: %q", v, leak, seen)
+			}
+		}
 	}
-	if strings.Contains(seen, "12x") || !strings.Contains(seen, "expected int") {
-		t.Errorf("names the flag and the expected type, not the value: %q", seen)
+}
+
+// BLIND delta N2/N3: only cobra's own uncoded errors are rewritten; an error the CLI already coded is
+// left exactly as it is, and the rewrite keeps the original exit code (2: isUsageError).
+func TestWithoutEchoedCommandOnlyRewritesCobrasOwn3029(t *testing.T) {
+	p := pastedUpper3029()
+	coded := exitcode.Newf(exitcode.NotFound, `unknown command "%s" for "x"`, "server-said")
+	if got := withoutEchoedCommand(coded); got != coded {
+		t.Errorf("a coded error must pass through untouched, got %v", got)
+	}
+	for _, raw := range []string{
+		`unknown command "` + p + `" for "hadron"`,
+		`invalid argument "` + p + `" for "hadron x"`,
+		`unknown command "a\"` + p + `" for "hadron"` + "\n\nDid you mean this?\n\tagent\n",
+	} {
+		before := exitCodeFor(errors.New(raw))
+		got := withoutEchoedCommand(errors.New(raw))
+		if exitCodeFor(got) != before {
+			t.Errorf("%q: exit %d, want the original %d", raw, exitCodeFor(got), before)
+		}
+		if strings.Contains(got.Error(), "AbCdEf") || !strings.Contains(got.Error(), "not shown") {
+			t.Errorf("%q: rewritten without the value: %q", raw, got)
+		}
+	}
+	if !strings.Contains(withoutEchoedCommand(errors.New(`unknown command "zz" for "hadron"`+"\n\nDid you mean this?\n\tagent\n")).Error(), "agent") {
+		t.Error("cobra's suggestions are kept")
 	}
 }

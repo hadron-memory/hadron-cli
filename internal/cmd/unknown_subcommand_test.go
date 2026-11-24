@@ -106,8 +106,10 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 				}
 			}
 			// cli#3029 (#2898 policy): the typed name is never echoed; the suggestion is a command name.
-			if typed := tt.args[len(tt.args)-1]; !strings.HasPrefix(typed, "-") && strings.Contains(err.Error(), `"`+typed+`"`) {
-				t.Errorf("error %q echoes the typed name %q", err.Error(), typed)
+			for _, a := range tt.args {
+				if !strings.HasPrefix(a, "-") && strings.Contains(err.Error(), `"`+a+`"`) {
+					t.Errorf("error %q echoes the typed %q", err.Error(), a)
+				}
 			}
 		})
 	}
