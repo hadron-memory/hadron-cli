@@ -69,12 +69,26 @@ func stampsRefused(err error) bool {
 // only the reference the user typed (cor:api:140:03, cor:api:040:03); the
 // server's message and its nodeRevRef extension are not shown (cli#2904).
 // Any other failure, or NOT_FOUND mixed with another error, maps as usual.
+//
+// The server's error stays attached as the cause (errors.Unwrap), so code
+// that inspects the chain still sees the NOT_FOUND refusal; only the printed
+// line is the CLI's own.
 func revisionWriteError(err error, ref string) error {
 	if api.OnlyErrorCodes(err, "NOT_FOUND") {
-		return exitcode.Newf(exitcode.NotFound, "revision %q not found", ref)
+		return exitcode.New(exitcode.NotFound, &revisionNotFoundError{ref: ref, cause: err})
 	}
 	return api.MapError(err)
 }
+
+// revisionNotFoundError prints only the caller's own reference and unwraps
+// to the server's refusal.
+type revisionNotFoundError struct {
+	ref   string
+	cause error
+}
+
+func (e *revisionNotFoundError) Error() string { return fmt.Sprintf("revision %q not found", e.ref) }
+func (e *revisionNotFoundError) Unwrap() error { return e.cause }
 
 // restoredNodeDTO is the stable --json shape returned by `revision restore`.
 type restoredNodeDTO struct {
@@ -224,9 +238,9 @@ func newCmdRevisionGet(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"show"},
 		Short:   "Display one revision, including its content",
 		Long: `Show one earlier version of a node, named by its revision id (from node
-revision list): the node's name, loc and id, when the version was replaced,
-who edited it, its label, which fields the edit changed, and the content as
-it was. An unknown id exits 4.`,
+revision list) or its revision URN (hrn:noderev:...): the node's name, loc
+and id, when the version was replaced, who edited it, its label, which fields
+the edit changed, and the content as it was. An unknown or unreadable revision exits 4.`,
 		Example: `  hadron node revision get 01a18a07c32479fc9b69bf75dd8567e7
   hadron node revision get 01a18a07c32479fc9b69bf75dd8567e7 --json`,
 		Args: cobra.ExactArgs(1),
@@ -279,8 +293,10 @@ func newCmdRevisionRestore(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore <revision-id>",
 		Short: "Restore a node to a revision",
-		Long: `Restore a node to a revision snapshot. By default this first snapshots the
-current state, so the restore is itself undoable.
+		Long: `Restore a node to a revision snapshot, named by its revision id or its
+revision URN (hrn:noderev:...). By default this first snapshots the current
+state, so the restore is itself undoable. An unknown or unreadable revision
+exits 4.
 
 --truncate instead makes the selected revision the new baseline: it restores and
 deletes every revision newer than it (the pre-restore snapshot is skipped), as
@@ -343,6 +359,8 @@ func newCmdRevisionLabel(f *cmdutil.Factory) *cobra.Command {
 		Use:   "label <revision-id> --label <text>",
 		Short: "Set a revision's label",
 		Long: `Set a revision's user-facing label (500-char cap). Pass --label "" to clear it.
+The revision is named by its id or its revision URN (hrn:noderev:...); an
+unknown or unreadable revision exits 4.
 The label also captures the reason supplied with the edit that took the snapshot.`,
 		Example: `  hadron node revision label 01a18a07c32479fc9b69bf75dd8567e7 --label "before the auth refactor"`,
 		Args:    cobra.ExactArgs(1),
@@ -375,13 +393,14 @@ func newCmdRevisionDelete(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"rm"},
 		Short:   "Permanently delete one earlier version of a node",
 		Long: `Permanently delete one earlier version of a node, named by its revision id
-(from node revision list). The node itself and its current content are not
+(from node revision list) or its revision URN (hrn:noderev:...). The node itself and its current content are not
 changed. The deleted version can no longer be shown or restored with node
 revision restore, and this cannot be undone.
 
 It asks "Delete revision <id>? This cannot be undone." on a terminal; --yes
 skips the question and is required when input is not a terminal (otherwise
-exit 2). On success it prints "✓ Deleted revision <id>"; an unknown id exits 4.`,
+exit 2). On success it prints "✓ Deleted revision <id>"; an unknown or
+unreadable revision exits 4.`,
 		Example: `  hadron node revision delete 01a18a07c32479fc9b69bf75dd8567e7 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

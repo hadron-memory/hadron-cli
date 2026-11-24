@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -133,6 +134,11 @@ func TestNodeRevisionWritesNotFoundIsTheCLIsOwnLine_2904(t *testing.T) {
 			}
 			if want := `revision "gone" not found`; err.Error() != want {
 				t.Errorf("message = %q, want %q", err.Error(), want)
+			}
+			// The server's refusal stays attached as the cause (Joran's blind
+			// F2 on #3095): only the printed line is the CLI's own.
+			if !api.HasErrorCode(err, "NOT_FOUND") {
+				t.Errorf("the NOT_FOUND refusal is no longer in the error chain: %v", err)
 			}
 			for _, leak := range []string{"BACKEND-DETAIL", "SERVER-ECHO"} {
 				if strings.Contains(err.Error(), leak) || strings.Contains(out.String(), leak) {
