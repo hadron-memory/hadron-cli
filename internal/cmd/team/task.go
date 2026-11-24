@@ -789,6 +789,19 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 				return err
 			}
 			var closeWhenDone *bool
+			// Presence, not value (as `task update` does, #1137): a plain bool
+			// cannot tell `--close-session=false` from an absent flag, so the
+			// =false spelling is refused before any request instead of silently
+			// keeping the stored choice.
+			for _, c := range []struct {
+				name string
+				on   bool
+				use  string
+			}{{"close-session", closeSession, "--no-close-session"}, {"no-close-session", noCloseSession, "--close-session"}} {
+				if cmd.Flags().Changed(c.name) && !c.on {
+					return exitcode.Newf(exitcode.Usage, "--%s=false changes nothing; to say the opposite pass %s", c.name, c.use)
+				}
+			}
 			if closeSession && noCloseSession {
 				return exitcode.Newf(exitcode.Usage, "--close-session and --no-close-session contradict each other")
 			}
@@ -892,8 +905,9 @@ choice; --json returns the task with a warnings list.
 Close-session choice (should the assignee's session end when it finishes the task):
 --close-session turns it on, --no-close-session turns it off, and giving neither
 keeps the task's current value. Give at most one; both together is a usage error,
-and ` + "`--close-session=false`" + ` is not a way to turn it off: it reads as absent and
-keeps the value (use --no-close-session). ` + closeSessionVerbNote(verb) + `
+and ` + "`--close-session=false`" + ` (or --no-close-session=false) is refused with exit 2,
+because it cannot be told from leaving the flag out: say no with
+--no-close-session. ` + closeSessionVerbNote(verb) + `
 The default of not asking applies at creation; assign and reassign with neither
 flag keep the value the task already has. To change the choice without assigning,
 use ` + "`task update`" + `. To have the assignee's session end with the task from the start,
