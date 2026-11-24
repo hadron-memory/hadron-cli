@@ -29,12 +29,22 @@ const saturationWakeRolesFloor = "2026-11-22"
 const saturationWakeRolesInspectHint = "check `team saturation-wake-roles get`"
 
 // saturationWakeRolesMeaning is what the list is, said once for every page: it names ROLES,
-// what a listed worker is offered, and that a change reaches later alarms only.
-const saturationWakeRolesMeaning = `The list names roles. Each worker of the App in a listed role is offered one wake
-when a saturation alarm is raised, and not again for that alarm; a worker who is
-never due (retired, paused or dormant) is not woken. A change to the list applies
-only to alarms raised afterwards. The list is empty by default, so nobody is woken
-until an App manager lists a role.`
+// who is woken, that a worker who is never due is not woken while that holds, and that a
+// change reaches later alarms only. The never-due clause describes the rule (cor:agt:080:11,
+// "Who is never due") and does not enumerate it: the rule names more cases than the three
+// given as examples (a short-lived Agent's worker with no open session is due nothing too),
+// and the server's own scan leaves it to its caller ("Who is never due (cor:agt:080:11) is
+// the caller's", taskWakes.ts). It says "while that holds" because that is the rule's word
+// ("never due a wake WHILE it is retired, paused or dormant"): the rule promises a later
+// wake only for the short-lived case, so the help neither hints at one ("not woken now") nor
+// says the wake is lost. "such as", never a closed list. One verb ("woken"), the one the
+// command's own output uses.
+const saturationWakeRolesMeaning = `The list names roles. Each worker of the App in a listed role is woken once
+when a saturation alarm is raised, and not again for that alarm; a worker who
+is never due, such as one that is retired, paused or dormant, is not woken
+while that holds. A change to the list applies only to alarms raised
+afterwards. The list is empty by default, so nobody is woken until an App
+manager lists a role.`
 
 type saturationWakeRolesDTO struct {
 	AppID string   `json:"appId"`
