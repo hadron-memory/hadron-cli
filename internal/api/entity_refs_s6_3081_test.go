@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/vektah/gqlparser/v2"
@@ -29,11 +30,14 @@ import (
 // usageEvents has no CLI document, so only its snapshot side is pinned.
 // rootFieldArgs is the S5 pin's helper (entity_refs_s5_2935_test.go).
 
-var s6Renames = []struct {
+// s6Rename is one row of the rename table above.
+type s6Rename struct {
 	field         string
 	want, retired string
 	cliSelects    bool
-}{
+}
+
+var s6Renames = []s6Rename{
 	{"memoryAssets", "memoryRef", "memoryId", true},
 	{"memoryLocSegments", "memoryRefs", "memoryIds", true},
 	{"usageEventsPage", "memoryRef", "memoryId", true},
@@ -42,13 +46,35 @@ var s6Renames = []struct {
 	{"usageEvents", "nodeRef", "nodeId", false},
 }
 
+// unpinnedReport is one tripwire failure: a document that selects a field
+// whose arguments the pin does not cover (its rows have cliSelects false),
+// with the unpinned field names it selects.
+type unpinnedReport struct {
+	where  string
+	fields []string
+}
+
+// s6UnpinnedReports collects the rename table's cliSelects=false rows into
+// tripwire reports, turning each unpinned row's uses into one report. (Red
+// step: the pin below expects one report per failing document; the fold that
+// produces it lands with the fix, so this fails on purpose.)
+func s6UnpinnedReports(rows []s6Rename, usesFor func(field string) []fieldUse) []unpinnedReport {
+	var reports []unpinnedReport
+	for _, tc := range rows {
+		if tc.cliSelects {
+			continue
+		}
+		for _, u := range usesFor(tc.field) {
+			reports = append(reports, unpinnedReport{where: u.where, fields: []string{tc.field}})
+		}
+	}
+	return reports
+}
+
 func TestS6DocumentsSendTheRefArgumentsNotTheRetiredOnes_3081(t *testing.T) {
 	for _, tc := range s6Renames {
 		uses := rootFieldArgs(t, ast.Query, tc.field)
 		if !tc.cliSelects {
-			for _, u := range uses {
-				t.Errorf("%s selects %s: set cliSelects for it so its arguments are pinned", u.where, tc.field)
-			}
 			continue
 		}
 		if len(uses) == 0 {
@@ -63,6 +89,32 @@ func TestS6DocumentsSendTheRefArgumentsNotTheRetiredOnes_3081(t *testing.T) {
 				t.Errorf("%s: %s still sends the retired %s, sends %v", u.where, tc.field, tc.retired, u.names)
 			}
 		}
+	}
+	for _, r := range s6UnpinnedReports(s6Renames, func(field string) []fieldUse {
+		return rootFieldArgs(t, ast.Query, field)
+	}) {
+		t.Errorf("%s selects %s: set cliSelects for it so its arguments are pinned", r.where, strings.Join(r.fields, ", "))
+	}
+}
+
+// The usageEvents arguments are two rows of s6Renames sharing one field, so
+// the tripwire named a failing document once per row. It must name each
+// failing document once (cli#3094).
+func TestS6TripwireNamesEachUnpinnedDocumentOnce_3081(t *testing.T) {
+	rows := []s6Rename{
+		{field: "usageEvents", want: "memoryRef", retired: "memoryId"},
+		{field: "usageEvents", want: "nodeRef", retired: "nodeId"},
+	}
+	uses := []fieldUse{{where: "queries/memory_usage.graphql:14", names: []string{}}}
+	reports := s6UnpinnedReports(rows, func(string) []fieldUse { return uses })
+	if len(reports) != 1 {
+		t.Fatalf("the tripwire reported the failing document %d times, want once: %v", len(reports), reports)
+	}
+	if reports[0].where != "queries/memory_usage.graphql:14" {
+		t.Errorf("the report names %s, want the failing document", reports[0].where)
+	}
+	if len(reports[0].fields) != 1 || reports[0].fields[0] != "usageEvents" {
+		t.Errorf("the report's unpinned fields are %v, want [usageEvents]", reports[0].fields)
 	}
 }
 
