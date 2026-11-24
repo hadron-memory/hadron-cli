@@ -1586,6 +1586,7 @@ func teamGitDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv(team.GitDirEnv, dir)
+	pinLauncherEnv3091(t)
 	return dir
 }
 

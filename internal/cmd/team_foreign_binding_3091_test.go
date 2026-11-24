@@ -19,9 +19,19 @@ const (
 	ownRoot3091     = "/work/gloria"
 )
 
+// launcherEnv3091 is the ORCA_WORKSPACE_ID the shared helpers pin. It is empty
+// everywhere except inside run3091, so a developer's own launcher terminal
+// (which exports the variable) cannot trip the cli#3091 guard in the unrelated
+// tests (Gloria's LOCAL P2).
+var launcherEnv3091 string
+
+func pinLauncherEnv3091(t *testing.T) { t.Setenv("ORCA_WORKSPACE_ID", launcherEnv3091) }
+
 func run3091(t *testing.T, invoker, optIn string, argv ...string) (*[]attnCall, error) {
 	t.Helper()
-	t.Setenv("ORCA_WORKSPACE_ID", invoker)
+	launcherEnv3091 = invoker
+	t.Cleanup(func() { launcherEnv3091 = "" })
+	pinLauncherEnv3091(t)
 	t.Setenv(team.ForeignBindingOptInEnv, optIn)
 	t.Cleanup(team.SetGitToplevelRunner(func(_ context.Context) (string, error) { return foreignRoot3091, nil }))
 	r := runTeamTaskFactory(t, map[string]string{
