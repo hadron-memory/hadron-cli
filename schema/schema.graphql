@@ -3067,17 +3067,18 @@ Orderable columns on the appRuns list (#833). Reuses the shared
 SortDirection enum. Default createdAt desc — existing callers depend on
 newest-first.
 
-startedAt / finishedAt are NULLABLE (a PENDING run has neither); nulls sort
-LAST in both directions, so unstarted runs never crowd out the rows an
-operator asked to see. Every sort carries an id tiebreak so offset paging is
-deterministic.
+startedAt / finishedAt / duration are NULLABLE (a PENDING run has neither
+timestamp, and a RUNNING one has no finishedAt): nulls sort LAST in both
+directions, so unstarted runs never crowd out the rows an operator asked to
+see. Every sort carries an id tiebreak so offset paging is deterministic.
 
-Duration (finishedAt - startedAt) is deliberately absent: it has no stored
-column and Prisma cannot order by a computed expression, so it needs a
-generated column of its own - tracked separately rather than half-shipped.
+duration is finishedAt - startedAt in whole milliseconds (#855), from a stored
+generated column; a run missing either timestamp has no duration. A negative
+value (clock skew) sorts as stored, without clamping.
 """
 enum AppRunSortField {
   createdAt
+  duration
   finishedAt
   startedAt
   status
@@ -10372,10 +10373,13 @@ type Mutation {
   deleteNode(cascadeCrossMemoryEdges: Boolean, hard: Boolean, nodeRef: ID!, recursive: Boolean): Boolean!
 
   """
-  Delete a single node-revision snapshot by id (#617). Auth: the node's memory
-  write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown id.
+  Delete a single node-revision snapshot by reference (#617, #4138): nodeRevRef is a revision URN
+  (hrn:noderev:...) or a revision id, resolved per hrn:node:hadronmemory.com:specs:cor:api:140:00.
+  Auth: the node's memory write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown,
+  malformed or unreadable reference alike (a non-reader never learns whether it exists), and for a soft-deleted memory;
+  a soft-deleted node's revision is still deletable by id (cleanup, as clearNodeHistory) and is a missing ref by URN.
   """
-  deleteNodeRevision(revisionId: ID!): Boolean!
+  deleteNodeRevision(nodeRevRef: String!): Boolean!
 
   """
   #1325 — delete a rule by its id; expectedRevision as for updateNodeRoleRule. A LOCKED rule (#1334) is refused with RULE_LOCKED for every caller: unlock it first (unlockNodeRoleRule).
@@ -11686,7 +11690,7 @@ type Mutation {
   revision counter still advances monotonically for the restore itself.
   Restore + truncate run in one transaction (atomic).
   """
-  restoreNodeRevision(revisionId: ID!, truncate: Boolean = false): Node!
+  restoreNodeRevision(nodeRevRef: String!, truncate: Boolean = false): Node!
 
   """
   Restore an Agent's system memory from a revision (auto-saves first).
@@ -12885,7 +12889,7 @@ type Mutation {
   the full snapshot, so a soft-deleted node or a snapshot captured in an
   unreadable memory answers the same NOT_FOUND as an unknown id.
   """
-  updateNodeRevision(revLabel: String, revisionId: ID!): NodeRevision!
+  updateNodeRevision(nodeRevRef: String!, revLabel: String): NodeRevision!
 
   """
   #1325 — change a rule by its id. With expectedRevision, a rule changed since
@@ -16880,7 +16884,7 @@ type Query {
   history drops out of every read surface). Null, never an error, so there
   is no existence disclosure.
   """
-  nodeRevision(revisionId: ID!): NodeRevision
+  nodeRevision(nodeRevRef: String!): NodeRevision
 
   """
   Revision history for a node, most recent first.
@@ -21611,9 +21615,17 @@ type TeamMetricsChildStatus {
 #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+#4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+id with no readable name has a null name.
 """
 type TeamMetricsCount {
   ids: [ID!]!
+
+  """
+  One entry per id of ids, same order: the id and its name, null when no name is readable.
+  """
+  named: [TeamMetricsNamedId!]!
   total: Int!
   truncated: Boolean!
 }
@@ -21624,6 +21636,14 @@ Report 4: tasks completed (status FINISHED, by finishedAt) and tasks started (by
 type TeamMetricsFlow {
   completed: TeamMetricsCount!
   started: TeamMetricsCount!
+}
+
+"""
+#4992: an id of a metrics count with its name (a task's title or a worker's name); the name follows the same gate as the id.
+"""
+type TeamMetricsNamedId {
+  id: ID!
+  name: String
 }
 
 """

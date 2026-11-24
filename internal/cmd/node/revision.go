@@ -63,6 +63,19 @@ func stampsRefused(err error) bool {
 		isUnknownFieldErr(err, "NodeAuthorship") || isUnknownFieldErr(err, "NodeContentValidationStatus")
 }
 
+// revisionWriteError maps a failed restore, label or delete. A NOT_FOUND
+// refusal (an unknown, malformed or unreadable nodeRevRef, or a soft-deleted
+// memory: the server answers them alike) becomes the CLI's own line, naming
+// only the reference the user typed (cor:api:140:03, cor:api:040:03); the
+// server's message and its nodeRevRef extension are not shown (cli#2904).
+// Any other failure, or NOT_FOUND mixed with another error, maps as usual.
+func revisionWriteError(err error, ref string) error {
+	if api.OnlyErrorCodes(err, "NOT_FOUND") {
+		return exitcode.Newf(exitcode.NotFound, "revision %q not found", ref)
+	}
+	return api.MapError(err)
+}
+
 // restoredNodeDTO is the stable --json shape returned by `revision restore`.
 type restoredNodeDTO struct {
 	ID        string `json:"id"`
@@ -294,7 +307,7 @@ undoable, so it prompts for confirmation (gated by --yes non-interactively).`,
 			}
 			resp, err := gen.RestoreNodeRevision(cmd.Context(), client, args[0], truncateArg)
 			if err != nil {
-				return api.MapError(err)
+				return revisionWriteError(err, args[0])
 			}
 			n := resp.RestoreNodeRevision
 			if n == nil {
@@ -341,7 +354,7 @@ The label also captures the reason supplied with the edit that took the snapshot
 			// --label is required, so it's always sent (an explicit "" clears it).
 			resp, err := gen.UpdateNodeRevision(cmd.Context(), client, args[0], &label)
 			if err != nil {
-				return api.MapError(err)
+				return revisionWriteError(err, args[0])
 			}
 			dto := revisionDTOFrom(resp.UpdateNodeRevision.RevisionFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -381,7 +394,7 @@ exit 2). On success it prints "✓ Deleted revision <id>"; an unknown id exits 4
 			}
 			resp, err := gen.DeleteNodeRevision(cmd.Context(), client, args[0])
 			if err != nil {
-				return api.MapError(err)
+				return revisionWriteError(err, args[0])
 			}
 			// The server errors NOT_FOUND for an unknown id, so a false here would
 			// be a contract surprise; treat it as not-found rather than printing a
