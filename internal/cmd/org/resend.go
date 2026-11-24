@@ -36,6 +36,11 @@ func emitSender(f *cmdutil.Factory, d resendSenderDTO) error {
 	})
 }
 
+// resendDomainVerifiedFloor is the server floor: the UTC day hadron-server's ResendSender.domainVerified
+// (hadron-server#4865) merged. `get` asks for it in its only query, so an older server rejects the whole
+// read as an unknown field, which the help says (cli#2588).
+const resendDomainVerifiedFloor = "2026-11-22"
+
 // resendSenderGetDTO is what `get` prints: the sender plus Resend's domain-verified state (cli#2588, report
 // only). DomainVerified is a pointer and has no omitempty on purpose: true and false are Resend's answer, and
 // null means the state could not be read, which says nothing about the domain, so it is a present key and
@@ -255,7 +260,10 @@ not verified, or has no record of the domain), or unknown (the lookup could not
 be made, for example it failed or timed out); unknown says nothing about the
 domain. In --json it is domainVerified: true, false or null. It only reports:
 get sends no mail and changes nothing at Resend. To verify the domain, do it
-in Resend.`, Example: "  hadron org resend-sender get <sender-id> --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+in Resend.
+
+Needs server ` + resendDomainVerifiedFloor + ` or later: the query asks for domain verified, which
+an older server rejects as an unknown field, so get fails there.`, Example: "  hadron org resend-sender get <sender-id> --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := f.GraphQLClient()
 		if err != nil {
 			return err

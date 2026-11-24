@@ -198,6 +198,9 @@ func TestResendSenderGetHelpDescribesTheDomainLine2588(t *testing.T) {
 		"unknown says nothing about the domain",
 		"In --json it is domainVerified: true, false or null",
 		"get sends no mail and changes nothing at Resend",
+		// older servers reject the field, so the whole get fails there: the help says so (the repo's floor convention)
+		"Needs server 2026-11-22 or later",
+		"an older server rejects as an unknown field",
 	} {
 		if !strings.Contains(help, w) {
 			t.Errorf("get --help must say %q:\n%s", w, help)
@@ -214,8 +217,13 @@ func TestResendSenderGetHelpDescribesTheDomainLine2588(t *testing.T) {
 	if i < 0 {
 		t.Fatal("agentic-usage has no org resend-sender section")
 	}
-	section := strings.Join(strings.Fields(raw[i:min(len(raw), i+2600)]), " ")
-	for _, w := range []string{"domainVerified", "true, false or null", "read live from Resend", "report only"} {
+	section := raw[i:]
+	if end := strings.Index(section, "\n## "); end >= 0 { // this section only: up to the next heading
+		section = section[:end]
+	}
+	section = strings.Join(strings.Fields(section), " ")
+	for _, w := range []string{"domainVerified", "true, false or null", "read live from Resend", "report only",
+		"needs server 2026-11-22 or later"} {
 		if !strings.Contains(section, w) {
 			t.Errorf("the agentic-usage resend-sender section must say %q", w)
 		}

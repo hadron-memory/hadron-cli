@@ -241,7 +241,7 @@ section between the markers.
 | `org public` | discover |  | y | #1052 | 6415a1af5c98 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: activated/output/not-found exit guidance could be clearer |
 | `org resend-sender` |  |  | y | #1052 | 51afafce5131 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `org resend-sender create` |  |  | y | #1052 | 430c9d690ba2 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
-| `org resend-sender get` |  |  | y | #1052 | d89fe5676198 |  | unread |  |
+| `org resend-sender get` |  |  | y | #1052 | a7ed9f80b9e2 |  | unread |  |
 | `org resend-sender list` | ls |  | y | #1052 | 58ce94f77c20 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `org resend-sender rm` | delete |  | y | #1052 | 2fb42dfa6bf2 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `org resend-sender update` |  |  | y | #1052 | 96d38f161f64 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |

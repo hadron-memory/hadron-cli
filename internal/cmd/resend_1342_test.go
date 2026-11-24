@@ -62,8 +62,8 @@ func TestResend1342Commands(t *testing.T) {
 				if dto["id"] != "sender1" || dto["organizationId"] != "org1" || dto["hasApiKey"] != true {
 					t.Fatalf("DTO: %v", dto)
 				}
-				// cli#2588: get alone carries the tenth key, domainVerified (null when Resend was not asked or
-				// could not answer); create and update print the nine they always did.
+				// cli#2588: get alone carries the tenth key, domainVerified (null when the server could not
+				// read it, or this fake's answer omits it); create and update print the nine they always did.
 				want := 9
 				if tc.name == "get" {
 					want = 10

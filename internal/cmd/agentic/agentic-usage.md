@@ -6210,8 +6210,9 @@ domain of the sender's address is verified, `true, false or null`. It is read
 live from Resend on each `get` (never cached; one lookup per call), so `null`
 means the state could not be read and says nothing about the domain, and a
 `false` includes "Resend has no record of the domain". `list`, `create` and
-`update` do not carry the field. There is no test-send and no way to verify a
-domain from the CLI: verify it in Resend.
+`update` do not carry the field. `get` does not verify a domain and there is no
+test-send: verify the domain in Resend. `get` needs server 2026-11-22 or later
+(an older server rejects the field, so the whole `get` fails).
 
 The Resend API key is write-only. Never put it on the command line: use
 `--api-key-file ./resend.key` or `--api-key-file -` with stdin. Create with no
