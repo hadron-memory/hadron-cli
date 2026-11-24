@@ -64,7 +64,9 @@ before anyone did the work describes what someone imagined), and a rule only one
 team follows belongs in that team's process, not a shared role memory.
 
 --template prints the body template (the fenced block of the add-role-task node,
-read as an ordinary node) and creates nothing; start the body file from it.
+read as an ordinary node) and creates nothing, so it takes no agent, slug or
+other flag (given any, it refuses with exit 2 before reading anything); start
+the body file from it.
 
 By default NO skill export is written. --export-skill <name> with
 --skill-description <text> (both together) asks the server for an enabled
@@ -73,21 +75,38 @@ refuses the whole call if its lint finds an error. Any advice the server attache
 to its answer is printed to stderr and never blocks the create.
 
 Prints the created node's loc and URN and the index edge; --json gives them as
-{id, loc, urn, name, edges:[{id, label, targetLoc, targetUrn}]}. Editing an
+{id, loc, urn, name, edges:[{id, label, targetLoc, targetUrn}]}. The server writes
+the edge with the node, so an answer that lists none gets a note on stderr (the
+create still succeeds; --json stdout is unchanged). An answer with no node at all
+exits 1 with the outcome unknown: the task may have been recorded, so check
+` + "`agent tasks list`" + ` before retrying. Editing an
 existing task is not done here (node update --content-file keeps it runnable).`,
 		Example: `  hadron agent tasks create --template
   hadron agent tasks create hrn:agent:acme.com:support-bot restart-the-poller --name "Restart the poller" --abstract "Bring the poller back when it stalls." --body-file body.md --trigger "when the poller stalls"`,
 		Args: cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			// --template prints the template and creates nothing, so every other flag is an
+			// instruction it would silently drop: refuse them by name before any request (cli#3038).
+			if template {
+				if len(args) > 0 {
+					return exitcode.Newf(exitcode.Usage, "--template prints the template and takes no agent or slug")
+				}
+				var given []string
+				for _, name := range []string{"name", "abstract", "body-file", "trigger", "export-skill", "skill-description"} {
+					if cmd.Flags().Changed(name) {
+						given = append(given, "--"+name)
+					}
+				}
+				if len(given) > 0 {
+					return exitcode.Newf(exitcode.Usage, "--template prints the template and creates nothing, so it takes no other flag (got %s); drop them, or drop --template to create the task", strings.Join(given, ", "))
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			if template {
-				if len(args) > 0 {
-					return exitcode.Newf(exitcode.Usage, "--template prints the template and takes no agent or slug")
-				}
 				resp, err := gen.GetNode(ctx, client, roleTaskTemplateRef)
 				if err != nil {
 					return api.MapError(err)
@@ -151,7 +170,9 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.CreateTaskNode == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no node and no error: the task may or may not exist (check with `hadron agent tasks list %s`)", ref)
+				// The lost-answer class every other write command uses (team.nullMutationResult, which this package
+				// cannot import): exit 1, the outcome unknown, and the command that shows it before any retry.
+				return exitcode.Newf(exitcode.Error, "the server answered createTaskNode with no node and no error, so the outcome is unknown: it may have been recorded; run `hadron agent tasks list %s` before retrying", ref)
 			}
 			n := resp.CreateTaskNode
 			dto := roleTaskCreatedDTO{ID: n.Id, Loc: n.Loc, URN: n.Urn, Name: n.Name, Edges: []roleTaskEdgeDTO{}}
@@ -165,12 +186,17 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 				}
 				dto.Edges = append(dto.Edges, row)
 			}
+			// The server writes the index edge WITH the node, so an answer listing none is surprising: say so on
+			// stderr and still succeed. No CLI-side check or retry, and --json stdout is unchanged (cli#3038).
+			if len(dto.Edges) == 0 {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: the server's answer lists no index edge, though it writes the edge with the task; check that the task is indexed with `hadron agent tasks list %s`\n", ref)
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ created role task %s\n  urn: %s\n", output.SafeCell(dto.Loc), output.SafeCell(dto.URN)); err != nil {
 					return err
 				}
 				for _, e := range dto.Edges {
-					if _, err := fmt.Fprintf(w, "  indexed: %q -> %s (%s)\n", output.SafeCell(e.Label), output.SafeCell(e.TargetLoc), output.SafeCell(e.TargetURN)); err != nil {
+					if _, err := fmt.Fprintf(w, "  indexed: %s -> %s (%s)\n", output.SafeCell(e.Label), output.SafeCell(e.TargetLoc), output.SafeCell(e.TargetURN)); err != nil {
 						return err
 					}
 				}
