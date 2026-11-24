@@ -385,12 +385,12 @@ decides who may ask: any writer of the log's Memory.
 On success the question prints as question get shows it, prefixed "✓ asked";
 --json prints the same question as one object.
 
-Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
-with an error beneath the mutation, so the question may have been created.
+Exit 7 is an unknown outcome: the reply never arrived, came back without the
+question, or reported a server error, so the question may have been created.
 Nothing is resent, and it is not retry-safe: the server gives every ask the
-next code, so asking again can create a second question. List the log with
-question list --log <log> and look for your title (the listing is paged: use
---limit and --offset) before asking again.`,
+next code, so asking again can create a second question.
+
+` + wrapHelp("To recover, "+AskReadBack("<log>")+".", 80),
 		Example: `  cat > ask.json <<'EOF'
 {"title":"Pick a database","options":[{"key":"pg","label":"Postgres","whyChoose":"we run it"},{"key":"my","label":"MySQL"}],"recommendation":{"key":"pg","reason":"we run it already"}}
 EOF
@@ -445,7 +445,7 @@ EOF
 			if err != nil {
 				return err
 			}
-			readBack := "list the log with `hadron question list --log " + cmdutil.ShellQuote(logRef) + "` and look for the title you sent (the listing is paged: use --limit and --offset) before asking again"
+			readBack := AskReadBack(cmdutil.ShellQuote(logRef))
 			resp, err := gen.AskQuestion(cmd.Context(), client, logRef, &input)
 			if err != nil {
 				return questionWriteError(err, "askQuestion", "ask", readBack, resp != nil && resp.AskQuestion != nil)
@@ -1288,6 +1288,37 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 // reset or timeout after the request left, a 5xx, an internal error or an unusable answer may
 // follow the commit too: those are an unknown outcome, exit 7, never resent, with the
 // read-back sentence.
+// wrapHelp breaks text on spaces so no line is longer than width (a word longer than
+// width stays whole). It lets a sentence shared with an error, which is one line, sit in
+// help text that is kept to 80 columns.
+func wrapHelp(text string, width int) string {
+	var lines []string
+	line := ""
+	for _, w := range strings.Fields(text) {
+		if line != "" && len(line)+1+len(w) > width {
+			lines = append(lines, line)
+			line = w
+			continue
+		}
+		if line != "" {
+			line += " "
+		}
+		line += w
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// AskReadBack is the one recovery sentence for an unknown `question ask` outcome. The ask
+// help and the exit-7 error are both built from it, so they cannot word the advice
+// differently. logRef is the log as it should appear in the command: the caller's ref,
+// shell-quoted, in the error; the placeholder <log> in the help.
+func AskReadBack(logRef string) string {
+	return "list the log with `hadron question list --log " + logRef + "` and look for the title you sent, checking the asker and creation time when titles repeat (the listing is paged: use --limit and --offset) before asking again"
+}
+
 func questionWriteError(err error, field, what, readBack string, dataSeen bool) error {
 	// The server returned the question beside the error: a resolver ran and the write may
 	// have followed, whatever the error says.
