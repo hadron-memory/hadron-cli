@@ -37,8 +37,11 @@ func TestUsageEventsAppKeyAbsentRequestIsUnchanged(t *testing.T) {
 // or every `usage events` fails on a server that predates the argument. Both
 // documents are pinned WHOLE (golden): any drift in either (a selection field,
 // an argument rename, a regeneration reformat) fails here, not on an old server.
-// cli#3081 renamed the arguments on purpose (memoryId->memoryRef, nodeId->nodeRef:
-// hadron-server#4822, S6 of #4142, a hard rename); the variables keep their names.
+// The appKey rule above still holds: the plain document never mentions appKey.
+// Since cli#3081, though, neither document runs on a server older than
+// hadron-server#4822: the arguments are renamed (memoryId->memoryRef,
+// nodeId->nodeRef; S6 of #4142) with no alias, an ordered hard break by
+// ruling 0274 (cor:api:140:01). The variables keep their names.
 const usageEventsPageGolden1203 = `
 query UsageEventsPage ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
 	usageEventsPage(memoryRef: $memoryId, loc: $loc, nodeRef: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
