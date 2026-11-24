@@ -28315,6 +28315,35 @@ func (v *AuthoredWithInput) GetRevision() int { return v.Revision }
 // GetTask returns AuthoredWithInput.Task, and is useful for accessing the field via an interface.
 func (v *AuthoredWithInput) GetTask() string { return v.Task }
 
+// The four refusals of the authoring attestation check, as a write returns them.
+type AuthoringCheckRefusalCode string
+
+const (
+	AuthoringCheckRefusalCodeAuthoringAttestationMissing   AuthoringCheckRefusalCode = "AUTHORING_ATTESTATION_MISSING"
+	AuthoringCheckRefusalCodeAuthoringAttestationStale     AuthoringCheckRefusalCode = "AUTHORING_ATTESTATION_STALE"
+	AuthoringCheckRefusalCodeAuthoringAttestationWrongTask AuthoringCheckRefusalCode = "AUTHORING_ATTESTATION_WRONG_TASK"
+	AuthoringCheckRefusalCodeAuthorTaskBroken              AuthoringCheckRefusalCode = "AUTHOR_TASK_BROKEN"
+)
+
+var AllAuthoringCheckRefusalCode = []AuthoringCheckRefusalCode{
+	AuthoringCheckRefusalCodeAuthoringAttestationMissing,
+	AuthoringCheckRefusalCodeAuthoringAttestationStale,
+	AuthoringCheckRefusalCodeAuthoringAttestationWrongTask,
+	AuthoringCheckRefusalCodeAuthorTaskBroken,
+}
+
+type AuthoringCheckTaskAccess string
+
+const (
+	AuthoringCheckTaskAccessReadable    AuthoringCheckTaskAccess = "READABLE"
+	AuthoringCheckTaskAccessUnavailable AuthoringCheckTaskAccess = "UNAVAILABLE"
+)
+
+var AllAuthoringCheckTaskAccess = []AuthoringCheckTaskAccess{
+	AuthoringCheckTaskAccessReadable,
+	AuthoringCheckTaskAccessUnavailable,
+}
+
 // #2441: UNADOPTED = no valid adoption; ADOPTED = a valid adoption; CHANGED = the automation differs from what was adopted (computed on open only), so the next run fails AUTOMATION_CHANGED.
 type AutomationAdoptionState string
 
@@ -72208,6 +72237,129 @@ func (v *NodeApprovalStatusFieldsApprovalNodeApproval) __premarshalJSON() (*__pr
 	retval.ApprovedByInfo = v.NodeApprovalFields.ApprovedByInfo
 	retval.Hash = v.NodeApprovalFields.Hash
 	return &retval, nil
+}
+
+// NodeAuthoringCheckNodeAuthoringCheck includes the requested fields of the GraphQL type NodeAuthoringCheck.
+type NodeAuthoringCheckNodeAuthoringCheck struct {
+	State NodeAuthoringCheckState `json:"state"`
+	// Set when state is REFUSED.
+	Code *AuthoringCheckRefusalCode `json:"code"`
+	// The write's refusal prose. Set when state is REFUSED.
+	Message *string `json:"message"`
+	// The governed role whose rule refused. Set when state is REFUSED.
+	Role *string `json:"role"`
+	// Set when state is REFUSED.
+	Recovery *NodeAuthoringCheckNodeAuthoringCheckRecovery `json:"recovery"`
+}
+
+// GetState returns NodeAuthoringCheckNodeAuthoringCheck.State, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheck) GetState() NodeAuthoringCheckState { return v.State }
+
+// GetCode returns NodeAuthoringCheckNodeAuthoringCheck.Code, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheck) GetCode() *AuthoringCheckRefusalCode { return v.Code }
+
+// GetMessage returns NodeAuthoringCheckNodeAuthoringCheck.Message, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheck) GetMessage() *string { return v.Message }
+
+// GetRole returns NodeAuthoringCheckNodeAuthoringCheck.Role, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheck) GetRole() *string { return v.Role }
+
+// GetRecovery returns NodeAuthoringCheckNodeAuthoringCheck.Recovery, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheck) GetRecovery() *NodeAuthoringCheckNodeAuthoringCheckRecovery {
+	return v.Recovery
+}
+
+// NodeAuthoringCheckNodeAuthoringCheckRecovery includes the requested fields of the GraphQL type AuthoringCheckRecovery.
+// The GraphQL type's documentation follows.
+//
+// What a refusal tells the writer about the required task, exactly as the write does (#1329). A task
+// the caller cannot read, a deleted task and an unrunnable one are all UNAVAILABLE with nulls: no id,
+// reference, revision or count.
+type NodeAuthoringCheckNodeAuthoringCheckRecovery struct {
+	TaskAccess   AuthoringCheckTaskAccess                                            `json:"taskAccess"`
+	Task         *string                                                             `json:"task"`
+	TaskId       *string                                                             `json:"taskId"`
+	TaskRevision *int                                                                `json:"taskRevision"`
+	Load         *NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad `json:"load"`
+}
+
+// GetTaskAccess returns NodeAuthoringCheckNodeAuthoringCheckRecovery.TaskAccess, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecovery) GetTaskAccess() AuthoringCheckTaskAccess {
+	return v.TaskAccess
+}
+
+// GetTask returns NodeAuthoringCheckNodeAuthoringCheckRecovery.Task, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecovery) GetTask() *string { return v.Task }
+
+// GetTaskId returns NodeAuthoringCheckNodeAuthoringCheckRecovery.TaskId, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecovery) GetTaskId() *string { return v.TaskId }
+
+// GetTaskRevision returns NodeAuthoringCheckNodeAuthoringCheckRecovery.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecovery) GetTaskRevision() *int { return v.TaskRevision }
+
+// GetLoad returns NodeAuthoringCheckNodeAuthoringCheckRecovery.Load, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecovery) GetLoad() *NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad {
+	return v.Load
+}
+
+// NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad includes the requested fields of the GraphQL type AuthoringCheckLoad.
+// The GraphQL type's documentation follows.
+//
+// How to load the author task, per surface. A surface with no route is null.
+type NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad struct {
+	Cli     *string `json:"cli"`
+	Graphql string  `json:"graphql"`
+	Mcp     *string `json:"mcp"`
+}
+
+// GetCli returns NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad.Cli, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad) GetCli() *string {
+	return v.Cli
+}
+
+// GetGraphql returns NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad.Graphql, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad) GetGraphql() string {
+	return v.Graphql
+}
+
+// GetMcp returns NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad.Mcp, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad) GetMcp() *string {
+	return v.Mcp
+}
+
+// NodeAuthoringCheckResponse is returned by NodeAuthoringCheck on success.
+type NodeAuthoringCheckResponse struct {
+	// Check, without writing, whether a proposed node write and its authoredWith claim would pass the
+	// authoring attestation check (hrn:node:hadronmemory.com:specs:cor:dmo:060:17). The answer is the
+	// verdict the write would give for the same caller, node, role and claim: it is computed by the write's
+	// own check. A caller who cannot read the node gets the node read's not-found (NODE_NOT_FOUND by ref,
+	// MEMORY_NOT_FOUND by memory); a reader who does not write the memory gets UNAVAILABLE on every node.
+	// Shows no rule list, writers level or validator setting. Writes nothing.
+	NodeAuthoringCheck *NodeAuthoringCheckNodeAuthoringCheck `json:"nodeAuthoringCheck"`
+}
+
+// GetNodeAuthoringCheck returns NodeAuthoringCheckResponse.NodeAuthoringCheck, and is useful for accessing the field via an interface.
+func (v *NodeAuthoringCheckResponse) GetNodeAuthoringCheck() *NodeAuthoringCheckNodeAuthoringCheck {
+	return v.NodeAuthoringCheck
+}
+
+// #4168 (hrn:node:hadronmemory.com:specs:cor:dmo:060:17): the verdict of a proposed write's authoring
+// attestation check. PASS: the write would pass. REFUSED: the write would be refused, with the code,
+// the governed role, the prose and the recovery the write returns. UNAVAILABLE: the caller reads the
+// memory but does not write it, one answer for every node and role, so it shows nothing about the
+// memory's rules. A preview, never a reservation, and a pass is never proof the procedure was followed.
+type NodeAuthoringCheckState string
+
+const (
+	NodeAuthoringCheckStatePass        NodeAuthoringCheckState = "PASS"
+	NodeAuthoringCheckStateRefused     NodeAuthoringCheckState = "REFUSED"
+	NodeAuthoringCheckStateUnavailable NodeAuthoringCheckState = "UNAVAILABLE"
+)
+
+var AllNodeAuthoringCheckState = []NodeAuthoringCheckState{
+	NodeAuthoringCheckStatePass,
+	NodeAuthoringCheckStateRefused,
+	NodeAuthoringCheckStateUnavailable,
 }
 
 // #1326 — attribution of a content state. taskRef is REDACTED (null) by the
@@ -139579,6 +139731,14 @@ func (v *__NextNodeInput) GetCurrentRef() *string { return v.CurrentRef }
 // GetRaw returns __NextNodeInput.Raw, and is useful for accessing the field via an interface.
 func (v *__NextNodeInput) GetRaw() bool { return v.Raw }
 
+// __NodeAuthoringCheckInput is used internally by genqlient
+type __NodeAuthoringCheckInput struct {
+	Input *gqltypes.NodeAuthoringCheckInput `json:"input,omitempty"`
+}
+
+// GetInput returns __NodeAuthoringCheckInput.Input, and is useful for accessing the field via an interface.
+func (v *__NodeAuthoringCheckInput) GetInput() *gqltypes.NodeAuthoringCheckInput { return v.Input }
+
 // __NodeBatchContentInput is used internally by genqlient
 type __NodeBatchContentInput struct {
 	Refs      []string `json:"refs,omitempty"`
@@ -175048,6 +175208,57 @@ func NextNode(
 	}
 
 	data_ = &NextNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeAuthoringCheck.
+const NodeAuthoringCheck_Operation = `
+query NodeAuthoringCheck ($input: NodeAuthoringCheckInput!) {
+	nodeAuthoringCheck(input: $input) {
+		state
+		code
+		message
+		role
+		recovery {
+			taskAccess
+			task
+			taskId
+			taskRevision
+			load {
+				cli
+				graphql
+				mcp
+			}
+		}
+	}
+}
+`
+
+// cli#3089 — the authoring attestation check as a preview (cor:dmo:060:17). One
+// read, nothing written. The input is bound to gqltypes.NodeAuthoringCheckInput
+// because `role` is three-state.
+func NodeAuthoringCheck(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *gqltypes.NodeAuthoringCheckInput,
+) (data_ *NodeAuthoringCheckResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeAuthoringCheck",
+		Query:  NodeAuthoringCheck_Operation,
+		Variables: &__NodeAuthoringCheckInput{
+			Input: input,
+		},
+	}
+
+	data_ = &NodeAuthoringCheckResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

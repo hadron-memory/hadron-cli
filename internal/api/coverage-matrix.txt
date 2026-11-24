@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 248: 213 command, 10 gap, 25 excluded
+[Query] 248: 214 command, 9 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -183,7 +183,7 @@ myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeys
 myUserApiKeysPage  command auth token list
 nextNode  command node next
 node  command node get
-nodeAuthoringCheck  gap #3089
+nodeAuthoringCheck  command node authoring-check
 nodeBatch  command node get
 nodeEdgeRemovals  command node edge-removals
 nodeExport  command node export
