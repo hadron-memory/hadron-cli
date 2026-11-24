@@ -18513,7 +18513,7 @@ type AgentTeamEventFields struct {
 	TaskId *string `json:"taskId"`
 	// The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
 	TaskHandle *string `json:"taskHandle"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.lead-cadence (#2763, #4375: task-less, subjectWorker is the lead that stopped assigning: a worker that at least one worker reports to; events raised before #4375 carry the type alarm.coordinator-cadence, the same alarm under its old name); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.lead-cadence (#2763, #4375: task-less, subjectWorker is the lead that stopped assigning: a worker that at least one worker reports to; events raised before #4375 carry the type alarm.coordinator-cadence, the same alarm under its old name); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); team.dark (#4531: App-owned, task-less and workerless, with an empty chain, hrn:node:hadronmemory.com:specs:cor:agt:050:34: the team as a whole went silent past the dark window, one per episode; payload is reason (wake-unacked, no-turn or work-waiting), windowMinutes, workerCount, darkWorkerCount, oldestWakeAgeSeconds and waitingSeconds, counts and ages only; it wakes nobody and is not acknowledgeable) and team.recovered (an ordinary event, one per episode, when the condition clears); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -22258,7 +22258,7 @@ type AlarmAcknowledgeInstructedResponse struct {
 	// alarm's chain, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:24), and nobody
 	// else; the time is the server's.
 	// Refusals: ALARM_NOT_FOUND (also for an App you cannot read),
-	// NOT_AN_ALARM, ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
+	// NOT_AN_ALARM, ALARM_NOT_ACKNOWLEDGEABLE (#4531: a team.dark alarm has no chain and is never acknowledged), ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
 	// stands), SESSION_NOT_BOUND, APP_UNINSTALLED.
 	// #2607 (experiment): an acknowledgement by a manager of the App who is no
 	// owner in the chain succeeds with the warning alarm.ack.outside-chain in
@@ -22279,7 +22279,7 @@ type AlarmAcknowledgeResponse struct {
 	// alarm's chain, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:agt:050:24), and nobody
 	// else; the time is the server's.
 	// Refusals: ALARM_NOT_FOUND (also for an App you cannot read),
-	// NOT_AN_ALARM, ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
+	// NOT_AN_ALARM, ALARM_NOT_ACKNOWLEDGEABLE (#4531: a team.dark alarm has no chain and is never acknowledged), ALARM_NOT_IN_CHAIN, ALARM_ALREADY_ACKNOWLEDGED (the first
 	// stands), SESSION_NOT_BOUND, APP_UNINSTALLED.
 	// #2607 (experiment): an acknowledgement by a manager of the App who is no
 	// owner in the chain succeeds with the warning alarm.ack.outside-chain in
@@ -25563,18 +25563,19 @@ func (v *AppRunResponse) GetAppRun() *AppRunAppRun { return v.AppRun }
 // SortDirection enum. Default createdAt desc — existing callers depend on
 // newest-first.
 //
-// startedAt / finishedAt are NULLABLE (a PENDING run has neither); nulls sort
-// LAST in both directions, so unstarted runs never crowd out the rows an
-// operator asked to see. Every sort carries an id tiebreak so offset paging is
-// deterministic.
+// startedAt / finishedAt / duration are NULLABLE (a PENDING run has neither
+// timestamp, and a RUNNING one has no finishedAt): nulls sort LAST in both
+// directions, so unstarted runs never crowd out the rows an operator asked to
+// see. Every sort carries an id tiebreak so offset paging is deterministic.
 //
-// Duration (finishedAt - startedAt) is deliberately absent: it has no stored
-// column and Prisma cannot order by a computed expression, so it needs a
-// generated column of its own - tracked separately rather than half-shipped.
+// duration is finishedAt - startedAt in whole milliseconds (#855), from a stored
+// generated column; a run missing either timestamp has no duration. A negative
+// value (clock skew) sorts as stored, without clamping.
 type AppRunSortField string
 
 const (
 	AppRunSortFieldCreatedat  AppRunSortField = "createdAt"
+	AppRunSortFieldDuration   AppRunSortField = "duration"
 	AppRunSortFieldFinishedat AppRunSortField = "finishedAt"
 	AppRunSortFieldStartedat  AppRunSortField = "startedAt"
 	AppRunSortFieldStatus     AppRunSortField = "status"
@@ -25582,6 +25583,7 @@ const (
 
 var AllAppRunSortField = []AppRunSortField{
 	AppRunSortFieldCreatedat,
+	AppRunSortFieldDuration,
 	AppRunSortFieldFinishedat,
 	AppRunSortFieldStartedat,
 	AppRunSortFieldStatus,
@@ -48550,8 +48552,11 @@ func (v *DeleteNodeResponse) GetDeleteNode() bool { return v.DeleteNode }
 
 // DeleteNodeRevisionResponse is returned by DeleteNodeRevision on success.
 type DeleteNodeRevisionResponse struct {
-	// Delete a single node-revision snapshot by id (#617). Auth: the node's memory
-	// write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown id.
+	// Delete a single node-revision snapshot by reference (#617, #4138): nodeRevRef is a revision URN
+	// (hrn:noderev:...) or a revision id, resolved per hrn:node:hadronmemory.com:specs:cor:api:140:00.
+	// Auth: the node's memory write access (as restoreNodeRevision). Throws NOT_FOUND for an unknown,
+	// malformed or unreadable reference alike (a non-reader never learns whether it exists), and for a soft-deleted memory;
+	// a soft-deleted node's revision is still deletable by id (cleanup, as clearNodeHistory) and is a missing ref by URN.
 	DeleteNodeRevision bool `json:"deleteNodeRevision"`
 }
 
@@ -110026,6 +110031,9 @@ func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memo
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsCountFields struct {
 	Total     int      `json:"total"`
 	Ids       []string `json:"ids"`
@@ -110138,6 +110146,9 @@ func (v *TeamMetricsTeamMetricsFlow) GetStarted() *TeamMetricsTeamMetricsFlowSta
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -110213,6 +110224,9 @@ func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) __premarshalJSON()
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -110343,6 +110357,9 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -110524,6 +110541,9 @@ func (v *TeamMetricsTeamMetricsStartedOwned) GetOwnersTruncated() bool { return 
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -110732,6 +110752,9 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -110842,6 +110865,9 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgen
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -110967,6 +110993,9 @@ func (v *TeamMetricsTeamMetricsWorkers) GetInop() *TeamMetricsTeamMetricsWorkers
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -111042,6 +111071,9 @@ func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) __premarshalJSON()
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -111117,6 +111149,9 @@ func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) __premarshalJSON() (
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -111192,6 +111227,9 @@ func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) __premarshalJSON() (
 // #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
 // so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
 // when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+// #4992: named holds the same ids in the same order, each with its name (a task's title, a worker's name), so a client needs no read
+// per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
+// id with no readable name has a null name.
 type TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
 	TeamMetricsCountFields `json:"-"`
 }
@@ -137022,11 +137060,11 @@ func (v *__DeleteNodeInput) GetCascadeCrossMemoryEdges() *bool { return v.Cascad
 
 // __DeleteNodeRevisionInput is used internally by genqlient
 type __DeleteNodeRevisionInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 }
 
-// GetRevisionId returns __DeleteNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__DeleteNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __DeleteNodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // __DeleteNodeRoleRuleInput is used internally by genqlient
 type __DeleteNodeRoleRuleInput struct {
@@ -139720,19 +139758,19 @@ func (v *__NodeRawTextInput) GetRef() string { return v.Ref }
 
 // __NodeRevisionInput is used internally by genqlient
 type __NodeRevisionInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 }
 
-// GetRevisionId returns __NodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __NodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // __NodeRevisionStampedInput is used internally by genqlient
 type __NodeRevisionStampedInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 }
 
-// GetRevisionId returns __NodeRevisionStampedInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionStampedInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __NodeRevisionStampedInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionStampedInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // __NodeRevisionTextsInput is used internally by genqlient
 type __NodeRevisionTextsInput struct {
@@ -140816,12 +140854,12 @@ func (v *__RestoreNodeInput) GetNodeRef() string { return v.NodeRef }
 
 // __RestoreNodeRevisionInput is used internally by genqlient
 type __RestoreNodeRevisionInput struct {
-	RevisionId string `json:"revisionId"`
+	NodeRevRef string `json:"nodeRevRef"`
 	Truncate   *bool  `json:"truncate,omitempty"`
 }
 
-// GetRevisionId returns __RestoreNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__RestoreNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __RestoreNodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__RestoreNodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // GetTruncate returns __RestoreNodeRevisionInput.Truncate, and is useful for accessing the field via an interface.
 func (v *__RestoreNodeRevisionInput) GetTruncate() *bool { return v.Truncate }
@@ -145086,12 +145124,12 @@ func (v *__UpdateNodePropertiesInput) GetReason() *string { return v.Reason }
 
 // __UpdateNodeRevisionInput is used internally by genqlient
 type __UpdateNodeRevisionInput struct {
-	RevisionId string  `json:"revisionId"`
+	NodeRevRef string  `json:"nodeRevRef"`
 	RevLabel   *string `json:"revLabel,omitempty"`
 }
 
-// GetRevisionId returns __UpdateNodeRevisionInput.RevisionId, and is useful for accessing the field via an interface.
-func (v *__UpdateNodeRevisionInput) GetRevisionId() string { return v.RevisionId }
+// GetNodeRevRef returns __UpdateNodeRevisionInput.NodeRevRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodeRevisionInput) GetNodeRevRef() string { return v.NodeRevRef }
 
 // GetRevLabel returns __UpdateNodeRevisionInput.RevLabel, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeRevisionInput) GetRevLabel() *string { return v.RevLabel }
@@ -164837,22 +164875,22 @@ func DeleteNode(
 
 // The mutation executed by DeleteNodeRevision.
 const DeleteNodeRevision_Operation = `
-mutation DeleteNodeRevision ($revisionId: ID!) {
-	deleteNodeRevision(revisionId: $revisionId)
+mutation DeleteNodeRevision ($nodeRevRef: String!) {
+	deleteNodeRevision(nodeRevRef: $nodeRevRef)
 }
 `
 
-// Delete one snapshot (memory-write auth; NOT_FOUND for an unknown id).
+// Delete one snapshot (memory-write auth; NOT_FOUND for an unknown reference).
 func DeleteNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 ) (data_ *DeleteNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNodeRevision",
 		Query:  DeleteNodeRevision_Operation,
 		Variables: &__DeleteNodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 		},
 	}
 
@@ -176042,8 +176080,8 @@ func NodeRawText(
 
 // The query executed by NodeRevision.
 const NodeRevision_Operation = `
-query NodeRevision ($revisionId: ID!) {
-	nodeRevision(revisionId: $revisionId) {
+query NodeRevision ($nodeRevRef: String!) {
+	nodeRevision(nodeRevRef: $nodeRevRef) {
 		... RevisionFields
 		content
 	}
@@ -176072,13 +176110,13 @@ fragment RevisionFields on NodeRevision {
 func NodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 ) (data_ *NodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeRevision",
 		Query:  NodeRevision_Operation,
 		Variables: &__NodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 		},
 	}
 
@@ -176096,8 +176134,8 @@ func NodeRevision(
 
 // The query executed by NodeRevisionStamped.
 const NodeRevisionStamped_Operation = `
-query NodeRevisionStamped ($revisionId: ID!) {
-	nodeRevision(revisionId: $revisionId) {
+query NodeRevisionStamped ($nodeRevRef: String!) {
+	nodeRevision(nodeRevRef: $nodeRevRef) {
 		... RevisionFields
 		content
 		authorship {
@@ -176150,13 +176188,13 @@ fragment NodeContentValidationFields on NodeContentValidationStatus {
 func NodeRevisionStamped(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 ) (data_ *NodeRevisionStampedResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeRevisionStamped",
 		Query:  NodeRevisionStamped_Operation,
 		Variables: &__NodeRevisionStampedInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 		},
 	}
 
@@ -180497,8 +180535,8 @@ func RestoreNode(
 
 // The mutation executed by RestoreNodeRevision.
 const RestoreNodeRevision_Operation = `
-mutation RestoreNodeRevision ($revisionId: ID!, $truncate: Boolean) {
-	restoreNodeRevision(revisionId: $revisionId, truncate: $truncate) {
+mutation RestoreNodeRevision ($nodeRevRef: String!, $truncate: Boolean) {
+	restoreNodeRevision(nodeRevRef: $nodeRevRef, truncate: $truncate) {
 		id
 		memoryId
 		loc
@@ -180516,14 +180554,14 @@ mutation RestoreNodeRevision ($revisionId: ID!, $truncate: Boolean) {
 func RestoreNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 	truncate *bool,
 ) (data_ *RestoreNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RestoreNodeRevision",
 		Query:  RestoreNodeRevision_Operation,
 		Variables: &__RestoreNodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 			Truncate:   truncate,
 		},
 	}
@@ -193763,8 +193801,8 @@ func UpdateNodePropertiesAuthored(
 
 // The mutation executed by UpdateNodeRevision.
 const UpdateNodeRevision_Operation = `
-mutation UpdateNodeRevision ($revisionId: ID!, $revLabel: String) {
-	updateNodeRevision(revisionId: $revisionId, revLabel: $revLabel) {
+mutation UpdateNodeRevision ($nodeRevRef: String!, $revLabel: String) {
+	updateNodeRevision(nodeRevRef: $nodeRevRef, revLabel: $revLabel) {
 		... RevisionFields
 	}
 }
@@ -193792,14 +193830,14 @@ fragment RevisionFields on NodeRevision {
 func UpdateNodeRevision(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	revisionId string,
+	nodeRevRef string,
 	revLabel *string,
 ) (data_ *UpdateNodeRevisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateNodeRevision",
 		Query:  UpdateNodeRevision_Operation,
 		Variables: &__UpdateNodeRevisionInput{
-			RevisionId: revisionId,
+			NodeRevRef: nodeRevRef,
 			RevLabel:   revLabel,
 		},
 	}
