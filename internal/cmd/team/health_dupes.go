@@ -66,6 +66,21 @@ type dupesResult struct {
 // a wedged sweep cannot signal a long-stale decision.
 const stopLease = 5 * time.Second
 
+// launchAnchorState reads the poller's record of what it launched, which is the
+// supervision anchor (cli#2059). The sweep's caller already refused a corrupt or
+// absent state before this read, so reaching the error branch means the file
+// changed since (a race). Then it answers an empty state: no anchors, so no
+// agent counts as supervised and the sweep only reports. A missing file is not
+// an error (LoadState reads it as empty) and prints nothing.
+func launchAnchorState(path string, errOut io.Writer) *hostpoller.State {
+	state, err := hostpoller.LoadState(path)
+	if err != nil {
+		fmt.Fprintf(errOut, "health: poller state unreadable, no launch anchors: %v\n", err)
+		return hostpoller.EmptyState(path)
+	}
+	return state
+}
+
 // runHealthDupes is the fix phase. applying is the --dry-run=false posture.
 // Errors are reported in the result, never returned.
 func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Config, server *hostServer, workers []dupeWorker, applying bool, errOut io.Writer) dupesResult {
@@ -74,14 +89,7 @@ func runHealthDupes(ctx context.Context, f *cmdutil.Factory, cfg *hostpoller.Con
 	if len(inScope) == 0 {
 		return res // nothing bound on this host: ask Orca and the server nothing
 	}
-	// The poller's record of what it launched is the supervision anchor
-	// (cli#2059). A state file that cannot be read yields no anchors, so no
-	// agent counts as supervised and the sweep only reports.
-	state, err := hostpoller.LoadState(cfg.StateFile)
-	if err != nil {
-		state, _ = hostpoller.LoadState("")
-		fmt.Fprintf(errOut, "health: poller state unreadable, no launch anchors: %v\n", err)
-	}
+	state := launchAnchorState(cfg.StateFile, errOut)
 	client, terms := sweepOrcaClient(ctx, cfg)
 	census := map[string][]hostpoller.WorktreeAgent{}
 	tabs := map[string][]healthfix.Tab{}

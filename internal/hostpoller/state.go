@@ -46,9 +46,15 @@ type AgentRecord struct {
 	Start string `json:"start,omitempty"`
 }
 
+// EmptyState is a state with no records, bound to path. It cannot fail, which
+// is what a caller that must carry on without the file relies on.
+func EmptyState(path string) *State {
+	return &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
+}
+
 // LoadState reads the state file; a missing file is an empty state.
 func LoadState(path string) (*State, error) {
-	s := &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
+	s := EmptyState(path)
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
