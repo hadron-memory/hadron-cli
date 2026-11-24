@@ -44,8 +44,10 @@ type newRouteDTO struct {
 	// intentional cross-memory marker (cli#2736); absent otherwise.
 	CrossMemory bool `json:"crossMemory,omitempty"`
 	// AlreadyRouted is true when every edge the run would write was already on
-	// the graph (and none needed the marker), so no edge was written; absent
-	// otherwise (cli#2844). The routing line in the body is separate.
+	// the graph (and none needed the marker), so no edge is written; absent
+	// otherwise (cli#2844). It is about the edges only: the routing line in the
+	// body is separate and is still added when the body lacks it (BodyLine is
+	// then set), as a --dry-run reports too.
 	AlreadyRouted bool `json:"alreadyRouted,omitempty"`
 }
 
@@ -438,7 +440,17 @@ func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
 		{false, true}:  "would route",
 	}[[2]bool{created, dto.DryRun}]
 	if dto.AlreadyRouted {
-		verb = "✓ already routed"
+		// Edges only (see AlreadyRouted): say what happens to the body line beside it.
+		switch {
+		case dto.DryRun && dto.BodyLine != "":
+			verb = "already routed (edges); would add the body line"
+		case dto.DryRun:
+			verb = "already routed (nothing to write)"
+		case dto.BodyLine != "":
+			verb = "✓ already routed (edges); body line added"
+		default:
+			verb = "✓ already routed"
+		}
 	}
 	t := output.NewTable(w)
 	t.Row(verb, output.SafeCell(dto.Loc), output.SafeCell("("+dto.Route+")"))

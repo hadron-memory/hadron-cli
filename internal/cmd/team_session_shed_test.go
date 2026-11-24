@@ -347,6 +347,57 @@ func TestSessionShedPromptCitesOnlyRegisteredCommands(t *testing.T) {
 	}
 }
 
+// hadron-cli#3010: the checkpoint's continuity pointer must not print a bare
+// status enum after an existing handoff URN — a recovering worker reads
+// "(MISSING)" as "this node is absent". The bind names the gap in words first
+// and labels the URN as history (conventions:worker-handoff-canonical-placement,
+// cor:agt:020:03); the checkpoint renders the same contract.
+func TestSessionShedContinuityLineNamesTheGapBeforeThePointer(t *testing.T) {
+	cases := map[string]struct {
+		override map[string]string
+		want     string
+	}{
+		"MISSING with an older handoff": {
+			// The defect's own input (#3010): the real shed read this URN
+			// beside a MISSING status and the suffix read as a missing node.
+			override: map[string]string{"GetWorkerContinuity": `{"data":{"worker":{"continuity":{"status":"MISSING","handoff":{"urn":"hrn:node:hadronmemory.com:hadron-dev-team-jimmy:handoffs:2026-11-21-1731-4755-done-2891-frozen","loc":"handoffs:2026-11-21-1731-4755-done-2891-frozen","content":null,"createdAt":"2026-11-21T20:04:00Z"},"previousSession":null}}}}`},
+			want:     "- Continuity handoff: none current (the previous stint ended without one); older handoff (history, not the current state): hrn:node:hadronmemory.com:hadron-dev-team-jimmy:handoffs:2026-11-21-1731-4755-done-2891-frozen\n",
+		},
+		"MISSING with no handoff on file": {
+			override: map[string]string{"GetWorkerContinuity": `{"data":{"worker":{"continuity":{"status":"MISSING","handoff":null,"previousSession":null}}}}`},
+			want:     "- Continuity handoff: none (MISSING)\n",
+		},
+		"CURRENT with a handoff keeps the plain form": {
+			override: nil, // the rig's default continuity
+			want:     "- Continuity handoff: hrn:node:acme.com:iris:sheds:old (CURRENT)\n",
+		},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			bindWorktree(t)
+			url, rig := shedServer(t, tc.override)
+			if _, _, err := runShed(t, url); err != nil {
+				t.Fatal(err)
+			}
+			var in struct {
+				Input struct{ Content string } `json:"input"`
+			}
+			_ = json.Unmarshal(rig.captured["CreateNode"], &in)
+			if !strings.Contains(in.Input.Content, tc.want) {
+				t.Errorf("checkpoint continuity line:\nwant %q\nin:\n%s", tc.want, in.Input.Content)
+			}
+			// The trap the issue is about: the bare (MISSING) suffix after a
+			// URN reads as a missing node. The no-handoff "none (MISSING)" and
+			// other statuses keep their form.
+			for _, line := range strings.Split(in.Input.Content, "\n") {
+				if strings.HasPrefix(line, "- Continuity handoff: ") && strings.Contains(line, "hrn:") && strings.HasSuffix(line, " (MISSING)") {
+					t.Errorf("the bare (MISSING) suffix no longer follows a URN: %q", line)
+				}
+			}
+		})
+	}
+}
+
 func indexOf(s []string, v string) int {
 	for i, x := range s {
 		if x == v {

@@ -121,8 +121,11 @@ left out), with total and hasMore; page it with --clones-limit/--clones-offset
 server released on or after 2026-11-02; an older one rejects the document as
 schema skew (exit 2).
 
-The task is named by its id or handle (AT0.7, AT1.2); the server works out the
-App, and an ambiguous bare handle needs an id or a qualified handle such as
+The task is named by its id or handle (AT0.7, AT1.2). A bare handle is read in
+the App you name with --app, else in the App of this worktree's worker-session
+binding when it has one. With neither, the server works out the App and refuses
+a bare handle that is ambiguous (TASK_HANDLE_QUALIFY, for a person in several
+Apps): then use an id, --app, or a qualified handle such as
 hrn:agenttask:acme.com:eng-team:AT1.2. A task you may not read answers "not
 found", exit 4, exactly like a missing one (no existence oracle).
 
@@ -135,7 +138,7 @@ original values.`,
 			if err := checkTaskPage(clonesLimit, clonesOffset); err != nil {
 				return err
 			}
-			taskId, err := taskRefArg(f, args)
+			taskId, err := taskRefArgFromBinding(cmd.Context(), f, args)
 			if err != nil {
 				return err
 			}
@@ -172,7 +175,7 @@ original values.`,
 			})
 		},
 	}
-	cmd.Flags().IntVar(&clonesLimit, "clones-limit", 20, "clones page size (default 20, cap 200)")
+	cmd.Flags().IntVar(&clonesLimit, "clones-limit", 20, "clones page size (the server caps it at 200)")
 	cmd.Flags().IntVar(&clonesOffset, "clones-offset", 0, "offset into the clones page")
 	return cmd
 }
@@ -404,9 +407,12 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 }
 
 // strOr renders an optional string, an em dash for none.
+// nullCell is the word a table prints for a null or empty value.
+const nullCell = "—"
+
 func strOr(s *string) string {
 	if s == nil || *s == "" {
-		return "—"
+		return nullCell
 	}
 	return *s
 }
@@ -446,98 +452,97 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List the App's tasks (newest first)",
 		Long: `List the team App's tasks, newest first (the server's order). The App comes
 from --app, else the configured App context, else the worktree binding; with
-none of them the command is refused.
+none of them the command is refused. No records is []/exit 0.
 
---unresolved narrows to FINISHED tasks with at least one finding without a
-disposition; all four codes (including deferred) resolve a finding. False or
-omission does not narrow. The server filters under the App read gate before
-paging, ANDed with the other filters. Requires a server released on or after
-2026-11-03; it cannot combine with --team, even when false. A separate
-operation keeps older plain/filtered list documents unchanged when this flag
-is omitted. No records is []/exit 0.
+WHAT IT PRINTS. A table with one row per task: HANDLE (when any task has one),
+ID, STATUS, PRIORITY (1 = highest), BLOCKED, BLOCKED BY and BLOCKS (counts),
+TITLE, OWNER and ASSIGNEE ("(queued)" for a task waiting with no assignee,
+"—" for none); columns are added when a row has a minimum tier, model groups,
+a finish-by time or a match failure. --json is the list of tasks, each with the
+same fields. --limit/--offset page (default 20, cap 200); the server's hasMore
+says whether rows remain past the page, and the continuation names the exact
+--offset.
 
---match-failed selects tasks marked by an unsuccessful create --match;
---match-failed=false selects unmarked tasks. Omission keeps the old list.
-The server filters before paging under the App read gate. No results is []
-and exit 0. It cannot combine with the coordinator view --team (exit 2 before
-any read). Marked rows show the reason and time; JSON adds matchFailure only
-when present. These fields need a server released on or after 2026-11-03.
-
-Filters combine with AND, except that repeated --status values are
+FILTERS. All combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
-` + taskStatusDoc + `; --assignee and
---owner and --creator name a party, --queued keeps only pending tasks with no assignee,
---roots-only drops children, --parent lists one task's children, --tag
-filters by tag. --text matches a case-insensitive substring of title and description
-only, ANDed with other filters. Text is sent unchanged; the server trims and
-refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
---limit/--offset page (default 20, cap 200); the server's hasMore says whether rows remain past the page, and the continuation names the exact --offset.
+PENDING, BACKLOG, STARTED, FINISHED or CANCELLED. --assignee, --owner and
+--creator name a party (worker:<id, URN or name> or user:<id or handle>);
+--queued keeps only pending tasks with no assignee; --roots-only drops
+children; --parent lists one task's children. --text matches a
+case-insensitive substring of title and description only; the server trims it
+and refuses a blank or over-200-character value (BAD_USER_INPUT, exit 2).
+Tags: --tag filters by one tag, and --tag-any (at least one) and --tag-all
+(every one) each take several; a comma is part of a tag, not a separator.
+--source matches the exact value, never a prefix, and so does --external-id:
+the tasks that claim that outside item. An external id is held by at most one
+ACTIVE task (backlog, pending or started) per App; finished and cancelled
+tasks keep it, so the list can hold several, newest first. The live holder is
+the one still active, and one call finds it, against the same App as the refused
+create and with no other narrowing filter:
+  --external-id <id> --status BACKLOG --status PENDING --status STARTED
+An empty list then means no active
+task matched under these filters (the newest ended task is not a holder); any
+other filter can hide the holder. --ref <target> lists tasks carrying a typed
+reference with exactly that target (never a prefix; the label is ignored), and
+--ref-kind (issue, pull-request, node, task, url) narrows it to one kind;
+--ref-kind alone is a usage error.
+--unresolved narrows to FINISHED tasks with at least one finding without a
+disposition (all four dispositions, including deferred, resolve a finding);
+false or omission does not narrow. It cannot combine with --team, even when
+false, and needs a server released on or after 2026-11-03. It lists finished
+tasks only, so with it the holder lookup above cannot find an active holder.
+--match-failed selects tasks marked by an unsuccessful create --match;
+--match-failed=false selects unmarked tasks; omission keeps the old list. It
+cannot combine with --team (exit 2 before any read). Marked rows show the
+reason and time; JSON adds matchFailure only when present. These need a server
+released on or after 2026-11-03.
 
---tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
-tag, not a separator. --source matches the exact value, never a prefix, and so
-does --external-id: the tasks that claim that outside item. An external id is
-held by at most one ACTIVE task (backlog, pending or started) per App; finished
-and cancelled tasks keep it, so the list can hold several, newest first. The
-live holder is the one still active, and one call finds it:
---external-id <id> --status BACKLOG --status PENDING --status STARTED, against
-the same App as the refused create and with no other narrowing filter. An empty
-list then means no active task matched under these filters (the newest ended
-task is not a holder); any other filter can hide the holder. --unresolved lists
-finished tasks only, so with it the lookup cannot find an active holder.
---ref <target> lists tasks carrying a typed reference with exactly that target
-(never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
-node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
---overdue lists tasks overdue on the server clock (the database clock). Two
-arms: a pending, not-started task whose start-by has passed, or a pending or
-started task whose finish-by has passed. An ended (finished or cancelled)
-task and a backlog task are never overdue, and neither is a task with
-neither time. Blocking is ignored and a person-assigned task counts like any
-other; --overdue=false lists all other tasks. This is a filter, not an alarm
-(the stall.finish-by deadline alarm is separate and unchanged). The
-finish-by arm needs a server released on or after 2026-11-17; an older one
-filters by start-by only.
---created-/--started-/--finished-after and -before take RFC 3339 times
-with Z or an offset and are inclusive bounds; a task with no start or
-finish time never matches a range on it. A malformed time is a usage
-error (exit 2) and nothing is sent. These filters AND with the rest and
-do not combine with --team.
+TIME FILTERS. --overdue lists tasks overdue on the server clock: a pending,
+not-started task whose start-by has passed, or a pending or started task whose
+finish-by has passed. An ended (finished or cancelled) task and a backlog task
+are never overdue, and neither is a task with neither time. Blocking is
+ignored and a person-assigned task counts like any other; --overdue=false lists
+all other tasks. It is a filter, not an alarm (the stall.finish-by deadline
+alarm is separate). The finish-by arm needs a server released on or after
+2026-11-17; an older one filters by start-by only.
+--created-/--started-/--finished-after and -before take RFC 3339 times with Z
+or an offset and are inclusive bounds; a task with no start or finish time
+never matches a range on it. A malformed time is a usage error (exit 2) and
+nothing is sent. These filters do not combine with --team.
 
---team is a coordinator's view of work in flight. The team is the
-coordinator — the bound worker for a bare --team, or --team=worker:<id, URN
-or name> (attached with =) — plus every worker whose roster reportsTo chain
+COORDINATOR VIEW (--team). The work in flight of one coordinator's team: the
+coordinator — the bound worker for a bare --team, or --team=worker:<id, URN or
+name> (attached with =) — plus every worker whose roster reportsTo chain
 reaches them, in this App. It lists the App's tasks a team member OWNS, is
-ASSIGNED or CREATED, plus every descendant of those, even where the descendant's parties
-sit outside the team; owner/assignee cells say "(outside)" for a worker in
-another reporting subtree and "(not on roster)" for one the roster does not
-list (a retired worker: the roster omits them, so their tasks join only as a
-descendant or through a current team member). A task a person created does not
-join through its creator, and other Apps are never read. It reads every
-page of the App's tasks (no truncation; a page that does not advance is
-refused, exit 1), then applies --status after the join, so an open task under
-a finished team task stays in view. It combines with --status, --text, --tree
-and --stale-over. Text is selected by the server after the team join, using a
-second paged read, so nonmatching ancestors do not hide matching descendants.
-Every other filter, and --limit/--offset, is refused with --team (exit 2);
---tree and --stale-over work only with --team.
+ASSIGNED or CREATED, plus every descendant of those, even where the
+descendant's parties sit outside the team; owner/assignee cells say "(outside)"
+for a worker in another reporting subtree and "(not on roster)" for one the
+roster does not list (a retired worker: their tasks join only as a descendant
+or through a current team member). A task a person created does not join
+through its creator, and other Apps are never read. It reads every page of the
+App's tasks (no truncation; a page that does not advance is refused, exit 1),
+then applies --status after the join, so an open task under a finished team
+task stays in view. It combines with --status, --text, --tree and
+--stale-over. Every other filter, and --limit/--offset, is refused with --team
+(exit 2); --tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
-The open-alarm counts are each task's alarms IN EFFECT, the
-server's answer — the same rows ` + "`team events --alarms-in-effect`" + ` returns,
-never worked out here — read by a complete oldest-first walk. An alarm whose
-escalation ended is not counted, even while no one has acknowledged it; the
-end can lag by up to one evaluator pass, and the alarm reads as in effect
-until it is recorded. If that walk
-stops early (the 100-page bound, or the server reports more events without
-advancing its cursor) the counts are lower bounds and say so:
-text prints one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted
-task in the table; --json marks every task openAlarmsIncomplete:true (a missing
-openAlarms then means unknown, not none) and adds alarmCounts {complete:false,
-reason, lastEventId, pages}. Both markers are absent on a complete walk.
   --stale-over <duration> (e.g. 1h) keeps PENDING/STARTED tasks idle longer
     than that, where idle runs from the record's updatedAt, else startedAt,
     else createdAt. Records lag real progress (PR pushes, receipts); a stderr
     note says so.
---json is an object: {appId, coordinator, coordinatorSource, members,
+Open alarms: an alarm is the platform's stall warning (` + "`team task tree --help`" + `
+explains them). The count is each task's alarms still in
+effect, the server's answer (the rows ` + "`team events --alarms-in-effect`" + ` returns),
+read by a complete oldest-first walk; an alarm whose escalation ended is not
+counted, even unacknowledged, though the end can lag by up to one evaluator
+pass. If the walk stops early (the 100-page bound, or the server reports more
+events without advancing its cursor) the counts are lower bounds: text prints
+one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted task;
+--json marks every task openAlarmsIncomplete:true (a missing openAlarms then
+means unknown, not none) and adds alarmCounts {complete:false, reason,
+lastEventId, pages}. Both markers are absent on a complete walk.
+--team --json is an object: {appId, coordinator, coordinatorSource, members,
 staleOverSeconds, tasks}, each task the plain task plus ownerTeam/assigneeTeam
 (team|outside|unknown|user|null), match (party|descendant), ageSeconds and
 ageFrom; --tree changes text only.`,
@@ -695,7 +700,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&text, "text", "", "case-insensitive substring of title and description only (server validates 1–200 characters)")
 	cmd.Flags().BoolVar(&queued, "queued", false, "only queued tasks (pending, no assignee)")
 	cmd.Flags().BoolVar(&rootsOnly, "roots-only", false, "drop child tasks")
-	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (default 20, server cap 200)")
+	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (the server caps it at 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
 	cmd.Flags().StringVar(&team, "team", "", "a coordinator's team view: bare for the bound worker, or --team=worker:<ref>")
 	cmd.Flags().Lookup("team").NoOptDefVal = teamFlagBound
@@ -1073,7 +1078,7 @@ binding's server must be the one this call targets.`,
 			})
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (default 20, server cap 200)")
+	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (the server caps it at 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
 	return cmd
 }
@@ -1093,22 +1098,33 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree <rootTaskId>",
 		Short: "Show a task's parent/child chain",
-		Long: `Render the task and every task below it — children, their children and so
-on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
-per node. The count is the task's alarms IN EFFECT: the
-server's answer, the same rows ` + "`team events --alarms-in-effect`" + ` returns,
-joined onto the tree client-side — the join is presentation, the alarm facts
-are the server's, and nothing is worked out here. An alarm whose escalation
-ended is not counted though it may still be unacknowledged; the server can
-take up to one evaluator pass to record the end, and the alarm reads as in
-effect until then. To see an alarm in full use ` + "`team events --alarms`" + `; to
-acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
-or missing root exits 4. Text cells neutralise terminal controls and are bounded;
---json carries complete, original values.
-If the alarm walk stops early the counts are lower bounds: text prints one
-INCOMPLETE line and ≥N, and --json marks every task openAlarmsIncomplete:true
-(a missing openAlarms then means unknown, not none); both are absent when the
-walk is complete.`,
+		Long: `Show a task and every task below it — its children, their children and so
+on — as an indented tree. The root is an id or a handle (--app qualifies a bare
+handle); a hidden or missing root exits 4.
+
+Each line is:  • <handle> <id> [<status>] <owner> → <assignee>  and, when they apply,
+"waiting-on-children" (the task is held until its child tasks end) and
+"⏰ N open alarm(s)". An assignee of — means none yet. Sample:
+  • AT1 01a2…c3 [STARTED] Eden → Iris  waiting-on-children  ⏰ 1 open alarm
+    • AT1.1 01a2…d4 [FINISHED] Iris → Uma
+
+The server returns at most 1000 rows and gives no sign when a larger tree is
+cut: if the tree looks short, read the next level with ` + "`team task list --parent <task>`" + `
+(one level of children per call) instead.
+
+An alarm is the platform's stall warning (` + "`team stall-schedule get`" + ` shows the
+windows). The count is the alarms still in effect, the same rows
+` + "`team events --alarms-in-effect`" + ` returns: a stall warning that escalated and
+ended is not counted even if nobody acknowledged it, and the server can take
+up to one evaluator pass (its periodic check) to record the end, so a
+just-ended alarm can still show. To read an alarm in full use ` + "`team events --alarms`" + `; to
+acknowledge one, ` + "`team alarm ack`" + `. The counts come from the server and are
+joined onto the tree here. If that lookup stops early, the counts are lower
+bounds: text prints one INCOMPLETE line and "≥N", and --json marks each task
+openAlarmsIncomplete:true (a missing openAlarms then means unknown, not none).
+
+Text cells neutralise terminal controls and are bounded; --json carries
+complete, original values.`,
 		Example: "  hadron team task tree AT1",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

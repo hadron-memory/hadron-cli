@@ -23,15 +23,21 @@ func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "find-untracked --adapter <exe> [flags]",
 		Short: "List outside items (issues) no task claims, or claim some",
-		Long: `Find outside items (issues in a tracker) that no task of the App holds, and
-optionally claim some as tasks.
+		Long: `Find outside items (for example GitHub issues) that no task of the App
+holds, and optionally claim some as tasks. An outside item is a record in your
+team's tracker; "tracked" means an active task of this App holds it as its
+external id (` + "`task create --external-id`" + `).
 
-The source is the team's intake adapter: --adapter <executable>, or set
-$` + adapterEnv + ` (it counts only when no --adapter is given).
-The server's task integrations are retired, and so are --integration and the
-flags that belonged to it (--team, --no-team, --ready, --repo, --skip,
---assign-to-me): naming one is refused by name (exit 2, nothing sent), with
-what the adapter offers in its place.
+The source is the team's intake adapter: a small executable your team owns that
+talks to the tracker, so Hadron never does. Ask whoever runs your intake for its
+path, or see "App properties, task externalId and find-untracked" in
+` + "`hadron agentic-usage`" + ` and docs/plans/1961-intake-adapter-runner.md in the CLI
+repository for the contract it must speak. Name it with --adapter <executable>,
+or set $HADRON_INTAKE_ADAPTER (it counts only when no --adapter is given).
+Without an adapter the command cannot run. The server's task integrations are
+retired, and so are --integration and the flags that belonged to it (--team,
+--no-team, --ready, --repo, --skip, --assign-to-me): naming one is refused by name
+(exit 2, nothing sent), with what the adapter offers in its place.
 
 INTAKE ADAPTER (--adapter <executable> [--for <worker>] [--track] [--assignee
 <party>] [--owner <party>] [--limit N]): the team's own local

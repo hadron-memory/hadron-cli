@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -195,7 +196,7 @@ func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON boo
 	}))
 	defer srv.Close()
 	for n, s := range map[string]string{"key": key, "state.json": `{"hostId":"own"}`} {
-		if e := os.WriteFile(filepath.Join(dir, n), []byte(s), 0600); e != nil {
+		if e := os.WriteFile(filepath.Join(dir, n), []byte(hostyaml.Supervised(s)), 0600); e != nil {
 			t.Fatal(e)
 		}
 	}
@@ -204,7 +205,7 @@ func title2017RunMode(t *testing.T, o *fakeOrca2017, irisName string, asJSON boo
 		cfg += fmt.Sprintf("delivery:\n  orca_bin: %q\n", o.orcaBin)
 	}
 	path := filepath.Join(dir, "host.yaml")
-	if e := os.WriteFile(path, []byte(cfg), 0600); e != nil {
+	if e := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0600); e != nil {
 		t.Fatal(e)
 	}
 	f := cmdutil.NewFactory()
@@ -360,6 +361,17 @@ func TestHealthOrcaBinFallsBackToPath2017(t *testing.T) {
 	cfg.Delivery.OrcaBin = fakeExecutable2166(t)
 	if got := healthOrcaBin(cfg); got != cfg.Delivery.OrcaBin {
 		t.Fatalf("configured orca_bin -> %q", got)
+	}
+}
+
+// cli#3045 item 10: the health sweep's title pass reads delivery.orca_bin even when orca_launch.orca_bin
+// is also set; only the worker launch and the host sweep read orca_launch's first.
+func TestHealthOrcaBinIgnoresOrcaLaunchBin3045(t *testing.T) {
+	cfg := &hostpoller.Config{}
+	cfg.Delivery.OrcaBin = fakeExecutable2166(t)
+	cfg.OrcaLaunch.OrcaBin = "/launch/orca"
+	if got := healthOrcaBin(cfg); got != cfg.Delivery.OrcaBin {
+		t.Fatalf("health must take delivery.orca_bin %q, got %q", cfg.Delivery.OrcaBin, got)
 	}
 }
 

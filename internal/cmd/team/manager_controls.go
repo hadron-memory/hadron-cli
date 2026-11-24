@@ -123,8 +123,10 @@ URN (a name resolves in --app, the App context or the worktree binding).
 The result is the worker record in --json, or its identity, new agent and
 role in text; the text receipt names the App and the source of its scope.
 
-This clears the worker's boot-prompt pointer and replaces its generated
-tickers. Confirm on a TTY, or pass --yes non-interactively. It takes effect at
+This clears the worker's own boot-prompt selection (its pointer; see team worker
+set-boot-prompt) and replaces its generated tickers: the wake schedules the new
+agent defines (hand-created tickers stay). Confirm on a TTY, or pass --yes
+non-interactively. It takes effect at
 the worker's next bind; an open session finishes under its old agent and role.
 The name, slug, URN, signature, trailer and reporting line stay unchanged.
 Changing an open worker needs a server from 2026-10-26 or later.
@@ -193,7 +195,7 @@ before deciding what to do next.`,
 				}
 				location = fmt.Sprintf("in App %s (%s)", app, source)
 			}
-			prompt := fmt.Sprintf("Change worker %s %s to agent %s, replacing its current casting? This clears its boot-prompt pointer (a custom boot-prompt selection) and replaces agent-generated tickers (wake schedules, including edits to those schedules). Hand-created tickers stay. An open session keeps its old agent and role; the change takes effect at the next bind.", workerRef, location, agent)
+			prompt := fmt.Sprintf("Change worker %s %s to agent %s, replacing its current casting? This clears its boot-prompt pointer (a custom boot-prompt selection) and replaces agent-generated tickers (the wake schedules the agent defines, including edits to them). Hand-created tickers stay. An open session keeps its old agent and role; the change takes effect at the next bind.", workerRef, location, agent)
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
@@ -241,7 +243,7 @@ before deciding what to do next.`,
 	}
 	c.Flags().StringVar(&agent, "agent", "", "installed agent's id or full URN (required)")
 	c.Flags().StringVar(&instruction, "instruction", "", instructionFlagUsage)
-	c.Flags().BoolVar(&yes, "yes", false, "confirm clearing the custom boot-prompt selection and replacing agent-generated wake schedules")
+	c.Flags().BoolVar(&yes, "yes", false, "confirm clearing the worker's boot-prompt selection and replacing its generated tickers (wake schedules)")
 	return c
 }
 

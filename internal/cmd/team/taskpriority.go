@@ -70,7 +70,7 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     verb + " <task> " + arg,
 		Short:   short,
-		Long:    dependencyWriteLong(verb) + "\n\n" + taskInstructionHelp,
+		Long:    dependencyWriteLong(verb) + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 		Example: dependencyWriteExample(verb),
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -205,10 +205,10 @@ Who may: ` + taskAssignerDoc + `;
 anyone else is refused with TASK_NOT_OWNER (exit 8). Check a task's status and
 blockers first with ` + "`task get`" + `.
 
-Task references are ids or handles (AT1.2). Sign in first. The server works out
-the App from the references; --app does not qualify them. When a bare handle
-is ambiguous across your Apps, pass an id or a qualified handle such as
-hrn:agenttask:example.com:team:AT1.2 (TASK_HANDLE_QUALIFY otherwise).
+Task references are ids or handles (AT1.2). Sign in first. --app names the App
+a bare handle belongs to, for every task argument. Without --app, a bare handle
+is refused (TASK_HANDLE_QUALIFY) when you belong to more than one App:
+pass --app, an id or a qualified handle such as hrn:agenttask:example.com:team:AT1.2.
 Success prints the returned task with its priority and dependency summaries;
 --json returns the same fields as structured data. A refusal prints its code
 and message with no task output. Each invocation sends one request and never
@@ -251,9 +251,10 @@ tasks it waits for, "blocks" the tasks waiting for it (see
 ` + "`task add-blocker`" + `). Task get and list show the first 20 of each; this
 command pages both directions together with --limit/--offset and reports each
 direction's total and hasMore — follow hasMore, never infer completeness from
-a short page. Refs are ids or handles. Sign in first. --app does not qualify
-these references. For an ambiguous bare handle, pass an id or a qualified
-handle such as hrn:agenttask:example.com:team:AT1.2. Text prints each
+a short page. Refs are ids or handles. Sign in first. --app names the App a
+bare handle belongs to; without it, a bare handle is refused (TASK_HANDLE_QUALIFY) when you belong
+to more than one App (pass --app, an id or a qualified handle such as
+hrn:agenttask:example.com:team:AT1.2). Text prints each
 direction's page and counts; --json returns id, blockedBy and blocks with
 items/total/hasMore. A hidden or missing task exits 4. Reads write nothing.`,
 		Example: "  hadron team task dependencies AT1.3\n  hadron team task dependencies AT1.3 --limit 20 --offset 20 --json",

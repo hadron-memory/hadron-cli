@@ -3,6 +3,7 @@ package team
 import (
 	"context"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -43,13 +44,13 @@ func relativeOrcaBin2369(t *testing.T, orcaBin string) (requests, reads, runners
 	defer srv.Close()
 	dir := t.TempDir()
 	for n, s := range map[string]string{"key": "SYNTHETIC_HOST_KEY_2369", "state.json": `{"hostId":"own"}`} {
-		if e := os.WriteFile(filepath.Join(dir, n), []byte(s), 0o600); e != nil {
+		if e := os.WriteFile(filepath.Join(dir, n), []byte(hostyaml.Supervised(s)), 0o600); e != nil {
 			t.Fatal(e)
 		}
 	}
 	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [iris]\ndelivery:\n  orca_bin: %q\n", srv.URL, filepath.Join(dir, "wt-root"), orcaBin)
 	path := filepath.Join(dir, "host.yaml")
-	if e := os.WriteFile(path, []byte(cfg), 0o600); e != nil {
+	if e := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0o600); e != nil {
 		t.Fatal(e)
 	}
 	f := cmdutil.NewFactory()

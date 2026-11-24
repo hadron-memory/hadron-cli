@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -18,11 +19,19 @@ import (
 type countingSource2120 struct {
 	source RelaunchSource
 	calls  int
+	// workerCalls counts the per-worker fresh reads (cli#2816): a healthy
+	// worker costs none, its discovery row already proves it present.
+	workerCalls int
 }
 
 func (s *countingSource2120) RelaunchSnapshot(ctx context.Context, host string) (RelaunchSnapshot, error) {
 	s.calls++
 	return s.source.RelaunchSnapshot(ctx, host)
+}
+
+func (s *countingSource2120) RelaunchWorker(ctx context.Context, host, worker string) (RelaunchSnapshot, error) {
+	s.workerCalls++
+	return s.source.RelaunchWorker(ctx, host, worker)
 }
 
 func TestHealthyWorkersUseOneDiscoverySnapshot2120(t *testing.T) {
@@ -53,8 +62,8 @@ func TestHealthyWorkersUseOneDiscoverySnapshot2120(t *testing.T) {
 	f.p.relaunch.Source = source
 	f.p.relaunchStep(context.Background())
 	f.p.Wait()
-	if source.calls != 1 || len(f.launches) != 0 {
-		t.Fatalf("100 healthy workers: snapshot reads=%d want1, launches=%d", source.calls, len(f.launches))
+	if source.calls != 1 || source.workerCalls != 0 || len(f.launches) != 0 {
+		t.Fatalf("100 healthy workers: snapshot reads=%d want 1, per-worker reads=%d want 0, launches=%d", source.calls, source.workerCalls, len(f.launches))
 	}
 }
 
@@ -174,6 +183,16 @@ func TestC5RequiresTheBindingLock2120(t *testing.T) {
 	}
 }
 
+// fakeHandle stands in for the pinned handle the relaunch proof compares
+// identities against: it answers a chosen identity and signals nothing.
+type fakeHandle struct{ id ProcessIdentity }
+
+func (h *fakeHandle) Identity() ProcessIdentity { return h.id }
+func (h *fakeHandle) SignalWithin(syscall.Signal, time.Duration, time.Duration, func() (time.Duration, error)) (time.Duration, error) {
+	return 0, nil
+}
+func (h *fakeHandle) Close() {}
+
 func TestProductionVerifyRequiresOwnUniqueLiveIdentity2120(t *testing.T) {
 	pid := os.Getpid()
 	handle, err := (LinuxProcessControl{}).Observe(pid)
@@ -193,7 +212,7 @@ func TestProductionVerifyRequiresOwnUniqueLiveIdentity2120(t *testing.T) {
 	}
 	wrong := handle.Identity()
 	wrong.StartTime += "-stale"
-	a.h = &fakeHandle{p: &fakeProc{}, id: wrong}
+	a.h = &fakeHandle{id: wrong}
 	if err := verifyRelaunchProcess(context.Background(), a, target, hostrelaunch.Observation{Proven: true, PIDs: []int{pid}}); err == nil {
 		t.Fatal("accepted stale pinned identity")
 	}

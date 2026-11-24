@@ -1,6 +1,7 @@
 package team
 
 import (
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +16,7 @@ func TestBothDelivererSitesWireRegisteredFromTheConfig(t *testing.T) {
 	root := t.TempDir()
 	body := "app: app1\nworkers:\n  iris:\n    family: claude\n    launch: [claude]\n    worktrees: [plain/iris]\nkey_file: key\nworktrees_root: " + root + "\ndelivery:\n  enabled: true\n  orca_bin: /bin/true\n"
 	path := filepath.Join(root, "host.yaml")
-	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(body)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := hostpoller.LoadConfig(path)

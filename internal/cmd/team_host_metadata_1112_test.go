@@ -26,9 +26,14 @@ func TestTeamHostMetadata1112(t *testing.T) {
 				if err := os.WriteFile(key, []byte("hk_fixture"), 0600); err != nil {
 					t.Fatal(err)
 				}
-				worker := map[string]any{"family": "claude", "launch": []string{"fixture-worker"}}
+				// A worker launches through Orca (cli#2914): its profile and disk_tmp are what load needs; the
+				// launch argv is no longer run, but host status still shows what the file names, so the
+				// "launch" cases keep exercising the display of a hostile value.
+				worker := map[string]any{"family": "claude", "launch": []string{"fixture-worker"},
+					"launcher_profile": map[string]any{"family": "claude", "mode": "long", "account": "acct"}, "disk_tmp": filepath.Join(dir, "disk")}
 				workers := map[string]any{"iris": worker}
-				cfg := map[string]any{"app": "hrn:app:acme.com:eng-team", "label": "fixture-host", "poll_interval_seconds": 30, "key_file": key, "worktrees_root": filepath.Join(dir, "trees"), "workers": workers}
+				cfg := map[string]any{"app": "hrn:app:acme.com:eng-team", "label": "fixture-host", "poll_interval_seconds": 30, "key_file": key, "worktrees_root": filepath.Join(dir, "trees"), "workers": workers,
+					"account_profiles": map[string]any{"acct": map[string]any{"bin": "fixture-worker"}}, "orca_launch": map[string]any{"orca_bin": "/usr/bin/orca"}}
 				state := map[string]any{"created": map[string][]string{}, "keep": map[string]string{}, "hostId": "h1"}
 				reg := map[string]any{"hostId": "h1", "label": "fixture-host", "pollIntervalSeconds": 30, "registeredAt": "2026-10-27T00:00:00Z", "refreshedAt": "2026-10-27T00:00:00Z", "live": true, "workers": []any{}}
 				switch field {

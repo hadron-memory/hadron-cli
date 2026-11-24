@@ -50,7 +50,36 @@ type hostUpOptions struct {
 	host, worker, desiredFile, root, orcaBin string
 	configPath, runID                        string
 	apply, dryRun                            bool
-	timeout                                  time.Duration
+	// skipSweepModeGate exempts the host sweep timer's own pass from the
+	// --apply sweep-mode refusal: its mode comes from the server's desired
+	// state and an OFF App is a quiet pass, not a refusal. Only
+	// sweepHostUpOptions sets it.
+	skipSweepModeGate bool
+	timeout           time.Duration
+}
+
+// requireAppSweepApply is the --apply gate (cli#2652, option (b)): the
+// server does not check the App's sweep switch when a host operation is
+// issued, so the CLI reads it and refuses unless it is APPLY, whatever the
+// desired state says. A mode it cannot read refuses too (fail closed). The
+// mode refusal names the mode and the fix only: no URL, no secret. A read
+// error is the server's mapped error, as every other read reports it.
+func requireAppSweepApply(ctx context.Context, client graphql.Client, appRef string) error {
+	r, err := gen.GetAppSweepMode(ctx, client, appRef)
+	if err != nil {
+		return fmt.Errorf("could not read the App's sweep mode, so nothing issued: %w", api.MapErrorKeepingCode(err))
+	}
+	if r == nil || r.App == nil {
+		return exitcode.Newf(exitcode.NotFound, "could not read the App's sweep mode (App not found), so nothing issued")
+	}
+	if r.App.SweepMode != gen.SweepModeApply {
+		mode := string(r.App.SweepMode)
+		if mode == "" {
+			mode = "not reported"
+		}
+		return exitcode.Newf(exitcode.Conflict, "the App's sweep mode is %s, so --apply is refused and nothing issued: a desired-state file does not override it; set it with `hadron team app sweep-mode APPLY`, or run without --apply", mode)
+	}
+	return nil
 }
 
 // hostUpDTO is the --json shape. Every list is always present.
@@ -102,7 +131,7 @@ worker.start. There is no direct Orca create or launch call. (The examples'
 desired.json is the --desired-state-file shape, documented under WHERE THE
 DESIRED STATE COMES FROM below.)
 
-SWEEP RUN RECORDS (S10):
+SWEEP RUN RECORDS:
   --config supplies a separate host key for recording this run. It never
   replaces the manager credential used to reconcile. Each completed engine
   pass in OBSERVE or APPLY reports one run token, times, counts and up to 50
@@ -110,7 +139,7 @@ SWEEP RUN RECORDS (S10):
   nothing. --run-id replays the same host token (default: a fresh UUID).
   No --config: prints "sweep run not recorded: no host key (pass --config)";
   JSON includes sweepRun.recorded=false and reason NO_HOST_KEY. An old server
-  without S10 reports S10_UNAVAILABLE. Other record errors are codes only.
+  without sweep-run records reports S10_UNAVAILABLE. Other record errors are codes only.
   Recording failures never change the reconcile exit code. The server owns
   summary posts and stale-sweep alarms; this command posts nothing itself.
   Read server history with "team host sweep-runs --host <id>".
@@ -140,7 +169,8 @@ WHERE THE DESIRED STATE COMES FROM:
       NO_WORKTREE_SOURCE and never created.
   --desired-state-file <file> reads the engine's shape from a JSON file
   instead (tests, offline dry runs), including the repo a worktree.create
-  needs. The answer's hostId must equal --host either way. File shape:
+  needs; with --apply the App's own mode still has to be APPLY. The answer's
+  hostId must equal --host either way. File shape:
     {"hostId":"orca1","sweepMode":"APPLY","workers":[{"workerId":"…",
      "name":"Iris","desired":"RUNNING","reason":"LONG_LIVED","wouldBe":null,
      "sessionId":null,"setup":{"worktree":"hadron-cli/iris",
@@ -180,25 +210,32 @@ starting a worker needs whoever manages the App. A refusal of your
 credential, on the registration read or on an operation, stops the run:
 nothing further is issued (exit 3 or 8).
 
-The reconcile mode is the App's, not this command's, and up reads it from the
-desired state: the server's desired state reports the App's mode, and a
---desired-state-file names its own sweepMode. Nothing is planned unless it is
-APPLY, and the App's mode is set with ` + "`hadron team app sweep-mode`" + ` (an OFF or
-OBSERVE App plans nothing — workers read SWEEP_NOT_APPLY; raise the mode,
-then run again). --dry-run is the default and --apply is its opposite: pass
-one or neither, never both.
+The reconcile mode is the App's, not this command's. --apply reads the App's
+sweep mode from the server first and refuses unless it is APPLY, whatever the
+file says: a --desired-state-file never overrides the App's switch. If the mode
+cannot be read, --apply refuses too and issues nothing. The dry run reads no
+mode of its own: it plans from the desired state, where the server's answer
+carries the App's mode and a file names its own sweepMode. Nothing is planned
+unless that is APPLY (an OFF or OBSERVE App plans nothing, and workers read
+SWEEP_NOT_APPLY). The App's mode is set with ` + "`hadron team app sweep-mode`" + `.
+--dry-run is the default and --apply is its opposite: pass one or neither,
+never both.
 
 Exit codes: 0 nothing failed; 1 a step failed; 2 usage, or Orca is not
 reachable here; 3 your credential was refused as not accepted (the run
 stops); 4 --worker names a worker this host should not run; 5 another run
 holds the lock; 8 you are authenticated but not permitted (the run stops).`,
-		Example: `  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json
+		Example: `  # Normal use: desired state from the server. Dry run first, then apply.
+  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees
+  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --apply
+  # Offline or test: desired state from a file
+  hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json
   hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json --worker Iris --apply`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return runHostUp(cmd, f, o) },
 	}
-	cmd.Flags().StringVar(&o.configPath, "config", "", "host YAML supplying only the separate S10 reporting key")
-	cmd.Flags().StringVar(&o.runID, "run-id", "", "host run token for S10 replay (default: fresh UUID)")
+	cmd.Flags().StringVar(&o.configPath, "config", "", "host YAML supplying only the separate sweep-run reporting key")
+	cmd.Flags().StringVar(&o.runID, "run-id", "", "host run token for replaying a sweep-run record (default: fresh UUID)")
 	cmd.Flags().StringVar(&o.host, "host", "", "registered host id (required)")
 	cmd.Flags().StringVar(&o.root, "worktrees-root", "", "absolute root the host's worktrees live under (required)")
 	cmd.Flags().StringVar(&o.desiredFile, "desired-state-file", "", "read the desired state from this JSON file instead of the server")
@@ -274,6 +311,11 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 			return exitcode.Newf(exitcode.Error, "the host up lock: %v", err)
 		}
 		defer unlock()
+	}
+	if o.apply && !o.skipSweepModeGate {
+		if err := requireAppSweepApply(ctx, client, scope.Ref); err != nil {
+			return err
+		}
 	}
 	engine := hostup.Engine{
 		Source:   source,

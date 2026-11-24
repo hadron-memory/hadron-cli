@@ -23,7 +23,7 @@ func TestTeamPRSeatVerdictHelpStatesReviewOrder2785(t *testing.T) {
 				"schedule, freeze, seat, verdict, finish",
 				"A seat binds to a task that has not ended (PENDING or STARTED); only pr verdict needs it STARTED",
 				"a finished seat cannot take a verdict",
-				"A negative verdict at a head blocks every slot there until the head moves or its own reviewer re-rates it",
+				"A negative verdict at a head blocks every slot there until the head moves, its own reviewer re-rates it, or (once the seat is finished) its reviewer or a coordinator withdraws it with pr withdraw",
 				"TASK_ENDED, REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH",
 				"only a verdict recorded with pr verdict counts",
 				"create a fresh seat task and bind it with --supersedes at the same head",

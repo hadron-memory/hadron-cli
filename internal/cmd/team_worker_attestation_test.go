@@ -81,6 +81,7 @@ func TestWorkerRmAttestationRefusalsNeverRetry(t *testing.T) {
 		want int
 	}{
 		{"WORKER_IN_USE", exitcode.Conflict},
+		{"WORKER_CENSUS_INCOMPLETE", exitcode.Conflict}, // cli#2959
 		{"WORKER_NOT_FOUND", exitcode.NotFound},
 		{"UNAUTHENTICATED", exitcode.AuthRequired},
 		{"FORBIDDEN", exitcode.Forbidden},

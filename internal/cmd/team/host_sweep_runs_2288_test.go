@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,7 +68,7 @@ func TestSweepRecordClientFailureReadsAsClientUnavailable2288(t *testing.T) {
 			}
 			cfg := filepath.Join(dir, "host.yaml")
 			raw := fmt.Sprintf("server: %q\napp: test-app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n    worktrees: [iris]\n", server, key, dir)
-			if err := os.WriteFile(cfg, []byte(raw), 0600); err != nil {
+			if err := os.WriteFile(cfg, []byte(hostyaml.Supervised(raw)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			io, out, errOut := output.Test()

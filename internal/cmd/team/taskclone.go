@@ -79,6 +79,9 @@ Without either, the parent is kept for someone who may create a child of it
 as a root, and a clone under an ended parent goes under AT0. A value flag and its
 --clear-… twin together are exit 2, as in task update.
 
+References:
+` + taskRefCapsSentence + `
+
 Refusals: an unknown, unreadable or other-App source or parent is exit 4
 (TASK_NOT_FOUND, one answer for all three); AT0 itself cannot be cloned
 (BAD_USER_INPUT, exit 2); an owner who is not a possible owner is
@@ -326,12 +329,12 @@ status; --json returns the task with its warnings list, as
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole copied list")
 	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "the clone has no tags")
-	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole copied list; kind is "+taskRefKindsDoc)
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole copied list; kind is "+taskRefKindsDoc+taskRefCapsFlagDoc)
 	cmd.Flags().BoolVar(&clearRefs, "clear-refs", false, "the clone has no references")
 	cmd.Flags().StringVar(&properties, "properties", "", "the clone's own JSON object, or @file; replaces the copied value (left out, not refused, for a caller who may not set properties)")
 	cmd.Flags().BoolVar(&clearProperties, "clear-properties", false, "the clone has no properties")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
-	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	cmd.Flags().StringVar(&requireRole, "require-role", "", "the one role a worker must hold (a single name: a comma is part of it, not a list; task create takes a list); replaces the task's whole requirements")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")

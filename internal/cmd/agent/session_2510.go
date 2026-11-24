@@ -79,7 +79,8 @@ a URN the CLI first reads the Agent to find its ID, then sends that.
 
 --external-user names the App's end user by the App's own user id. If the App
 has no such user, the server creates one only when the App allows implicit user
-creation, and refuses otherwise. Without it the session is anonymous.
+creation, and refuses otherwise. Without it the session is anonymous. An
+empty or blank --external-user is a usage error, not an anonymous session.
 --timeout-seconds sets the session's timeout; it must be positive. The server
 refuses an Agent owned by a user rather than an organization.
 
@@ -93,6 +94,15 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 			ref := args[0]
 			if err := nonBlank(ref, "agent reference"); err != nil {
 				return err
+			}
+			// cli#2895 F1/F2: flag values the help already rules out are
+			// refused locally, before the URN read or any mutation, so a bad
+			// invocation sends zero requests.
+			if cmd.Flags().Changed("timeout-seconds") && timeoutSeconds <= 0 {
+				return exitcode.Newf(exitcode.Usage, "--timeout-seconds must be positive, got %d", timeoutSeconds)
+			}
+			if cmd.Flags().Changed("external-user") && strings.TrimSpace(externalUser) == "" {
+				return exitcode.Newf(exitcode.Usage, "--external-user is empty or blank")
 			}
 			var userPtr *string
 			if cmd.Flags().Changed("external-user") {
@@ -136,7 +146,7 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 			})
 		},
 	}
-	cmd.Flags().StringVar(&externalUser, "external-user", "", "the App's own id for its end user (omitted: an anonymous session)")
+	cmd.Flags().StringVar(&externalUser, "external-user", "", "the App's own id for its end user, non-blank (omitted: an anonymous session)")
 	cmd.Flags().IntVar(&timeoutSeconds, "timeout-seconds", 0, "the session timeout in seconds, positive (omitted: the server default)")
 	return cmd
 }

@@ -153,14 +153,13 @@ Try it first: --dry-run (below) runs the same checks and creates nothing. After
 the cast, bind the worker to start driving it:
 ` + "`hadron team session start --as <name> --app <app> --tool <tool>`" + `.
 
-Cast a worker: ONE platform call (castWorker). The server
-resolves the agent — --agent names it directly and it must be installed
-in THIS App (WORKER_AGENT_NOT_INSTALLED, exit 2 and NOT 4: the ref
-resolves, it is the install that is missing, so the remedy is to pass an
-installed ref), or --role picks the single installed agent whose persona
-role matches (zero candidates: WORKER_AGENT_NOT_FOUND, exit 4; several:
-WORKER_AGENT_AMBIGUOUS, exit 2 — never a guess) — takes the name, and
-provisions the worker's working memory.
+Casting is one server call. The server finds the agent, takes the name and
+creates the worker's working memory. --agent names the agent directly, and it
+must be installed in THIS App (WORKER_AGENT_NOT_INSTALLED, exit 2, not 4: the
+ref resolves, the install is what is missing, so pass an installed ref).
+--role instead picks the single installed agent whose persona role matches
+(none: WORKER_AGENT_NOT_FOUND, exit 4; several: WORKER_AGENT_AMBIGUOUS, exit 2;
+the server never guesses).
 
 --name IS REQUIRED. A name is PERMANENT for this App
 — retirement and uninstall never free it — so it is
@@ -170,12 +169,9 @@ is one attempt, and WORKER_NAME_TAKEN is the answer rather than a retry;
 ` + "`worker list --include-retired`" + ` shows what is already taken —
 retired workers keep their names, so the default listing under-reports it.
 
-This used to allocate for you, walking the role's cast-list register past
-taken names. That register is gone, so a bare --role no longer casts.
-
---role is also no longer validated against defined roles (cast lists are
-ergonomics, never a gate). An unrecognized role simply
-resolves no agent (WORKER_AGENT_NOT_FOUND).
+A bare --role without --name does not cast: the server no longer picks a name
+for you. --role is not checked against a list of defined roles; a role no
+installed agent carries simply finds no agent (WORKER_AGENT_NOT_FOUND).
 
 --role and --agent cannot be combined: the role
 follows the agent and is never typed in beside it, so the casting's role is
@@ -394,10 +390,10 @@ func newCmdWorkerList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list [--include-retired]",
 		Aliases: []string{"ls"},
 		Short:   "The team's staff — this App's workers",
-		Long: `List the App's workers (the staff are the Workers; the
-AppAgent join is the install roster, ` + "`hadron app agent list`" + `). The team
-App resolves from --app (or the configured App context), falling back to
-the worktree binding's team memory.
+		Long: `List the App's workers: the named castings of agents, who are the team's staff.
+To see which agents are installed in the App (the pool workers are cast from),
+use ` + "`hadron app agent list`" + `. The team App resolves from --app (or the
+configured App context), falling back to the worktree binding's team memory.
 
 That resolution is ambient, so the human output opens with the App it
 landed on AND where that came from — the same bare command in two
@@ -856,7 +852,7 @@ THE FIELDS:
                  checkStatus.noSessionReason (nullable), and carries no age.
                  Needs a server from 2026-11-01 or later.
 
-availability   the worker's stored availability record: its
+  availability   the worker's stored availability record: its
                  state, the reason only when unavailable, an optional end, and
                  who set it and when. A lapse reads "AVAILABLE (lapsed at
                  <time>)", set by lapse; a setter whose identity the server
@@ -866,7 +862,7 @@ availability   the worker's stored availability record: its
                  "no record" for it. --json carries availability (the record,
                  or null). An older server without it reads as null.
 
-model groups   the model groups the worker's model is currently in, computed
+  model groups   the model groups the worker's model is currently in, computed
                  live by the server: live matching information,
                  never authorization. Nothing is printed for a real empty
                  answer (no reported model, or no group matches);
@@ -875,7 +871,7 @@ model groups   the model groups the worker's model is currently in, computed
                  (a list, or null when withheld). A failed group lookup fails
                  the command: it is never shown as "none" or "unavailable".
 
-boot prompt (next bind)   the server's current served source level, compiled
+  boot prompt (next bind)   the server's current served source level, compiled
                  node id and revision, or typed refusal, for a NEW bind. This
                  is not the current session's prompt. Only BOOT_PROMPT_NOT_SET
                  means none; null is not visible/unknown. Approval is not
@@ -1361,9 +1357,13 @@ their absence yourself, then explicitly pass --confirm-no-external-attribution.
 Known or uncertain external attribution means retire instead. --yes only
 skips the deletion prompt; it never supplies this separate attestation.
 Missing attestation is WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED (exit 2);
-WORKER_IN_USE is exit 5. Older-server schema refusal is never retried without
-the attestation. Who may delete: the same people who may cast. The App the
-change targets is the worker's own.
+WORKER_IN_USE is exit 5. WORKER_CENSUS_INCOMPLETE (also exit 5) is the server's
+fail-closed refusal when its check for references did not finish: nothing was
+deleted, and references were neither found nor ruled out. It is not
+WORKER_IN_USE and never means the worker is unused or the delete is safe;
+retry later or retire (no bypass flag exists). A refusal from an older server
+is never retried without the attestation. Who may delete: the same people who
+may cast. The App the change targets is the worker's own.
 
 --dry-run (deleteWorkerPreview) asks the server whether a delete would
 be accepted by the same worker reference and act gate, and deletes nothing. It
@@ -1373,13 +1373,12 @@ with exit 2 before any request, because it would never be sent), nothing is
 held for the delete, and the real rm re-checks and may still refuse. It never
 prompts, never retries and never falls back to another operation. Refusals
 keep their exit codes: WORKER_NOT_FOUND and WORKER_REFERENCE_NOT_FOUND 4,
-WORKER_IN_USE 5, FORBIDDEN 8. The preview's --json is
+WORKER_IN_USE and WORKER_CENSUS_INCOMPLETE 5, FORBIDDEN 8. A passing --dry-run is
+not a promise the real delete will pass. The preview's --json is
 {id, name, attestationRequired, status: "preview"}. Needs a server from ` + workerRmPreviewServerFloor + `
-or later, the date the delete preview (the dry run) was merged into the server. Merged
-is not necessarily served: an older server refuses the unknown field and the command
-stops, as it must. With
---instruction the preview is NOT write-free: it records one claim event and
-bumps the fences, as an instructed cast preview does.
+or later; an older server refuses the unknown field and the command stops.
+With --instruction the preview is NOT write-free: it records one claim event
+and bumps the fences, as an instructed cast preview does.
 
 ` + instruction.StaffingHelp("workers.staff"),
 		Example: `  hadron team worker rm Irsi --yes --confirm-no-external-attribution
@@ -1899,7 +1898,7 @@ func newCmdWorkerRelease(f *cmdutil.Factory) *cobra.Command {
 		// (PR #504 review).
 		Short: "Clear the hold on a worker name",
 		Long: `Release the HOLD on a worker name. A name is held by a
-PERSON, and this is the ONLY thing that frees one — not ` + "`session end`" + `, not
+PERSON, and this is the ONLY thing that frees one — not ` + "`team session end`" + `, not
 an idle window, not an expiry, not a reap, not closing your chat session.
 
 RELEASING IS NOT RETIRING. The worker keeps working, keeps its name, keeps
@@ -2365,13 +2364,13 @@ func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <name-or-id> [--signature <text>] [--trailer <text>] [--instruction <kind>:<ref>]",
 		Short: "Amend a worker's signature or trailer template",
-		Long: `Set signature and trailer templates for the next briefing. Omitted fields
+		Long: `Set the worker's signature and commit-trailer templates. Omitted fields
 keep their stored value; an explicit empty string stores an empty template.
-They are filled in when the worker's session is bound (the briefing prints the
-filled result), not when you run this. After the save the receipt also shows
-the CURRENT signature lint (a missing worker link), read once
-more with the write's own session, as a check made now, not a snapshot taken at
-write time. "signatureLint" in --json is {items, total, nextCursor} or null;
+They are filled in when the worker's session is next bound (the boot briefing
+the worker receives shows the filled result), not when you run this. After the
+save the receipt also shows the CURRENT signature lint (a missing worker link),
+read once more with the write's own session: a check made now, not a snapshot
+taken at write time. "signatureLint" in --json is {items, total, nextCursor} or null;
 null (unavailable, or a template you may not see) is never "no warnings". A
 failed lint read never fails or undoes the edit: exit 0, one advisory stderr line.
 

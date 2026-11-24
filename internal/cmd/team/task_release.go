@@ -23,11 +23,12 @@ issue's URL): the task keeps its status, assignee and history, but no longer
 holds the item, so the next `+"`task create --external-id`"+` naming it, or the
 next `+"`team task find-untracked`"+` claim, gets it. The receipt gives the item
 back. `+"`task cancel`"+` ends a task and keeps the item; release is the way to hand
-the item to someone else. An id is never set again on the same task.
+the item to someone else. An id is never set again on the same task. Release
+hands an outside item back; it does not move work between workers: for that use
+`+"`task reassign`"+` (an assigner) or `+"`task hand-back`"+` (the assignee).
 
-Who may: whoever may cancel the task, in any status. The
-assignee alone may not; that is TASK_NOT_OWNER (exit 8). The server enforces
-who may release; that rule is still only proposed.
+Who may: whoever may cancel the task, in any status. The assignee alone may
+not: that is refused with TASK_NOT_OWNER (exit 8).
 
 Refusals come from the server as they are: an unknown or unreadable task exits
 4, an uninstalled App exits 5, and a task that holds no external id (a second

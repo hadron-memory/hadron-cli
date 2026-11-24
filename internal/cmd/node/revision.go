@@ -469,7 +469,7 @@ func revisionNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref stri
 		!strings.HasPrefix(ref, "urn:") {
 		if strings.Contains(ref, ":") {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc>, or pass -m hrn:mem:<root>:<slug> with a bare loc (or a node id to reach a soft-deleted node)", ref)
+				"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc>, or pass -m hrn:mem:<root>:<slug> with a bare loc (or a node id to reach a soft-deleted node)")
 		}
 		return ref, nil
 	}

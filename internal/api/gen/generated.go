@@ -1146,7 +1146,12 @@ func (v *AcquireEditorLockAcquireEditorLockEditorLockResult) GetExpiresAt() *str
 
 // AcquireEditorLockResponse is returned by AcquireEditorLock on success.
 type AcquireEditorLockResponse struct {
-	// Acquire (or renew) the editor lock for an Agent's system memory.
+	// Acquire (or renew) the editor lock for an Agent's system memory. The lock is
+	// ADVISORY: a signal to other editors that someone is editing, lasting 5
+	// minutes unless renewed by the holder. The server does not refuse an edit
+	// made without it (no edit mutation checks it). When another editor holds an
+	// unexpired lock, this does not take it: it answers locked: false with the
+	// holder (lockedBy) and the expiry.
 	//
 	// Accepts the entity's ID or URN.
 	AcquireEditorLock *AcquireEditorLockAcquireEditorLockEditorLockResult `json:"acquireEditorLock"`
@@ -6515,13 +6520,14 @@ type AgentTaskCreateInstructedResponse struct {
 	// `extensions.warnings` (not in `errors`): a list of
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
-	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.assign.assignee-busy, task.assign.assignee-paused, task.assign.session-open (#4855: the
+	// assignee has an open session, live or quiet, so the platform did not start it; the assignment reaches it there),
 	// task.finish.open-children, from #3267 task.start.other-started,
 	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
-	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// (on recordAgentTaskProgress; other-started and children-ended, like the four assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
-	// a client must tolerate unknown codes. `text` is
+	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
 	// #3491 (ruling 0176): the first three are given only when the caller may read every
@@ -6560,13 +6566,14 @@ type AgentTaskCreateResponse struct {
 	// `extensions.warnings` (not in `errors`): a list of
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
-	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.assign.assignee-busy, task.assign.assignee-paused, task.assign.session-open (#4855: the
+	// assignee has an open session, live or quiet, so the platform did not start it; the assignment reaches it there),
 	// task.finish.open-children, from #3267 task.start.other-started,
 	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
-	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// (on recordAgentTaskProgress; other-started and children-ended, like the four assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
-	// a client must tolerate unknown codes. `text` is
+	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
 	// #3491 (ruling 0176): the first three are given only when the caller may read every
@@ -6863,8 +6870,8 @@ type AgentTaskDependencyFields struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Title  string          `json:"title"`
 	Status AgentTaskStatus `json:"status"`
@@ -7139,8 +7146,8 @@ type AgentTaskFields struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string `json:"handle"`
 	// This task's own number inside its handle (the last segment), counted per parent. Permanent: never changed, never given to another task.
 	TaskNumber  string          `json:"taskNumber"`
@@ -25103,6 +25110,67 @@ type AppPropertiesGetResponse struct {
 // GetApp returns AppPropertiesGetResponse.App, and is useful for accessing the field via an interface.
 func (v *AppPropertiesGetResponse) GetApp() *AppPropertiesGetApp { return v.App }
 
+// AppRoleListFields includes the GraphQL fields of AppRoleList requested by the fragment AppRoleListFields.
+// The GraphQL type's documentation follows.
+//
+// #4921 — one of an App's role lists after a set.
+type AppRoleListFields struct {
+	AppId   string         `json:"appId"`
+	Purpose AppRolePurpose `json:"purpose"`
+	// Stored trimmed, lower-cased, de-duplicated and sorted; empty by default.
+	Roles []string `json:"roles"`
+}
+
+// GetAppId returns AppRoleListFields.AppId, and is useful for accessing the field via an interface.
+func (v *AppRoleListFields) GetAppId() string { return v.AppId }
+
+// GetPurpose returns AppRoleListFields.Purpose, and is useful for accessing the field via an interface.
+func (v *AppRoleListFields) GetPurpose() AppRolePurpose { return v.Purpose }
+
+// GetRoles returns AppRoleListFields.Roles, and is useful for accessing the field via an interface.
+func (v *AppRoleListFields) GetRoles() []string { return v.Roles }
+
+// cli#3030 (hadron-server#4921 slice A, server 330e16176): an App's three role lists (who may link a
+// defect, the register pick's role route, who may withdraw a negative review verdict). A participant reads them
+// through the roster's gate; whoever manages the App replaces ONE list whole. roles is non-null both ways: an
+// empty list is sent as [] (it clears to the default), never omitted.
+type AppRoleListsFields struct {
+	AppId          string   `json:"appId"`
+	DefectLink     []string `json:"defectLink"`
+	RegisterPick   []string `json:"registerPick"`
+	ReviewWithdraw []string `json:"reviewWithdraw"`
+}
+
+// GetAppId returns AppRoleListsFields.AppId, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetAppId() string { return v.AppId }
+
+// GetDefectLink returns AppRoleListsFields.DefectLink, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetDefectLink() []string { return v.DefectLink }
+
+// GetRegisterPick returns AppRoleListsFields.RegisterPick, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetRegisterPick() []string { return v.RegisterPick }
+
+// GetReviewWithdraw returns AppRoleListsFields.ReviewWithdraw, and is useful for accessing the field via an interface.
+func (v *AppRoleListsFields) GetReviewWithdraw() []string { return v.ReviewWithdraw }
+
+// #4921 — what an App lists a role list for. The App names the roles; the platform names none.
+type AppRolePurpose string
+
+const (
+	// Who may link a defect to a pull request.
+	AppRolePurposeDefectLink AppRolePurpose = "DEFECT_LINK"
+	// The role route of the register pick.
+	AppRolePurposeRegisterPick AppRolePurpose = "REGISTER_PICK"
+	// Who may withdraw a negative review verdict besides the reviewer who recorded it.
+	AppRolePurposeReviewWithdraw AppRolePurpose = "REVIEW_WITHDRAW"
+)
+
+var AllAppRolePurpose = []AppRolePurpose{
+	AppRolePurposeDefectLink,
+	AppRolePurposeRegisterPick,
+	AppRolePurposeReviewWithdraw,
+}
+
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -28239,111 +28307,6 @@ func (v *AuthoredWithInput) GetRevision() int { return v.Revision }
 
 // GetTask returns AuthoredWithInput.Task, and is useful for accessing the field via an interface.
 func (v *AuthoredWithInput) GetTask() string { return v.Task }
-
-// AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
-// The GraphQL type's documentation follows.
-//
-// #2162 — what a context reset step answered.
-type AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep struct {
-	ContextResetStepFields `json:"-"`
-}
-
-// GetRefused returns AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep.Refused, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) GetRefused() *string {
-	return v.ContextResetStepFields.Refused
-}
-
-// GetReplayed returns AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep.Replayed, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) GetReplayed() bool {
-	return v.ContextResetStepFields.Replayed
-}
-
-// GetReset returns AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep.Reset, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
-	return v.ContextResetStepFields.Reset
-}
-
-func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetStepFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalAuthorizeContextResetStopAuthorizeContextResetStopContextResetStep struct {
-	Refused *string `json:"refused"`
-
-	Replayed bool `json:"replayed"`
-
-	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
-}
-
-func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) __premarshalJSON() (*__premarshalAuthorizeContextResetStopAuthorizeContextResetStopContextResetStep, error) {
-	var retval __premarshalAuthorizeContextResetStopAuthorizeContextResetStopContextResetStep
-
-	retval.Refused = v.ContextResetStepFields.Refused
-	retval.Replayed = v.ContextResetStepFields.Replayed
-	retval.Reset = v.ContextResetStepFields.Reset
-	return &retval, nil
-}
-
-type AuthorizeContextResetStopInput struct {
-	AppRef string `json:"appRef"`
-	Epoch  int    `json:"epoch"`
-	// The agent process about to be stopped: the one the claim observed.
-	Process *ObservedProcessInput `json:"process,omitempty"`
-	ResetId string                `json:"resetId"`
-}
-
-// GetAppRef returns AuthorizeContextResetStopInput.AppRef, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopInput) GetAppRef() string { return v.AppRef }
-
-// GetEpoch returns AuthorizeContextResetStopInput.Epoch, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopInput) GetEpoch() int { return v.Epoch }
-
-// GetProcess returns AuthorizeContextResetStopInput.Process, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopInput) GetProcess() *ObservedProcessInput { return v.Process }
-
-// GetResetId returns AuthorizeContextResetStopInput.ResetId, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopInput) GetResetId() string { return v.ResetId }
-
-// AuthorizeContextResetStopResponse is returned by AuthorizeContextResetStop on success.
-type AuthorizeContextResetStopResponse struct {
-	// #2162 — the single stop grant per claim; a replay returns the same grant. The host signals only within stopLeaseMs of
-	// the moment it SENT this request (CLOCK_BOOTTIME). Refused NO_RECOVERY_REF, CLAIM_LAPSED, PROCESS_CHANGED or NOT_IDLE.
-	AuthorizeContextResetStop *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep `json:"authorizeContextResetStop"`
-}
-
-// GetAuthorizeContextResetStop returns AuthorizeContextResetStopResponse.AuthorizeContextResetStop, and is useful for accessing the field via an interface.
-func (v *AuthorizeContextResetStopResponse) GetAuthorizeContextResetStop() *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep {
-	return v.AuthorizeContextResetStop
-}
 
 // #2441: UNADOPTED = no valid adoption; ADOPTED = a valid adoption; CHANGED = the automation differs from what was adopted (computed on open only), so the next run fails AUTOMATION_CHANGED.
 type AutomationAdoptionState string
@@ -35620,117 +35583,6 @@ func (v *CheckTeamChannelTeamChatMessagesTeamChatMessagesPage) GetChannelIncarna
 	return v.ChannelIncarnation
 }
 
-// ClaimContextResetClaimContextResetContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
-// The GraphQL type's documentation follows.
-//
-// #2162 — what a context reset step answered.
-type ClaimContextResetClaimContextResetContextResetStep struct {
-	ContextResetStepFields `json:"-"`
-}
-
-// GetRefused returns ClaimContextResetClaimContextResetContextResetStep.Refused, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetClaimContextResetContextResetStep) GetRefused() *string {
-	return v.ContextResetStepFields.Refused
-}
-
-// GetReplayed returns ClaimContextResetClaimContextResetContextResetStep.Replayed, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetClaimContextResetContextResetStep) GetReplayed() bool {
-	return v.ContextResetStepFields.Replayed
-}
-
-// GetReset returns ClaimContextResetClaimContextResetContextResetStep.Reset, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetClaimContextResetContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
-	return v.ContextResetStepFields.Reset
-}
-
-func (v *ClaimContextResetClaimContextResetContextResetStep) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*ClaimContextResetClaimContextResetContextResetStep
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.ClaimContextResetClaimContextResetContextResetStep = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetStepFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalClaimContextResetClaimContextResetContextResetStep struct {
-	Refused *string `json:"refused"`
-
-	Replayed bool `json:"replayed"`
-
-	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
-}
-
-func (v *ClaimContextResetClaimContextResetContextResetStep) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *ClaimContextResetClaimContextResetContextResetStep) __premarshalJSON() (*__premarshalClaimContextResetClaimContextResetContextResetStep, error) {
-	var retval __premarshalClaimContextResetClaimContextResetContextResetStep
-
-	retval.Refused = v.ContextResetStepFields.Refused
-	retval.Replayed = v.ContextResetStepFields.Replayed
-	retval.Reset = v.ContextResetStepFields.Reset
-	return &retval, nil
-}
-
-type ClaimContextResetInput struct {
-	AppRef string `json:"appRef"`
-	// The epoch the reset was collected at: 0.
-	Epoch int `json:"epoch"`
-	// The agent process the host observed idle, which a later stop must still match.
-	Process *ObservedProcessInput `json:"process,omitempty"`
-	ResetId string                `json:"resetId"`
-}
-
-// GetAppRef returns ClaimContextResetInput.AppRef, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetInput) GetAppRef() string { return v.AppRef }
-
-// GetEpoch returns ClaimContextResetInput.Epoch, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetInput) GetEpoch() int { return v.Epoch }
-
-// GetProcess returns ClaimContextResetInput.Process, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetInput) GetProcess() *ObservedProcessInput { return v.Process }
-
-// GetResetId returns ClaimContextResetInput.ResetId, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetInput) GetResetId() string { return v.ResetId }
-
-// ClaimContextResetResponse is returned by ClaimContextReset on success.
-type ClaimContextResetResponse struct {
-	// #2162 — a context reset's protocol (hrn:node:hadronmemory.com:specs:cor:agt:050:27), for the host its
-	// worker.reset-context operation was issued to, with that host's key only, after collecting the operation
-	// (HOST_OPERATION_NOT_COLLECTED otherwise). Each step names the reset and its epoch (STALE_EPOCH when it moved), is
-	// idempotent (a replay answers replayed: true), and is out of order CONTEXT_RESET_WRONG_PHASE. Another App's or host's
-	// reset is CONTEXT_RESET_NOT_FOUND. The final outcome is reported with reportHostOperation: SUCCEEDED once relaunched,
-	// or FAILED with a reason that starts with its code. claimContextReset takes the fence: the worker becomes unavailable
-	// RESETTING, or the reset is refused SESSION_CHANGED, OTHER_WORK, UNAVAILABLE, PAUSED, SETTING_OFF or WORKER_GONE.
-	ClaimContextReset *ClaimContextResetClaimContextResetContextResetStep `json:"claimContextReset"`
-}
-
-// GetClaimContextReset returns ClaimContextResetResponse.ClaimContextReset, and is useful for accessing the field via an interface.
-func (v *ClaimContextResetResponse) GetClaimContextReset() *ClaimContextResetClaimContextResetContextResetStep {
-	return v.ClaimContextReset
-}
-
 // ClearAgentAIConfigClearAgentAIConfigAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -40070,409 +39922,6 @@ var AllContentValidator = []ContentValidator{
 	ContentValidatorPlatform,
 }
 
-type ContextResetCheckpointInput struct {
-	// At most 65536 UTF-8 bytes (CHECKPOINT_CONTENT_MAX_BYTES); bounds refused RECOVERY_REF_INVALID after reset admission.
-	Content string `json:"content"`
-	// Nonblank after trim; at most 200 Unicode characters (CHECKPOINT_TITLE_MAX_CHARS); stored verbatim.
-	Title string `json:"title"`
-}
-
-// GetContent returns ContextResetCheckpointInput.Content, and is useful for accessing the field via an interface.
-func (v *ContextResetCheckpointInput) GetContent() string { return v.Content }
-
-// GetTitle returns ContextResetCheckpointInput.Title, and is useful for accessing the field via an interface.
-func (v *ContextResetCheckpointInput) GetTitle() string { return v.Title }
-
-// ContextResetContextReset includes the requested fields of the GraphQL type ContextReset.
-// The GraphQL type's documentation follows.
-//
-// #2162 — a worker's context reset (hrn:node:hadronmemory.com:specs:cor:agt:050:27): a shed, never a session end. One per
-// task at most. phase is requested, claimed, checkpointed, stop-granted, agent-stopped, relaunched, done, refused or
-// failed; reason names why a reset was refused or failed, from a closed set. epoch moves at the claim and at every
-// cancellation: a host step naming another is STALE_EPOCH.
-type ContextResetContextReset struct {
-	ContextResetFields `json:"-"`
-}
-
-// GetId returns ContextResetContextReset.Id, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetId() string { return v.ContextResetFields.Id }
-
-// GetEpoch returns ContextResetContextReset.Epoch, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetEpoch() int { return v.ContextResetFields.Epoch }
-
-// GetPhase returns ContextResetContextReset.Phase, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetPhase() string { return v.ContextResetFields.Phase }
-
-// GetReason returns ContextResetContextReset.Reason, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetReason() *string { return v.ContextResetFields.Reason }
-
-// GetWorkerId returns ContextResetContextReset.WorkerId, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetWorkerId() string { return v.ContextResetFields.WorkerId }
-
-// GetSessionId returns ContextResetContextReset.SessionId, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetSessionId() string { return v.ContextResetFields.SessionId }
-
-// GetTaskId returns ContextResetContextReset.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetTaskId() *string { return v.ContextResetFields.TaskId }
-
-// GetCause returns ContextResetContextReset.Cause, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetCause() string { return v.ContextResetFields.Cause }
-
-// GetStopGrantedAt returns ContextResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetStopGrantedAt() *string {
-	return v.ContextResetFields.StopGrantedAt
-}
-
-// GetStopLeaseMs returns ContextResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetStopLeaseMs() *int { return v.ContextResetFields.StopLeaseMs }
-
-// GetEndedAt returns ContextResetContextReset.EndedAt, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetEndedAt() *string { return v.ContextResetFields.EndedAt }
-
-// GetCheckpointNode returns ContextResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
-func (v *ContextResetContextReset) GetCheckpointNode() *string {
-	return v.ContextResetFields.CheckpointNode
-}
-
-func (v *ContextResetContextReset) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*ContextResetContextReset
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.ContextResetContextReset = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalContextResetContextReset struct {
-	Id string `json:"id"`
-
-	Epoch int `json:"epoch"`
-
-	Phase string `json:"phase"`
-
-	Reason *string `json:"reason"`
-
-	WorkerId string `json:"workerId"`
-
-	SessionId string `json:"sessionId"`
-
-	TaskId *string `json:"taskId"`
-
-	Cause string `json:"cause"`
-
-	StopGrantedAt *string `json:"stopGrantedAt"`
-
-	StopLeaseMs *int `json:"stopLeaseMs"`
-
-	EndedAt *string `json:"endedAt"`
-
-	CheckpointNode *string `json:"checkpointNode"`
-}
-
-func (v *ContextResetContextReset) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *ContextResetContextReset) __premarshalJSON() (*__premarshalContextResetContextReset, error) {
-	var retval __premarshalContextResetContextReset
-
-	retval.Id = v.ContextResetFields.Id
-	retval.Epoch = v.ContextResetFields.Epoch
-	retval.Phase = v.ContextResetFields.Phase
-	retval.Reason = v.ContextResetFields.Reason
-	retval.WorkerId = v.ContextResetFields.WorkerId
-	retval.SessionId = v.ContextResetFields.SessionId
-	retval.TaskId = v.ContextResetFields.TaskId
-	retval.Cause = v.ContextResetFields.Cause
-	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
-	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
-	retval.EndedAt = v.ContextResetFields.EndedAt
-	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
-	return &retval, nil
-}
-
-// #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
-// Every step answers ContextResetStep; refused/replayed are read by the
-// handler, and a refusal ends the reset server-side. endedAt (#2027) is null
-// while the reset is in flight: the health sweep skips a worker whose reset
-// has not ended, so it never stops a relaunch mid-window.
-type ContextResetFields struct {
-	Id        string  `json:"id"`
-	Epoch     int     `json:"epoch"`
-	Phase     string  `json:"phase"`
-	Reason    *string `json:"reason"`
-	WorkerId  string  `json:"workerId"`
-	SessionId string  `json:"sessionId"`
-	// Null for a reset with no task: one asked for by the Agent's context cap (#4225).
-	TaskId *string `json:"taskId"`
-	// #4225: what asked for the reset: task-end (a task's finish or cancel) or context-cap (the Agent's context cap, S4b).
-	Cause string `json:"cause"`
-	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
-	StopGrantedAt *string `json:"stopGrantedAt"`
-	StopLeaseMs   *int    `json:"stopLeaseMs"`
-	EndedAt       *string `json:"endedAt"`
-	// #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
-	CheckpointNode *string `json:"checkpointNode"`
-}
-
-// GetId returns ContextResetFields.Id, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetId() string { return v.Id }
-
-// GetEpoch returns ContextResetFields.Epoch, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetEpoch() int { return v.Epoch }
-
-// GetPhase returns ContextResetFields.Phase, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetPhase() string { return v.Phase }
-
-// GetReason returns ContextResetFields.Reason, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetReason() *string { return v.Reason }
-
-// GetWorkerId returns ContextResetFields.WorkerId, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetWorkerId() string { return v.WorkerId }
-
-// GetSessionId returns ContextResetFields.SessionId, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetSessionId() string { return v.SessionId }
-
-// GetTaskId returns ContextResetFields.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetTaskId() *string { return v.TaskId }
-
-// GetCause returns ContextResetFields.Cause, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetCause() string { return v.Cause }
-
-// GetStopGrantedAt returns ContextResetFields.StopGrantedAt, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetStopGrantedAt() *string { return v.StopGrantedAt }
-
-// GetStopLeaseMs returns ContextResetFields.StopLeaseMs, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetStopLeaseMs() *int { return v.StopLeaseMs }
-
-// GetEndedAt returns ContextResetFields.EndedAt, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetEndedAt() *string { return v.EndedAt }
-
-// GetCheckpointNode returns ContextResetFields.CheckpointNode, and is useful for accessing the field via an interface.
-func (v *ContextResetFields) GetCheckpointNode() *string { return v.CheckpointNode }
-
-// ContextResetResponse is returned by ContextReset on success.
-type ContextResetResponse struct {
-	// #3273 (hrn:node:hadronmemory.com:specs:cor:agt:050:27, hrn:node:hadronmemory.com:specs:cor:agt:070:04):
-	// the current state of one context reset whose operation this App key's host collected, ended resets included.
-	// The host-key gate runs first, as for the protocol steps: HOST_KEY_REQUIRED (not an App key), APP_NOT_FOUND
-	// (not the key's live App), APP_KEY_SCOPE_REQUIRED (no live host scope), APP_KEY_SESSION_BOUND (session carried).
-	// Then CONTEXT_RESET_NOT_FOUND for malformed/unknown reset id, another App/host, or a missing operation, all
-	// with identical message and extensions and no echoed id; then HOST_OPERATION_NOT_COLLECTED when collectedAt is null,
-	// even if settlement already failed the operation. A collected operation's failed/ended reset stays readable.
-	// Changes no reset, event, availability or alarm. Each host-key read/refusal is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
-	ContextReset *ContextResetContextReset `json:"contextReset"`
-}
-
-// GetContextReset returns ContextResetResponse.ContextReset, and is useful for accessing the field via an interface.
-func (v *ContextResetResponse) GetContextReset() *ContextResetContextReset { return v.ContextReset }
-
-// ContextResetStepFields includes the GraphQL fields of ContextResetStep requested by the fragment ContextResetStepFields.
-// The GraphQL type's documentation follows.
-//
-// #2162 — what a context reset step answered.
-type ContextResetStepFields struct {
-	// This step refused or failed the reset, and why; the reset has ended. Null when the step was accepted.
-	Refused *string `json:"refused"`
-	// The step had already been made: the recorded answer is returned, nothing changed.
-	Replayed bool                                     `json:"replayed"`
-	Reset    *ContextResetStepFieldsResetContextReset `json:"reset"`
-}
-
-// GetRefused returns ContextResetStepFields.Refused, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFields) GetRefused() *string { return v.Refused }
-
-// GetReplayed returns ContextResetStepFields.Replayed, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFields) GetReplayed() bool { return v.Replayed }
-
-// GetReset returns ContextResetStepFields.Reset, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFields) GetReset() *ContextResetStepFieldsResetContextReset { return v.Reset }
-
-// ContextResetStepFieldsResetContextReset includes the requested fields of the GraphQL type ContextReset.
-// The GraphQL type's documentation follows.
-//
-// #2162 — a worker's context reset (hrn:node:hadronmemory.com:specs:cor:agt:050:27): a shed, never a session end. One per
-// task at most. phase is requested, claimed, checkpointed, stop-granted, agent-stopped, relaunched, done, refused or
-// failed; reason names why a reset was refused or failed, from a closed set. epoch moves at the claim and at every
-// cancellation: a host step naming another is STALE_EPOCH.
-type ContextResetStepFieldsResetContextReset struct {
-	ContextResetFields `json:"-"`
-}
-
-// GetId returns ContextResetStepFieldsResetContextReset.Id, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetId() string { return v.ContextResetFields.Id }
-
-// GetEpoch returns ContextResetStepFieldsResetContextReset.Epoch, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetEpoch() int { return v.ContextResetFields.Epoch }
-
-// GetPhase returns ContextResetStepFieldsResetContextReset.Phase, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetPhase() string {
-	return v.ContextResetFields.Phase
-}
-
-// GetReason returns ContextResetStepFieldsResetContextReset.Reason, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetReason() *string {
-	return v.ContextResetFields.Reason
-}
-
-// GetWorkerId returns ContextResetStepFieldsResetContextReset.WorkerId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetWorkerId() string {
-	return v.ContextResetFields.WorkerId
-}
-
-// GetSessionId returns ContextResetStepFieldsResetContextReset.SessionId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetSessionId() string {
-	return v.ContextResetFields.SessionId
-}
-
-// GetTaskId returns ContextResetStepFieldsResetContextReset.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetTaskId() *string {
-	return v.ContextResetFields.TaskId
-}
-
-// GetCause returns ContextResetStepFieldsResetContextReset.Cause, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetCause() string {
-	return v.ContextResetFields.Cause
-}
-
-// GetStopGrantedAt returns ContextResetStepFieldsResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetStopGrantedAt() *string {
-	return v.ContextResetFields.StopGrantedAt
-}
-
-// GetStopLeaseMs returns ContextResetStepFieldsResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int {
-	return v.ContextResetFields.StopLeaseMs
-}
-
-// GetEndedAt returns ContextResetStepFieldsResetContextReset.EndedAt, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetEndedAt() *string {
-	return v.ContextResetFields.EndedAt
-}
-
-// GetCheckpointNode returns ContextResetStepFieldsResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetCheckpointNode() *string {
-	return v.ContextResetFields.CheckpointNode
-}
-
-func (v *ContextResetStepFieldsResetContextReset) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*ContextResetStepFieldsResetContextReset
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.ContextResetStepFieldsResetContextReset = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalContextResetStepFieldsResetContextReset struct {
-	Id string `json:"id"`
-
-	Epoch int `json:"epoch"`
-
-	Phase string `json:"phase"`
-
-	Reason *string `json:"reason"`
-
-	WorkerId string `json:"workerId"`
-
-	SessionId string `json:"sessionId"`
-
-	TaskId *string `json:"taskId"`
-
-	Cause string `json:"cause"`
-
-	StopGrantedAt *string `json:"stopGrantedAt"`
-
-	StopLeaseMs *int `json:"stopLeaseMs"`
-
-	EndedAt *string `json:"endedAt"`
-
-	CheckpointNode *string `json:"checkpointNode"`
-}
-
-func (v *ContextResetStepFieldsResetContextReset) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *ContextResetStepFieldsResetContextReset) __premarshalJSON() (*__premarshalContextResetStepFieldsResetContextReset, error) {
-	var retval __premarshalContextResetStepFieldsResetContextReset
-
-	retval.Id = v.ContextResetFields.Id
-	retval.Epoch = v.ContextResetFields.Epoch
-	retval.Phase = v.ContextResetFields.Phase
-	retval.Reason = v.ContextResetFields.Reason
-	retval.WorkerId = v.ContextResetFields.WorkerId
-	retval.SessionId = v.ContextResetFields.SessionId
-	retval.TaskId = v.ContextResetFields.TaskId
-	retval.Cause = v.ContextResetFields.Cause
-	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
-	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
-	retval.EndedAt = v.ContextResetFields.EndedAt
-	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
-	return &retval, nil
-}
-
-// #2162 — a context reset step: the reset and the epoch the host holds (0 until claimed).
-type ContextResetStepInput struct {
-	AppRef string `json:"appRef"`
-	Epoch  int    `json:"epoch"`
-	// #3255 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 10): milliseconds the host's stop signal landed after its window, an integer from 0 to 86400000. Omitted, null or zero means no late-stop event. On the first stopped report, a positive value records one task.context-reset-late-stop event per reset for the worker's coordinator. Later reports record nothing, even if the first report had no annotation. After the reset ended, the same collected host may annotate its granted stop using that grant's epoch; this changes no reset, task, availability, outcome or alarm state. Other steps keep their epoch checks.
-	LateStopMs *int   `json:"lateStopMs,omitempty"`
-	ResetId    string `json:"resetId"`
-}
-
-// GetAppRef returns ContextResetStepInput.AppRef, and is useful for accessing the field via an interface.
-func (v *ContextResetStepInput) GetAppRef() string { return v.AppRef }
-
-// GetEpoch returns ContextResetStepInput.Epoch, and is useful for accessing the field via an interface.
-func (v *ContextResetStepInput) GetEpoch() int { return v.Epoch }
-
-// GetLateStopMs returns ContextResetStepInput.LateStopMs, and is useful for accessing the field via an interface.
-func (v *ContextResetStepInput) GetLateStopMs() *int { return v.LateStopMs }
-
-// GetResetId returns ContextResetStepInput.ResetId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepInput) GetResetId() string { return v.ResetId }
-
 // #1447 — a spec corpus's state, derived from its nodes since #1591: DRAFT while no live node is minted, MINTED once any is.
 type CorpusState string
 
@@ -43728,6 +43177,12 @@ type CreateConnectionGrantResponse struct {
 	// duplicates are collapsed. expiresAt is optional; when supplied it must be
 	// a future ISO-8601 timestamp with an explicit timezone. appRef is a PK or
 	// App URN. A missing or unreadable connection answers NOT_FOUND.
+	//
+	// #4838: a grantee App that is missing, deleted or malformed answers
+	// BAD_USER_INPUT "Grantee App not found." with NO ref echoed. The existence
+	// oracle on this refusal is deliberate (a connection owner need not reach
+	// the grantee App — granting to a counterparty is the feature): an App the
+	// owner cannot reach still receives the grant.
 	CreateConnectionGrant *CreateConnectionGrantCreateConnectionGrant `json:"createConnectionGrant"`
 }
 
@@ -46477,6 +45932,162 @@ func (v *CreateRevisionResponse) GetCreateRevision() *CreateRevisionCreateRevisi
 	return v.CreateRevision
 }
 
+// CreateRoleTaskCreateTaskNode includes the requested fields of the GraphQL type Node.
+type CreateRoleTaskCreateTaskNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string `json:"nodeType"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable *bool `json:"isRunnable"`
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
+	// gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
+	Role          *string                                          `json:"role"`
+	UpdatedAt     string                                           `json:"updatedAt"`
+	OutgoingEdges []*CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+}
+
+// GetId returns CreateRoleTaskCreateTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetId() string { return v.Id }
+
+// GetMemoryId returns CreateRoleTaskCreateTaskNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns CreateRoleTaskCreateTaskNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetLoc() string { return v.Loc }
+
+// GetUrn returns CreateRoleTaskCreateTaskNode.Urn, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetUrn() string { return v.Urn }
+
+// GetName returns CreateRoleTaskCreateTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetName() string { return v.Name }
+
+// GetNodeType returns CreateRoleTaskCreateTaskNode.NodeType, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetNodeType() string { return v.NodeType }
+
+// GetIsRunnable returns CreateRoleTaskCreateTaskNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetRole returns CreateRoleTaskCreateTaskNode.Role, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetRole() *string { return v.Role }
+
+// GetUpdatedAt returns CreateRoleTaskCreateTaskNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetOutgoingEdges returns CreateRoleTaskCreateTaskNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNode) GetOutgoingEdges() []*CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge {
+	return v.OutgoingEdges
+}
+
+// CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge struct {
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+}
+
+// GetId returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge) GetId() string { return v.Id }
+
+// GetName returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
+
+// GetTarget returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdge) GetTarget() *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode {
+	return v.Target
+}
+
+// CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+}
+
+// GetId returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// GetUrn returns CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode.Urn, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskCreateTaskNodeOutgoingEdgesEdgeTargetNode) GetUrn() string { return v.Urn }
+
+// CreateRoleTaskResponse is returned by CreateRoleTask on success.
+type CreateRoleTaskResponse struct {
+	// #1201 — the CREATE door for the task kind. A write that would produce a
+	// node with isRunnable: true must come through here; the generic createNode
+	// refuses it.
+	//
+	// PURE ROUTING: it validates nothing and knows nothing beyond which kind it is
+	// the door for. The authoring RULES stay in the tool that owns them ('hadron
+	// spec', 'hadron coding'), which is a closed-list exception on the audience
+	// ground.
+	//
+	// STRENGTH: CAPABILITY. The only one of the three whose gate cannot be evaded by omission, which is why it carries the security case. It keys on 'isRunnable' rather than on 'role': a label is caller-set and freely dropped, while omitting the capability means the node does not run. The threat is a memory shared with someone who authors a runnable node that reads the owner's data when the OWNER runs it (#1202).
+	//
+	// Exempt from its OWN kind only — it is fully subject to every other kind and
+	// to Channel address protection, so it cannot forge a chat message.
+	// This mutation is not itself an MCP tool; its MCP counterpart is the
+	// deliberate hadron_create_task tool, separate from hadron_create_node,
+	// which refuses (#1301 names it in the refusal).
+	//
+	// #4864 — with index, the SAME door also writes the task's tasks-index
+	// edge, in its one transaction: the new node and one edge from it to the node
+	// the Agent's tasksIndexRef names, labelled index.trigger, stored by id
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:15). Either both exist or neither
+	// does. The node must be created in the Agent's own system memory, which is
+	// also where the index must lie: an Agent with no pointer, an index elsewhere,
+	// an existing loc and an unknown or unreadable Agent each refuse and write
+	// nothing. Refusals that read only the input (a malformed loc, a blank trigger,
+	// a skill the lint refuses) come first and disclose nothing; then the memory's
+	// read and write checks and the task writer level
+	// (hrn:node:hadronmemory.com:specs:cor:acl:010:03), so none of the refusals
+	// that read the Agent or the memory tells a caller who may not write the memory
+	// anything about it. With skill, it also writes an enabled properties.exports.claudeSkill
+	// block with the given name and description, validated by the skill lint; by
+	// default no block is written. Neither argument sets a role; without both the
+	// door behaves exactly as before.
+	CreateTaskNode *CreateRoleTaskCreateTaskNode `json:"createTaskNode"`
+}
+
+// GetCreateTaskNode returns CreateRoleTaskResponse.CreateTaskNode, and is useful for accessing the field via an interface.
+func (v *CreateRoleTaskResponse) GetCreateTaskNode() *CreateRoleTaskCreateTaskNode {
+	return v.CreateTaskNode
+}
+
 // CreateScopeCreateScope includes the requested fields of the GraphQL type Scope.
 // The GraphQL type's documentation follows.
 //
@@ -47206,6 +46817,23 @@ type CreateTaskNodeResponse struct {
 	// This mutation is not itself an MCP tool; its MCP counterpart is the
 	// deliberate hadron_create_task tool, separate from hadron_create_node,
 	// which refuses (#1301 names it in the refusal).
+	//
+	// #4864 — with index, the SAME door also writes the task's tasks-index
+	// edge, in its one transaction: the new node and one edge from it to the node
+	// the Agent's tasksIndexRef names, labelled index.trigger, stored by id
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:15). Either both exist or neither
+	// does. The node must be created in the Agent's own system memory, which is
+	// also where the index must lie: an Agent with no pointer, an index elsewhere,
+	// an existing loc and an unknown or unreadable Agent each refuse and write
+	// nothing. Refusals that read only the input (a malformed loc, a blank trigger,
+	// a skill the lint refuses) come first and disclose nothing; then the memory's
+	// read and write checks and the task writer level
+	// (hrn:node:hadronmemory.com:specs:cor:acl:010:03), so none of the refusals
+	// that read the Agent or the memory tells a caller who may not write the memory
+	// anything about it. With skill, it also writes an enabled properties.exports.claudeSkill
+	// block with the given name and description, validated by the skill lint; by
+	// default no block is written. Neither argument sets a role; without both the
+	// door behaves exactly as before.
 	CreateTaskNode *CreateTaskNodeCreateTaskNode `json:"createTaskNode"`
 }
 
@@ -47524,12 +47152,101 @@ type CreateTeamRoleResponse struct {
 	// invariants to run, because names are not allocated — a cast supplies its
 	// own and workers_app_name_uniq is the sole arbiter. Any data.names left on
 	// an existing node is historical and is neither read nor rewritten.
+	//
+	// #4838 (hrn:node:hadronmemory.com:specs:cor:dmo:070:05, Proposed): the appRef
+	// refusals on this door are concealed and reach-gated, the same rule
+	// startSession runs. A caller without standing for the App their appRef names
+	// — a non-participant, a pure App key naming another App, or a ref that is
+	// missing, deleted, uninstalled or malformed — gets ONE answer,
+	// byte-identical across every state: APP_NOT_FOUND with the message
+	// "App not found.", no ref echoed, no appId in extensions. A participant
+	// keeps the state answers: APP_UNINSTALLED with the appId for an uninstalled
+	// App named by PK, and FORBIDDEN from the definition-edit gate for a member
+	// who reaches but may not edit.
 	CreateTeamRole *CreateTeamRoleCreateTeamRole `json:"createTeamRole"`
 }
 
 // GetCreateTeamRole returns CreateTeamRoleResponse.CreateTeamRole, and is useful for accessing the field via an interface.
 func (v *CreateTeamRoleResponse) GetCreateTeamRole() *CreateTeamRoleCreateTeamRole {
 	return v.CreateTeamRole
+}
+
+// CreateTelegramConnectionCreateTelegramConnection includes the requested fields of the GraphQL type TelegramConnection.
+// The GraphQL type's documentation follows.
+//
+// One Telegram bot registered for a Hadron App (#597). APP-owned: one active
+// connection per App, so the bot a person messages names the App. The bot
+// token lives ENCRYPTED IN THE TOOL (hadrontool-telegram): it is a write-only
+// input on createTelegramConnection and no field here ever returns it.
+type CreateTelegramConnectionCreateTelegramConnection struct {
+	Id string `json:"id"`
+	// The App's owning organization.
+	OrganizationId string `json:"organizationId"`
+	AppId          string `json:"appId"`
+	// Telegram provider backing this connection ('telegram' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status      string `json:"status"`
+	DisplayName string `json:"displayName"`
+	// The bot's Telegram user id.
+	BotId string `json:"botId"`
+	// The bot's @username, without the at sign.
+	BotUsername string `json:"botUsername"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateTelegramConnectionCreateTelegramConnection.Id, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns CreateTelegramConnectionCreateTelegramConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetAppId returns CreateTelegramConnectionCreateTelegramConnection.AppId, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetAppId() string { return v.AppId }
+
+// GetProvider returns CreateTelegramConnectionCreateTelegramConnection.Provider, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetProvider() string { return v.Provider }
+
+// GetStatus returns CreateTelegramConnectionCreateTelegramConnection.Status, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetStatus() string { return v.Status }
+
+// GetDisplayName returns CreateTelegramConnectionCreateTelegramConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetDisplayName() string {
+	return v.DisplayName
+}
+
+// GetBotId returns CreateTelegramConnectionCreateTelegramConnection.BotId, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetBotId() string { return v.BotId }
+
+// GetBotUsername returns CreateTelegramConnectionCreateTelegramConnection.BotUsername, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetBotUsername() string {
+	return v.BotUsername
+}
+
+// GetCreatedAt returns CreateTelegramConnectionCreateTelegramConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns CreateTelegramConnectionCreateTelegramConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionCreateTelegramConnection) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateTelegramConnectionResponse is returned by CreateTelegramConnection on success.
+type CreateTelegramConnectionResponse struct {
+	// Register a Telegram bot for an App (#597). appRef accepts ID or URN
+	// (hrn:node:hadronmemory.com:specs:cor:api:140); the organization is the App's own. The bot token is
+	// validated live by the tool and stored encrypted THERE: core keeps identity
+	// only, and no field ever returns the token. Requires ADMIN/OWNER of the
+	// App's organization; every caller who may not, and an App that does not
+	// exist or has no organization, get the same refusal. One active connection
+	// per App.
+	CreateTelegramConnection *CreateTelegramConnectionCreateTelegramConnection `json:"createTelegramConnection"`
+}
+
+// GetCreateTelegramConnection returns CreateTelegramConnectionResponse.CreateTelegramConnection, and is useful for accessing the field via an interface.
+func (v *CreateTelegramConnectionResponse) GetCreateTelegramConnection() *CreateTelegramConnectionCreateTelegramConnection {
+	return v.CreateTelegramConnection
 }
 
 // CreateTickerCreateTicker includes the requested fields of the GraphQL type Ticker.
@@ -48936,7 +48653,8 @@ type DeleteTeamRoleResponse struct {
 	// #1002 — retire a roles:<role> definition. Soft-deletes the role node and
 	// any sub-nodes under it (roles:<role>:notes is content OF the role), so the
 	// subtree is recoverable. Unknown role: WORKER_ROLE_NOT_FOUND. Same
-	// authorization as createTeamRole.
+	// authorization as createTeamRole, and the same #4838 concealed appRef
+	// refusals (see createTeamRole).
 	//
 	// #1050: unconditional. The minted-name check, TEAM_ROLE_IN_USE, transferTo's
 	// one-step supersede, the post-delete recheck and the restore compensation
@@ -48956,6 +48674,17 @@ type DeleteTeamRoleResponse struct {
 // GetDeleteTeamRole returns DeleteTeamRoleResponse.DeleteTeamRole, and is useful for accessing the field via an interface.
 func (v *DeleteTeamRoleResponse) GetDeleteTeamRole() *DeleteTeamRoleDeleteTeamRoleDeleteTeamRolePayload {
 	return v.DeleteTeamRole
+}
+
+// DeleteTelegramConnectionResponse is returned by DeleteTelegramConnection on success.
+type DeleteTelegramConnectionResponse struct {
+	// Soft-delete a Telegram connection (org ADMIN/OWNER); tears down the tool side best-effort.
+	DeleteTelegramConnection bool `json:"deleteTelegramConnection"`
+}
+
+// GetDeleteTelegramConnection returns DeleteTelegramConnectionResponse.DeleteTelegramConnection, and is useful for accessing the field via an interface.
+func (v *DeleteTelegramConnectionResponse) GetDeleteTelegramConnection() bool {
+	return v.DeleteTelegramConnection
 }
 
 // DeleteTickerInstructedResponse is returned by DeleteTickerInstructed on success.
@@ -59556,6 +59285,8 @@ type GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit struct {
 	MatchedField   SearchField      `json:"matchedField"`
 	MemoryId       *string          `json:"memoryId"`
 	OrganizationId *string          `json:"organizationId"`
+	// The entity's short handle when its kind has one (an agentTask's bare AT0.6508), else null. Render as given; never compose or parse.
+	Handle *string `json:"handle"`
 }
 
 // GetId returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Id, and is useful for accessing the field via an interface.
@@ -59599,6 +59330,11 @@ func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetMemor
 // GetOrganizationId returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.OrganizationId, and is useful for accessing the field via an interface.
 func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetOrganizationId() *string {
 	return v.OrganizationId
+}
+
+// GetHandle returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Handle, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetHandle() *string {
+	return v.Handle
 }
 
 // GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo includes the requested fields of the GraphQL type SearchScopeInfo.
@@ -62555,6 +62291,129 @@ func (v *HostRelaunchVerifyFailureSetHostWorkerTerminalsSetHostWorkerTerminalsRe
 	return &retval, nil
 }
 
+// HostRelaunchWorkerHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: the desired state of every worker one host runs, and the App's sweep mode.
+type HostRelaunchWorkerHostDesiredState struct {
+	HostId    string                                                         `json:"hostId"`
+	SweepMode SweepMode                                                      `json:"sweepMode"`
+	Workers   []*HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState `json:"workers"`
+}
+
+// GetHostId returns HostRelaunchWorkerHostDesiredState.HostId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredState) GetHostId() string { return v.HostId }
+
+// GetSweepMode returns HostRelaunchWorkerHostDesiredState.SweepMode, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredState) GetSweepMode() SweepMode { return v.SweepMode }
+
+// GetWorkers returns HostRelaunchWorkerHostDesiredState.Workers, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredState) GetWorkers() []*HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState {
+	return v.Workers
+}
+
+// HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState includes the requested fields of the GraphQL type WorkerDesiredState.
+// The GraphQL type's documentation follows.
+//
+// #4224: one worker's desired state on one host, with the setup the host needs to start it.
+type HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState struct {
+	WorkerId string `json:"workerId"`
+	// The model family the host registered the worker to run as.
+	Family string `json:"family"`
+	// RUNNING or STOPPED; null exactly when reason is LEAVE_ALONE or SWEEP_OFF, where nothing is desired and a reader acts on nothing.
+	Desired *DesiredRunState   `json:"desired"`
+	Reason  DesiredStateReason `json:"reason"`
+	// The worker's open session (not ended), or null. Open, not live: a quiet session is still open.
+	OpenSessionId *string `json:"openSessionId"`
+	// The worker's existing worktrees on this host, as the host names them; empty when it has none.
+	Worktrees []string `json:"worktrees"`
+}
+
+// GetWorkerId returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetFamily returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Family, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetFamily() string {
+	return v.Family
+}
+
+// GetDesired returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Desired, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetDesired() *DesiredRunState {
+	return v.Desired
+}
+
+// GetReason returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Reason, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetReason() DesiredStateReason {
+	return v.Reason
+}
+
+// GetOpenSessionId returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.OpenSessionId, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetOpenSessionId() *string {
+	return v.OpenSessionId
+}
+
+// GetWorktrees returns HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState.Worktrees, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerHostDesiredStateWorkersWorkerDesiredState) GetWorktrees() []string {
+	return v.Worktrees
+}
+
+// HostRelaunchWorkerMyApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostRelaunchWorkerMyApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostRelaunchWorkerMyApp.Id, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerMyApp) GetId() string { return v.Id }
+
+// HostRelaunchWorkerResponse is returned by HostRelaunchWorker on success.
+type HostRelaunchWorkerResponse struct {
+	// The App authenticated by the current AppKey (null for JWT users without an App)
+	MyApp *HostRelaunchWorkerMyApp `json:"myApp"`
+	// #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
+	// host's sweep reads this once per pass and compares it with what it sees. While the App's hostSetupSource is HOST
+	// (the default), a host's workers are the ones its registration lists (hrn:node:hadronmemory.com:specs:cor:agt:070:01),
+	// live or lapsed, with the family and worktrees it registered. While it is SERVER (#4248), they are the platform's
+	// assignments to that host (hostSetup, #4222), a retired worker's excluded, each with the assignment's family and its
+	// one workdir; a host with an assignment but no registration is found. Rows are ordered by worker name.
+	// Readers: whoever reads the App's tasks and events (hrn:node:hadronmemory.com:specs:cor:agt:050:21), the App's own key included. A key
+	// that holds or ever held host:operate reads its own live host only (hrn:node:hadronmemory.com:specs:cor:agt:070:04); any other hostId
+	// answers HOST_NOT_FOUND, exactly as a host the App does not have. A host key's read is a recorded use
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07). Reads only: nothing is started, stopped or changed.
+	// #4260: the optional worker selector (a worker id or an exact name) narrows the rows this answer returns to the
+	// workers of this host it names, for a host's per-worker re-reads — AT MOST ONE ROW: the id form is exactly one
+	// (ids are unique), and the name form is at most one because a worker's name is unique per App,
+	// case-insensitively (workers_app_name_uniq, a functional unique on (app_id, lower(name)) that Prisma's schema
+	// cannot express — prisma/post-push.sql and migration 20260814130000); the name match itself is exact-case, so
+	// a differently-cased selector selects nothing. Worker names are stored trimmed (the cast path trims a name
+	// before storing it; there is no rename) and a non-empty selector is trimmed the same way, so an exact name
+	// comparison always reaches a stored name. A null, empty or whitespace-only worker is treated as omitted — the
+	// full host list returns. An exact id match takes precedence over a name match, so a worker whose name equals
+	// another listed worker's id selects the id's row alone. A worker this host does not run — another host's, a
+	// retired worker not on this host, an unknown id or name — answers the same empty workers list as an unknown
+	// worker (hrn:node:hadronmemory.com:specs:cor:agt:020:08: denial and absence indistinguishable), so the
+	// selector never probes the App's roster; a retired worker this host still lists keeps its row. The gates,
+	// refusals, key-use recording, row semantics and sweepMode are exactly the host-wide read's; omit it and the
+	// full list returns.
+	HostDesiredState *HostRelaunchWorkerHostDesiredState `json:"hostDesiredState"`
+}
+
+// GetMyApp returns HostRelaunchWorkerResponse.MyApp, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerResponse) GetMyApp() *HostRelaunchWorkerMyApp { return v.MyApp }
+
+// GetHostDesiredState returns HostRelaunchWorkerResponse.HostDesiredState, and is useful for accessing the field via an interface.
+func (v *HostRelaunchWorkerResponse) GetHostDesiredState() *HostRelaunchWorkerHostDesiredState {
+	return v.HostDesiredState
+}
+
 // HostSetupAssignmentFields includes the GraphQL fields of HostWorkerAssignment requested by the fragment HostSetupAssignmentFields.
 // The GraphQL type's documentation follows.
 //
@@ -63743,8 +63602,8 @@ type IntakeClaimTaskCreateAgentTask struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Title  string          `json:"title"`
 	Status AgentTaskStatus `json:"status"`
@@ -63829,13 +63688,14 @@ type IntakeClaimTaskResponse struct {
 	// `extensions.warnings` (not in `errors`): a list of
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
-	// task.assign.assignee-busy, task.assign.assignee-paused,
+	// task.assign.assignee-busy, task.assign.assignee-paused, task.assign.session-open (#4855: the
+	// assignee has an open session, live or quiet, so the platform did not start it; the assignment reaches it there),
 	// task.finish.open-children, from #3267 task.start.other-started,
 	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
-	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// (on recordAgentTaskProgress; other-started and children-ended, like the four assign
 	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
-	// a client must tolerate unknown codes. `text` is
+	// a client must tolerate unknown codes. Since #4793 task.create.no-source is no longer raised; it stays on the list so history recorded with it still reads. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
 	// #3491 (ruling 0176): the first three are given only when the caller may read every
@@ -63928,8 +63788,8 @@ type IntakeExternalIdChangesAgentTaskExternalIdChangesAgentTaskExternalIdChangeP
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string `json:"handle"`
 	// #4084 (hrn:node:hadronmemory.com:specs:cor:agt:120) — the portal page that opens this task,
 	// <FRONTEND_URL>/app/apps/<appId>/tasks/<taskId>, printed by the server so no client builds it. Null when FRONTEND_URL
@@ -64828,14 +64688,19 @@ func (v *IssueHostOperationResponse) GetIssueHostOperation() *IssueHostOperation
 // secret keeps its values as versions: every store adds one
 // (hrn:node:hadronmemory.com:specs:cor:sec:010:03).
 type IssueSecretReadClientInput struct {
-	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refusals, in the order they are judged: holderKind APP (GRANT_HOLDER_NOT_ALLOWED); an unreadable startsAt or expiresAt (BAD_USER_INPUT); a marked request without a window or a read budget (SECRET_AUTO_DELETE_NEEDS_LIMIT); a caller who is neither an App manager nor the writer of the secret's current version (SECRET_AUTO_DELETE_NOT_ALLOWED, where an unmarked request would get FORBIDDEN or SECRET_READ_CLIENT_SUPERSEDED).
-	AutoDelete bool    `json:"autoDelete"`
-	ExpiresAt  *string `json:"expiresAt,omitempty"`
-	// WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path, and an App holder for use is not supported.
+	// Delete the secret at the client's last read or when its window ends. Needs a window or a read budget. Refusals, in the order they are judged: holderKind APP in REVEAL mode (GRANT_HOLDER_NOT_ALLOWED); an unreadable startsAt or expiresAt (BAD_USER_INPUT); a marked request without a window or a read budget (SECRET_AUTO_DELETE_NEEDS_LIMIT); a caller who is neither an App manager nor the writer of the secret's current version (SECRET_AUTO_DELETE_NOT_ALLOWED, where an unmarked request would get FORBIDDEN or SECRET_READ_CLIENT_SUPERSEDED).
+	AutoDelete    bool    `json:"autoDelete"`
+	BindingHeader *string `json:"bindingHeader,omitempty"`
+	// USE requires a signed HTTPS origin and path prefix and an auth header name.
+	BindingPrefix *string `json:"bindingPrefix,omitempty"`
+	ExpiresAt     *string `json:"expiresAt,omitempty"`
+	// REVEAL: WORKER: a live worker of the App (holderRef is its id). AGENT: an agent installed and licensed in the App (holderRef is its id); its live workers in the App read through the client (hrn:node:hadronmemory.com:specs:cor:sec:060:02). USER: a live App participant (holderRef is their id, omitted for the issuer); a protected secret requires a different person. APP is refused for REVEAL (GRANT_HOLDER_NOT_ALLOWED): an App holds no reveal path. USE: an AGENT installed in the App, or the App itself (a person or a worker is refused).
 	HolderKind GrantHolderKind `json:"holderKind"`
 	HolderRef  *string         `json:"holderRef,omitempty"`
 	MaxReads   *int            `json:"maxReads,omitempty"`
-	Reason     string          `json:"reason"`
+	// REVEAL by default; USE creates an injection-only client, used by reference from the holder's runs.
+	Mode   *SecretReadClientMode `json:"mode,omitempty"`
+	Reason string                `json:"reason"`
 	// The App secret, by id or URN.
 	SecretRef string  `json:"secretRef"`
 	StartsAt  *string `json:"startsAt,omitempty"`
@@ -64843,6 +64708,12 @@ type IssueSecretReadClientInput struct {
 
 // GetAutoDelete returns IssueSecretReadClientInput.AutoDelete, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetAutoDelete() bool { return v.AutoDelete }
+
+// GetBindingHeader returns IssueSecretReadClientInput.BindingHeader, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetBindingHeader() *string { return v.BindingHeader }
+
+// GetBindingPrefix returns IssueSecretReadClientInput.BindingPrefix, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetBindingPrefix() *string { return v.BindingPrefix }
 
 // GetExpiresAt returns IssueSecretReadClientInput.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetExpiresAt() *string { return v.ExpiresAt }
@@ -64855,6 +64726,9 @@ func (v *IssueSecretReadClientInput) GetHolderRef() *string { return v.HolderRef
 
 // GetMaxReads returns IssueSecretReadClientInput.MaxReads, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetMaxReads() *int { return v.MaxReads }
+
+// GetMode returns IssueSecretReadClientInput.Mode, and is useful for accessing the field via an interface.
+func (v *IssueSecretReadClientInput) GetMode() *SecretReadClientMode { return v.Mode }
 
 // GetReason returns IssueSecretReadClientInput.Reason, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientInput) GetReason() string { return v.Reason }
@@ -70706,7 +70580,7 @@ func (v *MintActionTicketsInput) GetOrgRef() string { return v.OrgRef }
 
 // MintActionTicketsResponse is returned by MintActionTickets on success.
 type MintActionTicketsResponse struct {
-	// Mint comm.outbound tickets into the org ledger (org-ADMIN; cor:acl:050:04).
+	// Mint comm.outbound or secret.use tickets into the org ledger (org-ADMIN; hrn:node:hadronmemory.com:specs:cor:acl:050:04).
 	MintActionTickets int `json:"mintActionTickets"`
 }
 
@@ -77692,18 +77566,6 @@ var AllNodeValidationTaskSetState = []NodeValidationTaskSetState{
 	NodeValidationTaskSetStateUnavailable,
 }
 
-// #2162 — the agent process a host observed: its pid and the kernel's start time for it (a token).
-type ObservedProcessInput struct {
-	Pid       int    `json:"pid"`
-	StartTime string `json:"startTime"`
-}
-
-// GetPid returns ObservedProcessInput.Pid, and is useful for accessing the field via an interface.
-func (v *ObservedProcessInput) GetPid() int { return v.Pid }
-
-// GetStartTime returns ObservedProcessInput.StartTime, and is useful for accessing the field via an interface.
-func (v *ObservedProcessInput) GetStartTime() string { return v.StartTime }
-
 // OrgAgentGrantsOrganization includes the requested fields of the GraphQL type Organization.
 // The GraphQL type's documentation follows.
 //
@@ -78412,7 +78274,7 @@ func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) __premarshalJSON() (*__p
 
 // PRFreezeResponse is returned by PRFreeze on success.
 type PRFreezeResponse struct {
-	// #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding.
+	// #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding. A negative withdrawn by its holder or the coordinator (#4441) no longer refuses.
 	FreezePullRequestHead *PRFreezeFreezePullRequestHeadPrProtocolResult `json:"freezePullRequestHead"`
 }
 
@@ -78470,8 +78332,8 @@ type PRProtocolReceiptTaskAgentTask struct {
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
 	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
-	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
-	// The handle is not the number of any GitHub issue the task's source names.
+	// belongs to several Apps qualifies it with the task's urn, hrn:agenttask:<app-urn>:at3.405, where the App URN is the
+	// App's urn (either case is read). The handle is not the number of any GitHub issue the task's source names.
 	Handle string          `json:"handle"`
 	Status AgentTaskStatus `json:"status"`
 }
@@ -78632,7 +78494,7 @@ func (v *PRReadyResponse) GetRecordReadyCall() *PRReadyRecordReadyCallPrProtocol
 
 // PRScheduleResponse is returned by PRSchedule on success.
 type PRScheduleResponse struct {
-	// #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE. All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
+	// #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE, unless that negative was withdrawn (#4441, withdrawReviewVerdict). All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
 	SetReviewSchedule *PRScheduleSetReviewSchedulePrProtocolResult `json:"setReviewSchedule"`
 }
 
@@ -78773,7 +78635,7 @@ func (v *PRSeatAssignReviewSeatPrProtocolResult) __premarshalJSON() (*__premarsh
 
 // PRSeatResponse is returned by PRSeat on success.
 type PRSeatResponse struct {
-	// #3448 — Order: schedule, freeze, seat, verdict, finish; a seat binds only while its own task is live. A native negative verdict at a head blocks every slot there; the head must move. TASK_ENDED and REVIEW_SEAT_UNASSIGNED name the remedy (a signed PR receipt at the exact head is the record); REVIEW_HEAD_MISMATCH says to bind at the frozen head. Seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
+	// #3448 — Order: schedule, freeze, seat, verdict, finish; a seat binds only while its own task is live. A native negative verdict at a head blocks every slot there; the head must move. TASK_ENDED and REVIEW_SEAT_UNASSIGNED name the remedy (a signed PR receipt at the exact head is the record); REVIEW_HEAD_MISMATCH says to bind at the frozen head. Seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE), unless that negative was withdrawn (#4441, withdrawReviewVerdict). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
 	AssignReviewSeat *PRSeatAssignReviewSeatPrProtocolResult `json:"assignReviewSeat"`
 }
 
@@ -78856,6 +78718,82 @@ type PRVerdictResponse struct {
 // GetRecordReviewVerdict returns PRVerdictResponse.RecordReviewVerdict, and is useful for accessing the field via an interface.
 func (v *PRVerdictResponse) GetRecordReviewVerdict() *PRVerdictRecordReviewVerdictPrProtocolResult {
 	return v.RecordReviewVerdict
+}
+
+// PRWithdrawResponse is returned by PRWithdraw on success.
+type PRWithdrawResponse struct {
+	// #4441 — withdraw a FINISHED review seat's negative verdict (CHANGES_REQUESTED, FAIL or REFUSED) at the head it was recorded at, on evidence (Holger's ruling, the withdraw verb). Who: the actor who recorded that verdict, or the coordinator: a worker whose current role is coordinator in the App, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; a worker whose holder manages it, with an instruction). Records one review.verdict.withdrawn event on the seat task naming the verdict event; the verdict event and the finished task are unchanged. A withdrawn negative no longer blocks the head: the head may be frozen again, a schedule may drop its slot, and a superseding seat may bind to its slot at the same head. It never counts as a positive verdict: the slot counts only through a superseding seat's APPROVE, PASS or CARRY. Refusals: TASK_NOT_FOUND (a caller who may not read the App's tasks), REVIEW_SEAT_UNASSIGNED, TASK_INVALID_TRANSITION (the seat is not FINISHED; a STARTED seat's holder re-rates instead), REVIEW_HEAD_MISMATCH, REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN, REVIEW_WITHDRAW_FORBIDDEN, BAD_USER_INPUT; each writes nothing.
+	WithdrawReviewVerdict *PRWithdrawWithdrawReviewVerdictPrProtocolResult `json:"withdrawReviewVerdict"`
+}
+
+// GetWithdrawReviewVerdict returns PRWithdrawResponse.WithdrawReviewVerdict, and is useful for accessing the field via an interface.
+func (v *PRWithdrawResponse) GetWithdrawReviewVerdict() *PRWithdrawWithdrawReviewVerdictPrProtocolResult {
+	return v.WithdrawReviewVerdict
+}
+
+// PRWithdrawWithdrawReviewVerdictPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRWithdrawWithdrawReviewVerdictPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRWithdrawWithdrawReviewVerdictPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRWithdrawWithdrawReviewVerdictPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRWithdrawWithdrawReviewVerdictPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRWithdrawWithdrawReviewVerdictPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRWithdrawWithdrawReviewVerdictPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRWithdrawWithdrawReviewVerdictPrProtocolResult) __premarshalJSON() (*__premarshalPRWithdrawWithdrawReviewVerdictPrProtocolResult, error) {
+	var retval __premarshalPRWithdrawWithdrawReviewVerdictPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
 }
 
 // PasskeyRevokeUrlResponse is returned by PasskeyRevokeUrl on success.
@@ -85372,133 +85310,6 @@ func (v *RegenerateAppKeyResponse) GetRegenerateAppKey() *RegenerateAppKeyRegene
 	return v.RegenerateAppKey
 }
 
-type RegisterContextResetRecoveryInput struct {
-	AppRef string `json:"appRef"`
-	// #3276: atomically write one plain checkpoint in the reset worker working memory; exactly one of checkpointNode/checkpoint.
-	Checkpoint *ContextResetCheckpointInput `json:"checkpoint,omitempty"`
-	// The checkpoint node the host wrote: its id or full URN, in the worker's own working memory.
-	CheckpointNode *string `json:"checkpointNode,omitempty"`
-	Epoch          int     `json:"epoch"`
-	ResetId        string  `json:"resetId"`
-	// The reset's own session and task.
-	SessionId string `json:"sessionId"`
-	// The task the reset belongs to; omitted (or empty) for a reset with no task, one asked for by the Agent's context cap (cause context-cap).
-	TaskId *string `json:"taskId,omitempty"`
-}
-
-// GetAppRef returns RegisterContextResetRecoveryInput.AppRef, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetAppRef() string { return v.AppRef }
-
-// GetCheckpoint returns RegisterContextResetRecoveryInput.Checkpoint, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetCheckpoint() *ContextResetCheckpointInput {
-	return v.Checkpoint
-}
-
-// GetCheckpointNode returns RegisterContextResetRecoveryInput.CheckpointNode, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetCheckpointNode() *string { return v.CheckpointNode }
-
-// GetEpoch returns RegisterContextResetRecoveryInput.Epoch, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetEpoch() int { return v.Epoch }
-
-// GetResetId returns RegisterContextResetRecoveryInput.ResetId, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetResetId() string { return v.ResetId }
-
-// GetSessionId returns RegisterContextResetRecoveryInput.SessionId, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetSessionId() string { return v.SessionId }
-
-// GetTaskId returns RegisterContextResetRecoveryInput.TaskId, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetTaskId() *string { return v.TaskId }
-
-// RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
-// The GraphQL type's documentation follows.
-//
-// #2162 — what a context reset step answered.
-type RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep struct {
-	ContextResetStepFields `json:"-"`
-}
-
-// GetRefused returns RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep.Refused, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) GetRefused() *string {
-	return v.ContextResetStepFields.Refused
-}
-
-// GetReplayed returns RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep.Replayed, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) GetReplayed() bool {
-	return v.ContextResetStepFields.Replayed
-}
-
-// GetReset returns RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep.Reset, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
-	return v.ContextResetStepFields.Reset
-}
-
-func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetStepFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalRegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep struct {
-	Refused *string `json:"refused"`
-
-	Replayed bool `json:"replayed"`
-
-	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
-}
-
-func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) __premarshalJSON() (*__premarshalRegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep, error) {
-	var retval __premarshalRegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep
-
-	retval.Refused = v.ContextResetStepFields.Refused
-	retval.Replayed = v.ContextResetStepFields.Replayed
-	retval.Reset = v.ContextResetStepFields.Reset
-	return &retval, nil
-}
-
-// RegisterContextResetRecoveryResponse is returned by RegisterContextResetRecovery on success.
-type RegisterContextResetRecoveryResponse struct {
-	// #3276 / ruling 0090 A, hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3 and
-	// hrn:node:hadronmemory.com:specs:cor:agt:070:04: register a live checkpointNode or atomically write checkpoint,
-	// exactly one. Host key only; generic node writes stay refused. Refusal order: CONTEXT_RESET_NOT_FOUND,
-	// HOST_OPERATION_NOT_COLLECTED, STALE_EPOCH, CONTEXT_RESET_WRONG_PHASE, CLAIM_LAPSED, RECOVERY_REF_INVALID,
-	// CHECKPOINT_MEMORY_ENCRYPTED, CHECKPOINT_LOC_TAKEN. Replay of registered non-ended phases returns the stored node
-	// without writing, even if checkpoint differs. DB UTC stamp: sheds:auto-YYYY-MM-DDTHHMMSSZ (seconds); occupied live
-	// or deleted address refuses with phase still claimed, no suffix/overwrite/parent/edge. Encrypted memory refused.
-	RegisterContextResetRecovery *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep `json:"registerContextResetRecovery"`
-}
-
-// GetRegisterContextResetRecovery returns RegisterContextResetRecoveryResponse.RegisterContextResetRecovery, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryResponse) GetRegisterContextResetRecovery() *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep {
-	return v.RegisterContextResetRecovery
-}
-
 // RegisterEntriesRegisterEntriesRegisterEntriesPage includes the requested fields of the GraphQL type RegisterEntriesPage.
 type RegisterEntriesRegisterEntriesRegisterEntriesPage struct {
 	Total int                                                                    `json:"total"`
@@ -86151,7 +85962,9 @@ func (v *ReinstallAppResponse) GetReinstallApp() bool { return v.ReinstallApp }
 
 // ReleaseEditorLockResponse is returned by ReleaseEditorLock on success.
 type ReleaseEditorLockResponse struct {
-	// Release the editor lock for an Agent's system memory.
+	// Release the editor lock for an Agent's system memory. The lock is ADVISORY
+	// (see acquireEditorLock): releasing it clears the signal to other editors and
+	// changes nothing about who may edit.
 	//
 	// Accepts the entity's ID or URN.
 	ReleaseEditorLock bool `json:"releaseEditorLock"`
@@ -87889,298 +87702,6 @@ func (v *ReplyToCommentResponse) GetReplyToComment() *ReplyToCommentReplyToComme
 	return v.ReplyToComment
 }
 
-// ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
-// The GraphQL type's documentation follows.
-//
-// #2162 — what a context reset step answered.
-type ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep struct {
-	ContextResetStepFields `json:"-"`
-}
-
-// GetRefused returns ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep.Refused, and is useful for accessing the field via an interface.
-func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) GetRefused() *string {
-	return v.ContextResetStepFields.Refused
-}
-
-// GetReplayed returns ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep.Replayed, and is useful for accessing the field via an interface.
-func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) GetReplayed() bool {
-	return v.ContextResetStepFields.Replayed
-}
-
-// GetReset returns ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep.Reset, and is useful for accessing the field via an interface.
-func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
-	return v.ContextResetStepFields.Reset
-}
-
-func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetStepFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep struct {
-	Refused *string `json:"refused"`
-
-	Replayed bool `json:"replayed"`
-
-	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
-}
-
-func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) __premarshalJSON() (*__premarshalReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep, error) {
-	var retval __premarshalReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep
-
-	retval.Refused = v.ContextResetStepFields.Refused
-	retval.Replayed = v.ContextResetStepFields.Replayed
-	retval.Reset = v.ContextResetStepFields.Reset
-	return &retval, nil
-}
-
-// ReportContextResetAgentStoppedResponse is returned by ReportContextResetAgentStopped on success.
-type ReportContextResetAgentStoppedResponse struct {
-	// #2162 / #3255 (hrn:node:hadronmemory.com:specs:cor:agt:050:27): the old agent stopped; its resetting mark now lasts until the relaunched agent's first activity. Optional lateStopMs records the host's late signal once. For an ended reset, a positive annotation from the collected host holding its stop-grant epoch records telemetry only and changes no reset, task, outcome, availability or alarm state.
-	ReportContextResetAgentStopped *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep `json:"reportContextResetAgentStopped"`
-}
-
-// GetReportContextResetAgentStopped returns ReportContextResetAgentStoppedResponse.ReportContextResetAgentStopped, and is useful for accessing the field via an interface.
-func (v *ReportContextResetAgentStoppedResponse) GetReportContextResetAgentStopped() *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep {
-	return v.ReportContextResetAgentStopped
-}
-
-type ReportContextResetRelaunchFailedInput struct {
-	AppRef string `json:"appRef"`
-	Epoch  int    `json:"epoch"`
-	// CHECKPOINT_FAILED, STAGING_FAILED, RELAUNCH_UNVERIFIED or RELAUNCH_BLOCKED.
-	Reason  string `json:"reason"`
-	ResetId string `json:"resetId"`
-}
-
-// GetAppRef returns ReportContextResetRelaunchFailedInput.AppRef, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedInput) GetAppRef() string { return v.AppRef }
-
-// GetEpoch returns ReportContextResetRelaunchFailedInput.Epoch, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedInput) GetEpoch() int { return v.Epoch }
-
-// GetReason returns ReportContextResetRelaunchFailedInput.Reason, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedInput) GetReason() string { return v.Reason }
-
-// GetResetId returns ReportContextResetRelaunchFailedInput.ResetId, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedInput) GetResetId() string { return v.ResetId }
-
-// ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
-// The GraphQL type's documentation follows.
-//
-// #2162 — what a context reset step answered.
-type ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep struct {
-	ContextResetStepFields `json:"-"`
-}
-
-// GetRefused returns ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep.Refused, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) GetRefused() *string {
-	return v.ContextResetStepFields.Refused
-}
-
-// GetReplayed returns ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep.Replayed, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) GetReplayed() bool {
-	return v.ContextResetStepFields.Replayed
-}
-
-// GetReset returns ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep.Reset, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
-	return v.ContextResetStepFields.Reset
-}
-
-func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetStepFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep struct {
-	Refused *string `json:"refused"`
-
-	Replayed bool `json:"replayed"`
-
-	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
-}
-
-func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) __premarshalJSON() (*__premarshalReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep, error) {
-	var retval __premarshalReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep
-
-	retval.Refused = v.ContextResetStepFields.Refused
-	retval.Replayed = v.ContextResetStepFields.Replayed
-	retval.Reset = v.ContextResetStepFields.Reset
-	return &retval, nil
-}
-
-// ReportContextResetRelaunchFailedResponse is returned by ReportContextResetRelaunchFailed on success.
-type ReportContextResetRelaunchFailedResponse struct {
-	// #2162 — a failure after the claim that the host saw; the reset ends and the mark is released.
-	ReportContextResetRelaunchFailed *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep `json:"reportContextResetRelaunchFailed"`
-}
-
-// GetReportContextResetRelaunchFailed returns ReportContextResetRelaunchFailedResponse.ReportContextResetRelaunchFailed, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchFailedResponse) GetReportContextResetRelaunchFailed() *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep {
-	return v.ReportContextResetRelaunchFailed
-}
-
-type ReportContextResetRelaunchedInput struct {
-	AppRef string `json:"appRef"`
-	Epoch  int    `json:"epoch"`
-	// The relaunched agent process.
-	Process *ObservedProcessInput `json:"process,omitempty"`
-	ResetId string                `json:"resetId"`
-}
-
-// GetAppRef returns ReportContextResetRelaunchedInput.AppRef, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedInput) GetAppRef() string { return v.AppRef }
-
-// GetEpoch returns ReportContextResetRelaunchedInput.Epoch, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedInput) GetEpoch() int { return v.Epoch }
-
-// GetProcess returns ReportContextResetRelaunchedInput.Process, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedInput) GetProcess() *ObservedProcessInput { return v.Process }
-
-// GetResetId returns ReportContextResetRelaunchedInput.ResetId, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedInput) GetResetId() string { return v.ResetId }
-
-// ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
-// The GraphQL type's documentation follows.
-//
-// #2162 — what a context reset step answered.
-type ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep struct {
-	ContextResetStepFields `json:"-"`
-}
-
-// GetRefused returns ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep.Refused, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) GetRefused() *string {
-	return v.ContextResetStepFields.Refused
-}
-
-// GetReplayed returns ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep.Replayed, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) GetReplayed() bool {
-	return v.ContextResetStepFields.Replayed
-}
-
-// GetReset returns ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep.Reset, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
-	return v.ContextResetStepFields.Reset
-}
-
-func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.ContextResetStepFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep struct {
-	Refused *string `json:"refused"`
-
-	Replayed bool `json:"replayed"`
-
-	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
-}
-
-func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) __premarshalJSON() (*__premarshalReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep, error) {
-	var retval __premarshalReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep
-
-	retval.Refused = v.ContextResetStepFields.Refused
-	retval.Replayed = v.ContextResetStepFields.Replayed
-	retval.Reset = v.ContextResetStepFields.Reset
-	return &retval, nil
-}
-
-// ReportContextResetRelaunchedResponse is returned by ReportContextResetRelaunched on success.
-type ReportContextResetRelaunchedResponse struct {
-	// #2162 — the agent was relaunched under its wrapper.
-	ReportContextResetRelaunched *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep `json:"reportContextResetRelaunched"`
-}
-
-// GetReportContextResetRelaunched returns ReportContextResetRelaunchedResponse.ReportContextResetRelaunched, and is useful for accessing the field via an interface.
-func (v *ReportContextResetRelaunchedResponse) GetReportContextResetRelaunched() *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep {
-	return v.ReportContextResetRelaunched
-}
-
 type ReportHostOperationInput struct {
 	AppRef string `json:"appRef"`
 	// FAILED only: why, 1 to 2000 characters.
@@ -89664,6 +89185,24 @@ type ResolveUrnResponse struct {
 
 // GetResolveUrn returns ResolveUrnResponse.ResolveUrn, and is useful for accessing the field via an interface.
 func (v *ResolveUrnResponse) GetResolveUrn() *ResolveUrnResolveUrnUrnResolution { return v.ResolveUrn }
+
+// #4855 - the dark session to end and the worker to start again.
+type RestartWorkerSessionInput struct {
+	AppRef string `json:"appRef"`
+	// What was tried and why the session is dark (required, at most 500 characters).
+	Reason string `json:"reason"`
+	// The worker whose session is dark: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns RestartWorkerSessionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *RestartWorkerSessionInput) GetAppRef() string { return v.AppRef }
+
+// GetReason returns RestartWorkerSessionInput.Reason, and is useful for accessing the field via an interface.
+func (v *RestartWorkerSessionInput) GetReason() string { return v.Reason }
+
+// GetWorker returns RestartWorkerSessionInput.Worker, and is useful for accessing the field via an interface.
+func (v *RestartWorkerSessionInput) GetWorker() string { return v.Worker }
 
 // RestoreAssetResponse is returned by RestoreAsset on success.
 type RestoreAssetResponse struct {
@@ -94735,6 +94274,19 @@ func (v *SecretFields) GetUpdatedAt() string { return v.UpdatedAt }
 // GetUpdatedBy returns SecretFields.UpdatedBy, and is useful for accessing the field via an interface.
 func (v *SecretFields) GetUpdatedBy() *string { return v.UpdatedBy }
 
+// How a secret read client is used: REVEAL hands the value to a person or worker, USE injects it by reference into a run's web request.
+type SecretReadClientMode string
+
+const (
+	SecretReadClientModeReveal SecretReadClientMode = "REVEAL"
+	SecretReadClientModeUse    SecretReadClientMode = "USE"
+)
+
+var AllSecretReadClientMode = []SecretReadClientMode{
+	SecretReadClientModeReveal,
+	SecretReadClientModeUse,
+}
+
 // SecretResponse is returned by Secret on success.
 type SecretResponse struct {
 	// Fetch one secret's inspectable half (never the value). Null when the
@@ -95840,18 +95392,28 @@ type SessionInput struct {
 	// URN. Resolves to Session.appId - the pivot that was previously stamped ONLY
 	// from an App-key credential, which made a user-started session structurally
 	// unable to satisfy the team-chat authorship gate (cor:agt:020:04 condition b,
-	// SESSION_NOT_IN_APP). The caller must be a member of that App: an AppMember
-	// at any role, an org member with CONTRIBUTOR+ on its owning org, or the
-	// owner of a user-owned App. Unknown or deleted App: BAD_USER_INPUT;
-	// non-member: FORBIDDEN. An App-key credential wins - if the caller
-	// authenticated as an App and appRef names a DIFFERENT App, the call is
-	// refused (SESSION_APP_MISMATCH).
+	// SESSION_NOT_IN_APP).
 	//
-	// Uninstalled Apps differ by ref form, because App URNs are only unique
-	// among ACTIVE rows (spec 021 FR-027: one live App plus N uninstalled
-	// history rows may share a URN). By URN an uninstalled App is simply not
-	// found - BAD_USER_INPUT - since there is no single row the URN names; by
-	// PK it is found and refused APP_UNINSTALLED.
+	// #4836 (hrn:node:hadronmemory.com:specs:cor:dmo:070:05, Proposed): a caller
+	// WITHOUT standing gets ONE refusal whatever the App's state and whatever the
+	// ref's form - APP_NOT_FOUND, "App not found." - byte-identical for a missing
+	// App, a deleted one, an uninstalled one, an existing one the caller cannot
+	// touch, and a pure App key naming any other App (a key reaches only its own
+	// App). The refusal echoes no value the caller sent and carries no appId.
+	// Standing is App membership - an AppMember at any role, an org member with
+	// CONTRIBUTOR+ on its owning org, or the owner of a user-owned App - or a
+	// pure App-key credential for exactly its own App. A caller WITH standing
+	// keeps the specific answers: APP_UNINSTALLED by PK, with the appId their own
+	// ref resolved to (by URN an uninstalled App does not resolve at all - App
+	// URNs are unique only among ACTIVE rows, spec 021 FR-027 - so it reads as
+	// missing for everyone); and authorization refusals for an act a member may
+	// not do elsewhere in this mutation stay FORBIDDEN.
+	//
+	// Ref-RESOLUTION failures read as not-found for EVERY caller, standing or
+	// not: a malformed or ambiguous ref resolves to no App, so it answers
+	// APP_NOT_FOUND to a member exactly as to an outsider - the specific
+	// malformed/ambiguous hints the parser can produce elsewhere do not exist
+	// on this field, and no ref text is ever echoed back.
 	AppRef     *string `json:"appRef,omitempty"`
 	Branch     *string `json:"branch,omitempty"`
 	CustomerId *string `json:"customerId,omitempty"`
@@ -95932,7 +95494,9 @@ type SessionInput struct {
 	// Which refusal you get depends on WHERE the denial happens, and clients
 	// should not assume one code covers both: a caller who supplied appRef has
 	// already been checked against the same participant predicate, so an
-	// outsider is refused FORBIDDEN there, before any name is read. Only a
+	// outsider is refused APP_NOT_FOUND there (#4836: the one unknown-App
+	// answer, "App not found." — the App's existence is not confirmed to
+	// them), before any name is read. Only a
 	// denial at the in-branch staff gate — reachable when the App came from an
 	// App-key credential rather than appRef — is masked as WORKER_NOT_FOUND,
 	// indistinguishable from an App with no such worker.
@@ -103654,6 +103218,21 @@ func (v *TaskFindingDispositionFieldsReferenceAgentTaskReference) GetTarget() st
 // GetLabel returns TaskFindingDispositionFieldsReferenceAgentTaskReference.Label, and is useful for accessing the field via an interface.
 func (v *TaskFindingDispositionFieldsReferenceAgentTaskReference) GetLabel() *string { return v.Label }
 
+// #4864 — createTaskNode's optional tasks-index edge: the Agent whose index lists
+// the new task, and the trigger the edge carries (hrn:node:hadronmemory.com:specs:cor:dmo:050:15).
+type TaskIndexInput struct {
+	// The Agent (ID or URN) whose tasks index lists this task. The node must be created in that Agent's own system memory.
+	Agent string `json:"agent"`
+	// The edge's name: the trigger for this task, as the Agent's task list shows it. One line of at most 200 characters; surrounding space is trimmed.
+	Trigger string `json:"trigger"`
+}
+
+// GetAgent returns TaskIndexInput.Agent, and is useful for accessing the field via an interface.
+func (v *TaskIndexInput) GetAgent() string { return v.Agent }
+
+// GetTrigger returns TaskIndexInput.Trigger, and is useful for accessing the field via an interface.
+func (v *TaskIndexInput) GetTrigger() string { return v.Trigger }
+
 // TaskLinkDefectInstructedLinkDefectToPullRequestDefectLink includes the requested fields of the GraphQL type DefectLink.
 // The GraphQL type's documentation follows.
 //
@@ -103761,6 +103340,20 @@ type TaskLinkDefectResponse struct {
 func (v *TaskLinkDefectResponse) GetLinkDefectToPullRequest() *TaskLinkDefectLinkDefectToPullRequestDefectLink {
 	return v.LinkDefectToPullRequest
 }
+
+// #4864 — createTaskNode's opt-in skill export: written as an enabled
+// properties.exports.claudeSkill block, validated by the skill lint (a finding at
+// error severity refuses the whole call). Omit it and no block is written.
+type TaskSkillExportInput struct {
+	Description string `json:"description"`
+	Name        string `json:"name"`
+}
+
+// GetDescription returns TaskSkillExportInput.Description, and is useful for accessing the field via an interface.
+func (v *TaskSkillExportInput) GetDescription() string { return v.Description }
+
+// GetName returns TaskSkillExportInput.Name, and is useful for accessing the field via an interface.
+func (v *TaskSkillExportInput) GetName() string { return v.Name }
 
 // #1708 — which task event a TASK reason is for.
 type TaskWakeEvent string
@@ -110380,6 +109973,1247 @@ type TeamMemoryAppResponse struct {
 // GetMemory returns TeamMemoryAppResponse.Memory, and is useful for accessing the field via an interface.
 func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memory }
 
+// TeamMetricsCountFields includes the GraphQL fields of TeamMetricsCount requested by the fragment TeamMetricsCountFields.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsCountFields struct {
+	Total     int      `json:"total"`
+	Ids       []string `json:"ids"`
+	Truncated bool     `json:"truncated"`
+}
+
+// GetTotal returns TeamMetricsCountFields.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetTotal() int { return v.Total }
+
+// GetIds returns TeamMetricsCountFields.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetIds() []string { return v.Ids }
+
+// GetTruncated returns TeamMetricsCountFields.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetTruncated() bool { return v.Truncated }
+
+// TeamMetricsProjectFields includes the GraphQL fields of TeamMetricsProject requested by the fragment TeamMetricsProjectFields.
+// The GraphQL type's documentation follows.
+//
+// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+type TeamMetricsProjectFields struct {
+	Handle    string  `json:"handle"`
+	NoProject bool    `json:"noProject"`
+	TaskId    *string `json:"taskId"`
+	Title     *string `json:"title"`
+}
+
+// GetHandle returns TeamMetricsProjectFields.Handle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetHandle() string { return v.Handle }
+
+// GetNoProject returns TeamMetricsProjectFields.NoProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetNoProject() bool { return v.NoProject }
+
+// GetTaskId returns TeamMetricsProjectFields.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetTaskId() *string { return v.TaskId }
+
+// GetTitle returns TeamMetricsProjectFields.Title, and is useful for accessing the field via an interface.
+func (v *TeamMetricsProjectFields) GetTitle() *string { return v.Title }
+
+// TeamMetricsResponse is returned by TeamMetrics on success.
+type TeamMetricsResponse struct {
+	// #4447 (hrn:node:hadronmemory.com:specs:cor:agt:150): server-computed counts of a team's task and worker flow, each with its ids. Reports 1-3 are snapshots; report 4 reads [since, until), defaulting to the last 7 days (an omitted until is now, an omitted since is until minus 7 days); a window over 31 days, or since after until, is BAD_USER_INPUT, judged before any read. Readers: the roster's audience; task-derived reports follow the App's task readers (hrn:node:hadronmemory.com:specs:cor:agt:050:21), and an unreadable App answers as a missing one.
+	TeamMetrics *TeamMetricsTeamMetrics `json:"teamMetrics"`
+}
+
+// GetTeamMetrics returns TeamMetricsResponse.TeamMetrics, and is useful for accessing the field via an interface.
+func (v *TeamMetricsResponse) GetTeamMetrics() *TeamMetricsTeamMetrics { return v.TeamMetrics }
+
+// TeamMetricsTeamMetrics includes the requested fields of the GraphQL type TeamMetrics.
+// The GraphQL type's documentation follows.
+//
+// #4447: a team's computed task and worker flow (hrn:node:hadronmemory.com:specs:cor:agt:150). startedOwned, projects and flow derive from
+// tasks and are null for a reader who may see the roster but not the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21); workers
+// follows the roster audience.
+type TeamMetricsTeamMetrics struct {
+	AppId string `json:"appId"`
+	// The instant the snapshot reports were read at.
+	AsOf         string                              `json:"asOf"`
+	Window       *TeamMetricsTeamMetricsWindow       `json:"window"`
+	StartedOwned *TeamMetricsTeamMetricsStartedOwned `json:"startedOwned"`
+	Projects     *TeamMetricsTeamMetricsProjects     `json:"projects"`
+	Workers      *TeamMetricsTeamMetricsWorkers      `json:"workers"`
+	Flow         *TeamMetricsTeamMetricsFlow         `json:"flow"`
+}
+
+// GetAppId returns TeamMetricsTeamMetrics.AppId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetAppId() string { return v.AppId }
+
+// GetAsOf returns TeamMetricsTeamMetrics.AsOf, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetAsOf() string { return v.AsOf }
+
+// GetWindow returns TeamMetricsTeamMetrics.Window, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetWindow() *TeamMetricsTeamMetricsWindow { return v.Window }
+
+// GetStartedOwned returns TeamMetricsTeamMetrics.StartedOwned, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetStartedOwned() *TeamMetricsTeamMetricsStartedOwned {
+	return v.StartedOwned
+}
+
+// GetProjects returns TeamMetricsTeamMetrics.Projects, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetProjects() *TeamMetricsTeamMetricsProjects { return v.Projects }
+
+// GetWorkers returns TeamMetricsTeamMetrics.Workers, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetWorkers() *TeamMetricsTeamMetricsWorkers { return v.Workers }
+
+// GetFlow returns TeamMetricsTeamMetrics.Flow, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetrics) GetFlow() *TeamMetricsTeamMetricsFlow { return v.Flow }
+
+// TeamMetricsTeamMetricsFlow includes the requested fields of the GraphQL type TeamMetricsFlow.
+// The GraphQL type's documentation follows.
+//
+// Report 4: tasks completed (status FINISHED, by finishedAt) and tasks started (by startedAt) in [since, until). A cancelled task is never completed.
+type TeamMetricsTeamMetricsFlow struct {
+	Completed *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount `json:"completed"`
+	Started   *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount   `json:"started"`
+}
+
+// GetCompleted returns TeamMetricsTeamMetricsFlow.Completed, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlow) GetCompleted() *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount {
+	return v.Completed
+}
+
+// GetStarted returns TeamMetricsTeamMetricsFlow.Started, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlow) GetStarted() *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount {
+	return v.Started
+}
+
+// TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsFlowStartedTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsFlowStartedTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsFlowStartedTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsProjects includes the requested fields of the GraphQL type TeamMetricsProjects.
+// The GraphQL type's documentation follows.
+//
+// Report 2: started projects (a top-level task other than AT0, status STARTED) with child counts by status; at most 200 projects, truncated says when there were more. A snapshot at read time.
+type TeamMetricsTeamMetricsProjects struct {
+	Items     []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow `json:"items"`
+	Truncated bool                                                        `json:"truncated"`
+}
+
+// GetItems returns TeamMetricsTeamMetricsProjects.Items, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjects) GetItems() []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow {
+	return v.Items
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsProjects.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjects) GetTruncated() bool { return v.Truncated }
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow includes the requested fields of the GraphQL type TeamMetricsProjectRow.
+// The GraphQL type's documentation follows.
+//
+// One started project with its direct children counted by every status.
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow struct {
+	Project  *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject        `json:"project"`
+	Children []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus `json:"children"`
+}
+
+// GetProject returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow.Project, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow) GetProject() *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject {
+	return v.Project
+}
+
+// GetChildren returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow.Children, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRow) GetChildren() []*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus {
+	return v.Children
+}
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus includes the requested fields of the GraphQL type TeamMetricsChildStatus.
+// The GraphQL type's documentation follows.
+//
+// One project's direct child tasks of one status.
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus struct {
+	Status AgentTaskStatus                                                                                              `json:"status"`
+	Tasks  *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount `json:"tasks"`
+}
+
+// GetStatus returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus.Status, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus) GetStatus() AgentTaskStatus {
+	return v.Status
+}
+
+// GetTasks returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus.Tasks, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatus) GetTasks() *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount {
+	return v.Tasks
+}
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject includes the requested fields of the GraphQL type TeamMetricsProject.
+// The GraphQL type's documentation follows.
+//
+// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+type TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject struct {
+	TeamMetricsProjectFields `json:"-"`
+}
+
+// GetHandle returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.Handle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetHandle() string {
+	return v.TeamMetricsProjectFields.Handle
+}
+
+// GetNoProject returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.NoProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetNoProject() bool {
+	return v.TeamMetricsProjectFields.NoProject
+}
+
+// GetTaskId returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetTaskId() *string {
+	return v.TeamMetricsProjectFields.TaskId
+}
+
+// GetTitle returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject.Title, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) GetTitle() *string {
+	return v.TeamMetricsProjectFields.Title
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsProjectFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject struct {
+	Handle string `json:"handle"`
+
+	NoProject bool `json:"noProject"`
+
+	TaskId *string `json:"taskId"`
+
+	Title *string `json:"title"`
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject, error) {
+	var retval __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowProjectTeamMetricsProject
+
+	retval.Handle = v.TeamMetricsProjectFields.Handle
+	retval.NoProject = v.TeamMetricsProjectFields.NoProject
+	retval.TaskId = v.TeamMetricsProjectFields.TaskId
+	retval.Title = v.TeamMetricsProjectFields.Title
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwned includes the requested fields of the GraphQL type TeamMetricsStartedOwned.
+// The GraphQL type's documentation follows.
+//
+// Report 1: STARTED owned tasks (hrn:node:hadronmemory.com:specs:cor:agt:150:01): a task names an issue reference or source, so a STARTED task that
+// tracks no external work is not counted. A snapshot at read time.
+type TeamMetricsTeamMetricsStartedOwned struct {
+	All *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount `json:"all"`
+	// At most 200 owners; ownersTruncated says when there were more.
+	ByOwner         []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup `json:"byOwner"`
+	OwnersTruncated bool                                                              `json:"ownersTruncated"`
+}
+
+// GetAll returns TeamMetricsTeamMetricsStartedOwned.All, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwned) GetAll() *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount {
+	return v.All
+}
+
+// GetByOwner returns TeamMetricsTeamMetricsStartedOwned.ByOwner, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwned) GetByOwner() []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup {
+	return v.ByOwner
+}
+
+// GetOwnersTruncated returns TeamMetricsTeamMetricsStartedOwned.OwnersTruncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwned) GetOwnersTruncated() bool { return v.OwnersTruncated }
+
+// TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup includes the requested fields of the GraphQL type TeamMetricsOwnerGroup.
+// The GraphQL type's documentation follows.
+//
+// One task owner's started owned tasks (hrn:node:hadronmemory.com:specs:cor:agt:150:01): grouped by the task's OWNER, never its assignee, with no role filter.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup struct {
+	// The owner as the sanitized task party projection, never the Worker or User object.
+	Owner *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty   `json:"owner"`
+	Tasks *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount `json:"tasks"`
+	// The owner's tasks by project, the No project bucket (AT0) included, at most 200 projects.
+	ByProject         []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup `json:"byProject"`
+	ProjectsTruncated bool                                                                                              `json:"projectsTruncated"`
+}
+
+// GetOwner returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.Owner, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetOwner() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty {
+	return v.Owner
+}
+
+// GetTasks returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.Tasks, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetTasks() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount {
+	return v.Tasks
+}
+
+// GetByProject returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.ByProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetByProject() []*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup {
+	return v.ByProject
+}
+
+// GetProjectsTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup.ProjectsTruncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroup) GetProjectsTruncated() bool {
+	return v.ProjectsTruncated
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup includes the requested fields of the GraphQL type TeamMetricsProjectGroup.
+// The GraphQL type's documentation follows.
+//
+// One project's started owned tasks under one owner.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup struct {
+	Project *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject `json:"project"`
+	Tasks   *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount     `json:"tasks"`
+}
+
+// GetProject returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup.Project, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup) GetProject() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject {
+	return v.Project
+}
+
+// GetTasks returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup.Tasks, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroup) GetTasks() *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount {
+	return v.Tasks
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject includes the requested fields of the GraphQL type TeamMetricsProject.
+// The GraphQL type's documentation follows.
+//
+// A project in a metrics report: a top-level task other than AT0 (hrn:node:hadronmemory.com:specs:cor:agt:050:01), or the visible No project bucket, AT0 (noProject true; taskId and title null when the App has no AT0 row).
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject struct {
+	TeamMetricsProjectFields `json:"-"`
+}
+
+// GetHandle returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.Handle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetHandle() string {
+	return v.TeamMetricsProjectFields.Handle
+}
+
+// GetNoProject returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.NoProject, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetNoProject() bool {
+	return v.TeamMetricsProjectFields.NoProject
+}
+
+// GetTaskId returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetTaskId() *string {
+	return v.TeamMetricsProjectFields.TaskId
+}
+
+// GetTitle returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject.Title, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) GetTitle() *string {
+	return v.TeamMetricsProjectFields.Title
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsProjectFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject struct {
+	Handle string `json:"handle"`
+
+	NoProject bool `json:"noProject"`
+
+	TaskId *string `json:"taskId"`
+
+	Title *string `json:"title"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupProjectTeamMetricsProject
+
+	retval.Handle = v.TeamMetricsProjectFields.Handle
+	retval.NoProject = v.TeamMetricsProjectFields.NoProject
+	retval.TaskId = v.TeamMetricsProjectFields.TaskId
+	retval.Title = v.TeamMetricsProjectFields.Title
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetKind returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupOwnerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
+// TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWindow includes the requested fields of the GraphQL type TeamMetricsWindow.
+// The GraphQL type's documentation follows.
+//
+// The half-open window [since, until) report 4 was read over (hrn:node:hadronmemory.com:specs:cor:agt:150): since is included, until is not. The other reports ignore it.
+type TeamMetricsTeamMetricsWindow struct {
+	Since string `json:"since"`
+	Until string `json:"until"`
+}
+
+// GetSince returns TeamMetricsTeamMetricsWindow.Since, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWindow) GetSince() string { return v.Since }
+
+// GetUntil returns TeamMetricsTeamMetricsWindow.Until, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWindow) GetUntil() string { return v.Until }
+
+// TeamMetricsTeamMetricsWorkers includes the requested fields of the GraphQL type TeamMetricsWorkers.
+// The GraphQL type's documentation follows.
+//
+// Report 3: worker counts at read time over the App's workers that are not retired, with worker ids.
+// active is the assignee of a STARTED task (hrn:node:hadronmemory.com:specs:cor:agt:150:02); idle is Available with no pending or started task
+// assigned (:03); overdue is the assignee of a task with a not-started, no-progress or finish-by stall alarm in effect, so an
+// acknowledged alarm or an ended episode does not count (:04); inop is a worker whose roster state is unavailable (stalled
+// included), no model family, or not launchable (:05, its roster-state clause only: no terminal-report clause is read). A worker may be in several.
+type TeamMetricsTeamMetricsWorkers struct {
+	Active  *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount  `json:"active"`
+	Idle    *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount    `json:"idle"`
+	Overdue *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount `json:"overdue"`
+	Inop    *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount    `json:"inop"`
+}
+
+// GetActive returns TeamMetricsTeamMetricsWorkers.Active, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetActive() *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount {
+	return v.Active
+}
+
+// GetIdle returns TeamMetricsTeamMetricsWorkers.Idle, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetIdle() *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount {
+	return v.Idle
+}
+
+// GetOverdue returns TeamMetricsTeamMetricsWorkers.Overdue, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetOverdue() *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount {
+	return v.Overdue
+}
+
+// GetInop returns TeamMetricsTeamMetricsWorkers.Inop, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkers) GetInop() *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount {
+	return v.Inop
+}
+
+// TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWorkersInopTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersInopTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersInopTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
+// TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount includes the requested fields of the GraphQL type TeamMetricsCount.
+// The GraphQL type's documentation follows.
+//
+// #4447 (S1 of #3781; hrn:node:hadronmemory.com:specs:cor:agt:150): one count of a team's task or worker flow with the ids behind it,
+// so a client can drill down and derive nothing. total is exact; ids holds at most 200 of them, and truncated is true
+// when it holds fewer than total (hrn:node:hadronmemory.com:specs:cor:api:120:04). The ids are task ids, or worker ids in the worker counts.
+type TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
+	TeamMetricsCountFields `json:"-"`
+}
+
+// GetTotal returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Total, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetTotal() int {
+	return v.TeamMetricsCountFields.Total
+}
+
+// GetIds returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetIds() []string {
+	return v.TeamMetricsCountFields.Ids
+}
+
+// GetTruncated returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetTruncated() bool {
+	return v.TeamMetricsCountFields.Truncated
+}
+
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamMetricsCountFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
+	Total int `json:"total"`
+
+	Ids []string `json:"ids"`
+
+	Truncated bool `json:"truncated"`
+}
+
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) __premarshalJSON() (*__premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount, error) {
+	var retval __premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount
+
+	retval.Total = v.TeamMetricsCountFields.Total
+	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Truncated = v.TeamMetricsCountFields.Truncated
+	return &retval, nil
+}
+
 // TeamRegisterCandidatesRegisterRoleCandidatesRegisterRoleCandidatePage includes the requested fields of the GraphQL type RegisterRoleCandidatePage.
 // The GraphQL type's documentation follows.
 //
@@ -111131,6 +111965,254 @@ func (v *TeamRoleFieldsRoleAgent) GetName() string { return v.Name }
 // GetPersonaRole returns TeamRoleFieldsRoleAgent.PersonaRole, and is useful for accessing the field via an interface.
 func (v *TeamRoleFieldsRoleAgent) GetPersonaRole() *string { return v.PersonaRole }
 
+// TeamRoleListSetInstructedResponse is returned by TeamRoleListSetInstructed on success.
+type TeamRoleListSetInstructedResponse struct {
+	// #4921 — set ONE of the App's role lists, the whole list at once. Whoever manages the App only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12): a participant who does not manage it gets APP_MANAGER_REQUIRED, a caller who cannot see the App gets the missing App's answer. Names are trimmed and lower-cased and duplicates collapse; at most 32 names of 1 to 64 characters with no ':' or whitespace; an empty list clears it. Stores the list only: no door reads it yet.
+	SetAppRoleList *TeamRoleListSetInstructedSetAppRoleList `json:"setAppRoleList"`
+}
+
+// GetSetAppRoleList returns TeamRoleListSetInstructedResponse.SetAppRoleList, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedResponse) GetSetAppRoleList() *TeamRoleListSetInstructedSetAppRoleList {
+	return v.SetAppRoleList
+}
+
+// TeamRoleListSetInstructedSetAppRoleList includes the requested fields of the GraphQL type AppRoleList.
+// The GraphQL type's documentation follows.
+//
+// #4921 — one of an App's role lists after a set.
+type TeamRoleListSetInstructedSetAppRoleList struct {
+	AppRoleListFields `json:"-"`
+}
+
+// GetAppId returns TeamRoleListSetInstructedSetAppRoleList.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedSetAppRoleList) GetAppId() string { return v.AppRoleListFields.AppId }
+
+// GetPurpose returns TeamRoleListSetInstructedSetAppRoleList.Purpose, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedSetAppRoleList) GetPurpose() AppRolePurpose {
+	return v.AppRoleListFields.Purpose
+}
+
+// GetRoles returns TeamRoleListSetInstructedSetAppRoleList.Roles, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetInstructedSetAppRoleList) GetRoles() []string {
+	return v.AppRoleListFields.Roles
+}
+
+func (v *TeamRoleListSetInstructedSetAppRoleList) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRoleListSetInstructedSetAppRoleList
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRoleListSetInstructedSetAppRoleList = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRoleListFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRoleListSetInstructedSetAppRoleList struct {
+	AppId string `json:"appId"`
+
+	Purpose AppRolePurpose `json:"purpose"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamRoleListSetInstructedSetAppRoleList) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRoleListSetInstructedSetAppRoleList) __premarshalJSON() (*__premarshalTeamRoleListSetInstructedSetAppRoleList, error) {
+	var retval __premarshalTeamRoleListSetInstructedSetAppRoleList
+
+	retval.AppId = v.AppRoleListFields.AppId
+	retval.Purpose = v.AppRoleListFields.Purpose
+	retval.Roles = v.AppRoleListFields.Roles
+	return &retval, nil
+}
+
+// TeamRoleListSetResponse is returned by TeamRoleListSet on success.
+type TeamRoleListSetResponse struct {
+	// #4921 — set ONE of the App's role lists, the whole list at once. Whoever manages the App only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12): a participant who does not manage it gets APP_MANAGER_REQUIRED, a caller who cannot see the App gets the missing App's answer. Names are trimmed and lower-cased and duplicates collapse; at most 32 names of 1 to 64 characters with no ':' or whitespace; an empty list clears it. Stores the list only: no door reads it yet.
+	SetAppRoleList *TeamRoleListSetSetAppRoleList `json:"setAppRoleList"`
+}
+
+// GetSetAppRoleList returns TeamRoleListSetResponse.SetAppRoleList, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetResponse) GetSetAppRoleList() *TeamRoleListSetSetAppRoleList {
+	return v.SetAppRoleList
+}
+
+// TeamRoleListSetSetAppRoleList includes the requested fields of the GraphQL type AppRoleList.
+// The GraphQL type's documentation follows.
+//
+// #4921 — one of an App's role lists after a set.
+type TeamRoleListSetSetAppRoleList struct {
+	AppRoleListFields `json:"-"`
+}
+
+// GetAppId returns TeamRoleListSetSetAppRoleList.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetSetAppRoleList) GetAppId() string { return v.AppRoleListFields.AppId }
+
+// GetPurpose returns TeamRoleListSetSetAppRoleList.Purpose, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetSetAppRoleList) GetPurpose() AppRolePurpose {
+	return v.AppRoleListFields.Purpose
+}
+
+// GetRoles returns TeamRoleListSetSetAppRoleList.Roles, and is useful for accessing the field via an interface.
+func (v *TeamRoleListSetSetAppRoleList) GetRoles() []string { return v.AppRoleListFields.Roles }
+
+func (v *TeamRoleListSetSetAppRoleList) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRoleListSetSetAppRoleList
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRoleListSetSetAppRoleList = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRoleListFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRoleListSetSetAppRoleList struct {
+	AppId string `json:"appId"`
+
+	Purpose AppRolePurpose `json:"purpose"`
+
+	Roles []string `json:"roles"`
+}
+
+func (v *TeamRoleListSetSetAppRoleList) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRoleListSetSetAppRoleList) __premarshalJSON() (*__premarshalTeamRoleListSetSetAppRoleList, error) {
+	var retval __premarshalTeamRoleListSetSetAppRoleList
+
+	retval.AppId = v.AppRoleListFields.AppId
+	retval.Purpose = v.AppRoleListFields.Purpose
+	retval.Roles = v.AppRoleListFields.Roles
+	return &retval, nil
+}
+
+// TeamRoleListsAppRoleLists includes the requested fields of the GraphQL type AppRoleLists.
+// The GraphQL type's documentation follows.
+//
+// #4921 — an App's role lists, each stored trimmed, lower-cased, de-duplicated and sorted; empty by default.
+type TeamRoleListsAppRoleLists struct {
+	AppRoleListsFields `json:"-"`
+}
+
+// GetAppId returns TeamRoleListsAppRoleLists.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetAppId() string { return v.AppRoleListsFields.AppId }
+
+// GetDefectLink returns TeamRoleListsAppRoleLists.DefectLink, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetDefectLink() []string { return v.AppRoleListsFields.DefectLink }
+
+// GetRegisterPick returns TeamRoleListsAppRoleLists.RegisterPick, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetRegisterPick() []string {
+	return v.AppRoleListsFields.RegisterPick
+}
+
+// GetReviewWithdraw returns TeamRoleListsAppRoleLists.ReviewWithdraw, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsAppRoleLists) GetReviewWithdraw() []string {
+	return v.AppRoleListsFields.ReviewWithdraw
+}
+
+func (v *TeamRoleListsAppRoleLists) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRoleListsAppRoleLists
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRoleListsAppRoleLists = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppRoleListsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRoleListsAppRoleLists struct {
+	AppId string `json:"appId"`
+
+	DefectLink []string `json:"defectLink"`
+
+	RegisterPick []string `json:"registerPick"`
+
+	ReviewWithdraw []string `json:"reviewWithdraw"`
+}
+
+func (v *TeamRoleListsAppRoleLists) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRoleListsAppRoleLists) __premarshalJSON() (*__premarshalTeamRoleListsAppRoleLists, error) {
+	var retval __premarshalTeamRoleListsAppRoleLists
+
+	retval.AppId = v.AppRoleListsFields.AppId
+	retval.DefectLink = v.AppRoleListsFields.DefectLink
+	retval.RegisterPick = v.AppRoleListsFields.RegisterPick
+	retval.ReviewWithdraw = v.AppRoleListsFields.ReviewWithdraw
+	return &retval, nil
+}
+
+// TeamRoleListsResponse is returned by TeamRoleLists on success.
+type TeamRoleListsResponse struct {
+	// #4921 — the App's role lists, one per purpose (link a defect, the register pick's role route, withdraw a negative review verdict). For whoever may read the App's roster, refused as the roster is (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	AppRoleLists *TeamRoleListsAppRoleLists `json:"appRoleLists"`
+}
+
+// GetAppRoleLists returns TeamRoleListsResponse.AppRoleLists, and is useful for accessing the field via an interface.
+func (v *TeamRoleListsResponse) GetAppRoleLists() *TeamRoleListsAppRoleLists { return v.AppRoleLists }
+
 // TeamRolesResponse is returned by TeamRoles on success.
 type TeamRolesResponse struct {
 	// An App's role definitions (#960): every roles:<role> node in the Team
@@ -111143,6 +112225,12 @@ type TeamRolesResponse struct {
 	// is no such question, and the read is a plain list of definitions. teamAgentRef disambiguates when more than one installed agent
 	// carries a roles: branch (TEAM_AGENT_AMBIGUOUS otherwise); an encrypted
 	// system memory without an active session key refuses SESSION_EXPIRED.
+	//
+	// #4838: the appRef refusals are concealed (see createTeamRole): reach first,
+	// state after — an unreadable, missing, deleted or malformed ref all answer
+	// the one APP_NOT_FOUND "App not found." with no ref echoed. An uninstalled
+	// App's roles stay readable for a participant (the roster stays legible);
+	// only the write doors refuse APP_UNINSTALLED.
 	TeamRoles *TeamRolesTeamRolesTeamRolesPage `json:"teamRoles"`
 }
 
@@ -112392,6 +113480,60 @@ func (v *TeamSessionFieldsWorkerReportsToWorker) __premarshalJSON() (*__premarsh
 	retval.Name = v.WorkerReportingRefFields.Name
 	retval.Urn = v.WorkerReportingRefFields.Urn
 	return &retval, nil
+}
+
+// TeamSessionRestartResponse is returned by TeamSessionRestart on success.
+type TeamSessionRestartResponse struct {
+	// #4855 (hrn:node:hadronmemory.com:specs:cor:agt:070:08 S4a, Holger 2026-11-22; hrn:node:hadronmemory.com:specs:cor:acl:140:02) - end a DARK open session of a
+	// worker and start the worker again, in one transaction, with no person in the loop. Dark is the caller's judgement (it
+	// cannot get the session going or get an answer from it), never the platform's: an assignment alone never ends a session
+	// (quiet is not dark, S4). The caller is a worker, through its own session, holding a live worker.session.restart grant
+	// that a person who manages the App signed and that names the target worker (no wildcard); every other caller, and a
+	// worker with no such grant for this target, gets the one refusal RESTART_GRANT_REQUIRED, before anything about the target
+	// is read (a caller who is no participant of the App gets APP_NOT_FOUND, as at every task door). reason is required (at most 500 characters): what was tried and why it is dark. A LIVE session is never dark
+	// (WORKER_LIVE). Also refused, with nothing ended and no use of the grant spent: WORKER_NOT_FOUND (the target is gone), NO_OPEN_SESSION, WORKER_NOT_HELD,
+	// WORKER_RETIRED, WORKER_START_PENDING (a start is already in flight, so a restart and a fresh assignment cannot both
+	// launch the worker), NO_LIVE_HOST (no live host lists the worker with a worktree), TEAM_PAUSED, WORKER_STOPPED. The
+	// session is ended with endReason ended and no handoff; the start carries the worker's oldest open task, if any, and names
+	// the caller as its issuer. The host collects it and the holder's agent binds as for any start. Each use is recorded as a
+	// USE event of the grant.
+	RestartWorkerSession *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult `json:"restartWorkerSession"`
+}
+
+// GetRestartWorkerSession returns TeamSessionRestartResponse.RestartWorkerSession, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartResponse) GetRestartWorkerSession() *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult {
+	return v.RestartWorkerSession
+}
+
+// TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult includes the requested fields of the GraphQL type RestartWorkerSessionResult.
+type TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult struct {
+	// The open sessions that were ended (endReason ended).
+	EndedSessionIds []string `json:"endedSessionIds"`
+	HostId          string   `json:"hostId"`
+	// The worker.start operation issued.
+	OperationId string `json:"operationId"`
+	// The open task the start carries, or null when the worker has none.
+	TaskId *string `json:"taskId"`
+}
+
+// GetEndedSessionIds returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.EndedSessionIds, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetEndedSessionIds() []string {
+	return v.EndedSessionIds
+}
+
+// GetHostId returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.HostId, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetHostId() string {
+	return v.HostId
+}
+
+// GetOperationId returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.OperationId, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetOperationId() string {
+	return v.OperationId
+}
+
+// GetTaskId returns TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult.TaskId, and is useful for accessing the field via an interface.
+func (v *TeamSessionRestartRestartWorkerSessionRestartWorkerSessionResult) GetTaskId() *string {
+	return v.TaskId
 }
 
 // TeamSessionsPageFilteredResponse is returned by TeamSessionsPageFiltered on success.
@@ -114404,6 +115546,8 @@ type TeamUtilizationTeamUtilizationCombinationsWorkerUtilization struct {
 	Utilization     float64 `json:"utilization"`
 	// True when the combination's latest match outcome inside the window is no worker, or when it has workers and none eligible; utilization is then 1 (hrn:node:hadronmemory.com:specs:cor:agt:060:13). This read writes nothing: the saturation episode and its one alarm are the stall evaluator's (hrn:node:hadronmemory.com:specs:cor:agt:060:14, hrn:node:hadronmemory.com:specs:cor:agt:060:15).
 	Saturated bool `json:"saturated"`
+	// The latest outcome inside the window when it is no worker; null otherwise (the record keeps only the latest outcome, so an earlier failure followed by a match is not shown).
+	LastMatchFailure *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure `json:"lastMatchFailure"`
 }
 
 // GetFamily returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Family, and is useful for accessing the field via an interface.
@@ -114439,6 +115583,32 @@ func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetUtiliza
 // GetSaturated returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.Saturated, and is useful for accessing the field via an interface.
 func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetSaturated() bool {
 	return v.Saturated
+}
+
+// GetLastMatchFailure returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilization.LastMatchFailure, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilization) GetLastMatchFailure() *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure {
+	return v.LastMatchFailure
+}
+
+// TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure includes the requested fields of the GraphQL type MatchFailure.
+// The GraphQL type's documentation follows.
+//
+// #3819 — the latest no-worker match outcome of a combination inside the read's window (hrn:node:hadronmemory.com:specs:cor:agt:060:13).
+type TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure struct {
+	// When the failed match was decided (the database clock).
+	At string `json:"at"`
+	// The coarse reason: NO_ROLE, REQUIREMENTS_EXCLUDED, NOBODY_FREE, STOP_SIGNAL or TEAM_POOL_EMPTY. Null on a row recorded without one.
+	Reason *string `json:"reason"`
+}
+
+// GetAt returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure.At, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure) GetAt() string {
+	return v.At
+}
+
+// GetReason returns TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure.Reason, and is useful for accessing the field via an interface.
+func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFailure) GetReason() *string {
+	return v.Reason
 }
 
 // TeamWithdrawGrantSigningRequestResponse is returned by TeamWithdrawGrantSigningRequest on success.
@@ -115261,6 +116431,183 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 	retval.Detail = v.TeamWorkItemFields.Detail
 	retval.Model = v.TeamWorkItemFields.Model
 	return &retval, nil
+}
+
+// TelegramConnectionResponse is returned by TelegramConnection on success.
+type TelegramConnectionResponse struct {
+	// Fetch one Telegram connection by id (#597). Returns null when the row does
+	// not exist OR the caller is not a live member of its org (a revoked member
+	// included): no existence disclosure.
+	TelegramConnection *TelegramConnectionTelegramConnection `json:"telegramConnection"`
+}
+
+// GetTelegramConnection returns TelegramConnectionResponse.TelegramConnection, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionResponse) GetTelegramConnection() *TelegramConnectionTelegramConnection {
+	return v.TelegramConnection
+}
+
+// TelegramConnectionTelegramConnection includes the requested fields of the GraphQL type TelegramConnection.
+// The GraphQL type's documentation follows.
+//
+// One Telegram bot registered for a Hadron App (#597). APP-owned: one active
+// connection per App, so the bot a person messages names the App. The bot
+// token lives ENCRYPTED IN THE TOOL (hadrontool-telegram): it is a write-only
+// input on createTelegramConnection and no field here ever returns it.
+type TelegramConnectionTelegramConnection struct {
+	Id string `json:"id"`
+	// The App's owning organization.
+	OrganizationId string `json:"organizationId"`
+	AppId          string `json:"appId"`
+	// Telegram provider backing this connection ('telegram' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status      string `json:"status"`
+	DisplayName string `json:"displayName"`
+	// The bot's Telegram user id.
+	BotId string `json:"botId"`
+	// The bot's @username, without the at sign.
+	BotUsername string `json:"botUsername"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns TelegramConnectionTelegramConnection.Id, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns TelegramConnectionTelegramConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetOrganizationId() string { return v.OrganizationId }
+
+// GetAppId returns TelegramConnectionTelegramConnection.AppId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetAppId() string { return v.AppId }
+
+// GetProvider returns TelegramConnectionTelegramConnection.Provider, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetProvider() string { return v.Provider }
+
+// GetStatus returns TelegramConnectionTelegramConnection.Status, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetStatus() string { return v.Status }
+
+// GetDisplayName returns TelegramConnectionTelegramConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetDisplayName() string { return v.DisplayName }
+
+// GetBotId returns TelegramConnectionTelegramConnection.BotId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetBotId() string { return v.BotId }
+
+// GetBotUsername returns TelegramConnectionTelegramConnection.BotUsername, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetBotUsername() string { return v.BotUsername }
+
+// GetCreatedAt returns TelegramConnectionTelegramConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns TelegramConnectionTelegramConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionTelegramConnection) GetUpdatedAt() string { return v.UpdatedAt }
+
+// TelegramConnectionsResponse is returned by TelegramConnections on success.
+type TelegramConnectionsResponse struct {
+	// Uniform paginated Telegram-connection list (hrn:node:hadronmemory.com:specs:cor:api:120). Default scope:
+	// the caller's member orgs. orgId follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
+	// org, non-member -> empty page, no disclosure, no admin bypass).
+	// Bot-username-ascending order (id tiebreak); limit default 20 / cap 200;
+	// limit: 0 -> count only.
+	TelegramConnections *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage `json:"telegramConnections"`
+}
+
+// GetTelegramConnections returns TelegramConnectionsResponse.TelegramConnections, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsResponse) GetTelegramConnections() *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage {
+	return v.TelegramConnections
+}
+
+// TelegramConnectionsTelegramConnectionsTelegramConnectionsPage includes the requested fields of the GraphQL type TelegramConnectionsPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform paginated list shape (hrn:node:hadronmemory.com:specs:cor:api:120).
+type TelegramConnectionsTelegramConnectionsTelegramConnectionsPage struct {
+	Total int                                                                                     `json:"total"`
+	Items []*TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection `json:"items"`
+}
+
+// GetTotal returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPage.Total, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage) GetTotal() int {
+	return v.Total
+}
+
+// GetItems returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPage.Items, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPage) GetItems() []*TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection {
+	return v.Items
+}
+
+// TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection includes the requested fields of the GraphQL type TelegramConnection.
+// The GraphQL type's documentation follows.
+//
+// One Telegram bot registered for a Hadron App (#597). APP-owned: one active
+// connection per App, so the bot a person messages names the App. The bot
+// token lives ENCRYPTED IN THE TOOL (hadrontool-telegram): it is a write-only
+// input on createTelegramConnection and no field here ever returns it.
+type TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection struct {
+	Id string `json:"id"`
+	// The App's owning organization.
+	OrganizationId string `json:"organizationId"`
+	AppId          string `json:"appId"`
+	// Telegram provider backing this connection ('telegram' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status      string `json:"status"`
+	DisplayName string `json:"displayName"`
+	// The bot's Telegram user id.
+	BotId string `json:"botId"`
+	// The bot's @username, without the at sign.
+	BotUsername string `json:"botUsername"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.Id, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetId() string {
+	return v.Id
+}
+
+// GetOrganizationId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetAppId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.AppId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetAppId() string {
+	return v.AppId
+}
+
+// GetProvider returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.Provider, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetStatus returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.Status, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetStatus() string {
+	return v.Status
+}
+
+// GetDisplayName returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.DisplayName, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetDisplayName() string {
+	return v.DisplayName
+}
+
+// GetBotId returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.BotId, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetBotId() string {
+	return v.BotId
+}
+
+// GetBotUsername returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.BotUsername, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetBotUsername() string {
+	return v.BotUsername
+}
+
+// GetCreatedAt returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *TelegramConnectionsTelegramConnectionsTelegramConnectionsPageItemsTelegramConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
 }
 
 // TestAiServiceConfigResponse is returned by TestAiServiceConfig on success.
@@ -121034,7 +122381,10 @@ type UpdateMemoryResponse struct {
 	// requires `acknowledgeVectorInversionRisk: true` in the same call. Without
 	// the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
 	// the full four-point disclosure on `error.disclosure` (single source of
-	// truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). On a
+	// truth in `FR_026_DISCLOSURE` — see `src/lib/entityRef/errors.ts`). The
+	// disclosure states that the vectors are stored unencrypted and, when the
+	// index includes content passages, that the verbatim chunk text is stored
+	// unencrypted too, and that revoking removes both. On a
 	// non-encrypted memory the flag is a no-op.
 	UpdateMemory *UpdateMemoryUpdateMemory `json:"updateMemory"`
 }
@@ -124760,7 +126110,8 @@ func (v *UpdateTeamCollectionsUpdateTeamCollectionsTeamCollectionsPayload) GetCh
 // UpdateTeamRoleMetaResponse is returned by UpdateTeamRoleMeta on success.
 type UpdateTeamRoleMetaResponse struct {
 	// #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
-	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
+	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole, and the
+	// same #4838 concealed appRef refusals (see createTeamRole).
 	//
 	// #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
 	// array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
@@ -124877,7 +126228,8 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) __premarshalJSON() (*__premarshalUpda
 // UpdateTeamRoleReposResponse is returned by UpdateTeamRoleRepos on success.
 type UpdateTeamRoleReposResponse struct {
 	// #960 — edit a roles:<role> definition. Omitted fields preserve. Unknown
-	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole.
+	// role: WORKER_ROLE_NOT_FOUND. Same authorization as createTeamRole, and the
+	// same #4838 concealed appRef refusals (see createTeamRole).
 	//
 	// #1024: `repos` sets the role's repo affinity. Omitted PRESERVES; an empty
 	// array CLEARS; explicit `null` is treated as OMITTED, not as a clear — worth
@@ -132689,14 +134041,6 @@ func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
 
-// __AuthorizeContextResetStopInput is used internally by genqlient
-type __AuthorizeContextResetStopInput struct {
-	Input *AuthorizeContextResetStopInput `json:"input,omitempty"`
-}
-
-// GetInput returns __AuthorizeContextResetStopInput.Input, and is useful for accessing the field via an interface.
-func (v *__AuthorizeContextResetStopInput) GetInput() *AuthorizeContextResetStopInput { return v.Input }
-
 // __AutomationApprovalDepthInput is used internally by genqlient
 type __AutomationApprovalDepthInput struct {
 	TriggerKind AutomationTriggerKind `json:"triggerKind"`
@@ -133701,14 +135045,6 @@ type __CheckTeamChannelInput struct {
 // GetAppRef returns __CheckTeamChannelInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__CheckTeamChannelInput) GetAppRef() string { return v.AppRef }
 
-// __ClaimContextResetInput is used internally by genqlient
-type __ClaimContextResetInput struct {
-	Input *ClaimContextResetInput `json:"input,omitempty"`
-}
-
-// GetInput returns __ClaimContextResetInput.Input, and is useful for accessing the field via an interface.
-func (v *__ClaimContextResetInput) GetInput() *ClaimContextResetInput { return v.Input }
-
 // __ClearAgentAIConfigInput is used internally by genqlient
 type __ClearAgentAIConfigInput struct {
 	AgentRef string `json:"agentRef"`
@@ -133984,18 +135320,6 @@ type __ContentValidationNodeInput struct {
 
 // GetRef returns __ContentValidationNodeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__ContentValidationNodeInput) GetRef() string { return v.Ref }
-
-// __ContextResetInput is used internally by genqlient
-type __ContextResetInput struct {
-	AppRef  string `json:"appRef"`
-	ResetId string `json:"resetId"`
-}
-
-// GetAppRef returns __ContextResetInput.AppRef, and is useful for accessing the field via an interface.
-func (v *__ContextResetInput) GetAppRef() string { return v.AppRef }
-
-// GetResetId returns __ContextResetInput.ResetId, and is useful for accessing the field via an interface.
-func (v *__ContextResetInput) GetResetId() string { return v.ResetId }
 
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
@@ -135163,6 +136487,22 @@ func (v *__CreateRevisionInput) GetAgentRef() string { return v.AgentRef }
 // GetDescription returns __CreateRevisionInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateRevisionInput) GetDescription() *string { return v.Description }
 
+// __CreateRoleTaskInput is used internally by genqlient
+type __CreateRoleTaskInput struct {
+	Input *CreateNodeInput      `json:"input,omitempty"`
+	Index *TaskIndexInput       `json:"index,omitempty"`
+	Skill *TaskSkillExportInput `json:"skill,omitempty"`
+}
+
+// GetInput returns __CreateRoleTaskInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateRoleTaskInput) GetInput() *CreateNodeInput { return v.Input }
+
+// GetIndex returns __CreateRoleTaskInput.Index, and is useful for accessing the field via an interface.
+func (v *__CreateRoleTaskInput) GetIndex() *TaskIndexInput { return v.Index }
+
+// GetSkill returns __CreateRoleTaskInput.Skill, and is useful for accessing the field via an interface.
+func (v *__CreateRoleTaskInput) GetSkill() *TaskSkillExportInput { return v.Skill }
+
 // __CreateScopeInput is used internally by genqlient
 type __CreateScopeInput struct {
 	Input *CreateScopeInput `json:"input,omitempty"`
@@ -135306,6 +136646,18 @@ func (v *__CreateTeamRoleInput) GetRole() string { return v.Role }
 
 // GetDescription returns __CreateTeamRoleInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateTeamRoleInput) GetDescription() *string { return v.Description }
+
+// __CreateTelegramConnectionInput is used internally by genqlient
+type __CreateTelegramConnectionInput struct {
+	AppRef   string `json:"appRef"`
+	BotToken string `json:"botToken"`
+}
+
+// GetAppRef returns __CreateTelegramConnectionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateTelegramConnectionInput) GetAppRef() string { return v.AppRef }
+
+// GetBotToken returns __CreateTelegramConnectionInput.BotToken, and is useful for accessing the field via an interface.
+func (v *__CreateTelegramConnectionInput) GetBotToken() string { return v.BotToken }
 
 // __CreateTickerInput is used internally by genqlient
 type __CreateTickerInput struct {
@@ -135716,6 +137068,14 @@ func (v *__DeleteTeamRoleInput) GetTeamAgentRef() *string { return v.TeamAgentRe
 
 // GetRole returns __DeleteTeamRoleInput.Role, and is useful for accessing the field via an interface.
 func (v *__DeleteTeamRoleInput) GetRole() string { return v.Role }
+
+// __DeleteTelegramConnectionInput is used internally by genqlient
+type __DeleteTelegramConnectionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteTelegramConnectionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteTelegramConnectionInput) GetRef() string { return v.Ref }
 
 // __DeleteTickerInput is used internally by genqlient
 type __DeleteTickerInput struct {
@@ -137247,6 +138607,22 @@ func (v *__HostRelaunchVerifyFailureInput) GetCheckedAt() string { return v.Chec
 // GetAttempt returns __HostRelaunchVerifyFailureInput.Attempt, and is useful for accessing the field via an interface.
 func (v *__HostRelaunchVerifyFailureInput) GetAttempt() int { return v.Attempt }
 
+// __HostRelaunchWorkerInput is used internally by genqlient
+type __HostRelaunchWorkerInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns __HostRelaunchWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostRelaunchWorkerInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchWorkerInput) GetHostId() string { return v.HostId }
+
+// GetWorker returns __HostRelaunchWorkerInput.Worker, and is useful for accessing the field via an interface.
+func (v *__HostRelaunchWorkerInput) GetWorker() string { return v.Worker }
+
 // __HostSweepIdentityInput is used internally by genqlient
 type __HostSweepIdentityInput struct {
 	AppRef string `json:"appRef"`
@@ -138535,6 +139911,22 @@ func (v *__PRVerdictInput) GetNode() *string { return v.Node }
 // GetReceipt returns __PRVerdictInput.Receipt, and is useful for accessing the field via an interface.
 func (v *__PRVerdictInput) GetReceipt() *string { return v.Receipt }
 
+// __PRWithdrawInput is used internally by genqlient
+type __PRWithdrawInput struct {
+	TaskRef string  `json:"taskRef"`
+	Head    string  `json:"head"`
+	Receipt *string `json:"receipt,omitempty"`
+}
+
+// GetTaskRef returns __PRWithdrawInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRWithdrawInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInput) GetHead() string { return v.Head }
+
+// GetReceipt returns __PRWithdrawInput.Receipt, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInput) GetReceipt() *string { return v.Receipt }
+
 // __PlanNodeMoveInput is used internally by genqlient
 type __PlanNodeMoveInput struct {
 	SourceRef       string  `json:"sourceRef"`
@@ -139041,16 +140433,6 @@ type __RegenerateAppKeyInput struct {
 // GetAppRef returns __RegenerateAppKeyInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__RegenerateAppKeyInput) GetAppRef() string { return v.AppRef }
 
-// __RegisterContextResetRecoveryInput is used internally by genqlient
-type __RegisterContextResetRecoveryInput struct {
-	Input *RegisterContextResetRecoveryInput `json:"input,omitempty"`
-}
-
-// GetInput returns __RegisterContextResetRecoveryInput.Input, and is useful for accessing the field via an interface.
-func (v *__RegisterContextResetRecoveryInput) GetInput() *RegisterContextResetRecoveryInput {
-	return v.Input
-}
-
 // __RegisterEntriesInput is used internally by genqlient
 type __RegisterEntriesInput struct {
 	Filter *RegisterEntryFilter `json:"filter,omitempty"`
@@ -139260,34 +140642,6 @@ func (v *__ReplyToCommentInput) GetRef() string { return v.Ref }
 
 // GetBody returns __ReplyToCommentInput.Body, and is useful for accessing the field via an interface.
 func (v *__ReplyToCommentInput) GetBody() string { return v.Body }
-
-// __ReportContextResetAgentStoppedInput is used internally by genqlient
-type __ReportContextResetAgentStoppedInput struct {
-	Input *ContextResetStepInput `json:"input,omitempty"`
-}
-
-// GetInput returns __ReportContextResetAgentStoppedInput.Input, and is useful for accessing the field via an interface.
-func (v *__ReportContextResetAgentStoppedInput) GetInput() *ContextResetStepInput { return v.Input }
-
-// __ReportContextResetRelaunchFailedInput is used internally by genqlient
-type __ReportContextResetRelaunchFailedInput struct {
-	Input *ReportContextResetRelaunchFailedInput `json:"input,omitempty"`
-}
-
-// GetInput returns __ReportContextResetRelaunchFailedInput.Input, and is useful for accessing the field via an interface.
-func (v *__ReportContextResetRelaunchFailedInput) GetInput() *ReportContextResetRelaunchFailedInput {
-	return v.Input
-}
-
-// __ReportContextResetRelaunchedInput is used internally by genqlient
-type __ReportContextResetRelaunchedInput struct {
-	Input *ReportContextResetRelaunchedInput `json:"input,omitempty"`
-}
-
-// GetInput returns __ReportContextResetRelaunchedInput.Input, and is useful for accessing the field via an interface.
-func (v *__ReportContextResetRelaunchedInput) GetInput() *ReportContextResetRelaunchedInput {
-	return v.Input
-}
 
 // __ReportHostOperationInput is used internally by genqlient
 type __ReportHostOperationInput struct {
@@ -141765,6 +143119,22 @@ type __TeamMemoryAppInput struct {
 // GetRef returns __TeamMemoryAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__TeamMemoryAppInput) GetRef() string { return v.Ref }
 
+// __TeamMetricsInput is used internally by genqlient
+type __TeamMetricsInput struct {
+	AppRef string  `json:"appRef"`
+	Since  *string `json:"since,omitempty"`
+	Until  *string `json:"until,omitempty"`
+}
+
+// GetAppRef returns __TeamMetricsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamMetricsInput) GetAppRef() string { return v.AppRef }
+
+// GetSince returns __TeamMetricsInput.Since, and is useful for accessing the field via an interface.
+func (v *__TeamMetricsInput) GetSince() *string { return v.Since }
+
+// GetUntil returns __TeamMetricsInput.Until, and is useful for accessing the field via an interface.
+func (v *__TeamMetricsInput) GetUntil() *string { return v.Until }
+
 // __TeamRegisterCandidatesInput is used internally by genqlient
 type __TeamRegisterCandidatesInput struct {
 	AppRef string `json:"appRef"`
@@ -141828,6 +143198,52 @@ func (v *__TeamReviewQualityReportInput) GetAppRef() string { return v.AppRef }
 
 // GetMonth returns __TeamReviewQualityReportInput.Month, and is useful for accessing the field via an interface.
 func (v *__TeamReviewQualityReportInput) GetMonth() string { return v.Month }
+
+// __TeamRoleListSetInput is used internally by genqlient
+type __TeamRoleListSetInput struct {
+	AppRef  string         `json:"appRef"`
+	Purpose AppRolePurpose `json:"purpose"`
+	Roles   []string       `json:"roles"`
+}
+
+// GetAppRef returns __TeamRoleListSetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInput) GetAppRef() string { return v.AppRef }
+
+// GetPurpose returns __TeamRoleListSetInput.Purpose, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInput) GetPurpose() AppRolePurpose { return v.Purpose }
+
+// GetRoles returns __TeamRoleListSetInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInput) GetRoles() []string { return v.Roles }
+
+// __TeamRoleListSetInstructedInput is used internally by genqlient
+type __TeamRoleListSetInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Purpose     AppRolePurpose       `json:"purpose"`
+	Roles       []string             `json:"roles"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __TeamRoleListSetInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetPurpose returns __TeamRoleListSetInstructedInput.Purpose, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetPurpose() AppRolePurpose { return v.Purpose }
+
+// GetRoles returns __TeamRoleListSetInstructedInput.Roles, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetRoles() []string { return v.Roles }
+
+// GetInstruction returns __TeamRoleListSetInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListSetInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
+// __TeamRoleListsInput is used internally by genqlient
+type __TeamRoleListsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamRoleListsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamRoleListsInput) GetAppRef() string { return v.AppRef }
 
 // __TeamRolesInput is used internally by genqlient
 type __TeamRolesInput struct {
@@ -141894,6 +143310,14 @@ func (v *__TeamSaturationWakeRolesSetInstructedInput) GetRoles() []string { retu
 func (v *__TeamSaturationWakeRolesSetInstructedInput) GetInstruction() *ActInstructionInput {
 	return v.Instruction
 }
+
+// __TeamSessionRestartInput is used internally by genqlient
+type __TeamSessionRestartInput struct {
+	Input *RestartWorkerSessionInput `json:"input,omitempty"`
+}
+
+// GetInput returns __TeamSessionRestartInput.Input, and is useful for accessing the field via an interface.
+func (v *__TeamSessionRestartInput) GetInput() *RestartWorkerSessionInput { return v.Input }
 
 // __TeamSessionsPageFilteredInput is used internally by genqlient
 type __TeamSessionsPageFilteredInput struct {
@@ -142270,6 +143694,30 @@ func (v *__TeamWorkItemsLegacyInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamWorkItemsLegacyInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamWorkItemsLegacyInput) GetOffset() *int { return v.Offset }
+
+// __TelegramConnectionInput is used internally by genqlient
+type __TelegramConnectionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __TelegramConnectionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionInput) GetRef() string { return v.Ref }
+
+// __TelegramConnectionsInput is used internally by genqlient
+type __TelegramConnectionsInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __TelegramConnectionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionsInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __TelegramConnectionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TelegramConnectionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TelegramConnectionsInput) GetOffset() *int { return v.Offset }
 
 // __TestAiServiceConfigInput is used internally by genqlient
 type __TestAiServiceConfigInput struct {
@@ -155138,61 +156586,6 @@ func AuthContext(
 	return data_, err_
 }
 
-// The mutation executed by AuthorizeContextResetStop.
-const AuthorizeContextResetStop_Operation = `
-mutation AuthorizeContextResetStop ($input: AuthorizeContextResetStopInput!) {
-	authorizeContextResetStop(input: $input) {
-		... ContextResetStepFields
-	}
-}
-fragment ContextResetStepFields on ContextResetStep {
-	refused
-	replayed
-	reset {
-		... ContextResetFields
-	}
-}
-fragment ContextResetFields on ContextReset {
-	id
-	epoch
-	phase
-	reason
-	workerId
-	sessionId
-	taskId
-	cause
-	stopGrantedAt
-	stopLeaseMs
-	endedAt
-	checkpointNode
-}
-`
-
-func AuthorizeContextResetStop(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *AuthorizeContextResetStopInput,
-) (data_ *AuthorizeContextResetStopResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "AuthorizeContextResetStop",
-		Query:  AuthorizeContextResetStop_Operation,
-		Variables: &__AuthorizeContextResetStopInput{
-			Input: input,
-		},
-	}
-
-	data_ = &AuthorizeContextResetStopResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The query executed by AutomationApproval.
 const AutomationApproval_Operation = `
 query AutomationApproval ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
@@ -158054,61 +159447,6 @@ func CheckTeamChannel(
 	return data_, err_
 }
 
-// The mutation executed by ClaimContextReset.
-const ClaimContextReset_Operation = `
-mutation ClaimContextReset ($input: ClaimContextResetInput!) {
-	claimContextReset(input: $input) {
-		... ContextResetStepFields
-	}
-}
-fragment ContextResetStepFields on ContextResetStep {
-	refused
-	replayed
-	reset {
-		... ContextResetFields
-	}
-}
-fragment ContextResetFields on ContextReset {
-	id
-	epoch
-	phase
-	reason
-	workerId
-	sessionId
-	taskId
-	cause
-	stopGrantedAt
-	stopLeaseMs
-	endedAt
-	checkpointNode
-}
-`
-
-func ClaimContextReset(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *ClaimContextResetInput,
-) (data_ *ClaimContextResetResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ClaimContextReset",
-		Query:  ClaimContextReset_Operation,
-		Variables: &__ClaimContextResetInput{
-			Input: input,
-		},
-	}
-
-	data_ = &ClaimContextResetResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by ClearAgentAIConfig.
 const ClearAgentAIConfig_Operation = `
 mutation ClearAgentAIConfig ($agentRef: ID!) {
@@ -159260,58 +160598,6 @@ func ContentValidationNode(
 	}
 
 	data_ = &ContentValidationNodeResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by ContextReset.
-const ContextReset_Operation = `
-query ContextReset ($appRef: String!, $resetId: ID!) {
-	contextReset(appRef: $appRef, resetId: $resetId) {
-		... ContextResetFields
-	}
-}
-fragment ContextResetFields on ContextReset {
-	id
-	epoch
-	phase
-	reason
-	workerId
-	sessionId
-	taskId
-	cause
-	stopGrantedAt
-	stopLeaseMs
-	endedAt
-	checkpointNode
-}
-`
-
-// #3273: a host-key read of one reset this host collected (ended ones too),
-// for restart recovery. Changes nothing server-side.
-func ContextReset(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	appRef string,
-	resetId string,
-) (data_ *ContextResetResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ContextReset",
-		Query:  ContextReset_Operation,
-		Variables: &__ContextResetInput{
-			AppRef:  appRef,
-			ResetId: resetId,
-		},
-	}
-
-	data_ = &ContextResetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -161816,6 +163102,68 @@ func CreateRevision(
 	return data_, err_
 }
 
+// The mutation executed by CreateRoleTask.
+const CreateRoleTask_Operation = `
+mutation CreateRoleTask ($input: CreateNodeInput!, $index: TaskIndexInput, $skill: TaskSkillExportInput) {
+	createTaskNode(input: $input, index: $index, skill: $skill) {
+		id
+		memoryId
+		loc
+		urn
+		name
+		nodeType
+		isRunnable
+		role
+		updatedAt
+		outgoingEdges {
+			id
+			name
+			target {
+				id
+				loc
+				urn
+			}
+		}
+	}
+}
+`
+
+// cli#2990: `agent tasks create`, a thin client of hadron-server#4864 (ccfac717). createTaskNode is the
+// existing task door; with `index` the SAME call also writes the task's tasks-index edge (node and edge in one
+// transaction, server-side), with `skill` an enabled properties.exports.claudeSkill block, validated by the
+// server's skill lint. Without both the door behaves exactly as before. The CLI adds no rule: the server's
+// refusals (an existing slug, an Agent with no tasks index, an index outside the Agent's system memory, a
+// malformed loc, write level) come back through api.MapError. `index` and `skill` are omitempty so an unset
+// variable is OMITTED, never sent as null.
+func CreateRoleTask(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *CreateNodeInput,
+	index *TaskIndexInput,
+	skill *TaskSkillExportInput,
+) (data_ *CreateRoleTaskResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateRoleTask",
+		Query:  CreateRoleTask_Operation,
+		Variables: &__CreateRoleTaskInput{
+			Input: input,
+			Index: index,
+			Skill: skill,
+		},
+	}
+
+	data_ = &CreateRoleTaskResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateScope.
 const CreateScope_Operation = `
 mutation CreateScope ($input: CreateScopeInput!) {
@@ -162287,6 +163635,53 @@ func CreateTeamRole(
 	}
 
 	data_ = &CreateTeamRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateTelegramConnection.
+const CreateTelegramConnection_Operation = `
+mutation CreateTelegramConnection ($appRef: ID!, $botToken: String!) {
+	createTelegramConnection(appRef: $appRef, botToken: $botToken) {
+		id
+		organizationId
+		appId
+		provider
+		status
+		displayName
+		botId
+		botUsername
+		createdAt
+		updatedAt
+	}
+}
+`
+
+// cli#2952 connect/disconnect. The bot token is a write-only input: the server's
+// TelegramConnection type has no token field, and lastError is never requested.
+func CreateTelegramConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	botToken string,
+) (data_ *CreateTelegramConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateTelegramConnection",
+		Query:  CreateTelegramConnection_Operation,
+		Variables: &__CreateTelegramConnectionInput{
+			AppRef:   appRef,
+			BotToken: botToken,
+		},
+	}
+
+	data_ = &CreateTelegramConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -163723,6 +165118,38 @@ func DeleteTeamRole(
 	}
 
 	data_ = &DeleteTeamRoleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteTelegramConnection.
+const DeleteTelegramConnection_Operation = `
+mutation DeleteTelegramConnection ($ref: ID!) {
+	deleteTelegramConnection(ref: $ref)
+}
+`
+
+func DeleteTelegramConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteTelegramConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteTelegramConnection",
+		Query:  DeleteTelegramConnection_Operation,
+		Variables: &__DeleteTelegramConnectionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteTelegramConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -168724,6 +170151,7 @@ query GlobalSearch ($query: String!, $entityTypes: [SearchEntityType!], $fields:
 			matchedField
 			memoryId
 			organizationId
+			handle
 		}
 		total
 		degraded
@@ -169785,6 +171213,64 @@ func HostRelaunchVerifyFailure(
 	return data_, err_
 }
 
+// The query executed by HostRelaunchWorker.
+const HostRelaunchWorker_Operation = `
+query HostRelaunchWorker ($appRef: String!, $hostId: String!, $worker: String!) {
+	myApp {
+		id
+	}
+	hostDesiredState(appRef: $appRef, hostId: $hostId, worker: $worker) {
+		hostId
+		sweepMode
+		workers {
+			workerId
+			family
+			desired
+			reason
+			openSessionId
+			worktrees
+		}
+	}
+}
+`
+
+// C5's fresh read about ONE worker (cli#2816): the fields of HostRelaunchSnapshot
+// (host_relaunch_2060.graphql) with hadron-server#4693's `worker` selector.
+// The answer carries at most that worker's row, and the same empty list for a
+// worker of another host, a retired one and an unknown one. It is its own
+// document on purpose: a server without the selector refuses only this read, so
+// hostServer.RelaunchWorker can still fall back to the host-wide one.
+// Sent without the worker session (no X-Hadron-Session): the host key drives no
+// session, and reads only.
+func HostRelaunchWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+	worker string,
+) (data_ *HostRelaunchWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRelaunchWorker",
+		Query:  HostRelaunchWorker_Operation,
+		Variables: &__HostRelaunchWorkerInput{
+			AppRef: appRef,
+			HostId: hostId,
+			Worker: worker,
+		},
+	}
+
+	data_ = &HostRelaunchWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by HostSweepIdentity.
 const HostSweepIdentity_Operation = `
 query HostSweepIdentity ($appRef: String!, $hostId: String!) {
@@ -170657,6 +172143,8 @@ mutation IssueSecretReadClient ($input: IssueSecretReadClientInput!) {
 // cli#2631 slice 1: issue a read client for an App secret, and list the read
 // clients the caller issued or holds. Optional input fields are omitted when unset:
 // omitted keeps the server default, an explicit null would be read as a value.
+// The USE-mode arguments the server added (the CLI issues REVEAL clients only, gap #3014): omitted, never
+// sent as null, so the request without them is byte-identical to before the schema refresh (cli#3006).
 func IssueSecretReadClient(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -175536,6 +177024,60 @@ func PRVerdict(
 	return data_, err_
 }
 
+// The mutation executed by PRWithdraw.
+const PRWithdraw_Operation = `
+mutation PRWithdraw ($taskRef: ID!, $head: String!, $receipt: String) {
+	withdrawReviewVerdict(taskRef: $taskRef, head: $head, receipt: $receipt) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+// cli#3006 (hadron-server#4869, #4441): withdraw a finished seat's negative verdict at the same head. $receipt
+// is omitted when unset; this command never sends an instruction (the gate's ruling): the manager arm for a
+// worker session is a follow-up.
+func PRWithdraw(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+	receipt *string,
+) (data_ *PRWithdrawResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRWithdraw",
+		Query:  PRWithdraw_Operation,
+		Variables: &__PRWithdrawInput{
+			TaskRef: taskRef,
+			Head:    head,
+			Receipt: receipt,
+		},
+	}
+
+	data_ = &PRWithdrawResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by PasskeyRevokeUrl.
 const PasskeyRevokeUrl_Operation = `
 query PasskeyRevokeUrl {
@@ -177337,66 +178879,6 @@ func RegenerateAppKey(
 	return data_, err_
 }
 
-// The mutation executed by RegisterContextResetRecovery.
-const RegisterContextResetRecovery_Operation = `
-mutation RegisterContextResetRecovery ($input: RegisterContextResetRecoveryInput!) {
-	registerContextResetRecovery(input: $input) {
-		... ContextResetStepFields
-	}
-}
-fragment ContextResetStepFields on ContextResetStep {
-	refused
-	replayed
-	reset {
-		... ContextResetFields
-	}
-}
-fragment ContextResetFields on ContextReset {
-	id
-	epoch
-	phase
-	reason
-	workerId
-	sessionId
-	taskId
-	cause
-	stopGrantedAt
-	stopLeaseMs
-	endedAt
-	checkpointNode
-}
-`
-
-// #3276 / ruling 0090 A: the host writes the checkpoint through this step (checkpoint),
-// never names one (checkpointNode). Exactly one is allowed: checkpointNode is
-// omitted, not sent as null, when unset (checkpoint already is).
-// #4258: a context-cap reset has no task; taskId is OMITTED then (an omitted
-// field is "none", never an explicit null).
-func RegisterContextResetRecovery(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *RegisterContextResetRecoveryInput,
-) (data_ *RegisterContextResetRecoveryResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "RegisterContextResetRecovery",
-		Query:  RegisterContextResetRecovery_Operation,
-		Variables: &__RegisterContextResetRecoveryInput{
-			Input: input,
-		},
-	}
-
-	data_ = &RegisterContextResetRecoveryResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The query executed by RegisterEntries.
 const RegisterEntries_Operation = `
 query RegisterEntries ($filter: RegisterEntryFilter, $limit: Int, $offset: Int, $orgId: ID) {
@@ -178359,172 +179841,6 @@ func ReplyToComment(
 	}
 
 	data_ = &ReplyToCommentResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by ReportContextResetAgentStopped.
-const ReportContextResetAgentStopped_Operation = `
-mutation ReportContextResetAgentStopped ($input: ContextResetStepInput!) {
-	reportContextResetAgentStopped(input: $input) {
-		... ContextResetStepFields
-	}
-}
-fragment ContextResetStepFields on ContextResetStep {
-	refused
-	replayed
-	reset {
-		... ContextResetFields
-	}
-}
-fragment ContextResetFields on ContextReset {
-	id
-	epoch
-	phase
-	reason
-	workerId
-	sessionId
-	taskId
-	cause
-	stopGrantedAt
-	stopLeaseMs
-	endedAt
-	checkpointNode
-}
-`
-
-// lateStopMs (#3255) is omitted, not sent as null, when the stop was on time.
-func ReportContextResetAgentStopped(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *ContextResetStepInput,
-) (data_ *ReportContextResetAgentStoppedResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ReportContextResetAgentStopped",
-		Query:  ReportContextResetAgentStopped_Operation,
-		Variables: &__ReportContextResetAgentStoppedInput{
-			Input: input,
-		},
-	}
-
-	data_ = &ReportContextResetAgentStoppedResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by ReportContextResetRelaunchFailed.
-const ReportContextResetRelaunchFailed_Operation = `
-mutation ReportContextResetRelaunchFailed ($input: ReportContextResetRelaunchFailedInput!) {
-	reportContextResetRelaunchFailed(input: $input) {
-		... ContextResetStepFields
-	}
-}
-fragment ContextResetStepFields on ContextResetStep {
-	refused
-	replayed
-	reset {
-		... ContextResetFields
-	}
-}
-fragment ContextResetFields on ContextReset {
-	id
-	epoch
-	phase
-	reason
-	workerId
-	sessionId
-	taskId
-	cause
-	stopGrantedAt
-	stopLeaseMs
-	endedAt
-	checkpointNode
-}
-`
-
-func ReportContextResetRelaunchFailed(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *ReportContextResetRelaunchFailedInput,
-) (data_ *ReportContextResetRelaunchFailedResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ReportContextResetRelaunchFailed",
-		Query:  ReportContextResetRelaunchFailed_Operation,
-		Variables: &__ReportContextResetRelaunchFailedInput{
-			Input: input,
-		},
-	}
-
-	data_ = &ReportContextResetRelaunchFailedResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The mutation executed by ReportContextResetRelaunched.
-const ReportContextResetRelaunched_Operation = `
-mutation ReportContextResetRelaunched ($input: ReportContextResetRelaunchedInput!) {
-	reportContextResetRelaunched(input: $input) {
-		... ContextResetStepFields
-	}
-}
-fragment ContextResetStepFields on ContextResetStep {
-	refused
-	replayed
-	reset {
-		... ContextResetFields
-	}
-}
-fragment ContextResetFields on ContextReset {
-	id
-	epoch
-	phase
-	reason
-	workerId
-	sessionId
-	taskId
-	cause
-	stopGrantedAt
-	stopLeaseMs
-	endedAt
-	checkpointNode
-}
-`
-
-func ReportContextResetRelaunched(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	input *ReportContextResetRelaunchedInput,
-) (data_ *ReportContextResetRelaunchedResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "ReportContextResetRelaunched",
-		Query:  ReportContextResetRelaunched_Operation,
-		Variables: &__ReportContextResetRelaunchedInput{
-			Input: input,
-		},
-	}
-
-	data_ = &ReportContextResetRelaunchedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -187689,6 +189005,125 @@ func TeamMemoryApp(
 	return data_, err_
 }
 
+// The query executed by TeamMetrics.
+const TeamMetrics_Operation = `
+query TeamMetrics ($appRef: ID!, $since: DateTime, $until: DateTime) {
+	teamMetrics(appRef: $appRef, since: $since, until: $until) {
+		appId
+		asOf
+		window {
+			since
+			until
+		}
+		startedOwned {
+			all {
+				... TeamMetricsCountFields
+			}
+			byOwner {
+				owner {
+					id
+					kind
+					name
+					urn
+				}
+				tasks {
+					... TeamMetricsCountFields
+				}
+				byProject {
+					project {
+						... TeamMetricsProjectFields
+					}
+					tasks {
+						... TeamMetricsCountFields
+					}
+				}
+				projectsTruncated
+			}
+			ownersTruncated
+		}
+		projects {
+			items {
+				project {
+					... TeamMetricsProjectFields
+				}
+				children {
+					status
+					tasks {
+						... TeamMetricsCountFields
+					}
+				}
+			}
+			truncated
+		}
+		workers {
+			active {
+				... TeamMetricsCountFields
+			}
+			idle {
+				... TeamMetricsCountFields
+			}
+			overdue {
+				... TeamMetricsCountFields
+			}
+			inop {
+				... TeamMetricsCountFields
+			}
+		}
+		flow {
+			completed {
+				... TeamMetricsCountFields
+			}
+			started {
+				... TeamMetricsCountFields
+			}
+		}
+	}
+}
+fragment TeamMetricsCountFields on TeamMetricsCount {
+	total
+	ids
+	truncated
+}
+fragment TeamMetricsProjectFields on TeamMetricsProject {
+	handle
+	noProject
+	taskId
+	title
+}
+`
+
+// A team's computed task and worker flow (server teamMetrics, cli#1826): every count
+// is the server's, with the ids behind it. since and until carry omitempty so an
+// unset flag is OMITTED (the server's own 7-day default window), never sent as null.
+func TeamMetrics(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	since *string,
+	until *string,
+) (data_ *TeamMetricsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamMetrics",
+		Query:  TeamMetrics_Operation,
+		Variables: &__TeamMetricsInput{
+			AppRef: appRef,
+			Since:  since,
+			Until:  until,
+		},
+	}
+
+	data_ = &TeamMetricsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamRegisterCandidates.
 const TeamRegisterCandidates_Operation = `
 query TeamRegisterCandidates ($appRef: ID!, $code: String!, $limit: Int, $offset: Int) {
@@ -187934,6 +189369,136 @@ func TeamReviewQualityReport(
 	}
 
 	data_ = &TeamReviewQualityReportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamRoleListSet.
+const TeamRoleListSet_Operation = `
+mutation TeamRoleListSet ($appRef: ID!, $purpose: AppRolePurpose!, $roles: [String!]!) {
+	setAppRoleList(appRef: $appRef, purpose: $purpose, roles: $roles) {
+		... AppRoleListFields
+	}
+}
+fragment AppRoleListFields on AppRoleList {
+	appId
+	purpose
+	roles
+}
+`
+
+func TeamRoleListSet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	purpose AppRolePurpose,
+	roles []string,
+) (data_ *TeamRoleListSetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoleListSet",
+		Query:  TeamRoleListSet_Operation,
+		Variables: &__TeamRoleListSetInput{
+			AppRef:  appRef,
+			Purpose: purpose,
+			Roles:   roles,
+		},
+	}
+
+	data_ = &TeamRoleListSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamRoleListSetInstructed.
+const TeamRoleListSetInstructed_Operation = `
+mutation TeamRoleListSetInstructed ($appRef: ID!, $purpose: AppRolePurpose!, $roles: [String!]!, $instruction: ActInstructionInput!) {
+	setAppRoleList(appRef: $appRef, purpose: $purpose, roles: $roles, instruction: $instruction) {
+		... AppRoleListFields
+	}
+}
+fragment AppRoleListFields on AppRoleList {
+	appId
+	purpose
+	roles
+}
+`
+
+// The instructed manager write (cor:dmo:050:12, "Acting on an instruction"), in its own document like every
+// instructed write, so a request without the flag is the plain one.
+func TeamRoleListSetInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	purpose AppRolePurpose,
+	roles []string,
+	instruction *ActInstructionInput,
+) (data_ *TeamRoleListSetInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoleListSetInstructed",
+		Query:  TeamRoleListSetInstructed_Operation,
+		Variables: &__TeamRoleListSetInstructedInput{
+			AppRef:      appRef,
+			Purpose:     purpose,
+			Roles:       roles,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamRoleListSetInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamRoleLists.
+const TeamRoleLists_Operation = `
+query TeamRoleLists ($appRef: ID!) {
+	appRoleLists(appRef: $appRef) {
+		... AppRoleListsFields
+	}
+}
+fragment AppRoleListsFields on AppRoleLists {
+	appId
+	defectLink
+	registerPick
+	reviewWithdraw
+}
+`
+
+func TeamRoleLists(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamRoleListsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRoleLists",
+		Query:  TeamRoleLists_Operation,
+		Variables: &__TeamRoleListsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamRoleListsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -188219,6 +189784,51 @@ func TeamSaturationWakeRolesSetInstructed(
 	}
 
 	data_ = &TeamSaturationWakeRolesSetInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamSessionRestart.
+const TeamSessionRestart_Operation = `
+mutation TeamSessionRestart ($input: RestartWorkerSessionInput!) {
+	restartWorkerSession(input: $input) {
+		endedSessionIds
+		hostId
+		operationId
+		taskId
+	}
+}
+`
+
+// hadron-cli#3050 over hadron-server#4930 (hrn:node:hadronmemory.com:specs:cor:agt:070:08
+// S4a, cor:acl:140:02): end a DARK open session of a worker and start the worker
+// again, in one transaction, with no person in the loop. The caller is a worker,
+// through its own bound session, holding a live worker.session.restart grant that
+// names the target worker (no wildcard); dark is the caller's judgement, stated in
+// the required reason (at most 500 characters), never the platform's. Every
+// documented refusal is the server's answer; this operation renders it, it does
+// not re-implement any of it.
+func TeamSessionRestart(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RestartWorkerSessionInput,
+) (data_ *TeamSessionRestartResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSessionRestart",
+		Query:  TeamSessionRestart_Operation,
+		Variables: &__TeamSessionRestartInput{
+			Input: input,
+		},
+	}
+
+	data_ = &TeamSessionRestartResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -188966,6 +190576,10 @@ query TeamUtilization ($appRef: ID!, $family: String, $role: String, $tier: Stri
 			busyWorkers
 			utilization
 			saturated
+			lastMatchFailure {
+				at
+				reason
+			}
 		}
 	}
 }
@@ -189236,6 +190850,101 @@ func TeamWorkItemsLegacy(
 	}
 
 	data_ = &TeamWorkItemsLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TelegramConnection.
+const TelegramConnection_Operation = `
+query TelegramConnection ($ref: ID!) {
+	telegramConnection(ref: $ref) {
+		id
+		organizationId
+		appId
+		provider
+		status
+		displayName
+		botId
+		botUsername
+		createdAt
+		updatedAt
+	}
+}
+`
+
+func TelegramConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *TelegramConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TelegramConnection",
+		Query:  TelegramConnection_Operation,
+		Variables: &__TelegramConnectionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &TelegramConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TelegramConnections.
+const TelegramConnections_Operation = `
+query TelegramConnections ($orgId: ID, $limit: Int, $offset: Int) {
+	telegramConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			organizationId
+			appId
+			provider
+			status
+			displayName
+			botId
+			botUsername
+			createdAt
+			updatedAt
+		}
+	}
+}
+`
+
+// Read-only Telegram connection metadata (cli#2952, over hadron-server#4824).
+// Never request lastError; no field ever returns the bot token.
+func TelegramConnections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *TelegramConnectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TelegramConnections",
+		Query:  TelegramConnections_Operation,
+		Variables: &__TelegramConnectionsInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &TelegramConnectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

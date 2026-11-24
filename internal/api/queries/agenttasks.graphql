@@ -1086,6 +1086,107 @@ query TeamUtilization(
       busyWorkers
       utilization
       saturated
+      # cli#2896: the latest no-worker match outcome inside the window (null otherwise: a later
+      # match clears it); family is null when the failed task left the family open.
+      lastMatchFailure {
+        at
+        reason
+      }
     }
   }
+}
+
+# A team's computed task and worker flow (server teamMetrics, cli#1826): every count
+# is the server's, with the ids behind it. since and until carry omitempty so an
+# unset flag is OMITTED (the server's own 7-day default window), never sent as null.
+query TeamMetrics(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $until: DateTime
+) {
+  teamMetrics(appRef: $appRef, since: $since, until: $until) {
+    appId
+    asOf
+    window {
+      since
+      until
+    }
+    startedOwned {
+      all {
+        ...TeamMetricsCountFields
+      }
+      byOwner {
+        owner {
+          id
+          kind
+          name
+          urn
+        }
+        tasks {
+          ...TeamMetricsCountFields
+        }
+        byProject {
+          project {
+            ...TeamMetricsProjectFields
+          }
+          tasks {
+            ...TeamMetricsCountFields
+          }
+        }
+        projectsTruncated
+      }
+      ownersTruncated
+    }
+    projects {
+      items {
+        project {
+          ...TeamMetricsProjectFields
+        }
+        children {
+          status
+          tasks {
+            ...TeamMetricsCountFields
+          }
+        }
+      }
+      truncated
+    }
+    workers {
+      active {
+        ...TeamMetricsCountFields
+      }
+      idle {
+        ...TeamMetricsCountFields
+      }
+      overdue {
+        ...TeamMetricsCountFields
+      }
+      inop {
+        ...TeamMetricsCountFields
+      }
+    }
+    flow {
+      completed {
+        ...TeamMetricsCountFields
+      }
+      started {
+        ...TeamMetricsCountFields
+      }
+    }
+  }
+}
+
+fragment TeamMetricsCountFields on TeamMetricsCount {
+  total
+  ids
+  truncated
+}
+
+fragment TeamMetricsProjectFields on TeamMetricsProject {
+  handle
+  noProject
+  taskId
+  title
 }
