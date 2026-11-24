@@ -76,6 +76,18 @@ Settings for automation (optional; an ordinary link needs none of them):
 			if err != nil {
 				return err
 			}
+			// The skip below is safe only because neither ref composes with -m, which is
+			// what ComposesWithMemory says; TestComposesWithMemoryAgreesWithResolveNodeRef3000
+			// ties it to ResolveNodeRef, so a new branch there cannot silently diverge.
+			// A memory ID on -m is read once for both endpoints (cli#3000), and only when an
+			// endpoint is a bare loc: two URN endpoints name their own nodes, so -m (and a
+			// fault reading it) must not affect them. After this the memory is a URN and the
+			// two ResolveNodeRef calls below read nothing.
+			if cmdutil.ComposesWithMemory(from) || cmdutil.ComposesWithMemory(to) {
+				if memory, err = cmdutil.ResolveMemoryRefForNodes(cmd, client, memory); err != nil {
+					return err
+				}
+			}
 			sourceID, err := cmdutil.ResolveNodeRef(cmd, client, memory, from)
 			if err != nil {
 				return err
@@ -128,7 +140,7 @@ Settings for automation (optional; an ordinary link needs none of them):
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve bare --from/--to locs against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "a memory ID or URN (hrn:mem:<root>:<slug>) to resolve bare --from/--to locs against")
 	cmd.Flags().StringVar(&from, "from", "", "the node the link starts from: a node URN, or a bare loc with -m (required)")
 	cmd.Flags().StringVar(&to, "to", "", "the node the link points to: a node URN, or a bare loc with -m (required)")
 	cmd.Flags().StringVar(&name, "name", "", "relationship name, for example routes-to (required)")
