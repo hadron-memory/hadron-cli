@@ -68,10 +68,11 @@ func inboxFailure(err error, message string) error {
 	return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s", message)
 }
 
-// The stages of the App-identity step that can fail for a reason that is not
-// the binding file's (hadron-cli#3004): the caller's App context is unusable, the
-// CLI could not set up its server client (local: no server was contacted), or
-// the server read that compares the context with the binding's App failed.
+// The stages of the identity step that can fail for a reason that is not the
+// binding file's (hadron-cli#3004, #3069): the server URL cannot be resolved
+// (config could not be read), the caller's App context is unusable, the CLI
+// could not set up its server client (local: no server was contacted), or the
+// server read that compares the context with the binding's App failed.
 type inboxStage int
 
 const (
@@ -144,6 +145,10 @@ func inboxIdentityFailure(err error, fallback string, recheck bool) error {
 			return exitcode.Newf(code, "%s the App context (--app or the configured App): it is not a valid App reference; name the App by id, hrn:app: URN or <org>:<slug> (the value is not shown; `hadron config get app` shows the configured one)", read)
 		}
 		return exitcode.Newf(code, "%s the App context: a local configuration problem (`hadron config get app` shows what is set)", read)
+	case inboxStageServer:
+		// Factory.Server() fails only when config cannot be read. Only the CLI's fixed words are printed, never the
+		// cause's text or a path; the exit class is the cause's own, as for the other stages (cli#3069).
+		return exitcode.Newf(code, "%s the server URL: a local configuration problem (`hadron config get server` shows what is set)", read)
 	case inboxStageClient:
 		// Local: nothing was sent, so never claim the server failed to answer.
 		return exitcode.Newf(code, "%s the App for this worktree: the CLI could not set up its server call (%s)", verb, inboxClientClass(code))
