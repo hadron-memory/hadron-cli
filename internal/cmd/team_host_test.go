@@ -553,3 +553,45 @@ func TestTeamHostIssueNoOperationInReply(t *testing.T) {
 		})
 	}
 }
+
+// cli#3077: a reply to `team host ops` that carries no hostOperations (data
+// null, {} or an explicit null field) must end in a named exit-1 error, as
+// `team host issue` does (#2572), never a nil dereference. The read has two
+// shapes: the one that selects issuedReason, and the plain one it falls back to
+// on a server older than hadron-server#4257.
+func TestTeamHostOpsNoDataInReply(t *testing.T) {
+	const oldServer = `{"errors":[{"message":"Cannot query field \"issuedReason\" on type \"HostOperation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	replies := map[string]string{
+		"null data":     `{"data":null}`,
+		"empty data":    `{"data":{}}`,
+		"explicit null": `{"data":{"hostOperations":null}}`,
+	}
+	for _, read := range []string{"with reason", "plain fallback"} {
+		for name, reply := range replies {
+			t.Run(read+"/"+name, func(t *testing.T) {
+				r := hostResponses()
+				if read == "with reason" {
+					r["HostOperationsWithReason"] = reply
+				} else {
+					r["HostOperationsWithReason"] = oldServer
+					r["HostOperations"] = reply
+				}
+				for _, argv := range [][]string{{"team", "host", "ops"}, {"team", "host", "ops", "--json"}} {
+					_, out, err := runTeamTask(t, r, argv...)
+					if err == nil {
+						t.Fatalf("want an error for a reply with no host operations, got output %q", out)
+					}
+					if !strings.Contains(err.Error(), "server returned no host operations") {
+						t.Fatalf("error %q does not name the empty reply", err)
+					}
+					if got := exitCodeFor(err); got != exitcode.Error {
+						t.Fatalf("exit %d, want %d", got, exitcode.Error)
+					}
+					if out != "" {
+						t.Fatalf("a refused read printed %q", out)
+					}
+				}
+			})
+		}
+	}
+}
