@@ -333,13 +333,15 @@ worker, otherwise you write as the signed-in person; an App key may read
 readiness but not write.
 
 Each command makes one request and never retries or guesses a head. A write
-prints the task handle, id and status, then one register line: the register's
-answer about the action code, as "register <code> → <task URN>", "→ no runnable
-task found at <loc>", "→ no register entry matches this code" or "→ not shown to
-this caller". The state UNMAPPED is the "no register entry" answer, and every pr
-code gets it while no register entry ships for it. The line says where the code
-routes, never whether the write recorded: the task line is the receipt. Text
-prints no placeholder for a missing loc or URN. --json is
+prints the task handle, id and status, then one register line (the register is
+the team's table that maps an action code to the task that handles it): the
+register's answer about the action code, as "register <code> → <task
+URN>", "→ no runnable task found at <loc>", "→ no register entry matches
+this code" or "→ not shown to this caller". The state UNMAPPED is the "no
+register entry" answer, and every pr code gets it while no register entry
+ships for it. The line says where the code routes, never whether the write
+recorded: the task line is the receipt. Text prints no placeholder for a
+missing loc or URN. --json is
 {task:{id,handle,status},action:{code,state,taskLoc,taskUrn}} (taskLoc and
 taskUrn are null when the state carries none). Readiness prints READY or NOT
 READY and a row per slot; --json is {ready,head,slots:[{slot,currentTaskId,state,verdict,
@@ -403,9 +405,10 @@ head, so after a push freeze the new one. Only the build task's assignee may.
 The build task must carry a pull_request reference (hadron team task update
 <task> --ref pull-request=<PR URL>; --ref replaces the whole list); without it
 the server refuses with PR_REFERENCE_MISSING. A head that already has a negative
-seat verdict cannot be frozen again: answer the finding with a new head.
-Normally run it after "pr schedule" and before "pr seat". Prints the build task
-and the register line.` + prSeeGroup,
+seat verdict cannot be frozen again, unless that verdict was withdrawn (pr
+withdraw): otherwise answer the finding with a new head. Normally run it
+after "pr schedule" and before "pr seat". Prints the build task and the
+register line.` + prSeeGroup,
 
 	"seat": `Bind a seat task to a scheduled slot at the frozen head: this is how a reviewer
 is named for that review. Only the seat task's owner chain may: its owner (the
@@ -428,16 +431,19 @@ finding with a new head. Prints the seat task and the register line.` + prReview
 task. Only the seat's assignee may, the task must be STARTED, the seat must
 have been bound with "pr seat" (REVIEW_SEAT_UNASSIGNED otherwise) and --head
 must be the head it was bound to (REVIEW_HEAD_MISMATCH). Record it, then finish
-the seat task (hadron team task finish <seat-task> --outcome ... --findings-file
-...): a seat counts toward readiness only once finished.
+the seat task (hadron team task finish <seat-task> --outcome <one word, such
+as approved>, adding --findings-file <path> to attach findings): a seat counts
+toward readiness only once finished.
 
 The verdicts: APPROVE and CHANGES_REQUESTED are for a code review; PASS and
 FAIL for QA or another check (the team's convention: the server accepts any of
 the six on any seat). CARRY says your earlier verdict still holds at this new
-head, because what you reviewed did not change. REFUSED records that the seat
-was refused. APPROVE, PASS and CARRY count toward readiness; CHANGES_REQUESTED,
-FAIL and REFUSED are negative and block it at this head (only the reviewer who
-recorded a negative verdict may re-rate it at that head).
+head, because what you reviewed did not change. REFUSED records that the
+reviewer refused the review; the protocol defines it only as a negative
+verdict, so it blocks readiness like CHANGES_REQUESTED. APPROVE, PASS and CARRY
+count toward readiness; CHANGES_REQUESTED, FAIL and REFUSED are
+negative and block it at this head (only the reviewer who recorded a negative
+verdict may re-rate it at that head).
 
 --node names the Hadron node holding your saved review and --receipt the URL of
 your signed PR comment; both are recorded as text, not fetched. Prints the seat
@@ -457,14 +463,15 @@ text and never fetched. The seat must have been bound and its latest verdict at
 that head must be negative and not already withdrawn
 (REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN). Anyone else is
 refused (REVIEW_WITHDRAW_FORBIDDEN): a worker session that manages the App only
-through its holder cannot withdraw from here; ask the reviewer or a coordinator.
+through the person holding it cannot withdraw from here; ask the reviewer or
+a coordinator.
 
 A withdrawal is never an approval. The verdict stays in the record and the seat
-is not changed; the negative only stops blocking readiness, the head's refreeze,
-dropping the slot and moving or replacing the seat. The slot still needs a
-superseding seat (pr seat --supersedes) whose own APPROVE, PASS or CARRY counts
-at this head. A refused call writes nothing, so a refusal needs no repeat. Prints
-the seat task and the register line.` + prSeeGroup,
+is not changed; the negative only stops blocking these: readiness, freezing
+this head again, dropping the slot, and moving or replacing the seat. The slot
+still needs a superseding seat (pr seat --supersedes) whose own APPROVE, PASS
+or CARRY counts at this head. A refused call writes nothing, so a refusal
+needs no repeat. Prints the seat task and the register line.` + prSeeGroup,
 
 	"readiness": `Show whether every scheduled review is in at a head: READY, or NOT READY with
 a row per slot saying which seat, state and verdict it has and whether it
@@ -474,7 +481,8 @@ counts. Anyone who can read the task may run it; it changes nothing.
 guessed. A slot counts when its current seat is finished, was bound at this
 head, holds an APPROVE, PASS or CARRY verdict from someone other than the build
 task's assignee or the head's freezer (the person who ran pr freeze on this
-head), and no seat of the head holds a negative verdict. NOT READY is a
+head), and no seat of the head holds a negative verdict (one that was
+withdrawn with pr withdraw no longer counts as negative). NOT READY is a
 successful read (exit 0): fix the slots that do not count (seat a reviewer, wait
 for the verdict, finish the seat task), then run it again. When every slot
 counts, the build task's assignee runs "pr ready".
