@@ -116,7 +116,7 @@ func TestAgentTasksCreateIsOneWriteCall2990(t *testing.T) {
 		t.Errorf("index = %v", idx)
 	}
 	if _, has := v["skill"]; has {
-		t.Errorf("no export block by default (Holger, 2026-10-28): skill = %v", v["skill"])
+		t.Errorf("no export block by default (cli#2990, Skill export is opt-in, ruling of 2026-10-28): skill = %v", v["skill"])
 	}
 	for _, want := range []string{roleTaskLoc2990, roleTaskURN2990, "when the poller stalls", roleTaskIndexURN2990} {
 		if !strings.Contains(run.out, want) {
