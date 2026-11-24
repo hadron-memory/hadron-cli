@@ -128,6 +128,12 @@ func carriesSession(req *graphql.Request, b *binding) bool {
 	return err == nil && strings.Contains(string(raw), `"`+b.SessionID+`"`)
 }
 
+// Ordering invariant: this guard runs BEFORE AuthoredWriteContext decorates the
+// call, and a command that deliberately acts as the person (withAsPerson,
+// `chat post --as-me`) either marks its ctx or names no session, so it passes.
+// A guard error fails open only where the signal cannot be established (no
+// launcher env, git or binding unreadable): those cases never refuse.
+//
 // ForeignBindingGuard is the per-request check behind
 // Factory.GraphQLRequestGuard: it refuses a mutation that would act through a
 // foreign worktree's worker session, as an authored write (the header) or by

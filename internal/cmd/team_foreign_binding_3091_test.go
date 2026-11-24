@@ -101,3 +101,40 @@ func TestForeignBindingOptInAndOwnWorktreeUnchanged3091(t *testing.T) {
 		})
 	}
 }
+
+// Blind P2-2: `chat post --as-me` drops the session on purpose (cli#842), so a
+// foreign-bound worktree must not refuse it, and nothing carries the session.
+func TestForeignBindingAsMePostStillWorks3091(t *testing.T) {
+	calls, err := run3091(t, "id1::"+ownRoot3091, "", "team", "chat", "post", "hello", "--as-me")
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, foreign := sessionsSent3091(calls)
+	if n != 1 || foreign {
+		t.Fatalf("--as-me must post once, as the person: %v", opsOf(*calls))
+	}
+}
+
+// Blind P3: a malformed launcher signal, or an opt-in other than "1", does not
+// open the guard or close it.
+func TestForeignBindingSignalAndOptInEdges3091(t *testing.T) {
+	argv := cmds3091["task start"]
+	for _, sig := range []string{"no-separator", "id::", "::"} {
+		calls, err := run3091(t, sig, "", argv...)
+		if err != nil {
+			t.Fatalf("%q: %v", sig, err)
+		}
+		if n, _ := sessionsSent3091(calls); n != 1 {
+			t.Fatalf("%q: malformed signal means unchanged: %v", sig, opsOf(*calls))
+		}
+	}
+	for _, v := range []string{"0", "true", "yes"} {
+		if _, err := run3091(t, "id1::"+ownRoot3091, v, argv...); err == nil {
+			t.Fatalf("opt-in %q must not open the guard", v)
+		}
+	}
+	// A path that merely contains "::" keeps everything after the LAST "::".
+	if _, err := run3091(t, "a::b::"+ownRoot3091, "", argv...); err == nil {
+		t.Fatal("last-:: split must still name the foreign invoker")
+	}
+}
