@@ -2,7 +2,8 @@
 # pin, hadron-cli#2658).
 #
 # The snapshot is the export of ONE real hadron-server commit, server_sha below,
-# which is on hadron-server main and carries Questions S1-S4 (#4425-#4428) and
+# which is on hadron-server main (except while a PRE-MERGE PIN block below names an
+# unmerged server PR head, for a paired change) and carries Questions S1-S4 (#4425-#4428) and
 # everything the CLI selects. It is no longer a merge of two commits with an overlay.
 # Refresh it with the skill refresh-the-schema-snapshot (a detached worktree of the
 # commit you name, `make schema HADRON_SERVER_DIR=... SDL_EXPORT=...`) and name the
@@ -13,6 +14,6 @@
 # tsx= and graphql= are the exporter's tool versions, the single place they live: the
 # schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
 # because a floating graphql minor can change printSchema bytes. Bump deliberately.
-server_sha=582e97fdb1f59976d98246aaa2b2b305a529aaba
+server_sha=e58c4ad846ef37c3cc06dfc52f4e5fd0c22d6bfa
 tsx=4.23.15
 graphql=16.15.0
