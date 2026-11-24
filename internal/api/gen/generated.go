@@ -69582,8 +69582,8 @@ func (v *MemoryLocSegmentsMemoryLocSegmentsLocSegmentsPageItemsLocSegment) GetMe
 type MemoryLocSegmentsResponse struct {
 	// #3456 (hrn:node:hadronmemory.com:specs:cor:api:090:05): one page of the distinct next loc segments
 	// under parentLoc ("" for the root), including a branch with no node of its own. Reads over exactly
-	// the nodes findNodes would read for the same memoryIds with no query: the same readable set, access
-	// intersection, defaults and inheritance. memoryIds is required and non-empty (an empty list is
+	// the nodes findNodes would read for the same memories with no query: the same readable set, access
+	// intersection, defaults and inheritance. memoryRefs (each an ID or URN) is required and non-empty (an empty list is
 	// BAD_USER_INPUT); when no entry survives the gate the answer is the empty page, never the caller's
 	// default scope. An unreadable, unresolvable or empty memory, and a parent with nothing at or under
 	// it, all give the identical empty page. Rows are grouped by memory id; inside a memory, node-backed
@@ -127795,7 +127795,7 @@ func (v *UsageEventInput) GetType() string { return v.Type }
 
 // UsageEventsPageByAppKeyResponse is returned by UsageEventsPageByAppKey on success.
 type UsageEventsPageByAppKeyResponse struct {
-	// #2212 - `usageEvents` as a page: the same principal gate, the same loc/nodeId rules and the same two scopes
+	// #2212 - `usageEvents` as a page: the same principal gate, the same loc/nodeRef rules and the same two scopes
 	// (own activity when no resource is named, #2817), ordered newest first with an id tiebreak, with the windowed total.
 	// since is inclusive and until is exclusive: since <= createdAt < until.
 	// Bounds must be ISO date-times with Z or an explicit offset.
@@ -127910,7 +127910,7 @@ func (v *UsageEventsPageByAppKeyUsageEventsPageUsageEventPageItemsUsageEvent) Ge
 
 // UsageEventsPageResponse is returned by UsageEventsPage on success.
 type UsageEventsPageResponse struct {
-	// #2212 - `usageEvents` as a page: the same principal gate, the same loc/nodeId rules and the same two scopes
+	// #2212 - `usageEvents` as a page: the same principal gate, the same loc/nodeRef rules and the same two scopes
 	// (own activity when no resource is named, #2817), ordered newest first with an id tiebreak, with the windowed total.
 	// since is inclusive and until is exclusive: since <= createdAt < until.
 	// Bounds must be ISO date-times with Z or an explicit offset.
@@ -173521,7 +173521,7 @@ func MemoriesSharedWithMe(
 // The query executed by MemoryAssets.
 const MemoryAssets_Operation = `
 query MemoryAssets ($memoryId: ID!, $mimeType: String, $mine: Boolean, $includeDeleted: Boolean, $skip: Int, $count: Int) {
-	memoryAssets(memoryId: $memoryId, mimeType: $mimeType, mine: $mine, includeDeleted: $includeDeleted, skip: $skip, count: $count) {
+	memoryAssets(memoryRef: $memoryId, mimeType: $mimeType, mine: $mine, includeDeleted: $includeDeleted, skip: $skip, count: $count) {
 		total
 		hasMore
 		assets {
@@ -173844,7 +173844,7 @@ func MemoryEncryptionPrincipal(
 // The query executed by MemoryLocSegments.
 const MemoryLocSegments_Operation = `
 query MemoryLocSegments ($memoryIds: [ID!]!, $parentLoc: String!, $limit: Int, $after: String) {
-	memoryLocSegments(memoryIds: $memoryIds, parentLoc: $parentLoc, limit: $limit, after: $after) {
+	memoryLocSegments(memoryRefs: $memoryIds, parentLoc: $parentLoc, limit: $limit, after: $after) {
 		items {
 			segment
 			hasNode
@@ -195793,7 +195793,7 @@ func UsageActivity(
 // The query executed by UsageEventsPage.
 const UsageEventsPage_Operation = `
 query UsageEventsPage ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
-	usageEventsPage(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+	usageEventsPage(memoryRef: $memoryId, loc: $loc, nodeRef: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
 		total
 		hasMore
 		items {
@@ -195857,7 +195857,7 @@ func UsageEventsPage(
 // The query executed by UsageEventsPageByAppKey.
 const UsageEventsPageByAppKey_Operation = `
 query UsageEventsPageByAppKey ($appKey: ID!, $memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
-	usageEventsPage(appKey: $appKey, memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+	usageEventsPage(appKey: $appKey, memoryRef: $memoryId, loc: $loc, nodeRef: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
 		total
 		hasMore
 		items {
