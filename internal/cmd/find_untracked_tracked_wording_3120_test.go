@@ -25,4 +25,9 @@ func TestFindUntrackedHelpDefinesTrackedPerSpec3120(t *testing.T) {
 	if strings.Contains(help, "an active task") {
 		t.Errorf("help still defines tracked by an active task")
 	}
+	// The gate's second "don't": a release does not always untrack. The CLI
+	// skips untrack while another task of the App still holds the item.
+	if !strings.Contains(help, "calls untrack with the released item only when no other task of the App still holds it") {
+		t.Errorf("help says a release untracks unconditionally")
+	}
 }

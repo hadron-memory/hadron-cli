@@ -620,7 +620,7 @@ section between the markers.
 | `team task create` |  |  | y | #1054 | 6bdb2ee0d1cf |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | f8736a762e4d | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task dispose-finding` |  |  | y | #1054 | f713057fa30a | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
-| `team task find-untracked` |  |  | y | #1054 | 75e8d55591cc |  | unread |  |
+| `team task find-untracked` |  |  | y | #1054 | b8f8cba09f9f |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 30d1e3cd8a22 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task finish` |  |  | y | #1054 | 0c4fd89648e3 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |

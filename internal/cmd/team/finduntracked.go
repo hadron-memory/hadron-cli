@@ -80,7 +80,7 @@ RECONCILE (every adapter run, before the list). The CLI reads, from the server,
 what changed on the App's tasks that carry an outside item since its cursor, and
 tells the adapter what its tracker should hear: a reassignment calls mark-tracked
 again for the new assignee, a release (` + "`task release`" + `) calls untrack with the
-released item, a cancel calls report only if the adapter's describe lists it, and
+released item only when no other task of the App still holds it, a cancel calls report only if the adapter's describe lists it, and
 a finish, hand-back or first assignment call nothing. The cursor is the server's
 own opaque value, kept per server, App and adapter in a file beside the CLI's
 config (intake-cursors.json); one run reconciles a feed at a time (a second
