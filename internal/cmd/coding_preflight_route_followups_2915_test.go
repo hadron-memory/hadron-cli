@@ -278,3 +278,34 @@ func TestPreflightRouteDryRunMarkerNeededIsNotAlreadyRouted3002(t *testing.T) {
 		t.Errorf("marked edges are already routed:\n%s", out)
 	}
 }
+
+// hadron-cli#3002 (blind delta): the release note names the exact text a dry run
+// prints. Pin the first line of each case, so a changed verb fails here.
+func TestPreflightRouteDryRunTextVerbs3002(t *testing.T) {
+	firstLine := func(out string) string { return strings.SplitN(out, "\n", 2)[0] }
+	cases := []struct {
+		name           string
+		router, target string
+		extra          []string
+		want           string
+	}{
+		{"already routed, nothing to write", routerWithLine2915("null"), existingTarget2736("null"), []string{"--dry-run"}, "already routed (nothing to write)"},
+		{"already routed, body line missing", existingRouter2736("null"), existingTarget2736("null"), []string{"--dry-run"}, "already routed (edges); would add the body line"},
+		{"not routed yet", codingRouterWithBody(flatRouterBody), crossTarget2736(), []string{"--dry-run"}, "would route"},
+		{"real run, already routed", routerWithLine2915("null"), existingTarget2736("null"), nil, "✓ already routed"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, out, err := runRoute2915(t, c.router, c.target, c.extra...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := firstLine(out); !strings.HasPrefix(got, c.want) {
+				t.Errorf("first line = %q, want it to start with %q", got, c.want)
+			}
+			if c.name != "not routed yet" && strings.Contains(firstLine(out), "would route") {
+				t.Errorf("an already-routed route is never 'would route': %q", firstLine(out))
+			}
+		})
+	}
+}
