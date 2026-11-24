@@ -38,41 +38,44 @@ func checkFailure(err error) error {
 
 func newCmdTeamChatCheck(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "check", Short: "Write every tagged message to a private file, then mark the sampled head", Args: cobra.NoArgs,
-		Long: `Check all messages tagging this worktree's bound worker in its team channel.
-Sample the channel, incarnation, stored cursor C and committed head H once.
-Trust C only when its stored incarnation matches; otherwise scan from zero,
-which can repeat messages. The receipt keeps stored C and the scan floor separate.
-Drain every
-matching message above that scan floor through H, including server-selected @all/team tags. Every page
-is fenced and acknowledgement-suppressed. New arrivals after H stay unmarked.
+		Long: `Collect the messages in your team chat that tag your bound worker, write them
+to a private file, and mark the chat read. Use it to catch up on what is
+addressed to you without reading the whole chat. It reads the team chat of the
+App your worktree is bound to (see ` + "`" + `hadron team chat --help` + "`" + `).
 
-For any messages, write the complete ordered JSON artifact to a private file
-(0600 in a new 0700 cache directory) and print its path to stderr BEFORE marking.
-Open that file to read the messages. Completion means written and marked, not
-that you read the file. The mark also covers UNTAGGED messages between C and H.
-An empty tagged range also advances through H. No artifact is removed on success;
-remove it yourself after reading. No delivery-batch inbox proofs are acknowledged.
+What it does, in order:
+  1. Notes the chat's newest seq once (call it the head). Messages that arrive
+     after that are left unmarked for the next check.
+  2. Starts from your stored read position, if the server still trusts it.
+     When it does not (the chat was reset), it scans from the beginning and
+     may show messages you have seen before.
+  3. Collects every message up to the head that tags you, including @all and
+     @team tags, and writes them, in order, as JSON to a private file (mode
+     0600, in a new 0700 cache directory). The file path is printed to stderr
+     BEFORE anything is marked. Open that file to read the messages; the
+     message text is never printed to stdout, so output truncation cannot
+     hide one.
+  4. Marks the chat read through the head. This also covers messages in that
+     range that did not tag you. "Done" means the file is written and the mark
+     landed, not that you read the file. An empty result still advances the
+     position to the head.
 
-Exit 0: messages written and cursor coverage confirmed. Exit 9: nothing tagged,
-cursor coverage confirmed (9 is not an error; handle it explicitly in set -e scripts).
-Exit 10: mark outcome uncertain. Existing errors 1-8
-keep their meanings. Read/file/path-output errors before mark send no mutation,
-but served own-session reads may already count as checks. No stamp acknowledgement
-or roster OK status is asserted: inspect the roster CHECK column separately.
+The file is not deleted: remove it yourself once you have read it. The delivery
+batches ` + "`" + `team chat inbox` + "`" + ` shows are not acknowledged by this command, and the
+roster's CHECK column is not changed or asserted; look at the roster for that.
 
-If a mark reply is lost, verify same-incarnation cursor coverage; if unconfirmed,
-retry exactly that fenced H mark ONCE, never an incarnation mismatch. There is no
-rollback. An uncertain result retains any artifact. If the server answers with
-an unlabelled or old-incarnation cursor, repeating check may return exit 10 until
-a mark advances that cursor in the current incarnation (including quiet legacy
-channels at H=0); do not loop on retries. Read any retained file. Other uncertain
-results may be checked again from the current binding. No old-server, headerless
-or unguarded fallback is used.
+Exit codes: 0 messages written and the mark confirmed; 9 nothing tagged you and
+the mark is confirmed (not an error, so handle it in scripts that stop on
+errors); 10 the mark may or may not have landed. On 10, the file (if any) is
+kept; check whether your read position moved, and only if it did not repeat
+exactly this check ONCE. Do not retry in a loop. An old-server fallback is not
+used. If the server keeps answering with a position from an older chat, check
+can keep returning 10 until a ` + "`" + `team chat mark-read` + "`" + ` moves it. Errors 1 to 8
+mean what they do everywhere. A failure before the mark sends no change, though
+the read may still count as a check.
 
---json emits a bounded result receipt; message bodies are always in the artifact,
-never stdout, so tool truncation cannot silently hide messages while marking.
-The artifact path/pre-mark notice goes to stderr in both modes. A final receipt
-write failure can occur AFTER a confirmed mark; its diagnostic says so.`,
+--json prints a short receipt (never the messages, which are in the file). If
+writing that receipt fails after the mark landed, the error says so.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx := cmd.Context()
 			identity, err := inboxBoundIdentity(f)(ctx)

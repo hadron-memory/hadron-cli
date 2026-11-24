@@ -31,27 +31,33 @@ func newCmdTeamChat(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chat <command>",
 		Short: "The team App's group chat",
-		Long: `Post to and read the team App's group chat — ONE well-known chat per team
-App, owned end-to-end by the server (placement, ordering, authorship,
-mentions). With a worktree WORKER SESSION binding (` + "`session start`" + `),
-posts are authored by the bound worker and carry the driving worker session;
-without one, a post is REFUSED (exit 4) unless you pass
---as-me, which posts as you. (A chat session — your Desktop window
-or Claude Code session — is a different thing and authors nothing.)
+		Long: `Post to and read your team's group chat. Each team App has exactly one chat,
+and the server decides message order, authors and @mentions.
 
-The team App resolves from --app (or the configured App context), falling
-back to the worktree binding. Mention teammates as @worker-name /
-@handle — a multiword name by its slug (@mary-jane).
+Who a post comes from: with a worker session bound to this worktree (see
+` + "`" + `hadron team session start` + "`" + `), a post is written by that worker. Without one,
+the post is refused (exit 4) unless you pass --as-me, which posts as you.
+A chat session (your desktop window or a Claude Code conversation) is a
+different thing and writes nothing.
 
-WHICH CHAT. That resolution is ambient, so ` + "`read`" + ` opens with the
-App it landed on and where the scope came from — including when there is
-nothing new, which is the usual case and was previously indistinguishable
-from reading another team. ` + "`post`" + ` names the team chat in its receipt, and warns
-on stderr BEFORE writing when the App came from a context or binding you
-did not name AND no session goes on the wire (--as-me).
-With a session the server checks it against the App and refuses a mismatch;
-without one nothing does, and a post can neither be recalled nor its
-mentions unfired — so that signal comes early rather than in the receipt.`,
+Which team: the chat of the App named by --app, else the configured App
+context, else the App this worktree is bound to. ` + "`" + `read` + "`" + ` prints that App at the
+top, even when nothing is new, so you can tell you are in the right team. ` + "`" + `post` + "`" + `
+names the team in its receipt. When --as-me is given and the App came from a
+context or binding you did not name, ` + "`" + `post` + "`" + ` warns on stderr before writing,
+because a post made as yourself cannot be recalled and its mentions cannot be
+unsent. With a worker session the server checks the App and refuses a mismatch.
+
+Mention a teammate as @worker-name or @handle; for a name of several words use
+its slug (@mary-jane).
+
+Which command to use:
+  read       look at messages (the everyday command)
+  check      collect only the messages that tag you, into a private file
+  inbox      show messages the system queued for your worker
+  mark-read  move your read position forward without reading
+  search     find old messages by text
+  post       write a message`,
 	}
 	cmd.AddCommand(newCmdTeamChatPost(f))
 	cmd.AddCommand(newCmdTeamChatRead(f))
@@ -232,60 +238,53 @@ func newCmdTeamChatPostWithHostDelivery(f *cmdutil.Factory, prepare postHostDeli
 	cmd := &cobra.Command{
 		Use:   "post <body|-> [--reply-to <seq>]",
 		Short: "Post to the team chat",
-		Long: `Post one message to the team App's chat. With a worktree worker session
-binding, the message is authored by the bound WORKER through that session (the
-server verifies the session is yours, active, and bound to a non-retired
-worker of this App, and records it — a worker message always traces to the
-human driving it). With --as-me it is authored by you.
+		Long: `Post one message to the team App's chat (the team is chosen as in
+` + "`" + `hadron team chat --help` + "`" + `). The body is the argument, or --body, or --body-file,
+or - to read standard input; give exactly one. - is for pipes and is refused
+at an interactive terminal (use --body-file there). On success it prints a
+receipt naming the team and the message's seq.
 
-WITHOUT A BINDING THE POST IS REFUSED, exit 4, and nothing is sent: it would
-otherwise be attributed to the person driving the agent. Recover your worker
-with ` + "`hadron team session start`" + ` (no worker named: it redeems your
-resume claim, or your one live worker session), bind one with
-` + "`--as <worker>`" + `, or post as yourself with --as-me.
+Who it is from: with a worker session bound to this worktree, the post is
+written by that worker, and the server checks the session is yours and live.
+With --as-me it is written by you. With neither, the post is refused (exit 4)
+and nothing is sent, because it would be credited to the person running the
+agent. Fix that with ` + "`" + `hadron team session start` + "`" + ` (with no worker named it
+resumes your worker), with ` + "`" + `--as <worker>` + "`" + ` to bind one, or with --as-me.
 
-Mentions (@worker-name / @handle; a multiword name by its slug, e.g.
-@mary-jane) are extracted server-side into the message. The body is the
-positional argument (- reads stdin); --body/--body-file are accepted too,
-matching ` + "`hadron chat post`" + `. Exactly one source. - is for a pipe: it is
-refused when stdin is an interactive terminal (use --body-file there).
+Mention a teammate as @worker-name or @handle (a name of several words by its
+slug, e.g. @mary-jane); the server finds the mentions in the body.
+--reply-to takes the seq of the message you answer, as ` + "`" + `team chat read` + "`" + `
+shows it.
 
---reply-to takes the seq of the message being answered, as shown by
-` + "`team chat read`" + `.
+Two refusals are deliberate and exit 5: TEAM_CHAT_DUPLICATE (the same message
+was just posted) and TEAM_CHAT_POST_RATE_LIMITED (too many posts). The server's
+message names the earlier seq or when to try again. The command sends the post
+once and never retries; with --json the refusal name is in error.serverCode.
 
-TEAM_CHAT_DUPLICATE and TEAM_CHAT_POST_RATE_LIMITED are deliberate post
-refusals (exit 5): read the server's message for the earlier seq or the reset
-time before trying again. The CLI sends the post once and never retries these
-refusals. --json keeps their names in error.serverCode (error.code is numeric).
+Delivering to terminals (optional). Posting only writes to the chat; nobody's
+terminal is typed into. --orca-host-config PATH adds a step after a confirmed
+post: it checks this host's configuration first, then delivers any messages
+now due to workers on this host, including older ones. The host must already be
+registered for the same App and server; this command never registers it. If
+delivery is held or fails, the post still stands and the exit stays 0: do not
+post again, run ` + "`" + `hadron team host run --config <host.yaml>` + "`" + ` instead.
 
-With --orca-host-config PATH, validate this host before posting, then attempt
-already-due batches for it after confirmed post output (including older unrelated
-batches). Without the flag no host config, key or Orca is touched. The host uses
-a separate session-free key and must already be registered for the same App and
-server; this command never registers it. A held/failed pass preserves post
-stdout/JSON and exit 0: do not repost; recover with
-hadron team host run --config <host.yaml>. Held deliveries are reported in
-local counts but are not reported to the server yet (no alarm/escalation).
-
-With --push (which REQUIRES --orca-host-config, exit 2 before posting
-otherwise) the post also goes to the terminals of the workers it MENTIONS, and
-only to them: the recipients are the mentions the server stored on the message
-(@all / @team push to no one), and the CLI parses nothing. Each recipient gets
-its whole due batch through the poller's delivery transaction, so nothing is
-typed over a draft and a held recipient's marks do not move. The report says
-per recipient pushed (acknowledged), typed (the text reached the terminal but the
-acknowledgement did not land: no mark moved, still due, never typed again; reason
-ack-pending), held (the delivery's reason, e.g. draft), not-pushed, or
-unconfirmed (the delivery pass failed before this recipient had an outcome, so
-whether it was typed is not established; reason push-failed), in the text and
-in --json under "push", each with "acked" (batches whose acknowledgement was
-accepted) and "batch" (the span of the batch that decided the state, or none).
-not-pushed names its cause: not-on-host (the mention matches no worker
-registered on this host with a configured worktree; push from that worker's
-host) or no-due-batch (the worker is on this host but the server offered no
-due batch for it; why none was due is not known to the CLI). Every state exits
-0: the post stands either way, so test the state, not the exit. A failed push never undoes the post or
-changes its exit code.`,
+--push, which needs --orca-host-config (without it the command exits 2 before
+posting), also sends the post to the terminals of the workers it mentions, and
+only them. @all and @team reach no terminal. Nothing is typed over a draft the
+worker is writing. The report gives each mentioned worker one of:
+  pushed         delivered and acknowledged
+  typed          the text reached the terminal but the acknowledgement did
+                 not land (reason ack-pending); it is still due and will not
+                 be typed again
+  held           delivery was postponed, e.g. the worker has a draft
+  unconfirmed    the delivery failed before this worker's turn, so it is not
+                 known whether it was typed (reason push-failed)
+  not-pushed     not-on-host: the worker is not registered on this host, so
+                 push from that worker's host; or no-due-batch: this host has
+                 the worker but the server had nothing due for it
+With --json the same states are under "push". Every state exits 0, so test the
+state, not the exit code; a failed push never undoes the post.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"
   hadron team chat post --push --orca-host-config host.yaml "@rufus your turn"`,
@@ -520,116 +519,75 @@ func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
 		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>]",
 		Aliases: []string{"pull"},
 		Short:   "Read one page of team chat, newest page by default",
-		Long: `Read one page of team-chat messages, oldest first within the page.
-Text keeps [seq] first, then the message time in UTC at minute precision.
-A missing or invalid time is omitted; JSON at is unchanged.
-With no cursor, the server returns the newest page. Pass --before <seq> to
-walk back, or --since <seq> to walk forward from that seq. The response's
-prevBefore and nextSince are the respective cursors to pass next turn.
+		Long: `Read messages from the team chat, oldest first within the page. Each line
+starts with the [seq] (the message's number), then its time in UTC to the
+minute. With no options you get the newest page (20 messages). The team is
+chosen as in ` + "`" + `hadron team chat --help` + "`" + `.
 
---since 0 explicitly starts at the oldest page. --all opts into walking
-forward to the end, starting at seq 0 unless --since is also given. --all
-cannot be combined with --before or --limit; those name a single page.
+Choose the window:
+  --since N      the page after seq N (0 = the oldest page)
+  --before N     the page just before seq N, still printed oldest first
+  --since N --before M   one bounded slice
+  --all          every page forward to the end, from seq 0 or from --since;
+                 not with --before or --limit
+  --limit N      page size, 1 to 200 (default 20)
+To go on, pass the nextSince shown on the page as --since, or its prevBefore
+as --before. An empty page back means you reached the start of the history; do
+not judge "is there more" from the count shown, which covers only the part of
+the chat past your cursor.
 
---limit sets the page size (default 20, at most 200, the server's cap); a full default page says more may exist on stderr. --all walks every page in 200-row chunks. --since and
---before compose, so ` + "`--since 300 --before 340`" + ` reads one bounded slice.
+Filter the messages:
+  --mentions-me      only messages that mention your bound worker
+  --mentions <ref>   only messages that mention a worker name or id of this
+                     team, or a user handle or id. The server matches the
+                     mentions it stored when each message was posted; nothing
+                     is re-parsed, and a token may match several workers.
+  --thread N         only the direct replies to message N (not N itself, not
+                     replies to those replies). An unknown seq is exit 4; a
+                     message with no replies gives an empty page. --since,
+                     --before, --limit and --all then page through the replies.
+  --tagged, --untagged, --team-head ID (repeatable)
+                     only messages with a stored team head, with none, or with
+                     one of these head IDs, used exactly as given (an ID,
+                     not a name; commas are part of the ID; at most 20). Give
+                     only one of the three, not with --thread. Where the
+                     deployment stamps heads, text output shows their labels
+                     and --json adds teamTags: [{headId,label}] ([] for none,
+                     null where history lacks or withholds it); key on headId.
+                     Refusals are exit 4 (TEAM_CHAT_TEAM_HEAD_INVALID), exit 8
+                     (TEAM_CHAT_TEAM_METADATA_FORBIDDEN) or exit 2
+                     (BAD_USER_INPUT); never an empty transcript.
 
-prevBefore is NULL when the page came back EMPTY, and that is the ONLY
-end-of-history signal — walk back until you get one. Do not try to compute
-"is there more" from a count: the server's total is scoped to the cursor,
-not to the chat, so on the second page back it reports
-fewer messages than exist and a reader trusting it stops early.
+What counts as read. An ordinary forward read of your own team's chat, with no
+filter, from the point you already reached, records what it returned: it moves
+the local watermark that ` + "`" + `team session log` + "`" + ` counts from, and marks your worker
+read on the server up to the same seq. Messages are marked only after they are
+printed, so a read that fails partway marks nothing. These reads mark nothing
+and leave the watermark alone: the newest-page read with no cursor (the server's
+count and fetch can race), --before, a window that starts ahead of what you
+have read or past the end of the chat, any filter above, --thread, and a read
+of another team. After one of them, run ` + "`" + `hadron team chat mark-read --through
+<seq>` + "`" + ` when you have really read up to there. To read everything in order, use
+--since with the last seq you read.
 
-A --before read never advances the watermark below: it skips a middle range.
-A cursorless newest-page read also never advances it, even if the page appears
-complete: the server's count and fetch can race. Use an explicit --since for a
-contiguous forward read, or mark-read after deliberately acknowledging a gap.
+Stale reads. Before printing, the command samples the newest message and
+compares. If a forward or newest-page read looks shorter than the chat is (a
+stale or incomplete answer from the server) it exits 5: the messages it got are
+still shown but nothing is marked read, so retry from your original --since.
+The read-state line (JSON: readState) shows the newest seq seen, the highest
+allocated seq, and your server read position before this read; null means not
+available, not zero.
 
---mentions-me keeps only messages mentioning the bound worker;
---mentions <ref> filters for any staff member or App member (a worker name
-or id of this App, or a user handle/id — passed through to the server,
-which resolves it only against the App's own staff and members). The
-filter matches the mentions the SERVER extracted at write time — nothing
-is re-parsed — and with a filter active, nextSince advances only past the
-messages returned (skipped messages are re-scanned server-side next turn,
-which is free and never re-delivers them). Mention tokens carry no
-uniqueness guarantee: a token may match more than one
-worker, and the filter simply returns every match.
+Waiting. Chat is not pushed to you. --wait <duration> (needs --since, not with
+--before or --all) repeats the same read every --poll-interval (default 5s,
+minimum 2s) until it returns a message, then prints it and exits 0. If the time
+runs out it prints the last empty read and exits 13; nothing is wrong, so wait
+again from the same --since. A poll that fails stops the wait with that error.
 
-An UNFILTERED read of the worktree's OWN team App can record a WATERMARK on
-the binding, which lets ` + "`session log`" + ` count later messages.
-It records only a contiguous prefix the command actually returned.
-Both qualifiers matter — a filtered read skips the messages in between (see
-nextSince above), and another team's seq is not this binding's cursor — so
-those reads deliberately leave the watermark where it was, as does a read
-whose output could not be written. "Another team" is decided on canonical App
-ids, so naming your own team by URN still counts as reading it. The watermark is NOT nextSince: it advances
-only on a read CONTIGUOUS with what the binding already holds, and only to a
-seq the server actually returned — so a --since ahead of the watermark (or
-past the end of the chat) reads a window rather than a prefix and records
-nothing. An explicit --since 0 on an EMPTY chat still records read-through-0.
-
-FRESHNESS. Before reading, a separate unfiltered request samples the
-latest surviving message; optional metadata samples the allocator watermark. Empty/short
-forward pages and newest pages are checked against that baseline. A discrepancy
-is suspected incomplete/stale delivery (exit 5): returned messages remain visible, but nothing
-is marked read. Retry from your original cursor. Posts arriving after the probe
-are not discrepancies. Agreement cannot detect two equally stale responses.
-Filtered and backward windows need not reach the head. A --before bound above
-the sampled head is a newest-page request when the head also exceeds --since.
-The read-state line (JSON: readState) shows the sampled head, allocatedHead,
-and your default-Channel server readCursor before this read. Null values mean
-unavailable or inapplicable, not zero. Optional metadata/cursor failures do not
-deny chat. An old-schema beforeSeq refusal explicitly disables comparison;
-other head-probe failures fail the read. Shared stale sources can still agree.
-
-SESSION ATTRIBUTION. On this binding's App and deployment, head and
-message reads carry the worker session with advanceReadState:false. The server
-attributes activity and maintains liveness but does not acknowledge messages
-before delivery. Metadata diagnostics remain headerless. An older server's
-specific unknown-argument validation refusal retries headerless with a note;
-other failures are not retried. Rebinding stops use of the old session on
-subsequent requests. Explicit post-delivery acknowledgement still follows the
-rules below.
-
-YOUR OWN READ STATE ON THE SERVER. When the binding
-records this server, a read that records the watermark above also marks the bound worker's
-messages read ON THE SERVER, through the same seq, so your unread state on
-the server matches what you have read. It happens only AFTER the messages were
-printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
---before or windowed read marks nothing; use ` + "`team chat mark-read --through <seq>`" + `
-for those. An older server that cannot mark messages read skips the mark; other
-mark failures produce a note on stderr and the read still succeeds.
-
-READING A THREAD (--thread). --thread <seq> returns the DIRECT replies
-to that message — never the message itself, and never replies to those replies
-(a reply's own thread is --thread <its seq>; find the seq in the "↩N"/replyToSeq
-of a message). The server filters, so --since, --before, --limit and --all page
-through the replies, not the whole chat. A seq that names no message in this
-chat is exit 4 (not found), never an empty page; a message that exists with no
-replies is a valid empty page. A thread read is a filtered window: like
---mentions it never advances your watermark or server read state (use
-` + "`team chat mark-read`" + `), and it skips the freshness comparison.
-
-WAITING (--wait). Team chat is never pushed to you,
-so there is no event to block on: --wait <duration> POLLS. With --since <seq>
-(the nextSince of your last read) it runs this same read every --poll-interval
-(default 5s, at least 2s, so it is never a busy loop) until a poll returns a
-message, then prints that read and exits 0, or until <duration> has passed. On
-timeout it prints the last (empty) read and exits 13 — distinct from 2 (usage),
-4 (not found), 7 (unavailable) and 9 (` + "`team chat check`" + ` found nothing
-tagged); nothing was wrong, so wait again from the same --since. Every poll is
-an ordinary read — the same gates, mention filter, attribution and read-state
-rules — and a poll that returns nothing changes nothing; the read-state lines of
-empty polls are not printed. A failing poll stops the wait at once with its own
-error. --wait needs --since and cannot be combined with --before or --all.
-
---json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
-alias for readers written against ` + "`hadron chat read`" + `, the retired academy
-dialect, which calls the field ` + "`author`" + `. Prefer authorName. Unlike
-that dialect this output also separates authorUserId from authorWorkerId, so
-a human post and a worker post are tellable apart; the transcript marks
-them "(human)" / "(worker)".`,
+--json names the author as authorName, and also as author for readers written
+for the retired ` + "`" + `hadron chat read` + "`" + `; prefer authorName. authorUserId and
+authorWorkerId tell a human post from a worker post (text marks them "(human)"
+or "(worker)").`,
 		Example: `  hadron team chat read
   hadron team chat read --since 42
   hadron team chat read --all --since 0

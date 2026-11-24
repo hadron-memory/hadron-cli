@@ -506,13 +506,13 @@ section between the markers.
 | `team availability get` |  |  | n | #1054 | d0b01e0f621b | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team availability set` |  |  | y | #1054 | c20f3cd0d9a8 |  | unread |  |
 | `team channel` |  |  | y | #1054 | daf291779858 |  | unread |  |
-| `team chat` |  |  | n | #1054 | b23cf704d523 |  | unread |  |
-| `team chat check` |  |  | n | #1054 | 4d740c54568d |  | unread |  |
-| `team chat inbox` |  |  | n | #1054 | 99496731d1ef |  | unread |  |
-| `team chat mark-read` |  |  | y | #1054 | 4af163a6f043 |  | unread |  |
-| `team chat post` |  |  | y | #1054 | 387961472743 |  | unread |  |
-| `team chat read` | pull |  | y | #1054 | 18d66c7183e6 |  | unread |  |
-| `team chat search` |  |  | y | #1054 | 0ca12ea9a25e |  | unread |  |
+| `team chat` |  |  | n | #1054 | fe0007157afc |  | unread |  |
+| `team chat check` |  |  | n | #1054 | 879a048b51d3 |  | unread |  |
+| `team chat inbox` |  |  | n | #1054 | 098ce787ca9f |  | unread |  |
+| `team chat mark-read` |  |  | y | #1054 | 595c0b60eefa |  | unread |  |
+| `team chat post` |  |  | y | #1054 | 3c0c871593e0 |  | unread |  |
+| `team chat read` | pull |  | y | #1054 | 2c958a410401 |  | unread |  |
+| `team chat search` |  |  | y | #1054 | 761bf8adfcb1 |  | unread |  |
 | `team composition` |  |  | n | #1054 | 56db72727109 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
 | `team delivery-settings` |  |  | n | #1054 | b93ae59855e1 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team delivery-settings get` |  |  | n | #1054 | 6960f5393bbf | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
