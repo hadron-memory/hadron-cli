@@ -44342,7 +44342,7 @@ type CreateMemoryShareResponse struct {
 	// caller does not own — both return FORBIDDEN before grantee lookup.
 	// An owner of a wrong-class memory (for example private) can pass that
 	// principal check and receive InvalidMemoryClassForShareError.
-	// - MemoryShareGranteeMissingError — granteeId doesn't resolve to
+	// - MemoryShareGranteeMissingError — the grantee doesn't resolve to
 	// an existing User. Only reachable when the caller passes the
 	// principal guard.
 	// - CrossOrgShareNotAllowedError — the grantee is not a member of an
@@ -122481,7 +122481,7 @@ func (v *UpdateMemoryResponse) GetUpdateMemory() *UpdateMemoryUpdateMemory { ret
 // UpdateMemoryShareRoleResponse is returned by UpdateMemoryShareRole on success.
 type UpdateMemoryShareRoleResponse struct {
 	// 023-app-shape US3 — change the role on an existing MemoryShare.
-	// Throws MemoryShareNotFoundError if the (memoryId, granteeId) row
+	// Throws MemoryShareNotFoundError if the (memory, grantee) row
 	// doesn't exist — use createMemoryShare to upsert.
 	//
 	// Caller-authority rule matches createMemoryShare.
@@ -136383,13 +136383,13 @@ func (v *__CreateMemoryInput) GetWriteBranch() *string { return v.WriteBranch }
 
 // __CreateMemoryShareInput is used internally by genqlient
 type __CreateMemoryShareInput struct {
-	MemoryId   string          `json:"memoryId"`
+	MemoryRef  string          `json:"memoryRef"`
 	GranteeRef string          `json:"granteeRef"`
 	Role       MemoryShareRole `json:"role"`
 }
 
-// GetMemoryId returns __CreateMemoryShareInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryShareInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __CreateMemoryShareInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryShareInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetGranteeRef returns __CreateMemoryShareInput.GranteeRef, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryShareInput) GetGranteeRef() string { return v.GranteeRef }
@@ -144797,13 +144797,13 @@ func (v *__UpdateMemoryMemberRoleInput) GetRole() MemoryMemberRole { return v.Ro
 
 // __UpdateMemoryShareRoleInput is used internally by genqlient
 type __UpdateMemoryShareRoleInput struct {
-	MemoryId   string          `json:"memoryId"`
+	MemoryRef  string          `json:"memoryRef"`
 	GranteeRef string          `json:"granteeRef"`
 	Role       MemoryShareRole `json:"role"`
 }
 
-// GetMemoryId returns __UpdateMemoryShareRoleInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UpdateMemoryShareRoleInput) GetMemoryId() string { return v.MemoryId }
+// GetMemoryRef returns __UpdateMemoryShareRoleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryShareRoleInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetGranteeRef returns __UpdateMemoryShareRoleInput.GranteeRef, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryShareRoleInput) GetGranteeRef() string { return v.GranteeRef }
@@ -146772,7 +146772,7 @@ func ActionTickets(
 
 // The mutation executed by AddMemoryMember.
 const AddMemoryMember_Operation = `
-mutation AddMemoryMember ($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+mutation AddMemoryMember ($memoryRef: ID!, $userRef: ID!, $role: MemoryMemberRole!) {
 	addMemoryMember(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
 		memoryMember {
 			role
@@ -162499,8 +162499,8 @@ func CreateMemoryInApp(
 
 // The mutation executed by CreateMemoryShare.
 const CreateMemoryShare_Operation = `
-mutation CreateMemoryShare ($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
-	createMemoryShare(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
+mutation CreateMemoryShare ($memoryRef: ID!, $granteeRef: ID!, $role: MemoryShareRole!) {
+	createMemoryShare(memoryRef: $memoryRef, granteeRef: $granteeRef, role: $role) {
 		memoryShare {
 			role
 			grantee {
@@ -162517,14 +162517,14 @@ fragment MemUserFields on User {
 }
 `
 
-// #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN) —
-// resolution sees the full user table, so a cross-org share by email works
-// without a client-side lookup. createMemoryShare has no memoryRef arg (the
-// memory is still passed as the client-resolved id via memoryId).
+// #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN),
+// but the share commands resolve --grantee client-side first
+// (cmdutil.ResolveUserID) and send the user id. #4137: memoryRef (an id or URN) replaced memoryId,
+// and the server declares the ref arguments ID!, so the variables are ID! too.
 func CreateMemoryShare(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
+	memoryRef string,
 	granteeRef string,
 	role MemoryShareRole,
 ) (data_ *CreateMemoryShareResponse, err_ error) {
@@ -162532,7 +162532,7 @@ func CreateMemoryShare(
 		OpName: "CreateMemoryShare",
 		Query:  CreateMemoryShare_Operation,
 		Variables: &__CreateMemoryShareInput{
-			MemoryId:   memoryId,
+			MemoryRef:  memoryRef,
 			GranteeRef: granteeRef,
 			Role:       role,
 		},
@@ -164759,15 +164759,16 @@ mutation DeleteMemoryShare ($memoryRef: ID!, $granteeRef: String) {
 `
 
 // hadron-server#785: renamed from revokeMemoryShare, and the authority widened
-// from principal-only to principal-OR-self. `granteeId` is optional now — omit
+// from principal-only to principal-OR-self. `granteeRef` is optional now — omit
 // it and the server deletes the CALLER'S own share (leave / stop-sharing-with-me).
 // The contract is OMITTED, not null, so the variable carries omitempty: a nil
-// *string must drop the key rather than serialize "granteeId": null.
+// *string must drop the key rather than serialize "granteeRef": null.
 // memoryRef takes an id or a URN and is passed through WITHOUT a client-side
 // memory(ref:) lookup — that lookup can't see a soft-deleted memory, and leaving
 // one is exactly a case this mutation supports.
 // #304: granteeRef is server-resolved (id / email / handle / hrn:user URN);
-// omitted entirely it targets the caller's own share (self-removal / leave).
+// share rm resolves --grantee client-side first and sends the user id. Omitted
+// entirely, it targets the caller's own share (self-removal / leave).
 func DeleteMemoryShare(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -179515,7 +179516,7 @@ func RemoveMemoryFromAgent(
 
 // The mutation executed by RemoveMemoryMember.
 const RemoveMemoryMember_Operation = `
-mutation RemoveMemoryMember ($memoryRef: String!, $userRef: String!) {
+mutation RemoveMemoryMember ($memoryRef: ID!, $userRef: ID!) {
 	removeMemoryMember(memoryRef: $memoryRef, userRef: $userRef) {
 		memoryId
 		userId
@@ -193149,7 +193150,7 @@ func UpdateMemoryConfigTemplateClearingDescription(
 
 // The mutation executed by UpdateMemoryMemberRole.
 const UpdateMemoryMemberRole_Operation = `
-mutation UpdateMemoryMemberRole ($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+mutation UpdateMemoryMemberRole ($memoryRef: ID!, $userRef: ID!, $role: MemoryMemberRole!) {
 	updateMemoryMemberRole(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
 		memoryMember {
 			role
@@ -193198,8 +193199,8 @@ func UpdateMemoryMemberRole(
 
 // The mutation executed by UpdateMemoryShareRole.
 const UpdateMemoryShareRole_Operation = `
-mutation UpdateMemoryShareRole ($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
-	updateMemoryShareRole(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
+mutation UpdateMemoryShareRole ($memoryRef: ID!, $granteeRef: ID!, $role: MemoryShareRole!) {
+	updateMemoryShareRole(memoryRef: $memoryRef, granteeRef: $granteeRef, role: $role) {
 		memoryShare {
 			role
 			grantee {
@@ -193219,7 +193220,7 @@ fragment MemUserFields on User {
 func UpdateMemoryShareRole(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	memoryId string,
+	memoryRef string,
 	granteeRef string,
 	role MemoryShareRole,
 ) (data_ *UpdateMemoryShareRoleResponse, err_ error) {
@@ -193227,7 +193228,7 @@ func UpdateMemoryShareRole(
 		OpName: "UpdateMemoryShareRole",
 		Query:  UpdateMemoryShareRole_Operation,
 		Variables: &__UpdateMemoryShareRoleInput{
-			MemoryId:   memoryId,
+			MemoryRef:  memoryRef,
 			GranteeRef: granteeRef,
 			Role:       role,
 		},

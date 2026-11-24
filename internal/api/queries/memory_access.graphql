@@ -40,7 +40,7 @@ query MemoryShares($ref: ID!) {
 # #764/#304: userRef + memoryRef are server-resolved (id / URN / handle / email),
 # so the CLI passes the raw --user value straight through — no client-side user
 # lookup. memoryRef receives the client-resolved memory id (a valid ref).
-mutation AddMemoryMember($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+mutation AddMemoryMember($memoryRef: ID!, $userRef: ID!, $role: MemoryMemberRole!) {
   addMemoryMember(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
     memoryMember {
       role
@@ -51,7 +51,7 @@ mutation AddMemoryMember($memoryRef: String!, $userRef: String!, $role: MemoryMe
   }
 }
 
-mutation UpdateMemoryMemberRole($memoryRef: String!, $userRef: String!, $role: MemoryMemberRole!) {
+mutation UpdateMemoryMemberRole($memoryRef: ID!, $userRef: ID!, $role: MemoryMemberRole!) {
   updateMemoryMemberRole(memoryRef: $memoryRef, userRef: $userRef, role: $role) {
     memoryMember {
       role
@@ -62,19 +62,19 @@ mutation UpdateMemoryMemberRole($memoryRef: String!, $userRef: String!, $role: M
   }
 }
 
-mutation RemoveMemoryMember($memoryRef: String!, $userRef: String!) {
+mutation RemoveMemoryMember($memoryRef: ID!, $userRef: ID!) {
   removeMemoryMember(memoryRef: $memoryRef, userRef: $userRef) {
     memoryId
     userId
   }
 }
 
-# #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN) —
-# resolution sees the full user table, so a cross-org share by email works
-# without a client-side lookup. createMemoryShare has no memoryRef arg (the
-# memory is still passed as the client-resolved id via memoryId).
-mutation CreateMemoryShare($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
-  createMemoryShare(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
+# #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN),
+# but the share commands resolve --grantee client-side first
+# (cmdutil.ResolveUserID) and send the user id. #4137: memoryRef (an id or URN) replaced memoryId,
+# and the server declares the ref arguments ID!, so the variables are ID! too.
+mutation CreateMemoryShare($memoryRef: ID!, $granteeRef: ID!, $role: MemoryShareRole!) {
+  createMemoryShare(memoryRef: $memoryRef, granteeRef: $granteeRef, role: $role) {
     memoryShare {
       role
       grantee {
@@ -84,8 +84,8 @@ mutation CreateMemoryShare($memoryId: ID!, $granteeRef: String!, $role: MemorySh
   }
 }
 
-mutation UpdateMemoryShareRole($memoryId: ID!, $granteeRef: String!, $role: MemoryShareRole!) {
-  updateMemoryShareRole(memoryId: $memoryId, granteeRef: $granteeRef, role: $role) {
+mutation UpdateMemoryShareRole($memoryRef: ID!, $granteeRef: ID!, $role: MemoryShareRole!) {
+  updateMemoryShareRole(memoryRef: $memoryRef, granteeRef: $granteeRef, role: $role) {
     memoryShare {
       role
       grantee {
@@ -96,15 +96,16 @@ mutation UpdateMemoryShareRole($memoryId: ID!, $granteeRef: String!, $role: Memo
 }
 
 # hadron-server#785: renamed from revokeMemoryShare, and the authority widened
-# from principal-only to principal-OR-self. `granteeId` is optional now — omit
+# from principal-only to principal-OR-self. `granteeRef` is optional now — omit
 # it and the server deletes the CALLER'S own share (leave / stop-sharing-with-me).
 # The contract is OMITTED, not null, so the variable carries omitempty: a nil
-# *string must drop the key rather than serialize "granteeId": null.
+# *string must drop the key rather than serialize "granteeRef": null.
 # memoryRef takes an id or a URN and is passed through WITHOUT a client-side
 # memory(ref:) lookup — that lookup can't see a soft-deleted memory, and leaving
 # one is exactly a case this mutation supports.
 # #304: granteeRef is server-resolved (id / email / handle / hrn:user URN);
-# omitted entirely it targets the caller's own share (self-removal / leave).
+# share rm resolves --grantee client-side first and sends the user id. Omitted
+# entirely, it targets the caller's own share (self-removal / leave).
 mutation DeleteMemoryShare($memoryRef: ID!,
   # @genqlient(omitempty: true)
   $granteeRef: String) {
