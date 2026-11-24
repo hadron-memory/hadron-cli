@@ -76,6 +76,11 @@ Settings for automation (optional; an ordinary link needs none of them):
 			if err != nil {
 				return err
 			}
+			// A memory ID on -m is read once for both endpoints (cli#3000); after this
+			// the memory is a URN and the two ResolveNodeRef calls below read nothing.
+			if memory, err = cmdutil.ResolveMemoryRefForNodes(cmd, client, memory); err != nil {
+				return err
+			}
 			sourceID, err := cmdutil.ResolveNodeRef(cmd, client, memory, from)
 			if err != nil {
 				return err

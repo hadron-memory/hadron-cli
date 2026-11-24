@@ -104,7 +104,7 @@ func run3000(t *testing.T, url string, args ...string) error {
 
 // A memory ID + a bare loc reads the memory, composes the canonical node URN and resolves it.
 func TestNodeGetMemoryIDResolves3000(t *testing.T) {
-	url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolve3000(), "GetNode": nodeGetJSON(testNodeURL)})
+	url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolveNode3000, "GetNode": nodeGetJSON(testNodeURL)})
 	// The run's tail (the revision bracket) is not stubbed: what matters is what was sent.
 	err := run3000(t, url, "node", "get", "-m", memID3000, "sheds:rolling-checkpoint")
 	c := calls()
@@ -120,8 +120,6 @@ func TestNodeGetMemoryIDResolves3000(t *testing.T) {
 		t.Fatalf("the node was not resolved by the composed URN: %v", c)
 	}
 }
-
-func resolve3000() string { return resolveNode3000 }
 
 // An ID that resolves to nothing readable (absent, foreign or forbidden answer the same null) keeps
 // today's plain refusal: a usage error that discloses nothing, and the node is never asked for.
@@ -207,8 +205,8 @@ func TestEdgeMemoryID3000(t *testing.T) {
 			url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolveNode3000})
 			_ = run3000(t, url, tc.args...)
 			c := calls()
-			if got := find3000(c, "GetMemory"); len(got) < 1 {
-				t.Fatalf("no memory read: %v", ops3000(c))
+			if got := find3000(c, "GetMemory"); len(got) != 1 {
+				t.Fatalf("want exactly one memory read for %s, got %v", tc.name, ops3000(c))
 			}
 			res := find3000(c, "ResolveUrn")
 			if len(res) < len(tc.urns) {
@@ -235,6 +233,90 @@ func TestMemoryFlagHelpNamesTheID3000(t *testing.T) {
 		flat := strings.Join(strings.Fields(out.String()), " ")
 		if !strings.Contains(flat, "a memory ID or URN") {
 			t.Errorf("%v must say -m accepts a memory ID or URN:\n%s", args, out.String())
+		}
+	}
+}
+
+// Every other command that composes a bare loc through ResolveNodeRef takes the ID the same way:
+// the docs say so for node update, move, clone, rm and export, so each is pinned here (cli#3000).
+func TestOtherNodeCommandsTakeAMemoryID3000(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"node update", []string{"node", "update", "-m", memID3000, "sheds:x", "--name", "N"}},
+		{"node move", []string{"node", "move", "-m", memID3000, "sheds:x", "--to-urn", "hrn:node:acme.com:kb:sheds:y"}},
+		{"node clone", []string{"node", "clone", "-m", memID3000, "sheds:x", "--to-urn", "hrn:node:acme.com:kb:sheds:y"}},
+		{"node export", []string{"node", "export", "-m", memID3000, "sheds:x"}},
+		{"node delete", []string{"node", "delete", "-m", memID3000, "sheds:x", "--yes"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolveNode3000})
+			err := run3000(t, url, tc.args...)
+			c := calls()
+			if err != nil && strings.Contains(err.Error(), "not a fully-qualified node URN") {
+				t.Fatalf("%s refused a memory ID: %v", tc.name, err)
+			}
+			if got := find3000(c, "GetMemory"); len(got) != 1 {
+				t.Fatalf("want one memory read, got %v", ops3000(c))
+			}
+			res := find3000(c, "ResolveUrn")
+			if len(res) == 0 || str3000(res[0], "urn") != "hrn:node:acme.com:kb:sheds:x" {
+				t.Fatalf("the source was not resolved by the composed URN: %v", ops3000(c))
+			}
+		})
+	}
+}
+
+// The contract (SDL, Query.memory): a missing and an unreadable memory both answer null with no
+// error, and a malformed ref or a fault is an error. If a server ever answered 200 with a
+// FORBIDDEN error instead, that is not the contract: it surfaces as its own error class, never
+// silently as the plain refusal, so a deviation is visible rather than hidden.
+func TestNodeGetMemoryIDErrorAnswerIsNotTheRefusal3000(t *testing.T) {
+	url, calls := serve3000(t, `{"errors":[{"message":"nope","extensions":{"code":"FORBIDDEN"}}],"data":null}`, nil)
+	err := run3000(t, url, "node", "get", "-m", memID3000, "sheds:x")
+	wantExit(t, err, exitcode.Forbidden)
+	if got := find3000(calls(), "ResolveUrn"); len(got) != 0 {
+		t.Fatalf("no node resolve after a failed memory read: %v", ops3000(calls()))
+	}
+}
+
+// --prefix names the memory to the server as given, and the server resolves an ID itself, so
+// --prefix -m <id> is unchanged by this: no memory read, the ID goes through as typed.
+func TestNodeGetPrefixWithMemoryIDIsUnchanged3000(t *testing.T) {
+	url, calls := serve3000(t, memFound3000, map[string]string{"NodeBatch": nodeBatchResult([]string{}, "")})
+	_ = run3000(t, url, "node", "get", "--prefix", "findings:", "-m", memID3000)
+	if got := find3000(calls(), "GetMemory"); len(got) != 0 {
+		t.Fatalf("--prefix must not read the memory itself: %v", ops3000(calls()))
+	}
+}
+
+// Only a 32 lowercase hex token is an ID: anything else is composed (or refused) as before, with no
+// memory read.
+func TestMemoryIDShapeBoundaries3000(t *testing.T) {
+	for _, m := range []string{
+		strings.ToUpper(memID3000),         // uppercase hex is not an ID
+		memID3000[:31],                     // 31 characters
+		memID3000 + "0",                    // 33 characters
+		"01a1d9c2453a782189ceeafb18c37d6g", // not hex
+	} {
+		url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolveNode3000})
+		err := run3000(t, url, "node", "get", "-m", m, "sheds:x")
+		if got := find3000(calls(), "GetMemory"); len(got) != 0 {
+			t.Fatalf("-m %q sent a memory read", m)
+		}
+		wantExit(t, err, exitcode.Usage)
+	}
+}
+
+// A batch with an unresolvable ID is refused as a whole, plainly, before any node read.
+func TestNodeGetBatchUnresolvableMemoryID3000(t *testing.T) {
+	url, calls := serve3000(t, memNull3000, map[string]string{"NodeBatch": nodeBatchResult([]string{}, "")})
+	err := run3000(t, url, "node", "get", "-m", memID3000, "a:one", "b:two")
+	wantExit(t, err, exitcode.Usage)
+	for _, r := range calls() {
+		if _, ok := r.vars["refs"]; ok {
+			t.Fatalf("a node read was sent for an unresolvable memory: %s", r.op)
 		}
 	}
 }
