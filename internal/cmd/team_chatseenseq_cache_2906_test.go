@@ -15,8 +15,6 @@ import (
 // these pins keep the two places a reader meets the key (whoami's help and the agent contract)
 // from calling the cache by the wrong name.
 
-func flat2906(s string) string { return strings.Join(strings.Fields(s), " ") }
-
 // whoami's help names the key and says what it is.
 func TestWhoamiHelpDescribesChatSeenSeqAsARenderingCache2906(t *testing.T) {
 	f, out := testFactory(t)
@@ -25,9 +23,11 @@ func TestWhoamiHelpDescribesChatSeenSeqAsARenderingCache2906(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	help := flat2906(out.String())
+	help := flat(out.String())
 	for _, want := range []string{
 		"chatSeenSeq",
+		// cli#2976: absent vs 0 are different claims; swapping them must fail here.
+		"absent when it never read or the binding predates the field, 0 when it read an empty chat",
 		"how far this worktree has rendered the team chat",
 		"decides whether a chat read counts as read through",
 		"never an unread position",
@@ -41,10 +41,12 @@ func TestWhoamiHelpDescribesChatSeenSeqAsARenderingCache2906(t *testing.T) {
 
 // The agent contract describes the key as a cache and no longer says session log compares against it.
 func TestAgenticUsageDescribesChatSeenSeqAsARenderingCache2906(t *testing.T) {
-	contract := flat2906(string(readContract(t)))
+	contract := flat(string(readContract(t)))
 	for _, want := range []string{
 		"per-worktree rendering cache",
-		"only `chat read` reads it",
+		"only `chat read` acts on it",
+		// cli#2976: the same absent-vs-0 claim as whoami's help, in the same words.
+		"absent on a binding that has never read or that predates the field, `0` on one that read an empty chat",
 		"never an unread position",
 		"cor:dmo:090:06",
 	} {
@@ -52,7 +54,15 @@ func TestAgenticUsageDescribesChatSeenSeqAsARenderingCache2906(t *testing.T) {
 			t.Errorf("agentic-usage must say %q about chatSeenSeq", want)
 		}
 	}
-	for _, stale := range []string{"`session log` compares against it", "session log compares against the watermark"} {
+	// cli#2976: "reads it" was wrong (whoami --json reports the field too), and "hint" /
+	// "local watermark" were two more names for the one rendering cache.
+	for _, stale := range []string{
+		"only `chat read` reads it",
+		"`chatSeenSeq` hint",
+		"local watermark",
+		"`session log` compares against it",
+		"session log compares against the watermark",
+	} {
 		if strings.Contains(contract, stale) {
 			t.Errorf("agentic-usage still says %q", stale)
 		}
