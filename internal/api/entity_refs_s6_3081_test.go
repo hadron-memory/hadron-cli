@@ -54,18 +54,28 @@ type unpinnedReport struct {
 	fields []string
 }
 
-// s6UnpinnedReports collects the rename table's cliSelects=false rows into
-// tripwire reports, turning each unpinned row's uses into one report. (Red
-// step: the pin below expects one report per failing document; the fold that
-// produces it lands with the fix, so this fails on purpose.)
+// s6UnpinnedReports folds the rename table's cliSelects=false rows into one
+// report per failing document, with the distinct unpinned fields it selects
+// in table order. The usageEvents arguments are two rows sharing one field,
+// so without the fold the tripwire named a failing document once per row
+// (cli#3094). Each field's uses are looked up once.
 func s6UnpinnedReports(rows []s6Rename, usesFor func(field string) []fieldUse) []unpinnedReport {
 	var reports []unpinnedReport
+	index := map[string]int{}
 	for _, tc := range rows {
 		if tc.cliSelects {
 			continue
 		}
 		for _, u := range usesFor(tc.field) {
-			reports = append(reports, unpinnedReport{where: u.where, fields: []string{tc.field}})
+			i, ok := index[u.where]
+			if !ok {
+				i = len(reports)
+				index[u.where] = i
+				reports = append(reports, unpinnedReport{where: u.where})
+			}
+			if !slices.Contains(reports[i].fields, tc.field) {
+				reports[i].fields = append(reports[i].fields, tc.field)
+			}
 		}
 	}
 	return reports
@@ -90,8 +100,14 @@ func TestS6DocumentsSendTheRefArgumentsNotTheRetiredOnes_3081(t *testing.T) {
 			}
 		}
 	}
+	usesByField := map[string][]fieldUse{}
 	for _, r := range s6UnpinnedReports(s6Renames, func(field string) []fieldUse {
-		return rootFieldArgs(t, ast.Query, field)
+		uses, ok := usesByField[field]
+		if !ok {
+			uses = rootFieldArgs(t, ast.Query, field)
+			usesByField[field] = uses
+		}
+		return uses
 	}) {
 		t.Errorf("%s selects %s: set cliSelects for it so its arguments are pinned", r.where, strings.Join(r.fields, ", "))
 	}
