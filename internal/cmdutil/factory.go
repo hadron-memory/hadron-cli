@@ -36,6 +36,9 @@ type Factory struct {
 	// GraphQLRequestContext decorates individual authenticated generated calls.
 	// The root installs the worktree attribution policy; queries stay unchanged.
 	GraphQLRequestContext func(context.Context, *graphql.Request) context.Context
+	// GraphQLRequestGuard may refuse an authenticated generated call before
+	// anything is sent (cli#3091); its error is returned as is.
+	GraphQLRequestGuard func(context.Context, *graphql.Request) error
 
 	// InstructedContext is installed by the root. Explicit instruction commands
 	// ask it to verify the worktree binding; ordinary calls never use it.
@@ -254,7 +257,7 @@ func (f *Factory) GraphQLClient() (graphql.Client, error) {
 		return nil, err
 	}
 	if f.GraphQLRequestContext != nil {
-		return &requestContextClient{inner: client, context: f.GraphQLRequestContext}, nil
+		return &requestContextClient{inner: client, context: f.GraphQLRequestContext, guard: f.GraphQLRequestGuard}, nil
 	}
 	return client, nil
 }
@@ -294,9 +297,15 @@ func (f *Factory) PublicGraphQLClient() (client graphql.Client, authenticated bo
 type requestContextClient struct {
 	inner   graphql.Client
 	context func(context.Context, *graphql.Request) context.Context
+	guard   func(context.Context, *graphql.Request) error
 }
 
 func (c *requestContextClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
+	if c.guard != nil {
+		if err := c.guard(ctx, req); err != nil {
+			return err
+		}
+	}
 	return c.inner.MakeRequest(c.context(ctx, req), req, resp)
 }
 

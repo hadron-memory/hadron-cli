@@ -88,6 +88,9 @@ accepts it from that worker's own live session.`,
 				return exitcode.Newf(exitcode.Usage,
 					"this worktree's session binding does not record its server — start a new worker session before marking read")
 			}
+			if err := foreignBindingRefusal(ctx); err != nil {
+				return err
+			}
 			if err := checkBindingServer(f, b); err != nil {
 				return err
 			}
