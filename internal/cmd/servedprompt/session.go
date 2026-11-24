@@ -33,7 +33,20 @@ func NewSession(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "served-prompts <session-id>",
 		Short: "Read one worker session's recorded prompt history",
-		Long: `Read one page of the boot-prompt records served to a worker session, newest
+		Long: `Answer "which boot prompt did this worker session get, and was it built
+from a sound source?" Each time a worker session binds, the server builds its
+boot prompt (the briefing printed by session start) from a source template and
+keeps a record of what it served. Run this to see those records when a worker
+behaved as if it had the wrong instructions, or to check a prompt for defects.
+
+Each record shows: its revision (the version number of the prompt that was
+served), its hash (a fingerprint of the served text, so two records with the
+same hash served identical prompts), its pointer (the address of the source
+template it was built from), the variables filled in, and its provenance (the
+source nodes and revisions that went into it). Lint means a check for defects
+in the built prompt.
+
+Read one page of those records, newest
 first in server order (served time, then ordinal). Find a session-id with
 ` + "`team session list`" + `; pass its id, not a worker name or URN. Sign in first.
 No binding or ambient App selection is used: the explicit id chooses the session
