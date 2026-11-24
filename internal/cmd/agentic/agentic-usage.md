@@ -401,11 +401,11 @@ shown); did you mean "edit"?` rather than printing the group's help and exiting
 `hadron <group> <guess> --help` is a reliable way to test whether a subcommand
 exists.
 
-**A refusal never prints back the value you typed** (#2898 policy): an unknown
-command or flag, an invalid flag value, a malformed or unknown ref, each names
-what is wrong and says the value is not shown, with the same exit code. Match on
-the exit code and the stable wording, not on your own input appearing in the
-message.
+**A refusal the CLI itself raises never prints back the value you typed**
+(#2898 policy): an unknown command or flag, an invalid flag value, a malformed
+or unknown ref, each names what is wrong and says the value is not shown. Match
+on the exit code and the stable wording, not on your own input appearing in the
+message. Text the server sends back is passed through as the server wrote it.
 
 A **partial write** exits non-zero (generic failure, 1): a command that creates
 the primary entity but cannot wire one or more of its edges — `node import

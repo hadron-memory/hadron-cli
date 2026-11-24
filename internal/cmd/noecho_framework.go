@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -28,17 +26,13 @@ func flagErrorWithoutValue(cmd *cobra.Command, err error) error {
 		return exitcode.Newf(exitcode.Usage,
 			"unknown flag (the flag given is not shown) — `%s --help` lists the flags it takes", cmd.CommandPath())
 	case errors.As(err, &invalid):
-		msg := "invalid value for the flag (the value given is not shown)"
+		// The parse error underneath (strconv's `parsing "<typed>"`) is never appended: it embeds the value,
+		// %q-escaped, so a value with a quote or backslash would not even match a substring check. The CLI
+		// has no flag type of its own whose reason is worth keeping; the expected type says what is wrong.
 		if fl := invalid.GetFlag(); fl != nil {
-			msg = fmt.Sprintf("invalid value for --%s: expected %s (the value given is not shown)", fl.Name, fl.Value.Type())
+			return exitcode.Newf(exitcode.Usage, "invalid value for --%s: expected %s (the value given is not shown)", fl.Name, fl.Value.Type())
 		}
-		// A flag type's own reason ("must be 0..200") is kept when it does not carry the value;
-		// strconv's ("parsing \"<typed>\"") does, so it is dropped.
-		if cause := errors.Unwrap(invalid); cause != nil && invalid.GetValue() != "" &&
-			!strings.Contains(cause.Error(), invalid.GetValue()) {
-			msg += ": " + cause.Error()
-		}
-		return exitcode.Newf(exitcode.Usage, "%s", msg)
+		return exitcode.Newf(exitcode.Usage, "invalid value for the flag (the value given is not shown)")
 	case errors.As(err, &syntax):
 		return exitcode.Newf(exitcode.Usage,
 			"bad flag syntax (the argument given is not shown) — a flag is --name or -n; `%s --help` lists them", cmd.CommandPath())
@@ -54,11 +48,18 @@ var cobraQuotedArgError = regexp.MustCompile(`^(unknown command|invalid argument
 
 // withoutEchoedCommand rewrites cobra's positional-argument refusals at the one place every error leaves
 // the CLI (renderError): cobra raises them inside Find, before any command code runs.
+//
+// Only cobra's own uncoded errors are rewritten: an error the CLI already coded (exitcode.CodedError)
+// is left alone whatever its text, and the rewrite keeps the exit code the original would have had.
 func withoutEchoedCommand(err error) error {
+	var coded *exitcode.CodedError
+	if errors.As(err, &coded) {
+		return err
+	}
 	msg := err.Error()
 	m := cobraQuotedArgError.FindStringSubmatch(msg)
 	if m == nil {
 		return err
 	}
-	return exitcode.Newf(exitcode.Usage, "%s for %q (the name given is not shown)%s", m[1], m[2], msg[len(m[0]):])
+	return exitcode.Newf(exitCodeFor(err), "%s for %q (the name given is not shown)%s", m[1], m[2], msg[len(m[0]):])
 }

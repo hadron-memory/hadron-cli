@@ -271,15 +271,15 @@ type Citation struct {
 	Flow    string // 2 digits, "" if absent
 }
 
+// legacyCitationGrammar is the shape ParseCitation accepts, for refusals that must not echo the
+// citation they were given (cli#3029).
+const legacyCitationGrammar = "[<product>:]<module>[:<feature>[:<rule>[:<flow>]]]"
+
 // ParseCitation parses and validates a citation, returning a Usage error for
 // any malformed segment. The rooting is inferred from segment 2's character
 // class: a second alpha code ⇒ product-rooted (<product>:<module>:…); a 3-digit
 // feature ⇒ flat (<module>:…). A lone alpha code parses as a flat module —
 // callers that need a bare product root build the Citation directly.
-// legacyCitationGrammar is the shape ParseCitation accepts, for refusals that must not echo the
-// citation they were given (cli#3029).
-const legacyCitationGrammar = "[<product>:]<module>[:<feature>[:<rule>[:<flow>]]]"
-
 func ParseCitation(s string) (Citation, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
