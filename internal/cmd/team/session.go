@@ -55,9 +55,10 @@ WHICH COMMAND, IN ORDER:
                                exist: ` + "`team worker list`" + `, or ` + "`team worker cast`" + `)
   record a PR, commit, branch  session log
   finished a task, PR or chat  NOTHING — keep the session; it spans tasks
-  reset my context, keep work  session reset-context (needs team host run on an
-                               Orca host), or session shed then your host's own
-                               reset; session resume-claim alone for a manual one
+  reset my context, keep work  session reset-context (its immediate relaunch
+                               needs ` + "`team host run`" + `), or session shed
+                               then your host's own reset; session resume-claim
+                               alone for a manual one
   get my bearings afterwards   session recover (worker, tasks, state note, mentions)
   stop being this worker       session end --handoff-file <notes> — only now
   see sessions                 session list

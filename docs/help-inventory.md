@@ -23,7 +23,9 @@ issue that owns the page: the group section's issue for every row in that
 section, including a command a later issue added to the group — the
 implementing issue is cited in that row's finding link once assessed, not in
 `child`), `help-hash` (the first 12 hex characters of the
-sha256 of captured help text), then the three HUMAN columns `evaluator`, `result`
+sha256 of that page's own captured `--help` text: a command's one-line
+summary (`Short`) is shown only in its parent's list, so a Short-only edit
+rehashes the parent's row, not the command's), then the three HUMAN columns `evaluator`, `result`
 (`unread` | `pass` | `fail`; `unread` is never a pass; `pass` needs a named
 evaluator who is not the author of the text) and `finding` (a link to the
 assessment). The help-hash tracks the page's help text only, not the code
@@ -586,7 +588,7 @@ section between the markers.
 | `team saturation-wake-roles` |  |  | n | #1054 | 614f1abb9415 |  | unread |  |
 | `team saturation-wake-roles get` |  |  | n | #1054 | ad8d3049cbb7 |  | unread |  |
 | `team saturation-wake-roles set` |  |  | y | #1054 | ddf2c7fd77ae |  | unread |  |
-| `team session` | sessions |  | n | #1054 | 89f039d6e223 |  | unread |  |
+| `team session` | sessions |  | n | #1054 | 9a0433b08b0e |  | unread |  |
 | `team session end` |  |  | y | #1054 | 33caa1010adf |  | unread |  |
 | `team session list` | ls |  | y | #1054 | 8a852472e0e8 |  | unread |  |
 | `team session log` |  |  | y | #1054 | 98dcd2702482 |  | unread |  |
