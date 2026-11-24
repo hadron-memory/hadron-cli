@@ -132,11 +132,11 @@ func TestNodeRevisionWritesNotFoundIsTheCLIsOwnLine_2904(t *testing.T) {
 			if got := exitCodeFor(err); got != exitcode.NotFound {
 				t.Fatalf("exit = %d, want %d (err %v)", got, exitcode.NotFound, err)
 			}
-			if want := `revision "gone" not found`; err.Error() != want {
-				t.Errorf("message = %q, want %q", err.Error(), want)
+			if !strings.HasPrefix(err.Error(), "revision not found") {
+				t.Errorf("message = %q, want the CLI's revision-not-found line", err.Error())
 			}
-			// The server's refusal stays attached as the cause (Joran's blind
-			// F2 on #3095): only the printed line is the CLI's own.
+			// The server's refusal stays attached as the cause: only the
+			// printed line is the CLI's own.
 			if !api.HasErrorCode(err, "NOT_FOUND") {
 				t.Errorf("the NOT_FOUND refusal is no longer in the error chain: %v", err)
 			}
@@ -146,5 +146,55 @@ func TestNodeRevisionWritesNotFoundIsTheCLIsOwnLine_2904(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A revision not-found line never repeats the argument (#2898, as #3027 did for
+// node refs): a pasted token or blob is not echoed back, whole or in part, on
+// any of the five not-found paths (three NOT_FOUND refusals, restore's null
+// and delete's false), in the error, stdout or the --json output.
+func TestNodeRevisionNotFoundNeverEchoesTheRef_2904(t *testing.T) {
+	tok := "gh" + "p_AbCdEfGhIjKlMnOpQrStUvWx0123456789" // assembled: a literal trips push protection
+	notFound := `{"data":null,"errors":[{"message":"gone","extensions":{"code":"NOT_FOUND"}}]}`
+	cases := []struct {
+		name string
+		args []string
+		op   string
+		body string
+	}{
+		{"restore refused", []string{"node", "revision", "restore", tok}, "RestoreNodeRevision", notFound},
+		{"label refused", []string{"node", "revision", "label", tok, "--label", "x"}, "UpdateNodeRevision", notFound},
+		{"delete refused", []string{"node", "revision", "delete", tok, "--yes"}, "DeleteNodeRevision", notFound},
+		{"restore null", []string{"node", "revision", "restore", tok}, "RestoreNodeRevision", `{"data":{"restoreNodeRevision":null}}`},
+		{"delete false", []string{"node", "revision", "delete", tok, "--yes"}, "DeleteNodeRevision", `{"data":{"deleteNodeRevision":false}}`},
+		{"get null", []string{"node", "revision", "get", tok}, "NodeRevisionStamped", `{"data":{"nodeRevision":null}}`},
+	}
+	for _, tc := range cases {
+		for _, asJSON := range []bool{false, true} {
+			name := tc.name
+			args := tc.args
+			if asJSON {
+				name += " --json"
+				args = append(append([]string{}, args...), "--json")
+			}
+			t.Run(name, func(t *testing.T) {
+				gql, _ := captureGraphQL(t, map[string]string{tc.op: tc.body})
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs(append(args, "--server", gql.URL))
+				err := root.Execute()
+				if got := exitCodeFor(err); got != exitcode.NotFound {
+					t.Fatalf("exit = %d, want %d (err %v)", got, exitcode.NotFound, err)
+				}
+				for _, leak := range []string{tok, tok[:10], tok[len(tok)-10:]} {
+					if strings.Contains(err.Error(), leak) || strings.Contains(out.String(), leak) {
+						t.Errorf("echoes %q: err=%q out=%q", leak, err.Error(), out.String())
+					}
+				}
+				if !strings.Contains(err.Error(), "not shown") {
+					t.Errorf("does not say the reference is not shown: %q", err.Error())
+				}
+			})
+		}
 	}
 }
