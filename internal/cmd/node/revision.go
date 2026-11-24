@@ -402,8 +402,9 @@ func newCmdRevisionDelete(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Permanently delete one earlier version of a node",
 		Long: `Permanently delete one earlier version of a node, named by its revision id
 (from node revision list) or its revision URN (hrn:noderev:...). The node
-itself and its current content are not changed. The deleted version can no longer be shown or restored with node
-revision restore, and this cannot be undone.
+itself and its current content are not changed. The deleted version can no
+longer be shown or restored with node revision restore, and this cannot be
+undone.
 
 It asks "Delete revision <id>? This cannot be undone." on a terminal; --yes
 skips the question and is required when input is not a terminal (otherwise

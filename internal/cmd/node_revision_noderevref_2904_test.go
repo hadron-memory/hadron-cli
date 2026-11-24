@@ -132,8 +132,11 @@ func TestNodeRevisionWritesNotFoundIsTheCLIsOwnLine_2904(t *testing.T) {
 			if got := exitCodeFor(err); got != exitcode.NotFound {
 				t.Fatalf("exit = %d, want %d (err %v)", got, exitcode.NotFound, err)
 			}
-			if !strings.HasPrefix(err.Error(), "revision not found") {
-				t.Errorf("message = %q, want the CLI's revision-not-found line", err.Error())
+			const want = "revision not found, or its node is unreadable or soft-deleted " +
+				"(the reference given is not shown) — verify it with node revision list " +
+				"(a revision is named by its id or its URN, hrn:noderev:...)"
+			if err.Error() != want {
+				t.Errorf("message = %q, want %q", err.Error(), want)
 			}
 			// The server's refusal stays attached as the cause: only the
 			// printed line is the CLI's own.
@@ -151,8 +154,8 @@ func TestNodeRevisionWritesNotFoundIsTheCLIsOwnLine_2904(t *testing.T) {
 
 // A revision not-found line never repeats the argument (#2898, as #3027 did for
 // node refs): a pasted token or blob is not echoed back, whole or in part, on
-// any of the five not-found paths (three NOT_FOUND refusals, restore's null
-// and delete's false), in the error, stdout or the --json output.
+// any of the six not-found paths (three NOT_FOUND refusals, restore's null,
+// delete's false and get's null), in the error, stdout or the --json output.
 func TestNodeRevisionNotFoundNeverEchoesTheRef_2904(t *testing.T) {
 	tok := "gh" + "p_AbCdEfGhIjKlMnOpQrStUvWx0123456789" // assembled: a literal trips push protection
 	notFound := `{"data":null,"errors":[{"message":"gone","extensions":{"code":"NOT_FOUND"}}]}`
