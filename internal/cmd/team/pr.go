@@ -365,10 +365,9 @@ const prReviewRules = `
 
 The order is schedule, freeze, seat, verdict, finish. A seat binds to a task
 that has not ended (PENDING or STARTED); only pr verdict needs it STARTED, and a
-finished seat cannot take a verdict. A
-negative verdict at a head blocks every slot there until the head moves, its own
-reviewer re-rates it, or (once the seat is finished) its reviewer or a
-coordinator withdraws it with pr withdraw.
+finished seat cannot take a verdict. A negative verdict at a head blocks every
+slot there until the head moves, its own reviewer re-rates it, or (once the
+seat is finished) its reviewer or a coordinator withdraws it with pr withdraw.
 
 When a seat cannot bind or record (TASK_ENDED, REVIEW_SEAT_UNASSIGNED or
 REVIEW_HEAD_MISMATCH), only a verdict recorded with pr verdict counts: create a
@@ -382,8 +381,9 @@ const prSeeGroup = "\nThe flow and the exit codes are on \"hadron team pr --help
 var prLeafLong = map[string]string{
 	"schedule": `Say which reviews a PR needs: one --slot per required review, such as local,
 blind or qa. Run it on the PR's build task, normally first (it can be changed
-later with the same command). Only the task's owner chain may (not the assignee
-alone).
+later with the same command). Only the task's owner chain may run it: the
+assignee alone may not (the group page "hadron team pr --help" defines the
+owner chain).
 
 Each call REPLACES the whole list: repeat every slot you still want. The slot
 ids are the ones "pr seat --slot" and "pr readiness" use, so keep them
@@ -473,10 +473,11 @@ counts. Anyone who can read the task may run it; it changes nothing.
 --head is the frozen head (the full SHA you gave to "pr freeze"); it is never
 guessed. A slot counts when its current seat is finished, was bound at this
 head, holds an APPROVE, PASS or CARRY verdict from someone other than the build
-task's assignee or the head's freezer, and no seat of the head holds a negative
-verdict. NOT READY is a successful read (exit 0): fix the slots that do not
-count (seat a reviewer, wait for the verdict, finish the seat task), then run it
-again. When every slot counts, the build task's assignee runs "pr ready".
+task's assignee or the head's freezer (the person who ran pr freeze on this
+head), and no seat of the head holds a negative verdict. NOT READY is a
+successful read (exit 0): fix the slots that do not count (seat a reviewer, wait
+for the verdict, finish the seat task), then run it again. When every slot
+counts, the build task's assignee runs "pr ready".
 
 To see which slots are scheduled before a head is frozen, run hadron team task
 get <build-task> (its properties list review.schedule), or hadron team events
@@ -488,7 +489,8 @@ merge the PR or check CI. Only the build task's assignee may.
 
 Run "pr readiness" first. If any slot does not count the server refuses with
 PR_NOT_READY (exit 5) and names the failing slots; a head that is not the frozen
-one is refused too. A refused call records nothing. Prints the build task and the register line.` + prSeeGroup,
+one is refused too. A refused call records nothing. Prints the build task and
+the register line.` + prSeeGroup,
 }
 
 var prLeafExample = map[string]string{
