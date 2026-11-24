@@ -139,21 +139,22 @@ start from it until the App's staffing source is the server — run
 ` + "`team host setup --source SERVER`" + ` once, after the assignments exist
 (that page explains the switch). Find the host's id with ` + "`team host list`" + `.
 
-The record names: the workdir the worker runs in there — the NAME the host
-knows the directory by (an Orca worktree name),
-` + hostSetupTokenRule + `,
-never a path — its model family (a lowercase family token such as
-` + "`claude`" + ` or ` + "`codex`" + `; the server decides which families have a launcher), and
-optionally its launcher profile: --model, --effort and --account-profile. The
-three profile values are
-` + hostSetupProfileTokenRule + `:
-the host builds its launch command from a fixed template for the family, so a
+The record names:
+  --workdir  the name the host knows the worker's directory by (an Orca
+             worktree name), never a path: letters, digits and . _ / @ + -,
+             starting with a letter or digit, no "..", "//" or trailing "/".
+  --family   the model family, a lowercase token such as ` + "`claude`" + ` or ` + "`codex`" + `;
+             the server decides which families have a launcher.
+and optionally the launcher profile: --model, --effort and --account-profile.
+Each profile value is letters, digits, ".", "_" or "-", starting with a letter
+or digit, at most 128 characters.
+The host builds its launch command from a fixed template for the family, so a
 value is never a path, a command or a credential. While the source is SERVER,
 a worker start carries the ones that are set. A worker may be assigned to
 several hosts.
 
---effort and --account-profile need a server with the S1b launcher profile; on
-one that predates it the command refuses by name (exit 2) and writes nothing,
+--effort and --account-profile need a server that supports launcher profiles;
+on one that predates it the command refuses by name (exit 2) and writes nothing,
 never an assignment that quietly lacks them. Without them the command works on
 any server.
 
@@ -405,9 +406,9 @@ assignments are left out. Any participant who reads the App's tasks and
 events may read; a read carries no worker session. --json prints {appRef,
 source, hostId, assignments[]}, an assignment being {id, hostId, workerId,
 workerName, workdir, family, model, effort, accountProfile, createdAt,
-updatedAt} (effort and accountProfile are the S1b launcher profile: a
+updatedAt} (effort and accountProfile are the launcher profile: a
 profile token, or null when unset; the keys are always present). "profile"
-is "available", or "unavailable" when the server predates S1b: then the
+is "available", or "unavailable" when the server has no launcher profiles: then the
 assignments are shown without the profile, effort and accountProfile read
 null meaning UNKNOWN (not unset), and the text says so once.
 

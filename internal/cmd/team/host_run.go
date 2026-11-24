@@ -558,10 +558,9 @@ carry on throughout. It also reads this host's
 due tick and task wakes (dueWakes) and types each as one line through the
 same path, then hands its proof back. A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
-Set delivery.ack_mixed: true only when the server carries A-prime (merged
-2026-10-19: the date is for orientation, since a build from that day can
-predate the merge, so confirm the deployed build includes that change): its
-mixed acknowledgment records ticks/tasks without moving chat marks. Mention
+Set delivery.ack_mixed: true only when the server supports mixed acknowledgment
+(server change A-prime, merged 2026-10-19; confirm your deployed build
+includes it): it records ticks and tasks without moving chat marks. Mention
 text still arrives through its own batch. ack_mixed must be a
 real boolean wherever it is written, including through a YAML merge (<<) or an
 alias: null, ~, yes and on are refused with the line. A merged non-boolean is
@@ -944,7 +943,9 @@ func orDash(s string) string {
 func newCmdTeamHostStatus(f *cmdutil.Factory) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "status --config <host.yaml>",
+		Use: "status --config <host.yaml>",
+		Example: `  hadron team host status --config /etc/hadron/host.yaml
+  hadron team host status --config host.yaml --json`,
 		Short: "Check a host configuration and show its registration",
 		Long: `Check a host poller's configuration and key, and show what it would
 register (each worker's family, launch and end argv, and worktrees, created
