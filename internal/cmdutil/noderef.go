@@ -130,6 +130,12 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 		if loc == "" {
 			return "", exitcode.Newf(exitcode.Usage, "a bare node loc is required with -m/--memory hrn:mem:<root>:<slug>")
 		}
+		// A memory ID names its memory by key, so it is read first (cli#3000):
+		// every other spelling composes below exactly as before.
+		var err error
+		if memory, err = ResolveMemoryRefForNodes(cmd, client, memory); err != nil {
+			return "", err
+		}
 		// A simple <org>::<slug> memory + a bare loc composes a canonical
 		// grammar-v2 flat node URN (hrn:node:<root>:<slug>:<loc…>) in one step. A
 		// single-colon `-m acme.com:kb` and the legacy `acme.com::kb` both
@@ -150,6 +156,43 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 		ref = memory + "::" + loc
 	}
 	return ResolveNodeURN(cmd, client, ref)
+}
+
+// ComposesWithMemory reports whether ResolveNodeRef would compose ref with the -m memory: a bare
+// loc does; a node ID, a qualified ref and an action URN name their own node, so -m is not used for
+// them. A command that resolves several refs against one -m uses it to read a memory ID only when
+// some ref needs it (cli#3000).
+func ComposesWithMemory(ref string) bool {
+	return !IsActionRef(ref) && !IsNodeID(ref) && !IsQualifiedNodeRef(ref)
+}
+
+// ResolveMemoryRefForNodes turns a memory ID given to -m into the memory's URN, so a bare node loc
+// can be composed against it (cli#3000; Xabat's ruling: resolve-ID). It rides the memory read every
+// other -m command uses, so an ID resolves to exactly what the caller can already read by URN and
+// the CLI gains no new way to learn whether a memory exists:
+//
+//   - not an ID (a URN, <org>:<slug>, <org>::<slug>, a compound app-mem memory): returned as given,
+//     no request is sent, and it composes exactly as before;
+//   - an ID the caller can read: the memory's own URN;
+//   - an ID that reads as nothing (missing, foreign and forbidden answer alike, null): returned
+//     as given, so the caller meets today's plain refusal and the node is never asked for;
+//   - a transport or server fault on the read: that fault's own error (api.MapError), not the
+//     refusal, so an outage is not reported as a bad reference.
+//
+// A caller with several refs calls it once and passes the result on, so the memory is read once.
+func ResolveMemoryRefForNodes(cmd *cobra.Command, client graphql.Client, memory string) (string, error) {
+	memory = strings.TrimSpace(memory)
+	if !IsBareID(memory) {
+		return memory, nil
+	}
+	resp, err := gen.GetMemory(cmd.Context(), client, memory)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	if resp == nil || resp.Memory == nil || strings.TrimSpace(resp.Memory.Urn) == "" {
+		return memory, nil
+	}
+	return CanonicalMemoryRef(resp.Memory.Urn), nil
 }
 
 // IsActionRef reports whether ref is spelled as an action URN —

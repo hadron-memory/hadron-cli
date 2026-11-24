@@ -292,7 +292,7 @@ listed unless --limit or --offset asks for one page; --json prints
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against; without a node, only that memory's edges")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "a memory ID or URN (hrn:mem:<root>:<slug>) to resolve a bare <loc> against; without a node, only that memory's edges")
 	cmd.Flags().StringVar(&u.source, "source", "", "without a node: only edges leaving this node (id or URN)")
 	cmd.Flags().StringVar(&u.target, "target", "", "without a node: only edges arriving at this node (id or URN)")
 	cmd.Flags().BoolVar(&u.runnable, "runnable", false, "without a node: only edges marked runnable (--runnable=false: only those explicitly marked not runnable)")

@@ -64,9 +64,9 @@ section between the markers.
 | `comment resolve` |  |  | y | #1051 | 6df239fe583a | Gemma | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991347301), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6991684298) |
 | `decision` |  |  | n | #1051 | a8213aabeb39 |  | unread |  |
 | `edge` | edges |  | y | #1051 | edbc0f46a0b7 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
-| `edge create` | add |  | y | #1051 | b980fc9e94f6 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
+| `edge create` | add |  | y | #1051 | 305fc75358fc |  | unread |  |
 | `edge get` |  |  | y | #1051 | f0b7f4508c02 |  | unread |  |
-| `edge list` | ls |  | y | #1051 | 6ae7ef9b5550 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
+| `edge list` | ls |  | y | #1051 | c84817fb1e67 |  | unread |  |
 | `edge rm` | delete |  | y | #1051 | 4bb66f0b250d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge update` |  |  | y | #1051 | 5004beafa2aa | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `find` |  |  | y | #1051 | 2c1d315bed5e |  | unread |  |
@@ -129,7 +129,7 @@ section between the markers.
 | `node delete` | rm |  | y | #1051 | 8cf9ed328e03 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node edge-removals` |  |  | y | #1051 | 370c98facc0a | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `node export` |  |  | y | #1051 | fd8782b92f24 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
-| `node get` |  |  | y | #1051 | f7d10d82db06 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node get` |  |  | y | #1051 | 1f56df538b3b |  | unread |  |
 | `node import` |  |  | y | #1051 | 59b73dee40d7 |  | unread |  |
 | `node list` | ls |  | y | #1051 | 6d43928c0816 |  | unread |  |
 | `node merge` |  |  | y | #1051 | 88db7880fb81 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
