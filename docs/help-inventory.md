@@ -686,7 +686,7 @@ section between the markers.
 | `coding preflight create` | add |  | y | #1055 | 467f87794bc8 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `coding preflight lint` | check, validate |  | y | #1055 | c87cb2bcfa37 |  | unread |  |
 | `coding preflight list` | ls |  | y | #1055 | b51cba534fd6 |  | unread |  |
-| `coding preflight route` |  |  | y | #1055 | f3d109688303 |  | unread |  |
+| `coding preflight route` |  |  | y | #1055 | a1d1d69496da |  | unread |  |
 | `coding review` |  |  | n | #1055 | 38f3548a9e27 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `coding review create` | add |  | y | #1055 | 73dabfaa7167 |  | unread |  |
 | `coding review lint` | check, validate |  | y | #1055 | 6cda36132814 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |

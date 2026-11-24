@@ -157,3 +157,52 @@ func TestPreflightRouteHelpStatesTheFollowUps2915(t *testing.T) {
 		}
 	}
 }
+
+// hadron-cli#3002 item 3: the leaf arm of writesBack. Under the leaf model the
+// back-edge is never this run's work, so a leaf whose one edge (leaf -> router)
+// already exists reads as already routed with NO --no-back-edge. A mutant that drops
+// `!leaf` from writesBack would wait for a back-edge the leaf model never has and
+// report the route as not routed.
+func TestPreflightRouteLeafModelExistingEdgeIsAlreadyRouted3002(t *testing.T) {
+	for _, extra := range [][]string{
+		{"--route-model", "leaf", "--json"},
+		{"--route-model", "leaf", "--dry-run", "--json"},
+	} {
+		counts, out, err := runRoute2915(t, codingRouterWithBody(flatRouterBody), existingTarget2736("null"), extra...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !alreadyRouted2844(t, out) {
+			t.Errorf("%v: the leaf's own edge exists and there is no back-edge to wait for; want already routed:\n%s", extra, out)
+		}
+		for _, op := range []string{"CreateEdge", "UpdateEdge", "UpdateNode"} {
+			if n := len(counts[op]); n != 0 {
+				t.Errorf("%v: nothing to write, got %d %s", extra, n, op)
+			}
+		}
+	}
+}
+
+// hadron-cli#3002 items 1 and 2: the --cross-memory paragraph of `preflight route`
+// renders within 80 columns, and its lint sentence names the route, not "it".
+func TestPreflightRouteHelpCrossMemoryParagraph3002(t *testing.T) {
+	help := cmdHelpOut(t, "coding", "preflight", "route")
+	start := strings.Index(help, "--cross-memory marks")
+	end := strings.Index(help, "Re-running is safe")
+	if start < 0 || end < start {
+		t.Fatalf("cross-memory paragraph not found:\n%s", help)
+	}
+	para := help[start:end]
+	for _, line := range strings.Split(para, "\n") {
+		if n := len([]rune(line)); n > 80 {
+			t.Errorf("rendered line is %d columns, want at most 80: %q", n, line)
+		}
+	}
+	flat := strings.Join(strings.Fields(strings.ReplaceAll(para, "`", "")), " ")
+	if strings.Contains(flat, "skips only route-target-moved-memory for it") {
+		t.Errorf("the lint sentence must name the route, not 'it': %q", flat)
+	}
+	if !strings.Contains(flat, "preflight lint then skips only route-target-moved-memory for a marked route") {
+		t.Errorf("the lint sentence names a marked route: %q", flat)
+	}
+}
